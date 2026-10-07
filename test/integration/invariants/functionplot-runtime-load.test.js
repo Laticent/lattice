@@ -24,7 +24,8 @@ const { toBase64 } = require('../../../lib/core/base64-utf8');
 
 const chrome = resolveChrome();
 const RUNTIME = path.join(ROOT, 'dist', 'lattice-runtime.js');
-const FUNCTION_PLOT = require.resolve('function-plot/dist/function-plot.js', { paths: [ROOT] });
+// The function-plot plugin's own copy (lib/plugins/payload-path.js), the file every host stages.
+const FUNCTION_PLOT = require('../../../lib/plugins/payload-path.js').payloadPath('function-plot');
 const CONFIG = JSON.stringify({ data: [{ fn: 'x^2' }], yAxis: { label: 'x²' } });
 
 let browser;

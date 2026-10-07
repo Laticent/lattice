@@ -52,8 +52,8 @@ lib/plugins/<name>/
   <name>.styles.css       optional  token-only CSS (§4.4)
   shared/                 optional  IN-TREE ONLY: the plugin's own shared modules (.js/.cjs/.mjs
                                     and a README.md), imported by its role modules
-  vendor/                 optional  IN-TREE ONLY: a third-party library the plugin owns a copy of
-                                    (its `payload.vendored`, §3.4)
+  vendor/                 optional  IN-TREE ONLY: the third-party libraries the plugin owns a
+                                    copy of (its `payload.vendored` and `vendor`, §3.4)
 ```
 
 - `<name>` MUST match `^[a-z][a-z0-9-]*$`, MUST equal the folder name and the manifest's `name`,
@@ -146,7 +146,20 @@ plugin that draws a fence from its code block is not admitted, renames its `lang
 `language-off-<fence>`, so no pass or probe reads an author's raw `<pre><code>` as that fence. By
 name rather than by tag, because an attribute selector matches a name exactly: no tokenizer
 disagreement can smuggle one through. On the default set (b) never fires, and (a) changes no
-tracked deck.
+tracked deck. **An Export-to-Marp bundle** is rendered by Marp, not the engine, so its producer
+(`withRuntimeScripts`, lib/core/marp-bundle.js) applies the same (a) and (b) to the deck's SOURCE
+(`refuseAuthorMarkupInSource`): it parses the deck as Marp does (markdown-it, `html: true`) and
+renames on the lines of every raw-HTML token, leaving code fences their bytes; and it refuses the
+front matter and every HTML comment whole, after undoing YAML's double-quoted escapes, because
+Marpit decodes those as YAML and renders `header:` and `footer:`. The bundled runtime marks a
+left-off plugin's fences by the substring its pass reads them by (`code[class*="language-<fence>"]`,
+lib/plugins/mark-off.mjs), so a `language-<fence>-source` block is marked too. **An Export-to-Marp bundle** is rendered by Marp, not the engine, so its producer
+(`withRuntimeScripts`, lib/core/marp-bundle.js) applies the same (a) and (b) to the deck's SOURCE:
+it parses the deck as Marp does (markdown-it, `html: true`) and renames on the lines of every
+raw-HTML token, leaving code fences their bytes (`refuseAuthorMarkupInSource`); and the bundled
+runtime marks a left-off plugin's fences by the substring its pass reads them by
+(`code[class*="language-<fence>"]`, lib/plugins/mark-off.mjs), so a `language-<fence>-source` block
+is marked too.
 
 ### 3.3 Contributions — `contributes`
 
@@ -165,7 +178,8 @@ tracked deck.
 
 | Field | Value |
 |---|---|
-| `payload` | `{ <key>: { from: "npm:<package>/<path>.js", vendored?, global, when: "used" } }` — at most one file in api 1: the library the plugin's browser half waits for, loaded only for a deck that uses the plugin. REQUIRES `hydrate` (a pass asks the host for it — `ensureLibrary`, §6). `vendored: { file: "vendor/<name>.js", version, sha256 }` means the plugin OWNS a committed copy in its `vendor/` folder (in-tree only): every surface — browser pages, the CLI bake, exported bundles — reads that copy, so no user fetches the library and no install changes what ships; `from` is then only the source it is refreshed from, and the host fails a copy that does not match its `sha256`, and any file in `vendor/` that no payload names (the source gates skip that folder, so it holds only declared copies) |
+| `payload` | `{ <key>: { from: "npm:<package>/<path>.js", vendored?, global, when: "used" } }` — at most one file in api 1: the library the plugin's browser half waits for, loaded only for a deck that uses the plugin. REQUIRES `hydrate` (a pass asks the host for it — `ensureLibrary`, §6). `vendored: { file: "vendor/<name>.js", version, sha256 }` means the plugin OWNS a committed copy in its `vendor/` folder (in-tree only): every surface — browser pages, the CLI bake, exported bundles — reads that copy, so no user fetches the library and no install changes what ships; `from` is then only the source it is refreshed from, and the host fails a copy that does not match its `sha256`, and any file in `vendor/` that no copy names (the source gates skip that folder, so it holds only declared copies) |
+| `vendor` | `{ <key>: { from, file, version, sha256 } }` — IN-TREE ONLY: every OTHER third-party library the plugin owns a copy of, the ones no browser surface loads as the payload: a renderer's library (the math plugin's KaTeX, with its stylesheet and fonts) or the bake's (Mermaid's ZenUML and mermaid-cli's render page). Held to the same rules as `payload.vendored`: every surface reads the copy (`vendorPath`, lib/plugins/payload-path.js), `package.json` pins `from`'s package at exactly `version`, and the build fails a copy that does not match `sha256`. A copy is one file, a whole directory (`from` and `file` end in `/`), or one directory's files of one extension (`from` ends in `/*.<ext>`, `file` in `/`); a directory's `sha256` hashes one `<path> <sha256>` line per file, sorted. Each source package's `LICENSE` is a `vendor` copy too (`from` ends in `/LICENSE`), so the notice an MIT library requires travels with every copy we ship |
 | `tokens` | every design token `styles.css` reads — exactly the set of its `var(--…)` reads |
 | `render.parity` | `equivalent` (every surface emits the same result) or `progressive` (a static surface emits a placeholder a browser completes) |
 | `render.degradesTo` | what the host shows when a renderer throws or returns a non-string: `source`, `code-block` or `hidden` |
@@ -428,6 +442,22 @@ manifest (`lib/core/marp-fidelity.js`). The name must be free: not a plugin, a p
 highlight.js language or alias, and at most 64 characters.
 
 ## 12. Changes
+
+- **0.5-draft, the Marp bundle refuses author markup (2026-10-07).** §3.2.1's refusal reaches the
+  one render the engine does not do: the Export-to-Marp producer refuses forged markers and an
+  off plugin's raw drawn fence in the deck's source, directives included, and the bundled runtime
+  marks an off fence by substring, as its pass reads it.
+
+- **0.5-draft, the Marp bundle refuses author markup (2026-10-07).** §3.2.1's refusal reaches the
+  one render the engine does not do: the Export-to-Marp producer refuses forged markers and an
+  off plugin's raw drawn fence in the deck's source, and the bundled runtime marks an off fence by
+  substring, as its pass reads it.
+
+- **0.5-draft, every library owned (2026-10-07).** `vendor` (§3.4): the libraries a plugin needs
+  that are not its browser payload get the same owned, pinned, hashed copy, and a copy may be a
+  directory. function-plot vendors its payload; the math plugin owns KaTeX (library, stylesheet,
+  fonts); Mermaid owns its bake's ZenUML and mermaid-cli render page. No surface reads a plugin
+  library from `node_modules`.
 
 - **0.5-draft, vendored payloads (2026-10-06).** `payload.vendored` (§3.4) and the in-tree
   `vendor/` folder (§2): a plugin owns a committed copy of its library, checked by SHA-256, and

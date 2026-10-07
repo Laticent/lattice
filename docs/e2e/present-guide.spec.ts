@@ -307,10 +307,13 @@ test('one gesture per BLOCK, not one per sentence', async ({ page }) => {
 	expect(bursts, `the hand gestured once per SENTENCE, not once per block: ${JSON.stringify(seen.map((k, i) => `${k}@${at[i]}`))}`).toBeLessThanOrEqual(2);
 });
 
-test('the vocabulary varies with the shape of what is named', async ({ page }) => {
-	// Motivated variety is the whole design: a rule set that answers `underline` to everything is
-	// a karaoke follower with extra steps. Three deliberately different shapes on three slides —
-	// a paragraph read whole, a compact stat, and a phrase inside a longer paragraph.
+test('the vocabulary varies with what is named: words are underlined, a chart\'s marks are not', async ({ page }) => {
+	// Motivated variety is the whole design: a hand that answers `underline` to everything is a
+	// karaoke follower with extra steps. WHAT VARIES CHANGED ON PURPOSE (guide storyboards,
+	// engineering/decisions/2026-09-27-guide-storyboards.md §7, built 2026-09-28): expressive
+	// underlines WORDS — a heading, a paragraph, a bullet, a row — and keeps its other strokes for
+	// a chart's marks (a visit taps, a peak circles, a frame brackets the plot). This spec used to
+	// ask three TEXT shapes for two verbs, which that decision retired; it now asks text and marks.
 	await gotoStudio(page);
 	await setEditorContent(
 		page,
@@ -318,8 +321,7 @@ test('the vocabulary varies with the shape of what is named', async ({ page }) =
 			'---',
 			'marp: true',
 			'theme: indaco',
-			// The ink vocabulary is drawn on expressive's top moment of each slide; the other presets
-			// spark the element instead.
+			// Expressive inks every act; the other presets spark the element instead.
 			'delivery: expressive',
 			'---',
 			'',
@@ -329,9 +331,13 @@ test('the vocabulary varies with the shape of what is named', async ({ page }) =
 			'',
 			'---',
 			'',
-			'<!-- _class: statement -->',
+			'<!-- _class: bar -->',
 			'',
-			'## Growth held.',
+			'## Revenue by region',
+			'',
+			'- North `42`',
+			'- South `30`',
+			'- West `18`',
 			'',
 			'---',
 			'',
@@ -357,9 +363,10 @@ test('the vocabulary varies with the shape of what is named', async ({ page }) =
 	const { seen, error } = await watchCues(page, 45_000);
 	expect(error).toBe('');
 	expect(seen.length, 'no cue ink at all across three slides').toBeGreaterThan(0);
-	// THE DECK MUST HAVE MOVED. Without this the spec is satisfied by slide 1 alone (its heading and
-	// its paragraph are already two shapes), so "three deliberately different shapes on three
-	// slides" would be a claim the oracle never checks.
+	// THE DECK MUST HAVE MOVED: the chart is slide 2, so a spec that never left slide 1 could not
+	// see a mark at all.
 	await expect(dialog.getByText('3 / 3')).toBeVisible();
-	expect(new Set(seen).size, `only one gesture across three different shapes — the classifier is not discriminating: ${JSON.stringify([...new Set(seen)])}`).toBeGreaterThanOrEqual(2);
+	const kinds = new Set(seen);
+	expect(kinds.has('underline'), `no word was underlined: ${JSON.stringify([...kinds])}`).toBe(true);
+	expect([...kinds].filter((k) => k !== 'underline').length, `the chart's marks got the words' stroke — the ink is not discriminating: ${JSON.stringify([...kinds])}`).toBeGreaterThanOrEqual(1);
 });

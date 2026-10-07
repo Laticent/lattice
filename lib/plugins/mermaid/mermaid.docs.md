@@ -45,6 +45,14 @@ beside the runtime, the CLI bake draws with it, the Marp kit and the Export-to-M
 pins the exact version and `node_modules` is only the source of `npm run vendor:plugins`. To
 upgrade: bump the pin, `npm install`, `npm run vendor:plugins`, look at the diagram gallery, commit.
 
+The bake's two other inputs are the plugin's own copies too, recorded in the manifest's `vendor`:
+`vendor/mermaid-zenuml.min.js` (`@mermaid-js/mermaid-zenuml` 0.2.2, which registers the `zenuml`
+diagram type) and `vendor/mermaid-cli/`, the render page of `@mermaid-js/mermaid-cli` 11.12.0 —
+its `index.html` and the bundle beside it that carries elk layouts and the KaTeX and FontAwesome
+faces a diagram label can use. The render worker loads all three from the plugin folder, so it no
+longer hunts `node_modules` for the page under every install layout. Each package's `LICENSE` sits
+beside its copy (`vendor/*.LICENSE`), recorded the same way.
+
 Each diagram is drawn for the band of **its own slide** — light, dark or print — and in the
 slide's look (a `mode: sketch` deck draws hand-drawn nodes). A portrait deck, or a tall pane,
 turns a left-to-right flowchart top-to-bottom.

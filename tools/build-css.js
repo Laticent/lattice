@@ -335,30 +335,27 @@ function formsSlicingCss() {
 // KaTeX base stylesheet — the math-glyph layout engine CSS. Unlike the other
 // stylesheets (highlight-js's, and mermaid's plugin sheet lib/plugins/mermaid/mermaid.styles.css),
 // each a hand-authored token map, KaTeX's base is the package's own ~720-selector
-// layout sheet, so we vendor it from the installed `katex` package at build time
-// (auto-synced — no stale committed blob). Its glyph fonts used to resolve to a
-// pinned jsDelivr CDN; they are now SELF-HOSTED — we copy the package's woff2 to
+// layout sheet, read from the math plugin's OWN copy of it (lib/plugins/math/vendor/katex/,
+// the manifest's `vendor`; lib/plugins/payload-path.js), never node_modules. Its glyph fonts used to resolve to a
+// pinned jsDelivr CDN; they are now SELF-HOSTED — we copy the plugin's woff2 to
 // dist/fonts/ and rewrite each `@font-face` src down to the single woff2 entry,
 // pointed at stylesheet-relative `fonts/<file>.woff2`. Math renders with zero
 // network, same as the text faces. (woff2 is universally supported on every
 // render path we target, so the woff/ttf fallbacks in KaTeX's src list are
 // dropped rather than shipped.) See lib/plugins/math/math.docs.md.
+const { vendorPath } = require('../lib/plugins/payload-path');
+const KATEX_CSS = vendorPath('math', 'katex-css');
+const KATEX_FONTS = vendorPath('math', 'katex-fonts');
 function katexFontFiles() {
   try {
-    const dir = path.dirname(require.resolve('katex/dist/katex.min.css'));
-    return fs.readdirSync(path.join(dir, 'fonts')).filter((f) => f.endsWith('.woff2'));
+    return fs.readdirSync(KATEX_FONTS).filter((f) => f.endsWith('.woff2'));
   } catch (_e) {
     return [];
   }
 }
 function katexBaseCss() {
-  let cssPath;
-  try {
-    cssPath = require.resolve('katex/dist/katex.min.css');
-  } catch (_e) {
-    return null; // katex not installed — math degrades to unstyled glyphs
-  }
-  const raw = fs.readFileSync(cssPath, 'utf8').replace(/\s+$/, '');
+  if (!fs.existsSync(KATEX_CSS)) return null; // no copy — math degrades to unstyled glyphs
+  const raw = fs.readFileSync(KATEX_CSS, 'utf8').replace(/\s+$/, '');
   // Collapse each `src:url(fonts/X.woff2) format("woff2"),url(...woff)...,url(...ttf)...`
   // down to just the local woff2 entry.
   const local = raw.replace(
@@ -397,7 +394,7 @@ function emojiFontFaceCss() {
 }
 
 // Copy the woff2 source-of-truth into dist/fonts/ (text faces from assets/fonts/,
-// KaTeX glyphs from the package). Returns the set of filenames written so the
+// KaTeX glyphs from the math plugin's copy). Returns the set of filenames written so the
 // caller can prune anything stale. Idempotent.
 function syncDistFonts() {
   fs.mkdirSync(DIST_FONTS, { recursive: true });
@@ -407,13 +404,11 @@ function syncDistFonts() {
     fs.copyFileSync(path.join(ASSET_FONTS, name), path.join(DIST_FONTS, name));
     written.add(name);
   }
-  // KaTeX is a hard dependency today, but guard the resolve like every sibling
-  // (katexBaseCss/katexFontFiles/distFontsStale) so the bundle still builds —
-  // sans math glyphs — if it ever goes missing, instead of crashing the build.
+  // Guarded like every sibling (katexBaseCss/katexFontFiles/distFontsStale) so the bundle still
+  // builds — sans math glyphs — if the copy ever goes missing, instead of crashing the build.
   try {
-    const katexDir = path.dirname(require.resolve('katex/dist/katex.min.css'));
     for (const name of katexFontFiles()) {
-      fs.copyFileSync(path.join(katexDir, 'fonts', name), path.join(DIST_FONTS, name));
+      fs.copyFileSync(path.join(KATEX_FONTS, name), path.join(DIST_FONTS, name));
       written.add(name);
     }
   } catch (_e) {
@@ -431,10 +426,8 @@ function syncDistFonts() {
 function distFontsStale() {
   const want = new Map();
   for (const { file } of TEXT_FACES) want.set(`${file}.woff2`, path.join(ASSET_FONTS, `${file}.woff2`));
-  let katexDir;
   try {
-    katexDir = path.dirname(require.resolve('katex/dist/katex.min.css'));
-    for (const name of katexFontFiles()) want.set(name, path.join(katexDir, 'fonts', name));
+    for (const name of katexFontFiles()) want.set(name, path.join(KATEX_FONTS, name));
   } catch (_e) {
     /* katex absent — only text faces required */
   }

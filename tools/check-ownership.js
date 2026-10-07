@@ -5975,8 +5975,9 @@ const SANCTIONED_RUNTIME_MARKUP_SINKS = [
     count: 2,
     provenance:
       'THIRD PARTY (1 of 2) — the SVG mermaid.render() returns, written into `#container` of the CLI ' +
-      "bake's OWN headless Chromium page: mermaid-cli's own dist/index.html (its bundle, with KaTeX and " +
-      'FontAwesome faces) plus the Mermaid library, given one diagram definition and an init config of ' +
+      "bake's OWN headless Chromium page: mermaid-cli's render page (the plugin's copy, vendor/mermaid-cli/" +
+      "index.html: its bundle, with KaTeX and FontAwesome faces) plus the Mermaid library, " +
+      'given one diagram definition and an init config of ' +
       'palette-derived theme variables, so it can read the drawn SVG back out. It never runs in the ' +
       'preview frame or any document a reader opens; the SVG it reads out reaches the deck as the ' +
       "bake's output, which the export path's HARD RULE #22 arms already cover. Contained by " +
@@ -11183,6 +11184,8 @@ const NUL_TEXT_EXTENSIONS = [
   '.vtt', '.webmanifest', '.patch', '.gitignore', '.gitattributes', '.nvmrc', '.cmd',
   // Peggy grammar source (tools/parser-bakeoff/grammars/peggy/) — plain text.
   '.peggy',
+  // A vendored library's license text, beside its copy (lib/plugins/<name>/vendor/*.LICENSE).
+  '.license',
 ];
 
 // The BINARY half of the same partition. Every tracked file must fall in one list
@@ -11456,6 +11459,7 @@ function fallbackHops(libDir = LIB_DIR) {
   const walk = (dir) => {
     for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
       if (isTransientProbe(e.name)) continue; // transient lint probe (see isTransientProbe)
+      if (isVendoredLibraryDir(dir, e)) continue; // a plugin's third-party copy is not our source
       const p = path.join(dir, e.name);
       if (e.isDirectory()) { walk(p); continue; }
       if (!/\.(css|js|mjs)$/.test(e.name)) continue;

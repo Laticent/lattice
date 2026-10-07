@@ -34,6 +34,13 @@
       "when": "used"
     }
   },
+  "vendor": {
+    "license": { "from": "npm:mermaid/LICENSE", "file": "vendor/mermaid.LICENSE", "version": "11.14.0", "sha256": "ec9fb67dcb25eccc416ed56e1aab819222c805a2a4bfe4cb19e7556bf2ffde80" },
+    "zenuml-license": { "from": "npm:@mermaid-js/mermaid-zenuml/LICENSE", "file": "vendor/mermaid-zenuml.LICENSE", "version": "0.2.2", "sha256": "ec9fb67dcb25eccc416ed56e1aab819222c805a2a4bfe4cb19e7556bf2ffde80" },
+    "render-page-license": { "from": "npm:@mermaid-js/mermaid-cli/LICENSE", "file": "vendor/mermaid-cli.LICENSE", "version": "11.12.0", "sha256": "adc6d4dd1e02dbcd5606931c9bb46e2d3b0491d1b2d2e812b35b1b06c8561aab" },
+    "zenuml": { "from": "npm:@mermaid-js/mermaid-zenuml/dist/mermaid-zenuml.min.js", "file": "vendor/mermaid-zenuml.min.js", "version": "0.2.2", "sha256": "39143c3cb4e7a1dc53938de0c85e5fd2aee1533ec4e07d7d95a6ef639956ff1f" },
+    "render-page": { "from": "npm:@mermaid-js/mermaid-cli/dist/", "file": "vendor/mermaid-cli/", "version": "11.12.0", "sha256": "55df40085a4590f3de7acd28621ab40635ff7dec202a6351add329842da64f09" }
+  },
   "render": {
     "exec": { "hydrate": "pass", "bake": "subprocess" },
     "surfaces": { "engine": "source", "preview": "figure", "pdf": "figure-baked", "player": "figure-baked", "marp": "figure" },

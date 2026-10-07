@@ -45,12 +45,16 @@ describe('render worker: contract', () => {
     // CONFIG DELIVERY rather than a change of renderer: the page carries the vite bundle
     // that registers zenuml and elk layouts and preloads the KaTeX + FontAwesome faces a
     // diagram can reference. Hand-rolling a page would silently drop all of that.
-    const b = resolveBundles(REPO);
+    const b = resolveBundles();
     for (const p of Object.values(b)) assert.ok(fs.existsSync(p), `${p} must exist`);
-    assert.match(b.indexHtml, /mermaid-cli[/\\]dist[/\\]index\.html$/);
-    // The plugin's own copy of the library (lib/plugins/mermaid/vendor/), the build every other
-    // surface ships, not the installed package's unminified one.
+    // Each is the mermaid plugin's OWN copy (lib/plugins/mermaid/vendor/; payload-path.js), the
+    // build every other surface ships, never the installed package's.
+    assert.match(b.indexHtml, /plugins[/\\]mermaid[/\\]vendor[/\\]mermaid-cli[/\\]index\.html$/);
     assert.match(b.mermaidIife, /plugins[/\\]mermaid[/\\]vendor[/\\]mermaid\.min\.js$/);
+    assert.match(b.zenumlIife, /plugins[/\\]mermaid[/\\]vendor[/\\]mermaid-zenuml\.min\.js$/);
+    // The page loads its vite bundle by a relative path, so the copy must carry the whole dist/.
+    const script = /src="\.\/([^"]+)"/.exec(fs.readFileSync(b.indexHtml, 'utf8'));
+    assert.ok(script && fs.existsSync(path.join(path.dirname(b.indexHtml), script[1])), 'the render page\'s bundle is missing from the copy');
   });
 
   test('the font CSS it injects covers every family the engine ships', () => {
@@ -121,18 +125,13 @@ describe('render worker: contract', () => {
       + 'to NOT_OWED with the reason.');
   });
 
-  test('mermaid and zenuml are DECLARED dependencies, not hoisting luck', () => {
-    // The worker `require.resolve`s both from Lattice's own module location. mermaid-cli
-    // resolves its copies from its OWN location (`import-meta-resolve` against
-    // `import.meta.url`), so it never needed them declared here — we do. Undeclared, they
-    // resolve only because npm hoists: under pnpm's isolated layout or Yarn PnP,
-    // `resolveBundles` throws and EVERY diagram in every deck degrades to a `<pre>`.
-    // `mmdc` did not have that exposure, because a bin-link works under any layout.
-    const pkg = JSON.parse(fs.readFileSync(path.join(REPO, 'package.json'), 'utf8'));
-    for (const dep of ['mermaid', '@mermaid-js/mermaid-zenuml']) {
-      assert.ok(pkg.dependencies[dep],
-        `${dep} is require.resolve'd by the render worker but is not a declared dependency`);
-    }
+  test('it reads no library from node_modules, so no install layout can lose one', () => {
+    // The worker used to `require.resolve` mermaid and zenuml from Lattice's own location and hunt
+    // for mermaid-cli's page across every root Node searches — correct only while npm hoisted them
+    // (pnpm's isolated layout or Yarn PnP threw, and EVERY diagram degraded to a `<pre>`). The
+    // plugin now owns all three, at a path under the package itself, so the code asks for none.
+    const src = stripComments(fs.readFileSync(WORKER, 'utf8'));
+    assert.doesNotMatch(src, /require\.resolve|node_modules/, 'the worker resolves a library from node_modules again — read the plugin\'s copy (lib/plugins/payload-path.js)');
   });
 
   test('it does not shell out to mmdc, and nothing else does either', () => {

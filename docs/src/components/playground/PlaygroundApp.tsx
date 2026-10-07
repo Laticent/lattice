@@ -2521,6 +2521,20 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		return () => obs.disconnect();
 	}, [scheduleRender]);
 
+	// ── Re-render when the host changes its plugin defaults ─────────────────────
+	// `LatticePlayground.setPluginDefaults` changes what the same source renders (a deck that
+	// relied on a default plugin loses it) with no edit, and fires PLUGIN_DEFAULTS_EVENT. The
+	// editor re-lints on it (editor.js); the preview kept the render made under the old defaults
+	// until the next keystroke. Through the same scheduler as an edit, for the in-flight guard above;
+	// the defaults are part of every render-cache key, so the render it schedules is a real one.
+	// The event's NAME, not an import of `@/lib/plugin-admission` (PLUGIN_DEFAULTS_EVENT): that module
+	// statically imports the lint bundle, which this page loads lazily, and importing it for one
+	// string made the bundle eager (+110 KB gzip, the route budget's ceiling). editor.js does the same.
+	React.useEffect(() => {
+		window.addEventListener('lattice:plugin-defaults', scheduleRender);
+		return () => window.removeEventListener('lattice:plugin-defaults', scheduleRender);
+	}, [scheduleRender]);
+
 	// Trigger the on-demand engine load once the chrome has mounted/painted. The
 	// preview is core to the playground, so load it promptly (on idle / next
 	// tick) — but NOT eagerly in <head>, so the toolbar + editor host paint

@@ -104,14 +104,17 @@ test('expressive focuses the same bullets, and inks each one', async ({ page }) 
 	expect(bursts, 'expressive inks each named block').toBeGreaterThanOrEqual(4);
 });
 
-test('somber focuses the figure: the rest recedes gently, with no cursor and no ink', async ({ page }) => {
+test('somber focuses the key beat: the rest recedes gently, with no cursor and no ink', async ({ page }) => {
 	const dialog = await present(page, DENSE('somber'));
 	const slide = dialog.frameLocator('[aria-label="Presented slide"] iframe.live');
-	// The one somber moment is the top-ranked figure: its four siblings recede, it stays whole.
+	// The one somber moment is the slide's KEY beat: its four siblings recede, it stays whole. On a
+	// prose slide the key is the list's FIRST item, not the top-ranked figure — a deliberate change
+	// (guide storyboards, engineering/decisions/2026-09-27-guide-storyboards.md §7: "the key is what
+	// §6 names and the goldens can pin"), pinned in guide-conductor.test.ts as well.
 	await expect(slide.locator('li.lat-guide-dim')).toHaveCount(4, { timeout: 30_000 });
 	const focused = slide.locator('ul > li:not(.lat-guide-dim)');
 	await expect(focused).toHaveCount(1);
-	await expect(focused).toContainText('$48.6M');
+	await expect(focused).toContainText('Hiring continued on plan');
 	// Somber recedes as deeply as restrained (owner, 2026-09-27), once and slowly; the target keeps its own opacity.
 	await expect.poll(() => slide.locator('li.lat-guide-dim').first().evaluate((e) => Number(getComputedStyle(e).opacity)), { timeout: 5_000 }).toBeCloseTo(0.7, 1);
 	expect(await focused.evaluate((e) => getComputedStyle(e).opacity)).toBe('1');

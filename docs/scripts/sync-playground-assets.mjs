@@ -205,13 +205,13 @@ if (bundledLatticeCss) {
 // woff2/woff/ttf per face and the browser fetches only the first supported format
 // (woff2), so the woff/ttf refs are never requested (no 404s). The CSS's relative
 // `url(fonts/…)` resolves against the co-located katex/fonts/. Sourced from the
-// `katex` dependency so it can't drift from the version the engine renders with.
-const katexDist = join(repoRoot, 'node_modules', 'katex', 'dist');
-if (existsSync(katexDist)) {
-  assets.push(['katex/katex.min.css', join(katexDist, 'katex.min.css')]);
-  for (const file of readdirSync(join(katexDist, 'fonts'))) {
-    if (file.endsWith('.woff2')) assets.push([`katex/fonts/${file}`, join(katexDist, 'fonts', file)]);
-  }
+// math plugin's OWN copy (lib/plugins/math/vendor/katex/, its manifest's `vendor`),
+// the one the engine renders with, so the site and the CLI cannot drift apart.
+const vendorPath = (name, key) => createRequire(import.meta.url)(join(repoRoot, 'lib', 'plugins', 'payload-path.js')).vendorPath(name, key, repoRoot);
+const katexFonts = vendorPath('math', 'katex-fonts');
+assets.push(['katex/katex.min.css', vendorPath('math', 'katex-css')]);
+for (const file of readdirSync(katexFonts)) {
+  if (file.endsWith('.woff2')) assets.push([`katex/fonts/${file}`, join(katexFonts, file)]);
 }
 // The worked exemplar decks (exemplars/<bucket>/<slug>.md) — fetched on demand by
 // the Drawing Board's Drafting picker, trimmed to the chosen tier in the browser

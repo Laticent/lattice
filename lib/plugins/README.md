@@ -30,10 +30,11 @@ lib/plugins/<name>/
   <name>.dispatch.js      the module that calls an extension point's fillers (the chart family's
                           section dispatch and chart frame). Shipped exactly when the plugin offers a slot
   <name>.styles.css       token-only CSS, bundled into the plugin slot of dist/lattice.css
-  vendor/                 a third-party library the plugin OWNS a committed copy of (its manifest's
-                          `payload.vendored`: file, version, SHA-256). Every surface reads that copy
-                          (payload-path.js) and the build fails one that drifts; refresh it from
-                          node_modules with `npm run vendor:plugins`. IN-TREE ONLY, like shared/
+  vendor/                 the third-party libraries the plugin OWNS a committed copy of (its manifest's
+                          `payload.vendored` for the browser library, `vendor` for the rest — KaTeX,
+                          the bake's ZenUML and mermaid-cli page: file, version, SHA-256). Every surface
+                          reads the copy (payload-path.js) and the build fails one that drifts; refresh
+                          it from node_modules with `npm run vendor:plugins`. IN-TREE ONLY, like shared/
   shared/                 the plugin's own shared modules (.js/.cjs/.mjs, and a README.md) that its
                           role modules import — Mermaid's init directive, render worker, reorientation
                           and motion roles. IN-TREE ONLY: the one subfolder the plugin kind admits

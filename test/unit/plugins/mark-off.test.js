@@ -53,6 +53,14 @@ describe('markPluginsOff', () => {
     assert.equal(markPluginsOff(d, ['mermaid', 'chart-family'], from), 0);
   });
 
+  test('a fence is matched as the pass reads it, by substring: Marp\'s `language-mermaid-source` is marked too', () => {
+    // A ```mermaid-source fence (or the pass's own defanged class) is drawn by the pass, whose selector
+    // is `code[class*="language-mermaid"]`; matching the whole class word left it drawable when off.
+    const d = new JSDOM('<!doctype html><body><section><marp-pre><code class="language-mermaid-source">graph TD; A--&gt;B</code></marp-pre></section></body>').window.document;
+    assert.equal(markPluginsOff(d, ['mermaid'], from), 1);
+    assert.equal(d.querySelectorAll(RUNTIME_DRAWN_FENCE_CODE).length, 0);
+  });
+
   test('only the plugins named: mermaid off leaves the chart to be built', () => {
     const d = doc();
     markPluginsOff(d, ['mermaid'], from);

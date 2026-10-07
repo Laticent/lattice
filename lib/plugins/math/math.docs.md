@@ -64,8 +64,16 @@ author's original TeX.
 
 ## Styling
 
-KaTeX ships its own ~720-selector layout sheet. `tools/build-css.js` vendors
-`node_modules/katex/dist/katex.min.css` into `dist/lattice.css`, before the components, so
+**KaTeX is the plugin's own copy.** `vendor/katex/` holds KaTeX 0.16.46's `katex.min.js`, its
+`katex.min.css`, its 20 woff2 faces and its `LICENSE`, each recorded with its version and SHA-256 in the manifest's
+`vendor` (a directory is hashed as a tree). Every surface reads that copy: the engine typesets with it
+on the CLI, the docs site's on-demand `lattice-katex.js` bundles it, and the stylesheet and faces below
+come from it. `package.json` pins the exact version and `node_modules` is only the source of
+`npm run vendor:plugins`. To upgrade: bump the pin, `npm install`, `npm run vendor:plugins`, look at
+the math gallery, commit.
+
+KaTeX ships its own ~720-selector layout sheet. `tools/build-css.js` copies the plugin's
+`vendor/katex/katex.min.css` into `dist/lattice.css`, before the components, so
 Lattice's rules win on source order. The CLI's export page carries the sheet INLINE when the deck
 renders math — its rules in `#lattice-katex` and its 20 faces as woff2 `data:` URIs in the page's
 font block (`katexInlineSheet`, `lib/export/cli-deck-sheet.js`) — so an `--html`, `--fluid`, `--read`
