@@ -165,8 +165,8 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   theme CSS often appears AFTER the user's `style:` block in the
   rendered output, so the theme wins.
 - **Mitigation:** Theme defaults that are meant to be overridable use
-  `:where(:root) { … }` in [themes/cuoio.css:64](../themes/cuoio.css#L64)
-  and [themes/indaco.css:58](../themes/indaco.css#L58). `:where()`
+  `:where(:root) { … }` in [themes/cuoio/cuoio.css:64](../themes/cuoio/cuoio.css#L64)
+  and [themes/indaco/indaco.css:58](../themes/indaco/indaco.css#L58). `:where()`
   has zero specificity, so any plain `:root` declaration the author
   injects wins regardless of source order.
 - **Triggered by:** `style:` directive in deck front matter.

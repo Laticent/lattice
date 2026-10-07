@@ -91,6 +91,7 @@
  */
 
 const fs   = require('fs');
+const { themeEntries } = require('../lib/theme/files.js');
 const path = require('path');
 const { resolveTokenExpr } = require('../lib/core/resolve-token-expr.js');
 const { contrastRatio, hexToRgb, rgbToHex } = require('../lib/theme/color.js');
@@ -701,7 +702,7 @@ const SURFACES = [
 // Ratios are floored to 2dp; DEGRADE_TOLERANCE absorbs the last digit.
 //
 // A NEW PALETTE WILL LAND HERE. `tools/new-theme.js` scaffolds from
-// `themes/indaco.css`, which carries two of these rows, so a fresh palette starts
+// `themes/indaco/indaco.css`, which carries two of these rows, so a fresh palette starts
 // with two new keys and this gate goes red. That is the gate working: either
 // re-tune the two arms it names, or add the rows with the tracking issue in the
 // commit message. Do not delete the check.
@@ -791,7 +792,7 @@ const ROOT_COMPOUND = /^(?::root|:root:root|:where\(:root\))(?:\[[^\]]*\]|:(?!:)
  * specificity the engine default wins on source order and the palette's value is
  * silently discarded in the rendered PDF (#1527). `:root:root` is (0,2,0) and beats
  * the bundle's (0,1,0) whatever the order — which is exactly why four palettes
- * already reach `--panel-edge-mark` that way (themes/ardesia.css, atelier, concrete,
+ * already reach `--panel-edge-mark` that way (themes/ardesia/ardesia.css, atelier, concrete,
  * onyx; 2026-08-18-split-frame-edge-ownership.md) and why the status trios reach
  * `--pass` / `--warn` / `--fail` that way as of #1698.
  *
@@ -913,7 +914,7 @@ function parseRootVars(css, into = { vars: {}, spec: {} }) {
  */
 function paletteChainFiles(name) {
   return themeChain(name, THEME_EDGES)
-    .map((n) => path.join(THEMES_DIR, `${n}.css`))
+    .map((n) => path.join(THEMES_DIR, n, `${n}.css`))
     .filter((f) => fs.existsSync(f));
 }
 
@@ -1026,7 +1027,7 @@ function evalSurface(vars, surface, isDark) {
 }
 
 function listAllThemes() {
-  return fs.readdirSync(THEMES_DIR)
+  return themeEntries(THEMES_DIR)
     .filter((f) => f.endsWith('.css'))
     .map((f) => f.replace('.css', ''))
     .sort();
@@ -1043,7 +1044,7 @@ const MODES = [['light', false], ['dark', true]];
 
 /** Audit one theme in both cascade orders. Pure — no console, no process state. */
 function auditTheme(theme) {
-  if (!fs.existsSync(path.join(THEMES_DIR, `${theme}.css`))) return null;
+  if (!fs.existsSync(path.join(THEMES_DIR, theme, `${theme}.css`))) return null;
   const vars     = mergedVars(theme);
   const baseVars = mergedVars(theme, { baseWins: true });
   const rows = [];

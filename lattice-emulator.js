@@ -35,6 +35,7 @@
  */
 
 const fs            = require('fs');
+const { themeEntries } = require('./lib/theme/files.js');
 const path          = require('path');
 const { pathToFileURL, fileURLToPath } = require('node:url');
 const { pkgRootFrom } = require('./lib/core/pkg-root');
@@ -117,7 +118,7 @@ try { katexCssAbsPath = require.resolve('katex/dist/katex.min.css'); } catch (_e
 // ── Help / version (handled before positional parsing) ─────────────────────
 function listAvailablePalettes() {
   try {
-    return fs.readdirSync(path.join(PKG_ROOT, 'themes'))
+    return themeEntries(path.join(PKG_ROOT, 'themes'))
       .filter(f => f.endsWith('.css'))
       .map(f => f.replace('.css', ''))
       .join(', ');
@@ -1130,8 +1131,8 @@ function applyImageModePalette(name) {
   if (IMAGE_SET_OPTS.mode === 'light') return base;
   if (IMAGE_SET_OPTS.mode === 'dark') {
     const dark = `${base}-dark`;
-    if (fs.existsSync(path.join(PKG_ROOT, 'themes', `${dark}.css`))) return dark;
-    console.warn(`  ⚠ --image-mode dark: no dark companion 'themes/${dark}.css' — rendering '${base}' as-is.`);
+    if (fs.existsSync(path.join(PKG_ROOT, 'themes', dark, `${dark}.css`))) return dark;
+    console.warn(`  ⚠ --image-mode dark: no dark companion 'themes/${dark}/${dark}.css' — rendering '${base}' as-is.`);
     return base;
   }
   return name;
@@ -1157,7 +1158,7 @@ try {
 // <body> assembly; see the injection site.
 const { texturePatternDefs, texturePrefixesReferencedIn } = require('./lib/core/accessibility-textures');
 const THEMES_DIR   = path.join(PKG_ROOT, 'themes');
-const palettePath = path.join(THEMES_DIR, `${paletteName}.css`);
+const palettePath = path.join(THEMES_DIR, paletteName, `${paletteName}.css`);
 // An INSTALLED theme package (`lattice packages add`) is the second place a theme name
 // resolves — after the shipped themes, never instead of them, so an installed package can
 // never shadow a shipped name (the store renames a clash to <name>-custom on add anyway).
@@ -1195,7 +1196,7 @@ if (installedTheme) {
     process.exit(1);
   }
 }
-// THE theme chain, from the manifest. `themes/<name>.manifest.json` declares the
+// THE theme chain, from the manifest. `themes/<name>/<name>.manifest.json` declares the
 // parent as `extends`; the CSS also says `@import 'parent'`, but that copy is
 // MARP's — Lattice reads the manifest and never parses the stylesheet for it.
 //
@@ -1212,7 +1213,7 @@ const themeChainFor = (name) => themeChain(name, THEME_EDGES);
 // gate above allows it to import the base theme and nothing else, so its chain is itself.
 const paletteChain = installedTheme ? [paletteName] : themeChainFor(paletteName);
 // Parallel to paletteChain (the engine registers them pairwise): shipped files, then the installed leaf.
-const paletteFiles = paletteChain.map((n) => (installedTheme && n === paletteName ? path.join(installedTheme.dir, `${n}.css`) : path.join(THEMES_DIR, `${n}.css`)));
+const paletteFiles = paletteChain.map((n) => (installedTheme && n === paletteName ? path.join(installedTheme.dir, `${n}.css`) : path.join(THEMES_DIR, n, `${n}.css`)));
 if (installedTheme && !flags.quiet) console.log(`  theme: ${paletteName} (installed package, ${installedTheme.dir})`);
 
 const paletteCSS = paletteFiles.map((f) => readFileOrDie(f, `palette '${path.basename(f, '.css')}'`)).join('\n');
@@ -4273,10 +4274,10 @@ async function renderBody(browser, g, closeBrowser) {
         if (lookMode !== 'print') {
           const base = paletteName.replace(/-dark$/, '');
           const targetName = lookMode === 'dark' ? `${base}-dark` : base;
-          const targetPath = path.join(PKG_ROOT, 'themes', `${targetName}.css`);
+          const targetPath = path.join(PKG_ROOT, 'themes', targetName, `${targetName}.css`);
           if (fs.existsSync(targetPath)) {
             lookPaletteCss = themeChainFor(targetName)
-              .map((n) => readFileOrDie(path.join(THEMES_DIR, `${n}.css`), 'svg-look palette'))
+              .map((n) => readFileOrDie(path.join(THEMES_DIR, n, `${n}.css`), 'svg-look palette'))
               .join('\n');
             sectionLookClass = lookMode === 'dark' ? 'dark form' : 'form';
             // Re-bake from the LOOK palette (not the deck's) — the deck's resolved palette for
@@ -4288,7 +4289,7 @@ async function renderBody(browser, g, closeBrowser) {
             // Can't honor the look (no companion theme) — coerce to `inherit` so the baked canvas
             // + manifest describe what actually renders (the slide look), not a lie. Warn even
             // under --quiet: the artifact differs from what was asked for. (Mirrors the Studio.)
-            console.warn(`  ⚠ --svg-background ${lookMode}: no 'themes/${targetName}.css' — exporting SVGs in the slide look ('inherit').`);
+            console.warn(`  ⚠ --svg-background ${lookMode}: no 'themes/${targetName}/${targetName}.css' — exporting SVGs in the slide look ('inherit').`);
             effectiveSvgBackground = 'inherit';
             lookApplied = false;
           }

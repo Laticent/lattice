@@ -76,7 +76,7 @@ async function previewFaces(deckSource, theme) {
 
   const out = engine.render(deckSource, theme, { preview: true });
   const css = composeCss({
-    themeCss: fs.readFileSync(path.join(ROOT, 'themes', `${theme}.css`), 'utf8'),
+    themeCss: fs.readFileSync(path.join(ROOT, 'themes', theme, `${theme}.css`), 'utf8'),
     baseLatticeCss: fs.readFileSync(path.join(ROOT, 'dist', 'lattice.css'), 'utf8'),
     sizeName: out.sizeName,
   });

@@ -11,7 +11,7 @@
  * across the jump (shared localStorage keys: lattice-docs-palette / -mode,
  * wired in Header.astro; data-palette/-mode set pre-paint in ThemeProvider).
  *
- * Mirrors lattice.css / themes/indaco.css and the landing's type pairing
+ * Mirrors lattice.css / themes/indaco/indaco.css and the landing's type pairing
  * (Playfair Display headings, Outfit body, JetBrains Mono code). */
 
 /* Self-hosted webfonts (was a render-blocking Google-Fonts @import — see fonts.css). */

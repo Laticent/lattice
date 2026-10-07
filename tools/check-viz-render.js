@@ -140,7 +140,7 @@ async function collectBlacks() {
     for (const deck of DECKS) {
       const src = fs.readFileSync(deck.file, 'utf8');
       for (const theme of THEMES) {
-        const themeCss = fs.readFileSync(path.join(ROOT, 'themes', `${theme}.css`), 'utf8');
+        const themeCss = fs.readFileSync(path.join(ROOT, 'themes', theme, `${theme}.css`), 'utf8');
         const out = engine.render(src, theme, { preview: true });
         // THE PRODUCTION SURFACE: the scoped stylesheet a browser host loads,
         // not the unscoped emulator/PDF CSS.
@@ -447,7 +447,7 @@ async function collectCopies({ flatPack = true, themes = THEMES, schemes = SCHEM
     for (const deck of DECKS) {
       const src = fs.readFileSync(deck.file, 'utf8');
       for (const theme of themes) {
-        const themeCss = fs.readFileSync(path.join(ROOT, 'themes', `${theme}.css`), 'utf8');
+        const themeCss = fs.readFileSync(path.join(ROOT, 'themes', theme, `${theme}.css`), 'utf8');
         const out = engine.render(src, theme, { preview: true });
         // Stamp every element inside every slide, then build the article from the
         // stamped slides: each figure is a clone, so it carries its twin's stamp.

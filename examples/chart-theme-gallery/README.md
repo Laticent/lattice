@@ -20,7 +20,7 @@ state-chart · pie · quadrant · radar · timeline · word-cloud**.
 - The **indaco** decks preview the curation that lands in its companion PR
   (`chart(indaco): re-curate chart palette under the unified token system`).
   This branch carries onyx's curation and the canvas-aware fill engine work;
-  indaco's `themes/indaco.css` curation is intentionally kept in the separate
+  indaco's `themes/indaco/indaco.css` curation is intentionally kept in the separate
   PR. Once both merge, regenerating these decks reproduces them exactly.
 - Rendered through the owned engine (`node lattice-emulator.js`). The marp-cli
   path these decks were first rendered through was retired in P4.

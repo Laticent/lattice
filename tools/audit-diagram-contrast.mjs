@@ -55,6 +55,7 @@ import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { themeEntries } from '../lib/theme/files.js';
 
 const require = createRequire(import.meta.url);
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -77,14 +78,14 @@ async function loadMermaidThemes() {
 // ── palette resolution, the offline twin of getComputedStyle ────────────────
 const THEMES_DIR = path.join(ROOT, 'themes');
 const LAYOUT_CSS = fs.readFileSync(path.join(ROOT, 'dist/lattice.css'), 'utf8');
-const THEMES = fs.readdirSync(THEMES_DIR)
+const THEMES = themeEntries(THEMES_DIR)
   .filter((f) => f.endsWith('.css') && !f.includes('audit'))
   .map((f) => f.replace(/\.css$/, '')).sort();
 
 function paletteSource(name, seen = new Set()) {
   if (seen.has(name)) return '';
   seen.add(name);
-  const file = path.join(THEMES_DIR, `${name}.css`);
+  const file = path.join(THEMES_DIR, name, `${name}.css`);
   if (!fs.existsSync(file)) return '';
   const css = fs.readFileSync(file, 'utf8');
   let out = '';

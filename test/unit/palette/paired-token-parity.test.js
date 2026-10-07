@@ -28,6 +28,7 @@
  */
 
 const { test, describe } = require('node:test');
+const { themeEntries, themePath } = require('../../../lib/theme/files.js');
 const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
@@ -56,7 +57,7 @@ function rootVars(css) {
 function paletteVars(name, seen = new Set()) {
   if (seen.has(name)) return {};
   seen.add(name);
-  const file = path.join(THEMES, `${name}.css`);
+  const file = path.join(THEMES, name, `${name}.css`);
   const css = fs.readFileSync(file, 'utf8');
   let out = {};
   for (const m of stripComments(css).matchAll(/@import\s+["']?([A-Za-z0-9_-]+)["']?\s*;/g)) {
@@ -126,8 +127,8 @@ const baseVars = rootVars(fs.readFileSync(BASE_TOKENS, 'utf8'));
 const manifests = listThemeManifests(THEMES);
 // name -> css, the shape themeActualModes expects (listThemeFiles is not exported).
 const themeFiles = new Map(
-  fs.readdirSync(THEMES).filter((f) => f.endsWith('.css')).sort()
-    .map((f) => [f.replace(/\.css$/, ''), fs.readFileSync(path.join(THEMES, f), 'utf8')]),
+  themeEntries(THEMES).filter((f) => f.endsWith('.css')).sort()
+    .map((f) => [f.replace(/\.css$/, ''), fs.readFileSync(themePath(THEMES, f), 'utf8')]),
 );
 // a11y-base is an import target, never picked directly; its overrides are audited
 // through each a11y-<type> that imports it.

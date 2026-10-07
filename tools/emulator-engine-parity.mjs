@@ -46,7 +46,7 @@ if (!decks.length) {
 const eng = latticeEngine.createEngine();
 eng.addThemes([
   { name: 'lattice', css: readFileSync(join(ROOT, 'dist/lattice.css'), 'utf8') },
-  { name: palette, css: readFileSync(join(ROOT, `themes/${palette}.css`), 'utf8') },
+  { name: palette, css: readFileSync(join(ROOT, `themes/${palette}/${palette}.css`), 'utf8') },
 ]);
 
 // Top-level slide sections — sections not nested inside another section. jsdom so

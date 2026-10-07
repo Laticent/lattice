@@ -48,7 +48,7 @@ tokens, light or dark.
 ## Authoring a new palette
 
 A palette is a pure token-declaration job — no per-palette layout CSS.
-Copy `themes/indaco.css` to `themes/<name>.css`, change the `@theme`
+Copy `themes/indaco/indaco.css` to `themes/<name>/<name>.css`, change the `@theme`
 directive, and edit the tokens. Layouts that rely on a missing token
 fall back to the engine's defaults, which makes gaps easy to spot during
 development. Diagram theming comes for free: palette-blind per-diagram

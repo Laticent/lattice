@@ -56,7 +56,7 @@ function resolveChrome() {
 }
 
 /**
- * Tokens where `themes/indaco.css` and `lib/base/base.tokens.css` declare DIFFERENT
+ * Tokens where `themes/indaco/indaco.css` and `lib/base/base.tokens.css` declare DIFFERENT
  * values, so the resolved value names which sheet won. Read from the two files rather
  * than hardcoded, because a hardcoded expectation rots into a tautology the first time
  * either value is re-tuned — and re-tuning status inks is a live activity in this repo.
@@ -68,7 +68,7 @@ function disputedTokens(names) {
     for (const m of src.matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)) map.set(m[1], m[2].trim());
     return map;
   };
-  const theme = read(path.join(ROOT, 'themes', 'indaco.css'));
+  const theme = read(path.join(ROOT, 'themes', 'indaco', 'indaco.css'));
   const base = read(path.join(ROOT, 'lib', 'base', 'base.tokens.css'));
   const out = [];
   for (const n of names) {
@@ -179,7 +179,7 @@ describe('the palette wins the cascade on the export path', () => {
       // moved. That is the property this test needs — the render must be order-SENSITIVE at
       // all — and it cannot be satisfied by a token that merely looks disputed.
       const read = (f) => fs.readFileSync(f, 'utf8');
-      const indaco = read(path.join(ROOT, 'themes', 'indaco.css'));
+      const indaco = read(path.join(ROOT, 'themes', 'indaco', 'indaco.css'));
       // Comments first: indaco mentions `@import 'lattice';` in its header prose, and a
       // non-global replace would strip that mention and leave the live import in place.
       const invertedTheme = `${indaco.replace(/\/\*[\s\S]*?\*\//g, '').replace(/@import\s*(['"])lattice\1\s*;?/g, '')}\n@import 'lattice';\n`;

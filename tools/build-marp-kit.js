@@ -84,7 +84,7 @@ const THEME = 'cuoio';
  * UNMINIFIED_PAIRS adds a readable counterpart beside each Lattice-authored
  * minified file, `to` matching the minified name minus `-min`. `dist/lattice.css`
  * and `dist/lattice-runtime.js` are the same build's unminified output;
- * `themes/${THEME}.css` is not a `dist/` build output at all but the tracked
+ * `themes/${THEME}/${THEME}.css` is not a `dist/` build output at all but the tracked
  * SOURCE the minifier reads — reusing it (rather than adding an unminified
  * theme build) means one less thing for the theme pipeline to produce. Nothing
  * here is wired into marp.config.cjs / .vscode/settings.json — see the
@@ -93,8 +93,8 @@ const THEME = 'cuoio';
 const UNMINIFIED_PAIRS = [
   { from: 'dist/lattice.css', to: 'lattice.css' },
   { from: 'dist/lattice-runtime.js', to: 'lattice-runtime.js' },
-  { from: `themes/${THEME}.css`, to: `${THEME}.css` },
-  { from: `themes/${THEME}-dark.css`, to: `${THEME}-dark.css` },
+  { from: `themes/${THEME}/${THEME}.css`, to: `${THEME}.css` },
+  { from: `themes/${THEME}-dark/${THEME}-dark.css`, to: `${THEME}-dark.css` },
 ];
 
 const ASSETS = [

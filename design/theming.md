@@ -15,7 +15,7 @@ and the categorical-token taxonomy.
 
 ## Anatomy of a palette
 
-A palette is one CSS file plus one small manifest. `themes/<name>.manifest.json`
+A palette is one CSS file plus one small manifest. `themes/<name>/<name>.manifest.json`
 declares the palette's **identity and role** — which picker group it belongs to,
 which canvases it has a real face for, which theme it extends — and carries no
 token names or values at all; those live in the CSS, and every gate proves the
@@ -30,7 +30,7 @@ contains:
    dark/derived variant — an `@import '<parent>'`. Both are **Marp's copy**: Marp
    has no manifest, so it learns identity and the parent edge from the stylesheet.
    Lattice DISCOVERS neither from the CSS — identity and the chain come from
-   `themes/<name>.manifest.json` (`name`, `extends`), resolved by
+   `themes/<name>/<name>.manifest.json` (`name`, `extends`), resolved by
    `lib/theme/chain.mjs`, and `check:ownership` fails if the CSS and the manifest
    disagree. The `@import` is still what splices the parent into the composed
    stylesheet at render time, so keep it accurate: it is not decoration. See `engineering/decisions/2026-08-16-manifest-is-the-theme-contract.md`.
@@ -609,15 +609,15 @@ fine; nested `:has()` inside `:not()` / `:is()` isn't. See
 
 ## Authoring a new palette
 
-The scaffolder is the fastest path. It copies `themes/indaco.css`,
+The scaffolder is the fastest path. It copies `themes/indaco/indaco.css`,
 rewrites the `@theme` directive, stamps `TODO(palette):` markers on
 every value you're expected to change, and creates the matching
 `<name>-dark.css` wrapper so the dark variant works on day one.
 
 ```sh
 npm run new:theme verdigris
-# → themes/verdigris.css       (starter palette, TODOs at every author-edit point)
-# → themes/verdigris-dark.css  (3-line wrapper flipping color-scheme to dark)
+# → themes/verdigris/verdigris.css       (starter palette, TODOs at every author-edit point)
+# → themes/verdigris-dark/verdigris-dark.css  (3-line wrapper flipping color-scheme to dark)
 ```
 
 Then, in order of impact:
@@ -686,12 +686,12 @@ for live preview.
 
 If you prefer not to run the scaffolder:
 
-1. Copy `themes/indaco.css` to `themes/<name>.css`.
+1. Copy `themes/indaco/indaco.css` to `themes/<name>/<name>.css`.
 2. Update the `@theme <name>` directive at the top of the file to match
    the filename (this is the value authors will type in front matter).
 3. Edit the hex values in each `:root` block. Keep the variable names —
    the renderer's variable map references them by name.
-4. Copy `themes/indaco-dark.css` to `themes/<name>-dark.css` and change
+4. Copy `themes/indaco-dark/indaco-dark.css` to `themes/<name>-dark/<name>-dark.css` and change
    the `@theme` directive and `@import` target to match.
 5. Register both palettes in `.vscode/settings.json` under
    `markdown.marp.themes` so the Marp VS Code extension picks them up.

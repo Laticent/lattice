@@ -20,7 +20,7 @@ export { A11Y_GROUP_LABEL, paletteLabel };
  * `p.startsWith('a11y-')`. That was the tenth place in the repo deciding theme scope by
  * its own private rule, and the last one still doing it by filename — a convention no
  * gate can check, which mis-groups any user theme named like one of ours. The family
- * now comes from `themes/<name>.manifest.json` via the generated catalog, and
+ * now comes from `themes/<name>/<name>.manifest.json` via the generated catalog, and
  * `checkThemeRoles` proves that declaration against the theme file itself. See
  * engineering/decisions/2026-08-09-theme-token-contract.md.
  */

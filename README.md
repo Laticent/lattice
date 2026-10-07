@@ -124,7 +124,7 @@ The package also exposes these named entry points:
 | — | `dist/lattice-dagre-min.js` | the graph-layout engine for a state chart that BRANCHES. Load it *before* the runtime. Its absence is silent on the slide — the chart draws its branches as skips on the reading-order grid a chain uses |
 | `@laticent/lattice/css` | `dist/lattice.css` | the engine bundle — **palette-blind** (components only, no color tokens) |
 | `@laticent/lattice/css/min` | `dist/lattice-min.css` | minified engine bundle (Marp `@theme`/`@size` directives preserved) |
-| `@laticent/lattice/themes/<name>.css` | `themes/<name>.css` | one palette — a **Marp theme file**, not a standalone stylesheet |
+| `@laticent/lattice/themes/<name>.css` | `themes/<name>/<name>.css` | one palette — a **Marp theme file**, not a standalone stylesheet |
 | `lattice` bin · `@laticent/lattice` (`main`/`.`) | `dist/lattice-emulator.js` | the bundled CLI renderer / PDF exporter (`npx lattice deck.md out.pdf`) |
 | `@laticent/lattice/min` | `dist/lattice-emulator-min.js` | minified CLI bundle (shebang + executable bit preserved); the bin/main stays the unminified file |
 
@@ -285,7 +285,7 @@ node lattice-emulator.js deck.md out.pdf <palette-name>
 ```
 
 The third positional argument names a file in `themes/`. The default is
-`indaco`. To author a new palette, copy `themes/indaco.css`, change its
+`indaco`. To author a new palette, copy `themes/indaco/indaco.css`, change its
 `@theme` directive to your name, and edit the tokens. See
 [design/theming.md](design/theming.md) for the variable contract and the per-diagram
 Mermaid override surface.
@@ -296,7 +296,7 @@ For web-export contexts, include `dist/lattice-runtime.js` and the two engines i
 expects to find beside it:
 
 ```html
-<link rel="stylesheet" href="themes/indaco.css">
+<link rel="stylesheet" href="themes/indaco/indaco.css">
 <link rel="stylesheet" href="dist/lattice.css">
 <script src="mermaid-v11-min.js"></script>
 <script src="dist/lattice-dagre-min.js"></script>

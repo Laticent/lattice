@@ -1300,7 +1300,7 @@ what every surface prints and asserts, and the suggestion belongs on the button
 there is no button — printing both is what #1658 reported as the tool knowing the
 answer and making you type it anyway.
 
-### Adding a new theme (`themes/<name>.css`)
+### Adding a new theme (`themes/<name>/<name>.css`)
 No script change needed — `affected-tests.js` routes `themes/*.css` to
 `test:palette` automatically. Just:
 1. Drop the file with the required tokens (see `theming.md`).

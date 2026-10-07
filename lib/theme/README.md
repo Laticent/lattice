@@ -18,7 +18,7 @@ wired, only ever proposes an *essential set*; this core disposes).
 | `color.js` | Color math. WCAG sRGB luminance + `contrastRatio` (the **exact** functions `test/unit/palette/contrast.test.js` asserts with — extracted here, shared not duplicated) **plus** OKLCH ↔ sRGB for perceptual lightness/hue control and contrast-aware repair (`ensureContrast`, `pickInk`, `mix`). |
 | `contrast.js` | The contrast **meter / auditor**. Runs the gate's pair checks over an in-memory token map (`auditVars`, `auditBoth`), resolving `light-dark()`/`var()` per mode. `meter(fg, bg)` is the live reading the UI paints. A row it cannot measure is `skipped` and **counts against `ok`** — see below. |
 | `derive.js` | The **derivation**. `deriveTheme(essentials)` → full token map, repaired to clear AA in both canvas modes for every gate-checked pair. Exports the essential-set + required-token contracts. |
-| `serialize.js` | `serializeTheme(map, {name})` → droppable `themes/<name>.css` text (the `@theme` directive, `@import 'lattice'`, grouped `:root` blocks, then an **extras block** for names outside the contract). |
+| `serialize.js` | `serializeTheme(map, {name})` → droppable `themes/<name>/<name>.css` text (the `@theme` directive, `@import 'lattice'`, grouped `:root` blocks, then an **extras block** for names outside the contract). |
 | `parse.js` | The **inverse**. `parseTheme(css)` → an ordered, selector-aware declaration record; `serializeThemeRecord` writes it back. `themeRecordView` is the four-bucket read (tokens · non-token root declarations · at-rules · the non-root tail); `themeTokenMap` flattens it to the map the auditor consumes, by SPECIFICITY not source order. Hand-rolled rather than css-tree — see below. |
 | `gate.js` | The **validator** for hand-edited theme CSS. `gateThemeCss(css, { knownThemes })` → `{ ok, blocked, composes, findings }`. Composed from `lib/layout/gate.js`'s `find*` primitives, never from `gateCss` — see below. |
 | `starters.js` | A small seed library of essential sets ("on the floor") so the loop runs with no model. |
@@ -46,7 +46,7 @@ const s   = getStarter('dusk');
 const map = deriveTheme(s.essentials);     // full, contrast-clean token map
 auditBoth(map).ok;                          // true — passes the gate's pairs, both modes
 const css = serializeTheme(map, { name: s.name, label: s.label });
-// → drop css into themes/dusk.css, or PG.addThemes([{ name, css }]) for live preview
+// → drop css into themes/dusk/dusk.css, or PG.addThemes([{ name, css }]) for live preview
 ```
 
 ## What this covers — and what's next
@@ -111,7 +111,7 @@ block in `serialize.js` is the producer half of the fix; `parse.js` is the reade
 flat map cannot hold, each a shipped theme rather than a hypothetical:
 
 - **`color-scheme` is not a token.** It sits under a root selector in 28 of 32
-  themes, and `themes/ardesia-dark.css` is nothing but `@import 'ardesia';` plus
+  themes, and `themes/ardesia-dark/ardesia-dark.css` is nothing but `@import 'ardesia';` plus
   `:root { color-scheme: dark; }`. Swallow it into a token map and
   re-serialization writes the hard-coded `color-scheme: light` over it — opening
   a dark theme and saving it makes it light. It gets its own bucket.
@@ -288,7 +288,7 @@ harder question than set membership can say so.
 Two more shapes worth knowing:
 
 - **Conformance runs only on a self-contained theme.** A theme importing a
-  palette inherits its tokens; `themes/ardesia-dark.css` declares 0 of the 107
+  palette inherits its tokens; `themes/ardesia-dark/ardesia-dark.css` declares 0 of the 107
   and is completely correct. Importing `lattice` is *not* composition — the base
   supplies no palette tokens, by the same rule that decides contract membership.
 - **`ok` and `blocked` are separate.** Only the safety rung blocks (the

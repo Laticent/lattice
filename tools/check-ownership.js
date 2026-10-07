@@ -52,8 +52,9 @@
  */
 
 const fs = require('node:fs');
+const { themeEntries, themePath } = require('../lib/theme/files.js');
 const path = require('node:path');
-const { discoverPackages, listFlatPackages } = require('../lib/packages/fs.js');
+const { discoverPackages, listFolderPackages } = require('../lib/packages/fs.js');
 
 // ── A WORKING TREE IS NOT A FROZEN TREE ───────────────────────────────────────
 //
@@ -567,7 +568,7 @@ function parseThemeTokens(css) {
 
 // ── Theme manifests: the ONE scope declaration ─────────────────────────────
 //
-// `themes/<name>.manifest.json` declares a palette's IDENTITY and ROLE — never a
+// `themes/<name>/<name>.manifest.json` declares a palette's IDENTITY and ROLE — never a
 // token name and never a token value. That split is the whole design: the manifest
 // owns SCOPE (which themes a rule applies to), the code owns CONTRACT (what the
 // rule requires). A manifest that listed tokens would be a second copy of the CSS,
@@ -588,20 +589,20 @@ function listThemeManifests(themesDir = THEMES_DIR) {
   const out = new Map();
   // The package spine owns the enumeration (lib/packages/fs.js), so the theme walks
   // share one idea of what a theme's files are.
-  for (const [stem, names] of listFlatPackages('theme', themesDir)) {
+  for (const [stem, names] of listFolderPackages('theme', themesDir)) {
     const file = `${stem}.manifest.json`;
     if (!names.includes(file)) continue;
-    const p = path.join(themesDir, file);
+    const p = path.join(themesDir, stem, file);
     let m;
     try {
       m = JSON.parse(fs.readFileSync(p, 'utf8'));
     } catch (e) {
-      throw new Error(`themes/${file} is not valid JSON: ${e.message}`);
+      throw new Error(`themes/${stem}/${file} is not valid JSON: ${e.message}`);
     }
     // `null`, an array, or a scalar all parse fine and then blow up as a raw TypeError
     // in whichever gate touches them first. Fail here, where the message names the file.
     if (m === null || typeof m !== 'object' || Array.isArray(m)) {
-      throw new Error(`themes/${file} must be a JSON object (got ${Array.isArray(m) ? 'an array' : String(m === null ? 'null' : typeof m)}).`);
+      throw new Error(`themes/${stem}/${file} must be a JSON object (got ${Array.isArray(m) ? 'an array' : String(m === null ? 'null' : typeof m)}).`);
     }
     out.set(file.replace(/\.manifest\.json$/, ''), m);
   }
@@ -611,8 +612,8 @@ function listThemeManifests(themesDir = THEMES_DIR) {
 /** Theme CSS files on disk, by name. */
 function listThemeFiles(themesDir = THEMES_DIR) {
   const out = new Map();
-  for (const [stem, names] of listFlatPackages('theme', themesDir)) {
-    if (names.includes(`${stem}.css`)) out.set(stem, fs.readFileSync(path.join(themesDir, `${stem}.css`), 'utf8'));
+  for (const [stem, names] of listFolderPackages('theme', themesDir)) {
+    if (names.includes(`${stem}.css`)) out.set(stem, fs.readFileSync(path.join(themesDir, stem, `${stem}.css`), 'utf8'));
   }
   return out;
 }
@@ -654,7 +655,7 @@ const FACE_TOKENS = ['bg', 'bg-alt', 'text-body', 'text-heading', 'border', 'acc
  *
  * A pin narrows the palette to one face. A default does not — carbone ships a `dark`
  * default and is dark-only for a different reason: it declares FLAT surface hexes and
- * opts out of `light-dark()` switching entirely (`themes/carbone.css` says so in its
+ * opts out of `light-dark()` switching entirely (`themes/carbone/carbone.css` says so in its
  * own header), so there is no second face to resolve.
  */
 function themeRootScheme(cssText) {
@@ -738,20 +739,20 @@ function checkThemeManifestCoverage(errors, themesDir = THEMES_DIR) {
   for (const name of files.keys()) {
     if (!manifests.has(name)) {
       errors.push(
-        `themes/${name}.css has no manifest. Every theme declares its identity and role in ` +
-        `themes/${name}.manifest.json (schema: themes/theme.schema.json) — that declaration is ` +
+        `themes/${name}/${name}.css has no manifest. Every theme declares its identity and role in ` +
+        `themes/${name}/${name}.manifest.json (schema: themes/theme.schema.json) — that declaration is ` +
         'what every theme gate reads its scope from, so an undeclared palette is an ungated one.',
       );
     }
   }
   for (const [name, m] of manifests) {
     if (!files.has(name)) {
-      errors.push(`themes/${name}.manifest.json has no themes/${name}.css. Delete the stale manifest or add the palette.`);
+      errors.push(`themes/${name}/${name}.manifest.json has no themes/${name}/${name}.css. Delete the stale manifest or add the palette.`);
       continue;
     }
     if (m.name !== name) {
       errors.push(
-        `themes/${name}.manifest.json declares name "${m.name}" but its filename says "${name}". ` +
+        `themes/${name}/${name}.manifest.json declares name "${m.name}" but its filename says "${name}". ` +
         'The name IS the identifier a deck\'s `theme:` resolves to, so the two cannot disagree.',
       );
     }
@@ -765,7 +766,7 @@ function checkThemeManifestCoverage(errors, themesDir = THEMES_DIR) {
  * decoration: nothing in the repo runs a JSON-Schema validator, so a manifest could
  * omit a required field, misspell an enum value, or carry an unknown key and every gate
  * stayed green. That is not a wash against the hand-maintained lists this replaced — it
- * is worse. Deleting `tier` from `themes/indaco.manifest.json` drops the DEFAULT palette
+ * is worse. Deleting `tier` from `themes/indaco/indaco.manifest.json` drops the DEFAULT palette
  * out of `CURATED`, out of `BUILTIN_PALETTES`, out of the picker, and `StudioShell` then
  * resets every visitor sitting on it — all from one absent JSON field, where the old
  * breakage needed a visible name deleted from an array in a reviewed diff.
@@ -899,7 +900,7 @@ function checkThemeRoles(errors, themesDir = THEMES_DIR) {
 // A palette's name exists in three places — the manifest's `name` field, the
 // filename, and the `@theme` directive in the CSS — and until 2026-08-16 NOTHING
 // bound them. `checkThemeRoles` keys by filename and never reads `@theme` at all,
-// so `themes/foo.css` declaring `@theme bar` would pass every gate and register
+// so `themes/foo/foo.css` declaring `@theme bar` would pass every gate and register
 // under a name nobody expects. All 32 palettes agreed by discipline alone, and
 // design/skills/theme.md already told authors the directive "MUST match the
 // filename" — a promise the machine did not keep.
@@ -924,7 +925,7 @@ function checkThemeIdentity(errors, themesDir = THEMES_DIR) {
     const declared = THEME_DIRECTIVE_RE.exec(cssText)?.[1];
     if (!declared) {
       errors.push(
-        `themes/${fileName}.css declares no \`@theme\`. The file is a published export ` +
+        `themes/${fileName}/${fileName}.css declares no \`@theme\`. The file is a published export ` +
         `(\`@laticent/lattice/themes/${fileName}.css\`) that README.md calls a Marp theme file, and ` +
         `Marp throws without the directive. Add \`/* @theme ${fileName} */\` as the first line.`,
       );
@@ -932,7 +933,7 @@ function checkThemeIdentity(errors, themesDir = THEMES_DIR) {
     }
     if (declared !== fileName) {
       errors.push(
-        `themes/${fileName}.css declares \`@theme ${declared}\` — the filename says "${fileName}". ` +
+        `themes/${fileName}/${fileName}.css declares \`@theme ${declared}\` — the filename says "${fileName}". ` +
         `A theme registers under the name in the directive, so these disagreeing means the palette ` +
         `loads under a name no picker, manifest, or \`@import\` refers to. Make them match.`,
       );
@@ -940,7 +941,7 @@ function checkThemeIdentity(errors, themesDir = THEMES_DIR) {
     const m = manifests.get(fileName);
     if (m && m.name !== undefined && m.name !== fileName) {
       errors.push(
-        `themes/${fileName}.manifest.json declares \`"name": "${m.name}"\` — the filename says ` +
+        `themes/${fileName}/${fileName}.manifest.json declares \`"name": "${m.name}"\` — the filename says ` +
         `"${fileName}". The manifest OWNS the theme's name; the filename and \`@theme\` are ` +
         `projections of it, so all three have to agree.`,
       );
@@ -1355,7 +1356,7 @@ function checkThemeModes(errors, themesDir = THEMES_DIR) {
       if (got !== expected) {
         errors.push(
           `theme "${name}" declares darkCounterpart ${got === null ? 'null' : `"${got}"`} but ` +
-          `${expected === null ? `themes/${name}-dark.css does not exist` : `themes/${expected}.css does`}. ` +
+          `${expected === null ? `themes/${name}-dark/${name}-dark.css does not exist` : `themes/${expected}/${expected}.css does`}. ` +
           'The counterpart is declared rather than inferred from the filename so this cannot drift.',
         );
       }
@@ -1658,8 +1659,8 @@ function rootDeclSites(css) {
 // and certified the gate instead of exercising it.
 function checkPackedRootReach(errors, dir = path.join(ROOT, 'themes')) {
   if (!fs.existsSync(dir)) return;
-  for (const f of fs.readdirSync(dir).filter((x) => x.endsWith('.css')).sort()) {
-    const { plain, overSpecific } = rootDeclSites(fs.readFileSync(path.join(dir, f), 'utf8'));
+  for (const f of themeEntries(dir).filter((x) => x.endsWith('.css')).sort()) {
+    const { plain, overSpecific } = rootDeclSites(fs.readFileSync(themePath(dir, f), 'utf8'));
     for (const [tok, sel] of overSpecific) {
       if (plain.has(tok)) {
         errors.push(
@@ -4153,7 +4154,7 @@ const SANCTIONED_GLYPH_DECKS = Object.freeze([
 // Each entry names the file and the measurement that settled it.
 const SANCTIONED_GLYPH_CHROME = Object.freeze([
   {
-    file: 'themes/a11y-base.css',
+    file: 'themes/a11y-base/a11y-base.css',
     why: 'The GRAYSCALE-SAFE SHAPE CHANNEL for color-blind readers, and a mask cannot ' +
       'carry it. Three measured properties are load-bearing and all three are lost by a ' +
       'background-image: (1) `content: <string> / <alt>` with an EMPTY alt is the only ' +
@@ -4397,7 +4398,7 @@ function checkThemeTokenParity(errors) {
     if (missing.length) {
       errors.push(
         `theme "${p.name}" is missing ${missing.length} core token(s): ${missing.join(', ')}. ` +
-        `Every base palette must define the core surface tokens directly — define them in themes/${p.name}.css.`,
+        `Every base palette must define the core surface tokens directly — define them in themes/${p.name}/${p.name}.css.`,
       );
     }
   }
@@ -4888,8 +4889,8 @@ function fallbackOnlyTokens({ themeTokens, rootDefaults, slideDefaults, mapDefau
 function checkNoSafeDefaultTokens(errors, { themesDir = THEMES_DIR, libDir = LIB_DIR } = {}) {
   const declared = themesDir === THEMES_DIR ? listThemeManifests() : null;
   const themeFiles = declared
-    ? [...declared.keys()].sort().map((n) => path.join(themesDir, `${n}.css`)).filter((f) => fs.existsSync(f))
-    : fs.readdirSync(themesDir).filter((f) => f.endsWith('.css')).sort().map((f) => path.join(themesDir, f));
+    ? [...declared.keys()].sort().map((n) => path.join(themesDir, n, `${n}.css`)).filter((f) => fs.existsSync(f))
+    : themeEntries(themesDir).filter((f) => f.endsWith('.css')).sort().map((f) => themePath(themesDir, f));
   if (!themeFiles.length) {
     errors.push('checkNoSafeDefaultTokens found no palettes to read the theme token vocabulary from — the contract is unverifiable.');
     return;
@@ -9622,7 +9623,7 @@ function catPaletteSource(name, seen = new Set(), themesDir = THEMES_DIR) {
   if (seen.has(name)) return '';
   seen.add(name);
   if (name === 'lattice') return fs.readFileSync(path.join(LIB_DIR, 'base', 'base.tokens.css'), 'utf8');
-  const file = path.join(themesDir, `${name}.css`);
+  const file = path.join(themesDir, name, `${name}.css`);
   if (!fs.existsSync(file)) return '';
   const css = fs.readFileSync(file, 'utf8');
   let out = '';
@@ -9692,10 +9693,10 @@ function checkCatInkDeclared(errors, themesDir = THEMES_DIR) {
   const declared = themesDir === THEMES_DIR ? listThemeManifests() : null;
   const files = declared
     ? [...declared.keys()].sort().map((n) => `${n}.css`)
-    : fs.readdirSync(themesDir).filter((f) => f.endsWith('.css')).sort();
+    : themeEntries(themesDir).filter((f) => f.endsWith('.css')).sort();
   for (const file of files) {
     const name = file.replace(/\.css$/, '');
-    const full = path.join(themesDir, file);
+    const full = themePath(themesDir, file);
     if (!fs.existsSync(full)) continue; // G1 reports a manifest with no CSS
     const own = catStripComments(fs.readFileSync(full, 'utf8'));
     if (!/--cat-1-mark\s*:/.test(own)) continue; // inherits its cycle, and its ink with it
@@ -9855,7 +9856,7 @@ function checkHljsContrast(errors, themesDir = THEMES_DIR) {
   // by asking why a full 340-render regression sweep showed no drift after fourteen
   // themes changed color: the sweep renders with `dist/lattice.css`, whose comment
   // color the theme edits never touched.
-  const scan = ['lattice', ...fs.readdirSync(themesDir).sort()
+  const scan = ['lattice', ...themeEntries(themesDir).sort()
     .filter((f) => f.endsWith('.css'))
     .map((f) => f.replace(/\.css$/, ''))];
   const maps = new Map(scan.map((n) => [n, catParseTokens(catPaletteSource(n, new Set(), themesDir))]));
@@ -9987,7 +9988,7 @@ function checkCatContrast(errors) {
   let inkScanned = 0;
   const inkScannedNames = new Set();
   let inkEvaluated = 0; // ④ slot×mode×surface pairs — its own metric, since its scope is wider
-  for (const file of fs.readdirSync(THEMES_DIR).sort()) {
+  for (const file of themeEntries(THEMES_DIR).sort()) {
     if (!file.endsWith('.css')) continue;
     const name = file.replace(/\.css$/, '');
     const map = catParseTokens(catPaletteSource(name));
@@ -10169,7 +10170,7 @@ function checkCatContrast(errors) {
   // inkScanned and inkEvaluated shrink together, so `inkEvaluated < inkScanned * K`
   // stays satisfied and the gate reports nothing. Name every palette file that
   // failed to get scanned instead — that is unfixable by proportional shrinkage.
-  const inkExpected = fs.readdirSync(THEMES_DIR)
+  const inkExpected = themeEntries(THEMES_DIR)
     .filter((f) => f.endsWith('.css') && !f.includes('audit'))
     .map((f) => f.replace(/\.css$/, ''));
   const inkMissed = inkExpected.filter((t) => !inkScannedNames.has(t));
@@ -11651,7 +11652,7 @@ const MUTED_MARK_FLOOR = 3.0;
 const MUTED_SEPARATION_FLOOR = 0.030;
 
 function checkMutedTierFloors(errors, themesDir = THEMES_DIR) {
-  const themes = fs.readdirSync(themesDir)
+  const themes = themeEntries(themesDir)
     .filter((f) => f.endsWith('.css'))
     .map((f) => f.replace(/\.css$/, ''));
   let measured = 0;
@@ -11676,7 +11677,7 @@ function checkMutedTierFloors(errors, themesDir = THEMES_DIR) {
     // `--text-muted` is a palette that owns this tier and must author both halves.
     // The `-dark` wrappers and the a11y family declare neither and resolve through
     // their import chain, which is correct and stays silent.
-    const own = fs.readFileSync(path.join(themesDir, `${name}.css`), 'utf8');
+    const own = fs.readFileSync(path.join(themesDir, name, `${name}.css`), 'utf8');
     for (const [text, mark] of [
       ['--text-muted', '--muted-mark'],
       ['--scheme-dark-text-muted', '--scheme-dark-muted-mark'],
@@ -11685,7 +11686,7 @@ function checkMutedTierFloors(errors, themesDir = THEMES_DIR) {
       const declaresMark = new RegExp(`^\\s*${mark}\\s*:`, 'm').test(own);
       if (declaresText && !declaresMark) {
         errors.push(
-          `themes/${name}.css declares ${text} but not ${mark}. A palette that authors the `
+          `themes/${name}/${name}.css declares ${text} but not ${mark}. A palette that authors the `
           + 'muted TEXT tier owns the muted DECORATION tier too — without it, every engine read '
           + `of ${mark} is invalid at computed-value time on this palette and the rules, `
           + 'hairlines, grid lines and skipped marks it paints disappear (#1715).');
@@ -11894,9 +11895,9 @@ function checkHljsSeparation(errors, themesDir = THEMES_DIR) {
   let compared = 0;
 
   for (const { theme, condition } of A11Y_SYNTAX_CONDITIONS) {
-    const file = path.join(themesDir, `${theme}.css`);
+    const file = path.join(themesDir, theme, `${theme}.css`);
     if (!fs.existsSync(file)) {
-      errors.push(`checkHljsSeparation: themes/${theme}.css is missing — the gate cannot run.`);
+      errors.push(`checkHljsSeparation: themes/${theme}/${theme}.css is missing — the gate cannot run.`);
       continue;
     }
     // The EMITTED file, flattened through its @import chain — the same reader
@@ -11914,7 +11915,7 @@ function checkHljsSeparation(errors, themesDir = THEMES_DIR) {
     const missing = HLJS_ROLES.filter((r) => !new RegExp(`--hljs-${r}\\s*:`).test(own));
     if (missing.length) {
       errors.push(
-        `themes/${theme}.css declares no --hljs-${missing.join(', --hljs-')} of its own, so it `
+        `themes/${theme}/${theme}.css declares no --hljs-${missing.join(', --hljs-')} of its own, so it `
         + "inherits onyx's syntax family through a11y-base — the red-green pair this palette "
         + 'exists to avoid (#1715).');
       continue;
@@ -12413,8 +12414,8 @@ const DIST_VERBATIM_COPIES = Object.freeze([
   { copy: 'dist/marp-kit/LICENSE', source: 'LICENSE', builder: 'tools/build-marp-kit.js' },
   { copy: 'dist/marp-kit/LICENSE-EXCEPTIONS', source: 'LICENSE-EXCEPTIONS', builder: 'tools/build-marp-kit.js' },
   { copy: 'dist/marp-kit/Sample-Deck.md', source: 'kit/Sample-Deck.md', builder: 'tools/build-marp-kit.js' },
-  { copy: 'dist/marp-kit/cuoio.css', source: 'themes/cuoio.css', builder: 'tools/build-marp-kit.js' },
-  { copy: 'dist/marp-kit/cuoio-dark.css', source: 'themes/cuoio-dark.css', builder: 'tools/build-marp-kit.js' },
+  { copy: 'dist/marp-kit/cuoio.css', source: 'themes/cuoio/cuoio.css', builder: 'tools/build-marp-kit.js' },
+  { copy: 'dist/marp-kit/cuoio-dark.css', source: 'themes/cuoio-dark/cuoio-dark.css', builder: 'tools/build-marp-kit.js' },
   // The kit's Mermaid is the mermaid plugin's own copy (payload.vendored), shipped under the kit's name.
   { copy: 'dist/marp-kit/mermaid-v11-min.js', source: 'lib/plugins/mermaid/vendor/mermaid.min.js', builder: 'tools/build-marp-kit.js' },
 ]);

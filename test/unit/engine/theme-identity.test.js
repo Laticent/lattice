@@ -7,6 +7,7 @@
  * engineering/decisions/2026-08-16-theme-identity-ownership.md.
  */
 const { test, describe } = require('node:test');
+const { themeEntries, themePath } = require('../../../lib/theme/files.js');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -21,7 +22,7 @@ describe('ThemeStore.add — identity is an argument', () => {
   test('add(name, css) registers under the GIVEN name, ignoring the directive', () => {
     // The point of the contract: the caller decides. A sheet whose directive says
     // something else does not get to override the name it was registered under —
-    // which is what made `themes/foo.css` declaring `@theme bar` a silent hazard.
+    // which is what made `themes/foo/foo.css` declaring `@theme bar` a silent hazard.
     const s = new ThemeStore();
     assert.equal(s.add('given', '/* @theme declared */\nsection{}'), true);
     assert.equal(s.has('given'), true);
@@ -151,16 +152,16 @@ describe('the on-disk palettes agree with their manifests', () => {
   // The gate (tools/check-ownership.js checkThemeIdentity) is the enforcement; this
   // asserts the same binding in the fast suite so a mismatch fails `npm test` too.
   const THEMES = path.join(ROOT, 'themes');
-  const files = fs.readdirSync(THEMES).filter((f) => f.endsWith('.css')).sort();
+  const files = themeEntries(THEMES).filter((f) => f.endsWith('.css')).sort();
 
   test('filename ≡ @theme ≡ manifest name, for every palette', () => {
     assert.ok(files.length >= 32, `expected the full palette set, saw ${files.length}`);
     const bad = [];
     for (const f of files) {
       const name = f.replace(/\.css$/, '');
-      const declared = /@theme\s+([A-Za-z0-9_-]+)/.exec(fs.readFileSync(path.join(THEMES, f), 'utf8'))?.[1];
+      const declared = /@theme\s+([A-Za-z0-9_-]+)/.exec(fs.readFileSync(themePath(THEMES, f), 'utf8'))?.[1];
       if (declared !== name) bad.push(`${f}: @theme ${declared ?? '(none)'}`);
-      const mp = path.join(THEMES, `${name}.manifest.json`);
+      const mp = path.join(THEMES, name, `${name}.manifest.json`);
       if (fs.existsSync(mp)) {
         const m = JSON.parse(fs.readFileSync(mp, 'utf8'));
         if (m.name !== undefined && m.name !== name) bad.push(`${f}: manifest name "${m.name}"`);

@@ -26,6 +26,7 @@
  */
 
 const fs = require('node:fs');
+const { themeEntries, themePath } = require('../lib/theme/files.js');
 const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..');
@@ -35,9 +36,9 @@ const DIST = path.join(ROOT, 'dist', 'lattice.css');
 // SCOPE COMES FROM THE MANIFESTS. The hardcoded array this replaces named 13 themes
 // and omitted `carta`, so `scorecard:check` never scored a shipped base palette. See
 // engineering/decisions/2026-08-09-theme-token-contract.md.
-const THEMES = fs.readdirSync(THEMES_DIR)
+const THEMES = themeEntries(THEMES_DIR)
   .filter((f) => f.endsWith('.manifest.json'))
-  .map((f) => JSON.parse(fs.readFileSync(path.join(THEMES_DIR, f), 'utf8')))
+  .map((f) => JSON.parse(fs.readFileSync(themePath(THEMES_DIR, f), 'utf8')))
   .filter((m) => m.role === 'base')
   .map((m) => m.name)
   .sort();
@@ -123,7 +124,7 @@ function parseVars(content) {
   return vars;
 }
 function ownTokens(name) {
-  const stripped = fs.readFileSync(path.join(THEMES_DIR, `${name}.css`), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  const stripped = fs.readFileSync(path.join(THEMES_DIR, name, `${name}.css`), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
   const s = new Set();
   for (const m of stripped.matchAll(/--([a-z0-9_-]+)\s*:/gi)) s.add(m[1]);
   return s;
@@ -172,7 +173,7 @@ function scoreTheme(name, dist) {
   const missing = CONTRACT.filter((t) => !own.has(t));
   const completeness = (CONTRACT.length - missing.length) / CONTRACT.length * 100;
 
-  const vars = { ...dist, ...parseVars(fs.readFileSync(path.join(THEMES_DIR, `${name}.css`), 'utf8')) };
+  const vars = { ...dist, ...parseVars(fs.readFileSync(path.join(THEMES_DIR, name, `${name}.css`), 'utf8')) };
   let minTextAA = Infinity, minMark = Infinity, minCatAdj = Infinity, minState = Infinity;
   for (const mode of ['light', 'dark']) {
     const bg = resolve(vars.bg, vars, mode), th = resolve(vars['text-heading'], vars, mode);

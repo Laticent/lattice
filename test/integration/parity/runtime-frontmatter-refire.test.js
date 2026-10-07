@@ -320,7 +320,7 @@ describe('runtime front-matter re-fire — logo/meta/class survive a live-edit D
 // ─────────────────────────────────────────────────────────────────────────────
 
 const THEMES = path.join(__dirname, '..', '..', '..', 'themes');
-const themeCss = (n) => fs.readFileSync(path.join(THEMES, `${n}.css`), 'utf8');
+const themeCss = (n) => fs.readFileSync(path.join(THEMES, n, `${n}.css`), 'utf8');
 // base.print-textures.css ships inside the engine sheet on every surface, and is
 // what makes `latt-a11y-tex` present for EVERY theme — the sentinel the runtime
 // uses to tell "no textures referenced" from "I cannot see the stylesheet".

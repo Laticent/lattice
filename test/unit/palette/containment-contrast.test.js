@@ -100,10 +100,10 @@ const BASE_VARS = rawRootVars(fs.readFileSync(path.join(ROOT, 'dist', 'lattice.c
 
 /** Every containment token in `theme`, resolved for one color scheme. */
 function resolveTier(theme, isDark) {
-  const themeCss = fs.readFileSync(path.join(ROOT, 'themes', `${theme}.css`), 'utf8');
+  const themeCss = fs.readFileSync(path.join(ROOT, 'themes', theme, `${theme}.css`), 'utf8');
   const vars = { ...BASE_VARS, ...rawRootVars(themeCss) };
   const get = (token) => {
-    assert.ok(vars[token], `themes/${theme}.css does not define --${token}`);
+    assert.ok(vars[token], `themes/${theme}/${theme}.css does not define --${token}`);
     return resolveTokenExpr(vars[token], vars, isDark);
   };
   return {
@@ -160,7 +160,7 @@ describe('containment-contrast', () => {
       for (const isDark of [false, true]) {
         const scheme = isDark ? 'dark' : 'light';
         const t = resolveTier(theme, isDark);
-        const vars = { ...BASE_VARS, ...rawRootVars(fs.readFileSync(path.join(ROOT, 'themes', `${theme}.css`), 'utf8')) };
+        const vars = { ...BASE_VARS, ...rawRootVars(fs.readFileSync(path.join(ROOT, 'themes', theme, `${theme}.css`), 'utf8')) };
         const canvas = resolveTokenExpr(vars.bg, vars, isDark);
         const [lc, l1, l2] = [
           [canvas, `${theme}/${scheme} --bg`],

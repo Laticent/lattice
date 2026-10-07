@@ -22,6 +22,7 @@
  */
 
 const { test, describe } = require('node:test');
+const { themeEntries, themePath } = require('../../../lib/theme/files.js');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -37,8 +38,8 @@ function shippedStylesheets() {
     .filter((p) => fs.existsSync(p));
   const themes = path.join(DIST, 'themes');
   if (fs.existsSync(themes)) {
-    for (const f of fs.readdirSync(themes)) {
-      if (f.endsWith('.css')) files.push(path.join(themes, f));
+    for (const f of themeEntries(themes)) {
+      if (f.endsWith('.css')) files.push(themePath(themes, f));
     }
   }
   return files;

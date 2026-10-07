@@ -2,7 +2,7 @@
  *
  * Color tokens (--bg / --accent / …) come from lattice-tokens.generated.css,
  * which is emitted by tools/build-landing-tokens.js from the SAME resolver the
- * component portal uses (themes/<name>.css). That keeps the landing and the
+ * component portal uses (themes/<name>/<name>.css). That keeps the landing and the
  * portal visually identical and lets a visitor's palette/mode choice persist
  * across the jump (shared localStorage keys: lattice-docs-palette / -mode).
  *

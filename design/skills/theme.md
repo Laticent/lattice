@@ -1,11 +1,11 @@
 # Skill — Create a theme
 
-> Author a new palette (`themes/<name>.css`) that recolors every deck, holds WCAG
+> Author a new palette (`themes/<name>/<name>.css`) that recolors every deck, holds WCAG
 > AA everywhere text bears, and reads like ink on paper — not a rainbow.
 
 **Read this when** you are asked to create a brand palette, a color scheme, or a
-new theme. **You'll produce** two files: `themes/<name>.css` (the palette) and
-`themes/<name>-dark.css` (a 3-line dark wrapper).
+new theme. **You'll produce** two files: `themes/<name>/<name>.css` (the palette) and
+`themes/<name>-dark/<name>-dark.css` (a 3-line dark wrapper).
 
 ---
 
@@ -63,11 +63,11 @@ A theme is one CSS file that declares **CSS custom properties (tokens) only** an
 
 ## Where it lives
 
-- **Files**: `themes/<name>.css` + `themes/<name>-dark.css`.
+- **Files**: `themes/<name>/<name>.css` + `themes/<name>-dark/<name>-dark.css`.
 - **The engine token layer** you inherit from: `lib/base/base.tokens.css` (the one
   `*.tokens.css` file — the sanctioned home for `--token:#hex`).
-- **The reference themes** to copy from: `themes/indaco.css` (cool default) and
-  `themes/cuoio.css` (warm) — their `--cat-*` **values** are the current three-layer
+- **The reference themes** to copy from: `themes/indaco/indaco.css` (cool default) and
+  `themes/cuoio/cuoio.css` (warm) — their `--cat-*` **values** are the current three-layer
   cycle, so copy them freely.
 - **⚠️ Two stale neighbors — trust this skill's model over them.** `indaco.css`'s own
   header comment and the `TODO(palette)` checklist the scaffold stamps still describe
@@ -142,7 +142,7 @@ A theme is one CSS file that declares **CSS custom properties (tokens) only** an
 
 ## The contract / skeleton
 
-A base palette's spine (from `themes/indaco.css`):
+A base palette's spine (from `themes/indaco/indaco.css`):
 
 ```css
 /* @theme verdigris */          /* MUST match the filename — and it is the ONLY

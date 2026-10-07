@@ -1,7 +1,7 @@
 /**
  * Palette CSS parser shared by tests.
  *
- * Reads a `themes/<name>.css` file plus `lattice.css` (which the theme
+ * Reads a `themes/<name>/<name>.css` file plus `lattice.css` (which the theme
  * imports for the universal semantic palette defaults) and returns:
  *   - vars: { tokenName: resolvedValue } for every `--token` declaration
  *           across both files' `:root` blocks. Theme declarations
@@ -12,6 +12,7 @@
  */
 
 const fs   = require('fs');
+const { themeEntries, themePath } = require('../../lib/theme/files.js');
 const path = require('path');
 
 function parsePaletteVars(content) {
@@ -47,7 +48,7 @@ function parsePaletteVars(content) {
 
 function loadPalette(name) {
   const root = path.join(__dirname, '..', '..');
-  const themeFile = path.join(root, 'themes', `${name}.css`);
+  const themeFile = path.join(root, 'themes', name, `${name}.css`);
   const raw = fs.readFileSync(themeFile, 'utf8');
   // Universal palette defaults live in lattice.css :root. Parse it
   // first so theme declarations override (themes are loaded last in
@@ -64,14 +65,14 @@ function loadPalette(name) {
  * carried 13 names and omitted `carta` — a shipped base palette — so
  * `token-parity`, `structural-text-contrast` and `chart-contrast` had never tested
  * it, while `containment-contrast` had 14 and did. A hardcoded list cannot report
- * what is missing from it; `themes/<name>.manifest.json` declares `role: "base"`,
+ * what is missing from it; `themes/<name>/<name>.manifest.json` declares `role: "base"`,
  * and `checkThemeRoles` proves that declaration against the file's own imports and
  * token count. See engineering/decisions/2026-08-09-theme-token-contract.md.
  */
 function baseThemeNames(themesDir = path.join(__dirname, '..', '..', 'themes')) {
-  return fs.readdirSync(themesDir)
+  return themeEntries(themesDir)
     .filter((f) => f.endsWith('.manifest.json'))
-    .map((f) => JSON.parse(fs.readFileSync(path.join(themesDir, f), 'utf8')))
+    .map((f) => JSON.parse(fs.readFileSync(themePath(themesDir, f), 'utf8')))
     .filter((m) => m.role === 'base')
     .map((m) => m.name)
     .sort();

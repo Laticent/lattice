@@ -122,7 +122,7 @@ export function PostureDial({ posture, quietened, revealCraft, onChange }: { pos
 					<Tip key={s.id} label={lit && transient ? `${s.hint} · showing now — click to make it your saved home` : s.hint}>
 						{/* COLOR, both arms, deliberately (2026-08-16 toolbar placement review):
 						    · UNSELECTED was `text-muted-foreground` → `--text-muted`, which every theme
-						      documents as "decorative / de-emphasized … WCAG-exempt" (themes/cuoio.css:108).
+						      documents as "decorative / de-emphasized … WCAG-exempt" (themes/cuoio/cuoio.css:108).
 						      On 12px semibold that is a 1.4.3 AA FAILURE — measured 2.64:1 in cuoio light,
 						      and below 4.5:1 in 21 of 36 palette×mode combos. These are load-bearing labels:
 						      the two stops you are NOT on are exactly the ones you must read to decide where

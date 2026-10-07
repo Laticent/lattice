@@ -84,12 +84,12 @@ describe('contrast', () => {
         // resolve under themes/.
         const target = m[1] === 'lattice'
           ? path.join(rootDir, 'dist', 'lattice.css')
-          : path.join(themesDir, `${m[1]}.css`);
+          : path.join(themesDir, m[1], `${m[1]}.css`);
         walk(target);
       }
       combined += content + '\n';
     }
-    walk(path.join(themesDir, `${name}.css`));
+    walk(path.join(themesDir, name, `${name}.css`));
     return parsePaletteVars(combined, mode);
   }
 

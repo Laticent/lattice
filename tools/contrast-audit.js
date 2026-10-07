@@ -19,6 +19,7 @@
 
 
 const fs   = require('fs');
+const { themeEntries } = require('../lib/theme/files.js');
 const path = require('path');
 
 const { themeChain } = require('../lib/theme/chain.mjs');
@@ -42,7 +43,7 @@ const THEMES_DIR = path.join(ROOT, 'themes');
 
 function paletteChainCss(theme) {
   return themeChain(theme, THEME_EDGES)
-    .map((n) => path.join(THEMES_DIR, `${n}.css`))
+    .map((n) => path.join(THEMES_DIR, n, `${n}.css`))
     .filter((f) => fs.existsSync(f))
     .map((f) => fs.readFileSync(f, 'utf8'))
     .join('\n');
@@ -342,7 +343,7 @@ const PAIRS = [
 // ── Per-theme audit (pure; shared by the CLI runner AND the unit gate) ──────
 
 function listAllThemes() {
-  return fs.readdirSync(THEMES_DIR)
+  return themeEntries(THEMES_DIR)
     .filter(f => f.endsWith('.css'))
     .map(f => f.replace('.css', ''))
     .sort();
@@ -352,7 +353,7 @@ function listAllThemes() {
  *  or null if the theme file is absent. Pure: no console, no process state, so a
  *  test can assert on it and the CLI can print it. */
 function auditTheme(theme) {
-  const cssFile = path.join(THEMES_DIR, `${theme}.css`);
+  const cssFile = path.join(THEMES_DIR, theme, `${theme}.css`);
   if (!fs.existsSync(cssFile)) return null;
 
   const css  = paletteChainCss(theme);

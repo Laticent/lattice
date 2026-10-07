@@ -37,6 +37,8 @@
     "./default": "./dist/lattice-default.css",
     "./default/min": "./dist/lattice-default-min.css",
     "./engine": "./lib/engine/index.js",
+    "./themes/*.css": "./themes/*/*.css",
+    "./themes/*.manifest.json": "./themes/*/*.manifest.json",
     "./themes/*": "./themes/*",
     "./lib/*": "./lib/*",
     "./dist/*": "./dist/*",

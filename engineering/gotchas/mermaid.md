@@ -129,7 +129,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   result.
 - **Cause:** Mermaid's kanban renderer internally lightens the cScale
   inputs by ~10-15 lightness points before painting swimlane headers.
-- **Mitigation:** The cat-* tokens in [themes/indaco.css:286-294](../themes/indaco.css#L286-L294)
+- **Mitigation:** The cat-* tokens in [themes/indaco/indaco.css:286-294](../themes/indaco/indaco.css#L286-L294)
   are pinned at L≈60 specifically so kanban's lighten step lands at
   L≈70 (where dark text reads cleanly). Mindmap and other diagrams
   that read cScale directly get a CSS override in the per-diagram

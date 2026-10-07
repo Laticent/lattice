@@ -245,7 +245,7 @@ mud and value-collapse hide there.
      Present-mode mark reveal and detail popovers never attach.
    - `docs/src/lib/compose/registers.ts` `TABLE_UNSUITED` — else Compose offers
      "add a table" on a slide whose figure owns the whole stage.
-   - `themes/a11y-base.css` and `lib/base/base.print-textures.css` — the CVD and
+   - `themes/a11y-base/a11y-base.css` and `lib/base/base.print-textures.css` — the CVD and
      print TEXTURE channels. Give every categorical filled mark `data-cat="N"`
      and every stroked series mark `data-series="N"` and both files are a few
      rules rather than a per-chart block.

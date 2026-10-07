@@ -14,7 +14,7 @@
     "name": {
       "type": "string",
       "pattern": "^[a-z][a-z0-9-]*$",
-      "description": "The palette slug. MUST equal the filename stem — a deck's `theme:` resolves to `themes/<name>.css`, so this is the same identifier the engine reads. Gated (G1)."
+      "description": "The palette slug. MUST equal the filename stem — a deck's `theme:` resolves to `themes/<name>/<name>.css`, so this is the same identifier the engine reads. Gated (G1)."
     },
     "role": {
       "enum": ["base", "variant-dark", "derived-variant"],

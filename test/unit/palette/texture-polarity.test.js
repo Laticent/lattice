@@ -241,7 +241,7 @@ function resolveUnderPin({ chain }, pin) {
   let root = { ...BASE_VARS };
   const pinned = [];
   chain.forEach((file, i) => {
-    const css = fs.readFileSync(path.join(ROOT, 'themes', `${file}.css`), 'utf8');
+    const css = fs.readFileSync(path.join(ROOT, 'themes', file, `${file}.css`), 'utf8');
     root = { ...root, ...declsForSelector(css, isRoot) };
     pinned.push(...pinRules(css, pinMatcher(pin.cls), i));
   });
@@ -263,7 +263,7 @@ describe('texture-polarity', () => {
       test(`${entry.theme} / .${pin.cls}: label ink clears AA on every chip that actually paints`, () => {
         const { get } = resolveUnderPin(entry, pin);
         const ink = get('cat-on-fill');
-        assert.ok(ink, `themes/${entry.theme}.css resolves no --cat-on-fill under .${pin.cls}`);
+        assert.ok(ink, `themes/${entry.theme}/${entry.theme}.css resolves no --cat-on-fill under .${pin.cls}`);
 
         for (let n = 1; n <= 12; n++) {
           const texture = get(`cat-${n}-texture`);
@@ -301,7 +301,7 @@ describe('texture-polarity', () => {
     // per slide, and an attribute announcing "this render baked per slide" announces
     // nothing. The invariant it stood in for is now gated directly, below.
     for (const theme of ['onyx', 'concrete']) {
-      const css = stripComments(fs.readFileSync(path.join(ROOT, 'themes', `${theme}.css`), 'utf8'));
+      const css = stripComments(fs.readFileSync(path.join(ROOT, 'themes', theme, `${theme}.css`), 'utf8'));
       const re = /([^{}]+)\{([^}]*)\}/g;
       let m;
       let guarded = 0;
@@ -313,17 +313,17 @@ describe('texture-polarity', () => {
           // A literal leading `section` compound, or packTheme (and marp-core) rewrite
           // the rule into a slide DESCENDANT and it silently never matches.
           assert.match(sel, /^section\.[\w-]+/,
-            `themes/${theme}.css selects a pinned texture set from "${sel}", which does not lead `
+            `themes/${theme}/${theme}.css selects a pinned texture set from "${sel}", which does not lead `
             + 'with a literal `section` compound — packTheme would rewrite it into a slide descendant.');
           // …and print must still win, because print bakes ONE band deck-wide.
           assert.match(sel, /:not\(\.print\)/,
-            `themes/${theme}.css pins a texture set from "${sel}" without excluding \`.print\` — `
+            `themes/${theme}/${theme}.css pins a texture set from "${sel}" without excluding \`.print\` — `
             + '`--print` bakes one B&W band for the whole deck, so a per-slide chip under it '
             + 'puts dark print ink on a dark chip (~2.7:1).');
           guarded++;
         }
       }
-      assert.ok(guarded > 0, `themes/${theme}.css declares no pinned texture rules at all`);
+      assert.ok(guarded > 0, `themes/${theme}/${theme}.css declares no pinned texture rules at all`);
     }
 
     // ONE predicate, both halves — asserted as BEHAVIOR, not as text in a file.
@@ -373,9 +373,9 @@ describe('texture-polarity', () => {
       'the emulator still stamps the retired marker',
     );
     for (const theme of ['onyx', 'concrete', 'a11y-base']) {
-      const css = fs.readFileSync(path.join(ROOT, 'themes', `${theme}.css`), 'utf8');
+      const css = fs.readFileSync(path.join(ROOT, 'themes', theme, `${theme}.css`), 'utf8');
       assert.doesNotMatch(stripComments(css), /data-lattice-slide-bake/,
-        `themes/${theme}.css still qualifies a selector on [data-lattice-slide-bake], which nothing `
+        `themes/${theme}/${theme}.css still qualifies a selector on [data-lattice-slide-bake], which nothing `
         + 'stamps any more — every rule behind it is dead, and a scheme-pinned slide loses its '
         + 'texture polarity entirely');
     }
@@ -403,7 +403,7 @@ describe('texture-polarity', () => {
     // was a source-text match and that is what let it be removed unnoticed.
     const { createEngine } = require('../../../lib/engine');
     const engine = createEngine();
-    for (const rel of [path.join('dist', 'lattice.css'), path.join('themes', 'onyx.css')]) {
+    for (const rel of [path.join('dist', 'lattice.css'), path.join('themes', 'onyx', 'onyx.css')]) {
       engine.addThemes([fs.readFileSync(path.join(ROOT, rel), 'utf8')]);
     }
     const { html } = engine.render(
@@ -517,7 +517,7 @@ describe('texture-polarity', () => {
     const baseLatticeCss = fs.readFileSync(path.join(ROOT, 'dist', 'lattice.css'), 'utf8');
 
     for (const theme of ['onyx', 'concrete', 'a11y-base']) {
-      const themeCss = fs.readFileSync(path.join(ROOT, 'themes', `${theme}.css`), 'utf8');
+      const themeCss = fs.readFileSync(path.join(ROOT, 'themes', theme, `${theme}.css`), 'utf8');
       const out = composeCss({ themeCss, baseLatticeCss });
       const packed = String(typeof out === 'string' ? out : out.css);
 
@@ -554,9 +554,9 @@ describe('texture-polarity', () => {
     // than teach the resolver a whole extra cascade tier for a declaration nothing
     // here needs, ban it on this channel and keep the model honest.
     for (const theme of ['onyx', 'concrete', 'a11y-base']) {
-      const css = stripComments(fs.readFileSync(path.join(ROOT, 'themes', `${theme}.css`), 'utf8'));
+      const css = stripComments(fs.readFileSync(path.join(ROOT, 'themes', theme, `${theme}.css`), 'utf8'));
       for (const [, decl] of css.matchAll(/(--cat-\d+-texture\s*:[^;]*!important[^;]*);/g)) {
-        assert.fail(`themes/${theme}.css declares "${decl.trim()}" — !important outranks both `
+        assert.fail(`themes/${theme}/${theme}.css declares "${decl.trim()}" — !important outranks both `
           + 'specificity and source order, which this gate models and the pins depend on');
       }
     }

@@ -5,50 +5,40 @@ recorded: 2026-09-23
 source: https://github.com/Laticent/lattice/pull/2314
 ---
 
-# Move themes into themes/<name>/ folders (phase 5) and seed a motion library
+# Seed a shipped motion library, and let the theme schema take `type` and `format`
 
-Spec: `engineering/decisions/2026-09-23-portable-packages.md`.
+Spec: `engineering/decisions/2026-09-23-portable-packages.md` (§8 phase 5, §10).
 
 ```text
-why now   — the owner chose one shape for every kind.
-where     — themes/ (70 files), ~67 source files that reference theme paths, package.json exports remap ./themes/*.css -> ./themes/*/*.css; lib/motion/.
-done when — no flat theme remains, the published import path still resolves, and example motion ships as packages.
-evidence  — require.resolve of @laticent/lattice/themes/indaco.css from a packed tarball.
+why now   — the owner chose one shape for every kind. Themes moved into themes/<name>/ folders
+            (2026-10-06, PR #2568); the other two halves of phase 5 are still open.
+where     — lib/motion/ (new), the Studio surface that inserts from it; themes/theme.schema.json and
+            test/unit/tools/manifest-schema-equivalence.test.js for the two fields.
+done when — example motion ships as packages that something lists and inserts, and a shipped theme
+            manifest may carry "type": "theme" and "format": 1 like every other kind.
+evidence  — `lattice packages list --type motion` names the shipped scenes; a theme manifest with
+            both fields passes the schema and the equivalence corpus.
 verify    — build:check + integration.
 ```
 
-## Why PR #2314 stopped short of this (2026-09-24)
+## Themes into folders: done (2026-10-06)
 
-Scoped and measured, not started:
+The blocker this file used to record is gone. It was an external desktop wrapper that might read
+flat theme paths off disk, which no Lattice session could check. #2552 records that the desktop app
+is built in THIS repository and does not exist yet, so nothing outside the repo reads `themes/`,
+and the move went ahead without flat compatibility copies. The published
+`@laticent/lattice/themes/<name>.css` still resolves, through an `exports` remap measured from a
+packed tarball. The record is the spec's §10 "Phase 5" entry.
 
-- **Reach: 153 files** reference a theme path (`grep -rlE "themes/[${a-z'\"\` ]|'themes'|\"themes\""`
-  over `lib tools docs/src lattice-emulator.js test docs/scripts scripts .github`, generated
-  files excluded). That is the §9 Q2 figure with tests, JSON, YAML and shell counted.
-- **The remap resolves.** On Node 22.22, a package whose `exports` puts
-  `"./themes/*.css": "./themes/*/*.css"` BEFORE `"./themes/*": "./themes/*"` resolves
-  `@laticent/lattice/themes/indaco.css` to `themes/indaco/indaco.css`, and
-  `themes/indaco/indaco.manifest.json` still resolves through the second entry. The key order
-  matters: the more specific pattern has to come first.
-- **What the remap does NOT cover:** a consumer that reads
-  `node_modules/@laticent/lattice/themes/<name>.css` off disk instead of resolving it. The
-  desktop wrapper is the known embedder and is outside this repo, so nobody here can check it.
-  Before the move, confirm how the wrapper loads themes, or ship flat compatibility copies
-  for one release.
-- The Marp export (`lib/core/marp-bundle.js`, `tools/export-marp.js`) copies `themes/<file>`
-  into the bundle by filename. That output layout is also what a Marp user sees, so it
-  should stay flat even after the source moves.
+## The motion library (unstarted)
 
-The motion-library half is also unstarted. The examples hold 7 scenes (`examples/anima-scene.md`
-×3, `examples/motion-asset.md` ×4) that could seed `lib/motion/<name>/`, but nothing yet LISTS
-shipped motion except `lattice packages list`. So seed it together with the Studio surface that
-inserts from it, or the shipped data sits unread.
+The examples hold 7 scenes (`examples/anima-scene.md` ×3, `examples/motion-asset.md` ×4) that could
+seed `lib/motion/<name>/`, but nothing yet LISTS shipped motion except `lattice packages list`. So
+seed it together with the Studio surface that inserts from it, or the shipped data sits unread.
 
-## Still blocked (2026-09-24, the portable-packages continuation)
+## The theme schema's `type` and `format` (unstarted)
 
-The precondition above is unmet: the desktop wrapper is not reachable from a Lattice session
-(its repository is not among the ones this session's GitHub access lists), so how it loads
-themes is still unknown. The move was not started. Two ways to unblock it, either one enough:
-someone with the wrapper's source says whether it resolves `@laticent/lattice/themes/<name>.css`
-through `require.resolve`/`exports` (the remap covers it) or reads the file off disk (it does
-not); or the owner accepts the flat-compatibility-copies fallback for one release, which puts a
-generated `themes/<name>.css` beside each folder in the published tarball only.
+`manifest-schema-equivalence.test.js` pins the theme schema's exact mutation corpus and requires
+every property to be carried by a shipped theme, so adding the two fields means stamping all 33
+shipped theme manifests in the same change. Until then a Studio-exported theme's stamped manifest
+is a valid package but not yet a valid `themes/` manifest.

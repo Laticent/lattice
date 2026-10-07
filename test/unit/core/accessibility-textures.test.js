@@ -1,4 +1,5 @@
 const test = require('node:test');
+const { themeEntries } = require('../../../lib/theme/files.js');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -192,13 +193,13 @@ test('neither emission site re-implements the reference matcher', () => {
   }
 });
 
-const shippedPalettes = fs.readdirSync(THEMES_DIR)
+const shippedPalettes = themeEntries(THEMES_DIR)
   .filter((f) => f.endsWith('.css'))
   .map((f) => f.replace(/\.css$/, ''))
-  .filter((n) => THEME_EDGES[n] !== undefined || fs.existsSync(path.join(THEMES_DIR, `${n}.manifest.json`)));
+  .filter((n) => THEME_EDGES[n] !== undefined || fs.existsSync(path.join(THEMES_DIR, n, `${n}.manifest.json`)));
 
 const chainCss = (name) => themeChain(name, THEME_EDGES)
-  .map((n) => fs.readFileSync(path.join(THEMES_DIR, `${n}.css`), 'utf8'))
+  .map((n) => fs.readFileSync(path.join(THEMES_DIR, n, `${n}.css`), 'utf8'))
   .join('\n');
 
 test('every shipped palette resolves the same set through both spellings', () => {

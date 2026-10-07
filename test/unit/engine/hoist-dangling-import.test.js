@@ -34,6 +34,7 @@
  */
 
 const { test, describe } = require('node:test');
+const { themeEntries, themePath } = require('../../../lib/theme/files.js');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -154,10 +155,10 @@ describe('the 32 shipped themes are untouched', () => {
   // shipped palette imports by bare name and every one of those names resolves, so
   // nothing here should reach the drop branch at all.
   const base = fs.readFileSync(path.join(__dirname, '../../../dist/lattice.css'), 'utf8');
-  const files = fs.readdirSync(THEMES_DIR).filter((f) => f.endsWith('.css')).sort();
+  const files = themeEntries(THEMES_DIR).filter((f) => f.endsWith('.css')).sort();
   const s = new ThemeStore();
   s.add('lattice', base);
-  for (const f of files) s.add(path.basename(f, '.css'), fs.readFileSync(path.join(THEMES_DIR, f), 'utf8'));
+  for (const f of files) s.add(path.basename(f, '.css'), fs.readFileSync(themePath(THEMES_DIR, f), 'utf8'));
 
   test('every theme composes with no surviving @import statement', () => {
     assert.ok(files.length >= 32, `expected the full catalog, saw ${files.length}`);

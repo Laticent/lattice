@@ -8,6 +8,7 @@
  * See engineering/decisions/2026-08-16-manifest-is-the-theme-contract.md.
  */
 const { test, describe } = require('node:test');
+const { themeEntries, themePath } = require('../../../lib/theme/files.js');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -16,9 +17,9 @@ const { themeChain, edgesFromManifests } = require('../../../lib/theme/chain.mjs
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const THEMES = path.join(ROOT, 'themes');
-const manifests = fs.readdirSync(THEMES)
+const manifests = themeEntries(THEMES)
   .filter((f) => f.endsWith('.manifest.json'))
-  .map((f) => JSON.parse(fs.readFileSync(path.join(THEMES, f), 'utf8')));
+  .map((f) => JSON.parse(fs.readFileSync(themePath(THEMES, f), 'utf8')));
 const edges = edgesFromManifests(manifests);
 
 describe('themeChain', () => {
@@ -84,7 +85,8 @@ describe('the chain reproduces the flattener it replaced', () => {
     let m;
     while ((m = importRe.exec(content)) !== null) {
       if (m[1] === 'lattice') continue;
-      const p = path.join(path.dirname(filePath), `${m[1]}.css`);
+      // A theme's `@import 'onyx'` names a sibling THEME, which lives in its own folder.
+      const p = path.join(path.dirname(filePath), '..', m[1], `${m[1]}.css`);
       if (fs.existsSync(p)) imported += `${flattenViaImports(p, seen)}\n`;
     }
     return imported + content;
@@ -92,11 +94,11 @@ describe('the chain reproduces the flattener it replaced', () => {
 
   test('every palette flattens identically through the chain', () => {
     const differing = [];
-    for (const f of fs.readdirSync(THEMES).filter((x) => x.endsWith('.css')).sort()) {
+    for (const f of themeEntries(THEMES).filter((x) => x.endsWith('.css')).sort()) {
       const name = f.replace(/\.css$/, '');
-      const viaImports = flattenViaImports(path.join(THEMES, f));
+      const viaImports = flattenViaImports(themePath(THEMES, f));
       const viaChain = themeChain(name, edges)
-        .map((n) => fs.readFileSync(path.join(THEMES, `${n}.css`), 'utf8'))
+        .map((n) => fs.readFileSync(path.join(THEMES, n, `${n}.css`), 'utf8'))
         .join('\n');
       if (viaImports !== viaChain) differing.push(name);
     }

@@ -20,6 +20,7 @@
  */
 
 const { test, describe } = require('node:test');
+const { themeEntries } = require('../../../lib/theme/files.js');
 const assert = require('node:assert/strict');
 const fs     = require('fs');
 const path   = require('path');
@@ -45,14 +46,14 @@ describe('mermaid-var-map', () => {
   // really are shims, so one quietly growing into a standalone palette does not
   // slip out of the sweep unnoticed.
   const THEMES_DIR = path.join(__dirname, '..', '..', '..', 'themes');
-  const ALL_THEMES = fs.readdirSync(THEMES_DIR)
+  const ALL_THEMES = themeEntries(THEMES_DIR)
     .filter((f) => f.endsWith('.css') && !f.includes('audit'))
     .map((f) => f.replace(/\.css$/, ''))
     .sort();
   // Every theme `@import 'lattice'` for the universal defaults; a SHIM is one
   // that additionally imports a sibling PALETTE (`@import 'indaco'`).
   const importsAnotherTheme = (name) => {
-    const src = fs.readFileSync(path.join(THEMES_DIR, `${name}.css`), 'utf8');
+    const src = fs.readFileSync(path.join(THEMES_DIR, name, `${name}.css`), 'utf8');
     return [...src.matchAll(/@import\s+['"]([^'"]+)['"]/g)]
       .some((m) => m[1] !== name && ALL_THEMES.includes(m[1]));
   };
@@ -61,21 +62,21 @@ describe('mermaid-var-map', () => {
   test('the sweep covers every self-declaring palette, and the rest are shims', () => {
     assert.ok(THEMES.length >= 13, `expected the full base-palette set, got ${THEMES.length}`);
     for (const n of ['indaco', 'cuoio', 'onyx', 'concrete', 'carbone']) {
-      assert.ok(THEMES.includes(n), `themes/${n}.css must be in the sweep`);
+      assert.ok(THEMES.includes(n), `themes/${n}/${n}.css must be in the sweep`);
     }
     // Everything excluded must be excluded BECAUSE it imports a base — never
     // because it was forgotten.
     for (const n of ALL_THEMES.filter((x) => !THEMES.includes(x))) {
-      assert.ok(importsAnotherTheme(n), `themes/${n}.css is not in the sweep and does not import a base`);
+      assert.ok(importsAnotherTheme(n), `themes/${n}/${n}.css is not in the sweep and does not import a base`);
     }
   });
 
   for (const name of THEMES) {
-    test(`mermaid-var-map: every required var is defined in themes/${name}.css`, () => {
+    test(`mermaid-var-map: every required var is defined in themes/${name}/${name}.css`, () => {
       const p = loadPalette(name);
       const missing = required.filter(v => !p.vars[v]);
       assert.deepEqual(missing, [],
-        `themes/${name}.css does not define: ${missing.join(', ')}\n` +
+        `themes/${name}/${name}.css does not define: ${missing.join(', ')}\n` +
         `MERMAID_VAR_MAP references these but the palette is silent. ` +
         `Either define the variable in the palette or change the map entry.`);
     });

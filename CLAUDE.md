@@ -7,8 +7,8 @@ PDFs from Markdown. It is the engine layer of the **Laticent** org. The
 repo. Older notes that say otherwise are corrected in place.
 
 **The visual contract is `lattice.css`.** Layouts are palette-blind: every
-color goes through `var(--token)`. Themes (`themes/indaco.css`,
-`themes/cuoio.css`, …) supply the tokens.
+color goes through `var(--token)`. Themes (`themes/indaco/indaco.css`,
+`themes/cuoio/cuoio.css`, …) supply the tokens.
 
 This file is an **index, not a manual**: it orients you and points to the
 canonical doc for each topic. Each rule is one line + a pointer; the rationale

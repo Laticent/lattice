@@ -682,7 +682,7 @@ test('themeDualMode reads DERIVED tokens from :root only — a component-local o
 	// `--fs-*` scale on size classes. Scanning the WHOLE sheet lifted those onto every slide
 	// at (0,7,1), outranking the rules they were read from: `_class: flat` got the lifted
 	// card's shadow back, and a pill border recolored to a categorical mark. Measured on
-	// dist/lattice.css + themes/indaco.css, 281 of 435 candidate tokens were affected.
+	// dist/lattice.css + themes/indaco/indaco.css, 281 of 435 candidate tokens were affected.
 	const css = [
 		':root{--text-heading:light-dark(#0A1628,#FFFFFF);--cat-on-fill:var(--text-heading)}',
 		'section.lifted{--elevation-card:var(--text-heading)}',

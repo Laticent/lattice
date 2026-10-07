@@ -1,4 +1,5 @@
 const test = require('node:test');
+const { themeEntries, themePath } = require('../../../lib/theme/files.js');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -13,8 +14,8 @@ function engine() {
   const dir = path.join(ROOT, 'themes');
   e.addThemes([
     { name: 'lattice', css: fs.readFileSync(path.join(ROOT, 'dist/lattice.css'), 'utf8') },
-    ...fs.readdirSync(dir).filter((f) => f.endsWith('.css'))
-      .map((f) => ({ name: f.replace(/\.css$/, ''), css: fs.readFileSync(path.join(dir, f), 'utf8') })),
+    ...themeEntries(dir).filter((f) => f.endsWith('.css'))
+      .map((f) => ({ name: f.replace(/\.css$/, ''), css: fs.readFileSync(themePath(dir, f), 'utf8') })),
   ]);
   return e;
 }
@@ -246,7 +247,7 @@ test('widening a deck\'s sheet never changes what a NORMAL slide matches (every 
     });
     return out;
   };
-  const sheets = ['dist/lattice.css', ...fs.readdirSync(path.join(ROOT, 'themes')).filter((f) => f.endsWith('.css')).map((f) => `themes/${f}`)];
+  const sheets = ['dist/lattice.css', ...themeEntries(path.join(ROOT, 'themes')).filter((f) => f.endsWith('.css')).map((f) => path.relative(ROOT, themePath(path.join(ROOT, 'themes'), f)))];
   for (const f of sheets) {
     const raw = fs.readFileSync(path.join(ROOT, f), 'utf8');
     assert.deepEqual(rules(widenForPanes(raw), true), rules(raw, false), f);

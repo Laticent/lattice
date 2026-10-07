@@ -111,7 +111,7 @@ const calibrationMd = new MarkdownIt();
 
 const registered = new Set();
 function registerTheme(palette) {
-  for (const rel of ['dist/lattice.css', `themes/${palette}.css`]) {
+  for (const rel of ['dist/lattice.css', `themes/${palette}/${palette}.css`]) {
     if (registered.has(rel) || !existsSync(join(ROOT, rel))) continue;
     const css = readFileSync(join(ROOT, rel), 'utf8');
     api.addThemes([css]);
