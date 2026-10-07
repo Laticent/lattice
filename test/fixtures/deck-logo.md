@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-logo: sample:logo-acme-mark.svg
+logo: ./acme-logo.svg
 ---
 
 <!-- _class: title -->

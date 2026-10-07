@@ -40,6 +40,9 @@ const ROOT = path.resolve(__dirname, '..', '..', '..');
 const TIMEOUT = 600000;
 
 /** The deck that shows a package off: its component's gallery, or the `qr` variant's example. */
+// Where a render resolves `sample:<file>` pictures (lib/samples/); the Studio's own shape.
+const SAMPLES_URL = 'https://studio.example/samples/';
+
 function sampleDeck(name) {
   if (name === 'qr') return path.join(ROOT, 'examples', 'qr.md');
   const [hit] = fs.globSync(`lib/components/*/${name}/${name}.gallery.md`, { cwd: ROOT });
@@ -59,7 +62,10 @@ function captureAdapter(adapterPath, deck) {
     return out;
   };
   try {
-    engine.render(fs.readFileSync(deck, 'utf8'));
+    // The galleries name their pictures `sample:<file>`; every host renders with a samples folder,
+    // so this one does too (lib/engine/background-image.js installSampleImages resolves them before
+    // any adapter sees the slide, which is what keeps the package and the in-repo render equal).
+    engine.render(fs.readFileSync(deck, 'utf8'), undefined, { samplesUrl: SAMPLES_URL });
   } finally {
     adapter.applyToHtml = original;
   }
@@ -302,7 +308,9 @@ describe('code packages: every shipped transform runs in the locked page and mat
 
     const people = captureAdapter(codePackages().find((p) => p.name === 'team-profile').adapter, sampleDeck('team-profile'));
     const baseUrl = 'https://studio.example/decks/42/';
-    const slides = sections(people.input).map((html, index) => ({ html, index, idPrefix: '', baseUrl }));
+    // The gallery's portraits arrive already resolved into the samples folder; this case needs
+    // deck-RELATIVE photos, so it hands the adapter their bare names.
+    const slides = sections(people.input.split(SAMPLES_URL).join('')).map((html, index) => ({ html, index, idPrefix: '', baseUrl }));
     const expected = slides.map((s) => inRepo(people.adapter, s, { baseUrl }));
     assert.ok(expected.some((h) => h.includes(`src="${baseUrl}`)), 'the base case must resolve an asset against the base');
     assert.deepEqual((await inSandbox(browser, 'team-profile', slides)).outs, expected);

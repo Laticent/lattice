@@ -57,6 +57,20 @@ supplies `samplesUrl`:
 Every engine path that paints a picture honors it: an image slide, a section background, a prose
 image, a `logo-wall` mark, a `team-profile` portrait, a `video` poster and a deck `logo:`.
 
+**The engine resolves `sample:`, and component transforms never do.** It happens in two places
+the engine owns:
+
+- An image token's target is resolved right after inline parsing
+  (`installSampleImages` in `lib/engine/background-image.js`).
+- After every transform, `resolveInlineImageSrcs` resolves the `<img src>` and the inline-style
+  `url(…)` a transform wrote. A video poster and a raw-HTML image are the two cases.
+
+Transforms see only `baseUrl`, which is also all a component running as a sandboxed code package
+is handed (`lib/packages/code-shape.mjs`). So the in-repo render and the package render give
+the same markup, and `test/integration/export/code-package-parity.test.js` holds them to it. An
+earlier draft passed `samplesUrl` into the transforms, and the packaged `video` poster then
+differed from the in-repo one.
+
 **Previews count the site's own origin as allowed.** `withOwnOrigin` in `remote-ref.js` adds
 `location.origin` to the allow list in the five PREVIEW sinks. Those sinks are the single-slide
 renderer, the presenter stage, the deck render, the deck preview frame and the article view. Their
