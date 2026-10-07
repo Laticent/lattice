@@ -29,8 +29,8 @@ What it takes:
 that is three uploads each, which is fine for audio and for video at a modest resolution (about
 360p). Past five or six people with video, uploads run out. That is where an SFU comes in (§2).
 
-Audio (S4) shipped 2026-10-07 (design note §12.2). Video is S5 and has no follow-up yet: it
-follows audio.
+Audio (S4) shipped 2026-10-07 (design note §12.2). Video is S5, tracked by
+`followups.d/2571-p2-build-s5-video.md`.
 
 ## 2. The server path, for hosted and self-hosted Lattice
 
