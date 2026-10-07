@@ -14,9 +14,10 @@ logo: sample:logo-acme-mark.svg
 The CLI reads a `sample:` file from this folder, wherever the deck sits, and its PDF, HTML,
 player and Export-to-Marp outputs all carry the picture. The Playground, the Studio and the
 component pages load it from the copy the site stages beside its themes, and the Studio's
-exports embed or rasterize it. Two places cannot show it: the Studio's in-browser Export to
-Marp, which carries no local pictures at all yet, and an editor preview that does not run
-Lattice's engine, such as the Marp for VS Code extension. A deck's own pictures keep using
+exports embed or rasterize it. Both Export-to-Marp producers copy the file into the bundle's
+`assets/` and rewrite the reference, because Marp cannot read `sample:`. One place cannot show
+it: an editor preview that does not run Lattice's engine, such as the Marp for VS Code
+extension, opening a deck that still names `sample:`. A deck's own pictures keep using
 ordinary relative paths.
 
 | Prefix | What it is |

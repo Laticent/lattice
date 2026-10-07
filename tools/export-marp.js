@@ -81,6 +81,7 @@ const { isKnownOverflowMarker } = require('../lib/core/resolve-overflow-marker')
 const {
   STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, marpConfigCjs, withRuntimeScriptsReport, packageJson,
   safeName, vscodeSettings, readme, agentsMd, resolveExportOverflowMarker, OVERFLOW_MARKER_LEVELS,
+  mapImageRefs, mapFrontMatterLogo,
 } = require('../lib/core/marp-bundle');
 
 const ROOT = path.join(__dirname, '..');
@@ -170,10 +171,7 @@ function localizeOne(url, deckDir, destDir, copied) {
  * (http/https/data:) untouched. Copies each unique local file into <dest>/assets.
  */
 function localizeAssets(body, deckDir, destDir, copied = new Map()) {
-  const out = body.replace(/(!\[[^\]]*\]\()([^)\s]+)(\s*(?:"[^"]*")?\))/g, (full, pre, url, post) => {
-    const rel = localizeOne(url, deckDir, destDir, copied);
-    return rel ? `${pre}${rel}${post}` : full;
-  });
+  const out = mapImageRefs(body, (url) => localizeOne(url, deckDir, destDir, copied));
   return { body: out, count: copied.size };
 }
 
@@ -187,17 +185,9 @@ function localizeAssets(body, deckDir, destDir, copied = new Map()) {
  * file has to come along too.
  */
 function localizeFrontMatter(fm, deckDir, destDir, copied) {
-  // The bound here must not be TIGHTER than the readers', or the exporter skips a
-  // ref the runtime then resolves — a 404 logo on every slide. Both
-  // lib/runtime/index.js and the engine's `readDeckLogoFrontMatter` read
-  // `^[ \t]*logo:[ \t]*["']?(.*?)["']?[ \t]*$`, so this matches the same shape,
-  // including a value the reader would take verbatim (a trailing `# comment` is
-  // part of the value to both, so it is left alone here too — and then simply
-  // doesn't resolve, exactly as it doesn't for the reader).
-  return fm.replace(/^([ \t]*logo:[ \t]*["']?)([^"'\r\n]+?)(["']?[ \t]*)$/m, (full, pre, url, post) => {
-    const rel = localizeOne(url.trim(), deckDir, destDir, copied);
-    return rel ? `${pre}${rel}${post}` : full;
-  });
+  // `mapFrontMatterLogo` (lib/core/marp-bundle.js) matches the same shape the runtime and
+  // the engine read, so the exporter never skips a ref the reader then resolves.
+  return mapFrontMatterLogo(fm, (url) => localizeOne(url, deckDir, destDir, copied));
 }
 
 function copyInto(srcAbs, destAbs) {

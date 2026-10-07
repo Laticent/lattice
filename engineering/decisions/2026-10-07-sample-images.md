@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: shipped
 summary: Sample art lived in four places and resolved four ways, so the Studio showed hatched placeholders for its own portraits and logos and its Add slide templates named files that never existed. All of it now lives in one flat lib/samples/, decks name it `sample:<name>`, every host passes the folder as `samplesUrl`, and previews count the site's own origin as allowed.
 ---
 
@@ -104,11 +104,17 @@ a `sample:` file that is not in `lib/samples/`. It also fails when a component's
 
 ## Known limits
 
-- **The Studio's in-browser Export to Marp** carries no local picture, `sample:` included. It has
-  no filesystem, so it drops a relative `logo:` rather than bake a broken path
-  (`withoutLocalAssetRefs`). It could fetch sample files from the site into the zip. That is
-  recorded in `followups.d/`. The CLI's Export to Marp (`tools/export-marp.js`) copies each
-  `sample:` file into the bundle's `assets/`.
+- **Export to Marp carries `sample:` art, but the Studio's export carries no other local
+  picture.** Both producers rewrite each `sample:` reference to `assets/<name>` and put the
+  file in the bundle, front-matter `logo:` included, because Marp cannot read the prefix. Which
+  references count is shared (`mapImageRefs` and `mapFrontMatterLogo` in
+  `lib/core/marp-bundle.js`). The CLI (`tools/export-marp.js`) copies the file from
+  `lib/samples/`. The Studio's in-browser producer has no filesystem, so it fetches the file
+  from the site's staged `samples/` (`deck-export.js` `exportMarp`) and keeps the fetched
+  `logo:` in the baked front matter (`bundledAssets`). It still drops any other relative
+  `logo:` rather than bake a broken path (`withoutLocalAssetRefs`). A sample that fails to
+  fetch keeps its `sample:` reference. Neither producer rewrites a raw-HTML `<img src>` or an
+  inline-style `url()`.
 - **An editor preview that does not run Lattice's engine**, such as Marp for VS Code, cannot
   resolve `sample:`. The snippets now insert it anyway, because before this change they named
   files that did not exist either.

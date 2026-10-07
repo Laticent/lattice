@@ -1,5 +1,6 @@
 import JSZip from 'jszip';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { sampleAssetNames, withRuntimeScriptsReport, withSampleAssets } from '../../../../../lib/core/marp-bundle.js';
 import { exportMarp, importedThemeNames } from './deck-export.js';
 
 // The Marp bundle's THEME and COMPONENT supply (2026-09-23-portable-packages.md §1, §4).
@@ -20,6 +21,11 @@ const SHIPPED: Record<string, string> = {
 	'indaco.css': "/* @theme indaco */\n@import 'lattice';\n:root{--accent:#006FA8}",
 	'indaco-dark.css': "/* @theme indaco-dark */\n@import 'indaco';",
 };
+// The sample art the site stages beside its themes (docs/src/lib/samples-base.ts).
+const SAMPLES: Record<string, string> = {
+	'portrait-ada.svg': '<svg id="ada"/>',
+	'logo-acme-mark.svg': '<svg id="mark"/>',
+};
 
 let blobs: Blob[] = [];
 
@@ -31,6 +37,8 @@ beforeEach(() => {
 			stripPaneMarkers: (s: string) => s,
 			appendAutoGlossary: (s: string) => s,
 			liftImageBgImages: (s: string) => s,
+			sampleAssetNames,
+			withSampleAssets,
 			withRuntimeScriptsReport: (s: string) => ({ markdown: s, removed: { scripts: 0, handlers: 0, urls: 0 } }),
 			marpScopableCss: (s: string) => s,
 			fontAssetsFor: () => [],
@@ -45,7 +53,7 @@ beforeEach(() => {
 	};
 	vi.stubGlobal('fetch', vi.fn(async (url: string) => {
 		const file = String(url).split('/').pop() || '';
-		const body = SHIPPED[file];
+		const body = String(url).includes('/samples/') ? SAMPLES[file] : SHIPPED[file];
 		return body ? new Response(body, { status: 200 }) : new Response('', { status: 404 });
 	}));
 	URL.createObjectURL = vi.fn((b: Blob) => {
@@ -171,5 +179,83 @@ describe('exportMarp — the bundle\'s Marp config follows the deck\'s math admi
 		blobs = [];
 		await exportMarp('# Hi $x$', 'deck', 'indaco', BASE, { includeAgent: false, pluginsOff: ['math', 'mermaid'] });
 		expect(await (await bundle()).file('deck/marp.config.cjs')?.async('string')).toContain('math: false');
+	});
+});
+
+describe('exportMarp — the bundle carries the deck\'s `sample:` pictures', () => {
+	// A name the site does not stage. Assembled, so test/unit/core/sample-images.test.js
+	// (every shipped `sample:` names a real file) does not read it as a real reference.
+	const MISSING = ['portrait', 'missing.svg'].join('-');
+	const DECK = [
+		'---',
+		'theme: indaco',
+		'logo: sample:logo-acme-mark.svg',
+		'---',
+		'',
+		'<!-- _class: team-profile -->',
+		'',
+		'## Team',
+		'',
+		'- ![Ada](sample:portrait-ada.svg)',
+		'  - Ada',
+		'- ![Ada again](sample:portrait-ada.svg "same file")',
+		'  - Ada',
+		`- ![Gone](sample:${MISSING})`,
+		'  - Nobody',
+		'',
+	].join('\n');
+
+	it('fetches each sample into assets/ and names it there, front-matter logo included', async () => {
+		await exportMarp(DECK, 'deck', 'indaco', BASE, { includeAgent: false });
+		const zip = await bundle();
+		expect(await zip.file('deck/assets/portrait-ada.svg')?.async('string')).toBe('<svg id="ada"/>');
+		expect(await zip.file('deck/assets/logo-acme-mark.svg')?.async('string')).toBe('<svg id="mark"/>');
+		const md = (await zip.file('deck/deck.md')?.async('string')) ?? '';
+		expect(md).toContain('logo: assets/logo-acme-mark.svg');
+		expect(md).toContain('![Ada](assets/portrait-ada.svg)');
+		expect(md).toContain('![Ada again](assets/portrait-ada.svg "same file")');
+		// The site has no such file, so the reference stays as written rather than name a path
+		// the bundle lacks.
+		expect(md).toContain(`![Gone](sample:${MISSING})`);
+		expect(zip.file(`deck/assets/${MISSING}`)).toBeNull();
+		const fetched = vi.mocked(fetch).mock.calls.map(([u]) => String(u)).filter((u) => u.includes('/samples/'));
+		expect(fetched.sort()).toEqual([
+			'https://site/playground/v/abc/samples/logo-acme-mark.svg',
+			'https://site/playground/v/abc/samples/portrait-ada.svg',
+			`https://site/playground/v/abc/samples/${MISSING}`,
+		]);
+	});
+
+	it('keeps the reference when a body read fails, and still exports', async () => {
+		vi.mocked(fetch).mockImplementation(async (url) => {
+			const file = String(url).split('/').pop() || '';
+			if (String(url).includes('/samples/')) {
+				const r = new Response(SAMPLES[file] ?? '', { status: SAMPLES[file] ? 200 : 404 });
+				if (file === 'portrait-ada.svg') r.arrayBuffer = () => Promise.reject(new Error('reset'));
+				return r;
+			}
+			return SHIPPED[file] ? new Response(SHIPPED[file], { status: 200 }) : new Response('', { status: 404 });
+		});
+		await exportMarp(DECK, 'deck', 'indaco', BASE, { includeAgent: false });
+		const zip = await bundle();
+		const md = (await zip.file('deck/deck.md')?.async('string')) ?? '';
+		expect(md).toContain('![Ada](sample:portrait-ada.svg)');
+		expect(zip.file('deck/assets/portrait-ada.svg')).toBeNull();
+		expect(md).toContain('logo: assets/logo-acme-mark.svg');
+	});
+
+	it('keeps the fetched logo in the baked front matter, and still drops a relative one', async () => {
+		const PG = (window as unknown as { LatticePlayground: { marp: Record<string, unknown> } }).LatticePlayground;
+		PG.marp.withRuntimeScriptsReport = withRuntimeScriptsReport;
+		await exportMarp(DECK, 'deck', 'indaco', BASE, { includeAgent: false });
+		const md = (await (await bundle()).file('deck/deck.md')?.async('string')) ?? '';
+		const baked = md.slice(md.indexOf('application/lattice-front-matter'));
+		expect(baked).toContain('logo: assets/logo-acme-mark.svg');
+		expect(md).not.toContain('sample:logo-acme-mark.svg');
+
+		blobs = [];
+		await exportMarp(DECK.replace('sample:logo-acme-mark.svg', 'brand/mark.svg'), 'deck', 'indaco', BASE, { includeAgent: false });
+		const md2 = (await (await bundle()).file('deck/deck.md')?.async('string')) ?? '';
+		expect(md2.slice(md2.indexOf('application/lattice-front-matter'))).not.toContain('logo:');
 	});
 });

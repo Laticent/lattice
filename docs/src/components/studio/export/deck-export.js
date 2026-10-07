@@ -200,13 +200,35 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	const PG = typeof window !== 'undefined' ? window.LatticePlayground : undefined;
 	const marp = PG?.marp;
 	if (!marp) throw new Error('engine not ready — try again in a moment');
-	const { bakeSplits, stripPaneMarkers, appendAutoGlossary, liftImageBgImages, STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, marpConfigCjs, withRuntimeScriptsReport, packageJson, vscodeSettings, readme, agentsMd } = marp;
+	const { bakeSplits, stripPaneMarkers, appendAutoGlossary, liftImageBgImages, sampleAssetNames, withSampleAssets, STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, marpConfigCjs, withRuntimeScriptsReport, packageJson, vscodeSettings, readme, agentsMd } = marp;
 	const slug = safeName(name);
 	const baseName = (p) => p.split('/').pop();
 
 	const { default: JSZip } = await import('jszip');
 	const zip = new JSZip();
 	const dir = zip.folder(slug);
+
+	// assets/ — Lattice's own sample art. This producer has no filesystem, so it cannot copy
+	// a deck's own pictures the way tools/export-marp.js does, but every `sample:<name>` file
+	// is staged on this site (docs/src/lib/samples-base.ts). Each one is fetched into
+	// `assets/` and its reference rewritten, front-matter `logo:` included, because Marp
+	// cannot read the `sample:` prefix. A file that fails to fetch keeps its reference
+	// rather than name a path the bundle lacks.
+	// The URL is derived like `exportBase` below, the same rule as samplesBaseFor in
+	// samples-base.ts: a `.ts` import would break the node tests that load this file.
+	const samplePaths = new Map();
+	const samplesBase = themeBase.replace(/themes\/$/, 'samples/');
+	await Promise.all(sampleAssetNames(source).map(async (sample) => {
+		try {
+			const r = await fetch(samplesBase + sample);
+			if (!r.ok) return;
+			dir.file(`assets/${sample}`, await r.arrayBuffer());
+			samplePaths.set(sample, `assets/${sample}`);
+		} catch {
+			// A failed request or body read loses one picture, never the whole export.
+		}
+	}));
+	const localized = samplePaths.size ? withSampleAssets(source, samplePaths) : source;
 
 	// deck.md — the auto-glossary's generated slide baked in FIRST (it appends a
 	// whole slide and strips its own trigger), then splits baked to literal `---`,
@@ -218,11 +240,12 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	// `assets/` the way tools/export-marp.js does. Baking a front-matter `logo:`
 	// that points at a relative local path would therefore render a broken image
 	// where the register previously just never fired — so those keys are dropped
-	// here. A remote or `data:` logo resolves anywhere and is kept.
+	// here. A remote or `data:` logo resolves anywhere and is kept, and so is a
+	// sample logo fetched above (`bundledAssets`).
 	// The imagery bucket's `![bg]` → `.lattice-bg` panel, baked like the splits and
 	// the glossary. No baseDir, so the author's own URL survives verbatim — this
 	// producer cannot copy local files (hence `localAssets: false` below), so a
-	// remote or `data:` image works and a relative one was already unresolvable.
+	// remote, `data:` or sample image works and a relative one was already unresolvable.
 	// …and this export's overflow-marker level recorded in its own settings block.
 	// Passed explicitly rather than defaulted, because without it this producer
 	// shipped the runtime's AUTHORING fallback — a recipient of a Studio-exported
@@ -234,10 +257,10 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	const bundled = withRuntimeScriptsReport(
 			// The pane markers go after the split bake (bake-splits.js `stripPaneMarkers`): Marp cannot
 			// carve a pane and would read each marker as a speaker note.
-			liftImageBgImages(stripPaneMarkers(bakeSplits(appendAutoGlossary(embedComponentsInMarkdown(source, components)))), undefined),
+			liftImageBgImages(stripPaneMarkers(bakeSplits(appendAutoGlossary(embedComponentsInMarkdown(localized, components)))), undefined),
 			// `pluginsOff` — the plugins the Studio's admission left off for this deck: Marp renders the
 			// bundle, so its runtime marks them from the settings block (lib/plugins/mark-off.mjs).
-			{ localAssets: false, overflowMarker, pluginsOff },
+			{ localAssets: false, bundledAssets: [...samplePaths.values()], overflowMarker, pluginsOff },
 		);
 	dir.file(`${slug}.md`, bundled.markdown);
 
