@@ -267,8 +267,48 @@ And the grammar's own time depends on what V8 has already seen: a pill parses in
 fresh process and about 280 ns in one that has also parsed lists and failed spans. The table is
 the mixed, realistic figure.
 
+**Whole files, against real tokenizers.** Lattice's CSS, HTML and Markdown grammars
+(`tools/parser-bakeoff/languages-grammars.mjs`) beside the tokenizer layer of each real parser,
+over every tracked file of each type. This is the like-for-like race: both sides tokenize and
+neither builds a tree. Run 2026-10-07 on Node 22 in a cloud sandbox, so the absolute figures are
+about half what a laptop gives; the ratios carry:
+
+| | Segno (generated) | tokenizer beside it |
+|---|---|---|
+| CSS, 3.1 MB | 178 MB/s | postcss 103 · css-tree 142 · @csstools 36 |
+| HTML, 0.2 MB | 156 MB/s | parse5 `Tokenizer` 23 |
+| Markdown, 22 MB | 207 MB/s | markdown-it block pass alone 68 |
+
+The tokenizers classify more than the grammars do: css-tree's tells a number from a dimension,
+and parse5's decodes entities. So the table shows a generated Segno grammar running at
+hand-written tokenizer speed. It does not show that Segno does those jobs too. Reproduce with
+`npm run parser:bakeoff:languages` (its `tokenizers` block). Three generator changes on
+2026-10-07 took the three grammars from 112, 117 and 101 MB/s to these figures (§ How the
+generated parser stays fast).
+
 Every shape on the hostile-input ladder grows linearly and stays under 3 ms at 32,000 characters.
 The `/segno` page runs the same ladder in your browser, and lets you write a grammar and parse with it.
+
+### How the generated parser stays fast
+
+`generate()` does three things a grammar author never sees. None changes a tree or an error,
+and a differential of about 1.2 million grammar/input pairs held them identical to `compile()`
+and to the previous generator:
+
+- **A tested character is not tested again.** When a choice or a loop has read the next character
+  to pick its way, the piece it picked reuses that variable and skips the test the choice already
+  made. CSS gained most from this (112 → 184 MB/s).
+- **A shared piece is written once.** A sub-expression the grammar uses in several places (one JS
+  value, reused) becomes one function when its code is large (600 characters or more). Copied
+  into every place instead, the Markdown grammar's inline-text loop made one 860-line rule, and V8
+  kept deoptimizing and rebuilding it.
+- **A run of like characters scans on locals, then by regular expression.** A loop over one
+  character set copies the parser's position and input into local variables, so V8 keeps them in
+  registers. A run still going after 16 characters is finished by a regular expression that finds
+  the first character outside the set. V8 compiles that to native code, and on long runs (prose,
+  comments) it is about 1.6x a JS loop. Inside an `attempt()` window the regex is not used,
+  because it cannot stop at the window's end: there, reading past it turned a linear grammar
+  quadratic, and a test pins that.
 
 ## Build
 

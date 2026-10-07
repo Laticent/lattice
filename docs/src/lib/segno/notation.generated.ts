@@ -8,6 +8,9 @@ const T3 = new Uint8Array([1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
 const T4 = new Uint8Array([1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]);
 const T5 = new Uint8Array([1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]);
 const T6 = new Uint8Array([1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,0,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1]);
+// biome-ignore lint/suspicious/noControlCharactersInRegex: a generated character class; control characters are input like any other
+const R0 = /[\u0000-\u0008\u000a-\u001f\u0021-\u009f\u00a1-\uffff]/g;
+const R1 = /[\u0022\u002c\u003d\u005b\u005d\u007b-\u007d]/g;
 
 export interface GenError { at: number; expected: string; found: string | null }
 export interface GenTree { buf: Int32Array; top: number; kinds: readonly string[] }
@@ -33,27 +36,37 @@ function fail(expected: string): false {
 }
 
 function r_span(): boolean {
-  { let c0 = (i < n ? s.charCodeAt(i) : -1); while ((c0 === 9 || c0 === 32 || c0 === 160)) { i++; c0 = (i < n ? s.charCodeAt(i) : -1); } }
   {
-    const c2 = (i < n ? s.charCodeAt(i) : -1);
-    if ((c2 === 94 || c2 === 126)) {
+    let c8 = i; const c9 = n; const c10 = s; const c11 = c8 + 16 < c9 ? c8 + 16 : c9;
+    while (c8 < c11) { const c6 = c10.charCodeAt(c8); if (!(c6 === 9 || c6 === 32 || c6 === 160)) break; c8++; }
+    if (c8 === c11 && c8 < c9) { if (c9 !== c10.length) { while (c8 < c9) { const c6 = c10.charCodeAt(c8); if (!(c6 === 9 || c6 === 32 || c6 === 160)) break; c8++; } } else { R0.lastIndex = c8; c8 = R0.test(c10) ? R0.lastIndex - 1 : c9; } }
+    i = c8;
+  }
+  {
+    const c12 = (i < n ? s.charCodeAt(i) : -1);
+    if ((c12 === 94 || c12 === 126)) {
       {
-        const c3 = top;
+        const c13 = top;
         if (top + 4 > buf.length) grow();
         top += 4;
-        buf[c3] = 0;
-        buf[c3 + 1] = i;
-        { const c4 = (i < n ? s.charCodeAt(i) : -1); if (!(c4 === 94 || c4 === 126)) return fail("a tag"); i++; }
+        buf[c13] = 0;
+        buf[c13 + 1] = i;
+        i++;
         if (depth >= 64) return fail("at most 64 levels of nesting");
         depth++;
         if (!r_record()) return false;
         depth--;
-        { let c5 = (i < n ? s.charCodeAt(i) : -1); while ((c5 === 9 || c5 === 32 || c5 === 160)) { i++; c5 = (i < n ? s.charCodeAt(i) : -1); } }
-        buf[c3 + 2] = i;
-        buf[c3 + 3] = top;
+        {
+          let c16 = i; const c17 = n; const c18 = s; const c19 = c16 + 16 < c17 ? c16 + 16 : c17;
+          while (c16 < c19) { const c14 = c18.charCodeAt(c16); if (!(c14 === 9 || c14 === 32 || c14 === 160)) break; c16++; }
+          if (c16 === c19 && c16 < c17) { if (c17 !== c18.length) { while (c16 < c17) { const c14 = c18.charCodeAt(c16); if (!(c14 === 9 || c14 === 32 || c14 === 160)) break; c16++; } } else { R0.lastIndex = c16; c16 = R0.test(c18) ? R0.lastIndex - 1 : c17; } }
+          i = c16;
+        }
+        buf[c13 + 2] = i;
+        buf[c13 + 3] = top;
       }
     }
-    else if (((c2 >= 0 && c2 < 128 && T0[c2] === 1) || (c2 >= 128 && c2 <= 159) || (c2 >= 161 && c2 <= 65535))) {
+    else if (((c12 >= 0 && c12 < 128 && T0[c12] === 1) || (c12 >= 128 && c12 <= 159) || (c12 >= 161 && c12 <= 65535))) {
       if (!r_top()) return false;
     }
     else return fail("a tag, \"{\", \"[\", \"\\\"\" or a value");
@@ -63,54 +76,78 @@ function r_span(): boolean {
 
 function r_top(): boolean {
   {
-    const c7 = (i < n ? s.charCodeAt(i) : -1);
-    if ((c7 === 123)) {
+    const c20 = (i < n ? s.charCodeAt(i) : -1);
+    if ((c20 === 123)) {
       if (depth >= 64) return fail("at most 64 levels of nesting");
       depth++;
       if (!r_record()) return false;
       depth--;
-      { let c8 = (i < n ? s.charCodeAt(i) : -1); while ((c8 === 9 || c8 === 32 || c8 === 160)) { i++; c8 = (i < n ? s.charCodeAt(i) : -1); } }
+      {
+        let c23 = i; const c24 = n; const c25 = s; const c26 = c23 + 16 < c24 ? c23 + 16 : c24;
+        while (c23 < c26) { const c21 = c25.charCodeAt(c23); if (!(c21 === 9 || c21 === 32 || c21 === 160)) break; c23++; }
+        if (c23 === c26 && c23 < c24) { if (c24 !== c25.length) { while (c23 < c24) { const c21 = c25.charCodeAt(c23); if (!(c21 === 9 || c21 === 32 || c21 === 160)) break; c23++; } } else { R0.lastIndex = c23; c23 = R0.test(c25) ? R0.lastIndex - 1 : c24; } }
+        i = c23;
+      }
     }
-    else if ((c7 === 91)) {
+    else if ((c20 === 91)) {
       if (depth >= 64) return fail("at most 64 levels of nesting");
       depth++;
       if (!r_list()) return false;
       depth--;
-      { let c10 = (i < n ? s.charCodeAt(i) : -1); while ((c10 === 9 || c10 === 32 || c10 === 160)) { i++; c10 = (i < n ? s.charCodeAt(i) : -1); } }
-    }
-    else if ((c7 === 34)) {
-      if (!r_quoted()) return false;
-      { let c12 = (i < n ? s.charCodeAt(i) : -1); while ((c12 === 9 || c12 === 32 || c12 === 160)) { i++; c12 = (i < n ? s.charCodeAt(i) : -1); } }
-    }
-    else if (((c7 >= 0 && c7 < 128 && T1[c7] === 1) || (c7 >= 128 && c7 <= 159) || (c7 >= 161 && c7 <= 65535))) {
       {
-        const c14 = top;
+        let c29 = i; const c30 = n; const c31 = s; const c32 = c29 + 16 < c30 ? c29 + 16 : c30;
+        while (c29 < c32) { const c27 = c31.charCodeAt(c29); if (!(c27 === 9 || c27 === 32 || c27 === 160)) break; c29++; }
+        if (c29 === c32 && c29 < c30) { if (c30 !== c31.length) { while (c29 < c30) { const c27 = c31.charCodeAt(c29); if (!(c27 === 9 || c27 === 32 || c27 === 160)) break; c29++; } } else { R0.lastIndex = c29; c29 = R0.test(c31) ? R0.lastIndex - 1 : c30; } }
+        i = c29;
+      }
+    }
+    else if ((c20 === 34)) {
+      if (!r_quoted()) return false;
+      {
+        let c35 = i; const c36 = n; const c37 = s; const c38 = c35 + 16 < c36 ? c35 + 16 : c36;
+        while (c35 < c38) { const c33 = c37.charCodeAt(c35); if (!(c33 === 9 || c33 === 32 || c33 === 160)) break; c35++; }
+        if (c35 === c38 && c35 < c36) { if (c36 !== c37.length) { while (c35 < c36) { const c33 = c37.charCodeAt(c35); if (!(c33 === 9 || c33 === 32 || c33 === 160)) break; c35++; } } else { R0.lastIndex = c35; c35 = R0.test(c37) ? R0.lastIndex - 1 : c36; } }
+        i = c35;
+      }
+    }
+    else if (((c20 >= 0 && c20 < 128 && T1[c20] === 1) || (c20 >= 128 && c20 <= 159) || (c20 >= 161 && c20 <= 65535))) {
+      {
+        const c39 = top;
         if (top + 4 > buf.length) grow();
         top += 4;
-        buf[c14] = 1;
-        buf[c14 + 1] = i;
+        buf[c39] = 1;
+        buf[c39 + 1] = i;
         {
-          const c15 = top;
+          const c40 = top;
           if (top + 4 > buf.length) grow();
           top += 4;
-          buf[c15] = 2;
-          buf[c15 + 1] = i;
-          { const c16 = (i < n ? s.charCodeAt(i) : -1); if (!((c16 >= 0 && c16 < 128 && T1[c16] === 1) || (c16 >= 128 && c16 <= 159) || (c16 >= 161 && c16 <= 65535))) return fail("a value"); i++; }
-          { let c17 = (i < n ? s.charCodeAt(i) : -1); while (((c17 >= 0 && c17 < 128 && T2[c17] === 1) || (c17 >= 128 && c17 <= 65535))) { i++; c17 = (i < n ? s.charCodeAt(i) : -1); } }
-          buf[c15 + 2] = i;
-          buf[c15 + 3] = top;
-        }
-        { const c19 = (i < n ? s.charCodeAt(i) : -1); if ((c19 === 61)) {
-          if ((i < n ? s.charCodeAt(i) : -1) !== 61) return fail("\"=\"");
+          buf[c40] = 2;
+          buf[c40 + 1] = i;
           i++;
-          { let c20 = (i < n ? s.charCodeAt(i) : -1); while ((c20 === 9 || c20 === 32 || c20 === 160)) { i++; c20 = (i < n ? s.charCodeAt(i) : -1); } }
+          {
+            let c43 = i; const c44 = n; const c45 = s; const c46 = c43 + 16 < c44 ? c43 + 16 : c44;
+            while (c43 < c46) { const c41 = c45.charCodeAt(c43); if (!((c41 >= 0 && c41 < 128 && T2[c41] === 1) || (c41 >= 128 && c41 <= 65535))) break; c43++; }
+            if (c43 === c46 && c43 < c44) { if (c44 !== c45.length) { while (c43 < c44) { const c41 = c45.charCodeAt(c43); if (!((c41 >= 0 && c41 < 128 && T2[c41] === 1) || (c41 >= 128 && c41 <= 65535))) break; c43++; } } else { R1.lastIndex = c43; c43 = R1.test(c45) ? R1.lastIndex - 1 : c44; } }
+            i = c43;
+          }
+          buf[c40 + 2] = i;
+          buf[c40 + 3] = top;
+        }
+        { const c47 = (i < n ? s.charCodeAt(i) : -1); if ((c47 === 61)) {
+          i++;
+          {
+            let c50 = i; const c51 = n; const c52 = s; const c53 = c50 + 16 < c51 ? c50 + 16 : c51;
+            while (c50 < c53) { const c48 = c52.charCodeAt(c50); if (!(c48 === 9 || c48 === 32 || c48 === 160)) break; c50++; }
+            if (c50 === c53 && c50 < c51) { if (c51 !== c52.length) { while (c50 < c51) { const c48 = c52.charCodeAt(c50); if (!(c48 === 9 || c48 === 32 || c48 === 160)) break; c50++; } } else { R0.lastIndex = c50; c50 = R0.test(c52) ? R0.lastIndex - 1 : c51; } }
+            i = c50;
+          }
           if (depth >= 64) return fail("at most 64 levels of nesting");
           depth++;
           if (!r_value()) return false;
           depth--;
         } }
-        buf[c14 + 2] = i;
-        buf[c14 + 3] = top;
+        buf[c39 + 2] = i;
+        buf[c39 + 3] = top;
       }
     }
     else return fail("\"{\", \"[\", \"\\\"\" or a value");
@@ -120,21 +157,25 @@ function r_top(): boolean {
 
 function r_record(): boolean {
   {
-    const c22 = top;
+    const c54 = top;
     if (top + 4 > buf.length) grow();
     top += 4;
-    buf[c22] = 3;
-    buf[c22 + 1] = i;
+    buf[c54] = 3;
+    buf[c54 + 1] = i;
     if ((i < n ? s.charCodeAt(i) : -1) !== 123) return fail("\"{\"");
     i++;
     if (depth >= 64) return fail("at most 64 levels of nesting");
     depth++;
     if (!r_item()) return false;
     depth--;
-    for (let c23 = (i < n ? s.charCodeAt(i) : -1); (c23 === 44); c23 = (i < n ? s.charCodeAt(i) : -1)) {
-      if ((i < n ? s.charCodeAt(i) : -1) !== 44) return fail("\",\"");
+    for (let c55 = (i < n ? s.charCodeAt(i) : -1); (c55 === 44); c55 = (i < n ? s.charCodeAt(i) : -1)) {
       i++;
-      { let c24 = (i < n ? s.charCodeAt(i) : -1); while ((c24 === 9 || c24 === 32 || c24 === 160)) { i++; c24 = (i < n ? s.charCodeAt(i) : -1); } }
+      {
+        let c58 = i; const c59 = n; const c60 = s; const c61 = c58 + 16 < c59 ? c58 + 16 : c59;
+        while (c58 < c61) { const c56 = c60.charCodeAt(c58); if (!(c56 === 9 || c56 === 32 || c56 === 160)) break; c58++; }
+        if (c58 === c61 && c58 < c59) { if (c59 !== c60.length) { while (c58 < c59) { const c56 = c60.charCodeAt(c58); if (!(c56 === 9 || c56 === 32 || c56 === 160)) break; c58++; } } else { R0.lastIndex = c58; c58 = R0.test(c60) ? R0.lastIndex - 1 : c59; } }
+        i = c58;
+      }
       if (depth >= 64) return fail("at most 64 levels of nesting");
       depth++;
       if (!r_item()) return false;
@@ -142,33 +183,42 @@ function r_record(): boolean {
     }
     if ((i < n ? s.charCodeAt(i) : -1) !== 125) return fail("\"}\"");
     i++;
-    buf[c22 + 2] = i;
-    buf[c22 + 3] = top;
+    buf[c54 + 2] = i;
+    buf[c54 + 3] = top;
   }
   return true;
 }
 
 function r_list(): boolean {
   {
-    const c26 = top;
+    const c62 = top;
     if (top + 4 > buf.length) grow();
     top += 4;
-    buf[c26] = 4;
-    buf[c26 + 1] = i;
+    buf[c62] = 4;
+    buf[c62 + 1] = i;
     if ((i < n ? s.charCodeAt(i) : -1) !== 91) return fail("\"[\"");
     i++;
-    { let c27 = (i < n ? s.charCodeAt(i) : -1); while ((c27 === 9 || c27 === 32 || c27 === 160)) { i++; c27 = (i < n ? s.charCodeAt(i) : -1); } }
-    { const c29 = (i < n ? s.charCodeAt(i) : -1); if (((c29 >= 0 && c29 < 128 && T3[c29] === 1) || (c29 >= 128 && c29 <= 159) || (c29 >= 161 && c29 <= 65535))) {
+    {
+      let c65 = i; const c66 = n; const c67 = s; const c68 = c65 + 16 < c66 ? c65 + 16 : c66;
+      while (c65 < c68) { const c63 = c67.charCodeAt(c65); if (!(c63 === 9 || c63 === 32 || c63 === 160)) break; c65++; }
+      if (c65 === c68 && c65 < c66) { if (c66 !== c67.length) { while (c65 < c66) { const c63 = c67.charCodeAt(c65); if (!(c63 === 9 || c63 === 32 || c63 === 160)) break; c65++; } } else { R0.lastIndex = c65; c65 = R0.test(c67) ? R0.lastIndex - 1 : c66; } }
+      i = c65;
+    }
+    { const c69 = (i < n ? s.charCodeAt(i) : -1); if (((c69 >= 0 && c69 < 128 && T3[c69] === 1) || (c69 >= 128 && c69 <= 159) || (c69 >= 161 && c69 <= 65535))) {
       if (depth >= 64) return fail("at most 64 levels of nesting");
       depth++;
       if (!r_item()) return false;
       depth--;
     } }
-    for (let c30 = (i < n ? s.charCodeAt(i) : -1); (c30 === 44); c30 = (i < n ? s.charCodeAt(i) : -1)) {
-      if ((i < n ? s.charCodeAt(i) : -1) !== 44) return fail("\",\"");
+    for (let c70 = (i < n ? s.charCodeAt(i) : -1); (c70 === 44); c70 = (i < n ? s.charCodeAt(i) : -1)) {
       i++;
-      { let c31 = (i < n ? s.charCodeAt(i) : -1); while ((c31 === 9 || c31 === 32 || c31 === 160)) { i++; c31 = (i < n ? s.charCodeAt(i) : -1); } }
-      { const c33 = (i < n ? s.charCodeAt(i) : -1); if (((c33 >= 0 && c33 < 128 && T3[c33] === 1) || (c33 >= 128 && c33 <= 159) || (c33 >= 161 && c33 <= 65535))) {
+      {
+        let c73 = i; const c74 = n; const c75 = s; const c76 = c73 + 16 < c74 ? c73 + 16 : c74;
+        while (c73 < c76) { const c71 = c75.charCodeAt(c73); if (!(c71 === 9 || c71 === 32 || c71 === 160)) break; c73++; }
+        if (c73 === c76 && c73 < c74) { if (c74 !== c75.length) { while (c73 < c74) { const c71 = c75.charCodeAt(c73); if (!(c71 === 9 || c71 === 32 || c71 === 160)) break; c73++; } } else { R0.lastIndex = c73; c73 = R0.test(c75) ? R0.lastIndex - 1 : c74; } }
+        i = c73;
+      }
+      { const c77 = (i < n ? s.charCodeAt(i) : -1); if (((c77 >= 0 && c77 < 128 && T3[c77] === 1) || (c77 >= 128 && c77 <= 159) || (c77 >= 161 && c77 <= 65535))) {
         if (depth >= 64) return fail("at most 64 levels of nesting");
         depth++;
         if (!r_item()) return false;
@@ -177,76 +227,80 @@ function r_list(): boolean {
     }
     if ((i < n ? s.charCodeAt(i) : -1) !== 93) return fail("\"]\"");
     i++;
-    buf[c26 + 2] = i;
-    buf[c26 + 3] = top;
+    buf[c62 + 2] = i;
+    buf[c62 + 3] = top;
   }
   return true;
 }
 
 function r_quoted(): boolean {
   {
-    const c34 = top;
+    const c78 = top;
     if (top + 4 > buf.length) grow();
     top += 4;
-    buf[c34] = 5;
-    buf[c34 + 1] = i;
+    buf[c78] = 5;
+    buf[c78 + 1] = i;
     if ((i < n ? s.charCodeAt(i) : -1) !== 34) return fail("\"\\\"\"");
     i++;
-    for (let c35 = (i < n ? s.charCodeAt(i) : -1); ((c35 >= 0 && c35 < 128 && T5[c35] === 1) || (c35 >= 128 && c35 <= 65535)); c35 = (i < n ? s.charCodeAt(i) : -1)) {
+    for (let c79 = (i < n ? s.charCodeAt(i) : -1); ((c79 >= 0 && c79 < 128 && T5[c79] === 1) || (c79 >= 128 && c79 <= 65535)); c79 = (i < n ? s.charCodeAt(i) : -1)) {
       {
-        const c36 = (i < n ? s.charCodeAt(i) : -1);
-        if ((c36 === 92)) {
-          if ((i < n ? s.charCodeAt(i) : -1) !== 92) return fail("\"\\\\\"");
+        const c80 = c79;
+        if ((c80 === 92)) {
           i++;
-          { const c37 = (i < n ? s.charCodeAt(i) : -1); if (!(c37 >= 0)) return fail("any character"); i++; }
+          { const c81 = (i < n ? s.charCodeAt(i) : -1); if (!(c81 >= 0)) return fail("any character"); i++; }
         }
-        else if (((c36 >= 0 && c36 < 128 && T4[c36] === 1) || (c36 >= 128 && c36 <= 65535))) {
-          { const c38 = (i < n ? s.charCodeAt(i) : -1); if (!((c38 >= 0 && c38 < 128 && T4[c38] === 1) || (c38 >= 128 && c38 <= 65535))) return fail("text"); i++; }
+        else if (((c80 >= 0 && c80 < 128 && T4[c80] === 1) || (c80 >= 128 && c80 <= 65535))) {
+          i++;
         }
         else return fail("\"\\\\\" or text");
       }
     }
     if ((i < n ? s.charCodeAt(i) : -1) !== 34) return fail("\"\\\"\"");
     i++;
-    buf[c34 + 2] = i;
-    buf[c34 + 3] = top;
+    buf[c78 + 2] = i;
+    buf[c78 + 3] = top;
   }
   return true;
 }
 
 function r_value(): boolean {
   {
-    const c39 = (i < n ? s.charCodeAt(i) : -1);
-    if ((c39 === 123)) {
+    const c82 = (i < n ? s.charCodeAt(i) : -1);
+    if ((c82 === 123)) {
       if (depth >= 64) return fail("at most 64 levels of nesting");
       depth++;
       if (!r_record()) return false;
       depth--;
-      { let c40 = (i < n ? s.charCodeAt(i) : -1); while ((c40 === 9 || c40 === 32 || c40 === 160)) { i++; c40 = (i < n ? s.charCodeAt(i) : -1); } }
+      {
+        let c85 = i; const c86 = n; const c87 = s; const c88 = c85 + 16 < c86 ? c85 + 16 : c86;
+        while (c85 < c88) { const c83 = c87.charCodeAt(c85); if (!(c83 === 9 || c83 === 32 || c83 === 160)) break; c85++; }
+        if (c85 === c88 && c85 < c86) { if (c86 !== c87.length) { while (c85 < c86) { const c83 = c87.charCodeAt(c85); if (!(c83 === 9 || c83 === 32 || c83 === 160)) break; c85++; } } else { R0.lastIndex = c85; c85 = R0.test(c87) ? R0.lastIndex - 1 : c86; } }
+        i = c85;
+      }
     }
-    else if ((c39 === 91)) {
+    else if ((c82 === 91)) {
       if (depth >= 64) return fail("at most 64 levels of nesting");
       depth++;
       if (!r_list()) return false;
       depth--;
-      { let c42 = (i < n ? s.charCodeAt(i) : -1); while ((c42 === 9 || c42 === 32 || c42 === 160)) { i++; c42 = (i < n ? s.charCodeAt(i) : -1); } }
-    }
-    else if ((c39 === 34)) {
-      if (!r_quoted()) return false;
-      { let c44 = (i < n ? s.charCodeAt(i) : -1); while ((c44 === 9 || c44 === 32 || c44 === 160)) { i++; c44 = (i < n ? s.charCodeAt(i) : -1); } }
-    }
-    else if (((c39 >= 0 && c39 < 128 && T6[c39] === 1) || (c39 >= 128 && c39 <= 159) || (c39 >= 161 && c39 <= 65535))) {
       {
-        const c46 = top;
-        if (top + 4 > buf.length) grow();
-        top += 4;
-        buf[c46] = 2;
-        buf[c46 + 1] = i;
-        { const c47 = (i < n ? s.charCodeAt(i) : -1); if (!((c47 >= 0 && c47 < 128 && T6[c47] === 1) || (c47 >= 128 && c47 <= 159) || (c47 >= 161 && c47 <= 65535))) return fail("a value"); i++; }
-        { let c48 = (i < n ? s.charCodeAt(i) : -1); while (((c48 >= 0 && c48 < 128 && T2[c48] === 1) || (c48 >= 128 && c48 <= 65535))) { i++; c48 = (i < n ? s.charCodeAt(i) : -1); } }
-        buf[c46 + 2] = i;
-        buf[c46 + 3] = top;
+        let c91 = i; const c92 = n; const c93 = s; const c94 = c91 + 16 < c92 ? c91 + 16 : c92;
+        while (c91 < c94) { const c89 = c93.charCodeAt(c91); if (!(c89 === 9 || c89 === 32 || c89 === 160)) break; c91++; }
+        if (c91 === c94 && c91 < c92) { if (c92 !== c93.length) { while (c91 < c92) { const c89 = c93.charCodeAt(c91); if (!(c89 === 9 || c89 === 32 || c89 === 160)) break; c91++; } } else { R0.lastIndex = c91; c91 = R0.test(c93) ? R0.lastIndex - 1 : c92; } }
+        i = c91;
       }
+    }
+    else if ((c82 === 34)) {
+      if (!r_quoted()) return false;
+      {
+        let c97 = i; const c98 = n; const c99 = s; const c100 = c97 + 16 < c98 ? c97 + 16 : c98;
+        while (c97 < c100) { const c95 = c99.charCodeAt(c97); if (!(c95 === 9 || c95 === 32 || c95 === 160)) break; c97++; }
+        if (c97 === c100 && c97 < c98) { if (c98 !== c99.length) { while (c97 < c98) { const c95 = c99.charCodeAt(c97); if (!(c95 === 9 || c95 === 32 || c95 === 160)) break; c97++; } } else { R0.lastIndex = c97; c97 = R0.test(c99) ? R0.lastIndex - 1 : c98; } }
+        i = c97;
+      }
+    }
+    else if (((c82 >= 0 && c82 < 128 && T6[c82] === 1) || (c82 >= 128 && c82 <= 159) || (c82 >= 161 && c82 <= 65535))) {
+      if (!e_0()) return false;
     }
     else return fail("\"{\", \"[\", \"\\\"\" or a value");
   }
@@ -255,57 +309,86 @@ function r_value(): boolean {
 
 function r_item(): boolean {
   {
-    const c50 = (i < n ? s.charCodeAt(i) : -1);
-    if ((c50 === 123)) {
+    const c109 = (i < n ? s.charCodeAt(i) : -1);
+    if ((c109 === 123)) {
       if (depth >= 64) return fail("at most 64 levels of nesting");
       depth++;
       if (!r_record()) return false;
       depth--;
-      { let c51 = (i < n ? s.charCodeAt(i) : -1); while ((c51 === 9 || c51 === 32 || c51 === 160)) { i++; c51 = (i < n ? s.charCodeAt(i) : -1); } }
+      {
+        let c112 = i; const c113 = n; const c114 = s; const c115 = c112 + 16 < c113 ? c112 + 16 : c113;
+        while (c112 < c115) { const c110 = c114.charCodeAt(c112); if (!(c110 === 9 || c110 === 32 || c110 === 160)) break; c112++; }
+        if (c112 === c115 && c112 < c113) { if (c113 !== c114.length) { while (c112 < c113) { const c110 = c114.charCodeAt(c112); if (!(c110 === 9 || c110 === 32 || c110 === 160)) break; c112++; } } else { R0.lastIndex = c112; c112 = R0.test(c114) ? R0.lastIndex - 1 : c113; } }
+        i = c112;
+      }
     }
-    else if ((c50 === 91)) {
+    else if ((c109 === 91)) {
       if (depth >= 64) return fail("at most 64 levels of nesting");
       depth++;
       if (!r_list()) return false;
       depth--;
-      { let c53 = (i < n ? s.charCodeAt(i) : -1); while ((c53 === 9 || c53 === 32 || c53 === 160)) { i++; c53 = (i < n ? s.charCodeAt(i) : -1); } }
-    }
-    else if ((c50 === 34)) {
-      if (!r_quoted()) return false;
-      { let c55 = (i < n ? s.charCodeAt(i) : -1); while ((c55 === 9 || c55 === 32 || c55 === 160)) { i++; c55 = (i < n ? s.charCodeAt(i) : -1); } }
-    }
-    else if (((c50 >= 0 && c50 < 128 && T6[c50] === 1) || (c50 >= 128 && c50 <= 159) || (c50 >= 161 && c50 <= 65535))) {
       {
-        const c57 = top;
+        let c118 = i; const c119 = n; const c120 = s; const c121 = c118 + 16 < c119 ? c118 + 16 : c119;
+        while (c118 < c121) { const c116 = c120.charCodeAt(c118); if (!(c116 === 9 || c116 === 32 || c116 === 160)) break; c118++; }
+        if (c118 === c121 && c118 < c119) { if (c119 !== c120.length) { while (c118 < c119) { const c116 = c120.charCodeAt(c118); if (!(c116 === 9 || c116 === 32 || c116 === 160)) break; c118++; } } else { R0.lastIndex = c118; c118 = R0.test(c120) ? R0.lastIndex - 1 : c119; } }
+        i = c118;
+      }
+    }
+    else if ((c109 === 34)) {
+      if (!r_quoted()) return false;
+      {
+        let c124 = i; const c125 = n; const c126 = s; const c127 = c124 + 16 < c125 ? c124 + 16 : c125;
+        while (c124 < c127) { const c122 = c126.charCodeAt(c124); if (!(c122 === 9 || c122 === 32 || c122 === 160)) break; c124++; }
+        if (c124 === c127 && c124 < c125) { if (c125 !== c126.length) { while (c124 < c125) { const c122 = c126.charCodeAt(c124); if (!(c122 === 9 || c122 === 32 || c122 === 160)) break; c124++; } } else { R0.lastIndex = c124; c124 = R0.test(c126) ? R0.lastIndex - 1 : c125; } }
+        i = c124;
+      }
+    }
+    else if (((c109 >= 0 && c109 < 128 && T6[c109] === 1) || (c109 >= 128 && c109 <= 159) || (c109 >= 161 && c109 <= 65535))) {
+      {
+        const c128 = top;
         if (top + 4 > buf.length) grow();
         top += 4;
-        buf[c57] = 1;
-        buf[c57 + 1] = i;
-        {
-          const c58 = top;
-          if (top + 4 > buf.length) grow();
-          top += 4;
-          buf[c58] = 2;
-          buf[c58 + 1] = i;
-          { const c59 = (i < n ? s.charCodeAt(i) : -1); if (!((c59 >= 0 && c59 < 128 && T6[c59] === 1) || (c59 >= 128 && c59 <= 159) || (c59 >= 161 && c59 <= 65535))) return fail("a value"); i++; }
-          { let c60 = (i < n ? s.charCodeAt(i) : -1); while (((c60 >= 0 && c60 < 128 && T2[c60] === 1) || (c60 >= 128 && c60 <= 65535))) { i++; c60 = (i < n ? s.charCodeAt(i) : -1); } }
-          buf[c58 + 2] = i;
-          buf[c58 + 3] = top;
-        }
-        { const c62 = (i < n ? s.charCodeAt(i) : -1); if ((c62 === 61)) {
-          if ((i < n ? s.charCodeAt(i) : -1) !== 61) return fail("\"=\"");
+        buf[c128] = 1;
+        buf[c128 + 1] = i;
+        if (!e_0()) return false;
+        { const c129 = (i < n ? s.charCodeAt(i) : -1); if ((c129 === 61)) {
           i++;
-          { let c63 = (i < n ? s.charCodeAt(i) : -1); while ((c63 === 9 || c63 === 32 || c63 === 160)) { i++; c63 = (i < n ? s.charCodeAt(i) : -1); } }
+          {
+            let c132 = i; const c133 = n; const c134 = s; const c135 = c132 + 16 < c133 ? c132 + 16 : c133;
+            while (c132 < c135) { const c130 = c134.charCodeAt(c132); if (!(c130 === 9 || c130 === 32 || c130 === 160)) break; c132++; }
+            if (c132 === c135 && c132 < c133) { if (c133 !== c134.length) { while (c132 < c133) { const c130 = c134.charCodeAt(c132); if (!(c130 === 9 || c130 === 32 || c130 === 160)) break; c132++; } } else { R0.lastIndex = c132; c132 = R0.test(c134) ? R0.lastIndex - 1 : c133; } }
+            i = c132;
+          }
           if (depth >= 64) return fail("at most 64 levels of nesting");
           depth++;
           if (!r_value()) return false;
           depth--;
         } }
-        buf[c57 + 2] = i;
-        buf[c57 + 3] = top;
+        buf[c128 + 2] = i;
+        buf[c128 + 3] = top;
       }
     }
     else return fail("\"{\", \"[\", \"\\\"\" or a value");
+  }
+  return true;
+}
+
+function e_0(): boolean {
+  {
+    const c101 = top;
+    if (top + 4 > buf.length) grow();
+    top += 4;
+    buf[c101] = 2;
+    buf[c101 + 1] = i;
+    { const c102 = (i < n ? s.charCodeAt(i) : -1); if (!((c102 >= 0 && c102 < 128 && T6[c102] === 1) || (c102 >= 128 && c102 <= 159) || (c102 >= 161 && c102 <= 65535))) return fail("a value"); i++; }
+    {
+      let c105 = i; const c106 = n; const c107 = s; const c108 = c105 + 16 < c106 ? c105 + 16 : c106;
+      while (c105 < c108) { const c103 = c107.charCodeAt(c105); if (!((c103 >= 0 && c103 < 128 && T2[c103] === 1) || (c103 >= 128 && c103 <= 65535))) break; c105++; }
+      if (c105 === c108 && c105 < c106) { if (c106 !== c107.length) { while (c105 < c106) { const c103 = c107.charCodeAt(c105); if (!((c103 >= 0 && c103 < 128 && T2[c103] === 1) || (c103 >= 128 && c103 <= 65535))) break; c105++; } } else { R1.lastIndex = c105; c105 = R1.test(c107) ? R1.lastIndex - 1 : c106; } }
+      i = c105;
+    }
+    buf[c101 + 2] = i;
+    buf[c101 + 3] = top;
   }
   return true;
 }

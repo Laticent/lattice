@@ -385,6 +385,51 @@ through rule references, the unbounded terminator, the backstop's invented level
 catching every RangeError. Two limits are pinned as tests rather than fixed: greedy commits (above),
 and the runtimes can disagree near the stack limit.
 
+### Generated-parser speed, against real tokenizers (2026-10-07)
+
+The owner asked whether Segno has room to be the fastest JavaScript parser on Markdown, CSS, HTML
+and inline code without losing a capability. The `languages` arm compared Segno only with full
+parsers, which build trees, so it now also races each parser's tokenizer layer, the like-for-like
+job. Before this pass, Segno tied postcss's tokenizer on CSS (112 vs 112 MB/s) and lost to
+css-tree's (149).
+
+`generate()` took three changes. `compile()` and the grammar language are unchanged, so no
+capability is lost. README § How the generated parser stays fast describes each one:
+
+| change | CSS | HTML | Markdown |
+|---|---|---|---|
+| `main` | 112 | 117 | 101 |
+| + a tested character is not tested again | 184 | 139 | 108 |
+| + a shared piece is written once | 181 | 139 | 111 |
+| + runs scan on locals, then by regex | **178** | **156** | **207** |
+| tokenizer beside it | postcss 103, css-tree 142 | parse5 23 | markdown-it block pass 68 |
+
+The figures are MB/s, best of eleven, and HTML's 0.2 MB corpus moves about ±20% from run to run.
+Every tree is byte-identical to `main`'s on all three corpora (a checksum over the flat buffers).
+The hostile ladders stay about linear, and several shapes got much cheaper (Markdown unclosed
+backticks 18.8 → 2.0 ms, many headings 34 → 4.7 ms).
+
+- **Tried and dropped: a jump table for wide choices.** A 128-entry branch table and a `switch`
+  measured +2% on CSS and nothing elsewhere, inside noise, so it did not earn its code.
+- **The checker found a quadratic case, now fixed.** A regular expression cannot stop at an
+  `attempt()` window's end, so the first version read the rest of a long run on every attempt:
+  8.7 s at 160k characters, where `main` takes 0.15 s. The trees were right, so no differential
+  could catch it. The regex now runs only with no window open, and `attempt.test.ts` pins the
+  timing. With no regex inside a window, an attempt again reads at most `max` characters, so
+  the bound holds by construction, the shipped flowchart-row parser included. After the fix, the
+  checker's differential found 0 mismatches against `compile()` and `main`'s generator on about
+  1.2 million grammar/input pairs, and a planted mutant of the fix was caught 9,486 times.
+- **Inline code did not move, and the arm overstates its gap.** These changes leave the inline
+  notation within noise. Run on this machine, `parser:bakeoff:segno` reports ordinary code at
+  4.5x the kernel (215 vs 47 ns). The same dispatcher timed alone takes 78 ns against the
+  kernel's 54 (1.4x), which matches § The engine's 1.5x. So the arm's figure is a property of the
+  harness, not of Segno. Followed up in `followups.d/`.
+
+"Fastest" holds for what was measured: among JavaScript tokenizers on Lattice's own files, on one
+machine and engine. The tokenizers it beats also classify tokens (css-tree tells a number from a
+dimension, parse5 decodes entities). Matching that classification is grammar work, and it is
+where an honest race against a full parser would start.
+
 ### Flowchart rows need a bounded attempt (the #2462 spike)
 
 Phase 3 moves the flowchart's list text (`Storefront -SEV1-> Payments`) onto Segno, and #2462's
