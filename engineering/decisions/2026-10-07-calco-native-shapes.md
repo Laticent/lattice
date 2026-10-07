@@ -170,6 +170,44 @@ muted-tier exported both ways, opened in LibreOffice, Collabora on iOS and Googl
 with a shape resized in each; a tier 1 checker, because the reader and both writers change;
 and dark and light renders to the owner before merge, because the export bytes change.
 
+## 7. Slice 1 as built: labels (2026-10-07)
+
+The owner picked B. Its first slice is A's labels, built so the later slices reuse every
+piece:
+
+- **Reader** (`reader.ts`, `labelShape`). A frame becomes a label when its own block paints
+  a solid fill and/or one solid border the same on all four sides, any corner radii, and
+  nothing else: no image or gradient, border image, shadow, outline, tilt, blend, opacity
+  (its own or an ancestor's), `::before`/`::after` content or list marker, background
+  clipped short of the border box, scale apart from the slide, or child that paints a box
+  or is a picture. And every word inside it must be its own paragraph's: a card whose body is
+  a paragraph of its own, or a box holding text the reader left in the picture (a clipped
+  child), stays a picture, or the body would sit outside the group, or the left-behind text
+  would be hidden with the fill. (The checker on this slice found all three.) The frame carries the border box,
+  fill, stroke and four radii as `shape` (`types.ts`). Radii follow CSS: each corner's two
+  radii are scaled down together when adjacent corners would overlap, then the smaller is
+  kept (an office corner is circular, so a `50%` corner on a wide box comes out round, not
+  elliptical).
+- **Hide.** After the text hide succeeds (its paint check must see the boxes as drawn),
+  each label's fill and four border colors go transparent with `!important`, widths kept,
+  so nothing moves. `restoreSlide` undoes the boxes first, then the text.
+- **Writers.** A label is a group of two: the shape, then its existing text box, so the text
+  keeps the placement already checked in three readers. A CSS border lies inside the box
+  and an office stroke is centered on the outline, so the outline is inset by half the border
+  width (`shapeOutline`, `layout.ts`). The `.odp` writes `draw:g` around a
+  `draw:custom-shape` whose path uses ODF's elliptical quadrants (`X`/`Y`) per corner. The
+  `.pptx` writes `rect`, `roundRect` or custom geometry with `arcTo` corners, and
+  `tidyPptx` wraps the shape and its text in a `p:grpSp` (PptxGenJS has no group API), with
+  `<a:ln><a:noFill/></a:ln>` stated for a label with no border.
+
+Measured on the CLI's `--editable` export: card-tags carries 8 labels (the flush corner tags,
+the two-line bands, before/after), muted-tier-and-syntax 3, the jargon gallery 34 (its 2×2
+quadrants hold a title and a body, so they stay pictures), the baseline gallery 52. The numbered tags on card-tags
+slide 2 stay pictures, because their number is `::before` content. Both `.pptx` files
+validate with 0 errors against `pml.xsd` (`xmllint`) and the Open XML SDK 3.3.0; LibreOffice
+24.2 draws every label where the PDF has it, and the slide picture under them no longer
+holds the tag boxes.
+
 ## Appendix: the census script
 
 Run from the repository root: `node box-census.cjs $PWD/card-tags.html …` with

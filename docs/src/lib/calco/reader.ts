@@ -29,8 +29,16 @@
  * transparent. Freezing is plain inline style plus one stylesheet, so it survives any
  * capture that copies computed style (a headless screenshot, html-to-image). Everything
  * is undone by `restoreSlide`.
+ *
+ * LABELS. A paragraph whose own block paints a plain box — a solid fill and/or one border
+ * all round, any corner radii, and nothing else (no shadow, image, border image, tilt,
+ * opacity, pseudo-element content or marker, or child that paints or is a picture) — and
+ * holds no text but its own paragraph's, is a label: a pill, a tag. Its frame
+ * carries that box as a `shape`, and `hide: true` also takes the box's own paint out of the
+ * picture (fill and border colors to transparent, border widths kept so nothing moves), so a
+ * writer can draw the box as a native shape under the text without leaving a ghost behind.
  */
-import type { TextFrame, TextRun, TextStyle } from './types.js';
+import type { Shape, TextFrame, TextRun, TextStyle } from './types.js';
 
 /** What `readSlide` returns. */
 export interface ReadResult {
@@ -339,6 +347,95 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 	visit(section, 1, sectionRect);
 	range.detach();
 
+	// ── a label's box, or null. See LABELS in the header for what qualifies.
+	const PICTURE = new Set(['svg', 'img', 'canvas', 'video', 'iframe', 'object', 'math', 'picture', 'input', 'select', 'textarea', 'button']);
+	const visibleSide = (cs: CSSStyleDeclaration, side: string) => {
+		const width = Number.parseFloat(cs.getPropertyValue(`border-${side}-width`)) || 0;
+		const st = cs.getPropertyValue(`border-${side}-style`);
+		const c = parseColor(cs.getPropertyValue(`border-${side}-color`));
+		return width > 0 && st !== 'none' && st !== 'hidden' && c && c.a > 0 ? { width, st, color: cs.getPropertyValue(`border-${side}-color`), c } : null;
+	};
+	const paintsBox = (cs: CSSStyleDeclaration) => {
+		const bg = parseColor(cs.backgroundColor);
+		return (!!bg && bg.a > 0) || cs.backgroundImage !== 'none' || cs.boxShadow !== 'none' || ['top', 'right', 'bottom', 'left'].some((sd) => visibleSide(cs, sd));
+	};
+	const hasPseudo = (el: Element) =>
+		(['::before', '::after'] as const).some((p) => {
+			const c = win.getComputedStyle(el, p).content;
+			return !!c && c !== 'none' && c !== 'normal';
+		});
+	const labelShape = (block: Element): Shape | null => {
+		if (block === section) return null;
+		const cs = win.getComputedStyle(block);
+		const fx = cs as unknown as Record<string, string>;
+		if (cs.backgroundImage !== 'none' || cs.boxShadow !== 'none' || tilted(block) || hasPseudo(block)) return null;
+		// A border image paints over the hidden border colors; a fill clipped to the padding or
+		// content box is not the border box a shape would fill; a visible list marker would sit
+		// under the shape.
+		if ((cs.borderImageSource && cs.borderImageSource !== 'none') || (cs.backgroundClip && cs.backgroundClip !== 'border-box')) return null;
+		if (cs.display === 'list-item' && cs.listStyleType !== 'none' && win.getComputedStyle(block, '::marker').content !== 'none') return null;
+		// Every word in the box must be this frame's: text the reader left in the picture (a
+		// clipped child, a filtered subtree) would be hidden under the shape or lost with the
+		// fill, and a nested paragraph (a card's body) would be drawn under it or left out of
+		// the group. So a label holds one paragraph and nothing else.
+		const own = new Set((blocks.get(block) || []).map((wd) => wd.node));
+		const walker = doc.createTreeWalker(block, 4);
+		for (let t = walker.nextNode(); t; t = walker.nextNode()) {
+			if (/\S/.test(t.nodeValue || '') && !own.has(t as Text)) return null;
+		}
+		if (cs.outlineStyle !== 'none' && (Number.parseFloat(cs.outlineWidth) || 0) > 0) return null;
+		if ((fx.backdropFilter && fx.backdropFilter !== 'none') || (cs.mixBlendMode && cs.mixBlendMode !== 'normal')) return null;
+		const sides = ['top', 'right', 'bottom', 'left'].map((sd) => visibleSide(cs, sd));
+		let stroke: Shape['stroke'];
+		if (sides.some(Boolean)) {
+			// One border all round, solid: anything else (an accent edge, a dashed rule) is not a label.
+			const [a] = sides;
+			if (!a || sides.some((sd) => !sd || Math.abs(sd.width - a.width) > 0.01 || sd.color !== a.color || sd.st !== 'solid')) return null;
+			stroke = { width: a.width, color: hex(a.c), alpha: a.c.a };
+		}
+		const bg = parseColor(cs.backgroundColor);
+		const fill = bg && bg.a > 0 ? { color: hex(bg), alpha: Math.round(bg.a * 100) / 100 } : undefined;
+		if (!fill && !stroke) return null;
+		for (const el of Array.from(block.querySelectorAll('*'))) {
+			if (PICTURE.has(el.localName.toLowerCase())) return null;
+			const ecs = win.getComputedStyle(el);
+			if (ecs.display === 'none') continue;
+			if (paintsBox(ecs) || hasPseudo(el)) return null;
+		}
+		// Opacity on the box or an ancestor fades the box and its text as ONE group; a shape and
+		// a text box each faded would mix differently, so such a box stays a picture.
+		for (let p: Element | null = block; p && p !== section.parentElement; p = p.parentElement) {
+			if ((Number.parseFloat(win.getComputedStyle(p).opacity) || 0) < 1) return null;
+		}
+		const r = block.getBoundingClientRect();
+		// A box scaled apart from the slide (a focus pop) draws its border and radii scaled too,
+		// which the computed values do not say.
+		const ow = (block as HTMLElement).offsetWidth;
+		if (ow > 0 && Math.abs(r.width / ow - scale) > 0.01 * scale) return null;
+		const x = (r.left - origin.left) / scale;
+		const y = (r.top - origin.top) / scale;
+		const w = r.width / scale;
+		const h = r.height / scale;
+		if (!(w > 0 && h > 0) || x < -0.5 || y < -0.5 || x + w > boxW + 0.5 || y + h > boxH + 0.5) return null;
+		// Corner radii as CSS draws them: each corner's two radii, scaled down together when
+		// adjacent corners would overlap, then the smaller of the two (an office shape's
+		// corners are circular).
+		const corner = (v: string) => {
+			const parts = v.trim().split(/\s+/);
+			const one = (part: string, ref: number) => (part.endsWith('%') ? (Number.parseFloat(part) / 100) * ref : Number.parseFloat(part) || 0);
+			return [one(parts[0], w), one(parts[1] || parts[0], h)];
+		};
+		const c = [cs.borderTopLeftRadius, cs.borderTopRightRadius, cs.borderBottomRightRadius, cs.borderBottomLeftRadius].map(corner);
+		const f = Math.min(1, w / (c[0][0] + c[1][0] || 1), w / (c[3][0] + c[2][0] || 1), h / (c[0][1] + c[3][1] || 1), h / (c[1][1] + c[2][1] || 1));
+		const radii = c.map(([rx, ry]) => Math.round(Math.min(rx, ry) * f * 100) / 100) as Shape['radii'];
+		const round = (n: number) => Math.round(n * 100) / 100;
+		const shape: Shape = { x: round(x), y: round(y), w: round(w), h: round(h), radii };
+		if (fill) shape.fill = fill;
+		if (stroke) shape.stroke = stroke;
+		return shape;
+	};
+	const labels: Element[] = [];
+
 	// ── words → lines → frames. An unplaceable block is dropped, and its text is not hidden.
 	const frames: TextFrame[] = [];
 	const textOwners = new Set<Element>();
@@ -434,7 +531,10 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			const blanks = Math.round((tops[k] - tops[k - 1]) / lineHeight) - 1;
 			if (blanks > 0 && blanks < 50) lines.splice(k, 0, ...Array.from({ length: blanks }, () => [] as Word[]));
 		}
+		const shape = labelShape(block);
+		if (shape) labels.push(block);
 		frames.push({
+			...(shape ? { shape } : {}),
 			x,
 			y: firstTop,
 			w,
@@ -645,6 +745,22 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 	if (options?.hide && textOwners.size) {
 		if (!wrapHide()) freezeHide();
 		hidden = true;
+		// The labels' boxes go after the text, so the text hide's paint check sees them as
+		// they were. Undone first, before the text, since each restore puts back the style
+		// attribute it found.
+		if (labels.length) {
+			const undoText = host.__calcoRestore;
+			const saved = labels.map((el) => [el, el.getAttribute('style')] as const);
+			for (const el of labels) {
+				const st = (el as HTMLElement).style;
+				st.setProperty('background-color', 'transparent', 'important');
+				for (const sd of ['top', 'right', 'bottom', 'left']) st.setProperty(`border-${sd}-color`, 'transparent', 'important');
+			}
+			host.__calcoRestore = () => {
+				for (const [el, s] of saved) flushStyle(el, s);
+				undoText?.();
+			};
+		}
 	}
 	return { width: boxW, height: boxH, frames, hidden };
 }

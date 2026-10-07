@@ -44,8 +44,34 @@ export interface TextRun {
 	style: TextStyle;
 }
 
+/** A color with its opacity, `#rrggbb` and 0–1. */
+export interface Paint {
+	color: string;
+	alpha: number;
+}
+
+/**
+ * A box drawn as a native shape: the border box of the element that holds a frame's text
+ * (a pill, a tag), px. A writer draws it under the frame's text and groups the two, so the
+ * label moves and resizes as one object.
+ */
+export interface Shape {
+	x: number;
+	y: number;
+	w: number;
+	h: number;
+	/** Solid fill; absent for a box with only a border. */
+	fill?: Paint;
+	/** A border the same on all four sides; absent for a box with only a fill. */
+	stroke?: Paint & { width: number };
+	/** Corner radii in px, clockwise from top-left, already fitted to the box as CSS does. */
+	radii: [number, number, number, number];
+}
+
 /** One paragraph's box. Lines are broken where the browser broke them. */
 export interface TextFrame {
+	/** The label box this text sits in, drawn as a shape under it (a pill, a tag). */
+	shape?: Shape;
 	/** Left edge of the text column, px. */
 	x: number;
 	/** Top of the first line's glyph box (ascent + descent), px. */

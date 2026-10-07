@@ -319,3 +319,120 @@ describe('calco reader: the review cases', () => {
     assert.notEqual(space.style.family, code.family);
   });
 });
+
+// Labels (decision note 2026-10-07-calco-native-shapes.md): a block that paints a plain box
+// carries it as a shape, and hiding takes that box out of the picture too. Everything that
+// is not plain stays a picture: a one-sided border, a shadow, pseudo-element content, a
+// child that paints.
+const LABEL_FIXTURE = `<!doctype html><html><head><style>
+  body { margin: 0; font-family: sans-serif; }
+  section { width: 1280px; height: 720px; position: relative; background: #fff; color: #000; }
+  section > * { position: absolute; margin: 0; font-size: 16px; line-height: 20px; padding: 4px 10px; }
+  .tag { left: 40px; top: 40px; background: #2e608a; color: #fff; border-radius: 10px 0 7px 0; }
+  .ring { left: 40px; top: 100px; border: 2px solid #7b772d; border-radius: 999px; }
+  .edge { left: 300px; top: 40px; background: #eee; border-left: 4px solid #c00; }
+  .shadow { left: 300px; top: 100px; background: #eee; box-shadow: 0 2px 4px #000; }
+  .icon { left: 600px; top: 40px; background: #eee; }
+  .icon::before { content: "*"; }
+  .inner { left: 600px; top: 100px; background: #eee; }
+  .inner span { background: #ff0; }
+  .para { left: 40px; top: 200px; }
+  .card { left: 40px; top: 260px; background: #eee; }
+  .card p { margin: 0; }
+  .clipped { left: 300px; top: 260px; background: #2e608a; color: #fff; }
+  .clipped span { display: block; width: 60px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .faded { left: 600px; top: 260px; background: #2e608a; color: #fff; opacity: 0.5; }
+  .bimg { left: 900px; top: 260px; border: 4px solid #000; border-image: linear-gradient(red, blue) 1; }
+</style></head><body>
+<section id="l">
+  <div class="tag">Build</div>
+  <div class="ring">Ringed</div>
+  <div class="edge">Edge</div>
+  <div class="shadow">Shadow</div>
+  <div class="icon">Icon</div>
+  <div class="inner">Has <span>paint</span></div>
+  <p class="para">Plain</p>
+  <div class="card">Card title<p>Card body</p></div>
+  <div class="clipped">Seen <span>clipped long words here</span></div>
+  <div class="faded">Faded</div>
+  <div class="bimg">Border image</div>
+</section></body></html>`;
+
+describe('calco reader — labels', () => {
+  let browser;
+  let page;
+  before(async () => {
+    browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+    page = await browser.newPage();
+    await page.setViewport({ width: 1280, height: 720 });
+    await page.setContent(LABEL_FIXTURE, { waitUntil: 'load' });
+  });
+  after(async () => {
+    await browser?.close();
+  });
+  const textOf = (frame) => frame.lines.map((l) => l.map((r) => r.text).join('')).join('\n');
+
+  test('a plain fill or an all-round border is a label; anything more stays a picture', { timeout: 60000 }, async () => {
+    const res = await (await page.$('#l')).evaluate(readSlide);
+    const by = Object.fromEntries(res.frames.map((f) => [textOf(f), f.shape]));
+    const box = await page.evaluate(() => {
+      const r = document.querySelector('.tag').getBoundingClientRect();
+      return { x: r.left, y: r.top, w: r.width, h: r.height };
+    });
+    assert.deepEqual(by.Build, { x: box.x, y: box.y, w: Math.round(box.w * 100) / 100, h: Math.round(box.h * 100) / 100, radii: [10, 0, 7, 0], fill: { color: '#2e608a', alpha: 1 } });
+    const ring = by.Ringed;
+    assert.deepEqual(ring.stroke, { width: 2, color: '#7b772d', alpha: 1 });
+    assert.equal(ring.fill, undefined);
+    assert.ok(ring.radii.every((r) => Math.abs(r - ring.h / 2) < 0.01), `a 999px radius is half the height: ${ring.radii}`);
+    for (const t of ['Edge', 'Shadow', 'Icon', 'Has paint', 'Plain', 'Faded', 'Border image']) assert.equal(by[t], undefined, `${t} is not a label`);
+    // A box whose words are not all its own paragraph's: a card's body is a paragraph of its
+    // own, and clipped text stays in the picture, which hiding the fill would lose.
+    assert.equal(by['Card title'], undefined, 'a card with a body is not a label');
+    assert.equal(by['Card body'], undefined);
+    assert.equal(by.Seen, undefined, 'a box holding text left in the picture is not a label');
+  });
+
+  test('hiding takes the label box out of the picture without moving it, and restore is exact', { timeout: 60000 }, async () => {
+    const l = await page.$('#l');
+    const before = await page.evaluate(() => document.body.innerHTML);
+    const look = () =>
+      page.evaluate(() => ['.tag', '.ring', '.edge'].map((sel) => {
+        const el = document.querySelector(sel);
+        const cs = getComputedStyle(el);
+        const r = el.getBoundingClientRect();
+        return { bg: cs.backgroundColor, border: cs.borderTopColor, left: cs.borderLeftColor, box: [r.left, r.top, r.width, r.height].join() };
+      }));
+    const shown = await look();
+    await l.evaluate(readSlide, { hide: true });
+    const hidden = await look();
+    assert.equal(hidden[0].bg, 'rgba(0, 0, 0, 0)', 'the tag fill is gone from the picture');
+    assert.equal(hidden[1].border, 'rgba(0, 0, 0, 0)', 'the ring border is gone from the picture');
+    assert.equal(hidden[2].bg, shown[2].bg, 'a box that is not a label keeps its paint');
+    assert.equal(hidden[2].left, shown[2].left);
+    assert.deepEqual(hidden.map((h) => h.box), shown.map((s) => s.box), 'nothing moved');
+    await l.evaluate(restoreSlide);
+    assert.equal(await page.evaluate(() => document.body.innerHTML), before, 'the DOM is back exactly');
+  });
+});
+
+describe('calco reader — labels under the freeze fallback', () => {
+  test('a label hidden on the color-freeze path restores exactly', { timeout: 60000 }, async () => {
+    const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+    try {
+      const page = await browser.newPage();
+      // Wrapping "Plain" puts an element before <b>, so `.lab > b:first-child` stops matching and
+      // its color changes: the wrapper hide refuses that and falls back to the freeze.
+      await page.setContent('<style>.lab > b:first-child { color: rgb(255, 255, 0); } .lab { position: absolute; left: 20px; top: 20px; padding: 4px 8px; background: rgb(46, 96, 138); color: #fff; }</style><section id="z" style="position:relative;width:600px;height:300px"><div class="lab" style="border-radius: 6px">Plain <b>tag</b></div></section>');
+      const z = await page.$('#z');
+      const before = await page.evaluate(() => document.body.innerHTML);
+      const res = await z.evaluate(readSlide, { hide: true });
+      assert.ok(res.frames[0].shape, 'the box is a label');
+      const state = await page.evaluate(() => ({ wrapped: !!document.querySelector('calco-hide'), bg: getComputedStyle(document.querySelector('.lab')).backgroundColor }));
+      assert.deepEqual(state, { wrapped: false, bg: 'rgba(0, 0, 0, 0)' }, 'freeze path, and the box is out of the picture');
+      await z.evaluate(restoreSlide);
+      assert.equal(await page.evaluate(() => document.body.innerHTML), before, 'the DOM is back exactly');
+    } finally {
+      await browser.close();
+    }
+  });
+});

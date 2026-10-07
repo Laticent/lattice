@@ -2,7 +2,9 @@
  * The ODP writer: a Deck → an OpenDocument Presentation (ODF 1.3), the format LibreOffice
  * Impress opens natively.
  *
- * Every page is a full-bleed picture with zero or more text boxes on top. In PICTURE mode
+ * Every page is a full-bleed picture with zero or more text boxes on top. A frame that sits in
+ * a label (a pill, a tag) is drawn as a group: the label's box as a `draw:custom-shape`,
+ * its text box over it, so the two move and resize together. In PICTURE mode
  * the picture is the whole slide and there are no boxes; in EDITABLE mode the picture is the
  * slide with its text hidden and every paragraph is a real text box, in its own font, which
  * is embedded in the file. One code path writes both.
@@ -14,9 +16,9 @@
  *     ignores the page layout and falls back to its own 28 × 15.75 cm page.
  */
 import { type FontMetrics, faceFor, facesUsed, readFontMetrics, uniqueFaceNames } from './fonts.js';
-import { dominantStyle, metricsFor, placeFrame } from './layout.js';
+import { dominantStyle, metricsFor, placeFrame, shapeOutline } from './layout.js';
 import { renameFace } from './sfnt.js';
-import type { Deck, EmbeddedFont, JSZipClass, TextStyle } from './types.js';
+import type { Deck, EmbeddedFont, JSZipClass, Shape, TextStyle } from './types.js';
 
 export const ODP_MIMETYPE = 'application/vnd.oasis.opendocument.presentation';
 
@@ -195,6 +197,51 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 		return name;
 	};
 
+	const shapeStyles = new Map<string, string>();
+	const shapeStyle = (sh: Shape): string => {
+		const key = JSON.stringify([sh.fill, sh.stroke]);
+		const hit = shapeStyles.get(key);
+		if (hit) return hit;
+		const name = `gs${shapeStyles.size + 1}`;
+		shapeStyles.set(key, name);
+		const fill = sh.fill
+			? `draw:fill="solid" draw:fill-color="${sh.fill.color}"${sh.fill.alpha < 1 ? ` draw:opacity="${Math.round(sh.fill.alpha * 100)}%"` : ''}`
+			: 'draw:fill="none"';
+		const stroke = sh.stroke
+			? `draw:stroke="solid" svg:stroke-width="${cm(sh.stroke.width)}" svg:stroke-color="${sh.stroke.color}"${sh.stroke.alpha < 1 ? ` svg:stroke-opacity="${Math.round(sh.stroke.alpha * 100)}%"` : ''}`
+			: 'draw:stroke="none"';
+		automatic.push(`<style:style style:name="${name}" style:family="graphic"><style:graphic-properties ${fill} ${stroke} draw:shadow="hidden"/></style:style>`);
+		return name;
+	};
+	// A rounded rectangle in the shape's own units (1/100 px), each corner its own radius. `X`
+	// and `Y` are ODF's elliptical quadrants: `X` leaves its point along the x axis, `Y` along
+	// the y axis, so the four corners alternate.
+	const shapeXml = (sh: Shape, name: string): string => {
+		const o = shapeOutline(sh);
+		const u = (px: number) => Math.round(px * 100);
+		const [tl, tr, br, bl] = o.radii.map(u);
+		const W = u(o.w);
+		const Hh = u(o.h);
+		const path = [
+			`M ${tl} 0`,
+			`L ${W - tr} 0`,
+			tr ? `X ${W} ${tr}` : '',
+			`L ${W} ${Hh - br}`,
+			br ? `Y ${W - br} ${Hh}` : '',
+			`L ${bl} ${Hh}`,
+			bl ? `X 0 ${Hh - bl}` : '',
+			`L 0 ${tl}`,
+			tl ? `Y ${tl} 0` : '',
+			'Z N',
+		]
+			.filter(Boolean)
+			.join(' ');
+		return (
+			`<draw:custom-shape draw:style-name="${shapeStyle(sh)}" draw:name="${xmlEscape(name)}" svg:x="${cm(o.x)}" svg:y="${cm(o.y)}" svg:width="${cm(o.w)}" svg:height="${cm(o.h)}">` +
+			`<draw:enhanced-geometry svg:viewBox="0 0 ${W} ${Hh}" draw:type="non-primitive" draw:enhanced-path="${path}"/></draw:custom-shape>`
+		);
+	};
+
 	const metricsCache = new Map<EmbeddedFont, FontMetrics | null>();
 	const pages = deck.slides.map((slide, i) => {
 		const n = i + 1;
@@ -207,10 +254,10 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 				const body = f.lines
 					.map((runs, li) => (li ? '<text:line-break/>' : '') + runs.map((r) => `<text:span text:style-name="${textStyle(r.style)}">${textBody(r.text)}</text:span>`).join(''))
 					.join('');
-				return (
+				const text =
 					`<draw:frame draw:style-name="gr1" draw:name="Text ${n}.${j + 1}" svg:x="${cm(box.x)}" svg:y="${cm(box.y)}" svg:width="${cm(box.w)}" svg:height="${cm(box.h)}">` +
-					`<draw:text-box><text:p text:style-name="${paraStyle(f.align, f.lineHeight)}">${body}</text:p></draw:text-box></draw:frame>`
-				);
+					`<draw:text-box><text:p text:style-name="${paraStyle(f.align, f.lineHeight)}">${body}</text:p></draw:text-box></draw:frame>`;
+				return f.shape ? `<draw:g draw:name="Label ${n}.${j + 1}">${shapeXml(f.shape, `Label ${n}.${j + 1} Shape`)}${text}</draw:g>` : text;
 			})
 			.join('');
 		const note = slide.notes;

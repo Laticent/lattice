@@ -128,3 +128,48 @@ describe('calco pptx — what PptxGenJS does not escape', () => {
   });
 });
 
+
+describe('calco pptx — labels', () => {
+  const label = (shape) => frame([[{ text: 'Tag', style: style({ color: '#ffffff' }) }]], { shape });
+  const slideOf = async (deck) => {
+    const zip = await JSZip.loadAsync(await writePptx(PptxGenJS, deck, 'nodebuffer', JSZip));
+    return zip.file('ppt/slides/slide1.xml').async('string');
+  };
+  const deckOf = (...frames) => ({ width: 1280, height: 720, slides: [{ image: ONE_PX_PNG, frames }] });
+
+  test('each label is a p:grpSp holding its shape, then its text box; a plain frame is not grouped', async () => {
+    const xml = await slideOf(deckOf(label({ x: 90, y: 190, w: 200, h: 50, radii: [0, 0, 0, 0], fill: { color: '#2e608a', alpha: 1 } }), frame([[{ text: 'plain', style: style() }]])));
+    const groups = xml.match(/<p:grpSp>[\s\S]*?<\/p:grpSp>/g) || [];
+    assert.equal(groups.length, 1);
+    assert.match(groups[0], /<p:cNvPr id="\d+" name="Calco Label 1\.1"\/>[\s\S]*<p:sp>[\s\S]*name="Calco Label 1\.1"[\s\S]*<\/p:sp><p:sp>[\s\S]*name="Calco Label 1\.1 Text"[\s\S]*>Tag<\/a:t>/);
+    const ids = Array.from(xml.matchAll(/<p:cNvPr id="(\d+)"/g), (m) => m[1]);
+    assert.equal(new Set(ids).size, ids.length, 'every id on the slide is unique');
+  });
+
+  test('the group box encloses both children, in their own coordinates', async () => {
+    const xml = await slideOf(deckOf(label({ x: 90, y: 190, w: 200, h: 50, radii: [0, 0, 0, 0], fill: { color: '#2e608a', alpha: 1 } })));
+    const g = xml.match(/name="Calco Label 1\.1"\/><p:cNvGrpSpPr\/><p:nvPr\/><\/p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="(\d+)" y="(\d+)"\/><a:ext cx="(\d+)" cy="(\d+)"\/><a:chOff x="(\d+)" y="(\d+)"\/><a:chExt cx="(\d+)" cy="(\d+)"\/>/);
+    assert.ok(g, 'the group has an xfrm with child space');
+    assert.deepEqual(g.slice(1, 5), g.slice(5, 9), 'child space is the group box itself');
+    for (const m of xml.matchAll(/<p:sp>[\s\S]*?<a:off x="(\d+)" y="(\d+)"\/><a:ext cx="(\d+)" cy="(\d+)"\/>[\s\S]*?<\/p:sp>/g)) {
+      if (!/Calco Label/.test(m[0])) continue;
+      assert.ok(+m[1] >= +g[1] && +m[2] >= +g[2] && +m[1] + +m[3] <= +g[1] + +g[3] && +m[2] + +m[4] <= +g[2] + +g[4]);
+    }
+  });
+
+  test('square corners are a rect, equal corners a roundRect, mixed corners custom geometry', async () => {
+    const box = { x: 90, y: 190, w: 200, h: 50, fill: { color: '#2e608a', alpha: 1 } };
+    assert.match(await slideOf(deckOf(label({ ...box, radii: [0, 0, 0, 0] }))), /name="Calco Label 1\.1"[\s\S]*?<a:prstGeom prst="rect">/);
+    assert.match(await slideOf(deckOf(label({ ...box, radii: [12, 12, 12, 12] }))), /name="Calco Label 1\.1"[\s\S]*?<a:prstGeom prst="roundRect"><a:avLst><a:gd name="adj"/);
+    const mixed = await slideOf(deckOf(label({ ...box, radii: [10, 0, 6, 0] })));
+    assert.match(mixed, /name="Calco Label 1\.1"[\s\S]*?<a:custGeom>/);
+    assert.equal((mixed.match(/<a:arcTo /g) || []).length, 2, 'one arc per rounded corner');
+  });
+
+  test('a label states no fill and no outline outright, and a border is a line', async () => {
+    const outline = await slideOf(deckOf(label({ x: 90, y: 190, w: 200, h: 50, radii: [0, 0, 0, 0], stroke: { width: 2, color: '#7b772d', alpha: 1 } })));
+    assert.match(outline, /name="Calco Label 1\.1"[\s\S]*?<a:noFill\/><a:ln w="\d+"><a:solidFill><a:srgbClr val="7B772D"\/>/);
+    const filled = await slideOf(deckOf(label({ x: 90, y: 190, w: 200, h: 50, radii: [0, 0, 0, 0], fill: { color: '#2e608a', alpha: 0.5 } })));
+    assert.match(filled, /name="Calco Label 1\.1"[\s\S]*?<a:srgbClr val="2E608A"><a:alpha val="50000"\/><\/a:srgbClr><\/a:solidFill><a:ln><a:noFill\/><\/a:ln>/);
+  });
+});

@@ -172,3 +172,31 @@ describe('calco odp — editable text', () => {
     assert.match(await read((await open(deck)).zip, 'content.xml'), /fo:font-family="Georgia"/);
   });
 });
+
+describe('calco odp — labels', () => {
+  const label = (shape) => frame([[{ text: 'Tag', style: style({ color: '#ffffff' }) }]], { shape });
+
+  test('a frame with a shape becomes a group: the shape under its text box', async () => {
+    const deck = picture(1);
+    deck.slides[0].frames = [label({ x: 90, y: 190, w: 200, h: 50, radii: [10, 0, 6, 0], fill: { color: '#2e608a', alpha: 1 } }), frame([[{ text: 'plain', style: style() }]])];
+    const xml = await read((await open(deck)).zip, 'content.xml');
+    const group = xml.match(/<draw:g draw:name="Label 1\.1">([\s\S]*?)<\/draw:g>/);
+    assert.ok(group, 'the label is a draw:g');
+    assert.match(group[1], /^<draw:custom-shape [^>]*draw:name="Label 1\.1 Shape"[\s\S]*<\/draw:custom-shape><draw:frame /, 'shape first, then the text box');
+    assert.equal((xml.match(/<draw:g /g) || []).length, 1, 'a plain frame is not grouped');
+    // Two rounded corners, each a quadrant (X along x, Y along y), two square ones.
+    assert.match(group[1], /draw:enhanced-path="M 1000 0 L 20000 0 L 20000 4400 Y 19400 5000 L 0 5000 L 0 1000 Y 1000 0 Z N"/);
+    assert.match(xml, /draw:fill="solid" draw:fill-color="#2e608a" draw:stroke="none" draw:shadow="hidden"/);
+  });
+
+  test('a border is a centered stroke, so the outline is inset by half its width', async () => {
+    const deck = picture(1);
+    deck.slides[0].frames = [label({ x: 100, y: 200, w: 200, h: 40, radii: [20, 20, 20, 20], stroke: { width: 4, color: '#7b772d', alpha: 0.5 } })];
+    const xml = await read((await open(deck)).zip, 'content.xml');
+    const cmPerPx = 33.867 / 1280;
+    const shape = xml.match(/<draw:custom-shape [^>]*svg:x="([\d.]+)cm" svg:y="([\d.]+)cm" svg:width="([\d.]+)cm" svg:height="([\d.]+)cm"/);
+    assert.ok(Math.abs(Number(shape[1]) - 102 * cmPerPx) < 1e-3 && Math.abs(Number(shape[3]) - 196 * cmPerPx) < 1e-3);
+    assert.match(xml, /draw:enhanced-path="M 1800 0 L 17800 0 X 19600 1800 L 19600 1800 Y 17800 3600/, 'radii shrink by the same half-width');
+    assert.match(xml, /draw:fill="none" draw:stroke="solid" svg:stroke-width="[\d.]+cm" svg:stroke-color="#7b772d" svg:stroke-opacity="50%"/);
+  });
+});

@@ -15,7 +15,7 @@
  *    so the box gets spare width on the side its alignment grows toward, kept on the slide.
  */
 import { type FontMetrics, faceFor, readFontMetrics } from './fonts.js';
-import type { EmbeddedFont, TextFrame, TextStyle } from './types.js';
+import type { EmbeddedFont, Shape, TextFrame, TextStyle } from './types.js';
 
 /** Used when the face is not embedded: a typical text face (ascent 0.8 of the glyph box). */
 const FALLBACK: FontMetrics = { ascent: 0.96, descent: 0.24 };
@@ -91,4 +91,20 @@ export function applyTransform(text: string, transform: string): string {
 /** `#rrggbb` → `RRGGBB` (OOXML spells colors without the hash). */
 export function bareHex(color: string): string {
 	return color.replace(/^#/, '').toUpperCase();
+}
+
+/**
+ * The outline a writer draws for a shape. A CSS border lies inside the border box; an office
+ * stroke is centered on the outline. So a stroked shape's outline is inset by half the
+ * border width, its corners by the same, and the stroke then covers exactly the border.
+ */
+export function shapeOutline(shape: Shape): { x: number; y: number; w: number; h: number; radii: Shape['radii'] } {
+	const half = shape.stroke ? shape.stroke.width / 2 : 0;
+	return {
+		x: shape.x + half,
+		y: shape.y + half,
+		w: Math.max(0, shape.w - 2 * half),
+		h: Math.max(0, shape.h - 2 * half),
+		radii: shape.radii.map((r) => Math.max(0, r - half)) as Shape['radii'],
+	};
 }

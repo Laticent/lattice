@@ -18,6 +18,10 @@
  * `text-transform` is applied to the text itself: PptxGenJS exposes no all-caps flag, so an
  * uppercase label is stored in capitals.
  *
+ * LABELS: a frame that sits in a label (a pill, a tag) gets its box as a shape under its text
+ * box. PptxGenJS cannot group, so the pair is named `Calco Label …` and `tidyPptx` wraps it
+ * in a `p:grpSp` when the caller passes JSZip; the label then moves and resizes as one.
+ *
  * SCHEMA: PptxGenJS 3.12 writes three things the OOXML schema forbids, and `tidyPptx` mends
  * them whenever the caller passes JSZip: a `<a:pPr>` before EVERY run of a paragraph (the
  * schema allows one, first), `p:notesMasterIdLst` after `p:sldIdLst` (it belongs before),
@@ -25,9 +29,9 @@
  */
 
 import { type FontMetrics, faceFamilyName, faceFor, faceKey, facesUsed, uniqueFaceNames } from './fonts.js';
-import { applyTransform, bareHex, dominantStyle, metricsFor, placeFrame, spacingMultiple } from './layout.js';
+import { applyTransform, bareHex, dominantStyle, metricsFor, placeFrame, shapeOutline, spacingMultiple } from './layout.js';
 import { canEmbedAsEot, renameFace, toEot } from './sfnt.js';
-import type { Deck, EmbeddedFont, JSZipClass, TextRun } from './types.js';
+import type { Deck, EmbeddedFont, JSZipClass, Shape, TextRun } from './types.js';
 
 /** The family name PowerPoint sees for an embedded face (`faceFamilyName`, with the PPTX-safe family). */
 export function pptxFaceName(face: { family: string; weight: number; italic: boolean }): string {
@@ -48,6 +52,7 @@ export interface PptxGenJSLike {
 	addSlide(): {
 		addImage(options: Record<string, unknown>): unknown;
 		addText(text: Array<{ text: string; options?: Record<string, unknown> }>, options: Record<string, unknown>): unknown;
+		addShape(shape: string, options: Record<string, unknown>): unknown;
 		addNotes(notes: string): unknown;
 	};
 	write(options: { outputType: string }): Promise<unknown>;
@@ -151,15 +156,44 @@ export function buildPptx(PptxGenJS: PptxGenJSClass, deck: Deck, options?: { emb
 		return { text: xmlSafe(applyTransform(run.text, s.transform)), options: opts };
 	};
 
+	// A label's box: a plain or rounded rectangle, or custom geometry when its corners differ.
+	// Points are inches, local to the shape; an `arc` turns 90° from where the last point left.
+	const addLabelShape = (s: ReturnType<PptxGenJSLike['addSlide']>, sh: Shape, name: string) => {
+		const o = shapeOutline(sh);
+		const opts: Record<string, unknown> = { x: inch(o.x), y: inch(o.y), w: inch(o.w), h: inch(o.h), objectName: name };
+		// No fill: PptxGenJS writes `<a:noFill/>` when `fill` is absent. No stroke: it writes an
+		// empty `<a:ln></a:ln>` whatever `line` says, and `groupLabels` fills in `<a:noFill/>`.
+		if (sh.fill) opts.fill = { color: bareHex(sh.fill.color), transparency: Math.round((1 - sh.fill.alpha) * 100) };
+		if (sh.stroke) opts.line = { color: bareHex(sh.stroke.color), width: points(sh.stroke.width), transparency: Math.round((1 - sh.stroke.alpha) * 100) };
+		const [tl, tr, br, bl] = o.radii;
+		if (!tl && !tr && !br && !bl) return s.addShape('rect', opts);
+		if (tl === tr && tr === br && br === bl) return s.addShape('roundRect', { ...opts, rectRadius: inch(tl) });
+		const w = inch(o.w);
+		const h = inch(o.h);
+		const arc = (r: number, stAng: number) => ({ curve: { type: 'arc', hR: inch(r), wR: inch(r), stAng, swAng: 90 } });
+		const pts: Array<Record<string, unknown>> = [{ x: inch(tl), y: 0, moveTo: true }, { x: w - inch(tr), y: 0 }];
+		if (tr) pts.push({ x: w, y: inch(tr), ...arc(tr, 270) });
+		pts.push({ x: w, y: h - inch(br) });
+		if (br) pts.push({ x: w - inch(br), y: h, ...arc(br, 0) });
+		pts.push({ x: inch(bl), y: h });
+		if (bl) pts.push({ x: 0, y: h - inch(bl), ...arc(bl, 90) });
+		pts.push({ x: 0, y: inch(tl) });
+		if (tl) pts.push({ x: inch(tl), y: 0, ...arc(tl, 180) });
+		pts.push({ close: true });
+		return s.addShape('custGeom', { ...opts, points: pts });
+	};
+
 	deck.slides.forEach((slide, i) => {
 		if (!slide.image?.length) throw new Error(`calco: slide ${i + 1} has no image`);
 		const s = pptx.addSlide();
 		// ALWAYS set altText: PptxGenJS otherwise writes the image's file name, which a
 		// screen reader reads aloud.
 		s.addImage({ data: `image/png;base64,${toBase64(slide.image)}`, x: 0, y: 0, w: slideW, h: slideH, altText: xmlSafe((slide.description || '').trim()) || `Slide ${i + 1}` });
-		for (const frame of slide.frames || []) {
+		(slide.frames || []).forEach((frame, j) => {
 			const lines = frame.lines;
-			if (!lines.some((l) => l.length)) continue;
+			if (!lines.some((l) => l.length)) return;
+			const label = `Calco Label ${i + 1}.${j + 1}`;
+			if (frame.shape) addLabelShape(s, frame.shape, label);
 			const lead = dominantStyle(lines.find((l) => l.length) || lines[0]);
 			const metrics = metricsFor(lead, fonts, metricsCache);
 			const box = placeFrame(frame, W, metrics, lead.size, 'proportional');
@@ -189,8 +223,9 @@ export function buildPptx(PptxGenJS: PptxGenJSClass, deck: Deck, options?: { emb
 				// substitute font that runs wider overhangs the box instead of adding a line that
 				// lands on the next paragraph.
 				wrap: false,
+				...(frame.shape ? { objectName: `${label} Text` } : {}),
 			});
-		}
+		});
 		if (slide.notes) s.addNotes(xmlSafe(slide.notes));
 	});
 	return pptx;
@@ -246,6 +281,37 @@ function onePPrPerParagraph(xml: string): string {
 }
 
 /**
+ * Wrap each label's shape and its text box (`Calco Label i.j`, then `Calco Label i.j Text`,
+ * side by side as `buildPptx` writes them) in a `p:grpSp`, so the label moves and resizes as
+ * one object. The group's child space is its own box, so the children keep their slide
+ * coordinates; its id is one past the slide's highest.
+ */
+function groupLabels(xml: string): string {
+	if (!xml.includes('name="Calco Label ')) return xml;
+	let nextId = Math.max(0, ...Array.from(xml.matchAll(/<p:cNvPr id="(\d+)"/g), (m) => Number(m[1]))) + 1;
+	const boxOf = (sp: string) => {
+		const off = sp.match(/<a:off x="(-?\d+)" y="(-?\d+)"\/>/);
+		const ext = sp.match(/<a:ext cx="(\d+)" cy="(\d+)"\/>/);
+		return off && ext ? { x: +off[1], y: +off[2], r: +off[1] + +ext[1], b: +off[2] + +ext[2] } : null;
+	};
+	const one = '<p:sp>(?:(?!<\\/p:sp>)[\\s\\S])*?';
+	const pair = new RegExp(`(${one}name="(Calco Label [\\d.]+)"[\\s\\S]*?<\\/p:sp>)(${one}name="\\2 Text"[\\s\\S]*?<\\/p:sp>)`, 'g');
+	return xml.replace(pair, (whole, shape: string, name: string, text: string) => {
+		const a = boxOf(shape);
+		const b = boxOf(text);
+		if (!a || !b) return whole;
+		const x = Math.min(a.x, b.x);
+		const y = Math.min(a.y, b.y);
+		const cx = Math.max(a.r, b.r) - x;
+		const cy = Math.max(a.b, b.b) - y;
+		// A label with no border says so: an outline left unstated is the reader's to choose.
+		shape = /<a:ln[ >]/.test(shape) ? shape.replace('<a:ln></a:ln>', '<a:ln><a:noFill/></a:ln>') : shape.replace('</p:spPr>', '<a:ln><a:noFill/></a:ln></p:spPr>');
+		const xfrm = `<a:xfrm><a:off x="${x}" y="${y}"/><a:ext cx="${cx}" cy="${cy}"/><a:chOff x="${x}" y="${y}"/><a:chExt cx="${cx}" cy="${cy}"/></a:xfrm>`;
+		return `<p:grpSp><p:nvGrpSpPr><p:cNvPr id="${nextId++}" name="${name}"/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr>${xfrm}</p:grpSpPr>${shape}${text}</p:grpSp>`;
+	});
+}
+
+/**
  * Mend what PptxGenJS 3.12 writes against the OOXML schema (see the header): one `<a:pPr>`
  * per paragraph in every slide and notes slide, `p:notesMasterIdLst` straight after
  * `p:sldMasterIdLst`, and no content-type override for a part the package does not hold.
@@ -256,7 +322,7 @@ async function tidyPptx(zip: ZipLike): Promise<void> {
 	const text = async (name: string) => (zip.file(name) as { async(type: string): Promise<string> }).async('string');
 	for (const name of Object.keys(zip.files).filter((n) => /^ppt\/(slides|notesSlides)\/[^/]+\.xml$/.test(n))) {
 		const xml = await text(name);
-		const tidy = onePPrPerParagraph(xml);
+		const tidy = groupLabels(onePPrPerParagraph(xml));
 		if (tidy !== xml) zip.file(name, tidy);
 	}
 	if (zip.file('ppt/presentation.xml')) {

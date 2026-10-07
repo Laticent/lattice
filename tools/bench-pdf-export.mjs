@@ -31,7 +31,8 @@
 //
 // Flags
 //   --engine <chromium|firefox|webkit>   default chromium
-//   --artifact <pdf|pptx>                which export to drive (default pdf)
+//   --artifact <pdf|pptx|odp>            which export to drive (default pdf)
+//   --editable                           pptx/odp: turn on the options step's Editable text switch
 //   --slides <n>                         how many `---` blocks of the deck to load (default 20)
 //   --deck <path>                        default examples/gallery-jargon.md
 //   --format <png|jpeg>                  the Workspace page-format preference (pdf only)
@@ -68,10 +69,14 @@ const MODE = String(flag('mode', 'light'));
 const VERIFY = flag('verify', null);
 const OUT = String(flag('out', join(ROOT, '.scratch/pdf-bench')));
 const DECK = String(flag('deck', join(ROOT, 'examples/gallery-jargon.md')));
+const EDITABLE = process.argv.includes('--editable');
+// The Share sheet's row, and the options step's Download button, by artifact.
+const LABEL = { pdf: 'PDF', pptx: 'PowerPoint', odp: 'LibreOffice' };
 const ENGINES = { chromium, firefox, webkit };
 const PROCESS_MATCH = { chromium: 'chrom', firefox: 'firefox', webkit: 'WebKit\\|MiniBrowser\\|webkit' };
 if (!ENGINES[ENGINE]) throw new Error(`unknown engine "${ENGINE}" — chromium | firefox | webkit`);
-if (!['pdf', 'pptx'].includes(ARTIFACT)) throw new Error(`unknown artifact "${ARTIFACT}" — pdf | pptx`);
+if (!LABEL[ARTIFACT]) throw new Error(`unknown artifact "${ARTIFACT}" — pdf | pptx | odp`);
+if (EDITABLE && ARTIFACT === 'pdf') throw new Error('--editable applies to pptx and odp');
 
 // The deck's repo-relative `logo:` cannot resolve over http, and html-to-image throws
 // the raw load Event when an embedded image 404s — which fails the export itself.
@@ -209,14 +214,15 @@ async function run(browser) {
 	await page.getByRole('button', { name: 'Share', exact: true }).click();
 	const dialog = page.getByRole('dialog');
 	await dialog.waitFor({ state: 'visible', timeout: 30_000 });
-	// Each row opens an options step with its own Download button. PowerPoint's step
-	// defaults to pictures (its "Editable text" switch off), the export this tool times.
-	await dialog.getByRole('button', { name: ARTIFACT === 'pdf' ? /^PDF/ : /^PowerPoint/ }).click();
+	// Each row opens an options step with its own Download button. The office steps default
+	// to pictures (their "Editable text" switch off); --editable turns it on.
+	await dialog.getByRole('button', { name: new RegExp(`^${LABEL[ARTIFACT]}`) }).click();
+	if (EDITABLE) await dialog.getByRole('switch', { name: 'Editable text' }).click();
 	const download = page.waitForEvent('download', { timeout: 900_000 });
 	const stopRss = sampleRss(PROCESS_MATCH[ENGINE]);
 	await page.evaluate(() => { window.__frameGaps.length = 0; });
 	const started = Date.now();
-	await dialog.getByRole('button', { name: ARTIFACT === 'pdf' ? /^Download PDF/ : /^Download PowerPoint/ }).click();
+	await dialog.getByRole('button', { name: new RegExp(`^Download ${LABEL[ARTIFACT]}`) }).click();
 	const file = await download;
 	const wall = Date.now() - started;
 	const peakRss = stopRss();
@@ -236,8 +242,7 @@ async function run(browser) {
 		};
 	});
 	const worstGap = gaps.worst;
-	const ext = ARTIFACT === 'pdf' ? 'pdf' : 'pptx';
-	const out = join(OUT, `${ENGINE}-${SLIDES}-${FORMAT}-${MODE}.${ext}`);
+	const out = join(OUT, `${ENGINE}-${SLIDES}-${FORMAT}-${MODE}${EDITABLE ? '-editable' : ''}.${ARTIFACT}`);
 	await file.saveAs(out);
 	const workers = await page.evaluate(() => window.__pdfWorkers);
 	await context.close();
@@ -248,7 +253,7 @@ const browser = await ENGINES[ENGINE].launch();
 try {
 	const r = await run(browser);
 	if (ARTIFACT !== 'pdf') {
-		console.log(`${ENGINE} · ${SLIDES} blocks · pptx · ${MODE}: ${(r.wall / 1000).toFixed(1)}s  longest frame gap ${r.worstGap} ms  blocked ${r.gaps.blocked} ms over ${r.gaps.stalls} stalls  top ${r.gaps.top.join('/')}  peak RSS ${r.peakRss} MB  → ${r.out}`);
+		console.log(`${ENGINE} · ${SLIDES} blocks · ${ARTIFACT}${EDITABLE ? ' editable' : ''} · ${MODE}: ${(r.wall / 1000).toFixed(1)}s  longest frame gap ${r.worstGap} ms  blocked ${r.gaps.blocked} ms over ${r.gaps.stalls} stalls  top ${r.gaps.top.join('/')}  peak RSS ${r.peakRss} MB  → ${r.out}`);
 	} else {
 	const digests = await pageDigests(r.out);
 	console.log(`${ENGINE} · ${SLIDES} blocks → ${digests.length} pages · ${FORMAT} · ${MODE}: ${(r.wall / 1000).toFixed(1)}s  (${(r.wall / digests.length).toFixed(0)} ms/page)  longest frame gap ${r.worstGap} ms  blocked ${r.gaps.blocked} ms over ${r.gaps.stalls} stalls  top ${r.gaps.top.join('/')}  peak RSS ${r.peakRss} MB  workers ${r.workers}  → ${r.out}`);
