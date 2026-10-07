@@ -17,6 +17,7 @@ const { refuseAuthorMarkup, refuseAuthorMarkupInSource, HOST_MARKERS, BAKE_WRITT
 const { withRuntimeScripts } = require('../../../lib/core/marp-bundle.js');
 const { markPluginsOff } = require('../../../lib/plugins/mark-off.mjs');
 const { RUNTIME_DRAWN } = require('../../../lib/plugins/drawn.generated.mjs');
+const { EXCLUDE_MIRRORS_SHELL } = require('../../helpers/generated-mirrors.js');
 
 const full = createEngine();
 const narrowed = createEngine({ plugins: { defaults: [] } });
@@ -221,7 +222,7 @@ describe('an Export-to-Marp bundle refuses the same markup in its source', () =>
     assert.match(out, /<div data-author-lattice-hydrate="m">x<\/div>/);
   });
   test('a deck with nothing to refuse is byte-identical: every tracked Markdown file', () => {
-    const files = require('node:child_process').execSync('git ls-files "*.md"', { cwd: path.join(__dirname, '../../..'), encoding: 'utf8' }).trim().split('\n');
+    const files = require('node:child_process').execSync(`git ls-files "*.md" ${EXCLUDE_MIRRORS_SHELL}`, { cwd: path.join(__dirname, '../../..'), encoding: 'utf8' }).trim().split('\n');
     assert.ok(files.length > 1000, 'read too few files for this to mean anything');
     const changed = files.filter((f) => {
       const src = fs.readFileSync(path.join(__dirname, '../../..', f), 'utf8');

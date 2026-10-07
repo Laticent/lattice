@@ -5,6 +5,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const { MAX_LABEL_TEXT, overlongLabelText, overlongMessage } = require('../../../lib/plugins/mermaid/shared/label-length.js');
+const { EXCLUDE_MIRRORS_SHELL } = require('../../helpers/generated-mirrors.js');
 
 const B = '`';
 const fence = (label) => `flowchart LR\n  A["${label}"] --> B\n`;
@@ -48,7 +49,7 @@ test('every Mermaid fence the repository ships passes', () => {
   const { execSync } = require('node:child_process');
   const fs = require('node:fs');
   const root = path.resolve(__dirname, '../../..');
-  const files = execSync('git ls-files "*.md" "*.mdx"', { cwd: root }).toString().trim().split('\n');
+  const files = execSync(`git ls-files "*.md" "*.mdx" ${EXCLUDE_MIRRORS_SHELL}`, { cwd: root }).toString().trim().split('\n');
   let n = 0;
   for (const f of files) {
     if (!fs.existsSync(path.join(root, f))) continue; // a deletion not yet committed

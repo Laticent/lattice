@@ -17,6 +17,7 @@ const table = require('../../../lib/core/inline-code-directives.js');
 const { stateHtml, stateElement, parseInlineState } = require('../../../lib/core/state-marks.js');
 const pills = require('../../../lib/core/inline-pills.js');
 const sparks = require('../../../lib/core/inline-sparks.js');
+const { EXCLUDE_MIRRORS_SHELL } = require('../../helpers/generated-mirrors.js');
 
 /** The hand-written dispatcher the table replaced, verbatim in behavior. */
 const legacy = {
@@ -32,7 +33,7 @@ const legacy = {
 
 /** Every inline-code span in every tracked Markdown file, fenced blocks left out. */
 function corpusSpans() {
-  const files = execSync("git ls-files '*.md'", { cwd: ROOT }).toString().trim().split('\n');
+  const files = execSync(`git ls-files '*.md' ${EXCLUDE_MIRRORS_SHELL}`, { cwd: ROOT }).toString().trim().split('\n');
   const spans = new Set();
   for (const f of files) {
     const text = fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/^[ \t]*(```|~~~)[\s\S]*?^[ \t]*\1/gm, '');

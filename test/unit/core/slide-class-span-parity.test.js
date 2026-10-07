@@ -43,6 +43,7 @@ const { readDirectiveComment } = require('../../../lib/core/comment-directive');
 const { resolveDiagramBand } = require('../../../lib/core/diagram-band');
 const { slideClassSpans } = require('../../../lib/core/slide-class-spans');
 const { splitSections } = require('../../../lib/core/split-sections');
+const { EXCLUDE_MIRRORS } = require('../../helpers/generated-mirrors.js');
 
 const REPO = path.join(__dirname, '..', '..', '..');
 const engine = latticeEngine.createEngine();
@@ -58,7 +59,7 @@ const engine = latticeEngine.createEngine();
  * definition the word "committed" already carries.
  */
 function corpus() {
-  return execFileSync('git', ['ls-files', '-z', '--', '*.md'], { cwd: REPO, encoding: 'utf8' })
+  return execFileSync('git', ['ls-files', '-z', '--', '*.md', ...EXCLUDE_MIRRORS], { cwd: REPO, encoding: 'utf8' })
     .split('\0').filter(Boolean).map((rel) => path.join(REPO, rel))
     .filter((p) => fs.existsSync(p)); // a deleted-but-staged path is not a deck
 }

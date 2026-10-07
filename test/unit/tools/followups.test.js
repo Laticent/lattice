@@ -92,7 +92,10 @@ test('severity is high, medium or low — critical is sent to an issue', () => {
 test('swimlane must name a path that exists', () => {
   assert.ok(followupProblems(folder({ '42-p1-x.md': GOOD.replace('swimlane: followups.d/README.md §The contract\n', '') })).some((p) => /swimlane/.test(p)));
   const [p] = followupProblems(folder({ '42-p1-x.md': GOOD.replace('followups.d/README.md', 'engineering/no-such-note.md') }));
-  assert.match(p, /does not exist/);
+  assert.match(p, /not a file in the repo/);
+  for (const bad of ['engineering/decisions', '../outside.md']) {
+    assert.ok(followupProblems(folder({ '42-p1-x.md': GOOD.replace('followups.d/README.md', bad) })).some((q) => /not a file/.test(q)), bad);
+  }
 });
 
 test('the listing carries area, severity and swimlane', () => {

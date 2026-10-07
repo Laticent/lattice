@@ -131,7 +131,7 @@ describe('rule 4 evidence — what a person was shown', () => {
   for (const [why, over] of [
     ['a bot-authored PR (Dependabot)', { authorIsBot: true }],
     ['the release PR', { title: 'release: v1.2.3' }],
-    ['the backlog mirror', { title: 'chore(backlog): sync BACKLOG.md to open issues' }],
+    ['the backlog mirror', { title: 'chore(backlog): sync backlog.d to open issues' }],
     ['a bless PR', { title: 'chore(goldens): nightly bless of 0123456789ab' }],
     ['a revert', { title: 'Revert "chore(goldens): nightly bless of 0123456789ab (#9)"' }],
     ['a PR with no golden-diff comment', { shown: null }],

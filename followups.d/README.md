@@ -77,7 +77,7 @@ without opening the PR that left it:
 | `recorded` | yes | `YYYY-MM-DD`. |
 | `area` | yes | One `area:*` label name from `.github/labels.json`, without the prefix (`engine`, `chart`, `website`, …). The same word the issue would carry. |
 | `severity` | yes | `high`, `medium` or `low`: the `priority:*` words an issue uses, so promotion maps 1:1. `critical` is refused. "Drop everything" needs a board column and an owner, so file an issue instead. |
-| `swimlane` | yes | The governing doc, as a repo path that must exist, optionally followed by a section: `engineering/decisions/x.md §8.1`. Without it, "the runbook is note §8.1" leaves the reader nothing to find. |
+| `swimlane` | yes | The governing doc, as the repo path of a file that must exist, optionally followed by a section: `engineering/decisions/x.md §8.1`. Without it, "the runbook is note §8.1" leaves the reader nothing to find. Renaming or deleting a doc that an item names fails `build:check` until the item is updated, which is the point: the pointer must not go stale. |
 | `source` | no | A link to the brief. |
 
 How to pick `severity`:

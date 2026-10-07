@@ -43,6 +43,13 @@ const REQUIRED_FIELD = /^\s*done when\s*—/im;
 const SEVERITIES = ['high', 'medium', 'low'];
 const SEVERITY_RANK = { high: 0, medium: 1, low: 2 };
 
+/** A file (not a folder) inside the repo. A `../` path or a directory is not a governing doc. */
+function isRepoFile(root, rel) {
+  const abs = path.resolve(root, rel);
+  if (abs !== root && !abs.startsWith(root + path.sep)) return false;
+  try { return fs.statSync(abs).isFile(); } catch { return false; }
+}
+
 /** The `area:*` names from .github/labels.json, without the prefix. */
 function knownAreas(root = ROOT) {
   const labels = JSON.parse(fs.readFileSync(path.join(root, '.github', 'labels.json'), 'utf8'));
@@ -98,7 +105,7 @@ function followupProblems(dir = DIR, root = ROOT) {
     else if (!SEVERITIES.includes(p.meta.severity)) problems.push(`${where}: front matter needs \`severity:\` set to one of ${SEVERITIES.join(', ')}.`);
     const doc = (p.meta.swimlane || '').split(/\s+/)[0];
     if (!doc) problems.push(`${where}: front matter needs \`swimlane:\` — the governing doc, as a repo path.`);
-    else if (!fs.existsSync(path.join(root, doc))) problems.push(`${where}: \`swimlane: ${doc}\` does not exist in the repo.`);
+    else if (!isRepoFile(root, doc)) problems.push(`${where}: \`swimlane: ${doc}\` is not a file in the repo.`);
     // Backfilled items are verbatim copies of older briefs, and one of them predates the
     // `done when` field. Rewriting it would change the record, so a backfill is exempt.
     if (p.meta.backfill !== 'true' && !REQUIRED_FIELD.test(p.body)) problems.push(`${where}: needs a \`done when\` line — the acceptance check a reviewer can run.`);

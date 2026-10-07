@@ -3967,7 +3967,11 @@ function checkHexLiterals(errors) {
 // checkTypedGlyphs is the remaining consumer.
 
 const US_TEXT_EXTS = new Set(['.md', '.js', '.mjs', '.ts', '.tsx', '.css', '.json', '.yml', '.yaml', '.html', '.astro']);
-const US_SKIP_DIRS = new Set(['node_modules', 'dist', '.git', 'coverage', '.scratch']);
+// backlog.d/ is the generated mirror of the issue queue (tools/sync-backlog.js): its words are
+// issue text, an EXTERNAL string under HARD RULE #21, and no one in a PR can edit them. Walking
+// it would let one British spelling in an issue body turn the nightly sync PR red, and a red
+// sync PR is exactly how the mirror froze for three weeks in August (sync-backlog.yml).
+const US_SKIP_DIRS = new Set(['node_modules', 'dist', '.git', 'coverage', '.scratch', 'backlog.d']);
 
 // Repo-wide text files. Walks from ROOT, skips
 // generated/vendor trees and the dated engineering/decisions/ records.

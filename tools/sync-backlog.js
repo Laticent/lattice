@@ -1,28 +1,32 @@
 #!/usr/bin/env node
 /**
- * Generate BACKLOG.md — the committed, one-way mirror of the open GitHub
- * issue queue. The lock-in insurance from the kanban-light project-management
- * model (engineering/decisions/2026-06-14-github-project-management.md):
- * issues own work *status*, decision docs own *design*, and this mirror keeps
- * a readable snapshot of the queue in the repo so leaving GitHub costs zero
- * knowledge. One-way: it never feeds back into issues.
+ * Generate backlog.d/ — the committed, one-way mirror of the open GitHub issue queue, one
+ * file per open issue. The lock-in insurance from the kanban-light project-management model
+ * (engineering/decisions/2026-06-14-github-project-management.md): issues own work *status*,
+ * decision docs own *design*, and this mirror keeps a readable snapshot of the queue in the
+ * repo so leaving GitHub costs zero knowledge. One-way: it never feeds back into issues.
  *
- * The render is a PURE function of the issue list (no timestamps), so a
- * scheduled run only produces a commit when the queue actually changed.
+ * ONE FILE PER ISSUE, named by number, for two reasons. A reader opens the one card it needs
+ * instead of a 66 KB list, and `npm run backlog` (tools/backlog.js) lists or filters the whole
+ * queue, followups.d/ included. And a sync touches only the cards that changed, so its diff
+ * says exactly which issues moved. Contract: backlog.d/README.md.
  *
- * Issue data comes from `gh issue list` (in the sync-backlog workflow); this
- * tool just shapes it. Run it locally against a captured JSON to preview:
+ * The render is a PURE function of the issue list (no timestamps), so a scheduled run only
+ * produces a commit when the queue actually changed.
+ *
+ * Issue data comes from `gh issue list` (in the sync-backlog workflow); this tool just shapes
+ * it. Run it locally against a captured JSON to preview:
  *
  * Usage:
  *   gh issue list --state open --limit 1000 \
- *     --json number,title,labels,assignees,url | node tools/sync-backlog.js --input -
- *   node tools/sync-backlog.js --input issues.json        # from a file
- *   node tools/sync-backlog.js --input issues.json --out BACKLOG.md
- *   node tools/sync-backlog.js --input issues.json --check # diff only, exit 1 on drift
+ *     --json number,title,labels,assignees,url,state,body | node tools/sync-backlog.js --input -
+ *   node tools/sync-backlog.js --input issues.json                 # writes backlog.d/
+ *   node tools/sync-backlog.js --input issues.json --out <dir>
+ *   node tools/sync-backlog.js --input issues.json --check         # diff only, exit 1 on drift
  *
  * Flags:
  *   --input <file|->  Issues JSON (array). `-` reads stdin. Required for the CLI.
- *   --out <file>      Output path (default: BACKLOG.md at repo root).
+ *   --out <dir>       Output folder (default: backlog.d/ at repo root).
  *   --check           Render in memory and diff against --out; exit 1 on drift.
  */
 
@@ -30,132 +34,83 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const ROOT = path.resolve(__dirname, '..');
+const { parseForm } = require(path.join(ROOT, '.github', 'scripts', 'issue-form.js'));
 
-// The kanban columns, in board order, keyed by their `status:` label. Open
-// issues with no status label land in "Inbox" so nothing falls off the board.
-const COLUMNS = [
-  ['status:backlog', 'Backlog'],
-  ['status:ready', 'Ready'],
-  ['status:in-progress', 'In progress'],
-  ['status:review', 'In review'],
-];
-const INBOX = 'Inbox (no status)';
-
-// Priority order for sorting within a column (most urgent first). Issues with
-// no priority label sort last.
-const PRIORITY_RANK = { 'priority:critical': 0, 'priority:high': 1, 'priority:medium': 2, 'priority:low': 3 };
+// The kanban columns, in board order, keyed by their `status:` label. An open issue with no
+// status label is written as `status: none`, so nothing falls off the board.
+const COLUMNS = ['status:backlog', 'status:ready', 'status:in-progress', 'status:review'];
 
 const labelNames = (issue) => (issue.labels || []).map((l) => (typeof l === 'string' ? l : l.name));
 
-// Banner grammar. Both flag banners read "<n> cards need X" / "1 card needs X";
-// the original agreed the noun and left the verb plural, so a single flagged card
-// rendered "1 card need triage".
-const cards = (n) => `${n} card${n === 1 ? '' : 's'}`;
-const verb = (n) => (n === 1 ? 'needs' : 'need');
-
-/** The board column an issue belongs to (its `status:` label, else Inbox). */
-function columnFor(issue) {
+/** The column's slug, as written into a file's `status:` field. */
+function statusSlug(issue) {
   const names = new Set(labelNames(issue));
-  for (const [label, title] of COLUMNS) if (names.has(label)) return title;
-  return INBOX;
+  for (const label of COLUMNS) if (names.has(label)) return label.slice('status:'.length);
+  return 'none';
 }
 
-/** Short priority/area/assignee suffix for a backlog line. */
-function metaFor(issue) {
-  const names = labelNames(issue);
-  const bits = [];
-  const prio = names.find((n) => n.startsWith('priority:'));
-  if (prio) bits.push(prio.slice('priority:'.length));
-  const areas = names.filter((n) => n.startsWith('area:')).map((n) => n.slice('area:'.length));
-  if (areas.length) bits.push(areas.join(', '));
-  const who = (issue.assignees || []).map((a) => (typeof a === 'string' ? a : a.login));
-  if (who.length) bits.push(who.map((u) => `@${u}`).join(' '));
-  return bits;
-}
+const labelValues = (issue, prefix) =>
+  labelNames(issue).filter((n) => n.startsWith(prefix)).map((n) => n.slice(prefix.length)).sort();
 
-function sortIssues(a, b) {
-  const names = (i) => labelNames(i);
-  const rank = (i) => {
-    const p = names(i).find((n) => n.startsWith('priority:'));
-    return p && p in PRIORITY_RANK ? PRIORITY_RANK[p] : 99;
-  };
-  return rank(a) - rank(b) || a.number - b.number;
+/** A field value that a missing parse leaves visibly missing, never silently blank. */
+const orMissing = (v, what) => (v?.trim() ? v.trim() : `_missing — ${what}_`);
+
+/**
+ * One open issue's file: `backlog.d/<number>.md`. Named by NUMBER only, so a retitle edits the
+ * file in place instead of renaming it. Pure: same issue, same bytes.
+ *
+ * Front matter carries the four taxonomy axes, so a reader can filter without opening GitHub.
+ * The body carries a form's Summary and the two Definition of Ready fields (engineering/workflow.md
+ * §Definition of Ready), parsed by the SAME parseForm the triage gate uses. The verdict can still
+ * differ: the gate grandfathers old cards and exempts `feedback`, and this file does neither. The
+ * rest of the issue body is not copied: the link has it, and every edit to a long discussion would
+ * otherwise churn the mirror.
+ */
+function renderIssueFile(issue) {
+  const form = parseForm(issue.body || '');
+  const who = (issue.assignees || []).map((a) => (typeof a === 'string' ? a : a.login)).sort();
+  const flags = labelNames(issue).filter((n) => n.startsWith('needs:')).sort();
+  const meta = [
+    ['issue', issue.number],
+    ['status', statusSlug(issue)],
+    ['area', labelValues(issue, 'area:').join(', ')],
+    ['type', labelValues(issue, 'type:').join(', ')],
+    ['priority', labelValues(issue, 'priority:').join(', ')],
+    ['assignees', who.join(', ')],
+    ['flags', flags.join(', ')],
+    ['url', issue.url || ''],
+  ];
+  const title = String(issue.title || '').replace(/\s+/g, ' ').trim();
+  const sections = [];
+  if (form.summary?.trim()) sections.push(`## Summary\n\n${form.summary.trim()}`);
+  sections.push(`## Swimlane\n\n${orMissing(form.swimlane, 'no governing doc on the issue')}`);
+  sections.push(`## Done when\n\n${orMissing(form.acceptance, 'no acceptance check on the issue')}`);
+  return `---\n${meta.map(([k, v]) => `${k}: ${v}`.trimEnd()).join('\n')}\n`
+    + 'generated: tools/sync-backlog.js — do not edit; edit the issue\n---\n\n'
+    + `# ${title}\n\n${sections.join('\n\n')}\n`;
 }
 
 /**
- * Render the full BACKLOG.md body from an array of open issues. Pure — same
- * input always yields the same bytes (no timestamps), so it only churns when
- * the queue changes.
+ * Every open issue as { '<number>.md': body }. backlog.d/README.md is hand-written and is
+ * never part of the render, so the sync can neither write nor delete it.
  */
-function renderBacklog(issues) {
+function renderBacklogFiles(issues) {
   const open = (issues || []).filter((i) => (i.state || 'OPEN').toUpperCase() !== 'CLOSED');
-  const byColumn = new Map([...COLUMNS.map(([, t]) => t), INBOX].map((t) => [t, []]));
-  for (const issue of open) byColumn.get(columnFor(issue)).push(issue);
-
-  // Surface the triage queue at the top — PUSH the intake gate's flag into the
-  // committed mirror instead of relying on someone pulling a board filter. The
-  // banner is part of the pure render, so it appears and clears automatically as
-  // `needs:triage` cards come and go (sync-backlog re-runs on every label event).
-  const needTriage = open
-    .filter((i) => labelNames(i).includes('needs:triage'))
-    .sort((a, b) => a.number - b.number);
-  const triageBanner = needTriage.length
-    ? `> ⚠️ **${cards(needTriage.length)} ${verb(needTriage.length)} triage** ` +
-      `(missing \`area:\`/\`type:\`/\`priority:\`): ` +
-      `${needTriage.map((i) => `[#${i.number}](${i.url || '#'})`).join(', ')}.\n\n`
-    : '';
-
-  // The intake bar's flag gets the same treatment, and for the same reason: a
-  // card nobody can PULL is as dead to the queue as one nobody can sort. Kept a
-  // SEPARATE banner rather than folded into the one above — the two flags answer
-  // different questions ("which column does this belong in" vs "can anyone work
-  // it"), and merging them would put a count on screen that means neither.
-  const needDefinition = open
-    .filter((i) => labelNames(i).includes('needs:definition'))
-    .sort((a, b) => a.number - b.number);
-  const definitionBanner = needDefinition.length
-    ? `> 📐 **${cards(needDefinition.length)} ${verb(needDefinition.length)} definition** ` +
-      `(missing a swimlane or an acceptance check, so nothing can pull ` +
-      `${needDefinition.length === 1 ? 'it' : 'them'}): ` +
-      `${needDefinition.map((i) => `[#${i.number}](${i.url || '#'})`).join(', ')}.\n\n`
-    : '';
-
-  const sections = [];
-  for (const title of [...COLUMNS.map(([, t]) => t), INBOX]) {
-    const rows = byColumn.get(title).sort(sortIssues);
-    sections.push(`## ${title} (${rows.length})\n`);
-    if (!rows.length) {
-      sections.push('_none_\n');
-      continue;
-    }
-    for (const issue of rows) {
-      const meta = metaFor(issue);
-      const suffix = meta.length ? ` — ${meta.join(' · ')}` : '';
-      const link = issue.url ? `[#${issue.number}](${issue.url})` : `#${issue.number}`;
-      sections.push(`- ${link} ${issue.title}${suffix}`);
-    }
-    sections.push('');
-  }
-
-  return `<!-- Auto-generated by tools/sync-backlog.js — DO NOT EDIT.
-     The one-way mirror of the open GitHub issue queue. Issues are the source
-     of truth for work status; this file is a committed snapshot regenerated by
-     the sync-backlog workflow. See engineering/workflow.md § Work queue. -->
-
-# Backlog
-
-The live, claimable work queue — a read-only mirror of [open issues](https://github.com/Laticent/lattice/issues),
-grouped by board column. Design lives in \`engineering/decisions/\`; this tracks
-only *status*. **${open.length} open** item${open.length === 1 ? '' : 's'}.
-Pending work that has no issue is not here: it lives in [\`followups.d/\`](followups.d/README.md)
-(\`npm run followups\` lists it).
-
-${triageBanner}${definitionBanner}${sections.join('\n').trimEnd()}\n`;
+  const files = {};
+  for (const issue of open.sort((a, b) => a.number - b.number)) files[`${issue.number}.md`] = renderIssueFile(issue);
+  return files;
 }
+
+/** The generated files currently in `dir` (every `<number>.md`; README.md is not one). */
+function existingFiles(dir) {
+  if (!fs.existsSync(dir)) return [];
+  return fs.readdirSync(dir).filter((f) => GENERATED.test(f)).sort();
+}
+const GENERATED = /^\d+\.md$/;
 
 // ── CLI ──────────────────────────────────────────────────────────────────
 function parseArgs(argv) {
-  const args = { input: null, out: path.join(ROOT, 'BACKLOG.md'), check: false };
+  const args = { input: null, out: path.join(ROOT, 'backlog.d'), check: false };
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--input') args.input = argv[++i];
     else if (argv[i] === '--out') args.out = argv[++i];
@@ -177,21 +132,30 @@ function main() {
     console.error('sync-backlog: --input <file|-> is required (issues JSON from `gh issue list`).');
     process.exit(2);
   }
-  const body = renderBacklog(readInput(args.input));
+  const files = renderBacklogFiles(readInput(args.input));
+  const stale = existingFiles(args.out).filter((f) => !(f in files));
+  const rel = path.relative(ROOT, args.out);
 
   if (args.check) {
-    const current = fs.existsSync(args.out) ? fs.readFileSync(args.out, 'utf8') : '';
-    if (current !== body) {
-      console.error(`✗ ${path.relative(ROOT, args.out)} is stale relative to the open issue queue. Run: npm run sync:backlog`);
+    const drift = Object.entries(files)
+      .filter(([f, body]) => !fs.existsSync(path.join(args.out, f)) || fs.readFileSync(path.join(args.out, f), 'utf8') !== body)
+      .map(([f]) => f);
+    if (drift.length || stale.length) {
+      console.error(`✗ ${rel}/ is stale relative to the open issue queue: ${drift.length} file(s) to write, ${stale.length} to delete. Run: npm run sync:backlog`);
       process.exit(1);
     }
     process.exit(0);
   }
 
-  fs.writeFileSync(args.out, body);
-  console.log(`[sync-backlog] wrote ${path.relative(ROOT, args.out)}`);
+  fs.mkdirSync(args.out, { recursive: true });
+  for (const [f, body] of Object.entries(files)) {
+    const p = path.join(args.out, f);
+    if (!fs.existsSync(p) || fs.readFileSync(p, 'utf8') !== body) fs.writeFileSync(p, body);
+  }
+  for (const f of stale) fs.unlinkSync(path.join(args.out, f)); // a closed issue's file goes
+  console.log(`[sync-backlog] ${rel}/: ${Object.keys(files).length} open issue(s), ${stale.length} closed file(s) removed`);
 }
 
 if (require.main === module) main();
 
-module.exports = { renderBacklog, columnFor, metaFor, COLUMNS, INBOX };
+module.exports = { renderBacklogFiles, renderIssueFile, statusSlug, existingFiles };
