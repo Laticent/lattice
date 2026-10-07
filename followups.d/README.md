@@ -22,8 +22,8 @@ and the harvest window starts 2026-07-22. 33 merged PRs ever used the tag: 29 ga
 Deferred work mentioned in free prose before the brief existed is not harvested.
 
 `area`, `severity` and `swimlane` were added on 2026-10-07, and one pass filled them in on all
-215 items. That pass merged one duplicate into the other (the Studio export's CSS counters,
-found on both #2321 and #2556), which left 214. The pass read each item's title, `why now` and
+215 items. It found one duplicate, the Studio export's CSS counters on both #2321 and #2556,
+which #2587 then fixed, so both files are gone. The pass read each item's title, `why now` and
 `where`, and took the swimlane from the decision doc the origin PR changed. It did not
 re-check any item against `main`. A severity from that pass is a starting point, so change it
 when the work shows it is wrong.
