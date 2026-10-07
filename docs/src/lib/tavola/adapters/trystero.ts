@@ -22,6 +22,17 @@ export type TrysteroOptions = {
 	turnConfig?: Array<{ urls: string | string[]; username?: string; credential?: string }>;
 };
 
+/** Cap the bitrate `track` is sent at on `pc` (best-effort: a browser that refuses keeps its default). */
+async function capBitrate(pc: RTCPeerConnection | undefined, track: MediaStreamTrack, maxBitrate: number) {
+	for (const sender of pc?.getSenders() ?? []) {
+		if (sender.track !== track) continue;
+		const params = sender.getParameters();
+		if (!params.encodings?.length) continue;
+		params.encodings[0].maxBitrate = maxBitrate;
+		await sender.setParameters(params).catch(() => {});
+	}
+}
+
 export function trysteroTransport(room: string, secret: string, opts: TrysteroOptions = {}): Transport {
 	const r = joinRoom({ appId: opts.appId ?? TAVOLA_APP_ID, password: secret, ...(opts.relayUrls ? { relayUrls: opts.relayUrls } : {}), ...(opts.rtcConfig ? { rtcConfig: opts.rtcConfig } : {}), ...(opts.turnConfig?.length ? { turnConfig: opts.turnConfig } : {}) }, room);
 	const wire = r.makeAction<Uint8Array>('tavola');
@@ -42,8 +53,11 @@ export function trysteroTransport(room: string, secret: string, opts: TrysteroOp
 		leave() {
 			return r.leave();
 		},
-		addTrack(track, stream, to) {
-			for (const p of r.addTrack(track, stream, { target: to })) void p.catch(() => {});
+		addTrack(track, stream, to, opts) {
+			const sent = r.addTrack(track, stream, { target: to });
+			for (const p of sent) void p.catch(() => {});
+			// The cap goes on once the sender is negotiated: before that Safari has no encodings to set.
+			if (opts?.maxBitrate) void Promise.allSettled(sent).then(() => capBitrate(r.getPeers()[to], track, opts.maxBitrate as number));
 		},
 		removeTrack(track, to) {
 			try {

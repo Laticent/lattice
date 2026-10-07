@@ -8,5 +8,5 @@ export { FRAGMENT_KEY, formatFragment, formatLink, type LinkParts, mintLink, par
 export { createMemoryNetwork, type MemoryNetwork } from './memory.js';
 export { cleanName, PROTOCOL_VERSION } from './protocol.js';
 export { createSession, DEFAULT_CAP, HANDOFF_GRACE_MS, type HostOptions, MAX_MESSAGE, type Session, type SessionOptions, type Succession, type TokenEntry } from './session.js';
-export type { Clock, Color, Invite, Knock, LinkKind, LinkPath, Member, PeerId, Role, SessionState, Stage, Stream, Transport } from './types.js';
+export type { Clock, Color, Invite, Knock, LinkKind, LinkPath, MediaOptions, Member, PeerId, Role, SessionState, Stage, Stream, Transport } from './types.js';
 export { linkKind } from './types.js';

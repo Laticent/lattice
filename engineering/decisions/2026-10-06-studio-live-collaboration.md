@@ -844,7 +844,45 @@ Fixed, in two places:
   through the media channel, so the silent switch still cannot mute read-aloud.
 
 `live-audio.test.ts` models the spec's rule and fails without either fix. A failure now names its
-reason in the toast. UNVERIFIED on the device until the owner retests.
+reason in the toast. Verified on the owner's iPhone on the PR #2579 preview (2026-10-07): the
+microphone starts and the call works.
+
+**Call quality** (the same iPhone test, 2026-10-07). The owner heard the call as muffled, choppy
+and too quiet. Measured on the preview, two Chromium processes over real WebRTC, sending a
+generated 48 kHz test signal (voice-like harmonics plus 9 kHz and 14 kHz tones):
+
+| Send | Measured | 14 kHz tone heard at | Noise floor (18–20 kHz) |
+|---|---|---|---|
+| Browser default (nothing set) | Opus mono, 32.3 kbit/s, in-band FEC on, 0 packets lost | −62.8 dBFS | −69.0 dBFS |
+| `maxBitrate` 96 000 | 96.3 kbit/s | −52.7 dBFS | −65.5 dBFS |
+| `maxBitrate` 64 000 (the new default) | 64.5 kbit/s | −52.3 dBFS | −59.5 dBFS |
+
+So the default was ordinary voice-call audio, and a higher cap keeps more of the top end. Calls
+now send at 64 kbit/s (`CALL_BITRATE` in `live-audio.ts`, passed as
+`session.setMedia(stream, { maxBitrate })`; the Trystero adapter sets `RTCRtpSender` encodings once
+the sender is negotiated, because Safari has none to set before). In a four-person call each
+person uploads one stream per other member, about 190 kbit/s. It also doubles the relay cost of a
+call that goes through TURN (roadmap §3.1), about 29 MB per hour per stream.
+
+**Who sets quality: each person, not the host.** Each browser sends its own audio straight to
+the others, so the bits it sends cost its own upload and depend on its own microphone and
+network. A host-wide setting would make someone on weak mobile data send more than their link
+carries, and turning voice processing off for everyone brings back echo for anyone on a
+speaker. Products that let the host pick (Discord's channel bitrate) pay for a server that mixes
+the call; Zoom and Meet make "original sound" a per-person switch. The owner chose this on
+2026-10-07: the 64 kbit/s default now, and a per-person *High fidelity* switch (processing off,
+128 kbit/s stereo) later.
+
+What the bitrate does not fix, all on iOS and out of the page's reach:
+- WebKit bug 311451 (open, filed 2026-04, still reported on iOS 27): with the microphone on,
+  iOS degrades all of the page's audio (lower sample rate, mono, crackling), with or without
+  `echoCancellation: false`. That matches *muffled* and part of *choppy*.
+- Bluetooth headphones switch to the hands-free profile while their microphone is in use, which
+  is telephone-quality in both directions.
+- *Too quiet*: iOS plays call audio at call volume once the microphone is on (WebKit bugs 230902
+  and 311451). Raising the gain of each person's playback is part of the follow-up.
+- *Choppy* that is network loss needs a measure from the device; the follow-up adds a per-person
+  call-quality readout (loss, jitter, bitrate), the way §8.1's connection readout did for paths.
 
 **The checker** (tier 1, on Opus) confirmed the gate and found audio going one-way after a
 takeover or a same-id blip, which the in-memory network reproduced. Fixed, each with a test that

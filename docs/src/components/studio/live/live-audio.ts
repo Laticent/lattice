@@ -20,6 +20,12 @@ const HOLD_MS = 350;
 
 type Metered = { meter: Meter; lastLoud: number };
 
+/** What each person's voice is sent at. The browser default is 32 kbit/s Opus; measured on the
+ *  preview (2026-10-07), 96 kbit/s carried a 14 kHz tone 10 dB stronger. 64 kbit/s keeps most of
+ *  that detail while a four-person call costs each person ~190 kbit/s of upload (one stream per
+ *  other member). A later per-person High fidelity switch goes higher. */
+export const CALL_BITRATE = 64_000;
+
 export type AudioDevice = { id: string; label: string };
 
 /** iOS / Safari's Audio Session API (absent elsewhere): what the page does with audio. */
