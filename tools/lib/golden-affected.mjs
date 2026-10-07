@@ -40,6 +40,11 @@ const SHARED_OUTSIDE_LIB = [
   /^tools\/lib\/golden-render\.mjs$/,
 ];
 
+// The per-PR render cap (gallery × mood renders). golden-diff renders at most this many;
+// the env GOLDEN_DIFF_RENDER_CAP overrides it there. One constant, so nothing that reasons
+// about what a PR rendered can disagree with what it did.
+export const DEFAULT_RENDER_CAP = 40;
+
 const COMPONENT_RE = /^lib\/components\/([^/]+)\/([^/]+)\//;
 const BUCKET_FILE_RE = /^lib\/components\/([^/]+)\/[^/]+$/;
 
@@ -54,7 +59,7 @@ const BUCKET_FILE_RE = /^lib\/components\/([^/]+)\/[^/]+$/;
  *   decks     — deck-golden `.pdf` paths to render
  *   omitted   — galleries the cap dropped (left to the nightly bless)
  */
-export function affectedGoldens(changed, { galleries, deckGoldens, cap = 40 }) {
+export function affectedGoldens(changed, { galleries, deckGoldens, cap = DEFAULT_RENDER_CAP }) {
   const gallerySet = new Set(galleries);
   const deckSet = new Set(deckGoldens);
   const wantGalleries = new Set();

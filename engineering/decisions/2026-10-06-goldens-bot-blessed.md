@@ -63,7 +63,10 @@ violations, not "this got worse".
 - **Merge: a hybrid, decided by the owner on 2026-10-07.** The bot auto-merges a night's
   bless only when all four rules hold; otherwise it labels the PR `golden-review` and
   waits for a person, with the montage showing what moved.
-  1. **No page count changed.** A deck that gains or loses a slide is never small.
+  1. **No page count changed.** A deck that gains or loses a slide is never small. As
+     built, this also catches a page that changed SIZE: the pixel measure cannot compare
+     two pages of different sizes and scores them as 0% moved, so rule 2 alone would
+     pass one.
   2. **No page moved more than the pixel threshold.** Starting value about 1% of a page.
   3. **At most a handful of goldens changed.** Starting value about 10. A base-style
      change that moves 150 galleries is worth a look even if each page moved little.
@@ -76,13 +79,27 @@ violations, not "this got worse".
   note recorded a real, plainly visible drift that scored 0.26%, while some decks drift
   4–9%.
 
-  `tools/lib/golden-bless-verdict.mjs` scores the four rules. Rule 4 does not need any
-  stored record of what each PR showed: it re-runs the per-PR mapping (`golden-affected.mjs`,
-  same 40-render cap) on every commit merged since the last bless, found by its
-  `chore(goldens): nightly bless` subject. A golden the cap left out counts as unseen, and
-  with no earlier bless to measure from, every changed golden does, so the first night
-  always needs a person. A golden the gate could not check (a render error, a missing PDF)
-  also forces a "no".
+  `tools/lib/golden-bless-verdict.mjs` scores the four rules on what the bless actually
+  WROTE, not on what the check reported, so a bless that failed is never counted as done.
+
+  **How rule 4 knows what a person saw.** `golden-diff` ends every PR comment with a
+  hidden `golden-diff-changed` marker listing each golden it showed as changed. The bot
+  reads that marker on every PR merged since the last bless and counts a golden as seen
+  only if a PR a person authored listed it. Bot PRs (Dependabot), the PAT-opened machine
+  PRs (`release: v…`, `chore(backlog): …`, the bless itself) and reverts never count:
+  each merges with nobody looking, or would undo a person's decision. The window starts
+  at the commit the last MERGED bless rendered from, which its PR title names
+  (`chore(goldens): nightly bless of <sha>`), not at the merge, so PRs merged while the
+  bless PR waited are still counted. With no merged bless yet, nothing counts as seen,
+  so the first night always needs a person.
+
+  The first version replayed the per-PR path mapping instead, and the adversarial trio
+  showed that was not the same thing: any PR touching a shared file (6 of the 7 days in
+  the sample) marked the 20 highest-coverage galleries "seen", and so did a Dependabot
+  bump that no person reviewed. "Could have rendered" is not "was shown".
+
+  A golden the gate could not check, a bless that failed, and a PR whose comments could
+  not be read all force a "no". A failed bless also turns the nightly run red.
 
   **The first week is a dry run.** The bot opens its PR and comments "would auto-merge:
   yes/no, and why" for each rule, but merges nothing. After a week of real nights, the
@@ -112,6 +129,12 @@ committed PDF. **Attribution:** `main`'s PDF can be up to a day old, so it may l
 changes merged since the last bless. When a head render differs from `main`'s PDF, CI
 renders that one golden at the base commit too, and reports the slide only if the head
 render differs from the base render. That doubles the cost only for goldens that moved.
+
+**Except when the PR changes dependencies.** The base render shares the PR's
+`node_modules` and Chromium, so a dependency bump renders the same on both sides and
+attribution would call everything it moved "stale on main", with no picture. On a PR that
+changes `package.json` or `package-lock.json`, a golden that differs from `main`'s PDF is
+shown as changed, with a note saying why.
 
 **Feature decks (HARD RULE #9).** CI renders a PR's new or changed decks and publishes the
 PDFs to the existing `ci-drift-images` orphan branch, which already hosts the montages. The

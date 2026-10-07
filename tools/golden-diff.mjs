@@ -63,7 +63,7 @@ import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { affectedGoldens } from './lib/golden-affected.mjs';
+import { affectedGoldens, DEFAULT_RENDER_CAP } from './lib/golden-affected.mjs';
 import { prBaseRef } from './lib/golden-base.mjs';
 import { failFractionForDeck, failFractionForGallery, galleryDecks, renderDeck, renderGallery, THEMES } from './lib/golden-render.mjs';
 import { classifyChangedPdf, deckGoldenPdfs } from './lib/golden-set.mjs';
@@ -199,7 +199,7 @@ function describe(relPath, kind) {
 //
 // The default cap (40 renders = 20 galleries x 2 moods) keeps a shared change inside the
 // CI job's budget; what it drops is listed, never silent (HARD RULE #25).
-const RENDER_CAP = Number(process.env.GOLDEN_DIFF_RENDER_CAP || 40);
+const RENDER_CAP = Number(process.env.GOLDEN_DIFF_RENDER_CAP || DEFAULT_RENDER_CAP);
 
 let baseTree = null; // { root } once built, or { error } if it could not be
 function baseTreeFor(base) {
@@ -208,10 +208,11 @@ function baseTreeFor(base) {
   try {
     rmSync(root, { recursive: true, force: true });
     mkdirSync(root, { recursive: true });
-    // An export of the base tree WITHOUT its PDFs, not a worktree. CI clones with
-    // `filter: blob:none`, so a full checkout of the base would download every committed
-    // PDF (151 MB of the tree's 237 MB) to render a few galleries from markdown. Nothing
-    // the render runs calls git, so plain files are enough.
+    // An export of the base tree WITHOUT its PDFs, not a worktree. The render reads none
+    // of them, so writing a second copy of every PDF to disk (151 MB of the tree's 237 MB)
+    // buys nothing, and in CI's blobless clone a worktree would also fetch every PDF that
+    // differs between base and head. Nothing the render runs calls git, so plain files
+    // are enough.
     const tar = join(OUT, 'base-tree.tar');
     execFileSync('git', ['archive', '--format=tar', '-o', tar, base, '--', '.', ':(exclude)*.pdf'], { cwd: ROOT, stdio: 'ignore' });
     execFileSync('tar', ['-xf', tar, '-C', root]);
@@ -265,7 +266,8 @@ function renderAndCompare(base, item) {
     cleanups.push(committed);
     const floor = item.kind === 'gallery' ? failFractionForGallery(item.md) : failFractionForDeck(join(ROOT, item.md));
     const vsMain = pixelDiff(committed, head.outPdf, `golden-r-${slug}`, { fuzz: FUZZ });
-    if (!driftedPages(vsMain, floor).length) return { status: 'unchanged' };
+    const mainDrifted = driftedPages(vsMain, floor);
+    if (!mainDrifted.length) return { status: 'unchanged' };
 
     const tree = baseTreeFor(base);
     if (tree.error) return { status: 'error', error: `base render unavailable: ${tree.error}` };
@@ -279,7 +281,9 @@ function renderAndCompare(base, item) {
     cleanups.push(...baseRender.cleanup);
     const vsBase = pixelDiff(baseRender.outPdf, head.outPdf, `golden-rb-${slug}`, { fuzz: FUZZ });
     const drifted = driftedPages(vsBase, FAIL_FRACTION);
-    return drifted.length ? { status: 'changed', diff: vsBase, drifted } : { status: 'stale-on-main' };
+    return drifted.length
+      ? { status: 'changed', diff: vsBase, drifted }
+      : { status: 'stale-on-main', diff: vsMain, drifted: mainDrifted };
   } finally {
     for (const p of cleanups) { try { rmSync(p, { force: true }); } catch { /* ignore */ } }
   }
@@ -297,7 +301,11 @@ function main() {
   // since as its own change (found while testing --render-affected on a behind branch).
   let base = resolved.base;
   if (process.env.GITHUB_EVENT_NAME !== 'pull_request') {
-    try { base = git(['merge-base', base, 'HEAD']).trim() || base; } catch { /* keep the tip */ }
+    try {
+      const mb = git(['merge-base', base, 'HEAD']).trim();
+      if (mb && mb !== base) resolved.reason = `${resolved.reason}; using the merge-base with HEAD`;
+      base = mb || base;
+    } catch { /* keep the tip */ }
   }
   if (!json) process.stderr.write(`golden-diff: base ${base} — ${resolved.reason}\n`);
 
@@ -377,6 +385,7 @@ function main() {
 
   // ── The render path ─────────────────────────────────────────────────────────
   let renderPlan = null;
+  let depChange = false;
   const staleOnMain = [];
   const renderErrors = [];
   if (renderAffected) {
@@ -392,6 +401,11 @@ function main() {
     const changedFiles = git(['diff', '--name-only', base]).split('\n').map((s) => s.trim()).filter(Boolean);
     const galleries = galleryDecks(ROOT).map((g) => relative(ROOT, g));
     renderPlan = affectedGoldens(changedFiles, { galleries, deckGoldens: deckGoldenPdfs(ROOT), cap: RENDER_CAP });
+    // DEPENDENCY CHANGES DEFEAT ATTRIBUTION. The base render shares this checkout's
+    // node_modules and Chromium, so a Chromium, Mermaid or markdown-it bump renders the
+    // same on both sides, and every golden it moved would read "stale on main" with no
+    // picture. On such a PR, a golden that differs from main's PDF is shown as changed.
+    depChange = changedFiles.some((f) => /^package(-lock)?\.json$/.test(f));
     const covered = new Set(candidates.map((c) => c.relPath)); // PDFs this PR committed: already compared above
     const items = [];
     for (const md of renderPlan.galleries) {
@@ -402,7 +416,8 @@ function main() {
       if (covered.has(item.relPath)) continue;
       const { name, mood } = describe(item.relPath, item.kind);
       const r = renderAndCompare(base, item);
-      if (r.status === 'stale-on-main') { staleOnMain.push(item.relPath); continue; }
+      if (r.status === 'stale-on-main' && !depChange) { staleOnMain.push(item.relPath); continue; }
+      const why = r.status === 'stale-on-main' ? 'dependency change' : 'rendered';
       if (r.status === 'error') { renderErrors.push(`${item.relPath}: ${r.error}`); continue; }
       if (r.status === 'added') { entries.push({ name, mood, kind: item.kind, relPath: item.relPath, status: 'added', slides: 0, rendered: true }); continue; }
       if (r.status === 'unchanged') continue;
@@ -410,7 +425,7 @@ function main() {
         if (montagePngs.length >= MONTAGE_CAP) { montagesOmitted += 1; continue; }
         const slugName = item.relPath.replace(/[^a-z0-9]+/gi, '_');
         const m = join(r.diff.tmpDir, `gd-${slugName}-${String(d.page).padStart(3, '0')}.png`);
-        const made = montageTriptych(d, m, { title: `${name} · ${mood} · slide ${d.page} (rendered)` });
+        const made = montageTriptych(d, m, { title: `${name} · ${mood} · slide ${d.page} (${why})` });
         if (!made) continue;
         const slug = item.relPath.replace(/^lib\/components\//, '').replace(/\.pdf$/, '').replace(/[^a-z0-9]+/gi, '_');
         const file = `${slug}_s${String(d.page).padStart(3, '0')}.png`;
@@ -419,7 +434,7 @@ function main() {
         montagePngs.push(dest);
         montageMeta.push({ name, mood, page: d.page, file });
       }
-      entries.push({ name, mood, kind: item.kind, relPath: item.relPath, status: 'changed', slides: r.drifted.length, rendered: true });
+      entries.push({ name, mood, kind: item.kind, relPath: item.relPath, status: 'changed', slides: r.drifted.length, rendered: true, ...(why === 'rendered' ? {} : { dependency: true }) });
     }
     dropBaseTree();
   }
@@ -478,6 +493,13 @@ function main() {
       lines.push('', `⚠️ **${renderErrors.length} golden${renderErrors.length === 1 ? '' : 's'} could not be compared:**`, ...renderErrors.slice(0, 10).map((e) => `- ${e}`));
     }
   }
+  if (renderPlan && depChange) {
+    lines.push('', '<sub>This PR changes dependencies, so a golden that differs from main\'s PDF is shown as changed: it cannot be told apart from staleness on main.</sub>');
+  }
+  // Machine-readable: the goldens this comment SHOWED as changed. The nightly bless counts
+  // a golden as already seen only if a human-merged PR's comment lists it here
+  // (tools/lib/golden-bless-verdict.mjs, rule 4).
+  lines.push('', `<!-- golden-diff-changed: ${changedEntries.map((e) => e.relPath).sort().join(',')} -->`);
   const summary = lines.join('\n') + '\n';
   writeFileSync(join(OUT, 'summary.md'), summary);
 

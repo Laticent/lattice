@@ -18,5 +18,16 @@ source: engineering/decisions/2026-10-06-goldens-bot-blessed.md
                    recorded in the decision doc, and the bot merges a night that passes.
        evidence  — the seven verdict comments and the chosen values in the decision doc.
        verify    — tier 2: one real night that auto-merges, one that waits for a person.
+       also      — open items the #2570 adversarial trio left for before auto-merge:
+                   (a) calibrate with a person's label per night ("would I have accepted
+                   this unseen?"), not a percentile of what happened; leave out night 1
+                   and any night that straddles step 3. (b) The nightly force-push
+                   overwrites a person's edit to the bless branch, and closing the PR
+                   does not stop the same goldens returning; decide how a rejection
+                   sticks. (c) Pin `runs-on` for golden-bless.yml and the golden-diff
+                   job, so a runner image change is a deliberate PR, not a night where
+                   everything moves. (d) design/*.gallery.md decks are never rendered on
+                   a PR (golden-affected maps only lib/ galleries, and the CI `code`
+                   filter has no design/**), so they always count as unseen.
        blocked   — after a week of dry-run nights. Adding a label is shared state: ask first.
 ```
