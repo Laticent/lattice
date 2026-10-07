@@ -66,9 +66,9 @@ export class LiveAudio {
 		this.stage ??= createStage({ keepAlive: false });
 		this.stage.unlock();
 		// THEN tell iOS this page records as well as plays. Suono's unlock sets the audio session to
-		// 'playback' (right for reading aloud), and under 'playback' iOS refuses the microphone:
-		// "Couldn't start the microphone" on a real iPhone, 2026-10-07. Desktop browsers have no
-		// audio session, which is why no desktop run could see it.
+		// 'playback' (right for reading aloud), and the Audio Session spec ends a microphone track under
+		// 'playback': "Couldn't start the microphone" on a real iPhone, 2026-10-07. (Suono's unlock
+		// leaves 'play-and-record' alone, so read-aloud mid-call keeps it.) Desktop has no audio session.
 		setAudioSession('play-and-record');
 		const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, ...(deviceId ? { deviceId: { exact: deviceId } } : {}) }, video: false });
 		// Torn down while the permission prompt was open: stop what we were given and say so.

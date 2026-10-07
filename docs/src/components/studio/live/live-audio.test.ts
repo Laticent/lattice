@@ -1,13 +1,25 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createStage } from '@/lib/suono';
 import { LiveAudio } from './live-audio';
 
 // iOS's Audio Session API decides whether a page may record. Suono's unlock() sets it to
-// 'playback' (right for read-aloud), and under 'playback' iOS refuses the microphone: a real
-// iPhone showed "Couldn't start the microphone" on 2026-10-07. Desktop browsers have no
-// audio session, so only this test (and a phone) can see it.
+// 'playback' (right for read-aloud), and the W3C Audio Session spec ends a microphone track under
+// any type but 'play-and-record' or 'auto': a real iPhone showed "Couldn't start the microphone"
+// on 2026-10-07. Desktop browsers have no audio session, so only this test (and a phone) can see it.
+// LiveAudio imports Suono's built dist/, so `npm run suono-lib:build` after editing stage.ts.
 
-const session = { type: 'auto' };
-const track = { enabled: true, stop: vi.fn(), getSettings: () => ({ deviceId: 'mic-1' }) };
+// The spec's rule for a capturing microphone track: under any type but 'play-and-record' or 'auto', end it.
+const track = { enabled: true, readyState: 'new', stop: vi.fn(), getSettings: () => ({ deviceId: 'mic-1' }) };
+const session = {
+	_type: 'auto',
+	get type() {
+		return this._type;
+	},
+	set type(t: string) {
+		this._type = t;
+		if (track.readyState === 'live' && t !== 'play-and-record' && t !== 'auto') track.readyState = 'ended';
+	},
+};
 const stream = { getTracks: () => [track], getAudioTracks: () => [track] } as unknown as MediaStream;
 let typeAtCapture: string | null = null;
 
@@ -19,6 +31,7 @@ function fakeBrowser() {
 			getUserMedia: vi.fn(async () => {
 				typeAtCapture = session.type;
 				if (session.type === 'playback') throw Object.assign(new Error('capture not allowed'), { name: 'InvalidStateError' });
+				track.readyState = 'live';
 				return stream;
 			}),
 			enumerateDevices: async () => [],
@@ -40,6 +53,7 @@ function fakeBrowser() {
 afterEach(() => {
 	typeAtCapture = null;
 	session.type = 'auto';
+	track.readyState = 'new';
 });
 
 describe('LiveAudio on iOS (the audio session)', () => {
@@ -51,6 +65,23 @@ describe('LiveAudio on iOS (the audio session)', () => {
 		expect(a.inCall).toBe(true);
 		a.leave();
 		expect(session.type).toBe('auto');
+		a.dispose();
+	});
+
+	it('keeps the call\'s microphone when read-aloud unlocks Suono mid-call', async () => {
+		fakeBrowser();
+		const a = new LiveAudio(() => {});
+		await a.join();
+		// Read-aloud (and lessons, and narration) unlock their own Suono stage inside a tap.
+		const readAloud = createStage({ keepAlive: false });
+		readAloud.unlock();
+		expect(session.type).toBe('play-and-record');
+		expect(track.readyState).toBe('live');
+		a.leave();
+		// Out of the call, read-aloud gets its 'playback' session back.
+		readAloud.unlock();
+		expect(session.type).toBe('playback');
+		readAloud.dispose();
 		a.dispose();
 	});
 });

@@ -833,12 +833,18 @@ microphones, echo between two real devices, call quality, and iOS Safari.
 
 **Found on a real iPhone** (the owner, 2026-10-07, Chrome on iOS, before merge): *Join with
 audio* showed "Couldn't start the microphone". Suono's `unlock()` sets iOS's Audio Session to
-`playback`, which is right for reading aloud, and under `playback` iOS refuses to record. Desktop
-browsers have no audio session, so no desktop run could see it. Fixed: joining a call sets the
-session to `play-and-record` after the unlock and before asking for the microphone, and leaving
-sets it back to `auto`; `live-audio.test.ts` fails without the fix. A failure now names its reason
-in the toast. Known limit: starting read-aloud *during* a call would set the session back to
-`playback`.
+`playback`, which is right for reading aloud. The W3C Audio Session spec ends a microphone track
+under any type but `play-and-record` or `auto` (its element update steps), so under `playback` the
+capture cannot start. Desktop browsers have no audio session, so no desktop run could see it.
+Fixed, in two places:
+- joining a call sets the session to `play-and-record` after the unlock and before asking for the
+  microphone, and leaving sets it back to `auto`;
+- Suono's `unlock()` never downgrades `play-and-record`, so read-aloud, a lesson or narration
+  started *during* a call no longer ends the call's microphone. `play-and-record` also plays
+  through the media channel, so the silent switch still cannot mute read-aloud.
+
+`live-audio.test.ts` models the spec's rule and fails without either fix. A failure now names its
+reason in the toast. UNVERIFIED on the device until the owner retests.
 
 **The checker** (tier 1, on Opus) confirmed the gate and found audio going one-way after a
 takeover or a same-id blip, which the in-memory network reproduced. Fixed, each with a test that
