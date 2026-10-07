@@ -2007,12 +2007,13 @@ export async function exportPptx(render, name, onStatus, meta, opts) {
 			console.warn('[lattice-export] PPTX worker failed (' + (e?.message || e) + ') — falling back to the main-thread build.');
 		}
 	}
-	const [{ default: PptxGenJS }, { tidyPptxPackage }, { default: JSZip }] = await Promise.all([import('pptxgenjs'), import('@/lib/calco'), import('jszip')]);
+	const [{ default: PptxGenJS }, { tidyPptxPackage, xmlSafe }, { default: JSZip }] = await Promise.all([import('pptxgenjs'), import('@/lib/calco'), import('jszip')]);
 	const pptx = new PptxGenJS();
-	pptx.title = props.title;
-	pptx.subject = props.subject;
-	pptx.author = props.author;
-	pptx.company = props.company;
+	// Control characters would make an XML part unreadable; PptxGenJS escapes markup only.
+	pptx.title = xmlSafe(props.title).trim() || 'deck';
+	pptx.subject = xmlSafe(props.subject);
+	pptx.author = xmlSafe(props.author);
+	pptx.company = xmlSafe(props.company);
 	if (layout.custom) {
 		pptx.defineLayout({ name: 'LATTICE', width: layout.w, height: layout.h });
 		pptx.layout = 'LATTICE';
@@ -2032,7 +2033,7 @@ export async function exportPptx(render, name, onStatus, meta, opts) {
 		// readers "Slide 1" while the author's description sat intact in the engine render
 		// one step upstream. Same root cause as the webpage export's lost notes; the record
 		// is lifted before the frame exists.
-		pptx.addSlide().addImage({ data: png, x: 0, y: 0, w: '100%', h: '100%', altText: altTextFor(i) });
+		pptx.addSlide().addImage({ data: png, x: 0, y: 0, w: '100%', h: '100%', altText: xmlSafe(altTextFor(i)).trim() || `Slide ${i + 1}` });
 		// Yield between slides so the progress paints and input stays live (see the
 		// matching note in buildPdfDoc) — the per-slide rasterize is synchronous.
 		await new Promise((r) => setTimeout(r));

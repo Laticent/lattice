@@ -31,7 +31,7 @@
 
 import JSZip from 'jszip';
 import PptxGenJS from 'pptxgenjs';
-import { tidyPptxPackage } from '@/lib/calco/pptx';
+import { tidyPptxPackage, xmlSafe } from '@/lib/calco/pptx';
 
 let pptx = null;
 let slides = [];
@@ -49,10 +49,12 @@ async function handle(m) {
 	if (m.type === 'init') {
 		pptx = new PptxGenJS();
 		slides = [];
-		pptx.title = m.props.title;
-		pptx.subject = m.props.subject;
-		pptx.author = m.props.author;
-		pptx.company = m.props.company;
+		// Control characters (in a deck name, an alt text) would make an XML part unreadable;
+		// PptxGenJS escapes markup only.
+		pptx.title = xmlSafe(m.props.title).trim() || 'deck';
+		pptx.subject = xmlSafe(m.props.subject);
+		pptx.author = xmlSafe(m.props.author);
+		pptx.company = xmlSafe(m.props.company);
 		// Slide aspect from the deck's own geometry, resolved by the caller — 16:9 keeps
 		// the built-in LAYOUT_WIDE; anything else gets a custom layout at the same aspect.
 		if (m.layout.custom) {
@@ -64,7 +66,7 @@ async function handle(m) {
 		return;
 	}
 	if (m.type === 'slide') {
-		slides[m.index] = { data: `image/png;base64,${toBase64(new Uint8Array(m.bytes))}`, altText: m.altText };
+		slides[m.index] = { data: `image/png;base64,${toBase64(new Uint8Array(m.bytes))}`, altText: xmlSafe(m.altText).trim() || `Slide ${m.index + 1}` };
 		self.postMessage({ type: 'progress', index: m.index });
 		return;
 	}

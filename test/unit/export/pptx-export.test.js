@@ -137,6 +137,34 @@ describe('pptx-export', () => {
     assert.deepEqual(phantom, [], 'every content-type override names a part the package holds');
   });
 
+  // PptxGenJS escapes markup but not the characters XML 1.0 forbids, so a U+0001 in a note
+  // made the notes part unreadable (and the same in a title or an alt text). Calco's
+  // `xmlSafe` strips them; every part must still parse, and the words around them survive.
+  test('control characters in a title, note or alt text leave every XML part parseable', async () => {
+    const out = tmpFile();
+    await writePptx(out, [ONE_PX_PNG], { title: 'Deck\u0001 name', subject: 'Sub\u0003' }, ['Say \u0001this'], ['Alt\u0002 text']);
+    const zip = await require('jszip').loadAsync(fs.readFileSync(out));
+    const parser = new (new (require('jsdom').JSDOM)('').window.DOMParser)();
+    const parts = Object.keys(zip.files).filter((n) => /\.(xml|rels)$/.test(n));
+    for (const name of parts) {
+      const doc = parser.parseFromString(await zip.file(name).async('string'), 'application/xml');
+      assert.equal(doc.getElementsByTagName('parsererror').length, 0, `${name} does not parse`);
+    }
+    const notes = (await notesText(out)).join('\n');
+    assert.match(notes, /Say this/, 'the note keeps its words');
+    const slide = await zip.file('ppt/slides/slide1.xml').async('string');
+    assert.match(slide, /descr="Alt text"/, 'the alt text keeps its words');
+    assert.match(await zip.file('docProps/core.xml').async('string'), /Deck name/);
+  });
+
+  test('an alt text or title made only of control characters falls back, never to the filename', async () => {
+    const out = tmpFile();
+    await writePptx(out, [ONE_PX_PNG], { title: '\u0001' }, [], ['\u0002']);
+    const zip = await require('jszip').loadAsync(fs.readFileSync(out));
+    assert.match(await zip.file('ppt/slides/slide1.xml').async('string'), /descr="Slide 1"/);
+    assert.match(await zip.file('docProps/core.xml').async('string'), /<dc:title>deck<\/dc:title>/);
+  });
+
   describe('pptxLayout — slide aspect from @size geometry', () => {
     // Stub just enough of a pptx instance to capture defineLayout.
     function stub() {

@@ -64,7 +64,9 @@ file is exactly what PptxGenJS wrote.
 
 A `.pptx` you built with PptxGenJS yourself (pictures only, say) can take the same mending:
 `await tidyPptxPackage(JSZip, bytes)` returns the package with those errors fixed and nothing
-else changed.
+else changed. Pass its notes, alt text and document properties through `xmlSafe(text)` first:
+PptxGenJS escapes markup but writes control characters as they come, and one makes its XML
+part unreadable.
 
 ## No dependencies
 
