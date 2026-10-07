@@ -6,9 +6,11 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { describe, expect, it } from 'vitest';
+import { complement, fromRanges, has } from './charset';
 import { generate } from './codegen';
 import { toNodes } from './flat';
 import { alt, compile, type GrammarSpec, many, many1, noneOf, oneOf, range, ref, seq, set } from './grammar';
+import { attempt, node } from './index';
 import { parse as generatedFlat } from './notation.generated';
 import { notationSpec } from './notation-grammar';
 
@@ -112,6 +114,51 @@ describe('generated = compiled, on shapes the notation does not use', () => {
     const flat = `[${'[a]'.repeat(100)}]`;
     expect(gen(flat).ok).toBe(true);
     expect(gen(flat)).toEqual(compile(spec).parse(flat));
+  });
+});
+
+describe('a set with many ranges above ASCII is searched, not chained', () => {
+  // Every other code unit from U+0080 up, plus a few ASCII letters: 32k ranges. Past 16 high
+  // ranges both runtimes binary-search them (codegen.ts HIGH_CHAIN, charset.ts HIGH_SCAN).
+  const pairs: Array<[number, number]> = [[97, 99]];
+  for (let c = 128; c <= 0xffff; c += 2) pairs.push([c, c]);
+  const X = fromRanges(pairs);
+  const all = Array.from({ length: 0x10000 }, (_, c) => String.fromCharCode(c)).join('');
+
+  it('every code unit lands on the side has() puts it, in both runtimes', () => {
+    const spec: GrammarSpec = { start: 's', rules: { s: many(alt(node('in', set(X)), node('out', set(complement(X))))) } };
+    expect(generate(spec)).toContain('inRanges(');
+    const got = load(spec)(all);
+    expect(got).toEqual(compile(spec).parse(all));
+    const kids = (got as { ok: true; node: { kids: ReadonlyArray<{ kind: string; from: number }> } }).node.kids;
+    expect(kids.length).toBe(0x10000);
+    expect(kids.every((k) => (k.kind === 'in') === has(X, k.from))).toBe(true);
+  });
+  it('a hand-built set in descending order reads the same as sorted, in both runtimes', () => {
+    // grammar.ts checks each pair's shape, not their order; the search sorts what it is given.
+    const cs: number[] = [];
+    for (let c = 400; c >= 130; c -= 10) cs.push(c, c);
+    const spec: GrammarSpec = { start: 's', rules: { s: seq(many({ t: 'set', cs }), ';') } };
+    const x = '\u0190\u0186\u0082\u00f0;';
+    expect(load(spec)(x)).toEqual(compile(spec).parse(x));
+    expect(compile(spec).parse(x).ok).toBe(true);
+  });
+  it('a loop over the set stops at the first code unit outside it', () => {
+    const spec: GrammarSpec = { start: 's', rules: { s: seq(many(set(X)), '!') } };
+    for (const s of ['!', 'a\u0080\uffff!', '\u0080\u0081!', 'abcd!', '\ufffe\u0082\u0083']) expect(load(spec)(s), JSON.stringify(s)).toEqual(compile(spec).parse(s));
+  });
+  it('reads 256k characters inside attempt windows in linear time, in both runtimes', () => {
+    const spec: GrammarSpec = { start: 'r', rules: { r: many(alt(attempt(seq('<', many(set(X)), '>'), { max: 256, next: ' ' }), ' ', set(X))) } };
+    const unit = `<${Array.from({ length: 253 }, (_, k) => String.fromCharCode(128 + 2 * ((k * 37) % 32000))).join('')}> `;
+    const input = unit.repeat(1000);
+    const g = load(spec);
+    const c = compile(spec);
+    const time = (f: () => unknown) => { f(); let best = Infinity; for (let k = 0; k < 3; k++) { const t = performance.now(); f(); best = Math.min(best, performance.now() - t); } return best; };
+    expect(g(input).ok).toBe(true);
+    // About 6 ms each here; a one-comparison-per-range chain took 11.4 s (generated) and 1.5 s
+    // (compile()). Generous ceilings, far below either.
+    expect(time(() => g(input))).toBeLessThan(300);
+    expect(time(() => c.parse(input))).toBeLessThan(300);
   });
 });
 

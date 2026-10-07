@@ -431,6 +431,14 @@ backticks 18.8 → 2.0 ms, many headings 34 → 4.7 ms).
   directives row had read "26/53 agree" without it). Back to back on 2026-10-07: the arm gives
   ordinary code at 76 vs 39 ns (1.94x), and the standalone timing 60 vs 32 ns (1.88x).
 
+- **A set with many ranges above ASCII is searched, not chained (2026-10-07).** The red team
+  found that `testExpr()` and `compileTest()` tested such a set one range at a time, so a set of
+  every other code unit (32k ranges) read 256k characters inside attempt windows in 11.4 s
+  generated and 1.6 s compiled. Past 16 ranges above U+007F, both runtimes now binary-search a
+  sorted table of range bounds: about 6 ms each. No shipped parser changed, since the widest
+  shipped set has 9 such ranges. The search sorts its ranges first, because a hand-built set need
+  not be sorted.
+
 **In WebKit and Firefox too (2026-10-07).** Every figure above is V8, and the Studio runs the
 generated parsers in Safari and Firefox as well. `npm run parser:bakeoff:languages:browsers --
 --base 996b435^` builds the generator from before this pass and from the working tree, and times both

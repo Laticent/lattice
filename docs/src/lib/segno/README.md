@@ -318,6 +318,11 @@ and to the previous generator:
   comments) it is about 1.6x a JS loop. Inside an `attempt()` window the regex is not used,
   because it cannot stop at the window's end: there, reading past it turned a linear grammar
   quadratic, and a test pins that.
+- **A set with many ranges above ASCII is searched, not chained.** Up to 16 ranges above U+007F,
+  a character test is one comparison per range. Past that, both runtimes binary-search a table of
+  range bounds. A set of every other code unit (32k ranges) read 256k characters inside attempt
+  windows in 11.4 s generated and 1.6 s compiled; it now takes about 6 ms in each. No shipped
+  grammar has more than 9 such ranges, so their parsers are unchanged.
 
 ## Build
 
