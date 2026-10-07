@@ -48,11 +48,15 @@ function parseArgs(argv) {
     if (a === '--palette') opts.palettes = argv[++i].split(',');
     else if (a === '--arms') opts.arms = argv[++i].split(',');
     else if (a === '--out') opts.out = path.resolve(argv[++i]);
-    else if (a === '--bundled') opts.bundled = path.resolve(argv[++i]);
+    else if (a === '--bundled') {
+      if (!argv[i + 1]) throw new Error('palette-slide-parity: --bundled needs a path');
+      opts.bundled = path.resolve(argv[++i]);
+    }
     else opts.decks.push(path.resolve(a));
   }
   if (!opts.decks.length) opts.decks = GALLERIES;
   if (opts.bundled && !opts.arms.includes('bundled')) opts.arms.push('bundled');
+  if (opts.arms.includes('bundled') && !opts.bundled) throw new Error('palette-slide-parity: --arms bundled needs --bundled <path>');
   return opts;
 }
 
