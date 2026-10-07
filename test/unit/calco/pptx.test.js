@@ -88,4 +88,33 @@ describe('calco pptx — what PptxGenJS does not escape', () => {
     const { xml } = await slideXml(deck);
     assert.match(xml, /wrap="none"/);
   });
+
+  test('with JSZip the package is schema-shaped: one pPr per paragraph, notes master in order, no phantom parts', async () => {
+    // Two runs on one line, and two slides: PptxGenJS 3.12 writes a pPr before each run, puts
+    // notesMasterIdLst after sldIdLst and overrides a slide master per slide (one exists).
+    const twoRuns = frame([[{ text: 'import', style: style({ italic: true }) }, { text: ' x', style: style() }], [{ text: 'next', style: style() }]]);
+    const deck = { width: 1280, height: 720, slides: [{ image: ONE_PX_PNG, frames: [twoRuns], notes: 'n' }, { image: ONE_PX_PNG, frames: [twoRuns] }] };
+    const check = async (bytes) => {
+      const zip = await JSZip.loadAsync(bytes);
+      const xml = await zip.file('ppt/slides/slide1.xml').async('string');
+      const paras = [...xml.matchAll(/<a:p>[\s\S]*?<\/a:p>/g)].map((m) => m[0]);
+      const pres = await zip.file('ppt/presentation.xml').async('string');
+      const types = await zip.file('[Content_Types].xml').async('string');
+      return {
+        paras,
+        maxPPr: Math.max(...paras.map((p) => (p.match(/<a:pPr\b/g) || []).length)),
+        notesFirst: pres.indexOf('<p:notesMasterIdLst>') < pres.indexOf('<p:sldIdLst>'),
+        phantoms: [...types.matchAll(/<Override PartName="\/([^"]+)"/g)].map((m) => m[1]).filter((n) => !zip.file(n)),
+      };
+    };
+    const raw = await check(await writePptx(PptxGenJS, deck, 'nodebuffer'));
+    assert.ok(raw.maxPPr > 1 && !raw.notesFirst && raw.phantoms.length, 'PptxGenJS still writes all three; if not, tidyPptx can go');
+    const tidy = await check(await writePptx(PptxGenJS, deck, 'nodebuffer', JSZip));
+    assert.equal(tidy.paras.length, raw.paras.length, 'no paragraph is lost');
+    assert.equal(tidy.maxPPr, 1);
+    assert.ok(tidy.notesFirst, 'p:notesMasterIdLst sits before p:sldIdLst');
+    assert.deepEqual(tidy.phantoms, []);
+    assert.match(tidy.paras[0], /<a:pPr[^>]*>[\s\S]*?<\/a:pPr><a:r>[\s\S]*>import<\/a:t>[\s\S]*> x<\/a:t>/, 'the kept pPr comes first, both runs follow');
+  });
 });
+

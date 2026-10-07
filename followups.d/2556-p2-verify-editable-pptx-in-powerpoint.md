@@ -21,5 +21,9 @@ measured  — the .pptx states line spacing as spcPct over the face's natural li
             Slides spread exact spcPts ~26%). LibreOffice 26.8 then lands body text within
             0.5pt of Chrome. If PowerPoint measures a line as 1.2em, its lines run a few
             percent tight: check a multi-line card on gallery-jargon slide 12.
+schema    — (2026-10-07) the file is now schema-valid: PptxGenJS's repeated `<a:pPr>`, the
+            notes-master order and the phantom slide-master overrides are mended by `tidyPptx`
+            (decision note §6). A repair prompt that remains is something the schema does
+            not catch, most likely the EOT font parts.
 evidence  — screenshots from PowerPoint side by side with the PDF of the same deck.
 verify    — needs a machine with PowerPoint; the decision note §6 says UNVERIFIED until then.
