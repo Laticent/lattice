@@ -107,6 +107,18 @@ describe('sync-backlog CLI', () => {
     fs.writeFileSync(input, JSON.stringify([issue(1, ['status:backlog'])]));
     assert.equal(run(['--input', input, '--out', out, '--check']).status, 1, 'a closed issue is drift too');
   });
+
+  test('refuses an input with an entry that has no issue number, and writes nothing', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'backlog-d-'));
+    const out = path.join(tmp, 'backlog.d');
+    const input = path.join(tmp, 'issues.json');
+    // The shape a half-failed fetch produced: real issues plus an error object.
+    fs.writeFileSync(input, JSON.stringify([issue(1), { message: 'HTTP 403' }]));
+    const r = run(['--input', input, '--out', out]);
+    assert.notEqual(r.status, 0);
+    assert.match(r.stderr, /no issue number/);
+    assert.equal(fs.existsSync(out), false);
+  });
 });
 
 describe('backlog listing', () => {

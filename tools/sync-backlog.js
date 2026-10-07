@@ -123,6 +123,11 @@ function readInput(input) {
   const raw = input === '-' ? fs.readFileSync(0, 'utf8') : fs.readFileSync(input, 'utf8');
   const data = JSON.parse(raw);
   if (!Array.isArray(data)) throw new Error('expected a JSON array of issues');
+  // Refuse the whole input on one bad entry. A fetch that half-failed (an error object streamed in
+  // with the issues) once wrote `undefined.md`, a name the stale-file sweep never matches, so it
+  // would have sat in the mirror forever. Writing nothing is the safe answer to a broken fetch.
+  const bad = data.filter((i) => !i || !Number.isInteger(i.number) || i.number < 1);
+  if (bad.length) throw new Error(`${bad.length} entr${bad.length === 1 ? 'y has' : 'ies have'} no issue number: ${JSON.stringify(bad[0]).slice(0, 120)}`);
   return data;
 }
 
