@@ -2,6 +2,9 @@
 origin: 2355
 priority: P3
 recorded: 2026-09-24
+area: chart
+severity: medium
+swimlane: engineering/decisions/2026-09-07-chart-design-language/mark-declaration.md
 ---
 
 # The family pill vocabulary still paints on-track, done and live one green

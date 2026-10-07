@@ -2,6 +2,9 @@
 origin: 2314
 priority: P2
 recorded: 2026-09-26
+area: theming
+severity: medium
+swimlane: engineering/decisions/2026-09-23-portable-packages.md
 source: https://github.com/Laticent/lattice/pull/2314
 ---
 

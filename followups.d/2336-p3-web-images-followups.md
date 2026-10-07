@@ -2,6 +2,9 @@
 origin: 2336
 priority: P3
 recorded: 2026-09-26
+area: engine
+severity: low
+swimlane: engineering/decisions/2026-09-01-export-remote-subresource-posture.md
 source: https://github.com/Laticent/lattice/pull/2387
 ---
 

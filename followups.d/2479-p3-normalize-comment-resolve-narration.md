@@ -2,6 +2,9 @@
 origin: 2479
 priority: P3
 recorded: 2026-09-29
+area: website
+severity: low
+swimlane: engineering/decisions/2026-09-28-say-not-caption.md
 source: https://github.com/Laticent/lattice/pull/2479
 ---
 

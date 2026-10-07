@@ -2,6 +2,9 @@
 origin: 2248
 priority: P1
 recorded: 2026-09-22
+area: engine
+severity: high
+swimlane: engineering/decisions/2026-09-20-dom-library-bakeoff.md
 source: https://github.com/Laticent/lattice/pull/2248#issuecomment-5753967687
 ---
 

@@ -2,6 +2,9 @@
 origin: 2364
 priority: P3
 recorded: 2026-09-25
+area: chart
+severity: low
+swimlane: engineering/decisions/2026-09-24-state-chart-fit-and-paint.md
 ---
 
 # A dagre edge label can sit on its own shallow diagonal

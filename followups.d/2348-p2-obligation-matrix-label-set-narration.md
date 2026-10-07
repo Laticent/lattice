@@ -2,6 +2,9 @@
 origin: 2348
 priority: P2
 recorded: 2026-09-24
+area: legal
+severity: low
+swimlane: lib/components/legal/obligation-matrix/obligation-matrix.docs.md
 ---
 
 # obligation-matrix narration ignores the author's label set

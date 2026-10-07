@@ -14,7 +14,7 @@
  * tools/changelog.js.
  *
  * Usage:
- *   node tools/followups.js            # one line per item: file · origin PR · title
+ *   node tools/followups.js            # one line per item: area · severity · file · title
  *   node tools/followups.js --check    # exit 1 on a malformed item
  */
 
@@ -28,6 +28,26 @@ const NAME = /^(\d+)-p(\d+)-[a-z0-9][a-z0-9-]*\.md$/;
 // brief). A new item must carry `done when`: without an acceptance check, nobody can close it.
 // Anchored to a line start, so a title that merely says "done when" does not count.
 const REQUIRED_FIELD = /^\s*done when\s*—/im;
+
+// The three fields that make an item ACTABLE without its origin PR open, in the issue
+// taxonomy's own words (.github/labels.json), so promoting an item to an issue maps 1:1:
+//   area     — one `area:*` label name, without the prefix. Read from labels.json, so a new
+//              area needs no edit here.
+//   severity — the `priority:*` word. `critical` is refused: "drop everything" needs a board
+//              column and an owner, which is what an issue is for.
+//   swimlane — the governing doc, as a repo path that must exist, optionally followed by a
+//              section (`engineering/decisions/x.md §8.1`). It is the issue Definition of
+//              Ready's swimlane field: without it a reader gets "the runbook is note §8.1"
+//              and no way to find the note.
+// `priority: P<n>` is a different thing and stays: the item's position in the brief that left it.
+const SEVERITIES = ['high', 'medium', 'low'];
+const SEVERITY_RANK = { high: 0, medium: 1, low: 2 };
+
+/** The `area:*` names from .github/labels.json, without the prefix. */
+function knownAreas(root = ROOT) {
+  const labels = JSON.parse(fs.readFileSync(path.join(root, '.github', 'labels.json'), 'utf8'));
+  return labels.map((l) => l.name).filter((n) => n.startsWith('area:')).map((n) => n.slice('area:'.length));
+}
 
 function parse(src) {
   // No CRLF handling: .gitattributes normalizes committed files to LF.
@@ -44,7 +64,7 @@ function parse(src) {
   return { meta, body: m[2], title };
 }
 
-/** Every item as { file, origin, priority, title }, sorted by file name. */
+/** Every item as { file, origin, priority, area, severity, swimlane, title }, sorted by file name. */
 function listFollowups(dir = DIR) {
   if (!fs.existsSync(dir)) return [];
   return fs.readdirSync(dir)
@@ -52,14 +72,16 @@ function listFollowups(dir = DIR) {
     .sort()
     .map((file) => {
       const p = parse(fs.readFileSync(path.join(dir, file), 'utf8')) || { meta: {} };
-      return { file, origin: p.meta.origin, priority: p.meta.priority, title: p.title, backfill: p.meta.backfill === 'true' };
+      const { origin, priority, area, severity, swimlane } = p.meta;
+      return { file, origin, priority, area, severity, swimlane, title: p.title, backfill: p.meta.backfill === 'true' };
     });
 }
 
 /** One string per defect. A missing followups.d/ is a defect too: a gate that scans nothing is also a claim. */
-function followupProblems(dir = DIR) {
+function followupProblems(dir = DIR, root = ROOT) {
   if (!fs.existsSync(dir)) return ['followups.d/ is missing — the ledger of unticketed pending work lives there (followups.d/README.md).'];
   const problems = [];
+  const areas = knownAreas(root);
   for (const file of fs.readdirSync(dir)) {
     if (file === 'README.md') continue;
     const where = `followups.d/${file}`;
@@ -71,6 +93,12 @@ function followupProblems(dir = DIR) {
     if (p.meta.priority !== `P${name[2]}`) problems.push(`${where}: front matter \`priority: P${name[2]}\` must match the file name.`);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(p.meta.recorded || '')) problems.push(`${where}: front matter needs \`recorded: YYYY-MM-DD\`.`);
     if (!p.title) problems.push(`${where}: needs one \`# <the change, one line>\` heading.`);
+    if (!areas.includes(p.meta.area)) problems.push(`${where}: front matter needs \`area:\` set to one of ${areas.join(', ')} (.github/labels.json).`);
+    if (p.meta.severity === 'critical') problems.push(`${where}: \`severity: critical\` belongs on an issue, not here. File one with priority:critical and delete this file.`);
+    else if (!SEVERITIES.includes(p.meta.severity)) problems.push(`${where}: front matter needs \`severity:\` set to one of ${SEVERITIES.join(', ')}.`);
+    const doc = (p.meta.swimlane || '').split(/\s+/)[0];
+    if (!doc) problems.push(`${where}: front matter needs \`swimlane:\` — the governing doc, as a repo path.`);
+    else if (!fs.existsSync(path.join(root, doc))) problems.push(`${where}: \`swimlane: ${doc}\` does not exist in the repo.`);
     // Backfilled items are verbatim copies of older briefs, and one of them predates the
     // `done when` field. Rewriting it would change the record, so a backfill is exempt.
     if (p.meta.backfill !== 'true' && !REQUIRED_FIELD.test(p.body)) problems.push(`${where}: needs a \`done when\` line — the acceptance check a reviewer can run.`);
@@ -84,8 +112,9 @@ function main() {
     for (const p of problems) console.error(`✗ ${p}`);
     process.exit(problems.length ? 1 : 0);
   }
-  const items = listFollowups();
-  for (const i of items) console.log(`${i.file}  ·  #${i.origin} ${i.priority}  ·  ${i.title}`);
+  const items = listFollowups().sort((a, b) => (a.area || '~').localeCompare(b.area || '~')
+    || (SEVERITY_RANK[a.severity] ?? 9) - (SEVERITY_RANK[b.severity] ?? 9) || a.file.localeCompare(b.file));
+  for (const i of items) console.log(`${i.area} · ${i.severity}  ·  ${i.file}  ·  ${i.title}`);
   console.log(`\n${items.length} pending item(s) with no issue — contract: followups.d/README.md`);
   // A backfilled item was copied from an old brief and never checked against main, so it
   // may be done or duplicated. Say so on every listing until the triage pass clears them.
@@ -95,4 +124,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { followupProblems, listFollowups };
+module.exports = { followupProblems, listFollowups, knownAreas, SEVERITIES, SEVERITY_RANK };

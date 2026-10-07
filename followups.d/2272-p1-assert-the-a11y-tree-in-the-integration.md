@@ -2,6 +2,9 @@
 origin: 2272
 priority: P1
 recorded: 2026-09-22
+area: infra
+severity: medium
+swimlane: engineering/decisions/2026-09-24-chart-accessibility-contract.md
 source: https://github.com/Laticent/lattice/pull/2272#issuecomment-5762353273
 ---
 

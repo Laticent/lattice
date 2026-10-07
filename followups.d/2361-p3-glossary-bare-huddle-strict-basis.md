@@ -2,6 +2,9 @@
 origin: 2361
 priority: P3
 recorded: 2026-10-06
+area: inventory
+severity: low
+swimlane: engineering/decisions/2026-09-25-font-scale-fit.md
 ---
 
 # glossary's bare huddle row measures 7 on a 4k deck, and is stored as 8

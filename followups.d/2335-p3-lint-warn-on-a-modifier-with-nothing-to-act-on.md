@@ -2,6 +2,9 @@
 origin: 2335
 priority: P3
 recorded: 2026-09-24
+area: engine
+severity: low
+swimlane: engineering/decisions/2026-09-24-positional-class-completion.md
 source: https://github.com/Laticent/lattice/pull/2335
 ---
 

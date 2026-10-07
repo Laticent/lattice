@@ -2,6 +2,9 @@
 origin: 2466
 priority: P2
 recorded: 2026-09-28
+area: infra
+severity: medium
+swimlane: engineering/decisions/2026-10-06-conflict-reduction.md
 source: https://github.com/Laticent/lattice/pull/2466
 ---
 

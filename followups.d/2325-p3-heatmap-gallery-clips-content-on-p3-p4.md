@@ -2,6 +2,9 @@
 origin: 2325
 priority: P3
 recorded: 2026-09-24
+area: chart
+severity: medium
+swimlane: lib/components/chart/heatmap/heatmap.docs.md
 ---
 
 # heatmap.gallery.md clips content on pages 3 and 4, and the corpus baseline says clean

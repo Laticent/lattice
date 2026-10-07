@@ -2,6 +2,9 @@
 origin: 2572
 priority: P3
 recorded: 2026-10-07
+area: engine
+severity: medium
+swimlane: engineering/decisions/2026-08-17-theme-css-is-a-preview-sink.md
 source: engineering/decisions/2026-08-17-theme-css-is-a-preview-sink.md § 11
 ---
 

@@ -2,6 +2,9 @@
 origin: 2558
 priority: P3
 recorded: 2026-10-06
+area: chart
+severity: medium
+swimlane: engineering/decisions/2026-09-27-trama-graph-chart-library.md
 source: https://github.com/Laticent/lattice/pull/2558
 ---
 

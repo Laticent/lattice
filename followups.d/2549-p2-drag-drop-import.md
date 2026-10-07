@@ -2,6 +2,9 @@
 origin: 2549
 priority: P2
 recorded: 2026-10-06
+area: website
+severity: low
+swimlane: engineering/decisions/2026-10-05-reopenable-exports.md
 source: https://github.com/Laticent/lattice/pull/2549
 ---
 

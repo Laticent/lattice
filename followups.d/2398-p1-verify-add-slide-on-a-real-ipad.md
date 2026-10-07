@@ -2,6 +2,9 @@
 origin: 2398
 priority: P1
 recorded: 2026-09-27
+area: website
+severity: medium
+swimlane: engineering/decisions/2026-09-13-gallery-preview-memory.md
 source: https://github.com/Laticent/lattice/pull/2398
 ---
 # Finish the real-device check of Add slide after #2398: memory, VoiceOver, rotation (Safari 26+)

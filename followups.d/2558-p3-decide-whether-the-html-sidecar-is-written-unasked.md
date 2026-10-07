@@ -2,6 +2,9 @@
 origin: 2558
 priority: P3
 recorded: 2026-10-06
+area: engine
+severity: low
+swimlane: engineering/pipeline.md
 source: https://github.com/Laticent/lattice/pull/2558
 ---
 

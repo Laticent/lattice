@@ -2,6 +2,9 @@
 origin: 2360
 priority: P3
 recorded: 2026-09-25
+area: infra
+severity: low
+swimlane: RELEASE.md
 source: https://github.com/Laticent/lattice/issues/2360
 ---
 

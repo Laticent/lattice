@@ -2,6 +2,9 @@
 origin: 2404
 priority: P2
 recorded: 2026-09-27
+area: website
+severity: medium
+swimlane: engineering/decisions/2026-09-27-studio-export-one-engine.md
 source: https://github.com/Laticent/lattice/pull/2404
 ---
 

@@ -2,6 +2,9 @@
 origin: 2242
 priority: P3
 recorded: 2026-09-22
+area: infra
+severity: low
+swimlane: engineering/decisions/2026-09-02-nightly-liveness.md
 source: https://github.com/Laticent/lattice/pull/2242#issuecomment-5752664431
 ---
 

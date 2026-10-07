@@ -2,6 +2,9 @@
 origin: 2245
 priority: P3
 recorded: 2026-09-22
+area: engine
+severity: medium
+swimlane: engineering/decisions/2026-07-22-structure-derived-split-patterns.md
 source: https://github.com/Laticent/lattice/pull/2245#issuecomment-5754168975
 ---
 

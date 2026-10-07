@@ -2,6 +2,9 @@
 origin: 2553
 priority: P1
 recorded: 2026-10-06
+area: website
+severity: high
+swimlane: engineering/decisions/2026-10-06-studio-phone-chrome.md
 source: https://github.com/Laticent/lattice/pull/2553
 ---
 

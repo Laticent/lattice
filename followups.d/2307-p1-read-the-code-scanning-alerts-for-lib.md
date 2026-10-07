@@ -2,6 +2,9 @@
 origin: 2307
 priority: P1
 recorded: 2026-09-22
+area: infra
+severity: medium
+swimlane: engineering/decisions/2026-08-17-codeql-merge-gate.md
 source: https://github.com/Laticent/lattice/pull/2307#issuecomment-5777628875
 ---
 

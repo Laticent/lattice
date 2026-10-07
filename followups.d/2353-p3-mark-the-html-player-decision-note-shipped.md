@@ -2,6 +2,9 @@
 origin: 2353
 priority: P3
 recorded: 2026-09-24
+area: docs
+severity: low
+swimlane: engineering/decisions/2026-07-07-html-lattice-player.md
 ---
 
 # Mark the HTML Lattice player decision note as shipped

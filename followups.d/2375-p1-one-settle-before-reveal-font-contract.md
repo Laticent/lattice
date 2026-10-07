@@ -2,6 +2,9 @@
 origin: 2375
 priority: P1
 recorded: 2026-09-25
+area: engine
+severity: high
+swimlane: engineering/decisions/2026-09-25-one-slide-frame.md
 source: https://github.com/Laticent/lattice/pull/2375
 ---
 

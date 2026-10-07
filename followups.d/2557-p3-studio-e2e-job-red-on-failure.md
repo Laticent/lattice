@@ -2,6 +2,9 @@
 origin: 2557
 priority: P3
 recorded: 2026-10-07
+area: infra
+severity: medium
+swimlane: engineering/development.md
 ---
 
 # Decide whether the nightly Studio E2E job should turn red when a spec fails (owner's call: CI contract)

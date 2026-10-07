@@ -2,6 +2,9 @@
 origin: 2538
 priority: P3
 recorded: 2026-10-05
+area: engine
+severity: low
+swimlane: engineering/decisions/2026-09-27-studio-export-one-engine.md
 source: https://github.com/Laticent/lattice/pull/2538
 ---
 

@@ -2,6 +2,9 @@
 origin: 2307
 priority: P3
 recorded: 2026-09-22
+area: engine
+severity: low
+swimlane: engineering/development.md
 source: https://github.com/Laticent/lattice/pull/2307#issuecomment-5777628875
 ---
 

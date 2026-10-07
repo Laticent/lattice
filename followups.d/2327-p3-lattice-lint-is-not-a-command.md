@@ -2,6 +2,9 @@
 origin: 2327
 priority: P3
 recorded: 2026-09-24
+area: engine
+severity: medium
+swimlane: engineering/decisions/2026-09-24-six-state-marks.md
 source: https://github.com/Laticent/lattice/pull/2327
 ---
 

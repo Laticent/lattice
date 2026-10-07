@@ -2,6 +2,9 @@
 origin: 2326
 priority: P1
 recorded: 2026-09-24
+area: diagram
+severity: medium
+swimlane: engineering/decisions/2026-09-22-webkit-tspan-baseline.md
 source: https://github.com/Laticent/lattice/pull/2326
 ---
 

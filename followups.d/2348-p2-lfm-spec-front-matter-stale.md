@@ -2,6 +2,9 @@
 origin: 2348
 priority: P2
 recorded: 2026-09-24
+area: docs
+severity: medium
+swimlane: spec/LFM-1.0.md
 ---
 
 # LFM 1.0 §2.3 lists `finish:` with the values that now belong to `mode:`

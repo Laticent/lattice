@@ -2,6 +2,9 @@
 origin: 2361
 priority: P3
 recorded: 2026-10-06
+area: statement
+severity: medium
+swimlane: engineering/decisions/2026-09-25-font-scale-fit.md
 ---
 
 # Two split-panel clips the export's overflow probe does not report

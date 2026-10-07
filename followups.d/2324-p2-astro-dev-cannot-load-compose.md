@@ -2,6 +2,9 @@
 origin: 2324
 priority: P2
 recorded: 2026-09-24
+area: website
+severity: medium
+swimlane: engineering/decisions/2026-09-21-compose-fenced-code.md
 source: https://github.com/Laticent/lattice/pull/2333
 ---
 # `astro dev` cannot load Compose: a named import from a CommonJS kernel

@@ -2,6 +2,9 @@
 origin: 2424
 priority: P3
 recorded: 2026-10-06
+area: chart
+severity: low
+swimlane: engineering/decisions/2026-09-27-trama-graph-chart-library.md
 ---
 
 # Trama: nudge lines that would share a run apart, rather than trading them for crossings

@@ -1552,8 +1552,10 @@ Six rules make it work:
    `[followups.d/<file>]`. The brief lives in a PR comment and a chat transcript,
    which no session reads by default: 79 `[no ticket]` items piled up that way in
    two months. The file needs no issue, carries the same five fields and is
-   deleted by the PR that finishes it. Contract: `followups.d/README.md`; the
-   shape is gated by `checkFollowups`.
+   deleted by the PR that finishes it. Its front matter also carries `area`,
+   `severity` (high | medium | low) and `swimlane` (the governing doc's path), so
+   the item can be picked without opening this PR. Contract:
+   `followups.d/README.md`; the shape is gated by `checkFollowups`.
 3. **Prioritized by downstream impact**, P1 first, and each item says in one
    phrase what it unblocks. Order is an instruction, not a suggestion: the next
    session works the list top-down.

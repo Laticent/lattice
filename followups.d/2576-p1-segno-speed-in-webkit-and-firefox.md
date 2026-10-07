@@ -2,6 +2,9 @@
 origin: 2576
 priority: P1
 recorded: 2026-10-07
+area: website
+severity: medium
+swimlane: engineering/decisions/2026-09-28-segno-unified-inline-notation.md
 source: https://github.com/Laticent/lattice/pull/2576
 ---
 

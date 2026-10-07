@@ -2,6 +2,9 @@
 origin: 2376
 priority: P3
 recorded: 2026-09-28
+area: chart
+severity: medium
+swimlane: lib/components/chart/waterfall/waterfall.docs.md
 source: https://github.com/Laticent/lattice/pull/2376
 ---
 

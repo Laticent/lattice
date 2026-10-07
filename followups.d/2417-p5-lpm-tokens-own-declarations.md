@@ -2,6 +2,9 @@
 origin: 2417
 priority: P5
 recorded: 2026-10-06
+area: engine
+severity: low
+swimlane: engineering/decisions/2026-09-27-plugin-system.md
 ---
 
 # A plugin's `tokens` should list what the host supplies, not what its sheet declares itself

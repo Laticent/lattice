@@ -2,6 +2,9 @@
 origin: 2509
 priority: P5
 recorded: 2026-10-07
+area: infra
+severity: low
+swimlane: engineering/decisions/2026-09-27-plugin-system.md
 ---
 
 # The packages plugins vendor are still runtime dependencies, so an install downloads what nothing reads
