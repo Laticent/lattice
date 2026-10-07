@@ -11,6 +11,8 @@
 //   lib/components/<bucket>/<shared, e.g. _x>/**       → every gallery in <bucket>
 //   anything shared (engine, CSS, themes, emulator,
 //     dependencies, the rest of lib/)                 → every gallery, bucket galleries first
+//     (a package.json edit confined to `scripts` and other inert keys is not a dependency
+//     change: renderRelevantChanges drops it first)
 //   files that cannot change a render                 → nothing
 //
 // It errs toward rendering MORE: an unknown path under lib/ counts as shared. A deck whose
@@ -39,6 +41,55 @@ const SHARED_OUTSIDE_LIB = [
   /^tools\/build-bucket-galleries\.js$/,
   /^tools\/lib\/golden-render\.mjs$/,
 ];
+
+// package.json keys that cannot change a render. A change confined to these is not a
+// dependency change: a PR that only adds an npm script must not widen the render to every
+// gallery or skip the base render that tells "this PR moved it" from "stale on main" (#2583
+// listed 46 changed slides for a one-line `scripts` edit). An ALLOWLIST, not a list of
+// dependency fields, so a key nobody thought about (`version`, which lattice-emulator.js
+// reads; `exports`; `engines`) still counts as a render input — the module errs toward
+// rendering more. The lockfile is a separate path and always counts.
+const PACKAGE_JSON_INERT_KEYS = new Set([
+  'scripts', 'description', 'keywords', 'homepage', 'repository', 'bugs',
+  'author', 'contributors', 'funding', 'license', 'files',
+]);
+
+/**
+ * Does a package.json edit touch anything that can change a render?
+ * @param {string|null} baseText  package.json on the base (null: absent there)
+ * @param {string|null} headText  package.json on this branch (null: absent here)
+ * @returns {boolean} false only when every changed top-level key is inert
+ */
+export function packageJsonMovesRenders(baseText, headText) {
+  let base;
+  let head;
+  try {
+    base = JSON.parse(baseText);
+    head = JSON.parse(headText);
+  } catch {
+    return true; // missing or unparsable on a side: cannot prove it inert
+  }
+  if (!base || !head || typeof base !== 'object' || typeof head !== 'object') return true;
+  for (const key of new Set([...Object.keys(base), ...Object.keys(head)])) {
+    if (PACKAGE_JSON_INERT_KEYS.has(key)) continue;
+    if (JSON.stringify(base[key]) !== JSON.stringify(head[key])) return true;
+  }
+  return false;
+}
+
+/**
+ * The changed-path list golden-diff reasons about: `package.json` drops out when its edit is
+ * inert, so neither the render scope nor the dependency-change rule sees it. The caller reads
+ * the two texts lazily (`git show` costs a process), hence the thunks.
+ * @param {string[]} changed
+ * @param {() => string|null} readBase  package.json on the base
+ * @param {() => string|null} readHead  package.json on this branch
+ */
+export function renderRelevantChanges(changed, readBase, readHead) {
+  if (!changed.includes('package.json')) return changed;
+  if (packageJsonMovesRenders(readBase(), readHead())) return changed;
+  return changed.filter((f) => f !== 'package.json');
+}
 
 // The per-PR render cap (gallery × mood renders). golden-diff renders at most this many;
 // the env GOLDEN_DIFF_RENDER_CAP overrides it there. One constant, so nothing that reasons
