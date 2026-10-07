@@ -780,7 +780,7 @@ two-browser variant). The check drops the host's network the way a phone loses s
 connections close, and any connection made meanwhile finds no route, so it fails as it would
 offline. Chen, the heir, hosted 20.2–20.5 s after the drop; a chat line and an edit were written
 during the regency; when the host's network returned, it took the session back 22–48 s later
-(seven runs, all of them), with the regency's edit and chat line, and the chat in the same order on
+(six runs, all of them), with the regency's edit and chat line, and the chat in the same order on
 both sides. Most of that wait is the connection library's own retry. A *frozen* tab could not be
 reproduced here (headless Chromium does not freeze a visible page); it ends in the same reclaim, and
 Tavola's and the Studio's tests run it.
