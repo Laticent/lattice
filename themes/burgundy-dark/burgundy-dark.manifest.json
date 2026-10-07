@@ -1,6 +1,8 @@
 {
   "$schema": "../theme.schema.json",
   "name": "burgundy-dark",
+  "type": "theme",
+  "format": 1,
   "role": "variant-dark",
   "extends": "burgundy",
   "family": "brand",

@@ -411,6 +411,11 @@ To share a package, export it to a zip. This works for shipped packages too:
 npx lattice packages export theme/brand -o brand.zip
 ```
 
+Lattice ships a small motion library: `npx lattice packages list --type motion`
+names the scenes. A deck never names a motion package. The Studio's Library
+lists the shipped scenes on its Motion tab, and Insert copies one into the deck,
+so the deck still renders on a machine without it.
+
 Packages live in `~/.lattice/packages`. Set `LATTICE_HOME` to move the store,
 or pass `--packages <folder>` to use a different store for one run, renders
 included:

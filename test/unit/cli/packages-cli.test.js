@@ -57,6 +57,24 @@ describe('lattice packages', () => {
     assert.equal(JSON.parse(back['probe-brand.manifest.json']).name, 'probe-brand');
   });
 
+  test('the shipped motion library lists, and a shipped scene exports and re-checks as itself (phase 5)', async () => {
+    const store = tmp('store');
+    const listed = await run(['list', '--type', 'motion', '--packages', store]);
+    assert.equal(listed.code, 0, listed.text);
+    for (const name of fs.readdirSync(path.join(ROOT, 'lib/motion')).filter((n) => !n.includes('.') && !n.startsWith('_'))) {
+      assert.match(listed.text, new RegExp(`motion\\s+${name}\\s+shipped`));
+    }
+    assert.doesNotMatch(listed.text, /^theme|^component/m, 'the --type filter holds');
+    const out = path.join(tmp('out'), 'rotor.zip');
+    assert.equal((await run(['export', 'motion/rotor', '-o', out, '--packages', store])).code, 0);
+    const zip = await JSZip.loadAsync(fs.readFileSync(out));
+    const names = Object.keys(zip.files).filter((p) => !zip.files[p].dir).sort();
+    assert.deepEqual(names, ['rotor/rotor.manifest.json', 'rotor/rotor.poster.svg', 'rotor/rotor.scene.json']);
+    const checked = await run(['check', out, '--packages', store]);
+    assert.equal(checked.code, 0, checked.text);
+    assert.match(checked.text, /ok\s+motion\/rotor-custom/);
+  });
+
   test('a shipped name installs as <name>-custom, its @theme rewritten', async () => {
     const store = tmp('store');
     const r = await run(['add', await zipOf('indaco', theme('indaco')), '--packages', store]);

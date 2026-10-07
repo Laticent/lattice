@@ -103,6 +103,12 @@ const FAMILIES = Object.freeze([
     ext: '.manifest.json', // lib/finishes/<name>/<name>.manifest.json
   },
   {
+    family: 'motion',
+    schema: 'lib/motion/motion.schema.json',
+    dir: 'lib/motion',
+    ext: '.manifest.json', // lib/motion/<name>/<name>.manifest.json
+  },
+  {
     family: 'form frame',
     schema: 'lib/forms/schema/frame.schema.json',
     dir: 'lib/forms/frame',

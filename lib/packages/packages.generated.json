@@ -5,7 +5,7 @@
     "theme": 33,
     "component": 74,
     "finish": 9,
-    "motion": 0,
+    "motion": 4,
     "plugin": 6
   },
   "packages": [
@@ -1259,6 +1259,49 @@
       "roles": [
         "manifest.json",
         "recipe.json"
+      ]
+    },
+    {
+      "type": "motion",
+      "name": "arrivals",
+      "path": "lib/motion/arrivals",
+      "roles": [
+        "art.svg",
+        "manifest.json",
+        "poster.svg",
+        "scene.json"
+      ]
+    },
+    {
+      "type": "motion",
+      "name": "pipeline-beats",
+      "path": "lib/motion/pipeline-beats",
+      "roles": [
+        "art.svg",
+        "manifest.json",
+        "poster.svg",
+        "scene.json"
+      ]
+    },
+    {
+      "type": "motion",
+      "name": "ring-marker",
+      "path": "lib/motion/ring-marker",
+      "roles": [
+        "art.svg",
+        "manifest.json",
+        "poster.svg",
+        "scene.json"
+      ]
+    },
+    {
+      "type": "motion",
+      "name": "rotor",
+      "path": "lib/motion/rotor",
+      "roles": [
+        "manifest.json",
+        "poster.svg",
+        "scene.json"
       ]
     },
     {

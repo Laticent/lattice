@@ -273,18 +273,26 @@ mutations by hand — one per `required` / `enum` / `pattern` / `type` / `minimu
 uses, over two real seeds that sit on opposite arms of the schema's one
 `if`/`then`/`else`.
 
-| | trio's report | first harness | after review (#2016) |
-|---|---|---|---|
-| walker-equivalence mutations | 39 | 51 | **55** |
-| ajv passed what the walker caught | 0 | 0 | **0** |
-| mutations only ajv catches | not reported | 2 | **4** |
-| legal variants compared (the other direction) | not compared | not compared | **210** |
-| walker rejected what ajv accepts | not compared | not compared | **0** |
-| draft comparison | 33 manifests + 20 mutations | 33 manifests + 51 mutations | **the compiled validators, directly** |
-| draft disagreements | 0 | 0 | **0** |
+| | trio's report | first harness | after review (#2016) | `type` + `format` (2026-10-07) |
+|---|---|---|---|---|
+| walker-equivalence mutations | 39 | 51 | 55 | **59** |
+| ajv passed what the walker caught | 0 | 0 | 0 | **0** |
+| mutations only ajv catches | not reported | 2 | 4 | **4** |
+| legal variants compared (the other direction) | not compared | not compared | 210 | **220** |
+| walker rejected what ajv accepts | not compared | not compared | 0 | **0** |
+| draft comparison | 33 manifests + 20 mutations | 33 manifests + 51 mutations | the compiled validators, directly | **the compiled validators, directly** |
+| draft disagreements | 0 | 0 | 0 | **0** |
+
+The last column is the package fields (`engineering/decisions/2026-09-23-portable-packages.md`
+§3.2): `type` and `format` joined the schema as one-value `enum`s, and all 33 shipped manifests
+carry them, so each adds one `enum` mutation per seed (55 → 59) and one legal value per seed.
+The legal-variant count was 216 just before that change, not the 210 quoted for #2016: themes
+added since then carried values no earlier theme had, and the row was not moved with them. It is
+220 with the two fields. They are `enum`s, not `const`s, on purpose: the retired walker checks
+`enum` and has no `const` arm, so a `const` would have widened the ajv-only margin past 4.
 
 The counts differ because the corpora are built differently, not because any is
-wrong — and 55 is the one a reader can reproduce. Four things the harness adds
+wrong — and 59 is the one a reader can reproduce at HEAD. Four things the harness adds
 that the transcript did not:
 
 - **The superset margin is named**, and the first naming of it was wrong. See the

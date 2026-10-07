@@ -917,6 +917,37 @@ it is the record of what was wrong.
     the palette set, the dark wrappers), so a walk still reading the flat layout shows up red. One
     gate had no such floor, `checkPackedRootReach`, which would have checked zero files in silence;
     it was found by reading every remaining `readdirSync` over a themes directory, not by a test.
-  - **Still open:** the theme manifest schema does not take `type` and `format` yet (the entry for
-    phase 1 above), and the shipped motion library is not started. Both stay in
-    `followups.d/2314-p4-themes-into-folders.md`.
+  - **Closed since (2026-10-07):** the theme schema's `type` and `format`, and the shipped motion
+    library. See the next entry.
+- **Phase 5, the rest: done (2026-10-07).** Phase 5 is complete.
+  - **The theme schema takes `type` and `format`.** `themes/theme.schema.json` declares
+    `"type": "theme"` and `"format": 1`, optional as in the component schema, and all 33 shipped
+    manifests carry both (`new:theme` writes them). A theme the Studio or `lattice packages export`
+    writes is now a valid `themes/` manifest as written; `packages-spine.test.js` round-trips
+    `indaco` and `indaco-dark` through `writePackage` and validates the result. The two fields are
+    one-value `enum`s, not `const`s: `manifest-schema-equivalence.test.js` holds the schema to the
+    retired walker, which checks `enum` and has no `const` arm, so a `const` would have widened the
+    ajv-only margin. The corpus grew 55 → 59 (one `enum` mutation per field per seed), the margin
+    stayed 4, and the legal variants went 216 → 220
+    (`2026-09-01-manifest-schema-gate.md` has the table).
+  - **The shipped motion library.** `lib/motion/<name>/` holds four scenes, seeded from the
+    example decks and chosen so each shows a different verb: `rotor` (a `built` scene: spin and
+    orbit), `pipeline-beats` (draw, one part per beat), `arrivals` (slide paired with a fade) and
+    `ring-marker` (draw, then highlight). Three example scenes were left out on purpose: the
+    all-at-once pipeline (`motion-asset.md` says the motion adds nothing there), the second
+    "flow" pipeline (the same drawing and plan as `pipeline-beats`) and the bead-less rotor (the
+    same scene, minus one part). Each package carries a manifest (`label`, `description`,
+    `engine`, `order`, gated by `lib/motion/motion.schema.json`, a new family in
+    `tools/manifest-schemas.js`), its scene, a poster and, for an `svg` scene, the drawing. The
+    kind still lets an IMPORTED scene omit its poster, as the Studio always has; a SHIPPED one
+    must carry it, and `packages-spine.test.js` says so.
+  - **What lists and inserts them.** `lattice packages list --type motion` lists them from
+    `packages.generated.json` with no CLI change. `tools/build-packages-index.js` writes
+    `lib/motion/scenes.generated.js`, which the Studio's Library loads on demand (the Studio
+    route's eager budget has under a kilobyte of headroom) and lists on its Motion tab under
+    "Shipped with Lattice". Insert goes through the same `slideSkeleton` as a saved scene, so a
+    shipped scene lands as a copy with fresh ids; a `built` scene has no line art, so its poster
+    is the drawing. Every drawing passes `parseScene` and `sanitizeSceneAssets` on the way in,
+    and `shipped-scenes.test.ts` asserts the sanitizer changes none of them. The shipped cards
+    are insert-only: no select, Share or Delete, and they never count toward the Library's
+    total, so an empty shelf still reads as empty on the All tab.

@@ -217,6 +217,8 @@ thing that drifts, not a thing that helps:
 ```jsonc
 {
   "name": "verdigris",
+  "type": "theme",             // the package type: every Lattice package says what it is
+  "format": 1,                 // the package format the spine writes
   "role": "base",              // base | variant-dark | derived-variant
   "family": "brand",           // brand | a11y
   "tier": "more",              // which picker group
@@ -226,6 +228,12 @@ thing that drifts, not a thing that helps:
   "swatch": "#3E7A6B"          // the picker dot
 }
 ```
+
+`type` and `format` are the two fields every Lattice package manifest carries
+(`engineering/decisions/2026-09-23-portable-packages.md` §3.2). The folder already
+says the type, so the schema leaves them optional, but every shipped theme carries
+both: a theme exported from the Studio or with `lattice packages export` writes them,
+and the schema accepts that manifest as it is.
 
 **Why it exists.** Which themes a rule applies to used to be worked out three
 different ways in code, plus five hand-kept name arrays — and they disagreed:

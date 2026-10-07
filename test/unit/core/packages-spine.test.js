@@ -158,6 +158,31 @@ describe('readPackage — lenient (import) and writePackage', () => {
     const m = JSON.parse(writePackage(r.pkg)['probe-card.manifest.json']);
     assert.deepEqual(Object.keys(m), ['name', 'type', 'format', 'function']);
   });
+
+  test('a shipped theme, exported through the spine, is still a valid themes/ manifest (phase 5)', () => {
+    // writePackage stamps `type` and `format` on every package. Until the theme schema
+    // declared them, `additionalProperties: false` rejected the stamped manifest, so a theme
+    // that left the repo in a zip could not come back into themes/ as it was written.
+    const { makeAjv } = require('../../../tools/manifest-schemas.js');
+    const root = path.resolve(__dirname, '../../..');
+    const validate = makeAjv().compile(JSON.parse(fs.readFileSync(path.join(root, 'themes/theme.schema.json'), 'utf8')));
+    for (const name of ['indaco', 'indaco-dark']) {
+      const dir = path.join(root, 'themes', name);
+      const files = Object.fromEntries(fs.readdirSync(dir).map((f) => [f, fs.readFileSync(path.join(dir, f), 'utf8')]));
+      const r = readPackage(files, { type: 'theme', strict: true });
+      assert.equal(r.ok, true, r.errors.join('\n'));
+      const written = JSON.parse(writePackage(r.pkg)[`${name}.manifest.json`]);
+      assert.equal(written.type, 'theme');
+      assert.equal(written.format, 1);
+      assert.equal(validate(written), true, `${name}: ${JSON.stringify(validate.errors)}`);
+      // …and the shipped manifest already says the same thing, so the round trip changes no field.
+      assert.deepEqual(written, JSON.parse(files[`${name}.manifest.json`]));
+    }
+    // THE FAILING ARMS: another type, or another format, is refused by the schema itself.
+    const indaco = JSON.parse(fs.readFileSync(path.join(root, 'themes/indaco/indaco.manifest.json'), 'utf8'));
+    assert.equal(validate({ ...indaco, type: 'finish' }), false);
+    assert.equal(validate({ ...indaco, format: 2 }), false);
+  });
 });
 
 describe('registry', () => {
@@ -249,6 +274,32 @@ describe('the committed index', () => {
     assert.equal(committed.counts.component, loadAll().length);
     const transforms = listComponentFolders(path.join(__dirname, '../../../lib/components')).filter((f) => f.dir && fs.existsSync(path.join(f.dir, `${f.folder}.transform.js`))).length;
     assert.equal(committed.packages.filter((p) => p.type === 'component' && p.code).length, transforms);
+  });
+});
+
+const ROOT = path.resolve(__dirname, '../../..');
+
+describe('motion packages (phase 5)', () => {
+  const found = discoverPackages().filter((f) => f.type === 'motion');
+
+  test('the shipped library is seeded, and every package reads strictly', () => {
+    assert.ok(found.length >= 4, `expected the seeded scenes in lib/motion/, saw ${found.length}`);
+    for (const f of found) assert.equal(f.result.ok, true, `${f.path}: ${(f.result.errors || []).join('; ')}`);
+  });
+
+  test('a SHIPPED scene carries its poster, and an svg scene its drawing (kinds.js leaves both optional for imports)', () => {
+    for (const { path: where, result: { pkg } } of found) {
+      assert.ok(pkg.roles['poster.svg'], `${where} has no poster: a PDF of a deck it was inserted into has no still`);
+      const spec = JSON.parse(fs.readFileSync(path.join(ROOT, where, pkg.roles['scene.json']), 'utf8'));
+      if (spec.source === 'svg') assert.ok(pkg.roles['art.svg'], `${where} is an svg scene with no art.svg`);
+      assert.equal(pkg.manifest.engine, spec.source === 'svg' ? 'anime' : 'zdog', `${where}: "engine" disagrees with the scene's source`);
+    }
+  });
+
+  test('the generated list the Studio reads matches the packages, in order', () => {
+    const { MOTION_SCENES } = require('../../../lib/motion/scenes.generated.js');
+    const byOrder = found.map((f) => f.result.pkg).sort((a, b) => a.manifest.order - b.manifest.order).map((p) => p.name);
+    assert.deepEqual(MOTION_SCENES.map((s) => s.name), byOrder);
   });
 });
 

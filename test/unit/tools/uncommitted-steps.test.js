@@ -97,9 +97,10 @@ const EXPECTED_UNCOMMITTED = new Set([
 const EXPECTED_PR_OWNED = new Set([
   'build-stage-catalog.js', // lib/forms/cell/masthead
   'build-theme-catalog.js', // lib/theme/edges.generated.mjs AND the palette catalog
-  // Measured 2026-09-24: its whole write set is lib/packages/packages.generated.json and
-  // lib/finishes/presets.generated.js, both tracked — the spine's registry and the finish
-  // register read them.
+  // Re-measured 2026-10-07: its whole write set is lib/packages/packages.generated.json,
+  // lib/finishes/presets.generated.js, lib/motion/scenes.generated.js,
+  // lib/base/base.finish.css and lib/packages/reserved-classes.generated.js, all tracked —
+  // the spine's registry, the finish register and the Studio's shipped-motion list read them.
   'build-packages-index.js', // lib/packages
   'build-axis-dom-catalog.js', // lib/runtime
   // Measured 2026-09-21 against a timestamped tree: its whole write set is
