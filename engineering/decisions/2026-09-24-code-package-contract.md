@@ -706,8 +706,9 @@ parity test logs how many class tokens the door strips from each (from 5 for `vi
   preview's render found unapproved.
 
 **Measured on the real Studio** (`docs/e2e/code-packages.spec.ts`, desktop Chromium): a hostile
-package imported through the Library tries fetch, WebSocket, `importScripts`, `import()`,
-EventSource, a nested worker, WebRTC to a UDP port and a navigation, and returns a section naming a
+package imported through the Library tries fetch, WebSocket, `importScripts`, `import()` built at
+run time (indirect `eval`, `Function`, a constructor, a string timer; since 2026-10-06 a literal
+`import()` is refused at the import, which a second test drives on the real Library), EventSource, a nested worker, WebRTC to a UDP port and a navigation, and returns a section naming a
 local server seven ways and forging a speaker note. Unapproved: the slide shows the author's content
 and the note, the notice offers the code with its SHA-256, and nothing reaches the HTTP server or
 the UDP socket. Approved: it draws, still nothing reaches either, the preview holds no reference to
