@@ -265,7 +265,8 @@ async function tidyPptx(zip: ZipLike): Promise<void> {
 		if (notes && notes.index !== undefined && masters >= 0 && notes.index > masters) {
 			const without = pres.slice(0, notes.index) + pres.slice(notes.index + notes[0].length);
 			const at = without.indexOf('</p:sldMasterIdLst>') + '</p:sldMasterIdLst>'.length;
-			zip.file('ppt/presentation.xml', without.slice(0, at) + notes[0] + without.slice(at));
+			const tidy = without.slice(0, at) + notes[0] + without.slice(at);
+			if (tidy !== pres) zip.file('ppt/presentation.xml', tidy);
 		}
 	}
 	if (zip.file('[Content_Types].xml')) {
@@ -284,6 +285,8 @@ async function tidyPptx(zip: ZipLike): Promise<void> {
  */
 export async function embedPptxFonts<T = Uint8Array>(JSZip: JSZipClass, bytes: Uint8Array, faces: EmbeddingPlan['faces'], outputType = 'uint8array'): Promise<T> {
 	const zip = (await (JSZip as unknown as { loadAsync(b: Uint8Array): Promise<ZipLike> }).loadAsync(bytes)) as ZipLike;
+	// PptxGenJS's `STREAM` is a Node buffer; JSZip has no stream output on every platform.
+	if (outputType === 'STREAM') outputType = 'nodebuffer';
 	await tidyPptx(zip);
 	if (!faces.length) return (await zip.generateAsync({ type: outputType, mimeType: PPTX_MIMETYPE, compression: 'DEFLATE' })) as T;
 	const read = async (name: string) => {

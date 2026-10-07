@@ -169,5 +169,9 @@ describe('calco pptx — embedded fonts', () => {
     const zip = await JSZip.loadAsync(b64, { base64: true });
     assert.ok(zip.file('ppt/fonts/calco-font1.fntdata'));
     assert.ok((await writePptx(PptxGenJS, deck, 'arraybuffer', JSZip)) instanceof ArrayBuffer);
+    // PptxGenJS's STREAM is a Node buffer; JSZip cannot stream, so Calco asks it for one.
+    assert.ok(Buffer.isBuffer(await writePptx(PptxGenJS, deck, 'STREAM', JSZip)));
+    const bare = await deckWith([], [400]);
+    assert.ok(Buffer.isBuffer(await writePptx(PptxGenJS, bare, 'STREAM', JSZip)), 'STREAM with no face to embed');
   });
 });

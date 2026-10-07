@@ -220,7 +220,12 @@ override for `slideMasterN.xml` per slide where the package holds one. PowerPoin
 slide XML strictly, so the first is the likeliest cause of a repair prompt. `tidyPptx`
 (`pptx.ts`) now mends all three whenever `writePptx` gets JSZip: the jargon gallery, the
 baseline check and muted-tier-and-syntax validate with zero errors across 141 parts, and
-LibreOffice renders all 58 jargon slides pixel-identical before and after. The picture-only
+LibreOffice renders all 58 jargon slides pixel-identical before and after. Microsoft's
+Open XML SDK validator (3.3.0, Office 2007 and Microsoft 365 rules) agrees: 16 errors on the
+jargon gallery before, 0 on all five exported decks after. One PptxGenJS source comment
+(`pptxgen.cjs.js`, in `makeXmlPresentation`) claims the schema's notes-master order "causes
+warning in modern powerpoint"; the comment beside it says the reverse, and the schema and the
+SDK both require it, so desktop PowerPoint is the one check left for that move. The picture-only
 `.pptx` (`lib/export/pptx-export.js`) still carries the last two, and is logged in
 `followups.d/`.
 
