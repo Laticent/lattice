@@ -554,8 +554,8 @@ lock flock was adopted to delete.
 **A second PreToolUse hook warns before a needless catch-up.**
 `.claude/hooks/warn-needless-catchup.sh` fires when a Bash command is about to
 rebase onto, merge, or pull `main`, or run a bare `git pull` on a branch that tracks
-`origin/main`. It runs `tools/queue-precheck.sh --no-fetch` in the command's own
-directory. If the branch merges cleanly with `main` on GitHub's terms, it says the
+`origin/main`. It runs `tools/queue-precheck.sh --no-fetch` in the shell's starting
+directory (the payload's `cwd`; a `cd` inside the command is not followed). If the branch merges cleanly with `main` on GitHub's terms, it says the
 catch-up is not needed (HARD RULE #16).
 
 - **It never blocks.**

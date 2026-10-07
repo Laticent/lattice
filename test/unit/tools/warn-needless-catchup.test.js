@@ -169,6 +169,27 @@ describe('warn-needless-catchup — gaps the final checker found on PR #2561', (
   });
 });
 
+describe('warn-needless-catchup — gaps the checker found on fbf74cb', () => {
+  test('a bare `git pull` on its own line of a multi-line command warns', () => {
+    const dir = repo();
+    track(dir, 'main');
+    assert.match(fire(bash('git pull\nnpm test'), dir).out, /HARD RULE #16/);
+  });
+  test('lines are separate commands: `git status` then `npm run pull` does not warn', () => {
+    const dir = repo();
+    track(dir, 'main');
+    assert.equal(fire(bash('git status\nnpm run pull'), dir).out, '');
+  });
+  for (const ref of ["'origin/main'", 'origin/main~0', 'origin/main^']) {
+    test(`a quoted or suffixed ref warns: ${ref}`, () => {
+      assert.match(fire(bash(`git rebase ${ref}`), repo()).out, /HARD RULE #16/);
+    });
+  }
+  test('`origin/maint` is not main', () => {
+    assert.equal(fire(bash('git rebase origin/maint'), repo()).out, '');
+  });
+});
+
 describe('warn-needless-catchup — never blocks', () => {
   for (const [label, payload] of Object.entries({
     'empty input': '',

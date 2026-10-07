@@ -25,7 +25,9 @@
 # that only MENTIONS such a rebase, e.g. inside a commit message, can still match;
 # that costs one ignorable line. Only on a match does it run
 # tools/queue-precheck.sh --no-fetch, the same check the Stop hook runs, in the
-# command's own directory (the payload's `cwd`), so the two cannot disagree. It
+# shell's starting directory (the payload's `cwd`; a `cd` inside the command is not
+# followed), so the two cannot disagree. Lines of a multi-line command, and `; & |`
+# segments, are judged separately. It
 # compares with the LOCAL origin/main; a command that fetches first is judged on
 # the last fetch.
 #
@@ -61,14 +63,14 @@ bare_pull=0
 while IFS= read -r seg; do
   case "$seg" in *merge-base*) continue ;; esac
   printf '%s' "$seg" | grep -Eq 'git([[:space:]][^[:space:]]+)*[[:space:]](rebase|merge|pull)([[:space:]]|$)' || continue
-  if printf '%s' "$seg" | grep -Eq '(^|[[:space:]/])main([[:space:]]|$|\\)'; then
+  if printf '%s' "$seg" | grep -Eq "(^|[[:space:]/'])main([[:space:]]|\$|\\\\|'|~|\\^)"; then
     hit=1; break
   fi
   # `git pull` / `git pull --rebase` with no ref: it pulls the branch's upstream.
   if printf '%s' "$seg" | grep -Eq 'git([[:space:]][^[:space:]]+)*[[:space:]]pull([[:space:]]+-[^[:space:]]+)*[[:space:]]*(\\|$)'; then
     bare_pull=1
   fi
-done < <(printf '%s\n' "$cmd" | tr ';&|' '\n\n\n')
+done < <(printf '%s\n' "$cmd" | sed 's/\\n/\n/g' | tr ';&|' '\n\n\n')
 [ "$hit" = 1 ] || [ "$bare_pull" = 1 ] || exit 0
 
 cd "$dir" 2>/dev/null || exit 0

@@ -80,8 +80,8 @@ next to `warn-unbounded-wait.sh`. It works in three steps:
 
    A segment using `merge-base` is skipped.
 2. **It runs the same check as the Stop hook.** That is `tools/queue-precheck.sh
-   --no-fetch`, run in the directory the command runs in (the payload's `cwd`). The two
-   cannot disagree.
+   --no-fetch`, run in the shell's starting directory (the payload's `cwd`; a `cd`
+   inside the command is not followed). The two cannot disagree.
 3. **It warns only when the branch is behind and merges cleanly** on GitHub's terms.
    The warning says the catch-up is not needed, lists the cases #16 allows, names
    GitHub's "Update branch" as the same cost, and gives the cleanup command that does
@@ -106,7 +106,7 @@ The properties that make it safe:
   exactly that, live, on this PR's own benchmark command. That costs one ignorable
   line.
 
-**Tests.** `test/unit/tools/warn-needless-catchup.test.js` has 24 cases, driving the
+**Tests.** `test/unit/tools/warn-needless-catchup.test.js` has 30 cases, driving the
 hook with real payloads against real scratch repos:
 
 - **Warns on six command forms:** rebase, fetch-then-rebase, merge, pull,
@@ -123,6 +123,13 @@ hook with real payloads against real scratch repos:
   - a description mentioning merge and main does not trigger it;
   - `merge-base` in one segment does not silence a rebase in the next;
   - the payload's `cwd` is the repo judged.
+- **Covers the second checker's gaps (six cases):**
+  - a bare pull on its own line of a multi-line command warns;
+  - lines are separate commands, so `git status` then `npm run pull` does not warn;
+  - quoted or suffixed refs warn: `'origin/main'`, `origin/main~0`, `origin/main^`;
+  - `origin/maint` is not `main`.
+
+  The previous version of the hook fails five of them; it already got `origin/maint` right.
 - **Is registered** in `.claude/settings.json`.
 
 Six deliberately broken hooks each fail it: ignore the precheck, drop the cleanup
