@@ -1561,6 +1561,16 @@ Answered by the owner on #2509 after #2508 merged; written here with the E0 chan
   `lattice video` reaches its own "needs a narrated HTML export" message. The test reads the bin's
   dispatch and fails on a subcommand spawned from a raw `lib/` path.
 
+- **Phase E mapped, and the Studio's silent drop closed (`2417-p5`).** A read of what phase E
+  touches found it is three pieces of work, now written into
+  `followups.d/2417-p5-plugin-roadmap-phases-e-to-g.md`: a fence-level code door first (today's door
+  claims slides, not fences), then the CLI half, then the Studio half, with three owner questions
+  before the second starts. On the way it found the Studio's Library import dropping a code-free
+  plugin zip with no refusal, while `lattice packages add` refused it by name. Both doors now return
+  `PLUGIN_REFUSAL` from `lib/packages/import-gate.js`, checked before any file is judged. Pinned by
+  `asset-bundle.test.ts` (with the branch removed, the code-free case receives `[]`) and
+  `code-door.test.js`.
+
 ## References
 
 - [`2026-06-14-plugin-extension-system.md`](2026-06-14-plugin-extension-system.md) — LPM.

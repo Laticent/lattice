@@ -20,6 +20,8 @@
 
 import { parseScene, type Scene } from '@/lib/anima';
 import { normalizeSourceText } from '@/lib/normalize-source-text';
+// A DEFAULT import: it is a CommonJS leaf (docs/src/plugins/vite-cjs-lib-dev.mjs), as import-gate.ts reads it.
+import importGate from '../../../../lib/packages/import-gate.js';
 import type { StudioComponent } from './component-library';
 import { coerceRecipe, type FinishRecipe } from './finish-generate';
 import type { StudioFinish } from './finish-library';
@@ -33,6 +35,8 @@ const packageZip = () => import('./package-zip');
 import type { StudioScene } from './scene-library';
 import type { StudioTheme } from './theme-library';
 import { assertZipWithinLimits, jsonGuard, MAX_ZIP_BYTES, readBudget } from './zip-limits';
+
+const { PLUGIN_REFUSAL } = importGate;
 
 const TOO_LARGE = 'That asset zip is too large to import.';
 
@@ -312,6 +316,13 @@ export async function unpackPackages(zip: any, read: (path: string | undefined) 
 	const out: ParsedBundle = { themes: [], components: [], finishes: [], scenes: [], notes: [], refused: [...refused] };
 	for (const p of packages) {
 		if (p.notes.length) out.notes.push(`${p.name}: ${p.notes.join('; ')}`);
+		// A plugin is refused by name before its files are judged, as `lattice packages add` refuses
+		// it (lib/packages/gate.js). Without this a code-free plugin fell through every branch below
+		// and vanished from the import with no word.
+		if (p.type === 'plugin') {
+			out.refused.push({ name: p.name, why: PLUGIN_REFUSAL });
+			continue;
+		}
 		// §3.5: a package carrying JavaScript imports only in the one shape a door can run (the
 		// same check as `lattice packages add`), and it runs only after the user approves its
 		// code in the Studio (docs/src/lib/code-packages/). A wrong shape is refused by name,

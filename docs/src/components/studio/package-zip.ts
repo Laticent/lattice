@@ -142,7 +142,8 @@ export function writePackagesToZip(zip: Zip, pkgs: PackageFiles[], extras: Recor
 }
 
 export type ReadPackage = {
-	type: PackageType;
+	/** A zip can carry a `plugin`, which the Studio refuses by name (asset-bundle.ts); it never writes one. */
+	type: PackageType | 'plugin';
 	name: string;
 	manifest: Record<string, unknown>;
 	/** role → file text, after the spine rewrote every projection from the manifest */
@@ -236,7 +237,7 @@ export async function readPackagesFromZip(zip: Zip, read: (path: string) => Prom
 		// A component's images and data files (its assets) are not carried into the Studio's
 		// record yet, so they are named as left out rather than lost in silence.
 		const notes = [...r.renames, ...(r.pkg.dropped ?? []).map((f: string) => `left out ${f}`), ...(r.pkg.assets?.length ? [`left out ${r.pkg.assets.length} asset file(s): ${r.pkg.assets.join(', ')}`] : [])];
-		packages.push({ type: norm.pkg.type as PackageType, name: norm.pkg.name, manifest: jsonGuard.parseJsonCapped(roles['manifest.json'], TOO_MANY) as Record<string, unknown>, roles, code: !!norm.pkg.code, codeRefusal: norm.pkg.code ? await codeRefusal(norm.pkg, roles['transform.js']) : null, notes });
+		packages.push({ type: norm.pkg.type as ReadPackage['type'], name: norm.pkg.name, manifest: jsonGuard.parseJsonCapped(roles['manifest.json'], TOO_MANY) as Record<string, unknown>, roles, code: !!norm.pkg.code, codeRefusal: norm.pkg.code ? await codeRefusal(norm.pkg, roles['transform.js']) : null, notes });
 	}
 	return { packages, refused };
 }

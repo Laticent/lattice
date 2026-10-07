@@ -331,6 +331,25 @@ describe('asset-bundle — package zips from elsewhere', () => {
 		expect(quoting.refused).toEqual([]);
 	});
 
+	it('refuses a plugin package by name, with or without code, as `lattice packages add` does', async () => {
+		const { default: JSZip } = await import('jszip');
+		const plugin = (withCode: boolean) => {
+			const zip = new JSZip();
+			zip.file('glow/glow.manifest.json', JSON.stringify({ name: 'glow', type: 'plugin', format: 1, contributes: { styles: true } }));
+			zip.file('glow/glow.docs.md', '# glow');
+			zip.file('glow/glow.fixtures.md', '# glow');
+			zip.file('glow/glow.styles.css', '.glow{color:var(--text-body)}');
+			if (withCode) zip.file('glow/glow.render.js', 'export default () => "";');
+			return zip.generateAsync({ type: 'blob' });
+		};
+		const { PLUGIN_REFUSAL } = (await import('../../../../lib/packages/import-gate.js')).default;
+		for (const withCode of [false, true]) {
+			const round = await unpackBundle(await plugin(withCode));
+			expect(round.refused).toEqual([{ name: 'glow', why: PLUGIN_REFUSAL }]);
+			expect([...round.themes, ...round.components, ...round.finishes, ...round.scenes]).toHaveLength(0);
+		}
+	});
+
 	it('trusts the manifest, not the file names: a renamed folder imports under its manifest name', async () => {
 		const { default: JSZip } = await import('jszip');
 		const zip = new JSZip();
