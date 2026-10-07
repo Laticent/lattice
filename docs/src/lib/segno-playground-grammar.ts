@@ -21,7 +21,11 @@ const MAX_NESTING = 64;
 // the code generator walk it in full each time. Without this, `const c1 = seq(c0, c0);` repeated
 // 28 times is under 1 KB of text and 2^28 pieces, and compiling it froze the tab for seconds.
 // The presets are under 100; 10,000 compiles and generates in milliseconds.
+// A string costs one piece per STRING_PIECE characters (and at least one), because the generator
+// writes a literal out again at every use: counted as one piece, a 20,000-character literal used
+// 2,500 times passed the cap and generated 100 MB, which the page then put in the DOM.
 export const MAX_EXPANDED = 10_000;
+export const STRING_PIECE = 64;
 const MAX_DIGITS = 9;
 
 type Token =
@@ -127,7 +131,11 @@ export function readGrammarSource(src: string, helpers: Helpers): unknown {
   function value(depth: number): unknown {
     const t = toks[p];
     if (depth > MAX_NESTING) fail(t, `the grammar nests deeper than ${MAX_NESTING} levels`);
-    if (t.kind === 'string' || t.kind === 'number') { grow(t, 1); p++; return t.value; }
+    if (t.kind === 'string' || t.kind === 'number') {
+      grow(t, t.kind === 'string' ? 1 + Math.floor(t.value.length / STRING_PIECE) : 1);
+      p++;
+      return t.value;
+    }
     if (t.kind === 'punct' && t.value === '{') return object(depth + 1);
     if (t.kind === 'ident') {
       p++;
@@ -160,7 +168,8 @@ export function readGrammarSource(src: string, helpers: Helpers): unknown {
       if (k.kind !== 'ident' && k.kind !== 'string') fail(k, `expected a key, found ${show(k)}`);
       const key = String(k.value);
       p++;
-      if (isPunct(':')) { p++; obj[key] = value(depth); }
+      // A key costs what a string does: a rule's name is repeated in every message about the rule.
+      if (isPunct(':')) { grow(k, Math.floor(key.length / STRING_PIECE)); p++; obj[key] = value(depth); }
       else if (k.kind === 'ident' && names.has(key)) { grow(k, sizes.get(key) ?? 0); obj[key] = names.get(key); } // `{ start }` shorthand
       else if (k.kind === 'ident' && !isPunct(',') && !isPunct('}')) fail(toks[p], `expected \`:\` after the key \`${key}\``);
       else fail(k, `\`${key}\` is not defined — write \`${key}: …\`, or name it first with \`const ${key} = …;\``);
@@ -197,4 +206,43 @@ export function readGrammarSource(src: string, helpers: Helpers): unknown {
     if (t.kind === 'end') return fail(t, 'the grammar must end with `return { start, rules }`');
     fail(t, `expected \`const\` or \`return\`, found ${show(t)} — the box holds a grammar, not a program`);
   }
+}
+
+// What the worker sends back is capped HERE, whatever the reader counted. The size cap bounds the
+// grammar, not what Segno writes about it: a refused grammar of 6 KB listed 44,850 problems (92 MB
+// of text, every pair of overlapping alternatives is one), and a cheap helper used 4,900 times
+// generated 6.4 MB. Either would have gone into the page's DOM on the main thread.
+export const MAX_REPLY_TEXT = 256 * 1024;
+export const MAX_PROBLEMS = 50;
+const MAX_PROBLEM_TEXT = 400;
+
+export function clipText(text: string, max = MAX_REPLY_TEXT): string {
+  if (text.length <= max) return text;
+  return `${text.slice(0, max)}\n… cut here: ${(text.length - max).toLocaleString('en-US')} more characters not shown`;
+}
+
+export function clipProblems(problems: readonly string[]): string[] {
+  const shown = problems.slice(0, MAX_PROBLEMS).map((p) => clipText(String(p), MAX_PROBLEM_TEXT));
+  if (problems.length > MAX_PROBLEMS) shown.push(`… and ${(problems.length - MAX_PROBLEMS).toLocaleString('en-US')} more`);
+  return shown;
+}
+
+// The parse tree is capped the same way. The grammar decides how many nodes each character of
+// text makes: 8 rules of node() nested 60 deep made 96,000 nodes from 200 characters, and copying a
+// tree 4,680 levels deep overflowed the stack inside postMessage. Past either limit the worker
+// sends no tree, only that it parsed. The walk is a loop, so it cannot overflow itself.
+export const MAX_TREE_NODES = 2_000;
+export const MAX_TREE_DEPTH = 100;
+
+type TreeNode = { readonly kids: readonly TreeNode[] };
+
+export function treeTooBig(root: TreeNode): boolean {
+  const stack: [TreeNode, number][] = [[root, 0]];
+  let nodes = 0;
+  while (stack.length) {
+    const [n, depth] = stack.pop() as [TreeNode, number];
+    if (++nodes > MAX_TREE_NODES || depth > MAX_TREE_DEPTH) return true;
+    for (const k of n.kids) stack.push([k, depth + 1]);
+  }
+  return false;
 }
