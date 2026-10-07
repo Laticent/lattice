@@ -17,6 +17,12 @@
     "styles": true
   },
   "tokens": ["--font-mono", "--radius-sm", "--warn"],
+  "vendor": {
+    "katex": { "from": "npm:katex/dist/katex.min.js", "file": "vendor/katex/katex.min.js", "version": "0.16.46", "sha256": "e9822c57638322efdd9ede0164169216682eb5f5c90fb0d04d1d6014bab3a8ea" },
+    "katex-css": { "from": "npm:katex/dist/katex.min.css", "file": "vendor/katex/katex.min.css", "version": "0.16.46", "sha256": "9e0577d7101023e29eacd62ce616012cadc4d9f4f9c5ea0543ca5f32c2e00da8" },
+    "license": { "from": "npm:katex/LICENSE", "file": "vendor/katex/LICENSE", "version": "0.16.46", "sha256": "766ccc1f306c885aa45542a9846bbd0a505b27a0374f146778171c2254ce18e3" },
+    "katex-fonts": { "from": "npm:katex/dist/fonts/*.woff2", "file": "vendor/katex/fonts/", "version": "0.16.46", "sha256": "02211861666ec0f45fa0dd538a3bddd66a33294b1b05cb68743db4ffafe1ce2c" }
+  },
   "render": {
     "parity": "equivalent",
     "degradesTo": "source"

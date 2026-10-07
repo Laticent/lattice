@@ -229,6 +229,29 @@
         }
       }
     },
+    "vendor": {
+      "type": "object",
+      "description": "Third-party libraries the plugin OWNS a committed copy of that are not its browser `payload`: a renderer's library (KaTeX, with its stylesheet and fonts) or the bake's (ZenUML, mermaid-cli's render page). Every surface reads the copy (lib/plugins/payload-path.js `vendorPath`), never the installed package, and the build fails when a copy stops matching `sha256`. `npm run vendor:plugins` refreshes a copy and its record together.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["from", "file", "version", "sha256"],
+        "properties": {
+          "from": {
+            "type": "string",
+            "pattern": "^npm:[@a-z0-9][a-zA-Z0-9._/@-]*(/|/\\*\\.[a-z0-9]+|\\.[a-z0-9]+|/LICENSE)$",
+            "description": "The SOURCE the copy is refreshed from, as `npm:<package>/<path>`: a file, a whole directory (ends in `/`), or one directory's files of one extension (ends in `/*.<ext>`), or the package's `LICENSE`, which every copy of an MIT library must travel with. Only `npm run vendor:plugins` reads it."
+          },
+          "file": {
+            "type": "string",
+            "pattern": "^vendor/[a-z0-9][a-zA-Z0-9._/-]*$",
+            "description": "The copy, relative to the plugin folder: a file, or a directory ending in `/` when `from` names a directory."
+          },
+          "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$", "description": "The package version the copy was taken from; package.json pins exactly this." },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "A file's SHA-256, or a directory's tree hash (payload-path.js `treeSha`), checked by the build." }
+        }
+      }
+    },
     "tokens": {
       "type": "array",
       "uniqueItems": true,

@@ -31,11 +31,16 @@ updates:
     # Majors stay ungrouped and arrive one at a time — each is a judgment call.
     # A library a plugin VENDORS is upgraded on purpose, never by a bump: the plugin ships its own
     # committed copy (lib/plugins/<name>/vendor/), package.json pins the source exactly, and
-    # test/unit/plugins/mermaid-library-owned.test.js fails when the installed build is not that copy.
-    # A bump here would go red and hold every other bump in its group until someone ran
-    # `npm run vendor:plugins`. Upgrade by hand: bump the pin, then `npm run vendor:plugins`.
+    # test/unit/plugins/plugin-libraries-owned.test.js fails when the installed build is not that
+    # copy — and when a vendored package is missing from this list. A bump here would go red and
+    # hold every other bump in its group until someone ran `npm run vendor:plugins`. Upgrade by
+    # hand: bump the pin, then `npm run vendor:plugins`.
     ignore:
       - dependency-name: mermaid
+      - dependency-name: function-plot
+      - dependency-name: katex
+      - dependency-name: "@mermaid-js/mermaid-zenuml"
+      - dependency-name: "@mermaid-js/mermaid-cli"
     commit-message:
       prefix: build(deps)
       prefix-development: build(deps-dev)

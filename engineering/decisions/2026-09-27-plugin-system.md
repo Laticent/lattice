@@ -1440,6 +1440,51 @@ Answered by the owner on #2509 after #2508 merged; written here with the E0 chan
   gallery's two `<script>` paths had pointed at files that no longer existed since the galleries moved
   into bucket folders, so its VS Code preview drew no diagrams.
 
+- **Every plugin library owned (`2509-p5`, the owner's hosting rule of 2026-10-06, finished).** The
+  rest of the libraries get Mermaid's treatment, so no surface reads a plugin library from
+  `node_modules`. **The shape, decided first** because KaTeX is not a `payload`: a new manifest map,
+  `vendor` (spec/LPM.md §3.4), holds every owned copy that is not the browser payload, with the same
+  record as `payload.vendored` (`from`, `file`, `version`, `sha256`). A copy may be one file, a whole
+  directory (`from`/`file` end in `/`) or one directory's files of one extension (`/*.<ext>`); a
+  directory is hashed as a tree, one `<path> <sha256>` line per file, sorted
+  (`lib/plugins/payload-path.js` `treeSha`). Rejected: widening `payload` past its one file (it is
+  the browser contract `ensureLibrary` reads, and KaTeX's stylesheet and fonts are not loaded that
+  way), and one record per font (20 near-identical records that say less than one tree hash).
+  **The copies.** function-plot vendors its payload (`vendor/function-plot.js`, 1.25.4). The math
+  plugin owns KaTeX 0.16.46: `vendor/katex/katex.min.js` (the engine requires it by a literal
+  relative path, which `tools/build-playground.js` swaps for the browser stub by resolved path, so
+  the Playground bundle is byte-identical), `katex.min.css` and `fonts/*.woff2` (read by
+  `build-css.js`, the emulator's inline sheet, the HTML player, the palette sweep and the docs
+  site's staging). Mermaid owns its bake's other two inputs: `vendor/mermaid-zenuml.min.js` (0.2.2;
+  it used to load the unminified build) and `vendor/mermaid-cli/` (11.12.0's `dist/`: the render
+  page, its bundle and the KaTeX and FontAwesome faces beside it). That retires `resolveBundles`'s
+  search across every root Node would try for the page, the red team's nested-tree fix, because the
+  copy sits at one path under any install layout. Each source package's `LICENSE` is a `vendor`
+  copy beside its library: all five are MIT, whose notice must travel with every copy, and
+  Mermaid's copy from #2557 had shipped without one. `package.json` pins all four new packages
+  exactly and Dependabot ignores them. The resolver now keys copies by file, holds `vendor` entries
+  to their records, and refuses any file under `vendor/`, at any depth, that no copy covers.
+  **The shipped CLI, caught by the tier 1 checker.** The installed `lattice` runs
+  `dist/lattice-emulator.js`, an esbuild bundle that inlines `payload-path.js`, where `__dirname` is
+  `<pkg>/dist`: the reader's root, counted as `__dirname/../..`, landed above the package, so the
+  bundle exported math without KaTeX's 20 faces (17 base64 faces instead of 37) and, since #2557,
+  every function plot without its library. The reader now walks to the package root
+  (`lib/core/pkg-root.js`), and a unit arm bundles it one directory deep and requires every copy to
+  resolve (mutation-proved: the counted root fails it). The Playground build also refuses an output
+  that carries KaTeX's parser, so a stub swap that stops matching cannot ship real KaTeX quietly.
+  **Evidence.** CLI PDFs against `main`, same machine: the math gallery (KaTeX and function-plot
+  plots) and both diagram galleries, light and dark, 6 of 6 byte-identical; and the math gallery
+  rendered by the shipped bundle is byte-identical to the source entry's. The galleries never
+  exercise ZenUML (its slide shows the source as a `text` fence), so the render worker was driven
+  directly on both trees with a ZenUML diagram, an ELK-layout flowchart with a KaTeX label and a
+  FontAwesome icon, and a sequence diagram: identical result JSON. Mutations: one appended byte in
+  a KaTeX font fails the build by name, and a stray file in `vendor/` fails it. The npm tarball
+  lists every copy (97 files under `vendor/`); it grows from 23.3 to 26.4 MB packed. **Not done,
+  and recorded:** the four source packages, and `mermaid`, are still `dependencies`, so an install
+  downloads them though nothing reads them at run time
+  (`followups.d/2509-p5-vendored-sources-to-dev-dependencies.md`); that changes what a consumer
+  installs, so it is the owner's call.
+
 ## References
 
 - [`2026-06-14-plugin-extension-system.md`](2026-06-14-plugin-extension-system.md) — LPM.

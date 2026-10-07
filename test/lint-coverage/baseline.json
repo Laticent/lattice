@@ -31,6 +31,22 @@
       "class": "generated"
     },
     {
+      "path": "lib/plugins/function-plot/vendor/function-plot.js",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/math/vendor/katex/katex.min.js",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/mermaid-cli/assets/index-Bv5aVo5X.js",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/mermaid-zenuml.min.js",
+      "class": "vendor"
+    },
+    {
       "path": "lib/plugins/mermaid/vendor/mermaid.min.js",
       "class": "vendor"
     },

@@ -47,7 +47,7 @@ S-shaped, with asymptotes at 0 and 1.
 | CLI PDF / PNG / PPTX | the plot — every capture waits until no placeholder is pending |
 | HTML player (`--player`) | the plot, baked to static SVG |
 | `--read` article | **not carried** — the article re-hosts equations, tables and charts, not plots (this predates the plugin) |
-| `--fluid`, plain `--html` | the plot, drawn by the export page's own copy of the host; its library is linked from the exporting machine's `node_modules` by a `file://` path, so a copy opened elsewhere shows the config instead |
+| `--fluid`, plain `--html` | the plot, drawn by the export page's own copy of the host; the library is inlined into the page, so a copy opened elsewhere draws too |
 | Export to Marp | a code block showing the config (no Marp tool runs Lattice's plugins) |
 
 ## Failure behavior
@@ -59,8 +59,11 @@ S-shaped, with asymptotes at 0 and 1.
 - **A capture runs out of time** — 4 s for one plot's draw (`hydrate.budgetMs`), and the CLI
   waits up to 5 s in all (the longest draw plus a second for the library): the plot is closed
   `final` with its config shown, and the CLI says so. Nothing draws over a closed plot afterwards.
-- **The library is not installed** (a clone that never ran `npm install`): the CLI warns once, and
-  every plot shows its config.
+- **The library is missing** (a damaged install): the CLI warns once, and every plot shows its
+  config. The library is the plugin's own copy, `vendor/function-plot.js` (function-plot 1.25.4,
+  recorded with its SHA-256 in the manifest's `payload.vendored`), so `npm install` neither
+  provides nor changes it: `package.json` pins the exact version and `node_modules` is only the
+  source of `npm run vendor:plugins`.
 
 ## What the plugin contributes
 

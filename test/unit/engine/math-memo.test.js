@@ -65,7 +65,8 @@ test('a FAILED typeset is never cached', () => {
   // The browser stub throws until the KaTeX provider registers. Caching that
   // fallback would pin escaped TeX for the life of the page.
   _resetMathMemo();
-  const katex = require('katex');
+  // The renderer's KaTeX is the math plugin's own copy (lib/plugins/math/vendor/), not the package.
+  const katex = require('../../../lib/plugins/math/vendor/katex/katex.min.js');
   const real = katex.renderToString;
   katex.renderToString = () => { throw new Error('provider not registered yet'); };
   const degraded = renderTex('E = mc^2', true);

@@ -135,17 +135,36 @@ describe('resolvePlugins — vendored library copies', () => {
   test('the copy the manifest records resolves', () => {
     // (The fixture carries no hydrate, which the resolver reports separately; this arm asks only
     // whether the copy's record holds.)
-    const { errors } = resolvePlugins([owner({ vendored: { lib: 'a'.repeat(64) }, vendorFiles: ['vendor/lib.min.js'] })]);
+    const { errors } = resolvePlugins([owner({ vendored: { 'vendor/lib.min.js': 'a'.repeat(64) }, vendorFiles: ['vendor/lib.min.js'] })]);
     assert.deepEqual(errors.filter((e) => /vendor/.test(e)), []);
   });
   test('a missing copy is an error naming the refresh', () => {
-    expectError([owner({ vendored: { lib: '' }, vendorFiles: [] })], /plugin "lib" vendors vendor\/lib\.min\.js, which is missing — run npm run vendor:plugins/);
+    expectError([owner({ vendored: { 'vendor/lib.min.js': '' }, vendorFiles: [] })], /plugin "lib" vendors vendor\/lib\.min\.js, which is missing — run npm run vendor:plugins/);
   });
   test('a copy whose bytes drifted from the record is an error', () => {
-    expectError([owner({ vendored: { lib: 'b'.repeat(64) }, vendorFiles: ['vendor/lib.min.js'] })], /plugin "lib"'s vendor\/lib\.min\.js does not match its manifest's sha256/);
+    expectError([owner({ vendored: { 'vendor/lib.min.js': 'b'.repeat(64) }, vendorFiles: ['vendor/lib.min.js'] })], /plugin "lib"'s vendor\/lib\.min\.js does not match its manifest's sha256/);
   });
   test('a file in vendor/ that no payload names is an error: the source gates skip the folder', () => {
-    expectError([owner({ vendored: { lib: 'a'.repeat(64) }, vendorFiles: ['vendor/lib.min.js', 'vendor/helper.js'] })], /plugin "lib" has vendor\/helper\.js, which no payload in its manifest vendors/);
+    expectError([owner({ vendored: { 'vendor/lib.min.js': 'a'.repeat(64) }, vendorFiles: ['vendor/lib.min.js', 'vendor/helper.js'] })], /plugin "lib" has vendor\/helper\.js, which no copy in its manifest vendors/);
+  });
+  // `vendor` holds the copies that are not the browser payload (a renderer's library, the bake's),
+  // and a copy may be a whole directory, hashed as a tree (lib/plugins/payload-path.js treeSha).
+  const withDir = (exports) => {
+    const p = owner(exports);
+    p.manifest.vendor = { page: { from: 'npm:cli/dist/', file: 'vendor/cli/', version: '1.0.0', sha256: 'c'.repeat(64) } };
+    return p;
+  };
+  const both = { 'vendor/lib.min.js': 'a'.repeat(64), 'vendor/cli/': 'c'.repeat(64) };
+  test('a `vendor` directory copy covers every file under it', () => {
+    const { errors } = resolvePlugins([withDir({ vendored: both, vendorFiles: ['vendor/lib.min.js', 'vendor/cli/index.html', 'vendor/cli/assets/a.js'] })]);
+    assert.deepEqual(errors.filter((e) => /vendor/.test(e)), []);
+  });
+  test('a `vendor` copy is held to its record like a payload\'s', () => {
+    expectError([withDir({ vendored: { ...both, 'vendor/cli/': 'd'.repeat(64) }, vendorFiles: ['vendor/lib.min.js', 'vendor/cli/index.html'] })], /plugin "lib"'s vendor\/cli\/ does not match its manifest's sha256/);
+    expectError([withDir({ vendored: { ...both, 'vendor/cli/': '' }, vendorFiles: ['vendor/lib.min.js'] })], /plugin "lib" vendors vendor\/cli\/, which is missing/);
+  });
+  test('a file beside a directory copy, not in it, is still undeclared', () => {
+    expectError([withDir({ vendored: both, vendorFiles: ['vendor/lib.min.js', 'vendor/cli-extra.js'] })], /plugin "lib" has vendor\/cli-extra\.js, which no copy/);
   });
 });
 

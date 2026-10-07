@@ -107,7 +107,8 @@ const pkgVersion = () => {
 // This stylesheet is also what makes the MathML free: it clips `.katex-mathml` out
 // of the flow, so the accessible alternative costs no layout and no pixels.
 let katexCssAbsPath = '';
-try { katexCssAbsPath = require.resolve('katex/dist/katex.min.css'); } catch (_e) { /* no css link emitted */ }
+// The math plugin's own copy of the sheet (lib/plugins/payload-path.js), its fonts beside it.
+try { katexCssAbsPath = require('./lib/plugins/payload-path.js').vendorPath('math', 'katex-css'); } catch (_e) { /* no css link emitted */ }
 
 // ── Plugins with a browser half (function-plot, …) ───────────────────────
 // A plugin that draws in the browser (lib/plugins/<name>/<name>.hydrate.js) reaches this page as
@@ -2615,13 +2616,13 @@ const docFonts = !katexFacesCss
 // left — rather than trusting that the draw finished before `load`.
 const pagePlugins = usedHydrators(highlightedSlides);
 const hasHydratedPlugins = pagePlugins.length > 0;
-// A used plugin whose library is not installed draws NOTHING: the host settles every placeholder
+// A used plugin whose library is missing draws NOTHING: the host settles every placeholder
 // `unavailable` with its config shown, and nothing is left pending for the barrier to warn about.
-// So say it here, once per plugin, rather than ship a page of JSON silently (HARD RULE #25
-// inversion lens: phase F moves these libraries to optionalDependencies, where this is common).
+// So say it here, once per plugin, rather than ship a page of JSON silently. Every first-party
+// plugin owns its copy (lib/plugins/payload-path.js), so this fires only for a damaged install.
 for (const h of pagePlugins) {
   if (h.payload && !payloadPath(h) && !QUIET) {
-    console.warn(`  ⚠ ${h.name}: its library (${h.payload.from.replace(/^npm:/, '')}) is not installed — its figures export showing their source. npm install restores it.`);
+    console.warn(`  ⚠ ${h.name}: its library (${h.payload.file}) is missing from the package — its figures export showing their source. Reinstall Lattice to restore it.`);
   }
 }
 const pluginHydrateScript = hasHydratedPlugins
@@ -3316,7 +3317,8 @@ async function renderBody(browser, g, closeBrowser) {
   // It now holds by RESOLUTION. The doomed duplicates are gone; the document declares 37
   // faces and all 37 load, every one of them local — 17 base64 `data:` in `embeddedFonts`,
   // 20 KaTeX faces (then from the `<link>` to katex.min.css in node_modules; inlined as `data:`
-  // URIs in the same font block since, for a deck that renders math). Measured on the same sidecar.
+  // URIs in the same font block since, for a deck that renders math, read from the math plugin's
+  // own copy, lib/plugins/math/vendor/katex/). Measured on the same sidecar.
   // That is a stronger footing than prompt failure was, but it is the SAME invariant and it
   // has the SAME hole: a theme or `--css` override adding a genuinely remote face — one that
   // resolves SLOWLY rather than failing or resolving locally — still leaves a face `unloaded`

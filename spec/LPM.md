@@ -52,8 +52,8 @@ lib/plugins/<name>/
   <name>.styles.css       optional  token-only CSS (§4.4)
   shared/                 optional  IN-TREE ONLY: the plugin's own shared modules (.js/.cjs/.mjs
                                     and a README.md), imported by its role modules
-  vendor/                 optional  IN-TREE ONLY: a third-party library the plugin owns a copy of
-                                    (its `payload.vendored`, §3.4)
+  vendor/                 optional  IN-TREE ONLY: the third-party libraries the plugin owns a
+                                    copy of (its `payload.vendored` and `vendor`, §3.4)
 ```
 
 - `<name>` MUST match `^[a-z][a-z0-9-]*$`, MUST equal the folder name and the manifest's `name`,
@@ -165,7 +165,8 @@ tracked deck.
 
 | Field | Value |
 |---|---|
-| `payload` | `{ <key>: { from: "npm:<package>/<path>.js", vendored?, global, when: "used" } }` — at most one file in api 1: the library the plugin's browser half waits for, loaded only for a deck that uses the plugin. REQUIRES `hydrate` (a pass asks the host for it — `ensureLibrary`, §6). `vendored: { file: "vendor/<name>.js", version, sha256 }` means the plugin OWNS a committed copy in its `vendor/` folder (in-tree only): every surface — browser pages, the CLI bake, exported bundles — reads that copy, so no user fetches the library and no install changes what ships; `from` is then only the source it is refreshed from, and the host fails a copy that does not match its `sha256`, and any file in `vendor/` that no payload names (the source gates skip that folder, so it holds only declared copies) |
+| `payload` | `{ <key>: { from: "npm:<package>/<path>.js", vendored?, global, when: "used" } }` — at most one file in api 1: the library the plugin's browser half waits for, loaded only for a deck that uses the plugin. REQUIRES `hydrate` (a pass asks the host for it — `ensureLibrary`, §6). `vendored: { file: "vendor/<name>.js", version, sha256 }` means the plugin OWNS a committed copy in its `vendor/` folder (in-tree only): every surface — browser pages, the CLI bake, exported bundles — reads that copy, so no user fetches the library and no install changes what ships; `from` is then only the source it is refreshed from, and the host fails a copy that does not match its `sha256`, and any file in `vendor/` that no copy names (the source gates skip that folder, so it holds only declared copies) |
+| `vendor` | `{ <key>: { from, file, version, sha256 } }` — IN-TREE ONLY: every OTHER third-party library the plugin owns a copy of, the ones no browser surface loads as the payload: a renderer's library (the math plugin's KaTeX, with its stylesheet and fonts) or the bake's (Mermaid's ZenUML and mermaid-cli's render page). Held to the same rules as `payload.vendored`: every surface reads the copy (`vendorPath`, lib/plugins/payload-path.js), `package.json` pins `from`'s package at exactly `version`, and the build fails a copy that does not match `sha256`. A copy is one file, a whole directory (`from` and `file` end in `/`), or one directory's files of one extension (`from` ends in `/*.<ext>`, `file` in `/`); a directory's `sha256` hashes one `<path> <sha256>` line per file, sorted. Each source package's `LICENSE` is a `vendor` copy too (`from` ends in `/LICENSE`), so the notice an MIT library requires travels with every copy we ship |
 | `tokens` | every design token `styles.css` reads — exactly the set of its `var(--…)` reads |
 | `render.parity` | `equivalent` (every surface emits the same result) or `progressive` (a static surface emits a placeholder a browser completes) |
 | `render.degradesTo` | what the host shows when a renderer throws or returns a non-string: `source`, `code-block` or `hidden` |
@@ -428,6 +429,12 @@ manifest (`lib/core/marp-fidelity.js`). The name must be free: not a plugin, a p
 highlight.js language or alias, and at most 64 characters.
 
 ## 12. Changes
+
+- **0.5-draft, every library owned (2026-10-07).** `vendor` (§3.4): the libraries a plugin needs
+  that are not its browser payload get the same owned, pinned, hashed copy, and a copy may be a
+  directory. function-plot vendors its payload; the math plugin owns KaTeX (library, stylesheet,
+  fonts); Mermaid owns its bake's ZenUML and mermaid-cli render page. No surface reads a plugin
+  library from `node_modules`.
 
 - **0.5-draft, vendored payloads (2026-10-06).** `payload.vendored` (§3.4) and the in-tree
   `vendor/` folder (§2): a plugin owns a committed copy of its library, checked by SHA-256, and

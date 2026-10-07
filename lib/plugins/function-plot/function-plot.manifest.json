@@ -17,7 +17,15 @@
     }
   },
   "payload": {
-    "function-plot": { "from": "npm:function-plot/dist/function-plot.js", "global": "functionPlot", "when": "used" }
+    "function-plot": {
+      "from": "npm:function-plot/dist/function-plot.js",
+      "vendored": { "file": "vendor/function-plot.js", "version": "1.25.4", "sha256": "4e3cc6d8015e517b0356178bc6409405db2b31385ac655b657aaad7120b802d1" },
+      "global": "functionPlot",
+      "when": "used"
+    }
+  },
+  "vendor": {
+    "license": { "from": "npm:function-plot/LICENSE", "file": "vendor/function-plot.LICENSE", "version": "1.25.4", "sha256": "86afcfc89ecd82fcf71e87e1f7486cecefa878c73dd6f164445347f7d856d0f4" }
   },
   "tokens": [
     "--accent",
