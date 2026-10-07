@@ -831,6 +831,15 @@ measured send rate was 8.7–9.9 kbit/s over two runs. The fake source is a shor
 so Opus sends little; ordinary speech runs at roughly 25–40 kbit/s. UNVERIFIED: real
 microphones, echo between two real devices, call quality, and iOS Safari.
 
+**Found on a real iPhone** (the owner, 2026-10-07, Chrome on iOS, before merge): *Join with
+audio* showed "Couldn't start the microphone". Suono's `unlock()` sets iOS's Audio Session to
+`playback`, which is right for reading aloud, and under `playback` iOS refuses to record. Desktop
+browsers have no audio session, so no desktop run could see it. Fixed: joining a call sets the
+session to `play-and-record` after the unlock and before asking for the microphone, and leaving
+sets it back to `auto`; `live-audio.test.ts` fails without the fix. A failure now names its reason
+in the toast. Known limit: starting read-aloud *during* a call would set the session back to
+`playback`.
+
 **The checker** (tier 1, on Opus) confirmed the gate and found audio going one-way after a
 takeover or a same-id blip, which the in-memory network reproduced. Fixed, each with a test that
 fails without it: a peer still connected keeps its stream across a re-admission; media re-syncs

@@ -22,6 +22,16 @@ type Metered = { meter: Meter; lastLoud: number };
 
 export type AudioDevice = { id: string; label: string };
 
+/** iOS / Safari's Audio Session API (absent elsewhere): what the page does with audio. */
+function setAudioSession(type: 'play-and-record' | 'auto') {
+	try {
+		const session = (navigator as unknown as { audioSession?: { type: string } }).audioSession;
+		if (session) session.type = type;
+	} catch {
+		// Best-effort: a browser that rejects the type still gets its microphone request.
+	}
+}
+
 export class LiveAudio {
 	/** This browser's microphone, once captured. */
 	private mic: MediaStream | null = null;
@@ -52,9 +62,14 @@ export class LiveAudio {
 	/** Capture the microphone (asks for permission the first time). Resolves the stream to send. */
 	async join(deviceId?: string): Promise<MediaStream> {
 		if (this.disposed) throw new Error('live audio is closed');
-		// Inside the click: resume the audio context now, before the permission prompt's await.
+		// Inside the click: wake the audio context now, before the permission prompt's await.
 		this.stage ??= createStage({ keepAlive: false });
 		this.stage.unlock();
+		// THEN tell iOS this page records as well as plays. Suono's unlock sets the audio session to
+		// 'playback' (right for reading aloud), and under 'playback' iOS refuses the microphone:
+		// "Couldn't start the microphone" on a real iPhone, 2026-10-07. Desktop browsers have no
+		// audio session, which is why no desktop run could see it.
+		setAudioSession('play-and-record');
 		const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, ...(deviceId ? { deviceId: { exact: deviceId } } : {}) }, video: false });
 		// Torn down while the permission prompt was open: stop what we were given and say so.
 		if (this.disposed) {
@@ -78,7 +93,10 @@ export class LiveAudio {
 
 	/** Leave the call: stop the microphone and every playback. */
 	leave(): void {
-		if (this.mic) for (const t of this.mic.getTracks()) t.stop();
+		if (this.mic) {
+			for (const t of this.mic.getTracks()) t.stop();
+			setAudioSession('auto');
+		}
 		this.mic = null;
 		this.muted = false;
 		this.unmeter('self');

@@ -1,0 +1,1 @@
+- **Live calls start on iPhone.** *Join with audio* failed on iOS with "Couldn't start the microphone": the page told iOS it would only play sound, and iOS then refuses to record. Joining a call now asks iOS for a recording session first. If the microphone still fails, the message names the reason.
