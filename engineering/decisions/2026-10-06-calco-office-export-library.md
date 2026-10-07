@@ -211,6 +211,19 @@ and the slides match side by side. A baseline check deck (hairlines drawn by Chr
 each baseline, text boxes over them) puts LibreOffice's body text within about 1px of
 Chrome's and code within about 2.5px.
 
+**Schema-valid since 2026-10-07.** Checked against the ISO/IEC 29500 schemas with `xmllint`,
+the editable `.pptx` failed in two places, and a package check found a third defect. All
+three come from PptxGenJS 3.12: a `<a:pPr>` before every run of a paragraph (the schema
+allows one, first; 15 of the jargon gallery's 850 paragraphs, wherever a line mixes styles,
+such as highlighted code), `p:notesMasterIdLst` after `p:sldIdLst`, and a content-type
+override for `slideMasterN.xml` per slide where the package holds one. PowerPoint validates
+slide XML strictly, so the first is the likeliest cause of a repair prompt. `tidyPptx`
+(`pptx.ts`) now mends all three whenever `writePptx` gets JSZip: the jargon gallery, the
+baseline check and muted-tier-and-syntax validate with zero errors across 141 parts, and
+LibreOffice renders all 58 jargon slides pixel-identical before and after. The picture-only
+`.pptx` (`lib/export/pptx-export.js`) still carries the last two, and is logged in
+`followups.d/`.
+
 **UNVERIFIED in PowerPoint itself** (HARD RULE #23): no PowerPoint runs here. PowerPoint may
 read the proportional line spacing against its own notion of a line (1.2 em is commonly
 reported), which would set lines a few percent tighter than Chrome; never looser. The baseline check deck is the one-look test: open it in PowerPoint and

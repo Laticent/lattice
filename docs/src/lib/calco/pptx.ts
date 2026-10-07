@@ -17,6 +17,11 @@
  *
  * `text-transform` is applied to the text itself: PptxGenJS exposes no all-caps flag, so an
  * uppercase label is stored in capitals.
+ *
+ * SCHEMA: PptxGenJS 3.12 writes three things the OOXML schema forbids, and `tidyPptx` mends
+ * them whenever the caller passes JSZip: a `<a:pPr>` before EVERY run of a paragraph (the
+ * schema allows one, first), `p:notesMasterIdLst` after `p:sldIdLst` (it belongs before),
+ * and a `[Content_Types].xml` override for a slide master per slide, where one exists.
  */
 
 import { type FontMetrics, faceFamilyName, faceFor, faceKey, facesUsed, uniqueFaceNames } from './fonts';
@@ -224,16 +229,63 @@ export function planEmbedding(deck: Deck): EmbeddingPlan {
 type ZipLike = {
 	file(name: string, data?: unknown, options?: unknown): { async(type: string): Promise<string> } | null;
 	generateAsync(options: Record<string, unknown>): Promise<unknown>;
+	files: Record<string, unknown>;
 };
+
+/** Keep the first `<a:pPr>` of each paragraph; PptxGenJS repeats the same one before every run. */
+function onePPrPerParagraph(xml: string): string {
+	return xml.replace(/<a:p>[\s\S]*?<\/a:p>/g, (para) => {
+		let seen = false;
+		return para.replace(/<a:pPr\b[^>]*?(?:\/>|>[\s\S]*?<\/a:pPr>)/g, (ppr) => {
+			if (seen) return '';
+			seen = true;
+			return ppr;
+		});
+	});
+}
+
+/**
+ * Mend what PptxGenJS 3.12 writes against the OOXML schema (see the header): one `<a:pPr>`
+ * per paragraph in every slide and notes slide, `p:notesMasterIdLst` straight after
+ * `p:sldMasterIdLst`, and no content-type override for a part the package does not hold.
+ * The repeated `<a:pPr>` are identical (paragraph options are the box's), so nothing renders
+ * differently; a strict reader no longer has an invalid part to repair.
+ */
+async function tidyPptx(zip: ZipLike): Promise<void> {
+	const text = async (name: string) => (zip.file(name) as { async(type: string): Promise<string> }).async('string');
+	for (const name of Object.keys(zip.files).filter((n) => /^ppt\/(slides|notesSlides)\/[^/]+\.xml$/.test(n))) {
+		const xml = await text(name);
+		const tidy = onePPrPerParagraph(xml);
+		if (tidy !== xml) zip.file(name, tidy);
+	}
+	if (zip.file('ppt/presentation.xml')) {
+		const pres = await text('ppt/presentation.xml');
+		const notes = pres.match(/<p:notesMasterIdLst>[\s\S]*?<\/p:notesMasterIdLst>/);
+		const masters = pres.indexOf('</p:sldMasterIdLst>');
+		if (notes && notes.index !== undefined && masters >= 0 && notes.index > masters) {
+			const without = pres.slice(0, notes.index) + pres.slice(notes.index + notes[0].length);
+			const at = without.indexOf('</p:sldMasterIdLst>') + '</p:sldMasterIdLst>'.length;
+			zip.file('ppt/presentation.xml', without.slice(0, at) + notes[0] + without.slice(at));
+		}
+	}
+	if (zip.file('[Content_Types].xml')) {
+		const types = await text('[Content_Types].xml');
+		const tidy = types.replace(/<Override PartName="\/([^"]+)"[^>]*\/>/g, (m, part: string) => (zip.file(part) ? m : ''));
+		if (tidy !== types) zip.file('[Content_Types].xml', tidy);
+	}
+}
 
 /**
  * Add the embedded faces to a written package: `ppt/fonts/calco-fontN.fntdata` (EOT), a font
  * relationship from the presentation part, the `fntdata` content type, and
  * `p:embeddedFontLst` right after `p:notesSz` (where the schema puts it), with
- * `embedTrueTypeFonts="1"` on the presentation.
+ * `embedTrueTypeFonts="1"` on the presentation. The package is tidied first (`tidyPptx`),
+ * so an empty `faces` only tidies.
  */
 export async function embedPptxFonts<T = Uint8Array>(JSZip: JSZipClass, bytes: Uint8Array, faces: EmbeddingPlan['faces'], outputType = 'uint8array'): Promise<T> {
 	const zip = (await (JSZip as unknown as { loadAsync(b: Uint8Array): Promise<ZipLike> }).loadAsync(bytes)) as ZipLike;
+	await tidyPptx(zip);
+	if (!faces.length) return (await zip.generateAsync({ type: outputType, mimeType: PPTX_MIMETYPE, compression: 'DEFLATE' })) as T;
 	const read = async (name: string) => {
 		const f = zip.file(name);
 		if (!f) throw new Error(`calco: the .pptx has no ${name}`);
@@ -272,11 +324,12 @@ export async function embedPptxFonts<T = Uint8Array>(JSZip: JSZipClass, bytes: U
 
 /**
  * Build and serialize in one call. `outputType` is PptxGenJS's (`uint8array`, `blob`, …).
- * Pass `JSZip` to embed the deck's fonts; without it the runs name their families only.
+ * Pass `JSZip` to embed the deck's fonts and mend PptxGenJS's schema errors (`tidyPptx`);
+ * without it the runs name their families only and the package is as PptxGenJS wrote it.
  */
 export async function writePptx<T = Uint8Array>(PptxGenJS: PptxGenJSClass, deck: Deck, outputType = 'uint8array', JSZip?: JSZipClass): Promise<T> {
-	const plan = JSZip ? planEmbedding(deck) : null;
-	if (!plan?.faces.length) return (await buildPptx(PptxGenJS, deck).write({ outputType })) as T;
-	const raw = (await buildPptx(PptxGenJS, deck, { embedded: plan }).write({ outputType: 'uint8array' })) as Uint8Array;
-	return embedPptxFonts<T>(JSZip as JSZipClass, raw, plan.faces, outputType);
+	if (!JSZip) return (await buildPptx(PptxGenJS, deck).write({ outputType })) as T;
+	const plan = planEmbedding(deck);
+	const raw = (await buildPptx(PptxGenJS, deck, plan.faces.length ? { embedded: plan } : undefined).write({ outputType: 'uint8array' })) as Uint8Array;
+	return embedPptxFonts<T>(JSZip, raw, plan.faces, outputType);
 }

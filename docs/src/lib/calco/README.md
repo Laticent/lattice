@@ -57,6 +57,11 @@ weight becomes a family of its own ("Outfit SemiBold"), because PowerPoint's fon
 regular, bold, italic and bold italic. Only TrueType-outline faces are embedded in a `.pptx`; a
 CFF face, or a call without JSZip, is named instead, so a reader without it sees a substitute.
 
+Pass JSZip to `writePptx` even when the deck has no fonts to embed: Calco also uses it to mend
+three schema errors PptxGenJS 3.12 writes (a paragraph's properties repeated before every run,
+the notes master listed out of order, and a slide master declared per slide). Without JSZip the
+file is exactly what PptxGenJS wrote.
+
 ## No dependencies
 
 JSZip, PptxGenJS and the font pinner are passed in. `readSlide` and `restoreSlide` close over
