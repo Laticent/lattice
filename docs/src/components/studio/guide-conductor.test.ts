@@ -437,6 +437,34 @@ describe('guide-conductor — prose, bullets and rows bound by the narration bui
 		expect(dim('p1')).toBe(false);
 	});
 
+	it('one act per PART: the next sentences of a paragraph rest, and play resumes the part', () => {
+		// A paragraph is ONE ref over all of its sentences. Each sentence is a beat, and replaying the
+		// act on every beat redrew the same underline once a sentence (present-guide.spec.ts "one
+		// gesture per BLOCK" saw four strokes on one paragraph).
+		document.body.innerHTML = '<div class="lattice"><section class="content"><h2 id="h">The quarter.</h2><p id="p">Growth held. Spend stayed disciplined. The quarter landed.</p></section></div>';
+		const inks: string[] = [];
+		const stage: GuideStage = { gesture: async (kind) => void inks.push(kind), setCursorVisible: () => {} };
+		const p = document.getElementById('p') as Element;
+		const sceneCue = (_s: Element, els: readonly Element[], kind: GuideCue['kind']): GuideCue => ({ el: els[0] ?? p, kind, strength: 'quiet', target: { getBoundingClientRect: () => p.getBoundingClientRect(), getClientRects: () => [] }, rest: null });
+		const g = createGuideConductor({ stage: () => stage, aim: () => null, cue: () => null, clearance: 19, section: () => document.querySelector('section'), sceneCue });
+		const style = (DELIVERY_STYLES as Record<string, { express: SceneStyle }>).expressive.express;
+		const refs: SceneRef[] = [
+			{ start: 0, end: 12, act: 'frame', unit: 'heading', id: { i: 1 } },
+			{ start: 13, end: 71, act: 'visit', unit: 'paragraph', id: { i: 1 } },
+		];
+		const beat = (at: number, delivering = true) => g.beat({ slide: 0, cue: 0, texts: ['x'], track: refs, delivering, delivery: delivery({ name: 'expressive', ink: 'all' }), scene: { refs, at, style } });
+		beat(13); // the paragraph's first sentence: its underline
+		beat(26); // its second
+		beat(53); // its third
+		expect(inks).toEqual(['underline']);
+		beat(53, false); // paused…
+		beat(53); // …and played again: the part comes back
+		expect(inks).toEqual(['underline', 'underline']);
+		// A delivery changed mid-part plays the part in the new delivery's own way.
+		g.beat({ slide: 0, cue: 0, texts: ['x'], track: refs, delivering: true, delivery: delivery({ name: 'expressive-2', ink: 'all' }), scene: { refs, at: 53, style } });
+		expect(inks).toEqual(['underline', 'underline', 'underline']);
+	});
+
 	it('somber focuses only its key beat (the first bullet) and holds it', () => {
 		const { play, dim } = rig(list);
 		play(listRefs, 0, 'somber');

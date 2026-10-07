@@ -172,6 +172,11 @@ export function createGuideConductor(host: GuideHost): GuideConductor {
 		hits: Map<number, NonNullable<ReturnType<typeof resolveUnit>>>;
 		/** The section the plan was resolved in: a re-rendered slide (a theme switch, a resize) is a new plan. */
 		section: Element;
+		/** The ref the last sentence played, on which stage and in which delivery: the next sentence
+		 *  of the same part rests (see playScene), unless the stage or the delivery changed under it. */
+		last: number;
+		lastStage: GuideStage | null;
+		lastDelivery: string;
 	} | null = null;
 
 	const setAiming = (on: boolean) => {
@@ -224,7 +229,7 @@ export function createGuideConductor(host: GuideHost): GuideConductor {
 			// narrator that reads a prose slide as a board finds nothing, and the whole slide reads its
 			// words, asides included (checker, 2026-09-28). Resolved once per slide.
 			const owned = play.refs.some((r) => r.unit && resolveUnit(section, spec.units, r));
-			scene = { slide, refs: play.refs, owned, key: keyIndex(play.refs, spec.key), group: null, parts: null, hits: new Map(), section };
+			scene = { slide, refs: play.refs, owned, key: keyIndex(play.refs, spec.key), group: null, parts: null, hits: new Map(), section, last: -1, lastStage: null, lastDelivery: '' };
 		}
 		if (!scene.owned) return false;
 		const i = refAt(play.refs, play.at);
@@ -243,6 +248,17 @@ export function createGuideConductor(host: GuideHost): GuideConductor {
 		// A binding that names a unit this render does not draw (a variant the scene does not cover
 		// yet) is not the scene's to play: the caller reads the words, rather than leave the slide dark.
 		if (ref?.unit && !hit) return false;
+		// THE REST, as on the text path: one act per PART, not per sentence. A paragraph is one ref
+		// spanning all of its sentences, so its second sentence resolves to the part the first one
+		// already played; replaying it redrew the same underline under the same line once a sentence
+		// (four strokes on one paragraph). The focus, the ink and the hand stay as the first left them.
+		// A pause clears this (the beat's paused branch), so playing again restores the part.
+		// A new stage (rebuilt mid-part) has no hand on it yet, and a new delivery plays the part its
+		// own way: either replays the part rather than resting on what the old one drew (checker).
+		if (i >= 0 && i === scene.last && scene.lastStage === stage && scene.lastDelivery === delivery.name) return true;
+		scene.last = i;
+		scene.lastStage = stage;
+		scene.lastDelivery = delivery.name;
 		resume = null;
 		const labelled = !!(ref?.unit && spec.units[ref.unit]?.labels);
 		// An unbound sentence (an aside, leftover prose) sits AFTER the last ref that starts before it,
@@ -344,6 +360,8 @@ export function createGuideConductor(host: GuideHost): GuideConductor {
 			// block, and the block's later sentences keep the focus by resting on it — so a pause on
 			// the second sentence, with the focus dropped, would leave the rest of the block bare.
 			if (aim && mark) resume = { slide, aim };
+			// A bound part plays again on resume: the rest above holds only while the voice runs on.
+			if (scene) scene.last = -1;
 			hide(stage);
 			return;
 		}
