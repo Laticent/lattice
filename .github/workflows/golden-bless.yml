@@ -1,0 +1,148 @@
+name: Golden bless (nightly)
+
+# The ONE writer of committed golden PDFs (engineering/decisions/2026-10-06-goldens-bot-blessed.md).
+# Each night it checks every golden on `main` against a fresh render, re-blesses only the ones
+# that drifted, and opens (or updates) one PR with them. CI's golden-diff job posts each
+# changed golden's before/after on that PR, which is the regression gate a human can read.
+#
+# DRY RUN (rollout step 2). The owner decided on 2026-10-07 that this PR merges itself only
+# when four rules hold (no page count changed, no page moved past a threshold, at most a
+# handful of goldens changed, every changed golden already shown on a merged PR). For the
+# first week the bot only REPORTS them, in a comment, so real nights can set the thresholds.
+# Nothing in this file merges, enables auto-merge or labels. Step 4 adds that, after the week.
+#
+# Same shape as sync-backlog.yml, and for the same reasons, which that file explains in
+# full: ONE branch force-pushed to `main` + 1 commit, ONE open PR; AUTOMATION_PAT from the
+# `automation` environment (only `main` can read it), because a PR raised by GITHUB_TOKEN
+# never gets `ci`; `persist-credentials: false`, or the push silently goes out as the bot.
+on:
+  schedule:
+    - cron: '7 1 * * *' # 01:07 UTC; ~1.5 h of rendering, done before integration-nightly at 03:11
+  workflow_dispatch:
+
+# Read-only for the built-in token: it only reads PRs for rule 4. Every write (the push,
+# the PR, the comment) goes through AUTOMATION_PAT.
+permissions:
+  contents: read
+  pull-requests: read
+
+# Never cancel: a run killed between the push and the comment leaves a PR with no verdict.
+concurrency:
+  group: golden-bless
+  cancel-in-progress: false
+
+env:
+  BLESS_BRANCH: chore/golden-bless
+
+jobs:
+  bless:
+    runs-on: ubuntu-latest
+    # A full check of ~350 goldens measured 78 min in the 4-core sandbox
+    # (2026-08-18-inspection-oracle-catalog.md); GitHub's runners are not faster.
+    timeout-minutes: 180
+    environment: automation
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          # Full history (rule 4 walks the merges since the last bless) without every old
+          # PDF's bytes: blobs arrive on demand, so only HEAD's are fetched.
+          fetch-depth: 0
+          filter: blob:none
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Cache Puppeteer browser
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/puppeteer
+          key: puppeteer-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Install poppler-utils + ImageMagick + color emoji font
+        # The same set as ci.yml's golden-diff job, so the bot blesses what PRs render.
+        run: sudo apt-get update && sudo apt-get install -y poppler-utils imagemagick fonts-noto-color-emoji
+      - name: Allow ImageMagick PDF coder (for the drift montages)
+        run: sudo sed -i 's/rights="none" pattern="PDF"/rights="read|write" pattern="PDF"/' /etc/ImageMagick-6/policy.xml || true
+      - run: npm ci
+      - name: Build the generated bundles
+        run: npm run build
+
+      - name: Check every golden, re-bless what drifted, score the four rules
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} # read-only: rule 4 reads merged PRs' golden-diff comments
+        # pipefail: without it the step takes `tee`'s exit code, and a crash goes green.
+        run: |
+          set -euo pipefail
+          node tools/golden-bless.mjs | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the verdict and drift montages
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-bless
+          path: |
+            .scratch/golden-bless/
+          if-no-files-found: ignore
+
+      - name: Open (or update) the bless PR, and report the verdict (never merges)
+        env:
+          GH_TOKEN: ${{ secrets.AUTOMATION_PAT }}
+          REPO: ${{ github.repository }}
+          # No repo hooks while the token is in the environment: `npm ci` installed
+          # lefthook, and its hooks would run repo code with GH_TOKEN set (and receive the
+          # push URL). The bot's commit holds only PDFs the step above produced and checked.
+          LEFTHOOK: '0'
+        run: |
+          set -euo pipefail
+          OPEN="$(gh pr list --head "$BLESS_BRANCH" --state open --json number,createdAt --jq '.[0] // empty')"
+
+          if git diff --quiet -- '*.pdf'; then
+            echo "No golden drifted. Nothing to bless."
+            # An open bless PR from an earlier night now holds PDFs that no longer match
+            # main. Merging it would bless them back in, so close it.
+            if [ -n "$OPEN" ]; then
+              gh pr close "$BLESS_BRANCH" --comment "Closed by the Golden bless workflow: tonight no golden drifted on \`main\`, so this PR's PDFs are out of date."
+            fi
+            exit 0
+          fi
+
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "::error::golden-bless: the AUTOMATION_PAT secret is not set. A PR opened with the built-in GITHUB_TOKEN never starts CI. See engineering/workflow.md § Automation vs. the main ruleset."
+            exit 1
+          fi
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -u -- '*.pdf'
+          # The title is load-bearing: tools/lib/golden-bless-verdict.mjs finds the last
+          # merged bless by it, and starts rule 4's window at the commit it names.
+          TITLE="chore(goldens): nightly bless of $(cat .scratch/golden-bless/rendered-from.txt)"
+          git commit -q -m "$TITLE"
+          git push --force "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" \
+            "HEAD:refs/heads/${BLESS_BRANCH}"
+
+          if [ -z "$OPEN" ]; then
+            gh pr create --base main --head "$BLESS_BRANCH" \
+              --title "$TITLE" \
+              --body 'Generated by the **Golden bless** workflow: the goldens that drifted on `main` overnight, re-rendered. The golden-diff comment shows each one before and after; the verdict comment says whether the four auto-merge rules hold. **Dry run:** this PR never merges itself; a person merges or closes it. See `engineering/decisions/2026-10-06-goldens-bot-blessed.md`.'
+          else
+            gh pr edit "$BLESS_BRANCH" --title "$TITLE"
+            echo "bless PR already open; the force-push updated it in place."
+            # A bless PR that sits for days is how the backlog mirror froze for three
+            # weeks while every run looked green. Say so on the run.
+            CREATED="$(echo "$OPEN" | jq -r .createdAt)"
+            AGE_DAYS=$(( ( $(date +%s) - $(date -d "$CREATED" +%s) ) / 86400 ))
+            if [ "$AGE_DAYS" -ge 3 ]; then
+              echo "::warning::The golden bless PR has been open for ${AGE_DAYS} days. Merge or close it: rule 4 measures from the last MERGED bless."
+            fi
+          fi
+
+          # One verdict comment, updated each night, found by its marker.
+          PR_NUM="$(gh pr view "$BLESS_BRANCH" --json number --jq .number)"
+          CID="$(gh api "repos/${REPO}/issues/${PR_NUM}/comments" --paginate \
+            --jq '.[] | select(.body | contains("<!-- golden-bless-verdict -->")) | .id' | tail -1)"
+          if [ -n "$CID" ]; then
+            gh api -X PATCH "repos/${REPO}/issues/comments/${CID}" -F body=@.scratch/golden-bless/verdict.md >/dev/null
+          else
+            gh pr comment "$BLESS_BRANCH" --body-file .scratch/golden-bless/verdict.md
+          fi

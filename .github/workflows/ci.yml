@@ -472,15 +472,17 @@ jobs:
   # ── Golden before/after — post the intended visual change on the PR ────────
   # Informational, NON-gating (the integration tier's semantic-invariant suite is
   # the visual-correctness blocker). Diffs
-  # THIS PR's committed goldens against the base branch, rasterizes only the slides
-  # that VISUALLY changed (pixel-diff filters out PDF byte-churn from a rebuild),
-  # and posts/updates a sticky PR comment ("N slides changed in {galleries}") with
-  # the before │ after │ overlay montages embedded INLINE. Inline images need a
-  # URL GitHub will serve, so the PNGs are hosted on the orphan `ci-drift-images`
+  # THIS PR's committed goldens against the base branch AND, with --render-affected,
+  # renders the goldens the PR's sources can move and diffs those too (so it needs
+  # Chromium). It rasterizes only the slides that VISUALLY changed (pixel-diff filters
+  # out PDF byte-churn from a rebuild), and posts/updates a sticky PR comment ("N slides
+  # changed in {galleries}") with the before │ after │ overlay montages embedded INLINE.
+  # The comment also carries a `golden-diff-changed` marker naming every golden it
+  # showed, which the nightly bless reads (golden-bless.yml, rule 4). Inline images need
+  # a URL GitHub will serve, so the PNGs are hosted on the orphan `ci-drift-images`
   # branch (a pure image store, never merged) and the comment links raw URLs; the
-  # full set also uploads as the `golden-diff-changes` artifact. No rendering → no
-  # Chromium; just poppler + ImageMagick over the committed PDFs. See
-  # tools/golden-diff.mjs.
+  # full set also uploads as the `golden-diff-changes` artifact. See
+  # tools/golden-diff.mjs and engineering/decisions/2026-10-06-goldens-bot-blessed.md.
   golden-diff:
     needs: changes
     if: github.event_name == 'pull_request' && needs.changes.outputs.code == 'true'
@@ -489,8 +491,8 @@ jobs:
     permissions:
       contents: write # push before/after PNGs to the orphan ci-drift-images branch
       pull-requests: write
-    env:
-      PUPPETEER_SKIP_DOWNLOAD: '1'
+    # No PUPPETEER_SKIP_DOWNLOAD: --render-affected renders goldens, so `npm ci` fetches
+    # Chromium, cached on the same key as the integration job's.
     steps:
       - uses: actions/checkout@v4
         with:
@@ -509,8 +511,15 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - name: Install poppler-utils + ImageMagick
-        run: sudo apt-get update && sudo apt-get install -y poppler-utils imagemagick
+      - name: Cache Puppeteer browser
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/puppeteer
+          key: puppeteer-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Install poppler-utils + ImageMagick + color emoji font
+        # The emoji font for the same reason as the integration job: the renders must
+        # match the ones that blessed the goldens.
+        run: sudo apt-get update && sudo apt-get install -y poppler-utils imagemagick fonts-noto-color-emoji
       - name: Allow ImageMagick PDF coder (for the montage PDF)
         run: sudo sed -i 's/rights="none" pattern="PDF"/rights="read|write" pattern="PDF"/' /etc/ImageMagick-6/policy.xml || true
       - run: npm ci
@@ -524,7 +533,11 @@ jobs:
       - name: Build the generated bundles
         run: npm run build
       - name: Compute golden before/after
-        run: node tools/golden-diff.mjs --base ${{ github.event.pull_request.base.sha }}
+        # --render-affected renders the goldens this PR's sources can move and diffs them
+        # against base, so a PR shows its visual change without committing a PDF
+        # (engineering/decisions/2026-10-06-goldens-bot-blessed.md §2.2). Capped at 40
+        # renders; a shared change measured ~5m40s for the full cap in the sandbox.
+        run: node tools/golden-diff.mjs --base ${{ github.event.pull_request.base.sha }} --render-affected
       - name: Upload montage artifact
         uses: actions/upload-artifact@v4
         with:

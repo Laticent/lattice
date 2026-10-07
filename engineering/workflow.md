@@ -1258,7 +1258,10 @@ the queue land it. Three workflows do this today — `sync-backlog.yml`,
 `release.yml` and `dependabot-auto-merge.yml` — and what makes them feel
 automatic is not a shortcut past the queue, it is that they also switch
 **auto-merge** on, so the queue merges the PR the moment `ci` is green. Same
-gate, no human.
+gate, no human. A fourth, `golden-bless.yml`, pushes and opens its PR the same
+way but leaves auto-merge OFF while it is in its dry run: it only comments
+whether its four merge rules hold, and a person merges or closes it
+(`decisions/2026-10-06-goldens-bot-blessed.md` §2.1).
 
 ### The one thing that makes it possible: `AUTOMATION_PAT`
 
