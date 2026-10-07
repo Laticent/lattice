@@ -33,9 +33,19 @@ const SANCTIONED_UNINSTALLED = Object.freeze({
   'iconv-lite': "not a load: the text of an error message (\"require('iconv-lite')…\") inside the bundled dist/lattice-pdf-compose-min.js",
 });
 
-// A specifier that could name a package: lower-case scope/name, no spaces. Prose
-// inside a string literal ("from the section") never matches this.
-const SPEC = /(?:\brequire\(|\bimport\(|\bfrom)\s*["']((?:@[a-z0-9][\w.-]*\/)?[a-z0-9][\w.-]*(?:\/[\w./-]*)?)["']/g;
+// A specifier that could name a package: lower-case scope/name, no spaces. Prose inside a
+// string literal ("from the section") never matches it. Three loader shapes, each matched
+// only where code writes it, so prose in comments ("inherits from `parent`") and CSS inside
+// strings (`@import "x"`) stay out:
+// - a call, require() / require.resolve() / import(), quoted or with a plain backtick;
+// - `from "x"`, quoted;
+// - a side-effect `import "x"` at the start of a line.
+const NAME = String.raw`((?:@[a-z0-9][\w.-]*\/)?[a-z0-9][\w.-]*(?:\/[\w./-]*)?)`;
+const SPECS = [
+  new RegExp(String.raw`\b(?:require(?:\.resolve)?|import)\(\s*(["'\x60])${NAME}\1`, 'g'),
+  new RegExp(String.raw`\bfrom\s*(["'])${NAME}\1`, 'g'),
+  new RegExp(String.raw`^\s*import\s*(["'])${NAME}\1`, 'gm'),
+];
 
 function packageOf(spec) {
   const parts = spec.split('/');
@@ -71,8 +81,8 @@ function unresolvable(files, provided) {
   const missing = {};
   for (const file of files) {
     const src = fs.readFileSync(file, 'utf8');
-    for (const m of src.matchAll(SPEC)) {
-      const spec = m[1];
+    for (const m of SPECS.flatMap((re) => [...src.matchAll(re)])) {
+      const spec = m[2];
       if (spec.startsWith('node:')) continue;
       const name = packageOf(spec);
       if (builtins.has(name) || provided.has(name)) continue;
@@ -112,4 +122,26 @@ test('the scan fails when a workspace library leaves dependencies (failing arm)'
   provided.delete('@laticent/segno');
   const missing = unresolvable(shippedCodeFiles(), provided);
   assert.ok(missing['@laticent/segno']?.length > 0, 'the scan must name @laticent/segno once it is undeclared');
+});
+
+test('the scan sees every loader shape, and not prose or CSS', () => {
+  const os = require('node:os');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'shipped-imports-'));
+  try {
+    const file = path.join(dir, 'probe.js');
+    fs.writeFileSync(file, [
+      "require('pkg-require');",
+      "require.resolve('pkg-resolve/dist/x.css');",
+      'import(`pkg-backtick`);',
+      "import x from 'pkg-from';",
+      "import 'pkg-side-effect';",
+      '// inherits from `prose-comment` and `parent`',
+      "const css = '@import \"css-in-string\";';",
+    ].join('\n'));
+    assert.deepEqual(Object.keys(unresolvable([file], new Set())).sort(), [
+      'pkg-backtick', 'pkg-from', 'pkg-require', 'pkg-resolve', 'pkg-side-effect',
+    ]);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });

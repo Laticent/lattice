@@ -61,7 +61,7 @@ is not done.
 | Marp hand-off (clone only) | `npm run export:marp -- <deck.md> <out.zip>` |
 | The agent kit's checker (no clone) | `node review/check.mjs deck.md` |
 
-Node 22.12 or newer. `npm install` downloads the Chromium the render uses. If a
+Node 22.13 or newer. `npm install` downloads the Chromium the render uses. If a
 render says it cannot find a browser, set `CHROME_PATH`.
 
 ## Recipe

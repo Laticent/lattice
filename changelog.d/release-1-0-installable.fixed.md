@@ -3,8 +3,11 @@
   install without jsdom quietly skipped the compare-code, scene, wifi and build transforms.
   The bundled CLI now inlines every workspace library it uses, and the package declares the
   libraries and jsdom as dependencies.
-- **Changed: the npm package is smaller and its public paths are named.** The Marp kit and the
-  agent kit leave the tarball (they ship on the `dist-kits` branch and in the release zip),
-  Mermaid, ZenUML, KaTeX and function-plot are no longer installed because their plugins ship
-  their own copies, and the `./lib/*` and `./dist/*` wildcard exports are gone in favor of
-  named ones. Packed size goes from 28.1 MB to 22.0 MB.
+- **Breaking:** the npm package's public paths are named, and it carries less. The `./lib/*`
+  and `./dist/*` wildcard exports are gone; the named exports (`/css`, `/runtime`, `/engine`,
+  `/themes/<name>.css`, `dist/lattice-emoji.css`, `dist/docs/components.json`) remain. The
+  Marp kit and the agent kit leave the tarball (take them from the `dist-kits` branch or the
+  release zip). Mermaid, its CLI, ZenUML, KaTeX and function-plot are no longer installed,
+  because their plugins ship their own copies. Packed size goes from 28.1 MB to 22.0 MB.
+- **Breaking:** Node 22.13 or newer is required (was 22.12), because jsdom, now a runtime
+  dependency, supports Node 22 from 22.13.

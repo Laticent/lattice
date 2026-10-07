@@ -349,7 +349,7 @@
     "woff2-encoder": "^2.0.0"
   },
   "engines": {
-    "node": ">=22.12.0"
+    "node": ">=22.13.0"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.15",
