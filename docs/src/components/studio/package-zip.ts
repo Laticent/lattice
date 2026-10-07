@@ -15,6 +15,8 @@ import type { Scene } from '@/lib/anima';
 // The JSON value cap (lib/packages/json-guard.js). A static import is fine here: this module is
 // only ever loaded on demand (asset-bundle.ts, share-export.ts), never on the Studio's eager path.
 import { refuseCode } from '../../../../lib/packages/code-shape.mjs';
+// The plugin refusal, one string shared with `lattice packages add` (a CommonJS leaf, read as a default import).
+import importGate from '../../../../lib/packages/import-gate.js';
 import jsonGuard from '../../../../lib/packages/json-guard.js';
 import type { StudioComponent } from './component-library';
 import { coerceRecipe, type FinishRecipe } from './finish-generate';
@@ -22,6 +24,8 @@ import type { StudioFinish } from './finish-library';
 import type { PackageCarry } from './library/package-carry';
 import type { StudioScene } from './scene-library';
 import type { StudioTheme } from './theme-library';
+
+const { PLUGIN_REFUSAL } = importGate;
 
 export type PackageType = 'theme' | 'component' | 'finish' | 'motion';
 /** One package as files: file name (`<name>.<role>`) → text. */
@@ -142,8 +146,7 @@ export function writePackagesToZip(zip: Zip, pkgs: PackageFiles[], extras: Recor
 }
 
 export type ReadPackage = {
-	/** A zip can carry a `plugin`, which the Studio refuses by name (asset-bundle.ts); it never writes one. */
-	type: PackageType | 'plugin';
+	type: PackageType;
 	name: string;
 	manifest: Record<string, unknown>;
 	/** role → file text, after the spine rewrote every projection from the manifest */
@@ -232,12 +235,19 @@ export async function readPackagesFromZip(zip: Zip, read: (path: string) => Prom
 			refused.push({ name: folder ?? 'the zip', why: norm.errors.join('; ') });
 			continue;
 		}
+		// A plugin is refused by name before its files are judged, as `lattice packages add` refuses
+		// it (lib/packages/gate.js). The spine reads one fine, and no caller below has a plugin
+		// branch, so without this a code-free plugin vanished from the import with no word.
+		if (norm.pkg.type === 'plugin') {
+			refused.push({ name: norm.pkg.name, why: PLUGIN_REFUSAL });
+			continue;
+		}
 		const roles: Record<string, string> = {};
 		for (const [role, file] of Object.entries(norm.pkg.roles as Record<string, string>)) roles[role] = String(written[file] ?? '');
 		// A component's images and data files (its assets) are not carried into the Studio's
 		// record yet, so they are named as left out rather than lost in silence.
 		const notes = [...r.renames, ...(r.pkg.dropped ?? []).map((f: string) => `left out ${f}`), ...(r.pkg.assets?.length ? [`left out ${r.pkg.assets.length} asset file(s): ${r.pkg.assets.join(', ')}`] : [])];
-		packages.push({ type: norm.pkg.type as ReadPackage['type'], name: norm.pkg.name, manifest: jsonGuard.parseJsonCapped(roles['manifest.json'], TOO_MANY) as Record<string, unknown>, roles, code: !!norm.pkg.code, codeRefusal: norm.pkg.code ? await codeRefusal(norm.pkg, roles['transform.js']) : null, notes });
+		packages.push({ type: norm.pkg.type as PackageType, name: norm.pkg.name, manifest: jsonGuard.parseJsonCapped(roles['manifest.json'], TOO_MANY) as Record<string, unknown>, roles, code: !!norm.pkg.code, codeRefusal: norm.pkg.code ? await codeRefusal(norm.pkg, roles['transform.js']) : null, notes });
 	}
 	return { packages, refused };
 }
