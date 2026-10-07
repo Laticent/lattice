@@ -34,7 +34,11 @@
 // change". See engineering/decisions/2026-06-12-p4-regression-gate-retire-marp.md §4.
 //
 // Usage:
-//   node tools/golden-diff.mjs [--base <ref>] [--json]
+//   node tools/golden-diff.mjs [--base <ref>] [--json] [--render-affected]
+//     --render-affected   also render the goldens this branch's SOURCES can affect and
+//              compare them with the base's committed PDFs (see "The render path" below;
+//              decisions/2026-10-06-goldens-bot-blessed.md §2.2). Needs a browser.
+//              GOLDEN_DIFF_RENDER_CAP bounds the renders (default 40).
 //     --base   git ref/sha to diff against (default: origin/main). On a PR's merge
 //              checkout (GITHUB_EVENT_NAME=pull_request), a base older than HEAD^1 is
 //              replaced by HEAD^1 (current main),
@@ -57,10 +61,12 @@
 import { execFileSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { dirname, join } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { affectedGoldens } from './lib/golden-affected.mjs';
 import { prBaseRef } from './lib/golden-base.mjs';
-import { classifyChangedPdf } from './lib/golden-set.mjs';
+import { failFractionForDeck, failFractionForGallery, galleryDecks, renderDeck, renderGallery, THEMES } from './lib/golden-render.mjs';
+import { classifyChangedPdf, deckGoldenPdfs } from './lib/golden-set.mjs';
 
 const require = createRequire(import.meta.url);
 const { pixelDiff, montageTriptych, pngsToPdf } = require('./pixel-check.js');
@@ -176,9 +182,106 @@ function describe(relPath, kind) {
   return { name: relPath.replace(/\.pdf$/, ''), mood: '·' };
 }
 
+// ── Rendering the goldens a PR's SOURCES can affect (--render-affected) ──────────
+// Under the bot-blessed design (decisions/2026-10-06-goldens-bot-blessed.md §2.2) a PR
+// commits no PDFs, so the path above, which diffs the PDFs a PR changed, sees nothing.
+// This path renders the goldens the PR's changed sources can affect
+// (lib/golden-affected.mjs) and compares them with the base branch's committed PDFs.
+//
+// ATTRIBUTION. main's committed PDF can be stale: other PRs changed renders since the
+// last bless, and in October 2026 the nightly gate reported 196 of ~350 goldens stale. A
+// head render that differs from it is therefore NOT proof this PR moved anything. So when
+// it differs, the same golden is rendered at the BASE commit too, in a separate worktree
+// with that commit's own engine, and only head-vs-base-render drift is reported. Both
+// renders come from this machine, so cross-host anti-aliasing noise cancels out and the
+// strict FAIL_FRACTION applies. Goldens that differ from main's PDF but not from the base
+// render are counted as stale on main: the nightly bless refreshes them.
+//
+// The default cap (40 renders = 20 galleries x 2 moods) keeps a shared change inside the
+// CI job's budget; what it drops is listed, never silent (HARD RULE #25).
+const RENDER_CAP = Number(process.env.GOLDEN_DIFF_RENDER_CAP || 40);
+
+let baseTree = null; // { root } once built, or { error } if it could not be
+function baseTreeFor(base) {
+  if (baseTree) return baseTree;
+  const root = join(OUT, 'base-tree');
+  try {
+    rmSync(root, { recursive: true, force: true });
+    execFileSync('git', ['worktree', 'add', '--detach', '--force', root, base], { cwd: ROOT, stdio: 'ignore' });
+    // The base tree reuses this checkout's node_modules: rendering needs the base's own
+    // lib/ and dist/, not its own dependency install. Dependency changes are themselves
+    // a "shared" change, and their effect shows up in the head render.
+    execFileSync('ln', ['-s', join(ROOT, 'node_modules'), join(root, 'node_modules')]);
+    try {
+      execFileSync(process.execPath, ['tools/build.js', '--only-uncommitted'], { cwd: root, stdio: 'ignore' });
+    } catch {
+      // A step unrelated to rendering can fail under a symlinked node_modules (the agent
+      // kit checks its bundler banners). What rendering needs is checked below.
+    }
+    if (!existsSync(join(root, 'dist', 'lattice.css'))) throw new Error('base build produced no dist/lattice.css');
+    baseTree = { root };
+  } catch (err) {
+    baseTree = { error: err.message };
+  }
+  return baseTree;
+}
+
+function dropBaseTree() {
+  if (!baseTree?.root) return;
+  try { execFileSync('git', ['worktree', 'remove', '--force', baseTree.root], { cwd: ROOT, stdio: 'ignore' }); } catch { /* ignore */ }
+  rmSync(baseTree.root, { recursive: true, force: true });
+}
+
+const driftedPages = (diff, floor) =>
+  diff.perPage.filter((p) => p.pixels === -1 || (p.total ? p.pixels / p.total > floor : p.pixels > 0));
+
+// Render one golden at HEAD and decide what this PR did to it.
+//   item: { kind: 'gallery'|'deck', md (repo-relative), mood, relPath (the golden .pdf) }
+// Returns { status, diff? } where status is one of
+//   'unchanged' · 'changed' (with the head-vs-base-render diff) · 'stale-on-main' ·
+//   'added' (no golden on base) · 'error'.
+function renderAndCompare(base, item) {
+  const renderAt = (root) => (item.kind === 'gallery'
+    ? renderGallery(root, join(root, item.md), item.mood)
+    : renderDeck(root, join(root, item.md)));
+  const slug = item.relPath.replace(/[^a-z0-9]+/gi, '_');
+  let head;
+  try {
+    head = renderAt(ROOT);
+  } catch (err) {
+    return { status: 'error', error: `head render failed: ${String(err.message).split('\n')[0]}` };
+  }
+  const cleanups = [...head.cleanup];
+  try {
+    const committed = baseBlob(base, item.relPath, join(OUT, `.base-${slug}.pdf`));
+    if (!committed) return { status: 'added' };
+    cleanups.push(committed);
+    const floor = item.kind === 'gallery' ? failFractionForGallery(item.md) : failFractionForDeck(join(ROOT, item.md));
+    const vsMain = pixelDiff(committed, head.outPdf, `golden-r-${slug}`, { fuzz: FUZZ });
+    if (!driftedPages(vsMain, floor).length) return { status: 'unchanged' };
+
+    const tree = baseTreeFor(base);
+    if (tree.error) return { status: 'error', error: `base render unavailable: ${tree.error}` };
+    if (!existsSync(join(tree.root, item.md))) return { status: 'added' };
+    let baseRender;
+    try {
+      baseRender = renderAt(tree.root);
+    } catch (err) {
+      return { status: 'error', error: `base render failed: ${String(err.message).split('\n')[0]}` };
+    }
+    cleanups.push(...baseRender.cleanup);
+    const vsBase = pixelDiff(baseRender.outPdf, head.outPdf, `golden-rb-${slug}`, { fuzz: FUZZ });
+    const drifted = driftedPages(vsBase, FAIL_FRACTION);
+    return drifted.length ? { status: 'changed', diff: vsBase, drifted } : { status: 'stale-on-main' };
+  } finally {
+    for (const p of cleanups) { try { rmSync(p, { force: true }); } catch { /* ignore */ } }
+  }
+}
+
 function main() {
   const args = process.argv.slice(2);
   const json = args.includes('--json');
+  const renderAffected = args.includes('--render-affected');
   const baseIdx = args.indexOf('--base');
   // A PR run's base sha goes stale as main moves; prBaseRef swaps in the merge's first parent.
   const resolved = prBaseRef(baseIdx >= 0 ? args[baseIdx + 1] : 'origin/main', ROOT, { pr: process.env.GITHUB_EVENT_NAME === 'pull_request' });
@@ -259,6 +362,55 @@ function main() {
     entries.push({ name, mood, kind, relPath, status: 'changed', slides: drifted.length });
   }
 
+  // ── The render path ─────────────────────────────────────────────────────────
+  let renderPlan = null;
+  const staleOnMain = [];
+  const renderErrors = [];
+  if (renderAffected) {
+    // Renders use dist/ (the CSS bundle, the runtime), which is built, not committed. A
+    // stale local dist/ renders the PREVIOUS sources and reports a change that is not
+    // there, or hides one that is (found while testing this path). So build it first.
+    // In CI the job has just built it; the repeat costs ~12 s.
+    try {
+      execFileSync(process.execPath, ['tools/build.js', '--only-uncommitted'], { cwd: ROOT, stdio: 'ignore' });
+    } catch {
+      // A step unrelated to rendering can fail locally; the render itself reports a real problem.
+    }
+    const changedFiles = git(['diff', '--name-only', base]).split('\n').map((s) => s.trim()).filter(Boolean);
+    const galleries = galleryDecks(ROOT).map((g) => relative(ROOT, g));
+    renderPlan = affectedGoldens(changedFiles, { galleries, deckGoldens: deckGoldenPdfs(ROOT), cap: RENDER_CAP });
+    const covered = new Set(candidates.map((c) => c.relPath)); // PDFs this PR committed: already compared above
+    const items = [];
+    for (const md of renderPlan.galleries) {
+      for (const mood of THEMES) items.push({ kind: 'gallery', md, mood, relPath: md.replace(/\.gallery\.md$/, `.gallery.${mood}.pdf`) });
+    }
+    for (const pdf of renderPlan.decks) items.push({ kind: 'deck', md: pdf.replace(/\.pdf$/, '.md'), mood: '·', relPath: pdf });
+    for (const item of items) {
+      if (covered.has(item.relPath)) continue;
+      const { name, mood } = describe(item.relPath, item.kind);
+      const r = renderAndCompare(base, item);
+      if (r.status === 'stale-on-main') { staleOnMain.push(item.relPath); continue; }
+      if (r.status === 'error') { renderErrors.push(`${item.relPath}: ${r.error}`); continue; }
+      if (r.status === 'added') { entries.push({ name, mood, kind: item.kind, relPath: item.relPath, status: 'added', slides: 0, rendered: true }); continue; }
+      if (r.status === 'unchanged') continue;
+      for (const d of r.drifted) {
+        if (montagePngs.length >= MONTAGE_CAP) { montagesOmitted += 1; continue; }
+        const slugName = item.relPath.replace(/[^a-z0-9]+/gi, '_');
+        const m = join(r.diff.tmpDir, `gd-${slugName}-${String(d.page).padStart(3, '0')}.png`);
+        const made = montageTriptych(d, m, { title: `${name} · ${mood} · slide ${d.page} (rendered)` });
+        if (!made) continue;
+        const slug = item.relPath.replace(/^lib\/components\//, '').replace(/\.pdf$/, '').replace(/[^a-z0-9]+/gi, '_');
+        const file = `${slug}_s${String(d.page).padStart(3, '0')}.png`;
+        const dest = join(MONTAGE_DIR, file);
+        cpSync(made, dest);
+        montagePngs.push(dest);
+        montageMeta.push({ name, mood, page: d.page, file });
+      }
+      entries.push({ name, mood, kind: item.kind, relPath: item.relPath, status: 'changed', slides: r.drifted.length, rendered: true });
+    }
+    dropBaseTree();
+  }
+
   const changedEntries = entries.filter((e) => e.status === 'changed');
   const totalSlides = changedEntries.reduce((n, e) => n + e.slides, 0);
   const added = entries.filter((e) => e.status === 'added');
@@ -300,6 +452,19 @@ function main() {
     if (removed.length) lines.push('', `🗑️ Removed goldens: ${removed.map((e) => `\`${e.name}${e.kind === 'gallery' ? `.${e.mood}` : ''}\``).join(', ')}.`);
     lines.push('', '_Rebuild-only goldens (PDF byte-churn, no pixels moved) are not listed — the pixel-diff filters them out._');
   }
+  if (renderPlan) {
+    const rendered = renderPlan.galleries.length * THEMES.length + renderPlan.decks.length;
+    lines.push('', `<sub>Rendered from this PR's sources: ${rendered} golden${rendered === 1 ? '' : 's'} (${renderPlan.scope} change).</sub>`);
+    if (renderPlan.omitted.length) {
+      lines.push('', `⚠️ **${renderPlan.omitted.length} more galler${renderPlan.omitted.length === 1 ? 'y' : 'ies'} could be affected but ${renderPlan.omitted.length === 1 ? 'was' : 'were'} not rendered** (the per-PR cap is ${RENDER_CAP} renders). The nightly bless renders the whole corpus.`);
+    }
+    if (staleOnMain.length) {
+      lines.push('', `<sub>${staleOnMain.length} golden${staleOnMain.length === 1 ? ' is' : 's are'} stale on main (they differ from main's PDF but this PR did not move them); the nightly bless refreshes them.</sub>`);
+    }
+    if (renderErrors.length) {
+      lines.push('', `⚠️ **${renderErrors.length} golden${renderErrors.length === 1 ? '' : 's'} could not be compared:**`, ...renderErrors.slice(0, 10).map((e) => `- ${e}`));
+    }
+  }
   const summary = lines.join('\n') + '\n';
   writeFileSync(join(OUT, 'summary.md'), summary);
 
@@ -327,6 +492,9 @@ function main() {
     inlineCapped: montageMeta.length > INLINE_CAP,
     montageCap: MONTAGE_CAP,
     montagesOmitted,
+    render: renderPlan
+      ? { scope: renderPlan.scope, cap: RENDER_CAP, galleries: renderPlan.galleries, decks: renderPlan.decks, omitted: renderPlan.omitted, staleOnMain, errors: renderErrors }
+      : null,
   };
   writeFileSync(join(OUT, 'report.json'), JSON.stringify(report, null, 2));
 
