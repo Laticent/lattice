@@ -60,13 +60,7 @@ Quoted: \`<script>alert(1)</script>\` stays code.
 
 ---
 
-# Math and drawings
-
-$$\\href{javascript:top.__hit_math=1}{\\style{opacity:0}{\\rule{80em}{60em}}}$$
-
-Breaks out of href, no click: $\\href{#" style="animation:lattice-paint-lay 1s" onanimationstart="top.__hit_mathbreak=1"}{y}$
-
-Breaks out of a style attribute, no click, no \\href: $\\style{animation:lattice-paint-lay 1s" onanimationstart="top.__hit_mathstyle=1}{y}$
+# Drawings
 
 <svg viewBox="0 0 10 10" width="80" height="80"><defs><linearGradient id="g1"><stop offset="0" stop-color="red"/><stop offset="1" stop-color="blue"/></linearGradient></defs><rect width="10" height="10" fill="url(#g1)"/></svg>
 
@@ -160,28 +154,6 @@ describe('Export-to-Marp runs none of the deck\'s own script — real marp-cli, 
     assert.match(rawHtml, /&lt;script&gt;top\.__hit_script = 1&lt;\/script&gt;/);
     const scripts = await rawPage.evaluate(() => [...document.querySelectorAll('script[src]')].map((e) => e.getAttribute('src')));
     assert.deepEqual(scripts.filter((s) => !/^(?:mermaid-v11-min|lattice-dagre-min|lattice-runtime-min)\.js$/.test(s)), []);
-  });
-
-  // marp-core typesets math itself, so MathJax's \\href never meets the HTML filter: the engine
-  // drops a link in the math output that could run (the red team's slide-sized invisible link).
-  test('a javascript: link in math does not run when clicked, in either arm', async (t) => {
-    if (skip) return t.skip(skip);
-    for (const p of [page, rawPage]) {
-      const links = await p.evaluate(() => [...document.querySelectorAll('mjx-container a, svg a, a')].map((a) => a.getAttribute('href') || a.getAttribute('xlink:href')).filter((h) => h && /script:/i.test(h)));
-      assert.deepEqual(links, []);
-      // marp-cli's HTML shows one slide at a time: go to the math slide, then click its middle,
-      // where the invisible slide-sized link sits. On main's config this click sets the flag.
-      await p.goto(`${p.url().split('#')[0]}#2`, { waitUntil: 'networkidle0' });
-      await new Promise((res) => setTimeout(res, 500));
-      const { width, height } = p.viewport();
-      await p.mouse.click(width / 2, height / 2);
-      await new Promise((res) => setTimeout(res, 300));
-      assert.equal(await p.evaluate(() => window.__hit_math), undefined);
-      // The checker's break-out runs on its own once its slide shows (an animation start, no click).
-      await new Promise((res) => setTimeout(res, 1200));
-      assert.equal(await p.evaluate(() => window.__hit_mathbreak), undefined, 'the math href break-out did not run');
-      assert.equal(await p.evaluate(() => window.__hit_mathstyle), undefined, 'the math \\style break-out did not run');
-    }
   });
 
   test('a gradient drawing keeps its paint server, and an unclosed <pre> on the last slide keeps the runtime', async (t) => {

@@ -1019,15 +1019,15 @@ let marp-cli pass only HTML on a list. This section builds it.
 
 **What ships.** The bundle's `marp.config.cjs` no longer sets `html: true`. It sets marp-core's `html`
 option to an allowlist of tags and attributes (`lib/core/marp-bundle-html.js` `MARP_HTML_ALLOWLIST`). It
-also installs a marp-cli functional `engine:` that wraps two renderer rules:
+also installs a marp-cli functional `engine:` that wraps the `html_block` renderer rule:
 
 - **`html_block`.** It passes through, byte for byte, only the bundle's own trailing lines: a runtime
   `<script src>` that names one of the bundle's three files, or one of the two inert JSON data blocks
   (`lib/core/data-block.js`, whose payload never holds a raw `<`). Every other block goes through
   marp-core's js-xss filter with the list. A tag that is not on it prints as text, and an attribute
   that is not on it is dropped.
-- **`marp_math_inline` / `marp_math_block`.** A link in the math output that could run is dropped (see
-  the red team, below).
+
+(Math is deliberately NOT touched by the engine — see "Math is a pre-existing injection surface" below.)
 
 The deck file is byte-identical to § 11's; only what marp-cli makes of it changes. The § 11 strip stays
 in front, because VS Code's preview renders the same file with `enableHtml` on and reads neither the
@@ -1093,11 +1093,8 @@ slide still loads Mermaid.
 
 **What the adversarial trio changed (HARD RULE #25, tier 2).**
 
-- **Red team: math links got past both layers, and still did on `main`.** marp-core typesets math
-  itself, and MathJax's `\href` writes a live `<a href>` into the output. That output is not an HTML token,
-  so neither the strip nor the list sees it.
-  `$$\href{javascript:…}{\style{opacity:0}{\rule{80em}{60em}}}$$` made an invisible, slide-sized link. One
-  click on slide 2 of a bundle `main` exported ran it (`__hit_math = 1`).
+- **Red team: math is an injection surface the allowlist does not reach** — see "Math is a
+  pre-existing injection surface" below; it is unchanged from `main` and deferred to its own PR.
 - **Inversion: the first list was the 422 decks' vocabulary and little more.** That would have turned
   user decks' video, frames and gradient drawings into text or blanks with no warning. The list was
   widened as above, and the refusal report was added. It also showed that the first list quietly
@@ -1113,37 +1110,20 @@ slide still loads Mermaid.
 
 **What a fourth, independent checker changed (on the post-trio code).**
 
-- **Math breaks out of a MathJax attribute and runs with no click, on `main` too — and it is not
-  one command.** The fourth checker found `\href`: MathJax does not escape a `"` in the URL, so
-  `$\href{#" style="animation:lattice-paint-lay 1s" onanimationstart="…"}{y}$` became a live handler
-  on the link, firing as its slide showed; a real `npm run pdf` rewrote the PDF's heading. A filter
-  over the output could not see it, because a value with a stray `"` has no reliable end. The FIFTH
-  checker then showed the same break-out from `\style` and `\unicode` (which write an unescaped `"`
-  into a `style=` attribute), and that MathJax runs its whole package set — so a denylist of
-  commands is the wrong shape. The guard is therefore in two parts:
-  - **The deck's bytes** rename `\href`, `\url` and `\csname` to `\text{}`, outside fenced code
-    (`withoutMathLinks`, counted with the strip's URLs). Those three are what draw an `<a href>`, a
-    navigation and exfiltration vector even without a handler, and the rename covers them on every
-    path including VS Code's preview, which re-renders the `.md` and reads neither the config nor the
-    engine.
-  - **The rendered output**, in the marp-cli engine (`lib/core/marp-bundle-html.js`), neutralizes a
-    math token whose output carries an `on…` handler, a `<script>`, or a script-scheme URL — shown as
-    its own TeX text (`<code>…</code>`) instead of drawn — on `npm run pdf` and the pre-rendered HTML.
-    Measured: 0 of the 118 shipped decks that use math are touched.
-
-  **This is PARTIAL, not a complete guard — a SIXTH checker (red team) broke it.** A regex over the
-  output cannot match the browser's parser. Two click-free executions get through on the recipient's
-  real `npm run pdf` path: (a) `style="…"/onanimationstart=` — the HTML tokenizer treats `/` after a
-  quoted value as an attribute separator, so the handler is not whitespace-preceded and the scan
-  misses it; (b) `\style{background:url(http://…)}` — a plain CSS `url()` beacon, which the scan has
-  no rule for, and which needs no break-out at all. **Both are PRE-EXISTING on `main`** (math output
-  bypasses the HTML allowlist entirely, since it is emitted by the math renderer, not an `html_block`
-  token), so this PR does not worsen them; its deck-byte rename and output scan reduce but do not
-  close the exposure. A complete fix needs a parser on the MathJax output, or MathJax run with its
-  HTML-injecting packages disabled — a focused, separate change. Tracked, with both vectors and both
-  paths (marp-cli AND VS Code's preview, which reaches neither the config nor the engine), in
-  `followups.d/2589-p3-marp-bundle-math-style-breakout-in-vscode.md`. The naive space-prefixed forms
-  (`__hit_mathbreak`, `__hit_mathstyle`) are caught; the `/`-separated and `url()` forms are not.
+- **Math is a pre-existing injection surface, and this PR does NOT touch it.** marp-core typesets
+  math with MathJax, and that output reaches the page without passing the HTML allowlist at all — it
+  is emitted by the math renderer, not an `html_block` token. MathJax does not escape a `"` in several
+  command arguments (`\href`, `\style`, `\unicode`, `\cssId`, …), so a deck can break out of an
+  attribute and run a handler with no click, or load a remote resource with a CSS `url()`. Four
+  verification passes (checkers four and five, then a red team) explored a guard here; each regex
+  shape the red team then defeated (a `/`-separated handler the HTML parser accepts, a `url()` beacon
+  with no break-out at all), because a regex over the output cannot match the browser's parser. The
+  whole surface is **unchanged from `main`** — the bundle renders math exactly as the current release
+  does. Closing it is a separate, focused change (bake math to sanitized SVG at export so no live
+  MathJax reaches the recipient, or a parser-based cleaner on every surface), tracked in
+  `followups.d/2589-p3-marp-bundle-math-style-breakout-in-vscode.md`. It was deliberately kept OUT of
+  this PR rather than shipped as a bypassable partial filter (the owner's call: no half-measure, the
+  real fix in its own PR).
 - **The front matter was found by one spelling.** Marp's rule, measured on marp-core 4.4, accepts a
   longer opener (`----`), a trailing word (`---x`) and a longer closer (`-----` closes `---`). With
   those, § 12's bypass came back for the strip and the marker refusal. The allowlist still held in

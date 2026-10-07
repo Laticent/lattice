@@ -201,17 +201,6 @@ test('strip: a fence opened inside the front matter does not hide the body', () 
   assert.equal(withoutLiveAuthorHtml(quoted).markdown, quoted);
 });
 
-test('math links: \\href, \\url and \\csname become \\text{} outside fenced code; a longer name and a fence stay', () => {
-  const { withoutMathLinks } = require('../../../lib/core/live-author-html');
-  const fence = '```tex\n\\href{k}{v}\n```\n';
-  const { markdown, removed } = withoutMathLinks(`$\\href{#" autofocus onfocus="x"}{y}$ and $$\\url{a}$$ \\csname\n\n${fence}\\hrefx`);
-  assert.equal(removed, 3);
-  assert.doesNotMatch(markdown.replace(fence, ''), /\\(?:href|url|csname)(?![A-Za-z])/);
-  assert.ok(markdown.includes(fence));
-  assert.match(markdown, /\\hrefx$/);
-  assert.deepEqual(withoutMathLinks('# plain'), { markdown: '# plain', removed: 0 });
-});
-
 test('front matter by Marp\'s rule: a longer opener, a trailing word, a longer closer; and no body when unclosed', () => {
   const { frontMatterEnd, withoutFrontMatterLines } = require('../../../lib/core/marp-front-matter');
   const { withoutLiveAuthorHtml } = require('../../../lib/core/live-author-html');

@@ -121,46 +121,6 @@ test('an author block that swallowed a runtime line (an unclosed <pre>) is sanit
   assert.match(tokens[0].content, /mermaid/, 'the token is restored after the call');
 });
 
-test('math output carrying an executable injection is shown as its TeX text; clean math is untouched', () => {
-  // MathJax never emits an on… handler, a <script>, or a script-scheme URL, so any of those in a
-  // math token's output is an author break-out (the #2589 fifth checker: \style and \unicode write
-  // an unescaped `"` into a style= attribute, the same break-out as \href). The whole token is
-  // shown as its own TeX text instead of drawn. Command-agnostic, so a future command is caught too.
-  const { engine } = load();
-  const md = { renderer: { rules: {
-    html_block: () => '',
-    marp_math_inline: (tokens, idx) => tokens[idx].out,
-    marp_math_block: (tokens, idx) => tokens[idx].out,
-  } } };
-  engine({ marp: { use(p) { p(md); return this; } } });
-  const draw = (content, out) => md.renderer.rules.marp_math_block([{ content, out }], 0);
-  const Q = String.fromCharCode(34);
-  for (const out of [
-    `<g style="a: b${Q} onx="c;"><rect/></g>`,      // \style / \unicode handler break-out
-    `<g style="a: b${Q}><img src=x></g>`,           // a break-out to a new tag
-    '<svg><a href="javascript:x"><rect/></a></svg>', // a script-scheme URL
-    '<g><script>run()</script></g>',
-  ]) {
-    assert.equal(draw('T', out), '<code>T</code>', out);
-  }
-  // Clean MathJax output, and a benign style, pass through unchanged.
-  assert.equal(draw('x', '<svg><g style="fill: red"><path d="M0 0"/></g></svg>'), '<svg><g style="fill: red"><path d="M0 0"/></g></svg>');
-  // The TeX text is escaped when a token is neutralized.
-  assert.equal(draw('a<b', '<g onx="y">'), '<code>a&lt;b</code>');
-});
-
-test('the engine renames the math link commands in the TeX before MathJax draws, then restores the token', () => {
-  const { engine } = load();
-  // The mock reports what the renamed TeX holds, without echoing it (echoing a handler would, by
-  // design, trip the output scan tested above).
-  const md = { renderer: { rules: { html_block: () => '', marp_math_inline: (tokens, idx) => (/\\(?:href|url|csname)(?![A-Za-z])/.test(tokens[idx].content) ? 'HAS-LINK' : `kept:${tokens[idx].content}`), marp_math_block: () => '' } } };
-  engine({ marp: { use(p) { p(md); return this; } } });
-  const token = { content: '\\href{#}{y} + \\url{z} + \\csname x\\endcsname + \\hrefx' };
-  // \href, \url and \csname are gone before the draw; \hrefx (a longer name) stays.
-  assert.equal(md.renderer.rules.marp_math_inline([token], 0), 'kept:\\text{}{#}{y} + \\text{}{z} + \\text{} x\\endcsname + \\hrefx');
-  assert.match(token.content, /^\\href\{/, 'the token is restored');
-});
-
 test('the CLI line prints no control character a deck wrote into an attribute name', () => {
   const { formatRefusedHtml } = require('../../../lib/core/marp-bundle-html');
   const line = formatRefusedHtml({ tags: {}, attrs: { 'div[x\u001b[31my]': 1 } });
