@@ -69,7 +69,7 @@ test('each source is pinned exactly, installed at the build the copy came from, 
     const name = pkgOf(entry.from);
     const pin = pkg.dependencies[name] || pkg.devDependencies?.[name];
     assert.equal(pin, entry.version, `package.json pins ${name} "${pin}"; ${plugin}:${key} is ${entry.version} — pin the exact version the plugin vendors`);
-    assert.match(dependabot, new RegExp(`dependency-name: "?${name.replace(/[/.]/g, '\\$&')}"?\\n`), `${name} is vendored but Dependabot would still bump it (.github/dependabot.yml ignore)`);
+    assert.match(dependabot, new RegExp(`dependency-name: "?${name.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')}"?\\n`), `${name} is vendored but Dependabot would still bump it (.github/dependabot.yml ignore)`);
   }
   // The installed packages are the builds the copies were taken from. `vendor:plugins --check` is
   // the one comparator, so this and the upgrade path cannot disagree about what "the same" means.
