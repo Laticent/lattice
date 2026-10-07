@@ -511,6 +511,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/followups.js` | List and validate followups.d/ — the in-repo ledger of pending work that has no issue. |
 | `tools/gen-chart-finish-css.py` | Generates the prototype's finish rule block: every ENCODING and every REGISTER |
 | `tools/generate-voice-samples.mjs` | Pre-generates the "Play sample" audio the Studio's TTS settings panel plays for |
+| `tools/golden-bless.mjs` | The nightly bless — re-bless only the goldens that drifted, and score the auto-merge rules. |
 | `tools/golden-diff.mjs` | Golden before/after — what visually changed in THIS PR's committed goldens. |
 | `tools/graph-typing-bench.mjs` | graph-typing-bench — time each stage of a graph chart's live redraw, key by key, in the real Studio. |
 | `tools/jank-census.js` | jank-census — run check-jank's `--anchors` discovery across the WHOLE catalog and rank what moves. |

@@ -47,9 +47,15 @@ violations, not "this got worse".
 ### 2.1 The nightly bless bot (new workflow, `golden-bless.yml`)
 
 - **When:** nightly, and on `workflow_dispatch`.
-- **What:** on current `main`, run the bless over BOTH scopes
-  (`regression-gate.mjs --bless` and `--scope decks --bless`). Also render any committed
-  deck markdown that has no PDF yet (a feature deck merged during the day).
+- **What:** `tools/golden-bless.mjs` on current `main`. It checks every golden
+  (`regression-gate.mjs --scope all --json`), then re-blesses ONLY the ones that drifted:
+  a gallery by name, a deck by path. A blanket `--bless` would rewrite every golden
+  blessed on another machine, burying the few real changes in byte churn. A gallery bless
+  rewrites both moods, so the tool puts back the mood that did not drift, and the commit
+  holds exactly the goldens that moved. Tested on the real `legal` (both moods drifted,
+  2 re-blessed, both pass the gate after) and `comparison` (light only, 1 kept, 1 put
+  back) galleries. Rendering committed deck markdown that has no PDF yet (a feature deck
+  merged during the day) lands with step 3, the change that stops PRs committing them.
 - **How it lands:** the `sync-backlog.yml` shape. Push `chore/golden-bless` with
   `AUTOMATION_PAT`, open or update one PR, and post `golden-diff`'s before/after montage
   on it. That montage is the regression gate's replacement: one page a day showing what
@@ -69,6 +75,14 @@ violations, not "this got worse".
   Rule 4 is the one that makes the hybrid safe. Size alone is a weak signal: the 2026-08-18
   note recorded a real, plainly visible drift that scored 0.26%, while some decks drift
   4–9%.
+
+  `tools/lib/golden-bless-verdict.mjs` scores the four rules. Rule 4 does not need any
+  stored record of what each PR showed: it re-runs the per-PR mapping (`golden-affected.mjs`,
+  same 40-render cap) on every commit merged since the last bless, found by its
+  `chore(goldens): nightly bless` subject. A golden the cap left out counts as unseen, and
+  with no earlier bless to measure from, every changed golden does, so the first night
+  always needs a person. A golden the gate could not check (a render error, a missing PDF)
+  also forces a "no".
 
   **The first week is a dry run.** The bot opens its PR and comments "would auto-merge:
   yes/no, and why" for each rule, but merges nothing. After a week of real nights, the
@@ -132,11 +146,15 @@ What that means per pull request:
 - **A PR that touches one component** renders 2 to 4 goldens: its gallery and its
   bucket gallery, in both moods. That costs seconds, in line with `golden-diff`'s
   measured 272 ms per golden page.
-- **A PR that touches anything shared** must render every gallery. At 27 minutes that
-  is too slow for one job. Split across 4 runners it is about 7 minutes plus setup,
-  in parallel with `integration` (~10 min), so it adds little wall-clock time. That
-  split is unmeasured on GitHub's runners, and the first step of the rollout is to
-  measure it there.
+- **A PR that touches anything shared** would have to render every gallery, which at 27
+  minutes is too slow for one job. So the PR job renders at most 40 goldens (bucket
+  galleries first, since each samples every component in its bucket), lists what it
+  left out, and leaves the rest to the nightly bless. **Measured on GitHub's runners**
+  (PR #2570, job 112604518207): the full 40-render cap, plus base renders for the ones
+  that differed from `main`, took 4m34s, and the whole job 6 minutes. That is shorter
+  than `integration` beside it, so it adds no wall-clock time to a PR. It reported the
+  same 17 goldens stale on `main` as the sandbox run did, so attribution holds across
+  machines.
 - **Deck goldens** (~200) are left to the nightly bless. The 2026-08-18 note measured
   the full corpus at 78 minutes, a nightly budget rather than a per-PR one.
 
@@ -162,7 +180,9 @@ lands inside a PR: the 478-file commit becomes the bot's job.
    switch the hybrid auto-merge on.
 
 Step 3 lands only after step 2 has blessed `main` once, so the first PR under the new rule
-compares against a fresh baseline.
+compares against a fresh baseline. That makes it a separate PR: the bot reads
+`AUTOMATION_PAT` from an environment only `main` can use, so it cannot run before #2570
+merges. Steps 1 and 2 ship in #2570; steps 3 and 4 are recorded in `followups.d/2570-*`.
 
 ## 6. Decisions (owner, 2026-10-07)
 

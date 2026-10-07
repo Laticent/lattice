@@ -1,0 +1,2 @@
+- `golden-diff` now renders the goldens a pull request's sources can affect and diffs them against the base, so a PR shows its visual change without committing a PDF. A golden that differs from main's PDF is rendered at the base commit too, and only a change this PR made is reported.
+- A nightly `golden-bless.yml` bot checks every golden on `main`, re-blesses only the ones that drifted, and opens one PR with them. For its first week it is a dry run: it comments whether its four auto-merge rules hold and never merges.
