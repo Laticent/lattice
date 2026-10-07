@@ -1113,18 +1113,30 @@ slide still loads Mermaid.
 
 **What a fourth, independent checker changed (on the post-trio code).**
 
-- **A math `\href` broke out of its attribute and ran with no click, on `main` too.** MathJax does
-  not escape a `"` in the URL, so `$\href{#" style="animation:lattice-paint-lay 1s"
-  onanimationstart="…"}{y}$` became a live handler on the link, firing as its slide showed. The checker
-  ran it in a real `npm run pdf`, and the handler rewrote the PDF's heading. The first fix, a filter
-  over the math output, could not see it, because a value with a stray `"` has no reliable end. So the
-  commands go before render: `\href`, `\url` and `\csname` (which can spell either) become `\text{}`.
-  The producer applies this to the deck's bytes, outside fenced code (`withoutMathLinks`, counted with
-  the strip's URLs), so VS Code's preview gets the same file. The engine applies it again to each math
-  token before MathJax draws, for a deck edited after export. The output filter stays as a backstop. No
-  tracked deck writes any of the three. Under `main`'s config the probe's break-out set
-  `__hit_mathbreak = 1` when its slide showed, and under this one it stays unset, in both the stripped
-  and the raw arm.
+- **Math breaks out of a MathJax attribute and runs with no click, on `main` too — and it is not
+  one command.** The fourth checker found `\href`: MathJax does not escape a `"` in the URL, so
+  `$\href{#" style="animation:lattice-paint-lay 1s" onanimationstart="…"}{y}$` became a live handler
+  on the link, firing as its slide showed; a real `npm run pdf` rewrote the PDF's heading. A filter
+  over the output could not see it, because a value with a stray `"` has no reliable end. The FIFTH
+  checker then showed the same break-out from `\style` and `\unicode` (which write an unescaped `"`
+  into a `style=` attribute), and that MathJax runs its whole package set — so a denylist of
+  commands is the wrong shape. The guard is therefore in two parts:
+  - **The deck's bytes** rename `\href`, `\url` and `\csname` to `\text{}`, outside fenced code
+    (`withoutMathLinks`, counted with the strip's URLs). Those three are what draw an `<a href>`, a
+    navigation and exfiltration vector even without a handler, and the rename covers them on every
+    path including VS Code's preview, which re-renders the `.md` and reads neither the config nor the
+    engine.
+  - **The rendered output**, in the marp-cli engine (`lib/core/marp-bundle-html.js`), is the COMPLETE
+    guard: MathJax never emits an `on…` handler, a `<script>`, or a script-scheme URL, so a math
+    token whose output carries one is an injection, whatever command produced it, and it is shown as
+    its own TeX text (`<code>…</code>`) instead of drawn. This targets HTML's finite execution
+    surface, not a list of commands. It covers the recipient's real paths — `npm run pdf` and the
+    pre-rendered HTML — against `\style`, `\unicode` and any future command. Measured: 0 of the 118
+    shipped decks that use math are touched by it.
+  Under `main`'s config both break-outs set their flag when the slide showed (`__hit_mathbreak`,
+  `__hit_mathstyle`); under this one both stay unset, in the stripped and the raw arm. The residual:
+  a recipient who re-renders an untrusted bundle's `.md` in VS Code still meets the `\style`-family
+  break-out there, because no config or engine reaches that render. Logged in `followups.d/`.
 - **The front matter was found by one spelling.** Marp's rule, measured on marp-core 4.4, accepts a
   longer opener (`----`), a trailing word (`---x`) and a longer closer (`-----` closes `---`). With
   those, § 12's bypass came back for the strip and the marker refusal. The allowlist still held in

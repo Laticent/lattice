@@ -66,6 +66,8 @@ $$\\href{javascript:top.__hit_math=1}{\\style{opacity:0}{\\rule{80em}{60em}}}$$
 
 Breaks out of href, no click: $\\href{#" style="animation:lattice-paint-lay 1s" onanimationstart="top.__hit_mathbreak=1"}{y}$
 
+Breaks out of a style attribute, no click, no \\href: $\\style{animation:lattice-paint-lay 1s" onanimationstart="top.__hit_mathstyle=1}{y}$
+
 <svg viewBox="0 0 10 10" width="80" height="80"><defs><linearGradient id="g1"><stop offset="0" stop-color="red"/><stop offset="1" stop-color="blue"/></linearGradient></defs><rect width="10" height="10" fill="url(#g1)"/></svg>
 
 <pre>
@@ -178,6 +180,7 @@ describe('Export-to-Marp runs none of the deck\'s own script — real marp-cli, 
       // The checker's break-out runs on its own once its slide shows (an animation start, no click).
       await new Promise((res) => setTimeout(res, 1200));
       assert.equal(await p.evaluate(() => window.__hit_mathbreak), undefined, 'the math href break-out did not run');
+      assert.equal(await p.evaluate(() => window.__hit_mathstyle), undefined, 'the math \\style break-out did not run');
     }
   });
 

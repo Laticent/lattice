@@ -121,7 +121,11 @@ test('an author block that swallowed a runtime line (an unclosed <pre>) is sanit
   assert.match(tokens[0].content, /mermaid/, 'the token is restored after the call');
 });
 
-test('a URL in marp-core\'s math output that could run is dropped; a web link stays', () => {
+test('math output carrying an executable injection is shown as its TeX text; clean math is untouched', () => {
+  // MathJax never emits an on… handler, a <script>, or a script-scheme URL, so any of those in a
+  // math token's output is an author break-out (the #2589 fifth checker: \style and \unicode write
+  // an unescaped `"` into a style= attribute, the same break-out as \href). The whole token is
+  // shown as its own TeX text instead of drawn. Command-agnostic, so a future command is caught too.
   const { engine } = load();
   const md = { renderer: { rules: {
     html_block: () => '',
@@ -129,22 +133,31 @@ test('a URL in marp-core\'s math output that could run is dropped; a web link st
     marp_math_block: (tokens, idx) => tokens[idx].out,
   } } };
   engine({ marp: { use(p) { p(md); return this; } } });
-  const draw = (out) => md.renderer.rules.marp_math_block([{ out }], 0);
-  // MathJax's \href, as marp-core 4.4 renders it.
-  assert.equal(draw('<svg><a href="javascript:top.x=1"><rect/></a></svg>'), '<svg><a ><rect/></a></svg>');
-  assert.equal(draw('<a xlink:href="&#x6A;avascript:x">m</a>'), '<a >m</a>');
-  assert.equal(draw("<a href='java&#9;script:x'>m</a>"), '<a >m</a>');
-  assert.equal(draw('<a href="https://x.test/">m</a>'), '<a href="https://x.test/">m</a>');
-  assert.equal(md.renderer.rules.marp_math_inline([{ out: '<a href="vbscript:x">m</a>' }], 0), '<a >m</a>');
+  const draw = (content, out) => md.renderer.rules.marp_math_block([{ content, out }], 0);
+  const Q = String.fromCharCode(34);
+  for (const out of [
+    `<g style="a: b${Q} onx="c;"><rect/></g>`,      // \style / \unicode handler break-out
+    `<g style="a: b${Q}><img src=x></g>`,           // a break-out to a new tag
+    '<svg><a href="javascript:x"><rect/></a></svg>', // a script-scheme URL
+    '<g><script>run()</script></g>',
+  ]) {
+    assert.equal(draw('T', out), '<code>T</code>', out);
+  }
+  // Clean MathJax output, and a benign style, pass through unchanged.
+  assert.equal(draw('x', '<svg><g style="fill: red"><path d="M0 0"/></g></svg>'), '<svg><g style="fill: red"><path d="M0 0"/></g></svg>');
+  // The TeX text is escaped when a token is neutralized.
+  assert.equal(draw('a<b', '<g onx="y">'), '<code>a&lt;b</code>');
 });
 
 test('the engine renames the math link commands in the TeX before MathJax draws, then restores the token', () => {
   const { engine } = load();
-  const md = { renderer: { rules: { html_block: () => '', marp_math_inline: (tokens, idx) => `[${tokens[idx].content}]`, marp_math_block: () => '' } } };
+  // The mock reports what the renamed TeX holds, without echoing it (echoing a handler would, by
+  // design, trip the output scan tested above).
+  const md = { renderer: { rules: { html_block: () => '', marp_math_inline: (tokens, idx) => (/\\(?:href|url|csname)(?![A-Za-z])/.test(tokens[idx].content) ? 'HAS-LINK' : `kept:${tokens[idx].content}`), marp_math_block: () => '' } } };
   engine({ marp: { use(p) { p(md); return this; } } });
-  // MathJax 4.4 writes \href's URL into href="…" without escaping a quote: the checker's break-out.
-  const token = { content: '\\href{#" autofocus onfocus="x"}{y} + \\url{z} + \\csname href\\endcsname + \\hrefx' };
-  assert.equal(md.renderer.rules.marp_math_inline([token], 0), '[\\text{}{#" autofocus onfocus="x"}{y} + \\text{}{z} + \\text{} href\\endcsname + \\hrefx]');
+  const token = { content: '\\href{#}{y} + \\url{z} + \\csname x\\endcsname + \\hrefx' };
+  // \href, \url and \csname are gone before the draw; \hrefx (a longer name) stays.
+  assert.equal(md.renderer.rules.marp_math_inline([token], 0), 'kept:\\text{}{#}{y} + \\text{}{z} + \\text{} x\\endcsname + \\hrefx');
   assert.match(token.content, /^\\href\{/, 'the token is restored');
 });
 
