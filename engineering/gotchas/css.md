@@ -912,3 +912,20 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   to one color at computed time, so `max()` reads a plain color. `topic.styles.css`
   (THE LIFT'S FLOOR, `--_shelf-lift`) is the shipped instance. Never inline the origin
   back into the `oklch(from …)`.
+
+## An `accent` or `tone-edge` slide shows the spectrum bar after a Vite build — `border-image: none` minified to nothing
+
+- **Symptom:** in a page whose stylesheet a consumer built with Vite 8, an `accent` slide's top
+  bar shows the multi-color spectrum gradient instead of the solid accent line. The CLI and the
+  same CSS loaded unbundled draw it correctly. `tone-edge` slides had the same exposure.
+- **Cause:** lightningcss 1.32.0, Vite 8's default CSS minifier, rewrites a `border-image`
+  shorthand whose values are all defaults (`none`, or `none 100% / 1 / 0 stretch`) to
+  `border-image:` with no value. The browser drops that invalid declaration, so the base rule's
+  `border-image-source: var(--spectrum-bar)` survives. esbuild (`build.cssMinify: 'esbuild'`)
+  and an unminified build keep `none`. Measured 2026-10-07 on the packed palette candidate: 4 of
+  51 gallery slides per palette, all of them `accent`.
+- **Fix:** reset the longhand, `border-image-source: none`. With no image source, the other
+  border-image longhands draw nothing, so it renders the same, and lightningcss keeps it.
+  `test/unit/css/border-image-none-shorthand.test.js` fails on any `border-image: none` in
+  `lib/` or `themes/`. `tools/palette-slide-parity.js --bundled` measures a bundler's output
+  against the CLI when a new minifier is suspected.

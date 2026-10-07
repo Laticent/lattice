@@ -15,11 +15,15 @@
 //           per palette. Nothing in the package ships these files; this arm is what publishing
 //           them would give a consumer.
 //   pair    dist/lattice.css + dist/palettes/<name>.css — what the package publishes today.
+//   bundled one stylesheet per palette that a bundler built (opt-in: `--bundled <path>`, where
+//           `{palette}` in the path is replaced by each palette name). It measures what a consumer's
+//           Vite or webpack build makes of a stylesheet, which a <link> to the source cannot show.
 //
 // Usage:
 //   CHROME_PATH=… node tools/palette-slide-parity.js                 # the six galleries
 //   CHROME_PATH=… node tools/palette-slide-parity.js <deck.md> …     # your decks
 //   …--palette indaco,cuoio-dark   --arms render,packed,pair   --out <dir>
+//   …--bundled <dir>/{palette}/assets/{palette}.css   (adds the `bundled` arm)
 // Default out: .scratch/palette-slide-parity (CLI renders are cached there; delete to refresh).
 // Needs a built dist/ (`npm run build`) and ImageMagick's `compare`. On-demand, not a gate.
 
@@ -44,9 +48,11 @@ function parseArgs(argv) {
     if (a === '--palette') opts.palettes = argv[++i].split(',');
     else if (a === '--arms') opts.arms = argv[++i].split(',');
     else if (a === '--out') opts.out = path.resolve(argv[++i]);
+    else if (a === '--bundled') opts.bundled = path.resolve(argv[++i]);
     else opts.decks.push(path.resolve(a));
   }
   if (!opts.decks.length) opts.decks = GALLERIES;
+  if (opts.bundled && !opts.arms.includes('bundled')) opts.arms.push('bundled');
   return opts;
 }
 
@@ -147,6 +153,7 @@ async function main() {
         for (const arm of opts.arms) {
           const spec = arm === 'render' ? { css, html, dark }
             : arm === 'packed' ? { links: [`file://${pkg}/slides.css`, `file://${pkg}/palette/${palette}.slides.css`], html, dark }
+            : arm === 'bundled' ? { links: [`file://${opts.bundled.replaceAll('{palette}', palette)}`], html, dark }
             : { links: ['lattice.css', `palettes/${palette}.css`], html, dark };
           const file = path.join(dir, `${arm}.html`);
           fs.writeFileSync(file, page(spec));

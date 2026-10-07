@@ -1052,5 +1052,21 @@ it is the record of what was wrong.
     (at build time or on a server) and then changes palette in the browser without rendering again,
     or that ships many decks and wants one cached engine sheet instead of a sheet per render (1.16
     MB for the quote gallery in indaco).
+  - **Through a bundler (measured the same day, after the merge ask, to raise the card).** The
+    numbers above link the candidate files from a plain page; a consumer imports them through a
+    bundler, so the pair was built with Vite 8.2.2 from a package whose `exports` map the two
+    files, and the built stylesheet became a fourth arm (`--bundled`). It matched **47 of 51** in
+    each palette. The 4 misses were the `accent` slides, whose solid top bar came out as the
+    spectrum gradient: Vite's default CSS minifier, lightningcss 1.32.0, rewrites
+    `border-image: none` to an empty `border-image:`, which the browser drops. Today's published
+    `@laticent/lattice/css` export minifies the same way through Vite. Two declarations in the
+    engine had the shorthand (`accent` in `lib/shared/shared.styles.css`, `tone-edge` in
+    `lib/base/base.variants.css`). Both now reset the longhand, `border-image-source: none`, which
+    draws the same and survives the minifier. Afterwards the bundled pair matched **51 of 51** in
+    both palettes, and 10 of 10 on `examples/status-markers.md`, the deck that uses `tone-edge`.
+    The CLI's own renders did not move: 102 gallery slides and the 10 status-marker slides are
+    pixel-identical before and after the fix, with no fuzz.
+    `test/unit/css/border-image-none-shorthand.test.js` keeps the shorthand out of `lib/` and
+    `themes/`, and `engineering/gotchas/css.md` has the symptom.
   - **Status.** Left for the owner's pick, with the measurement in the follow-up. The
     recommendation there is (b) unless a named consumer needs the palette swap.

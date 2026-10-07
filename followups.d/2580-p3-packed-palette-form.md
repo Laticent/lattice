@@ -43,6 +43,11 @@ packed palette form, prototyped and measured").
 | two-slide panes deck, both palettes | 2/2 | 0/2 | 0/2 |
 | quote gallery at `size: story`, first 7 slides, both palettes | 7/7 | 0/7 | 0/7 |
 
+Built through Vite 8.2.2 (`--bundled`), the candidate matched 47/51 per palette until two engine
+declarations moved from `border-image: none` to `border-image-source: none` (lightningcss empties the
+shorthand; engineering/gotchas/css.md). It now matches 51/51 in both palettes. That fix shipped with
+this measurement, so it is not part of (a)'s cost.
+
 - **(a) publish `slides.css` + `palette/<name>.slides.css`.** Costs: about 25 lines in
   `tools/build-default-bundle.js`, two `exports` entries, a unit test, 1.5 MB unpacked, and a
   public contract that must keep matching the CLI. Limits, both by construction: 16:9 only, and
@@ -56,4 +61,4 @@ packed palette form, prototyped and measured").
 **Recommendation: (b)**, unless the owner names a consumer that needs the in-browser palette swap.
 If (a) is picked, the build is the two loops in `buildPacked()` in the harness, moved into
 `tools/build-default-bundle.js`; then change the harness's `packed` arm to link the files in
-`dist/` and rerun it.
+`dist/`, and rerun it with `--bundled` pointed at a Vite build of the published pair.
