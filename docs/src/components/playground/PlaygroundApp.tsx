@@ -50,7 +50,6 @@ import {
 	walkChipLabel,
 } from '@/lib/playground-controller';
 import { createEngineBridge, type EngineBridge, type PreviewState } from '@/lib/playground-engine';
-import { PLUGIN_DEFAULTS_EVENT } from '@/lib/plugin-admission';
 import { parseDeckMotion } from '@/playground/anima-host-sel';
 import { createAnimaScenes } from '@/playground/anima-scenes.ts';
 import { applyDebug } from '@/playground/debug-overlay.js';
@@ -2528,9 +2527,12 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	// editor re-lints on it (editor.js); the preview kept the render made under the old defaults
 	// until the next keystroke. Through the same scheduler as an edit, for the in-flight guard above;
 	// the defaults are part of every render-cache key, so the render it schedules is a real one.
+	// The event's NAME, not an import of `@/lib/plugin-admission` (PLUGIN_DEFAULTS_EVENT): that module
+	// statically imports the lint bundle, which this page loads lazily, and importing it for one
+	// string made the bundle eager (+110 KB gzip, the route budget's ceiling). editor.js does the same.
 	React.useEffect(() => {
-		window.addEventListener(PLUGIN_DEFAULTS_EVENT, scheduleRender);
-		return () => window.removeEventListener(PLUGIN_DEFAULTS_EVENT, scheduleRender);
+		window.addEventListener('lattice:plugin-defaults', scheduleRender);
+		return () => window.removeEventListener('lattice:plugin-defaults', scheduleRender);
 	}, [scheduleRender]);
 
 	// Trigger the on-demand engine load once the chrome has mounted/painted. The
