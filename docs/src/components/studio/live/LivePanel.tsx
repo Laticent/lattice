@@ -144,7 +144,7 @@ function CallControls({ view, actions }: { view: LiveView; actions: LiveActions 
 					</DropdownMenu>
 				)}
 			</div>
-			<Button size="icon" variant="ghost" onClick={actions.leaveCall} aria-label="Leave call" title="Leave call" className={cn('size-7 text-destructive hover:text-destructive', TOUCH)}>
+			<Button size="icon" variant="outline" onClick={actions.leaveCall} aria-label="Leave call" title="Leave call" className={cn('size-7 border-destructive/50 text-destructive hover:bg-destructive/10 hover:text-destructive', TOUCH)}>
 				<PhoneOff className="size-3.5" />
 			</Button>
 		</div>
