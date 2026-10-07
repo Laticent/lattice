@@ -255,6 +255,11 @@ Review comments never go in. Hidden slides do, and so do speaker notes unless
 you add `--strip-notes`. A theme or component you installed with
 `lattice packages add` travels with the deck.
 
+The deck travels as written, so its theme is the one in its front matter.
+If you theme the export with `-p` instead, the PDF shows that theme but the
+deck re-opens in its own, and the CLI warns you. Put `theme: <name>` in the
+deck to make the theme travel.
+
 ```sh
 npx lattice deck.md deck.pdf --reopenable --strip-notes
 npx lattice deck.md deck.pptx --reopenable

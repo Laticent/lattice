@@ -163,7 +163,12 @@ the only reader.
   payload carries the deck as written, so a deck with no `theme:` line re-opens in the default
   theme, not the one the PDF shows, even though an installed `-p` theme rides along as a
   package. Same for `--size` / `--print`, deliberately. Put the theme in the deck's front matter
-  to make it travel.
+  to make it travel. The CLI says so: when `-p` or `LATTICE_PALETTE` picked a theme the deck
+  will not re-open in (its own `theme:`, else the default), `--reopenable` prints one warning
+  naming both themes and the `theme:` line that fixes it. It stays silent when the two agree,
+  and both arms are in `test/integration/export/reopenable.test.js`. A warning, not a rewrite of
+  the payload: the `.lattice` is the deck as written, and editing its front matter behind the
+  author's back would make the payload stop matching their file.
 
 **Failure is loud.** `--embed-source` warns and writes the PDF without its attachment, because a
 provenance note must not cost the deck. `--reopenable` exits 1 and writes nothing instead: the

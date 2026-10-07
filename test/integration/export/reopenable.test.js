@@ -15,9 +15,10 @@
  *   · two runs seconds apart write identical PDF bytes, and SOURCE_DATE_EPOCH sets the
  *     payload's zip dates and `generatedAt` (pinned like every other PDF date);
  *   · an installed component the deck uses rides along as a package folder;
- *   · a format with no home for it warns rather than dropping the flag silently.
+ *   · a format with no home for it warns rather than dropping the flag silently;
+ *   · `-p` warns when the deck re-opens in another theme, and is silent when it names that one.
  *
- * Slow tier: eight CLI renders.
+ * Slow tier: ten CLI renders.
  */
 
 const { test, describe } = require('node:test');
@@ -168,6 +169,20 @@ describe('--reopenable (CLI)', () => {
       'packages/component/probe-box/probe-box.manifest.json',
       'packages/component/probe-box/probe-box.styles.css',
     ]);
+  });
+
+  // `-p` themes the render, not the deck, so the `.lattice` re-opens in another theme. Both
+  // arms run: a warning that fired on every `-p` would pass the first and fail the second.
+  test('-p on a deck that names another theme warns, naming both themes and the fix', { timeout: TIMEOUT }, () => {
+    const r = exportDeck(path.join(tmp(), 'deck.pdf'), ['-q', '-p', 'cuoio']);
+    assert.match(r.stderr, /--reopenable: this export is themed cuoio by -p cuoio, but the embedded deck re-opens in the default theme, indaco/);
+    assert.match(r.stderr, /put `theme: cuoio` in the deck's front matter/);
+  });
+
+  test('-p is silent when the deck already names that theme', { timeout: TIMEOUT }, () => {
+    const deck = DECK.replace('title: Halcyon quarterly', 'title: Halcyon quarterly\ntheme: cuoio');
+    const r = exportDeck(path.join(tmp(), 'deck.pptx'), ['-q', '-p', 'cuoio'], {}, deck);
+    assert.doesNotMatch(r.stderr, /--reopenable:/);
   });
 
   test('a format with no home for the deck says so instead of dropping the flag', { timeout: TIMEOUT }, () => {
