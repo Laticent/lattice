@@ -68,6 +68,18 @@ export interface Shape {
 	radii: [number, number, number, number];
 }
 
+/**
+ * A rule: one side of a box's border drawn on its own (a heading underline, a table
+ * hairline), px. The ends are the border strip's ends; the line runs down its middle.
+ */
+export interface Line extends Paint {
+	x1: number;
+	y1: number;
+	x2: number;
+	y2: number;
+	width: number;
+}
+
 /** One paragraph's box. Lines are broken where the browser broke them. */
 export interface TextFrame {
 	/** The label box this text sits in, drawn as a shape under it (a pill, a tag). */
@@ -97,6 +109,8 @@ export interface Slide {
 	image: Uint8Array;
 	/** Editable text. Empty in picture mode. */
 	frames: TextFrame[];
+	/** Rules drawn as native lines under the text (editable mode). */
+	lines?: Line[];
 	/** Speaker notes, plain text. */
 	notes?: string | null;
 	/** Alt text for the slide picture. */

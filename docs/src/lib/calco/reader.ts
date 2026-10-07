@@ -37,14 +37,22 @@
  * carries that box as a `shape`, and `hide: true` also takes the box's own paint out of the
  * picture (fill and border colors to transparent, border widths kept so nothing moves), so a
  * writer can draw the box as a native shape under the text without leaving a ghost behind.
+ *
+ * RULES. A box with no fill that draws a solid border on one to three sides (a heading
+ * underline, a table hairline, a list separator) gives each such side as a `line`, square to
+ * the box at both ends, and `hide: true` makes that side's color transparent. A side whose
+ * corners are rounded, or a box that is filled, faded by a filter or mask, tilted, scaled
+ * apart from the slide, cut by a clipping ancestor, or bordered by an image, stays a picture.
  */
-import type { Shape, TextFrame, TextRun, TextStyle } from './types.js';
+import type { Line, Shape, TextFrame, TextRun, TextStyle } from './types.js';
 
 /** What `readSlide` returns. */
 export interface ReadResult {
 	width: number;
 	height: number;
 	frames: TextFrame[];
+	/** Rules: single border sides drawn as native lines (see RULES in the header). */
+	lines: Line[];
 	/** True when the slide's read text is now hidden (call `restoreSlide` after capture). */
 	hidden: boolean;
 }
@@ -411,7 +419,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 		// A box scaled apart from the slide (a focus pop) draws its border and radii scaled too,
 		// which the computed values do not say.
 		const ow = (block as HTMLElement).offsetWidth;
-		if (ow > 0 && Math.abs(r.width / ow - scale) > 0.01 * scale) return null;
+		if (ow > 0 && Math.abs(r.width / scale - ow) > Math.max(1, 0.01 * ow)) return null;
 		const x = (r.left - origin.left) / scale;
 		const y = (r.top - origin.top) / scale;
 		const w = r.width / scale;
@@ -590,6 +598,152 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 		});
 	}
 
+	// ── rules: border sides of unfilled boxes, as lines. See RULES in the header.
+	const lines: Line[] = [];
+	const ruled: Array<[HTMLElement, string[]]> = [];
+	const ruleSides = (el: Element): Array<[string, Line]> => {
+		const cs = win.getComputedStyle(el);
+		if (cs.display === 'none' || cs.visibility !== 'visible') return [];
+		const sides = (['top', 'right', 'bottom', 'left'] as const).map((sd) => [sd, visibleSide(cs, sd)] as const).filter(([, v]) => v);
+		if (!sides.length || sides.length === 4) return [];
+		const bg = parseColor(cs.backgroundColor);
+		if ((bg && bg.a > 0) || cs.backgroundImage !== 'none' || cs.boxShadow !== 'none') return [];
+		if ((cs.borderImageSource && cs.borderImageSource !== 'none') || tilted(el)) return [];
+		// Borders the browser does not paint: a row group, row or column in the separate-borders
+		// model, an empty cell under `empty-cells: hide`. An inline box that wraps draws a border
+		// per line fragment, not one along its union.
+		const table = el.closest('table');
+		const collapsed = !!table && win.getComputedStyle(table).borderCollapse === 'collapse';
+		if (/^table-(row|row-group|header-group|footer-group|column|column-group)$/.test(cs.display) && !collapsed) return [];
+		if (cs.display === 'table-cell' && !collapsed && cs.emptyCells === 'hide' && !/\S/.test(el.textContent || '') && !el.querySelector(Array.from(PICTURE).join(','))) return [];
+		if (/^inline/.test(cs.display) && el.getClientRects().length > 1) return [];
+		// A positioned `::before`/`::after` can sit on the border (a timeline dot); the native line
+		// would be drawn over it.
+		for (const ps of ['::before', '::after'] as const) {
+			const q = win.getComputedStyle(el, ps);
+			if (q.content && q.content !== 'none' && q.content !== 'normal' && (q.position === 'absolute' || q.position === 'fixed')) return [];
+		}
+		const r = el.getBoundingClientRect();
+		const ow = (el as HTMLElement).offsetWidth;
+		const oh = (el as HTMLElement).offsetHeight;
+		// offsetWidth/Height round to whole pixels, so a short box reads up to a pixel off.
+		const off = (got: number, layout: number) => Math.abs(got / scale - layout) > Math.max(1, 0.01 * layout);
+		if (!(ow > 0) || off(r.width, ow) || (oh > 0 && off(r.height, oh))) return [];
+		// Faded, filtered, masked or clipped by an ancestor: the picture's line is not one a
+		// native line can be. A clipping ancestor must hold the whole box.
+		let alpha = 1;
+		for (let p: Element | null = el; p && p !== section.parentElement; p = p.parentElement) {
+			const pcs = win.getComputedStyle(p);
+			const pfx = pcs as unknown as Record<string, string>;
+			if ((pcs.filter && pcs.filter !== 'none') || (pfx.maskImage && pfx.maskImage !== 'none') || (pfx.webkitMaskImage && pfx.webkitMaskImage !== 'none') || (pcs.clipPath && pcs.clipPath !== 'none') || (pcs.mixBlendMode && pcs.mixBlendMode !== 'normal') || (pcs.clip && pcs.clip !== 'auto')) return [];
+			alpha *= Number.parseFloat(pcs.opacity) || 0;
+			const paintContained = /paint|strict|content/.test(pfx.contain || '');
+			if (p !== el && (paintContained || pcs.overflow !== 'visible' || pcs.overflowX !== 'visible' || pcs.overflowY !== 'visible')) {
+				const c = p.getBoundingClientRect();
+				if (r.left < c.left - 0.5 || r.top < c.top - 0.5 || r.right > c.right + 0.5 || r.bottom > c.bottom + 0.5) return [];
+			}
+		}
+		if (!(alpha > 0)) return [];
+		const corner = (v: string) => (Number.parseFloat(v) || 0) > 0;
+		const rounded: Record<string, boolean> = {
+			top: corner(cs.borderTopLeftRadius) || corner(cs.borderTopRightRadius),
+			right: corner(cs.borderTopRightRadius) || corner(cs.borderBottomRightRadius),
+			bottom: corner(cs.borderBottomLeftRadius) || corner(cs.borderBottomRightRadius),
+			left: corner(cs.borderTopLeftRadius) || corner(cs.borderBottomLeftRadius),
+		};
+		const L = (r.left - origin.left) / scale;
+		const T = (r.top - origin.top) / scale;
+		const R = (r.right - origin.left) / scale;
+		const B = (r.bottom - origin.top) / scale;
+		if (L < -0.5 || T < -0.5 || R > boxW + 0.5 || B > boxH + 0.5) return [];
+		const round = (n: number) => Math.round(n * 100) / 100;
+		const out: Array<[string, Line]> = [];
+		// Is the box itself on top all along this strip? Something painted over the border (a
+		// positioned sibling) would end up under the native line. Sampled at the ends and in
+		// between; skipped when the slide is not on screen, where no point can be tested.
+		const onTop = (x1: number, y1: number, x2: number, y2: number) => {
+			for (let k = 0; k <= 8; k++) {
+				const t = Math.min(0.995, Math.max(0.005, k / 8));
+				const px = origin.left + (x1 + (x2 - x1) * t) * scale;
+				const py = origin.top + (y1 + (y2 - y1) * t) * scale;
+				const hit = doc.elementFromPoint(px, py);
+				if (!hit) return true;
+				if (hit !== el && !(el.contains(hit) && !paintsBox(win.getComputedStyle(hit)))) return false;
+			}
+			return true;
+		};
+		for (const [sd, v] of sides) {
+			if (!v || v.st !== 'solid' || rounded[sd]) continue;
+			const w = v.width;
+			const paint = { color: hex(v.c), alpha: Math.round(v.c.a * alpha * 100) / 100, width: w };
+			// A collapsed table cell's box ends on the grid line, and the browser centers the
+			// border on that line, not inside the box.
+			const inset = collapsed ? 0 : w / 2;
+			const line =
+				sd === 'top' ? { x1: L, y1: T + inset, x2: R, y2: T + inset }
+				: sd === 'bottom' ? { x1: L, y1: B - inset, x2: R, y2: B - inset }
+				: sd === 'left' ? { x1: L + inset, y1: T, x2: L + inset, y2: B }
+				: { x1: R - inset, y1: T, x2: R - inset, y2: B };
+			// A collapsed cell border straddles the grid line, where a hit test lands on whichever
+			// cell or row is tested first (a 1px hairline beside a striped row fails it every
+			// time), so those skip it; who paints a shared edge is settled below instead.
+			if (!collapsed && !onTop(line.x1, line.y1, line.x2, line.y2)) continue;
+			out.push([sd, { x1: round(line.x1), y1: round(line.y1), x2: round(line.x2), y2: round(line.y2), ...paint }]);
+		}
+		return out;
+	};
+	// In a collapsed table cells (and rows) share each inner edge and the browser paints ONE
+	// border there (CSS 2.1 §17.6.2.1): the wider; on a tie a cell's over a row's over a row
+	// group's; then the earlier one. The losers are dropped, but their sides are still hidden,
+	// since the browser drew the edge as the winner's.
+	const sameEdge = (a: Line, b: Line) =>
+		(a.y1 === a.y2) === (b.y1 === b.y2) &&
+		(a.y1 === a.y2 ? Math.abs(a.y1 - b.y1) < 0.6 && Math.min(a.x2, b.x2) - Math.max(a.x1, b.x1) > 1 : Math.abs(a.x1 - b.x1) < 0.6 && Math.min(a.y2, b.y2) - Math.max(a.y1, b.y1) > 1);
+	const RANK: Record<string, number> = { 'table-cell': 3, 'table-row': 2, 'table-row-group': 1, 'table-header-group': 1, 'table-footer-group': 1 };
+	type Entry = { el: HTMLElement; side: string; line: Line; rank: number };
+	const entries: Entry[] = [];
+	for (const el of Array.from(section.querySelectorAll('*'))) {
+		if (el.closest('svg, math') || SKIP.has(el.localName.toLowerCase())) continue;
+		const got = ruleSides(el);
+		if (!got.length) continue;
+		const tableOf = el.closest('table');
+		const rank = tableOf && win.getComputedStyle(tableOf).borderCollapse === 'collapse' ? RANK[win.getComputedStyle(el).display] || 0 : 0;
+		for (const [side, line] of got) entries.push({ el: el as HTMLElement, side, line, rank });
+	}
+	// Cluster the collapsed-table lines by shared edge. A cluster whose lines all span the same
+	// stretch has one winner, drawn, and every member's side hidden; one whose spans differ
+	// (a row's border across columns where only one cell also has one) is left to the picture.
+	const keep = new Set<Entry>();
+	const clusters: Entry[][] = [];
+	for (const e of entries) {
+		if (!e.rank) {
+			keep.add(e);
+			continue;
+		}
+		const home = clusters.find((c) => sameEdge(c[0].line, e.line));
+		if (home) home.push(e);
+		else clusters.push([e]);
+	}
+	const hiddenToo = new Set<Entry>();
+	for (const c of clusters) {
+		const span = (l: Line) => (l.y1 === l.y2 ? [l.x1, l.x2] : [l.y1, l.y2]);
+		const [a0, a1] = span(c[0].line);
+		if (!c.every((e) => Math.abs(span(e.line)[0] - a0) <= 1 && Math.abs(span(e.line)[1] - a1) <= 1)) continue;
+		let win2 = c[0];
+		for (const e of c.slice(1)) if (e.line.width > win2.line.width || (e.line.width === win2.line.width && e.rank > win2.rank)) win2 = e;
+		keep.add(win2);
+		for (const e of c) if (e !== win2) hiddenToo.add(e);
+	}
+	const sidesOf = new Map<HTMLElement, string[]>();
+	for (const e of entries) {
+		if (keep.has(e)) lines.push(e.line);
+		if (!keep.has(e) && !hiddenToo.has(e)) continue;
+		const list = sidesOf.get(e.el) || [];
+		list.push(e.side);
+		sidesOf.set(e.el, list);
+	}
+	for (const [el, sides] of sidesOf) ruled.push([el, sides]);
+
 	// ── hide. FIRST CHOICE: wrap each text node that was read in an inline element that is
 	// itself transparent. Nothing else changes — not the owner's color, so its `::marker`,
 	// `::before`/`::after` and every `currentColor` background or icon stay exactly as drawn,
@@ -745,24 +899,30 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 	if (options?.hide && textOwners.size) {
 		if (!wrapHide()) freezeHide();
 		hidden = true;
-		// The labels' boxes go after the text, so the text hide's paint check sees them as
-		// they were. Undone first, before the text, since each restore puts back the style
-		// attribute it found.
-		if (labels.length) {
-			const undoText = host.__calcoRestore;
-			const saved = labels.map((el) => [el, el.getAttribute('style')] as const);
-			for (const el of labels) {
-				const st = (el as HTMLElement).style;
-				st.setProperty('background-color', 'transparent', 'important');
-				for (const sd of ['top', 'right', 'bottom', 'left']) st.setProperty(`border-${sd}-color`, 'transparent', 'important');
-			}
-			host.__calcoRestore = () => {
-				for (const [el, s] of saved) flushStyle(el, s);
-				undoText?.();
-			};
-		}
 	}
-	return { width: boxW, height: boxH, frames, hidden };
+	// The labels' boxes and the rules go after the text, so the text hide's paint check sees
+	// them as they were. Undone first, before the text, since each restore puts back the
+	// style attribute it found.
+	if (options?.hide && (labels.length || ruled.length)) {
+		const undoText = host.__calcoRestore;
+		const touched = [...new Set([...labels, ...ruled.map(([el]) => el)])];
+		const saved = touched.map((el) => [el, el.getAttribute('style')] as const);
+		// A transition on a border or background color would outrank the inline `!important`
+		// for its duration, and the picture would still hold the box.
+		for (const el of touched) (el as HTMLElement).style.setProperty('transition', 'none', 'important');
+		for (const el of labels) {
+			const st = (el as HTMLElement).style;
+			st.setProperty('background-color', 'transparent', 'important');
+			for (const sd of ['top', 'right', 'bottom', 'left']) st.setProperty(`border-${sd}-color`, 'transparent', 'important');
+		}
+		for (const [el, sides] of ruled) for (const sd of sides) el.style.setProperty(`border-${sd}-color`, 'transparent', 'important');
+		host.__calcoRestore = () => {
+			for (const [el, s] of saved) flushStyle(el, s);
+			undoText?.();
+		};
+		hidden = true;
+	}
+	return { width: boxW, height: boxH, frames, lines, hidden };
 }
 
 /** Undo `readSlide(section, { hide: true })`. Safe to call when nothing is hidden. */

@@ -436,3 +436,172 @@ describe('calco reader — labels under the freeze fallback', () => {
     }
   });
 });
+
+// Rules (decision note 2026-10-07-calco-native-shapes.md): one to three solid border sides of
+// an unfilled box become lines; hiding clears just those sides' colors.
+const RULE_FIXTURE = `<!doctype html><html><head><style>
+  body { margin: 0; font-family: sans-serif; }
+  section { width: 1280px; height: 720px; position: relative; background: #fff; color: #000; }
+  section > * { position: absolute; margin: 0; font-size: 16px; }
+  .mast { left: 40px; top: 20px; width: 600px; border-bottom: 2px solid #8c8497; }
+  table { left: 40px; top: 100px; border-collapse: collapse; }
+  td { border-bottom: 1px solid rgba(0, 0, 0, 0.5); padding: 4px 8px; }
+  .round { left: 700px; top: 20px; width: 200px; height: 40px; border-left: 3px solid #c00; border-radius: 8px 0 0 8px; }
+  .filled { left: 700px; top: 80px; width: 200px; height: 40px; background: #eee; border-left: 3px solid #c00; }
+  .dashed { left: 700px; top: 140px; width: 200px; height: 40px; border-top: 2px dashed #c00; }
+  .clip { left: 700px; top: 200px; width: 100px; height: 40px; overflow: hidden; }
+  .clip div { width: 300px; height: 20px; border-bottom: 2px solid #c00; }
+</style></head><body>
+<section id="r2">
+  <div class="mast"><h2>Masthead</h2></div>
+  <table><tr><td>a</td><td>b</td></tr><tr><td>c</td><td>d</td></tr></table>
+  <div class="round">Round</div>
+  <div class="filled">Filled</div>
+  <div class="dashed">Dashed</div>
+  <div class="clip"><div>Clipped</div></div>
+</section></body></html>`;
+
+describe('calco reader — rules', () => {
+  let browser;
+  let page;
+  before(async () => {
+    browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+    page = await browser.newPage();
+    await page.setViewport({ width: 1280, height: 720 });
+    await page.setContent(RULE_FIXTURE, { waitUntil: 'load' });
+  });
+  after(async () => {
+    await browser?.close();
+  });
+
+  test('a solid side of an unfilled box is a line down the middle of its border strip', { timeout: 60000 }, async () => {
+    const res = await (await page.$('#r2')).evaluate(readSlide);
+    const mast = await page.evaluate(() => {
+      const r = document.querySelector('.mast').getBoundingClientRect();
+      return { l: r.left, r: r.right, b: r.bottom };
+    });
+    const under = res.lines.find((l) => l.color === '#8c8497');
+    const mid = Math.round((mast.b - 1) * 100) / 100; // coordinates come rounded to 1/100 px
+    assert.deepEqual(under, { x1: mast.l, y1: mid, x2: mast.r, y2: mid, color: '#8c8497', alpha: 1, width: 2 });
+    const cells = res.lines.filter((l) => l.color === '#000000');
+    assert.equal(cells.length, 4, 'one hairline per cell');
+    assert.ok(cells.every((l) => l.alpha === 0.5 && l.y1 === l.y2));
+    assert.ok(!res.lines.some((l) => l.color === '#cc0000'), 'rounded, filled, dashed and clipped sides stay in the picture');
+  });
+
+  test('hiding clears only the ruled sides, moves nothing, and restores exactly', { timeout: 60000 }, async () => {
+    const r2 = await page.$('#r2');
+    const before = await page.evaluate(() => document.body.innerHTML);
+    const look = () => page.evaluate(() => ['.mast', '.round', 'td'].map((sel) => {
+      const el = document.querySelector(sel);
+      const cs = getComputedStyle(el);
+      const r = el.getBoundingClientRect();
+      return { bottom: cs.borderBottomColor, left: cs.borderLeftColor, box: [r.left, r.top, r.width, r.height].join() };
+    }));
+    const shown = await look();
+    await r2.evaluate(readSlide, { hide: true });
+    const hidden = await look();
+    assert.equal(hidden[0].bottom, 'rgba(0, 0, 0, 0)', 'the masthead rule is out of the picture');
+    assert.equal(hidden[2].bottom, 'rgba(0, 0, 0, 0)', 'so is the cell hairline');
+    assert.equal(hidden[1].left, shown[1].left, 'a rounded side keeps its color');
+    assert.deepEqual(hidden.map((h) => h.box), shown.map((s) => s.box), 'nothing moved');
+    await r2.evaluate(restoreSlide);
+    assert.equal(await page.evaluate(() => document.body.innerHTML), before, 'the DOM is back exactly');
+  });
+});
+
+// What the browser actually paints, case by case (the slice-2 checker's findings): a line
+// must match the paint, or the side stays in the picture.
+const PAINT_FIXTURE = `<!doctype html><html><head><style>
+  body { margin: 0; font-family: sans-serif; }
+  section { width: 1280px; height: 720px; position: relative; background: #fff; }
+  section > * { position: absolute; margin: 0; }
+  table { border-collapse: collapse; font-size: 14px; }
+  td { padding: 0 8px; height: 30px; }
+  .grid { left: 40px; top: 40px; }
+  .grid td { border-bottom: 2px solid #f00; }
+  .tie { left: 300px; top: 40px; }
+  .tie tr:first-child td { border-bottom: 4px solid #f00; }
+  .tie tr:last-child td { border-top: 4px solid #00f; }
+  .wide { left: 500px; top: 40px; }
+  .wide tr:first-child td { border-bottom: 2px solid #f00; }
+  .wide tr:last-child td { border-top: 6px solid #00f; }
+  .rowcell { left: 700px; top: 40px; }
+  .rowcell tr:first-child { border-bottom: 4px solid #f00; }
+  .rowcell tr:first-child td:first-child { border-bottom: 4px solid #00f; }
+  .sep { left: 40px; top: 200px; border-collapse: separate; }
+  .sep tr { border-bottom: 3px solid #f00; }
+  .under { left: 300px; top: 200px; width: 300px; height: 30px; border-bottom: 3px solid #f00; }
+  .cover { left: 400px; top: 220px; width: 40px; height: 30px; background: #0a0; }
+  .dot { left: 700px; top: 200px; height: 80px; border-left: 4px solid #f00; }
+  .dot::before { content: ""; position: absolute; left: -7px; top: 30px; width: 10px; height: 10px; background: #0a0; }
+  .fade { left: 40px; top: 320px; width: 200px; height: 20px; border-bottom: 2px solid #f00; transition: border-color 10s; }
+</style></head><body>
+<section id="pf">
+  <table class="grid"><tr><td>a</td><td>b</td></tr><tr><td>c</td><td>d</td></tr></table>
+  <table class="tie"><tr><td>a</td></tr><tr><td>b</td></tr></table>
+  <table class="wide"><tr><td>a</td></tr><tr><td>b</td></tr></table>
+  <table class="rowcell"><tr><td>a</td><td>b</td></tr><tr><td>c</td><td>d</td></tr></table>
+  <table class="sep"><tr><td>a</td></tr></table>
+  <div class="under"></div><div class="cover"></div>
+  <div class="dot"></div>
+  <div class="fade"></div>
+</section></body></html>`;
+
+describe('calco reader — rules match the paint', () => {
+  let browser;
+  let page;
+  let lines;
+  before(async () => {
+    browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+    page = await browser.newPage();
+    await page.setViewport({ width: 1280, height: 720 });
+    await page.setContent(PAINT_FIXTURE, { waitUntil: 'load' });
+    ({ lines } = await (await page.$('#pf')).evaluate(readSlide));
+  });
+  after(async () => {
+    await browser?.close();
+  });
+  const box = (sel) => page.evaluate((s) => {
+    const r = document.querySelector(s).getBoundingClientRect();
+    return { l: r.left, r: r.right, t: r.top, b: r.bottom };
+  }, sel);
+  const within = (l, b) => l.x1 >= b.l - 1 && l.x2 <= b.r + 1 && l.y1 >= b.t - 4 && l.y1 <= b.b + 4;
+
+  test('a collapsed cell border is centered on the grid line', { timeout: 60000 }, async () => {
+    const cell = await box('.grid tr:first-child td');
+    const grid = await box('.grid');
+    const mine = lines.filter((l) => l.color === '#ff0000' && within(l, grid));
+    assert.ok(mine.some((l) => Math.abs(l.y1 - Math.round(cell.b * 100) / 100) < 0.01), `a line on the grid line ${cell.b}: ${JSON.stringify(mine)}`);
+  });
+
+  test('a shared edge is drawn once: the earlier cell on a tie, the wider one otherwise', { timeout: 60000 }, async () => {
+    const tieBox = await box('.tie');
+    const tie = lines.filter((l) => within(l, tieBox));
+    assert.deepEqual(tie.map((l) => l.color), ['#ff0000'], 'the top cell wins a tie, and the edge is one line');
+    const wideBox = await box('.wide');
+    const wide = lines.filter((l) => within(l, wideBox));
+    assert.deepEqual(wide.map((l) => [l.color, l.width]), [['#0000ff', 6]], 'the wider border wins');
+  });
+
+  test('borders the browser does not paint, or that a native line could not match, stay in the picture', { timeout: 60000 }, async () => {
+    for (const [sel, why] of [
+      ['.rowcell', 'a row border across columns that one cell also borders'],
+      ['.sep', 'a row border in the separate model paints nothing'],
+      ['.under', 'a sibling painted over the border'],
+      ['.dot', 'a positioned ::before on the border'],
+    ]) {
+      const b = await box(sel);
+      assert.equal(lines.filter((l) => within(l, b)).length, 0, why);
+    }
+  });
+
+  test('a border-color transition does not keep the hidden side in the picture', { timeout: 60000 }, async () => {
+    const pf = await page.$('#pf');
+    const before = await page.evaluate(() => document.body.innerHTML);
+    await pf.evaluate(readSlide, { hide: true });
+    assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('.fade')).borderBottomColor), 'rgba(0, 0, 0, 0)');
+    await pf.evaluate(restoreSlide);
+    assert.equal(await page.evaluate(() => document.body.innerHTML), before);
+  });
+});

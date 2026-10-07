@@ -208,6 +208,47 @@ validate with 0 errors against `pml.xsd` (`xmllint`) and the Open XML SDK 3.3.0;
 24.2 draws every label where the PDF has it, and the slide picture under them no longer
 holds the tag boxes.
 
+## 8. Slice 2 as built: rules (2026-10-07)
+
+A rule is one side of a border drawn on its own. Measured first: on the three decks the
+one-sided borders are the title underline (`cell-masthead`, bottom, on nearly every slide),
+table hairlines (collapsed `td` bottoms, plus left edges on one grid), list separators (`li`
+tops) and a few underlines. Accent edges on FILLED boxes (`li.state`, the muted-tier cards)
+belong to the cards slice; dashed borders (the journey's mood line) stay pictures.
+
+- **Reader** (`reader.ts`, RULES). Any element with no fill, image or shadow that draws one
+  to three solid sides gives each side as a `line` (`types.ts` `Line`): the border strip's
+  full length, down its middle, the side's color and width, faded by any ancestor opacity.
+  A side with a rounded corner, or an element that is tilted, scaled apart from the slide,
+  filtered, masked, clip-pathed, blended or not wholly inside a clipping ancestor, stays a
+  picture. Rules are slide-level (`ReadResult.lines`, `Slide.lines`), because the border is
+  usually not on the block that holds the text (the masthead's rule is on a wrapper around
+  the `h2`); the CLI, the Studio and the /calco page pass them through.
+- **What the browser actually paints** (the checker on this slice found each case). A line
+  must match the paint or the side stays a picture:
+  - a side that something else is painted over (a positioned sibling, found by hit-testing
+    along it; a positioned `::before`/`::after` such as a timeline dot) is skipped;
+  - a collapsed table cell's border is centered on the grid line, not inside the box; where
+    cells and rows share an edge the browser paints one border (the wider, then cell over row,
+    then the earlier), so that one is drawn and every member's side hidden; a cluster whose
+    lines span different stretches is left to the picture;
+  - borders that paint nothing (rows and row groups in the separate-borders model, an empty
+    cell under `empty-cells: hide`) and borders cut by `contain: paint` or `clip` give no line;
+  - an inline box that wraps (one border per line fragment) and a box scaled on one axis stay
+    pictures.
+- **Hide.** `hide: true` turns just the ruled sides' colors transparent, after the text, and
+  sets `transition: none` on every element it touches, since a running transition outranks an
+  inline `!important` (labels had the same exposure).
+- **Writers.** The `.odp` draws `draw:line` with `svg:stroke-linecap="butt"`; the `.pptx` a
+  `line` shape, and `tidyPptx` gives it `cap="flat"` (PptxGenJS cannot). Both go after the
+  picture and before every text box, so text sits on top.
+
+Measured on the CLI's `--editable` export: card-tags 9 rules, muted-tier-and-syntax 20, the
+jargon gallery 99; every `.pptx` validates with 0 errors (`xmllint` `pml.xsd` and the Open XML
+SDK). LibreOffice draws each where the PDF has it (checked at 150 dpi on the jargon table),
+and the picture no longer holds them. The muted-tier table's heavier header line is a
+`background-image` gradient on `thead tr`, not a border, so it stays a picture.
+
 ## Appendix: the census script
 
 Run from the repository root: `node box-census.cjs $PWD/card-tags.html …` with

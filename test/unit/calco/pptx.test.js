@@ -173,3 +173,18 @@ describe('calco pptx — labels', () => {
     assert.match(filled, /name="Calco Label 1\.1"[\s\S]*?<a:srgbClr val="2E608A"><a:alpha val="50000"\/><\/a:srgbClr><\/a:solidFill><a:ln><a:noFill\/><\/a:ln>/);
   });
 });
+
+describe('calco pptx — rules', () => {
+  test('a rule is a line shape with flat ends, before every text box', async () => {
+    const deck = { width: 1280, height: 720, slides: [{ image: ONE_PX_PNG, lines: [{ x1: 64, y1: 120.5, x2: 1216, y2: 120.5, width: 2, color: '#8c8497', alpha: 0.5 }], frames: [frame([[{ text: 'Title', style: style() }]])] }] };
+    const zip = await JSZip.loadAsync(await writePptx(PptxGenJS, deck, 'nodebuffer', JSZip));
+    const xml = await zip.file('ppt/slides/slide1.xml').async('string');
+    const rule = xml.match(/<p:sp>(?:(?!<\/p:sp>)[\s\S])*?name="Calco Rule 1\.1"[\s\S]*?<\/p:sp>/);
+    assert.ok(rule, 'the rule is a shape');
+    assert.match(rule[0], /<a:prstGeom prst="line">/);
+    assert.match(rule[0], /<a:ext cx="\d+" cy="0"\/>/, 'a horizontal rule has no height');
+    // 2px on a 1280px slide is 1.5pt (19050 EMU).
+    assert.match(rule[0], /<a:ln w="19050" cap="flat"><a:solidFill><a:srgbClr val="8C8497"><a:alpha val="50000"\/>/);
+    assert.ok(xml.indexOf('Calco Rule 1.1') < xml.indexOf('>Title</a:t>'), 'the rule is under the text');
+  });
+});

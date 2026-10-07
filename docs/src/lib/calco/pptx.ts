@@ -18,6 +18,10 @@
  * `text-transform` is applied to the text itself: PptxGenJS exposes no all-caps flag, so an
  * uppercase label is stored in capitals.
  *
+ * RULES: a rule (a heading underline, a hairline) is a `line` shape under every text box,
+ * named `Calco Rule …`; `tidyPptx` gives it flat ends (PptxGenJS cannot), so a rule ends
+ * where the border did.
+ *
  * LABELS: a frame that sits in a label (a pill, a tag) gets its box as a shape under its text
  * box. PptxGenJS cannot group, so the pair is named `Calco Label …` and `tidyPptx` wraps it
  * in a `p:grpSp` when the caller passes JSZip; the label then moves and resizes as one.
@@ -189,6 +193,16 @@ export function buildPptx(PptxGenJS: PptxGenJSClass, deck: Deck, options?: { emb
 		// ALWAYS set altText: PptxGenJS otherwise writes the image's file name, which a
 		// screen reader reads aloud.
 		s.addImage({ data: `image/png;base64,${toBase64(slide.image)}`, x: 0, y: 0, w: slideW, h: slideH, altText: xmlSafe((slide.description || '').trim()) || `Slide ${i + 1}` });
+		(slide.lines || []).forEach((l, k) => {
+			s.addShape('line', {
+				x: inch(Math.min(l.x1, l.x2)),
+				y: inch(Math.min(l.y1, l.y2)),
+				w: inch(Math.abs(l.x2 - l.x1)),
+				h: inch(Math.abs(l.y2 - l.y1)),
+				line: { color: bareHex(l.color), width: points(l.width), transparency: Math.round((1 - l.alpha) * 100) },
+				objectName: `Calco Rule ${i + 1}.${k + 1}`,
+			});
+		});
 		(slide.frames || []).forEach((frame, j) => {
 			const lines = frame.lines;
 			if (!lines.some((l) => l.length)) return;
@@ -280,6 +294,12 @@ function onePPrPerParagraph(xml: string): string {
 	});
 }
 
+/** Flat ends on every rule (`Calco Rule …`): DrawingML's default cap overshoots the ends. */
+function flatRules(xml: string): string {
+	if (!xml.includes('name="Calco Rule ')) return xml;
+	return xml.replace(/<p:sp>(?:(?!<\/p:sp>)[\s\S])*?name="Calco Rule [\d.]+"[\s\S]*?<\/p:sp>/g, (sp) => sp.replace(/<a:ln( w="\d+")?>/, (_m, w: string | undefined) => `<a:ln${w || ''} cap="flat">`));
+}
+
 /**
  * Wrap each label's shape and its text box (`Calco Label i.j`, then `Calco Label i.j Text`,
  * side by side as `buildPptx` writes them) in a `p:grpSp`, so the label moves and resizes as
@@ -322,7 +342,7 @@ async function tidyPptx(zip: ZipLike): Promise<void> {
 	const text = async (name: string) => (zip.file(name) as { async(type: string): Promise<string> }).async('string');
 	for (const name of Object.keys(zip.files).filter((n) => /^ppt\/(slides|notesSlides)\/[^/]+\.xml$/.test(n))) {
 		const xml = await text(name);
-		const tidy = groupLabels(onePPrPerParagraph(xml));
+		const tidy = flatRules(groupLabels(onePPrPerParagraph(xml)));
 		if (tidy !== xml) zip.file(name, tidy);
 	}
 	if (zip.file('ppt/presentation.xml')) {

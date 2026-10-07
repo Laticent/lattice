@@ -85,8 +85,9 @@ nothing, so a headless browser can receive them as source.
 - PowerPoint: weight is bold or not (600 and up is bold), and `text-transform` is applied to
   the text itself. Placement is measured in LibreOffice; PowerPoint is not verified.
 - Shapes: a paragraph whose own box is a plain fill or an all-round border and holds nothing
-  else (a pill, a tag) is written as a native shape grouped with its text. Cards, one-sided
-  borders, rules and anything shadowed, faded or holding an icon are still part of the picture.
+  else (a pill, a tag) is written as a native shape grouped with its text, and one to three
+  solid border sides of an unfilled box (a heading underline, a hairline) as native lines.
+  Cards and anything shadowed, faded or holding an icon are still part of the picture.
 - No native charts, diagrams or equations.
 
 Design, measurements and the LibreOffice behaviors the writers work around:

@@ -200,3 +200,19 @@ describe('calco odp — labels', () => {
     assert.match(xml, /draw:fill="none" draw:stroke="solid" svg:stroke-width="[\d.]+cm" svg:stroke-color="#7b772d" svg:stroke-opacity="50%"/);
   });
 });
+
+describe('calco odp — rules', () => {
+  test('a rule is a draw:line with butt ends, after the picture and before every text box', async () => {
+    const deck = picture(1);
+    deck.slides[0].frames = [frame([[{ text: 'Title', style: style() }]])];
+    deck.slides[0].lines = [{ x1: 64, y1: 120.5, x2: 1216, y2: 120.5, width: 1, color: '#8c8497', alpha: 0.4 }];
+    const xml = await read((await open(deck)).zip, 'content.xml');
+    assert.match(xml, /<\/draw:frame><draw:line draw:style-name="gl1" draw:name="Rule 1\.1" svg:x1="[\d.]+cm" svg:y1="[\d.]+cm" svg:x2="[\d.]+cm" svg:y2="[\d.]+cm"\/><draw:frame draw:style-name="gr1"/);
+    assert.match(xml, /style:name="gl1" style:family="graphic"><style:graphic-properties draw:stroke="solid" svg:stroke-width="[\d.]+cm" svg:stroke-color="#8c8497" svg:stroke-opacity="40%" svg:stroke-linecap="butt"/);
+  });
+
+  test('a slide with no rules writes none', async () => {
+    const xml = await read((await open(picture(1))).zip, 'content.xml');
+    assert.doesNotMatch(xml, /<draw:line /);
+  });
+});

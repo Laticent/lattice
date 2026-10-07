@@ -4,7 +4,8 @@
  *
  * Every page is a full-bleed picture with zero or more text boxes on top. A frame that sits in
  * a label (a pill, a tag) is drawn as a group: the label's box as a `draw:custom-shape`,
- * its text box over it, so the two move and resize together. In PICTURE mode
+ * its text box over it, so the two move and resize together. A rule (a heading underline, a
+ * hairline) is a `draw:line` with butt ends, under every text box. In PICTURE mode
  * the picture is the whole slide and there are no boxes; in EDITABLE mode the picture is the
  * slide with its text hidden and every paragraph is a real text box, in its own font, which
  * is embedded in the file. One code path writes both.
@@ -18,7 +19,7 @@
 import { type FontMetrics, faceFor, facesUsed, readFontMetrics, uniqueFaceNames } from './fonts.js';
 import { dominantStyle, metricsFor, placeFrame, shapeOutline } from './layout.js';
 import { renameFace } from './sfnt.js';
-import type { Deck, EmbeddedFont, JSZipClass, Shape, TextStyle } from './types.js';
+import type { Deck, EmbeddedFont, JSZipClass, Line, Shape, TextStyle } from './types.js';
 
 export const ODP_MIMETYPE = 'application/vnd.oasis.opendocument.presentation';
 
@@ -242,6 +243,21 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 		);
 	};
 
+	const lineStyles = new Map<string, string>();
+	const lineXml = (l: Line, name: string): string => {
+		const key = JSON.stringify([l.width, l.color, l.alpha]);
+		let style = lineStyles.get(key);
+		if (!style) {
+			style = `gl${lineStyles.size + 1}`;
+			lineStyles.set(key, style);
+			automatic.push(
+				`<style:style style:name="${style}" style:family="graphic"><style:graphic-properties draw:stroke="solid" svg:stroke-width="${cm(l.width)}" svg:stroke-color="${l.color}"` +
+					`${l.alpha < 1 ? ` svg:stroke-opacity="${Math.round(l.alpha * 100)}%"` : ''} svg:stroke-linecap="butt" draw:shadow="hidden"/></style:style>`,
+			);
+		}
+		return `<draw:line draw:style-name="${style}" draw:name="${xmlEscape(name)}" svg:x1="${cm(l.x1)}" svg:y1="${cm(l.y1)}" svg:x2="${cm(l.x2)}" svg:y2="${cm(l.y2)}"/>`;
+	};
+
 	const metricsCache = new Map<EmbeddedFont, FontMetrics | null>();
 	const pages = deck.slides.map((slide, i) => {
 		const n = i + 1;
@@ -271,7 +287,7 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 			`<draw:image xlink:href="Pictures/slide${pad3(i)}.png" xlink:type="simple" xlink:show="embed" xlink:actuate="onLoad"/>` +
 			// Alt text: LibreOffice reads svg:title as the picture's title, svg:desc as its description.
 			`<svg:title>${xmlEscape(`Slide ${n}`)}</svg:title><svg:desc>${xmlEscape(alt)}</svg:desc>` +
-			`</draw:frame>${boxes}${notesXml}</draw:page>`
+			`</draw:frame>${(slide.lines || []).map((l, k) => lineXml(l, `Rule ${n}.${k + 1}`)).join('')}${boxes}${notesXml}</draw:page>`
 		);
 	});
 

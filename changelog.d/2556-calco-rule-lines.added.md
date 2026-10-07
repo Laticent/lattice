@@ -1,0 +1,1 @@
+- Editable office export: rules (a heading underline, a table hairline, a list separator) are now native lines in the `.odp` and the `.pptx`, under the text, with flat ends; the slide picture no longer holds them. Dashed borders and accent edges on filled boxes stay part of the picture.
