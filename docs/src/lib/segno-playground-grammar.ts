@@ -17,6 +17,12 @@ export type Helpers = Record<string, (...args: never[]) => unknown>;
 export class GrammarSourceError extends Error {}
 
 const MAX_NESTING = 64;
+// The grammar's EXPANDED size: a reused name counts in full each time, because the compiler and
+// the code generator walk it in full each time. Without this, `const c1 = seq(c0, c0);` repeated
+// 28 times is under 1 KB of text and 2^28 pieces, and compiling it froze the tab for seconds.
+// The presets are under 100; 10,000 compiles and generates in milliseconds.
+export const MAX_EXPANDED = 10_000;
+const MAX_DIGITS = 9;
 
 type Token =
   | { kind: 'ident'; value: string; line: number; col: number }
@@ -61,6 +67,7 @@ function tokenize(src: string): Token[] {
     if (/[0-9]/.test(c)) {
       const start = i;
       while (i < src.length && /[0-9]/.test(src[i])) i++;
+      if (i - start > MAX_DIGITS) fail(`a number longer than ${MAX_DIGITS} digits is not something a grammar helper takes`, start);
       out.push({ kind: 'number', value: Number(src.slice(start, i)), line, col });
       continue;
     }
@@ -73,7 +80,7 @@ function tokenize(src: string): Token[] {
         if (d === c) { i++; break; }
         if (d === '\\') {
           const e = src[i + 1];
-          if (e === undefined || !(e in ESCAPES)) fail(`\`\\${e ?? ''}\` is not an escape this box reads (use \\n, \\t, \\\\, \\' or \\")`, i);
+          if (e === undefined || !(e in ESCAPES)) fail(`\`\\${e ?? ''}\` is not an escape this box reads (use \\n, \\t, \\r, \\0, \\\\, \\' or \\")`, i);
           value += ESCAPES[e];
           i += 2;
           continue;
@@ -100,6 +107,14 @@ export function readGrammarSource(src: string, helpers: Helpers): unknown {
   const toks = tokenize(src);
   let p = 0;
   const names = new Map<string, unknown>();
+  const sizes = new Map<string, number>();
+  let expanded = 0;
+  const grow = (t: Token, by: number) => {
+    expanded += by;
+    if (expanded > MAX_EXPANDED) {
+      fail(t, `this grammar expands to more than ${MAX_EXPANDED.toLocaleString('en-US')} pieces once each name is counted everywhere it is used — reuse a rule with ref() instead of copying it`);
+    }
+  };
   const at = (t: Token) => `line ${t.line}, column ${t.col}`;
   const show = (t: Token) => (t.kind === 'end' ? 'the end' : t.kind === 'string' ? 'a string' : `\`${t.value}\``);
   const fail = (t: Token, msg: string): never => { throw new GrammarSourceError(`${at(t)}: ${msg}`); };
@@ -112,13 +127,14 @@ export function readGrammarSource(src: string, helpers: Helpers): unknown {
   function value(depth: number): unknown {
     const t = toks[p];
     if (depth > MAX_NESTING) fail(t, `the grammar nests deeper than ${MAX_NESTING} levels`);
-    if (t.kind === 'string' || t.kind === 'number') { p++; return t.value; }
+    if (t.kind === 'string' || t.kind === 'number') { grow(t, 1); p++; return t.value; }
     if (t.kind === 'punct' && t.value === '{') return object(depth + 1);
     if (t.kind === 'ident') {
       p++;
       if (isPunct('(')) {
         const helper = Object.hasOwn(helpers, t.value) ? helpers[t.value] : undefined;
         if (!helper) return fail(t, `\`${t.value}\` is not a grammar helper — use one of ${Object.keys(helpers).join(', ')}`);
+        grow(t, 1);
         p++;
         const args: unknown[] = [];
         while (!isPunct(')')) {
@@ -130,6 +146,7 @@ export function readGrammarSource(src: string, helpers: Helpers): unknown {
         return (helper as (...a: unknown[]) => unknown)(...args);
       }
       if (!names.has(t.value)) fail(t, `\`${t.value}\` is not defined — name it with \`const ${t.value} = …;\` first`);
+      grow(t, sizes.get(t.value) ?? 0);
       return names.get(t.value);
     }
     return fail(t, `expected a helper call, a string, a number, a name or \`{\`, found ${show(t)}`);
@@ -144,8 +161,9 @@ export function readGrammarSource(src: string, helpers: Helpers): unknown {
       const key = String(k.value);
       p++;
       if (isPunct(':')) { p++; obj[key] = value(depth); }
-      else if (k.kind === 'ident' && names.has(key)) obj[key] = names.get(key); // `{ start }` shorthand
-      else fail(toks[p], `expected \`:\` after the key \`${key}\``);
+      else if (k.kind === 'ident' && names.has(key)) { grow(k, sizes.get(key) ?? 0); obj[key] = names.get(key); } // `{ start }` shorthand
+      else if (k.kind === 'ident' && !isPunct(',') && !isPunct('}')) fail(toks[p], `expected \`:\` after the key \`${key}\``);
+      else fail(k, `\`${key}\` is not defined — write \`${key}: …\`, or name it first with \`const ${key} = …;\``);
       if (!isPunct(',')) break;
       p++;
     }
@@ -162,7 +180,9 @@ export function readGrammarSource(src: string, helpers: Helpers): unknown {
       if (names.has(String(name.value))) fail(name, `\`${name.value}\` is already defined`);
       p++;
       expect('=', '`=`');
+      const before = expanded;
       names.set(String(name.value), value(0));
+      sizes.set(String(name.value), expanded - before);
       expect(';', '`;` at the end of the line');
       continue;
     }

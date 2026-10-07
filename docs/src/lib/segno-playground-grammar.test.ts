@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { alt, any, charRange, chars, compile, generate, lit, many, many1, node, noneOf, opt, ref, seq } from './segno';
-import { GrammarSourceError, readGrammarSource } from './segno-playground-grammar';
+import { GrammarSourceError, MAX_EXPANDED, readGrammarSource } from './segno-playground-grammar';
 
 const DSL = { alt, any, charRange, chars, lit, many, many1, node, noneOf, opt, ref, seq };
 const page = readFileSync(resolve(__dirname, '../pages/segno.astro'), 'utf8');
@@ -57,8 +57,37 @@ describe('readGrammarSource', () => {
     expect(() => readGrammarSource(deep, DSL)).toThrow(/nests deeper than 64/);
   });
 
+  it('refuses a grammar that doubles itself through reused names, before compile ever sees it', () => {
+    // The checker's case: under 1 KB of text, 2^28 pieces; compiling it on the page froze the tab.
+    const lines = ["const c0 = seq('a', 'b');"];
+    for (let n = 1; n <= 28; n++) lines.push(`const c${n} = seq(c${n - 1}, c${n - 1});`);
+    const src = `${lines.join('\n')}\nreturn { start: 's', rules: { s: c28 } };`;
+    expect(src.length).toBeLessThan(1024);
+    const t0 = performance.now();
+    expect(() => readGrammarSource(src, DSL)).toThrow(/expands to more than 10,000 pieces/);
+    expect(performance.now() - t0).toBeLessThan(50);
+  });
+
+  it('anything under the size cap compiles and generates quickly', () => {
+    // A doubling chain that fits: c10 is 2,047 pieces, and with the definitions counted too the
+    // whole grammar is about 6k of the 10k cap.
+    const lines = ["const c0 = 'a';"];
+    for (let n = 1; n <= 10; n++) lines.push(`const c${n} = seq(c${n - 1}, c${n - 1});`);
+    const spec = readGrammarSource(`${lines.join('\n')}\nreturn { start: 's', rules: { s: c10 } };`, DSL);
+    const t0 = performance.now();
+    compile(spec as Parameters<typeof compile>[0]);
+    generate(spec as Parameters<typeof generate>[0]);
+    expect(performance.now() - t0).toBeLessThan(500);
+    expect(MAX_EXPANDED).toBe(10_000);
+  });
+
+  it('a shorthand key with no const says it is not defined; a huge number is refused', () => {
+    expect(() => readGrammarSource('return { start, rules: {} };', DSL)).toThrow(/`start` is not defined — write `start: …`/);
+    expect(() => readGrammarSource("return { start: 's', rules: { s: lit(99999999999999999999) } };", DSL)).toThrow(/longer than 9 digits/);
+  });
+
   it('reads a long hostile paste in linear time', () => {
-    const src = `const a = 'x';\n${'// note\n'.repeat(50_000)}return { start: 's', rules: { s: seq(${"'a', ".repeat(20_000)}'b') } };`;
+    const src = `const a = 'x';\n${'// note\n'.repeat(50_000)}return { start: 's', rules: { s: seq(${"'a', ".repeat(5_000)}'b') } };`;
     const t0 = performance.now();
     readGrammarSource(src, DSL);
     expect(performance.now() - t0).toBeLessThan(1000);
