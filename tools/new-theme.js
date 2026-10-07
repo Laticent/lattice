@@ -3,11 +3,11 @@
  * Scaffold a new Lattice palette from the indaco template.
  *
  * Usage:
- *   npm run new:theme <name>           # creates themes/<name>.css
- *                                      # and    themes/<name>-dark.css
+ *   npm run new:theme <name>           # creates themes/<name>/<name>.css
+ *                                      # and    themes/<name>-dark/<name>-dark.css
  *   node tools/new-theme.js <name>     # equivalent direct invocation
  *
- * The new files copy themes/indaco.css and themes/indaco-dark.css verbatim,
+ * The new files copy themes/indaco/indaco.css and themes/indaco-dark/indaco-dark.css verbatim,
  * with the @theme directive rewritten and a single TODO(palette) checklist
  * block inserted at the top of the light file. The DIAGRAM OVERRIDES
  * section in lattice.css references --diagram-* tokens by var(--token),
@@ -20,12 +20,13 @@
 
 
 const fs   = require('fs');
+const { themeEntries, themePath } = require('../lib/theme/files.js');
 const path = require('path');
 
 const ROOT          = path.join(__dirname, '..');
 const THEMES_DIR    = path.join(ROOT, 'themes');
-const TEMPLATE      = path.join(THEMES_DIR, 'indaco.css');
-const TEMPLATE_DARK = path.join(THEMES_DIR, 'indaco-dark.css');
+const TEMPLATE      = path.join(THEMES_DIR, 'indaco', 'indaco.css');
+const TEMPLATE_DARK = path.join(THEMES_DIR, 'indaco-dark', 'indaco-dark.css');
 
 const NAME_RE  = /^[a-z][a-z0-9_-]{1,31}$/;
 // A visibly-unset picker dot: the author replaces it, and it is obvious in the menu
@@ -38,7 +39,7 @@ const PLACEHOLDER_SWATCH = '#FF00FF';
 // eventually is not. See engineering/decisions/2026-08-09-theme-token-contract.md.
 const RESERVED = new Set([
   'lattice',
-  ...fs.readdirSync(THEMES_DIR)
+  ...themeEntries(THEMES_DIR)
     .filter((f) => f.endsWith('.manifest.json'))
     .map((f) => f.replace(/\.manifest\.json$/, '')),
 ]);
@@ -130,7 +131,7 @@ function transformPalette(src, name) {
   ];
   for (const [re, label] of checks) {
     if (!re.test(src)) {
-      bail(`themes/indaco.css no longer matches expected pattern: ${label}. ` +
+      bail(`themes/indaco/indaco.css no longer matches expected pattern: ${label}. ` +
            `Update tools/new-theme.js.`);
     }
   }
@@ -159,7 +160,7 @@ function transformDarkWrapper(src, name) {
   ];
   for (const [re, label] of checks) {
     if (!re.test(src)) {
-      bail(`themes/indaco-dark.css no longer matches expected pattern: ${label}. ` +
+      bail(`themes/indaco-dark/indaco-dark.css no longer matches expected pattern: ${label}. ` +
            `Update tools/new-theme.js.`);
     }
   }
@@ -181,15 +182,18 @@ function main() {
   }
   if (RESERVED.has(name)) bail(`name "${name}" is reserved or already in use.`);
 
-  const outLight = path.join(THEMES_DIR, `${name}.css`);
-  const outDark  = path.join(THEMES_DIR, `${name}-dark.css`);
+  const outLight = path.join(THEMES_DIR, name, `${name}.css`);
+  const outDark  = path.join(THEMES_DIR, `${name}-dark`, `${name}-dark.css`);
 
-  if (fs.existsSync(outLight)) bail(`themes/${name}.css already exists — refusing to overwrite.`);
-  if (fs.existsSync(outDark))  bail(`themes/${name}-dark.css already exists — refusing to overwrite.`);
+  if (fs.existsSync(outLight)) bail(`themes/${name}/${name}.css already exists — refusing to overwrite.`);
+  if (fs.existsSync(outDark))  bail(`themes/${name}-dark/${name}-dark.css already exists — refusing to overwrite.`);
 
   const tmplLight = fs.readFileSync(TEMPLATE, 'utf8');
   const tmplDark  = fs.readFileSync(TEMPLATE_DARK, 'utf8');
 
+  // One folder per theme (portable-packages phase 5): the light face and the dark one each get their own.
+  fs.mkdirSync(path.dirname(outLight), { recursive: true });
+  fs.mkdirSync(path.dirname(outDark), { recursive: true });
   fs.writeFileSync(outLight, transformPalette(tmplLight, name));
   fs.writeFileSync(outDark,  transformDarkWrapper(tmplDark, name));
 
@@ -200,12 +204,12 @@ function main() {
   // the template's placeholder accent and listed in the next-steps below.
   // `order` is position WITHIN the picker group, not across all themes — a new palette
   // lands at the end of `more`, so it is the count of existing `more` entries.
-  const moreCount = fs.readdirSync(THEMES_DIR)
+  const moreCount = themeEntries(THEMES_DIR)
     .filter((f) => f.endsWith('.manifest.json'))
-    .map((f) => JSON.parse(fs.readFileSync(path.join(THEMES_DIR, f), 'utf8')))
+    .map((f) => JSON.parse(fs.readFileSync(themePath(THEMES_DIR, f), 'utf8')))
     .filter((m) => m.role === 'base' && m.tier === 'more').length;
-  fs.writeFileSync(path.join(THEMES_DIR, `${name}.manifest.json`), `${JSON.stringify({
-    $schema: './theme.schema.json',
+  fs.writeFileSync(path.join(THEMES_DIR, name, `${name}.manifest.json`), `${JSON.stringify({
+    $schema: '../theme.schema.json',
     name,
     role: 'base',
     family: 'brand',
@@ -215,8 +219,8 @@ function main() {
     order: moreCount,
     swatch: PLACEHOLDER_SWATCH,
   }, null, 2)}\n`);
-  fs.writeFileSync(path.join(THEMES_DIR, `${name}-dark.manifest.json`), `${JSON.stringify({
-    $schema: './theme.schema.json',
+  fs.writeFileSync(path.join(THEMES_DIR, `${name}-dark`, `${name}-dark.manifest.json`), `${JSON.stringify({
+    $schema: '../theme.schema.json',
     name: `${name}-dark`,
     role: 'variant-dark',
     extends: name,
@@ -225,15 +229,15 @@ function main() {
   }, null, 2)}\n`);
 
   process.stdout.write(
-    `Created themes/${name}.css\n` +
-    `        themes/${name}-dark.css\n` +
-    `        themes/${name}.manifest.json\n` +
-    `        themes/${name}-dark.manifest.json\n` +
+    `Created themes/${name}/${name}.css\n` +
+    `        themes/${name}-dark/${name}-dark.css\n` +
+    `        themes/${name}/${name}.manifest.json\n` +
+    `        themes/${name}-dark/${name}-dark.manifest.json\n` +
     `\n` +
     `Next:\n` +
-    `  1. Open themes/${name}.css; the TODO(palette) checklist at the top\n` +
+    `  1. Open themes/${name}/${name}.css; the TODO(palette) checklist at the top\n` +
     `     lists every edit point in order of impact.\n` +
-    `  1b. Set \`swatch\` in themes/${name}.manifest.json to the palette's picker dot\n` +
+    `  1b. Set \`swatch\` in themes/${name}/${name}.manifest.json to the palette's picker dot\n` +
     `     (it is stamped ${PLACEHOLDER_SWATCH} for now), and \`tier\`/\`order\` if it\n` +
     `     should sit in the curated group. Then run \`npm run theme-catalog:build\`.\n` +
     `  2. Edit the brand axis first; everything else hangs off it.\n` +

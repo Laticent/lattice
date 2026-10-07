@@ -881,3 +881,42 @@ it is the record of what was wrong.
   `settings`, `instructions` and `onDeviceInstructions` the right type when present (a
   pre-split backup lacks them). A refusal names the file and the field ("`chats` should be an
   object of chat histories by deck, but it is null") and says nothing was changed.
+- **Phase 5, themes into folders: done (2026-10-06); the motion library is not started.** Every
+  shipped theme is now `themes/<name>/<name>.css` beside `themes/<name>/<name>.manifest.json`, one
+  folder per theme like every other kind, and `kinds.js` gives themes the `folder` layout. The one
+  blocker recorded in `followups.d/2314-p4-themes-into-folders.md`, an external desktop wrapper
+  that might read flat theme paths off disk, is gone: #2552 records that the desktop app is built in
+  this repository and does not exist yet, so no embedder outside the repo reads `themes/`.
+  - **The published path still resolves.** `package.json` `exports` maps `./themes/*.css` to
+    `./themes/*/*.css` and `./themes/*.manifest.json` to `./themes/*/*.manifest.json`, beside
+    `./themes/*`. Node ranks pattern keys by specificity, not by their order in the file (the
+    checker reordered them in a packed consumer and every subpath resolved the same), so the order
+    is only for reading; the followup's "the more specific pattern has to come first" was wrong. Measured from a packed tarball on Node
+    22.22: `@laticent/lattice/themes/indaco.css` resolves to `themes/indaco/indaco.css`, the
+    manifest likewise, and `themes/theme.schema.json` and `themes/README.md` through `./themes/*`.
+    A pattern holds one `*`, so the folder path `@laticent/lattice/themes/indaco/indaco.css` does
+    NOT resolve through `exports`; the flat name is the published one. A consumer that read
+    `node_modules/@laticent/lattice/themes/<name>.css` off disk must read the folder path now, and
+    so must a CDN's raw file URL (unpkg, jsDelivr), which ignores `exports`.
+  - **A parked `themes/_name/` folder is skipped** by the gates and the builds, as every package
+    walk skips `_` folders. A flat `themes/_wip.css` used to be read by the theme gates; a deck
+    can still name `theme: _wip` and the CLI renders it, ungated, as it renders any folder it finds.
+  - **Outputs stay flat.** `dist/themes/<name>-min.css`, the Marp export's `themes/<name>.css`, the
+    Marp kit and the docs site's `…/playground/v/<hash>/themes/<name>.css` are build outputs and
+    keep their layout: a Marp user still registers one folder of theme files.
+  - **One walk.** `lib/packages/fs.js` `listFolderPackages` replaces `listFlatPackages` for the
+    theme gates in `check-ownership.js`. The tools and tests that listed `themes/` themselves go
+    through `lib/theme/files.js`: `themeEntries` keeps the old flat listing's shape (base names,
+    loose files included) and `themePath` maps a base name back to its folder, so each walk changed
+    in two calls, not in its logic. `themeTarget` writes a test's mutated copy of the corpus in the
+    folder shape. The manifest-schema sweep reads the theme family as folders (the flat branch is
+    gone, and a parked `themes/_name/` is skipped by both walks), and each theme manifest's
+    `$schema` is now `../theme.schema.json`.
+  - **Why the tests were trusted after the move.** The walks that found nothing after the move
+    FAILED rather than passing empty: the suite asserts "saw 0" in a dozen places (the theme set,
+    the palette set, the dark wrappers), so a walk still reading the flat layout shows up red. One
+    gate had no such floor, `checkPackedRootReach`, which would have checked zero files in silence;
+    it was found by reading every remaining `readdirSync` over a themes directory, not by a test.
+  - **Still open:** the theme manifest schema does not take `type` and `format` yet (the entry for
+    phase 1 above), and the shipped motion library is not started. Both stay in
+    `followups.d/2314-p4-themes-into-folders.md`.

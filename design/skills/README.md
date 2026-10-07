@@ -28,7 +28,7 @@ skill. The other five are authorable end-to-end from the file.
 | You want to create… | Open |
 |---|---|
 | A **deck** — a full presentation from a blank `.md` | [`deck.md`](./deck.md) |
-| A **theme** — a palette (`themes/<name>.css`) | [`theme.md`](./theme.md) |
+| A **theme** — a palette (`themes/<name>/<name>.css`) | [`theme.md`](./theme.md) |
 | A **component** — a new `<!-- _class: X -->` layout | [`component.md`](./component.md) |
 | A **chart component** — a data visualization in the chart family | [`chart-component.md`](./chart-component.md) |
 | A **finish** — a `finish:` backdrop layer stack | [`finish.md`](./finish.md) |

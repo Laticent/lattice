@@ -572,8 +572,70 @@ What the wall cannot reach is syntax. `import()` is not a name on the global, so
 column shows it on every engine; under the policy it reached nothing on all three. The policy
 has no `'unsafe-eval'`, and under it `eval` and `Function` reached nothing (the probe cannot tell a
 refused `eval` from a blocked fetch inside it); behind the wall alone they build code with no `fetch`
-left to call. A gate that refuses a dynamic `import(` in the source is pending
-(`followups.d/2435-p3-worker-syntax-paths-policy-only.md`).
+left to call.
+
+**The syntax path, closed (2026-10-06, followup 2435-p3).** So `import()` was one engine policy bug
+away from a request, the shape of the Gecko `EventSource` gap. Two changes close it without leaning
+on the policy:
+- **A gate parses the code** (`lib/packages/code-syntax.mjs`, acorn) and refuses a package whose
+  code holds an `ImportExpression`, wherever it sits. It parses the exact script the worker runs
+  (`workerScript`'s output, a classic script), not the file as a module: a classic script reads
+  `<!--` and a line-leading `-->` as comments where a module does not, so a check that parsed the
+  module could be shown a different program than the one that runs. A script acorn cannot parse is
+  refused, not run unread. It runs where the shape check runs: `refusePackage` (`add`, `list`,
+  render), the Studio's import (`package-zip.ts`, which loads acorn only when a zip holds code), and
+  both runners (`checkedWorkerScript` in `code-sandbox.js` and `runner.ts`), so a Studio record
+  saved before the gate, or a folder placed by hand, is refused on the very text it would load.
+  acorn moved from a dev dependency to a dependency for it. It stays out of `code-shape.mjs`, which
+  is in the site's eager bundle.
+- **No string becomes code in the worker**, so code built at run time cannot write an `import()`
+  the gate never saw. The wall removes `ShadowRealm`, and makes `eval`, `Function` and the
+  `constructor` on each kind of function's prototype (plain, async, generator, async generator:
+  `(()=>{}).constructor` IS `Function`) into stubs that throw `EvalError`. Stubs, not `undefined`:
+  the first cut set them to `undefined`, and the inversion lens measured an esbuild bundle of
+  lodash-es `isPlainObject` failing to load, since library code reads `Function.prototype` and tests
+  `instanceof Function` without building code. Each stub keeps its kind's `prototype`, so those
+  still work. `setTimeout` and `setInterval` become guards that take a function and throw on a
+  string, calling the original through a `Reflect.apply` captured before the bundle runs. Each pin
+  is checked like the network names, and the package does not load if one survives. None of the 31
+  bundles `codePackages()` builds uses any of them, and all 29 conformance packages in
+  `code-package-parity.test.js` still match byte for byte.
+- **Cost.** A parse is 35 to 40 ms for a typical shipped bundle (1.1 to 1.5 s for all 31 on the
+  host). The verdict is remembered for the last 32 scripts in each process: the Studio parses a
+  package once per tab, and a record its runner refused is remembered by digest, not re-parsed on
+  each render. The CLI's gate and its runner live in different processes (`code-door.js` spawns
+  the runner), so a CLI render parses a used package twice, about 40 ms each. An `import()` in dead code a bundler left behind (a library's Node-only branch) is
+  refused too: harmless under the policy, but the gate cannot tell dead code from live, and the
+  refusal names the line and column so the author can drop it.
+- **What the red team tried and could not break** (Chromium and a single-realm V8 harness): the
+  Function constructor through any intrinsic's `constructor` chain (`Number.constructor`,
+  `({}).constructor.constructor`, a bound function's prototype), all of which reached the log
+  server with no wall and none with it; `import()` in dead code, a class field, a template, and a
+  body that closes the wrapper early (all refused); HTML comments, U+2028 and an escaped `import`
+  keyword, where acorn and V8 agreed. Not removed, on purpose: `WebAssembly`, which builds code from
+  bytes but has no network and no `import()` unless handed one.
+
+Measured with the same throwaway probe, extended to these arms (a literal `import()`, and `import()`
+built by indirect `eval`, `Function`, an arrow's and an async function's `constructor`, and a
+string `setTimeout`), plus the network arms above:
+
+| Browser | Shipped (policy + wall) | Wall alone | Policy alone | Neither (control) |
+|---|---|---|---|---|
+| Playwright Chromium 141.0.7390.37 | 0 | **0** | 0 | 13 of 13 |
+| Playwright Firefox 142.0.1 | 0 | **0** | 2 (`EventSource`, `FontFace`) | 13 of 13 |
+| Playwright WebKit 26.0 | 0 | **0** | 0 | 12 of 13 (no font load even unwalled) |
+| Chrome 154.0.8037.57 (WebDriver) | 0 | **0** | 0 | 13 of 13 |
+| Firefox 156.0 (WebDriver) | 0 | **0** | 0 | 13 of 13 |
+| Safari 26.6.2 (WebDriver) | 0 | **0** | 0 | 12 of 13 (no font load even unwalled) |
+
+The 13 arms are fetch, XMLHttpRequest, WebSocket, EventSource, `importScripts`, `FontFace`, a
+prototype's `fetch`, a literal `import()` (in the unwalled package only: the gate refuses the walled
+one before a worker exists, and the probe prints that refusal on every job), and `import()` built
+five ways. "Wall alone" now reads 0 on every engine, where it read 1 (`import()`) before. Two more
+arms checked the parse differential the red team could not test off Chromium: an `import()` behind
+`<!--` and one behind a line-leading `-->`, which acorn reads as comments and the gate passes. They
+reached nothing in any configuration on all six browsers, the control included, so each engine
+read them as comments too. Run from `claude/sandbox-probe-run` (run 37540765206).
 
 **The Studio's door** (`docs/src/lib/code-packages/`). Every Studio render goes through
 `renderMarkdown` (`docs/src/lib/render-engine.ts`), and it goes through `door.ts`:
@@ -644,8 +706,9 @@ parity test logs how many class tokens the door strips from each (from 5 for `vi
   preview's render found unapproved.
 
 **Measured on the real Studio** (`docs/e2e/code-packages.spec.ts`, desktop Chromium): a hostile
-package imported through the Library tries fetch, WebSocket, `importScripts`, `import()`,
-EventSource, a nested worker, WebRTC to a UDP port and a navigation, and returns a section naming a
+package imported through the Library tries fetch, WebSocket, `importScripts`, `import()` built at
+run time (indirect `eval`, `Function`, a constructor, a string timer; since 2026-10-06 a literal
+`import()` is refused at the import, which a second test drives on the real Library), EventSource, a nested worker, WebRTC to a UDP port and a navigation, and returns a section naming a
 local server seven ways and forging a speaker note. Unapproved: the slide shows the author's content
 and the note, the notice offers the code with its SHA-256, and nothing reaches the HTTP server or
 the UDP socket. Approved: it draws, still nothing reaches either, the preview holds no reference to

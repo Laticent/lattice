@@ -67,7 +67,7 @@ a state mark, so they belong to the first meaning.
 | **Categorical** | The twelve colors a chart or diagram cycles through. |
 | **Contrast ratio** | How different two colors are in lightness. 21:1 is black on white. |
 | **`light-dark()`** | A CSS function naming both canvases at once: light value first, dark second. |
-| **Manifest** | `themes/<name>.manifest.json` — the palette's identity. No colors except one swatch for the picker. |
+| **Manifest** | `themes/<name>/<name>.manifest.json` — the palette's identity. No colors except one swatch for the picker. |
 
 ## Components
 

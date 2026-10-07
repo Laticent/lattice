@@ -72,7 +72,7 @@ describe("a dark bookend's inline-code eyebrow is legible at either heading leve
     browser = await puppeteer.launch({ executablePath: resolveChrome(), args: ['--no-sandbox'] });
     page = await browser.newPage();
     const bundle = fs.readFileSync(path.join(ROOT, 'dist', 'lattice.css'), 'utf8');
-    const theme = fs.readFileSync(path.join(ROOT, 'themes', 'indaco.css'), 'utf8');
+    const theme = fs.readFileSync(path.join(ROOT, 'themes', 'indaco', 'indaco.css'), 'utf8');
     cases = [];
     for (const c of BOOKENDS) for (const h of LEVELS) cases.push([c, h]);
     const html =
@@ -163,7 +163,7 @@ describe("a dark bookend's inline-code eyebrow is legible at either heading leve
 
   test('every inline treatment stays readable on every dark surface, under every canvas register', async () => {
     const bundle = fs.readFileSync(path.join(ROOT, 'dist', 'lattice.css'), 'utf8');
-    const theme = fs.readFileSync(path.join(ROOT, 'themes', 'indaco.css'), 'utf8');
+    const theme = fs.readFileSync(path.join(ROOT, 'themes', 'indaco', 'indaco.css'), 'utf8');
     const probe = await browser.newPage();
 
     const combos = [];

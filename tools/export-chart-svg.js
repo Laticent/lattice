@@ -100,8 +100,8 @@ async function main() {
   // --text-body) + the `.chart-key-*` rules live here; without them the detached
   // chart computes black/serif.
   const latticeCss = fs.readFileSync(path.join(ROOT, 'dist', 'lattice.css'), 'utf8');
-  const themePath = path.join(ROOT, 'themes', `${theme}.css`);
-  if (!fs.existsSync(themePath)) { console.error(`unknown theme '${theme}' (no themes/${theme}.css)`); process.exit(2); }
+  const themePath = path.join(ROOT, 'themes', theme, `${theme}.css`);
+  if (!fs.existsSync(themePath)) { console.error(`unknown theme '${theme}' (no themes/${theme}/${theme}.css)`); process.exit(2); }
   const themeCss = fs.readFileSync(themePath, 'utf8');
 
   // slideBox: pin each section to its intrinsic @size box so container-type:size

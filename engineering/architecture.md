@@ -452,8 +452,8 @@ for the item, holding `<name>.manifest.json` plus role files (`<name>.styles.css
 Themes and components are discovered through `fs.js`: `loadAll`, the theme catalog,
 `listThemeManifests`/`listThemeFiles` and `checkPackageIdentity` all share it, and
 `tools/build-packages-index.js` writes `lib/packages/packages.generated.json` from it.
-Themes are still flat files (`themes/<name>.css`), which is the `flat` layout; moving
-them into folders is phase 5 of the note.
+Themes are folders, `themes/<name>/<name>.css` beside `<name>.manifest.json` (the `folder` layout,
+phase 5 of the note); `lib/theme/files.js` is the helper the tools and tests list them with.
 
 ## Plugins: capabilities as packages
 
@@ -499,7 +499,7 @@ references. See [skill.md](../design/skill.md) for the existing layouts and
 their authoring contracts.
 
 If a layout needs new color tokens (not just rearrangements of
-existing ones), add them to `themes/indaco.css` (and any other palette)
+existing ones), add them to `themes/indaco/indaco.css` (and any other palette)
 with semantic names
 that describe the role rather than the appearance. `--accent-soft`
 beats `--pale-blue-bg` because the role survives a palette swap.

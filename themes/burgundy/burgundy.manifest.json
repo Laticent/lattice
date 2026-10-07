@@ -1,0 +1,14 @@
+{
+  "$schema": "../theme.schema.json",
+  "name": "burgundy",
+  "role": "base",
+  "family": "brand",
+  "tier": "more",
+  "modes": [
+    "light",
+    "dark"
+  ],
+  "darkCounterpart": "burgundy-dark",
+  "order": 4,
+  "swatch": "#742532"
+}

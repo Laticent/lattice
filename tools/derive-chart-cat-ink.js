@@ -59,6 +59,7 @@
  */
 
 const fs = require('node:fs');
+const { themeEntries, themePath } = require('../lib/theme/files.js');
 const path = require('node:path');
 const { resolveTokenExpr } = require('../lib/core/resolve-token-expr');
 const { hexToOklch, contrastRatio } = require('../lib/theme/color.js');
@@ -86,7 +87,7 @@ const END = '  /* ── end chart categorical ink ── */';
 function paletteSource(name) {
 	const base = fs.readFileSync(path.join(ROOT, 'lib', 'base', 'base.tokens.css'), 'utf8');
 	const chain = themeChain(name, THEME_EDGES)
-		.map((n) => path.join(THEMES_DIR, `${n}.css`))
+		.map((n) => path.join(THEMES_DIR, n, `${n}.css`))
 		.filter((f) => fs.existsSync(f))
 		.map((f) => fs.readFileSync(f, 'utf8'));
 	return [base, ...chain].join('\n');
@@ -221,14 +222,13 @@ function writeBlock(file, block) {
 
 /** Palettes that OWN a chart cycle. A theme without one keeps the engine default. */
 function chartCyclePalettes() {
-	return fs
-		.readdirSync(THEMES_DIR)
+	return themeEntries(THEMES_DIR)
 		.filter((f) => f.endsWith('.manifest.json'))
-		.map((f) => JSON.parse(fs.readFileSync(path.join(THEMES_DIR, f), 'utf8')))
+		.map((f) => JSON.parse(fs.readFileSync(themePath(THEMES_DIR, f), 'utf8')))
 		.filter((m) => m.role !== 'variant-dark') // a variant-dark is a color-scheme flip over its base
 		.map((m) => m.name)
 		.filter((t) => {
-			const file = path.join(THEMES_DIR, `${t}.css`);
+			const file = path.join(THEMES_DIR, t, `${t}.css`);
 			return fs.existsSync(file) && /--chart-cat1\s*:/.test(stripComments(fs.readFileSync(file, 'utf8')));
 		})
 		.sort();
@@ -294,13 +294,12 @@ function rampSide(raw, dark) {
  * four solve, none needs a nudge.
  */
 function rampPalettes() {
-	return fs
-		.readdirSync(THEMES_DIR)
+	return themeEntries(THEMES_DIR)
 		.filter((f) => f.endsWith('.manifest.json'))
-		.map((f) => JSON.parse(fs.readFileSync(path.join(THEMES_DIR, f), 'utf8')))
+		.map((f) => JSON.parse(fs.readFileSync(themePath(THEMES_DIR, f), 'utf8')))
 		.filter((m) => m.role !== 'variant-dark') // a variant-dark is a color-scheme flip over its base
 		.map((m) => m.name)
-		.filter((t) => fs.existsSync(path.join(THEMES_DIR, `${t}.css`)))
+		.filter((t) => fs.existsSync(path.join(THEMES_DIR, t, `${t}.css`)))
 		.sort();
 }
 
@@ -563,7 +562,7 @@ function main() {
 		worstShift = Math.max(worstShift, stats.shift);
 		chroma = chroma.concat(stats.chroma);
 		const block = renderBlock(arms);
-		const file = path.join(THEMES_DIR, `${theme}.css`);
+		const file = path.join(THEMES_DIR, theme, `${theme}.css`);
 		const current = fs.readFileSync(file, 'utf8');
 		const at = current.indexOf(BEGIN.trim());
 		const has = at !== -1 && current.slice(current.lastIndexOf('\n', at) + 1).startsWith(block);
@@ -599,7 +598,7 @@ function main() {
 			(m, k) => Math.abs(m - (RAMP_LO + ((RAMP_HI - RAMP_LO) * k) / (RAMP_STEPS - 1))) > 0.001,
 		).length;
 		rampTotal += ramp.mixes.length;
-		const file = path.join(THEMES_DIR, `${theme}.css`);
+		const file = path.join(THEMES_DIR, theme, `${theme}.css`);
 		const current = fs.readFileSync(file, 'utf8');
 		const rampAt = current.indexOf(RAMP_BEGIN.trim());
 		const hasRamp =

@@ -16,7 +16,8 @@
 // The frame's script is the CLI's, byte for byte (FRAME_BOOTSTRAP), so the two doors run a package
 // the same way (HARD RULE #1). What the package returns is sanitized by the caller (door.ts).
 
-import { FRAME_BOOTSTRAP, inlineScript, MAX_OUTPUT_CHARS, sandboxCsp, workerScript } from '../../../../lib/packages/code-door-core.mjs';
+import { FRAME_BOOTSTRAP, inlineScript, MAX_OUTPUT_CHARS, sandboxCsp } from '../../../../lib/packages/code-door-core.mjs';
+import { checkedWorkerScript } from '../../../../lib/packages/code-syntax.mjs';
 
 // `facts` is the slide's plain content (lib/packages/slide-facts.mjs), read by the door, never by the package.
 export type CodeSlide = { html: string; facts?: unknown; index: number; idPrefix?: string; baseUrl?: string };
@@ -44,7 +45,8 @@ type Reply = { t?: string; id?: number; out?: unknown; error?: unknown };
  * frame or the package does not load within `loadMs` (the bundle's top level runs at load).
  */
 export async function openPackageFrame(code: string, { loadMs = 5000 }: { loadMs?: number } = {}): Promise<PackageFrame> {
-	const text = workerScript(code);
+	// Refused here too, for its syntax: a record saved before the import checked it still never runs.
+	const text = checkedWorkerScript(code);
 	const doc = await frameDoc();
 	const frame = document.createElement('iframe');
 	frame.setAttribute('sandbox', 'allow-scripts');

@@ -57,6 +57,7 @@
  */
 
 const { test } = require('node:test');
+const { themeEntries, themePath } = require('../../../lib/theme/files.js');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -87,11 +88,10 @@ const CORPUS_FINGERPRINT = '3b49f539bb83c72a';
 
 /** Every real theme manifest, as [name, manifest] — the population both claims are about. */
 function realManifests() {
-  return fs
-    .readdirSync(THEMES_DIR)
+  return themeEntries(THEMES_DIR)
     .filter((f) => f.endsWith('.manifest.json'))
     .sort()
-    .map((f) => [f.replace(/\.manifest\.json$/, ''), JSON.parse(fs.readFileSync(path.join(THEMES_DIR, f), 'utf8'))]);
+    .map((f) => [f.replace(/\.manifest\.json$/, ''), JSON.parse(fs.readFileSync(themePath(THEMES_DIR, f), 'utf8'))]);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -131,7 +131,7 @@ function retiredWalker(errors, walkerSchema, manifests) {
   };
 
   for (const [name, m] of manifests) {
-    const where = `themes/${name}.manifest.json`;
+    const where = `themes/${name}/${name}.manifest.json`;
 
     // Required — the base set, plus whichever arm of the conditional applies.
     const required = new Set(walkerSchema.required ?? []);
@@ -414,8 +414,8 @@ function mutationCorpus() {
   const byName = new Map(realManifests());
   const base = byName.get('indaco');
   const derived = byName.get('a11y-achromatopsia');
-  assert.ok(base && base.role === 'base', 'seed assumption: themes/indaco.manifest.json is a `base` theme');
-  assert.ok(derived && derived.role !== 'base', 'seed assumption: themes/a11y-achromatopsia.manifest.json is not a `base` theme');
+  assert.ok(base && base.role === 'base', 'seed assumption: themes/indaco/indaco.manifest.json is a `base` theme');
+  assert.ok(derived && derived.role !== 'base', 'seed assumption: themes/a11y-achromatopsia/a11y-achromatopsia.manifest.json is not a `base` theme');
   return [...mutationsFor('indaco', base), ...mutationsFor('a11y-achromatopsia', derived)];
 }
 

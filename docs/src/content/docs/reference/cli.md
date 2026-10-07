@@ -216,4 +216,4 @@ These run from a clone of the repository, not from the installed package.
 | `npm run lint:deck -- <deck.md …>` | Check decks for authoring mistakes, with no browser. `--strict`, `--fix`, `--json`. Exits `1` on an error, `2` on a usage error |
 | `node tools/new-slide.js <layout>` | Print a working skeleton of a layout. `--list` shows them all |
 | `npm run export:marp -- <deck.md> <out.zip> [palette]` | Write a self-contained bundle that renders with `marp-cli` |
-| `npm run new:theme -- <name>` | Start a new palette: `themes/<name>.css`, its `<name>-dark.css` twin and their manifests |
+| `npm run new:theme -- <name>` | Start a new palette: `themes/<name>/<name>.css`, its `<name>-dark.css` twin and their manifests |

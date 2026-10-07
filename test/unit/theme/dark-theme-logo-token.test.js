@@ -39,6 +39,7 @@
  */
 
 const test = require('node:test');
+const { themeEntries, themePath } = require('../../../lib/theme/files.js');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -47,11 +48,11 @@ const ROOT = path.join(__dirname, '..', '..', '..');
 const THEMES = path.join(ROOT, 'themes');
 
 function manifests() {
-  return fs.readdirSync(THEMES)
+  return themeEntries(THEMES)
     .filter((f) => f.endsWith('.manifest.json'))
     .map((f) => ({
       name: f.replace('.manifest.json', ''),
-      role: JSON.parse(fs.readFileSync(path.join(THEMES, f), 'utf8')).role,
+      role: JSON.parse(fs.readFileSync(themePath(THEMES, f), 'utf8')).role,
     }));
 }
 

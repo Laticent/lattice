@@ -31,6 +31,7 @@
  */
 
 const { test, describe } = require('node:test');
+const { themeEntries, themePath, themeTarget } = require('../../../lib/theme/files.js');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -49,7 +50,7 @@ function flatten(name, seen = new Set()) {
   if (seen.has(name)) return '';
   seen.add(name);
   if (name === 'lattice') return fs.readFileSync(path.join(ROOT, 'lib', 'base', 'base.tokens.css'), 'utf8');
-  const file = path.join(THEMES, `${name}.css`);
+  const file = path.join(THEMES, name, `${name}.css`);
   if (!fs.existsSync(file)) return '';
   const css = fs.readFileSync(file, 'utf8');
   let out = '';
@@ -68,7 +69,7 @@ function flatten(name, seen = new Set()) {
 function flattenOwn(name, seen = new Set()) {
   if (name === 'lattice' || seen.has(name)) return '';
   seen.add(name);
-  const file = path.join(THEMES, `${name}.css`);
+  const file = path.join(THEMES, name, `${name}.css`);
   if (!fs.existsSync(file)) return '';
   const css = fs.readFileSync(file, 'utf8');
   let out = '';
@@ -98,15 +99,15 @@ function tokens(css) {
 function themesWithMutation(token) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'latt-hljs-'));
   let patched = null;
-  for (const f of fs.readdirSync(THEMES)) {
-    const src = fs.readFileSync(path.join(THEMES, f), 'utf8');
+  for (const f of themeEntries(THEMES)) {
+    const src = fs.readFileSync(themePath(THEMES, f), 'utf8');
     let out = src;
     const re = new RegExp(`(${token}\\s*:\\s*)#[0-9a-fA-F]{3,8}(\\s*;)`);
     if (!patched && f.endsWith('.css') && re.test(src)) {
       const bg = catResolve(tokens(flatten(f.replace(/\.css$/, ''))), '--code-bg', 'light');
       if (bg) { out = src.replace(re, `$1${bg}$2`); patched = { theme: f, bg }; }
     }
-    fs.writeFileSync(path.join(dir, f), out);
+    fs.writeFileSync(themeTarget(dir, f), out);
   }
   assert.ok(patched, `no theme declares ${token} on a resolvable panel — the mutation is inert`);
   return dir;
@@ -135,7 +136,7 @@ describe('--hljs-* contrast against --code-bg', () => {
 
   test('no shipped value sits under the floor — comments and punctuation included', () => {
     const under = [];
-    for (const f of fs.readdirSync(THEMES).sort()) {
+    for (const f of themeEntries(THEMES).sort()) {
       if (!f.endsWith('.css')) continue;
       const map = tokens(flatten(f.replace(/\.css$/, '')));
       for (const mode of ['light', 'dark']) {
@@ -159,7 +160,7 @@ describe('--hljs-* contrast against --code-bg', () => {
     // different defect from the one that was fixed, and a contrast gate cannot
     // see it — this is the assertion that keeps the fix honest.
     const louder = [];
-    for (const f of fs.readdirSync(THEMES).sort()) {
+    for (const f of themeEntries(THEMES).sort()) {
       if (!f.endsWith('.css')) continue;
       const map = tokens(flatten(f.replace(/\.css$/, '')));
       for (const mode of ['light', 'dark']) {
@@ -191,7 +192,7 @@ describe('--hljs-* contrast against --code-bg', () => {
     const { oklabDistance } = require('../../../lib/theme/color.js');
     const FLOOR_DE = 0.010;
     const collapsed = [];
-    for (const f of fs.readdirSync(THEMES).sort()) {
+    for (const f of themeEntries(THEMES).sort()) {
       if (!f.endsWith('.css')) continue;
       const map = tokens(flatten(f.replace(/\.css$/, '')));
       for (const mode of ['light', 'dark']) {
@@ -222,7 +223,7 @@ describe('--hljs-* contrast against --code-bg', () => {
     const base = tokens(flatten('lattice'));
     const inheriting = [];
     const panels = new Map();
-    for (const f of fs.readdirSync(THEMES).sort()) {
+    for (const f of themeEntries(THEMES).sort()) {
       if (!f.endsWith('.css')) continue;
       const own = tokens(flattenOwn(f.replace(/\.css$/, '')));
       const map = tokens(flatten(f.replace(/\.css$/, '')));

@@ -82,7 +82,7 @@ it.
 - [ ] `<name>-dark.css` is the wrapper and nothing more — the `@theme` line,
       `@import`, and `:root { color-scheme: dark; }`.
 - [ ] All 98 tokens defined directly, not inherited.
-- [ ] `themes/<name>.manifest.json` declares `role: "base"` — that is what
+- [ ] `themes/<name>/<name>.manifest.json` declares `role: "base"` — that is what
       puts the palette in the token-contract suite's scope. `npm run
       new:theme` writes it for you; a theme without it is never tested.
 - [ ] The theme added to `.vscode/settings.json` under

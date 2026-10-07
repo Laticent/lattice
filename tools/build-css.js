@@ -44,6 +44,7 @@
  */
 
 const fs = require('node:fs');
+const { themeEntries, themePath } = require('../lib/theme/files.js');
 const path = require('node:path');
 const { minifyCss } = require('./minify-css');
 const { sizeBlock } = require('../lib/engine/sizes');
@@ -131,10 +132,10 @@ const themeMinBanner = (name) =>
 // { '<name>-min.css': minifiedContent } for every themes/*.css, @theme/@import intact.
 function buildThemes() {
   const out = {};
-  for (const file of fs.readdirSync(THEMES_SRC).sort()) {
+  for (const file of themeEntries(THEMES_SRC).sort()) {
     if (!file.endsWith('.css')) continue;
     const name = file.replace(/\.css$/, '');
-    const src = stampSizeDirectives(distributeLeadingIs(fs.readFileSync(path.join(THEMES_SRC, file), 'utf8')));
+    const src = stampSizeDirectives(distributeLeadingIs(fs.readFileSync(themePath(THEMES_SRC, file), 'utf8')));
     out[`${name}-min.css`] = minifyCss(src, themeMinBanner(name)) + '\n';
   }
   return out;

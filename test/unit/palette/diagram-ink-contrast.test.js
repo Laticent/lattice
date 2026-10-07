@@ -30,6 +30,7 @@
  */
 
 const { test, describe } = require('node:test');
+const { themeEntries } = require('../../../lib/theme/files.js');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -153,7 +154,7 @@ for (const k of ['titleColor', 'xAxisLabelColor', 'xAxisTitleColor', 'yAxisLabel
  *   gitBranchLabel0-7  on `git0-7` = `--cat-N-MARK`, 1.2-3.0:1 EVERYWHERE. The sanction
  *                      asked for "a third ink tier or move the chips to the pale band".
  *                      The third tier already existed — `--cat-on-mark`, with nothing
- *                      pointing at it. `themes/a11y-base.css` additionally pins that ink,
+ *                      pointing at it. `themes/a11y-base/a11y-base.css` additionally pins that ink,
  *                      because the a11y family holds its categorical ramp mode-invariant
  *                      while inheriting a flipping `--cat-on-mark` from onyx.
  *
@@ -220,7 +221,7 @@ const KNOWN_BELOW_AA = new Set([
 function paletteSource(name, seen = new Set()) {
   if (seen.has(name)) return '';
   seen.add(name);
-  const file = path.join(THEMES_DIR, `${name}.css`);
+  const file = path.join(THEMES_DIR, name, `${name}.css`);
   if (!fs.existsSync(file)) return '';
   const css = fs.readFileSync(file, 'utf8');
   let out = '';
@@ -236,7 +237,7 @@ function declaredVars(css) {
 }
 
 const LAYOUT_CSS = fs.readFileSync(path.join(REPO, 'dist', 'lattice.css'), 'utf8');
-const THEMES = fs.readdirSync(THEMES_DIR)
+const THEMES = themeEntries(THEMES_DIR)
   .filter((f) => f.endsWith('.css') && !f.includes('audit'))
   .map((f) => f.replace(/\.css$/, ''))
   .sort();

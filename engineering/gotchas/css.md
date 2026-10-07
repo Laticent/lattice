@@ -636,8 +636,8 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 - **Mitigation:** Wrap defaults in `:where(:root) { … }` to give them
   specificity (0,0,0), so any plain `:root` author override wins
   regardless of source order. Used in
-  [themes/cuoio.css:64](../themes/cuoio.css#L64) and
-  [themes/indaco.css:58](../themes/indaco.css#L58).
+  [themes/cuoio/cuoio.css:64](../themes/cuoio/cuoio.css#L64) and
+  [themes/indaco/indaco.css:58](../themes/indaco/indaco.css#L58).
 - **Triggered by:** Any author-overridable default.
 - **Removable when:** Never — this is the correct CSS pattern.
 

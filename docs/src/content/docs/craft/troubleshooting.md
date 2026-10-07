@@ -118,7 +118,7 @@ and `.gallery.md` are written from it.
 
 **A test passes and proves nothing about your theme.**
 The token-contract suite takes its scope from the manifests. Until
-`themes/<name>.manifest.json` says `role: "base"`, your palette is not in
+`themes/<name>/<name>.manifest.json` says `role: "base"`, your palette is not in
 it.
 
 ## Something is wrong in the lab on this site

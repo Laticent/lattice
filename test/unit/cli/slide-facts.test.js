@@ -6,6 +6,7 @@
  * docs/e2e/code-packages.spec.ts.
  */
 const { test, describe } = require('node:test');
+const { themeEntries } = require('../../../lib/theme/files.js');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -183,13 +184,13 @@ describe('what the facts promise', () => {
     const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(d, e.name)) : e.name.endsWith('.css') ? [path.join(d, e.name)] : []));
     const engineCss = walk(path.join(ROOT, 'lib')).map((f) => fs.readFileSync(f, 'utf8')).join('\n');
     const themeCss = (name) => {
-      const file = path.join(ROOT, 'themes', `${name}.css`);
+      const file = path.join(ROOT, 'themes', name, `${name}.css`);
       if (!fs.existsSync(file)) return '';
       const css = fs.readFileSync(file, 'utf8');
       // A dark or a11y variant wraps its base with `@import '<base>'`.
       return css + [...css.matchAll(/^@import\s+['"]([\w-]+)['"]/gm)].map((m) => themeCss(m[1])).join('');
     };
-    const themes = fs.readdirSync(path.join(ROOT, 'themes')).filter((f) => f.endsWith('.css')).map((f) => f.slice(0, -4));
+    const themes = themeEntries(path.join(ROOT, 'themes')).filter((f) => f.endsWith('.css')).map((f) => f.slice(0, -4));
     assert.ok(themes.length >= 30, `found ${themes.length} themes`);
     const tokens = requiredTokenList();
     for (const t of themes) {

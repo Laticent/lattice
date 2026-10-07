@@ -14,7 +14,7 @@
  * derive by opacity from a seam (--on-accent / --text-body) the theme owns.
  *
  * If this fails: the named theme is missing a curated token. Define it in
- * themes/<name>.css with the palette's own value — do not rely on the fallback.
+ * themes/<name>/<name>.css with the palette's own value — do not rely on the fallback.
  */
 
 const { test, describe } = require('node:test');
@@ -28,7 +28,7 @@ const THEMES_DIR = path.join(__dirname, '..', '..', '..', 'themes');
 // SCOPE COMES FROM THE MANIFESTS, not a hardcoded list. The hardcoded array this
 // replaces named 13 themes and omitted `carta` — a shipped base palette — so this
 // suite silently never tested it, and a hardcoded list cannot report what is missing
-// from it. `themes/<name>.manifest.json` declares `role: "base"`, and
+// from it. `themes/<name>/<name>.manifest.json` declares `role: "base"`, and
 // `checkThemeRoles` (tools/check-ownership.js) proves that declaration against the
 // file's own imports. See engineering/decisions/2026-08-09-theme-token-contract.md.
 const THEMES = baseThemeNames();
@@ -66,7 +66,7 @@ const CONTRACT = [
 
 function ownTokens(name) {
   const stripped = fs
-    .readFileSync(path.join(THEMES_DIR, `${name}.css`), 'utf8')
+    .readFileSync(path.join(THEMES_DIR, name, `${name}.css`), 'utf8')
     .replace(/\/\*[\s\S]*?\*\//g, '');
   const set = new Set();
   for (const m of stripped.matchAll(/--([a-z0-9_-]+)\s*:/gi)) set.add(m[1]);

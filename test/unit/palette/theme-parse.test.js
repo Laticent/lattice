@@ -9,7 +9,7 @@
  *
  * THE POINT OF THE CORPUS SWEEP is that it fails on a naive implementation. A
  * flat token map keyed on `REQUIRED_TOKENS` deletes 48 distinct custom
- * properties across 19 of the 33 shipped themes, turns `themes/ardesia-dark.css`
+ * properties across 19 of the 33 shipped themes, turns `themes/ardesia-dark/ardesia-dark.css`
  * from a dark theme into a light one (`color-scheme` is not a token), and loses
  * the `@import` that carries the entire content of 13 files. Each of those has
  * its own test below, so a regression names its defect instead of just moving a
@@ -26,6 +26,7 @@
  */
 
 const { test, describe } = require('node:test');
+const { themeEntries, themePath } = require('../../../lib/theme/files.js');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -41,8 +42,8 @@ const { serializeTheme, extraNames } = require('../../../lib/theme/serialize.js'
 const { STARTERS } = require('../../../lib/theme/starters.js');
 
 const THEMES_DIR = path.join(__dirname, '..', '..', '..', 'themes');
-const THEME_FILES = fs.readdirSync(THEMES_DIR).filter((f) => f.endsWith('.css')).sort();
-const readTheme = (f) => fs.readFileSync(path.join(THEMES_DIR, f), 'utf8');
+const THEME_FILES = themeEntries(THEMES_DIR).filter((f) => f.endsWith('.css')).sort();
+const readTheme = (f) => fs.readFileSync(themePath(THEMES_DIR, f), 'utf8');
 
 /**
  * An INDEPENDENT census of every selector, at-rule and declaration, via css-tree.
@@ -588,7 +589,7 @@ describe('theme-parse — hazards', () => {
 
     test('a composing theme flattens to what it DECLARES, not to what it renders', () => {
       // Stated so nobody reads a `missing` row off a wrapper as a defect: the record
-      // is one file. `themes/ardesia-dark.css` declares zero tokens and is correct.
+      // is one file. `themes/ardesia-dark/ardesia-dark.css` declares zero tokens and is correct.
       assert.deepEqual(themeTokenMap(parseTheme(readTheme('ardesia-dark.css'))), {});
     });
   });

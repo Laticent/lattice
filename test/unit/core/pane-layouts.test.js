@@ -5,6 +5,7 @@
 // `normalizePaneSyntax`); the linter reads it from text (lib/core/pane-spec.js). Each arm here
 // pins one rule of the note, on the real engine.
 const test = require('node:test');
+const { themeEntries, themePath } = require('../../../lib/theme/files.js');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -23,8 +24,8 @@ function engine() {
   const dir = path.join(ROOT, 'themes');
   e.addThemes([
     { name: 'lattice', css: fs.readFileSync(path.join(ROOT, 'dist/lattice.css'), 'utf8') },
-    ...fs.readdirSync(dir).filter((f) => f.endsWith('.css'))
-      .map((f) => ({ name: f.replace(/\.css$/, ''), css: fs.readFileSync(path.join(dir, f), 'utf8') })),
+    ...themeEntries(dir).filter((f) => f.endsWith('.css'))
+      .map((f) => ({ name: f.replace(/\.css$/, ''), css: fs.readFileSync(themePath(dir, f), 'utf8') })),
   ]);
   return e;
 }

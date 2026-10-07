@@ -195,7 +195,8 @@ describe('the build walk and the identity gate', () => {
       for (const [f, v] of Object.entries(files)) fs.writeFileSync(path.join(root, rel, f), v ?? '');
     };
     write('lib/components/statement/probe-card', componentFiles());
-    write('themes', { ...themeFiles('harbor'), 'README.md': '# not a package file' });
+    write('themes/harbor', themeFiles('harbor'));
+    write('themes', { 'README.md': '# not a package file' });
     return root;
   }
 

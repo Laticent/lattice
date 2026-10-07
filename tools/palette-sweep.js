@@ -127,7 +127,7 @@ function sweepStore() {
   const read = (f) => fs.readFileSync(f, 'utf8');
   _store = cliThemeStore(
     read(path.join(ROOT, 'dist', 'lattice.css')),
-    listAllThemes().map((name) => ({ name, css: read(path.join(ROOT, 'themes', `${name}.css`)) })),
+    listAllThemes().map((name) => ({ name, css: read(path.join(ROOT, 'themes', name, `${name}.css`)) })),
   );
   return _store;
 }

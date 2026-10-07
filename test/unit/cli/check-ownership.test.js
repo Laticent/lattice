@@ -2514,8 +2514,11 @@ describe('check-ownership: checkCommittedPdfs (#1279)', () => {
 describe('theme manifest gates', () => {
   const fixture = (files) => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'theme-manifest-'));
+    // One folder per theme, as themes/ is laid out (themes/<name>/<name>.css).
     for (const [name, body] of Object.entries(files)) {
-      fs.writeFileSync(path.join(dir, name), typeof body === 'string' ? body : `${JSON.stringify(body, null, 2)}\n`);
+      const folder = path.join(dir, name.replace(/\.(?:manifest\.json|css)$/, ''));
+      fs.mkdirSync(folder, { recursive: true });
+      fs.writeFileSync(path.join(folder, name), typeof body === 'string' ? body : `${JSON.stringify(body, null, 2)}\n`);
     }
     return dir;
   };
@@ -2533,7 +2536,7 @@ describe('theme manifest gates', () => {
       checkThemeManifestCoverage(errors, dir);
       assert.equal(errors.length, 2);
       assert.ok(errors.some((e) => /probe\.css has no manifest/.test(e)));
-      assert.ok(errors.some((e) => /ghost\.manifest\.json has no themes\/ghost\.css/.test(e)));
+      assert.ok(errors.some((e) => /ghost\.manifest\.json has no themes\/ghost\/ghost\.css/.test(e)));
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
@@ -2622,7 +2625,7 @@ describe('theme manifest gates', () => {
     try {
       const errors = [];
       checkThemeModes(errors, phantom);
-      assert.ok(errors.some((e) => /themes\/probe-dark\.css does not exist/.test(e)));
+      assert.ok(errors.some((e) => /themes\/probe-dark\/probe-dark\.css does not exist/.test(e)));
     } finally { fs.rmSync(phantom, { recursive: true, force: true }); }
   });
 
@@ -3681,7 +3684,7 @@ describe('check-ownership: checkPackedRootReach (#1797 / the single-root trio)',
     // mode swaps to a `-dark` theme the a11y palettes do not have.
     const { overSpecific } = rootDeclSites(':root:root { color-scheme: light; }');
     assert.deepEqual([...overSpecific.keys()], [], 'the gate must not judge color-scheme');
-    const src = fsx.readFileSync(pathx.join(__dirname, '..', '..', '..', 'themes', 'a11y-base.css'), 'utf8');
+    const src = fsx.readFileSync(pathx.join(__dirname, '..', '..', '..', 'themes', 'a11y-base', 'a11y-base.css'), 'utf8');
     assert.match(src, /^:root \{ color-scheme: light; \}$/m,
       'the PLAIN half is what reaches a packed render — without it the a11y palettes follow the dark toggle');
     assert.match(src, /^:root:root \{ color-scheme: light; \}$/m,

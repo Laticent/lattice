@@ -33,7 +33,7 @@ const { minifyCss } = require('./minify-css');
 const ROOT = path.join(__dirname, '..');
 const ENGINE = path.join(ROOT, 'dist', 'lattice.css');
 const DEFAULT_THEME = 'cuoio';
-const THEME = path.join(ROOT, 'themes', `${DEFAULT_THEME}.css`);
+const THEME = path.join(ROOT, 'themes', DEFAULT_THEME, `${DEFAULT_THEME}.css`);
 const OUTPUT = path.join(ROOT, 'dist', 'lattice-default.css');
 const MIN_OUTPUT = path.join(ROOT, 'dist', 'lattice-default-min.css');
 const MIN_BANNER =
@@ -66,7 +66,7 @@ function paletteTokens() {
   const m = css.match(/^[ \t]*@import\s+['"]lattice['"]\s*;?/m);
   if (!m) {
     throw new Error(
-      `themes/${DEFAULT_THEME}.css has no \`@import 'lattice';\` — cannot locate the token block.`,
+      `themes/${DEFAULT_THEME}/${DEFAULT_THEME}.css has no \`@import 'lattice';\` — cannot locate the token block.`,
     );
   }
   return css.slice(m.index + m[0].length).replace(/^\s+/, '').replace(/\s+$/, '');
@@ -78,6 +78,7 @@ function bundle() {
     BANNER,
     engine,
     '',
+    // The published name (`@laticent/lattice/themes/<name>.css`), kept as it was so the bundle's bytes do not move.
     `/* === default palette: themes/${DEFAULT_THEME}.css (engine import resolved) === */`,
     paletteTokens(),
     '',

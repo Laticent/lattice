@@ -1,5 +1,5 @@
 /**
- * Unit: lib/theme/serialize.js — derived token map → themes/<name>.css text.
+ * Unit: lib/theme/serialize.js — derived token map → themes/<name>/<name>.css text.
  *
  * Proves the emitted CSS (1) names a valid @theme directive, (2) imports the
  * engine, (3) parses back through the SAME parser the contrast gate uses, and

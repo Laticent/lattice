@@ -751,7 +751,7 @@ they always have. Nothing breaks. Nothing changes.
 
 ### 8.2 Theme designers — Finish ownership
 
-Unchanged. Edit `themes/<name>.css`. Stay palette-blind: roles, not
+Unchanged. Edit `themes/<name>/<name>.css`. Stay palette-blind: roles, not
 colors. See `design.md` §1.3 and `design/theming.md`.
 
 ### 8.3 Layout designers — adding a new component

@@ -79,7 +79,7 @@ describe('preview scope detector', () => {
   });
 
   test('theme change → L3', () => {
-    assert.equal(detectScope(['themes/indaco.css']).level, 'L3');
+    assert.equal(detectScope(['themes/indaco/indaco.css']).level, 'L3');
   });
 
   test('renderer (engine) change → L3', () => {

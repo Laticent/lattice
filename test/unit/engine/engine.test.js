@@ -12,6 +12,7 @@
  */
 
 const { test, describe } = require('node:test');
+const { themeEntries, themePath } = require('../../../lib/theme/files.js');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -24,7 +25,7 @@ const ROOT = path.join(__dirname, '..', '..', '..');
 // Stub themes keyed by @theme name — enough for the structural HTML contract
 // (real palettes @import 'lattice'; the page/bundler resolves that, not the
 // engine). One per palette so the `theme:` directive resolves in both engines.
-const THEME_NAMES = ['lattice', ...fs.readdirSync(path.join(ROOT, 'themes'))
+const THEME_NAMES = ['lattice', ...themeEntries(path.join(ROOT, 'themes'))
   .filter((f) => f.endsWith('.css'))
   .map((f) => f.replace(/\.css$/, ''))];
 const THEME_CSS = THEME_NAMES.map((n) => `/* @theme ${n} */\nsection{}`);
@@ -410,8 +411,8 @@ describe('lattice-engine: css emission (P1.1)', () => {
   test('every real *-dark theme resolves its base import to a full sheet', () => {
     const eng = createEngine();
     const themeDir = path.join(ROOT, 'themes');
-    const files = fs.readdirSync(themeDir).filter((f) => f.endsWith('.css'));
-    for (const f of files) eng.addThemes([fs.readFileSync(path.join(themeDir, f), 'utf8')]);
+    const files = themeEntries(themeDir).filter((f) => f.endsWith('.css'));
+    for (const f of files) eng.addThemes([fs.readFileSync(themePath(themeDir, f), 'utf8')]);
     eng.addThemes([fs.readFileSync(path.join(ROOT, 'dist', 'lattice.css'), 'utf8')]);
     const darks = files.map((f) => f.replace(/\.css$/, '')).filter((n) => n.endsWith('-dark'));
     assert.ok(darks.length >= 10, `expected the dark-wrapper set, got ${darks.length}`);
@@ -509,7 +510,7 @@ describe('lattice-engine: css emission (P1.1)', () => {
 // so the assertions stand on their own.)
 describe('lattice-engine: CSS-pack (load-bearing rules)', () => {
   const LATTICE = fs.readFileSync(path.join(ROOT, 'dist/lattice.css'), 'utf8');
-  const PALETTE = fs.readFileSync(path.join(ROOT, 'themes/indaco.css'), 'utf8');
+  const PALETTE = fs.readFileSync(path.join(ROOT, 'themes/indaco/indaco.css'), 'utf8');
   const enginePack = composeCss({ themeCss: PALETTE, baseLatticeCss: LATTICE });
   const strip = (css) => css.replace(/\/\*[\s\S]*?\*\//g, '');
   // The selector block that declares the first match of `re` (e.g. a token).

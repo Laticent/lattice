@@ -75,7 +75,7 @@ test('parser memo: output matches an engine whose memo never warmed', () => {
 function themedEngine() {
 	const { createEngine } = require('../../../lib/engine/index.js');
 	const e = createEngine();
-	e.addThemes([fs.readFileSync(path.join(ROOT, 'dist/lattice-default.css'), 'utf8'), fs.readFileSync(path.join(ROOT, 'themes/indaco.css'), 'utf8')]);
+	e.addThemes([fs.readFileSync(path.join(ROOT, 'dist/lattice-default.css'), 'utf8'), fs.readFileSync(path.join(ROOT, 'themes/indaco/indaco.css'), 'utf8')]);
 	return e;
 }
 

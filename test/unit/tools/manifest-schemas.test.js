@@ -379,14 +379,14 @@ test('BITES: a `$schema` that is absolute, or missing entirely', () => {
       ['absolute', (j) => { j.$schema = 'http://json-schema.org/draft-07/schema#'; }, /an absolute URL/],
       ['missing', (j) => { delete j.$schema; }, /declares no `\$schema`/],
     ]) {
-      const p = path.join(tmp, 'themes/indaco.manifest.json');
+      const p = path.join(tmp, 'themes/indaco/indaco.manifest.json');
       const j = JSON.parse(fs.readFileSync(p, 'utf8'));
       mutate(j);
       fs.writeFileSync(p, JSON.stringify(j, null, 2));
       const errors = [];
       checkFamily(errors, family('theme'), { root: tmp });
       assert.ok(errors.some((e) => pattern.test(e)), `${label}: got ${JSON.stringify(errors)}`);
-      fs.copyFileSync(path.join(ROOT, 'themes/indaco.manifest.json'), p);
+      fs.copyFileSync(path.join(ROOT, 'themes/indaco/indaco.manifest.json'), p);
     }
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
@@ -424,7 +424,7 @@ test('a failing `if`/`then` arm reports the missing field ONCE', () => {
   // ajv reports the conditional alongside the real failure; the hand-written walker
   // this replaced emitted one line, and talking more while saying the same thing is
   // a regression.
-  const noTier = read('themes/indaco.manifest.json');
+  const noTier = read('themes/indaco/indaco.manifest.json');
   delete noTier.tier;
   const errors = biteWith('theme', 'probe.manifest.json', noTier);
   assert.equal(errors.length, 1, `expected one line, got ${JSON.stringify(errors)}`);
@@ -487,20 +487,23 @@ test('a nested dot-directory is NOT skipped — loadAll does not skip one either
   }
 });
 
-test('the flat (theme) family applies no `_` filter, because listThemeManifests does not', () => {
-  // `listThemeManifests` filters on the extension alone. Excluding `_`-prefixed
-  // FILES in the lister while the sweep still saw them manufactured a guaranteed
-  // "no schema family covers" error for a theme every other theme gate reads.
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-flat-'));
+test('a parked `themes/_name/` folder is skipped by the schema lister AND by listThemeManifests', () => {
+  // Themes were the one flat family, and a parked `themes/_wip.manifest.json` was a theme
+  // every theme gate read, so the lister had to claim it too. Since themes moved into
+  // folders (portable-packages phase 5), both walks skip a `_` folder, as every other
+  // package walk does: the two must still agree, or the sweep reports a manifest no
+  // family covers.
+  const { listThemeManifests } = require('../../../tools/check-ownership.js');
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-parked-'));
   try {
     fs.cpSync(path.join(ROOT, 'themes'), path.join(tmp, 'themes'), { recursive: true });
-    fs.copyFileSync(
-      path.join(ROOT, 'themes/indaco.manifest.json'),
-      path.join(tmp, 'themes/_parked.manifest.json'),
-    );
+    fs.mkdirSync(path.join(tmp, 'themes/_parked'));
+    fs.copyFileSync(path.join(ROOT, 'themes/indaco/indaco.manifest.json'), path.join(tmp, 'themes/_parked/_parked.manifest.json'));
     const claimed = listFamilyManifests(family('theme'), tmp);
-    assert.ok(claimed.includes('themes/_parked.manifest.json'), 'the lister must claim it');
-    assert.ok(listAllManifests(tmp).includes('themes/_parked.manifest.json'), 'the sweep must see it');
+    assert.ok(claimed.includes('themes/indaco/indaco.manifest.json'), 'the lister reads the folders');
+    assert.ok(!claimed.some((f) => f.includes('_parked')), 'the lister skips the parked folder');
+    assert.ok(!listAllManifests(tmp).some((f) => f.includes('_parked')), 'and so does the sweep');
+    assert.ok(!listThemeManifests(path.join(tmp, 'themes')).has('_parked'), 'and so does listThemeManifests');
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }

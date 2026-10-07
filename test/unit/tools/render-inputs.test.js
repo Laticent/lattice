@@ -36,7 +36,7 @@ describe('render-inputs: isRenderInput', () => {
     for (const p of [
       'lib/base/base.tokens.css',
       'lib/components/statement/split-panel/split-panel.styles.css',
-      'themes/indaco.css',
+      'themes/indaco/indaco.css',
       'dist/lattice.css',
     ]) assert.equal(isRenderInput(p), true, `${p} should count`);
   });
@@ -52,7 +52,7 @@ describe('render-inputs: isRenderInput', () => {
 
   test('ignores files that change without changing a pixel', () => {
     for (const p of [
-      'themes/indaco.manifest.json',
+      'themes/indaco/indaco.manifest.json',
       'themes/palette-audit.pdf',
       'lib/base/base.docs.md',
       'lib/components/evidence/kpi/kpi.docs.md',

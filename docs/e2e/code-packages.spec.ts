@@ -34,7 +34,13 @@ try { importScripts("${origin}/load-import"); } catch (e) {}
 function tally(slide, kit) {
   try { fetch("${origin}/fetch").catch(function(){}); } catch (e) {}
   try { new WebSocket("${origin.replace('http', 'ws')}/websocket"); } catch (e) {}
-  try { import("${origin}/dynimport").catch(function(){}); } catch (e) {}
+  // A literal import() is refused at the import (the gate parses the code; the next test). Built
+  // at run time it must find no way to become code: eval, Function, a constructor and a string
+  // timer each throw in the worker (lib/packages/code-shape.mjs, "NO CODE FROM STRINGS").
+  try { (0, eval)('import("${origin}/evalimport").catch(function(){})'); } catch (e) {}
+  try { Function('return import("${origin}/fnimport")')().catch(function(){}); } catch (e) {}
+  try { (function(){}).constructor('return import("${origin}/ctorimport")')().catch(function(){}); } catch (e) {}
+  try { setTimeout('import("${origin}/timerimport")', 0); } catch (e) {}
   try { new EventSource("${origin}/eventsource"); } catch (e) {}
   try { var ff = new FontFace("x", "url(${origin}/fontface)"); ff.load().catch(function(){}); self.fonts.add(ff); } catch (e) {}
   try { for (var o = self; o; o = Object.getPrototypeOf(o)) { var d = Object.getOwnPropertyDescriptor(o, "fonts"); if (d && d.get) d.get.call(self).load("12px x").catch(function(){}); if (typeof o.fetch === "function") o.fetch.call(self, "${origin}/protofetch").catch(function(){}); } } catch (e) {}
@@ -188,6 +194,54 @@ test(`a code package runs in the Studio only after consent, sandboxed, and reach
 			server.closeAllConnections();
 			await new Promise((r) => server.close(() => r(null)));
 			udp.close();
+		}
+	});
+}
+
+// ── A package holding a dynamic import() is refused at the Library import ──
+// `import()` is syntax, so the worker's wall cannot remove it; the gate parses the code and refuses
+// the package (lib/packages/code-syntax.mjs, contract note §10). Driven through the real Library
+// import, on all three engines: the toast names the package and why, nothing is saved, the deck that
+// claims it renders as the engine drew it with no code-package notice, no sandbox frame ever opens,
+// and the address inside the import() is never asked for.
+for (const tag of [' @gecko', ' @webkit-tablet']) {
+	test(`a code package holding a dynamic import() is refused at the Library import${tag}`, async ({ page }) => {
+		const hits: string[] = [];
+		const server = http.createServer((req, res) => {
+			hits.push(req.url || '');
+			res.writeHead(200, { 'Content-Type': 'text/javascript', 'Access-Control-Allow-Origin': '*' });
+			res.end('export default 1');
+		});
+		await new Promise<void>((r) => server.listen(0, '127.0.0.1', () => r()));
+		const origin = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
+		const code = `function tally(slide) {\n  import(${JSON.stringify(`${origin}/dynimport`)}).catch(function () {});\n  return slide.html;\n}\nexport { tally as default };\n`;
+		try {
+			await page.addInitScript(() => {
+				const w = window as unknown as { __sandboxes: number };
+				w.__sandboxes = 0;
+				new MutationObserver((records) => {
+					for (const r of records) for (const n of r.addedNodes) if (n instanceof HTMLIFrameElement && n.hasAttribute('data-lattice-code-sandbox')) w.__sandboxes++;
+				}).observe(document, { childList: true, subtree: true });
+			});
+			await gotoStudio(page);
+			await openLibrary(page);
+			await page.locator('input[type="file"][accept=".zip"]').setInputFiles({ name: 'tally.zip', mimeType: 'application/zip', buffer: await tallyZip(code) });
+			const toast = page.locator('[data-sonner-toast]').first();
+			await expect(toast).toContainText('Nothing could be imported from that file.');
+			await expect(toast).toContainText('tally');
+			await expect(toast).toContainText(/holds a dynamic `import\(\)` at 2:3/);
+			await page.keyboard.press('Escape');
+
+			await setEditorContent(page, '<!-- _class: tally -->\n\n## Three wins\n\n- 3\n');
+			const preview = livePreview(page);
+			await expect(preview.locator('h2')).toContainText('Three wins', { timeout: 30_000 });
+			await page.waitForTimeout(2500);
+			await expect(page.locator('[data-slot="code-packages"]')).toHaveCount(0);
+			expect(await page.evaluate(() => (window as unknown as { __sandboxes: number }).__sandboxes), 'a sandbox frame opened for a refused package').toBe(0);
+			expect(hits, `the refused package reached the server: ${hits.join(', ')}`).toEqual([]);
+		} finally {
+			server.closeAllConnections();
+			await new Promise((r) => server.close(() => r(null)));
 		}
 	});
 }

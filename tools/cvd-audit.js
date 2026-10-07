@@ -42,6 +42,7 @@
  */
 
 const fs   = require('fs');
+const { themeEntries, themePath } = require('../lib/theme/files.js');
 const path = require('path');
 
 const { resolveVars } = require('../lib/theme/contrast.js');
@@ -184,7 +185,7 @@ function floorOverrides(type) {
 
 function paletteChainCss(theme) {
   return themeChain(theme, THEME_EDGES)
-    .map((n) => path.join(THEMES_DIR, `${n}.css`))
+    .map((n) => themePath(THEMES_DIR, `${n}.css`))
     .filter((f) => fs.existsSync(f))
     .map((f) => fs.readFileSync(f, 'utf8'))
     .join('\n');
@@ -305,7 +306,7 @@ if (typeIdx >= 0) {
 const themeArgs = args.filter((a, i) =>
   !a.startsWith('-') && args[i - 1] !== '--type' && args[i - 1] !== '--themes-dir');
 
-const allThemes = fs.readdirSync(THEMES_DIR)
+const allThemes = themeEntries(THEMES_DIR)
   .filter(f => f.endsWith('.css'))
   .map(f => f.replace('.css', ''))
   .sort();
@@ -328,7 +329,7 @@ console.log(`  collapse under the condition: ${types.map((t) => {
 console.log('');
 
 for (const theme of themes) {
-  const cssFile = path.join(THEMES_DIR, `${theme}.css`);
+  const cssFile = themePath(THEMES_DIR, `${theme}.css`);
   if (!fs.existsSync(cssFile)) {
     console.log(`  [skip] ${theme} — file not found`);
     uncovered.push(theme);

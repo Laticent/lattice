@@ -75,7 +75,7 @@ function importChain(name, seen = new Set()) {
   if (seen.has(name)) return [];
   seen.add(name);
   let css = '';
-  try { css = fs.readFileSync(path.join(THEMES_DIR, `${name}.css`), 'utf8'); } catch { return []; }
+  try { css = fs.readFileSync(path.join(THEMES_DIR, name, `${name}.css`), 'utf8'); } catch { return []; }
   const out = [];
   for (const m of css.matchAll(/@import\s+['"]([a-z0-9-]+)['"]/gi)) out.push(...importChain(m[1], seen));
   out.push(name);
@@ -83,11 +83,11 @@ function importChain(name, seen = new Set()) {
 }
 
 function loadTheme(name) {
-  const order = ['../dist/lattice.css', `themes/${name}.css`];
+  const order = ['../dist/lattice.css', `themes/${name}/${name}.css`];
   let vars = {};
   for (const rel of order) {
     const p = rel.startsWith('themes/')
-      ? path.join(THEMES_DIR, `${name}.css`)
+      ? path.join(THEMES_DIR, name, `${name}.css`)
       : path.join(THEMES_DIR, '..', 'dist', 'lattice.css');
     try { vars = { ...vars, ...parseVars(fs.readFileSync(p, 'utf8')) }; } catch { /* skip */ }
   }
@@ -98,7 +98,7 @@ function loadTheme(name) {
 function loadThemeChain(name) {
   let vars = parseVars(fs.readFileSync(path.join(THEMES_DIR, '..', 'dist', 'lattice.css'), 'utf8'));
   for (const t of importChain(name)) {
-    try { vars = { ...vars, ...parseVars(fs.readFileSync(path.join(THEMES_DIR, `${t}.css`), 'utf8')) }; } catch { /* skip */ }
+    try { vars = { ...vars, ...parseVars(fs.readFileSync(path.join(THEMES_DIR, t, `${t}.css`), 'utf8')) }; } catch { /* skip */ }
   }
   return vars;
 }

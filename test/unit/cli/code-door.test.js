@@ -436,7 +436,14 @@ describe('doorFinish: the handed classes come back', () => {
 
 describe('workerScript: the second wall', () => {
   const { workerScript, WORKER_NETWORK } = require('../../../lib/packages/code-door-core.mjs');
-  const run = (self) => new Function('self', 'postMessage', 'OffscreenCanvas', workerScript('function t(s){return s.html}export{t as default};'))(self, () => {}, undefined);
+  const vm = require('node:vm');
+  // In a context of its own: the wall takes `Function` off every function's prototype, and in this
+  // process that would break every test after it. Returns the context, to look at its builtins.
+  const run = (self) => {
+    const ctx = vm.createContext({ self, postMessage: () => {}, OffscreenCanvas: undefined });
+    vm.runInContext(workerScript('function t(s){return s.html}export{t as default};'), ctx);
+    return ctx;
+  };
   // A stand-in global shaped like Chromium's: a name on `self` and again on a prototype above it.
   const globalWith = (lock) => {
     const top = { fetch() {}, importScripts() {} };
@@ -457,8 +464,78 @@ describe('workerScript: the second wall', () => {
     assert.equal(self.navigator.storage, undefined);
   });
 
+  test('no code from strings: eval, Function (every kind), ShadowRealm, and a timer handed a string', () => {
+    const { self } = globalWith(false);
+    const ran = [];
+    for (const n of ['eval', 'Function', 'ShadowRealm']) self[n] = () => {};
+    self.setTimeout = function (h) { ran.push(this === self && h); return 1; };
+    const ctx = run(self);
+    const inCtx = (code) => vm.runInContext(code, ctx);
+    assert.equal(self.ShadowRealm, undefined);
+    assert.throws(() => self.eval('1'), /may not build code from a string \(eval\)/);
+    assert.throws(() => self.Function('return 1'), /may not build code from a string \(Function\)/);
+    for (const f of ['(function(){})', '(async function(){})', '(function*(){})', '(async function*(){})', '(()=>{})']) {
+      assert.throws(() => inCtx(`${f}.constructor("return 1")`), (e) => e.name === 'EvalError' && /from a string/.test(e.message), `${f}.constructor`);
+    }
+    // Stubs, not `undefined`: library code that reads `Function.prototype` or tests
+    // `instanceof Function` without building code still runs (lodash, core-js).
+    ctx.F = self.Function;
+    assert.equal(inCtx('F.prototype === Function.prototype && (() => 1) instanceof F && (async () => 1).constructor.prototype === Object.getPrototypeOf(async () => 1)'), true);
+    assert.throws(() => self.setTimeout('import("http://x/")', 0), /may hand setTimeout a function, not a string/);
+    const fn = () => {};
+    assert.equal(self.setTimeout(fn, 0), 1, 'a function still reaches the real timer, on the worker');
+    assert.deepEqual(ran, [fn]);
+    // The guard's own `apply` was taken before the bundle runs: replacing `call` later changes nothing.
+    inCtx('Function.prototype.call = () => { throw new Error("caught") }');
+    assert.equal(self.setTimeout(fn, 0), 1);
+  });
+
   test('a name an engine will not let it redefine stops the package loading (fails closed)', () => {
     const { self } = globalWith(true);
     assert.throws(() => run(self), /could not take fetch off the worker/);
+  });
+});
+
+describe('codeSyntaxRefusal: a dynamic import(), parsed', () => {
+  const { codeSyntaxRefusal, checkedWorkerScript } = require('../../../lib/packages/code-syntax.mjs');
+  const pkgCode = (body) => `function t(s){${body};return s.html}export{t as default};`;
+
+  test('refused wherever it sits, however it is spelled', () => {
+    for (const body of ['import("http://x/")', 'import /* gap */ ("http://x/")', 'const u="http://x/";import(u).catch(()=>{})', 'async function f(){await import("h"+"ttp://x/")}', 'import(\n"http://x/")']) {
+      assert.match(codeSyntaxRefusal(pkgCode(body)), /holds a dynamic `import\(\)`/, body);
+    }
+  });
+
+  test('the word in a string, a comment, a property or a regex is not one', () => {
+    for (const body of ['const a="import(x)"', '/* import("x") */0', '// import("x")\n0', 'const o={import(){}};o.import(1)', 'const r=/import\\(/']) {
+      assert.equal(codeSyntaxRefusal(pkgCode(body)), null, body);
+    }
+  });
+
+  test('it parses the script the worker runs: an HTML comment hides nothing from it', () => {
+    // In a classic script `<!--` starts a comment; parsed as a module it would be `<`, `!`, `--`.
+    assert.equal(codeSyntaxRefusal(pkgCode('0 <!-- import("http://x/")\n')), null, 'commented out where it runs');
+    assert.match(codeSyntaxRefusal(pkgCode('0\n--> x\nimport("http://x/")')), /dynamic `import\(\)`/, 'only the `-->` line is a comment');
+  });
+
+  test('the refusal names the line and column in the author\'s file, whatever ends its lines', () => {
+    for (const nl of ['\n', '\r\n', '\r', '\u2028']) {
+      assert.match(codeSyntaxRefusal(`function t(s){${nl}const a=1;${nl}  return import("x")}export{t as default};`), /at 3:10, ` {2}return import\("x"\)\}/, JSON.stringify(nl));
+    }
+    assert.match(codeSyntaxRefusal('function t(s){return 1}}export{t as default};'), /at the end of the file/);
+  });
+
+  test('what does not parse is refused, not run unread; and the runners refuse on the text they load', () => {
+    assert.match(codeSyntaxRefusal(pkgCode('import.meta.url')), /does not parse/);
+    assert.match(codeSyntaxRefusal(`${'('.repeat(100_000)}0${')'.repeat(100_000)};${pkgCode('')}`), /does not parse|^$/);
+    assert.throws(() => checkedWorkerScript(pkgCode('import("http://x/")')), /^Error: code sandbox: the package's transform\.js holds a dynamic `import\(\)`/);
+    assert.match(checkedWorkerScript(pkgCode('')), /"use strict"/);
+  });
+
+  test('the CLI gate refuses it at add and at render', () => {
+    const { refusePackage } = require('../../../lib/packages/gate.js');
+    const p = pkg(pkgCode('import("http://x/")'));
+    assert.match(refusePackage(p), /dynamic `import\(\)`/);
+    assert.match(refusePackage(p, { forRender: true }), /dynamic `import\(\)`/);
   });
 });

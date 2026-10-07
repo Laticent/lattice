@@ -13,6 +13,12 @@ tier: `carbone`, `concrete`, `crepuscolo`, `laguna`, `burgundy`, `carta`,
 variant — a three-line wrapper that flips the deck onto a dark canvas without
 touching color values.
 
+Each palette is a folder: `themes/<name>/<name>.css` beside
+`themes/<name>/<name>.manifest.json`, the same shape as every other Lattice
+package. The published import path is still flat:
+`@laticent/lattice/themes/<name>.css` resolves to the folder's file through
+the package's `exports` map.
+
 If you're here to author a new palette: skip to **The five-minute
 path** below. The diagrams above it explain the model the engine has
 of a palette, which is what makes the rules in the deep reference
@@ -106,7 +112,7 @@ The engine reads the file once. Authors edit one file.
 └──────────────────────────────────────────────────────────────────┘
 ```
 
-`themes/indaco.css` is the canonical reference. Every other palette
+`themes/indaco/indaco.css` is the canonical reference. Every other palette
 follows this skeleton; the scaffolding command (below) stamps it for
 you with TODO markers.
 
@@ -187,7 +193,7 @@ that stays canvas-mode-independent by design.
 npm run new:theme verdigris
 
 # 2. open the new file and edit the brand-axis hexes + cycle values
-$EDITOR themes/verdigris.css
+$EDITOR themes/verdigris/verdigris.css
 
 # 3. build a deck with it (-p selects the palette override)
 node lattice-emulator.js examples/gallery.md /tmp/verdigris.pdf -p verdigris
@@ -196,14 +202,14 @@ node lattice-emulator.js examples/gallery.md /tmp/verdigris.pdf -p verdigris
 node lattice-emulator.js examples/mermaid-gallery.md /tmp/verdigris-mermaid.pdf -p verdigris
 ```
 
-The scaffolder copies `themes/indaco.css`, rewrites the `@theme`
+The scaffolder copies `themes/indaco/indaco.css`, rewrites the `@theme`
 directive, and adds `TODO(palette):` markers on every value you're
 expected to change. It also stamps the matching `<name>-dark.css`
 wrapper so the dark variant works on day one.
 
 ### Every palette declares itself — `<name>.manifest.json`
 
-Beside each `themes/<name>.css` sits a small `themes/<name>.manifest.json`.
+Beside each `themes/<name>/<name>.css` sits a small `themes/<name>/<name>.manifest.json`.
 It carries what the CSS **cannot** say about a palette — and deliberately
 **no token names and no token values**, because a second copy of the CSS is a
 thing that drifts, not a thing that helps:

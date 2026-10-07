@@ -1967,7 +1967,7 @@ theme**.
 
 The four are **mode-invariant**: each is a fixed palette that ignores the
 light/dark toggle, so an accessibility render reads identically for every viewer.
-They share `themes/a11y-base.css` (the texture wiring + grayscale categorical
+They share `themes/a11y-base/a11y-base.css` (the texture wiring + grayscale categorical
 ramp + the forced light scheme); each theme file adds only its **status trio**
 (`pass`/`warn`/`fail`, moved off that deficiency's confusion axis). The texture
 `<pattern>` `<defs>` the fills reference are emitted by the engine on every

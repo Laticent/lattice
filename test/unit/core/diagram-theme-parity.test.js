@@ -293,7 +293,7 @@ describe('the map itself', () => {
     // Everything the map reads is a real declaration site, not a typo: each name
     // must appear in the shared token vocabulary the themes declare.
     const baseTokens = fs.readFileSync(path.join(REPO, 'lib', 'base', 'base.tokens.css'), 'utf8');
-    const themeCss = fs.readFileSync(path.join(REPO, 'themes', 'indaco.css'), 'utf8');
+    const themeCss = fs.readFileSync(path.join(REPO, 'themes', 'indaco', 'indaco.css'), 'utf8');
     const declared = `${baseTokens}\n${themeCss}`;
     const missing = tokens.filter((t) => !declared.includes(`--${t}:`));
     assert.deepEqual(missing, [], 'these tokens are read by the map but declared nowhere');

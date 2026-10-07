@@ -72,7 +72,7 @@ front matter and render structurally-correct slides with no colors.
 Useful for verifying palette `var()` fallback behavior; not used in
 production.
 
-The palette themes (`themes/indaco.css`, `themes/cuoio.css`, and 20+
+The palette themes (`themes/indaco/indaco.css`, `themes/cuoio/cuoio.css`, and 20+
 more) each:
 1. Declare their own `@theme <name>` directive at the top.
 2. Declare their own `@size` directives (Marp doesn't propagate these
@@ -84,7 +84,7 @@ more) each:
 The chain:
 
 ```
-themes/indaco.css   declares @theme indaco; imports 'lattice' (which is registered as lattice.css)
+themes/indaco/indaco.css   declares @theme indaco; imports 'lattice' (which is registered as lattice.css)
                                                   ↓
 lattice.css         (bundled output) declares @theme lattice via lib/_theme.css
                                                   ↓

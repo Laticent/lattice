@@ -31,7 +31,7 @@
  *
  * It also still resolves the palette tokens (paletteCss / listBasePalettes)
  * that tools/build-landing-tokens.js consumes — one place that turns
- * themes/<name>.css into concrete {light, dark} token blocks.
+ * themes/<name>/<name>.css into concrete {light, dark} token blocks.
  *
  * The manifest is the single source of truth — the same fields the
  * per-component docs.md generator (tools/build-component-docs.js) reads,
@@ -50,6 +50,7 @@
  */
 
 const fs = require('node:fs');
+const { themeEntries } = require('../lib/theme/files.js');
 const path = require('node:path');
 const { loadAll, groupByBucket, BUCKETS, manifestBucket } = require('../lib/components');
 const {
@@ -400,7 +401,7 @@ function parseThemeVars(css) {
 function flattenThemeVars(name) {
   const merged = new Map();
   for (const n of themeChain(name, THEME_EDGES)) {
-    const css = fs.readFileSync(path.join(THEMES_DIR, `${n}.css`), 'utf8');
+    const css = fs.readFileSync(path.join(THEMES_DIR, n, `${n}.css`), 'utf8');
     for (const [k, v] of parseThemeVars(css)) merged.set(k, v);
   }
   return merged;
@@ -598,7 +599,7 @@ let _basePalettes = null;
 function listBasePalettes(edges = THEME_EDGES) {
   if (_basePalettes && edges === THEME_EDGES) return _basePalettes;
   const names = [];
-  for (const file of fs.readdirSync(THEMES_DIR).sort()) {
+  for (const file of themeEntries(THEMES_DIR).sort()) {
     if (!file.endsWith('.css')) continue;
     const name = file.replace(/\.css$/, '');
     // A brand palette declares no parent — a chain of ONE, itself. (Asked of the

@@ -53,7 +53,7 @@ describe('palette', () => {
     test(`palette: ${name} defines all ${REQUIRED_DIAGRAM_VARS.length} required palette tokens`, () => {
       const p = loadPalette(name);
       const missing = REQUIRED_DIAGRAM_VARS.filter(v => !p.vars[v]);
-      assert.deepEqual(missing, [], `missing vars in themes/${name}.css: ${missing.join(', ')}`);
+      assert.deepEqual(missing, [], `missing vars in themes/${name}/${name}.css: ${missing.join(', ')}`);
     });
 
     test(`palette: ${name} no longer carries the legacy MERMAID THEME CSS sentinel`, () => {
@@ -61,14 +61,14 @@ describe('palette', () => {
       assert.equal(
         p.raw.indexOf('===== MERMAID THEME CSS ====='),
         -1,
-        `themes/${name}.css still contains the legacy sentinel comment; the post-sentinel CSS now lives in lattice-diagram.css`,
+        `themes/${name}/${name}.css still contains the legacy sentinel comment; the post-sentinel CSS now lives in lattice-diagram.css`,
       );
     });
 
     test(`palette: ${name} no longer declares legacy --mermaid-* tokens`, () => {
       const p = loadPalette(name);
       const legacy = Object.keys(p.vars).filter(v => v.startsWith('mermaid-'));
-      assert.deepEqual(legacy, [], `themes/${name}.css still declares legacy tokens: ${legacy.join(', ')}`);
+      assert.deepEqual(legacy, [], `themes/${name}/${name}.css still declares legacy tokens: ${legacy.join(', ')}`);
     });
   }
 });

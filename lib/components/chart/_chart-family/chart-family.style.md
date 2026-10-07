@@ -123,7 +123,7 @@ of these followed:
 5. **Verify visually.** Render the chart bucket gallery in the theme, light
    **and** dark, and read the dark canvas hardest — that is where warm-hue mud
    and value-collapse hide. Set the override hooks at `:root` in
-   `themes/<name>.css`; the mechanical token tables live in `design/theming.md`.
+   `themes/<name>/<name>.css`; the mechanical token tables live in `design/theming.md`.
 
 A theme is "curated to standard" when its charts read as *its own* palette on
 both canvases and clear the assessment — same as the three exemplars.
@@ -155,5 +155,5 @@ current pie/quadrant — is the reference baseline that variant would toggle off
 - `chart-family.styles.css` — the `--catN-*` / `--state-*` token definitions and the
   canvas-aware fallback spectrum (the *defaults*).
 - `themes/palette-audit.md` — ranked candidate values per theme.
-- `themes/cuoio.css`, `themes/onyx.css`, `themes/indaco.css` — the three
+- `themes/cuoio/cuoio.css`, `themes/onyx/onyx.css`, `themes/indaco/indaco.css` — the three
   curations in source.

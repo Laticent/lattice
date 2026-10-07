@@ -76,7 +76,8 @@ const ROOT = path.resolve(__dirname, '..');
  * nobody checks, which is how forms stayed unchecked in the first place.
  *
  * `dir` is scanned one level deep for a folder per artifact (`<name>/<name><ext>`),
- * except `flat` families whose manifests sit directly in `dir`.
+ * or two for a `nested` family. Themes were the one flat family until they moved into
+ * folders (portable-packages phase 5).
  *
  * NOTE the cell extension. Cells are `<name>.cell.json`, NOT `.manifest.json`.
  * A `*.manifest.json` glob silently misses all ten of them.
@@ -93,8 +94,7 @@ const FAMILIES = Object.freeze([
     family: 'theme',
     schema: 'themes/theme.schema.json',
     dir: 'themes',
-    ext: '.manifest.json',
-    flat: true, // themes/<name>.manifest.json
+    ext: '.manifest.json', // themes/<name>/<name>.manifest.json
   },
   {
     family: 'finish',
@@ -226,16 +226,6 @@ function listFamilyManifests(fam, root = ROOT) {
       .filter((d) => d.isDirectory() && !d.name.startsWith('_'))
       .map((d) => d.name);
 
-  if (fam.flat) {
-    // NO `_` filter: `listThemeManifests` (tools/check-ownership.js) filters on the
-    // extension alone, so a parked `themes/_wip.manifest.json` IS a theme every other
-    // theme gate reads. Excluding it here while the sweep still saw it manufactured a
-    // guaranteed "no schema family covers" error for a file the loader happily loads.
-    for (const f of fs.readdirSync(base)) {
-      if (f.endsWith(fam.ext)) out.push(`${fam.dir}/${f}`);
-    }
-    return out.sort();
-  }
   // <dir>/<name>/<name><ext>, or <dir>/<bucket>/<name>/<name><ext> when nested.
   const leaves = fam.nested
     ? subdirs(base).flatMap((b) =>
@@ -412,14 +402,14 @@ function checkFamily(errors, fam, { root = ROOT, dir = null, ajv = makeAjv() } =
     return dir ? [] : listFamilyManifests(fam, root);
   }
 
-  // A fixture dir stands in for the family's own directory, so read it flat: a
-  // temp dir holds `probe.manifest.json`, not `probe/probe.manifest.json`.
+  // A fixture dir stands in for the family's own directory. It may hold a manifest
+  // loose (`probe.manifest.json`) or in its own folder (`probe/probe.manifest.json`,
+  // the shape a theme fixture copies from themes/), and both are read.
   const files = dir
     ? fs
-        .readdirSync(dir)
-        .filter((f) => f.endsWith(fam.ext))
+        .readdirSync(dir, { withFileTypes: true })
+        .flatMap((e) => (e.isFile() && e.name.endsWith(fam.ext) ? [path.join(dir, e.name)] : e.isDirectory() && fs.existsSync(path.join(dir, e.name, `${e.name}${fam.ext}`)) ? [path.join(dir, e.name, `${e.name}${fam.ext}`)] : []))
         .sort()
-        .map((f) => path.join(dir, f))
     : listFamilyManifests(fam, root).map((f) => path.join(root, f));
 
   if (files.length === 0 && !dir) {

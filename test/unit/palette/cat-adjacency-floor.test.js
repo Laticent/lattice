@@ -154,7 +154,7 @@ const FROZEN = new Map([
 ]);
 
 const themeCss = (theme) => themeChain(theme, THEME_EDGES)
-  .map((n) => path.join(THEMES_DIR, `${n}.css`))
+  .map((n) => path.join(THEMES_DIR, n, `${n}.css`))
   .filter((f) => fs.existsSync(f))
   .map((f) => fs.readFileSync(f, 'utf8'));
 

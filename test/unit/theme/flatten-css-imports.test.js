@@ -300,7 +300,11 @@ describe('differential: identical to the old strip wherever the old strip was ri
       const files = { [p]: fs.readFileSync(p, 'utf8') };
       const io = {
         read: (f) => files[f] ?? '',
-        resolve: (from, name) => path.join(path.dirname(from), `${name}.css`),
+        // A sibling sheet, or (for a theme in themes/<name>/) the sibling THEME's folder.
+        resolve: (from, name) => {
+          const sib = path.join(path.dirname(from), `${name}.css`);
+          return fs.existsSync(sib) ? sib : path.join(path.dirname(from), '..', name, `${name}.css`);
+        },
         exists: (f) => fs.existsSync(f),
       };
       // `exists` hits the real tree, so a palette's `@import 'onyx'` really resolves.
