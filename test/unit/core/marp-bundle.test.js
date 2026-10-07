@@ -555,3 +555,39 @@ describe('marp bundle — the overflow-marker export setting', () => {
     assert.equal((twice.match(new RegExp(EXPORT_SETTINGS_TYPE, 'g')) || []).length, 1);
   });
 });
+
+describe('marp-bundle — asset references (mapImageRefs, withSampleAssets)', () => {
+  const { mapImageRefs, mapFrontMatterLogo, sampleAssetNames, withSampleAssets } = require('../../../lib/core/marp-bundle');
+  const DECK = '---\ntheme: indaco\nlogo: "sample:logo-acme-mark.svg"\n---\n\n'
+    + '![bg right](sample:photo-wide.svg)\n![Ada](sample:portrait-ada.svg "Ada")\n'
+    + '![x](https://x.test/a.png)\n![y](sample:../etc/passwd)\n![z](sample:photo-wide.svg)\n';
+
+  test('mapImageRefs rewrites a target and keeps the alt and title', () => {
+    assert.equal(mapImageRefs('![A b](x.svg "t")', () => 'assets/x.svg'), '![A b](assets/x.svg "t")');
+    assert.equal(mapImageRefs('![A](x.svg)', () => null), '![A](x.svg)');
+  });
+
+  test('mapFrontMatterLogo rewrites only the logo value, quotes kept', () => {
+    assert.equal(mapFrontMatterLogo('---\nlogo: "a.svg"\n---\n', () => 'assets/a.svg'), '---\nlogo: "assets/a.svg"\n---\n');
+  });
+
+  test('sampleAssetNames lists each well-formed sample once, logo included', () => {
+    assert.deepEqual(sampleAssetNames(DECK), ['logo-acme-mark.svg', 'photo-wide.svg', 'portrait-ada.svg']);
+  });
+
+  test('reads the front matter with the fences readFrontMatterBlock accepts', () => {
+    // A trailing-space fence, and a deck that is nothing but front matter.
+    assert.deepEqual(sampleAssetNames('--- \nlogo: sample:logo-acme-mark.svg\n---  \n# A\n'), ['logo-acme-mark.svg']);
+    assert.deepEqual(sampleAssetNames('---\nlogo: "sample:logo-acme-mark.svg"\n---'), ['logo-acme-mark.svg']);
+  });
+
+  test('withSampleAssets rewrites only the names it was given', () => {
+    const out = withSampleAssets(DECK, new Map([['logo-acme-mark.svg', 'assets/logo-acme-mark.svg'], ['photo-wide.svg', 'assets/photo-wide.svg']]));
+    assert.match(out, /^logo: "assets\/logo-acme-mark\.svg"$/m);
+    assert.match(out, /!\[bg right\]\(assets\/photo-wide\.svg\)/);
+    assert.match(out, /!\[z\]\(assets\/photo-wide\.svg\)/);
+    assert.match(out, /!\[Ada\]\(sample:portrait-ada\.svg "Ada"\)/, 'not fetched, so left as written');
+    assert.match(out, /!\[y\]\(sample:\.\.\/etc\/passwd\)/, 'malformed, so never a sample');
+    assert.match(out, /!\[x\]\(https:\/\/x\.test\/a\.png\)/);
+  });
+});
