@@ -2,3 +2,4 @@
 - The /segno grammar playground reports a crash as a crash, not as a build that "took longer than 1.5 s" (a numeric `start` was one), and says so when its worker cannot load instead of leaving the box blank.
 - The /segno playground's 1.5 s limit now times the one request in flight, so typing in the text box no longer keeps a runaway build alive, and a backlog of quick edits is never mistaken for a slow build.
 - The /segno grammar reader charges a string by its length toward the 10,000-piece cap. A 25 KB grammar that reused one 20,000-character literal 2,500 times used to pass, generate 100 MB of code and put it in the page.
+- The /segno playground caps what its worker sends to the page: at most 50 refusal problems plus a count of the rest, and 256 KB of generated code with a note where it was cut. A 6 KB refused grammar used to send 44,850 problems (92 MB), and a cheap helper reused 4,800 times generated 6 MB of code.

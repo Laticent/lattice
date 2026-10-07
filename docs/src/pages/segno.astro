@@ -714,13 +714,15 @@ return {
 				if (msg.id < lastCompileId) return;
 				const latest = msg.id === lastId;
 				if (msg.kind === 'parsed') { if (latest && hasParser) drawParse(msg.parse); return; }
+				if (msg.kind === 'broken' && msg.id !== lastCompileId) {
+					// Only a parse reply carries a later id than the grammar's compile. The grammar still
+					// stands (the worker kept its parser), so other text can be tried at once.
+					if (latest) { verdict(false, [`Segno stopped with an error while parsing this text: ${msg.message}`]); gramTree.replaceChildren(); }
+					return;
+				}
 				hasParser = msg.kind === 'compiled';
 				renderSamples();
-				if (msg.kind === 'broken' && msg.id !== lastCompileId) {
-					// Only a parse reply carries a later id than the grammar's compile.
-					verdict(false, [`Segno stopped with an error while parsing this text: ${msg.message}`]);
-					gramTree.replaceChildren(); gramGen.textContent = '';
-				} else if (msg.kind === 'unreadable' || msg.kind === 'broken') {
+				if (msg.kind === 'unreadable' || msg.kind === 'broken') {
 					verdict(false, [`Your grammar does not ${msg.kind === 'unreadable' ? 'read' : 'build'}: ${msg.message}`]);
 					gramTree.replaceChildren(); gramGen.textContent = '';
 				} else if (msg.kind === 'refused') {

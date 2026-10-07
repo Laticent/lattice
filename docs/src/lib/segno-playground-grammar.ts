@@ -168,7 +168,8 @@ export function readGrammarSource(src: string, helpers: Helpers): unknown {
       if (k.kind !== 'ident' && k.kind !== 'string') fail(k, `expected a key, found ${show(k)}`);
       const key = String(k.value);
       p++;
-      if (isPunct(':')) { p++; obj[key] = value(depth); }
+      // A key costs what a string does: a rule's name is repeated in every message about the rule.
+      if (isPunct(':')) { grow(k, Math.floor(key.length / STRING_PIECE)); p++; obj[key] = value(depth); }
       else if (k.kind === 'ident' && names.has(key)) { grow(k, sizes.get(key) ?? 0); obj[key] = names.get(key); } // `{ start }` shorthand
       else if (k.kind === 'ident' && !isPunct(',') && !isPunct('}')) fail(toks[p], `expected \`:\` after the key \`${key}\``);
       else fail(k, `\`${key}\` is not defined — write \`${key}: …\`, or name it first with \`const ${key} = …;\``);
@@ -205,4 +206,23 @@ export function readGrammarSource(src: string, helpers: Helpers): unknown {
     if (t.kind === 'end') return fail(t, 'the grammar must end with `return { start, rules }`');
     fail(t, `expected \`const\` or \`return\`, found ${show(t)} — the box holds a grammar, not a program`);
   }
+}
+
+// What the worker sends back is capped HERE, whatever the reader counted. The size cap bounds the
+// grammar, not what Segno writes about it: a refused grammar of 6 KB listed 44,850 problems (92 MB
+// of text, every pair of overlapping alternatives is one), and a cheap helper used 4,900 times
+// generated 6.4 MB. Either would have gone into the page's DOM on the main thread.
+export const MAX_REPLY_TEXT = 256 * 1024;
+export const MAX_PROBLEMS = 50;
+const MAX_PROBLEM_TEXT = 400;
+
+export function clipText(text: string, max = MAX_REPLY_TEXT): string {
+  if (text.length <= max) return text;
+  return `${text.slice(0, max)}\n… cut here: ${(text.length - max).toLocaleString('en-US')} more characters not shown`;
+}
+
+export function clipProblems(problems: readonly string[]): string[] {
+  const shown = problems.slice(0, MAX_PROBLEMS).map((p) => clipText(String(p), MAX_PROBLEM_TEXT));
+  if (problems.length > MAX_PROBLEMS) shown.push(`… and ${(problems.length - MAX_PROBLEMS).toLocaleString('en-US')} more`);
+  return shown;
 }

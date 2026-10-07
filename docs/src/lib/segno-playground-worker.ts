@@ -14,7 +14,7 @@
 // `compile` with the code and the text, and `parse` with new text; every reply carries the
 // request's `id`, so the page can drop an answer about a grammar a newer compile replaced.
 import { alt, any, charRange, chars, compile, GrammarError, generate, lit, many, many1, node, noneOf, opt, ref, seq } from '@/lib/segno';
-import { GrammarSourceError, readGrammarSource } from './segno-playground-grammar';
+import { clipProblems, clipText, GrammarSourceError, readGrammarSource } from './segno-playground-grammar';
 
 const DSL = { alt, any, charRange, chars, lit, many, many1, node, noneOf, opt, ref, seq };
 
@@ -26,7 +26,7 @@ function parseText(text: string) {
   if (!parser) return null;
   const r = parser.parse(text);
   // The tree and the error are plain data; send only what the page draws.
-  return r.ok ? { ok: true, node: r.node } : { ok: false, error: { at: r.error.at, expected: r.error.expected, found: r.error.found } };
+  return r.ok ? { ok: true, node: r.node } : { ok: false, error: { at: r.error.at, expected: clipText(String(r.error.expected), 2000), found: r.error.found } };
 }
 
 // Every request gets a reply. A throw nobody caught would leave the page waiting out its time
@@ -37,8 +37,9 @@ self.onmessage = (event: MessageEvent<Request>) => {
   try {
     answer(req);
   } catch (e) {
-    parser = null;
-    self.postMessage({ id: req.id, kind: 'broken', message: (e as Error)?.message ?? String(e) });
+    // A failed compile leaves no parser; a failed parse keeps the grammar, so other text can be tried.
+    if (req.kind === 'compile') parser = null;
+    self.postMessage({ id: req.id, kind: 'broken', message: clipText((e as Error)?.message ?? String(e)) });
   }
 };
 
@@ -53,18 +54,18 @@ function answer(req: Request) {
     spec = readGrammarSource(req.code, DSL);
   } catch (e) {
     const kind = e instanceof GrammarSourceError ? 'unreadable' : 'broken';
-    self.postMessage({ id: req.id, kind, message: (e as Error)?.message ?? String(e) });
+    self.postMessage({ id: req.id, kind, message: clipText((e as Error)?.message ?? String(e)) });
     return;
   }
   try {
     parser = compile(spec as Parameters<typeof compile>[0]);
   } catch (e) {
-    if (e instanceof GrammarError) self.postMessage({ id: req.id, kind: 'refused', problems: e.problems });
-    else self.postMessage({ id: req.id, kind: 'broken', message: (e as Error)?.message ?? String(e) });
+    if (e instanceof GrammarError) self.postMessage({ id: req.id, kind: 'refused', problems: clipProblems(e.problems) });
+    else self.postMessage({ id: req.id, kind: 'broken', message: clipText((e as Error)?.message ?? String(e)) });
     return;
   }
   let generated = '';
-  try { generated = generate(spec as Parameters<typeof generate>[0]); } catch {}
+  try { generated = clipText(generate(spec as Parameters<typeof generate>[0])); } catch {}
   self.postMessage({ id: req.id, kind: 'compiled', generated, parse: parseText(req.text) });
 }
 
