@@ -21,6 +21,12 @@ vi.mock('@/lib/tavola/adapters/trystero', () => ({
 	},
 }));
 
+// A short handoff grace, so the succession test runs in real time (the default is 20 s).
+vi.mock('@/lib/tavola', async (importOriginal) => {
+	const real = await importOriginal<typeof import('@/lib/tavola')>();
+	return { ...real, createSession: (o: Parameters<typeof real.createSession>[0]) => real.createSession({ handoffGraceMs: 300, hostPollMs: 100, ...o }) };
+});
+
 const { LiveController } = await import('./live-controller');
 type Ctl = InstanceType<typeof LiveController>;
 
@@ -487,5 +493,62 @@ describe('LiveController (second-round trio)', () => {
 		await settle(h, g);
 		// biome-ignore lint/suspicious/noExplicitAny: read the host's number.
 		expect((h as any).seq).toBeLessThan(600);
+	});
+});
+
+describe('succession in the Studio (2026-10-07)', () => {
+	it('when the host drops, the heir hosts: chat keeps flowing, numbered by the new host, with its owners and the session start', async () => {
+		const { h } = await hostSession();
+		const { g: a } = await guestOf(h, 'Amina');
+		const { g: c } = await guestOf(h, 'Chen');
+		await settle(h, a, c);
+		await until(() => h.view().heir === 'Amina' && a.view().heir === 'you' && c.view().heir === 'Amina', h, a, c);
+		a.actions.sendChat('before, from Amina');
+		await until(() => c.view().chat.some((l) => l.kind === 'message' && l.text === 'before, from Amina' && !l.pending), h, a, c);
+		await settle(h, a, c);
+		const started = c.view().startedAt;
+		// biome-ignore lint/suspicious/noExplicitAny: the test drops the host's transport like a sleeping phone.
+		net.current?.drop((h as any).rt.session.getState().selfId);
+		await until(() => a.view().isHost && c.view().people.some((p) => p.name === 'Amina' && p.role === 'host') && !c.view().hostAway, a, c);
+		expect(c.view().chat.some((l) => l.kind === 'system' && l.text === 'Amina is hosting now')).toBe(true);
+		expect(a.view().startedAt).toBe(started);
+		// One crown: the old host's "Reconnecting…" row shows it as the member it will rejoin as.
+		expect(a.view().people.filter((p) => p.role === 'host').map((p) => p.name)).toEqual(['Amina']);
+		c.actions.sendChat('after, from Chen');
+		a.actions.sendChat('after, from Amina');
+		await until(() => ['after, from Chen', 'after, from Amina'].every((t) => c.view().chat.some((l) => l.kind === 'message' && l.text === t && !l.pending)), a, c);
+		const order = (v: Ctl) => v.view().chat.filter((l) => l.kind === 'message').map((l) => (l.kind === 'message' ? l.text : ''));
+		expect(order(c)).toEqual(order(a));
+		// Amina's earlier line is still hers on her own screen: its owner moved with the role.
+		expect(a.view().chat.find((l) => l.kind === 'message' && l.text === 'before, from Amina')).toMatchObject({ mine: true });
+		a.dispose();
+		c.dispose();
+	});
+
+	it('a first host whose tab froze takes the session back, with the lines its regent numbered meanwhile', async () => {
+		const { h } = await hostSession();
+		const { g: a } = await guestOf(h, 'Amina');
+		const { g: c } = await guestOf(h, 'Chen');
+		await until(() => a.view().heir === 'you', h, a, c);
+		// biome-ignore lint/suspicious/noExplicitAny: the test cuts the host's links like a frozen tab.
+		const id = (x: Ctl) => (x as any).rt.session.getState().selfId as string;
+		net.current?.cut(id(h), id(a));
+		net.current?.cut(id(h), id(c));
+		await until(() => a.view().isHost && c.view().people.some((p) => p.name === 'Amina' && p.role === 'host') && !c.view().hostAway, a, c);
+		c.actions.sendChat('during the regency');
+		await until(() => a.view().chat.some((l) => l.kind === 'message' && l.text === 'during the regency' && !l.pending), a, c);
+		net.current?.heal(id(h), id(a));
+		net.current?.heal(id(h), id(c));
+		await until(() => h.view().isHost && !a.view().isHost && a.view().people.some((p) => p.name === 'Sharmarke' && p.role === 'host'), h, a, c);
+		// The host holds the regency's line now (handed back), and numbers the next one after it.
+		await until(() => h.view().chat.some((l) => l.kind === 'message' && l.text === 'during the regency'), h, a, c);
+		c.actions.sendChat('after the host is back');
+		await until(() => a.view().chat.some((l) => l.kind === 'message' && l.text === 'after the host is back' && !l.pending), h, a, c);
+		const order = (v: Ctl) => v.view().chat.filter((l) => l.kind === 'message').map((l) => (l.kind === 'message' ? l.text : ''));
+		expect(order(h)).toEqual(order(a));
+		expect(order(c)).toEqual(order(a));
+		expect(a.view().chat.some((l) => l.kind === 'system' && l.text === 'The host is back, so you are no longer hosting')).toBe(true);
+		a.dispose();
+		c.dispose();
 	});
 });

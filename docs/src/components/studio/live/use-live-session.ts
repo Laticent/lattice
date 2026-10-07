@@ -103,6 +103,8 @@ export function useLiveSession(deps: LiveDeps & ShellCallbacks) {
 		follow: NOOP,
 		bringEveryone: NOOP,
 		toggleMic: NOOP,
+		leaveCall: NOOP,
+		pickMic: NOOP,
 		end: NOOP,
 		leave: NOOP,
 		sendChat: NOOP,

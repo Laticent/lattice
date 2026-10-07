@@ -19,11 +19,20 @@ export type LivePerson = {
 	slide: number | null;
 	/** Typed in the last couple of seconds. */
 	editing: boolean;
-	mic: 'off' | 'on' | 'speaking';
+	/** `off`: not on the call (no mic shown). `muted`: on the call, muted. */
+	mic: 'off' | 'muted' | 'on' | 'speaking';
 	/** Their connection dropped a moment ago and they have not come back yet (a phone that
 	 *  backgrounded the tab, a network blip). Shown dimmed, not removed: "left" is for leaving. */
 	away?: boolean;
+	/** How this browser reaches them: one network, direct across networks, or through a relay.
+	 *  `detail` is the raw candidate pair ("srflx→host (udp)"). Absent until the first read. */
+	link?: { kind: 'local' | 'direct' | 'relay'; detail: string };
 };
+
+/** `inCall`: the microphone is captured and sent. `denied`: the browser refused the microphone
+ *  (the panel says how to allow it). `devices`: the microphones to pick from (labels appear once
+ *  permission is given). */
+export type LiveCall = { inCall: boolean; muted: boolean; denied: boolean; devices: Array<{ id: string; label: string }>; device: string | null };
 
 export type LiveKnock = { id: string; name: string; at: number };
 
@@ -46,10 +55,17 @@ export type LiveView = {
 	chat: LiveChatLine[];
 	/** The id this browser is following, if any. */
 	following: string | null;
-	/** The host dropped; guests keep editing but nobody new can join. */
+	/** The host dropped; guests keep editing but nobody new can join until it returns or the heir
+	 *  takes over. */
 	hostAway: boolean;
-	/** Whether calls exist yet (S4). False hides every mic control rather than showing dead ones. */
+	/** Who hosts while the host's connection is down (until the host is back): a name, 'you', or
+	 *  null (nobody can: no other member may edit). */
+	heir: string | null;
+	/** Whether calls work here (S4): the connection carries media and the browser can capture audio.
+	 *  False hides every mic control rather than showing dead ones. */
 	audio: boolean;
+	/** This browser's side of the call. */
+	call: LiveCall;
 	/** View-only members read the chat but cannot post (their document changes are never sent). */
 	canChat: boolean;
 	/** Names of the people typing a chat message right now (never this browser). */
@@ -67,7 +83,10 @@ export type LiveActions = {
 	setRole: (id: string, r: 'edit' | 'view') => void;
 	follow: (id: string | null) => void;
 	bringEveryone: () => void;
+	/** Join the call (first time), else mute or unmute. */
 	toggleMic: () => void;
+	leaveCall: () => void;
+	pickMic: (deviceId: string) => void;
 	end: () => void;
 	leave: () => void;
 	sendChat: (text: string) => void;
@@ -106,7 +125,9 @@ export const IDLE_VIEW: LiveView = {
 	chat: [],
 	following: null,
 	hostAway: false,
+	heir: null,
 	audio: false,
+	call: { inCall: false, muted: false, denied: false, devices: [], device: null },
 	canChat: true,
 	typing: [],
 };

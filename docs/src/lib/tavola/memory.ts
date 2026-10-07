@@ -11,6 +11,7 @@ type Peer = {
 	onMessage: (data: Uint8Array, from: PeerId) => void;
 	onJoin: (id: PeerId) => void;
 	onLeave: (id: PeerId) => void;
+	onTrack: (track: MediaStreamTrack, stream: MediaStream, from: PeerId) => void;
 	gone: boolean;
 };
 
@@ -53,7 +54,7 @@ export function createMemoryNetwork(): MemoryNetwork {
 			if (reuse !== undefined && peers.some((q) => q.id === reuse && !q.gone)) throw new Error(`memory: ${reuse} is still connected`);
 			const id = reuse ?? `peer${++n}`;
 			const key = `${room}\u0000${secret}`;
-			const me: Peer = { id, key, onMessage: () => {}, onJoin: () => {}, onLeave: () => {}, gone: false };
+			const me: Peer = { id, key, onMessage: () => {}, onJoin: () => {}, onLeave: () => {}, onTrack: () => {}, gone: false };
 			// Peers see each other once both have registered handlers, so announce on the next tick.
 			later(() => {
 				for (const q of peers) {
@@ -76,6 +77,19 @@ export function createMemoryNetwork(): MemoryNetwork {
 				},
 				onMessage(cb) {
 					me.onMessage = cb;
+				},
+				// Media: the track object itself is handed over (tests pass stand-ins), with the same
+				// queued delivery as data.
+				addTrack(track, stream, to) {
+					const target = peers.find((q) => q.id === to && !q.gone && q.key === key);
+					if (!target || !linked(me, target) || me.gone) return;
+					later(() => {
+						if (!target.gone && !me.gone) target.onTrack(track, stream, me.id);
+					});
+				},
+				removeTrack() {},
+				onTrack(cb) {
+					me.onTrack = cb;
 				},
 				onPeerJoin(cb) {
 					me.onJoin = cb;

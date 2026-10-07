@@ -7,7 +7,7 @@
 // The version is pinned exactly: 0.26 changed the action API, so a minor bump is a code change.
 
 import { joinRoom, selfId } from 'trystero/nostr';
-import type { Transport } from '../types';
+import type { LinkPath, Transport } from '../types';
 
 /** Namespaces every Tavola room on the relays, so it never meets another app's room. */
 export const TAVOLA_APP_ID = 'laticent-tavola-v1';
@@ -17,10 +17,13 @@ export type TrysteroOptions = {
 	/** Override the relay list (tests, or a self-hosted relay). */
 	relayUrls?: string[];
 	rtcConfig?: RTCConfiguration;
+	/** TURN servers, added after Trystero's public STUN servers (an `rtcConfig.iceServers` would
+	 *  replace those instead). Empty by default: the Studio's slot is `live-ice.ts`. */
+	turnConfig?: Array<{ urls: string | string[]; username?: string; credential?: string }>;
 };
 
 export function trysteroTransport(room: string, secret: string, opts: TrysteroOptions = {}): Transport {
-	const r = joinRoom({ appId: opts.appId ?? TAVOLA_APP_ID, password: secret, ...(opts.relayUrls ? { relayUrls: opts.relayUrls } : {}), ...(opts.rtcConfig ? { rtcConfig: opts.rtcConfig } : {}) }, room);
+	const r = joinRoom({ appId: opts.appId ?? TAVOLA_APP_ID, password: secret, ...(opts.relayUrls ? { relayUrls: opts.relayUrls } : {}), ...(opts.rtcConfig ? { rtcConfig: opts.rtcConfig } : {}), ...(opts.turnConfig?.length ? { turnConfig: opts.turnConfig } : {}) }, room);
 	const wire = r.makeAction<Uint8Array>('tavola');
 	return {
 		selfId,
@@ -38,6 +41,30 @@ export function trysteroTransport(room: string, secret: string, opts: TrysteroOp
 		},
 		leave() {
 			return r.leave();
+		},
+		addTrack(track, stream, to) {
+			for (const p of r.addTrack(track, stream, { target: to })) void p.catch(() => {});
+		},
+		removeTrack(track, to) {
+			try {
+				r.removeTrack(track, { target: to });
+			} catch {}
+		},
+		onTrack(cb) {
+			r.onPeerTrack = (track, stream, peerId) => cb(track, stream, peerId);
+		},
+		async paths() {
+			const out: Record<string, LinkPath> = {};
+			for (const [id, pc] of Object.entries(r.getPeers())) {
+				if (pc.connectionState !== 'connected') continue;
+				const stats = [...(await pc.getStats()).values()] as Array<Record<string, string | boolean | undefined>>;
+				const pair = stats.find((s) => s.type === 'candidate-pair' && s.state === 'succeeded' && s.nominated);
+				if (!pair) continue;
+				const local = stats.find((s) => s.id === pair.localCandidateId);
+				const remote = stats.find((s) => s.id === pair.remoteCandidateId);
+				out[id] = { local: String(local?.candidateType ?? '?'), remote: String(remote?.candidateType ?? '?'), protocol: String(local?.protocol ?? '?') };
+			}
+			return out;
 		},
 	};
 }

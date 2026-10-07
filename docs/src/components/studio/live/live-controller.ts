@@ -5,8 +5,10 @@ import * as encoding from 'lib0/encoding';
 import { yCollab, yUndoManagerKeymap } from 'y-codemirror.next';
 import { Awareness, applyAwarenessUpdate, encodeAwarenessUpdate, removeAwarenessStates } from 'y-protocols/awareness';
 import * as Y from 'yjs';
-import { cleanName, createHostKey, createSession, formatLink, fromBase64Url, type HostKey, hostKeyFrom, mintLink, parseFragment, type Session, type SessionState, type TokenEntry, toBase64Url } from '@/lib/tavola';
+import { cleanName, createHostKey, createSession, formatFragment, formatLink, fromBase64Url, type HostKey, hostKeyFrom, type LinkPath, linkKind, mintLink, parseFragment, type Session, type SessionState, type Succession, type TokenEntry, toBase64Url, tokenId } from '@/lib/tavola';
 import { trysteroTransport } from '@/lib/tavola/adapters/trystero';
+import { LiveAudio } from './live-audio';
+import { LIVE_TURN } from './live-ice';
 import { IDLE_VIEW, type LiveActions, type LiveChatLine, type LiveColor, type LivePerson, type LiveView, type LobbyActions, type LobbyView, liveColor, liveColorLight } from './live-model';
 import { clearJoinIntent, HOST_KEY, hasFreshJoin, type LiveCollab, type LiveDeps, type LiveHost, readSealedJoin, saveName, scrubLiveFragment, storedLiveName, storeSealedJoin, takeFreshJoin } from './live-store';
 import { deleteHostPrivateKey, getHostPrivateKey, putHostPrivateKey, seal, unseal } from './secret-box';
@@ -35,7 +37,9 @@ const CHAT_MAX = 1000;
 /** Lines a browser keeps, and the host hands a newcomer. */
 const CHAT_KEEP = 500;
 
-type Linked = { deckId?: string; token?: string };
+/** `minTerm`: the lowest host term this browser follows (Tavola `SessionState.minTerm`), kept so a
+ *  reload is not caught by a withdrawn heir before the host says hello. Not a secret. */
+type Linked = { deckId?: string; token?: string; minTerm?: number };
 const readLinks = (): Record<string, Linked> => {
 	try {
 		return JSON.parse(localStorage.getItem(LINKS_KEY) || '{}');
@@ -55,7 +59,7 @@ const writeLink = (room: string, patch: Linked) => {
  *  lives in IndexedDB as a non-extractable CryptoKey (`putHostPrivateKey`), never in this record. */
 type HostSave = { room: string; sealed: string; pub: string; name: string; deckId: string; doc: string; startedAt: number };
 /** What `HostSave.sealed` opens to. Chat is in here because people paste things into chat. */
-type HostSealed = { secret: string; tokens: TokenEntry[]; chat?: ChatLine[]; sids?: Array<[sid: string, owner: string]> };
+type HostSealed = { secret: string; tokens: TokenEntry[]; chat?: ChatLine[]; sids?: Array<[sid: string, owner: string]>; succession?: Succession; selfToken?: string };
 const toB64 = (u: Uint8Array) => {
 	let s = '';
 	for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode(...u.subarray(i, i + 0x8000));
@@ -103,7 +107,15 @@ type Post =
 	| { k: 'lines'; lines: ChatLine[]; startedAt: number }
 	| { k: 'tip'; seq: number; startedAt: number }
 	| { k: 'typing' }
-	| { k: 'bye' };
+	| { k: 'bye' }
+	/** a member's own microphone state (about itself only; who is SPEAKING is measured, never said) */
+	| { k: 'mic'; on: boolean }
+	/** host → its heir: who owns each chat-id prefix, by rejoin token, so the chat keeps its owners
+	 *  when the heir takes over (the host's own lines under its own rejoin token). */
+	| { k: 'sids'; sids: Array<[sid: string, owner: string]> }
+	/** a regent that stepped down → the host that took the session back: the lines it numbered
+	 *  meanwhile, and the chat-id owners it learned. Taken only from a member that host certified. */
+	| { k: 'handback'; lines: ChatLine[]; sids: Array<[sid: string, owner: string]> };
 /** How long a dropped member shows as reconnecting before the chat says they left. A phone that
  *  backgrounds a tab drops its connection within seconds and comes back when the tab returns. */
 const AWAY_GRACE_MS = 60_000;
@@ -131,6 +143,8 @@ const newSid = (room: string): { sid: string; mine: Set<string> } => {
 };
 /** A member re-sends waiting lines this often, whatever else happens (inversion round 3, item 3). */
 const RESEND_MS = 15_000;
+/** Seconds between reads of the network path to each member. */
+const PATHS_EVERY = 5;
 const enc = new TextEncoder();
 const dec = new TextDecoder();
 const isColor = (c: unknown): c is LiveColor => c === 1 || c === 2 || c === 3 || c === 4;
@@ -182,6 +196,8 @@ type Runtime = {
 	/** The host's document has arrived (a guest may not open the deck before it has). */
 	gotDoc: boolean;
 	disposers: Array<() => void>;
+	/** The host lock (`navigator.locks`), held while this tab hosts. */
+	release: (() => void) | null;
 };
 
 /**
@@ -353,6 +369,26 @@ export class LiveController {
 	private resuming: Promise<void> | null = null;
 	/** Seals finish out of order; only the newest one becomes the save. */
 	private sealSeq = 0;
+	/** The network path to each member, re-read every few seconds (the two-network check reads it). */
+	private paths: Record<string, LinkPath> = {};
+	/** Heir: the chat-id owners the host handed over, for when this browser takes over. */
+	private heirSids: Array<[string, string]> = [];
+	/** Host: what was last handed to the heir, so it is sent once per change. */
+	private sentSids = '';
+	/** The call (S4): the microphone, playback and levels. */
+	private audio: LiveAudio | null = null;
+	/** Peer → whether it says its microphone is on (muted is off). */
+	private remoteMic = new Map<string, boolean>();
+	private speakingNow = new Set<string>();
+	private speakTimer: ReturnType<typeof setInterval> | null = null;
+	private micDenied = false;
+	private micDevices: Array<{ id: string; label: string }> = [];
+	/** The tab title before "On air · " was put in front of it. */
+	private plainTitle: string | null = null;
+	/** A regency just ended here: hand the chat back once the returning host admits us. */
+	private handbackDue = false;
+	/** The id of the rejoin token this browser hosted under (its owner id for its own chat lines). */
+	private lastSelfId: string | null = null;
 	now = Date.now();
 
 	constructor(
@@ -404,7 +440,7 @@ export class LiveController {
 				this.chat = (opened.chat ?? []).map(cleanLine).filter((l): l is ChatLine => !!l);
 				this.seq = this.chat.reduce((m, l) => Math.max(m, l.seq), 0);
 				this.sidOwner = new Map((opened.sids ?? []).filter((e) => Array.isArray(e) && typeof e[0] === 'string' && typeof e[1] === 'string'));
-				this.wire({ room: hosting.room, secret: opened.secret, key, host: { name: hosting.name, tokens: opened.tokens, doc: hosting.doc }, startedAt: hosting.startedAt, release });
+				this.wire({ room: hosting.room, secret: opened.secret, key, host: { name: hosting.name, tokens: opened.tokens, doc: hosting.doc, succession: opened.succession, selfToken: opened.selfToken }, startedAt: hosting.startedAt, release });
 				this.bound = true;
 				this.boundDeck = hosting.deckId;
 				this.host.notify('Your live session is back. People who were in rejoin without knocking.');
@@ -443,13 +479,14 @@ export class LiveController {
 			if (saved?.room === parts.room && Array.isArray(saved.pending)) waiting = saved.pending.filter((p) => typeof p?.id === 'string' && typeof p.text === 'string' && typeof p.at === 'number').slice(0, 50);
 		} catch {}
 		if (this.rt) return;
-		this.wire({ room: parts.room, secret: parts.secret, hostFingerprint: parts.host, token });
+		const minTerm = readLinks()[parts.room]?.minTerm;
+		this.wire({ room: parts.room, secret: parts.secret, hostFingerprint: parts.host, token, ...(Number.isSafeInteger(minTerm) ? { minTerm } : {}) });
 		// Lines that were waiting when this tab reloaded go out on admission (catchUp).
 		this.pending = waiting;
 		this.host.rerender();
 	}
 
-	private wire(args: { room: string; secret: string; key?: HostKey; hostFingerprint?: string; host?: { name: string; tokens?: TokenEntry[]; doc?: string }; token?: string; startedAt?: number; release?: () => void }) {
+	private wire(args: { room: string; secret: string; key?: HostKey; hostFingerprint?: string; host?: { name: string; tokens?: TokenEntry[]; doc?: string; succession?: Succession; selfToken?: string }; token?: string; minTerm?: number; startedAt?: number; release?: () => void }) {
 		const d = this.deps;
 		const doc = new Y.Doc();
 		const ytext = doc.getText('source');
@@ -505,23 +542,37 @@ export class LiveController {
 			},
 		};
 		const key = args.key ?? null;
+		const audio = new LiveAudio(() => this.host.rerender());
+		this.audio = audio;
 		const session = createSession({
-			transport: trysteroTransport(args.room, args.secret),
+			media: { add: (stream, from) => {
+				audio.addRemote(from, stream);
+				this.startSpeaking();
+				// Their stream is (back) here: tell them our microphone state too, since after a blip or a
+				// takeover neither side sees the other as a newcomer (checker, 2026-10-07).
+				if (audio.inCall) this.post({ k: 'mic', on: !audio.isMuted }, from);
+			}, drop: (from) => audio.dropRemote(from) },
+			transport: trysteroTransport(args.room, args.secret, { turnConfig: LIVE_TURN }),
 			doc: docStream,
 			awareness: awStream,
-			...(args.host && key ? { host: { name: args.host.name, key, tokens: args.host.tokens, invite: { title: d.deckTitle, hostName: args.host.name, slides: d.slideCount, theme: d.theme } } } : { hostFingerprint: args.hostFingerprint }),
+			...(args.host && key ? { host: { name: args.host.name, key, tokens: args.host.tokens, ...(args.host.succession ? { succession: args.host.succession } : {}), ...(args.host.selfToken ? { selfToken: args.host.selfToken } : {}), invite: { title: d.deckTitle, hostName: args.host.name, slides: d.slideCount, theme: d.theme } } } : { hostFingerprint: args.hostFingerprint }),
 			...(args.token ? { token: args.token } : {}),
+			...(args.minTerm !== undefined ? { minTerm: args.minTerm } : {}),
 			client: aw.clientID,
 			onPost: (data, from) => this.onPost(data, from),
 		});
 		// The binding brings its own undo manager, scoped to THIS browser's changes, in place of
 		// CodeMirror's history (which would put everyone's edits on your undo stack).
 		const ext = [yCollab(ytext, aw, { undoManager: new Y.UndoManager(ytext) }), keymap.of(yUndoManagerKeymap)];
-		const fingerprint = key?.fingerprint ?? (args.hostFingerprint as string);
+		// The LINK's fingerprint: a host that took over signs with its own key, certified by the link's.
+		const fingerprint = args.host?.succession?.fingerprint ?? key?.fingerprint ?? (args.hostFingerprint as string);
 		// The link is this page's address WITHOUT its query: a query can carry anything the host's
 		// address bar happened to hold (inversion round 2, item 6).
-		rt = { session, doc, ytext, aw, room: args.room, secret: args.secret, link: formatLink(location.origin + location.pathname, { room: args.room, secret: args.secret, host: fingerprint }), startedAt: args.startedAt ?? Date.now(), ext, key, owner, chatN: 0, ...newSid(args.room), gotDoc: !!args.host, disposers: [] };
-		if (args.release) rt.disposers.push(args.release);
+		rt = { session, doc, ytext, aw, room: args.room, secret: args.secret, link: formatLink(location.origin + location.pathname, { room: args.room, secret: args.secret, host: fingerprint }), startedAt: args.startedAt ?? Date.now(), ext, key, owner, chatN: 0, ...newSid(args.room), gotDoc: !!args.host, disposers: [], release: args.release ?? null };
+		rt.disposers.push(() => {
+			rt?.release?.();
+			if (rt) rt.release = null;
+		});
 		this.rt = rt;
 		const r = rt;
 
@@ -545,6 +596,8 @@ export class LiveController {
 								if (this.rt === r) this.post({ k: 'tip', seq: this.seq, startedAt: r.startedAt }, to);
 							}, 400);
 						}
+						// A newcomer learns whether our microphone is on (who is speaking it measures itself).
+						if (this.audio?.inCall) this.post({ k: 'mic', on: !this.audio.isMuted }, m.id);
 						// Back from a dropped link (a backgrounded phone tab, a blip): not news.
 						const back = this.away.get(awayKey(m));
 						if (back) {
@@ -562,6 +615,7 @@ export class LiveController {
 					for (const [id, m] of before) {
 						if (s.members.some((x) => x.id === id) || id === s.selfId) continue;
 						this.typingAt.delete(id);
+						this.remoteMic.delete(id);
 						if (this.removed.delete(id)) {
 							this.sys(`${m.name} was removed`);
 							continue;
@@ -584,7 +638,11 @@ export class LiveController {
 					}
 					for (const m of s.members) {
 						const was = before.get(m.id);
-						if (was && was.role !== m.role) this.sys(`${m.name} ${m.role === 'view' ? 'can now only view' : 'can now edit'}`);
+						if (!was || was.role === m.role || was.role === 'host') continue;
+						// The heir took over: its own browser says so in `onTookOver`.
+						if (m.role === 'host') {
+							if (m.id !== s.selfId) this.sys(`${m.name} is hosting now`);
+						} else this.sys(`${m.name} ${m.role === 'view' ? 'can now only view' : 'can now edit'}`);
 					}
 				}
 				// Made view-only with lines still waiting: they can no longer be sent. Say so once.
@@ -601,6 +659,20 @@ export class LiveController {
 						() => {},
 					);
 				}
+				if (prev.stage === 'live' && s.stage === 'live') {
+					if (!prev.isHost && s.isHost) this.onTookOver(r);
+					else if (prev.isHost && !s.isHost) this.onSteppedDown(r);
+				}
+				if (!s.isHost && s.minTerm !== prev.minTerm) writeLink(r.room, { minTerm: s.minTerm });
+				if (this.handbackDue && !s.isHost && s.stage === 'live' && !s.hostAway) {
+					const to = s.members.find((m) => m.role === 'host')?.id;
+					if (to) {
+						this.handbackDue = false;
+						this.post({ k: 'handback', lines: this.chat, sids: [...this.sidOwner].map(([sid, owner]): [string, string] => [sid, owner === 'host' ? (this.lastSelfId ?? owner) : owner]) }, to);
+					}
+				}
+				if (s.isHost && s.heir !== prev.heir) this.sentSids = '';
+				if (s.isHost) this.sendSids();
 				if (prev.stage !== s.stage) this.onStage(prev.stage, s);
 				prev = s;
 				this.saveHostSoon();
@@ -639,6 +711,7 @@ export class LiveController {
 		doc.on('update', onDocUpdate);
 		r.disposers.push(() => doc.off('update', onDocUpdate));
 		let resendIn = RESEND_MS;
+		let pathsIn = 1;
 		this.ticker = setInterval(() => {
 			this.now = this.rt ? this.rt.session.now() : Date.now();
 			// "Sending…" never waits on an event that may not come: retry on a timer too.
@@ -646,6 +719,12 @@ export class LiveController {
 			if (resendIn <= 0) {
 				resendIn = RESEND_MS;
 				if (this.pending.length) this.catchUp();
+			}
+			if (--pathsIn <= 0) {
+				pathsIn = PATHS_EVERY;
+				void r.session.paths().then((p) => {
+					if (this.rt === r) this.paths = p;
+				});
 			}
 			if (this.rt?.session.getState().stage === 'live') this.host.rerender();
 		}, 1000);
@@ -672,6 +751,7 @@ export class LiveController {
 		else r.session.leave();
 		for (const d of r.disposers) d();
 		r.aw.destroy();
+		this.endCall();
 		this.rt = null;
 		this.systemLines = [];
 		this.fromY.clear();
@@ -693,6 +773,11 @@ export class LiveController {
 			sessionStorage.removeItem(PENDING_KEY);
 		} catch {}
 		this.seq = 0;
+		this.paths = {};
+		this.heirSids = [];
+		this.sentSids = '';
+		this.handbackDue = false;
+		this.lastSelfId = null;
 		this.hostStartedAt = null;
 		this.following = null;
 		this.bound = false;
@@ -745,7 +830,11 @@ export class LiveController {
 		let sealed: string;
 		const seq = ++this.sealSeq;
 		try {
-			sealed = await seal(JSON.stringify({ secret: r.secret, tokens: r.session.exportTokens(), chat: this.chat, sids: [...this.sidOwner] } satisfies HostSealed));
+			// Certs still being signed would leave the saved term behind the roster's (checker, 2026-10-07).
+			await r.session.idle();
+			const succ = r.session.succession();
+			const succession = succ ? { root: succ.root, fingerprint: succ.fingerprint, chain: succ.chain, base: succ.base, top: succ.top } : undefined;
+			sealed = await seal(JSON.stringify({ secret: r.secret, tokens: r.session.exportTokens(), chat: this.chat, sids: [...this.sidOwner], succession, selfToken: succ?.selfToken } satisfies HostSealed));
 		} catch {
 			return false;
 		}
@@ -763,6 +852,161 @@ export class LiveController {
 		} catch {
 			return false;
 		}
+	}
+
+	// ── the call (S4) ───────────────────────────────────────────────────────
+	private micOf(peer: string, me: boolean): 'off' | 'muted' | 'on' | 'speaking' {
+		const a = this.audio;
+		if (!a) return 'off';
+		if (me) return !a.inCall ? 'off' : a.isMuted ? 'muted' : this.speakingNow.has('self') ? 'speaking' : 'on';
+		const said = this.remoteMic.get(peer);
+		if (!a.hasStream(peer) || said === undefined) return 'off';
+		if (!said) return 'muted';
+		return this.speakingNow.has(peer) ? 'speaking' : 'on';
+	}
+
+	private async toggleMic() {
+		const a = this.audio;
+		if (!a) return;
+		if (!a.inCall) return this.joinCall();
+		a.setMuted(!a.isMuted);
+		this.post({ k: 'mic', on: !a.isMuted });
+		this.onAirTitle();
+	}
+
+	/** Capture the microphone (or switch to another one) and send it to every member. */
+	private async joinCall(deviceId?: string) {
+		const a = this.audio;
+		const r = this.rt;
+		if (!a || !r) return;
+		try {
+			const stream = await a.join(deviceId);
+			if (this.rt !== r) {
+				a.leave();
+				return;
+			}
+			this.micDenied = false;
+			r.session.setMedia(stream);
+			this.post({ k: 'mic', on: !a.isMuted });
+			this.micDevices = await a.devices();
+			this.startSpeaking();
+		} catch (e) {
+			const denied = (e as { name?: string })?.name === 'NotAllowedError' || (e as { name?: string })?.name === 'SecurityError';
+			this.micDenied = denied;
+			this.host.notify(denied ? 'The browser blocked the microphone. Allow it in the address bar, then try again.' : "Couldn't start the microphone.");
+		}
+		this.onAirTitle();
+		this.host.rerender();
+	}
+
+	private leaveCall() {
+		const a = this.audio;
+		if (!a?.inCall) return;
+		a.leave();
+		this.rt?.session.setMedia(null);
+		this.post({ k: 'mic', on: false });
+		this.onAirTitle();
+		this.host.rerender();
+	}
+
+	/** The speaking rings: levels read ~7 times a second, a redraw only when someone starts or stops. */
+	private startSpeaking() {
+		if (this.speakTimer) return;
+		this.speakTimer = setInterval(() => {
+			const now = this.audio?.speaking() ?? new Set<string>();
+			if (now.size === this.speakingNow.size && [...now].every((x) => this.speakingNow.has(x))) return;
+			this.speakingNow = now;
+			this.host.rerender();
+		}, 150);
+	}
+
+	private endCall() {
+		if (this.speakTimer) clearInterval(this.speakTimer);
+		this.speakTimer = null;
+		this.audio?.dispose();
+		this.audio = null;
+		this.remoteMic.clear();
+		this.speakingNow.clear();
+		this.micDenied = false;
+		this.micDevices = [];
+		this.onAirTitle();
+	}
+
+	/** While this browser's microphone is live, the tab says so (§5.8: on-air is unmissable). */
+	private onAirTitle() {
+		if (typeof document === 'undefined') return;
+		const onAir = !!this.audio?.inCall && !this.audio.isMuted;
+		const PREFIX = 'On air · ';
+		if (onAir && !document.title.startsWith(PREFIX)) {
+			this.plainTitle = document.title;
+			document.title = PREFIX + document.title;
+		} else if (!onAir && document.title.startsWith(PREFIX)) {
+			document.title = this.plainTitle ?? document.title.slice(PREFIX.length);
+			this.plainTitle = null;
+		}
+	}
+
+	// ── succession: the host role moved (Tavola, "SUCCESSION") ──────────────
+	/** Host: hand the heir the chat-id owners, once per change. The host's own lines are owned by
+	 *  'host' here; the heir gets them under the host's rejoin token, which the host rejoins with. */
+	private sendSids() {
+		const r = this.rt;
+		const s = r?.session.getState();
+		const selfToken = r?.session.succession()?.selfToken;
+		if (!r || !s?.isHost || !s.heir || !selfToken) return;
+		const self = tokenId(selfToken);
+		const sids = [...this.sidOwner].map(([sid, owner]): [string, string] => [sid, owner === 'host' ? self : owner]);
+		const key = `${s.heir}|${JSON.stringify(sids)}`;
+		if (key === this.sentSids) return;
+		this.sentSids = key;
+		this.post({ k: 'sids', sids }, s.heir);
+	}
+
+	/** This browser took the host role over: it numbers the chat from here, keeps the session's
+	 *  start, holds the host lock and saves the session like any host (with its own key). */
+	private onTookOver(r: Runtime) {
+		const succ = r.session.succession();
+		if (!succ) return;
+		r.key = succ.key;
+		r.startedAt = this.hostStartedAt ?? r.startedAt;
+		// Our own lines were owned by our rejoin token's id (now `selfToken`'s); a host's own are 'host'.
+		const mine = tokenId(succ.selfToken);
+		this.lastSelfId = mine;
+		this.sidOwner = new Map(this.heirSids.map(([sid, owner]): [string, string] => [sid, owner === mine ? 'host' : owner]));
+		this.heirSids = [];
+		const waiting = this.pending;
+		this.setPending([]);
+		for (const p of waiting) this.hostTake(p.id, r.session.getState().selfId, r.session.getState().me as { name: string; color: LiveColor }, p.text);
+		void putHostPrivateKey(r.room, succ.key.privateKey).catch(() => {});
+		void holdHostLock(r.room).then((release) => {
+			if (this.rt === r && r.session.getState().isHost) r.release = release;
+			else release?.();
+		});
+		clearJoinIntent();
+		void this.saveHost();
+		this.sys('The host left, so you are hosting now');
+		this.host.notify('The host left, so you are hosting the session now.');
+	}
+
+	/** A regency ended: the session's first host (or a later regent) took over from this browser.
+	 *  Rejoin it as a member and hand the chat back. A reload now rejoins by link and token, in this
+	 *  same deck, instead of resuming as host. */
+	private onSteppedDown(r: Runtime) {
+		r.release?.();
+		r.release = null;
+		r.key = null;
+		this.hostStartedAt = r.startedAt;
+		clearHostSave();
+		void deleteHostPrivateKey(r.room).catch(() => {});
+		const fp = parseFragment(new URL(r.link).hash)?.host;
+		if (fp) {
+			const raw = formatFragment({ room: r.room, secret: r.secret, host: fp }).slice('live='.length);
+			void seal(raw).then(storeSealedJoin, () => {});
+		}
+		if (this.boundDeck) writeLink(r.room, { deckId: this.boundDeck });
+		this.handbackDue = true;
+		this.sys('The host is back, so you are no longer hosting');
+		this.host.notify('The host is back, so you are no longer hosting. You are still in the session.');
 	}
 
 	// ── stage transitions that need the Studio (guests) ─────────────────────
@@ -1111,6 +1355,9 @@ export class LiveController {
 			const was = this.typingAt.get(from) ?? 0;
 			this.typingAt.set(from, Date.now());
 			if (Date.now() - was > 1000) this.host.rerender();
+		} else if (p.k === 'mic' && typeof p.on === 'boolean') {
+			this.remoteMic.set(from, p.on);
+			this.host.rerender();
 		} else if (p.k === 'bye') {
 			this.byes.add(from);
 		} else if (p.k === 'gone' && fromHost && typeof p.id === 'string' && typeof p.name === 'string') {
@@ -1124,6 +1371,11 @@ export class LiveController {
 				this.sys(`${p.name} was removed`);
 				this.host.rerender();
 			}
+		} else if (s.isHost && p.k === 'handback' && r.session.wasHeir(from) && Array.isArray(p.lines) && Array.isArray(p.sids)) {
+			// The regent's lines and owners: the session's chat stays whole across the regency.
+			this.addLines(p.lines.slice(-CHAT_KEEP).map(cleanLine).filter((l): l is ChatLine => !!l));
+			for (const e of p.sids.slice(0, 2000)) if (Array.isArray(e) && typeof e[0] === 'string' && typeof e[1] === 'string' && !this.sidOwner.has(e[0])) this.sidOwner.set(e[0], e[1]);
+			void this.saveHost();
 		} else if (s.isHost) {
 			if (p.k === 'say' && sender.role !== 'view' && typeof p.id === 'string' && p.id.length <= 80 && typeof p.text === 'string') {
 				this.typingAt.delete(from);
@@ -1166,6 +1418,9 @@ export class LiveController {
 			} else if (p.k === 'lines' && Array.isArray(p.lines)) {
 				if (typeof p.startedAt === 'number') this.hostStartedAt = p.startedAt;
 				this.addLines(p.lines.slice(-CHAT_KEEP).map(cleanLine).filter((l): l is ChatLine => !!l));
+			} else if (p.k === 'sids' && Array.isArray(p.sids)) {
+				// Kept whether or not we know yet that we are the heir: it can arrive before the roster.
+				this.heirSids = p.sids.filter((e): e is [string, string] => Array.isArray(e) && typeof e[0] === 'string' && typeof e[1] === 'string').slice(0, 2000);
 			} else if (p.k === 'tip' && Number.isSafeInteger(p.seq)) {
 				if (typeof p.startedAt === 'number') this.hostStartedAt = p.startedAt;
 				// Ahead OR behind: a host whose number is below ours came back from an old save, and our
@@ -1183,10 +1438,10 @@ export class LiveController {
 		const people: LivePerson[] = s.members.map((m) => {
 			const st = byPeer.get(m.id);
 			const me = m.id === s.selfId;
-			return { id: m.id, name: m.name, color: m.color, role: m.role, me, slide: me ? this.deps.activeSlide : (st?.slide ?? null), editing: !!st?.editingAt && this.now - st.editingAt < TYPING_MS && st.editingAt < this.now + 5000, mic: 'off' };
+			return { id: m.id, name: m.name, color: m.color, role: m.role, me, slide: me ? this.deps.activeSlide : (st?.slide ?? null), editing: !!st?.editingAt && this.now - st.editingAt < TYPING_MS && st.editingAt < this.now + 5000, mic: this.micOf(m.id, me), ...(!me && this.paths[m.id] ? { link: { kind: linkKind(this.paths[m.id]), detail: `${this.paths[m.id].local}→${this.paths[m.id].remote} (${this.paths[m.id].protocol})` } } : {}) };
 		});
 		for (const [k, a] of this.away) {
-			if (!people.some((p) => p.name === a.name && p.color === a.color)) people.push({ id: `away:${k}`, name: a.name, color: a.color, role: a.role, slide: null, editing: false, mic: 'off', away: true });
+			if (!people.some((p) => p.name === a.name && p.color === a.color)) people.push({ id: `away:${k}`, name: a.name, color: a.color, role: a.role === 'host' && s.members.some((m) => m.role === 'host') ? 'edit' : a.role, slide: null, editing: false, mic: 'off', away: true });
 		}
 		const now = Date.now();
 		const typing = s.members.filter((m) => m.id !== s.selfId && now - (this.typingAt.get(m.id) ?? 0) < TYPING_SHOW_MS).map((m) => m.name);
@@ -1196,6 +1451,7 @@ export class LiveController {
 			// The session's start as the HOST stamped it, on the session clock.
 			// Unknown (null, so no timer shows) until the host's start arrives, rather than 0:00 then a jump.
 			startedAt: s.isHost ? r.startedAt : this.hostStartedAt,
+			heir: s.heir ? (s.heir === s.selfId ? 'you' : (s.members.find((m) => m.id === s.heir)?.name ?? null)) : null,
 			link: r.link,
 			linkRole: s.linkRole,
 			autoAdmit: s.autoAdmit,
@@ -1205,7 +1461,8 @@ export class LiveController {
 			chat: this.mergedChat(),
 			following: this.following,
 			hostAway: s.hostAway,
-			audio: false,
+			audio: !!this.audio && r.session.hasMedia && LiveAudio.supported(),
+			call: { inCall: !!this.audio?.inCall, muted: !!this.audio?.isMuted, denied: this.micDenied, devices: this.micDevices, device: this.audio?.device ?? null },
 			canChat: s.me?.role !== 'view',
 			typing,
 		};
@@ -1298,7 +1555,9 @@ export class LiveController {
 			this.sys(`You brought everyone to slide ${this.deps.activeSlide + 1}`);
 			this.host.rerender();
 		},
-		toggleMic: () => {},
+		toggleMic: () => void this.toggleMic(),
+		leaveCall: () => this.leaveCall(),
+		pickMic: (id) => void this.joinCall(id),
 		end: () => {
 			this.teardown('end');
 			this.host.notify('Live session ended. The deck stays as it is.');

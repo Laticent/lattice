@@ -26,6 +26,30 @@ export interface Transport {
 	onPeerJoin(cb: (id: PeerId) => void): void;
 	onPeerLeave(cb: (id: PeerId) => void): void;
 	leave(): void | Promise<void>;
+	/** Optional: the network path each open connection took, for a "how are we connected" readout.
+	 *  A transport without real connections (the in-memory one) leaves it out. */
+	paths?(): Promise<Record<PeerId, LinkPath>>;
+	/** Optional media on the same connections: send `track` (of `stream`) to one peer, stop sending
+	 *  it, and hear what peers send. A transport without media (the in-memory one) leaves them out. */
+	addTrack?(track: MediaStreamTrack, stream: MediaStream, to: PeerId): void;
+	removeTrack?(track: MediaStreamTrack, to: PeerId): void;
+	onTrack?(cb: (track: MediaStreamTrack, stream: MediaStream, from: PeerId) => void): void;
+}
+
+/**
+ * The ICE candidate pair a connection settled on. `host` is a device's own address (the two are on
+ * one network), `srflx` / `prflx` an address a router mapped (a direct connection across networks),
+ * `relay` a TURN server in the middle.
+ */
+export type LinkPath = { local: string; remote: string; protocol: string };
+
+/** What a path means to a person: one network, direct across networks, or through a relay. */
+export type LinkKind = 'local' | 'direct' | 'relay';
+
+export function linkKind(p: LinkPath): LinkKind {
+	if (p.local === 'relay' || p.remote === 'relay') return 'relay';
+	if (p.local === 'host' && p.remote === 'host') return 'local';
+	return 'direct';
 }
 
 /**
@@ -81,6 +105,11 @@ export type SessionState = {
 	cap: number;
 	/** Guest only: the token that lets this browser rejoin without knocking again. */
 	token: string | null;
+	/** Who becomes host if the host's link stays down (the host names it in the roster). */
+	heir: PeerId | null;
+	/** Guest: the lowest host term this browser follows. Persist it with the rejoin token and pass
+	 *  it back as `SessionOptions.minTerm` after a reload. */
+	minTerm: number;
 };
 
 export type Clock = {

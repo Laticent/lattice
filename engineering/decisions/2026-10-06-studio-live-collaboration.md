@@ -414,7 +414,7 @@ Everything except signaling is peer to peer:
 | Encryption | DTLS / SRTP between peers (always on in WebRTC); AES-GCM on signaling with the link secret | browsers |
 | Signaling (matchmaking) | [Trystero](https://github.com/dmotz/trystero) (MIT) over its default Nostr strategy — public relays, no account; BitTorrent trackers as the second strategy | third parties, free |
 | STUN | a public STUN server | third party, free |
-| TURN | a config slot, off by default | nobody, unless a free public TURN is configured later |
+| TURN | a config slot, off by default (`LIVE_TURN` in `docs/src/components/studio/live/live-ice.ts`; the options, measured, are roadmap §3.1) | nobody, until the owner picks one |
 
 **Why GitHub Pages cannot be the middleman.** Pages serves static files. It cannot hold a
 connection open or pass a message from one browser to another, and two browsers need
@@ -534,6 +534,33 @@ at a throwaway local relay started by the test itself. Nothing of it ships.
   need the owner on two real devices on two networks (HARD RULE #23). The spike in §7
   measured join time over the real public relays, but from one machine; how it holds across
   days and networks needs the same real-world check.
+
+### 8.1 The two-network check — the owner's runbook
+
+The one test this sandbox cannot run (HARD RULE #23). It needs two real devices on two
+different networks, and it takes about five minutes.
+
+1. **Open the PR's docs preview link** on a laptop on Wi-Fi. Studio → Live → *Start live
+   session*. Copy the link and send it to your phone.
+2. **On the phone, turn Wi-Fi off** so it runs on mobile data. Open the link, type a name,
+   and tap *Ask to join*. Admit the phone on the laptop.
+3. **Edit and chat both ways.** Type a line on each device, and send a chat message from each.
+4. **Read the connection.** In the Live panel, each person row shows an icon for how this
+   browser reaches them: a Wi-Fi mark (same network), two arrows (direct across networks), or
+   a server (through a relay). Tap the person's **⋯** menu. The first lines read
+   *Connection: …* and the raw pair, for example `srflx→prflx (udp)`. Screenshot that menu
+   on both devices.
+5. **Record it in §12**: the two networks (for example, home fiber and a named carrier on 5G),
+   the pair each side shows, the time from opening the link to the lobby, and whether every
+   step worked.
+
+How to read the result: `host→host` means both devices were on one network, so the test did not
+cross networks. Run it again with Wi-Fi off. `srflx` or `prflx` on either side means a direct
+connection across networks, which is the case the feature needs. If the phone sits on
+*Connecting…* and then shows *Nobody answered* while the laptop is live, the carrier blocks
+direct connections. That is the case a TURN relay fixes (§7, and
+`followups.d/2547-p2-decide-a-turn-default.md`), so record it. It settles how urgent TURN is.
+An iPhone on Safari is worth one run of its own, because nothing here has run on WebKit.
 
 ## 9. Slices
 
@@ -695,6 +722,125 @@ narrower windows of the same host-id squat; each now has a test that fails witho
   misdirects-taps.md` covers the other sheets).
 - UNVERIFIED: two real devices on two networks, iOS Safari, and anything about calls.
 
+
+### 12.1 Host handoff, as a regency (2026-10-07)
+
+**What it does.** If the host's connection stays down, the next editor hosts **until the host is
+back**: members rejoin the regent by token without knocking, chat keeps flowing (numbered by the
+regent), and new people can knock again. When the host returns, from a reload or from a phone
+tab that was frozen, it takes the session back; the regent hands back the chat lines it numbered
+and the rejoin tokens it issued, so the people it let in stay in. The Live panel names the heir:
+the host reads *If you're disconnected for about half a minute, Amina hosts until you're back*,
+and while the host is away every member reads who hosts meanwhile.
+
+**Why a regency and not a handover.** The first design moved the role for good: the old host
+rejoined as a member. The inversion review ran it and found that what happened then depended on
+whether the browser froze the tab or threw it away. A reloaded host stepped down. A resumed tab
+took the session back, dropped the regent's chat and showed the regent a false "you were away".
+Making the creator always reclaim turns that accident into the rule. It also keeps what a host had
+before: the person who shared the link can always end the session. *This is a product choice the
+owner can reverse:* a final handover is the same mechanism with the reclaim turned off.
+
+**How the authority moves.** The host's key cannot move: in the Studio it is a non-extractable
+CryptoKey. So the host certifies the heir's own key: a cert says "this key may host at term N,
+and never above M", signed by the key that hosts now, and a hello carries the chain of certs back
+to the key the link names (`hostkey.ts`, `verifyChain`). Terms only rise, a cert can only narrow
+its issuer's range, and the highest term wins:
+
+- a guest follows a strictly higher term, and never one below its floor (the roster's term, which
+  the Studio persists with the rejoin token, so a reload is not caught by a withdrawn heir);
+- a regent that hears a higher term steps down (`moved`), rejoins with its own token, and hands back;
+- the first host never steps down: it certifies itself above the challenger's whole range;
+- when the heir changes (it left, was removed or made view-only), the host certifies itself above
+  the withdrawn range, and the range's ceiling binds every key the withdrawn heir could sign;
+- an heir that challenges a first host which still has members is never heir again.
+
+**What the heir holds.** The chain, the blocked ids, the settings, and the rejoin tokens **by id**
+(SHA-256). It can check a knock by hashing it, but cannot knock with anyone's token. A removed
+heir therefore cannot come back as another member (red team, 2026-10-07).
+
+**Waiting before taking over.** WebRTC takes about 13 s to notice a dead link (measured below),
+and a host reload is back in about 6 s, so the grace is 20 s. Then the heir asks the other
+editors whether they still reach the host. If one does, the heir is the one cut off, and it waits
+again, for at most three rounds; after that it hosts anyway, and the first host takes the session
+back when the cut heals. A viewer's answer does not count, so a viewer cannot hold the handoff off.
+
+**What the Studio does around it.** The regent keeps the session's start time and the chat
+numbering, takes over the chat-id owners the host handed it, sends its own waiting lines, holds
+the host lock and saves the session with its own key and chain. A host waits for any cert still
+being signed before it saves, and withdraws a cert it had out when it resumes from a save.
+
+**Measured on the real surface** (`tools/live-session-check.mjs`, two Chromium processes, the
+public relays, real WebRTC): the host's tab closed; the heir saw *The host is away… you host
+until they return* about 13 s later; it hosted 32.9 s after the close; a third person knocked,
+the regent admitted them, and they received its edits; the regent ended the session.
+
+**The first host's return, on the real surface** (the same check, light and dark, plus two runs of a
+two-browser variant). The check drops the host's network the way a phone loses signal: its
+connections close, and any connection made meanwhile finds no route, so it fails as it would
+offline. Chen, the heir, hosted 20.2–20.5 s after the drop; a chat line and an edit were written
+during the regency; when the host's network returned, it took the session back 22–48 s later
+(six runs, all of them), with the regency's edit and chat line, and the chat in the same order on
+both sides. Most of that wait is the connection library's own retry. A *frozen* tab could not be
+reproduced here (headless Chromium does not freeze a visible page); it ends in the same reclaim, and
+Tavola's and the Studio's tests run it.
+
+**The adversarial review** (red team, inversion, independent checker; all on Opus) found, before
+merge, and each now has a test that fails without its guard:
+
+| Finding | Severity | Now |
+|---|---|---|
+| A cert holder could certify itself at any term, so a withdrawn heir out-ranked the host | critical | ceilings: a cert can only narrow its issuer's range |
+| After a host reload, a cert still out was never withdrawn; an ex-heir could make the host step down | critical | a resumed host withdraws before its first hello; the first host never steps down |
+| A removed heir kept every rejoin token and walked back in as another member | high | the heir gets token ids only |
+| A reloading member could be caught by a withdrawn heir before the host's hello | high | the floor persists with the token |
+| A returning host's fate depended on whether its tab froze or reloaded; the regent's chat was lost | high | regency: the first host always reclaims, and the regent hands back lines and tokens |
+| One viewer answering "the host is here" held the handoff off forever | medium | only editors' answers count, and at most three rounds |
+| A save could seal the chain before a cert finished signing | medium | the save waits for signing |
+| An heir could keep a cert below the floor and take over into a void | low | dropped on the roster and before promotion |
+| The first chat-id handover to a new heir could be dropped | low | kept from the host whenever it arrives |
+
+**Protocol.** Version 2. A tab still on version 1 shows *Reload to join* rather than timing out.
+
+### 12.2 Audio calls — S4 (2026-10-07)
+
+**What it does.** *Join with audio* in the Live panel (or the mic in the header pill) captures the
+microphone with echo cancellation and noise suppression and sends it to everyone in the session;
+you hear the others once you join. Mute and unmute need no reconnection (the track is turned off).
+The call row's ⋯ picks the microphone and leaves the call. Each person's row shows their mic, and
+a speaking ring in their color while they talk; the tab title starts with *On air ·* while your
+microphone is live. If the browser blocks the microphone, the panel says how to allow it.
+
+**The gate.** Tracks go only to admitted members, and a stream from anyone else is held, unheard,
+until the host admits them (`session.setMedia`, Tavola). A removed member's stream is dropped.
+
+**Deviations from §5.8.**
+- The speaking ring is **measured by each listener** from the stream it hears (Suono's
+  `stage.meter`), not shared through awareness: a level a peer reports about itself is a
+  self-claim, and earlier review rounds found those forgeable. Only the mic on/off state is said by
+  its owner, about itself.
+- The device picker covers the microphone. Choosing the output device (`setSinkId`) is not built;
+  Safari does not support it.
+- Video (S5) is not built.
+
+**Measured on the real surface** (`tools/live-session-check.mjs`, Chromium's fake microphone, real
+WebRTC; the run's log is kept with its screenshots): both joined; each side played one remote
+stream; each side showed the speaking ring on the OTHER person's row; the host showed the guest's
+mic as *Mic on*, then *Muted* after the guest muted; the tab title read *On air · …*; the
+measured send rate was 8.7–9.9 kbit/s over two runs. The fake source is a short beep over silence,
+so Opus sends little; ordinary speech runs at roughly 25–40 kbit/s. UNVERIFIED: real
+microphones, echo between two real devices, call quality, and iOS Safari.
+
+**The checker** (tier 1, on Opus) confirmed the gate and found audio going one-way after a
+takeover or a same-id blip, which the in-memory network reproduced. Fixed, each with a test that
+fails without it: a peer still connected keeps its stream across a re-admission; media re-syncs
+whenever a link comes or goes; a re-sent stream replaces the held one (drop, then add); a host
+that ends lets go of every stream at once; mic state is re-sent to a peer whose stream returns.
+Also fixed: remote streams play through a muted `<audio>` element until you join (Chromium
+meters a remote stream only while an element plays it), the audio context resumes inside the
+join click, a permission prompt answered after the session closed leaks nothing, and a person not
+on the call shows no mic at all (*Muted* is only for someone on the call, which also stopped the
+row from truncating names).
 
 ## 13. Implementation reference — what it is built from, and why
 
