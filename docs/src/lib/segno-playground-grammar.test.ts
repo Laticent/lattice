@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { alt, any, charRange, chars, compile, GrammarError, generate, lit, many, many1, node, noneOf, opt, ref, seq } from './segno';
-import { clipProblems, clipText, GrammarSourceError, MAX_EXPANDED, MAX_PROBLEMS, MAX_REPLY_TEXT, readGrammarSource } from './segno-playground-grammar';
+import { clipProblems, clipText, GrammarSourceError, MAX_EXPANDED, MAX_PROBLEMS, MAX_REPLY_TEXT, readGrammarSource, treeTooBig } from './segno-playground-grammar';
 
 const DSL = { alt, any, charRange, chars, lit, many, many1, node, noneOf, opt, ref, seq };
 const page = readFileSync(resolve(__dirname, '../pages/segno.astro'), 'utf8');
@@ -110,6 +110,39 @@ describe('readGrammarSource', () => {
     expect(shown).toHaveLength(MAX_PROBLEMS + 1);
     expect(shown.at(-1)).toBe(`… and ${(problems.length - MAX_PROBLEMS).toLocaleString('en-US')} more`);
     expect(clipProblems(['x'.repeat(5_000)])[0].length).toBeLessThan(500);
+  });
+
+  it('withholds a parse tree that is too big or too deep to draw, without overflowing itself', () => {
+    // The checker's grammar: rules of node() nested 60 deep, each ending in the next rule, so every
+    // character of text makes rules × 60 nodes in one chain.
+    const nested = (rules: number) => {
+      const body = (i: number) => `${"node('a', ".repeat(60)}${i + 1 < rules ? `ref('r${i + 1}')` : "lit('x')"}${')'.repeat(60)}`;
+      const ruleList = Array.from({ length: rules }, (_, i) => `r${i}: ${body(i)}`).join(',\n');
+      return compile(readGrammarSource(`return { start: 's', rules: { s: many1(ref('r0')),\n${ruleList} } };`, DSL) as Parameters<typeof compile>[0]);
+    };
+    const wide = nested(8).parse('x'.repeat(200));
+    expect(wide.ok && treeTooBig(wide.node)).toBe(true); // 96,001 nodes, 480 deep
+    const deep = nested(78).parse('x'); // 4,680 deep: structuredClone of it overflows the stack
+    expect(deep.ok && treeTooBig(deep.node)).toBe(true);
+    // Every preset the page can build draws its tree (two presets are refused on purpose).
+    const built = presets.flatMap((code) => {
+      try { return [compile(readGrammarSource(code, DSL) as Parameters<typeof compile>[0])]; } catch (e) { if (e instanceof GrammarError) return []; throw e; }
+    });
+    expect(built.length).toBeGreaterThanOrEqual(3);
+    const parsed = built.flatMap((p) => ['width=12; color=red', 'Storefront -> Payments -> Ledger', '2026-01-05..2026-02-01'].map((t) => p.parse(t)));
+    expect(parsed.some((r) => r.ok)).toBe(true);
+    for (const r of parsed) if (r.ok) expect(treeTooBig(r.node)).toBe(false);
+  });
+
+  it('the worker sends every reply through the caps', () => {
+    // The caps are tested above; this pins that the worker calls them on each field it sends.
+    const worker = readFileSync(resolve(__dirname, 'segno-playground-worker.ts'), 'utf8');
+    expect(worker).toMatch(/generated = clipText\(generate\(/);
+    expect(worker).toMatch(/problems: clipProblems\(e\.problems\)/);
+    expect(worker).toMatch(/treeTooBig\(r\.node\) \? \{ ok: true, tooBig: true \}/);
+    expect(worker).toMatch(/expected: clipText\(/);
+    expect(worker).not.toMatch(/message: \(e as Error\)/); // no message leaves unclipped
+    expect((worker.match(/message: clipText\(/g) ?? []).length).toBe(3);
   });
 
   it('a shorthand key with no const says it is not defined; a huge number is refused', () => {

@@ -750,7 +750,8 @@ return {
 				const t = lastText;
 				if (r.ok) {
 					verdict(true, ['Compiles, and this text parses.']);
-					gramTree.replaceChildren(renderTree(r.node, t));
+					if (r.tooBig) gramTree.replaceChildren(el('p', 'note', 'The tree has more than 2,000 nodes or is more than 100 levels deep, so it is not drawn here.'));
+					else gramTree.replaceChildren(renderTree(r.node, t));
 				} else {
 					const e = r.error;
 					const found = e.found === null ? 'the end' : JSON.stringify(e.found);

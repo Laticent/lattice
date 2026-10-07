@@ -226,3 +226,23 @@ export function clipProblems(problems: readonly string[]): string[] {
   if (problems.length > MAX_PROBLEMS) shown.push(`… and ${(problems.length - MAX_PROBLEMS).toLocaleString('en-US')} more`);
   return shown;
 }
+
+// The parse tree is capped the same way. The grammar decides how many nodes each character of
+// text makes: 8 rules of node() nested 60 deep made 96,000 nodes from 200 characters, and copying a
+// tree 4,680 levels deep overflowed the stack inside postMessage. Past either limit the worker
+// sends no tree, only that it parsed. The walk is a loop, so it cannot overflow itself.
+export const MAX_TREE_NODES = 2_000;
+export const MAX_TREE_DEPTH = 100;
+
+type TreeNode = { readonly kids: readonly TreeNode[] };
+
+export function treeTooBig(root: TreeNode): boolean {
+  const stack: [TreeNode, number][] = [[root, 0]];
+  let nodes = 0;
+  while (stack.length) {
+    const [n, depth] = stack.pop() as [TreeNode, number];
+    if (++nodes > MAX_TREE_NODES || depth > MAX_TREE_DEPTH) return true;
+    for (const k of n.kids) stack.push([k, depth + 1]);
+  }
+  return false;
+}

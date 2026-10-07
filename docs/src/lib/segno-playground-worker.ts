@@ -14,7 +14,7 @@
 // `compile` with the code and the text, and `parse` with new text; every reply carries the
 // request's `id`, so the page can drop an answer about a grammar a newer compile replaced.
 import { alt, any, charRange, chars, compile, GrammarError, generate, lit, many, many1, node, noneOf, opt, ref, seq } from '@/lib/segno';
-import { clipProblems, clipText, GrammarSourceError, readGrammarSource } from './segno-playground-grammar';
+import { clipProblems, clipText, GrammarSourceError, readGrammarSource, treeTooBig } from './segno-playground-grammar';
 
 const DSL = { alt, any, charRange, chars, lit, many, many1, node, noneOf, opt, ref, seq };
 
@@ -26,7 +26,8 @@ function parseText(text: string) {
   if (!parser) return null;
   const r = parser.parse(text);
   // The tree and the error are plain data; send only what the page draws.
-  return r.ok ? { ok: true, node: r.node } : { ok: false, error: { at: r.error.at, expected: clipText(String(r.error.expected), 2000), found: r.error.found } };
+  if (r.ok) return treeTooBig(r.node) ? { ok: true, tooBig: true } : { ok: true, node: r.node };
+  return { ok: false, error: { at: r.error.at, expected: clipText(String(r.error.expected), 2000), found: r.error.found } };
 }
 
 // Every request gets a reply. A throw nobody caught would leave the page waiting out its time
