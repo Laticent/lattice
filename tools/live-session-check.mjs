@@ -164,9 +164,9 @@ await guest.waitForSelector('audio[data-live-audio]', { state: 'attached', timeo
 await host.waitForSelector('audio[data-live-audio]', { state: 'attached', timeout: 20000 });
 log(`audio: both in the call; playing elements host=${await host.locator('audio[data-live-audio]').count()} guest=${await guest.locator('audio[data-live-audio]').count()}`);
 // The ring on the OTHER person's row: a remote stream measured here, not this page's own microphone.
-const ringOn = (page, name) => page.waitForFunction((n) => [...document.querySelectorAll('[data-live-panel] li[data-live-speaking="true"]')].some((li) => li.textContent?.includes(n) && !li.textContent.includes('(you)')), name, { timeout: 15000 }).then(() => true, () => false);
+const ringOn = (page, name) => page.waitForFunction((n) => [...document.querySelectorAll('[data-live-panel] li[data-live-speaking="true"]')].some((li) => li.textContent?.includes(n) && !li.textContent.includes('You ·')), name, { timeout: 15000 }).then(() => true, () => false);
 log(`speaking ring on the other person's row: host sees Amina's=${await ringOn(host, 'Amina')} guest sees Sharmarke's=${await ringOn(guest, 'Sharmarke')}`);
-const micOf = (page, name) => page.evaluate((n) => [...document.querySelectorAll('[data-live-panel] li')].find((li) => li.textContent?.includes(n) && !li.textContent.includes('(you)'))?.querySelector('[aria-label="Mic on"], [aria-label="Muted"]')?.getAttribute('aria-label') ?? 'not on the call', name);
+const micOf = (page, name) => page.evaluate((n) => [...document.querySelectorAll('[data-live-panel] li')].find((li) => li.textContent?.includes(n) && !li.textContent.includes('You ·'))?.querySelector('[aria-label="Mic on"], [aria-label="Muted"]')?.getAttribute('aria-label') ?? 'not on the call', name);
 log(`tab title while on air: ${JSON.stringify(await host.title())}`);
 await host.screenshot({ path: `${OUT}real-call-host-${mode}.png` });
 await guest.screenshot({ path: `${OUT}real-call-guest-${mode}.png` });

@@ -159,11 +159,13 @@ function CallControls({ view, actions }: { view: LiveView; actions: LiveActions 
  */
 function SessionMenu({ view, actions, now }: { view: LiveView; actions: LiveActions; now: number }) {
 	const [confirming, setConfirming] = React.useState(false);
+	// One leave or end per confirmation: a double tap would otherwise run it (and its toast) twice.
+	const acted = React.useRef(false);
 	const ending = view.isHost;
 	return (
 		<>
 			<span className="size-1.5 rounded-full bg-[var(--accent)]" aria-hidden />
-			{view.startedAt !== null && <span className="font-mono text-[11px] tabular-nums text-muted-foreground">{elapsed(view.startedAt, now)}</span>}
+			{view.startedAt !== null && <span className="font-mono text-[11px] font-normal tabular-nums tracking-normal text-muted-foreground">{elapsed(view.startedAt, now)}</span>}
 			<DropdownMenu>
 				<DropdownMenuTrigger asChild>
 					<Button variant="ghost" size="icon" className={cn('-my-1 size-6', TOUCH)} aria-label="Session options">
@@ -171,7 +173,7 @@ function SessionMenu({ view, actions, now }: { view: LiveView; actions: LiveActi
 					</Button>
 				</DropdownMenuTrigger>
 				<DropdownMenuContent align="end" className="w-52">
-					<DropdownMenuItem onSelect={actions.copyLink}><Link2 className="size-4" /> Copy invite link</DropdownMenuItem>
+					<DropdownMenuItem onSelect={() => void actions.copyLink()}><Link2 className="size-4" /> Copy invite link</DropdownMenuItem>
 					{view.isHost && <DropdownMenuItem onSelect={actions.bringEveryone}><Eye className="size-4" /> Bring everyone to my slide</DropdownMenuItem>}
 					<DropdownMenuSeparator />
 					<DropdownMenuItem variant="destructive" onSelect={() => setConfirming(true)}>
@@ -195,6 +197,8 @@ function SessionMenu({ view, actions, now }: { view: LiveView; actions: LiveActi
 							variant="destructive"
 							onClick={() => {
 								setConfirming(false);
+								if (acted.current) return;
+								acted.current = true;
 								(ending ? actions.end : actions.leave)();
 							}}
 						>
@@ -381,11 +385,8 @@ function InviteRow({ view, actions, full }: { view: LiveView; actions: LiveActio
 			<Button
 				variant="outline"
 				size="sm"
-				onClick={() => {
-					actions.copyLink();
-					setCopied(true);
-				}}
-				disabled={full}
+				onClick={() => void actions.copyLink().then((ok) => ok && setCopied(true))}
+				disabled={full || !view.link}
 				aria-label="Copy invite link"
 				title="Copy invite link"
 				className={cn('h-8 w-9 shrink-0 gap-1.5 rounded-r-none px-0 pointer-coarse:h-10 pointer-coarse:w-11', '@max-[17rem]/live:w-auto @max-[17rem]/live:min-w-0 @max-[17rem]/live:shrink @max-[17rem]/live:flex-1 @max-[17rem]/live:justify-start @max-[17rem]/live:px-2.5')}

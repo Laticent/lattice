@@ -862,8 +862,11 @@ generated 48 kHz test signal (voice-like harmonics plus 9 kHz and 14 kHz tones):
 
 So the default was ordinary voice-call audio, and a higher cap keeps more of the top end. Calls
 now send at 64 kbit/s (`CALL_BITRATE` in `live-audio.ts`, passed as
-`session.setMedia(stream, { maxBitrate })`; the Trystero adapter sets `RTCRtpSender` encodings once
-the sender is negotiated, because Safari has none to set before). In a four-person call each
+`session.setMedia(stream, { maxBitrate })`; the Trystero adapter's `capBitrate` sets the
+`RTCRtpSender` encoding at once where it exists (Chromium), and otherwise again each time
+negotiation settles until it lands, because Trystero's `addTrack` resolves before the offer and
+answer and a browser may have no encodings until then; checker, PR #2594). Measured on Chromium
+only; Safari and Firefox are UNVERIFIED. In a four-person call each
 person uploads one stream per other member, about 190 kbit/s. It also doubles the relay cost of a
 call that goes through TURN (roadmap §3.1), about 29 MB per hour per stream.
 

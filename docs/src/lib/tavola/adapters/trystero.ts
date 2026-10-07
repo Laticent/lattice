@@ -23,14 +23,31 @@ export type TrysteroOptions = {
 };
 
 /** Cap the bitrate `track` is sent at on `pc` (best-effort: a browser that refuses keeps its default). */
-async function capBitrate(pc: RTCPeerConnection | undefined, track: MediaStreamTrack, maxBitrate: number) {
-	for (const sender of pc?.getSenders() ?? []) {
-		if (sender.track !== track) continue;
+/**
+ * Cap the bitrate `track` is sent at on `pc` (best-effort: a browser that refuses keeps its default).
+ * Trystero's addTrack resolves straight after `pc.addTrack`, before the offer and answer, and a
+ * browser may have no encodings to set until negotiation is done. So: try now, and if the sender
+ * is not capped yet, try again each time negotiation settles (`stable`), until it is or the
+ * connection closes. Exported for its test.
+ */
+export function capBitrate(pc: RTCPeerConnection | undefined, track: MediaStreamTrack, maxBitrate: number): void {
+	if (!pc) return;
+	const apply = (): boolean => {
+		const sender = pc.getSenders().find((s) => s.track === track);
+		if (!sender) return true; // the track was taken back meanwhile: nothing left to cap
 		const params = sender.getParameters();
-		if (!params.encodings?.length) continue;
+		if (!params.encodings?.length) return false;
+		if (params.encodings[0].maxBitrate === maxBitrate) return true;
 		params.encodings[0].maxBitrate = maxBitrate;
-		await sender.setParameters(params).catch(() => {});
-	}
+		sender.setParameters(params).catch(() => {});
+		return true;
+	};
+	if (apply()) return;
+	const retry = () => {
+		const done = pc.connectionState === 'closed' || (pc.signalingState === 'stable' && apply());
+		if (done) pc.removeEventListener('signalingstatechange', retry);
+	};
+	pc.addEventListener('signalingstatechange', retry);
 }
 
 export function trysteroTransport(room: string, secret: string, opts: TrysteroOptions = {}): Transport {
@@ -56,7 +73,7 @@ export function trysteroTransport(room: string, secret: string, opts: TrysteroOp
 		addTrack(track, stream, to, opts) {
 			const sent = r.addTrack(track, stream, { target: to });
 			for (const p of sent) void p.catch(() => {});
-			// The cap goes on once the sender is negotiated: before that Safari has no encodings to set.
+			// The sender exists once these settle; capBitrate waits out negotiation if it has to.
 			if (opts?.maxBitrate) void Promise.allSettled(sent).then(() => capBitrate(r.getPeers()[to], track, opts.maxBitrate as number));
 		},
 		removeTrack(track, to) {

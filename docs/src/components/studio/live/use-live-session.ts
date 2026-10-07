@@ -93,7 +93,7 @@ export function useLiveSession(deps: LiveDeps & ShellCallbacks) {
 
 	const actions: LiveActions = ctl?.actions ?? {
 		start: (name) => void ensure().then((c) => c.actions.start(name), NOOP),
-		copyLink: NOOP,
+		copyLink: () => Promise.resolve(false),
 		setLinkRole: NOOP,
 		setAutoAdmit: NOOP,
 		admit: NOOP,
