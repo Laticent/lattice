@@ -490,8 +490,8 @@ jobs:
     permissions:
       contents: write # push before/after PNGs to the orphan ci-drift-images branch
       pull-requests: write
-    env:
-      PUPPETEER_SKIP_DOWNLOAD: '1'
+    # No PUPPETEER_SKIP_DOWNLOAD: --render-affected renders goldens, so `npm ci` fetches
+    # Chromium, cached on the same key as the integration job's.
     steps:
       - uses: actions/checkout@v4
         with:
@@ -510,8 +510,15 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - name: Install poppler-utils + ImageMagick
-        run: sudo apt-get update && sudo apt-get install -y poppler-utils imagemagick
+      - name: Cache Puppeteer browser
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/puppeteer
+          key: puppeteer-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Install poppler-utils + ImageMagick + color emoji font
+        # The emoji font for the same reason as the integration job: the renders must
+        # match the ones that blessed the goldens.
+        run: sudo apt-get update && sudo apt-get install -y poppler-utils imagemagick fonts-noto-color-emoji
       - name: Allow ImageMagick PDF coder (for the montage PDF)
         run: sudo sed -i 's/rights="none" pattern="PDF"/rights="read|write" pattern="PDF"/' /etc/ImageMagick-6/policy.xml || true
       - run: npm ci
@@ -525,7 +532,11 @@ jobs:
       - name: Build the generated bundles
         run: npm run build
       - name: Compute golden before/after
-        run: node tools/golden-diff.mjs --base ${{ github.event.pull_request.base.sha }}
+        # --render-affected renders the goldens this PR's sources can move and diffs them
+        # against base, so a PR shows its visual change without committing a PDF
+        # (engineering/decisions/2026-10-06-goldens-bot-blessed.md §2.2). Capped at 40
+        # renders; a shared change measured ~5m40s for the full cap in the sandbox.
+        run: node tools/golden-diff.mjs --base ${{ github.event.pull_request.base.sha }} --render-affected
       - name: Upload montage artifact
         uses: actions/upload-artifact@v4
         with:

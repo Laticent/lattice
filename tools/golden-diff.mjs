@@ -191,7 +191,7 @@ function describe(relPath, kind) {
 // ATTRIBUTION. main's committed PDF can be stale: other PRs changed renders since the
 // last bless, and in October 2026 the nightly gate reported 196 of ~350 goldens stale. A
 // head render that differs from it is therefore NOT proof this PR moved anything. So when
-// it differs, the same golden is rendered at the BASE commit too, in a separate worktree
+// it differs, the same golden is rendered at the BASE commit too, in a separate tree
 // with that commit's own engine, and only head-vs-base-render drift is reported. Both
 // renders come from this machine, so cross-host anti-aliasing noise cancels out and the
 // strict FAIL_FRACTION applies. Goldens that differ from main's PDF but not from the base
@@ -207,7 +207,15 @@ function baseTreeFor(base) {
   const root = join(OUT, 'base-tree');
   try {
     rmSync(root, { recursive: true, force: true });
-    execFileSync('git', ['worktree', 'add', '--detach', '--force', root, base], { cwd: ROOT, stdio: 'ignore' });
+    mkdirSync(root, { recursive: true });
+    // An export of the base tree WITHOUT its PDFs, not a worktree. CI clones with
+    // `filter: blob:none`, so a full checkout of the base would download every committed
+    // PDF (151 MB of the tree's 237 MB) to render a few galleries from markdown. Nothing
+    // the render runs calls git, so plain files are enough.
+    const tar = join(OUT, 'base-tree.tar');
+    execFileSync('git', ['archive', '--format=tar', '-o', tar, base, '--', '.', ':(exclude)*.pdf'], { cwd: ROOT, stdio: 'ignore' });
+    execFileSync('tar', ['-xf', tar, '-C', root]);
+    rmSync(tar, { force: true });
     // The base tree reuses this checkout's node_modules: rendering needs the base's own
     // lib/ and dist/, not its own dependency install. Dependency changes are themselves
     // a "shared" change, and their effect shows up in the head render.
@@ -228,7 +236,6 @@ function baseTreeFor(base) {
 
 function dropBaseTree() {
   if (!baseTree?.root) return;
-  try { execFileSync('git', ['worktree', 'remove', '--force', baseTree.root], { cwd: ROOT, stdio: 'ignore' }); } catch { /* ignore */ }
   rmSync(baseTree.root, { recursive: true, force: true });
 }
 
@@ -285,7 +292,13 @@ function main() {
   const baseIdx = args.indexOf('--base');
   // A PR run's base sha goes stale as main moves; prBaseRef swaps in the merge's first parent.
   const resolved = prBaseRef(baseIdx >= 0 ? args[baseIdx + 1] : 'origin/main', ROOT, { pr: process.env.GITHUB_EVENT_NAME === 'pull_request' });
-  const base = resolved.base;
+  // Outside a PR run, diff from where this branch left the base, not from the base's tip:
+  // a branch that is only behind main would otherwise count every commit main gained
+  // since as its own change (found while testing --render-affected on a behind branch).
+  let base = resolved.base;
+  if (process.env.GITHUB_EVENT_NAME !== 'pull_request') {
+    try { base = git(['merge-base', base, 'HEAD']).trim() || base; } catch { /* keep the tip */ }
+  }
   if (!json) process.stderr.write(`golden-diff: base ${base} — ${resolved.reason}\n`);
 
   rmSync(OUT, { recursive: true, force: true });
