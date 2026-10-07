@@ -15,7 +15,16 @@
  * A browser that is not installed is skipped with a note: only Chromium is in the base image
  * (`npx playwright install webkit firefox`, then `install-deps`; engineering/development.md).
  *
+ * --page <out.html> writes the same race as ONE self-contained page instead (both parser sets, the
+ * corpus inlined, a Run button), for a browser this sandbox cannot drive: real Safari on a Mac or an
+ * iPhone. Markdown is capped at --page-md-mb (default 8) so the page stays under 16 MB; open it,
+ * run it, and the page shows the same table. Published as a claude.ai artifact, it also keeps each
+ * run where the publishing session can read it. --drive <page.html> runs that page in Playwright's
+ * three engines, so a real-device run has a same-corpus comparison.
+ *
  * Usage:  npm run parser:bakeoff:languages:browsers -- [--base <ref>] [--json]
+ *         npm run parser:bakeoff:languages:browsers -- [--base <ref>] --page <out.html> [--page-md-mb 8]
+ *         npm run parser:bakeoff:languages:browsers -- --drive <page.html>
  */
 import { execSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -39,6 +48,23 @@ async function parsersFrom(libDir, tag) {
   const G = languageGrammars(S);
   return Object.fromEntries(LANGS.map((l) => [l, esbuild.transformSync(S.generate(G[l]), { loader: 'ts', format: 'iife', globalName: `${tag}_${l}`, target: 'es2020' }).code]));
 }
+// --drive: run a page --page wrote, in each Playwright engine, and print its records.
+if (arg('--drive')) {
+  const file = path.resolve(arg('--drive'));
+  for (const name of ['chromium', 'firefox', 'webkit']) {
+    let browser;
+    try { browser = await playwright[name].launch(); } catch (e) { console.log(`${name}: skipped (${String(e.message).split('\n')[0]})`); continue; }
+    const page = await browser.newPage();
+    await page.goto(`file://${file}`);
+    await page.click('#run');
+    await page.waitForFunction(() => globalThis.__raceRecord, null, { timeout: 600_000 });
+    const rec = await page.evaluate(() => globalThis.__raceRecord);
+    console.log(`${name} ${browser.version()}: ${JSON.stringify({ agree: rec.agree, MBps: rec.MBps })}`);
+    await browser.close();
+  }
+  process.exit(0);
+}
+
 const baseDir = fs.mkdtempSync(path.join(os.tmpdir(), 'segno-base-'));
 execSync(`git archive ${BASE} docs/src/lib/segno | tar -x -C ${baseDir}`, { cwd: ROOT });
 const code = { base: await parsersFrom(path.join(baseDir, 'docs/src/lib/segno'), 'base'), head: await parsersFrom(path.join(ROOT, 'docs/src/lib/segno'), 'head') };
@@ -53,6 +79,23 @@ const corpus = {
   md: files('*.md').map((f) => read(f).replace(/^---\n[\s\S]*?\n---\n/, '')),
 };
 const MB = Object.fromEntries(LANGS.map((l) => [l, corpus[l].reduce((a, s) => a + s.length, 0) / 1e6]));
+
+if (arg('--page')) {
+  const cap = Number(arg('--page-md-mb', 8)) * 1e6;
+  let used = 0;
+  const md = [];
+  for (const s of corpus.md) if (used + s.length <= cap) { used += s.length; md.push(s); }
+  // `<` escaped so no file's `</script>` can end the JSON block early.
+  const json = JSON.stringify({ css: corpus.css, html: corpus.html, md }).replace(/</g, '\\u003c');
+  const parsers = ['base', 'head'].flatMap((k) => LANGS.map((l) => code[k][l])).join('\n').replace(/<\/script/gi, '<\\/script');
+  const headRef = execSync('git rev-parse --short HEAD', { cwd: ROOT }).toString().trim();
+  const meta = JSON.stringify({ base: `${BASE} (${baseSha})`, head: `${headRef}${execSync('git status --porcelain docs/src/lib/segno', { cwd: ROOT }).toString().trim() ? ' + local edits' : ''}` });
+  const html = fs.readFileSync(new URL('./languages-browsers.page.html', import.meta.url), 'utf8')
+    .replace('/*__PARSERS__*/', () => parsers).replace('/*__CORPUS__*/', () => json).replace('/*__META__*/', () => meta);
+  fs.writeFileSync(arg('--page'), html);
+  console.log(`wrote ${arg('--page')}: ${(html.length / 1e6).toFixed(1)} MB (css ${MB.css.toFixed(2)} MB, html ${MB.html.toFixed(2)} MB, md ${(used / 1e6).toFixed(2)} of ${MB.md.toFixed(2)} MB)`);
+  process.exit(0);
+}
 
 // Runs inside the page. Returns { agree, ms: { lang: { base, head } } }.
 function race({ langs, rounds }) {
