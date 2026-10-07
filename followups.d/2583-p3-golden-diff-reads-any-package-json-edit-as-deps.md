@@ -2,6 +2,9 @@
 origin: 2583
 priority: P3
 recorded: 2026-10-07
+area: infra
+severity: low
+swimlane: engineering/decisions/2026-10-06-goldens-bot-blessed.md §2.2
 source: https://github.com/Laticent/lattice/pull/2583
 ---
 

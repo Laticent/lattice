@@ -463,8 +463,14 @@ sandbox, the second of two runs (the first agreed within ±8%):
 | WebKit 26.0 (JavaScriptCore) | 245 → 324 (1.32x) | 246 → 296 (1.21x) | 271 → 420 (1.55x) |
 
 No language got slower in any engine, so nothing is gated per engine. The gain is smallest in WebKit,
-which was already the fastest before the pass. Playwright's WebKit build is not Safari itself; the
-engine is the same, and Safari on a real Mac or iPhone is UNVERIFIED.
+which was already the fastest before the pass.
+
+Playwright's WebKit ran on x86 Linux, and Apple devices run on ARM, where JavaScriptCore compiles
+different machine code. So the same race also ran on a real iPhone (iOS 18.7, Firefox for iOS, which
+like every iOS browser uses WebKit and JavaScriptCore), from the page `--page` writes, over the 11.8 MB
+corpus that page carries: CSS 224 → 324 (1.45x), HTML 236 → 304 (1.29x), Markdown 276 → 400 (1.45x),
+with identical trees on every file. Safari on an ARM Mac, which runs the same engine and compiler, was
+not run.
 
 "Fastest" holds for what was measured: among JavaScript tokenizers on Lattice's own files, on one
 machine and engine. The tokenizers it beats also classify tokens (css-tree tells a number from a
