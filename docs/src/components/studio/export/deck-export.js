@@ -32,6 +32,7 @@
 // See engineering/decisions/2026-08-16-manifest-is-the-theme-contract.md.
 // A DEFAULT import: it is a CommonJS leaf (docs/src/plugins/vite-cjs-lib-dev.mjs).
 import base64Utf8 from '../../../../../lib/core/base64-utf8.js';
+import { captureStyleProperties } from '../../../../../lib/core/capture-style-properties.mjs';
 import { cornerSurvivesExport } from '../../../../../lib/core/corner-export-capability.mjs';
 import { SVG_CHART_LAYOUTS } from '../../../../../lib/core/projection-catalog.generated.mjs';
 import remoteRef from '../../../../../lib/core/remote-ref.js';
@@ -1138,19 +1139,10 @@ export async function withCaptureFixups(section, capture, pixelRatioOverride, co
 // handler resolves instead: the image is simply absent from the page, and the run
 // records the failure so the author is told rather than shipping a hole they did not
 // see. (A missing picture in a file you have beats a file you do not.)
-// The properties html-to-image copies onto its clone. By default it copies whatever the
-// browser LISTS for a computed style, and Chrome's list leaves out `counter-reset`,
-// `counter-increment` and `counter-set`. So no counter was ever reset or incremented in the
-// clone, and every `counter()` on a slide (timeline discs, agenda numbers) exported as 0.
-// html-to-image keeps the list from its first call, so every capture passes this one.
-let captureStyleProps = null;
-export function captureStyleProperties() {
-	if (!captureStyleProps) {
-		const listed = Array.from(getComputedStyle(document.documentElement));
-		captureStyleProps = [...listed, ...['counter-reset', 'counter-increment', 'counter-set'].filter((p) => !listed.includes(p))];
-	}
-	return captureStyleProps;
-}
+// The properties html-to-image copies onto its clone: the browser's list plus the counter
+// properties, which Chrome leaves out (every `counter()` exported as 0). One shared list for
+// every capture on the page: lib/core/capture-style-properties.mjs.
+export { captureStyleProperties };
 
 function captureOptions(w, h, pixelRatio, fontEmbedCSS, log) {
 	return {

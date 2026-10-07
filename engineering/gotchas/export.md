@@ -690,8 +690,10 @@ paths on Chromium, Firefox and WebKit (iPhone 15 Pro, Safari / Firefox / Chrome 
   `counter-increment` and `counter-set`. Its clone carried `content: counter(x)` with no
   counter ever reset or incremented, so each one read 0. It was never `content` being copied
   as a string.
-- **Fix:** `deck-export.js` › `captureStyleProperties` passes html-to-image the browser's list
-  plus the three counter properties, as `includeStyleProperties`, on every capture. html-to-image
-  keeps the list from its FIRST call for the whole page, so every capture must pass the same
-  one: route a new capture through `captureOptions`, never a bare `toPng`/`toCanvas`.
+- **Fix:** `lib/core/capture-style-properties.mjs` › `captureStyleProperties` passes
+  html-to-image the browser's list plus the three counter properties, as
+  `includeStyleProperties`, on every capture: the Studio's (`deck-export.js` › `captureOptions`),
+  the /calco page's, and the composed PDF's html-to-image camera (`pdf-compose/compose.mjs`).
+  html-to-image keeps the list from its FIRST call for the whole page, so every capture must
+  pass the same one: route a new capture through that helper, never a bare `toPng`/`toCanvas`.
   Native list markers (`<ol start="3">`) are unaffected, measured.
