@@ -1097,9 +1097,7 @@ slide still loads Mermaid.
   itself, and MathJax's `\href` writes a live `<a href>` into the output. That output is not an HTML token,
   so neither the strip nor the list sees it.
   `$$\href{javascript:…}{\style{opacity:0}{\rule{80em}{60em}}}$$` made an invisible, slide-sized link. One
-  click on slide 2 of a bundle `main` exported ran it (`__hit_math = 1`); this branch drops the `href`
-  (`undefined`). It needs a click, so nothing runs in a PDF render. VS Code's preview, which runs its
-  own marp-core, keeps the hole: `followups.d/2578-p3-marp-bundle-math-links-in-vscode.md`.
+  click on slide 2 of a bundle `main` exported ran it (`__hit_math = 1`).
 - **Inversion: the first list was the 422 decks' vocabulary and little more.** That would have turned
   user decks' video, frames and gradient drawings into text or blanks with no warning. The list was
   widened as above, and the refusal report was added. It also showed that the first list quietly
@@ -1112,6 +1110,28 @@ slide still loads Mermaid.
 - **Checker:** a runtime file name holding `/` would have ended the generated regex literal; the name is
   escaped now. It also found the stale `html: true` claims in `engineering/gotchas/vscode.md`,
   `engineering/workflow.md`, `README.md`, `design/skill.md` and a code comment, all corrected.
+
+**What a fourth, independent checker changed (on the post-trio code).**
+
+- **A math `\href` broke out of its attribute and ran with no click, on `main` too.** MathJax does
+  not escape a `"` in the URL, so `$\href{#" style="animation:lattice-paint-lay 1s"
+  onanimationstart="…"}{y}$` became a live handler on the link, firing as its slide showed. The checker
+  ran it in a real `npm run pdf`, and the handler rewrote the PDF's heading. The first fix, a filter
+  over the math output, could not see it, because a value with a stray `"` has no reliable end. So the
+  commands go before render: `\href`, `\url` and `\csname` (which can spell either) become `\text{}`.
+  The producer applies this to the deck's bytes, outside fenced code (`withoutMathLinks`, counted with
+  the strip's URLs), so VS Code's preview gets the same file. The engine applies it again to each math
+  token before MathJax draws, for a deck edited after export. The output filter stays as a backstop. No
+  tracked deck writes any of the three. Under `main`'s config the probe's break-out set
+  `__hit_mathbreak = 1` when its slide showed, and under this one it stays unset, in both the stripped
+  and the raw arm.
+- **The front matter was found by one spelling.** Marp's rule, measured on marp-core 4.4, accepts a
+  longer opener (`----`), a trailing word (`---x`) and a longer closer (`-----` closes `---`). With
+  those, § 12's bypass came back for the strip and the marker refusal. The allowlist still held in
+  marp-cli, but VS Code was exposed. Both now use one helper with Marp's rule
+  (`lib/core/marp-front-matter.js`), pinned per variant.
+- **Smaller:** the backstop filter fused two attributes when it dropped one, and now keeps the space;
+  and the CLI's refusal line printed a deck's control characters raw, and now prints `?`.
 
 **What it does not change.** The Marp kit (`tools/build-marp-kit.js`) keeps `html: true`. Its decks are
 the author's own, written in the kit, and no producer strips them. `--html` on marp-cli's command line

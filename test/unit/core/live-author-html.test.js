@@ -200,3 +200,34 @@ test('strip: a fence opened inside the front matter does not hide the body', () 
   const quoted = '---\nmarp: true\n---\n\n```html\n<img src=x onerror="q()">\n```\n';
   assert.equal(withoutLiveAuthorHtml(quoted).markdown, quoted);
 });
+
+test('math links: \\href, \\url and \\csname become \\text{} outside fenced code; a longer name and a fence stay', () => {
+  const { withoutMathLinks } = require('../../../lib/core/live-author-html');
+  const fence = '```tex\n\\href{k}{v}\n```\n';
+  const { markdown, removed } = withoutMathLinks(`$\\href{#" autofocus onfocus="x"}{y}$ and $$\\url{a}$$ \\csname\n\n${fence}\\hrefx`);
+  assert.equal(removed, 3);
+  assert.doesNotMatch(markdown.replace(fence, ''), /\\(?:href|url|csname)(?![A-Za-z])/);
+  assert.ok(markdown.includes(fence));
+  assert.match(markdown, /\\hrefx$/);
+  assert.deepEqual(withoutMathLinks('# plain'), { markdown: '# plain', removed: 0 });
+});
+
+test('front matter by Marp\'s rule: a longer opener, a trailing word, a longer closer; and no body when unclosed', () => {
+  const { frontMatterEnd, withoutFrontMatterLines } = require('../../../lib/core/marp-front-matter');
+  const { withoutLiveAuthorHtml } = require('../../../lib/core/live-author-html');
+  // Measured on marp-core 4.4 (lib/core/marp-front-matter.js).
+  assert.equal(frontMatterEnd(['---x\n', 'a: 1\n', '---\n', 'body']), 2);
+  assert.equal(frontMatterEnd(['---\n', 'a: 1\n', '-----\n', 'body']), 2);
+  assert.equal(frontMatterEnd(['---\n', 'a: 1\n', '...\n', 'body']), 2);
+  assert.equal(frontMatterEnd(['---\n', 'a: 1\n', '   ---\n', 'body']), 2);
+  assert.equal(frontMatterEnd(['----\n', 'a: 1\n', '---\n', 'body']), 3, '---- is not closed by ---');
+  assert.equal(frontMatterEnd(['---\n', 'a: 1\n', '--- x\n', 'body']), 3, '--- x closes nothing');
+  assert.equal(frontMatterEnd([' ---\n', 'body']), -1);
+  assert.equal(withoutFrontMatterLines('---\r\nx\r\n---\r\nbody'), '\r\n\r\n\r\nbody');
+  // Each variant that blinded the strip in the checker's run now strips the handler.
+  for (const [open, close] of [['----', '----'], ['---x', '---'], ['---', '-----']]) {
+    const deck = `${open}\nmarp: true\nnote: |\n  \`\`\`\n${close}\n\n# Hi\n\n<img src=x onerror="q()">\n`;
+    assert.equal(withoutLiveAuthorHtml(deck).removed.handlers, 1, `${open} / ${close}`);
+  }
+});
+

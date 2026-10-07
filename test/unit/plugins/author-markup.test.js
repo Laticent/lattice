@@ -244,3 +244,11 @@ test('the bundle refuses a marker after a front-matter value that opens a fence,
   // An unclosed front matter is not front matter to Marp; the refusal still covers all of it.
   assert.doesNotMatch(withRuntimeScripts(`---\nmarp: true\n${FORGED}`), /data-lattice-hydrate=/);
 });
+
+test('the bundle refuses a marker after the front-matter variants Marp accepts', () => {
+  for (const [open, close] of [['----', '----'], ['---x', '---'], ['---', '-----']]) {
+    const out = withRuntimeScripts(`${open}\nmarp: true\nnote: |\n  \`\`\`\n${close}\n\n${FORGED}`);
+    assert.doesNotMatch(out, /data-lattice-hydrate=/, `${open} / ${close}`);
+  }
+});
+

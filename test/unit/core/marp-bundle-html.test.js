@@ -131,9 +131,27 @@ test('a URL in marp-core\'s math output that could run is dropped; a web link st
   engine({ marp: { use(p) { p(md); return this; } } });
   const draw = (out) => md.renderer.rules.marp_math_block([{ out }], 0);
   // MathJax's \href, as marp-core 4.4 renders it.
-  assert.equal(draw('<svg><a href="javascript:top.x=1"><rect/></a></svg>'), '<svg><a><rect/></a></svg>');
-  assert.equal(draw('<a xlink:href="&#x6A;avascript:x">m</a>'), '<a>m</a>');
-  assert.equal(draw("<a href='java&#9;script:x'>m</a>"), '<a>m</a>');
+  assert.equal(draw('<svg><a href="javascript:top.x=1"><rect/></a></svg>'), '<svg><a ><rect/></a></svg>');
+  assert.equal(draw('<a xlink:href="&#x6A;avascript:x">m</a>'), '<a >m</a>');
+  assert.equal(draw("<a href='java&#9;script:x'>m</a>"), '<a >m</a>');
   assert.equal(draw('<a href="https://x.test/">m</a>'), '<a href="https://x.test/">m</a>');
-  assert.equal(md.renderer.rules.marp_math_inline([{ out: '<a href="vbscript:x">m</a>' }], 0), '<a>m</a>');
+  assert.equal(md.renderer.rules.marp_math_inline([{ out: '<a href="vbscript:x">m</a>' }], 0), '<a >m</a>');
 });
+
+test('the engine renames the math link commands in the TeX before MathJax draws, then restores the token', () => {
+  const { engine } = load();
+  const md = { renderer: { rules: { html_block: () => '', marp_math_inline: (tokens, idx) => `[${tokens[idx].content}]`, marp_math_block: () => '' } } };
+  engine({ marp: { use(p) { p(md); return this; } } });
+  // MathJax 4.4 writes \href's URL into href="…" without escaping a quote: the checker's break-out.
+  const token = { content: '\\href{#" autofocus onfocus="x"}{y} + \\url{z} + \\csname href\\endcsname + \\hrefx' };
+  assert.equal(md.renderer.rules.marp_math_inline([token], 0), '[\\text{}{#" autofocus onfocus="x"}{y} + \\text{}{z} + \\text{} href\\endcsname + \\hrefx]');
+  assert.match(token.content, /^\\href\{/, 'the token is restored');
+});
+
+test('the CLI line prints no control character a deck wrote into an attribute name', () => {
+  const { formatRefusedHtml } = require('../../../lib/core/marp-bundle-html');
+  const line = formatRefusedHtml({ tags: {}, attrs: { 'div[x\u001b[31my]': 1 } });
+  assert.ok(!line.includes('\u001b'));
+  assert.match(line, /div\[x\?\[31my\]/);
+});
+
