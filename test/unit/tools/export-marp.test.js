@@ -213,8 +213,10 @@ describe('export-marp bundle (end-to-end)', () => {
     }
   });
 
-  test('marp.config.cjs + .vscode enable HTML so the runtime tags survive', () => {
-    assert.match(fs.readFileSync(path.join(dest, 'marp.config.cjs'), 'utf8'), /html:\s*true/);
+  test('marp.config.cjs carries the HTML allowlist and engine; .vscode enables HTML so the runtime tags survive', () => {
+    const cfg = fs.readFileSync(path.join(dest, 'marp.config.cjs'), 'utf8');
+    assert.doesNotMatch(cfg, /html:\s*true/);
+    assert.match(cfg, /module\.exports = \{ themeSet, allowLocalFiles: true, html, engine \};/);
     const settings = JSON.parse(fs.readFileSync(path.join(dest, '.vscode', 'settings.json'), 'utf8'));
     assert.equal(settings['markdown.marp.enableHtml'], true);
   });

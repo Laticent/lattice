@@ -79,8 +79,8 @@ describe('the Marp bundle carries the producer\'s admission', () => {
     assert.equal(withRuntimeScripts('# Hi\n', { overflowMarker: 'reader', pluginsOff: [] }), withRuntimeScripts('# Hi\n', { overflowMarker: 'reader' }));
   });
   test('the marp config turns Marp\'s own math off only when the deck\'s admission did', () => {
-    assert.equal(marpConfigCjs(), MARP_CONFIG_CJS, 'math on writes the config every default-set bundle always had');
+    assert.equal(marpConfigCjs(), MARP_CONFIG_CJS, 'math on writes the default config');
     assert.ok(!MARP_CONFIG_CJS.includes('options'));
-    assert.match(marpConfigCjs({ math: false }), /module\.exports = \{ themeSet, allowLocalFiles: true, html: true, options: \{ math: false \} \};/);
+    assert.match(marpConfigCjs({ math: false }), /module\.exports = \{ themeSet, allowLocalFiles: true, html, engine, options: \{ math: false \} \};/);
   });
 });

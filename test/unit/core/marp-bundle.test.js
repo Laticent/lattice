@@ -138,7 +138,7 @@ describe('marp-bundle spec', () => {
     );
   });
 
-  test('marp.config.cjs builds a themeSet from root lattice.css + themes/, no engine', () => {
+  test('marp.config.cjs builds a themeSet from root lattice.css + themes/', () => {
     assert.match(MARP_CONFIG_CJS, /themeSet/);
     assert.match(MARP_CONFIG_CJS, /allowLocalFiles/);
     // lattice.css is registered from the bundle ROOT (not dist/), since the
@@ -148,14 +148,19 @@ describe('marp-bundle spec', () => {
     assert.doesNotMatch(MARP_CONFIG_CJS, /@laticent\/lattice\/config/);
   });
 
-  // marp-core defaults to html:false, which ESCAPES raw HTML — the deck's two
-  // trailing runtime <script> tags came out as literal text on the last slide
-  // and the runtime never loaded, so every transform-driven component rendered
-  // as bare markdown. The flag is load-bearing, not cosmetic.
-  test('marp.config.cjs enables html so the runtime <script> tags survive', () => {
-    assert.match(MARP_CONFIG_CJS, /html:\s*true/);
+  // marp-core defaults to html:false, which ESCAPES raw HTML, so a deck's own <div class=…> came out
+  // as text. `html: true` fixed that and passed the deck's script with it; the config now carries an
+  // ALLOWLIST and an engine plugin that lets only the bundle's own trailing blocks through
+  // (lib/core/marp-bundle-html.js, test/unit/core/marp-bundle-html.test.js).
+  test('marp.config.cjs sets html to an allowlist with no <script>, and installs the engine plugin', () => {
+    assert.doesNotMatch(MARP_CONFIG_CJS, /html:\s*true/);
     const cfg = requireGeneratedConfig(MARP_CONFIG_CJS);
-    assert.equal(cfg.html, true);
+    assert.equal(typeof cfg.html, 'object');
+    assert.ok(cfg.html.div && cfg.html.span && cfg.html.svg, 'the tags the shipped decks write');
+    for (const tag of ['script', 'object', 'embed', 'base', 'meta', 'link', 'form', 'foreignobject', 'animate']) {
+      assert.equal(cfg.html[tag], undefined, `${tag} is not allowed`);
+    }
+    assert.equal(typeof cfg.engine, 'function');
     assert.equal(cfg.allowLocalFiles, true);
   });
 
@@ -204,7 +209,9 @@ describe('marp-bundle spec', () => {
     assert.match(r, /Marp for VS Code/);
     assert.match(r, /markdown\.marp\.themes/);
     assert.match(r, /npm run pdf/);
-    assert.match(r, /--theme-set lattice\.css themes/);
+    // By hand: the config, never `--html`, which would replace the config's allowlist.
+    assert.match(r, /--config-file marp\.config\.cjs \\\n  --allow-local-files/);
+    assert.doesNotMatch(r, /--html --allow/);
     assert.match(r, /markdown\.marp\.enableHtml/);
     // Honest about the one route whose fidelity we cannot confirm. Deliberately
     // asserts the HEDGE, not the claim: whether the preview webview executes the

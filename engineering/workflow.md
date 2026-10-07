@@ -869,8 +869,9 @@ is believed to block script execution (`engineering/gotchas.md` § "Does the
 marp-vscode webview execute `<script>`?"), but the claim has never been tested here and a field report
 contradicts it. Don't plan a mirror around the preview either way.
 Two further requirements are easy to miss and were silently unmet until
-#1256: raw HTML must be enabled (`html: true` for marp-cli,
-`markdown.marp.enableHtml` for the extension) or the runtime `<script>` tags
+#1256: raw HTML must be enabled (for marp-cli, the bundle's `marp.config.cjs`
+allowlist or the kit's `html: true`; `markdown.marp.enableHtml` for the
+extension) or the runtime `<script>` tags
 are ESCAPED into visible text, and a rule whose selector LEADS with
 `:is(section…)` is dead in any Marp render — see the same doc's two entries.
 

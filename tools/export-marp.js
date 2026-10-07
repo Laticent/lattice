@@ -55,10 +55,11 @@
  * render paths strip the block so a bundle-derived deck cannot inherit it either.
  *
  * Fidelity: the baked `.md` + themes + fonts split, style, and TYPESET correctly
- * in ANY Marp tool. The generated marp.config.cjs sets `html: true` — without it
- * marp-core escapes the deck's trailing runtime <script> tags into visible text
- * and the runtime never loads, so Mermaid and every JS-driven structural
- * component (split panels, the chart family) come out as bare markdown. WITH it,
+ * in ANY Marp tool. The generated marp.config.cjs sets `html` to an allowlist of the
+ * tags a deck may write, and an `engine:` plugin passes the deck's trailing runtime
+ * <script> tags (lib/core/marp-bundle-html.js) — without them marp-core escapes the
+ * tags into visible text and the runtime never loads, so Mermaid and every JS-driven
+ * structural component (split panels, the chart family) come out as bare markdown. WITH it,
  * marp-cli's own headless browser runs the runtime while rendering, so `npm run
  * pdf` / `npm run html` carry every component layout, the deck-wide registers, and
  * Mermaid — with the exceptions `lib/core/marp-fidelity.js` enumerates (printed
@@ -78,6 +79,7 @@ const { liftImageBgImages } = require('../lib/core/bg-image');
 const { sampleName } = require('../lib/core/remote-ref');
 const { appendAutoGlossary } = require('../lib/core/glossary-auto.mjs');
 const { isKnownOverflowMarker } = require('../lib/core/resolve-overflow-marker');
+const { formatRefusedHtml } = require('../lib/core/marp-bundle-html');
 const {
   STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, marpConfigCjs, withRuntimeScriptsReport, packageJson,
   safeName, vscodeSettings, readme, agentsMd, resolveExportOverflowMarker, OVERFLOW_MARKER_LEVELS,
@@ -384,6 +386,8 @@ function main(argv) {
     console.log(`  removed the deck's own executable HTML (${removed.scripts} <script>, ${removed.handlers} on… handler, ${removed.urls} URL/frame/redirect):`
       + ' marp-cli would run it on the recipient\'s machine. Your source .md keeps it.');
   }
+  const refusedLine = formatRefusedHtml(bundled.refused);
+  if (refusedLine) console.log(refusedLine);
   if (bundled.escaped) {
     console.log('  the deck\'s HTML could not be separated from what runs, so the bundle shows ALL of it as text. Remove the raw HTML and export again.');
   }

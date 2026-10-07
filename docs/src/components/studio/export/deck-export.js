@@ -374,7 +374,7 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 
 	const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
 	download(blob, `${slug}.zip`);
-	return { ...bundled.removed, escaped: bundled.escaped };
+	return { ...bundled.removed, escaped: bundled.escaped, refused: bundled.refused };
 }
 
 // ── Dedicated capture host ─────────────────────────────────────────────────────
