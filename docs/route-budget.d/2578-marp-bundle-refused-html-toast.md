@@ -1,0 +1,2 @@
+studio: +16
+The Studio's Share sheet now adds what the Export-to-Marp bundle's HTML allowlist will show as text or drop to its export toast (share-export.ts `shareMarp`, which the Studio loads eagerly): a few lines that read `refused` from the exporter's report and join it to the existing script line. CI measured +7 B gz against main 7dd68e9; +16 leaves room for gzip spread. The allowlist itself and the report live in the lazily loaded Marp exporter, not in the eager bundle.
