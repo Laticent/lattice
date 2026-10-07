@@ -65,16 +65,24 @@ describe('marp-bundle spec', () => {
   // Asserted as SET EQUALITY over the JavaScript assets, so it catches both directions,
   // but the two directions are not the same defect. A src with no asset is the 404
   // above. An asset with no src is a dead file in every bundle — cheap, but it is also
-  // exactly what a lazily-fetched engine would look like, and we do not ship one today.
-  // The day we do, that asset earns a named exception here rather than a quiet deletion
-  // of this assertion.
+  // exactly what a lazily-fetched engine would look like. The data plugins' scripts ARE that
+  // (the runtime fetches `lattice-plugin-icons.js` from beside itself when a deck writes an
+  // icon), so they are the named exception: each one must be in the bundle, checked against
+  // the plugin registry in the next test, and they are left out of this comparison.
+  const LAZY = /^lattice-plugin-[a-z][a-z0-9-]*\.js$/;
   test('every runtime <script src> is an asset the producers actually copy', () => {
-    const shipped = STATIC_ASSETS.map((a) => a.to).filter((to) => to.endsWith('.js'));
+    const shipped = STATIC_ASSETS.map((a) => a.to).filter((to) => to.endsWith('.js') && !LAZY.test(to));
     assert.deepEqual(
       [...RUNTIME_SCRIPT_SRCS].sort(),
       [...shipped].sort(),
       'RUNTIME_SCRIPT_SRCS and the .js entries of STATIC_ASSETS must name the same files: '
       + 'a src with no asset 404s under file://, an asset with no src is dead weight');
+  });
+
+  test('every data plugin\'s script travels with the runtime that fetches it', async () => {
+    const { DATA_PLUGINS } = await import('../../../lib/plugins/data-probe.generated.mjs');
+    const lazy = STATIC_ASSETS.map((a) => a.to).filter((to) => LAZY.test(to)).sort();
+    assert.deepEqual(lazy, DATA_PLUGINS.map((p) => p.file).sort());
   });
 
   test('safeName slugs a deck title', () => {

@@ -140,9 +140,9 @@ checks every node is plain geometry (no fill, no style, no link).
 The engine draws icons at parse time, as it draws sparks, so the CLI's PDF and HTML exports, the
 Studio and the player agree. In the Studio the drawings arrive as their own script
 (`lattice-plugin-icons.js`) before the first render of a deck that writes an icon. Until they
-arrive — and on a raw Marp preview, where no Lattice engine runs and the page has not loaded that
-script — an icon, and a pill that asks for one, stay code as written: nothing is drawn without
-the icon the author asked for. With the plugin switched off, a pill shows its label alone and a
+arrive, an icon and a pill that asks for one stay code as written: nothing is drawn without the
+icon the author asked for. On a raw Marp render (an Export-to-Marp bundle, or a Marp preview that
+loads the Lattice runtime), the runtime fetches the same script from beside itself and draws. With the plugin switched off, a pill shows its label alone and a
 chart node its name.
 
 On a sketch slide (`mode: sketch`, or a slide's `sketch` class), a framed icon's tile is redrawn
