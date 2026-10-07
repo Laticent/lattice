@@ -57,9 +57,10 @@ const GROUPS = [
     prefix: 'palettes/',
     purpose:
       'One file per shipped palette: its tokens with every `@import` resolved (a dark variant '
-      + 'carries its base). What a web app or bundler imports after the engine, since a bundler '
-      + 'cannot resolve the Marp theme file\'s `@import \'lattice\'`.',
-    consume: '`import \'@laticent/lattice/css\'; import \'@laticent/lattice/palette/<name>.css\';`',
+      + 'carries its base), for a bundler or your own UI, since a bundler cannot resolve the Marp '
+      + 'theme file\'s `@import \'lattice\'`. Not a slide renderer: to show slides, use `render()` '
+      + 'from `@laticent/lattice/engine`.',
+    consume: '`import \'@laticent/lattice/palette/<name>.css\';`',
   },
   {
     prefix: 'agent-kit/',
