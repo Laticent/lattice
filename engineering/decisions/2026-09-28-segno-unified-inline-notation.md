@@ -438,6 +438,16 @@ backticks 18.8 → 2.0 ms, many headings 34 → 4.7 ms).
   sorted table of range bounds: about 6 ms each. No shipped parser changed, since the widest
   shipped set has 9 such ranges. The search sorts its ranges first, because a hand-built set need
   not be sorted.
+- **A grammar that reuses a piece at every level is checked in linear time (2026-10-07).** Checking
+  one cost 2^depth. The followup blamed the FIRST and FOLLOW passes, but a profile showed four walks
+  that treated the grammar as a tree: `ruleGroups()`'s reference walk, the generator's scan for
+  attempts, and, found by the checker, `leadingRefs()` (the left-recursion check) and
+  `expectedAt()` (the "expected …" text). Each now visits a piece once. At depth 22, `compile()`
+  went from 415 to 5 ms and `generate()` from 921 to 3 ms, and both stay flat to depth 26. A
+  differential of 40,000 random grammars that reuse pieces, run on the previous engine and on this
+  one, found `lint()` identical on every grammar, and identical trees and errors in both runtimes
+  on the 48,720 grammar/input pairs that compiled. A second run of 15,000 after the last two fixes
+  agreed too. The generated source differed only where a set has more than 16 high ranges.
 
 **In WebKit and Firefox too (2026-10-07).** Every figure above is V8, and the Studio runs the
 generated parsers in Safari and Firefox as well. `npm run parser:bakeoff:languages:browsers --

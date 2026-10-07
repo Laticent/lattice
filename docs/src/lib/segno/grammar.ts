@@ -679,13 +679,19 @@ class Analysis {
     const refsOf = new Map<string, string[]>();
     for (const name of names) {
       // Preorder with an explicit stack (children pushed in reverse), so deep nesting cannot
-      // overflow the call stack.
+      // overflow the call stack. A piece the grammar reuses (one JS object in several places) is
+      // walked once: walked as a tree, a grammar that reuses each level twice cost 2^depth
+      // (2.1 s at depth 24). A rule named twice is one edge; Tarjan's answer is the same.
       const out: string[] = [];
+      const named = new Set<string>();
+      const seen = new Set<Expr>();
       const stack: Expr[] = [this.spec.rules[name]];
       while (stack.length) {
         const e = stack.pop() as Expr;
+        if (seen.has(e)) continue;
+        seen.add(e);
         switch (e.t) {
-          case 'ref': out.push(e.name); break;
+          case 'ref': if (!named.has(e.name)) { named.add(e.name); out.push(e.name); } break;
           case 'seq': case 'alt': for (let k = e.xs.length - 1; k >= 0; k--) stack.push(e.xs[k]); break;
           case 'many': case 'opt': case 'node': case 'attempt': stack.push(e.x); break;
           default: break;
@@ -775,11 +781,16 @@ class Analysis {
   /** The rules an expression can enter before consuming anything. Iterative (deep nesting). */
   private leadingRefs(e: Expr): string[] {
     const out: string[] = [];
+    const named = new Set<string>();
+    // A reused piece once, as in ruleGroups(): its only readers are sccs() and includes().
+    const seen = new Set<Expr>();
     const stack: Expr[] = [e];
     while (stack.length) {
       const x = stack.pop() as Expr;
+      if (seen.has(x)) continue;
+      seen.add(x);
       switch (x.t) {
-        case 'ref': out.push(x.name); break;
+        case 'ref': if (!named.has(x.name)) { named.add(x.name); out.push(x.name); } break;
         case 'seq': {
           let k = 0;
           while (k < x.xs.length && this.get(x.xs[k]).nullable) k++;
@@ -816,9 +827,14 @@ class Analysis {
     const add = (x: string) => { if (!have.has(x)) { have.add(x); parts.push(x); } };
     // Preorder, as the recursive walk it replaced: an explicit stack, children pushed in reverse,
     // so a chain of thousands of rules cannot overflow the call stack.
+    // A reused piece is walked once: a second visit could only add labels already listed, so the
+    // message and its order are unchanged, and the walk stops costing 2^depth.
+    const walked = new Set<Expr>();
     const stack: Expr[] = [e];
     while (stack.length) {
       const x = stack.pop() as Expr;
+      if (walked.has(x)) continue;
+      walked.add(x);
       switch (x.t) {
         case 'lit': add(JSON.stringify(x.s)); break;
         case 'set': add(x.label ?? describe(x.cs)); break;

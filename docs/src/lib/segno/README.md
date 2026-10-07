@@ -336,5 +336,5 @@ whole engine onto the Studio's startup path. `npm run check:segno` (in `docs/`)
 typechecks the library alone with no DOM and no Node types, which is the mechanical proof it stands
 alone. Tests: `cd docs && npx vitest run src/lib/segno` (fuzzing against a brute-force recognizer and
 against Lattice's number and time readers, and metamorphic tests of the notation's promises).
-`npm run mutate:segno` injects 72 defects one at a time and fails if the suite misses any; it takes
+`npm run mutate:segno` injects 77 defects one at a time and fails if the suite misses any; it takes
 about fifteen minutes and is not a CI gate.

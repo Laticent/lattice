@@ -130,7 +130,12 @@ export function generate(spec: GrammarSpec, options: { banner?: string } = {}): 
   // committed parser is what a code-quality scan flags (phase 3b, PR #2545).
   const attemptFns: { k: number; tryAndBody: string; explain: string }[] = [];
   const explained = new Set<number>();
+  // A reused piece is visited once: walked as a tree, a grammar that reuses each level twice
+  // cost 2^depth here.
+  const visited = new Set<Expr>();
   const hasAttempt = Object.values(spec.rules).some(function has(e: Expr): boolean {
+    if (visited.has(e)) return false; // already answered false, or the walk has already stopped
+    visited.add(e);
     switch (e.t) {
       case 'attempt': return true;
       case 'seq': case 'alt': return e.xs.some(has);

@@ -8,3 +8,5 @@
 - Segno tests a character set with more than 16 ranges above ASCII by binary search, in both
   `compile()` and `generate()`. A 32k-range set read 256k characters in 11.4 s; it now takes
   about 6 ms. No shipped parser changes.
+- Checking or generating a Segno grammar that reuses a piece at every level no longer takes
+  2^depth time. At depth 22, `compile()` went from 415 ms to 5 ms and `generate()` from 921 ms to 3 ms.
