@@ -1,0 +1,1 @@
+- The Vetrina boundary gate (`checkVetrinaBoundary`) now reads side-effect imports, dynamic `import()` and `require()`, as the Suono, Lente and Segno gates already did. Before, `import './../x'` and `import('./../x')` in `docs/src/lib/vetrina/` walked around it.

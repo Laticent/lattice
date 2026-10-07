@@ -8550,8 +8550,9 @@ const VETRINA_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'vetrina');
 // it to the host and breaks the "standalone, zero host deps" promise (§13). The
 // one sanctioned outside dep is `react`/`react-dom` in the thin adapter, which
 // §13 designates the peer-dep seam — keyed to that filename so nothing else can
-// launder a host import through it.
-const VETRINA_IMPORT = /(?:^|\n)\s*(?:import|export)\b[^;\n]*?\bfrom\s*['"]([^'"]+)['"]/g;
+// launder a host import through it. Every import shape counts — static, side-effect, dynamic
+// `import()` and `require()` — so the gate reads `SUONO_SPEC_PATTERNS`, as the Suono, Lente and Segno
+// gates do (followup 2462-p3: a `from`-only pattern let `import './../x'` walk around it).
 const VETRINA_ADAPTER = 'react.ts'; // the sole file allowed to import the peer framework
 const VETRINA_ADAPTER_DEPS = new Set(['react', 'react-dom']);
 // ONE sanctioned dependency for every file, by exact name: `@laticent/ltt`, the timing-track format.
@@ -8580,17 +8581,19 @@ function checkVetrinaBoundary(errors, dir = VETRINA_DIR) {
     const base = path.basename(file);
     if (base.endsWith('.test.ts') || base.endsWith('.test.js')) continue; // tests use the dev test runner (a devDep, not host coupling)
     const isAdapter = base === VETRINA_ADAPTER;
-    const src = fs.readFileSync(file, 'utf8');
-    for (const m of src.matchAll(VETRINA_IMPORT)) {
-      const spec = m[1];
+    const src = stripJsComments(fs.readFileSync(file, 'utf8'));
+    const seen = new Set();
+    for (const spec of SUONO_SPEC_PATTERNS.flatMap((pattern) => [...src.matchAll(pattern)].map((m) => m[1]))) {
       if (staysInFolder(dir, file, spec)) continue; // in-folder relative — fine
       if (spec.startsWith('node:')) continue; // node built-in — allowed (SSR-safe core)
       if (isAdapter && VETRINA_ADAPTER_DEPS.has(spec)) continue; // the sanctioned peer-dep seam
       if (spec === VETRINA_SANCTIONED_DEP) continue; // the LTT format — its one dependency (see above)
+      if (seen.has(spec)) continue; // don't double-report a spec two patterns both matched
+      seen.add(spec);
       errors.push(
         `${rel} imports '${spec}', which escapes the Vetrina folder. The walkthrough library is ` +
         `open-sourceable and MUST stay self-contained (design doc §13): imports resolve inside ` +
-        `docs/src/lib/vetrina/ (\`./x\`) only. The exceptions are '${VETRINA_SANCTIONED_DEP}' by that exact name, and ` +
+        `docs/src/lib/vetrina/ (\`./x\`) only, whatever the shape (static, side-effect, dynamic \`import()\`, \`require()\`). The exceptions are '${VETRINA_SANCTIONED_DEP}' by that exact name, and ` +
         `react/react-dom in the ${VETRINA_ADAPTER} adapter (the peer-dep seam). Move shared code into the folder, or route host glue through the adapter.`,
       );
     }
@@ -13627,5 +13630,4 @@ module.exports = {
   mermaidMapTokenReads,
   VETRINA_DIR,
   VETRINA_ADAPTER,
-  VETRINA_IMPORT,
 };

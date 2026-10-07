@@ -108,7 +108,6 @@ const {
   CAT_TEXT_FLOOR,
   CAT_EDGE_FLOOR,
   VETRINA_DIR,
-  VETRINA_IMPORT,
   checkAgentModelPinning,
   declaredModel,
   agentCallPins,
@@ -1759,7 +1758,7 @@ describe('check-ownership', () => {
   // The Vetrina walkthrough library's two structural antibodies
   // (engineering/decisions/2026-07-05-vetrina-walkthrough-library.md §13, §6.1).
   describe('Vetrina import-boundary gate (§13 — open-sourceable, zero host deps)', () => {
-    const scan = (src) => [...src.matchAll(new RegExp(VETRINA_IMPORT.source, 'g'))].map((m) => m[1]);
+    const scan = (src) => SUONO_SPEC_PATTERNS.flatMap((p) => [...stripJsComments(src).matchAll(new RegExp(p.source, 'g'))].map((m) => m[1]));
 
     test('the live tree is clean — the core imports nothing outside the folder', () => {
       const errors = [];
@@ -1797,6 +1796,25 @@ describe('check-ownership', () => {
         assert.equal(gate("import { isStale } from '@laticent/ltt/stale';").length, 1, 'a subpath is not the package');
         assert.equal(gate("import { isStale } from '../ltt/stale';").length, 1, 'a relative escape into the package still fails');
         assert.equal(gate("import { buildTrack } from '@laticent/cadenza';").length, 1, 'Cadenza is not sanctioned');
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    // Followup 2462-p3: the gate once read only `… from '…'`, so these two shapes walked around it.
+    test('the gate bites: a side-effect and a dynamic import that escape are both reported', () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vetrina-gate-'));
+      try {
+        const gate = (src) => {
+          fs.writeFileSync(path.join(dir, 'x.ts'), src);
+          const errors = [];
+          checkVetrinaBoundary(errors, dir);
+          return errors.length;
+        };
+        assert.equal(gate("import './../x';\n"), 1, 'side-effect import');
+        assert.equal(gate("const m = await import('./../x');\n"), 1, 'dynamic import()');
+        assert.equal(gate("const m = require('lodash');\n"), 1, 'require()');
+        assert.equal(gate("import './x';\nconst m = import('./y');\n// import('../z')\n"), 0, 'in-folder shapes and a comment pass');
       } finally {
         fs.rmSync(dir, { recursive: true, force: true });
       }
