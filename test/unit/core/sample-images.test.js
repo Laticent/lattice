@@ -93,6 +93,32 @@ describe('sample: — every engine path that paints a picture', () => {
   });
 });
 
+describe('sample: — the post-transform pass touches style attributes only', () => {
+  const S2 = 'file:///pkg/lib/samples/';
+  test('a style url() on a real tag resolves, quoted, bare or spaced', () => {
+    for (const style of ["background:url('sample:photo-wide.svg')", 'background:url(sample:photo-wide.svg)', 'background:url( sample:photo-wide.svg )']) {
+      assert.match(bg.resolveInlineImageSrcs(`<a class="video-poster" style="${style}"></a>`, undefined, S2), /photo-wide\.svg/);
+      assert.doesNotMatch(bg.resolveInlineImageSrcs(`<a style="${style}"></a>`, undefined, S2), /sample:/, style);
+    }
+  });
+
+  test('text, code and other attributes keep what the author wrote', () => {
+    const html = [
+      '<p>Text url(sample:photo-pano.jpg)</p>',
+      "<p><code>url('sample:photo-square.jpg')</code></p>",
+      '<pre><code>background: url(sample:photo-wide.jpg);\n</code></pre>',
+      '<a href="https://x.test/?u=url(sample:photo-wide.jpg)">x</a>',
+      '<div title="url(sample:photo-wide.jpg)"></div>',
+    ].join('');
+    assert.equal(bg.resolveInlineImageSrcs(html, undefined, S2), html);
+  });
+
+  test('a deck that teaches the syntax renders its code sample verbatim', () => {
+    const out = engine.render("## T\n\nWrite `url('sample:photo-wide.svg')`.\n\n```\nbackground: url(sample:photo-wide.svg);\n```\n", 'indaco', { samplesUrl: S2 }).html;
+    assert.doesNotMatch(out, /file:\/\/\/pkg/);
+  });
+});
+
 describe('sample: — the preview counts the site itself as allowed', () => {
   test('withOwnOrigin adds the page origin once, and only an http(s) one', () => {
     assert.deepEqual(remoteRef.withOwnOrigin(['https://a.test'], 'https://site.test'), ['https://a.test', 'https://site.test']);
