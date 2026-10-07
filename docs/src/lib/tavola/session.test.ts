@@ -1110,3 +1110,164 @@ describe('cert chains (hostkey.ts)', () => {
 		expect(tokenId('')).toBe('47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU');
 	});
 });
+
+describe('media: audio rides the same gate (S4, 2026-10-07)', () => {
+	/** A stand-in stream: the memory network hands the objects over as they are. */
+	const fakeStream = (label: string) => {
+		const track = { kind: 'audio', id: label } as unknown as MediaStreamTrack;
+		return { stream: { getTracks: () => [track], getAudioTracks: () => [track], id: label } as unknown as MediaStream, track };
+	};
+	const mediaLog = () => {
+		const log: string[] = [];
+		return { log, media: { add: (s: MediaStream, from: string) => log.push(`add ${s.id} ${from}`), drop: (from: string) => log.push(`drop ${from}`) } };
+	};
+
+	it('a stream goes only to admitted members, and one from a stranger is held until it is admitted', async () => {
+		const net = createMemoryNetwork();
+		const hm = mediaLog();
+		const h = host(net, { media: hm.media });
+		const am = mediaLog();
+		const a = await joined(net, h, 'Amina', { media: am.media });
+		// Chen holds the link and sends a stream before anyone lets him in.
+		const cm = mediaLog();
+		const c = guest(net, { media: cm.media });
+		await settle(net);
+		const hs = fakeStream('host-mic');
+		h.s.setMedia(hs.stream);
+		const cs = fakeStream('chen-mic');
+		c.t.addTrack?.(cs.track, cs.stream, h.t.selfId);
+		await settle(net);
+		expect(am.log).toEqual([`add host-mic ${h.t.selfId}`]);
+		expect(cm.log).toEqual([]);
+		expect(hm.log).toEqual([]);
+		// Chen knocks and is let in: he hears the host, and the host now takes his held stream.
+		c.s.knock('Chen');
+		await settle(net);
+		h.s.admit(h.s.getState().waiting[0].id);
+		await settle(net);
+		expect(cm.log).toEqual([`add host-mic ${h.t.selfId}`]);
+		expect(hm.log).toEqual([`add chen-mic ${c.t.selfId}`]);
+		// Removed: his stream is dropped on the host's side.
+		h.s.remove(c.t.selfId);
+		await settle(net);
+		expect(hm.log.at(-1)).toBe(`drop ${c.t.selfId}`);
+		expect(a.s.hasMedia).toBe(true);
+	});
+
+	it('the host never sends its tracks to a peer that holds the link but was not admitted', async () => {
+		const net = createMemoryNetwork();
+		const h = host(net);
+		await joined(net, h, 'Amina');
+		const raw = net.join(LINK.room, LINK.secret);
+		let got = 0;
+		raw.onTrack?.(() => got++);
+		raw.onMessage(() => {});
+		raw.onPeerJoin(() => {});
+		raw.onPeerLeave(() => {});
+		await settle(net);
+		h.s.setMedia(fakeStream('host-mic').stream);
+		await settle(net);
+		expect(got).toBe(0);
+	});
+});
+
+describe('media keeps flowing across a takeover and a blip (checker, 2026-10-07)', () => {
+	const stream = (label: string) => {
+		const track = { kind: 'audio', id: label } as unknown as MediaStreamTrack;
+		return { getTracks: () => [track], getAudioTracks: () => [track], id: label } as unknown as MediaStream;
+	};
+	/** What the app is playing, failing on a second `add` for a peer without a `drop` between:
+	 *  that would be a stream the app never let go of. */
+	const heardBy = () => {
+		const live = new Map<string, string>();
+		return {
+			live,
+			media: {
+				add: (s: MediaStream, from: string) => {
+					if (live.has(from)) throw new Error(`a second add for ${from} without a drop`);
+					live.set(from, s.id);
+				},
+				drop: (from: string) => live.delete(from),
+			},
+		};
+	};
+	const until = async (net: MemoryNetwork, clock: ReturnType<typeof fakeClock>, ms: number) => {
+		for (let left = ms; left > 0; left -= 500) {
+			clock.advance(Math.min(500, left));
+			await settle(net);
+		}
+	};
+
+	it('after the heir takes over, it still hears the members and they still hear it', async () => {
+		const net = createMemoryNetwork();
+		const clock = fakeClock(1_000_000);
+		const h = host(net, { clock });
+		const ah = heardBy();
+		const ch = heardBy();
+		const a = await joined(net, h, 'Amina', { clock, media: ah.media });
+		const c = await joined(net, h, 'Chen', { clock, media: ch.media });
+		a.s.setMedia(stream('amina'));
+		c.s.setMedia(stream('chen'));
+		await settle(net);
+		net.drop(h.t.selfId);
+		await settle(net);
+		await until(net, clock, HANDOFF_GRACE_MS + HOST_POLL_MS + 1000);
+		expect(a.s.getState().isHost).toBe(true);
+		expect(ah.live.get(c.t.selfId)).toBe('chen');
+		expect(ch.live.get(a.t.selfId)).toBe('amina');
+	});
+
+	it('after a blip that keeps the ids, the host hears the guest again', async () => {
+		const net = createMemoryNetwork();
+		const hh = heardBy();
+		const h = host(net, { media: hh.media });
+		const g = await joined(net, h, 'Amina');
+		g.s.setMedia(stream('amina'));
+		await settle(net);
+		expect(hh.live.get(g.t.selfId)).toBe('amina');
+		net.cut(h.t.selfId, g.t.selfId);
+		await settle(net);
+		expect(hh.live.has(g.t.selfId)).toBe(false);
+		net.heal(h.t.selfId, g.t.selfId);
+		await settle(net);
+		expect(g.s.getState().stage).toBe('live');
+		expect(hh.live.get(g.t.selfId)).toBe('amina');
+	});
+
+	it('nothing is handed on, or sent, once the session has ended', async () => {
+		const net = createMemoryNetwork();
+		const gh = heardBy();
+		const h = host(net);
+		const g = await joined(net, h, 'Amina', { media: gh.media });
+		h.s.setMedia(stream('host'));
+		await settle(net);
+		expect(gh.live.get(h.t.selfId)).toBe('host');
+		h.s.end();
+		await settle(net);
+		expect(g.s.getState().stage).toBe('ended');
+		expect(gh.live.size).toBe(0);
+	});
+
+	it('a host that ends lets go of every stream at once, not when it closes a beat later', async () => {
+		const net = createMemoryNetwork();
+		const hh = heardBy();
+		const h = host(net, { media: hh.media });
+		const g = await joined(net, h, 'Amina');
+		g.s.setMedia(stream('amina'));
+		await settle(net);
+		expect(hh.live.size).toBe(1);
+		h.s.end();
+		expect(hh.live.size).toBe(0);
+	});
+
+	it('a member the host removes is dropped at once, before anything else runs', async () => {
+		const net = createMemoryNetwork();
+		const hh = heardBy();
+		const h = host(net, { media: hh.media });
+		const g = await joined(net, h, 'Amina');
+		g.s.setMedia(stream('amina'));
+		await settle(net);
+		h.s.remove(g.t.selfId);
+		expect(hh.live.has(g.t.selfId)).toBe(false);
+	});
+});

@@ -14,7 +14,7 @@ import { elapsed, type LiveActions, type LiveChatLine, type LivePerson, type Liv
 // engineering/decisions/2026-10-06-studio-live-collaboration.md). It is narrow on purpose:
 // the editor and preview are where the work happens, and they carry the presence
 // (carets, navigator avatars). Section order follows the ask: who (waiting, then
-// present), then text. The call section lands with S4.
+// present), the call row, then text.
 
 const SECTION = 'px-3.5 pt-3 pb-1 font-mono text-[10px] font-bold uppercase tracking-widest text-muted-foreground';
 
@@ -35,7 +35,7 @@ function PersonRow({ p, view, actions }: { p: LivePerson; view: LiveView; action
 	const following = view.following === p.id;
 	const LinkGlyph = p.link && !p.away ? LINK_ICON[p.link.kind] : null;
 	return (
-		<li className={cn('group flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-accent', p.away && 'opacity-55')}>
+		<li className={cn('group flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-accent', p.away && 'opacity-55')} data-live-speaking={p.mic === 'speaking'}>
 			<LiveAvatar person={p} size={26} ring={p.mic === 'speaking'} />
 			<div className="min-w-0 flex-1">
 				<div className="flex items-center gap-1 truncate text-[12.5px] font-semibold text-foreground">
@@ -44,12 +44,12 @@ function PersonRow({ p, view, actions }: { p: LivePerson; view: LiveView; action
 					{p.role === 'host' && <Crown className="size-3 shrink-0 text-muted-foreground" aria-label="Host" />}
 					{p.role === 'view' && <Eye className="size-3 shrink-0 text-muted-foreground" aria-label="View only" />}
 				</div>
-				<div className="truncate text-[11px] text-muted-foreground">
-					{following ? `Following · ${whereLabel(p)}` : whereLabel(p)}
+				<div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+					<span className="truncate">{following ? `Following · ${whereLabel(p)}` : whereLabel(p)}</span>
+					{LinkGlyph && p.link && <LinkGlyph className="size-3 shrink-0 text-muted-foreground/70" role="img" aria-label={`${LINK_LABEL[p.link.kind]} (${p.link.detail})`} data-live-link={p.link.kind} />}
 				</div>
 			</div>
-			{LinkGlyph && p.link && <LinkGlyph className="size-3.5 shrink-0 text-muted-foreground/70" role="img" aria-label={`${LINK_LABEL[p.link.kind]} (${p.link.detail})`} data-live-link={p.link.kind} />}
-			{view.audio && <MicGlyph className={cn('size-3.5 shrink-0', p.mic === 'off' ? 'text-muted-foreground/60' : 'text-foreground')} aria-label={p.mic === 'off' ? 'Muted' : 'Mic on'} />}
+			{view.audio && <MicGlyph className={cn('size-3.5 shrink-0', p.mic === 'off' ? 'text-muted-foreground/60' : 'text-foreground')} aria-label={p.mic === 'off' ? 'Mic off' : 'Mic on'} />}
 			{!p.me && !p.away && (
 				<DropdownMenu>
 					<DropdownMenuTrigger asChild>
@@ -88,6 +88,50 @@ function PersonRow({ p, view, actions }: { p: LivePerson; view: LiveView; action
 				</DropdownMenu>
 			)}
 		</li>
+	);
+}
+
+/**
+ * The call row (§5.8): join with audio, then mute / unmute, pick the microphone, or leave the call.
+ * Being in the session is not being on the call: someone can edit silently.
+ */
+function CallRow({ view, actions }: { view: LiveView; actions: LiveActions }) {
+	const c = view.call;
+	if (!c.inCall)
+		return (
+			<div className="flex flex-col gap-1 px-3.5 pt-1 pb-2">
+				<Button size="sm" variant="outline" onClick={actions.toggleMic} className="h-7 w-full gap-1.5 text-[11.5px]">
+					<Mic className="size-3.5" /> Join with audio
+				</Button>
+				{c.denied && <p className="text-[11px] leading-snug text-muted-foreground" data-live-mic-denied>The browser blocked the microphone. Allow it from the icon in the address bar, then join again.</p>}
+			</div>
+		);
+	return (
+		<div className="flex items-center gap-1.5 px-3.5 pt-1 pb-2" data-live-call>
+			<Button size="sm" variant={c.muted ? 'outline' : 'default'} onClick={actions.toggleMic} aria-pressed={!c.muted} className="h-7 flex-1 gap-1.5 text-[11.5px]">
+				{c.muted ? <><MicOff className="size-3.5" /> Unmute</> : <><Mic className="size-3.5" /> Mute</>}
+			</Button>
+			<DropdownMenu>
+				<DropdownMenuTrigger asChild>
+					<Button size="icon" variant="ghost" className="size-7" aria-label="Call options">
+						<MoreHorizontal className="size-3.5" />
+					</Button>
+				</DropdownMenuTrigger>
+				<DropdownMenuContent align="end" className="w-60">
+					{c.devices.length > 0 && <DropdownMenuLabel className="text-[11px] font-normal text-muted-foreground">Microphone</DropdownMenuLabel>}
+					{c.devices.map((d) => (
+						<DropdownMenuItem key={d.id} onSelect={() => actions.pickMic(d.id)}>
+							<Mic className="size-4" /> <span className="truncate">{d.label}</span>
+							{d.id === c.device && <Check className="ml-auto size-4" />}
+						</DropdownMenuItem>
+					))}
+					{c.devices.length > 0 && <DropdownMenuSeparator />}
+					<DropdownMenuItem onSelect={actions.leaveCall}>
+						<LogOut className="size-4" /> Leave audio
+					</DropdownMenuItem>
+				</DropdownMenuContent>
+			</DropdownMenu>
+		</div>
 	);
 }
 
@@ -360,11 +404,7 @@ export function LivePanel({ view, actions, title, now, defaultName = '' }: { vie
 						<ul className="flex flex-col px-1.5">
 							{view.people.map((p) => <PersonRow key={p.id} p={p} view={view} actions={actions} />)}
 						</ul>
-						{view.audio && <div className="px-3.5 pt-1 pb-2">
-							<Button size="sm" variant="ghost" onClick={actions.toggleMic} className="h-7 gap-1.5 px-2 text-[11.5px]">
-								{view.people.find((p) => p.me)?.mic === 'off' ? <><Mic className="size-3.5" /> Join with audio</> : <><MicOff className="size-3.5" /> Mute</>}
-							</Button>
-						</div>}
+						{view.audio && <CallRow view={view} actions={actions} />}
 					</div>
 					<div className="mt-1.5 flex min-h-0 flex-1 flex-col border-t border-border max-[699px]:group-has-[textarea:focus]/live:mt-0 max-[699px]:group-has-[textarea:focus]/live:border-t-0">
 						<div className={SECTION}>Chat</div>

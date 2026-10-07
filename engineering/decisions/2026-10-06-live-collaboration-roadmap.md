@@ -29,7 +29,7 @@ What it takes:
 that is three uploads each, which is fine for audio and for video at a modest resolution (about
 360p). Past five or six people with video, uploads run out. That is where an SFU comes in (§2).
 
-Tracked by `followups.d/2547-p2-build-s4-audio.md`. Video is S5 and has no follow-up yet: it
+Audio (S4) shipped 2026-10-07 (design note §12.2). Video is S5 and has no follow-up yet: it
 follows audio.
 
 ## 2. The server path, for hosted and self-hosted Lattice
@@ -76,9 +76,9 @@ Tracked by `followups.d/2547-p2-decide-a-turn-default.md`.
 **What a relay carries.** Measured on the largest deck in the tree
 (`examples/system-design-foundations.md`, 134 k characters): a newcomer's full sync is 186 KB,
 and 2,000 keystrokes cost 57 KB per recipient. An hour of editing through a relay is under 2 MB
-per person. **Documents are free to relay at any price.** Audio is what costs: Opus voice runs
-at about 32 kbit/s, roughly 14 MB per stream per hour (S4 measures it on the real connection,
-§1). In a mesh of four, one relayed person carries three streams up and three down, about
+per person. **Documents are free to relay at any price.** Audio is what costs. S4 measured
+8.7–9.9 kbit/s on the real connection with Chromium's fake microphone, a beep over silence; ordinary
+speech in Opus runs at about 25–40 kbit/s, call it 32 kbit/s or 14 MB per stream per hour. In a mesh of four, one relayed person carries three streams up and three down, about
 85 MB an hour.
 
 **How many sessions need it.** Public measurements put direct WebRTC success at 75–90 % of

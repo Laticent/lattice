@@ -7,6 +7,7 @@ import { Awareness, applyAwarenessUpdate, encodeAwarenessUpdate, removeAwareness
 import * as Y from 'yjs';
 import { cleanName, createHostKey, createSession, formatFragment, formatLink, fromBase64Url, type HostKey, hostKeyFrom, type LinkPath, linkKind, mintLink, parseFragment, type Session, type SessionState, type Succession, type TokenEntry, toBase64Url, tokenId } from '@/lib/tavola';
 import { trysteroTransport } from '@/lib/tavola/adapters/trystero';
+import { LiveAudio } from './live-audio';
 import { LIVE_TURN } from './live-ice';
 import { IDLE_VIEW, type LiveActions, type LiveChatLine, type LiveColor, type LivePerson, type LiveView, type LobbyActions, type LobbyView, liveColor, liveColorLight } from './live-model';
 import { clearJoinIntent, HOST_KEY, hasFreshJoin, type LiveCollab, type LiveDeps, type LiveHost, readSealedJoin, saveName, scrubLiveFragment, storedLiveName, storeSealedJoin, takeFreshJoin } from './live-store';
@@ -107,6 +108,8 @@ type Post =
 	| { k: 'tip'; seq: number; startedAt: number }
 	| { k: 'typing' }
 	| { k: 'bye' }
+	/** a member's own microphone state (about itself only; who is SPEAKING is measured, never said) */
+	| { k: 'mic'; on: boolean }
 	/** host → its heir: who owns each chat-id prefix, by rejoin token, so the chat keeps its owners
 	 *  when the heir takes over (the host's own lines under its own rejoin token). */
 	| { k: 'sids'; sids: Array<[sid: string, owner: string]> }
@@ -372,6 +375,16 @@ export class LiveController {
 	private heirSids: Array<[string, string]> = [];
 	/** Host: what was last handed to the heir, so it is sent once per change. */
 	private sentSids = '';
+	/** The call (S4): the microphone, playback and levels. */
+	private audio: LiveAudio | null = null;
+	/** Peer → whether it says its microphone is on (muted is off). */
+	private remoteMic = new Map<string, boolean>();
+	private speakingNow = new Set<string>();
+	private speakTimer: ReturnType<typeof setInterval> | null = null;
+	private micDenied = false;
+	private micDevices: Array<{ id: string; label: string }> = [];
+	/** The tab title before "On air · " was put in front of it. */
+	private plainTitle: string | null = null;
 	/** A regency just ended here: hand the chat back once the returning host admits us. */
 	private handbackDue = false;
 	/** The id of the rejoin token this browser hosted under (its owner id for its own chat lines). */
@@ -529,7 +542,16 @@ export class LiveController {
 			},
 		};
 		const key = args.key ?? null;
+		const audio = new LiveAudio(() => this.host.rerender());
+		this.audio = audio;
 		const session = createSession({
+			media: { add: (stream, from) => {
+				audio.addRemote(from, stream);
+				this.startSpeaking();
+				// Their stream is (back) here: tell them our microphone state too, since after a blip or a
+				// takeover neither side sees the other as a newcomer (checker, 2026-10-07).
+				if (audio.inCall) this.post({ k: 'mic', on: !audio.isMuted }, from);
+			}, drop: (from) => audio.dropRemote(from) },
 			transport: trysteroTransport(args.room, args.secret, { turnConfig: LIVE_TURN }),
 			doc: docStream,
 			awareness: awStream,
@@ -574,6 +596,8 @@ export class LiveController {
 								if (this.rt === r) this.post({ k: 'tip', seq: this.seq, startedAt: r.startedAt }, to);
 							}, 400);
 						}
+						// A newcomer learns whether our microphone is on (who is speaking it measures itself).
+						if (this.audio?.inCall) this.post({ k: 'mic', on: !this.audio.isMuted }, m.id);
 						// Back from a dropped link (a backgrounded phone tab, a blip): not news.
 						const back = this.away.get(awayKey(m));
 						if (back) {
@@ -591,6 +615,7 @@ export class LiveController {
 					for (const [id, m] of before) {
 						if (s.members.some((x) => x.id === id) || id === s.selfId) continue;
 						this.typingAt.delete(id);
+						this.remoteMic.delete(id);
 						if (this.removed.delete(id)) {
 							this.sys(`${m.name} was removed`);
 							continue;
@@ -726,6 +751,7 @@ export class LiveController {
 		else r.session.leave();
 		for (const d of r.disposers) d();
 		r.aw.destroy();
+		this.endCall();
 		this.rt = null;
 		this.systemLines = [];
 		this.fromY.clear();
@@ -825,6 +851,96 @@ export class LiveController {
 			return true;
 		} catch {
 			return false;
+		}
+	}
+
+	// ── the call (S4) ───────────────────────────────────────────────────────
+	private micOf(peer: string, me: boolean): 'off' | 'on' | 'speaking' {
+		const a = this.audio;
+		if (!a) return 'off';
+		if (me) return !a.inCall || a.isMuted ? 'off' : this.speakingNow.has('self') ? 'speaking' : 'on';
+		if (!a.hasStream(peer) || !this.remoteMic.get(peer)) return 'off';
+		return this.speakingNow.has(peer) ? 'speaking' : 'on';
+	}
+
+	private async toggleMic() {
+		const a = this.audio;
+		if (!a) return;
+		if (!a.inCall) return this.joinCall();
+		a.setMuted(!a.isMuted);
+		this.post({ k: 'mic', on: !a.isMuted });
+		this.onAirTitle();
+	}
+
+	/** Capture the microphone (or switch to another one) and send it to every member. */
+	private async joinCall(deviceId?: string) {
+		const a = this.audio;
+		const r = this.rt;
+		if (!a || !r) return;
+		try {
+			const stream = await a.join(deviceId);
+			if (this.rt !== r) {
+				a.leave();
+				return;
+			}
+			this.micDenied = false;
+			r.session.setMedia(stream);
+			this.post({ k: 'mic', on: !a.isMuted });
+			this.micDevices = await a.devices();
+			this.startSpeaking();
+		} catch (e) {
+			const denied = (e as { name?: string })?.name === 'NotAllowedError' || (e as { name?: string })?.name === 'SecurityError';
+			this.micDenied = denied;
+			this.host.notify(denied ? 'The browser blocked the microphone. Allow it in the address bar, then try again.' : "Couldn't start the microphone.");
+		}
+		this.onAirTitle();
+		this.host.rerender();
+	}
+
+	private leaveCall() {
+		const a = this.audio;
+		if (!a?.inCall) return;
+		a.leave();
+		this.rt?.session.setMedia(null);
+		this.post({ k: 'mic', on: false });
+		this.onAirTitle();
+		this.host.rerender();
+	}
+
+	/** The speaking rings: levels read ~7 times a second, a redraw only when someone starts or stops. */
+	private startSpeaking() {
+		if (this.speakTimer) return;
+		this.speakTimer = setInterval(() => {
+			const now = this.audio?.speaking() ?? new Set<string>();
+			if (now.size === this.speakingNow.size && [...now].every((x) => this.speakingNow.has(x))) return;
+			this.speakingNow = now;
+			this.host.rerender();
+		}, 150);
+	}
+
+	private endCall() {
+		if (this.speakTimer) clearInterval(this.speakTimer);
+		this.speakTimer = null;
+		this.audio?.dispose();
+		this.audio = null;
+		this.remoteMic.clear();
+		this.speakingNow.clear();
+		this.micDenied = false;
+		this.micDevices = [];
+		this.onAirTitle();
+	}
+
+	/** While this browser's microphone is live, the tab says so (§5.8: on-air is unmissable). */
+	private onAirTitle() {
+		if (typeof document === 'undefined') return;
+		const onAir = !!this.audio?.inCall && !this.audio.isMuted;
+		const PREFIX = 'On air · ';
+		if (onAir && !document.title.startsWith(PREFIX)) {
+			this.plainTitle = document.title;
+			document.title = PREFIX + document.title;
+		} else if (!onAir && document.title.startsWith(PREFIX)) {
+			document.title = this.plainTitle ?? document.title.slice(PREFIX.length);
+			this.plainTitle = null;
 		}
 	}
 
@@ -1237,6 +1353,9 @@ export class LiveController {
 			const was = this.typingAt.get(from) ?? 0;
 			this.typingAt.set(from, Date.now());
 			if (Date.now() - was > 1000) this.host.rerender();
+		} else if (p.k === 'mic' && typeof p.on === 'boolean') {
+			this.remoteMic.set(from, p.on);
+			this.host.rerender();
 		} else if (p.k === 'bye') {
 			this.byes.add(from);
 		} else if (p.k === 'gone' && fromHost && typeof p.id === 'string' && typeof p.name === 'string') {
@@ -1317,7 +1436,7 @@ export class LiveController {
 		const people: LivePerson[] = s.members.map((m) => {
 			const st = byPeer.get(m.id);
 			const me = m.id === s.selfId;
-			return { id: m.id, name: m.name, color: m.color, role: m.role, me, slide: me ? this.deps.activeSlide : (st?.slide ?? null), editing: !!st?.editingAt && this.now - st.editingAt < TYPING_MS && st.editingAt < this.now + 5000, mic: 'off', ...(!me && this.paths[m.id] ? { link: { kind: linkKind(this.paths[m.id]), detail: `${this.paths[m.id].local}→${this.paths[m.id].remote} (${this.paths[m.id].protocol})` } } : {}) };
+			return { id: m.id, name: m.name, color: m.color, role: m.role, me, slide: me ? this.deps.activeSlide : (st?.slide ?? null), editing: !!st?.editingAt && this.now - st.editingAt < TYPING_MS && st.editingAt < this.now + 5000, mic: this.micOf(m.id, me), ...(!me && this.paths[m.id] ? { link: { kind: linkKind(this.paths[m.id]), detail: `${this.paths[m.id].local}→${this.paths[m.id].remote} (${this.paths[m.id].protocol})` } } : {}) };
 		});
 		for (const [k, a] of this.away) {
 			if (!people.some((p) => p.name === a.name && p.color === a.color)) people.push({ id: `away:${k}`, name: a.name, color: a.color, role: a.role === 'host' && s.members.some((m) => m.role === 'host') ? 'edit' : a.role, slide: null, editing: false, mic: 'off', away: true });
@@ -1340,7 +1459,8 @@ export class LiveController {
 			chat: this.mergedChat(),
 			following: this.following,
 			hostAway: s.hostAway,
-			audio: false,
+			audio: !!this.audio && r.session.hasMedia && LiveAudio.supported(),
+			call: { inCall: !!this.audio?.inCall, muted: !!this.audio?.isMuted, denied: this.micDenied, devices: this.micDevices, device: this.audio?.device ?? null },
 			canChat: s.me?.role !== 'view',
 			typing,
 		};
@@ -1433,7 +1553,9 @@ export class LiveController {
 			this.sys(`You brought everyone to slide ${this.deps.activeSlide + 1}`);
 			this.host.rerender();
 		},
-		toggleMic: () => {},
+		toggleMic: () => void this.toggleMic(),
+		leaveCall: () => this.leaveCall(),
+		pickMic: (id) => void this.joinCall(id),
 		end: () => {
 			this.teardown('end');
 			this.host.notify('Live session ended. The deck stays as it is.');

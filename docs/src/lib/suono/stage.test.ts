@@ -404,3 +404,35 @@ describe('createStage — keep-alive route-warmer (Bluetooth / CarPlay anti-chop
 		expect(oscillators[0].stopped).toBe(false);
 	});
 });
+
+describe('createStage — meter (live stream level)', () => {
+	it('measures a stream on the owned context without routing it to the speakers, and stops cleanly', () => {
+		const connect = vi.fn();
+		const disconnect = vi.fn();
+		let samples = new Float32Array(512).fill(0.5);
+		(window as unknown as { AudioContext: unknown }).AudioContext = class {
+			state = 'running';
+			destination = {};
+			createMediaStreamSource = () => ({ connect, disconnect });
+			createAnalyser = () => ({ fftSize: 0, getFloatTimeDomainData: (b: Float32Array) => b.set(samples.subarray(0, b.length)) });
+			resume = () => Promise.resolve();
+		};
+		const stage = createStage({ keepAlive: false });
+		const m = stage.meter({} as MediaStream);
+		expect(m).not.toBeNull();
+		expect(m?.level()).toBeCloseTo(0.5);
+		samples = new Float32Array(512);
+		expect(m?.level()).toBe(0);
+		// Connected to the analyser only — never to the destination.
+		expect(connect).toHaveBeenCalledTimes(1);
+		expect(connect.mock.calls[0][0]).not.toHaveProperty('connect');
+		m?.stop();
+		m?.stop();
+		expect(disconnect).toHaveBeenCalledTimes(1);
+		expect(m?.level()).toBe(0);
+	});
+	it('returns null where Web Audio is missing', () => {
+		(window as unknown as { AudioContext?: unknown }).AudioContext = undefined;
+		expect(createStage().meter({} as MediaStream)).toBeNull();
+	});
+});

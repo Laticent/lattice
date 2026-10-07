@@ -14,6 +14,10 @@ it) — the third spin-off-able sibling beside [Cadenza](../cadenza/) (caption t
 (walkthrough). Full design contract:
 [`engineering/decisions/2026-07-12-suono-audio-library.md`](../../../../engineering/decisions/2026-07-12-suono-audio-library.md).
 
+**Live levels.** `stage.meter(stream)` measures a live `MediaStream` (a call's microphone, a remote
+voice) on the same owned context and returns `{ level(), stop() }`. It analyzes only and never routes
+the stream to the speakers. The Studio's Live calls use it for the speaking ring.
+
 ## 60-second start
 
 ```ts

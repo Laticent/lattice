@@ -14,6 +14,8 @@
  * It reaches third-party relays, so it is ON-DEMAND only and never part of the test suite or CI
  * (engineering/decisions/2026-10-06-studio-live-collaboration.md §8).
  *
+ * Keep the output as the run's evidence: `node tools/live-session-check.mjs light | tee <out>/check.log`.
+ *
  * Usage (start the docs dev server first: `cd docs && npm run dev`):
  *   node tools/live-session-check.mjs [light|dark] [--out .scratch/live-check] [--base http://127.0.0.1:4321/studio/] [--video]
  *
@@ -32,7 +34,7 @@ mkdirSync(OUT, { recursive: true });
 const proxy = process.env.HTTPS_PROXY;
 // The cloud sandbox ships Chromium at /opt/pw-browsers; elsewhere Playwright finds its own.
 const executablePath = process.env.LIVE_CHROMIUM ?? (existsSync('/opt/pw-browsers/chromium') ? '/opt/pw-browsers/chromium' : undefined);
-const launch = () => chromium.launch({ ...(executablePath ? { executablePath } : {}), args: [...(proxy ? [`--proxy-server=${proxy}`, '--proxy-bypass-list=127.0.0.1;localhost'] : []), '--disable-features=WebRtcHideLocalIpsWithMdns'] });
+const launch = () => chromium.launch({ ...(executablePath ? { executablePath } : {}), args: [...(proxy ? [`--proxy-server=${proxy}`, '--proxy-bypass-list=127.0.0.1;localhost'] : []), '--disable-features=WebRtcHideLocalIpsWithMdns', '--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'] });
 const seedFn = (m) => {
   localStorage.setItem('lattice-studio-settings', JSON.stringify({ posture: 'craft' }));
   localStorage.setItem('lattice-docs-mode', m);
@@ -65,7 +67,7 @@ const mode = process.argv[2] === 'dark' ? 'dark' : 'light';
 const video = process.argv.includes('--video') ? { recordVideo: { dir: OUT, size: { width: 1440, height: 900 } } } : {};
 
 const hb = await launch();
-const hctx = await hb.newContext({ viewport: { width: 1440, height: 900 }, permissions: ['clipboard-read', 'clipboard-write'], ...video });
+const hctx = await hb.newContext({ viewport: { width: 1440, height: 900 }, permissions: ['clipboard-read', 'clipboard-write', 'microphone'], ...video });
 await hctx.addInitScript(seedFn, mode);
 const host = await hctx.newPage();
 host.on('pageerror', (e) => log(`host pageerror ${e.message}`));
@@ -79,7 +81,7 @@ log(`host live; link ${link.replace(/(#live=[^.]+)\.[^.]+\./, '$1.<secret>.')}`)
 await host.screenshot({ path: `${OUT}real-host-start-${mode}.png` });
 
 const gb = await launch();
-const gctx = await gb.newContext({ viewport: { width: 1440, height: 900 }, ...video });
+const gctx = await gb.newContext({ viewport: { width: 1440, height: 900 }, permissions: ['microphone'], ...video });
 await gctx.addInitScript(seedFn, mode);
 const guest = await gctx.newPage();
 guest.on('pageerror', (e) => log(`guest pageerror ${e.message}`));
@@ -148,6 +150,41 @@ await host.screenshot({ path: `${OUT}real-connection-${mode}.png` });
 await host.keyboard.press('Escape');
 await host.screenshot({ path: `${OUT}real-host-live-${mode}.png` });
 await guest.screenshot({ path: `${OUT}real-guest-live-${mode}.png` });
+
+// Audio (S4), with Chromium's fake microphone (a periodic beep): both join, each hears the other,
+// the speaking ring follows the beep, mute stops it, and the bitrate is measured.
+const panel = (page) => page.locator('[data-live-panel]');
+await panel(guest).getByRole('button', { name: 'Join with audio' }).click();
+await panel(host).getByRole('button', { name: 'Join with audio' }).click();
+await host.waitForSelector('[data-live-call]', { timeout: 20000 });
+await guest.waitForSelector('audio[data-live-audio]', { state: 'attached', timeout: 20000 });
+await host.waitForSelector('audio[data-live-audio]', { state: 'attached', timeout: 20000 });
+log(`audio: both in the call; playing elements host=${await host.locator('audio[data-live-audio]').count()} guest=${await guest.locator('audio[data-live-audio]').count()}`);
+// The ring on the OTHER person's row: a remote stream measured here, not this page's own microphone.
+const ringOn = (page, name) => page.waitForFunction((n) => [...document.querySelectorAll('[data-live-panel] li[data-live-speaking="true"]')].some((li) => li.textContent?.includes(n) && !li.textContent.includes('(you)')), name, { timeout: 15000 }).then(() => true, () => false);
+log(`speaking ring on the other person's row: host sees Amina's=${await ringOn(host, 'Amina')} guest sees Sharmarke's=${await ringOn(guest, 'Sharmarke')}`);
+const micOf = (page, name) => page.evaluate((n) => [...document.querySelectorAll('[data-live-panel] li')].find((li) => li.textContent?.includes(n) && !li.textContent.includes('(you)'))?.querySelector('[aria-label="Mic on"], [aria-label="Mic off"]')?.getAttribute('aria-label') ?? null, name);
+log(`tab title while on air: ${JSON.stringify(await host.title())}`);
+await host.screenshot({ path: `${OUT}real-call-host-${mode}.png` });
+await guest.screenshot({ path: `${OUT}real-call-guest-${mode}.png` });
+const audioBytes = (page) => page.evaluate(async () => {
+  let sent = 0;
+  for (const pc of window.__livePcs ?? []) for (const st of (await pc.getStats()).values()) if (st.type === 'outbound-rtp' && st.kind === 'audio') sent += st.bytesSent;
+  return sent;
+});
+const b0 = await audioBytes(host);
+await host.waitForTimeout(10000);
+const b1 = await audioBytes(host);
+log(`audio bitrate, host to guest: ${(((b1 - b0) * 8) / 10 / 1000).toFixed(1)} kbit/s (${(((b1 - b0) / 10) * 3600 / 1e6).toFixed(1)} MB per hour per stream, payload + RTP headers)`);
+log(`before mute, the host shows Amina's mic as: ${await micOf(host, 'Amina')}`);
+await panel(guest).getByRole('button', { name: 'Mute', exact: true }).click();
+await host.waitForFunction(() => [...document.querySelectorAll('[data-live-panel] li')].some((li) => li.textContent?.includes('Amina') && li.querySelector('[aria-label="Mic off"]')), null, { timeout: 15000 });
+log(`guest muted; the host now shows Amina's mic as: ${await micOf(host, 'Amina')}`);
+await guest.getByRole('button', { name: 'Call options' }).click();
+await guest.getByRole('menuitem', { name: /Leave audio/ }).click();
+await host.getByRole('button', { name: 'Call options' }).click();
+await host.getByRole('menuitem', { name: /Leave audio/ }).click();
+log('both left the call');
 
 // Remove the guest.
 await host.locator('button[aria-label="Options for Amina"]').click();

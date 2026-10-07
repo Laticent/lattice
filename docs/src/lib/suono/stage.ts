@@ -601,6 +601,41 @@ export function createStage(opts: StageOptions = {}): Stage {
 			// schedule this, but a synchronous stop()/clear may pre-empt those callbacks — arm it here too.)
 			scheduleKeepAliveRelease();
 		},
+		meter(stream) {
+			const ctx = getCtx();
+			if (!ctx || typeof ctx.createMediaStreamSource !== 'function') return null;
+			try {
+				if (ctx.state === 'suspended') void ctx.resume?.()?.catch?.(() => {});
+				const source = ctx.createMediaStreamSource(stream);
+				const analyser = ctx.createAnalyser();
+				analyser.fftSize = 512;
+				// Analysis only: the analyser is a sink, never connected to the destination, so a
+				// metered stream is not played twice (the caller plays it, or it is our own microphone).
+				source.connect(analyser);
+				const buf = new Float32Array(analyser.fftSize);
+				let stopped = false;
+				return {
+					level() {
+						if (stopped) return 0;
+						analyser.getFloatTimeDomainData(buf);
+						let sum = 0;
+						for (const v of buf) sum += v * v;
+						return Math.sqrt(sum / buf.length);
+					},
+					stop() {
+						if (stopped) return;
+						stopped = true;
+						try {
+							source.disconnect();
+						} catch {
+							/* best-effort */
+						}
+					},
+				};
+			} catch {
+				return null;
+			}
+		},
 		dispose() {
 			stage.stopAll();
 			stopKeepAlive(); // lives outside activeSources → tear it (and its idle timer) down explicitly

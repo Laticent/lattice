@@ -42,6 +42,17 @@ export function trysteroTransport(room: string, secret: string, opts: TrysteroOp
 		leave() {
 			return r.leave();
 		},
+		addTrack(track, stream, to) {
+			for (const p of r.addTrack(track, stream, { target: to })) void p.catch(() => {});
+		},
+		removeTrack(track, to) {
+			try {
+				r.removeTrack(track, { target: to });
+			} catch {}
+		},
+		onTrack(cb) {
+			r.onPeerTrack = (track, stream, peerId) => cb(track, stream, peerId);
+		},
 		async paths() {
 			const out: Record<string, LinkPath> = {};
 			for (const [id, pc] of Object.entries(r.getPeers())) {

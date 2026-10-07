@@ -315,7 +315,9 @@ describe('the dialect map, audited by stemming the tree (HARD RULE #21)', () => 
     // benchmark calibration document, whose bytes set the baseline every `bench:check`
     // compares against (HARD RULE #19), and #21 names a benchmark fixture as an external
     // string a sweep must not touch.
-    const NOT_AN_IDENTIFIER = new Set(['test/benchmark/engine-bench.mjs:emphasised_']);
+    // `createAnalyser` is the Web Audio API's own method name (BaseAudioContext.createAnalyser),
+    // an external string #21 says never to rewrite; Suono's live meter calls it, and its test mocks it.
+    const NOT_AN_IDENTIFIER = new Set(['test/benchmark/engine-bench.mjs:emphasised_', 'docs/src/lib/suono/stage.ts:createAnalyser', 'docs/src/lib/suono/stage.test.ts:createAnalyser']);
     const listedForms = new Set(Object.keys(UK_TO_US));
     const absorbed = new Set();
     const found = [];

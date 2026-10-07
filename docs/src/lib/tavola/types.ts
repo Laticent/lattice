@@ -29,6 +29,11 @@ export interface Transport {
 	/** Optional: the network path each open connection took, for a "how are we connected" readout.
 	 *  A transport without real connections (the in-memory one) leaves it out. */
 	paths?(): Promise<Record<PeerId, LinkPath>>;
+	/** Optional media on the same connections: send `track` (of `stream`) to one peer, stop sending
+	 *  it, and hear what peers send. A transport without media (the in-memory one) leaves them out. */
+	addTrack?(track: MediaStreamTrack, stream: MediaStream, to: PeerId): void;
+	removeTrack?(track: MediaStreamTrack, to: PeerId): void;
+	onTrack?(cb: (track: MediaStreamTrack, stream: MediaStream, from: PeerId) => void): void;
 }
 
 /**

@@ -102,6 +102,9 @@ export type SessionOptions = {
 	client?: number;
 	/** App posts (chat, say): bytes from an admitted member, with its peer id. Never from a stranger. */
 	onPost?: (data: Uint8Array, from: PeerId) => void;
+	/** Media from admitted members only (a call's audio): `add` when a member's stream arrives or
+	 *  when a peer whose stream arrived first is admitted; `drop` when it leaves or is removed. */
+	media?: { add(stream: MediaStream, from: PeerId): void; drop(from: PeerId): void };
 	/** Guest: knock automatically under this name as soon as the host says hello. */
 	autoKnockName?: string;
 	/** Most people in a session, host included. The owner's number: 4 (and never more than 4). */
@@ -158,6 +161,11 @@ export type Session = {
 	/** The network path to each member this browser is connected to (empty when the transport cannot
 	 *  say). For a "how are we connected" readout, and for the two-network check. */
 	paths(): Promise<Record<PeerId, LinkPath>>;
+	/** Send `stream`'s tracks to every admitted member, and to each one admitted later; never to a
+	 *  stranger. Null stops sending. A transport without media ignores it. */
+	setMedia(stream: MediaStream | null): void;
+	/** Whether the transport carries media at all. */
+	readonly hasMedia: boolean;
 };
 
 export const DEFAULT_CAP = 4;
@@ -215,8 +223,45 @@ export function createSession(opts: SessionOptions): Session {
 	};
 	const set = (patch: Partial<SessionState>) => {
 		state = { ...state, ...patch };
+		if (patch.members || patch.stage) syncMedia();
 		for (const cb of listeners) cb();
 	};
+
+	// ── media: the same gate as the document ───────────────────────────────
+	// Tracks go only to admitted members and come in only from them. Every change to the roster or
+	// the stage re-derives who should hear us; a stream that arrived from a peer before it was
+	// admitted is held, and handed on only if it is admitted.
+	let localMedia: MediaStream | null = null;
+	/** Peer → the tracks we are sending it. */
+	const sentTo = new Map<PeerId, MediaStreamTrack[]>();
+	/** Peer → the stream it sends us, and whether the app has it. */
+	const heard = new Map<PeerId, { stream: MediaStream; given: boolean }>();
+	function syncMedia() {
+		if (!t.addTrack) return;
+		const live = state.stage === 'live' && !closed;
+		const want = new Set(live ? state.members.filter((m) => m.id !== t.selfId && connected.has(m.id)).map((m) => m.id) : []);
+		const tracks = localMedia?.getTracks() ?? [];
+		for (const [peer, sent] of [...sentTo]) {
+			if (want.has(peer) && sent.length === tracks.length && sent.every((x, i) => x === tracks[i])) continue;
+			if (connected.has(peer)) for (const tr of sent) t.removeTrack?.(tr, peer);
+			sentTo.delete(peer);
+		}
+		if (localMedia)
+			for (const peer of want) {
+				if (sentTo.has(peer)) continue;
+				for (const tr of tracks) t.addTrack(tr, localMedia, peer);
+				sentTo.set(peer, tracks);
+			}
+		for (const [peer, h] of heard) {
+			if (!h.given && want.has(peer)) {
+				h.given = true;
+				opts.media?.add(h.stream, peer);
+			} else if (h.given && !want.has(peer)) {
+				h.given = false;
+				opts.media?.drop(peer);
+			}
+		}
+	}
 
 	// ── shared bookkeeping ──────────────────────────────────────────────────
 	const connected = new Set<PeerId>();
@@ -356,6 +401,14 @@ export function createSession(opts: SessionOptions): Session {
 	const forget = (peer: PeerId) => {
 		opts.doc.forget?.(peer);
 		opts.awareness?.forget?.(peer);
+		// A peer still connected (re-admitted in a moment, after a takeover or a blip) keeps its
+		// stream: it sends no new track, so syncMedia hands this one on again (checker, 2026-10-07).
+		const h = heard.get(peer);
+		if (!connected.has(peer)) heard.delete(peer);
+		if (h?.given) {
+			h.given = false;
+			opts.media?.drop(peer);
+		}
 	};
 
 	// ── local changes go to every member (a viewer's document edits go nowhere) ──
@@ -815,6 +868,8 @@ export function createSession(opts: SessionOptions): Session {
 	t.onPeerJoin((id) => {
 		connected.add(id);
 		bump(id);
+		// A new link carries none of our tracks: sync sends them again (after the roster logic below).
+		queueMicrotask(syncMedia);
 		if (isHost) {
 			if (ending) return;
 			if (memberOf(id)) {
@@ -837,6 +892,7 @@ export function createSession(opts: SessionOptions): Session {
 	t.onPeerLeave((id) => {
 		connected.delete(id);
 		bump(id);
+		queueMicrotask(syncMedia);
 		heirPubs.delete(id);
 		if (isHost) {
 			claims.delete(id);
@@ -860,6 +916,14 @@ export function createSession(opts: SessionOptions): Session {
 			set({ members: state.members.filter((m) => m.id !== id) });
 		}
 		forget(id);
+	});
+	t.onTrack?.((_track, stream, from) => {
+		if (closed) return;
+		// Held until (unless) the sender is an admitted member: syncMedia hands it on. A peer that
+		// sends again (it re-added its tracks after a roster change) replaces what the app holds.
+		if (heard.get(from)?.given) opts.media?.drop(from);
+		heard.set(from, { stream, given: false });
+		syncMedia();
 	});
 	t.onMessage((data, from) => {
 		if (closed || data.length === 0 || data.length > MAX_MESSAGE) return;
@@ -936,6 +1000,9 @@ export function createSession(opts: SessionOptions): Session {
 		if (lobbyTimer !== null) clock.clearTimeout(lobbyTimer);
 		if (pingTimer !== null) clock.clearTimeout(pingTimer);
 		clearGrace();
+		for (const [peer, h] of heard) if (h.given) opts.media?.drop(peer);
+		heard.clear();
+		sentTo.clear();
 		unDoc();
 		unAw?.();
 		void t.leave();
@@ -1059,6 +1126,16 @@ export function createSession(opts: SessionOptions): Session {
 			await Promise.all([controlChain, ...signing]);
 		},
 		succession: () => (isHost && signer && root ? { key: signer, root, fingerprint: linkFp, chain, base: baseChain.length, top, issued: [...issuedTo], selfToken } : null),
+		setMedia(stream) {
+			localMedia = stream;
+			// Every peer gets the new tracks: drop what we sent, then sync sends the new set.
+			for (const [peer, sent] of [...sentTo]) {
+				if (connected.has(peer)) for (const tr of sent) t.removeTrack?.(tr, peer);
+				sentTo.delete(peer);
+			}
+			syncMedia();
+		},
+		hasMedia: !!t.addTrack && !!t.onTrack,
 		async paths() {
 			const all = (await t.paths?.().catch(() => ({}) as Record<PeerId, LinkPath>)) ?? {};
 			return Object.fromEntries(Object.entries(all).filter(([id]) => memberOf(id) && id !== t.selfId));

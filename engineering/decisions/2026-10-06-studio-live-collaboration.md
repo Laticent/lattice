@@ -794,6 +794,45 @@ merge, and each now has a test that fails without its guard:
 
 **Protocol.** Version 2. A tab still on version 1 shows *Reload to join* rather than timing out.
 
+### 12.2 Audio calls — S4 (2026-10-07)
+
+**What it does.** *Join with audio* in the Live panel (or the mic in the header pill) captures the
+microphone with echo cancellation and noise suppression and sends it to everyone in the session;
+you hear the others once you join. Mute and unmute need no reconnection (the track is turned off).
+The call row's ⋯ picks the microphone and leaves the call. Each person's row shows their mic, and
+a speaking ring in their color while they talk; the tab title starts with *On air ·* while your
+microphone is live. If the browser blocks the microphone, the panel says how to allow it.
+
+**The gate.** Tracks go only to admitted members, and a stream from anyone else is held, unheard,
+until the host admits them (`session.setMedia`, Tavola). A removed member's stream is dropped.
+
+**Deviations from §5.8.**
+- The speaking ring is **measured by each listener** from the stream it hears (Suono's
+  `stage.meter`), not shared through awareness: a level a peer reports about itself is a
+  self-claim, and earlier review rounds found those forgeable. Only the mic on/off state is said by
+  its owner, about itself.
+- The device picker covers the microphone. Choosing the output device (`setSinkId`) is not built;
+  Safari does not support it.
+- Video (S5) is not built.
+
+**Measured on the real surface** (`tools/live-session-check.mjs`, Chromium's fake microphone, real
+WebRTC; the run's log is kept with its screenshots): both joined; each side played one remote
+stream; each side showed the speaking ring on the OTHER person's row; the host showed the guest's
+mic as *Mic on*, then *Mic off* after the guest muted; the tab title read *On air · …*; the
+measured send rate was 8.7–9.9 kbit/s over two runs. The fake source is a short beep over silence,
+so Opus sends little; ordinary speech runs at roughly 25–40 kbit/s. UNVERIFIED: real
+microphones, echo between two real devices, call quality, and iOS Safari.
+
+**The checker** (tier 1, on Opus) confirmed the gate and found audio going one-way after a
+takeover or a same-id blip, which the in-memory network reproduced. Fixed, each with a test that
+fails without it: a peer still connected keeps its stream across a re-admission; media re-syncs
+whenever a link comes or goes; a re-sent stream replaces the held one (drop, then add); a host
+that ends lets go of every stream at once; mic state is re-sent to a peer whose stream returns.
+Also fixed: remote streams play through a muted `<audio>` element until you join (Chromium
+meters a remote stream only while an element plays it), the audio context resumes inside the
+join click, a permission prompt answered after the session closed leaks nothing, and a person not
+on the call reads *Mic off* rather than *Muted*.
+
 ## 13. Implementation reference — what it is built from, and why
 
 The road ahead (voice and video, a server path, firewalls, screen share, the open decisions) is

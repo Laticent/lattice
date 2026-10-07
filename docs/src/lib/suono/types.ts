@@ -139,8 +139,20 @@ export interface Stage {
 	sequence<T>(opts: SequenceOptions<T>): Sequence;
 	/** Stop EVERY currently-playing clip (all overlapping plays, not just the latest). */
 	stopAll(): void;
+	/** Measure a LIVE stream's loudness (a call's microphone or a remote voice) on this stage's own
+	 *  context, without playing it: the stream is only analyzed, never routed to the speakers. Null
+	 *  where Web Audio is missing. Stop it when the stream goes away. */
+	meter(stream: MediaStream): Meter | null;
 	/** Release the context (rare — a stage is meant to outlive many plays). */
 	dispose(): void;
+}
+
+/** A live stream's level, from `Stage.meter`. */
+export interface Meter {
+	/** RMS of the latest analysis window, 0 (silence) to about 1. */
+	level(): number;
+	/** Disconnect the analysis. Idempotent. */
+	stop(): void;
 }
 
 export interface SequenceItemStart extends Onset {

@@ -36,6 +36,11 @@ Studio's Live panel. It knows **peers and bytes**; the app knows **screens**. It
   rejoin tokens only by id (`tokenId`, SHA-256), so it can check a knock but never knock with
   one. `state.heir` names the heir everywhere; `state.minTerm` is the floor a guest persists;
   a host carries `succession()` across its own reload;
+- **media** — `session.setMedia(stream)` sends a stream's tracks (a call's microphone) to every
+  admitted member and to each one admitted later, never to a stranger; `SessionOptions.media` gets
+  a member's stream (`add`) and its end (`drop`), and a stream from a peer that is not admitted yet
+  is held until it is. It rides the same connections as the document (`Transport.addTrack` /
+  `onTrack`, optional; the Trystero adapter implements them);
 - **client binding** — each member knocks with its awareness `client` id and the host binds it in
   the roster (refusing one another member already holds), so an app can drop presence a member
   sends for anyone else.
@@ -104,7 +109,6 @@ found.
 - **Hide members from link holders.** Every peer in the room gets a WebRTC connection to every
   other before admission, so a link holder learns members' IP addresses. Nothing is sent over it.
 - **Prove guests' names.** A guest's name is whatever they typed; the knock is where the host checks.
-- **Carry media.** Audio and video ride the same connection in a later slice.
 - **Limit what an heir can do while it is heir.** Its cert is valid from the moment it is
   issued, so it can take the host role whenever it likes until the first host is back (which then
   takes it back, and never names that heir again). A member who may edit can already rewrite the
