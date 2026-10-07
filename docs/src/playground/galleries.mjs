@@ -9,10 +9,9 @@
 // selected theme into each deck's front matter — see lib/playground/index.js).
 //
 // Runs in Astro frontmatter (SSG, Node) only — it reads repo markdown off the
-// filesystem and inlines any local image assets as data URIs so the sandboxed
-// preview iframe can render them without a fetch (the iframe has no path back
-// to the repo's image files). The asset set is tiny + all SVG today (~11 KB),
-// so base64-inlining is cheaper than wiring a second hashed-asset sync.
+// filesystem. The decks name their pictures `sample:<name>`, which the preview
+// resolves against the staged lib/samples/ copy (docs/src/lib/samples-base.ts);
+// any other local image a deck references is staged by collectGalleryAssets.
 
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -69,20 +68,19 @@ const FAMILIES = [
 const IMG_RE = /(!\[[^\]]*\]\()\s*([^)\s]+)\s*(\))/g;
 const IMG_EXT = /\.(svg|png|jpe?g|webp|gif)$/i;
 
-// Collect every LOCAL image a gallery deck references, as a [stagedDest, absSrc]
-// pair. The deck keeps its clean, deck-relative `![bg](image/foo.svg)` ref in the
-// source (no base64 eyesore in the editor); the preview resolves it against the
+// Collect every LOCAL image a gallery deck references by a relative path, as a
+// [stagedDest, absSrc] pair. The preview resolves a relative ref against the
 // staged `samples/` base, so the staged dest mirrors the ref path:
-//   ref `image/sample-photo-wide.svg` (in lib/components/imagery/) →
-//   samples/image/sample-photo-wide.svg.
-// Remote (http) + data: + non-image targets and missing files are skipped.
+//   ref `image/foo.svg` (in lib/components/imagery/) → samples/image/foo.svg.
+// `sample:` refs (staged whole by sync-playground-assets), remote (http), data:,
+// non-image targets and missing files are skipped.
 function galleryAssetRefs(src, galleryDir) {
   const out = [];
   let m;
   IMG_RE.lastIndex = 0;
   while ((m = IMG_RE.exec(src))) {
     const target = m[2];
-    if (/^(https?:|data:|\/)/i.test(target) || !IMG_EXT.test(target)) continue;
+    if (/^(https?:|data:|sample:|\/)/i.test(target) || !IMG_EXT.test(target)) continue;
     const abs = resolve(galleryDir, target);
     if (existsSync(abs)) out.push([`samples/${target}`, abs]);
   }

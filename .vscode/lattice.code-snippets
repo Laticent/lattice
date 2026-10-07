@@ -444,7 +444,7 @@
       "",
       "Swap the bg image below for your own asset — any aspect. The layout reads its shape and resolves the composition for you (a floated card, a full-height column, a full-bleed cover). Name a composition (`image spotlight`, `image gallery`, …) only to override.",
       "",
-      "![bg](sample-photo-wide.svg)"
+      "![bg](sample:photo-wide.svg)"
     ],
     "description": "Image as the slide's anchor, with optional text alongside — composition adapts to the asset and the deck."
   },
@@ -597,15 +597,15 @@
       "",
       "## The headline claim the logos back up.",
       "",
-      "- ![First brand](logo-1.svg)",
+      "- ![First brand](sample:logo-acme.svg)",
       "  - First brand",
       "  - `Series B`",
-      "- ![Second brand](logo-2.svg)",
+      "- ![Second brand](sample:logo-globex.svg)",
       "  - Second brand",
-      "- ![Third brand](logo-3.svg)",
-      "- ![Fourth brand](logo-4.svg)",
-      "- ![Fifth brand](logo-5.svg)",
-      "- ![Sixth brand](logo-6.svg)"
+      "- ![Third brand](sample:logo-vantage.svg)",
+      "- ![Fourth brand](sample:logo-umbra.svg)",
+      "- ![Fifth brand](sample:logo-meridian.svg)",
+      "- ![Sixth brand](sample:logo-helios.svg)"
     ],
     "description": "A grid of customer, partner, or funder logos as social proof."
   },
@@ -1163,11 +1163,11 @@
       "## The claim the roster backs up.",
       "",
       "- First person",
-      "  - ![](portrait.jpg)",
+      "  - ![](sample:portrait-ada.svg)",
       "  - `Their role`",
       "  - One line on what they own.",
       "- Second person",
-      "  - ![](portrait-2.jpg)",
+      "  - ![](sample:portrait-marcus.svg)",
       "  - `Their role`",
       "  - One line on what they own.",
       "- Third person",

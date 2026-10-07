@@ -5,7 +5,7 @@ paginate: true
 header: "Lattice · frame chrome"
 footer: "Feature deck"
 finish: atrium
-logo: ../lib/base/_logo/acme-logo.svg
+logo: sample:logo-acme-mark.svg
 logo-on: title
 logo-x: 50
 logo-y: 82

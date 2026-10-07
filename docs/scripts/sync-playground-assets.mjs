@@ -145,36 +145,33 @@ if (existsSync(hljsDir)) {
   }
 }
 
-// Component sample images referenced by manifest `sample` decks — the image
-// component's `![bg](sample-image-landscape.svg)`, logo-wall's `![Acme](acme.svg)`,
-// team-profile's `![](ada.svg)`. Every one is a BARE FILENAME in the manifest, so
-// the preview resolves it against this samples/ base: the component render passes
-// the base as `{ baseUrl }` and the engine resolves the deck-relative path against
-// it. Staged FLAT for that reason. (The bucket galleries ref the same files
-// nested, e.g. `logo-wall/acme.svg`; those copies come from collectGalleryAssets
-// below, and both paths resolve.)
-//
-// DERIVED from the component tree rather than hand-listed. This was two hard-coded
-// directories, and the third component to ship sample art (team-profile) had its
-// portraits silently missing from the staged set — its docs page rendered a grid of
-// broken-image icons while every gate stayed green, because no gate looks at that
-// page. The filesystem already knows which components ship art; asking it removes
-// the whole class. Additive only: an SVG staged for a component whose sample never
-// references it is an inert file.
-for (const bucket of readdirSync(join(repoRoot, 'lib', 'components'), { withFileTypes: true })) {
-  if (!bucket.isDirectory()) continue;
-  const bucketDir = join(repoRoot, 'lib', 'components', bucket.name);
-  for (const component of readdirSync(bucketDir, { withFileTypes: true })) {
-    // `_`-prefixed folders are bucket-scoped shared infrastructure, not components.
-    if (!component.isDirectory() || component.name.startsWith('_')) continue;
-    const componentDir = join(bucketDir, component.name);
-    for (const file of readdirSync(componentDir)) {
-      if (/\.svg$/i.test(file)) assets.push([`samples/${file}`, join(componentDir, file)]);
-    }
-  }
+// The sample art — every photo, portrait, logo and poster the templates, galleries and
+// example decks show — lives in ONE flat folder, lib/samples/, and decks name it as
+// `sample:<name>` (lib/core/bg-image.js resolveAssetUrl). Staged as-is under samples/,
+// which the previews pass to the engine as `samplesUrl` (docs/src/lib/samples-base.ts). It
+// used to be derived from a walk of every component folder, because the art lived beside
+// the component that showed it; a template whose image lived anywhere else (the Studio's
+// insert skeletons named `logo-1.svg` and `portrait.jpg`, which existed nowhere) failed
+// silently. One folder is the whole contract now: a file in it is servable, one outside is not.
+const samplesDir = join(repoRoot, 'lib', 'samples');
+for (const file of readdirSync(samplesDir)) {
+  if (/\.(svg|png|jpe?g|webp|gif)$/i.test(file)) assets.push([`samples/${file}`, join(samplesDir, file)]);
 }
-// Images the "Load a deck" gallery decks reference (e.g. the imagery survey's
-// `![bg](image/sample-photo-wide.svg)`, the inventory logo-wall). Staged under
+// The names the site served BEFORE the move, kept so a deck someone saved in the Studio from
+// an old component sample or gallery (`![](ada.svg)`, `![bg](image/sample-photo-wide.svg)`)
+// still shows its pictures; a bare relative ref resolves against this same folder. Copies,
+// not new art: each points at its lib/samples/ file. Additive and tiny (~30 SVGs).
+const PEOPLE = ['ada', 'jonah', 'kenji', 'marcus', 'nia', 'priya', 'sofia', 'tomas'];
+const BRANDS = ['acme', 'cobalt', 'globex', 'helios', 'initech', 'lumen', 'meridian', 'northwind', 'quanta', 'sable', 'umbra', 'vantage'];
+const PHOTOS = ['wide', 'tall', 'pano', 'square', 'column'];
+const legacy = [
+  ...PEOPLE.flatMap((n) => [[`${n}.svg`, `portrait-${n}.svg`], [`team-profile/${n}.svg`, `portrait-${n}.svg`]]),
+  ...BRANDS.flatMap((n) => [[`${n}.svg`, `logo-${n}.svg`], [`logo-wall/${n}.svg`, `logo-${n}.svg`]]),
+  ...PHOTOS.flatMap((n) => [[`sample-photo-${n}.svg`, `photo-${n}.svg`], [`image/sample-photo-${n}.svg`, `photo-${n}.svg`]]),
+];
+for (const [oldName, file] of legacy) assets.push([`samples/${oldName}`, join(samplesDir, file)]);
+// Any OTHER local image a "Load a deck" gallery deck references by a relative path (the
+// sample art is `sample:` and staged above, so today this finds none). Staged under
 // samples/ mirroring each deck-relative ref so the preview resolves them against
 // the same samples/ base — no base64 inlining (see galleries.mjs). The decks
 // keep clean relative refs in source.

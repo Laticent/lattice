@@ -82,7 +82,8 @@ import { STAGE_CHROME_CSS } from './stage-chrome.js';
 export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexUrl = '', dagreUrl = '', a11yDefs = '', pad = { factor: 0.012, floor: 0 }, standalone = false, chromeDecls = '', token = '', lang = 'en', webOrigins = /** @type {string[]} */ ([]) }) {
 	// Web images the reader has not allowed become the drawn placeholder (trio follow-up 11),
 	// BEFORE the sanitizer, so it sees the final markup; the policy below refuses the rest.
-	const web = remoteRef.blockWebImages(html, webOrigins);
+	// The site's own origin is not a web image: it serves the `sample:` art (remote-ref.js withOwnOrigin).
+	const web = remoteRef.blockWebImages(html, remoteRef.withOwnOrigin(webOrigins));
 	html = sanitizeSlideHtml(web.html); // #616 T-CONTENT — strip script before the same-origin stage srcdoc
 	const sw = width;
 	const sh = height;

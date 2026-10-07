@@ -406,7 +406,8 @@ export function renderDeck({ frame, html, css, mode, geom, sig, state, fresh = f
 	// — locked by deck-preview.sanitize-cache.test.ts.
 	// Web images the reader has not allowed become placeholders on BOTH paths (buildSrcdoc does
 	// it for the write path; the patch path below would otherwise swap in the raw address).
-	const web = remoteRef.blockWebImages(html, opts.webOrigins || []);
+	// The site's own origin is not a web image: it serves the `sample:` art (remote-ref.js withOwnOrigin).
+	const web = remoteRef.blockWebImages(html, remoteRef.withOwnOrigin(opts.webOrigins || []));
 	html = web.html;
 	const rawSections = splitSections(html);
 	const prevCache = st.sanitizeCache instanceof Map ? st.sanitizeCache : null;

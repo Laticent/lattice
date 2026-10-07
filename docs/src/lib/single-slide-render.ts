@@ -55,6 +55,7 @@ import { hasVizScanListeners, recordVizScan, scanBlackFills } from '../playgroun
 import { pluginDataMissing } from './ensure-plugin-data';
 import { ensureEngine } from './load-engine';
 import { renderMarkdown } from './render-engine';
+import { samplesBaseFor } from './samples-base';
 import { sanitizeSlideHtml } from './sanitize-slide-html.js';
 import { createThemeFetcher } from './theme-fetch';
 
@@ -1524,11 +1525,10 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				const renderedTotal = run ? run.renderedTotal : opts?.slideCount;
 				const panePage = run?.panePage ?? 0;
 				const slicePage = renderSource !== markdown ? supplyablePosition(markdown, opts?.slideIndex, opts?.slideCount, paneCounts) : undefined;
-				// Resolve a sample deck's `![bg](sample-image-*.svg)` against the staged samples/
-				// dir (sibling of themes/ under the hashed root). Make it ABSOLUTE — themeBase is
-				// root-relative, and the engine's WHATWG-URL resolver needs an absolute base.
-				// Hoisted out of the try below so the deck-context fallback render can reuse it.
-				const samplesBase = new URL(themeBase.replace(/themes\/$/, 'samples/'), location.href).href;
+				// `sample:<name>` images resolve into the staged lib/samples/ copy (./samples-base.ts),
+				// and a bare relative ref resolves against the same folder. Hoisted out of the try
+				// below so the deck-context fallback render can reuse it.
+				const samplesBase = samplesBaseFor(themeBase);
 				try {
 					const tEngine = performance.now();
 					// Reuse the last whole-deck render when every input is identical — a navigation
@@ -1573,7 +1573,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					} else {
 						// Ask the engine for its per-stage breakdown ONLY while the overlay is
 						// subscribed — otherwise it collects nothing (off = free).
-						out = await renderMarkdown(PG, renderSource, theme, { baseUrl: samplesBase, stats: hasRenderListeners(), page: slicePage, codeStatus: true, ...(slicePlugins ? { pluginDefaults: slicePlugins } : {}) });
+						out = await renderMarkdown(PG, renderSource, theme, { baseUrl: samplesBase, samplesUrl: samplesBase, stats: hasRenderListeners(), page: slicePage, codeStatus: true, ...(slicePlugins ? { pluginDefaults: slicePlugins } : {}) });
 						engineMs = performance.now() - tEngine;
 						// Store the UN-narrowed render; the copy keeps the memo immune to the
 						// mutation below and to any caller that edits what it received. Only a
@@ -1667,7 +1667,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 						// what this surface did before deck context existed. One extra engine call on
 						// an uncommon deck shape, and only for as long as the deck stays that shape.
 						const alonePlugins = PG.pluginAdmission?.(markdown) ?? undefined;
-						const alone = await renderMarkdown(PG, opts.slideMarkdown, theme, { baseUrl: samplesBase, ...(alonePlugins ? { pluginDefaults: alonePlugins } : {}) });
+						const alone = await renderMarkdown(PG, opts.slideMarkdown, theme, { baseUrl: samplesBase, samplesUrl: samplesBase, ...(alonePlugins ? { pluginDefaults: alonePlugins } : {}) });
 						if (disposed || !host.isConnected) return { ok: false, slides: 0, error: 'renderer disposed' };
 						// Swap only the HTML: theme CSS and `@size` geometry are identical (same theme,
 						// same front matter), and keeping the first render's `stats` keeps the perf
@@ -1858,8 +1858,8 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 											// the route-gated `slicePage` here meant omitting the position on the
 											// whole-deck route, and then reporting the pagination mismatch that caused
 											// as a finding, on any deck that paginates.
-											renderMarkdown(PG, slideMarkdown, theme, { baseUrl: samplesBase, page: comparePage, ...(PG.pluginAdmission?.(markdown) ? { pluginDefaults: PG.pluginAdmission(markdown) as string[] } : {}) }),
-											renderMarkdown(PG, markdown, theme, { baseUrl: samplesBase }),
+											renderMarkdown(PG, slideMarkdown, theme, { baseUrl: samplesBase, samplesUrl: samplesBase, page: comparePage, ...(PG.pluginAdmission?.(markdown) ? { pluginDefaults: PG.pluginAdmission(markdown) as string[] } : {}) }),
+											renderMarkdown(PG, markdown, theme, { baseUrl: samplesBase, samplesUrl: samplesBase }),
 										]);
 										// THE SAME ALIGNMENT GUARD narrowToSlide enforces, and for the same reason: an
 										// index-based lookup into the deck's sections silently picks a slide the author
@@ -1931,14 +1931,15 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// Mermaid `img:`). The allowed origins join the policy, so they join the sig too.
 				const remoteRef = await loadRemoteRef();
 				if (disposed || !host.isConnected) return { ok: false, slides: 0, error: 'renderer disposed' };
-				const web = remoteRef.blockWebImages(out.html, allow);
+				// The site's own origin is not a web image: it serves the `sample:` art (remote-ref.js withOwnOrigin).
+				const web = remoteRef.blockWebImages(out.html, remoteRef.withOwnOrigin(allow));
 				// Stamp each image slide from what is already known of its photo, before ANY sink
 				// writes it: the first painted frame is the final layout (./image-size-memo.ts).
 				const imageMemo = await loadImageMemo();
 				if (disposed || !host.isConnected) return { ok: false, slides: 0, error: 'renderer disposed' };
 				out = { ...out, html: await imageMemo.stampKnownSizes(web.html, geom, host.querySelector<HTMLIFrameElement>('iframe.live')) };
 				if (disposed || !host.isConnected) return { ok: false, slides: 0, error: 'renderer disposed' };
-				const prefetchImages = (fr: HTMLIFrameElement | null | undefined) => imageMemo.prefetch(fr, markdown, allow, remoteRef.webOrigin);
+				const prefetchImages = (fr: HTMLIFrameElement | null | undefined) => imageMemo.prefetch(fr, markdown, remoteRef.withOwnOrigin(allow), remoteRef.webOrigin);
 				webAllow = allow;
 				// The theme and author CSS reach the frame beside the markup, so their web references
 				// count too: the restyle path swaps that <style> without touching <head>.

@@ -43,7 +43,7 @@ The `image` layout reads a `![bg](…)` as its panel. From the web, the panel sh
 
 A relative path, a file on your disk and an embedded image load as they always did. Only an address on the web waits, such as `https://…`.
 
-![The Acme logo, a local file](../lib/base/_logo/acme-logo.svg)
+![The Acme logo, a local file](sample:logo-acme-mark.svg)
 
 ---
 

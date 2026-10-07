@@ -90,7 +90,7 @@
     "portrait": {
       "selector": "ul > li > ul > li > img",
       "required": false,
-      "description": "The person's photo, nested under their name as `- ![](photo.jpg)`. Leave the alt empty — the name beside it is the accessible label. Omit it entirely and the engine draws a monogram from the initials instead."
+      "description": "The person's photo, nested under their name as `- ![](photo.jpg)`. Leave the alt empty — the name beside it is the accessible label. Omit it entirely and the engine draws a monogram from the initials instead. To try the layout before you have the photos, use Lattice's sample portraits: `![](sample:portrait-ada.svg)` (the full set is in `lib/samples/README.md`)."
     },
     "role": {
       "selector": "ul > li > ul > li > code",
@@ -108,12 +108,12 @@
       "description": "`sides` only. Two `### ` subheadings, each followed by its own list, label the two rosters ('Your team' / 'Our team')."
     }
   },
-  "skeleton": "<!-- _class: team-profile -->\n\n`Your account team`\n\n## The claim the roster backs up.\n\n- First person\n  - ![](portrait.jpg)\n  - `Their role`\n  - One line on what they own.\n- Second person\n  - ![](portrait-2.jpg)\n  - `Their role`\n  - One line on what they own.\n- Third person\n  - `Their role`\n  - One line on what they own.\n",
+  "skeleton": "<!-- _class: team-profile -->\n\n`Your account team`\n\n## The claim the roster backs up.\n\n- First person\n  - ![](sample:portrait-ada.svg)\n  - `Their role`\n  - One line on what they own.\n- Second person\n  - ![](sample:portrait-marcus.svg)\n  - `Their role`\n  - One line on what they own.\n- Third person\n  - `Their role`\n  - One line on what they own.\n",
   "anatomyBlock": "team-profile",
-  "sample": "<!-- _class: team-profile -->\n\n`inventory · team-profile`\n\n## The team profile seats each face over a name, a role, and one line.\n\n- Ada Okafor\n  - ![](ada.svg)\n  - `Executive Sponsor`\n  - Clears blockers above the program.\n- Marcus Vale\n  - ![](marcus.svg)\n  - `Program Director`\n  - Runs the weekly cadence.\n- Priya Raman\n  - ![](priya.svg)\n  - `Head of Delivery`\n  - Staffs the pods; holds the dates.\n- Tomas Lindqvist\n  - ![](tomas.svg)\n  - `Solutions Architect`\n  - Reviews every schema change.\n- Nia Bello\n  - ![](nia.svg)\n  - `Data Lead`\n  - Owns the migration cutover.\n- Jonah Reyes\n  - ![](jonah.svg)\n  - `Customer Success`\n  - Your standing contact between reviews.\n",
+  "sample": "<!-- _class: team-profile -->\n\n`inventory · team-profile`\n\n## The team profile seats each face over a name, a role, and one line.\n\n- Ada Okafor\n  - ![](sample:portrait-ada.svg)\n  - `Executive Sponsor`\n  - Clears blockers above the program.\n- Marcus Vale\n  - ![](sample:portrait-marcus.svg)\n  - `Program Director`\n  - Runs the weekly cadence.\n- Priya Raman\n  - ![](sample:portrait-priya.svg)\n  - `Head of Delivery`\n  - Staffs the pods; holds the dates.\n- Tomas Lindqvist\n  - ![](sample:portrait-tomas.svg)\n  - `Solutions Architect`\n  - Reviews every schema change.\n- Nia Bello\n  - ![](sample:portrait-nia.svg)\n  - `Data Lead`\n  - Owns the migration cutover.\n- Jonah Reyes\n  - ![](sample:portrait-jonah.svg)\n  - `Customer Success`\n  - Your standing contact between reviews.\n",
   "stressDoc": {
     "summary": "Twelve people with a note each — the hard ceiling, where the grid spends the last of its breathing room.",
-    "sample": "<!-- _class: team-profile bench -->\n\n`team-profile at the ceiling`\n\n## Twelve is the ceiling, and bench is the only composition that seats them.\n\n- Ada Okafor\n  - ![](ada.svg)\n  - `Executive Sponsor`\n- Marcus Vale\n  - ![](marcus.svg)\n  - `Chief Financial Officer`\n- Priya Raman\n  - ![](priya.svg)\n  - `Head of Global Delivery`\n- Tomas Lindqvist\n  - ![](tomas.svg)\n  - `Principal Solutions Architect`\n- Nia Bello\n  - ![](nia.svg)\n  - `Data Platform Lead`\n- Jonah Reyes\n  - ![](jonah.svg)\n  - `Customer Success Director`\n- Sofia Marchetti\n  - ![](sofia.svg)\n  - `Information Security Lead`\n- Kenji Sato\n  - ![](kenji.svg)\n  - `Support Escalation Manager`\n- Hana Suzuki\n  - `Field Reliability Engineer`\n- Owen Adeyemi\n  - `Revenue Operations`\n- Clara Nunes\n  - `Quality Assurance Lead`\n- Idris Khan\n  - `Release Train Manager`\n"
+    "sample": "<!-- _class: team-profile bench -->\n\n`team-profile at the ceiling`\n\n## Twelve is the ceiling, and bench is the only composition that seats them.\n\n- Ada Okafor\n  - ![](sample:portrait-ada.svg)\n  - `Executive Sponsor`\n- Marcus Vale\n  - ![](sample:portrait-marcus.svg)\n  - `Chief Financial Officer`\n- Priya Raman\n  - ![](sample:portrait-priya.svg)\n  - `Head of Global Delivery`\n- Tomas Lindqvist\n  - ![](sample:portrait-tomas.svg)\n  - `Principal Solutions Architect`\n- Nia Bello\n  - ![](sample:portrait-nia.svg)\n  - `Data Platform Lead`\n- Jonah Reyes\n  - ![](sample:portrait-jonah.svg)\n  - `Customer Success Director`\n- Sofia Marchetti\n  - ![](sample:portrait-sofia.svg)\n  - `Information Security Lead`\n- Kenji Sato\n  - ![](sample:portrait-kenji.svg)\n  - `Support Escalation Manager`\n- Hana Suzuki\n  - `Field Reliability Engineer`\n- Owen Adeyemi\n  - `Revenue Operations`\n- Clara Nunes\n  - `Quality Assurance Lead`\n- Idris Khan\n  - `Release Train Manager`\n"
   },
   "commonMistakes": [
     {
@@ -168,12 +168,12 @@
     "lead": {
       "label": "lead",
       "summary": "The first person takes a hero cell; the rest rank beneath.",
-      "sample": "<!-- _class: team-profile lead -->\n\n`team-profile lead`\n\n## lead gives the first person the hero cell and ranks the rest beneath.\n\n- Ada Okafor\n  - ![](ada.svg)\n  - `Executive Sponsor`\n  - Signs the scope and owns the outcome.\n- Marcus Vale\n  - ![](marcus.svg)\n  - `Program Director`\n- Priya Raman\n  - ![](priya.svg)\n  - `Head of Delivery`\n- Tomas Lindqvist\n  - ![](tomas.svg)\n  - `Solutions Architect`\n- Nia Bello\n  - ![](nia.svg)\n  - `Data Lead`\n"
+      "sample": "<!-- _class: team-profile lead -->\n\n`team-profile lead`\n\n## lead gives the first person the hero cell and ranks the rest beneath.\n\n- Ada Okafor\n  - ![](sample:portrait-ada.svg)\n  - `Executive Sponsor`\n  - Signs the scope and owns the outcome.\n- Marcus Vale\n  - ![](sample:portrait-marcus.svg)\n  - `Program Director`\n- Priya Raman\n  - ![](sample:portrait-priya.svg)\n  - `Head of Delivery`\n- Tomas Lindqvist\n  - ![](sample:portrait-tomas.svg)\n  - `Solutions Architect`\n- Nia Bello\n  - ![](sample:portrait-nia.svg)\n  - `Data Lead`\n"
     },
     "bench": {
       "label": "bench",
       "summary": "The long roster, packed to a face, a name and a role.",
-      "sample": "<!-- _class: team-profile bench -->\n\n`team-profile bench`\n\n## bench packs the long roster down to a face, a name, and a role.\n\n- Ada Okafor\n  - ![](ada.svg)\n  - `Executive Sponsor`\n- Marcus Vale\n  - ![](marcus.svg)\n  - `Program Director`\n- Hana Suzuki\n  - `Field Engineer`\n- Priya Raman\n  - ![](priya.svg)\n  - `Head of Delivery`\n- Tomas Lindqvist\n  - ![](tomas.svg)\n  - `Solutions Architect`\n- Owen Adeyemi\n  - `Revenue Ops`\n- Nia Bello\n  - ![](nia.svg)\n  - `Data Lead`\n- Jonah Reyes\n  - ![](jonah.svg)\n  - `Customer Success`\n- Clara Nunes\n  - `Quality Lead`\n- Sofia Marchetti\n  - ![](sofia.svg)\n  - `Security Lead`\n- Kenji Sato\n  - ![](kenji.svg)\n  - `Support Manager`\n- Idris Khan\n  - `Release Manager`\n"
+      "sample": "<!-- _class: team-profile bench -->\n\n`team-profile bench`\n\n## bench packs the long roster down to a face, a name, and a role.\n\n- Ada Okafor\n  - ![](sample:portrait-ada.svg)\n  - `Executive Sponsor`\n- Marcus Vale\n  - ![](sample:portrait-marcus.svg)\n  - `Program Director`\n- Hana Suzuki\n  - `Field Engineer`\n- Priya Raman\n  - ![](sample:portrait-priya.svg)\n  - `Head of Delivery`\n- Tomas Lindqvist\n  - ![](sample:portrait-tomas.svg)\n  - `Solutions Architect`\n- Owen Adeyemi\n  - `Revenue Ops`\n- Nia Bello\n  - ![](sample:portrait-nia.svg)\n  - `Data Lead`\n- Jonah Reyes\n  - ![](sample:portrait-jonah.svg)\n  - `Customer Success`\n- Clara Nunes\n  - `Quality Lead`\n- Sofia Marchetti\n  - ![](sample:portrait-sofia.svg)\n  - `Security Lead`\n- Kenji Sato\n  - ![](sample:portrait-kenji.svg)\n  - `Support Manager`\n- Idris Khan\n  - `Release Manager`\n"
     },
     "sides": {
       "label": "sides",
@@ -183,7 +183,7 @@
     "bio": {
       "label": "bio",
       "summary": "One person per row, with room for a real sentence.",
-      "sample": "<!-- _class: team-profile bio -->\n\n`team-profile bio`\n\n## bio turns the grid on its side and gives the note a line of its own.\n\n- Ada Okafor\n  - ![](ada.svg)\n  - `Executive Sponsor`\n  - Fifteen years running operations across forty sites.\n- Marcus Vale\n  - ![](marcus.svg)\n  - `Program Director`\n  - Landed this migration twice under a regulator.\n- Priya Raman\n  - ![](priya.svg)\n  - `Head of Delivery`\n  - Owns the pods and the board date.\n- Tomas Lindqvist\n  - ![](tomas.svg)\n  - `Solutions Architect`\n  - Wrote the spec the plan hangs from.\n"
+      "sample": "<!-- _class: team-profile bio -->\n\n`team-profile bio`\n\n## bio turns the grid on its side and gives the note a line of its own.\n\n- Ada Okafor\n  - ![](sample:portrait-ada.svg)\n  - `Executive Sponsor`\n  - Fifteen years running operations across forty sites.\n- Marcus Vale\n  - ![](sample:portrait-marcus.svg)\n  - `Program Director`\n  - Landed this migration twice under a regulator.\n- Priya Raman\n  - ![](sample:portrait-priya.svg)\n  - `Head of Delivery`\n  - Owns the pods and the board date.\n- Tomas Lindqvist\n  - ![](sample:portrait-tomas.svg)\n  - `Solutions Architect`\n  - Wrote the spec the plan hangs from.\n"
     }
   },
   "pane": {

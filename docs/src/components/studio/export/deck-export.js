@@ -437,7 +437,10 @@ async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, 
 		const win = frame.contentWindow;
 		const doc = frame.contentDocument;
 		if (!doc) throw new Error('Could not prepare the export render.');
-		CAPTURE_WEB_ORIGINS.set(doc, webOrigins || []);
+		// The site's own origin is not a web image: it serves the `sample:` art, and the frame
+		// already loads it (buildSrcdoc). The artifact carries PIXELS, never the URL, so nothing
+		// in the exported file can call back to the site (remote-ref.js withOwnOrigin).
+		CAPTURE_WEB_ORIGINS.set(doc, remoteRef.withOwnOrigin(webOrigins || []));
 		if (win?.__latticeFit) win.__latticeFit();
 		// Let fonts, layout, and any async diagrams (Mermaid) settle before capture.
 		try { if (doc.fonts?.ready) await withTimeout(doc.fonts.ready, 8000); } catch (_e) {}

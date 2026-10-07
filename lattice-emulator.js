@@ -2071,7 +2071,10 @@ function engineSlides(deckSource = rawMd) {
   // the output directory (the path-bug fix —
   // engineering/decisions/2026-06-17-image-rearchitecture.md).
   const deckBaseUrl = pathToFileURL(path.dirname(path.resolve(mdFile)) + path.sep).href;
-  const deckMd = bgImage.liftBgImages(deckSource, deckBaseUrl);
+  // `sample:<name>` images resolve into the package's one sample-art folder, wherever the
+  // deck sits (lib/core/bg-image.js resolveAssetUrl; lib/samples/README.md).
+  const samplesUrl = pathToFileURL(path.join(PKG_ROOT, 'lib', 'samples') + path.sep).href;
+  const deckMd = bgImage.liftBgImages(deckSource, deckBaseUrl, samplesUrl);
   // CODE PACKAGES run INSIDE the engine render, in the registry's code-packages slot
   // (lib/transformers/code-packages.js): a first render captures the slides they claim, the
   // sandbox runs them, a second render puts their sanitized output in (lib/packages/code-door.js).
@@ -2079,7 +2082,7 @@ function engineSlides(deckSource = rawMd) {
   let rendered;
   if (DECK_CODE_PACKAGES.length) {
     const { renderWithCodePackages } = require('./lib/packages/code-door.js');
-    const r = renderWithCodePackages((hook) => engine.render(deckMd, paletteName, { codePackages: hook }), {
+    const r = renderWithCodePackages((hook) => engine.render(deckMd, paletteName, { codePackages: hook, samplesUrl }), {
       packages: DECK_CODE_PACKAGES,
       executablePath: CHROME_EXEC,
       warn: (l) => console.error(l),
@@ -2091,7 +2094,7 @@ function engineSlides(deckSource = rawMd) {
     }
     rendered = r.rendered;
   } else {
-    rendered = engine.render(deckMd, paletteName);
+    rendered = engine.render(deckMd, paletteName, { samplesUrl });
   }
   // logo-wall marks ride as CSS `mask` in the preview; for the PDF we swap each
   // mask span for the mark's real `<svg>` vector (CSS mask isn't reliable in

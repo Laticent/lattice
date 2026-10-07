@@ -29,7 +29,7 @@ Six front-matter directives — one required, five optional:
 ---
 marp: true
 theme: indaco
-logo: ./acme-logo.svg            # required — path to the image, relative to the deck
+logo: sample:logo-acme-mark.svg            # required — path to the image, relative to the deck
 logo-style: auto | brand         # optional, default `auto`
 logo-on: all | title             # optional, default `all`
 logo-x: 50                       # optional — 0–100, the mark's CENTER as a % of the slide
@@ -179,5 +179,5 @@ examples — title slide, layered backgrounds, mark composition, brand
 vs. auto styles. Dark sibling at
 [logo.gallery.dark.pdf](./logo.gallery.dark.pdf).
 
-The sample asset `acme-logo.svg` in this folder is what the demo
+The sample asset `sample:logo-acme-mark.svg` in this folder is what the demo
 deck points at; substitute your own SVG / PNG for production decks.

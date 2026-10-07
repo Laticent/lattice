@@ -131,7 +131,7 @@ One sentence of context.
 
 <!-- _class: image -->
 
-![bg](../../test/integration/baseline-decks/assets/sample-photo-wide.jpg)
+![bg](sample:photo-wide.jpg)
 
 ---
 

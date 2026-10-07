@@ -35,27 +35,27 @@ A roster of six with a line each is a different picture from a roster of eightee
 ## Six people own this program, and you can reach every one.
 
 - Ada Okafor
-  - ![](../lib/components/inventory/team-profile/ada.svg)
+  - ![](sample:portrait-ada.svg)
   - `Executive Sponsor`
   - Clears blockers above the program.
 - Marcus Vale
-  - ![](../lib/components/inventory/team-profile/marcus.svg)
+  - ![](sample:portrait-marcus.svg)
   - `Program Director`
   - Runs the weekly cadence.
 - Priya Raman
-  - ![](../lib/components/inventory/team-profile/priya.svg)
+  - ![](sample:portrait-priya.svg)
   - `Head of Delivery`
   - Staffs the pods, holds the dates.
 - Tomas Lindqvist
-  - ![](../lib/components/inventory/team-profile/tomas.svg)
+  - ![](sample:portrait-tomas.svg)
   - `Solutions Architect`
   - Reviews every schema change.
 - Nia Bello
-  - ![](../lib/components/inventory/team-profile/nia.svg)
+  - ![](sample:portrait-nia.svg)
   - `Data Lead`
   - Owns the migration cutover.
 - Jonah Reyes
-  - ![](../lib/components/inventory/team-profile/jonah.svg)
+  - ![](sample:portrait-jonah.svg)
   - `Customer Success`
   - Your standing contact between reviews.
 
@@ -68,20 +68,20 @@ A roster of six with a line each is a different picture from a roster of eightee
 ## One name is accountable; four carry the work.
 
 - Ada Okafor
-  - ![](../lib/components/inventory/team-profile/ada.svg)
+  - ![](sample:portrait-ada.svg)
   - `Executive Sponsor`
   - Signs the scope and owns the outcome.
 - Marcus Vale
-  - ![](../lib/components/inventory/team-profile/marcus.svg)
+  - ![](sample:portrait-marcus.svg)
   - `Program Director`
 - Priya Raman
-  - ![](../lib/components/inventory/team-profile/priya.svg)
+  - ![](sample:portrait-priya.svg)
   - `Head of Delivery`
 - Tomas Lindqvist
-  - ![](../lib/components/inventory/team-profile/tomas.svg)
+  - ![](sample:portrait-tomas.svg)
   - `Solutions Architect`
 - Nia Bello
-  - ![](../lib/components/inventory/team-profile/nia.svg)
+  - ![](sample:portrait-nia.svg)
   - `Data Lead`
 
 ---
@@ -93,19 +93,19 @@ A roster of six with a line each is a different picture from a roster of eightee
 ## Four people, and the reason each one is in the room.
 
 - Ada Okafor
-  - ![](../lib/components/inventory/team-profile/ada.svg)
+  - ![](sample:portrait-ada.svg)
   - `Executive Sponsor`
   - Fifteen years running operations across forty sites.
 - Marcus Vale
-  - ![](../lib/components/inventory/team-profile/marcus.svg)
+  - ![](sample:portrait-marcus.svg)
   - `Program Director`
   - Landed this migration twice under a regulator.
 - Priya Raman
-  - ![](../lib/components/inventory/team-profile/priya.svg)
+  - ![](sample:portrait-priya.svg)
   - `Head of Delivery`
   - Owns the pods and the board date.
 - Tomas Lindqvist
-  - ![](../lib/components/inventory/team-profile/tomas.svg)
+  - ![](sample:portrait-tomas.svg)
   - `Solutions Architect`
   - Wrote the spec the plan hangs from.
 
@@ -118,23 +118,23 @@ A roster of six with a line each is a different picture from a roster of eightee
 ## A sixth name does not fall off the bottom of the slide.
 
 - Ada Okafor
-  - ![](../lib/components/inventory/team-profile/ada.svg)
+  - ![](sample:portrait-ada.svg)
   - `Executive Sponsor`
   - Signs the scope and owns the outcome.
 - Marcus Vale
-  - ![](../lib/components/inventory/team-profile/marcus.svg)
+  - ![](sample:portrait-marcus.svg)
   - `Program Director`
 - Priya Raman
-  - ![](../lib/components/inventory/team-profile/priya.svg)
+  - ![](sample:portrait-priya.svg)
   - `Head of Delivery`
 - Tomas Lindqvist
-  - ![](../lib/components/inventory/team-profile/tomas.svg)
+  - ![](sample:portrait-tomas.svg)
   - `Solutions Architect`
 - Nia Bello
-  - ![](../lib/components/inventory/team-profile/nia.svg)
+  - ![](sample:portrait-nia.svg)
   - `Data Lead`
 - Jonah Reyes
-  - ![](../lib/components/inventory/team-profile/jonah.svg)
+  - ![](sample:portrait-jonah.svg)
   - `Customer Success`
 
 ---
@@ -146,27 +146,27 @@ A roster of six with a line each is a different picture from a roster of eightee
 ## Add a closing line and the cards turn on their side.
 
 - Ada Okafor
-  - ![](../lib/components/inventory/team-profile/ada.svg)
+  - ![](sample:portrait-ada.svg)
   - `Executive Sponsor`
   - Clears blockers above the program.
 - Marcus Vale
-  - ![](../lib/components/inventory/team-profile/marcus.svg)
+  - ![](sample:portrait-marcus.svg)
   - `Program Director`
   - Runs the weekly cadence.
 - Priya Raman
-  - ![](../lib/components/inventory/team-profile/priya.svg)
+  - ![](sample:portrait-priya.svg)
   - `Head of Delivery`
   - Staffs the pods; holds the dates.
 - Tomas Lindqvist
-  - ![](../lib/components/inventory/team-profile/tomas.svg)
+  - ![](sample:portrait-tomas.svg)
   - `Solutions Architect`
   - Reviews every schema change.
 - Nia Bello
-  - ![](../lib/components/inventory/team-profile/nia.svg)
+  - ![](sample:portrait-nia.svg)
   - `Data Lead`
   - Owns the migration cutover.
 - Jonah Reyes
-  - ![](../lib/components/inventory/team-profile/jonah.svg)
+  - ![](sample:portrait-jonah.svg)
   - `Customer Success`
   - Your standing contact between reviews.
 
@@ -207,28 +207,28 @@ A roster of six with a line each is a different picture from a roster of eightee
 ## Twelve more people are already on this account.
 
 - Ada Okafor
-  - ![](../lib/components/inventory/team-profile/ada.svg)
+  - ![](sample:portrait-ada.svg)
   - `Executive Sponsor`
 - Marcus Vale
-  - ![](../lib/components/inventory/team-profile/marcus.svg)
+  - ![](sample:portrait-marcus.svg)
   - `Program Director`
 - Priya Raman
-  - ![](../lib/components/inventory/team-profile/priya.svg)
+  - ![](sample:portrait-priya.svg)
   - `Head of Delivery`
 - Tomas Lindqvist
-  - ![](../lib/components/inventory/team-profile/tomas.svg)
+  - ![](sample:portrait-tomas.svg)
   - `Solutions Architect`
 - Nia Bello
-  - ![](../lib/components/inventory/team-profile/nia.svg)
+  - ![](sample:portrait-nia.svg)
   - `Data Lead`
 - Jonah Reyes
-  - ![](../lib/components/inventory/team-profile/jonah.svg)
+  - ![](sample:portrait-jonah.svg)
   - `Customer Success`
 - Sofia Marchetti
-  - ![](../lib/components/inventory/team-profile/sofia.svg)
+  - ![](sample:portrait-sofia.svg)
   - `Security Lead`
 - Kenji Sato
-  - ![](../lib/components/inventory/team-profile/kenji.svg)
+  - ![](sample:portrait-kenji.svg)
   - `Support Manager`
 - Hana Suzuki
   - `Field Engineer`

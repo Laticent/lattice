@@ -16,7 +16,7 @@ Imagery — visuals that carry their own meaning.
 
 Two-thirds of trials that reach the first generated report convert to paid; the ones that stall at workspace setup almost never do. Hand the layout any photo — it resolves the composition from the asset's shape.
 
-![bg](image/sample-photo-wide.svg)
+![bg](sample:photo-wide.svg)
 
 ---
 
