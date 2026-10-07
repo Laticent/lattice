@@ -65,16 +65,24 @@ describe('marp-bundle spec', () => {
   // Asserted as SET EQUALITY over the JavaScript assets, so it catches both directions,
   // but the two directions are not the same defect. A src with no asset is the 404
   // above. An asset with no src is a dead file in every bundle — cheap, but it is also
-  // exactly what a lazily-fetched engine would look like, and we do not ship one today.
-  // The day we do, that asset earns a named exception here rather than a quiet deletion
-  // of this assertion.
+  // exactly what a lazily-fetched engine would look like. The data plugins' scripts ARE that
+  // (the runtime fetches `lattice-plugin-icons.js` from beside itself when a deck writes an
+  // icon), so they are the named exception: each one must be in the bundle, checked against
+  // the plugin registry in the next test, and they are left out of this comparison.
+  const LAZY = /^lattice-plugin-[a-z][a-z0-9-]*\.js$/;
   test('every runtime <script src> is an asset the producers actually copy', () => {
-    const shipped = STATIC_ASSETS.map((a) => a.to).filter((to) => to.endsWith('.js'));
+    const shipped = STATIC_ASSETS.map((a) => a.to).filter((to) => to.endsWith('.js') && !LAZY.test(to));
     assert.deepEqual(
       [...RUNTIME_SCRIPT_SRCS].sort(),
       [...shipped].sort(),
       'RUNTIME_SCRIPT_SRCS and the .js entries of STATIC_ASSETS must name the same files: '
       + 'a src with no asset 404s under file://, an asset with no src is dead weight');
+  });
+
+  test('every data plugin\'s script travels with the runtime that fetches it', async () => {
+    const { DATA_PLUGINS } = await import('../../../lib/plugins/data-probe.generated.mjs');
+    const lazy = STATIC_ASSETS.map((a) => a.to).filter((to) => LAZY.test(to)).sort();
+    assert.deepEqual(lazy, DATA_PLUGINS.map((p) => p.file).sort());
   });
 
   test('safeName slugs a deck title', () => {
@@ -493,11 +501,26 @@ describe('marp bundle — the overflow-marker export setting', () => {
     assert.equal((out.match(/markdownlint-disable MD033/g) || []).length, 1, 'one trailer, not two');
   });
 
-  // The strip must recognize OUR tags, not any tag: a deck may legitimately carry the
-  // author's own script, and eating it would silently delete their content.
-  test('an author\'s own script tag survives a re-export', () => {
-    const deck = '---\nmarp: true\n---\n\n# A\n\n<script src="my-own-widget.js"></script>\n';
-    assert.match(withRuntimeScripts(deck), /<script src="my-own-widget\.js"><\/script>/);
+  // The runtime-block strip must recognize OUR tags, not any tag: a deck may carry its own
+  // script-shaped DATA, and eating it would silently delete their content. (An author's
+  // EXECUTABLE script is stripped on purpose, by the live-HTML boundary — tested below.)
+  test('an author\'s own data script survives a re-export', () => {
+    const deck = '---\nmarp: true\n---\n\n# A\n\n<script type="application/json" id="my-data">{}</script>\n';
+    assert.match(withRuntimeScripts(deck), /<script type="application\/json" id="my-data">\{\}<\/script>/);
+  });
+
+  // THE EXPORT BOUNDARY for the deck's own executable HTML (theme-css-is-a-preview-sink.md § 11):
+  // `html: true` in the bundle's config passed it to the recipient's marp-cli, which ran it.
+  test('the deck\'s own script, handlers, srcdoc and javascript: URLs do not reach the bundle', () => {
+    const deck = ['---', 'marp: true', '---', '', '# A', '',
+      '<script src="my-own-widget.js"></script>', '',
+      '<img src="x.png" onerror="beacon()" alt="kept">', '',
+      '<a href="javascript:go()">a</a> <iframe srcdoc="<b>x</b>"></iframe>', ''].join('\n');
+    const out = withRuntimeScripts(deck);
+    assert.doesNotMatch(out, /my-own-widget|onerror|javascript:|srcdoc/);
+    assert.match(out, /<img src="x\.png"\s+alt="kept">/, 'the element stays; only what runs goes');
+    assert.equal((out.match(/<script src="[^"]+-min\.js"><\/script>/g) || []).length, 3, 'Lattice\'s runtime tags stay');
+    assert.equal(withRuntimeScripts(out), out, 'and re-exporting is still idempotent');
   });
 
   // A DECK MAY QUOTE OUR OWN TAG BLOCK, and the kit's "how to wire the runtime"

@@ -46,6 +46,12 @@ const NAME = /^[a-z0-9][a-z0-9-]*$/;
 const CATEGORIES = Object.freeze(['compute', 'storage', 'data', 'network', 'security', 'integration',
   'observability', 'delivery', 'clients', 'people', 'business']);
 
+// The MIT permission notice, verbatim, carried INSIDE the drawings (a `/*! … */` comment esbuild keeps,
+// tools/build-plugin-data-bundles.js), because the data script travels alone: the docs site, the
+// Export-to-Marp bundle and the Marp kit each ship it beside the runtime, and MIT asks the notice to go
+// with every copy. The same text the kit's THIRD-PARTY-LICENSES.txt reads.
+const MIT_NOTICE = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'assets', 'licenses', 'MIT-tabler-icons.txt'), 'utf8').trimEnd();
+
 function fail(msg) {
   process.stderr.write(`build-icons-data: ${msg}\n`);
   process.exit(1);
@@ -137,8 +143,9 @@ module.exports = Object.freeze({
 `;
   const lines = names.map((n) => `  ${JSON.stringify(n)}: ${JSON.stringify(icons[n])},`);
   const data = `${header('The icon DRAWINGS: name → [[tag, geometry], …] on a 24-unit grid. Never required by a kernel; read through lib/plugins/plugin-data.js.')}
-/*! Tabler Icons — https://tabler.io/icons — MIT License, Copyright (c) 2020-2026 Paweł Kuna.
- * Full notice: lib/plugins/_icons-source/LICENSE-tabler.md. stream and gateway are Lattice's own. */
+/*! Tabler Icons — https://tabler.io/icons — stream and gateway are Lattice's own.
+${MIT_NOTICE.split('\n').map((l) => ` *${l ? ` ${l}` : ''}`).join('\n')}
+ */
 module.exports = Object.freeze({
   category: Object.freeze(${JSON.stringify(category)}),
   icons: Object.freeze({

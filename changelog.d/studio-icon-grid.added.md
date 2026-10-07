@@ -1,0 +1,1 @@
+- **Browse every icon in the Studio.** The command palette (⌘K) has **Insert an icon…**, a grid of all 265 icons, drawn and grouped by category. Search by name, alias or category (`db`, `serverless`, `storage`). A pick inserts `` `^{name}` `` at the cursor, or `icon=name` when the cursor is inside a pill or a chart record. The drawings load the first time the grid opens.

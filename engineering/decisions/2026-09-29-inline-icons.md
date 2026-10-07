@@ -437,8 +437,8 @@ parameter on the core pill slot; an icon-only pill names itself (`role="img"`).
 - `lint:deck` warns per kind (`icon-literal`, from the table, so a later plugin kind is linted
   with no lint-core edit) and on a bad `icon:` word (`unknown-icon`, the generalized
   `unknown-spark`). A pill's unknown `icon=` is `pill-literal`, with the same coaching.
-- On a raw Marp preview (no Lattice engine), an icon stays code unless the page has loaded
-  `lattice-plugin-icons.js`; the runtime host does not fetch it yet. Recorded in `followups.d/`.
+- On a raw Marp preview (no Lattice engine), an icon stayed code unless the page had loaded
+  `lattice-plugin-icons.js`. The runtime fetches it now (§ 16).
 - Decision 7 is settled: the owner looked at the demo deck (`examples/inline-icons.md`, framed and bare
   side by side in prose and pills, light and dark), signed off the export, and picked `framed`
   (2026-10-06). It was already the base rule and the `icon:` register's first `frame` word, so no
@@ -499,9 +499,10 @@ both transforms, icon-only nodes included.
 
 **Two paths that take no `off`.** The runtime's DOM build (`applyToDom`, for a page the engine did
 not render) has no plugin-off set, as the pill's runtime path has none (§ 12). It cannot draw an
-icon the deck switched off, because no such page carries the drawings: neither a raw Marp page nor
-an Export-to-Marp bundle loads `lattice-plugin-icons.js`, so `drawHtml` returns null and the node
-shows its name. `lint:deck` also parses without the deck's off set, so a deck with icons off still
+icon the deck switched off, because such a page never gets the drawings: a raw Marp page has no
+off set at all, and the runtime does not fetch `lattice-plugin-icons.js` for a plugin an
+Export-to-Marp bundle's `pluginsOff` names (§ 16), so `drawHtml` returns null and the node shows
+its name. `lint:deck` also parses without the deck's off set, so a deck with icons off still
 gets icon-name coaching. That matches the pill's `icon=` lint, and a coached name is harmless.
 
 **What did not change.** With no icon written, both galleries and the baseline gallery render
@@ -619,5 +620,70 @@ in dark: no request for `lattice-plugin-icons.js` before the menu opened, one af
 drawn. At 1.25em the drawings measured about 10px and read as blots, so they draw at 1.6em.
 
 **Not done.** A browsable grid of all 265 icons, for an author who does not know a name to start
-from. Typing `` `^{ `` alone lists all of them, with drawings, which covers it for now.
+from. Typing `` `^{ `` alone lists all of them, with drawings, which covers it for now. (Done in
+§ 17.)
 
+## 16. Icons on a raw Marp render (2026-10-07)
+
+**The runtime fetches the drawings.** `lib/runtime/index.js` `ensurePluginData` runs right after
+the inline pass. For each data plugin in the registry (`lib/plugins/data-probe.generated.mjs`),
+when an inline `<code>` on the page matches the plugin's `detect` and the data is not loaded, it
+loads the plugin's script from beside the runtime's own `<script src>` (`lattice-plugin-icons.js`)
+and runs the whole pass again on arrival. This is `ensureDagre`'s shape: one fetch per page, no
+retry, nothing for a runtime with no `src` (an inlined one). It skips a plugin that an
+Export-to-Marp bundle's `pluginsOff` names, so a deck with icons off keeps its spans as code.
+
+**The bundle carries the file.** `STATIC_ASSETS` in `lib/core/marp-bundle.js` lists it, so both
+producers copy it beside the runtime. No `<script>` tag names it, so it is the named exception in
+`test/unit/core/marp-bundle.test.js`'s tag-and-asset check, and a second test requires one entry
+per data plugin. The docs site already stages the file beside its runtime
+(`docs/scripts/sync-playground-assets.mjs`).
+
+**Off spans are marked.** `lib/plugins/mark-off.mjs` takes the registry's inline rows and marks a
+`<code>` that opens with an off plugin's sigil and a brace (`^{database}`) with
+`data-lattice-off`, the marker the engine's `offPlugin` writes. The inline pass skips it.
+
+**Measured.** `examples/inline-icons.md` through `tools/export-marp.js` and real marp-cli 4.3.1
+(`npm run pdf` and `npm run html`), dark and light: every `^{…}` and every pill `icon=` draws,
+framed and bare, at sm, md and lg, on the sketch slide too. The deck's slide 9 stays code, as it
+should: it shows the literal and unknown spans. The runtime grows 562 B gzipped (363,915 →
+364,477, `gzip -9`). The bundle grows by the drawings' 14,708 B gzipped, whether the deck writes
+an icon or not; the file is fetched only when one does.
+
+**Pinned in Chromium.** `test/integration/invariants/plugin-data-runtime-load.test.js` drives the
+built runtime from `file://`: with the file beside it the icons draw and it is requested once,
+even after more spans arrive; without it the spans stay code and the console names the file;
+with the bundle's `pluginsOff: ["icons"]` nothing is requested and the span is marked off.
+
+**The license travels with the drawings.** The checker found the Marp kit shipping Tabler's
+drawings with only a copyright line. The data script now carries Tabler's MIT notice verbatim
+(`tools/build-icons-data.js` reads `assets/licenses/MIT-tabler-icons.txt`), so every copy has it:
+the docs site, the bundle and the kit. That added 583 B gzipped to the file. The kit's
+`NOTICE.md`, `THIRD-PARTY-LICENSES.txt` and README file table name it too.
+
+## 17. The icon grid (2026-10-07)
+
+**Where.** The Studio's command palette (⌘K) has **Insert an icon…**. It opens a panel with every
+icon the deck can write, drawn, grouped by category in the curation's order. On a phone it is the
+same bottom sheet as every other Studio panel, with the search docked above the keyboard.
+
+**Search.** Each word of the query has to start a name part, an alias or the category: `db` finds
+`database`, `serverless` finds `function`, `storage` lists the storage group, `data exp` finds
+`database-export`. The aliases come from the lint core's completion words, the same list the
+editor's menu shows (`also db`), so the two pickers cannot disagree.
+
+**What a pick inserts** (`icon-grid-model.ts` `iconInsertion`, read from the caret's line): the
+whole `` `^{name}` `` span in prose; `^{name}` when the caret is already inside an inline code
+span; the rest of the name when the caret sits in a half-typed `^{da` (the typed part is replaced,
+and a `}` added unless one follows); and `icon=name` inside an open record in the caret's own code
+span, a pill's `{S3, ` or a chart node's `{…}`, with a comma when the record already holds
+something. A spark's `~{` is not a record, a `{` in prose or in an earlier span is not one either,
+and an escaped backtick opens no span (the independent checker found all three). When the editor
+is not on screen (Compose, the phone's Preview pane, the Read stop: mounted, but hidden or inert)
+nothing is written where the author cannot see it; the span goes to the clipboard and a toast says
+so.
+
+**Cost.** `IconGrid.tsx` loads through `React.lazy`, and the drawings come from the same
+`lattice-plugin-icons.js` the render uses, fetched the first time the grid opens
+(`ensurePluginData`). Each drawing is built as DOM from the data (`icon-preview.ts` `paintIcon`),
+never parsed from a string.

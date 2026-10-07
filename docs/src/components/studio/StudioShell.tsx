@@ -1,5 +1,5 @@
 import {
-	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, FileBox, FileDown, FileSliders, FileText, Focus, Gauge, History, Layers, ListChecks, Menu as MenuIcon, Monitor, MonitorPlay, Moon, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Save, Settings2, Settings as SettingsCog, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Upload, UsersRound, Volume2, Wand2, X, 
+	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, FileBox, FileDown, FileSliders, FileText, Focus, Gauge, History, Layers, ListChecks, Menu as MenuIcon, Monitor, MonitorPlay, Moon, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Save, Settings2, Settings as SettingsCog, Shapes, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Upload, UsersRound, Volume2, Wand2, X, 
 } from 'lucide-react';
 import * as React from 'react';
 import DeckPreview from '@/components/DeckPreview';
@@ -172,6 +172,8 @@ const Fabricate = React.lazy(() => {
 const PluginsSettings = React.lazy(() => import('./PluginsSettings').then((m) => ({ default: m.PluginsSettings })));
 const ClipNotice = React.lazy(() => import('./ClipNotice').then((m) => ({ default: m.ClipNotice })));
 const ReadArticle = React.lazy(() => import('./ReadArticle').then((m) => ({ default: m.ReadArticle })));
+// The icon grid (and the icons' data it fetches on open) loads only when an author opens it.
+const IconGrid = React.lazy(() => import('./IconGrid').then((m) => ({ default: m.IconGrid })));
 
 // Editor (CodeMirror) is the single largest passenger on the cold hydration path —
 // ~196KB gz that, statically imported, bundled into the client:only StudioShell island
@@ -904,9 +906,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const [cmdOpen, setCmdOpen] = React.useState(false);
 	const [moreOpen, setMoreOpen] = React.useState(false); // the compact "⋯ More" overflow menu
 	const [insertOpen, setInsertOpen] = React.useState(false);
+	const [iconsOpen, setIconsOpen] = React.useState(false);
 	// Every surface a StudioDrawer row can launch. The drawer comes back when the LAST of
 	// them closes — see `drawerPendingReturn` above for why this is a set, not a wrapper.
-	const drawerChildOpen = lensesOpen || libraryOpen || feedbackOpen || historyOpen || cmdOpen || insertOpen;
+	const drawerChildOpen = lensesOpen || libraryOpen || feedbackOpen || historyOpen || cmdOpen || insertOpen || iconsOpen;
 	React.useEffect(() => {
 		if (!drawerPendingReturn || drawerChildOpen) return;
 		setDrawerPendingReturn(false);
@@ -5902,6 +5905,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		},
 		{ id: 'reshape', group: 'actions', label: 'Reshape for a reader', icon: Sparkles, run: () => { revealCraftDock(); setLensesOpen(true); } },
 		...(insertComponents.length > 0 ? [{ id: 'insert', group: 'actions', label: 'Add a slide…', icon: Plus, keywords: ['insert', 'new slide', 'layout'], run: () => setInsertOpen(true) } satisfies StudioCommand] : []),
+		{ id: 'insert-icon', group: 'actions', label: 'Insert an icon…', icon: Shapes, keywords: ['icon', 'symbol', 'glyph', 'picture', 'browse'], run: () => setIconsOpen(true) },
 		...(posture === 'craft' ? [{ id: 'focus', group: 'actions', label: 'Focus mode — just editor & preview', icon: Focus, run: () => setQuietened(true) } satisfies StudioCommand] : []),
 		// Coach, Fix all, light/dark and slide settings each had a button and no row: a learner who
 		// searched "check", "fix", "dark" or "notes" found nothing, and their lessons had no verb to
@@ -6760,6 +6764,21 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				</React.Suspense>
 			)}
 			{cmdPalette}
+			{iconsOpen && (
+				<React.Suspense fallback={null}>
+					<IconGrid
+						open={iconsOpen}
+						onOpenChange={setIconsOpen}
+						onPick={(name, build) => {
+							setIconsOpen(false);
+							if (editorRef.current?.insertAtCaret(build)) return;
+							// No editor on screen (Compose, the phone's Preview pane, the Read stop): hand the author the span.
+							void navigator.clipboard?.writeText(`\`^{${name}}\``).catch(() => {});
+							notify(`Copied \`^{${name}}\` — paste it where the icon goes.`);
+						}}
+					/>
+				</React.Suspense>
+			)}
 			<SlidePicker open={insertOpen} onOpenChange={setInsertOpen} items={insertComponents} options={options} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} recent={recentComponents} onInsert={onInsertComponent} />
 			<SlidePicker open={!!paneReq} onOpenChange={(v) => !v && setPaneReq(null)} items={paneItems} options={options} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} onInsert={onPanePick} pane={paneReq ? { where: paneReq.where, current: paneReq.current, fit: paneReq.fit } : undefined} />
 			{/* Hidden file input for "Import deck…". The list names extensions AND types: iOS

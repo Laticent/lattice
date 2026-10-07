@@ -181,7 +181,10 @@ deck renders the same on both. Symptom row: `engineering/gotchas/marp.md`.
 
 A deck can carry raw HTML — markdown-it runs with `html: true`, so a `<div>`, an
 `<img>` or a `<script>` in your markdown reaches the page verbatim. Two things
-about that are worth knowing before you rely on it.
+about that are worth knowing before you rely on it. (One export drops it: the
+Export-to-Marp bundle removes a deck's own `<script>`, `on…` handlers and
+`javascript:` URLs, because marp-cli would run them on the recipient's machine —
+engineering/decisions/2026-08-17-theme-css-is-a-preview-sink.md § 11.)
 
 **The export captures the page at the `load` event.** Everything the browser has
 painted by then is in your PDF. Lattice adds one explicit step past that — it

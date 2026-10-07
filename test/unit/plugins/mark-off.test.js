@@ -24,6 +24,15 @@ const doc = () => new JSDOM(`<!doctype html><body>${MARP_HTML}</body>`).window.d
 const from = { drawn: RUNTIME_DRAWN, owners: TRANSFORMERS };
 
 describe('markPluginsOff', () => {
+  test('an off plugin\'s inline spans are marked: `^{…}` only, never a fence or another kind', () => {
+    const { INLINE } = require('../../../lib/plugins/inline.generated.js');
+    const d = new JSDOM('<!doctype html><body><section><p><code>^{database}</code> <code>{S3, icon=bucket}</code> '
+      + '<code>~{1,2}</code></p><pre><code>^{rocket}</code></pre></section></body>').window.document;
+    assert.equal(markPluginsOff(d, ['icons'], { inline: INLINE }), 1);
+    assert.equal(d.querySelector('p code').getAttribute('data-lattice-off'), 'icons');
+    assert.equal(markPluginsOff(d, ['mermaid'], { inline: INLINE }), 0, 'a plugin with no inline kind marks no span');
+  });
+
   test('nothing off marks nothing', () => {
     const d = doc();
     assert.equal(markPluginsOff(d, [], from), 0);

@@ -78,7 +78,7 @@ const { liftImageBgImages } = require('../lib/core/bg-image');
 const { appendAutoGlossary } = require('../lib/core/glossary-auto.mjs');
 const { isKnownOverflowMarker } = require('../lib/core/resolve-overflow-marker');
 const {
-  STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, marpConfigCjs, withRuntimeScripts, packageJson,
+  STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, marpConfigCjs, withRuntimeScriptsReport, packageJson,
   safeName, vscodeSettings, readme, agentsMd, resolveExportOverflowMarker, OVERFLOW_MARKER_LEVELS,
 } = require('../lib/core/marp-bundle');
 
@@ -378,13 +378,21 @@ function main(argv) {
   // Marp strips and `fetch` can't recover over `file://`), so diagrams,
   // structural components, and the deck's own color mode / logo / meta all render
   // client-side when the deck is opened as HTML in a browser.
-  fs.writeFileSync(
-    path.join(dest, `${file}.md`),
-    withRuntimeScripts(fm + bakedBody, {
-      overflowMarker: marker,
-      pluginsOff: admission.off,
-    }),
-  );
+  const bundled = withRuntimeScriptsReport(fm + bakedBody, {
+    overflowMarker: marker,
+    pluginsOff: admission.off,
+  });
+  fs.writeFileSync(path.join(dest, `${file}.md`), bundled.markdown);
+  // The bundle drops the deck's own executable HTML (lib/core/live-author-html.js), so say what
+  // went: an author whose widget script vanished deserves to hear why.
+  const { removed } = bundled;
+  if (removed.scripts + removed.handlers + removed.urls) {
+    console.log(`  removed the deck's own executable HTML (${removed.scripts} <script>, ${removed.handlers} on… handler, ${removed.urls} URL/frame/redirect):`
+      + ' marp-cli would run it on the recipient\'s machine. Your source .md keeps it.');
+  }
+  if (bundled.escaped) {
+    console.log('  the deck\'s HTML could not be separated from what runs, so the bundle shows ALL of it as text. Remove the raw HTML and export again.');
+  }
 
   // 3) the deck's palette (+ -dark) under themes/, MINIFIED (from dist/themes/),
   //    under the readable `<palette>.css` name marp/VS Code register by @theme.

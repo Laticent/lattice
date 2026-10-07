@@ -11,6 +11,7 @@ is not something a reviewer can check.
 | File | Covers | Source |
 |---|---|---|
 | `MIT-mermaid.txt` | `mermaid-v11-min.js` (the Mermaid plugin's copy, `lib/plugins/mermaid/vendor/mermaid.min.js`) | `node_modules/mermaid/LICENSE` |
+| `MIT-tabler-icons.txt` | `lattice-plugin-icons.js`, the icon drawings (also carried verbatim inside that file) | `lib/plugins/_icons-source/LICENSE-tabler.md` |
 | `MIT-katex.txt` | the `fonts/KaTeX_*.woff2` faces | `node_modules/katex/LICENSE` |
 | `OFL-1.1.txt` | Outfit, Playfair Display, JetBrains Mono, Caveat, Shantell Sans | SIL Open Font License 1.1, verbatim |
 | `LGPL-3.0-lamejs.txt` | `@breezystack/lamejs` (LAME mp3 encoder) — **the docs site bundle, not the marp kit** | `docs/node_modules/@breezystack/lamejs/LICENSE` |

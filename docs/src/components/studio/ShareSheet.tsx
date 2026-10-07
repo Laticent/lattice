@@ -255,7 +255,11 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 	// browser runtime inside marp-cli, which is why the choice has to travel with
 	// the artifact at all (engineering/decisions/2026-07-30-overflow-marker-register.md).
 	const exportMarpBundle = (overflowMarker: OverflowMarker) => {
-		run('marp', 'Marp bundle', () => shareMarp(options, source, name, palette, finishClass, finishExtraCss, overflowMarker, extraTheme, localComponents));
+		// Resolves to a reason when the bundle dropped the deck's own script (marp-cli would run it).
+		run('marp', 'Marp bundle', async (_onStatus, onDegraded) => {
+			const reason = await shareMarp(options, source, name, palette, finishClass, finishExtraCss, overflowMarker, extraTheme, localComponents);
+			if (reason) onDegraded(reason);
+		});
 	};
 	// The export defaults to the deck's authored `color-mode:` when it has one (so a
 	// system/inherited deck's panel reflects that), else the current preview mode.

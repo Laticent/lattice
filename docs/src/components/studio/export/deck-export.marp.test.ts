@@ -31,7 +31,7 @@ beforeEach(() => {
 			stripPaneMarkers: (s: string) => s,
 			appendAutoGlossary: (s: string) => s,
 			liftImageBgImages: (s: string) => s,
-			withRuntimeScripts: (s: string) => s,
+			withRuntimeScriptsReport: (s: string) => ({ markdown: s, removed: { scripts: 0, handlers: 0, urls: 0 } }),
 			marpScopableCss: (s: string) => s,
 			fontAssetsFor: () => [],
 			STATIC_ASSETS: [],

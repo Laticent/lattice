@@ -238,6 +238,12 @@ export type EditorHandle = {
 	/** Replace the current selection with `text` as one undoable transaction, then
 	 *  re-select the inserted run so a follow-up refine stacks on the same span. */
 	replaceSelection: (text: string) => void;
+	/** Edit at the caret what `build` returns for the caret's line (`back` characters before the caret
+	 *  deleted, any selection replaced, `text` inserted, caret after it), as one undoable change.
+	 *  False when no editor is mounted or the one mounted is hidden or inert (Compose, the phone's
+	 *  Preview pane, the Read stop, a collapsed editor), so the caller can hand the text over another
+	 *  way instead of writing where the author cannot see. */
+	insertAtCaret: (build: (lineBefore: string, lineAfter: string) => { back: number; text: string }) => boolean;
 	/** Append `text` at the document end, move the caret there, and scroll to follow —
 	 *  the self-driving demo's typing channel. A native CodeMirror insert (not a
 	 *  full-doc replace via the value prop): the caret + scroll behave like real
@@ -569,6 +575,22 @@ export const Editor = React.forwardRef<EditorHandle, {
 			// (or ⌘Z) acts on the same span the author was working.
 			v.dispatch({ changes: { from: r.from, to: r.to, insert: text }, selection: { anchor: r.from, head: r.from + text.length } });
 			v.focus();
+		},
+		insertAtCaret(build: (lineBefore: string, lineAfter: string) => { back: number; text: string }) {
+			const v = viewRef.current;
+			if (!v) return false;
+			// Mounted is not shown: the phone's Preview pane and the Read stop keep the editor in the
+			// tree, hidden and inert. An insert there lands where nobody sees it.
+			const dom = v.dom;
+			if (dom.closest('[inert]') || dom.getClientRects().length === 0 || getComputedStyle(dom).visibility === 'hidden') return false;
+			const r = v.state.selection.main;
+			const line = v.state.doc.lineAt(r.from);
+			const { back, text } = build(v.state.sliceDoc(line.from, r.from), v.state.sliceDoc(r.to, line.to));
+			if (!text) return false;
+			const from = Math.max(line.from, r.from - Math.max(0, back));
+			v.dispatch({ changes: { from, to: r.to, insert: text }, selection: { anchor: from + text.length }, scrollIntoView: true, userEvent: 'input' });
+			v.focus();
+			return true;
 		},
 		typeTail(text: string) {
 			const v = viewRef.current;
