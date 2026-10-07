@@ -16,6 +16,14 @@
       "pattern": "^[a-z][a-z0-9-]*$",
       "description": "The palette slug. MUST equal the filename stem — a deck's `theme:` resolves to `themes/<name>/<name>.css`, so this is the same identifier the engine reads. Gated (G1)."
     },
+    "type": {
+      "enum": ["theme"],
+      "description": "The package type (engineering/decisions/2026-09-23-portable-packages.md §3.2). Optional here, where the themes/ folder implies it; the package spine (lib/packages/write.js) writes it into every package it exports, so a loose zip says what it is. Every shipped theme carries it, so a shipped manifest and a Studio-exported one have the same shape. An `enum` of one rather than a `const` because test/unit/tools/manifest-schema-equivalence.test.js pins this schema to the retired walker, which checks `enum` and not `const`."
+    },
+    "format": {
+      "enum": [1],
+      "description": "The package format the spine wrote (lib/packages/kinds.js FORMAT). Optional here; lib/packages/read.js refuses a newer number on import rather than half-reading it."
+    },
     "role": {
       "enum": ["base", "variant-dark", "derived-variant"],
       "description": "What kind of theme file this is. `base` @imports 'lattice' and declares the full token contract. `variant-dark` @imports a base and declares no tokens of its own — it only pins the canvas. `derived-variant` @imports another theme and overrides a subset. This is the field the repo previously inferred three different, non-nested ways (listBasePalettes / checkCatInkDeclared / derive-cat-ink), which is why `carta` fell out of two gates entirely. Gated against the file's own imports and token count (G2)."

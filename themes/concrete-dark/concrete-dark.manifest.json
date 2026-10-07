@@ -1,6 +1,8 @@
 {
   "$schema": "../theme.schema.json",
   "name": "concrete-dark",
+  "type": "theme",
+  "format": 1,
   "role": "variant-dark",
   "extends": "concrete",
   "family": "brand",

@@ -1,6 +1,8 @@
 {
   "$schema": "../theme.schema.json",
   "name": "mustard-dark",
+  "type": "theme",
+  "format": 1,
   "role": "variant-dark",
   "extends": "mustard",
   "family": "brand",

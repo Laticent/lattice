@@ -211,6 +211,8 @@ function main() {
   fs.writeFileSync(path.join(THEMES_DIR, name, `${name}.manifest.json`), `${JSON.stringify({
     $schema: '../theme.schema.json',
     name,
+    type: 'theme',
+    format: 1,
     role: 'base',
     family: 'brand',
     tier: 'more',
@@ -222,6 +224,8 @@ function main() {
   fs.writeFileSync(path.join(THEMES_DIR, `${name}-dark`, `${name}-dark.manifest.json`), `${JSON.stringify({
     $schema: '../theme.schema.json',
     name: `${name}-dark`,
+    type: 'theme',
+    format: 1,
     role: 'variant-dark',
     extends: name,
     family: 'brand',

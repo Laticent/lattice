@@ -1,0 +1,74 @@
+{
+  "source": "built",
+  "duration": 3000,
+  "hero": 0.5,
+  "camera": {
+    "rotate": [
+      -0.5,
+      -0.6,
+      0
+    ]
+  },
+  "elements": [
+    {
+      "id": "rig",
+      "shape": "group",
+      "motion": [
+        {
+          "verb": "spin",
+          "axis": "y",
+          "period": 3000
+        }
+      ],
+      "children": [
+        {
+          "id": "ring",
+          "shape": "ellipse",
+          "color": "var(--cat-2-mark)",
+          "props": {
+            "diameter": 150,
+            "stroke": 10
+          },
+          "transform": {
+            "rotate": [
+              1.5708,
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "id": "rotor",
+          "shape": "cone",
+          "color": "var(--accent)",
+          "props": {
+            "diameter": 74,
+            "length": 96
+          }
+        },
+        {
+          "id": "bead",
+          "shape": "shape",
+          "color": "var(--cat-4-mark)",
+          "props": {
+            "stroke": 26
+          },
+          "transform": {
+            "at": [
+              75,
+              0,
+              0
+            ]
+          },
+          "motion": [
+            {
+              "verb": "orbit",
+              "axis": "y",
+              "period": 1500
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

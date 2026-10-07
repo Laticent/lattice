@@ -1,6 +1,8 @@
 {
   "$schema": "../theme.schema.json",
   "name": "a11y-protanopia",
+  "type": "theme",
+  "format": 1,
   "role": "derived-variant",
   "extends": "a11y-base",
   "family": "a11y",

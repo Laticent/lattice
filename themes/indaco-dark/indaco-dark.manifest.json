@@ -1,6 +1,8 @@
 {
   "$schema": "../theme.schema.json",
   "name": "indaco-dark",
+  "type": "theme",
+  "format": 1,
   "role": "variant-dark",
   "extends": "indaco",
   "family": "brand",

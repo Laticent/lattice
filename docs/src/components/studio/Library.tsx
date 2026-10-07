@@ -1,7 +1,7 @@
 import { Check, Download, FileBox, FileText, Package, Pencil, Plus,  Share2, Upload } from 'lucide-react';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
-import { PanelDock, PanelEmpty, PanelHeader, PanelSearch, PanelSheet } from '@/components/ui/panel';
+import { PanelDock, PanelEmpty, PanelHeader, PanelSearch, PanelSection, PanelSheet } from '@/components/ui/panel';
 import { PillTabs } from '@/components/ui/pill-tabs';
 import { Tip } from '@/components/ui/tooltip';
 import { notify } from '@/lib/notify';
@@ -18,11 +18,13 @@ import { deleteStudioFinish, listStudioFinishes, type StudioFinish } from './fin
 import type { ImportRefusal } from './import-gate';
 import { listAllAssetVersions, pruneOrphanVersions } from './library/asset-history.js';
 import { listAssets } from './library/asset-store.js';
+import { MOTION_PALETTE_STYLE } from './motion/palette-fallback';
 import { LIBRARY_FILTERS, LIBRARY_HEADER, type LibraryFilter } from './panel-shells';
 import { formatBytes, REF_DOC_ACCEPT, readReferenceDoc } from './reference-doc';
 import { deleteRefDoc, listRefDocs, type RefDocRecord, saveRefDoc } from './reference-doc-store';
 import { deleteStudioScene, listStudioScenes, type StudioScene } from './scene-library';
 import { renderThemeShowcase } from './share-export';
+import { listShippedScenes, type ShippedScene, shippedDrawing } from './shipped-scenes';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
 
 // The unified Library — one shelf for every saved theme + component + finish + the
@@ -209,10 +211,14 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	const [versionCounts, setVersionCounts] = React.useState<Record<string, number>>({});
 	const [historyFor, setHistoryFor] = React.useState<VersionedAsset | null>(null);
 	const [scenes, setScenes] = React.useState<StudioScene[]>([]);
+	const [shipped, setShipped] = React.useState<ShippedScene[]>([]);
 	const fileRef = React.useRef<HTMLInputElement>(null);
 	const docFileRef = React.useRef<HTMLInputElement>(null);
 
 	const reload = React.useCallback(() => {
+		// The shipped motion library rides beside the user's shelf, not in it: it is read-only,
+		// never selected, shared or deleted, and it does not count toward `total`.
+		listShippedScenes().then(setShipped);
 		Promise.all([listStudioThemes(), listStudioComponents(), listStudioFinishes(), listRefDocs(), listStudioScenes()]).then(([t, c, f, d, m]) => {
 			setThemes(t);
 			setComponents(c);
@@ -268,6 +274,9 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	const vFinishes = filter === 'all' || filter === 'finish' ? finishes.filter((f) => !q || f.label.toLowerCase().includes(q) || f.name.includes(q)) : [];
 	const vScenes = filter === 'all' || filter === 'motion' ? scenes.filter((m) => !q || m.label.toLowerCase().includes(q) || m.name.includes(q)) : [];
 	const vDocs = filter === 'all' || filter === 'refdoc' ? docs.filter((d) => !q || d.name.toLowerCase().includes(q)) : [];
+	// The shipped scenes show on the Motion tab only. "All" is the user's own shelf, and four
+	// read-only cards there would bury what they saved under what they did not.
+	const vShipped = filter === 'motion' ? shipped.filter((m) => !q || m.label.toLowerCase().includes(q) || m.name.includes(q)) : [];
 	// `scenes` belongs in this sum. Without it a Library holding ONLY motion assets rendered its
 	// empty state, which gates the whole card grid — so the shelf the Motion faculty saves to was
 	// invisible, and Insert/Edit/Delete with it. That is the exact defect the card was added to close.
@@ -623,6 +632,16 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 		onOpenChange(false);
 		notify(`Inserted “${m.label}”.`);
 	}
+	// A shipped scene inserts through the same writer. A `built` scene has no line-art, so its
+	// still is the drawing: `reinstance` leaves unstamped markup alone and `labelArt` names it.
+	async function insertShipped(m: ShippedScene) {
+		const art = shippedDrawing(m);
+		if (!art) return;
+		const { slideSkeleton } = await import('./motion/skeleton');
+		onInsert(slideSkeleton({ label: m.label, description: m.description, art, spec: m.spec }), m.name);
+		onOpenChange(false);
+		notify(`Inserted “${m.label}”.`);
+	}
 
 	const selCount = sel.size;
 
@@ -704,7 +723,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 				</div>
 
 				<div className="min-h-0 flex-1 overflow-y-auto p-4 overscroll-contain [touch-action:pan-y] min-w-0">
-					{total === 0 ? (
+					{total === 0 && vShipped.length === 0 ? (
 						/* `PanelEmpty`, not a hand-rolled centered block — one zero-state grammar
 						   across every drawer, the same way there is one header. */
 						<div className="grid h-full place-items-center">
@@ -713,6 +732,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 							</PanelEmpty>
 						</div>
 					) : (
+						<>
 						<div className={cardGrid}>
 							{vThemes.map((t) => {
 								const k = tKey(t);
@@ -794,7 +814,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 										    `sanitizeSlideHtml` before it was ever stored, and `saveStudioScene` re-runs it at the
 										    store boundary on EVERY write (HARD RULE #22), so no path can put raw markup here. */}
 										{/* biome-ignore lint/security/noDangerouslySetInnerHtml: sanitized TWICE before it can reach here — svg-intake runs sanitizeSlideHtml before the art is ever held, and saveStudioScene re-runs it at the store boundary on every write (HARD RULE #22), so no path can put raw markup on this shelf. */}
-										<div className="grid h-[88px] w-full place-items-center overflow-hidden bg-[var(--bg)] p-2 [&>svg]:max-h-full [&>svg]:max-w-full" aria-hidden dangerouslySetInnerHTML={{ __html: m.art ?? '' }} />
+										<div className="grid h-[88px] w-full place-items-center overflow-hidden bg-[var(--bg)] p-2 [&>svg]:max-h-full [&>svg]:max-w-full" aria-hidden style={MOTION_PALETTE_STYLE} dangerouslySetInnerHTML={{ __html: m.art ?? '' }} />
 										<div className="p-2.5">
 											<div className="flex items-center gap-1.5 text-[12.5px] font-bold text-[var(--text-heading)]"><span className="truncate">{m.label}</span><span className="rounded-full border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-[var(--accent-soft)] px-1.5 py-0.5 font-mono text-[8.5px] uppercase tracking-wide text-[var(--accent)]">Motion</span></div>
 											{metaLine(m.art ? <>{m.name} · {partCount} part{partCount === 1 ? '' : 's'} · {beats} beat{beats === 1 ? '' : 's'}</> : <>{m.name} · no drawing — saved by the old Motion tab</>, { id: m.id, label: m.label })}
@@ -822,6 +842,40 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 								</div>
 							))}
 						</div>
+						{vShipped.length > 0 && (
+							// SHIPPED WITH LATTICE — the motion packages in lib/motion/ (portable-packages §5).
+							// Insert-only: a shipped package is read-only, so it has no select box, no Share
+							// (`lattice packages export` is its exporter) and no Delete.
+							<PanelSection label="Shipped with Lattice" className={cn(vScenes.length > 0 && 'pt-5')}>
+								<div className={cardGrid}>
+									{vShipped.map((m) => {
+										const drawing = shippedDrawing(m);
+										const facts = m.spec.source === 'svg'
+											? (() => {
+												const beats = new Set(m.spec.elements.flatMap((el) => (el.motion ?? []).map((mo) => (mo as { at?: number }).at ?? 0))).size;
+												const parts = m.spec.elements.length;
+												return `${m.name} · ${parts} part${parts === 1 ? '' : 's'} · ${beats} beat${beats === 1 ? '' : 's'}`;
+											})()
+											: `${m.name} · 3D · loops`;
+										return (
+											<div key={`shipped-motion:${m.name}`} className="relative overflow-hidden rounded-xl border border-border bg-card">
+												{/* MOTION_PALETTE_STYLE: the Studio document has no `--cat-N-mark` ramp, so without it every stroke painted from the ramp drops out of the thumbnail (motion/palette-fallback.ts). */}
+												{/* biome-ignore lint/security/noDangerouslySetInnerHtml: listShippedScenes runs every drawing through sanitizeSceneAssets (sanitizeSlideHtml + the remote-reference strip) before it reaches state, the same guard a saved scene passes (HARD RULE #22). */}
+												<div className="grid h-[88px] w-full place-items-center overflow-hidden bg-[var(--bg)] p-2 [&>svg]:max-h-full [&>svg]:max-w-full" aria-hidden style={MOTION_PALETTE_STYLE} dangerouslySetInnerHTML={{ __html: drawing ?? '' }} />
+												<div className="p-2.5">
+													<div className="flex items-center gap-1.5 text-[12.5px] font-bold text-[var(--text-heading)]"><span className="truncate">{m.label}</span><span className="rounded-full border border-border bg-[var(--bg-alt)] px-1.5 py-0.5 font-mono text-[8.5px] uppercase tracking-wide text-muted-foreground">Shipped</span></div>
+													<div className="mt-1 truncate font-mono text-[10.5px] text-muted-foreground">{facts}</div>
+													<div className="mt-2.5 flex items-center gap-1.5">
+														<button type="button" disabled={!drawing} onClick={() => insertShipped(m)} aria-label={`Insert ${m.label}`} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-[color-mix(in_srgb,var(--accent)_25%,transparent)] bg-[var(--accent-soft)] py-1.5 text-[11.5px] font-semibold text-[var(--accent)] disabled:opacity-50"><Plus className="size-3.5" />Insert</button>
+													</div>
+												</div>
+											</div>
+										);
+									})}
+								</div>
+							</PanelSection>
+						)}
+						</>
 					)}
 				</div>
 

@@ -116,15 +116,16 @@ The package also exposes these named entry points:
 
 | Subpath | Resolves to | For |
 |---|---|---|
-| `@laticent/lattice/default` | `dist/lattice-default.css` | **zero-config default** — engine + the cuoio palette, flattened into one drop-in stylesheet |
-| `@laticent/lattice/default/min` | `dist/lattice-default-min.css` | minified zero-config default — the leanest single-file `<link>` for browser use |
+| `@laticent/lattice/default` | `dist/lattice-default.css` | **zero-config default** — engine + the cuoio palette, flattened into one stylesheet that loads without a theme set. Not a slide renderer on its own (see the note below) |
+| `@laticent/lattice/default/min` | `dist/lattice-default-min.css` | minified zero-config default, for production or a CDN |
 | `@laticent/lattice/engine` | `lib/engine/index.js` | the **canonical render kernel** (`render()` + the transform pipeline) — for embedding the engine directly (HARD RULE #1: this is the source of truth all render paths share) |
 | `@laticent/lattice/runtime` | `dist/lattice-runtime.js` | the preview / web-export runtime transforms |
 | `@laticent/lattice/runtime/min` | `dist/lattice-runtime-min.js` | minified runtime — production / CDN drop-in (no inline source map). **Not self-sufficient:** ship `dist/lattice-dagre-min.js` beside it (see [Embed in a browser](#embed-in-a-browser)) |
 | — | `dist/lattice-dagre-min.js` | the graph-layout engine for a state chart that BRANCHES. Load it *before* the runtime. Its absence is silent on the slide — the chart draws its branches as skips on the reading-order grid a chain uses |
 | `@laticent/lattice/css` | `dist/lattice.css` | the engine bundle — **palette-blind** (components only, no color tokens) |
 | `@laticent/lattice/css/min` | `dist/lattice-min.css` | minified engine bundle (Marp `@theme`/`@size` directives preserved) |
-| `@laticent/lattice/themes/<name>.css` | `themes/<name>/<name>.css` | one palette — a **Marp theme file**, not a standalone stylesheet |
+| `@laticent/lattice/palette/<name>.css` | `dist/palettes/<name>.css` | one palette's **tokens**, imports resolved, for a bundler (Vite, webpack) or your own UI. Not a slide renderer: to show slides, use `render()` from `@laticent/lattice/engine` (see the themes guide) |
+| `@laticent/lattice/themes/<name>.css` | `themes/<name>/<name>.css` | one palette — a **Marp theme file**, not a standalone stylesheet; a bundler stops on its `@import 'lattice'` |
 | `lattice` bin · `@laticent/lattice` (`main`/`.`) | `dist/lattice-emulator.js` | the bundled CLI renderer / PDF exporter (`npx lattice deck.md out.pdf`) |
 | `@laticent/lattice/min` | `dist/lattice-emulator-min.js` | minified CLI bundle (shebang + executable bit preserved); the bin/main stays the unminified file |
 
@@ -136,21 +137,31 @@ the `-min` files for production / CDN delivery.
 
 **The default theme is cuoio** (warm leather/cream). In a Marp deck,
 `theme: cuoio` selects it; with no theme chosen, decks render against the
-engine's neutral built-in tokens. For a non-Marp / browser context, drop
-in the flattened default — a single self-contained stylesheet:
+engine's neutral built-in tokens. Outside Marp, the flattened default
+loads as one stylesheet with no theme set, for your own UI or a page you
+style yourself:
 
 ```html
 <link rel="stylesheet" href="…/@laticent/lattice/default">  <!-- engine + cuoio -->
 ```
 
+To show slides, render them with `render()` from `@laticent/lattice/engine`
+instead; the note below says why.
+
 > **Per-theme files are Marp theme files, not drop-in CSS.** Each declares
 > `@theme <name>` and pulls the engine in by name (`@import 'lattice'`),
 > which only Marp's theme set resolves — a browser `<link>` to a *theme
 > file* can't resolve it, and `dist/lattice.css` alone is palette-blind.
-> The flattened `dist/lattice-default.css` is the exception: its
-> `@import` is resolved at build time, so it is genuinely browser-droppable.
-> Only cuoio is flattened today; other palettes would each be a new
-> flatten target.
+> The flattened `dist/lattice-default.css` and the per-palette
+> `@laticent/lattice/palette/<name>.css` resolve that import at build time,
+> so they load in a browser or a bundler without error. **They are not slide
+> renderers.** Neither sizes the slide, and their tokens resolve once on the
+> page root, so a `dark` slide keeps the light canvas: measured against the
+> CLI's render, the engine-plus-palette stylesheet matched none of 51 slides.
+> To show slides in a web page, render them with `render()` from
+> `@laticent/lattice/engine`, which composes the stylesheet each slide needs
+> and matched the CLI on all 51. The recipe is in the themes guide
+> (`docs/src/content/docs/guides/themes.md`, "Using a palette in a web app").
 
 The published tarball ships only what these entry points need — engine
 source, `dist/`, `themes/`, and the authoring docs. Regression-baseline
@@ -299,12 +310,18 @@ For web-export contexts, include `dist/lattice-runtime.js` and the two engines i
 expects to find beside it:
 
 ```html
-<link rel="stylesheet" href="themes/indaco/indaco.css">
 <link rel="stylesheet" href="dist/lattice.css">
+<link rel="stylesheet" href="dist/palettes/indaco.css">
 <script src="mermaid-v11-min.js"></script>
 <script src="dist/lattice-dagre-min.js"></script>
 <script src="dist/lattice-runtime.js"></script>
 ```
+
+The two stylesheets load the engine and a palette's tokens, but they do not
+compose a slide the way the renderer does: nothing sizes the slide, and a
+`dark` slide keeps the light canvas. For slide markup you render yourself, take
+the stylesheet from `render()` in `@laticent/lattice/engine` instead (the themes
+guide, "Using a palette in a web app", has the recipe and the measurement).
 
 **Order matters, and so does the third tag.** Mermaid and dagre install globals the
 runtime reads on its first pass, and classic scripts run in document order — a tag
@@ -324,9 +341,10 @@ Keep `dist/fonts/` beside `dist/lattice.css` — the `@font-face` srcs are
 stylesheet-relative, so moving the CSS without the directory drops the deck to
 system serif/sans on every slide.
 
-The runtime reads CSS custom properties from the loaded palette, derives
-the Mermaid `themeVariables` object, and fetches the Mermaid CSS section
-from the palette file. Same theme as the build path; one file to edit.
+The runtime reads the palette's CSS custom properties from the rendered
+slide and derives Mermaid's `themeVariables` from them
+(`lib/plugins/mermaid/mermaid.hydrate.js`); it fetches no theme file. Same
+theme as the build path; one file to edit.
 
 It also composes every slide as **Form** — the masthead band, bay, progress rail,
 and section watermarks — matching the engine, so a deck dropped into a Marp tool

@@ -1,6 +1,8 @@
 {
   "$schema": "../theme.schema.json",
   "name": "atelier-dark",
+  "type": "theme",
+  "format": 1,
   "role": "variant-dark",
   "extends": "atelier",
   "family": "brand",

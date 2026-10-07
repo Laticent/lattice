@@ -1,0 +1,10 @@
+{
+  "$schema": "../motion.schema.json",
+  "name": "rotor",
+  "type": "motion",
+  "format": 1,
+  "label": "Rotor",
+  "description": "A rotor spins inside its fixed housing while a bead orbits the ring.",
+  "engine": "zdog",
+  "order": 1
+}

@@ -1,6 +1,8 @@
 {
   "$schema": "../theme.schema.json",
   "name": "concrete",
+  "type": "theme",
+  "format": 1,
   "role": "base",
   "family": "brand",
   "tier": "more",

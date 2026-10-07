@@ -83,8 +83,8 @@ const schema = JSON.parse(fs.readFileSync(path.join(ROOT, SCHEMA_PATH), 'utf8'))
  * loss of coverage that a bare count cannot see. Both numbers are quoted in
  * engineering/decisions/2026-09-01-manifest-schema-gate.md and must move together.
  */
-const CORPUS_SIZE = 55;
-const CORPUS_FINGERPRINT = '3b49f539bb83c72a';
+const CORPUS_SIZE = 59;
+const CORPUS_FINGERPRINT = '02cb16d9f99f1a4b';
 
 /** Every real theme manifest, as [name, manifest] — the population both claims are about. */
 function realManifests() {
