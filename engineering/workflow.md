@@ -1219,6 +1219,12 @@ it passes, that exact tree becomes `main`.
 - **Another PR merging does not turn yours red.** Your PR's own `ci` result stays
   what it was. If the PR page shows red after a merge, it is either a real conflict
   (`mergeable_state: dirty` — rebase) or a check that is not `ci`.
+- **A Claude Code hook warns before a needless catch-up.**
+  `.claude/hooks/warn-needless-catchup.sh` fires before an agent's
+  `git rebase|merge|pull … main` when the branch merges cleanly with `main`. It only
+  warns. A rebase is still right on a real conflict, when you need a specific commit
+  from `main` (name it in the commit message), or after a queue ejection. GitHub's
+  "Update branch" costs the same CI run.
 - **The queue cannot fix a real conflict.** A textual conflict, most often a
   committed generated file (a gallery PDF, a showcase WebP, a bundle, a golden),
   keeps the PR out of the queue or ejects it. That is the one case that needs a

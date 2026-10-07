@@ -564,6 +564,22 @@ runs must therefore be started with `9>&-` to close the lock fd, or it keeps the
 lock held after the waiter itself is killed — reintroducing precisely the stale
 lock flock was adopted to delete.
 
+**A second PreToolUse hook warns before a needless catch-up.**
+`.claude/hooks/warn-needless-catchup.sh` fires when a Bash command is about to
+rebase onto, merge, or pull `main`, or run a bare `git pull` on a branch that tracks
+`origin/main`. It runs `tools/queue-precheck.sh --no-fetch` in the shell's starting
+directory (the payload's `cwd`; a `cd` inside the command is not followed). If the branch merges cleanly with `main` on GitHub's terms, it says the
+catch-up is not needed (HARD RULE #16).
+
+- **It never blocks.**
+- **It stays quiet** on a real conflict, on a branch already level with `main`, and
+  on cleanup against the branch's own merge base.
+- **It matches coarsely.** It reads only the payload's `command` field, segment by
+  segment, so a command that only mentions such a rebase (in a commit message, say)
+  can draw the warning too. It cannot see GitHub's "Update branch" button, so the
+message names it. `engineering/decisions/2026-10-06-conflict-reduction.md` §2 records
+why this warns instead of blocking.
+
 **A hook nudges you if you forget.** `.claude/hooks/warn-unbounded-wait.sh` runs
 on every Bash call, spots the loop shape above, and prints a one-line pointer at
 this section. It **warns and never blocks** — the same call this repo made for

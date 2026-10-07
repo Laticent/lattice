@@ -108,6 +108,11 @@ pre-push:
   # so overlapping them risks file contention. Per-component / bucket-gallery
   # PDF freshness (58 + 18 rebuilds, ~30 min) still lives in CI only — see
   # pre-push-disabled above.
+  #
+  # `piped: true` is what makes "fail-fast" true: without it lefthook runs every
+  # remaining job after one fails, so a failing push still paid for every later
+  # job (checker finding on PR #2561, reproduced with the real binary).
+  piped: true
   jobs:
     - name: lint
       run: npm run lint
