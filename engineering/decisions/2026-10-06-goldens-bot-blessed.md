@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: in-progress
 summary: >
   Pull requests stop committing PDFs. A nightly bot PR is the only writer of committed
   goldens on main, and CI shows each PR's visual change by rendering the goldens its diff
@@ -54,9 +54,31 @@ violations, not "this got worse".
   `AUTOMATION_PAT`, open or update one PR, and post `golden-diff`'s before/after montage
   on it. That montage is the regression gate's replacement: one page a day showing what
   moved on `main`, which a human can actually read.
-- **Merge:** auto-merge through the queue, like the backlog mirror. **Open question for
-  the owner** — CLAUDE.md rule 7 names three machine PR classes that auto-merge; this
-  would be the fourth.
+- **Merge: a hybrid, decided by the owner on 2026-10-07.** The bot auto-merges a night's
+  bless only when all four rules hold; otherwise it labels the PR `golden-review` and
+  waits for a person, with the montage showing what moved.
+  1. **No page count changed.** A deck that gains or loses a slide is never small.
+  2. **No page moved more than the pixel threshold.** Starting value about 1% of a page.
+  3. **At most a handful of goldens changed.** Starting value about 10. A base-style
+     change that moves 150 galleries is worth a look even if each page moved little.
+  4. **Every changed golden was already shown to a reviewer.** Each merged PR's CI posts
+     the before/after for the goldens its diff could affect (§2.2). A golden that moved
+     overnight with no merged PR's before/after covering it changed unseen, so that
+     night needs a person.
+
+  Rule 4 is the one that makes the hybrid safe. Size alone is a weak signal: the 2026-08-18
+  note recorded a real, plainly visible drift that scored 0.26%, while some decks drift
+  4–9%.
+
+  **The first week is a dry run.** The bot opens its PR and comments "would auto-merge:
+  yes/no, and why" for each rule, but merges nothing. After a week of real nights, the
+  thresholds in rules 2 and 3 are set from that data, recorded here, and auto-merge is
+  switched on. No bot has produced this data yet, so the starting values are guesses
+  until then.
+
+  This makes the bless bot the fourth machine PR class that can merge itself. CLAUDE.md
+  rule 7 names the other three, and gets the fourth added in rollout step 3, with the
+  hybrid rules stated.
 - **Conflicts:** none. Nothing else writes these files.
 
 ### 2.2 Pull requests: render, compare, do not commit
@@ -85,13 +107,18 @@ commits it to `main` after the merge.
 ### 2.3 Enforcement
 
 - **A PR may not change a tracked PDF.** One check: the PR's diff against its base
-  contains no `*.pdf`, except on `chore/golden-bless`. Where it runs is a CI-contract
-  change (CLAUDE.md row 2), so it is the owner's call.
+  contains no `*.pdf`, except on `chore/golden-bless`. **It runs inside the existing
+  `lint` job** (owner, 2026-10-07): about a second, and no new job on the PR page.
 - **Pre-commit `pdf-rebuild` stops staging PDFs.** It may still render to `.scratch/`
   for local preview. This is a hook change.
-- **Text that changes meaning:** HARD RULE #9 ("+ committed `.pdf`"), CLAUDE.md's "The final
-  PR commit includes all rebuilt PDFs", `workflow.md` § Feature decks, and the
-  `bless` guidance in `engineering/development.md`.
+- **Text that changes meaning.** These pass for HARD RULE #9 itself and for the docs
+  that repeat it:
+  - **HARD RULE #9's new wording**, approved by the owner on 2026-10-07: "…ships a
+    per-feature demo deck `examples/<slug>.md` (6–10 slides); CI renders its PDF and
+    links it on the PR, and the nightly bless commits it to `main`."
+  - CLAUDE.md's "The final PR commit includes all rebuilt PDFs" is removed.
+  - `workflow.md` § Feature decks and the `bless` guidance in
+    `engineering/development.md` change to match.
 
 ## 3. Cost, measured
 
@@ -128,8 +155,19 @@ lands inside a PR: the 478-file commit becomes the bot's job.
 
 1. `golden-diff` renders the affected goldens and diffs them against base, instead of
    reading the PR's committed PDFs. This works under today's rules too.
-2. `golden-bless.yml`, the nightly bot.
-3. The no-PDF-in-PR check, the pre-commit change, and the rule and doc text.
+2. `golden-bless.yml`, the nightly bot, in dry-run mode: it opens the PR and reports the
+   four rules, but never merges.
+3. The no-PDF-in-PR check (in `lint`), the pre-commit change, and the rule and doc text.
+4. After a week of dry-run nights: set the rule 2 and 3 thresholds from the data and
+   switch the hybrid auto-merge on.
 
 Step 3 lands only after step 2 has blessed `main` once, so the first PR under the new rule
 compares against a fresh baseline.
+
+## 6. Decisions (owner, 2026-10-07)
+
+| Question | Decision |
+|---|---|
+| Does the bless PR merge itself? | **Hybrid:** auto-merge only when the four rules in §2.1 hold, after a one-week dry run sets the thresholds |
+| Where does the no-PDF-in-PR check run? | **Inside the `lint` job** |
+| HARD RULE #9 wording | **Approved** as quoted in §2.3 |
