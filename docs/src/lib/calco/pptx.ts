@@ -326,6 +326,25 @@ export async function embedPptxFonts<T = Uint8Array>(JSZip: JSZipClass, bytes: U
 }
 
 /**
+ * Mend PptxGenJS 3.12's schema errors in a `.pptx` it wrote, and nothing else: the same
+ * `tidyPptx` the editable export runs, for a package Calco did not build (Lattice's
+ * picture-only `.pptx` writes through PptxGenJS directly). `outputType` is JSZip's.
+ *
+ * The pictures in `ppt/media/` are copied as they were stored, and only the XML is
+ * deflated: a slide picture is a PNG or JPEG, compressed already, and deflating 58 of them
+ * again took 1.4 s to save a tenth of the file. Copied, the tidy takes about 0.1 s.
+ */
+export async function tidyPptxPackage<T = Uint8Array>(JSZip: JSZipClass, bytes: Uint8Array, outputType = 'uint8array'): Promise<T> {
+	const zip = (await (JSZip as unknown as { loadAsync(b: Uint8Array): Promise<ZipLike> }).loadAsync(bytes)) as ZipLike;
+	if (outputType === 'STREAM') outputType = 'nodebuffer';
+	await tidyPptx(zip);
+	for (const [name, entry] of Object.entries(zip.files)) {
+		if (name.startsWith('ppt/media/')) (entry as { options: { compression?: string } }).options.compression = 'STORE';
+	}
+	return (await zip.generateAsync({ type: outputType, mimeType: PPTX_MIMETYPE, compression: 'DEFLATE' })) as T;
+}
+
+/**
  * Build and serialize in one call. `outputType` is PptxGenJS's (`uint8array`, `blob`, …).
  * Pass `JSZip` to embed the deck's fonts and mend PptxGenJS's schema errors (`tidyPptx`);
  * without it the runs name their families only and the package is as PptxGenJS wrote it.

@@ -225,9 +225,19 @@ Open XML SDK validator (3.3.0, Office 2007 and Microsoft 365 rules) agrees: 16 e
 jargon gallery before, 0 on all five exported decks after. One PptxGenJS source comment
 (`pptxgen.cjs.js`, in `makeXmlPresentation`) claims the schema's notes-master order "causes
 warning in modern powerpoint"; the comment beside it says the reverse, and the schema and the
-SDK both require it, so desktop PowerPoint is the one check left for that move. The picture-only
-`.pptx` (`lib/export/pptx-export.js`) still carries the last two, and is logged in
-`followups.d/`.
+SDK both require it, so desktop PowerPoint is the one check left for that move.
+
+**The picture-only `.pptx` is tidied too (2026-10-07).** It writes through PptxGenJS directly
+(`lib/export/pptx-export.js` in the CLI, `exportPptx` in the Studio) and carried the last
+two defects: on the 58-slide jargon gallery, one schema error in `presentation.xml` and 57
+overrides for slide masters the package does not hold. Both writers now pass the package
+through `tidyPptxPackage` (Calco's tidy, exported for a package Calco did not build); the
+Studio runs it in the assembly worker, so it never blocks the page. After it, `xmllint` and
+the Open XML SDK report 0 errors on the CLI and Studio files, and LibreOffice renders all 58
+slides pixel-identical to before. The tidy re-zips the package: it deflates the XML, which
+PptxGenJS stores, and copies the slide pictures as they are, because deflating 58 PNGs again
+took 1.4 s to save a tenth of the file. Copied, the tidy takes about 0.1 s in Node, and the
+file goes from 18.0 MB to 17.8 MB.
 
 **UNVERIFIED in PowerPoint itself** (HARD RULE #23): no PowerPoint runs here. PowerPoint may
 read the proportional line spacing against its own notion of a line (1.2 em is commonly

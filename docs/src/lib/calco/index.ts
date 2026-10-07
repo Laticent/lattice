@@ -12,7 +12,7 @@ export { applyTransform, placeFrame, spacingMultiple } from './layout';
 export { buildOdp, ODP_MIMETYPE, odpPageSize, odpZipOptions, writeOdp, xmlEscape } from './odp';
 
 export type { EmbeddingPlan, PptxGenJSClass, PptxGenJSLike } from './pptx';
-export { buildPptx, embedPptxFonts, PPTX_MIMETYPE, planEmbedding, pptxFaceName, pptxPageSize, writePptx } from './pptx';
+export { buildPptx, embedPptxFonts, PPTX_MIMETYPE, planEmbedding, pptxFaceName, pptxPageSize, tidyPptxPackage, writePptx } from './pptx';
 export type { ReadOptions, ReadResult } from './reader';
 export { readSlide, restoreSlide } from './reader';
 export { canEmbedAsEot, familyNameOf, renameFace, toEot } from './sfnt';

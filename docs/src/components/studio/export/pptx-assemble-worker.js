@@ -29,7 +29,9 @@
 // 56 multi-megabyte images, and an ArrayBuffer transfers to this thread for free
 // while a data-URL string would be copied whole.
 
+import JSZip from 'jszip';
 import PptxGenJS from 'pptxgenjs';
+import { tidyPptxPackage } from '@/lib/calco/pptx';
 
 let pptx = null;
 let slides = [];
@@ -71,7 +73,9 @@ async function handle(m) {
 			pptx.addSlide().addImage({ data: slide.data, x: 0, y: 0, w: '100%', h: '100%', altText: slide.altText });
 		}
 		const blob = await pptx.write({ outputType: 'blob' });
-		const bytes = await blob.arrayBuffer();
+		// Calco's schema tidy (notes master in order, no phantom slide-master overrides). It
+		// re-zips the package, so it runs here rather than on the main thread.
+		const bytes = await tidyPptxPackage(JSZip, new Uint8Array(await blob.arrayBuffer()), 'arraybuffer');
 		self.postMessage({ type: 'done', bytes }, [bytes]);
 	}
 }

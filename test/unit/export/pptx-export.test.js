@@ -122,6 +122,21 @@ describe('pptx-export', () => {
     assert.doesNotMatch(authored, /[A-Za-z]/, `expected no authored note words, got: ${authored.slice(0, 80)}`);
   });
 
+  // PptxGenJS 3.12 lists the notes master after the slide list and declares a slide master
+  // per slide; the ISO 29500 schema and a strict reader reject both. Calco's tidy mends them.
+  test('the package is schema-tidy: notes master before the slide list, no phantom overrides', async () => {
+    const out = tmpFile();
+    await writePptx(out, [ONE_PX_PNG, ONE_PX_PNG, ONE_PX_PNG], { title: 'Tidy' }, ['A note', null, 'Another']);
+    const zip = await require('jszip').loadAsync(fs.readFileSync(out));
+    const pres = await zip.file('ppt/presentation.xml').async('string');
+    const notes = pres.indexOf('<p:notesMasterIdLst>');
+    assert.ok(notes > 0, 'the notes master is listed');
+    assert.ok(notes > pres.indexOf('</p:sldMasterIdLst>') && notes < pres.indexOf('<p:sldIdLst>'), 'p:notesMasterIdLst sits between the slide-master and slide lists');
+    const types = await zip.file('[Content_Types].xml').async('string');
+    const phantom = [...types.matchAll(/PartName="\/([^"]+)"/g)].map((m) => m[1]).filter((part) => !zip.file(part));
+    assert.deepEqual(phantom, [], 'every content-type override names a part the package holds');
+  });
+
   describe('pptxLayout — slide aspect from @size geometry', () => {
     // Stub just enough of a pptx instance to capture defineLayout.
     function stub() {

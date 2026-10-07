@@ -2007,7 +2007,7 @@ export async function exportPptx(render, name, onStatus, meta, opts) {
 			console.warn('[lattice-export] PPTX worker failed (' + (e?.message || e) + ') — falling back to the main-thread build.');
 		}
 	}
-	const { default: PptxGenJS } = await import('pptxgenjs');
+	const [{ default: PptxGenJS }, { tidyPptxPackage }, { default: JSZip }] = await Promise.all([import('pptxgenjs'), import('@/lib/calco'), import('jszip')]);
 	const pptx = new PptxGenJS();
 	pptx.title = props.title;
 	pptx.subject = props.subject;
@@ -2042,7 +2042,9 @@ export async function exportPptx(render, name, onStatus, meta, opts) {
 	// re-openable step first, and both lanes then save the same way.
 	// Typed as a PowerPoint: pptxgenjs's `write` hands back JSZip's default `application/zip`,
 	// where `writeFile` used to wrap it in the presentation type before saving.
-	const built = new Blob([await pptx.write({ outputType: 'blob' })], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' });
+	// Calco's schema tidy, as the worker lane runs it (pptx-assemble-worker.js).
+	const tidy = await tidyPptxPackage(JSZip, new Uint8Array(await pptx.write({ outputType: 'arraybuffer' })), 'uint8array');
+	const built = new Blob([tidy], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' });
 	download(await withEmbeddedSource(built, 'pptx', opts?.embedSource, onStatus), safeName(name) + '.pptx');
 	// Same contract as exportPdf: a picture the capture could not load costs the image,
 	// never the export — and the author is told, because a silent hole is worse than a
