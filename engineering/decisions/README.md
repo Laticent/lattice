@@ -153,7 +153,7 @@ For the newest notes, list the folder: `ls engineering/decisions/20*.md | tail`.
 - ☐ [2026-08-05-bake-before-render-ordering.md](2026-08-05-bake-before-render-ordering.md) — DECIDED, NOT YET BUILT (status `proposed` = the code is not written; the decision is).
 - ◐ [2026-07-27-bloom-parity-delta-catalog.md](2026-07-27-bloom-parity-delta-catalog.md) — A measured, slide-by-slide parity audit of examples/bloom-engineering-journey.md against the author's source bundle…
 - ☐ [2026-07-07-cadenza-caption-timeline.md](2026-07-07-cadenza-caption-timeline.md) — Cadenza — a pure, framework-free caption/timeline/delivery ENGINE for reading a Lattice deck aloud with synchronized captions.
-- ☐ [2026-10-07-calco-native-shapes.md](2026-10-07-calco-native-shapes.md) — Options for making cards, pills, tags and rules native shapes in Calco's editable .odp/.pptx instead of pixels in the slide picture.
+- ◐ [2026-10-07-calco-native-shapes.md](2026-10-07-calco-native-shapes.md) — Options for making cards, pills, tags and rules native shapes in Calco's editable .odp/.pptx instead of pixels in the slide picture.
 - ◐ [2026-10-06-calco-office-export-library.md](2026-10-06-calco-office-export-library.md) — Calco (`@laticent/calco`) is the office-export library.
 - ☐ [2026-08-25-calibration-probe-anticorrelation.md](2026-08-25-calibration-probe-anticorrelation.md) — Blessing the four browser tiers produced the first side-by-side reading of the calibration probe against the datasets it is supposed to…
 - ☐ [2026-07-28-capacity-basis.md](2026-07-28-capacity-basis.md) — The capacity ceilings are ungrounded, but not for the reason the reflow note gave.

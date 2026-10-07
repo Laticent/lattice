@@ -25,4 +25,7 @@ verify    — tier 1 checker, because the reader and both writers change.
 status    — (2026-10-07) the design note is written:
             engineering/decisions/2026-10-07-calco-native-shapes.md. It measures three decks and
             recommends option A (a pill or tag becomes one shape that carries its own text).
-            Waiting on the owner's pick; no code before it.
+            The owner picked option B (2026-10-07): A's labels, plus cards with native shadows and
+            rules as line shapes, each card grouped with its text (draw:g; p:grpSp by
+            post-processing, since PptxGenJS 3.12 cannot group). Build A first, then rules, then
+            cards and grouping.
