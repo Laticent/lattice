@@ -5,7 +5,7 @@ import * as encoding from 'lib0/encoding';
 import { yCollab, yUndoManagerKeymap } from 'y-codemirror.next';
 import { Awareness, applyAwarenessUpdate, encodeAwarenessUpdate, removeAwarenessStates } from 'y-protocols/awareness';
 import * as Y from 'yjs';
-import { cleanName, createHostKey, createSession, formatLink, fromBase64Url, type HostKey, hostKeyFrom, mintLink, parseFragment, type Session, type SessionState, type TokenEntry, toBase64Url } from '@/lib/tavola';
+import { cleanName, createHostKey, createSession, formatLink, fromBase64Url, type HostKey, hostKeyFrom, type LinkPath, linkKind, mintLink, parseFragment, type Session, type SessionState, type TokenEntry, toBase64Url } from '@/lib/tavola';
 import { trysteroTransport } from '@/lib/tavola/adapters/trystero';
 import { IDLE_VIEW, type LiveActions, type LiveChatLine, type LiveColor, type LivePerson, type LiveView, type LobbyActions, type LobbyView, liveColor, liveColorLight } from './live-model';
 import { clearJoinIntent, HOST_KEY, hasFreshJoin, type LiveCollab, type LiveDeps, type LiveHost, readSealedJoin, saveName, scrubLiveFragment, storedLiveName, storeSealedJoin, takeFreshJoin } from './live-store';
@@ -131,6 +131,8 @@ const newSid = (room: string): { sid: string; mine: Set<string> } => {
 };
 /** A member re-sends waiting lines this often, whatever else happens (inversion round 3, item 3). */
 const RESEND_MS = 15_000;
+/** Seconds between reads of the network path to each member. */
+const PATHS_EVERY = 5;
 const enc = new TextEncoder();
 const dec = new TextDecoder();
 const isColor = (c: unknown): c is LiveColor => c === 1 || c === 2 || c === 3 || c === 4;
@@ -353,6 +355,8 @@ export class LiveController {
 	private resuming: Promise<void> | null = null;
 	/** Seals finish out of order; only the newest one becomes the save. */
 	private sealSeq = 0;
+	/** The network path to each member, re-read every few seconds (the two-network check reads it). */
+	private paths: Record<string, LinkPath> = {};
 	now = Date.now();
 
 	constructor(
@@ -639,6 +643,7 @@ export class LiveController {
 		doc.on('update', onDocUpdate);
 		r.disposers.push(() => doc.off('update', onDocUpdate));
 		let resendIn = RESEND_MS;
+		let pathsIn = 1;
 		this.ticker = setInterval(() => {
 			this.now = this.rt ? this.rt.session.now() : Date.now();
 			// "Sending…" never waits on an event that may not come: retry on a timer too.
@@ -646,6 +651,12 @@ export class LiveController {
 			if (resendIn <= 0) {
 				resendIn = RESEND_MS;
 				if (this.pending.length) this.catchUp();
+			}
+			if (--pathsIn <= 0) {
+				pathsIn = PATHS_EVERY;
+				void r.session.paths().then((p) => {
+					if (this.rt === r) this.paths = p;
+				});
 			}
 			if (this.rt?.session.getState().stage === 'live') this.host.rerender();
 		}, 1000);
@@ -693,6 +704,7 @@ export class LiveController {
 			sessionStorage.removeItem(PENDING_KEY);
 		} catch {}
 		this.seq = 0;
+		this.paths = {};
 		this.hostStartedAt = null;
 		this.following = null;
 		this.bound = false;
@@ -1183,7 +1195,7 @@ export class LiveController {
 		const people: LivePerson[] = s.members.map((m) => {
 			const st = byPeer.get(m.id);
 			const me = m.id === s.selfId;
-			return { id: m.id, name: m.name, color: m.color, role: m.role, me, slide: me ? this.deps.activeSlide : (st?.slide ?? null), editing: !!st?.editingAt && this.now - st.editingAt < TYPING_MS && st.editingAt < this.now + 5000, mic: 'off' };
+			return { id: m.id, name: m.name, color: m.color, role: m.role, me, slide: me ? this.deps.activeSlide : (st?.slide ?? null), editing: !!st?.editingAt && this.now - st.editingAt < TYPING_MS && st.editingAt < this.now + 5000, mic: 'off', ...(!me && this.paths[m.id] ? { link: { kind: linkKind(this.paths[m.id]), detail: `${this.paths[m.id].local}→${this.paths[m.id].remote} (${this.paths[m.id].protocol})` } } : {}) };
 		});
 		for (const [k, a] of this.away) {
 			if (!people.some((p) => p.name === a.name && p.color === a.color)) people.push({ id: `away:${k}`, name: a.name, color: a.color, role: a.role, slide: null, editing: false, mic: 'off', away: true });

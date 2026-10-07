@@ -26,6 +26,25 @@ export interface Transport {
 	onPeerJoin(cb: (id: PeerId) => void): void;
 	onPeerLeave(cb: (id: PeerId) => void): void;
 	leave(): void | Promise<void>;
+	/** Optional: the network path each open connection took, for a "how are we connected" readout.
+	 *  A transport without real connections (the in-memory one) leaves it out. */
+	paths?(): Promise<Record<PeerId, LinkPath>>;
+}
+
+/**
+ * The ICE candidate pair a connection settled on. `host` is a device's own address (the two are on
+ * one network), `srflx` / `prflx` an address a router mapped (a direct connection across networks),
+ * `relay` a TURN server in the middle.
+ */
+export type LinkPath = { local: string; remote: string; protocol: string };
+
+/** What a path means to a person: one network, direct across networks, or through a relay. */
+export type LinkKind = 'local' | 'direct' | 'relay';
+
+export function linkKind(p: LinkPath): LinkKind {
+	if (p.local === 'relay' || p.remote === 'relay') return 'relay';
+	if (p.local === 'host' && p.remote === 'host') return 'local';
+	return 'direct';
 }
 
 /**

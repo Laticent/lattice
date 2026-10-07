@@ -7,7 +7,7 @@
 // The version is pinned exactly: 0.26 changed the action API, so a minor bump is a code change.
 
 import { joinRoom, selfId } from 'trystero/nostr';
-import type { Transport } from '../types';
+import type { LinkPath, Transport } from '../types';
 
 /** Namespaces every Tavola room on the relays, so it never meets another app's room. */
 export const TAVOLA_APP_ID = 'laticent-tavola-v1';
@@ -38,6 +38,19 @@ export function trysteroTransport(room: string, secret: string, opts: TrysteroOp
 		},
 		leave() {
 			return r.leave();
+		},
+		async paths() {
+			const out: Record<string, LinkPath> = {};
+			for (const [id, pc] of Object.entries(r.getPeers())) {
+				if (pc.connectionState !== 'connected') continue;
+				const stats = [...(await pc.getStats()).values()] as Array<Record<string, string | boolean | undefined>>;
+				const pair = stats.find((s) => s.type === 'candidate-pair' && s.state === 'succeeded' && s.nominated);
+				if (!pair) continue;
+				const local = stats.find((s) => s.id === pair.localCandidateId);
+				const remote = stats.find((s) => s.id === pair.remoteCandidateId);
+				out[id] = { local: String(local?.candidateType ?? '?'), remote: String(remote?.candidateType ?? '?'), protocol: String(local?.protocol ?? '?') };
+			}
+			return out;
 		},
 	};
 }

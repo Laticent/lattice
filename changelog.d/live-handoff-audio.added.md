@@ -1,0 +1,1 @@
+- **Live sessions show how each person is connected.** Each row in the Live panel carries an icon for the connection: same network, direct across networks, or through a relay. The person's ⋯ menu spells the connection out with the raw candidate pair, so a two-device test can be recorded from a phone (`engineering/decisions/2026-10-06-studio-live-collaboration.md` §8.1).

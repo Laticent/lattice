@@ -535,6 +535,33 @@ at a throwaway local relay started by the test itself. Nothing of it ships.
   measured join time over the real public relays, but from one machine; how it holds across
   days and networks needs the same real-world check.
 
+### 8.1 The two-network check — the owner's runbook
+
+The one test this sandbox cannot run (HARD RULE #23). It needs two real devices on two
+different networks, and it takes about five minutes.
+
+1. **Open the PR's docs preview link** on a laptop on Wi-Fi. Studio → Live → *Start live
+   session*. Copy the link and send it to your phone.
+2. **On the phone, turn Wi-Fi off** so it runs on mobile data. Open the link, type a name,
+   and tap *Ask to join*. Admit the phone on the laptop.
+3. **Edit and chat both ways.** Type a line on each device, and send a chat message from each.
+4. **Read the connection.** In the Live panel, each person row shows an icon for how this
+   browser reaches them: a Wi-Fi mark (same network), two arrows (direct across networks), or
+   a server (through a relay). Tap the person's **⋯** menu. The first lines read
+   *Connection: …* and the raw pair, for example `srflx→prflx (udp)`. Screenshot that menu
+   on both devices.
+5. **Record it in §12**: the two networks (for example, home fiber and a named carrier on 5G),
+   the pair each side shows, the time from opening the link to the lobby, and whether every
+   step worked.
+
+How to read the result: `host→host` means both devices were on one network, so the test did not
+cross networks. Run it again with Wi-Fi off. `srflx` or `prflx` on either side means a direct
+connection across networks, which is the case the feature needs. If the phone sits on
+*Connecting…* and then shows *Nobody answered* while the laptop is live, the carrier blocks
+direct connections. That is the case a TURN relay fixes (§7, and
+`followups.d/2547-p2-decide-a-turn-default.md`), so record it. It settles how urgent TURN is.
+An iPhone on Safari is worth one run of its own, because nothing here has run on WebKit.
+
 ## 9. Slices
 
 One branch and PR per independent slice (HARD RULE #17). Each lands working.

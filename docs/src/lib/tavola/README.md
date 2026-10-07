@@ -21,6 +21,10 @@ Studio's Live panel. It knows **peers and bytes**; the app knows **screens**. It
 - **the session clock** — `session.now()` is the host's time on every member, estimated by
   Cristian's algorithm over a ping/pong (tightest round trip wins, re-measured every 30 s), so an
   app never compares two device clocks;
+- **connection paths** — `session.paths()` reports, for each member, the candidate pair its
+  connection settled on (`host` / `srflx` / `prflx` / `relay`), when the transport can say
+  (`Transport.paths`, optional; the Trystero adapter reads WebRTC stats). `linkKind()` turns a
+  pair into *same network*, *direct* or *relay*;
 - **client binding** — each member knocks with its awareness `client` id and the host binds it in
   the roster (refusing one another member already holds), so an app can drop presence a member
   sends for anyone else.

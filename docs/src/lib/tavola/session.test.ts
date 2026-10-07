@@ -5,7 +5,7 @@ import { formatLink, mintLink, parseFragment, toBase64Url } from './link';
 import { createMemoryNetwork, type MemoryNetwork } from './memory';
 import { cleanName, encodeControl, frame, PROTOCOL_VERSION, TAG_AWARENESS, TAG_DOC, TAG_POST } from './protocol';
 import { createSession, MAX_WAITING, type Session, type SessionOptions } from './session';
-import type { Clock, Stream, Transport } from './types';
+import { type Clock, linkKind, type Stream, type Transport } from './types';
 
 // Every test runs whole sessions over the in-memory network, with a real Yjs document as the
 // stream, so the gate is tested against the bytes the Studio will actually send.
@@ -824,5 +824,24 @@ describe('round 2 (red-team + checker, 2026-10-06)', () => {
 		hostClock.advance(5000);
 		guestClock.advance(5000);
 		expect(g.s.now()).toBe(h.s.now());
+	});
+});
+
+describe('connection paths (two-network check)', () => {
+	it('reports the path to members only, never to a stranger holding the link', async () => {
+		const net = createMemoryNetwork();
+		const doc = new Y.Doc();
+		doc.getText('source').insert(0, 'x');
+		const inner = net.join(LINK.room, LINK.secret);
+		const t: Transport = { ...inner, selfId: inner.selfId, send: (d, to) => inner.send(d, to), onMessage: (cb) => inner.onMessage(cb), onPeerJoin: (cb) => inner.onPeerJoin(cb), onPeerLeave: (cb) => inner.onPeerLeave(cb), leave: () => inner.leave(), paths: async () => Object.fromEntries(['peer2', 'peer3'].map((id) => [id, { local: 'srflx', remote: 'host', protocol: 'udp' }])) };
+		const h = { s: track(createSession({ transport: t, doc: yStream(doc), host: { name: 'Sharmarke', invite: { title: 'T', hostName: 'Sharmarke' }, key: KEY } })) } as Peer;
+		await joined(net, h, 'Amina');
+		guest(net); // peer3: holds the link, never knocks
+		await settle(net);
+		const paths = await h.s.paths();
+		expect(Object.keys(paths)).toEqual(['peer2']);
+		expect(linkKind(paths.peer2)).toBe('direct');
+		expect(linkKind({ local: 'host', remote: 'host', protocol: 'udp' })).toBe('local');
+		expect(linkKind({ local: 'srflx', remote: 'relay', protocol: 'udp' })).toBe('relay');
 	});
 });

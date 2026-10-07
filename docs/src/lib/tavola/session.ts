@@ -35,7 +35,7 @@
 import { type HostKey, signHello, verifyHello } from './hostkey';
 import { randomBytes, toBase64Url } from './link';
 import { type Control, cleanName, decodeControl, encodeControl, frame, PROTOCOL_VERSION, TAG_AWARENESS, TAG_CONTROL, TAG_DOC, TAG_POST } from './protocol';
-import type { Clock, Color, Invite, Knock, Member, PeerId, Role, SessionState, Stream, Transport } from './types';
+import type { Clock, Color, Invite, Knock, LinkPath, Member, PeerId, Role, SessionState, Stream, Transport } from './types';
 
 /** A rejoin token and the member it re-admits — what a host carries across its own reload. */
 export type TokenEntry = [token: string, member: { name: string; role: Exclude<Role, 'host'>; color: Color }];
@@ -107,6 +107,9 @@ export type Session = {
 	/** Resolves once this session's asynchronous work (signing, verifying, ordered control
 	 *  handling) has finished. For tests and tools that need a quiet point; the app never waits. */
 	idle(): Promise<void>;
+	/** The network path to each member this browser is connected to (empty when the transport cannot
+	 *  say). For a "how are we connected" readout, and for the two-network check. */
+	paths(): Promise<Record<PeerId, LinkPath>>;
 };
 
 export const DEFAULT_CAP = 4;
@@ -651,6 +654,10 @@ export function createSession(opts: SessionOptions): Session {
 		now: () => clock.now() + clockOffset,
 		async idle() {
 			await Promise.all([controlChain, ...signing]);
+		},
+		async paths() {
+			const all = (await t.paths?.().catch(() => ({}) as Record<PeerId, LinkPath>)) ?? {};
+			return Object.fromEntries(Object.entries(all).filter(([id]) => memberOf(id) && id !== t.selfId));
 		},
 	};
 }

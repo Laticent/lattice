@@ -1,7 +1,7 @@
-import { ArrowUp, Check, Crown, Eye, Link2, LogOut, Mic, MicOff, MoreHorizontal, Pencil, UserMinus, UsersRound, X } from 'lucide-react';
+import { ArrowLeftRight, ArrowUp, Check, Crown, Eye, Link2, LogOut, Mic, MicOff, MoreHorizontal, Pencil, Server, UserMinus, UsersRound, Wifi, X } from 'lucide-react';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
@@ -18,6 +18,11 @@ import { elapsed, type LiveActions, type LiveChatLine, type LivePerson, type Liv
 
 const SECTION = 'px-3.5 pt-3 pb-1 font-mono text-[10px] font-bold uppercase tracking-widest text-muted-foreground';
 
+/** The connection to a person: an icon in the row, the words in the person's menu (what the
+ *  two-network check screenshots on a phone, where a hover title cannot be read). */
+const LINK_LABEL = { local: 'On the same network', direct: 'Direct across networks', relay: 'Through a relay server' } as const;
+const LINK_ICON = { local: Wifi, direct: ArrowLeftRight, relay: Server } as const;
+
 function whereLabel(p: LivePerson): string {
 	if (p.away) return 'Reconnecting…';
 	if (p.slide === null) return 'Arriving…';
@@ -28,6 +33,7 @@ function PersonRow({ p, view, actions }: { p: LivePerson; view: LiveView; action
 	const MicGlyph = p.mic === 'off' ? MicOff : Mic;
 	const canManage = view.isHost && !p.me && p.role !== 'host';
 	const following = view.following === p.id;
+	const LinkGlyph = p.link && !p.away ? LINK_ICON[p.link.kind] : null;
 	return (
 		<li className={cn('group flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-accent', p.away && 'opacity-55')}>
 			<LiveAvatar person={p} size={26} ring={p.mic === 'speaking'} />
@@ -42,6 +48,7 @@ function PersonRow({ p, view, actions }: { p: LivePerson; view: LiveView; action
 					{following ? `Following · ${whereLabel(p)}` : whereLabel(p)}
 				</div>
 			</div>
+			{LinkGlyph && p.link && <LinkGlyph className="size-3.5 shrink-0 text-muted-foreground/70" role="img" aria-label={`${LINK_LABEL[p.link.kind]} (${p.link.detail})`} data-live-link={p.link.kind} />}
 			{view.audio && <MicGlyph className={cn('size-3.5 shrink-0', p.mic === 'off' ? 'text-muted-foreground/60' : 'text-foreground')} aria-label={p.mic === 'off' ? 'Muted' : 'Mic on'} />}
 			{!p.me && !p.away && (
 				<DropdownMenu>
@@ -58,6 +65,12 @@ function PersonRow({ p, view, actions }: { p: LivePerson; view: LiveView; action
 							<DropdownMenuItem onSelect={() => actions.goToSlide(p.slide as number)}>
 								<ArrowUp className="size-4 rotate-45" /> Go to slide {p.slide + 1}
 							</DropdownMenuItem>
+						)}
+						{p.link && (
+							<DropdownMenuLabel className="flex flex-col gap-0.5 py-1 text-[11px] font-normal text-muted-foreground" data-live-link-detail>
+								<span>Connection: {LINK_LABEL[p.link.kind].toLowerCase()}</span>
+								<span className="font-mono text-[10.5px]">{p.link.detail}</span>
+							</DropdownMenuLabel>
 						)}
 						{canManage && (
 							<>

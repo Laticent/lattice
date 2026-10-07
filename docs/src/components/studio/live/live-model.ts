@@ -23,6 +23,9 @@ export type LivePerson = {
 	/** Their connection dropped a moment ago and they have not come back yet (a phone that
 	 *  backgrounded the tab, a network blip). Shown dimmed, not removed: "left" is for leaving. */
 	away?: boolean;
+	/** How this browser reaches them: one network, direct across networks, or through a relay.
+	 *  `detail` is the raw candidate pair ("srflx→host (udp)"). Absent until the first read. */
+	link?: { kind: 'local' | 'direct' | 'relay'; detail: string };
 };
 
 export type LiveKnock = { id: string; name: string; at: number };

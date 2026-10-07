@@ -135,6 +135,15 @@ await host.waitForSelector('text=Can we cut', { timeout: 15000 });
 log('host sees the chat message');
 const carets = await host.locator('.cm-ySelectionCaret').count();
 log(`host sees ${carets} remote caret(s)`);
+// The panel's own readout (what the owner screenshots on two real devices): it must agree with stats.
+await host.waitForSelector('[data-live-link]', { timeout: 15000 });
+const readout = (page) => page.locator('[data-live-link]').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')));
+log(`panel connection readout: host=${JSON.stringify(await readout(host))} guest=${JSON.stringify(await readout(guest))}`);
+await host.locator('button[aria-label="Options for Amina"]').click();
+await host.waitForSelector('[data-live-link-detail]');
+await host.waitForTimeout(400);
+await host.screenshot({ path: `${OUT}real-connection-${mode}.png` });
+await host.keyboard.press('Escape');
 await host.screenshot({ path: `${OUT}real-host-live-${mode}.png` });
 await guest.screenshot({ path: `${OUT}real-guest-live-${mode}.png` });
 
