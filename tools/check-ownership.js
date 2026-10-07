@@ -8808,6 +8808,24 @@ function checkTramaBoundary(errors, dir = TRAMA_DIR) {
   });
 }
 
+// ── Calco (docs/src/lib/calco) — the office-export library ──────────────────
+// Calco's reader ships into a headless page as `fn.toString()` source, so a value import
+// would be a free variable inside the shipped function. Like Trama it has NO dependencies,
+// not even `node:`: JSZip, PptxGenJS and the font pinner arrive as arguments, and type-only
+// imports are erased (2026-10-06-calco-office-export-library.md).
+const CALCO_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'calco');
+function checkCalcoBoundary(errors, dir = CALCO_DIR) {
+  checkStrictPackageImports(errors, dir, {
+    allowNode: false,
+    allowBare: new Set(),
+    describe: (rel, spec) =>
+      `${rel} imports '${spec}', which escapes the Calco folder. Calco ships its reader as ` +
+      `serialized source and takes JSZip, PptxGenJS and the font pinner as arguments, so ` +
+      `every import must resolve inside docs/src/lib/calco/ ` +
+      `(engineering/decisions/2026-10-06-calco-office-export-library.md).`,
+  });
+}
+
 // ── Tavola (docs/src/lib/tavola) — the live-collaboration engine ────────────
 // Tavola knows peers and bytes; the Studio knows screens. The transport and the document are
 // passed in, the way Trama takes dagre, so the core imports nothing outside its folder
@@ -13310,6 +13328,7 @@ function run() {
   checkVetrinaBoundary(errors);
   checkCadenzaBoundary(errors);
   checkTramaBoundary(errors);
+  checkCalcoBoundary(errors);
   checkTavolaBoundary(errors);
   checkAnimaBoundary(errors);
   checkSuonoBoundary(errors);
@@ -13575,6 +13594,7 @@ module.exports = {
   SINGLETON_TAGS,
   checkVetrinaBoundary,
   checkCadenzaBoundary,
+  checkCalcoBoundary,
   checkAnimaBoundary,
   ANIMA_DIR,
   ANIMA_ADAPTER_DEPS,

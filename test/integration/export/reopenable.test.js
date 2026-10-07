@@ -113,6 +113,18 @@ describe('--reopenable (CLI)', () => {
     assert.match(await zip.file('_rels/.rels').async('string'), /Type="https:\/\/github\.com\/Laticent\/lattice\/relationships\/deck-source" Target="lattice\/deck\.lattice"/);
   });
 
+  test('the --editable PPTX carries the same .lattice beside its embedded fonts', { timeout: TIMEOUT }, async () => {
+    const dir = tmp();
+    const plain = exportDeck(path.join(dir, 'plain.pptx'));
+    const edited = exportDeck(path.join(dir, 'edited.pptx'), ['--editable']);
+    assert.match(edited.stdout, /editable: .*re-openable in Lattice/);
+    const payload = await pptxPayload(edited.bytes);
+    assert.ok(payload, 'the editable PPTX carries lattice/deck.lattice');
+    assert.ok(payload.equals(await pptxPayload(plain.bytes)), 'the same payload as the picture PPTX');
+    const zip = await JSZip.loadAsync(edited.bytes);
+    assert.ok(Object.keys(zip.files).some((n) => n.startsWith('ppt/fonts/')), 'the fonts survive the embed');
+  });
+
   test('--strip-notes scrubs the embedded deck too', { timeout: TIMEOUT }, async () => {
     const dir = tmp();
     const { bytes } = exportDeck(path.join(dir, 'deck.pdf'), ['--strip-notes']);

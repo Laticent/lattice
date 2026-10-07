@@ -102,6 +102,27 @@ npx lattice deck.md deck.pptx
 Each slide becomes one full-bleed image, so the PowerPoint looks exactly like
 the PDF. The trade-off is that the text is not editable in PowerPoint.
 
+To edit the text, add `--editable`. Every paragraph becomes a real text box in
+the deck's font, over a picture of the slide with the text removed:
+
+```sh
+npx lattice deck.md deck.pptx --editable
+```
+
+Charts, diagrams and equations stay part of the picture. PowerPoint shows the
+deck's fonts only where they are installed.
+
+### Make a LibreOffice deck
+
+```sh
+npx lattice deck.md deck.odp             # one picture per slide
+npx lattice deck.md deck.odp --editable  # real text boxes, fonts embedded
+```
+
+Lattice writes the `.odp` itself, so you do not need LibreOffice to export. The
+editable `.odp` carries the deck's fonts, so it looks the same on any machine
+with LibreOffice Impress.
+
 ### Export slides as images
 
 One PNG per slide, numbered `deck.001.png`, `deck.002.png`, and so on:
@@ -542,7 +563,7 @@ check.
 | What you see | What to do |
 |---|---|
 | `error: palette not found: brand` | Check the spelling against `npx lattice packages list --type theme`, or install the theme with `packages add` |
-| `error: unsupported output extension` | Use `.pdf`, `.pptx`, `.png`, `.zip` or `.html`. For JPEG or WebP, use a `.zip` with `--image-format` |
+| `error: unsupported output extension` | Use `.pdf`, `.pptx`, `.odp`, `.png`, `.zip` or `.html`. For JPEG or WebP, use a `.zip` with `--image-format` |
 | `error: unknown option` | Check the flag in the [CLI reference](/reference/cli/). Flags that take a value accept `--flag value` and `--flag=value` |
 | The render says it cannot find a browser | Set `CHROME_PATH` to a Chrome or Chromium on your machine |
 | A web image shows as a placeholder | Add `--allow-remote` |

@@ -130,6 +130,10 @@ describe('strip-notes: every export format', () => {
     { name: 'pdf --paper', format: 'pdf', out: 'paper.pdf', args: ['--notes', '--paper', 'a4'], carriesNote: true },
     // #1837: PowerPoint shows ppt/notesSlides/*.xml to anyone who opens the file.
     { name: 'pptx', format: 'pptx', out: 'deck.pptx', args: ['--notes'], carriesNote: true },
+    // Calco's office files: an .odp page's notes view, and both editable writers.
+    { name: 'odp', format: 'odp', out: 'deck.odp', args: ['--notes'], carriesNote: true },
+    { name: 'odp --editable', format: 'odp', out: 'edit.odp', args: ['--notes', '--editable'], carriesNote: true },
+    { name: 'pptx --editable', format: 'pptx', out: 'edit.pptx', args: ['--notes', '--editable'], carriesNote: true },
     { name: 'png', format: 'png', out: 'deck.png', args: ['--notes'], carriesNote: false },
     { name: 'imageset (.zip)', format: 'imageset', out: 'deck.zip', args: ['--notes'], carriesNote: false },
     { name: 'html', format: 'html', out: 'deck.html', args: ['--notes'], carriesNote: true },

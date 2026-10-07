@@ -25,7 +25,7 @@ describe('corner export capability', async () => {
   });
 
   test('formats that cannot carry a hole square instead', () => {
-    for (const t of ['jpeg', 'pdf', 'pptx']) {
+    for (const t of ['jpeg', 'pdf', 'pptx', 'odp']) {
       assert.equal(cornerSurvivesExport(t), false, `${t} must square`);
       assert.equal(isFlatExportTarget(t), true, `${t} is a KNOWN flat target, not an unclassified one`);
     }

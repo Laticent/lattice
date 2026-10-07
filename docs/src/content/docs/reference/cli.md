@@ -33,6 +33,7 @@ it.
 |---|---|
 | `.pdf` | A vector PDF with selectable text |
 | `.pptx` | A PowerPoint, one full-bleed slide image per slide |
+| `.odp` | A LibreOffice Impress (OpenDocument) deck, one full-bleed slide image per slide |
 | `.png` | One PNG per slide, named `<output>.001.png`, `<output>.002.png`, … |
 | `.zip` | An image set: one image per slide, plus thumbnails and chart SVGs. See [Image set](#image-set) |
 | `.html` | The rendered HTML as the deliverable, with no PDF. See [HTML output](#html-output) |
@@ -73,6 +74,14 @@ error also prints the `.zip` command to use instead.
 | `--reopenable` | Carry the deck inside the `.pdf` or `.pptx` as a `.lattice`, so the Studio's **Import deck…** opens it for editing. The same payload as the Studio's "Re-openable in Lattice" switch. No comments; hidden slides and speaker notes ride along unless you add `--strip-notes` |
 | `--chrome-pdf` | Print with Chrome's PDF printer instead of Lattice's writer |
 | `--keep-vector-images` | Keep SVG images as vectors. By default they become 2x PNG, because some viewers mishandle clipped SVG |
+
+## Office options
+
+For `.odp` and `.pptx`.
+
+| Option | What it does |
+|---|---|
+| `--editable` | Make every paragraph a real text box in the deck's own font, over a picture of the slide with its text removed. Charts, diagrams and equations stay part of the picture. The `.odp` embeds the fonts; the `.pptx` names them, so a reader without them sees a substitute |
 
 ## HTML output
 

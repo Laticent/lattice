@@ -128,7 +128,7 @@ function showHelp() {
   console.log(`lattice-emulator — PDF / PPTX / PNG / HTML renderer for Lattice decks
 
 USAGE
-  node lattice-emulator.js <source.md> <output.pdf|.pptx|.png|.zip|.html> [palette]
+  node lattice-emulator.js <source.md> <output.pdf|.pptx|.odp|.png|.zip|.html> [palette]
   node lattice-emulator.js <source.md> <custom.css> <output> [palette]
 
 ARGUMENTS
@@ -140,6 +140,8 @@ ARGUMENTS
                        .pdf   vector PDF, selectable text (+ HTML sidecar; or one
                               image per page with --raster)
                        .pptx  PowerPoint, one full-bleed slide image per slide
+                       .odp   LibreOffice Impress (OpenDocument), one full-bleed
+                              slide image per slide; written without soffice
                        .png   one PNG per slide, written as <output>.NNN.png
                        .zip   an IMAGE SET — a zip of one raster per slide
                               (PNG/JPEG/WebP) plus opt-in thumbnails and
@@ -275,6 +277,12 @@ OPTIONS
                           compatibility; selectable text is lost. Speaker
                           notes, --present, and --embed-source still apply.
                           PDF only.
+      --editable          With .odp or .pptx: every paragraph becomes a real text
+                          box in the deck's own font, over a picture of the
+                          slide with its text removed, so the file can be
+                          edited in LibreOffice or PowerPoint. Charts, diagrams
+                          and equations stay part of the picture. Both
+                          embed the deck's fonts.
       --paper <size>      Fit each slide onto a standard sheet — auto | letter |
                           legal | a4 — instead of the default slide-sized page,
                           so the PDF prints correctly on office paper (baked
@@ -402,6 +410,8 @@ VIDEO
 EXAMPLES
   node lattice-emulator.js deck.md out.pdf
   node lattice-emulator.js deck.md out.pptx          # PowerPoint (image slides)
+  node lattice-emulator.js deck.md out.odp           # LibreOffice Impress (image slides)
+  node lattice-emulator.js deck.md out.odp --editable  # … with editable text boxes
   node lattice-emulator.js deck.md out.png           # → out.001.png, out.002.png, …
   node lattice-emulator.js deck.md out.zip           # image set (PNG + thumbs + SVGs)
   node lattice-emulator.js deck.md out.zip --image-format webp --image-size 1x
@@ -503,6 +513,7 @@ function parseArgs(argv) {
     if (a === '--present') { flags.present = true; continue; }
     if (a === '--print') { flags.print = true; continue; }
     if (a === '--raster') { flags.raster = true; continue; }
+    if (a === '--editable') { flags.editable = true; continue; }
     if (a === '--allow-remote') { flags['allow-remote'] = true; continue; }
     if (a === '--embed-source') { flags['embed-source'] = true; continue; }
     if (a === '--reopenable') { flags.reopenable = true; continue; }
@@ -809,6 +820,7 @@ const OUT_EXT = path.extname(outFile).toLowerCase();
 const OUT_FORMATS = Object.freeze({
   '.pdf': 'pdf',
   '.pptx': 'pptx',
+  '.odp': 'odp',
   '.png': 'png',
   '.zip': 'imageset',
   '.html': 'html',
@@ -876,6 +888,15 @@ if (flags.raster && OUT_FORMAT !== 'pdf') {
   // the wrong one for `.html` ("already image-per-slide" — it has no images at all).
   const why = OUT_FORMAT === 'html' ? 'a .html render has no page raster' : `a .${OUT_FORMAT} is already image-per-slide`;
   console.warn(`  ⚠ --raster applies only to .pdf output (${why}) — ignoring.`);
+}
+// --editable: real text boxes instead of one picture per slide, for the two office formats.
+// Calco (@laticent/calco) reads each slide's text, photographs the slide with that text
+// hidden, and writes the text back as boxes in the deck's own fonts (embedded in the .odp).
+// Charts, diagrams and equations stay part of the picture.
+// engineering/decisions/2026-10-06-calco-office-export-library.md.
+const EDITABLE = !!flags.editable && (OUT_FORMAT === 'odp' || OUT_FORMAT === 'pptx');
+if (flags.editable && !EDITABLE) {
+  console.warn(`  ⚠ --editable applies only to .odp and .pptx output — ignoring.`);
 }
 
 // --paper / --orientation: fit the deck onto a standard sheet (US Letter / Legal / A4)
@@ -2959,7 +2980,7 @@ ${ENGINE_SCRIPT_OPEN}
 // (red-team, this PR). Case-insensitive filesystems hide it; CI does not.
 const outHtml = OUT_FORMAT === 'html'
   ? outFile
-  : outFile.replace(/\.(pdf|pptx|png|zip|html)$/i, '') + '.html';
+  : outFile.replace(/\.(pdf|pptx|odp|png|zip|html)$/i, '') + '.html';
 // Strip the live-preview runtime (lattice-runtime.js) from the export HTML.
 // A deck may embed `<script src="…/lattice-runtime.js">` for the VS Code / web
 // preview; that runtime runs the overflow watcher, which CREATES the red
@@ -3128,7 +3149,7 @@ async function renderBody(browser, g, closeBrowser) {
   // an OOM (same trade-off the browser exporter makes). The largest integer
   // factor whose long edge stays ≤ 3840: HD (1280) → 2×, 4K (3840) → 1×, and any
   // custom @size is capped rather than left to blow up.
-  const RASTER = OUT_FORMAT === 'pptx' || OUT_FORMAT === 'png' || OUT_FORMAT === 'imageset' || RASTER_PDF;
+  const RASTER = OUT_FORMAT === 'pptx' || OUT_FORMAT === 'odp' || OUT_FORMAT === 'png' || OUT_FORMAT === 'imageset' || RASTER_PDF;
   // The image set honors its `--image-size` preset (shared with the Studio via the
   // kernel's resolveRasterScale); every other raster path keeps the historical
   // long-edge-capped 2× (HD → 2×, 4K → 1×).
@@ -4554,43 +4575,68 @@ async function renderBody(browser, g, closeBrowser) {
     }
     if (NOTES_SIDECAR) writeNotesSidecar(outFile, materializedNotes);
   } else {
-    // PNG / PPTX: rasterize one image per slide from the SAME rendered page.
+    // PNG / PPTX / ODP: rasterize one image per slide from the SAME rendered page.
     // Each `section[data-lattice-slide]` is exactly slideW×slideH (fixed-page),
     // so an element screenshot yields a clean full-bleed slide image.
     const handles = await g(() => page.$$('section[data-lattice-slide]'), 'collect slide handles');
-    const pngBuffers = [];
     // `.png` keeps a rounded corner as transparency; `.pptx` shares this loop but was
     // squared above, so OMIT_BG is false for it and its images stay opaque.
     const pngShot = OMIT_BG ? { type: 'png', omitBackground: true } : { type: 'png' };
-    for (const h of handles) {
-      pngBuffers.push(await g(() => h.screenshot(pngShot), 'screenshot slide'));
-    }
-    await closeBrowser();
-
-    if (OUT_FORMAT === 'png') {
-      // `deck.png` → `deck.001.png`, `deck.002.png`, … (a per-slide set, the
-      // same convention marp's `--images png` used).
-      const base = outFile.replace(/\.png$/i, '');
-      const pad = Math.max(3, String(pngBuffers.length).length);
-      pngBuffers.forEach((buf, i) => {
-        fs.writeFileSync(`${base}.${String(i + 1).padStart(pad, '0')}.png`, buf);
-      });
-      if (!QUIET) console.log(`PNG: ${pngBuffers.length} slides → ${base}.NNN.png`);
-    } else {
-      // PPTX — image-per-slide via the shared writer (lib/export/pptx-export.js).
-      const { writePptx } = require('./lib/export/pptx-export');
-      const count = await writePptx(outFile, pngBuffers, {
-        title: path.basename(outFile).replace(/\.pptx$/i, ''),
+    // The office formats Calco writes: every .odp, and the --editable .pptx. Calco reads,
+    // hides and restores each slide's text around the screenshot (lib/export/office-export.js).
+    if (OUT_FORMAT === 'odp' || EDITABLE) {
+      const office = require('./lib/export/office-export');
+      const captured = await office.captureSlides(handles, pngShot, EDITABLE, g);
+      await closeBrowser();
+      const ext = OUT_FORMAT === 'odp' ? /\.odp$/i : /\.pptx$/i;
+      const res = await office.writeOffice(outFile, OUT_FORMAT, captured, {
+        title: path.basename(outFile).replace(ext, ''),
         company: `Lattice · ${paletteName}`,
         width: slideW,
         height: slideH,
-        // materializedNotes, NOT slideNotes — under `--strip-notes` the former is all-null.
-        // PowerPoint shows `ppt/notesSlides/*.xml` to anyone who opens the file, so this is
-        // the one format whose native viewer puts the author's private text in front of the
-        // recipient by default. This call site was the last one still reading the unstripped
-        // array (#1837).
-      }, materializedNotes, slideDescriptions, REOPENABLE ? { lattice: await reopenableLattice(), date: reopenableDate() } : {});
-      if (!QUIET) console.log(`PPTX: ${count} slides → ${outFile}${REOPENABLE ? ' (re-openable in Lattice)' : ''}`);
+        // materializedNotes, NOT slideNotes — under `--strip-notes` the former is all-null, and
+        // both suites show the notes to anyone who opens the file (#1837).
+      }, materializedNotes, slideDescriptions, PKG_ROOT,
+      // `--reopenable` rides in the editable .pptx exactly as in the picture one.
+      REOPENABLE && OUT_FORMAT === 'pptx' ? { lattice: await reopenableLattice(), date: reopenableDate() } : {});
+      if (!QUIET) {
+        const kind = OUT_FORMAT === 'odp' ? 'ODP' : 'PPTX';
+        const detail = EDITABLE ? ` (editable: ${res.frames} text boxes${res.fonts ? `, ${res.fonts} fonts embedded` : ''})` : '';
+        const reopen = REOPENABLE && OUT_FORMAT === 'pptx' ? ' (re-openable in Lattice)' : '';
+        console.log(`${kind}: ${res.slides} slides → ${outFile}${detail}${reopen}`);
+      }
+    } else {
+      const pngBuffers = [];
+      for (const h of handles) {
+        pngBuffers.push(await g(() => h.screenshot(pngShot), 'screenshot slide'));
+      }
+      await closeBrowser();
+
+      if (OUT_FORMAT === 'png') {
+        // `deck.png` → `deck.001.png`, `deck.002.png`, … (a per-slide set, the
+        // same convention marp's `--images png` used).
+        const base = outFile.replace(/\.png$/i, '');
+        const pad = Math.max(3, String(pngBuffers.length).length);
+        pngBuffers.forEach((buf, i) => {
+          fs.writeFileSync(`${base}.${String(i + 1).padStart(pad, '0')}.png`, buf);
+        });
+        if (!QUIET) console.log(`PNG: ${pngBuffers.length} slides → ${base}.NNN.png`);
+      } else {
+        // PPTX — image-per-slide via the shared writer (lib/export/pptx-export.js).
+        const { writePptx } = require('./lib/export/pptx-export');
+        const count = await writePptx(outFile, pngBuffers, {
+          title: path.basename(outFile).replace(/\.pptx$/i, ''),
+          company: `Lattice · ${paletteName}`,
+          width: slideW,
+          height: slideH,
+          // materializedNotes, NOT slideNotes — under `--strip-notes` the former is all-null.
+          // PowerPoint shows `ppt/notesSlides/*.xml` to anyone who opens the file, so this is
+          // the one format whose native viewer puts the author's private text in front of the
+          // recipient by default. This call site was the last one still reading the unstripped
+          // array (#1837).
+        }, materializedNotes, slideDescriptions, REOPENABLE ? { lattice: await reopenableLattice(), date: reopenableDate() } : {});
+        if (!QUIET) console.log(`PPTX: ${count} slides → ${outFile}${REOPENABLE ? ' (re-openable in Lattice)' : ''}`);
+      }
     }
   }
   // Fluid viewer: now that the raster (which loaded the CLEAN outHtml) is done,
@@ -5664,7 +5710,7 @@ function writeNotesSidecar(outPath, notes) {
   // Strip whichever output extension we were given, not just `.pdf` — an `.html`
   // deliverable should get `deck.notes.txt` like every other format, not
   // `deck.html.notes.txt`.
-  const sidecar = outPath.replace(/\.(pdf|pptx|png|zip|html)$/i, '') + '.notes.txt';
+  const sidecar = outPath.replace(/\.(pdf|pptx|odp|png|zip|html)$/i, '') + '.notes.txt';
   fs.writeFileSync(sidecar, blocks.length ? blocks.join('\n') : '(no speaker notes in this deck)\n');
   if (!QUIET) console.log(`Notes: ${blocks.length} slide${blocks.length === 1 ? '' : 's'} → ${sidecar}`);
 }
@@ -6313,7 +6359,7 @@ async function resolveReadAlong(slideCount, sayLines = [], script = []) {
 // narrate content, so the two flags are independent.
 async function writeCaptionsSidecar(outPath, slideCount, sayLines = [], script = []) {
   const { readAlongProblems, readAlongToVtt, readAlongToVttParts } = require('./lib/core/read-along-vtt.js');
-  const base = outPath.replace(/\.(pdf|html?|pptx|png|zip)$/i, '');
+  const base = outPath.replace(/\.(pdf|html?|pptx|odp|png|zip)$/i, '');
   const { readAlong } = await resolveReadAlong(slideCount, sayLines, script);
   if (!readAlong.slides.length) {
     if (!QUIET) console.log('Captions: nothing to narrate (no say lines, no projectable slide prose) — no .vtt written');

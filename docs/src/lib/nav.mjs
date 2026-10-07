@@ -73,6 +73,7 @@ export function librariesNav(url) {
 		{ label: 'Vetrina', href: url('vetrina'), match: ['vetrina'], desc: 'Self-driving walkthrough' },
 		{ label: 'Trama', href: url('trama'), match: ['trama'], desc: 'Graph layout + elbow routing' },
 		{ label: 'Segno', href: url('segno'), match: ['segno'], desc: 'Grammar engine + notation' },
+		{ label: 'Calco', href: url('calco'), match: ['calco'], desc: 'Slides to editable office files' },
 	];
 }
 

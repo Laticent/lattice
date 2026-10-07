@@ -1,4 +1,4 @@
-import { Captions, ChevronRight, Download, FileArchive, FileText, Globe, Images, Link2, Loader2, Monitor, Package, Printer, UsersRound } from 'lucide-react';
+import { Captions, ChevronRight, Download, FileArchive, FileText, Globe, Images, Link2, Loader2, Monitor, Package, Presentation, Printer, UsersRound } from 'lucide-react';
 import type * as React from 'react';
 
 // The Share sheet's menu: its header, its two sections and every row's icon, title and
@@ -13,7 +13,7 @@ export const SHARE_HEADER = {
 	srDescription: 'Hand off the rendered deck or the Markdown source.',
 } as const;
 
-export type ShareRowId = 'live' | 'present' | 'pdf' | 'pptx' | 'images' | 'print' | 'html' | 'captions' | 'lattice' | 'md' | 'marp' | 'printsrc';
+export type ShareRowId = 'live' | 'present' | 'pdf' | 'pptx' | 'odp' | 'images' | 'print' | 'html' | 'captions' | 'lattice' | 'md' | 'marp' | 'printsrc';
 
 type ShareRowDef = { id: ShareRowId; icon: React.ReactNode; title: string; desc: string; dev?: boolean };
 
@@ -29,7 +29,8 @@ export const SHARE_MENU: ReadonlyArray<{ label: string; blurb: string; rows: Rea
 		rows: [
 			{ id: 'present', icon: <Link2 className="size-4" />, title: 'Present link', desc: 'A live, themed link that opens in Present' },
 			{ id: 'pdf', icon: <Download className="size-4" />, title: 'PDF', desc: 'One slide per page — choose what rides along' },
-			{ id: 'pptx', icon: <Monitor className="size-4" />, title: 'PowerPoint', desc: 'PPTX, one slide per page' },
+			{ id: 'pptx', icon: <Monitor className="size-4" />, title: 'PowerPoint', desc: 'PPTX — pictures or editable text' },
+			{ id: 'odp', icon: <Presentation className="size-4" />, title: 'LibreOffice', desc: 'ODP for Impress — pictures or editable text' },
 			{ id: 'images', icon: <Images className="size-4" />, title: 'Images (.zip)', desc: 'One image per slide — PNG/JPEG/WebP, thumbnails, chart SVGs' },
 			{ id: 'print', icon: <Printer className="size-4" />, title: 'Print deck', desc: 'Pick paper & color, preview, then print or save' },
 			{ id: 'html', icon: <Globe className="size-4" />, title: 'Webpage (.html)', desc: 'One self-contained file — opens in any browser, offline' },

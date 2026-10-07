@@ -1,4 +1,4 @@
-# Rendering pipeline — running PDF / PPTX / PNG / HTML
+# Rendering pipeline — running PDF / PPTX / ODP / PNG / HTML
 
 <!-- Output-format table below: keep in sync with `lattice-emulator.js` --help and
      the format switch (`OUT_FORMAT`). Cost figures come from
@@ -19,11 +19,12 @@ Lattice deck, this is the tool, full stop.
 ## 1. Run it
 
 ```bash
-node lattice-emulator.js <source.md> <output.pdf|.pptx|.png|.zip|.html> [palette]
+node lattice-emulator.js <source.md> <output.pdf|.pptx|.odp|.png|.zip|.html> [palette]
 ```
 
 The output extension picks the format — `.pdf` (vector, selectable text),
-`.pptx` (one full-bleed slide image per slide), `.png` (one file
+`.pptx` (one full-bleed slide image per slide), `.odp` (the same, as a
+LibreOffice Impress / OpenDocument deck), `.png` (one file
 per slide, `<output>.NNN.png`), `.zip` (an **image set** — see §5), `.html`
 (the rendered HTML *as* the deliverable, no PDF). For every format except
 `.html`, an HTML sidecar is written alongside; with `.html` that sidecar **is**
@@ -49,6 +50,8 @@ Nothing is mislabeled when nothing is labeled.
 | `.html` | 6.77s | You want the HTML itself — `--player`/`--fluid` viewers, or anything reading markup or structure |
 | `.pdf` | 8.24s | Sharing, review, goldens. **The cheapest artifact we commit** — 3–12× smaller than any image golden |
 | `.pptx` / `.png` / `.zip` | 58–74s | You genuinely need pixels. ~860 ms/slide to rasterize |
+
+`.odp` runs the same raster loop as `.pptx`; it was not in the measured set.
 
 The vector PDF is **not** the expensive option — every image format costs 7–9×
 more and 3–12× more bytes. To review a PDF as images, rasterize it
@@ -202,14 +205,37 @@ limit — low-DPI rasterization (what this script does) keeps vector edges
 sharp at a smaller pixel count; naive downscaling blurs them. Full option
 reference: run the script with no args, or read its header comment.
 
-## 4. PPTX / PNG specifics
+## 4. PPTX / ODP / PNG specifics
 
 Both rasterize through the same screenshot path the PDF's `--raster` flag
 uses — one full-bleed image per slide, selectable text is lost (PPTX has
 always been image slides; `--raster` opts a PDF into the same trade for
-maximum viewer compatibility). If a recipient needs an *editable* PPTX
-(real text boxes, not an image), that's out of scope for this exporter —
-Lattice's PPTX output is a presentation artifact, not an authoring one.
+maximum viewer compatibility).
+
+**`.odp` and `--editable` go through Calco.** Calco (`@laticent/calco`,
+`docs/src/lib/calco/`) is the office-export library; `lib/export/office-export.js`
+is the Lattice host that hands it JSZip, PptxGenJS, the deck's fonts and the HarfBuzz
+pinner. Two modes:
+
+- **Picture** (every `.odp` without the flag): one full-bleed PNG per page, the
+  speaker notes on each page's notes view, the `describe:` text as each picture's
+  alt text. The PPTX twin is the plain `.pptx`, which stays on
+  `lib/export/pptx-export.js`.
+- **Editable** (`--editable` on `.odp` or `.pptx`): Calco reads every paragraph off
+  the rendered slide, hides that text, photographs the slide, and writes each
+  paragraph back as a real text box in its own font, with the browser's line
+  breaks. Both embed the fonts, each pinned to one weight with every character
+  kept: the `.odp` as TrueType, the `.pptx` as Embedded OpenType, one family
+  per weight.
+  Charts, diagrams, equations, `::before`/`::after` text, rotated text and
+  ellipsized lines stay in the picture.
+
+Calco writes the zip itself, so no `soffice` is needed to export — LibreOffice is
+only the reader. Rounded corners square on both, as on the PPTX: the page sets no
+fill, so a transparent corner would show the reader's own template
+(`lib/core/corner-export-capability.mjs`). How it was built and measured, and the six
+LibreOffice behaviors the writer works around:
+`engineering/decisions/2026-10-06-calco-office-export-library.md`.
 
 **The Studio's browser PDF is the exception, and only its worker lane.** It
 rasterizes like the above, then writes every word back over the page image

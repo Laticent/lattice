@@ -56,6 +56,8 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `build:uncommitted` | Generate ONLY the built-not-committed artifacts (dist/, the docs-site bundles). The cold-tree bootstrap: the ownership guard reads dist/ CSS, so it cannot run before this. Skips the guard for that reason. |
 | `cadenza-lib:build` | Build the Cadenza library dist/ (ESM + CJS + .d.ts, esbuild + tsc) so import/require('@laticent/cadenza') resolves — the workspace package that retires the caption hand-mirrors. |
 | `cadenza-lib:check` | Freshness gate for the Cadenza library dist/ (stale vs docs/src/lib/cadenza/*.ts). |
+| `calco-lib:build` | Build the Calco office-export library dist/ (ESM + CJS + .d.ts, esbuild + tsc) so require('@laticent/calco') resolves for the emulator and the tests. |
+| `calco-lib:check` | Freshness gate for the Calco library dist/ (stale vs docs/src/lib/calco/*.ts). |
 | `capabilities:build` | Generate engineering/capabilities.md — the index of every script, tool, and framework. |
 | `capabilities:check` | Freshness gate for capabilities.md; fails on drift or any undescribed script/tool. |
 | `css:build` | Bundle dist/lattice.css (+ -min) — the palette-blind engine stylesheet. |
@@ -202,6 +204,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `test:adaptive` | Unit scope: the box-family adaptivity model (lib/adaptive) and the manifest adapt contract. |
 | `test:all` | Unit + integration umbrella. |
 | `test:authoring` | Unit scope: authoring helpers (speaker notes, …). |
+| `test:calco` | Unit scope: calco, the office-export library behind .odp and editable .pptx (reader, ODP + PPTX writers, font metrics, serialization). |
 | `test:cli` | Unit scope: the CLI. |
 | `test:components` | Unit scope: component manifests + per-component logic. |
 | `test:concepts` | Unit scope: the concept ontology (lib/concepts) and its drift gate against the live catalogs. |
@@ -434,6 +437,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/build-anima-player.js` | Bundle the Anima host + vector backends into ONE self-contained IIFE string, for |
 | `tools/build-axis-dom-catalog.js` | Generates lib/runtime/axis-dom-catalog.generated.js — a plain CJS lookup |
 | `tools/build-cadenza-lib.js` | Build the Cadenza library's consumable dist/ — the ESM + CJS entries + type |
+| `tools/build-calco-lib.js` | Build the Calco library's consumable dist/: the ESM and CJS entries and the type |
 | `tools/build-chart-finish-css.js` | Generates lib/components/chart/_chart-family/chart-finish.generated.css — the chart finishes' rules. |
 | `tools/build-chart-registry.js` | Generates lib/plugins/chart-family/shared/chart-registry.generated.js — |
 | `tools/build-dagre-bundle.js` | Build the dagre layout bundle the state-chart's browser pass uses. |
