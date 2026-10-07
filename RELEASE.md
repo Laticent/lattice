@@ -37,20 +37,45 @@ deterministically from `## Unreleased` + the fragments** — see Versioning.
 What ships is defined entirely by `package.json` — don't special-case
 it at release time:
 
-- **`exports`** — the public entry points. Consumers reach the engine
-  through named subpaths (`/css`, `/runtime`, `/config`,
-  `/themes/<name>.css`), never raw repo paths.
+- **`exports`** — the public entry points, and at 1.0 every one of them is
+  a promise. Consumers reach the engine through named subpaths (`/css`,
+  `/runtime`, `/engine`, `/themes/<name>.css`, and the two named `dist/`
+  files `dist/lattice-emoji.css` and `dist/docs/components.json`). There
+  is deliberately no `./lib/*` or `./dist/*` wildcard: a wildcard makes
+  every internal file public API.
 - **`files`** — the allowlist. Ships engine source, `dist/`, `themes/`,
-  and the two authoring docs (`design/skill.md`,
-  `design/design-system.md`). PDFs and `*.gallery.md` are excluded
-  via negation — they're regression baselines and reviewer
-  deliverables, kept in git but never shipped. Tarball is ~2.3 MB
-  (the bundled `dist/lattice-emulator.js` is the bulk of it).
+  and the authoring docs (`design/skill.md`, `design/design-system.md`,
+  `design/skills/`). PDFs and `*.gallery.md` are excluded via negation —
+  they're regression baselines and reviewer deliverables, kept in git but
+  never shipped. So are `dist/marp-kit/` and `dist/agent-kit/`, which
+  ship on the `dist-kits` branch and in the release zip instead. The
+  tarball is ~22 MB packed, ~71 MB unpacked (measured 2026-10-07); the
+  bundled `dist/lattice-emulator.js` and `dist/lattice-runtime.js` are
+  the bulk of it.
+- **`dependencies`** — everything shipped code loads at run time, and
+  nothing else. That includes the workspace libraries the engine imports
+  (`@laticent/segno`, `trama`, `cadenza`, `calco`, `ltt`), which the
+  bundled CLI also inlines, so `lattice` runs even where `./engine`'s
+  imports would not resolve. A library a plugin keeps a committed copy of
+  (Mermaid and its CLI render page, ZenUML, KaTeX, function-plot) is a
+  `devDependency`: the build refreshes the copy from it, and no install
+  needs it. `test/unit/cli/shipped-imports-resolvable.test.js` fails when
+  shipped code loads a package an install would not provide; a loader
+  that survives the absence is sanctioned there with its reason.
 
 Verify before any release:
 
 ```sh
 npm pack --dry-run        # inspect file list + size; no .pdf should appear
+```
+
+And install it the way a user will, in an empty directory, before the
+first publish of any new dependency shape:
+
+```sh
+npm pack --pack-destination /tmp/p && for l in segno trama cadenza calco ltt; do npm pack -w @laticent/$l --pack-destination /tmp/p; done
+mkdir /tmp/room && cd /tmp/room && npm init -y && PUPPETEER_SKIP_DOWNLOAD=1 npm i /tmp/p/*.tgz
+npx lattice deck.md deck.pdf
 ```
 
 ## Versioning
@@ -134,7 +159,7 @@ conflate them:
 
 | Artifact | Built by | For |
 |---|---|---|
-| **npm tarball** | `npm publish` (`files` allowlist) | `npm install` consumers; engine source + `dist/` (incl. `-min` variants), no PDFs. ~2.6 MB. |
+| **npm tarball** | `npm publish` (`files` allowlist) | `npm install` consumers; engine source + `dist/` (incl. `-min` variants), no PDFs, no kits. ~22 MB packed. |
 | **Source code (zip/tar.gz)** | GitHub, automatically | the whole repo at the tag — clone-and-build. |
 | **`lattice-v<x.y.z>.zip`** | `npm run release:zip` | download-and-use: the curated, offline-browsable **full showcase**. |
 
@@ -226,7 +251,13 @@ Prerequisites:
 - The jobs declare the permissions they need: `contents: write` +
   `pull-requests: write` for phase 1, `contents: write` + `id-token: write` for
   phase 2 (`id-token` for npm `--provenance`).
-- **To enable npm publish:** add an **`NPM_TOKEN`** secret (publish rights,
+- **Do not set `NPM_TOKEN` yet.** `@laticent/lattice` depends on five workspace
+  libraries (`@laticent/segno`, `trama`, `cadenza`, `calco`, `ltt`) that are not
+  on npm, and this workflow publishes only the root package. A root-only publish
+  would make every `npm i @laticent/lattice` fail with E404. The libraries
+  publish first, from the multi-package release that replaces this step (slices C
+  and E of `engineering/decisions/2026-10-07-first-npm-release.md`).
+- **To enable npm publish (after that):** add an **`NPM_TOKEN`** secret (publish rights,
   exposed as `NODE_AUTH_TOKEN`) and confirm the `@laticent` scope exists and
   the token can publish to it. **Put it in the `automation` environment, not in
   the repo secrets** — a registry-publish credential is the last thing that

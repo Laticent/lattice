@@ -87,9 +87,9 @@ docs-site bundles are generated, not committed (they conflicted in the merge
 queue on every other PR). It takes ~16s and needs no browser. If you ever need to
 regenerate them by hand, `npm run build`.
 
-Requires Node 22.12+ (`require()` of an ES module, which `lib/authoring` uses to
-share the class-directive scanner, is unflagged from that release).
-`npm install` pulls in the Mermaid CLI and Puppeteer
+Requires Node 22.13+ (jsdom, which the engine's server-side transforms parse with,
+supports 22.x from 22.13; `require()` of an ES module, which `lib/authoring` uses,
+is unflagged from 22.12). `npm install` pulls in Puppeteer
 (which downloads a matching Chromium). It does **not** pull Marp — the owned
 engine renders every first-party path.
 
@@ -335,7 +335,7 @@ marp kit) carry all three automatically.
 Both engines are vendored, not fetched: this snippet used to point Mermaid at
 jsdelivr, which is the CDN dependency
 `engineering/decisions/2026-09-03-self-hosted-runtime-deps.md` removed from the
-codebase — the Mermaid plugin owns a committed copy (`lib/plugins/mermaid/vendor/mermaid.min.js`), and every export bundle and the Marp kit carry it as `mermaid-v11-min.js`.
+codebase — the Mermaid plugin owns a committed copy (`lib/plugins/mermaid/vendor/mermaid.min.js`), and every export bundle and the Marp kit carry it as `mermaid-v11-min.js`. In an npm install, load it from `node_modules/@laticent/lattice/lib/plugins/mermaid/vendor/mermaid.min.js`.
 
 Keep `dist/fonts/` beside `dist/lattice.css` — the `@font-face` srcs are
 stylesheet-relative, so moving the CSS without the directory drops the deck to

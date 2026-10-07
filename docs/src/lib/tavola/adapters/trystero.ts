@@ -7,7 +7,7 @@
 // The version is pinned exactly: 0.26 changed the action API, so a minor bump is a code change.
 
 import { joinRoom, selfId } from 'trystero/nostr';
-import type { LinkPath, Transport } from '../types';
+import type { LinkPath, Transport } from '../types.js';
 
 /** Namespaces every Tavola room on the relays, so it never meets another app's room. */
 export const TAVOLA_APP_ID = 'laticent-tavola-v1';

@@ -13,10 +13,10 @@
  *   - `styles.xml` needs an `<office:styles>` element, even an empty one, or LibreOffice
  *     ignores the page layout and falls back to its own 28 × 15.75 cm page.
  */
-import { type FontMetrics, faceFor, facesUsed, readFontMetrics, uniqueFaceNames } from './fonts';
-import { dominantStyle, metricsFor, placeFrame } from './layout';
-import { renameFace } from './sfnt';
-import type { Deck, EmbeddedFont, JSZipClass, TextStyle } from './types';
+import { type FontMetrics, faceFor, facesUsed, readFontMetrics, uniqueFaceNames } from './fonts.js';
+import { dominantStyle, metricsFor, placeFrame } from './layout.js';
+import { renameFace } from './sfnt.js';
+import type { Deck, EmbeddedFont, JSZipClass, TextStyle } from './types.js';
 
 export const ODP_MIMETYPE = 'application/vnd.oasis.opendocument.presentation';
 

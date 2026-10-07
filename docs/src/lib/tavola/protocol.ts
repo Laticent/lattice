@@ -2,8 +2,8 @@
 //   0 = control (UTF-8 JSON, below)   1 = document stream   2 = awareness stream   3 = app posts
 // Tavola decides who may send and receive each; it never parses stream or post bytes.
 
-import { type Cert, MAX_CHAIN } from './hostkey';
-import type { Color, Invite, Member, Role } from './types';
+import { type Cert, MAX_CHAIN } from './hostkey.js';
+import type { Color, Invite, Member, Role } from './types.js';
 
 /** A rejoin token and the member it re-admits — what a host carries across its own reload, and
  *  hands its heir. */

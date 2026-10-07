@@ -7,7 +7,7 @@
  * has to be pinned to one weight first. That needs a shaping engine (HarfBuzz), which the
  * host already has; `prepareFonts` takes it as a `pin` function and stays dependency-free.
  */
-import type { Deck, EmbeddedFont, TextStyle } from './types';
+import type { Deck, EmbeddedFont, TextStyle } from './types.js';
 
 /** Vertical metrics as fractions of the em: what a writer needs to place a baseline. */
 export interface FontMetrics {

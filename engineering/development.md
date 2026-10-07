@@ -31,8 +31,8 @@ scopes: `galleries`, `parity`, `mermaid`, `screenshot`. Run via
 Three numbers, one purpose each:
 
 - **`.nvmrc` = 22** — current active LTS, what `nvm use` puts devs on.
-- **`engines.node` = `>=22.12.0`** — declared supported minimum. The `.12` is
-  load-bearing; see the `require()`-of-ESM note below.
+- **`engines.node` = `>=22.13.0`** — declared supported minimum. The `.13` is
+  load-bearing; see the note below.
 - **CI matrix = `[22, 24]`** — verifies the engines claim. The FULL unit suite
   runs on 22; on 24 a representative smoke subset (core/engine/parsing/contracts/
   transformers/export) confirms cross-version compat without paying 2× the whole
@@ -43,7 +43,10 @@ iff you drop a version from the matrix. The original cause of the
 `node --test <dir>` outage that started this whole overhaul was
 matrix=Node-18 while devs ran Node 22 — keep the three numbers aligned.
 
-`engines` is **`>=22.12.0`**, not `>=22`, and the extra `.12` is load-bearing:
+`engines` is **`>=22.13.0`**, not `>=22`. Two requirements set it, and the higher wins.
+jsdom, a runtime dependency since the 1.0 packaging work (the engine's server-side
+transforms parse with it), supports Node 22 from **22.13.0** (`^20.19.0 || ^22.13.0 ||
+>=24.0.0`). Below that sits the older reason, which set `.12`:
 `lib/authoring/{lint,review,scorecard,fact-check}-core.js` `require()` the ESM
 `lib/core/class-directive-scan.mjs` so the six authoring resolvers share one
 reader, and `require()` of an ES module is unflagged only from 22.12.0

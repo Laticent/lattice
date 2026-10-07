@@ -30,7 +30,7 @@
  * capture that copies computed style (a headless screenshot, html-to-image). Everything
  * is undone by `restoreSlide`.
  */
-import type { TextFrame, TextRun, TextStyle } from './types';
+import type { TextFrame, TextRun, TextStyle } from './types.js';
 
 /** What `readSlide` returns. */
 export interface ReadResult {

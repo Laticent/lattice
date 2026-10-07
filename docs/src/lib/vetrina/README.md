@@ -17,7 +17,15 @@ resolves to the ESM build for `import` and the CJS build for `require`.)
 
 > Vetrina is the walkthrough engine behind Laticent's Studio demo. The full
 > design contract, invariants, and the adversarial review that shaped it live in
-> [`engineering/decisions/2026-07-05-vetrina-walkthrough-library.md`](../../../../engineering/decisions/2026-07-05-vetrina-walkthrough-library.md).
+> [`engineering/decisions/2026-07-05-vetrina-walkthrough-library.md`](https://github.com/Laticent/lattice/blob/main/engineering/decisions/2026-07-05-vetrina-walkthrough-library.md).
+
+## Install
+
+```sh
+npm i @laticent/vetrina
+```
+
+React is an optional peer, needed only for `@laticent/vetrina/react`.
 
 ## 60-second start — on a plain page, no build
 
@@ -53,7 +61,7 @@ resolves to the ESM build for `import` and the CJS build for `require`.)
 
 A runnable, non-slide version of this is the **reference tour**
 (`docs/src/pages/vetrina-tour.astro`, driven by
-[`../vetrina-exemplars/reference-tour.ts`](../vetrina-exemplars/reference-tour.ts)).
+[`../vetrina-exemplars/reference-tour.ts`](https://github.com/Laticent/lattice/blob/main/docs/src/lib/vetrina-exemplars/reference-tour.ts)).
 
 ## The one idea — theater vs. substance
 
@@ -882,5 +890,9 @@ The core is mechanically kept self-contained (an import-boundary gate fails the
 build if anything here reaches outside the folder). Worked examples — a buildless
 `awaitUser` tour and a generic-host board covering gestures, drag success/rejection,
 CSS-first theming, root-scoping, and interleave + take-over — live in
-[`../vetrina-exemplars/`](../vetrina-exemplars/) with their e2e proofs in
+[`../vetrina-exemplars/`](https://github.com/Laticent/lattice/blob/main/docs/src/lib/vetrina-exemplars/) with their e2e proofs in
 `docs/e2e/vetrina-*.spec.ts`.
+
+## License
+
+AGPL-3.0-only. The full text ships as `LICENSE` in the package.

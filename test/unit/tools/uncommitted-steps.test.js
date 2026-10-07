@@ -81,6 +81,8 @@ const EXPECTED_UNCOMMITTED = new Set([
   // `dist/`); the committed notation.generated.ts is written by build-segno-grammar.js.
   'build-segno-lib.js',
   'build-suono-lib.js',
+  // Its whole write set is docs/src/lib/tavola/dist/, covered by docs/.gitignore's `dist/`.
+  'build-tavola-lib.js',
   'build-read-along-core.js',
   'build-marp-kit.js',
   'build-agent-kit.mjs',

@@ -35,6 +35,12 @@ does not build.
 
 (segno, Italian: sign, mark — and the musical *dal segno*.)
 
+## Install
+
+```sh
+npm i @laticent/segno
+```
+
 ## Write a grammar
 
 ```ts
@@ -219,13 +225,13 @@ the same document (whatever you group by: a file, a config, a slide deck), with 
 
 ## First user: Lattice
 
-[Lattice](../../../../README.md) renders slide decks from Markdown, and its inline code spans carry
+[Lattice](https://github.com/Laticent/lattice/blob/main/README.md) renders slide decks from Markdown, and its inline code spans carry
 directives: `` `{BETA, tag, c4}` `` is a pill, `` `[x]` `` a state mark, `` `[{Effort, 0..10}, Reach]` ``
 a chart's axes. Before Segno it had 27 hand-written grammars for them with 21 sigils between them;
 it is moving all of them onto the one notation, with one schema per place a span can sit. Why it
 built an engine rather than adopting a parser library, and what it measured:
-[`engineering/decisions/2026-09-28-parser-library-bakeoff.md`](../../../../engineering/decisions/2026-09-28-parser-library-bakeoff.md).
-The design: [`2026-09-28-segno-unified-inline-notation.md`](../../../../engineering/decisions/2026-09-28-segno-unified-inline-notation.md).
+[`engineering/decisions/2026-09-28-parser-library-bakeoff.md`](https://github.com/Laticent/lattice/blob/main/engineering/decisions/2026-09-28-parser-library-bakeoff.md).
+The design: [`2026-09-28-segno-unified-inline-notation.md`](https://github.com/Laticent/lattice/blob/main/engineering/decisions/2026-09-28-segno-unified-inline-notation.md).
 
 ## Speed
 
@@ -244,7 +250,7 @@ lists and 4,645 inline spans in Lattice's decks); run 2026-09-29, Node 22:
 | Ohm | PEG, memoized | 107,161 ns | 24,597 ns | did not finish |
 
 Reproduce with `npm run parser:bakeoff:versus`; the method and caveats are in
-[`2026-09-28-parser-library-bakeoff.md` § Head to head with Segno](../../../../engineering/decisions/2026-09-28-parser-library-bakeoff.md).
+[`2026-09-28-parser-library-bakeoff.md` § Head to head with Segno](https://github.com/Laticent/lattice/blob/main/engineering/decisions/2026-09-28-parser-library-bakeoff.md).
 Absolute times move with the machine; the ratios carry.
 
 **Against the parsers it replaces, in detail:**
@@ -355,3 +361,7 @@ alone. Tests: `cd docs && npx vitest run src/lib/segno` (fuzzing against a brute
 against Lattice's number and time readers, and metamorphic tests of the notation's promises).
 `npm run mutate:segno` injects 77 defects one at a time and fails if the suite misses any; it takes
 about fifteen minutes and is not a CI gate.
+
+## License
+
+AGPL-3.0-only. The full text ships as `LICENSE` in the package.

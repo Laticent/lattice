@@ -5,12 +5,12 @@
 `@laticent/ltt` is the format and the functions that read it: the types, a JSON Schema generated
 from them, a validator, the two encodings (canonical for tools, packed for the HTML export), the
 word cursor (`makeCursor`), and the timing functions (`positionAt`, `timeline`). It has no
-engine (that is [Cadenza](../cadenza/)), no audio ([Suono](../suono/)) and no DOM, and it imports
+engine (that is [Cadenza](https://github.com/Laticent/lattice/blob/main/docs/src/lib/cadenza/)), no audio ([Suono](https://github.com/Laticent/lattice/blob/main/docs/src/lib/suono/)) and no DOM, and it imports
 nothing outside this folder, not even a `node:` built-in. A boundary gate enforces that.
 
-- **Spec:** [`engineering/ltt.md`](../../../../engineering/ltt.md), including its owner, the
+- **Spec:** [`engineering/ltt.md`](https://github.com/Laticent/lattice/blob/main/engineering/ltt.md), including its owner, the
   transport rules and what video export guarantees.
-- **Why:** [`engineering/decisions/2026-09-24-lattice-timing-track.md`](../../../../engineering/decisions/2026-09-24-lattice-timing-track.md).
+- **Why:** [`engineering/decisions/2026-09-24-lattice-timing-track.md`](https://github.com/Laticent/lattice/blob/main/engineering/decisions/2026-09-24-lattice-timing-track.md).
 
 ```ts
 import { buildTrack } from '@laticent/cadenza';
@@ -45,3 +45,13 @@ imports them from Cadenza keeps working.
 
 **Editing the types:** `types.ts` is the schema's source. Run `npm run ltt-schema:build` and
 commit `ltt.schema.json`; `npm run build:check` fails when you forget.
+
+## Install
+
+```sh
+npm i @laticent/ltt
+```
+
+## License
+
+AGPL-3.0-only. The full text ships as `LICENSE` in the package.

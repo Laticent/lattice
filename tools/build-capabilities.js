@@ -156,6 +156,7 @@ const SCRIPT_META = {
   'ltt-schema:build':         ['Build & bundle', 'Generate docs/src/lib/ltt/ltt.schema.json (JSON Schema 2020-12) FROM docs/src/lib/ltt/types.ts with the TypeScript parser — guardrail G1: the types are the one source of the LTT schema.'],
   'ltt-schema:check':         ['Build & bundle', 'Freshness gate for the generated LTT JSON Schema; build:check runs it, so a type change without a regenerated schema cannot merge.'],
   'suono-lib:build':          ['Build & bundle', 'Build the Suono library dist/ (ESM + CJS + .d.ts, esbuild + tsc) so import/require(\'@laticent/suono\') and npm publish resolve — the audio engine\'s consumable artifact.'],
+  'tavola-lib:build':         ['Build & bundle', 'Build the Tavola library dist/ (ESM + CJS for the core and the Trystero adapter, + .d.ts) on the shared tools/lib/build-workspace-lib.js, so @laticent/tavola publishes JavaScript rather than raw TypeScript.'],
   'suono-lib:check':          ['Build & bundle', 'Freshness gate for the Suono library dist/ (stale vs docs/src/lib/suono/*.ts).'],
   'split:treatments':         ['Build & bundle', 'Render §0c\'s split-treatment table (which of the 11 treatments each component gets) into the split decision note from TREATMENTS in lib/core/split-facts.js — the prose used to be a second, unchecked copy of that map.'],
   'split:treatments:check':   ['Build & bundle', 'Freshness gate for §0c\'s generated split-treatment table (stale vs lib/core/split-facts.js).'],
