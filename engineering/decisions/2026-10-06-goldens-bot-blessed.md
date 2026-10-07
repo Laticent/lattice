@@ -101,6 +101,11 @@ violations, not "this got worse".
   A golden the gate could not check, a bless that failed, and a PR whose comments could
   not be read all force a "no". A failed bless also turns the nightly run red.
 
+  **The first run (2026-10-07, dispatched by hand) crashed** after 68 minutes of checking:
+  the bot read the gate's `--json` report from a pipe, and the gate's `process.exit()` cut
+  it off at 146,176 bytes. The bot now reads the gate's `report.json` file, and the gate
+  drains stdout before exiting.
+
   **The first week is a dry run.** The bot opens its PR and comments "would auto-merge:
   yes/no, and why" for each rule, but merges nothing. After a week of real nights, the
   thresholds in rules 2 and 3 are set from that data, recorded here, and auto-merge is
