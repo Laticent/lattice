@@ -56,19 +56,29 @@
 // .scratch/regression/.
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { basename, dirname, join, relative } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  FAIL_FRACTION,
+  FAIL_FRACTION_MERMAID,
+  FUZZ,
+  failFractionForDeck,
+  failFractionForGallery,
+  galleryDecks as galleryDecksAt,
+  galleryName,
+  goldenForGallery,
+  renderDeck,
+  renderGallery,
+  THEMES,
+} from './lib/golden-render.mjs';
 import { deckGoldenPdfs } from './lib/golden-set.mjs';
 
 const require = createRequire(import.meta.url);
 const { pixelDiff, montageTriptych, pngsToPdf } = require('./pixel-check.js');
-const { injectDark } = require('./build-galleries.js');
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const EMULATOR = join(ROOT, 'lattice-emulator.js');
-const THEME_CSS = join(ROOT, 'dist', 'lattice.css');
 const OUT = join(ROOT, '.scratch', 'regression');
 
 // Tolerance mirrors engine-parity's: a per-channel delta within FUZZ is AA
@@ -76,8 +86,8 @@ const OUT = join(ROOT, '.scratch', 'regression');
 // FAIL_FRACTION of the page. The emulator embeds self-hosted fonts so a faithful
 // re-render is pixel-identical (0 px) in practice; the tolerance is headroom for
 // cross-environment rasterizer AA, not a license for visible change.
-const FUZZ = '3%'; // ≈ channel delta 8 / 255, the engine-parity threshold
-const FAIL_FRACTION = 0.0005; // 0.05% of the page (≈ 260 px at 72dpi 960×540)
+// FUZZ = '3%' (≈ channel delta 8 / 255, the engine-parity threshold), now in lib/golden-render.mjs.
+// FAIL_FRACTION = 0.0005 (0.05% of the page, ≈ 260 px at 72dpi 960×540), now in lib/golden-render.mjs.
 // THE COROLLARY NOBODY HAD WRITTEN DOWN: a real, intended change SMALLER than the
 // floor leaves its goldens stale, and `--bless` will not promote them — the branch
 // below is `if (opts.bless && drifted.length)`, so a sub-floor render is produced and
@@ -107,16 +117,11 @@ const FAIL_FRACTION = 0.0005; // 0.05% of the page (≈ 260 px at 72dpi 960×540
 // golden-diff before/after comment is the human catch for any subtle intended
 // change. Flat-content galleries keep the strict floor. See
 // engineering/gotchas.md ("committed render golden doesn't match a fresh render").
-const FAIL_FRACTION_MERMAID = 0.01; // 1% — ~2× the observed cross-machine AA noise
+// FAIL_FRACTION_MERMAID = 0.01 (1% — ~2× the observed cross-machine AA noise), now in lib/golden-render.mjs.
 
 // Galleries in the chart or diagram bucket are the only ones whose content is
 // mmdc-rendered SVG, so they're the only ones that need the wider floor.
-const MERMAID_BUCKET_RE = /\/components\/(chart|diagram)\//;
-function failFractionFor(galleryMd) {
-  return MERMAID_BUCKET_RE.test(galleryMd) ? FAIL_FRACTION_MERMAID : FAIL_FRACTION;
-}
-
-const THEMES = ['light', 'dark'];
+const failFractionFor = failFractionForGallery;
 
 // ── Corpus ──────────────────────────────────────────────────────────────────
 // Every *.gallery.md under lib/ — per-component galleries, per-bucket survey
@@ -129,15 +134,7 @@ const THEMES = ['light', 'dark'];
 // them, no pixel gate watched them, and the overflow ratchet's corpus did not
 // reach them either — three blind spots on one path (#1279).
 function galleryDecks() {
-  const out = [];
-  (function walk(dir) {
-    for (const ent of readdirSync(dir, { withFileTypes: true })) {
-      const p = join(dir, ent.name);
-      if (ent.isDirectory()) walk(p);
-      else if (ent.name.endsWith('.gallery.md')) out.push(p);
-    }
-  })(join(ROOT, 'lib'));
-  return out.sort();
+  return galleryDecksAt(ROOT);
 }
 
 // ── The OTHER two thirds of the committed corpus (#1379) ─────────────────────
@@ -181,13 +178,9 @@ function goldenDeckName(md) {
 
 // The gallery's display name: the basename without .gallery.md. Matches the
 // `--only` token build-galleries / build-bucket-galleries accept.
-function deckName(galleryMd) {
-  return basename(galleryMd).replace(/\.gallery\.md$/, '');
-}
+const deckName = galleryName;
 
-function goldenFor(galleryMd, theme) {
-  return galleryMd.replace(/\.gallery\.md$/, `.gallery.${theme}.pdf`);
-}
+const goldenFor = goldenForGallery;
 
 // ── Fresh render (the gate's candidate) ───────────────────────────────────────
 // Render a gallery to a TEMP PDF the same way build-galleries blesses the golden:
@@ -201,33 +194,7 @@ function goldenFor(galleryMd, theme) {
 // out of the committed tree; the caller cleans it (and the .html sidecar) up.
 // For dark, the injected copy is likewise written alongside the source.
 function renderFresh(galleryMd, theme) {
-  const dir = dirname(galleryMd);
-  const name = deckName(galleryMd);
-  const outPdf = join(dir, `.regr-${name}.${theme}.pdf`);
-  const cleanup = [outPdf, outPdf.replace(/\.pdf$/, '.html')];
-  try {
-    if (theme === 'light') {
-      execFileSync(process.execPath, [EMULATOR, galleryMd, THEME_CSS, outPdf, 'indaco', '-q'], {
-        cwd: ROOT,
-        stdio: ['ignore', 'pipe', 'pipe'],
-      });
-    } else {
-      const tmpMd = join(dir, `.regr-${name}.${theme}.md`);
-      cleanup.push(tmpMd, tmpMd.replace(/\.md$/, '.html'));
-      writeFileSync(tmpMd, injectDark(readFileSync(galleryMd, 'utf8')));
-      execFileSync(process.execPath, [EMULATOR, tmpMd, THEME_CSS, outPdf, 'indaco', '-q'], {
-        cwd: ROOT,
-        stdio: ['ignore', 'pipe', 'pipe'],
-      });
-    }
-  } catch (err) {
-    cleanup.forEach((p) => { try { rmSync(p, { force: true }); } catch { /* ignore */ } });
-    throw err;
-  }
-  // Drop the injected dark source + every .html sidecar now; keep the PDF for the
-  // caller to diff, then remove via the returned cleanup list.
-  for (const p of cleanup) if (p !== outPdf && /\.(md|html)$/.test(p)) { try { rmSync(p, { force: true }); } catch { /* ignore */ } }
-  return { outPdf, cleanup };
+  return renderGallery(ROOT, galleryMd, theme);
 }
 
 // A deck golden's fresh render. Same asset-resolution constraint as above — the
@@ -240,30 +207,14 @@ function renderFresh(galleryMd, theme) {
 // Passing `THEME_CSS`/`indaco` the way the gallery path does would override the deck's
 // theme and false-fail every deck that names another one.
 function renderFreshDeck(md) {
-  const outPdf = join(dirname(md), `.regr-${basename(md, '.md')}.pdf`);
-  const cleanup = [outPdf, outPdf.replace(/\.pdf$/, '.html')];
-  try {
-    execFileSync(process.execPath, [EMULATOR, md, outPdf, '-q'], { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'] });
-  } catch (err) {
-    cleanup.forEach((p) => { try { rmSync(p, { force: true }); } catch { /* ignore */ } });
-    throw err;
-  }
-  try { rmSync(outPdf.replace(/\.pdf$/, '.html'), { force: true }); } catch { /* ignore */ }
-  return { outPdf, cleanup };
+  return renderDeck(ROOT, md);
 }
 
 // Mermaid is detected per DECK here rather than by directory, because these decks are
 // not bucketed: 24 of the 185 deck goldens carry a ```mermaid fence and they are spread
 // across the tree. Same reason the galleries need it — mmdc's SVG anti-aliasing is not
 // bit-identical across machine classes.
-const MERMAID_FENCE_RE = /^[ \t]*(?:```|~~~)[ \t]*mermaid\b/m;
-function failFractionForDeck(md) {
-  try {
-    return MERMAID_FENCE_RE.test(readFileSync(md, 'utf8')) ? FAIL_FRACTION_MERMAID : FAIL_FRACTION;
-  } catch {
-    return FAIL_FRACTION;
-  }
-}
+// failFractionForDeck is imported from lib/golden-render.mjs.
 
 // `bless: true` re-blesses ONLY what actually drifted, by promoting the fresh render
 // this run already produced onto the golden. Two reasons it works that way rather than
