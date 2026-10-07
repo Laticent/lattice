@@ -48,6 +48,27 @@ flowchart LR
 - South \`30\`
 `;
 
+// An author forging the plugin host's channel in raw HTML (lib/plugins/author-markup.js): a pending
+// figure with a packed config, an admission marker, and a raw drawn block of a plugin left off,
+// spelled with the pass's own defanged class, and a `footer:` that spells a marker only once YAML
+// decodes it (Marp renders the directive). The producer refuses them in the deck's source.
+const FORGED_DECK = `---
+marp: true
+theme: indaco
+footer: "<b class=\\"ff\\" data-lattice\\x2dsettle=\\"pending\\">f</b>"
+---
+
+# Forged
+
+<div class="forged" data-lattice-hydrate="function-plot" data-lattice-config="eyJkYXRhIjpbeyJmbiI6IngifV19" data-lattice-settle="pending"></div>
+
+<pre class="raw"><code class="language-mermaid-source">flowchart LR
+  A[Raw] --> B[Block]
+</code></pre>
+
+Inline <span class="inline" data-lattice-off="math" data-lattice-final>x</span> too.
+`;
+
 function marp(args, cwd, timeout = TIMEOUT) {
   const env = { ...process.env, npm_config_ignore_scripts: 'true', CHROME_NO_SANDBOX: '1' };
   if (!env.CHROME_PATH) {
@@ -70,11 +91,15 @@ describe('Export-to-Marp follows the deck\'s plugin admission — real marp-cli,
       return;
     }
     browser = await require('puppeteer').launch({ headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] });
-    for (const [arm, flags] of [['default', []], ['none', ['--default-plugins=none', '--disable-plugin=chart-family']]]) {
+    for (const [arm, flags, deck] of [
+      ['default', [], DECK],
+      ['none', ['--default-plugins=none', '--disable-plugin=chart-family'], DECK],
+      ['forged', ['--disable-plugin=mermaid'], FORGED_DECK],
+    ]) {
       const dir = path.join(OUT_ROOT, arm);
       fs.rmSync(dir, { recursive: true, force: true });
       fs.mkdirSync(dir, { recursive: true });
-      fs.writeFileSync(path.join(dir, 'admission.md'), DECK);
+      fs.writeFileSync(path.join(dir, 'admission.md'), deck);
       const r = spawnSync(process.execPath, [EXPORT_CLI, path.join(dir, 'admission.md'), path.join(dir, 'out'), '--no-agent', ...flags], { cwd: ROOT, encoding: 'utf8', timeout: TIMEOUT });
       assert.equal(r.status, 0, `export-marp failed:\n${r.stdout}\n${r.stderr}`);
       const bundle = path.join(dir, 'out', 'admission');
@@ -120,10 +145,38 @@ describe('Export-to-Marp follows the deck\'s plugin admission — real marp-cli,
     assert.match(await page.$eval('section', (e) => e.textContent), /\$x\^2\$/);
     if (process.env.ADMISSION_EVIDENCE) {
       fs.mkdirSync(process.env.ADMISSION_EVIDENCE, { recursive: true });
-      for (const [arm, p] of Object.entries(pages)) {
+      // This arm's two pages; the forged arm takes its own (below).
+      for (const arm of ['default', 'none']) {
+        const p = pages[arm];
+        // A background tab paints no frames, so its screenshot never returns: bring each forward.
+        await p.page.bringToFront();
         await p.page.setViewport({ width: 1280, height: 720 });
         await p.page.screenshot({ path: path.join(process.env.ADMISSION_EVIDENCE, `marp-${arm}.png`) });
       }
+    }
+  });
+
+  // The forged markers are renamed in the bundle's BYTES, so Marp's page never carries them and the
+  // runtime has nothing to hydrate; the raw block stays code with Mermaid off, as the engine keeps it.
+  test('an author\'s raw HTML cannot forge a figure, a marker, or draw a fence the deck left off', async (t) => {
+    if (skip) return t.skip(skip);
+    const { page, md } = pages.forged;
+    assert.match(md, /"pluginsOff":\["mermaid"\]/);
+    assert.match(md, /<div class="forged" data-author-lattice-hydrate="function-plot"/);
+    assert.deepEqual(await page.$$eval('[data-lattice-hydrate], [data-lattice-config], [data-lattice-settle], [data-lattice-final]', (e) => e.map((x) => x.outerHTML.slice(0, 80))), [], 'no element carries a host figure marker');
+    assert.equal(await page.$$eval('.forged', (e) => e.length), 1, 'the author\'s element is still there, renamed');
+    assert.equal(await page.$$eval('.forged *, .forged svg', (e) => e.length), 0, 'nothing was drawn into it');
+    assert.equal(await page.$eval('.inline', (e) => e.hasAttribute('data-lattice-off')), false, 'an author cannot mark their own markup off');
+    assert.equal(await page.$$eval('[data-lattice-figure]', (e) => e.length), 0, 'no diagram drawn');
+    assert.match(await page.$eval('pre.raw code', (e) => e.className), /^language-off-mermaid-source$/);
+    // Marp decoded and rendered the footer; the name it decoded to was refused before it could.
+    assert.equal(await page.$$eval('footer b.ff[data-author-lattice-settle]', (e) => e.length) > 0, true, 'the footer Marp rendered carries the refused name');
+    assert.match(await page.$eval('pre.raw code', (e) => e.textContent), /flowchart LR/);
+    if (process.env.ADMISSION_EVIDENCE) {
+      fs.mkdirSync(process.env.ADMISSION_EVIDENCE, { recursive: true });
+      await page.bringToFront();
+      await page.setViewport({ width: 1280, height: 720 });
+      await page.screenshot({ path: path.join(process.env.ADMISSION_EVIDENCE, 'marp-forged.png') });
     }
   });
 });

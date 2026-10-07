@@ -1485,6 +1485,45 @@ Answered by the owner on #2509 after #2508 merged; written here with the E0 chan
   (`followups.d/2509-p5-vendored-sources-to-dev-dependencies.md`); that changes what a consumer
   installs, so it is the owner's call.
 
+- **Export-to-Marp refuses forged markers too (`2509-p4`).** The last render path where an
+  author's raw HTML could speak the plugin host's channel. A Marp bundle is rendered by Marp with
+  `html: true`, so the engine's refusal never ran on it. **Where, decided:** in the PRODUCER, at
+  `withRuntimeScripts` (lib/core/marp-bundle.js), the one choke point the CLI exporter and the
+  Studio's in-browser exporter both pass through, and for the reason the deck class is refused
+  there: the runtime cannot tell the author's markup from its own. Rejected: a first step in the
+  bundled runtime, which would need a signal that the page is a Marp bundle rather than an engine
+  page with legitimate markers (the CLI's fluid viewer carries the same settings block), and a new
+  settings field would change every bundle's bytes. `refuseAuthorMarkupInSource`
+  (lib/plugins/author-markup.js) parses the deck with markdown-it (`html: true`, Marp's tokenizer)
+  and applies the engine's own `refuseAuthorMarkup` to the source lines of every raw-HTML token that
+  spells a marker or an off plugin's drawn fence; code fences keep their bytes. The cost, accepted
+  and documented: a code span on the SAME line as a forged tag is renamed too, because an inline
+  token knows its lines, not its offsets. **Directives, from the tier 1 checker:** Marpit reads
+  the front matter and every comment directive as YAML and renders `header:`/`footer:` with
+  `html: true`, so `data-lattice\x2dhydrate` in a double-quoted value spelled no marker in the
+  bytes and one on the page, and an indented block scalar was code to markdown-it and HTML to
+  Marp. Those regions are now refused whole, after `decodeYamlEscapes` undoes the escapes and
+  escaped line breaks (over-refusing a hostile deck, never under). The checker also caught a lone
+  `\r` shifting every later line (markdown-it counts it as a break; the split did not); lines are
+  now split as markdown-it counts them. `offDrawnFences` is now the one copy host.js and the
+  bundle share. **The runtime half:** `mark-off.mjs` matched an off fence by the whole class word
+  (`class~=`) while the pass draws by substring (`class*=`), so a ```mermaid-source fence Marp
+  renders stayed drawable with Mermaid off; it now matches as the pass reads.
+  **Evidence.** Every one of the 2,496 tracked Markdown files comes back byte-identical through the
+  refusal, so an ordinary bundle's bytes do not change. jsdom-judged unit arms run all 14 hostile
+  shapes the engine's refusal was proved against through `withRuntimeScripts` and a markdown-it
+  render, plus a list, a blockquote and a front-matter `footer:`; with the producer refusal
+  removed, 13 fail. Four directive arms emulate Marpit (the `yaml` parser, an inline render) and
+  each also asserts the unrefused deck WOULD carry a marker; without the decoding, 3 fail. The
+  lone-CR arm fails with the old split. The `mark-off` arm fails with the old selector. Real marp-cli 4.x + Chromium
+  (`test/integration/export/marp-admission.test.js`, 3 of 3): a bundle whose deck forges a pending
+  function plot, an inline `data-lattice-off` and `-final`, and a raw `language-mermaid-source`
+  block with Mermaid off, and a YAML-escaped `footer:` that Marp itself decodes and renders,
+  carries no host figure marker on any element, draws nothing into the
+  forged element, and leaves the block as code. The evidence screenshots also exposed a latent
+  hang in that file: with three pages open, a background tab never paints, so its screenshot timed
+  out; each page is brought to the front first.
+
 ## References
 
 - [`2026-06-14-plugin-extension-system.md`](2026-06-14-plugin-extension-system.md) — LPM.

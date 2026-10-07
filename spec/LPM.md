@@ -146,7 +146,20 @@ plugin that draws a fence from its code block is not admitted, renames its `lang
 `language-off-<fence>`, so no pass or probe reads an author's raw `<pre><code>` as that fence. By
 name rather than by tag, because an attribute selector matches a name exactly: no tokenizer
 disagreement can smuggle one through. On the default set (b) never fires, and (a) changes no
-tracked deck.
+tracked deck. **An Export-to-Marp bundle** is rendered by Marp, not the engine, so its producer
+(`withRuntimeScripts`, lib/core/marp-bundle.js) applies the same (a) and (b) to the deck's SOURCE
+(`refuseAuthorMarkupInSource`): it parses the deck as Marp does (markdown-it, `html: true`) and
+renames on the lines of every raw-HTML token, leaving code fences their bytes; and it refuses the
+front matter and every HTML comment whole, after undoing YAML's double-quoted escapes, because
+Marpit decodes those as YAML and renders `header:` and `footer:`. The bundled runtime marks a
+left-off plugin's fences by the substring its pass reads them by (`code[class*="language-<fence>"]`,
+lib/plugins/mark-off.mjs), so a `language-<fence>-source` block is marked too. **An Export-to-Marp bundle** is rendered by Marp, not the engine, so its producer
+(`withRuntimeScripts`, lib/core/marp-bundle.js) applies the same (a) and (b) to the deck's SOURCE:
+it parses the deck as Marp does (markdown-it, `html: true`) and renames on the lines of every
+raw-HTML token, leaving code fences their bytes (`refuseAuthorMarkupInSource`); and the bundled
+runtime marks a left-off plugin's fences by the substring its pass reads them by
+(`code[class*="language-<fence>"]`, lib/plugins/mark-off.mjs), so a `language-<fence>-source` block
+is marked too.
 
 ### 3.3 Contributions — `contributes`
 
@@ -429,6 +442,16 @@ manifest (`lib/core/marp-fidelity.js`). The name must be free: not a plugin, a p
 highlight.js language or alias, and at most 64 characters.
 
 ## 12. Changes
+
+- **0.5-draft, the Marp bundle refuses author markup (2026-10-07).** §3.2.1's refusal reaches the
+  one render the engine does not do: the Export-to-Marp producer refuses forged markers and an
+  off plugin's raw drawn fence in the deck's source, directives included, and the bundled runtime
+  marks an off fence by substring, as its pass reads it.
+
+- **0.5-draft, the Marp bundle refuses author markup (2026-10-07).** §3.2.1's refusal reaches the
+  one render the engine does not do: the Export-to-Marp producer refuses forged markers and an
+  off plugin's raw drawn fence in the deck's source, and the bundled runtime marks an off fence by
+  substring, as its pass reads it.
 
 - **0.5-draft, every library owned (2026-10-07).** `vendor` (§3.4): the libraries a plugin needs
   that are not its browser payload get the same owned, pinned, hashed copy, and a copy may be a

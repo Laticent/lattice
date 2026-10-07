@@ -13,7 +13,10 @@ const path = require('node:path');
 const { JSDOM } = require('jsdom');
 
 const { createEngine } = require('../../../lib/engine');
-const { refuseAuthorMarkup, HOST_MARKERS, BAKE_WRITTEN } = require('../../../lib/plugins/author-markup.js');
+const { refuseAuthorMarkup, refuseAuthorMarkupInSource, HOST_MARKERS, BAKE_WRITTEN } = require('../../../lib/plugins/author-markup.js');
+const { withRuntimeScripts } = require('../../../lib/core/marp-bundle.js');
+const { markPluginsOff } = require('../../../lib/plugins/mark-off.mjs');
+const { RUNTIME_DRAWN } = require('../../../lib/plugins/drawn.generated.mjs');
 
 const full = createEngine();
 const narrowed = createEngine({ plugins: { defaults: [] } });
@@ -61,30 +64,33 @@ describe('a raw-HTML drawn fence follows the render\'s admission', () => {
 
 const FORGED = '# Forged\n\n<div data-lattice-hydrate="function-plot" data-lattice-config="eyJkYXRhIjpbXX0=" data-lattice-settle="pending" class="plot"></div>\n\n<pre data-lattice-off="mermaid"><code>x</code></pre>\n';
 
+// Every shape that desynchronized a tag-walking refusal from the browser's tokenizer (HARD RULE
+// #25 checker), plus the plain spellings.
+const SHAPES = [
+  ['plain', '<div data-lattice-hydrate="mermaid">x</div>'],
+  ['inline', 'A <span data-lattice-off="math">y</span> z'],
+  ['glued to a quote', '<div class="a"data-lattice-hydrate="m"id="b">x</div>'],
+  ['upper case', '<p DATA-LATTICE-SETTLE=pending>t</p>'],
+  ['slash separator', '<img/data-lattice-settle src="a.png">'],
+  ['quote desync', '<div x="<b title=" data-lattice-hydrate=mermaid data-lattice-config=e30 ">x</div>'],
+  ['quote inside a name', '<div a"b data-lattice-hydrate=m>x</div>'],
+  ['comment opener in a value', '<div title="<!--" data-lattice-hydrate="m">x</div>'],
+  ['script opener in a value', '<div title="<script>" data-lattice-hydrate="m">x</div>'],
+  ['early comment end', '<!--> <div data-lattice-hydrate="m">x</div> -->'],
+  ['bang comment end', '<!-- --!> <div data-lattice-hydrate="m">x</div> -->'],
+  ['script end tag with an attribute', '<script></script x><div data-lattice-hydrate="m">x</div>'],
+  ['> inside a script\'s value', '<script title=">" data-lattice-hydrate="m"></script>'],
+  ['svg', '<svg><g data-lattice-settle="pending"></g></svg>'],
+];
+
 describe('an author cannot write the host\'s figure markers', () => {
   for (const [label, engine] of [['default set', full], ['narrowed', narrowed]]) {
     test(`${label}: a forged pending figure and admission marker reach no element`, () => {
       assert.deepEqual(markedElements(parse(html(engine, FORGED))), []);
     });
   }
-  // Every shape that desynchronized a tag-walking refusal from the browser's tokenizer (HARD RULE
-  // #25 checker), plus the plain spellings. The engine's output is parsed as a browser parses it.
-  for (const [label, raw] of [
-    ['plain', '<div data-lattice-hydrate="mermaid">x</div>'],
-    ['inline', 'A <span data-lattice-off="math">y</span> z'],
-    ['glued to a quote', '<div class="a"data-lattice-hydrate="m"id="b">x</div>'],
-    ['upper case', '<p DATA-LATTICE-SETTLE=pending>t</p>'],
-    ['slash separator', '<img/data-lattice-settle src="a.png">'],
-    ['quote desync', '<div x="<b title=" data-lattice-hydrate=mermaid data-lattice-config=e30 ">x</div>'],
-    ['quote inside a name', '<div a"b data-lattice-hydrate=m>x</div>'],
-    ['comment opener in a value', '<div title="<!--" data-lattice-hydrate="m">x</div>'],
-    ['script opener in a value', '<div title="<script>" data-lattice-hydrate="m">x</div>'],
-    ['early comment end', '<!--> <div data-lattice-hydrate="m">x</div> -->'],
-    ['bang comment end', '<!-- --!> <div data-lattice-hydrate="m">x</div> -->'],
-    ['script end tag with an attribute', '<script></script x><div data-lattice-hydrate="m">x</div>'],
-    ['> inside a script\'s value', '<script title=">" data-lattice-hydrate="m"></script>'],
-    ['svg', '<svg><g data-lattice-settle="pending"></g></svg>'],
-  ]) {
+  // The engine's output is parsed as a browser parses it.
+  for (const [label, raw] of SHAPES) {
     test(`${label}: no element carries a host marker`, () => {
       for (const engine of [full, narrowed]) assert.deepEqual(markedElements(parse(html(engine, `# x\n\n${raw}\n`))), []);
     });
@@ -139,5 +145,88 @@ describe('an author cannot write the host\'s figure markers', () => {
     refuseAuthorMarkup(`<div ${'data-lattice-off=1 '.repeat(20000)}>`);
     const ms = Number(process.hrtime.bigint() - t0) / 1e6;
     assert.ok(ms < 500, `took ${ms.toFixed(0)} ms`);
+  });
+});
+
+// An Export-to-Marp bundle is rendered by MARP with `html: true`, not by the engine, so the producer
+// refuses the same markup in the deck's source (lib/core/marp-bundle.js `withRuntimeScripts`). Marp's
+// tokenizer is markdown-it, so markdown-it with `html: true` stands in for it here, and jsdom judges
+// what the browser reads; test/integration/export/marp-admission.test.js runs the real marp-cli.
+describe('an Export-to-Marp bundle refuses the same markup in its source', () => {
+  const marp = require('markdown-it')({ html: true });
+  const bundled = (src, opts) => parse(marp.render(withRuntimeScripts(src, opts).split('<script')[0]));
+  test('a forged pending figure and admission marker reach no element', () => {
+    for (const off of [[], ['mermaid', 'function-plot']]) assert.deepEqual(markedElements(bundled(FORGED, { pluginsOff: off })), []);
+  });
+  for (const [label, raw] of SHAPES) {
+    test(`${label}: no element carries a host marker`, () => {
+      assert.deepEqual(markedElements(bundled(`# x\n\n${raw}\n`)), []);
+    });
+  }
+  test('inside a list, a blockquote and the front matter\'s footer, too', () => {
+    const src = '---\nfooter: <b data-lattice-settle="pending">f</b>\n---\n\n- a <i data-lattice-hydrate="m">i</i>\n\n> <div data-lattice-config="e30">q</div>\n';
+    assert.deepEqual(markedElements(bundled(src)), []);
+    assert.doesNotMatch(withRuntimeScripts(src), /footer: <b data-lattice-settle/);
+  });
+  // Marpit reads the front matter and every comment directive as YAML and renders `header:` and
+  // `footer:` with `html: true`. YAML decodes what markdown-it never sees: an escape, and an indented
+  // block scalar markdown-it would call code. Emulated here as Marpit does it: decode, render inline.
+  const directivesRendered = (bundle) => {
+    const values = [];
+    const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(bundle);
+    const docs = [...(fm ? [fm[1]] : []), ...[...bundle.matchAll(/<!--([\s\S]*?)-->/g)].map((m) => m[1])];
+    for (const d of docs) {
+      let y;
+      try { y = require('yaml').parse(d); } catch { continue; }
+      if (y && typeof y === 'object') for (const k of ['header', 'footer', '_header', '_footer']) if (typeof y[k] === 'string') values.push(y[k]);
+    }
+    return parse(values.map((v) => marp.renderInline(v)).join('\n'));
+  };
+  for (const [label, src] of [
+    ['a YAML escape in the front matter\'s header', '---\nheader: "<div data-lattice\\x2dhydrate=\\"mermaid\\" data-lattice\\u002dconfig=\\"e30\\">x</div>"\n---\n\n# t\n'],
+    ['an escaped line break inside the name', '---\nfooter: "<b data-lattice-hyd\\\n  rate=\\"m\\">x</b>"\n---\n\n# t\n'],
+    ['an indented block scalar, which markdown-it reads as code', '---\nheader: |\n\n    <div data-lattice-hydrate="m" data-lattice-config="e30">x</div>\n---\n\n# t\n'],
+    ['a comment directive with an escape', '# t\n\n<!-- _footer: "<b data-lattice\\x2dsettle=\\"pending\\">f</b>" -->\n'],
+  ]) {
+    test(`${label}: the directive Marpit renders carries no host marker`, () => {
+      const bundle = withRuntimeScripts(src).split('<script')[0];
+      assert.deepEqual(markedElements(directivesRendered(bundle)), []);
+      // …and the unrefused deck WOULD have carried one, so the arm can fail.
+      assert.notDeepEqual(markedElements(directivesRendered(src)), [], 'the fixture forges nothing');
+    });
+  }
+  test('a lone CR does not shift the refusal onto the wrong line', () => {
+    // markdown-it counts a lone `\r` as a line break; a split on `\n` alone did not.
+    for (const raw of ['<div data-lattice-hydrate="x"></div>', 'Inline <span data-lattice-off="m">i</span>.']) {
+      const src = `---\nmarp: true\n---\n\na\r\rb\n\n${raw}\n`;
+      assert.deepEqual(markedElements(bundled(src)), []);
+    }
+    const doc = bundled('# f\r\r\n\n<pre><code class="language-mermaid">graph TD; A-->B</code></pre>\n', { pluginsOff: ['mermaid'] });
+    assert.equal(doc.querySelectorAll(DRAWN).length, 0);
+  });
+  test('a raw drawn fence of a plugin left off stays code, even spelled `language-mermaid-source`', () => {
+    for (const cls of ['language-mermaid', 'language-mermaid-source']) {
+      const doc = bundled(`# f\n\n<pre><code class="${cls}">graph TD; A-->B</code></pre>\n`, { pluginsOff: ['mermaid'] });
+      markPluginsOff(doc, ['mermaid'], { drawn: RUNTIME_DRAWN }); // the bundled runtime's first step
+      assert.equal(doc.querySelectorAll(DRAWN).length, 0, `${cls}: the pass would draw the author's block`);
+    }
+  });
+  test('with the plugin loaded, the author\'s raw block is left as written, as the engine leaves it', () => {
+    assert.match(withRuntimeScripts(RAW_MERMAID), /<pre><code class="language-mermaid">/);
+  });
+  test('code keeps its bytes: a fence that documents the host still shows the marker', () => {
+    const src = '# Doc\n\n```html\n<div data-lattice-hydrate="function-plot"></div>\n```\n\n<div data-lattice-hydrate="m">x</div>\n';
+    const out = withRuntimeScripts(src);
+    assert.match(out, /```html\n<div data-lattice-hydrate="function-plot"><\/div>\n```/);
+    assert.match(out, /<div data-author-lattice-hydrate="m">x<\/div>/);
+  });
+  test('a deck with nothing to refuse is byte-identical: every tracked Markdown file', () => {
+    const files = require('node:child_process').execSync('git ls-files "*.md"', { cwd: path.join(__dirname, '../../..'), encoding: 'utf8' }).trim().split('\n');
+    assert.ok(files.length > 1000, 'read too few files for this to mean anything');
+    const changed = files.filter((f) => {
+      const src = fs.readFileSync(path.join(__dirname, '../../..', f), 'utf8');
+      return refuseAuthorMarkupInSource(src, marp, [['mermaid', 'mermaid']]) !== src;
+    });
+    assert.deepEqual(changed, []);
   });
 });
