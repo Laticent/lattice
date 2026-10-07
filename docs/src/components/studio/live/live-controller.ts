@@ -7,6 +7,7 @@ import { Awareness, applyAwarenessUpdate, encodeAwarenessUpdate, removeAwareness
 import * as Y from 'yjs';
 import { cleanName, createHostKey, createSession, formatLink, fromBase64Url, type HostKey, hostKeyFrom, type LinkPath, linkKind, mintLink, parseFragment, type Session, type SessionState, type TokenEntry, toBase64Url } from '@/lib/tavola';
 import { trysteroTransport } from '@/lib/tavola/adapters/trystero';
+import { LIVE_TURN } from './live-ice';
 import { IDLE_VIEW, type LiveActions, type LiveChatLine, type LiveColor, type LivePerson, type LiveView, type LobbyActions, type LobbyView, liveColor, liveColorLight } from './live-model';
 import { clearJoinIntent, HOST_KEY, hasFreshJoin, type LiveCollab, type LiveDeps, type LiveHost, readSealedJoin, saveName, scrubLiveFragment, storedLiveName, storeSealedJoin, takeFreshJoin } from './live-store';
 import { deleteHostPrivateKey, getHostPrivateKey, putHostPrivateKey, seal, unseal } from './secret-box';
@@ -510,7 +511,7 @@ export class LiveController {
 		};
 		const key = args.key ?? null;
 		const session = createSession({
-			transport: trysteroTransport(args.room, args.secret),
+			transport: trysteroTransport(args.room, args.secret, { turnConfig: LIVE_TURN }),
 			doc: docStream,
 			awareness: awStream,
 			...(args.host && key ? { host: { name: args.host.name, key, tokens: args.host.tokens, invite: { title: d.deckTitle, hostName: args.host.name, slides: d.slideCount, theme: d.theme } } } : { hostFingerprint: args.hostFingerprint }),

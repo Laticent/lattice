@@ -17,10 +17,13 @@ export type TrysteroOptions = {
 	/** Override the relay list (tests, or a self-hosted relay). */
 	relayUrls?: string[];
 	rtcConfig?: RTCConfiguration;
+	/** TURN servers, added after Trystero's public STUN servers (an `rtcConfig.iceServers` would
+	 *  replace those instead). Empty by default: the Studio's slot is `live-ice.ts`. */
+	turnConfig?: Array<{ urls: string | string[]; username?: string; credential?: string }>;
 };
 
 export function trysteroTransport(room: string, secret: string, opts: TrysteroOptions = {}): Transport {
-	const r = joinRoom({ appId: opts.appId ?? TAVOLA_APP_ID, password: secret, ...(opts.relayUrls ? { relayUrls: opts.relayUrls } : {}), ...(opts.rtcConfig ? { rtcConfig: opts.rtcConfig } : {}) }, room);
+	const r = joinRoom({ appId: opts.appId ?? TAVOLA_APP_ID, password: secret, ...(opts.relayUrls ? { relayUrls: opts.relayUrls } : {}), ...(opts.rtcConfig ? { rtcConfig: opts.rtcConfig } : {}), ...(opts.turnConfig?.length ? { turnConfig: opts.turnConfig } : {}) }, room);
 	const wire = r.makeAction<Uint8Array>('tavola');
 	return {
 		selfId,

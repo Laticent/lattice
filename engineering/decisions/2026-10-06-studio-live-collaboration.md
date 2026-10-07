@@ -414,7 +414,7 @@ Everything except signaling is peer to peer:
 | Encryption | DTLS / SRTP between peers (always on in WebRTC); AES-GCM on signaling with the link secret | browsers |
 | Signaling (matchmaking) | [Trystero](https://github.com/dmotz/trystero) (MIT) over its default Nostr strategy — public relays, no account; BitTorrent trackers as the second strategy | third parties, free |
 | STUN | a public STUN server | third party, free |
-| TURN | a config slot, off by default | nobody, unless a free public TURN is configured later |
+| TURN | a config slot, off by default (`LIVE_TURN` in `docs/src/components/studio/live/live-ice.ts`; the options, measured, are roadmap §3.1) | nobody, until the owner picks one |
 
 **Why GitHub Pages cannot be the middleman.** Pages serves static files. It cannot hold a
 connection open or pass a message from one browser to another, and two browsers need
