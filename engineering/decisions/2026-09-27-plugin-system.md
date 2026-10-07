@@ -1524,6 +1524,15 @@ Answered by the owner on #2509 after #2508 merged; written here with the E0 chan
   hang in that file: with three pages open, a background tab never paints, so its screenshot timed
   out; each page is brought to the front first.
 
+- **The Playground page's preview follows the host's defaults (`2509-p5`).** The page's editor
+  re-linted on `lattice:plugin-defaults` but its preview did not, so after
+  `LatticePlayground.setPluginDefaults` with no edit it kept the render made under the old
+  defaults. `PlaygroundApp.tsx` now routes the event through the same frame scheduler as an edit
+  (the in-flight guard the palette observer uses); the defaults are already in every render-cache
+  key. Pinned by `docs/e2e/plugin-admission.spec.ts` on the built site: a deck that renders 3
+  slides with math off and 2 with it on follows each switch with no keystroke. With the listener
+  removed, the case fails (expected 3, received 2).
+
 ## References
 
 - [`2026-06-14-plugin-extension-system.md`](2026-06-14-plugin-extension-system.md) — LPM.

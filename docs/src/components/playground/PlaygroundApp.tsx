@@ -50,6 +50,7 @@ import {
 	walkChipLabel,
 } from '@/lib/playground-controller';
 import { createEngineBridge, type EngineBridge, type PreviewState } from '@/lib/playground-engine';
+import { PLUGIN_DEFAULTS_EVENT } from '@/lib/plugin-admission';
 import { parseDeckMotion } from '@/playground/anima-host-sel';
 import { createAnimaScenes } from '@/playground/anima-scenes.ts';
 import { applyDebug } from '@/playground/debug-overlay.js';
@@ -2519,6 +2520,17 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		const obs = new MutationObserver(() => scheduleRender());
 		obs.observe(root, { attributes: true, attributeFilter: ['data-palette', 'data-mode'] });
 		return () => obs.disconnect();
+	}, [scheduleRender]);
+
+	// ── Re-render when the host changes its plugin defaults ─────────────────────
+	// `LatticePlayground.setPluginDefaults` changes what the same source renders (a deck that
+	// relied on a default plugin loses it) with no edit, and fires PLUGIN_DEFAULTS_EVENT. The
+	// editor re-lints on it (editor.js); the preview kept the render made under the old defaults
+	// until the next keystroke. Through the same scheduler as an edit, for the in-flight guard above;
+	// the defaults are part of every render-cache key, so the render it schedules is a real one.
+	React.useEffect(() => {
+		window.addEventListener(PLUGIN_DEFAULTS_EVENT, scheduleRender);
+		return () => window.removeEventListener(PLUGIN_DEFAULTS_EVENT, scheduleRender);
 	}, [scheduleRender]);
 
 	// Trigger the on-demand engine load once the chrome has mounted/painted. The

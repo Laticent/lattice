@@ -271,3 +271,32 @@ test('the Playground page lint follows the host\'s admission: a pill inside `$$`
 	await expect(crowded).toHaveCount(1, { timeout: 30_000 });
 	await setDefaults(page, null);
 });
+
+test('the Playground page PREVIEW follows the host\'s admission too: a defaults change re-renders with no edit', async ({ page }) => {
+	// The editor re-lints on `lattice:plugin-defaults` (the case above); the preview kept the render
+	// made under the old defaults until the next keystroke. PILL_DECK renders 3 slides with math
+	// off (the `---` inside `$$` is a slide break) and 2 with it on.
+	test.setTimeout(EVIDENCE ? 300_000 : 120_000);
+	await page.addInitScript(
+		([k, s]) => {
+			try {
+				localStorage.setItem(k as string, s as string);
+			} catch {
+				/* a blocked store just means the draft does not seed */
+			}
+		},
+		['lattice-docs-pg-source', PILL_DECK],
+	);
+	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
+	const slides = page.frameLocator('#preview').locator('.lattice > section, .lattice > div[data-lv-ph]');
+	await expect(slides).toHaveCount(2, { timeout: 40_000 });
+	await setDefaults(page, []);
+	await expect(slides).toHaveCount(3, { timeout: 30_000 });
+	if (EVIDENCE) {
+		fs.mkdirSync(EVIDENCE, { recursive: true });
+		await page.screenshot({ path: path.join(EVIDENCE, 'playground-preview-math-off.png') });
+	}
+	await setDefaults(page, null);
+	await expect(slides).toHaveCount(2, { timeout: 30_000 });
+	if (EVIDENCE) await page.screenshot({ path: path.join(EVIDENCE, 'playground-preview-math-on.png') });
+});
