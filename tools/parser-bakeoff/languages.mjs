@@ -11,6 +11,8 @@
  *     as a setext heading;
  *   - speed: MB/s over every file, best of nine rounds, beside the real parsers. NOT a like-for-like
  *     race — the grammars tokenize, the real parsers also build trees and resolve meaning;
+ *   - tokenizers: the like-for-like race — MB/s beside the tokenizer layer of each real parser
+ *     (postcss's and css-tree's tokenizers, parse5's Tokenizer, markdown-it's block pass alone);
  *   - scaling: twelve hostile shapes aimed at greedy and until, at 5k and 50k repetitions
  *     (about 10x for 10x input is linear).
  * A comparison parser that is not installed is skipped. Runs Segno from source (esbuild), as the
@@ -43,6 +45,7 @@ const csstree = optional('css-tree');
 const parse5 = optional('parse5');
 const MarkdownIt = optional('markdown-it');
 const mdit = MarkdownIt && new MarkdownIt('commonmark');
+const postcssTokenize = optional('postcss/lib/tokenize');
 
 const files = (glob) => execSync(`git ls-files -z '${glob}'`, { cwd: ROOT }).toString().split('\0').filter(Boolean);
 const read = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8'); // tracked files are LF (.gitattributes)
@@ -68,7 +71,7 @@ const oracle = {
   }),
 };
 
-const out = { coverage: {}, speed: {}, scaling: {} };
+const out = { coverage: {}, speed: {}, tokenizers: {}, scaling: {} };
 for (const lang of Object.keys(corpus)) {
   let ok = 0; const agree = {}; const fails = [];
   for (const { f, s } of corpus[lang]) {
@@ -87,6 +90,23 @@ const arms = {
   html: { 'segno (generated)': P.html, 'segno (compile)': (s) => I.html.parse(s), parse5: parse5 && ((s) => parse5.parse(s)) },
   md: { 'segno (generated)': P.md, 'segno (compile)': (s) => I.md.parse(s), 'markdown-it (parse)': mdit && ((s) => mdit.parse(s, {})) },
 };
+// The tokenizer layer of each real parser, with no tree built: what the grammars actually do.
+// css-tree's tokenizer is timed through its callback form, so it allocates no token objects.
+const noop = () => {};
+const p5 = parse5?.Tokenizer && { onComment: noop, onDoctype: noop, onStartTag: noop, onEndTag: noop, onEof: noop, onCharacter: noop, onNullCharacter: noop, onWhitespaceCharacter: noop, onParseError: null };
+const tokenizerArms = {
+  css: { 'segno (generated)': P.css,
+    'postcss tokenizer': postcssTokenize && ((s) => { const t = postcssTokenize({ css: s }); while (!t.endOfFile()) t.nextToken(); }),
+    'css-tree tokenize': csstree && ((s) => csstree.tokenize(s, noop)) },
+  html: { 'segno (generated)': P.html, 'parse5 Tokenizer': p5 && ((s) => new parse5.Tokenizer({ sourceCodeLocationInfo: false }, p5).write(s, true)) },
+  md: { 'segno (generated)': P.md, 'markdown-it block pass': mdit && ((s) => { const st = new mdit.block.State(s, mdit, {}, []); mdit.block.tokenize(st, 0, st.lineMax); }) },
+};
+for (const lang of Object.keys(corpus)) {
+  const xs = corpus[lang].map((r) => r.s);
+  const MB = xs.reduce((a, s) => a + s.length, 0) / 1e6;
+  out.tokenizers[lang] = {};
+  for (const [name, fn] of Object.entries(tokenizerArms[lang])) if (fn) out.tokenizers[lang][name] = +(MB / (bestOf(fn, xs) / 1e3)).toFixed(1);
+}
 for (const lang of Object.keys(corpus)) {
   const xs = corpus[lang].map((r) => r.s);
   const MB = xs.reduce((a, s) => a + s.length, 0) / 1e6;
@@ -110,5 +130,7 @@ console.log('coverage — files read to the end, and per-file agreement with the
 for (const [l, c] of Object.entries(out.coverage)) console.log(`  ${l.padEnd(5)} ${c.read}/${c.files}   ${Object.entries(c.agree).map(([k, v]) => `${k} ${v}/${c.read}`).join('   ')}${c.fails.length ? `\n        first failures: ${c.fails.join(' | ')}` : ''}`);
 console.log('\nspeed — MB/s over every file, best of nine (the real parsers do more: not like for like)');
 for (const [l, v] of Object.entries(out.speed)) console.log(`  ${l.padEnd(5)} ${v.MB} MB   ${Object.entries(v).filter(([k]) => k !== 'MB').map(([k, x]) => `${k} ${x}`).join('   ')}`);
+console.log('\ntokenizers — MB/s beside each real parser\'s tokenizer layer alone (like for like)');
+for (const [l, v] of Object.entries(out.tokenizers)) console.log(`  ${l.padEnd(5)} ${Object.entries(v).map(([k, x]) => `${k} ${x}`).join('   ')}`);
 console.log('\nscaling — ms at 50k repetitions, and growth for 10x input (about 10 is linear)');
 for (const [k, v] of Object.entries(out.scaling)) console.log(`  ${k.padEnd(36)} ${v.reads ? 'reads' : 'REFUSED'}   ${String(v.ms50k).padStart(7)} ms   x${v.growth}`);

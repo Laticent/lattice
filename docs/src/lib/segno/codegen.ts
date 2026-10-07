@@ -15,7 +15,7 @@
  * Only a grammar that `compile()` accepts is generated: the LL(1) proof is the same.
  */
 
-import { ANY, type CharSet, describe, equal } from './charset.js';
+import { ANY, type CharSet, complement, describe, equal, intersect, isEmpty } from './charset.js';
 import { analyze, depthOf, type Expr, GrammarError, type GrammarSpec, MAX_DEPTH, STACK_EXHAUSTED } from './grammar.js';
 
 /**
@@ -65,6 +65,19 @@ export function generate(spec: GrammarSpec, options: { banner?: string } = {}): 
   const badNames = Object.keys(spec.rules).filter((r) => !/^[A-Za-z_$][\w$]*$/.test(r) || r === '__proto__');
   if (badNames.length) throw new GrammarError(badNames.map((r) => `rule "${r}" cannot be generated: a rule name must be an identifier`));
   const tables = new Map<string, string>();
+  // One global regular expression per set a loop scans: it matches one code unit OUTSIDE the set.
+  const regexes = new Map<string, string>();
+  const SCAN_JS = 16;
+  const regexFor = (cs: CharSet): string => {
+    const out = complement(cs);
+    const hex = (c: number) => `\\u${c.toString(16).padStart(4, '0')}`;
+    let cls = '';
+    for (let k = 0; k < out.length; k += 2) cls += out[k] === out[k + 1] ? hex(out[k]) : `${hex(out[k])}-${hex(out[k + 1])}`;
+    const src = cls ? `/[${cls}]/g` : '/[^\\s\\S]/g'; // an empty class: never matches, the run reaches the end
+    let name = regexes.get(src);
+    if (!name) { name = `R${regexes.size}`; regexes.set(src, name); }
+    return name;
+  };
   const recursive = an.recursiveRules();
   const kinds: string[] = [];
   // Attempts become functions of their own (`t_K` tries and rewinds, `b_K` is the body), written
@@ -92,20 +105,58 @@ export function generate(spec: GrammarSpec, options: { banner?: string } = {}): 
     return an.expectedAt(e);
   };
 
-  const gen = (e: Expr, ind: string): string => {
+  // `known`: the code unit at `i` is already in variable `v` and proven to lie in `cs` — a choice
+  // or a loop tested it to get here. The first piece that reads it then reuses the variable, and
+  // skips a test the proof already passed, instead of reading and testing the same character
+  // again. Only the piece at the current position may use it; anything after consumes first.
+  type Known = { v: string; cs: CharSet } | undefined;
+  const within = (a: CharSet, b: CharSet) => isEmpty(intersect(a, complement(b)));
+  // A sub-expression the grammar uses in several places (one JS object, written once and reused)
+  // is generated ONCE, as a function of its own, when its code is large. Copied into every place,
+  // a Markdown grammar's inline-text loop made one 860-line rule that V8 deoptimized and rebuilt
+  // again and again (about 130 ms a rebuild), and its copies never shared type feedback.
+  const uses = new Map<Expr, number>();
+  const countUses = (e: Expr): void => {
+    const u = (uses.get(e) ?? 0) + 1;
+    uses.set(e, u);
+    if (u > 1) return; // its children were counted the first time
+    switch (e.t) {
+      case 'seq': case 'alt': e.xs.forEach(countUses); break;
+      case 'many': case 'opt': case 'node': countUses(e.x); break;
+      default: break; // an attempt's body is already a function of its own
+    }
+  };
+  Object.values(spec.rules).forEach(countUses);
+  const OUTLINE_MIN = 600; // characters of generated code; below this a call costs more than a copy
+  const outlined = new Map<Expr, number | null>(); // null: measured, and small enough to copy
+  const outlineFns: string[] = [];
+  const gen = (e: Expr, ind: string, known?: Known, bare = false): string => {
+    if (!bare && (uses.get(e) ?? 0) > 1 && e.t !== 'lit' && e.t !== 'set' && e.t !== 'ref' && e.t !== 'attempt') {
+      let k = outlined.get(e);
+      if (k === undefined) {
+        const body = gen(e, '  ', undefined, true);
+        k = body.length >= OUTLINE_MIN ? outlineFns.length : null;
+        outlined.set(e, k);
+        if (k !== null) outlineFns.push(`function e_${k}(): boolean {\n${body}  return true;\n}\n`);
+      }
+      if (k !== null) return `${ind}if (!e_${k}()) return false;\n`;
+    }
+    const at = known ? known.v : AT;
     switch (e.t) {
       case 'lit':
+        if (e.s.length === 1 && known && within(known.cs, [e.s.charCodeAt(0), e.s.charCodeAt(0)])) return `${ind}i++;\n`;
         if (e.s.length === 1) return `${ind}if (${AT} !== ${e.s.charCodeAt(0)}) return fail(${q(expected(e))});\n${ind}i++;\n`;
         // Inside an attempt the input ends at the window, so a literal must fit before `n`.
         return `${ind}if (${hasAttempt ? `i + ${e.s.length} > n || ` : ''}!s.startsWith(${q(e.s)}, i)) return fail(${q(expected(e))});\n${ind}i += ${e.s.length};\n`;
       case 'set': {
+        if (known && within(known.cs, e.cs)) return `${ind}i++;\n`;
         const c = fresh();
         return `${ind}{ const ${c} = ${AT}; if (!${testExpr(e.cs, c, tables)}) return fail(${q(expected(e))}); i++; }\n`;
       }
-      case 'seq': return e.xs.map((x) => gen(x, ind)).join('');
+      case 'seq': return e.xs.map((x, k) => gen(x, ind, k === 0 ? known : undefined)).join('');
       case 'alt': {
         const c = fresh();
-        let out = `${ind}{\n${ind}  const ${c} = ${AT};\n`;
+        let out = `${ind}{\n${ind}  const ${c} = ${at};\n`;
         const empty = e.xs.findIndex((x) => an.nullable(x));
         let first = true;
         // Attempts first, in order: each that can start here is tried, and a failed one hands
@@ -118,7 +169,8 @@ export function generate(spec: GrammarSpec, options: { banner?: string } = {}): 
         e.xs.forEach((x, k) => {
           if (x.t === 'attempt') return;
           if (k === empty && an.first(x).length === 0) return;
-          out += `${ind}  ${first ? 'if' : 'else if'} (${testExpr(an.first(x), c, tables)}) {\n${gen(x, `${ind}    `)}${ind}  }\n`;
+          const fx = an.first(x);
+          out += `${ind}  ${first ? 'if' : 'else if'} (${testExpr(fx, c, tables)}) {\n${gen(x, `${ind}    `, { v: c, cs: known ? intersect(known.cs, fx) : fx })}${ind}  }\n`;
           first = false;
         });
         if (first) return `${out}${gen(e.xs[empty], `${ind}  `)}${ind}}\n`;
@@ -131,18 +183,40 @@ export function generate(spec: GrammarSpec, options: { banner?: string } = {}): 
         if (e.x.t === 'set') {
           const c = fresh();
           const start = fresh();
-          return `${ind}{ ${e.min ? `const ${start} = i; ` : ''}let ${c} = ${AT}; while (${testExpr(e.x.cs, c, tables)}) { i++; ${c} = ${AT}; }${e.min ? ` if (i === ${start}) return fail(${q(expected(e.x))});` : ''} }\n`;
+          // The scan runs on locals and writes `i` back once: the parser's state lives at module
+          // scope, and a loop on it loads `s` and `n` and stores `i` on every character (about
+          // 9 ns a character on the Markdown corpus, against about 1 ns on locals).
+          const j = fresh();
+          const end = fresh();
+          const str = fresh();
+          // A run still going after SCAN_JS characters is finished by a regular expression that
+          // finds the first character outside the set: V8 compiles it to native code, about 1.6x a
+          // JS loop on long runs (prose, comments), and a short run never pays for the call.
+          // Only with no attempt window open (`n` is the whole input): the regex cannot stop at a
+          // window's end, so inside one it would read the rest of the run on every attempt and
+          // turn a linear grammar quadratic (the checker's repro: 8.7 s at 160k characters).
+          const lim = fresh();
+          const rx = regexFor(e.x.cs);
+          const tail = `${ind}  if (${j} === ${lim} && ${j} < ${end}) { if (${end} !== ${str}.length) { while (${j} < ${end}) { const ${c} = ${str}.charCodeAt(${j}); if (!${testExpr(e.x.cs, c, tables)}) break; ${j}++; } } else { ${rx}.lastIndex = ${j}; ${j} = ${rx}.test(${str}) ? ${rx}.lastIndex - 1 : ${end}; } }\n`;
+          return `${ind}{\n${ind}  ${e.min ? `const ${start} = i; ` : ''}let ${j} = i; const ${end} = n; const ${str} = s; const ${lim} = ${j} + ${SCAN_JS} < ${end} ? ${j} + ${SCAN_JS} : ${end};\n${ind}  while (${j} < ${lim}) { const ${c} = ${str}.charCodeAt(${j}); if (!${testExpr(e.x.cs, c, tables)}) break; ${j}++; }\n${tail}${ind}  i = ${j};${e.min ? ` if (i === ${start}) return fail(${q(expected(e.x))});` : ''}\n${ind}}\n`;
         }
         const c = fresh();
         // many1 is a do-while, so its body is written ONCE. Writing it before the loop as well
         // doubled the output per level of nesting: 20 nested many1 were 531 MB of source.
-        if (e.min) return `${ind}{\n${ind}  let ${c}: number;\n${ind}  do {\n${gen(e.x, `${ind}    `)}${ind}    ${c} = ${AT};\n${ind}  } while (${testExpr(an.first(e.x), c, tables)});\n${ind}}\n`;
-        const body = gen(e.x, `${ind}  `); // before testExpr, so the table numbering stays as shipped
-        return `${ind}for (let ${c} = ${AT}; ${testExpr(an.first(e.x), c, tables)}; ${c} = ${AT}) {\n${body}${ind}}\n`;
+        // The body runs first with `known` (when it proves the first character) and later with
+        // the character the loop test read into `c`; both are in FIRST(body).
+        const fb = an.first(e.x);
+        if (e.min) {
+          const pre = known && within(known.cs, fb);
+          return `${ind}{\n${ind}  let ${c}${pre ? ` = ${known.v}` : ': number'};\n${ind}  do {\n${gen(e.x, `${ind}    `, pre ? { v: c, cs: fb } : undefined)}${ind}    ${c} = ${AT};\n${ind}  } while (${testExpr(fb, c, tables)});\n${ind}}\n`;
+        }
+        const body = gen(e.x, `${ind}  `, { v: c, cs: fb }); // before testExpr, so the table numbering stays as shipped
+        return `${ind}for (let ${c} = ${at}; ${testExpr(fb, c, tables)}; ${c} = ${AT}) {\n${body}${ind}}\n`;
       }
       case 'opt': {
         const c = fresh();
-        return `${ind}{ const ${c} = ${AT}; if (${testExpr(an.first(e.x), c, tables)}) {\n${gen(e.x, `${ind}  `)}${ind}} }\n`;
+        const fx = an.first(e.x);
+        return `${ind}{ const ${c} = ${at}; if (${testExpr(fx, c, tables)}) {\n${gen(e.x, `${ind}  `, { v: c, cs: known ? intersect(known.cs, fx) : fx })}${ind}} }\n`;
       }
       case 'ref':
         // Only a rule that can reach itself spends the nesting cap, exactly as compile() does.
@@ -162,7 +236,7 @@ export function generate(spec: GrammarSpec, options: { banner?: string } = {}): 
         const b = fresh();
         let k = kinds.indexOf(e.kind);
         if (k < 0) { k = kinds.length; kinds.push(e.kind); }
-        return `${ind}{\n${ind}  const ${b} = top;\n${ind}  if (top + 4 > buf.length) grow();\n${ind}  top += 4;\n${ind}  buf[${b}] = ${k};\n${ind}  buf[${b} + 1] = i;\n${gen(e.x, `${ind}  `)}${ind}  buf[${b} + 2] = i;\n${ind}  buf[${b} + 3] = top;\n${ind}}\n`;
+        return `${ind}{\n${ind}  const ${b} = top;\n${ind}  if (top + 4 > buf.length) grow();\n${ind}  top += 4;\n${ind}  buf[${b}] = ${k};\n${ind}  buf[${b} + 1] = i;\n${gen(e.x, `${ind}  `, known)}${ind}  buf[${b} + 2] = i;\n${ind}  buf[${b} + 3] = top;\n${ind}}\n`;
       }
     }
   };
@@ -224,8 +298,10 @@ function x_${k}(): GenError {
     return k;
   }
 
-  const rules = Object.entries(spec.rules).map(([name, body]) => `function r_${name}(): boolean {\n${gen(body, '  ')}  return true;\n}\n`).join('\n');
-  const tableDecls = [...tables].map(([bits, name]) => `const ${name} = new Uint8Array([${bits.split('').join(',')}]);`).join('\n');
+  const rules = Object.entries(spec.rules).map(([name, body]) => `function r_${name}(): boolean {\n${gen(body, '  ')}  return true;\n}\n`).join('\n')
+    + outlineFns.map((f) => `\n${f}`).join('');
+  const tableDecls = [...tables].map(([bits, name]) => `const ${name} = new Uint8Array([${bits.split('').join(',')}]);`)
+    .concat([...regexes].map(([src, name]) => `${/\\u00[01]/.test(src) ? '// biome-ignore lint/suspicious/noControlCharactersInRegex: a generated character class; control characters are input like any other\n' : ''}const ${name} = ${src};`)).join('\n');
   // Parser state lives at MODULE scope, not in a closure per call: a generated parse() that
   // declared its rules inside itself allocated a closure per rule on every span.
   return `${options.banner ?? ''}${tableDecls}

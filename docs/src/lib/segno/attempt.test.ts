@@ -267,6 +267,20 @@ describe('attempt(): the linear bound', () => {
     expect(time(() => c.parse(input))).toBeLessThan(1_500);
     expect(time(() => g(input))).toBeLessThan(1_500);
   });
+
+  // A run LONGER than the window, under an attempt at every position. The generator finishes a
+  // long run with a regular expression, which cannot stop at a window's end; used inside an
+  // attempt it read the rest of the run each time — 8.7 s at 160k characters where the parse
+  // takes 0.15 s. The tree was right throughout, so only a timing catches it.
+  it('a loop inside an attempt reads no further than the window, however long the run', () => {
+    const a = chars('a');
+    const g = gen({ start: 'r', rules: { r: many(alt(attempt(seq(many(a), 'b'), { max: 256, next: ' ' }), a)) } });
+    const time = (s: string) => { g(s); let best = Infinity; for (let k = 0; k < 3; k++) { const t = performance.now(); g(s); best = Math.min(best, performance.now() - t); } return best; };
+    expect(g('a'.repeat(1000)).ok).toBe(true);
+    // 160k characters, each read about 256 times by design (max x input): about 0.15 s here. The
+    // quadratic version took about 60x that.
+    expect(time('a'.repeat(160_000))).toBeLessThan(2_000);
+  });
 });
 
 // ── random grammars with attempts, against a reference interpreter ─────────
