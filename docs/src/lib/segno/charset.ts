@@ -107,9 +107,13 @@ export function describe(s: CharSet, limit = 8): string {
   return parts.join(', ');
 }
 
+/** Past this many ranges above U+007F, compileTest searches instead of scanning. */
+const HIGH_SCAN = 16;
+
 /**
  * A membership test compiled for the hot path: a byte table for ASCII (where nearly every
- * decision in real input is made) and a range scan above it.
+ * decision in real input is made) and, above it, a range scan, or a binary search when there
+ * are more than HIGH_SCAN ranges.
  */
 export function compileTest(s: CharSet): (c: number) => boolean {
   const ascii = new Uint8Array(128);
@@ -119,6 +123,28 @@ export function compileTest(s: CharSet): (c: number) => boolean {
     if (s[i + 1] > 127) high.push(Math.max(s[i], 128), s[i + 1]);
   }
   if (!high.length) return (c) => c >= 0 && c < 128 && ascii[c] === 1;
+  if (high.length > 2 * HIGH_SCAN) {
+    // Many high ranges: binary search, not a scan that costs one step per range (codegen.ts's
+    // HIGH_CHAIN says the same for generated parsers).
+    // Sorted and merged first: a hand-built set need not be (grammar.ts checks each pair's
+    // shape, not their order), and a search over unsorted bounds answers wrongly.
+    const pairs: Array<[number, number]> = [];
+    for (let i = 0; i < high.length; i += 2) pairs.push([high[i], high[i + 1]]);
+    const t = Uint16Array.from(fromRanges(pairs));
+    return (c) => {
+      if (c < 0) return false;
+      if (c < 128) return ascii[c] === 1;
+      let lo = 0;
+      let hi = (t.length >> 1) - 1;
+      while (lo <= hi) {
+        const m = (lo + hi) >> 1;
+        if (c < t[2 * m]) hi = m - 1;
+        else if (c > t[2 * m + 1]) lo = m + 1;
+        else return true;
+      }
+      return false;
+    };
+  }
   return (c) => {
     if (c < 0) return false;
     if (c < 128) return ascii[c] === 1;

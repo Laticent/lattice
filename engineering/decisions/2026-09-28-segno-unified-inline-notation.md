@@ -419,11 +419,58 @@ backticks 18.8 → 2.0 ms, many headings 34 → 4.7 ms).
   the bound holds by construction, the shipped flowchart-row parser included. After the fix, the
   checker's differential found 0 mismatches against `compile()` and `main`'s generator on about
   1.2 million grammar/input pairs, and a planted mutant of the fix was caught 9,486 times.
-- **Inline code did not move, and the arm overstates its gap.** These changes leave the inline
-  notation within noise. Run on this machine, `parser:bakeoff:segno` reports ordinary code at
-  4.5x the kernel (215 vs 47 ns). The same dispatcher timed alone takes 78 ns against the
-  kernel's 54 (1.4x), which matches § The engine's 1.5x. So the arm's figure is a property of the
-  harness, not of Segno. Followed up in `followups.d/`.
+- **Inline code did not move, and the arm overstated its gap.** These changes leave the inline
+  notation within noise. `parser:bakeoff:segno` reported ordinary code at 4.5x the kernel (215
+  vs 47 ns). The first guess, that the arm's timing order skewed V8, was wrong: ordinary code
+  timed alone in a fresh process gave the same 4x. The cause is the corpus. The decks are written
+  in Segno's notation now, so 387 of the 4,973 spans the legacy kernel passes through as code are
+  directives to Segno (`{icon=mail}`, chart points like `{$310k, 24%, size=800}`). The kernel
+  returns null on those in about 30 ns; Segno reads a record in about 1.3 µs. The arm now counts
+  as ordinary only the spans both readers call code, times the 387 on a row of their own with no
+  kernel figure, and declares `icon` on its pill as `lib/core/segno-slots.js` does (the
+  directives row had read "26/53 agree" without it). Back to back on 2026-10-07: the arm gives
+  ordinary code at 76 vs 39 ns (1.94x), and the standalone timing 60 vs 32 ns (1.88x).
+
+- **A set with many ranges above ASCII is searched, not chained (2026-10-07).** The red team
+  found that `testExpr()` and `compileTest()` tested such a set one range at a time, so a set of
+  every other code unit (32k ranges) read 256k characters inside attempt windows in 11.4 s
+  generated and 1.6 s compiled. Past 16 ranges above U+007F, both runtimes now binary-search a
+  sorted table of range bounds: about 6 ms each. No shipped parser changed, since the widest
+  shipped set has 9 such ranges. The search sorts its ranges first, because a hand-built set need
+  not be sorted.
+- **A grammar that reuses a piece at every level is checked in linear time (2026-10-07).** Checking
+  one cost 2^depth. The followup blamed the FIRST and FOLLOW passes, but a profile showed four walks
+  that treated the grammar as a tree: `ruleGroups()`'s reference walk, the generator's scan for
+  attempts, and, found by the checker, `leadingRefs()` (the left-recursion check) and
+  `expectedAt()` (the "expected …" text). Each now visits a piece once. At depth 22, `compile()`
+  went from 415 to 5 ms and `generate()` from 921 to 3 ms, and both stay flat to depth 26. A
+  differential of 40,000 random grammars that reuse pieces, run on the previous engine and on this
+  one, found `lint()` identical on every grammar, and identical trees and errors in both runtimes
+  on the 48,720 grammar/input pairs that compiled. A second run of 15,000 after the last two fixes
+  agreed too. The generated source differed only where a set has more than 16 high ranges.
+
+**In WebKit and Firefox too (2026-10-07).** Every figure above is V8, and the Studio runs the
+generated parsers in Safari and Firefox as well. `npm run parser:bakeoff:languages:browsers --
+--base 996b435^` builds the generator from before this pass and from the working tree, and times both
+sets of parsers in Playwright's three engines over the same corpus, rounds alternating, best of
+nine samples of 100 ms or more each. Base and head agreed on every file in every engine. MB/s, cloud
+sandbox, the second of two runs (the first agreed within ±8%):
+
+| engine | CSS before → after | HTML before → after | Markdown before → after |
+|---|---|---|---|
+| Chromium 141.0.7390.37 (V8) | 177 → 285 (1.61x) | 165 → 245 (1.49x) | 182 → 334 (1.83x) |
+| Firefox 142.0.1 (SpiderMonkey) | 143 → 208 (1.45x) | 139 → 172 (1.24x) | 181 → 282 (1.56x) |
+| WebKit 26.0 (JavaScriptCore) | 245 → 324 (1.32x) | 246 → 296 (1.21x) | 271 → 420 (1.55x) |
+
+No language got slower in any engine, so nothing is gated per engine. The gain is smallest in WebKit,
+which was already the fastest before the pass.
+
+Playwright's WebKit ran on x86 Linux, and Apple devices run on ARM, where JavaScriptCore compiles
+different machine code. So the same race also ran on a real iPhone (iOS 18.7, Firefox for iOS, which
+like every iOS browser uses WebKit and JavaScriptCore), from the page `--page` writes, over the 11.8 MB
+corpus that page carries: CSS 224 → 324 (1.45x), HTML 236 → 304 (1.29x), Markdown 276 → 400 (1.45x),
+with identical trees on every file. Safari on an ARM Mac, which runs the same engine and compiler, was
+not run.
 
 "Fastest" holds for what was measured: among JavaScript tokenizers on Lattice's own files, on one
 machine and engine. The tokenizers it beats also classify tokens (css-tree tells a number from a

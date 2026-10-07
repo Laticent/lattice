@@ -15,7 +15,7 @@
  * Only a grammar that `compile()` accepts is generated: the LL(1) proof is the same.
  */
 
-import { ANY, type CharSet, complement, describe, equal, intersect, isEmpty } from './charset.js';
+import { ANY, type CharSet, complement, describe, equal, fromRanges, intersect, isEmpty } from './charset.js';
 import { analyze, depthOf, type Expr, GrammarError, type GrammarSpec, MAX_DEPTH, STACK_EXHAUSTED } from './grammar.js';
 
 /**
@@ -27,12 +27,41 @@ import { analyze, depthOf, type Expr, GrammarError, type GrammarSpec, MAX_DEPTH,
  */
 const AT = '(i < n ? s.charCodeAt(i) : -1)';
 
-/** A JS boolean expression testing the code unit in `v` against `cs`. `v` is -1 at the end of input. */
+/**
+ * Past this many ranges above U+007F, a set is tested by binary search over a table of range
+ * bounds instead of one comparison per range. A set of every other code unit (32k ranges) read
+ * 256k characters inside attempt windows in 11.4 s as a chain, and 6 ms by search. The shipped
+ * grammars' widest set is JS whitespace and its complement (8 and 9 high ranges), so their
+ * parsers keep the inline chain: a chain of 16 is a few nanoseconds, and only non-ASCII input
+ * reaches it.
+ */
+const HIGH_CHAIN = 16;
+
+/** The search the generated module carries when a set has more than HIGH_CHAIN high ranges. */
+const IN_RANGES = `// Is code unit \`c\` in one of the sorted, disjoint ranges [t[0], t[1]], [t[2], t[3]], …?
+function inRanges(t: Uint16Array, c: number): boolean {
+  let lo = 0;
+  let hi = (t.length >> 1) - 1;
+  while (lo <= hi) {
+    const m = (lo + hi) >> 1;
+    if (c < t[2 * m]) hi = m - 1;
+    else if (c > t[2 * m + 1]) lo = m + 1;
+    else return true;
+  }
+  return false;
+}`;
+
+/**
+ * A JS boolean expression testing the code unit in `v` against `cs`. `v` is -1 at the end of input.
+ * `tables` maps a 128-bit ASCII table to its name (`T0`…), and a list of high range bounds to its
+ * name (`H0`…, keyed `H:` + bounds).
+ */
 function testExpr(cs: CharSet, v: string, tables: Map<string, string>): string {
   if (equal(cs, ANY)) return `(${v} >= 0)`; // -1 at the end fails
   const parts: string[] = [];
   const ascii: number[] = [];
-  const high: string[] = [];
+  let high: string[] = [];
+  const bounds: number[] = [];
   for (let k = 0; k < cs.length; k += 2) {
     const lo = cs[k];
     const hi = cs[k + 1];
@@ -40,7 +69,20 @@ function testExpr(cs: CharSet, v: string, tables: Map<string, string>): string {
     if (hi > 127) {
       const a = Math.max(lo, 128);
       high.push(a === hi ? `${v} === ${a}` : `(${v} >= ${a} && ${v} <= ${hi})`);
+      bounds.push(a, hi);
     }
+  }
+  if (high.length > HIGH_CHAIN) {
+    // Sorted and merged first: a hand-built set need not be, and the chain it replaces did not care.
+    const pairs: Array<[number, number]> = [];
+    for (let k = 0; k < bounds.length; k += 2) pairs.push([bounds[k], bounds[k + 1]]);
+    const sorted = fromRanges(pairs);
+    bounds.length = 0;
+    for (const b of sorted) bounds.push(b);
+    const key = `H:${bounds.join(',')}`;
+    let name = tables.get(key);
+    if (!name) { name = `H${[...tables.keys()].filter((k) => k.startsWith('H:')).length}`; tables.set(key, name); }
+    high = [`(${v} >= ${bounds[0]} && inRanges(${name}, ${v}))`];
   }
   if (ascii.length === 1) parts.push(`${v} === ${ascii[0]}`);
   else if (ascii.length === 2) parts.push(`${v} === ${ascii[0]} || ${v} === ${ascii[1]}`);
@@ -48,7 +90,7 @@ function testExpr(cs: CharSet, v: string, tables: Map<string, string>): string {
     // A 128-entry table for the ASCII half: one indexed load, however many characters.
     const bits = Array.from({ length: 128 }, (_, c) => (ascii.includes(c) ? 1 : 0)).join('');
     let name = tables.get(bits);
-    if (!name) { name = `T${tables.size}`; tables.set(bits, name); }
+    if (!name) { name = `T${[...tables.keys()].filter((k) => !k.startsWith('H:')).length}`; tables.set(bits, name); }
     parts.push(`(${v} >= 0 && ${v} < 128 && ${name}[${v}] === 1)`);
   }
   parts.push(...high);
@@ -88,7 +130,12 @@ export function generate(spec: GrammarSpec, options: { banner?: string } = {}): 
   // committed parser is what a code-quality scan flags (phase 3b, PR #2545).
   const attemptFns: { k: number; tryAndBody: string; explain: string }[] = [];
   const explained = new Set<number>();
+  // A reused piece is visited once: walked as a tree, a grammar that reuses each level twice
+  // cost 2^depth here.
+  const visited = new Set<Expr>();
   const hasAttempt = Object.values(spec.rules).some(function has(e: Expr): boolean {
+    if (visited.has(e)) return false; // already answered false, or the walk has already stopped
+    visited.add(e);
     switch (e.t) {
       case 'attempt': return true;
       case 'seq': case 'alt': return e.xs.some(has);
@@ -300,7 +347,10 @@ function x_${k}(): GenError {
 
   const rules = Object.entries(spec.rules).map(([name, body]) => `function r_${name}(): boolean {\n${gen(body, '  ')}  return true;\n}\n`).join('\n')
     + outlineFns.map((f) => `\n${f}`).join('');
-  const tableDecls = [...tables].map(([bits, name]) => `const ${name} = new Uint8Array([${bits.split('').join(',')}]);`)
+  const tableDecls = [...tables].map(([bits, name]) => (bits.startsWith('H:')
+    ? `const ${name} = new Uint16Array([${bits.slice(2)}]);`
+    : `const ${name} = new Uint8Array([${bits.split('').join(',')}]);`))
+    .concat([...tables.keys()].some((k) => k.startsWith('H:')) ? [IN_RANGES] : [])
     .concat([...regexes].map(([src, name]) => `${/\\u00[01]/.test(src) ? '// biome-ignore lint/suspicious/noControlCharactersInRegex: a generated character class; control characters are input like any other\n' : ''}const ${name} = ${src};`)).join('\n');
   // Parser state lives at MODULE scope, not in a closure per call: a generated parse() that
   // declared its rules inside itself allocated a closure per rule on every span.

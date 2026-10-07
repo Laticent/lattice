@@ -248,6 +248,7 @@
     "parser:bakeoff:speed": "node tools/parser-bakeoff/speed.mjs",
     "parser:bakeoff:segno": "node tools/parser-bakeoff/segno.mjs",
     "parser:bakeoff:languages": "node tools/parser-bakeoff/languages.mjs",
+    "parser:bakeoff:languages:browsers": "node tools/parser-bakeoff/languages-browsers.mjs",
     "parser:bakeoff:versus": "node tools/parser-bakeoff/versus.mjs",
     "parser:bakeoff:flow": "node tools/parser-bakeoff/flow-segno.mjs",
     "parser:bakeoff:list-text": "node tools/parser-bakeoff/list-text-speed.mjs",

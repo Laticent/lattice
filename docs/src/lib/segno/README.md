@@ -261,6 +261,11 @@ bracket lists in Lattice's shipped decks (`npm run parser:bakeoff:segno`; best o
 | bracket lists, split into parts (the kernel's job) | 767 ns | 828 ns | 1.1x |
 | quadrant axes, typed numbers and ranges | 721 ns | 1.02 µs | 1.4x |
 
+Re-run on 2026-10-07 in a cloud sandbox, ordinary code is 1.9x (39 vs 76 ns) and pills 4.0x (214
+vs 854 ns). That run excludes the spans that are already written in Segno's notation, which the
+retired kernel reads as plain code, and times them on a row of their own. Its pill also declares
+`icon`, as the shipped slot does.
+
 Two things to know when reading it. The kernel's axis figure returns strings, which each chart
 then re-reads; Segno's returns typed numbers and ranges, so the axis row undercounts today's cost.
 And the grammar's own time depends on what V8 has already seen: a pill parses in about 110 ns in a
@@ -286,6 +291,10 @@ hand-written tokenizer speed. It does not show that Segno does those jobs too. R
 2026-10-07 took the three grammars from 112, 117 and 101 MB/s to these figures (§ How the
 generated parser stays fast).
 
+Those figures are V8. In Firefox and WebKit the same three changes made every grammar faster too:
+1.24x–1.56x in Firefox and 1.21x–1.55x in WebKit, and 1.29x–1.45x on a real iPhone, with identical trees (the table is in the decision
+note's § Generated-parser speed; `npm run parser:bakeoff:languages:browsers` reproduces it).
+
 Every shape on the hostile-input ladder grows linearly and stays under 3 ms at 32,000 characters.
 The `/segno` page runs the same ladder in your browser, and lets you write a grammar and parse with it.
 
@@ -309,6 +318,11 @@ and to the previous generator:
   comments) it is about 1.6x a JS loop. Inside an `attempt()` window the regex is not used,
   because it cannot stop at the window's end: there, reading past it turned a linear grammar
   quadratic, and a test pins that.
+- **A set with many ranges above ASCII is searched, not chained.** Up to 16 ranges above U+007F,
+  a character test is one comparison per range. Past that, both runtimes binary-search a table of
+  range bounds. A set of every other code unit (32k ranges) read 256k characters inside attempt
+  windows in 11.4 s generated and 1.6 s compiled; it now takes about 6 ms in each. No shipped
+  grammar has more than 9 such ranges, so their parsers are unchanged.
 
 ## Build
 
@@ -322,5 +336,5 @@ whole engine onto the Studio's startup path. `npm run check:segno` (in `docs/`)
 typechecks the library alone with no DOM and no Node types, which is the mechanical proof it stands
 alone. Tests: `cd docs && npx vitest run src/lib/segno` (fuzzing against a brute-force recognizer and
 against Lattice's number and time readers, and metamorphic tests of the notation's promises).
-`npm run mutate:segno` injects 72 defects one at a time and fails if the suite misses any; it takes
+`npm run mutate:segno` injects 77 defects one at a time and fails if the suite misses any; it takes
 about fifteen minutes and is not a CI gate.
