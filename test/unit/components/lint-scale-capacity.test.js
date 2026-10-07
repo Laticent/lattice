@@ -1192,8 +1192,17 @@ describe('list-steps registers and the split-panel points column are judged by l
 
   test('`mirror` measures the same as the bare column and is baked as its key', () => {
     assert.equal(V.points['split-panel'].regs.mirror, '');
-    // With no header the mirrored watermark column reads as `watermark`'s.
-    assert.equal(core.pointsAt('split-panel', ['split-panel', 'watermark', 'mirror'], watermark, 0, false)(2).pct, core.pointsAt('split-panel', ['split-panel', 'watermark'], watermark)(2).pct);
+    assert.equal(V.points['split-panel'].regs['watermark mirror'], 'watermark');
+    const noSub = watermark.replace(/\n### [^\n]*\n/, '');
+    assert.equal(core.pointsAt('split-panel', ['split-panel', 'watermark', 'mirror'], noSub)(2).pct, core.pointsAt('split-panel', ['split-panel', 'watermark'], noSub)(2).pct);
+  });
+
+  test('a `mirror` column that opens on a `###` keeps its count row: a running header pads it', () => {
+    // `.mirror:has(> header) .panel-right > h3:first-child` adds 147 to 207 px under a header, and
+    // which slides render one is the engine's directive walk to decide. Six checker rounds each found
+    // a shape a lint-side reader got wrong, so lint does not guess (Amendment (10)).
+    assert.equal(core.pointsAt('split-panel', ['split-panel', 'watermark', 'mirror'], watermark), null);
+    assert.equal(typeof core.pointsAt('split-panel', ['split-panel', 'watermark'], watermark), 'function');
   });
 
   // system-design-foundations slide 209: a `proof` grid whose last card outgrows its `1fr` share.
@@ -1218,21 +1227,6 @@ describe('list-steps registers and the split-panel points column are judged by l
     assert.deepEqual(run('conference', icons, '16:9'), []);
   });
 
-  test('`watermark mirror` under a header pays its leading `###` padding (the checker\'s probe)', () => {
-    const g = V.points['split-panel'].regs['watermark mirror'];
-    assert.equal(typeof g, 'object', 'measured apart from `watermark`: the header padding differs');
-    assert.ok(g.subAtHeader[3] > (g.subAt[3] ?? g.subAt) + 100);
-    const P = (headed) => core.pointsAt('split-panel', ['split-panel', 'watermark', 'mirror'], watermark, 0, headed)(3).pct;
-    assert.ok(P(true) > P(false));
-    // The deck's `header:` reaches the choice, and a slide's `_header: ""` turns it off.
-    const deck = (fm, body) => core.lintTextWith(`---\nmarp: true\nsize: 4k\nvenue: conference\n${fm}---\n\n${body}`, v).filter((f) => f.rule === 'capacity-scale');
-    // The checker's probe: it clips at conference by 53 px on a deck with a header.
-    const mirrored = '<!-- _class: split-panel watermark mirror -->\n\n## Mirror\n\n### Sub heading line\n\n- Teams ship small changes\n  - Small changes behind flags and watch the metrics before widening the rollout so every regression is caught early by the.\n- Changes behind flags and\n  - Watch the metrics before widening the rollout so every regression is caught early by the people who wrote the code.\n- And watch the metrics\n  - The rollout so every regression is caught early by the people who wrote the code and can fix it quickly.\n';
-    assert.equal(deck('header: "Deck"\n', mirrored).length, 1);
-    assert.deepEqual(deck('', mirrored), []);
-    assert.deepEqual(deck('header: "Deck"\n', mirrored.replace('-->\n', '-->\n<!-- _header: "" -->\n')), []);
-  });
-
   test('an `#` heading stays in the points column, so the slide keeps its count row', () => {
     assert.equal(typeof core.pointsAt('split-panel', ['split-panel', 'proof'], proof), 'function');
     assert.equal(core.pointsAt('split-panel', ['split-panel', 'proof'], proof.replace('## A sweep', '# A sweep')), null);
@@ -1247,28 +1241,6 @@ describe('list-steps registers and the split-panel points column are judged by l
     assert.equal(core.lineText('`{STABLE, c2}` `^{bucket}`', true, true), `${mono('{STABLE, c2}')} ${mono('^{bucket}')}`);
   });
 
-  test('the header a slide renders follows Marp\'s directives, slide by slide', () => {
-    const mirrored = '<!-- _class: split-panel watermark mirror -->\n\n## Mirror\n\n### Sub heading line\n\n- Teams ship small changes\n  - Small changes behind flags and watch the metrics before widening the rollout so every regression is caught early by the.\n- Changes behind flags and\n  - Watch the metrics before widening the rollout so every regression is caught early by the people who wrote the code.\n- And watch the metrics\n  - The rollout so every regression is caught early by the people who wrote the code and can fix it quickly.\n';
-    const deck = (fm, ...bodies) => core.lintTextWith(`---\nmarp: true\nsize: 4k\nvenue: conference\n${fm}---\n\n${bodies.join('\n---\n\n')}`, v).filter((f) => f.rule === 'capacity-scale').map((f) => f.slide);
-    assert.deepEqual(deck('header: "Deck"\n', mirrored), [1]);
-    // A reset to empty, a header that starts on a later slide, and an empty `header:` above `footer:`.
-    assert.deepEqual(deck('header: "Deck"\n', `<!-- header: "" -->\n${mirrored}`), []);
-    assert.deepEqual(deck('', mirrored, `<!-- header: "Late" -->\n${mirrored}`), [2]);
-    assert.deepEqual(deck('header:\nfooter: "F"\n', mirrored), []);
-    // As the engine reads it (the fourth checker): an empty value with a trailing comment is none,
-    // but `~` and `null` render as that text; a nested key counts; a directive in a fence or in
-    // inline code is text, not a directive.
-    assert.deepEqual(deck('header: "" # none yet\n', mirrored), []);
-    for (const fm of ['header: ~\n', 'header: null\n', 'glossary:\n  header: Nested\n']) assert.deepEqual(deck(fm, mirrored), [1], fm);
-    assert.deepEqual(deck('', '<!-- _class: title -->\n\n# T\n\n```md\n<!-- header: "x" -->\n```\n', mirrored), []);
-    assert.deepEqual(deck('', '<!-- _class: title -->\n\n# T\n\nWrite `<!-- header: Band -->` to set it.\n', mirrored), []);
-    // The engine's directive walk (the fifth checker): a multi-line comment is one directive, a
-    // blockquoted one applies, and a comment with text after it on its line is not a directive.
-    assert.deepEqual(deck('', `<!--\nheader: Q3\n-->\n${mirrored}`), [1]);
-    assert.deepEqual(deck('', '<!-- _class: title -->\n\n> <!-- header: Q3 -->\n\n# T\n', mirrored), [2]);
-    assert.deepEqual(deck('', `<!-- header: Q3 --> trailing text\n${mirrored}`), []);
-  });
-
   test('a literal deck prices pills as code in a claim panel and a code heading too (the third checker)', () => {
     const lede = 'Ship `{Orders, c2}` `{Billing, c3}` `{Payments, c4}` `{Shipping, c5}` `{Returns, c6}` `{Refunds, c7}` `{Ledger, c8}` and `{Audit, c1}` tonight, then';
     const panel = (lit) => core.panelOver('split-panel', ['split-panel'], `## Claim\n\n${lede}.\n\n- A\n  - b.\n`, 3, 0, lit).pct;
@@ -1276,16 +1248,6 @@ describe('list-steps registers and the split-panel points column are judged by l
     const code = (fm) => core.lintTextWith(`---\nmarp: true\nsize: 4k\nvenue: hall\n${fm}---\n\n<!-- _class: code -->\n\n## Ship \`{Orders, c2}\` and \`{Billing, c3}\` tonight\n\n\`\`\`js\n${'x();\n'.repeat(7)}\`\`\`\n`, { names: new Set(['code']), modifiers: new Set(), capacity: {} }).filter((f) => f.rule === 'capacity-scale');
     assert.equal(code('inline-code: literal\n').length, 1, 'the heading wraps to two lines as code');
     assert.deepEqual(code(''), [], 'as two pills it sets on one line');
-  });
-
-  test('the header walk stays linear on a closed comment before many unclosed openers (#22)', () => {
-    const src = (n) => `---\nmarp: true\nvenue: hall\n---\n\n<!-- -->${'<!--'.repeat(n)}\n`;
-    const time = (n) => { const t = Date.now(); core.lintTextWith(src(n), v); return Date.now() - t; };
-    time(1000);
-    // Quadratic, a 4x input took 16x the time (9.6 s at 250 KB, the fifth checker); linear it is ~4x.
-    const a = time(25000);
-    const b = time(100000);
-    assert.ok(b < 12 * Math.max(a, 20), `25k openers ${a} ms, 100k openers ${b} ms`);
   });
 
   test('a quoted pill label keeps its comma, and an icon-only pill has no label', () => {

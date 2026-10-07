@@ -9,8 +9,8 @@ recorded: 2026-10-06
 why now   — found while timing #2564's header walk. A deck of N lines of `> <!--` takes 286 ms at
             N = 1,000, 1.1 s at 2,000 and 4.5 s at 4,000 on origin/main, and the same on #2564: the
             time quadruples as the input doubles. Untrusted deck markdown reaches lint in the Studio
-            on every keystroke, which is the HARD RULE #22 concern. Not caused by #2564's header walk
-            (it is linear on its own adversarial inputs, pinned by a test).
+            on every keystroke, which is the HARD RULE #22 concern. Not caused by #2564: its final
+            head adds no comment-reading code to lint.
 where     — lib/authoring/lint-core.js: bisect which rule walks the open comment run per line
             (time `lintTextWith` with rules disabled one at a time); the input is
             `'---\nmarp: true\n---\n\n' + '> <!--\n'.repeat(N)`

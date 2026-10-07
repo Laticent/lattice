@@ -69,7 +69,7 @@ const SAMPLE = 'you recall syntax patterns and standards so the path is known an
 const prose = (n, from = 0) => cap(Array.from({ length: n }, (_, i) => SAMPLE[(i + from) % SAMPLE.length]).join(' '));
 
 /** One probe slide: a short claim panel, and a column long enough in every role to overflow. */
-function probe({ reg, n, ol, sub, para, header }) {
+function probe({ reg, n, ol, sub, para }) {
   const cls = reg === 'bare' ? 'split-panel' : `split-panel ${reg}`;
   const mark = (i) => (ol ? `${i + 1}.` : '-');
   const pad = (i) => ' '.repeat(mark(i).length + 1);
@@ -79,7 +79,7 @@ function probe({ reg, n, ol, sub, para, header }) {
   const point = (i) => (GRID[reg] && i === 0 ? `${mark(i)} ${prose(5, 9)}\n${pad(i)}- ${prose(30, 2)}.` : `${mark(i)} ${prose(GRID[reg] ? 3 : 18, i)}\n${pad(i)}- ${prose(GRID[reg] ? 110 : 90, i + 3)}.`);
   const left = reg.startsWith('watermark') ? `## ${prose(3)}\n\n\`Calibration\`` : `\`Calibration\`\n\n## ${prose(4)}.\n\n${prose(8)}.`;
   const right = `${sub ? `### ${prose(5, 4)}\n\n` : ''}${para ? `${prose(40, 6)}.\n\n` : ''}${Array.from({ length: n }, (_, i) => point(i)).join('\n')}`;
-  return `<!-- _class: ${cls} -->\n${header ? '<!-- _header: "Calibration" -->\n' : ''}\n${left}\n\n${right}\n`;
+  return `<!-- _class: ${cls} -->\n\n${left}\n\n${right}\n`;
 }
 const VENUES = { laptop: null, huddle: 'l', conference: 'xl', hall: '2xl' };
 
@@ -98,11 +98,6 @@ async function main() {
           // measured at its three points. `H` adds the sub-heading, `P` the paragraph under it.
           const tags = GRID[reg] ? { A: { n: 3 } } : { A: { n: 3 }, B: { n: 5 } };
           if (SUBHEAD.has(reg.split(' ')[0])) Object.assign(tags, { H: { n: 3, sub: 1 }, P: { n: 3, sub: 1, para: 1 } });
-          // Under a slide header a `mirror` slide pads its column's leading `###` past the header
-          // (split-panel.styles.css `.mirror:has(> header) .panel-right > h3:first-child`): the
-          // sub-heading's cost is measured again with one (`subAtHeader`). The checker's probe, a
-          // header deck, clipped by 53 px at conference where the header-less row read 5% under.
-          if (SUBHEAD.has(reg.split(' ')[0]) && reg.split(' ').includes('mirror')) tags.M = { n: 3, sub: 1, header: 1 };
           for (const [tag, o] of Object.entries(tags)) probes.push({ reg, shape: ol ? 'ol' : 'ul', tag, slide: probe({ reg, ol, ...o }) });
         }
       }
@@ -211,7 +206,6 @@ async function main() {
               (g.subAt ||= {})[venue] = Math.round(t.H.k - t.A.k);
               (g.paraAt ||= {})[venue] = Math.round(t.P.k - t.H.k);
             }
-            if (t.M) (g.subAtHeader ||= {})[venue] = Math.round(t.M.k - t.A.k);
             if (GRID[reg]) Object.assign(R, { grid: 1 }, t.A.eq ? { eq: 1 } : {});
             if (!ORDERED.has(reg.split(' ')[0])) R.ul = 1;
           }

@@ -1119,7 +1119,7 @@ table and matrix-2x2 4. cycle and glossary miss nothing.
 
 ## Amendment 2026-10-06 (10) — list-steps' registers and the split-panel points column are judged by lines
 
-**Lint now catches 1 more clip at huddle, 6 at conference and 8 at hall on the five scored decks,
+**Lint now catches 1 more clip at huddle, 5 at conference and 7 at hall on the five scored decks,
 with no new false warning.** Scored by `tools/score-venue-lint.js` on Amendment (9)'s five decks
 (the talk from `claude/agentic-practices-talk-tl7qum` bbaf27b, `gallery.md`, bloom, seven-steps,
 kaizen), each forced to each venue. Right, false and missed, on `main` 9b46f54 and on this change:
@@ -1127,8 +1127,8 @@ kaizen), each forced to each venue. Right, false and missed, on `main` 9b46f54 a
 | venue | before | after |
 |---|---|---|
 | huddle | 28 / 1 / 20 | 29 / 1 / 19 |
-| conference | 75 / 3 / 41 | 81 / 3 / 35 |
-| hall | 119 / 0 / 45 | 127 / 0 / 37 |
+| conference | 75 / 3 / 41 | 80 / 3 / 36 |
+| hall | 119 / 0 / 45 | 126 / 0 / 38 |
 
 All ten list-steps misses are gone, and five of the sixteen split-panel ones.
 
@@ -1177,11 +1177,17 @@ All ten list-steps misses are gone, and five of the sixteen split-panel ones.
      every venue. A `proof` slide is judged at its three documented points only.
    - **`bare`, `mirror` and `metric` are one flex column**, with a point costing 10 to 18 px past its
      lines; `metric` holds fewer characters a line. `mirror` measures the same as bare and is baked
-     as its key. `watermark mirror` does not: under a slide header it pads the column's leading
-     `###` past the header (`.mirror:has(> header) .panel-right > h3:first-child`), which costs 147
-     to 207 px where `watermark`'s sub-heading costs 12. The rig measures that cost with a
-     `_header` (`subAtHeader`), and lint charges it when the slide renders a header: the deck's
-     `header:` or any `header:` directive, unless the slide sets `_header: ""`.
+     as its key, and `watermark mirror` as `watermark`.
+   - **A `mirror` column that opens on a `###` keeps its count row.** Under a running header
+     `.mirror:has(> header) .panel-right > h3:first-child` pads that sub-heading past the header,
+     147 to 207 px where `watermark`'s costs 12, so the slide's verdict turns on whether it renders
+     a header. That is the engine's directive walk to decide (its markdown-it pass over every
+     `html_block` and `html_inline` token). Lint first read it with its own walk, and five checker
+     rounds in a row each found a shape that walk got wrong: `~` and `null` render as a header, a
+     nested `header:` counts, a multi-line comment is one directive, a fence or an `<img>` above a
+     directive, an indented quote. Each was fixed and the next round found another. The reader is
+     gone, and such a slide is judged as `main` judges it. That costs `gallery.md` slide 57 at
+     conference and hall, a `watermark mirror` slide `main` misses too.
    - **Only an `##` heading is the claim panel's.** `applyPanel` moves an `<h2>` left and leaves an
      `<h1>` in the column above the points, so a slide headed `#` is one the points model does not
      describe, and it keeps its count row. `steps` and `watermark` style an
@@ -1224,32 +1230,12 @@ comma (`{"Cost, excluding tax", c2}`) and an icon-only pill has no label. A pill
 allowlist and an `inline-code-literal` slide fails their token check, so neither is read this way;
 only a claim panel's lede on such a slide could be. On its probes the points model is within about
 ±8% for bare, `steps`, `metric` and `watermark`, and the list-steps registers within about ±8%
-(`capsule` the loosest). A second, independent checker then reviewed those three fixes alone. It confirmed the `#` heading
-fix. It found the pill pricing too broad (item 3) and the header detection too loose: a `header:`
-directive anywhere in the deck switched the padding on for every slide, including slides before a
-later header and decks that reset it to `""`, which warned on four header-less shapes that fit. Lint
-now walks the header directives slide by slide, as Marp applies them: the deck's `header:`, each
-`<!-- header: … -->` from its slide on, a slide's own `_header` for that slide alone, and an empty
-value is no header. It also found the rounding leak in item 4. A third checker, on those fixes
-alone, found the rest: a code slide's `##` heading on a literal deck still priced its pills (`main`
-priced them as code and caught the clip), the rounding fix had only moved the error (item 4), and
-the header read took `header: "" # none yet`, `~` and `null` as a header and a `<!-- header: -->`
-quoted in a code fence as a directive. A fourth checker, on those fixes alone, found the YAML
-reading wrong in the other direction: the engine draws `header: ~` and `header: null` as the text
-`~` and `null`, so treating them as no header missed 12 clips on its probe deck. It also found a
-directive written in inline code read as real, and a nested `header:` read as absent. A fifth
-checker found the next cut, which ran the engine's `parseCommentDirectives` over each comment line,
-quadratic on one line holding a closed comment and many unclosed openers (9.6 s at 250 KB, against
-51 ms on `main`), and blind to a multi-line `<!--\nheader: X\n-->`, which the engine applies.
-`parseCommentDirectives` is not the engine's production path either: the engine reads each
-`html_block` and `html_inline` token with `readDirectiveComment`. Lint now reads the deck's
-`header:` with the engine's `parseFrontMatter` (any indent, the last key wins) and each slide with
-the walk the `track` rule already trusts, generalized to any vocabulary (`scanSlideDirective`): a
-multi-line block read whole, `readDirectiveComment` on each, an indented or in-markup comment
-declined, a comment with text after it on its line not a directive, and a blockquoted one read
-without its quote markers. On the checkers' 27 header shape decks the headed verdict matches the
-engine's `<header>` on every slide, and the adversarial line lints in 114 ms at 500 KB. Every one has
-a test that fails without its fix. The fourth checker also measured a gap this change leaves: a pill in a points column is priced
+(`capsule` the loosest). Five more independent rounds followed, each on the previous round's fixes alone. They confirmed
+the `#` heading fix and found, in order: the pill pricing too broad (item 3); the rounding leak (item
+4), then that its first fix only moved the error; a literal deck's code heading still priced as
+pills (`codeHeadingLines` takes the literal flag now); and the header reader's shapes above, until
+it was removed. Every fix that stayed has a test that fails without it, and each checker confirmed
+that by reverting the fix. The checkers also measured a gap this change leaves: a pill in a points column is priced
 light. Three `watermark` points each holding one to eight `{Name, cN}` pills clip at hall by 188 and
 207 px and read 14% under, while the same text as plain words fits. The `tt` of padding under-prices
 a pill's chrome. `main` misses those slides too; measuring a pill's width is logged as the next step
@@ -1261,19 +1247,20 @@ deck header.
 
 **Out of sample.** `node tools/score-venue-lint.js --sweep origin/main` lints all 351 committed
 examples, component galleries and baseline decks on both trees and renders every changed verdict:
-30 new catches, 0 new false warnings, 0 false warnings gone, 0 lost catches, and no change at a
-deck's own size. Fifteen of the 30 are in the scored five (`gallery.md` 12, bloom 2, seven-steps
+28 new catches, 0 new false warnings, 0 false warnings gone, 0 lost catches, and no change at a
+deck's own size. Thirteen of the 28 are in the scored five (`gallery.md` 10, bloom 2, seven-steps
 1); the other 15 are `system-design-foundations` (5), `diagram.gallery.md` (3),
 `list-steps.gallery.md` (3), `accent-on-accent` (2) and `slide-edge` (2).
 
-**Bundle.** The Studio's eager JS grows by 2,424 bytes gz against `main` 9b46f54 (about 500 of them lib/engine/directives.js, whose `parseFrontMatter` lint now imports to read a deck's header the engine's way), measured the way
+**Bundle.** The Studio's eager JS grows by 1,631 bytes gz against `main` 9b46f54, measured the way
 CI does (`docs/scripts/measure-route-base.sh`, then the docs build's `check:route-budget`); the
-playground reads +1 B of gzip noise, as on #2548. Given back first: `mirror` and `milestone lettered` are baked as their twins' keys, and
-`vertical compact` stores only the frame field that differs (`calloutAt`). Declared in
-`docs/route-budget.d/2361-venue-lint-steps-points.md`.
+playground reads +1 B of gzip noise, as on #2548. Given back first: `mirror`, `watermark mirror` and
+`milestone lettered` are baked as their twins' keys, `vertical compact` stores only the frame field
+that differs (`calloutAt`), and the running-header reader is gone (about 790 B with its import of
+lib/engine/directives.js). Declared in `docs/route-budget.d/2361-venue-lint-steps-points.md`.
 
-**Still missed, by component, on the five decks** (at all three venues): split-panel 11 (all in the
-claim panel: `pullquote` 6, `metric` 2, two `proof` slides seven-steps 5 and 10 at conference whose
+**Still missed, by component, on the five decks** (at all three venues): split-panel 13 (`gallery.md`
+57 at conference and hall, a `watermark mirror` slide under a header, and 11 in the claim panel: `pullquote` 6, `metric` 2, two `proof` slides seven-steps 5 and 10 at conference whose
 panel sits 14 and 53 px over a model that reads 0%, and `gallery.md` 97 at huddle, whose heading
 `dashboard did` is 9 px wider than its line at weight 800 and wraps where the table says it fits),
 compare-prose 6, roadmap, list-tabular, image and content 5 each, table and matrix-2x2 4.

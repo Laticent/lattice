@@ -1327,7 +1327,6 @@
               "row": { "$ref": "#/$defs/venuePx" },
               "budget": { "$ref": "#/$defs/venuePx" },
               "subAt": { "$ref": "#/$defs/venuePx" },
-              "subAtHeader": { "$ref": "#/$defs/venuePx", "description": "A `mirror` register's sub-heading cost under a slide header, which pads the column's leading `###` past it (Amendment (10))." },
               "paraAt": { "$ref": "#/$defs/venuePx" },
               "ordered": { "$ref": "#/$defs/venuePointsRole" },
               "faces": { "type": "object", "description": "The face lint weighs a role in, where it is not the body face: `f` flat (an uppercase label), `d` the display face.", "additionalProperties": { "enum": ["f", "d"] } },
@@ -1792,7 +1791,6 @@
         "row": { "$ref": "#/$defs/venuePx" },
         "budget": { "$ref": "#/$defs/venuePx" },
         "subAt": { "$ref": "#/$defs/venuePx" },
-        "subAtHeader": { "$ref": "#/$defs/venuePx" },
         "paraAt": { "$ref": "#/$defs/venuePx" }
       }
     },

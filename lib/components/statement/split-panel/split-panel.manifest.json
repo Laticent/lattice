@@ -671,12 +671,6 @@
           "conference": 72,
           "hall": 72
         },
-        "subAtHeader": {
-          "laptop": 147,
-          "huddle": 156,
-          "conference": 178,
-          "hall": 207
-        },
         "ordered": {
           "title": {
             "laptop": [64, 96.2],
@@ -725,12 +719,6 @@
             "huddle": 72,
             "conference": 72,
             "hall": 72
-          },
-          "subAtHeader": {
-            "laptop": 147,
-            "huddle": 156,
-            "conference": 178,
-            "hall": 206
           }
         }
       }
