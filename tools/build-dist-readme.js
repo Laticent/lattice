@@ -97,7 +97,7 @@ const DESCRIPTIONS = {
   },
   'lattice-emoji.css': {
     purpose: 'Opt-in full-offline color emoji `@font-face` (Noto Color Emoji). Link after `lattice.css`; run `npm run fonts:emoji` to vendor the font (excluded from the npm tarball, ~25 MB). Without it, emoji fall back to the installed system font.',
-    consume: '`@laticent/lattice/dist/lattice-emoji.css` (opt-in, not in `exports`)',
+    consume: '`@laticent/lattice/dist/lattice-emoji.css` (opt-in)',
   },
   'lattice-runtime.js': {
     purpose: 'Browser runtime transforms (chart-family, structure post-processing) — powers the web export, the marp-vscode preview, and (bundled) the Export-to-Marp zip\'s full-fidelity HTML route. esbuild IIFE.',
