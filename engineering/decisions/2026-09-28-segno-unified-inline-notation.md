@@ -425,6 +425,23 @@ backticks 18.8 → 2.0 ms, many headings 34 → 4.7 ms).
   kernel's 54 (1.4x), which matches § The engine's 1.5x. So the arm's figure is a property of the
   harness, not of Segno. Followed up in `followups.d/`.
 
+**In WebKit and Firefox too (2026-10-07).** Every figure above is V8, and the Studio runs the
+generated parsers in Safari and Firefox as well. `npm run parser:bakeoff:languages:browsers --
+--base 996b435^` builds the generator from before this pass and from the working tree, and times both
+sets of parsers in Playwright's three engines over the same corpus, rounds alternating, best of
+nine samples of 100 ms or more each. Base and head agreed on every file in every engine. MB/s, cloud
+sandbox, the second of two runs (the first agreed within ±8%):
+
+| engine | CSS before → after | HTML before → after | Markdown before → after |
+|---|---|---|---|
+| Chromium 141.0.7390.37 (V8) | 177 → 285 (1.61x) | 165 → 245 (1.49x) | 182 → 334 (1.83x) |
+| Firefox 142.0.1 (SpiderMonkey) | 143 → 208 (1.45x) | 139 → 172 (1.24x) | 181 → 282 (1.56x) |
+| WebKit 26.0 (JavaScriptCore) | 245 → 324 (1.32x) | 246 → 296 (1.21x) | 271 → 420 (1.55x) |
+
+No language got slower in any engine, so nothing is gated per engine. The gain is smallest in WebKit,
+which was already the fastest before the pass. Playwright's WebKit build is not Safari itself; the
+engine is the same, and Safari on a real Mac or iPhone is UNVERIFIED.
+
 "Fastest" holds for what was measured: among JavaScript tokenizers on Lattice's own files, on one
 machine and engine. The tokenizers it beats also classify tokens (css-tree tells a number from a
 dimension, parse5 decodes entities). Matching that classification is grammar work, and it is

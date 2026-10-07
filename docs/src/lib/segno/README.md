@@ -286,6 +286,10 @@ hand-written tokenizer speed. It does not show that Segno does those jobs too. R
 2026-10-07 took the three grammars from 112, 117 and 101 MB/s to these figures (§ How the
 generated parser stays fast).
 
+Those figures are V8. In Firefox and WebKit the same three changes made every grammar faster too:
+1.24x–1.56x in Firefox and 1.21x–1.55x in WebKit, with identical trees (the table is in the decision
+note's § Generated-parser speed; `npm run parser:bakeoff:languages:browsers` reproduces it).
+
 Every shape on the hostile-input ladder grows linearly and stays under 3 ms at 32,000 characters.
 The `/segno` page runs the same ladder in your browser, and lets you write a grammar and parse with it.
 
