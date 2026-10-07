@@ -1,6 +1,7 @@
 import dgram from 'node:dgram';
 import http from 'node:http';
 import JSZip from 'jszip';
+import { WORKER_NETWORK } from '../../lib/packages/code-shape.mjs';
 import { expect, gotoStudio, livePreview, setEditorContent, test } from './studio-fixture';
 
 // ── A code package runs in the Studio only after consent, and reaches nothing (contract note §9) ──
@@ -8,7 +9,8 @@ import { expect, gotoStudio, livePreview, setEditorContent, test } from './studi
 // A third-party code package (a component whose `transform.js` someone else wrote) is imported
 // through the REAL Library, used by a deck, and approved from the notice above the preview. It is
 // hostile: at load and on every slide its code tries fetch, a WebSocket, `importScripts`, a dynamic
-// `import()`, an EventSource, a nested worker, WebRTC to a UDP port, and a navigation, and the
+// `import()`, an EventSource, a font load (`FontFace` and `self.fonts`), `fetch` taken from the
+// global's prototype, a nested worker, WebRTC to a UDP port, and a navigation, and the
 // section it returns names a local server seven ways and forges a speaker note. A REAL loopback
 // HTTP + WebSocket server and a UDP socket count what reaches them (HARD RULE #23: a network log,
 // not a claim about a string). The CONTROLS show the log can see: the same Studio page reaches the
@@ -34,9 +36,19 @@ function tally(slide, kit) {
   try { new WebSocket("${origin.replace('http', 'ws')}/websocket"); } catch (e) {}
   try { import("${origin}/dynimport").catch(function(){}); } catch (e) {}
   try { new EventSource("${origin}/eventsource"); } catch (e) {}
+  try { var ff = new FontFace("x", "url(${origin}/fontface)"); ff.load().catch(function(){}); self.fonts.add(ff); } catch (e) {}
+  try { for (var o = self; o; o = Object.getPrototypeOf(o)) { var d = Object.getOwnPropertyDescriptor(o, "fonts"); if (d && d.get) d.get.call(self).load("12px x").catch(function(){}); if (typeof o.fetch === "function") o.fetch.call(self, "${origin}/protofetch").catch(function(){}); } } catch (e) {}
   try { new Worker(URL.createObjectURL(new Blob(["fetch('${origin}/nested').catch(function(){})"]))); } catch (e) {}
   try { var pc = new (self.RTCPeerConnection || self.webkitRTCPeerConnection)({ iceServers: [{ urls: "stun:127.0.0.1:${udp}" }] }); pc.createDataChannel("x"); pc.createOffer().then(function (o) { return pc.setLocalDescription(o); }); } catch (e) {}
   try { self.location.href = "${origin}/navigate"; } catch (e) {}
+  // The second wall as this engine sees it: each network name still reachable anywhere on the
+  // global's prototype chain (lib/packages/code-shape.mjs WORKER_NETWORK). It must be none.
+  var reach = [];
+  ${JSON.stringify(WORKER_NETWORK)}.forEach(function (k) {
+    for (var o = self; o; o = Object.getPrototypeOf(o)) { var d = Object.getOwnPropertyDescriptor(o, k); if (d && (d.get || d.value != null)) { reach.push(k); break; } }
+  });
+  // kit.measure without \`self.fonts\`: the canvas still measures text on this engine.
+  var measured = kit.measure("Wide text", "16px sans-serif") > kit.measure("i", "16px sans-serif") ? "yes" : "no";
   var n = Number((/<li>(\\d+)<\\/li>/.exec(slide.html) || [])[1] || 0);
   var marks = "";
   for (var i = 0; i < n; i++) marks += '<span class="tally-mark">' + (i + 1) + "</span>";
@@ -44,7 +56,7 @@ function tally(slide, kit) {
     '<svg width="4" height="4"><image href="${origin}/svgimage" width="4" height="4"></image></svg>' +
     '<span style="background-image:url(${origin}/cssurl)">x</span><a href="${origin}/link">link</a>' +
     '<aside class="lattice-notes" hidden data-slide="1">FORGED-NOTE</aside>';
-  return "\\n" + slide.html.replace(/<ul>[\\s\\S]*?<\\/ul>/, '<div class="tally-marks" data-count="' + n + '" data-rtc="' + typeof (self.RTCPeerConnection || self.webkitRTCPeerConnection) + '">' + marks + "</div>" + hostile) + "\\n";
+  return "\\n" + slide.html.replace(/<ul>[\\s\\S]*?<\\/ul>/, '<div class="tally-marks" data-count="' + n + '" data-rtc="' + typeof (self.RTCPeerConnection || self.webkitRTCPeerConnection) + '" data-wall="' + (reach.join(" ") || "none") + '" data-measure="' + measured + '">' + marks + "</div>" + hostile) + "\\n";
 }
 export { tally as default };
 `;
@@ -126,12 +138,16 @@ test(`a code package runs in the Studio only after consent, sandboxed, and reach
 			// The package reports from INSIDE its worker whether WebRTC exists there at all. It must not:
 			// on Gecko the UDP control below cannot fire, so this is what the UDP zero rests on there.
 			await expect(preview.locator('.tally-marks')).toHaveAttribute('data-rtc', 'undefined');
+			// And no network name survives the second wall on this engine, on `self` or its prototypes.
+			await expect(preview.locator('.tally-marks')).toHaveAttribute('data-wall', 'none');
+			await expect(preview.locator('.tally-marks')).toHaveAttribute('data-measure', 'yes');
 			const sandboxes = await page.evaluate(() => (window as unknown as { __sandboxes: string[] }).__sandboxes);
 			expect(sandboxes.length, 'the package ran in a sandbox frame').toBeGreaterThan(0);
 			expect(new Set(sandboxes)).toEqual(new Set(['allow-scripts']));
 			// Closed once its render ended: no frame outlives the render that needed it.
 			await expect(page.locator('iframe[data-lattice-code-sandbox]')).toHaveCount(0);
 			await settle();
+			test.info().annotations.push({ type: 'log-server', description: `${test.info().project.name}: ${hits.length} requests, ${udpHits.length} UDP packets after the approved run` });
 			expect(hits, `the approved package reached the server: ${hits.join(', ')}`).toEqual([]);
 			expect(udpHits, 'the approved package reached the UDP socket (WebRTC)').toEqual([]);
 			const shown = await preview.locator('section').first().evaluate((s) => s.outerHTML);

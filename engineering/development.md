@@ -282,8 +282,14 @@ bypasses and false-positived on a correct edit. Rationale and residuals:
 
 ## Hooks (lefthook)
 
-`npm install` wires the hooks automatically via the `prepare` script.
-Configuration in `lefthook.yml`.
+`npm install` wires the hooks automatically via the `prepare` script
+(`tools/prepare.js`, which then builds the uncommitted `dist/` artifacts). It is a
+Node script, not a shell one-liner, because npm runs scripts through cmd.exe on
+Windows. Keep every build step it reaches spawnable there: call a tool's JS entry
+with `process.execPath` (`require.resolve('typescript/bin/tsc')`) or its API
+(`require('esbuild')`), never `node_modules/.bin/<tool>`, whose extensionless shim
+Windows cannot spawn; hand `import()` a `pathToFileURL(…).href`, never a bare path,
+which Windows reads as a `d:` URL scheme; and split a child's output on `/\r?\n/`. Configuration in `lefthook.yml`.
 
 **pre-commit** (parallel, ~0.5s for scoped edits, ~5s for cross-cutting):
 - `lint` — Biome on staged JS/JSON only
@@ -440,7 +446,7 @@ inputs).
 - `lattice-emulator.js`
 - `lattice.css` + every `themes/*.css`
 - every `lib/*.js`
-- `mermaid-v11-min.js`
+- `lib/plugins/mermaid/vendor/mermaid.min.js` (the Mermaid plugin's own copy, which the CLI bake draws with)
 - `package-lock.json` (catches dependency upgrades)
 - palette argument
 - Node version

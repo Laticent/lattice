@@ -2247,6 +2247,13 @@ test('narrateMatrixGrid: every drawn cell is said — a second placed level and 
   assert.match(out, /Build at Self: Pair only\. Build at Team: Blocked\./);
 });
 
+test('narrateMatrixGrid reads a cell as parseCell draws it: a wide gap still places, words after [-] are not said', () => {
+  const out = narrateChart('<!-- _class: matrix-grid -->\n\n## T\n\n| Verb | Self | Team |\n| --- | :-: | :-: |\n| Lead | [x]            Head | [-] stray |\n| Build | [ ] gone | [x] |');
+  assert.match(out, /Build sits at Team\. Head sits at Lead and Self\. Head: Team is reachable\. The other cells are not applicable\.$/);
+  assert.ok(!out.includes('gone'), out);
+  assert.ok(!out.includes('stray'), out);
+});
+
 // ── Segno phase 2: the trio's narrator findings ───────────────────────────────
 test('narrateRadar (quadrant): the axis line is never read aloud; the pinned scale is said', () => {
   const md = ['<!-- _class: radar quadrant -->', '', '`[{Scale, 0..5}]`', '', '## Q.', '', '- Us', '  - People', '    - Hiring `4`', '    - Retention `3`', '  - Process', '    - Speed `5`', '    - Quality `4`'].join('\n');

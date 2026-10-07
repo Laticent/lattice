@@ -39,7 +39,9 @@ const ROOT = path.resolve(__dirname, '..');
 const LIB_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'suono');
 const DIST_DIR = path.join(LIB_DIR, 'dist');
 const ENTRY = path.join(LIB_DIR, 'index.ts');
-const TSC = path.join(ROOT, 'node_modules', '.bin', 'tsc');
+// tsc's own JS entry, run with this node: `node_modules/.bin/tsc` is an extensionless shim that
+// Windows cannot spawn (its `.cmd` twin needs a shell), so every declaration emit failed there (#2459).
+const TSC = require.resolve('typescript/bin/tsc');
 
 const argv = process.argv.slice(2);
 const check = argv.includes('--check');
@@ -97,8 +99,9 @@ async function buildBundles(outDir) {
 /** Emit .d.ts for every non-test source via tsc (no JS, declarations only). */
 function buildTypes(outDir) {
   const r = spawnSync(
-    TSC,
+    process.execPath,
     [
+      TSC,
       '--declaration',
       '--emitDeclarationOnly',
       '--outDir',

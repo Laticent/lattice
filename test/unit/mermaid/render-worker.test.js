@@ -48,7 +48,9 @@ describe('render worker: contract', () => {
     const b = resolveBundles(REPO);
     for (const p of Object.values(b)) assert.ok(fs.existsSync(p), `${p} must exist`);
     assert.match(b.indexHtml, /mermaid-cli[/\\]dist[/\\]index\.html$/);
-    assert.match(b.mermaidIife, /mermaid[/\\]dist[/\\]mermaid\.js$/);
+    // The plugin's own copy of the library (lib/plugins/mermaid/vendor/), the build every other
+    // surface ships, not the installed package's unminified one.
+    assert.match(b.mermaidIife, /plugins[/\\]mermaid[/\\]vendor[/\\]mermaid\.min\.js$/);
   });
 
   test('the font CSS it injects covers every family the engine ships', () => {

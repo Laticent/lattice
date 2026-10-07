@@ -2,7 +2,7 @@
  * Unit: lib/components/chart/map/map.transform.js — kernel for the `map`
  * chart-family member, the one component on the `spatial` form.
  *
- * Section dispatch + chart-frame wrapping live in chart-family.js (map is one
+ * Section dispatch + chart-frame wrapping live in chart-family.dispatch.js (map is one
  * of CHART_LAYOUTS); this kernel produces the figure HTML. Tests here cover:
  *
  *   1. Name binding: full name / postal code / curated alias all resolve,

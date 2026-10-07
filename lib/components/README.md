@@ -32,7 +32,7 @@ for what a component/variant/token IS.
 `chart/_chart-family/` or `connect/_qr-card/`) is bucket-scoped shared
 infrastructure, NOT a shippable component — the loader and the CSS walker
 both skip it. Shared chart helpers live in `chart/_chart-family/`
-(`chart-family.js`, `svg-legend.js`, `mark-detail.js`, `transform-utils.js`).
+(`svg-legend.js`, `mark-detail.js`, `transform-utils.js`, `cartesian.js`); the dispatch is the chart family plugin's `lib/plugins/chart-family/chart-family.dispatch.js`.
 
 **Gotcha:** generic HTML list/section walking belongs in `lib/core/`
 (`html-lists.js`, `section-walk.js`) — never copy those into a component,

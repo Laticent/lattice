@@ -143,6 +143,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `theme-core:check` | Freshness gate for the theme-core bundle. |
 | `trama-lib:build` | Build the Trama graph-chart library dist/ (ESM + CJS + .d.ts, esbuild + tsc) so require('@laticent/trama') resolves for the runtime, the emulator and the tests. |
 | `trama-lib:check` | Freshness gate for the Trama library dist/ (stale vs docs/src/lib/trama/*.ts). |
+| `vendor:plugins` | Refresh each plugin's vendored library copy (lib/plugins/<name>/vendor/) from node_modules and rewrite its manifest record (version, sha256); --check verifies copy, record and installed build agree. |
 | `vetrina-lib:build` | Build the Vetrina library dist/ (two ESM + two CJS entries + .d.ts, esbuild + tsc; react external) — the publishable workspace package for the walkthrough engine. |
 | `vetrina-lib:check` | Freshness gate for the Vetrina library dist/ (stale vs docs/src/lib/vetrina/*.ts). |
 
@@ -438,7 +439,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/build-cadenza-lib.js` | Build the Cadenza library's consumable dist/ — the ESM + CJS entries + type |
 | `tools/build-calco-lib.js` | Build the Calco library's consumable dist/: the ESM and CJS entries and the type |
 | `tools/build-chart-finish-css.js` | Generates lib/components/chart/_chart-family/chart-finish.generated.css — the chart finishes' rules. |
-| `tools/build-chart-registry.js` | Generates lib/components/chart/_chart-family/chart-registry.generated.js — |
+| `tools/build-chart-registry.js` | Generates lib/plugins/chart-family/shared/chart-registry.generated.js — |
 | `tools/build-dagre-bundle.js` | Build the dagre layout bundle the state-chart's browser pass uses. |
 | `tools/build-decisions-index.js` | build-decisions-index.js — regenerate the "Current notes" index in |
 | `tools/build-exemplar-pdfs.js` | Regenerate the committed PDF for every worked exemplar deck |
@@ -518,6 +519,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/golden-diff.mjs` | Golden before/after — what visually changed in THIS PR's committed goldens. |
 | `tools/graph-typing-bench.mjs` | graph-typing-bench — time each stage of a graph chart's live redraw, key by key, in the real Studio. |
 | `tools/jank-census.js` | jank-census — run check-jank's `--anchors` discovery across the WHOLE catalog and rank what moves. |
+| `tools/live-session-check.mjs` | Live-session check: drives a REAL two-browser Live session in the Studio, end to end. |
 | `tools/manifest-schemas.js` | The ONE declaration of which manifest families exist, which schema governs |
 | `tools/marp-inventory.mjs` | marp-inventory — classify every Marp reference in the repo by DISPOSITION. |
 | `tools/measure-cue-profile.mjs` | measure-cue-profile.mjs — the listenability of an emitted caption track, measured. |
@@ -530,6 +532,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/palette-native.js` | palette-native — the REFEREE for `tools/palette-sweep.js`. |
 | `tools/pdf-writer-parity.mjs` | PDF writer parity — the shared writer (lib/core/pdf-compose) against the screen, with a thin-line sweep. |
 | `tools/perf-nightly-compare.mjs` | Compare two `engine-bench --json` runs and report a markdown verdict. |
+| `tools/prepare.js` | npm's `prepare` step, on every OS: wire the git hooks, then build the uncommitted dist/ artifacts. |
 | `tools/preview-component.js` | Component preview — render ONE local / AI-generated component the way the engine |
 | `tools/reader-extraction-probe.mjs` | Reader-mode extraction probe — re-derive the numbers behind the reader-mode work |
 | `tools/record-lesson-voice.mjs` | Record the voice of every Studio lesson: one mp3 per line, plus the line's word track. |
@@ -542,6 +545,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/state-chart-label-probe.js` | state-chart-label-probe — does any state-chart edge label touch another label, a line, a node, or the edge of its drawing? |
 | `tools/transform-parity.mjs` | transform-parity — does the DOM implementation of each registry transformer |
 | `tools/us-english.js` | The house US-English word list: a curated British-to-American map, used by the commit-msg hook to warn on British spellings (HARD RULE #21). |
+| `tools/vendor-plugin-libs.js` | Refresh the third-party libraries plugins OWN a copy of (`payload.vendored` in a plugin |
 | `tools/verify-catalog-states.mjs` | The real-surface check the checker said was still owed on findings 1, 2 and 4. |
 | `tools/verify-code-sandbox.mjs` | A guided check, run by a tester, that the CLI sandboxes code packages on Linux, macOS or Windows. |
 | `tools/verify-code-sandbox.sh` | Start the code-package sandbox check on Linux or macOS. |

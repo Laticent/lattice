@@ -388,7 +388,7 @@
 
 /* ── Chart-family palette ───────────────────────────────────────────────
  * Carbone's curation of the chart-family's two color spectrums (defined in
- * lib/components/chart/_chart-family/chart-family.css). The engine ships a
+ * lib/plugins/chart-family/chart-family.styles.css). The engine ships a
  * canvas-aware Apple-hue default; untuned themes inherit it. Carbone overrides
  * both spectrums with vivid hues tuned for its electric-green / dark-graphite
  * identity so charts read as one palette with the rest of the deck.

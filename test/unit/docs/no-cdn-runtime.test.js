@@ -262,8 +262,8 @@ test('the relative paths the hosts request are the ones sync-playground-assets s
 	// exactly that path, and no page threads a URL (so there is no host arm for it below). The
 	// guarantee that the file exists is that the staging reads the registry's runtime-drawn
 	// payloads, and that the registry declares one.
-	assert.match(staging, /RUNTIME_DRAWN\)[\s\S]{0,80}\.filter\(\(d\) => d\.payload\)/,
-		'sync-playground-assets.mjs must stage every runtime-drawn plugin\'s payload (RUNTIME_DRAWN) beside the runtime');
+	assert.match(staging, /RUNTIME_DRAWN\)[\s\S]{0,80}\.filter\(\(\[, d\]\) => d\.payload\)[\s\S]{0,80}libraryPath\(name\)/,
+		'sync-playground-assets.mjs must stage every runtime-drawn plugin\'s payload (RUNTIME_DRAWN) beside the runtime, from the plugin\'s own copy (libraryPath)');
 	const { RUNTIME_DRAWN } = require(path.join(REPO, 'lib', 'plugins', 'drawn.generated.mjs'));
 	assert.equal(RUNTIME_DRAWN.mermaid?.payload?.from, 'npm:mermaid/dist/mermaid.min.js',
 		'the Mermaid plugin must declare its library as a payload — the runtime\'s plugin host loads nothing else');

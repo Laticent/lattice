@@ -407,7 +407,62 @@ arm), and Lattice reported "on by the platform's default (not measured here)"; t
 system's own verdict: Activity Monitor's Sandbox column on macOS, and Process Explorer's integrity
 level on Windows. Those two need a person, and the tool asks for them when one runs it. On Ubuntu
 24.04 as the ordinary runner user, AppArmor stops Chrome's sandbox from starting, and Lattice
-reports OFF, truthfully.
+reports OFF, truthfully. Its remedy was wrong there: "set CHROME_PATH to a Chromium the unprivileged
+user can run" cannot help when AppArmor blocks user namespaces for every unprivileged program
+without a profile. So the layer now carries a `reason` (`os-sandbox.js` `offReason`), and the
+consent text maps each reason to its own remedy (`offRemedy`). The AppArmor case is read from the
+`kernel.apparmor_restrict_unprivileged_userns` sysctl, not from Chromium's message, whose "No
+usable sandbox!" text points at AppArmor as a general hint; its remedy names an AppArmor profile
+for the browser or that sysctl. `CHROME_PATH` stays the remedy only where it helps: root on Linux
+whose unprivileged user cannot run the browser even without the sandbox (checked FIRST, since a
+root container on an Ubuntu 24.04 host reads the host's sysctl as 1), and no browser path at all.
+Every render's warning carries the same remedy (`code-door.js` `sandboxNotice`); it used to repeat
+the CHROME_PATH sentence after the prompt had given the right fix, and it printed that sentence as
+a warning on macOS and Windows too, where the layer is the platform's default and not OFF (the
+checker). `test/unit/cli/code-door.test.js` drives `launchCodeSandbox` with a stub browser to pin
+which rung's failure becomes which reason.
+
+**Root in a Docker container on an Ubuntu 24.04 host** (2026-09-29, ubuntu-latest, `node:22-bookworm`,
+runs 36554214907 and 36554842708). The container reads the host's AppArmor sysctl as 1, and every
+process in it reads `Seccomp: 2` (Docker's default profile). With puppeteer's browser under `/root`,
+`nobody` cannot run it at all and the remedy is `CHROME_PATH`, as it should be. With the browser
+where `nobody` can run it, the sandboxed launch fails and the remedy first said AppArmor, which was
+wrong: `nobody` could not `unshare -U` under Docker's default seccomp profile with the AppArmor sysctl
+at 0, and could, with Chrome's sandbox measured on, under `--security-opt seccomp=unconfined` with the
+sysctl still at 1. So `offReason` checks for a container's seccomp filter before AppArmor, and names
+the container's seccomp profile (`container-seccomp`). A container is a filter on Lattice's own process
+AND on pid 1 (`processSeccompFiltered`): in Docker pid 1 read Seccomp 2 too, while a hardened systemd
+unit filters the service but not systemd, and there AppArmor may still be the obstacle (the checker).
+The same runs showed `tools/verify-code-sandbox` step 7 reading the container's Seccomp 2 on renderers
+started with `--no-sandbox` as a mismatch. Where the browser process itself is already filtered, step
+7 now counts `Seccomp_filters` instead: Chromium's sandbox stacks its own filter on each renderer, so a
+sandboxed renderer carries more than its browser process. After the fix all three container cases
+passed all eight steps with the right remedy and a measurement (run 36557162573): the browser under
+`/root` (`CHROME_PATH`; renderers 1 filter, browser 1), the browser outside it under Docker's default
+profile (`container-seccomp`; 1 vs 1), and `--security-opt seccomp=unconfined` ("on"; renderers 1
+filter, browser 0).
+
+**Every remedy, applied** (2026-10-06, after the rebase onto `main`; runs 37503507515, 37504450370,
+37504942480). A remedy is right only if following it turns the sandbox on, so each was applied:
+- **AppArmor** (a hardened systemd unit, `SystemCallFilter=~@reboot @swap …`, as the runner user):
+  Lattice's process reads Seccomp 2, pid 1 reads 0, so it is not called a container, and the remedy
+  names AppArmor. With the sysctl set to 0, the same unit's sandbox comes on: renderers 4 filters,
+  browser 3. (`SystemCallFilter=@system-service`, an allow-list, stops Chromium from starting at all,
+  with or without its sandbox; that is the unit's limit, not a remedy case.)
+- **Container seccomp** (Docker, root, browser outside `/root`): remedy `container-seccomp`; under
+  `--security-opt seccomp=unconfined` the sandbox comes on (1 filter vs 0).
+- **A container whose profile ALLOWS user namespaces** (rootless Podman 4, default profile): every
+  process reads Seccomp 2, Lattice reports "on", and the renderers carry 2 filters against the
+  browser's 1, so Chromium's own filter is there. That is the case `rendererSandboxed` reads by mode
+  alone, now measured true.
+- **CHROME_PATH** (Docker, root, browser under `/root`): remedy `CHROME_PATH`; the browser outside
+  `/root` is the case above.
+All 8 steps passed in every case, and on windows-, macos- and ubuntu-latest. Lattice's own "on" measurement
+(`rendererSandboxed`) still reads the mode alone, so in a filtered container it would read "on" from
+the container's filter. The OFF cases measured here never reach it (they launched with
+`--no-sandbox`), and a Chromium that starts without `--no-sandbox` has refused to run without a
+sandbox in every run here ("No usable sandbox!"); a filtered container whose profile allows user
+namespaces has not been measured.
 
 **Measured on the real CLI** (`test/integration/export/code-package-door.test.js`): a hostile
 package that tries `fetch`, an image, a WebSocket and a beacon at load and on every slide, and
@@ -470,6 +525,56 @@ Worker, SharedWorker, BroadcastChannel, and the cache and storage handles), non-
 bundle cannot put one back and has no other realm to take one from. The policy is still the first
 wall; this one does not depend on each engine inheriting it. All 29 conformance packages still match.
 
+**The wall's holes: a font load, and the prototypes (2026-10-06).** The fact-checker on the public
+guide found `FontFace` and `self.fonts` still in the worker, where `new FontFace(name, 'url(…)')
+.load()` is a fetch that only `font-src data:` stopped. Measured with a throwaway probe on GitHub's
+runners (a blob worker in a sandboxed frame, a loopback log server, each arm counted; the probe ran
+from `claude/sandbox-probe-run`), in four configurations per engine:
+
+| Engine | Policy + wall (shipped) | Policy alone | Wall alone | Neither (control) |
+|---|---|---|---|---|
+| Chromium | 0 | 0 | 1 (`import()`) | 8 of 8 arms |
+| Gecko | 0 | **3** (`FontFace`, `self.fonts`, `EventSource`) | 1 (`import()`) | 8 of 8 |
+| WebKit | 0 | 0 | 1 (`import()`) | 6 of 8 (its worker loads no font even unwalled) |
+
+So the policy did NOT hold for a font load in Playwright's Gecko build (Firefox 142.0.1), as it had
+not for `EventSource`: in that build, before this change, a package could send a slide out with a font
+address.
+
+Then the same frame in SHIPPING browsers, each through its own WebDriver (stock Chrome and Firefox on
+Ubuntu, Safari on macOS). The host page builds the frame exactly as the Studio's runner does
+(`docs/src/lib/code-packages/runner.ts`: `FRAME_BOOTSTRAP` allowed by hash, `sandboxCsp`, the
+`load`/`run` messages), and the package reports the wall and `kit.measure` from inside its worker.
+10 arms: the eight above minus `Function`, plus XMLHttpRequest, WebSocket and `importScripts`:
+
+| Browser | Shipped | Policy alone | Neither (control) |
+|---|---|---|---|
+| Chrome 154.0.8037.57 | 0 (`wall=none measure=yes`) | 0 | 10 of 10 |
+| Firefox 156.0 | 0 (`wall=none measure=yes`) | 0 | 10 of 10 |
+| Safari 26.6.2 | 0 (`wall=none measure=yes`) | 0 | 8 of 10 (no font load even unwalled) |
+
+Stock Firefox 156 held the policy for a font load and `EventSource` where Playwright's Firefox 142
+build did not. Whether the difference is the version or Playwright's patched build is not measured.
+The wall is written for exactly that gap: it removes the names whether or not a given Gecko applies
+the policy. `WORKER_NETWORK` now takes
+`FontFace`, `FontFaceSet` and `fonts` too. Measuring where each name lives found the second hole:
+Chromium defines `fetch`, `importScripts`, `indexedDB` and the `fonts` getter on
+`WorkerGlobalScope.prototype`, not on `self`, so the old wall only shadowed them and
+`WorkerGlobalScope.prototype.fetch.call(self, …)` walked around it (the policy still stopped it). The wall now redefines each name on
+every holder up the chain, takes `storage` and `storageBuckets` off the worker's `navigator` (a
+bucket's `caches.add(url)` fetches; an opaque origin hides both today, and the wall does not lean on
+that), then checks every holder and refuses to load the package if a name survives, rather than
+leaving it live in silence (the red team). `kit.measure` needs none of them: the Studio spec's package
+measures from inside its worker on all three engines, and reports the wall from there too
+(`data-wall="none"`, 0 requests at the log server per engine).
+
+What the wall cannot reach is syntax. `import()` is not a name on the global, so the "wall alone"
+column shows it on every engine; under the policy it reached nothing on all three. The policy
+has no `'unsafe-eval'`, and under it `eval` and `Function` reached nothing (the probe cannot tell a
+refused `eval` from a blocked fetch inside it); behind the wall alone they build code with no `fetch`
+left to call. A gate that refuses a dynamic `import(` in the source is pending
+(`followups.d/2435-p3-worker-syntax-paths-policy-only.md`).
+
 **The Studio's door** (`docs/src/lib/code-packages/`). Every Studio render goes through
 `renderMarkdown` (`docs/src/lib/render-engine.ts`), and it goes through `door.ts`:
 - **Import** (`asset-bundle.ts`, `package-zip.ts`, `library/import-parsed.ts`): a code component
@@ -531,7 +636,7 @@ parity test logs how many class tokens the door strips from each (from 5 for `vi
   `chart-frame`, `logo` would add `logo-wall`), nor a runtime stem (`lat`, `lattice`, `mermaid`…):
   `codeNameRefusal`, at `add`, at the Studio's import and at render.
 - An `id` lives in the package's name or is one it was handed (a deck's `url(#id)` takes the first
-  element with it), and the runtime's markers (`data-mermaid-*`, `data-fp-*`, `data-img-*`,
+  element with it), and the runtime's markers (`data-mermaid-*`, `data-img-*`,
   `data-pane*`) survive only as handed.
 - The Studio's 4-million-character cap counts remembered output too, and a slide refused by the cap
   is not remembered as failed; a load that ran out of time is not retried within the same render;

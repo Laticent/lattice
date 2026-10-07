@@ -19,7 +19,7 @@
  *   6. The emitted chrome carries NO color (HARD RULE #3) and the class
  *      vocabulary the family stylesheet paints.
  *   7. The CSS MIRROR: the `FS` table here and the `font-size` values in
- *      chart-family.css § Cartesian chrome must agree exactly. Silent drift
+ *      chart-family.styles.css § Cartesian chrome must agree exactly. Silent drift
  *      wraps text to a width the glyphs do not occupy.
  */
 
@@ -32,7 +32,7 @@ const C = require('../../../lib/components/chart/_chart-family/cartesian');
 
 const FAMILY_CSS = path.join(
   __dirname, '..', '..', '..',
-  'lib/components/chart/_chart-family/chart-family.css',
+  'lib/plugins/chart-family/chart-family.styles.css',
 );
 
 /** Build the <ul> inner HTML the dispatcher hands a kernel. */
@@ -362,7 +362,7 @@ describe('cartesian — the CSS mirror', () => {
       // Read·Article projection re-hosts the SVG in a `<figure>` of that class.
       const rule = css.match(
         new RegExp(`chart-frame\\)\\s+\\.${cls}\\s*\\{([^}]*)\\}`));
-      assert.ok(rule, `no .${cls} rule in chart-family.css`);
+      assert.ok(rule, `no .${cls} rule in chart-family.styles.css`);
       const fontSize = rule[1].match(/font-size:\s*([\d.]+)px/);
       assert.ok(fontSize, `.${cls} declares no px font-size`);
       assert.equal(Number(fontSize[1]), C.FS[key],

@@ -36,6 +36,7 @@ import type { SingleSlideOptions } from '@/lib/single-slide-render';
 // + single-slide srcdoc + rendered-HTML splitter all live in the playground engine.
 import { notesCore } from '@/playground/authoring-core.generated.js';
 import { buildSrcdoc, handoutRegions, nUpCells, resolvePrintSheet, splitSections } from '@/playground/deck-preview.js';
+import { downloadBlob, downloadUrl, isIOSLike, namedFileUrl } from './download';
 import { frontMatterBlock, stripFrontMatter, withPrintCanvas } from './front-matter';
 import { splitSlides } from './lint';
 import { PooledThumbFace, PreviewPool } from './preview-pool';
@@ -53,13 +54,6 @@ type Opts = { paper: Paper; orientation: Orient; color: Color; layout: Layout };
 const DEFAULT_OPTS: Opts = { paper: 'auto', orientation: 'auto', color: 'color', layout: '1' };
 
 const SHEET_LABEL: Record<Exclude<Paper, 'auto'>, string> = { letter: 'US Letter', legal: 'US Legal', a4: 'A4' };
-
-function isIOSLike(): boolean {
-	if (typeof navigator === 'undefined') return false;
-	const ua = navigator.userAgent || '';
-	// iPadOS 13+ reports as Mac; disambiguate with touch points.
-	return /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && (navigator.maxTouchPoints || 0) > 1);
-}
 
 // Desktop print: mount the print-ready HTML in a hidden iframe and call its print().
 // HTML-in-iframe printing RELIABLY opens the browser's print dialog — unlike a PDF blob
@@ -244,7 +238,7 @@ export function PrintOptionsPanel({
 	// button can flip to "Open PDF" the moment a build for the current settings exists; a
 	// click reuses it when the key still matches, else rebuilds. Cleared implicitly by the
 	// key check when any setting changes.
-	const [builtPdf, setBuiltPdf] = React.useState<{ render: DeckRender; paper: Paper; orientation: Orient; layout: Layout; url: string; blob: Blob } | null>(null);
+	const [builtPdf, setBuiltPdf] = React.useState<{ render: DeckRender; paper: Paper; orientation: Orient; layout: Layout; file: string; url: string; blob: Blob } | null>(null);
 	// The rasterized slide IMAGES, keyed by `render` identity only — NOT paper/orientation,
 	// which change placement, not pixels. A paper/orientation flip re-ASSEMBLES these (cheap
 	// jsPDF geometry) with no re-rasterize; a color/source/theme change makes a new `render`
@@ -412,7 +406,11 @@ export function PrintOptionsPanel({
 
 	const { paper, orientation, layout } = opts;
 	// Does the built PDF match the CURRENT settings? Drives the iOS button (build vs open).
-	const cachedForCurrent = !!builtPdf && builtPdf.render === render && builtPdf.paper === paper && builtPdf.orientation === orientation && builtPdf.layout === layout;
+	const pdfFilename = React.useCallback(() => `${(name || 'deck').trim().replace(/[^\w.-]+/g, '-') || 'deck'}.pdf`, [name]);
+
+	// The file name is part of the key: the built PDF carries its name on its URL (download.js),
+	// so a rename after a build must rebuild, or the tab and its Save keep the old name.
+	const cachedForCurrent = !!builtPdf && builtPdf.render === render && builtPdf.paper === paper && builtPdf.orientation === orientation && builtPdf.layout === layout && builtPdf.file === pdfFilename();
 
 	// Build the per-slide PDF for the current settings, or return the cached one when the
 	// key still matches. The ONLY place rasterization happens — driven by a click, not a
@@ -421,7 +419,7 @@ export function PrintOptionsPanel({
 	// opened from it may still be loading — revoking the string won't unload a loaded blob).
 	const buildPdf = React.useCallback(async (): Promise<string> => {
 		if (!render) throw new Error('deck not ready');
-		if (builtPdf && builtPdf.render === render && builtPdf.paper === paper && builtPdf.orientation === orientation && builtPdf.layout === layout) return builtPdf.url;
+		if (cachedForCurrent && builtPdf) return builtPdf.url;
 		const s = resolvePrintSheet(render.geom.w, render.geom.h, { paper, orientation });
 		const ex = await import('@/components/studio/export/deck-export.js');
 		// Reuse the rasterized slide images when only paper/orientation/layout moved (render
@@ -447,22 +445,24 @@ export function PrintOptionsPanel({
 		});
 		const missing = ex.missingImageReason(imageFailures);
 		if (missing) notify(`Print deck built — but ${missing}.`, { duration: DEGRADED_TOAST_MS });
-		const url = URL.createObjectURL(blob);
+		// Named on the URL itself, so the PDF opened in a tab shows and saves under the deck's
+		// name instead of the blob's UUID (download.js).
+		const file = pdfFilename();
+		const url = namedFileUrl(blob, file);
 		const prevUrl = builtPdf?.url;
 		if (prevUrl && prevUrl !== url) { setTimeout(() => { try { URL.revokeObjectURL(prevUrl); } catch { /* noop */ } }, 60_000); }
-		if (mountedRef.current) setBuiltPdf({ render, paper, orientation, layout, url, blob });
+		if (mountedRef.current) setBuiltPdf({ render, paper, orientation, layout, file, url, blob });
 		return url;
-	}, [render, name, paper, orientation, layout, nup, handout, slideNotes, builtPdf, imgCache]);
+	}, [render, name, paper, orientation, layout, nup, handout, slideNotes, builtPdf, cachedForCurrent, imgCache, pdfFilename]);
 
-	const pdfFilename = React.useCallback(() => `${(name || 'deck').trim().replace(/[^\w.-]+/g, '-') || 'deck'}.pdf`, [name]);
-
+	// On iOS the Download button hands download.js the bytes, which the share sheet needs
+	// (download-ios.js); every other device gets the plain download.
 	const triggerDownload = React.useCallback((url: string) => {
-		const a = document.createElement('a');
-		a.href = url;
-		a.download = pdfFilename();
-		document.body.appendChild(a);
-		a.click();
-		a.remove();
+		if (!isIOSLike()) return downloadUrl(url, pdfFilename());
+		void fetch(url)
+			.then((r) => r.blob())
+			.then((b) => downloadBlob(pdfFilename(), b))
+			.catch(() => downloadUrl(url, pdfFilename()));
 	}, [pdfFilename]);
 
 	// The print-ready HTML (vector deck, one slide per page at the chosen paper) for the
@@ -530,7 +530,7 @@ export function PrintOptionsPanel({
 	// navigate the Studio away. Used as the non-iOS / no-Web-Share fallback.
 	const openPdfTab = React.useCallback((url: string) => {
 		const w = window.open(url, '_blank');
-		if (!w) { triggerDownload(url); notify('Pop-up blocked — the PDF was saved. Open it, then Share → Print.'); }
+		if (!w) { triggerDownload(url); notify(isIOSLike() ? 'Pop-up blocked — tap Save to keep the PDF, then open it and Print.' : 'Pop-up blocked — the PDF was saved. Open it, then Share → Print.'); }
 	}, [triggerDownload]);
 
 	// iOS tap 2 — hand the built PDF to the OS. `navigator.share({ files })` opens the native
@@ -542,17 +542,17 @@ export function PrintOptionsPanel({
 		const nav = navigator as Navigator & { canShare?: (d: { files?: File[] }) => boolean };
 		const file = new File([entry.blob], pdfFilename(), { type: 'application/pdf' });
 		if (typeof nav.share === 'function' && nav.canShare?.({ files: [file] })) {
-			nav.share({ files: [file], title: name || 'Lattice deck' }).catch((err: unknown) => {
+			nav.share({ files: [file] }).catch((err: unknown) => {
 				// AbortError = the user dismissed the sheet — not a failure. Otherwise the file is
 				// still in Download (a post-await window.open would be pop-up-blocked here).
 				if ((err as { name?: string } | null)?.name === 'AbortError') return;
 				triggerDownload(entry.url);
-				notify('Could not open the share sheet — the PDF was saved. Open it, then Print.');
+				notify(isIOSLike() ? 'Could not open the share sheet — tap Save to keep the PDF, then open it and Print.' : 'Could not open the share sheet — the PDF was saved. Open it, then Print.');
 			});
 			return;
 		}
 		openPdfTab(entry.url);
-	}, [pdfFilename, name, triggerDownload, openPdfTab]);
+	}, [pdfFilename, triggerDownload, openPdfTab]);
 
 	const doPrint = React.useCallback(() => {
 		if (!render || building) return;

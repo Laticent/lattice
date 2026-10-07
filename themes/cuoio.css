@@ -405,7 +405,7 @@
 
 /* ── Chart-family palette ───────────────────────────────────────────────
  * Cuoio's curation of the chart-family's two color spectrums (defined in
- * lib/components/chart/_chart-family/chart-family.css). The engine ships a
+ * lib/plugins/chart-family/chart-family.styles.css). The engine ships a
  * canvas-aware Apple-hue default; untuned themes inherit it. Cuoio overrides
  * both spectrums with its warm-earth pigments so charts read native to the
  * "ink on vellum" brand instead of borrowing the cool system palette.
@@ -414,7 +414,7 @@
  * chart-family expects: on cream the value is a saturated earth pigment (it
  * drives the wedge/bar border at full strength and a 24% tint for the fill);
  * on espresso it lifts to a brighter same-hue sibling. See design/theming.md
- * (chart palette) and the chart-family.css token block for the contract. */
+ * (chart palette) and the chart-family.styles.css token block for the contract. */
 :root {
   /* Categorical spectrum — cuoio's #1 audited proposal, "Brand triad"
    * (themes/palette-audit.md, 99/100: AA 12/12 both canvases, min adjacent

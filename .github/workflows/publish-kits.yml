@@ -81,7 +81,6 @@ on:
       - 'themes/**'
       - 'assets/fonts/**'
       - 'kit/**'
-      - 'mermaid-v11-min.js'
       - 'LICENSE'
       - 'LICENSE-EXCEPTIONS'
       - 'tools/build-marp-kit.js'

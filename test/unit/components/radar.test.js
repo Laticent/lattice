@@ -1,7 +1,7 @@
 /**
  * Unit: lib/radar.js — kernel for the `radar` chart-family member.
  *
- * Section dispatch + chart-frame wrapping live in lib/components/chart/_chart-family/chart-family.js (radar
+ * Section dispatch + chart-frame wrapping live in lib/plugins/chart-family/chart-family.dispatch.js (radar
  * is one of CHART_LAYOUTS); this kernel just produces the figure HTML. Tests
  * here cover the layers chart-family delegates to:
  *
@@ -408,13 +408,13 @@ test('readRadarAxis: an eyebrow that is not a bracketed list is not the axis', (
   assert.equal(readRadarAxis('<p><code>Scale · 0–10</code></p>\n<h2>X</h2>\n<ul><li>A</li></ul>'), null);
 });
 
-// ── chart-family dispatch (integration with lib/components/chart/_chart-family/chart-family.js) ────────
+// ── chart-family dispatch (integration with lib/plugins/chart-family/chart-family.dispatch.js) ────────
 // Radar is a chart-family member; section dispatch + chart-frame wrapping
-// are owned by lib/components/chart/_chart-family/chart-family.js. These tests pin the wiring so a
+// are owned by lib/plugins/chart-family/chart-family.dispatch.js. These tests pin the wiring so a
 // regression in either module surfaces here, not only in the integration
 // PDF build.
 
-const { transformChartSection, applyToRenderedHtml } = require('../../../lib/components/chart/_chart-family/chart-family');
+const { transformChartSection, applyToRenderedHtml } = require('../../../lib/plugins/chart-family/chart-family.dispatch');
 
 describe('radar', () => {
   test('chart-family: radar section is wrapped in chart-frame', () => {

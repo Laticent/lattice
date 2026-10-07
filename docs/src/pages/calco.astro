@@ -370,10 +370,9 @@ const faces = previewFontFaceCss();
 						? await writeOdp((await import('jszip')).default, deck, 'uint8array')
 						: await writePptx((await import('pptxgenjs')).default, deck, 'uint8array', (await import('jszip')).default);
 					const type = format === 'odp' ? 'application/vnd.oasis.opendocument.presentation' : 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
-					const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type }));
-					const a = document.createElement('a');
-					a.href = url; a.download = `calco-${current}.${format}`; a.click();
-					setTimeout(() => URL.revokeObjectURL(url), 10000);
+					// The site's one download path (download.js): a named blob: URL, revoked later.
+					const { downloadBlob } = await import('../components/studio/download.js');
+					downloadBlob(`calco-${current}.${format}`, new Blob([bytes as BlobPart], { type }));
 					const name = document.createElement('b');
 					name.textContent = `calco-${current}.${format}`;
 					statusEl.replaceChildren(name, ` · ${read.frames.length} text boxes · ${deck.fonts.length} fonts embedded · ${Math.round(bytes.byteLength / 1024)} KB`);

@@ -380,6 +380,62 @@ figure.chart-finish-pigment :where(.heatmap-value[data-step="5"]) {
 }
 }
 
+/* HUB-SPOKE ICON — the ink its disc's finish body clears. */
+@supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
+section.chart-finish-pigment :where(.hub-spoke-icon[data-hue="1"]),
+figure.chart-finish-pigment :where(.hub-spoke-icon[data-hue="1"]) {
+  --hs-icon-ink: oklch(from color-mix(in oklab, var(--chart-cat-1-hue) 82%, var(--chart-cat-base)) clamp(0, (0.565 - l) * 999, 1) 0 0) !important;
+}
+}
+@supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
+section.chart-finish-pigment :where(.hub-spoke-icon[data-hue="2"]),
+figure.chart-finish-pigment :where(.hub-spoke-icon[data-hue="2"]) {
+  --hs-icon-ink: oklch(from color-mix(in oklab, var(--chart-cat-2-hue) 82%, var(--chart-cat-base)) clamp(0, (0.565 - l) * 999, 1) 0 0) !important;
+}
+}
+@supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
+section.chart-finish-pigment :where(.hub-spoke-icon[data-hue="3"]),
+figure.chart-finish-pigment :where(.hub-spoke-icon[data-hue="3"]) {
+  --hs-icon-ink: oklch(from color-mix(in oklab, var(--chart-cat-3-hue) 82%, var(--chart-cat-base)) clamp(0, (0.565 - l) * 999, 1) 0 0) !important;
+}
+}
+@supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
+section.chart-finish-pigment :where(.hub-spoke-icon[data-hue="4"]),
+figure.chart-finish-pigment :where(.hub-spoke-icon[data-hue="4"]) {
+  --hs-icon-ink: oklch(from color-mix(in oklab, var(--chart-cat-4-hue) 82%, var(--chart-cat-base)) clamp(0, (0.565 - l) * 999, 1) 0 0) !important;
+}
+}
+@supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
+section.chart-finish-pigment :where(.hub-spoke-icon[data-hue="5"]),
+figure.chart-finish-pigment :where(.hub-spoke-icon[data-hue="5"]) {
+  --hs-icon-ink: oklch(from color-mix(in oklab, var(--chart-cat-5-hue) 82%, var(--chart-cat-base)) clamp(0, (0.565 - l) * 999, 1) 0 0) !important;
+}
+}
+@supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
+section.chart-finish-pigment :where(.hub-spoke-icon[data-hue="6"]),
+figure.chart-finish-pigment :where(.hub-spoke-icon[data-hue="6"]) {
+  --hs-icon-ink: oklch(from color-mix(in oklab, var(--chart-cat-6-hue) 82%, var(--chart-cat-base)) clamp(0, (0.565 - l) * 999, 1) 0 0) !important;
+}
+}
+@supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
+section.chart-finish-pigment :where(.hub-spoke-icon[data-hue="7"]),
+figure.chart-finish-pigment :where(.hub-spoke-icon[data-hue="7"]) {
+  --hs-icon-ink: oklch(from color-mix(in oklab, var(--chart-cat-7-hue) 82%, var(--chart-cat-base)) clamp(0, (0.565 - l) * 999, 1) 0 0) !important;
+}
+}
+@supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
+section.chart-finish-pigment :where(.hub-spoke-icon[data-hue="8"]),
+figure.chart-finish-pigment :where(.hub-spoke-icon[data-hue="8"]) {
+  --hs-icon-ink: oklch(from color-mix(in oklab, var(--chart-cat-8-hue) 82%, var(--chart-cat-base)) clamp(0, (0.565 - l) * 999, 1) 0 0) !important;
+}
+}
+@supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
+section.chart-finish-pigment :where(.hub-spoke-icon[data-s]),
+figure.chart-finish-pigment :where(.hub-spoke-icon[data-s]) {
+  --hs-icon-ink: oklch(from color-mix(in oklab, var(--hs-state-hue) 82%, var(--chart-cat-base)) clamp(0, (0.565 - l) * 999, 1) 0 0) !important;
+}
+}
+
 /* LAYERED — a flat alpha of the series body; the edge carries the series. */
 section.chart-finish-pigment :where([data-hue="1"][data-encodes="layered"][data-paint="fill"]),
 figure.chart-finish-pigment :where([data-hue="1"][data-encodes="layered"][data-paint="fill"]) {
@@ -841,6 +897,62 @@ figure.chart-finish-etching :where(.heatmap-value[data-step="4"]) {
 section.chart-finish-etching :where(.heatmap-value[data-step="5"]),
 figure.chart-finish-etching :where(.heatmap-value[data-step="5"]) {
   fill: oklch(from color-mix(in oklab, var(--chart-cat-1-hue) calc(6% + var(--heatmap-step5, 92%) * 0.4), var(--heatmap-base)) clamp(0, (0.565 - l) * 999, 1) 0 0) !important;
+}
+}
+
+/* HUB-SPOKE ICON — the ink its disc's finish body clears. */
+@supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
+section.chart-finish-etching :where(.hub-spoke-icon[data-hue="1"]),
+figure.chart-finish-etching :where(.hub-spoke-icon[data-hue="1"]) {
+  --hs-icon-ink: light-dark(oklch(from color-mix(in oklab, var(--chart-cat-1-hue) 30%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0), oklch(from color-mix(in oklab, var(--chart-cat-1-hue) 40%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0)) !important;
+}
+}
+@supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
+section.chart-finish-etching :where(.hub-spoke-icon[data-hue="2"]),
+figure.chart-finish-etching :where(.hub-spoke-icon[data-hue="2"]) {
+  --hs-icon-ink: light-dark(oklch(from color-mix(in oklab, var(--chart-cat-2-hue) 30%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0), oklch(from color-mix(in oklab, var(--chart-cat-2-hue) 40%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0)) !important;
+}
+}
+@supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
+section.chart-finish-etching :where(.hub-spoke-icon[data-hue="3"]),
+figure.chart-finish-etching :where(.hub-spoke-icon[data-hue="3"]) {
+  --hs-icon-ink: light-dark(oklch(from color-mix(in oklab, var(--chart-cat-3-hue) 30%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0), oklch(from color-mix(in oklab, var(--chart-cat-3-hue) 40%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0)) !important;
+}
+}
+@supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
+section.chart-finish-etching :where(.hub-spoke-icon[data-hue="4"]),
+figure.chart-finish-etching :where(.hub-spoke-icon[data-hue="4"]) {
+  --hs-icon-ink: light-dark(oklch(from color-mix(in oklab, var(--chart-cat-4-hue) 30%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0), oklch(from color-mix(in oklab, var(--chart-cat-4-hue) 40%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0)) !important;
+}
+}
+@supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
+section.chart-finish-etching :where(.hub-spoke-icon[data-hue="5"]),
+figure.chart-finish-etching :where(.hub-spoke-icon[data-hue="5"]) {
+  --hs-icon-ink: light-dark(oklch(from color-mix(in oklab, var(--chart-cat-5-hue) 30%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0), oklch(from color-mix(in oklab, var(--chart-cat-5-hue) 40%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0)) !important;
+}
+}
+@supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
+section.chart-finish-etching :where(.hub-spoke-icon[data-hue="6"]),
+figure.chart-finish-etching :where(.hub-spoke-icon[data-hue="6"]) {
+  --hs-icon-ink: light-dark(oklch(from color-mix(in oklab, var(--chart-cat-6-hue) 30%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0), oklch(from color-mix(in oklab, var(--chart-cat-6-hue) 40%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0)) !important;
+}
+}
+@supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
+section.chart-finish-etching :where(.hub-spoke-icon[data-hue="7"]),
+figure.chart-finish-etching :where(.hub-spoke-icon[data-hue="7"]) {
+  --hs-icon-ink: light-dark(oklch(from color-mix(in oklab, var(--chart-cat-7-hue) 30%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0), oklch(from color-mix(in oklab, var(--chart-cat-7-hue) 40%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0)) !important;
+}
+}
+@supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
+section.chart-finish-etching :where(.hub-spoke-icon[data-hue="8"]),
+figure.chart-finish-etching :where(.hub-spoke-icon[data-hue="8"]) {
+  --hs-icon-ink: light-dark(oklch(from color-mix(in oklab, var(--chart-cat-8-hue) 30%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0), oklch(from color-mix(in oklab, var(--chart-cat-8-hue) 40%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0)) !important;
+}
+}
+@supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
+section.chart-finish-etching :where(.hub-spoke-icon[data-s]),
+figure.chart-finish-etching :where(.hub-spoke-icon[data-s]) {
+  --hs-icon-ink: light-dark(oklch(from color-mix(in oklab, var(--hs-state-hue) 30%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0), oklch(from color-mix(in oklab, var(--hs-state-hue) 40%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0)) !important;
 }
 }
 
@@ -1335,6 +1447,62 @@ figure.chart-finish-tone :where(.heatmap-value[data-step="4"]) {
 section.chart-finish-tone :where(.heatmap-value[data-step="5"]),
 figure.chart-finish-tone :where(.heatmap-value[data-step="5"]) {
   fill: light-dark(oklch(from color-mix(in oklab, var(--chart-cat-1-hue) calc(10% + var(--heatmap-step5, 92%) * 0.65), var(--heatmap-base)) clamp(0, (0.565 - l) * 999, 1) 0 0), oklch(from color-mix(in oklab, var(--chart-cat-1-hue) calc(10% + var(--heatmap-step5, 92%) * 0.43), var(--heatmap-base)) clamp(0, (0.565 - l) * 999, 1) 0 0)) !important;
+}
+}
+
+/* HUB-SPOKE ICON — the ink its disc's finish body clears. */
+@supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
+section.chart-finish-tone :where(.hub-spoke-icon[data-hue="1"]),
+figure.chart-finish-tone :where(.hub-spoke-icon[data-hue="1"]) {
+  --hs-icon-ink: oklch(from color-mix(in oklab, var(--chart-cat-1-hue) 92%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0) !important;
+}
+}
+@supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
+section.chart-finish-tone :where(.hub-spoke-icon[data-hue="2"]),
+figure.chart-finish-tone :where(.hub-spoke-icon[data-hue="2"]) {
+  --hs-icon-ink: oklch(from color-mix(in oklab, var(--chart-cat-1-hue) 76%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0) !important;
+}
+}
+@supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
+section.chart-finish-tone :where(.hub-spoke-icon[data-hue="3"]),
+figure.chart-finish-tone :where(.hub-spoke-icon[data-hue="3"]) {
+  --hs-icon-ink: oklch(from color-mix(in oklab, var(--chart-cat-1-hue) 61%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0) !important;
+}
+}
+@supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
+section.chart-finish-tone :where(.hub-spoke-icon[data-hue="4"]),
+figure.chart-finish-tone :where(.hub-spoke-icon[data-hue="4"]) {
+  --hs-icon-ink: oklch(from color-mix(in oklab, var(--chart-cat-1-hue) 47%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0) !important;
+}
+}
+@supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
+section.chart-finish-tone :where(.hub-spoke-icon[data-hue="5"]),
+figure.chart-finish-tone :where(.hub-spoke-icon[data-hue="5"]) {
+  --hs-icon-ink: oklch(from color-mix(in oklab, var(--chart-cat-1-hue) 34%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0) !important;
+}
+}
+@supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
+section.chart-finish-tone :where(.hub-spoke-icon[data-hue="6"]),
+figure.chart-finish-tone :where(.hub-spoke-icon[data-hue="6"]) {
+  --hs-icon-ink: oklch(from color-mix(in oklab, var(--chart-cat-1-hue) 22%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0) !important;
+}
+}
+@supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
+section.chart-finish-tone :where(.hub-spoke-icon[data-hue="7"]),
+figure.chart-finish-tone :where(.hub-spoke-icon[data-hue="7"]) {
+  --hs-icon-ink: oklch(from color-mix(in oklab, var(--chart-cat-1-hue) 14%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0) !important;
+}
+}
+@supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
+section.chart-finish-tone :where(.hub-spoke-icon[data-hue="8"]),
+figure.chart-finish-tone :where(.hub-spoke-icon[data-hue="8"]) {
+  --hs-icon-ink: oklch(from color-mix(in oklab, var(--chart-cat-1-hue) 9%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0) !important;
+}
+}
+@supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0)) {
+section.chart-finish-tone :where(.hub-spoke-icon[data-s]),
+figure.chart-finish-tone :where(.hub-spoke-icon[data-s]) {
+  --hs-icon-ink: oklch(from color-mix(in oklab, var(--hs-state-hue) 61%, var(--bg)) clamp(0, (0.565 - l) * 999, 1) 0 0) !important;
 }
 }
 

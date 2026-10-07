@@ -20,7 +20,9 @@ import { deckFiles, testLiterals } from './corpus.mjs';
 const require = createRequire(import.meta.url);
 
 /** The readers, in the order every encoding lists them. */
-export const READERS = ['line', 'lead', 'cell', 'roadmap', 'bare', 'grid', 'track', 'spokenGrid', 'unbracket'];
+// `spokenGrid` (narration's own matrix-grid reading) left when it folded into `grid`; `edit`,
+// `editBare` and `unescape` are the Studio's Compose editor (lib/core/cell-marker-edit.mjs).
+export const READERS = ['line', 'lead', 'cell', 'roadmap', 'bare', 'grid', 'track', 'unbracket', 'edit', 'editBare', 'unescape'];
 
 /** One input read by every reader, as one array: what the freeze stores per input. */
 export const encode = (readers, s) => READERS.map((k) => readers[k](s));
@@ -28,7 +30,7 @@ export const encode = (readers, s) => READERS.map((k) => readers[k](s));
 /** What every reader answers for an input it does not read: no marker, no cell, one plain label. */
 export const quiet = (s) => {
   const label = s.replace(/\s+/g, ' ').trim();
-  return [null, null, null, null, false, null, { labels: label ? [label] : [], current: -1 }, null, s];
+  return [null, null, null, null, false, null, { labels: label ? [label] : [], current: -1 }, s, null, null, s];
 };
 
 /** Did any reader read something in input `s`, whose encoding is `out`? */
@@ -37,10 +39,11 @@ export const answered = (s, out) => JSON.stringify(out) !== JSON.stringify(quiet
 /** Inputs per fuzz digest. */
 export const FROZEN_BLOCK = 100;
 
-/** The shipped kernels, shaped as the legacy readers are. */
-export function shippedReaders() {
+/** The shipped kernels, shaped as the legacy readers are. Async: the editor's readers are ESM. */
+export async function shippedReaders() {
+  const edit = await import('../../lib/core/cell-marker-edit.mjs');
   const marks = require('../../lib/core/leading-marker.js');
-  const { parseCell, readGridMarker } = require('../../lib/core/matrix-grid-cells.js');
+  const { parseCell } = require('../../lib/core/matrix-grid-cells.js');
   const { parseTrackSpec } = require('../../lib/core/track-spec.js');
   const pair = (r, b) => (r ? [r.marker, b(r)] : null);
   return {
@@ -51,8 +54,10 @@ export function shippedReaders() {
     bare: (s) => marks.isMarkerCell(s),
     grid: (s) => parseCell(s),
     track: (s) => parseTrackSpec(s),
-    spokenGrid: (s) => pair(readGridMarker(s), (r) => r.rest),
     unbracket: (s) => { const r = marks.leadingBracketPrefix(s); return r ? s.slice(r.length) : s; },
+    edit: (s) => pair(edit.readEditMarker(s), (r) => r.length),
+    editBare: (s) => edit.readEditMarker(s)?.marker ?? null,
+    unescape: (s) => edit.unescapeLeadingMarker(s),
   };
 }
 
@@ -64,6 +69,8 @@ const TESTS = [
   'test/unit/core/table-row-label.test.js',
   'test/unit/components/matrix-grid.test.js',
   'test/unit/components/lint-core.test.js',
+  'docs/src/components/studio/table-commands.test.ts',
+  'docs/src/lib/compose/deck-markdown.test.ts',
 ];
 
 const LIST_ITEM = /^\s*(?:[-*+]|\d+[.)])\s+(.*)$/;
@@ -87,6 +94,9 @@ export function listTextCorpus() {
     }
   }
   for (const s of testLiterals(TESTS)) out.add(s);
+  // The Compose serializer escapes a leading marker's brackets (`\[x\] Owner`) before the editor
+  // un-escapes them: every input that leads with a bracket, escaped that way, is an input too.
+  for (const s of [...out]) if (/^\[[^\]]\]/.test(s)) out.add(`\\[${s[1]}\\]${s.slice(3)}`);
   return [...out];
 }
 
@@ -98,7 +108,8 @@ export function listTextCorpus() {
  */
 export function listTextFuzz(count = 20_000, seed = 0x2545) {
   const ALPHA = ['[', ']', '[', ']', 'x', 'X', '-', '!', '?', ' ', ' ', '/', '<', '>', '|', '|',
-    'a', 'b', '\t', '\n', '\r', ' ', ' ', '﻿', '\v', '　', '[x]', '[ ]', '[-] ', '<b>', ' | '];
+    'a', 'b', '\t', '\n', '\r', ' ', ' ', '﻿', '\v', '　', '[x]', '[ ]', '[-] ', '<b>', ' | ',
+    '\\', '\\[', '\\]', '\\[x\\]'];
   let st = seed;
   const rand = () => { st = (st * 1103515245 + 12345) & 0x7fffffff; return st / 0x7fffffff; };
   const out = [];
@@ -111,6 +122,12 @@ export function listTextFuzz(count = 20_000, seed = 0x2545) {
   // The matrix-grid gap is bounded at 8 spaces or tabs: every gap from 0 to 12 on each shape.
   for (let g = 0; g <= 12; g++) {
     for (const m of ['x', '-', ' ', '!']) out.push(`[${m}]${' '.repeat(g)}Label`, `[${m}]${'\t '.repeat(g >> 1)}${g & 1 ? ' ' : ''}x y`);
+  }
+  // The Compose editor's shapes, on every marker, `X` and a non-marker: the one space it replaces
+  // (and the second it leaves), and the serializer's escape.
+  for (const m of ['x', '-', '!', '?', ' ', '/', 'X', 'a']) {
+    for (const gap of ['', ' ', '  ', '\t', '\n', '\u00a0']) out.push(`[${m}]${gap}Label`, `\\[${m}\\]${gap}Label`);
+    out.push(`[${m}]`, `\\[${m}\\]`, `\\[${m}]`, `[${m}\\]`);
   }
   return out;
 }

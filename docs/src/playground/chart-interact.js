@@ -623,7 +623,7 @@ export function createChartInteract({ stage, getFrame, lift = true, onReveal, on
   // so anything that blurs a tile's edge makes the reader re-count.
   //
   // What carries the emphasis instead is the dim. The active mark does take `.chart-mark-active`, and
-  // chart-family.css thickens its stroke to `--chart-edge-strong` — but a heatmap cell's stroke is the
+  // chart-family.styles.css thickens its stroke to `--chart-edge-strong` — but a heatmap cell's stroke is the
   // GUTTER color (`var(--bg)`, measured `rgb(255,255,255)` in light and `rgb(0,29,51)` in dark), so
   // that rule only widens the gap around the tile. The cue a reader sees is that every OTHER tile drops
   // to 0.45 while this one stays at 1 — emphasis in the chart's own language, color intensity.

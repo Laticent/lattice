@@ -29,7 +29,7 @@
  * relative to another — so a gate that walks `lib/**` cannot ask the question
  * above at all. Reading the bundle also removes four blind spots the source walk
  * had, each of which certified a frame it should have rejected: a rule in a file
- * whose name does not end `.styles.css` (`_chart-family/chart-family.css`), a
+ * whose name does not end `.styles.css` (`_chart-family/chart-family.css`, as it was then), a
  * root nobody listed (`lib/shared/shared.styles.css` carries a section canvas
  * today), a `background-image`-only painter — which is the EXACT shape of the
  * `divider` defect this rule exists to fix — and a comma list whose last selector

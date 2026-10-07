@@ -261,7 +261,7 @@
 
 /* ── Chart-family palette ───────────────────────────────────────────────
  * Crepuscolo's curation of the chart-family's two color spectrums (defined
- * in lib/components/chart/_chart-family/chart-family.css). The engine ships a
+ * in lib/plugins/chart-family/chart-family.styles.css). The engine ships a
  * canvas-aware Apple-hue default; untuned themes inherit it. Crepuscolo
  * overrides both spectrums with its cool dusk-violet pigments so charts read
  * native to the "twilight on vellum" brand instead of borrowing the Apple
@@ -271,7 +271,7 @@
  * chart-family expects: on off-white the value is a saturated dusk pigment (it
  * drives the wedge/bar border at full strength and a 24% tint for the fill);
  * on deep plum it lifts to a brighter same-hue sibling. See design/theming.md
- * (chart palette) and the chart-family.css token block for the contract. */
+ * (chart palette) and the chart-family.styles.css token block for the contract. */
 :root {
   /* Categorical spectrum — crepuscolo's audited Brand-triad pigments. Light
    * side = the audited pigment (drives the border at full strength + a 24%

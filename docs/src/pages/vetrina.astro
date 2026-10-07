@@ -289,6 +289,7 @@
 		</div>
 
 		<script>
+			import { armDownloadLink } from '@/components/studio/download';
 			import { ENGINE_HASH } from '@/lib/cadenza';
 			import { run, storyboard, wait } from '@/lib/vetrina';
 			import deicticRecording from '@/lib/vetrina-exemplars/deictic.ltt.json';
@@ -651,8 +652,7 @@
 				if (reason !== 'complete') { setDiag(`${stopped(reason)}, so nothing was recorded.`); return; }
 				const ltt = await record.ltt(steps);
 				if (recordingLink.href) URL.revokeObjectURL(recordingLink.href);
-				recordingLink.href = URL.createObjectURL(new Blob([`${JSON.stringify(ltt, null, 2)}\n`], { type: 'application/json' }));
-				recordingLink.download = `${DEICTIC_RECORDING_ID}.ltt.json`;
+				armDownloadLink(recordingLink, `${DEICTIC_RECORDING_ID}.ltt.json`, new Blob([`${JSON.stringify(ltt, null, 2)}\n`], { type: 'application/json' }));
 				recordingLink.hidden = false;
 				const n = ltt.segments.length;
 				setDiag(`Recorded ${n} ${n === 1 ? 'stretch' : 'stretches'}, ${Math.round(ltt.segments.reduce((t, s) => t + (s.track?.durationMs ?? 0), 0) / 100) / 10} s of narration.`);

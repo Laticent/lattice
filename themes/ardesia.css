@@ -261,7 +261,7 @@
 
 /* ── Chart-family palette ───────────────────────────────────────────────
  * Ardesia's curation of the chart-family's two color spectrums (defined in
- * lib/components/chart/_chart-family/chart-family.css). The engine ships a
+ * lib/plugins/chart-family/chart-family.styles.css). The engine ships a
  * canvas-aware Apple-hue default; untuned themes inherit it. Ardesia overrides
  * both spectrums with its audited Brand-triad pigments — slate, terracotta,
  * olive, blue, teal, brown, violet, and rose — each low-chroma, so charts read
@@ -273,7 +273,7 @@
  * (drives the wedge/bar border at full strength and a 24% tint for the fill);
  * on the dark canvas it lifts via color-mix(in oklab, pigment, white 30%) so
  * the hue stays true and vivid on graphite. See design/theming.md (chart
- * palette) and chart-family.css for the full token contract. */
+ * palette) and chart-family.styles.css for the full token contract. */
 :root {
   /* Categorical spectrum — ardesia's audited Brand-triad pigments, low-chroma
    * slate/muted hues ordered most-distinct-first by hue and value. These are

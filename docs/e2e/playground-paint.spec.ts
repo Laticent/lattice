@@ -1,3 +1,4 @@
+import { MAX_UNITS } from '../src/playground/snapshot-cache.js';
 import { controlReady, expect, test } from './studio-fixture';
 
 // Consolidation of scripts/check-preview-render.mjs (the puppeteer paint guard
@@ -217,4 +218,29 @@ test('a reload replays the cached slide before the engine renders', async ({ pag
 			message: 'the pre-paint snapshot replay never ran — the preview pane was empty until the engine rendered',
 		})
 		.toBe(true);
+});
+
+// THE FIRST-PAINT SNAPSHOT'S HEADROOM (#2558's P4). The Playground stores its first slide's HTML
+// and CSS for the next cold load, and a snapshot over MAX_UNITS stores nothing. #2558 reached
+// 245,975 against 245,760 and four first-paint specs timed out, far from the CSS that caused it.
+// `stripPseudo` (snapshot-cache.js) since took the default Edit deck from 245,584 to 55,829, by
+// evaluating the nested `:not(:is(…))` probes the old regex kept blind. This pins the margin:
+// the default deck's snapshot stays under HALF the cap, so a CSS change that eats the headroom
+// fails HERE, naming the number, long before it stores nothing.
+test('the default Edit deck\'s first-paint snapshot stays under half its size cap', async ({ page }) => {
+	const notStored: string[] = [];
+	page.on('console', (m) => {
+		if (/snapshot not stored/.test(m.text())) notStored.push(m.text());
+	});
+	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
+	await expect(page.locator('#pg-split-preview')).toBeVisible();
+	await expect
+		.poll(async () => (notStored.length ? -1 : await page.evaluate(() => (localStorage.getItem('lattice-docs-pg-last-slide') || '').length)), {
+			timeout: 45_000,
+			message: 'no first-slide snapshot was stored',
+		})
+		.not.toBe(0);
+	expect(notStored, notStored.join('\n')).toEqual([]);
+	const units = await page.evaluate(() => (localStorage.getItem('lattice-docs-pg-last-slide') || '').length);
+	expect(units, `the default Edit deck's snapshot is ${units} units against MAX_UNITS ${MAX_UNITS}: trim CSS the first slide cannot use (snapshot-cache.js) before it outgrows the cap`).toBeLessThanOrEqual(MAX_UNITS / 2);
 });

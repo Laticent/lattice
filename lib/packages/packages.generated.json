@@ -1278,10 +1278,13 @@
       "name": "chart-family",
       "path": "lib/plugins/chart-family",
       "roles": [
+        "dispatch.js",
         "docs.md",
         "fixtures.md",
-        "manifest.json"
-      ]
+        "manifest.json",
+        "styles.css"
+      ],
+      "code": true
     },
     {
       "type": "plugin",

@@ -85,7 +85,7 @@ why now   — PR #2376 made the SVG chart kernels draw for the pane: the engine 
               export's "Text too small" tag, so the change alters exported PDFs: an owner sign-off
               (QUALITY BAR export rule), and those decks' committed PDFs rebuild with it.
 where     — lib/integrations/mermaid/ (the render width, and a way to size foreignObject labels
-            for the probe), the radar kernel, the HTML chart kernels, chart-family.js,
+            for the probe), the radar kernel, the HTML chart kernels, chart-family.dispatch.js,
             tools/calibrate-capacity.js --pane.
 done when — a Mermaid pane's labels read at least the type floor and the probe can say so; and the calibration
             measures the rest of the charts' pane ceilings, so their budgets turn `measured`.

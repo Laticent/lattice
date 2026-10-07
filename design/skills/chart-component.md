@@ -6,7 +6,7 @@
 
 **Read this when** you need a new chart kind (a Cartesian plot, a new
 distribution, a new comparison encoding) that the existing chart components (the
-live roster is `LAYOUTS` in `_chart-family/chart-registry.generated.js`) don't cover. **You'll produce** a component folder under `lib/components/chart/`
+live roster is `LAYOUTS` in `lib/plugins/chart-family/shared/chart-registry.generated.js`) don't cover. **You'll produce** a component folder under `lib/components/chart/`
 whose kernel emits SVG through the shared `.chart-frame` dispatcher.
 
 > **Changing how an EXISTING chart looks is a different job** — read
@@ -46,7 +46,7 @@ A chart component is a component (`chart-component` builds on `component.md`) wi
 three distinguishing traits:
 
 1. **It renders into the shared `.chart-frame` skeleton.** The dispatcher
-   (`_chart-family/chart-family.js`) recognizes your layout class, wraps the
+   (`lib/plugins/chart-family/chart-family.dispatch.js`) recognizes your layout class, wraps the
    content in `.chart-frame > .chart-header / .chart-body / .chart-caption`, and
    calls your kernel to rewrite the inner list into chart markup. The eyebrow,
    title, subtitle, and caption bind positionally — you only build the body.
@@ -77,13 +77,15 @@ lib/components/chart/<name>/
   <name>.gallery.md        ← GENERATED
 ```
 
-Shared engine (`lib/components/chart/_chart-family/`): `chart-family.js` (the
-dispatcher + the categorical/semantic color token model in `chart-family.css`),
+Shared engine: the chart family PLUGIN (`lib/plugins/chart-family/`) owns
+`chart-family.dispatch.js` (the dispatcher and the chart frame) and
+`chart-family.styles.css` (the frame chrome and the categorical/semantic color
+token model); the kernels' shared helpers stay in `lib/components/chart/_chart-family/`:
 `svg-legend.js` (SVG-native legend), `mark-detail.js` (per-mark reveal substrate),
 `transform-utils.js`.
 
 - **Dispatch registers itself.** Declare a `kernel` block in your manifest and
-  the dispatcher finds you; `chart-family.js` is not edited. The block FILLS the
+  the dispatcher finds you; `chart-family.dispatch.js` is not edited. The block FILLS the
   chart family plugin's `kernel` slot (`lib/plugins/chart-family/`), which is why
   your manifest needs no `plugins` block: filling the slot is requiring the plugin. **Everything else
   still does not** — see step 9 for the rosters that are hand-maintained and
@@ -163,7 +165,7 @@ mud and value-collapse hide there.
    is `transformSection(html, ctx)`, both by convention. Export it — usually two
    lines around your parse+build (see `funnel.transform.js`) — then `npm run build`.
    The generator picks the block up and freezes it into
-   `_chart-family/chart-registry.generated.js`; `chart-family.js` is not touched.
+   `lib/plugins/chart-family/shared/chart-registry.generated.js`; `chart-family.dispatch.js` is not touched.
    `figureClass` is how the frame finds your body, so it must be the class your
    kernel actually writes: get it wrong and the figure renders unwrapped.
    `checkChartKernels` (`tools/check-ownership.js`) catches all three.
@@ -378,7 +380,7 @@ re-parents the chart SVG outside its `section`. Consumes tokens, cycles by hue:
       `--i`/`--mix` marks and **no color**.
 - [ ] Manifest carries a `kernel` block whose `figureClass` is the class the
       kernel really emits; kernel exports `transformSection`. No edit to
-      `chart-family.js`. (`checkChartKernels` in `tools/check-ownership.js` ties
+      `chart-family.dispatch.js`. (`checkChartKernels` in `tools/check-ownership.js` ties
       the declaration to the kernel source, so a mismatch is caught.)
 - [ ] Added to every hand-maintained roster in step 9 — none of them is gated.
 - [ ] CSS consumes `--chart-cat-N-*` / `--chart-state-*` only; cycles via
@@ -413,7 +415,7 @@ re-parents the chart SVG outside its `section`. Consumes tokens, cycles by hue:
   dispatcher, the kernel contract, the legend placement test.
 - `lib/components/chart/_chart-family/chart-family.style.md` — the curation
   rationale (two spectrums, hue vs value differentiation).
-- `lib/components/chart/_chart-family/chart-family.css` — the categorical + semantic
+- `lib/plugins/chart-family/chart-family.styles.css` — the categorical + semantic
   token model.
 - `design/theming.md` §Chart-family palette + §CVD palettes.
 - `design/design-system.md` §5 (the four substances), §8.4 (the series plugin

@@ -1,0 +1,28 @@
+- **Edit a deck together, live, in the Studio.** A new **Live** button on the left toolbar (and
+  a *Collaborate live* row at the top of the Share sheet) starts a session and copies an invite
+  link. The person who opens it sees who invited them and to which deck, types a name and
+  **knocks**; you admit or deny them from a toast or the Live panel. Once in, everyone edits the
+  same source with colored carets, the slide navigator shows who is on which slide, you can
+  **follow** someone or **bring everyone to your slide**, and the panel carries the session's
+  chat — bubbles like the Architect chat, with times and "is typing…", in one order for
+  everyone (the host numbers each line), so someone whose connection drops for a moment (a
+  phone switching tabs) shows as reconnecting rather than "left" and comes back to the lines
+  they missed (the last 500 at most). A line sent while the host is away waits as "Sending…"
+  and goes out when it is back. The session runs on the host's clock, so once a phone has
+  synced (within a second of joining) its own clock setting does not matter. Up to
+  **4 people**. Undo only undoes your own edits. A guest keeps a copy of the deck
+  when the session ends, and reloading the same tab (host or guest) picks the session back up;
+  closing the tab ends your part in it. Audio and video are not in this release.
+- **No server of ours is involved.** Edits travel browser to browser over WebRTC; peers find
+  each other through public Nostr relays (Trystero 0.26.0), and the link's secret lives in the
+  URL fragment, which browsers never send anywhere. The link also carries a fingerprint of the
+  host's signing key, so nobody else holding it can pose as the host. Treat the link like a
+  key: it works for as long as the session runs, from wherever it was pasted (an email, a chat
+  thread), and removing someone does not change it — they can knock again, and you decide. Office networks that block
+  direct browser-to-browser traffic will not connect. (`docs/src/components/studio/live/`)
+- **New library: Tavola** (`docs/src/lib/tavola`, `@laticent/tavola`) — the invite link, the
+  knock-and-admit handshake, the roster gate (only admitted members send or receive the
+  document, and view-only members' edits are refused by every honest peer), the cap and rejoin
+  by token, with the transport and document passed in. `checkTavolaBoundary` keeps it
+  dependency-free apart from its Trystero adapter. `tools/live-session-check.mjs` drives a real
+  two-browser session on demand.

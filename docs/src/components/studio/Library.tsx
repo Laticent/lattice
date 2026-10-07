@@ -12,6 +12,7 @@ import { AssetVersionsDialog, type VersionedAsset } from './AssetVersions';
 import { componentZipName, finishZipName, packBundle, packComponent, packFinish, packTheme, themeZipName, unpackBundle } from './asset-bundle';
 import { deleteStudioComponent, listStudioComponents, type StudioComponent } from './component-library';
 import { DeleteBtn } from './delete-btn';
+import { downloadBlob, iosNeedsShareSheet } from './download';
 import { generateSwatch } from './finish-generate';
 import { deleteStudioFinish, listStudioFinishes, type StudioFinish } from './finish-library';
 import type { ImportRefusal } from './import-gate';
@@ -33,14 +34,13 @@ import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-l
 type Filter = LibraryFilter;
 
 function download(blob: Blob, filename: string) {
-	const url = URL.createObjectURL(blob);
-	const a = document.createElement('a');
-	a.href = url;
-	a.download = filename;
-	document.body.appendChild(a);
-	a.click();
-	a.remove();
-	setTimeout(() => URL.revokeObjectURL(url), 1000);
+	downloadBlob(filename, blob);
+}
+
+// On iOS the Save toast is the confirmation (download.js); a "Shared …" beside it would be a
+// second toast claiming a save that still waits on a tap.
+function sharedNotice(message: string) {
+	if (!iosNeedsShareSheet()) notify(message);
 }
 
 // Rebuild a Blob from a `data:…;base64,…` URL (a stored PDF's original bytes).
@@ -413,7 +413,8 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 			let pdf: Blob | null = null;
 			try { pdf = await renderThemeShowcase(options, t); } catch { pdf = null; } // showcase is best-effort
 			download(await packTheme(t, pdf), themeZipName(t));
-			notify(pdf ? `Shared ${t.label} (with showcase PDF).` : `Shared ${t.label} (showcase skipped — engine busy).`);
+			if (pdf) sharedNotice(`Shared ${t.label} (with showcase PDF).`);
+			else notify(`${iosNeedsShareSheet() ? 'Ready' : 'Shared'}: ${t.label} (showcase skipped — engine busy).`);
 		} catch {
 			notify('Could not build the theme zip.');
 		} finally {
@@ -424,7 +425,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 		setBusy(`Packing .${c.name}…`);
 		try {
 			download(await packComponent(c), componentZipName(c));
-			notify(`Shared .${c.name}.`);
+			sharedNotice(`Shared .${c.name}.`);
 		} finally {
 			setBusy(null);
 		}
@@ -433,7 +434,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 		setBusy(`Packing ${f.label}…`);
 		try {
 			download(await packFinish(f), finishZipName(f));
-			notify(`Shared ${f.label}.`);
+			sharedNotice(`Shared ${f.label}.`);
 		} finally {
 			setBusy(null);
 		}
@@ -457,7 +458,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 		try {
 			const withPdf = await Promise.all(selThemes.map(async (theme) => ({ theme, showcase: await renderThemeShowcase(options, theme).catch(() => null) })));
 			download(await packBundle(withPdf, selComps, selFinishes, selScenes), 'lattice-assets.zip');
-			notify(`Exported ${n} assets as lattice-assets.zip.`);
+			sharedNotice(`Exported ${n} assets as lattice-assets.zip.`);
 			setSel(new Set());
 		} catch {
 			notify('Could not build the bundle.');

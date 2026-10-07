@@ -260,7 +260,7 @@
 
 /* ── Chart-family palette ───────────────────────────────────────────────
  * Brina's curation of the chart-family's two color spectrums (defined in
- * lib/components/chart/_chart-family/chart-family.css). The engine ships a
+ * lib/plugins/chart-family/chart-family.styles.css). The engine ships a
  * canvas-aware Apple-hue default; untuned themes inherit it. Brina overrides
  * both spectrums with its cool frost pigments so charts read native to the
  * "Nordic restraint, brushed steel" brand instead of borrowing the warm
@@ -270,7 +270,7 @@
  * chart-family expects: on pale gray-blue the value is a saturated cool
  * pigment (it drives the wedge/bar border at full strength and a 24% tint for
  * the fill); on deep graphite it lifts toward white so it stays vivid. See
- * design/theming.md (chart palette) and the chart-family.css token block for
+ * design/theming.md (chart palette) and the chart-family.styles.css token block for
  * the contract. */
 :root {
   /* Categorical spectrum — brina's audited Brand-triad pigments, most-

@@ -169,6 +169,21 @@ async function readExports(folder, name, manifest) {
   // its export and never imported by anything the engine or a browser loads.
   const bakePath = path.join(dir, `${name}.bake.js`);
   if (fs.existsSync(bakePath)) out.hasBake = typeof require(bakePath).bake === 'function';
+  // The dispatch (a plugin that offers an extension point) is read for its presence only: it loads
+  // every filler, and the resolver's question is only whether the plugin's folder holds it.
+  out.hasDispatch = fs.existsSync(path.join(dir, `${name}.dispatch.js`));
+  // Each VENDORED library copy's SHA-256 as it sits on disk ('' when the file is missing), for the
+  // resolver to hold against the manifest's record: the copy the plugin owns is the one that ships.
+  out.vendored = {};
+  for (const [key, payload] of Object.entries(manifest.payload || {})) {
+    if (!payload.vendored) continue;
+    const f = path.join(dir, payload.vendored.file);
+    out.vendored[key] = fs.existsSync(f) ? require('node:crypto').createHash('sha256').update(fs.readFileSync(f)).digest('hex') : '';
+  }
+  // Every file in the plugin's vendor/ folder, so the resolver can refuse one no manifest names: the
+  // source gates skip vendor/ (it is not our source), and only a declared, hashed copy earns that.
+  const vendorDir = path.join(dir, 'vendor');
+  out.vendorFiles = fs.existsSync(vendorDir) ? fs.readdirSync(vendorDir).map((f) => `vendor/${f}`) : [];
   const stylesPath = path.join(dir, `${name}.styles.css`);
   if (fs.existsSync(stylesPath)) {
     out.hasStyles = true;

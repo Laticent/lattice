@@ -30,7 +30,7 @@ import { answered, encode, FROZEN_BLOCK, listTextCorpus, listTextFuzz, shippedRe
 const require = createRequire(import.meta.url);
 const legacy = require('../segno-legacy/list-text.js').readers;
 const SHIPPED = process.argv.includes('--from-shipped');
-const readers = SHIPPED ? shippedReaders() : legacy;
+const readers = SHIPPED ? await shippedReaders() : legacy;
 const OUT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../test/unit/tools/fixtures/list-text.frozen.json');
 
 const read = (s) => encode(readers, s);
@@ -49,12 +49,12 @@ const before = existsSync(OUT) ? JSON.parse(readFileSync(OUT, 'utf8')) : null;
 const frozen = {
   from: SHIPPED
     ? `lib/core list-text readers, re-frozen ${new Date().toISOString().slice(0, 10)} for an intended change (was: ${before?.from})`
-    : 'tools/segno-legacy/list-text.js (the regex readers at f75d280)',
+    : "tools/segno-legacy/list-text.js (the regex readers at f75d280; the Compose editor's at 7a7ad30)",
   fuzz: digest(fuzz),
 };
 const all = listTextCorpus().sort().map((s) => [s, read(s)]);
 frozen.corpus = all.filter(([s, out]) => answered(s, out));
-frozen.quiet = all.filter(([s, out]) => !answered(s, out) && /^\s*[[<]/.test(s)).map(([s]) => s);
+frozen.quiet = all.filter(([s, out]) => !answered(s, out) && /^\s*[[<\\]/.test(s)).map(([s]) => s);
 
 if (before) {
   const show = (x) => JSON.stringify(x);

@@ -50,6 +50,7 @@ describe('the plugin scaffold', () => {
       exports: {
         rules: Object.keys(p.syntax), renderers: Object.keys(p.renderers), fences: Object.keys(p.fenceRenderers),
         detect: Boolean(p.detect), hasHydrate: p.hydrate && !p.pass, hasPass: p.hydrate && p.pass, hasHighlight: Boolean(p.highlight), hasBake: fs.existsSync(path.join(__dirname, `../../../lib/plugins/${p.name}/${p.name}.bake.js`)), hasStyles: fs.existsSync(path.join(__dirname, `../../../lib/plugins/${p.name}/${p.name}.styles.css`)),
+        hasDispatch: fs.existsSync(path.join(__dirname, `../../../lib/plugins/${p.name}/${p.name}.dispatch.js`)),
         stylesSource: fs.existsSync(path.join(__dirname, `../../../lib/plugins/${p.name}/${p.name}.styles.css`)) ? fs.readFileSync(path.join(__dirname, `../../../lib/plugins/${p.name}/${p.name}.styles.css`), 'utf8') : '',
       },
     }));

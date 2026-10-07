@@ -71,6 +71,7 @@ const SCRIPT_META = {
   'default:check':            ['Build & bundle', 'Freshness gate for the default bundle.'],
   'runtime:build':            ['Build & bundle', 'Build dist/lattice-runtime.js — browser runtime transforms (vscode preview / web export).'],
   'runtime:check':            ['Build & bundle', 'Freshness gate for the runtime bundle.'],
+  'vendor:plugins':           ['Build & bundle', 'Refresh each plugin\'s vendored library copy (lib/plugins/<name>/vendor/) from node_modules and rewrite its manifest record (version, sha256); --check verifies copy, record and installed build agree.'],
   'runtime:watch':            ['Build & bundle', 'Rebuild the runtime bundle on change.'],
   'emulator:build':           ['Build & bundle', 'Build dist/lattice-emulator.js — the bundled owned-engine CLI (package bin/main).'],
   'emulator:check':           ['Build & bundle', 'Freshness gate for the emulator bundle.'],

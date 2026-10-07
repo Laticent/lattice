@@ -203,6 +203,30 @@ export function notifyAction(message: string, opts: ActionOptions): NoticeHandle
 }
 
 /**
+ * The same `notifyAction`, raised by an event instead of an import — for a module the app
+ * loads lazily. Importing this file from a lazy chunk makes the bundler split `notify` into
+ * a first-paint chunk of its own and reshuffle the shared chunks around it: measured on
+ * download-ios.js, +1,239 B gz of first-paint JS on the Studio and +460 B on the Playground
+ * (docs/route-budget.json). The listener calls `preventDefault()` to say it showed the
+ * notice, so the sender can fall back when no page code is listening.
+ */
+export const NOTIFY_ACTION_EVENT = 'lattice:notify-action';
+export const NOTIFY_DISMISS_EVENT = 'lattice:notify-dismiss';
+if (typeof window !== 'undefined') {
+	window.addEventListener(NOTIFY_ACTION_EVENT, (e) => {
+		const d = (e as CustomEvent<{ message?: string; opts?: ActionOptions }>).detail;
+		if (!d?.message || !d.opts) return;
+		e.preventDefault();
+		(d as { handle?: NoticeHandle }).handle = notifyAction(d.message, d.opts);
+	});
+	// Its pair: retire a notice raised that way, by the handle the listener wrote back.
+	window.addEventListener(NOTIFY_DISMISS_EVENT, (e) => {
+		const h = (e as CustomEvent<{ handle?: NoticeHandle }>).detail?.handle;
+		if (h) dismissNotice(h);
+	});
+}
+
+/**
  * A notice that must outlive everything around it, until the reader deals with it.
  * Today: the page is out of date because the site was rebuilt while this tab sat
  * open. Never expires — so use it only where waiting is the correct behavior.

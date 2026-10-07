@@ -1601,7 +1601,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 						// string; the `chart-frame` marker is added at RUNTIME (applyToDom) and
 						// isn't in the string yet — so we match the layout class, not the marker.
 						// This alternation MIRRORS `LAYOUTS` in
-						// lib/components/chart/_chart-family/chart-registry.generated.js (all 14
+						// lib/plugins/chart-family/shared/chart-registry.generated.js (all 14
 						// layouts) — keep it in sync when a chart is added. It was written against
 						// the old hand-written `CHART_LAYOUTS` and had already drifted: it was
 						// missing `matrix-grid`, so `stats.charts` under-counted any deck using

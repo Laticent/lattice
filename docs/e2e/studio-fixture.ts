@@ -117,6 +117,8 @@ export const CHROME = {
 	coach: 'Toggle Coach',
 	/** Activity-bar toggle for the Chat (AI conversation) panel — a separate peer of the Coach. */
 	chat: 'Toggle Chat',
+	/** Activity-bar toggle for the Live panel — invite, people, session chat (2026-10-06-studio-live-collaboration.md). */
+	live: 'Toggle Live',
 	/** Activity-bar toggle for the Reader views panel — a first-class peer of the Architect.
 	 *  Renamed from "Toggle Reader views" in #1211: the panel it opens is titled "Reader views",
 	 *  as is the drawer row, so the launcher agreed with neither. "Lenses" survives only as

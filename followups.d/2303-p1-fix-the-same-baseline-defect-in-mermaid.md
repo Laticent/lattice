@@ -20,7 +20,7 @@ Triaged 2026-09-24 against `main` at 6110a1e: still open.
                    `ishikawa-label`). The only CSS we own that touches them is
                    lib/plugins/mermaid/mermaid.styles.css, which sets no baseline
                    today — so the fix is a companion `… tspan` rule there, mirroring
-                   what funnel.styles.css / chart-family.css / word-cloud.styles.css
+                   what funnel.styles.css / chart-family.styles.css / word-cloud.styles.css
                    now do. Check first whether mermaid's own rule out-specifies it.
        done when — `node tools/audit-svg-baselines.mjs --deck lib/components/diagram/diagram.gallery.md`
                    reports 0 labels over 3px. Baseline before this work: 17 of 91

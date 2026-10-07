@@ -1,12 +1,13 @@
 ---
-status: proposed
+status: superseded
+superseded-by: 2026-10-06-studio-live-collaboration.md
 summary: Design exploration for adding talk-while-you-edit audio/video to the Drawing Board over the same WebRTC pipe as Yjs document sync
 ---
 
 # Audio/video on the Drawing Board — the other half of the WebRTC pipe
 
 **Date:** 2026-06-15
-**Status:** Proposed (design model / exploration). No code yet.
+**Status:** Superseded on 2026-10-06 by [`2026-10-06-studio-live-collaboration.md`](2026-10-06-studio-live-collaboration.md), which retargets this to the Studio. The analysis below is still the transport reference.
 **Decision owner:** Sharmarke
 **Companion to** [`2026-06-14-yjs-collaboration-exploration.md`](2026-06-14-yjs-collaboration-exploration.md)
 — it picks the transport for *document* sync; this one asks what it takes to

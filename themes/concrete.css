@@ -254,7 +254,7 @@
 
 /* ── Chart-family palette ───────────────────────────────────────────────
  * Concrete's curation of the chart-family's two color spectrums (defined in
- * lib/components/chart/_chart-family/chart-family.css). The engine ships a
+ * lib/plugins/chart-family/chart-family.styles.css). The engine ships a
  * canvas-aware Apple-hue default; untuned themes inherit it. Concrete overrides
  * both spectrums with its own low-chroma greige pigments so charts read native
  * to the "poured concrete" brand instead of borrowing the cool system palette.
@@ -264,7 +264,7 @@
  * pigment (it drives the wedge/bar border at full strength and a 24% tint for
  * the fill); on the dark canvas it lifts to a brighter same-hue sibling via
  * color-mix(in oklab, …, white 30%). See design/theming.md (chart palette) and
- * the chart-family.css token block for the contract. */
+ * the chart-family.styles.css token block for the contract. */
 :root {
   /* Categorical spectrum — concrete's audited Brand-triad pigments.
    * Eight low-chroma greige hues, separated by hue + value so categories
@@ -334,7 +334,7 @@
   --chart-state-mute: light-dark(#68675B, #A69882); /* warm greige    */
 
   /* ── The fill WASH, flattened for this canvas ─────────────────────────────
-   * chart-family.css builds every mark fill as a two-stop wash between the hue
+   * chart-family.styles.css builds every mark fill as a two-stop wash between the hue
    * and the canvas, and states the contract that wash exists to keep: "the wash
    * only tints, so --text-heading labels clear it on both canvases." On the
    * family's percentages concrete is the one theme where that is false, for the

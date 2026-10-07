@@ -45,7 +45,8 @@ describe('marp-bundle spec', () => {
     // the runtime: an exported deck opens from `file://`, so the only place the browser
     // can find the engine is beside the script that reads it.
     assert.equal(byTo['lattice-dagre-min.js'], 'dist/lattice-dagre-min.js');
-    assert.equal(byTo['mermaid-v11-min.js'], 'mermaid-v11-min.js');
+    // Mermaid is the mermaid plugin's own copy, shipped under the bundle's name for it.
+    assert.equal(byTo['mermaid-v11-min.js'], 'lib/plugins/mermaid/vendor/mermaid.min.js');
     // The bundle is Marp-native: no emulator is shipped.
     assert.ok(!STATIC_ASSETS.some((a) => /emulator/.test(a.from) || /emulator/.test(a.to)));
     assert.equal(byTo['dist/lattice.css'], undefined);

@@ -170,7 +170,7 @@ section.journey {
   display: flex;
   flex-direction: column;
 }
-/* The h2 is lifted into the chart-frame masthead band (chart-family.js), which
+/* The h2 is lifted into the chart-frame masthead band (chart-family.dispatch.js), which
  * owns the title→body spacing now — the old `section.journey h1, h2 { margin }`
  * was vestigial (and margins break virtual-list scrollHeight), so it's removed. */
 

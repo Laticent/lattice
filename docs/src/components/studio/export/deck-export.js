@@ -42,6 +42,7 @@ import { THEME_EDGES } from '../../../../../lib/theme/edges.generated.mjs';
 import { buildSrcdoc, handoutRegions, nUpCells } from '../../../playground/deck-preview.js';
 import { embedComponentsInMarkdown } from '../../../playground/layout-core.generated.js';
 import { addPageStickyNotes } from '../../../playground/pdf-sticky-notes.js';
+import { downloadBlob } from '../download.js';
 import { collectSlideTextRuns } from './pdf-text-extract.js';
 
 function safeName(name) {
@@ -98,15 +99,10 @@ function provenance(meta, slides) {
 	return { eng, summary, keywords };
 }
 
+// Every export saves through the Studio's one download helper, which names the file on
+// the URL itself — see ../download.js for why a bare `download` attribute is not enough.
 function download(blob, filename) {
-	const url = URL.createObjectURL(blob);
-	const a = document.createElement('a');
-	a.href = url;
-	a.download = filename;
-	document.body.appendChild(a);
-	a.click();
-	a.remove();
-	setTimeout(() => URL.revokeObjectURL(url), 1000);
+	downloadBlob(filename, blob);
 }
 
 // ── Markdown ────────────────────────────────────────────────────────────────

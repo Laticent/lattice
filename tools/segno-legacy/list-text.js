@@ -7,6 +7,8 @@
  * it. Each block names the file and the line it came from. Only the marker class is inlined
  * (it was `MARKER_CLASS` from lib/core/state-marks.js, whose value is unchanged).
  *
+ * The Compose editor's four readers joined later, copied at 7a7ad30 before their own swap.
+ *
  * Do not fix bugs here: a fix would change the oracle.
  */
 
@@ -40,6 +42,14 @@ function parseCell(text) {
 // and the one-character bracket it strips before a cell is said
 const GRID_SPOKEN = /^\[([x\- ])\][ \t]*(.*)$/;
 const SPOKEN_BRACKET = /^\[[^\]]\]\s*/;
+
+// The Studio's Compose editor (copied at 7a7ad30, before the editor swap):
+// docs/src/lib/compose/table-commands.ts CELL_MARKER and CELL_MARKER_BARE, and
+// docs/src/components/studio/ComposeView.tsx CELL_MARKER_RE (the same shape as CELL_MARKER_BARE)
+const EDIT_CELL_MARKER = new RegExp(`^\\[(${MARKER_CLASS})\\]\\s?`);
+const EDIT_CELL_MARKER_BARE = new RegExp(`^\\[(${MARKER_CLASS})\\]`);
+// docs/src/lib/compose/deck-markdown.ts ESCAPED_LEADING_MARKER_RE
+const ESCAPED_LEADING_MARKER_RE = new RegExp(`^\\\\\\[(${MARKER_CLASS})\\\\\\]`);
 
 // lib/core/track-spec.js
 const tidy = (s) => String(s ?? '').replace(/\s+/g, ' ').trim();
@@ -75,8 +85,15 @@ const readers = {
   bare: (s) => MARKER_CELL.test(s),
   grid: (s) => parseCell(s),
   track: (s) => parseTrackSpec(s),
-  // chart-narration.js narrateMatrixGrid gridCell
+  // chart-narration.js narrateMatrixGrid gridCell. RETIRED from the oracle (not in READERS) since
+  // narration reads `grid`; kept so this copy stays verbatim.
   spokenGrid: (s) => { const m = String(s).match(GRID_SPOKEN); return m ? [m[1], m[2]] : null; },
+  // table-commands.ts setCellMarker: marker and the length it replaces (marker + one space)
+  edit: (s) => { const m = EDIT_CELL_MARKER.exec(s); return m ? [m[1], m[0].length] : null; },
+  // table-commands.ts currentCellMarker, ComposeView.tsx stateMarkerPlugin: the marker
+  editBare: (s) => { const m = EDIT_CELL_MARKER_BARE.exec(s); return m ? m[1] : null; },
+  // deck-markdown.ts serializeCell: the cell with a leading escaped marker un-escaped
+  unescape: (s) => s.replace(ESCAPED_LEADING_MARKER_RE, '[$1]'),
   // chart-narration.js narrateMatrixGrid: the cell's words with a leading `[?]` stripped
   unbracket: (s) => s.replace(SPOKEN_BRACKET, ''),
 };

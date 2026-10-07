@@ -89,9 +89,12 @@ means "no gap logged for the runtime route", never "the preview is complete.
 - **Cause:** Worktrees share `.git` but not working files. `node_modules/`
   isn't tracked, so the worktree has no installed deps. The script
   tag `<script src="../node_modules/mermaid/...">` 404s.
-- **Mitigation:** Mermaid is now vendored at the repo root as
-  `mermaid-v11-min.js` and committed. Worktrees and fresh clones see
-  it at the right relative path without `npm install`. See
+- **Mitigation:** Mermaid is vendored and committed: the Mermaid
+  plugin owns the copy, `lib/plugins/mermaid/vendor/mermaid.min.js`
+  (it was `mermaid-v11-min.js` at the repo root until 2026-10-06). A
+  deck in the tree loads it by its relative path (the diagram gallery:
+  `../../../../lib/plugins/mermaid/vendor/mermaid.min.js`), so worktrees
+  and fresh clones see it without `npm install`. See
   [engineering/decisions/2026-04-30-mermaid-theming.md](decisions/2026-04-30-mermaid-theming.md)
   for the full rationale.
 - **Triggered by:** Any worktree or clone where `npm install` hasn't

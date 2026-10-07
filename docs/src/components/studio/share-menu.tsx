@@ -1,4 +1,4 @@
-import { Captions, ChevronRight, Download, FileArchive, FileText, Globe, Images, Link2, Loader2, Monitor, Package, Presentation, Printer } from 'lucide-react';
+import { Captions, ChevronRight, Download, FileArchive, FileText, Globe, Images, Link2, Loader2, Monitor, Package, Presentation, Printer, UsersRound } from 'lucide-react';
 import type * as React from 'react';
 
 // The Share sheet's menu: its header, its two sections and every row's icon, title and
@@ -13,11 +13,16 @@ export const SHARE_HEADER = {
 	srDescription: 'Hand off the rendered deck or the Markdown source.',
 } as const;
 
-export type ShareRowId = 'present' | 'pdf' | 'pptx' | 'odp' | 'images' | 'print' | 'html' | 'captions' | 'lattice' | 'md' | 'marp' | 'printsrc';
+export type ShareRowId = 'live' | 'present' | 'pdf' | 'pptx' | 'odp' | 'images' | 'print' | 'html' | 'captions' | 'lattice' | 'md' | 'marp' | 'printsrc';
 
 type ShareRowDef = { id: ShareRowId; icon: React.ReactNode; title: string; desc: string; dev?: boolean };
 
 export const SHARE_MENU: ReadonlyArray<{ label: string; blurb: string; rows: ReadonlyArray<ShareRowDef> }> = [
+	{
+		label: 'Work on it together',
+		blurb: 'Edit live with up to three others, browser to browser.',
+		rows: [{ id: 'live', icon: <UsersRound className="size-4" />, title: 'Collaborate live', desc: 'Share a link — people knock, you let them in' }],
+	},
 	{
 		label: 'Hand off the deck',
 		blurb: 'The rendered, paginated deck — for your audience.',

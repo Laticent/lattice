@@ -54,7 +54,6 @@
   ],
   "files": [
     "lattice-emulator.js",
-    "mermaid-v11-min.js",
     "dist/",
     "lib/",
     "themes/",
@@ -75,6 +74,7 @@
     "build": "node tools/build.js",
     "build:uncommitted": "node tools/build.js --only-uncommitted",
     "build:check": "node tools/build.js --check --exclude-uncommitted",
+    "vendor:plugins": "node tools/vendor-plugin-libs.js",
     "build:check:all": "node tools/build.js --check",
     "new:theme": "node tools/new-theme.js",
     "new:slide": "node tools/new-slide.js",
@@ -310,7 +310,7 @@
     "sync:backlog": "node tools/sync-backlog.js",
     "sync:labels": "node tools/sync-labels.js",
     "clean:scratch": "find .scratch -mindepth 1 -mtime +14 -print -delete",
-    "prepare": "lefthook install || true; node tools/build.js --only-uncommitted",
+    "prepare": "node tools/prepare.js",
     "prepack": "npm run build",
     "prepublishOnly": "npm run build && npm test"
   },
@@ -329,7 +329,7 @@
     "lodash-es": "^4.18.1",
     "markdown-it": "^14.1.1",
     "mediabunny": "1.60.0",
-    "mermaid": "^11.0.2",
+    "mermaid": "11.14.0",
     "parse5": "^8.0.1",
     "pdf-lib": "^1.17.1",
     "pptxgenjs": "^3.12.0",

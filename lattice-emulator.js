@@ -3009,8 +3009,9 @@ for (let prev; prev !== cleanDocHtml;) {
 
 // Build the opt-in fluid viewer from the clean export HTML: flag the page
 // fluid-capable and inline the runtime (the controller re-derives orientation
-// and wires the toggle). Self-contained so the .html stays a single emailable
-// file. Returns the clean HTML unchanged if the runtime bundle is missing.
+// and wires the toggle). Self-contained so the .html stays a single file — one that
+// still runs the deck's own raw HTML (theme-css note § 10; `--player` is the sanitized
+// one). Returns the clean HTML unchanged if the runtime bundle is missing.
 function toFluidViewer(cleanHtml) {
   const runtimePath = path.join(PKG_ROOT, 'dist', 'lattice-runtime-min.js');
   if (!fs.existsSync(runtimePath)) {
@@ -4912,6 +4913,16 @@ async function renderBody(browser, g, closeBrowser) {
   // See engineering/decisions/2026-09-01-export-remote-subresource-posture.md.
   if (!playerOwnsOutHtml && fs.existsSync(outHtml)) {
     const live = fs.readFileSync(outHtml, 'utf8');
+    // The same file keeps the deck's own raw HTML live, by design (theme-css note § 10): say
+    // so when the deck carries any, rather than hand someone a file that runs code without a
+    // word. Counted on the bytes this run leaves, so `--read`'s sanitized article reports
+    // nothing, and a `--player` whose assembly failed (the plain render left in place) does.
+    if (!QUIET) {
+      const { countLiveAuthorHtml, formatLiveAuthorHtmlWarning } = require('./lib/core/live-author-html');
+      const rel = path.relative(process.cwd(), outHtml);
+      const shown = rel && !rel.startsWith('..') ? rel : outHtml;
+      for (const line of formatLiveAuthorHtmlWarning(countLiveAuthorHtml(live), shown, { sidecar: OUT_FORMAT !== 'html' })) console.warn(line);
+    }
     // Immediately after `<head>`, because a CSP meta governs only what the parser has not
     // already reached — a stylesheet link above it is already in flight. Measured on a real
     // export: the meta lands at byte 56, the charset at 253, the (since inlined) KaTeX <link> at ~865k.

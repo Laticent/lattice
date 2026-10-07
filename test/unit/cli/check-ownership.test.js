@@ -87,6 +87,7 @@ const {
   checkAnimaBoundary,
   checkCadenzaBoundary,
   checkCalcoBoundary,
+  checkTavolaBoundary,
   checkLttBoundary,
   ANIMA_DIR,
   ANIMA_ADAPTER_DEPS,
@@ -1967,6 +1968,26 @@ describe('check-ownership', () => {
         assert.equal(run(checkCadenzaBoundary, src).length, 1, `not caught: ${src}`);
       }
     });
+
+    // Tavola: the core takes its transport and document as arguments, and ONE file — the Trystero
+    // adapter — may import `trystero/nostr` (2026-10-06-studio-live-collaboration.md §7.1).
+    const tavola = (errors, dir) => checkTavolaBoundary(errors, dir, path.join(dir, 'adapters', 'trystero.ts'));
+
+    test('Tavola: the live tree is clean', () => {
+      const errors = [];
+      checkTavolaBoundary(errors);
+      assert.deepEqual(errors, [], errors.join('\n'));
+    });
+
+    test('Tavola admits trystero/nostr in the adapter only, and nothing else anywhere', () => {
+      assert.deepEqual(run(tavola, { 'adapters/trystero.ts': "import { joinRoom } from 'trystero/nostr';", 'session.ts': "import { frame } from './protocol';" }), []);
+      assert.equal(run(tavola, { 'session.ts': "import { joinRoom } from 'trystero/nostr';" }).length, 1, 'the core may not import the transport');
+      for (const src of ["import * as Y from 'yjs';", "import { x } from '../vetrina';", "import 'trystero';", "const t = await import('trystero/torrent');", "import { readFileSync } from 'node:fs';"]) {
+        assert.equal(run(tavola, { 'session.ts': src }).length, 1, `not caught: ${src}`);
+      }
+      // A test file may use its runner and Yjs.
+      assert.deepEqual(run(tavola, { 'session.test.ts': "import * as Y from 'yjs';\nimport { it } from 'vitest';" }), []);
+    });
   });
 
   // The Anima animation core's self-containment antibody
@@ -2798,7 +2819,7 @@ describe('no-safe-default token gate (#1457)', () => {
     // contract — the --cat-N-ink defect. `var(--x, color-mix(… var(--text-heading)))` has no
     // hop: the fallback is the value, written at the read, with no second token to drift
     // onto. Requiring a ledger row for the second would tax the safest form of the pattern.
-    // Live example of the second: --chart-catN-ink (chart-family.css).
+    // Live example of the second: --chart-catN-ink (chart-family.styles.css).
     test('an inline-EXPRESSION fallback with no token hop is not ledger population', () => {
       const expr = new Map([['c-container', [{ where: 'lib/x.css:1', kind: 'css', rootRead: false, chain: [], endsLiteral: true }]]]);
       assert.deepEqual(fallbackOnlyTokens(inputs({ bareReads: expr })), [],

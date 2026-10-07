@@ -27,12 +27,19 @@ concatenate in this order (the file-header docstring is canonical):
 6.  lib/components/<bucket>/<name>/<name>.styles.css   (alphabetical)
 7.  lib/base/base.modifiers.css                 (cross-cutting modifiers)
 8.  lib/integrations/highlight-js/highlight-js.css
-9.  lib/components/chart/_chart-family/chart-family.css
-10. lib/base/base.treatments.css                (tint-* / mark-* utilities)
-11. lib/shared/shared.styles.css
-12. lib/base/base.variants.css                  (state markers, tone, chrome)
-13. lib/plugins/mermaid/mermaid.styles.css        (Mermaid SVG theme overrides)
+9.  lib/base/base.treatments.css                (tint-* / mark-* utilities)
+10. lib/shared/shared.styles.css
+11. lib/base/base.variants.css                  (state markers, tone, chrome)
+12. the plugin slot: lib/plugins/<name>/<name>.styles.css, in dependency order
+    (chart-family's chart frame, function-plot, math, Mermaid's SVG theme overrides)
 ```
+
+The chart frame moved into the plugin slot in phase F (2026-10-06; it used to sit between the
+highlight.js theme and the treatments). Measured then: no computed style changed on any tracked
+deck. What changed is the TIE: a base, shared or forms rule on `.chart-frame …` at equal
+specificity used to beat the frame and now loses to it — bump that rule's specificity rather than
+relying on order. `test/unit/plugins/chart-frame-cascade.test.js` pins that no other plugin sheet
+selects the chart frame, since order inside the slot is the resolver's sort.
 
 The **bundle order IS the cascade order**: at equal specificity, later
 sources beat earlier ones via natural CSS source-order resolution.

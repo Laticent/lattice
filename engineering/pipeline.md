@@ -331,7 +331,9 @@ measurements are in `engineering/decisions/2026-09-27-studio-export-one-engine.m
 
 ## 4a. CLI PDF output is byte-reproducible
 
-Rendering the same deck twice **on the same machine** writes the same bytes — so
+Rendering the same deck twice **on the same machine** writes the same bytes, with one measured
+exception: a 4K deck rendered while the machine is busy (its photo is taken at a fractional
+`deviceScaleFactor`; gotchas/export.md, "A 4K deck's PDF changes bytes from run to run"). So
 re-blessing a golden that did not visually change adds nothing to git, and `git
 diff` on a committed PDF means the picture actually moved.
 

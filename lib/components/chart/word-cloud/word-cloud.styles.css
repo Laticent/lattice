@@ -52,7 +52,7 @@
 /* word-cloud is a chart-frame member (folded into the chart family): the
  * dispatcher lifts the h2 into .chart-header and wraps the canvas in
  * .chart-body, so the section layout, h2 chrome, and the opt-in `.canvas`
- * surface panel all come from chart-family.css — there is no bespoke mirror
+ * surface panel all come from chart-family.styles.css — there is no bespoke mirror
  * here any more. Only the canvas geometry and per-word positioning below are
  * word-cloud's own. */
 

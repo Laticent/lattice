@@ -3,6 +3,7 @@ import { EditorView } from '@codemirror/view';
 import { tags as t } from '@lezer/highlight';
 import { editorChrome, editorChromeCoarse } from '../../lib/editor-chrome.js';
 import { lintTheme, lintThemeCoarse, tooltipShell } from '../../lib/lint-theme.js';
+import { iconPreviewTheme } from './icon-preview';
 
 // The shared CodeMirror 6 visual theme for every Studio code surface — the deck
 // Editor (markdown) and the Component studio's CSS + skeleton fields (CodeField).
@@ -69,6 +70,7 @@ const studioTheme = (focusRing: boolean) =>
 			backgroundColor: 'color-mix(in srgb, var(--accent) 18%, transparent)',
 			color: 'var(--text-heading)',
 		},
+		...iconPreviewTheme,
 		'.cm-completionMatchedText': { color: 'var(--accent)', textDecoration: 'none', fontWeight: '600' },
 		'.cm-completionDetail': { color: 'var(--text-muted)', fontStyle: 'normal', marginLeft: '0.6em', fontSize: '0.85em' },
 		'.cm-completionInfo': {

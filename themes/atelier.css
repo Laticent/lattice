@@ -261,7 +261,7 @@
 
 /* ── Chart-family palette ───────────────────────────────────────────────
  * Atelier's curation of the chart-family's two color spectrums (defined in
- * lib/components/chart/_chart-family/chart-family.css). The engine ships a
+ * lib/plugins/chart-family/chart-family.styles.css). The engine ships a
  * canvas-aware Apple-hue default; untuned themes inherit it. Atelier overrides
  * both spectrums with its muted artist's-studio pigments so charts read native
  * to the "hand-finished oat & amber" brand instead of borrowing the cool system
@@ -272,7 +272,7 @@
  * wedge/bar border at full strength and a 24% tint for the fill); on deep-brown
  * canvas it lifts toward white via color-mix(in oklab, …, white 30%) so the
  * same hue stays readable without boosting chroma. See design/theming.md
- * (chart palette) and the chart-family.css token block for the contract. */
+ * (chart palette) and the chart-family.styles.css token block for the contract. */
 :root {
   /* Categorical spectrum — atelier's audited Brand-triad pigments.
    * Low-chroma earth/studio hues ported from the theme's own pigment set,

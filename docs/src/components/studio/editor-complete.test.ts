@@ -502,3 +502,43 @@ describe('inlineCodeCompletion — only what comes next, in a spark or a pill', 
 		expect(inlineCodeCompletion('`~{1 2 3}, ', next)).toBeNull(); // a closed record takes no more words
 	});
 });
+
+describe('inlineCodeCompletion — an icon name, from the icon set', () => {
+	// The icons note § 10, phase 3: the names come from the lint core's vocabulary (no drawing).
+	const req = createRequire(import.meta.url);
+	const core = req('../../../../lib/authoring/lint-core.js');
+	const next = (span: string) => core.inlineCodeCompletions(span);
+
+	it('`^{da` offers the names that start with it, database, dashboard and dataset among them', () => {
+		const r = inlineCodeCompletion('Storage `^{da', next);
+		const labels = r?.options.map((o) => o.label) || [];
+		for (const want of ['database', 'dashboard', 'dataset']) expect(labels).toContain(want);
+		expect(labels.every((l) => l.startsWith('da') || l === 'lake')).toBe(true); // `lake` is there for its alias "datalake"
+		expect(r?.typed).toBe('da');
+		expect(r?.filter).toBe(false);
+		expect(r?.options.every((o) => o.detail === 'icon')).toBe(true);
+	});
+	it('an alias offers the name it stands for', () => {
+		const r = inlineCodeCompletion('`^{db', next);
+		expect(r?.options.map((o) => o.label)).toEqual(['database']);
+		expect(r?.options[0].info).toBe('for "db"');
+	});
+	it('`icon=` inside a pill or a chart record offers names too', () => {
+		expect(inlineCodeCompletion('`{S3, icon=buck', next)?.options.map((o) => o.label)).toEqual(['bucket']);
+		expect(inlineCodeCompletion('- API `{#api, diamond, icon=gate', next)?.options.map((o) => o.label)).toEqual(['gateway']);
+		expect(inlineCodeCompletion('- Hub `{icon=', next)?.options.length).toBe(265);
+	});
+	it('offers nothing for a name no icon starts with, or outside a span', () => {
+		expect(inlineCodeCompletion('`^{zzz', next)).toBeNull();
+		expect(inlineCodeCompletion('^{da', next)).toBeNull();
+		expect(inlineCodeCompletion('`^{database}` and ^{da', next)).toBeNull();
+	});
+});
+
+describe('inlineCodeCompletion — TeX stays quiet', () => {
+	const req = createRequire(import.meta.url);
+	const core = req('../../../../lib/authoring/lint-core.js');
+	it('`^{2` (a superscript) opens no icon menu: a name starts with a letter', () => {
+		expect(inlineCodeCompletion('`^{2', (s: string) => core.inlineCodeCompletions(s))).toBeNull();
+	});
+});

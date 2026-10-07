@@ -362,7 +362,7 @@ per theme via `--chart-catN`) and no longer uses theme-defined
 The chart bucket (pie, quadrant, radar, gantt, kanban, progress,
 state-chart, timeline-list, word-cloud) draws from its **own** two
 spectrums, defined in
-`lib/components/chart/_chart-family/chart-family.css` and decoupled from
+`lib/plugins/chart-family/chart-family.styles.css` and decoupled from
 the engine-wide `--cN` accents:
 
 - **Categorical** — `--catN-*` (N = 1–8), the well-spaced hue set pie
