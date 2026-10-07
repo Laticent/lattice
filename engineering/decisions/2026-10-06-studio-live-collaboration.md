@@ -235,6 +235,9 @@ the existing assistant width; max 420px) so the editor and preview keep the room
 └───────────────────────────────┘
 ```
 
+*Revised 2026-10-07 (§12.2, "Panel layout on a phone"): the invite is one line, your own call
+controls sit on your own row, and the header menu is on every screen size.*
+
 Section order follows the ask's priorities: **who** (waiting, then present), then
 **talk** (call), then **text** (chat). Chat takes the remaining height and scrolls; the
 other sections are fixed.
@@ -883,6 +886,26 @@ What the bitrate does not fix, all on iOS and out of the page's reach:
   and 311451). Raising the gain of each person's playback is part of the follow-up.
 - *Choppy* that is network loss needs a measure from the device; the follow-up adds a per-person
   call-quality readout (loss, jitter, bitrate), the way §8.1's connection readout did for paths.
+
+**Panel layout on a phone** (the owner's iPhone test, 2026-10-07). Three findings:
+- *No way to leave the session on a phone.* The session menu (the clock; copy, bring everyone,
+  leave or end) lived in the panel's title bar, and the phone sheet renders the panel without
+  one, so a phone could neither leave nor end a session. The menu is now one component,
+  `SessionMenu`, drawn in the title bar on a wide screen and portaled into the sheet's header on
+  a phone (`headerSlot`, the way the AI chat puts its cost readout there).
+- *"Leave audio" read as leaving the session.* The owner wanted the session's Leave and found
+  only the call's. The call's hang-up is now a red **Leave call** button on your own row, and
+  leaving or ending the session asks first in a dialog (*Leave the session?* / *End the session
+  for everyone?*): one stray tap must not drop you out, or end it for everyone.
+- *Rows spent on controls.* The invite is one line: copy, the link, *Can edit ▾*. Your own row
+  carries the call: *Join audio* before you join; then Mute (with a thin microphone picker when
+  there is more than one mic) and Leave call. The separate call row and your own read-only mic
+  icon are gone; "You" moved to the second line so the name keeps its room. In the docked column
+  at its default width the link would show as "http…", so there (a container query on the
+  panel's own width, `@max-[17rem]/live`) the button says *Copy* and the link wraps to its own
+  line. On touch, the row's buttons are 40 px (`pointer-coarse`).
+
+Screenshots at 390 (dark and light), 820 and 1440 px are in the PR.
 
 **The checker** (tier 1, on Opus) confirmed the gate and found audio going one-way after a
 takeover or a same-id blip, which the in-memory network reproduced. Fixed, each with a test that

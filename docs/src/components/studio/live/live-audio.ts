@@ -5,7 +5,7 @@ import { createStage, type Meter, type Stage } from '@/lib/suono';
 //
 // Media rides the session's own connections (Tavola `setMedia` / `onMedia`), so it reaches admitted
 // members only, through the same gate as the document. This module owns the browser side:
-//   - the microphone: captured on "Join with audio" (echo cancellation and noise suppression on),
+//   - the microphone: captured on "Join audio" (echo cancellation and noise suppression on),
 //     muted by turning the track off, so unmuting needs no renegotiation;
 //   - playback: one hidden <audio> element per member, MUTED until this browser joins the call, so
 //     nobody hears sound they did not ask for. (Attached all the same: Chromium meters a remote

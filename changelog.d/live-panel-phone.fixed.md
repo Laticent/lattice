@@ -1,0 +1,2 @@
+- **You can leave or end a live session on a phone.** The session menu (the clock, copy link, leave or end) was missing from the Live sheet on phones; it is now in the sheet's header, as it is in the panel's title bar on wider screens. Leaving or ending a session now asks first.
+- **The Live panel uses its room better.** The invite is one line (copy, the link, *Can edit*), and your own call controls (*Join audio*, then Mute and a red *Leave call*) sit on your own row instead of a separate row. On touch screens these buttons are bigger.

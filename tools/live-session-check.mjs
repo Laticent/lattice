@@ -157,8 +157,8 @@ await guest.screenshot({ path: `${OUT}real-guest-live-${mode}.png` });
 // Audio (S4), with Chromium's fake microphone (a periodic beep): both join, each hears the other,
 // the speaking ring follows the beep, mute stops it, and the bitrate is measured.
 const panel = (page) => page.locator('[data-live-panel]');
-await panel(guest).getByRole('button', { name: 'Join with audio' }).click();
-await panel(host).getByRole('button', { name: 'Join with audio' }).click();
+await panel(guest).getByRole('button', { name: 'Join audio' }).click();
+await panel(host).getByRole('button', { name: 'Join audio' }).click();
 await host.waitForSelector('[data-live-call]', { timeout: 20000 });
 await guest.waitForSelector('audio[data-live-audio]', { state: 'attached', timeout: 20000 });
 await host.waitForSelector('audio[data-live-audio]', { state: 'attached', timeout: 20000 });
@@ -183,10 +183,8 @@ log(`before mute, the host shows Amina's mic as: ${await micOf(host, 'Amina')}`)
 await panel(guest).getByRole('button', { name: 'Mute', exact: true }).click();
 await host.waitForFunction(() => [...document.querySelectorAll('[data-live-panel] li')].some((li) => li.textContent?.includes('Amina') && li.querySelector('[aria-label="Muted"]')), null, { timeout: 15000 });
 log(`guest muted; the host now shows Amina's mic as: ${await micOf(host, 'Amina')}`);
-await guest.getByRole('button', { name: 'Call options' }).click();
-await guest.getByRole('menuitem', { name: /Leave audio/ }).click();
-await host.getByRole('button', { name: 'Call options' }).click();
-await host.getByRole('menuitem', { name: /Leave audio/ }).click();
+await panel(guest).getByRole('button', { name: 'Leave call' }).click();
+await panel(host).getByRole('button', { name: 'Leave call' }).click();
 log('both left the call');
 
 // Remove the guest.
@@ -278,6 +276,8 @@ await guest3.waitForFunction(() => document.querySelector('.cm-content')?.textCo
 log('a newcomer knocked at the new host, was let in, and sees its edits');
 await guest2.locator('button[aria-label="Session options"]').click();
 await guest2.getByRole('menuitem', { name: /End session for everyone/ }).click();
+// Ending asks first: one stray tap must not end the session for everyone.
+await guest2.locator('[data-live-confirm]').getByRole('button', { name: 'End session' }).click();
 await guest3.waitForFunction(() => !document.querySelector('[data-live-pill]'), null, { timeout: 15000 });
 log('the new host ended the session and the newcomer left it');
 await g3ctx.close();

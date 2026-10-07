@@ -4444,9 +4444,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// row (title left, cost right — see ChatCost), while the mobile sheet already has
 	// PanelHeader and only wants the cost.
 	// The Live panel, lazy like its peers: it costs nothing until someone opens it.
-	const liveBodyWith = (title?: string) => (
+	// The phone sheet's header, where the Live panel portals its session menu (the clock, and leave
+	// or end); the docked column's panel has a title bar of its own for it.
+	const [liveHeaderSlot, setLiveHeaderSlot] = React.useState<HTMLElement | null>(null);
+	const liveBodyWith = (title?: string, headerSlot?: HTMLElement | null) => (
 		<PanelLoader panel={livePanel} shell={() => <div className="flex min-h-0 flex-1 flex-col">{title && <div className="border-b border-border px-3.5 py-2 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">{title}</div>}</div>}>
-			{(LivePanel) => <LivePanel title={title} view={live.view} actions={live.actions} now={live.now} defaultName={storedLiveName()} />}
+			{(LivePanel) => <LivePanel title={title} view={live.view} actions={live.actions} now={live.now} defaultName={storedLiveName()} headerSlot={headerSlot} />}
 		</PanelLoader>
 	);
 	const chatBodyWith = (title?: string, costSlot?: HTMLElement | null) => (
@@ -6612,8 +6615,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{chatBodyWith(undefined, chatCostSlot)}</div>
 					</PanelSheet>
 					<PanelSheet open={liveOpen} onOpenChange={(v) => setActiveAssistant((p) => (v ? 'live' : p === 'live' ? null : p))} side="left" width="sm">
-						<PanelHeader icon={<UsersRound />} title="Live" srDescription="Who is in this live session, the invite link, and the session chat." />
-						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{liveBodyWith()}</div>
+						<PanelHeader
+							icon={<UsersRound />}
+							title="Live"
+							srDescription="Who is in this live session, the invite link, and the session chat."
+							actions={<span ref={setLiveHeaderSlot} className="flex items-center gap-2" />}
+						/>
+						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{liveBodyWith(undefined, liveHeaderSlot)}</div>
 					</PanelSheet>
 					{/* Reader views — its own compact sheet, a peer of the Architect.
 					    Titled "Reader views", NOT "Lenses": every entry point into this panel

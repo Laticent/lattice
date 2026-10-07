@@ -32,7 +32,7 @@ export function LivePill({ view, onOpen, onToggleMic }: { view: LiveView; onOpen
 				size="icon"
 				onClick={onToggleMic}
 				aria-pressed={!!onAir}
-				aria-label={onAir ? 'Mute your microphone' : muted ? 'Unmute your microphone' : 'Join with audio'}
+				aria-label={onAir ? 'Mute your microphone' : muted ? 'Unmute your microphone' : 'Join audio'}
 				className="size-7 rounded-l-none rounded-r-full"
 				style={onAir && me ? { color: liveColor(me.color) } : undefined}
 			>
