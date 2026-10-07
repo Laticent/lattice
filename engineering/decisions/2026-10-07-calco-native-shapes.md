@@ -1,11 +1,14 @@
 ---
-status: proposed
+status: in-progress
 summary: Options for making cards, pills, tags and rules native shapes in Calco's editable .odp/.pptx instead of pixels in the slide picture. Measured on three decks; recommends label shapes first (a pill or tag becomes one shape that carries its own text), built so containers and rules can follow. The owner picks before any code.
 ---
 
 # Calco: cards, pills and rules as native shapes (2026-10-07)
 
-**Status: proposed. The owner picks an option before any code is written.**
+**Status: in progress. The owner picked option B on 2026-10-07** (labels, then cards and
+rules, grouped with their text). It is built in slices: A's labels first, since A's pieces are
+B's base, then rules, then cards with grouping. §4's recommendation of A alone stands as the
+reasoning the owner weighed.
 
 **The question.** The owner asked whether a card's corner tag in the editable export is a
 real shape. It is not. In Calco's editable `.odp` and `.pptx`, only the WORDS are editable:
