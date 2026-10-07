@@ -333,24 +333,40 @@ export function groupShapes(xml: string): string {
 			`<p:grpSpPr><a:xfrm>${frame}</a:xfrm></p:grpSpPr>${members.join('')}</p:grpSp>`
 		);
 	};
-	return xml.replace(/(?:<p:sp>[\s\S]*?<\/p:sp>)+/g, (run) => {
-		let out = '';
-		let current: string | null = null;
-		let members: string[] = [];
-		for (const sp of run.match(/<p:sp>[\s\S]*?<\/p:sp>/g) as string[]) {
-			const m = sp.match(tagged);
-			const group = m ? m[2] : null;
-			if (group !== current && current !== null) {
-				out += wrap(current, members);
-				members = [];
-			}
-			current = group;
-			if (m) members.push(sp.replace(tagged, '$1'));
-			else out += sp;
-		}
+	// One linear scan with indexOf, not a regex over runs of `<p:sp>`: a backtracking pattern
+	// there is polynomial in the number of adjacent shapes (CodeQL).
+	const OPEN = '<p:sp>';
+	const CLOSE = '</p:sp>';
+	let out = '';
+	let at = 0;
+	let current: string | null = null;
+	let members: string[] = [];
+	const flush = () => {
 		if (current !== null) out += wrap(current, members);
-		return out;
-	});
+		current = null;
+		members = [];
+	};
+	for (;;) {
+		const start = xml.indexOf(OPEN, at);
+		const end = start < 0 ? -1 : xml.indexOf(CLOSE, start);
+		if (end < 0) break;
+		// A group's members are ADJACENT shapes: anything between two closes the group.
+		if (start !== at) {
+			flush();
+			out += xml.slice(at, start);
+		}
+		const sp = xml.slice(start, end + CLOSE.length);
+		const m = sp.match(tagged);
+		const group = m ? m[2] : null;
+		if (group !== current) flush();
+		if (m) {
+			current = group;
+			members.push(sp.replace(tagged, '$1'));
+		} else out += sp;
+		at = end + CLOSE.length;
+	}
+	flush();
+	return out + xml.slice(at);
 }
 
 /**

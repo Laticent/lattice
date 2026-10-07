@@ -119,6 +119,19 @@ describe('calco shapes — pptx', () => {
     assert.match(label, /wrap="none"/);
   });
 
+  test('groupShapes groups adjacent members only, and stays linear on a hostile slide', () => {
+    const sp = (name, x) => `<p:sp><p:nvSpPr><p:cNvPr id="${x}" name="${name}"/></p:nvSpPr><p:spPr><a:xfrm><a:off x="${x}" y="0"/><a:ext cx="10" cy="10"/></a:xfrm></p:spPr></p:sp>`;
+    const xml = `<p:spTree>${sp('calco-group-1|A', 2)}${sp('calco-group-1|B', 3)}<p:pic/>${sp('calco-group-1|C', 4)}${sp('Free', 5)}</p:spTree>`;
+    const out = groupShapes(xml);
+    assert.equal(out.match(/<p:grpSp>/g).length, 2, 'a picture between members splits the group');
+    assert.match(out, /<p:grpSp>.*name="A".*name="B".*<\/p:grpSp><p:pic\/><p:grpSp>.*name="C".*<\/p:grpSp>.*name="Free"/);
+    // Many opening tags and no close: CodeQL's polynomial case for a regex over runs.
+    const hostile = `calco-group-${'<p:sp>'.repeat(50000)}`;
+    const t = Date.now();
+    assert.equal(groupShapes(hostile), hostile);
+    assert.ok(Date.now() - t < 500, `took ${Date.now() - t} ms`);
+  });
+
   test('groupShapes leaves a slide without tags as it was', () => {
     const xml = '<p:spTree><p:sp><p:nvSpPr><p:cNvPr id="2" name="Text 1"/></p:nvSpPr></p:sp></p:spTree>';
     assert.equal(groupShapes(xml), xml);
