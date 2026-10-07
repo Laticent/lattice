@@ -187,3 +187,16 @@ test('strip: raw-text elements inside SVG or MathML are markup, so a handler the
     assert.doesNotMatch(withoutLiveAuthorHtml(md).markdown, /onerror/, md);
   }
 });
+
+test('strip: a fence opened inside the front matter does not hide the body', () => {
+  // Marp removes the front matter before it parses; plain markdown-it read this YAML value as an
+  // unclosed fence and so the whole body as code (the independent checker, real marp-cli + Chromium).
+  const { withoutLiveAuthorHtml } = require('../../../lib/core/live-author-html');
+  const fm = '---\nmarp: true\nnote: |\n  ```\n---\n\n# Forged\n\n';
+  const strip = withoutLiveAuthorHtml(`${fm}<img src=x onerror="document.title='pwned'">\n`);
+  assert.equal(strip.removed.handlers, 1);
+  assert.doesNotMatch(strip.markdown, /onerror/);
+  // A real fence in the body after a plain front matter is still quoted material.
+  const quoted = '---\nmarp: true\n---\n\n```html\n<img src=x onerror="q()">\n```\n';
+  assert.equal(withoutLiveAuthorHtml(quoted).markdown, quoted);
+});

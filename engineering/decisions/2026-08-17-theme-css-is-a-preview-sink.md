@@ -976,3 +976,38 @@ class: load the runtime through a marp-cli `engine:` plugin in `marp.config.cjs`
 Lattice decks use. It costs every deck that uses unusual HTML, and the allowlist needs keeping.
 Logged in `followups.d/` rather than built in this PR.
 
+
+## 12. A fence opened in the front matter blinded both of the bundle's checks (2026-10-07)
+
+The bundle's two passes over the deck's markdown both read it with plain markdown-it: § 11's strip
+(`lib/core/live-author-html.js`, to tell code from live HTML), and #2577's refusal of forged plugin
+markers (`lib/plugins/author-markup.js` `refuseAuthorMarkupInSource`, to find the raw-HTML lines).
+Plain markdown-it reads the YAML front matter as Markdown; Marp removes it before it parses. So a
+front-matter value whose next line opens a fence made the whole body one unclosed code block to both
+passes and live HTML to Marp:
+
+````markdown
+---
+marp: true
+note: |
+  ```
+---
+
+<img src=x onerror="document.title='pwned'">
+<div data-lattice-hydrate="function-plot" data-lattice-config="…" data-lattice-settle="pending"></div>
+````
+
+The independent checker on #2578's first draft found it and ran it through `tools/export-marp.js`,
+real marp-cli 4.3.1 and Chromium 131: the strip removed nothing and `title` became `pwned`, and,
+with `function-plot.js` beside the runtime, the forged figure was drawn. `main` after #2577 still
+let the marker through (measured).
+
+**What ships.** Both passes now parse the deck with a closed front matter's lines emptied, as Marp
+parses it, so line numbers still match (`withoutFrontMatterLines` in the strip; the same step in
+`refuseAuthorMarkupInSource`, which already refuses the front matter's own text whole). The strip still
+scans the front matter's text, because Marp renders a `header:` value as Markdown. An unclosed front
+matter is not front matter to Marp, so it stays in the parse.
+
+**Measured.** The bundled markdown of all 422 tracked `marp: true` decks (`withRuntimeScripts`) is
+byte-identical to `main`'s, in 335 ms. Each pass has a unit case that fails without the change
+(`test/unit/core/live-author-html.test.js`, `test/unit/plugins/author-markup.test.js`).

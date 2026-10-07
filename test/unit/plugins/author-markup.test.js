@@ -231,3 +231,16 @@ describe('an Export-to-Marp bundle refuses the same markup in its source', () =>
     assert.deepEqual(changed, []);
   });
 });
+
+// Marp removes the front matter before it parses. Read as Markdown, a YAML value that opens a fence
+// made the whole body a code block, so a forged marker after it reached the bundle (the #2578 checker).
+test('the bundle refuses a marker after a front-matter value that opens a fence, and keeps a fenced sample', () => {
+  const fm = '---\nmarp: true\nnote: |\n  ```\n---\n\n';
+  const fence = '```html\n<div data-lattice-hydrate="mermaid"></div>\n```\n';
+  const out = withRuntimeScripts(`${fm}${FORGED}\n${fence}`);
+  const body = out.slice(0, out.indexOf(fence));
+  for (const m of HOST_MARKERS) assert.ok(!new RegExp(`${m}=`).test(body), `${m} refused`);
+  assert.ok(out.includes(fence), 'the fenced sample keeps its bytes');
+  // An unclosed front matter is not front matter to Marp; the refusal still covers all of it.
+  assert.doesNotMatch(withRuntimeScripts(`---\nmarp: true\n${FORGED}`), /data-lattice-hydrate=/);
+});

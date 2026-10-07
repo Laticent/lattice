@@ -1,0 +1,1 @@
+- The Export-to-Marp bundle's two checks of a deck's HTML (the script strip and the forged-marker refusal) no longer miss everything after a front-matter value that opens a code fence. That line made the rest of the deck read as code to both, while Marp rendered it as live HTML.
