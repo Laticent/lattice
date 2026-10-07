@@ -178,9 +178,10 @@ finding below was reproduced, fixed and given a test:
 | PowerPoint would re-wrap a line set in a wider substitute font | `.pptx` boxes do not wrap, and the fonts are now embedded (§6) |
 
 Recorded, not fixed: PowerPoint itself (§6), the AGPL license for a library meant for
-anyone (the owner's call), the `types` entry pointing at TypeScript source (as every sibling
-does), and the Studio's CSS counters rendering as `0` in BOTH the picture and the editable
-export, a pre-existing html-to-image limit (logged in `followups.d/`).
+anyone (the owner's call), and the `types` entry pointing at TypeScript source (as every
+sibling does). The Studio's CSS counters, which rendered as `0` in every Studio image
+export, were fixed on 2026-10-07: html-to-image never copied the counter properties
+(`engineering/gotchas/export.md`).
 
 What the reader deliberately leaves in the picture: SVG and MathML, `::before`/`::after`
 text, rotated or vertical text, transparent (gradient) text, and any paragraph with a word

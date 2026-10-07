@@ -1,0 +1,1 @@
+- Studio image exports (PDF, PowerPoint, LibreOffice, Images) number slides as the preview does. Every number drawn with a CSS counter (timeline discs, agenda and step numbers, card tags, lettered milestones) used to export as `0`.

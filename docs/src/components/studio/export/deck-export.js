@@ -1115,6 +1115,20 @@ export async function withCaptureFixups(section, capture, pixelRatioOverride, co
 // handler resolves instead: the image is simply absent from the page, and the run
 // records the failure so the author is told rather than shipping a hole they did not
 // see. (A missing picture in a file you have beats a file you do not.)
+// The properties html-to-image copies onto its clone. By default it copies whatever the
+// browser LISTS for a computed style, and Chrome's list leaves out `counter-reset`,
+// `counter-increment` and `counter-set`. So no counter was ever reset or incremented in the
+// clone, and every `counter()` on a slide (timeline discs, agenda numbers) exported as 0.
+// html-to-image keeps the list from its first call, so every capture passes this one.
+let captureStyleProps = null;
+export function captureStyleProperties() {
+	if (!captureStyleProps) {
+		const listed = Array.from(getComputedStyle(document.documentElement));
+		captureStyleProps = [...listed, ...['counter-reset', 'counter-increment', 'counter-set'].filter((p) => !listed.includes(p))];
+	}
+	return captureStyleProps;
+}
+
 function captureOptions(w, h, pixelRatio, fontEmbedCSS, log) {
 	return {
 		width: w,
@@ -1122,6 +1136,7 @@ function captureOptions(w, h, pixelRatio, fontEmbedCSS, log) {
 		pixelRatio,
 		cacheBust: true,
 		fontEmbedCSS,
+		includeStyleProperties: captureStyleProperties(),
 		onImageErrorHandler: (event) => {
 			if (log) log.count += 1;
 			// HIDE the failed `<img>` in the clone. Resolving alone is not "the picture is
