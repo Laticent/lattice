@@ -124,7 +124,8 @@ The package also exposes these named entry points:
 | — | `dist/lattice-dagre-min.js` | the graph-layout engine for a state chart that BRANCHES. Load it *before* the runtime. Its absence is silent on the slide — the chart draws its branches as skips on the reading-order grid a chain uses |
 | `@laticent/lattice/css` | `dist/lattice.css` | the engine bundle — **palette-blind** (components only, no color tokens) |
 | `@laticent/lattice/css/min` | `dist/lattice-min.css` | minified engine bundle (Marp `@theme`/`@size` directives preserved) |
-| `@laticent/lattice/themes/<name>.css` | `themes/<name>/<name>.css` | one palette — a **Marp theme file**, not a standalone stylesheet |
+| `@laticent/lattice/palette/<name>.css` | `dist/palettes/<name>.css` | one palette's **tokens**, imports resolved — what a web app or bundler imports after `@laticent/lattice/css` |
+| `@laticent/lattice/themes/<name>.css` | `themes/<name>/<name>.css` | one palette — a **Marp theme file**, not a standalone stylesheet; a bundler stops on its `@import 'lattice'` |
 | `lattice` bin · `@laticent/lattice` (`main`/`.`) | `dist/lattice-emulator.js` | the bundled CLI renderer / PDF exporter (`npx lattice deck.md out.pdf`) |
 | `@laticent/lattice/min` | `dist/lattice-emulator-min.js` | minified CLI bundle (shebang + executable bit preserved); the bin/main stays the unminified file |
 
@@ -149,8 +150,13 @@ in the flattened default — a single self-contained stylesheet:
 > file* can't resolve it, and `dist/lattice.css` alone is palette-blind.
 > The flattened `dist/lattice-default.css` is the exception: its
 > `@import` is resolved at build time, so it is genuinely browser-droppable.
-> Only cuoio is flattened today; other palettes would each be a new
-> flatten target.
+> For any other palette, load the engine and then that palette's tokens,
+> which the package publishes with their imports resolved:
+>
+> ```js
+> import '@laticent/lattice/css';
+> import '@laticent/lattice/palette/indaco.css';
+> ```
 
 The published tarball ships only what these entry points need — engine
 source, `dist/`, `themes/`, and the authoring docs. Regression-baseline
@@ -299,8 +305,8 @@ For web-export contexts, include `dist/lattice-runtime.js` and the two engines i
 expects to find beside it:
 
 ```html
-<link rel="stylesheet" href="themes/indaco/indaco.css">
 <link rel="stylesheet" href="dist/lattice.css">
+<link rel="stylesheet" href="dist/palettes/indaco.css">
 <script src="mermaid-v11-min.js"></script>
 <script src="dist/lattice-dagre-min.js"></script>
 <script src="dist/lattice-runtime.js"></script>

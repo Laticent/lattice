@@ -951,3 +951,33 @@ it is the record of what was wrong.
     and `shipped-scenes.test.ts` asserts the sanitizer changes none of them. The shipped cards
     are insert-only: no select, Share or Delete, and they never count toward the Library's
     total, so an empty shelf still reads as empty on the All tab.
+- **A palette a bundler can import: done (2026-10-07).** Found while proving the folder move
+  resolves through Vite (#2568): `import '@laticent/lattice/themes/cuoio.css'` fails in Vite 8.2.2
+  with `[postcss] ENOENT: no such file or directory, open 'lattice'`, on the folder layout and the
+  old flat one alike, because the theme's first rule is Marp's `@import 'lattice'`. The fix
+  publishes a second form rather than changing the theme file, which Marp still reads by name.
+  - **What ships.** `tools/build-default-bundle.js`, which already flattens engine + cuoio into
+    `dist/lattice-default.css`, also writes `dist/palettes/<name>.css` for all 33 themes: the
+    theme with its comments stripped, `@import 'lattice'` dropped and a theme import (`@import
+    'cuoio'` in `cuoio-dark`, the three-deep `a11y-achromatopsia` → `a11y-base` → `onyx`) replaced
+    by that theme's resolved body. `package.json` `exports` maps `./palette/*.css` to it. A web
+    app imports `@laticent/lattice/css` and then one palette, which is the composition the
+    default bundle's own banner already told consumers to use. The 33 files add 320 KB, unpacked, to
+    the package; a flattened engine per theme would have added about 85 MB, unpacked.
+  - **Why not a recipe.** A Vite alias for `lattice` makes the plain import build, but every
+    consumer would write it, and each dark variant would need an alias for its base too. A
+    published form needs no configuration.
+  - **Measured.** From a packed tarball in a scratch Vite 8.2.2 project: the plain theme import
+    fails as above; `css` + `palette/cuoio.css` and `css` + `palette/cuoio-dark.css` build, and
+    the bundle carries cuoio's `--brand-accent:#7a5a10`, the dark pin and the engine's fonts.
+    `docs/src/lib/published-palette.test.ts` runs the same builds through Vite's API in the docs
+    suite (the one CI job with Vite and a built `dist/`), including the failing arm, and
+    `test/unit/tools/palette-bundle.test.js` pins the generator: one palette per theme, no
+    `@import` or `@theme` left, cuoio equal to the default bundle's token block, a variant
+    opening with its base, a cycle or a missing import refused by name, and the `exports` entry
+    resolving from Node. That last arm runs in the root unit job on every PR; the Vite arm runs
+    only where the docs job runs.
+  - **The README's browser embed** linked the Marp theme file BEFORE the engine, so the theme's
+    `@import 'lattice'` 404'd and the engine's own `:root` tokens (26 of them, the
+    `--diagram-*` family among them) overrode the palette's on source order. It now links the
+    engine, then `dist/palettes/<name>.css`.

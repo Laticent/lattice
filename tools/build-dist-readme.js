@@ -54,6 +54,14 @@ const GROUPS = [
     consume: 'Copy `dist/marp-kit/` wholesale; see its own `README.md`.',
   },
   {
+    prefix: 'palettes/',
+    purpose:
+      'One file per shipped palette: its tokens with every `@import` resolved (a dark variant '
+      + 'carries its base). What a web app or bundler imports after the engine, since a bundler '
+      + 'cannot resolve the Marp theme file\'s `@import \'lattice\'`.',
+    consume: '`import \'@laticent/lattice/css\'; import \'@laticent/lattice/palette/<name>.css\';`',
+  },
+  {
     prefix: 'agent-kit/',
     purpose:
       'The LLM agent kit, organized by task — `authoring/` (the deck canon, the '

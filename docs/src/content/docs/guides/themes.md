@@ -35,6 +35,26 @@ canvas variant. You can preview every one of them live: open the
 from the dropdown. The whole catalog re-renders in that palette's real
 tokens, light or dark.
 
+## Using a palette in a web app
+
+A theme file such as `@laticent/lattice/themes/indaco.css` is a **Marp theme**.
+Its first rule is `@import 'lattice'`, which only Marp's theme set resolves, so
+a bundler stops on it: Vite fails with `[postcss] ENOENT: no such file or
+directory, open 'lattice'`. In a web app, import the engine and then a
+**palette** instead:
+
+```js
+import '@laticent/lattice/css';                 // the engine, once
+import '@laticent/lattice/palette/indaco.css';  // the palette's tokens
+```
+
+Every shipped theme has a palette of the same name, dark variants included.
+A palette is the theme's tokens with its imports resolved, so
+`palette/cuoio-dark.css` carries cuoio's tokens and then the dark canvas pin.
+Load the palette after the engine: its tokens win by source order. To use the
+default without picking one, import `@laticent/lattice/default`, which is the
+engine and cuoio in one file.
+
 ## The contract every palette honors
 
 1. **Single text color** on each surface — no reliance on

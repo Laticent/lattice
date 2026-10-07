@@ -335,7 +335,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/build-component-docs.js` | Generate per-component documentation + gallery decks from manifests. |
 | `tools/build-concepts.js` | Generate dist/docs/concepts.json — the machine-readable catalog of Lattice's |
 | `tools/build-css.js` | CSS bundler. Concatenates lib/_*.css + lib/components/<name>/styles.css |
-| `tools/build-default-bundle.js` | Builds dist/lattice-default.css — the flattened, zero-config default. |
+| `tools/build-default-bundle.js` | Builds dist/lattice-default.css (the flattened, zero-config default) and dist/palettes/ (every palette, imports resolved). |
 | `tools/build-dist-readme.js` | Generate dist/README.md — the index for the distribution folder. |
 | `tools/build-docs-portal.js` | Aggregate every component manifest into the canonical machine + plain-text |
 | `tools/build-emulator.js` | Build the distributable emulator CLI bundle. |
