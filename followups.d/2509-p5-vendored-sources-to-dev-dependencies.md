@@ -24,3 +24,13 @@ done when — a consumer install of the tarball renders both galleries byte-iden
             five packages present.
 evidence  — the consumer-install render, and `npm ls` of that install.
 verify    — tier 1 checker; this changes what a consumer installs, so it is the owner's call first.
+
+**Measured 2026-10-07, not changed (the P3 of #2577's brief; the owner's call).** The P1 tarball,
+repacked with the five moved to `devDependencies` and installed into an empty directory
+(`PUPPETEER_SKIP_DOWNLOAD=1`): 217 packages and 231 MB of `node_modules`, against 332 packages and
+525 MB with them. The installed CLI rendered the math and diagram galleries, bucket and component
+(72 pages, the component math gallery covering `functionplot`), pixel-identical to the in-tree
+render (`compare -metric AE` = 0 on every page at 72 dpi) with the same console output. The one
+runtime reach into `@mermaid-js/mermaid-cli` left in `lattice-emulator.js` is `loadPuppeteer`'s
+fallback, which never fires because `puppeteer` is a direct dependency. A tarball is not
+byte-comparable across packs (timestamps), so "byte-identically" above is pixel-identity here.
