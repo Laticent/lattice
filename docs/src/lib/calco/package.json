@@ -3,6 +3,16 @@
   "version": "0.1.0",
   "description": "Rendered slides to office documents you can edit. A reader turns a laid-out HTML slide into text frames (font, size, color, line breaks as the browser drew them) and hides that text for a clean background photo; writers turn the result into an OpenDocument Presentation (.odp, fonts embedded) or a PowerPoint (.pptx) with real text boxes over each slide's picture, plus speaker notes and alt text. No dependencies: JSZip, PptxGenJS and the font pinner are passed in.",
   "license": "AGPL-3.0-only",
+  "author": "Sharmarke Aden (Laticent) <sharmarke.aden@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Laticent/lattice.git",
+    "directory": "docs/src/lib/calco"
+  },
+  "homepage": "https://github.com/Laticent/lattice/tree/main/docs/src/lib/calco#readme",
+  "bugs": {
+    "url": "https://github.com/Laticent/lattice/issues"
+  },
   "type": "module",
   "sideEffects": false,
   "types": "./index.ts",
@@ -26,6 +36,13 @@
     "dist",
     "*.ts",
     "!*.test.ts",
-    "README.md"
-  ]
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "prepack": "node ../../../../tools/library-prepack.js"
+  }
 }

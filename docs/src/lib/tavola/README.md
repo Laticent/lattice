@@ -56,7 +56,15 @@ stays the app's dependency, and the transport is passed in too (`Transport`) —
 dagre. The core imports nothing outside this folder.
 
 > Design, threat model and measurements:
-> [`engineering/decisions/2026-10-06-studio-live-collaboration.md`](../../../../engineering/decisions/2026-10-06-studio-live-collaboration.md).
+> [`engineering/decisions/2026-10-06-studio-live-collaboration.md`](https://github.com/Laticent/lattice/blob/main/engineering/decisions/2026-10-06-studio-live-collaboration.md).
+
+## Install
+
+```sh
+npm i @laticent/tavola
+```
+
+`trystero` (exactly 0.26.0) is an optional peer, needed only for `@laticent/tavola/trystero`.
 
 ## 60-second start
 
@@ -115,3 +123,7 @@ found.
   whole deck, so the host extends this only to editors, and the Studio names the heir in the
   host's panel. A view-only member is never heir, and a session with no other editor waits for its
   host as before.
+
+## License
+
+AGPL-3.0-only. The full text ships as `LICENSE` in the package.

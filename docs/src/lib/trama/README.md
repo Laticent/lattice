@@ -18,11 +18,17 @@ and no browser, so a chart runs it inside its own render (`@laticent/trama/radia
 It has **no dependencies**. dagre is passed in, never imported, and nothing in Trama
 knows about Markdown, a grammar or a stylesheet: an adapter reads its own model and paints
 its own markup. The design contract is
-[`engineering/decisions/2026-09-27-trama-graph-chart-library.md`](../../../../engineering/decisions/2026-09-27-trama-graph-chart-library.md).
+[`engineering/decisions/2026-09-27-trama-graph-chart-library.md`](https://github.com/Laticent/lattice/blob/main/engineering/decisions/2026-09-27-trama-graph-chart-library.md).
 **See it run:** the [`/trama` demo](https://lattice.style/trama) drives the graph kernel live: type
 rows, flip the direction, wrap a chain, drag a box and watch `route()` weave the lines again.
 **Not yet on npm:** no workflow publishes the workspace libraries today
 (`followups.d/2360-p3-publish-workspace-libraries.md`).
+
+## Install
+
+```sh
+npm i @laticent/trama
+```
 
 ## 60-second start
 
@@ -112,7 +118,7 @@ const band = R.bandPath(0, 0, Rh, T.pts[0][0], T.pts[0][1], T.r[0], 10); // SVG 
 Paint helpers return path data only (`circlePath`, `annulusPath`, `bandPath`, `bandHeads`);
 the chart owns every class, color and attribute. The design and the measurements behind
 running it at build time are
-[`2026-10-05-trama-radial-layout.md`](../../../../engineering/decisions/2026-10-05-trama-radial-layout.md).
+[`2026-10-05-trama-radial-layout.md`](https://github.com/Laticent/lattice/blob/main/engineering/decisions/2026-10-05-trama-radial-layout.md).
 
 ## The pipeline and adapters
 
@@ -208,3 +214,7 @@ from the fit the chart remembers. That redraw schedules the same settle: 300 ms 
 the chart fits again from a cold start on the page's thread, so the drawing at rest matches
 the export there too. A keystroke never pays for the cold fit, and a newer draw at that
 position drops the pending settle by its token.
+
+## License
+
+AGPL-3.0-only. The full text ships as `LICENSE` in the package.

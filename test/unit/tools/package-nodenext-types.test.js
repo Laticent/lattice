@@ -21,10 +21,23 @@ const { execFileSync } = require('node:child_process');
 const ROOT = path.join(__dirname, '..', '..', '..');
 const LIB = path.join(ROOT, 'docs', 'src', 'lib');
 const TSC = path.join(ROOT, 'node_modules', 'typescript', 'bin', 'tsc');
-/** Each package, and every entry it publishes: `.` and its subpaths. Vetrina's `./react` needs
- *  React's types, a peer the consumer brings, so the repo's own `@types/react` is placed beside it. */
-const PACKAGES = { ltt: ['.'], cadenza: ['.'], suono: ['.'], lente: ['.'], vetrina: ['.', './react'] };
-const PEER_TYPES = ['@types/react', 'csstype'];
+/** Each package, and every entry it publishes: `.` and its subpaths. All nine publish
+ *  (engineering/decisions/2026-10-07-first-npm-release.md). Peers a consumer brings are placed
+ *  beside them from the repo's own install: React's types for Vetrina's `./react`, and
+ *  `trystero` (with its `@trystero-p2p` scope, where its types live) for Tavola's
+ *  `./trystero` adapter. */
+const PACKAGES = {
+	ltt: ['.'],
+	cadenza: ['.'],
+	suono: ['.'],
+	lente: ['.'],
+	vetrina: ['.', './react'],
+	segno: ['.', './values', './read'],
+	trama: ['.', './radial'],
+	calco: ['.'],
+	tavola: ['.', './trystero'],
+};
+const PEER_TYPES = ['@types/react', 'csstype', 'trystero', '@trystero-p2p'];
 
 function pack(dir, into) {
 	const out = execFileSync('npm', ['pack', '--silent', '--pack-destination', into], { cwd: dir, encoding: 'utf8' });

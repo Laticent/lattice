@@ -52,6 +52,7 @@
     "docs/src/lib/ltt",
     "docs/src/lib/segno",
     "docs/src/lib/suono",
+    "docs/src/lib/tavola",
     "docs/src/lib/trama",
     "docs/src/lib/vetrina"
   ],
@@ -319,7 +320,8 @@
     "clean:scratch": "find .scratch -mindepth 1 -mtime +14 -print -delete",
     "prepare": "node tools/prepare.js",
     "prepack": "npm run build",
-    "prepublishOnly": "npm run build && npm test"
+    "prepublishOnly": "npm run build && npm test",
+    "tavola-lib:build": "node tools/build-tavola-lib.js"
   },
   "dependencies": {
     "@laticent/cadenza": "^0.1.0",
@@ -374,6 +376,7 @@
     "lodash-es": "^4.18.1",
     "mermaid": "11.14.0",
     "tinybench": "^6.0.2",
+    "trystero": "0.26.0",
     "typescript": "^6.0.3",
     "wink-porter2-stemmer": "^2.0.1",
     "yaml": "^2.9.0",

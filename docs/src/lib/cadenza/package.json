@@ -3,6 +3,16 @@
   "version": "0.1.0",
   "description": "Framework-free caption + timeline engine — text in, a timed caption track + a clock→word cursor + WebVTT/SRT out. No dependency except `@laticent/ltt` (the timing-track format it produces), no DOM, no audio.",
   "license": "AGPL-3.0-only",
+  "author": "Sharmarke Aden (Laticent) <sharmarke.aden@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Laticent/lattice.git",
+    "directory": "docs/src/lib/cadenza"
+  },
+  "homepage": "https://github.com/Laticent/lattice/tree/main/docs/src/lib/cadenza#readme",
+  "bugs": {
+    "url": "https://github.com/Laticent/lattice/issues"
+  },
   "type": "module",
   "sideEffects": false,
   "types": "./index.ts",
@@ -29,6 +39,13 @@
     "dist",
     "*.ts",
     "!*.test.ts",
-    "README.md"
-  ]
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "prepack": "node ../../../../tools/library-prepack.js"
+  }
 }

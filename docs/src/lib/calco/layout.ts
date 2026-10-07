@@ -14,8 +14,8 @@
  *    than the browser's and wrap. Lines are already broken where the browser broke them,
  *    so the box gets spare width on the side its alignment grows toward, kept on the slide.
  */
-import { type FontMetrics, faceFor, readFontMetrics } from './fonts';
-import type { EmbeddedFont, TextFrame, TextStyle } from './types';
+import { type FontMetrics, faceFor, readFontMetrics } from './fonts.js';
+import type { EmbeddedFont, TextFrame, TextStyle } from './types.js';
 
 /** Used when the face is not embedded: a typical text face (ascent 0.8 of the glyph box). */
 const FALLBACK: FontMetrics = { ascent: 0.96, descent: 0.24 };

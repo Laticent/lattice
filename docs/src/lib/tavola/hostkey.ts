@@ -5,7 +5,7 @@
 // link and the signature checks — which also lets a host that RELOADED (new peer id, same saved key)
 // prove it is the same host.
 
-import { toBase64Url } from './link';
+import { toBase64Url } from './link.js';
 
 const ALG = { name: 'ECDSA', namedCurve: 'P-256' } as const;
 const SIG = { name: 'ECDSA', hash: 'SHA-256' } as const;

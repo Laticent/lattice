@@ -5,15 +5,15 @@
  * picture-per-slide file when the text does not need to move.
  * Design: engineering/decisions/2026-10-06-calco-office-export-library.md.
  */
-export type { FaceUse, FontHost, FontMetrics } from './fonts';
-export { embeddingAllowed, faceFamilyName, faceFor, facesUsed, nearestFace, pinFeatures, prepareFonts, readFontMetrics, uniqueFaceNames } from './fonts';
-export type { PlacedBox } from './layout';
-export { applyTransform, placeFrame, spacingMultiple } from './layout';
-export { buildOdp, ODP_MIMETYPE, odpPageSize, odpZipOptions, writeOdp, xmlEscape } from './odp';
+export type { FaceUse, FontHost, FontMetrics } from './fonts.js';
+export { embeddingAllowed, faceFamilyName, faceFor, facesUsed, nearestFace, pinFeatures, prepareFonts, readFontMetrics, uniqueFaceNames } from './fonts.js';
+export type { PlacedBox } from './layout.js';
+export { applyTransform, placeFrame, spacingMultiple } from './layout.js';
+export { buildOdp, ODP_MIMETYPE, odpPageSize, odpZipOptions, writeOdp, xmlEscape } from './odp.js';
 
-export type { EmbeddingPlan, PptxGenJSClass, PptxGenJSLike } from './pptx';
-export { buildPptx, embedPptxFonts, PPTX_MIMETYPE, planEmbedding, pptxFaceName, pptxPageSize, tidyPptxPackage, writePptx, xmlSafe } from './pptx';
-export type { ReadOptions, ReadResult } from './reader';
-export { readSlide, restoreSlide } from './reader';
-export { canEmbedAsEot, familyNameOf, renameFace, toEot } from './sfnt';
-export type * from './types';
+export type { EmbeddingPlan, PptxGenJSClass, PptxGenJSLike } from './pptx.js';
+export { buildPptx, embedPptxFonts, PPTX_MIMETYPE, planEmbedding, pptxFaceName, pptxPageSize, tidyPptxPackage, writePptx, xmlSafe } from './pptx.js';
+export type { ReadOptions, ReadResult } from './reader.js';
+export { readSlide, restoreSlide } from './reader.js';
+export { canEmbedAsEot, familyNameOf, renameFace, toEot } from './sfnt.js';
+export type * from './types.js';

@@ -3,7 +3,7 @@
 // hazards a real network has; `settle()` drains the queue. Used by Tavola's tests and by any
 // app that wants a session without a network (a demo, a tour).
 
-import type { PeerId, Transport } from './types';
+import type { PeerId, Transport } from './types.js';
 
 type Peer = {
 	id: PeerId;

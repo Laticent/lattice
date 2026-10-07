@@ -210,6 +210,9 @@ const STEPS = [
   // build like its siblings or `require('@laticent/lente')` / publish break.
   { label: 'Lente library dist (CJS + .d.ts)', script: 'build-lente-lib.js', uncommitted: true },
   { label: 'Suono library dist (CJS + .d.ts)', script: 'build-suono-lib.js', uncommitted: true },
+  // Tavola is a browser library (the Studio's live collaboration); nothing at the root
+  // requires it, but it publishes ./dist like its siblings, so it builds like them.
+  { label: 'Tavola library dist (ESM + CJS + .d.ts)', script: 'build-tavola-lib.js', uncommitted: true },
   { label: 'read-along-core bundle (docs site)', script: 'build-read-along-core.js', uncommitted: true },
   // Capability index — reads package.json scripts + tools/ headers (source,
   // not built artifacts), so order-independent; grouped with the generators.
