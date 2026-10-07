@@ -542,4 +542,6 @@ function main() {
   return anyFail ? 1 : 0;
 }
 
-process.exit(main());
+// exitCode, not process.exit(): stdout to a pipe is written asynchronously, and exiting at
+// once cut a --json report of the whole corpus off at 146,176 bytes (golden-bless.mjs).
+process.exitCode = main();

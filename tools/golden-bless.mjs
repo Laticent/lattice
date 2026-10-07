@@ -93,16 +93,28 @@ function main() {
   mkdirSync(OUT, { recursive: true });
 
   // Step 1. The gate exits 1 on drift, which is the normal case here.
+  //
+  // Read the report from the FILE the gate writes, never from its stdout. The gate wrote
+  // its --json report to stdout and then called process.exit(), and Node writes to a pipe
+  // asynchronously, so the full corpus's report (several MB) arrived cut off at 146,176
+  // bytes: the first real run (Actions run 37652332077) crashed parsing it after 68
+  // minutes of rendering. The gate now drains stdout too, but the file is written
+  // synchronously before the gate exits, so it cannot be cut short. It is removed first,
+  // so a crashed gate cannot leave an older run's report to be read.
   let raw;
   if (reportIdx >= 0) {
     raw = readFileSync(args[reportIdx + 1], 'utf8');
   } else {
+    const reportFile = join(REGRESSION_OUT, 'report.json');
+    rmSync(reportFile, { force: true });
     const r = gate(['--scope', 'all', '--json'], [0, 1]);
     if (!r.ok) throw new Error(r.error);
-    raw = r.stdout;
+    raw = readFileSync(reportFile, 'utf8');
   }
   writeFileSync(join(OUT, 'check.json'), raw);
-  const rows = goldenRows(JSON.parse(raw).report); // throws on a crash's empty output
+  // report.json holds the bare array; a saved --json stdout wraps it as { report }.
+  const parsed = JSON.parse(raw);
+  const rows = goldenRows(Array.isArray(parsed) ? parsed : parsed.report);
   // Each later `--bless` run clears .scratch/regression, so keep the check's montages now.
   if (existsSync(REGRESSION_OUT)) cpSync(REGRESSION_OUT, join(OUT, 'montages'), { recursive: true });
   const drifted = rows.filter((r) => r.status === 'DRIFT');
