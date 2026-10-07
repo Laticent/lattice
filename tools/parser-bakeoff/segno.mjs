@@ -46,10 +46,11 @@ const colorSlot = () => (S.indexed ? S.indexed('c', { max: 12, label: 'a color' 
 
 // ── the slots, as Lattice will declare them ─────────────────────────────────
 const SHAPES = ['pill', 'chip', 'tag', 'tag-bordered', 'circle', 'chevron-right', 'chevron-left', 'diamond'];
+// As lib/core/segno-slots.js declares CORE.pill: the label is optional so `{icon=database}` binds.
 const pill = S.record({
   label: 'a pill',
-  positional: [{ name: 'value', type: S.text() }],
-  params: { shape: S.oneOf(SHAPES), color: colorSlot(), size: S.oneOf(['sm', 'md', 'lg']) },
+  positional: [{ name: 'value', type: S.text(), required: false }],
+  params: { shape: S.oneOf(SHAPES), color: colorSlot(), size: S.oneOf(['sm', 'md', 'lg']), icon: S.text() },
 });
 const state = S.record({
   label: 'a state mark',
@@ -108,17 +109,28 @@ const row = (job, n, kernel, segno) => rows.push({ job, n, kernel, segno });
   const accepted = real.map((s, i) => [s, segnoInputs[i]]).filter(([s]) => reference.inline(s) !== null);
   // Sanity: every span the kernel accepts, Segno accepts in its translated form.
   const agree = accepted.filter(([, b]) => { const r = segnoInline(b); return r && (r.ok || r.escaped !== undefined); }).length;
-  const ordinary = real.map((s, i) => [s, segnoInputs[i]]).filter(([s]) => reference.inline(s) === null);
+  // The decks are written in Segno's notation now, so some spans the kernel passes through as
+  // code are directives to Segno (`{icon=mail}`, a chart point `{$4.2M, 62%, size=140}`). On
+  // those the kernel returns null in ~30 ns and Segno reads a record: not the same job. Counted
+  // as ordinary code, they made that row read 4-5x when the dispatcher is 1.5-2x on code both
+  // readers agree is code (the 2026-10-07 followup blamed timing order, but a fresh process
+  // timing ordinary code alone gave the same 4x). They are timed on a row of their own, with no
+  // kernel figure.
+  const both = real.map((s, i) => [s, segnoInputs[i]]);
+  const segnoOnly = both.filter(([s, b]) => reference.inline(s) === null && segnoInline(b) !== null);
+  const ordinary = both.filter(([s, b]) => reference.inline(s) === null && segnoInline(b) === null);
+  const sameJob = both.filter(([s, b]) => !(reference.inline(s) === null && segnoInline(b) !== null));
   const marks = accepted.filter(([a]) => SHORTCUTS.has(a));
   const pills = accepted.filter(([a]) => a.startsWith('{'));
-  row('inline dispatch, every span', real.length, time(reference.inline, real), time(segnoInline, segnoInputs));
-  row('  ordinary code (not a directive)', ordinary.length, time(reference.inline, ordinary.map(([a]) => a)), time(segnoInline, ordinary.map(([, b]) => b)));
+  row('inline dispatch, every span both read alike', sameJob.length, time(reference.inline, sameJob.map(([a]) => a)), time(segnoInline, sameJob.map(([, b]) => b)));
+  row('  ordinary code (code to both)', ordinary.length, time(reference.inline, ordinary.map(([a]) => a)), time(segnoInline, ordinary.map(([, b]) => b)));
   row(`  directives (${agree}/${accepted.length} agree)`, accepted.length, time(reference.inline, accepted.map(([a]) => a)), time(segnoInline, accepted.map(([, b]) => b)));
   row('  state marks [x]', marks.length, time(reference.inline, marks.map(([a]) => a)), time(segnoInline, marks.map(([, b]) => b)));
   row('  pills {BETA, tag, c4}', pills.length, time(reference.inline, pills.map(([a]) => a)), time(segnoInline, pills.map(([, b]) => b)));
   const p = pills.map(([, b]) => b);
   row('    stage: grammar (flat tree)', p.length, NaN, time((s) => parseFlat(s), p));
   row('    stage: + tree to values', p.length, NaN, time((s) => parseTree(s), p));
+  row('  Segno syntax the kernel reads as code', segnoOnly.length, NaN, time(segnoInline, segnoOnly.map(([, b]) => b)));
 }
 {
   const lists = inputsFor('axis').real.filter((s) => s.trim().startsWith('['));

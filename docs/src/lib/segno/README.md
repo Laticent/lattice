@@ -261,6 +261,11 @@ bracket lists in Lattice's shipped decks (`npm run parser:bakeoff:segno`; best o
 | bracket lists, split into parts (the kernel's job) | 767 ns | 828 ns | 1.1x |
 | quadrant axes, typed numbers and ranges | 721 ns | 1.02 µs | 1.4x |
 
+Re-run on 2026-10-07 in a cloud sandbox, ordinary code is 1.9x (39 vs 76 ns) and pills 4.0x (214
+vs 854 ns). That run excludes the spans that are already written in Segno's notation, which the
+retired kernel reads as plain code, and times them on a row of their own. Its pill also declares
+`icon`, as the shipped slot does.
+
 Two things to know when reading it. The kernel's axis figure returns strings, which each chart
 then re-reads; Segno's returns typed numbers and ranges, so the axis row undercounts today's cost.
 And the grammar's own time depends on what V8 has already seen: a pill parses in about 110 ns in a

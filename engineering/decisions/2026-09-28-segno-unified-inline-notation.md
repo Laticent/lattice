@@ -419,11 +419,17 @@ backticks 18.8 → 2.0 ms, many headings 34 → 4.7 ms).
   the bound holds by construction, the shipped flowchart-row parser included. After the fix, the
   checker's differential found 0 mismatches against `compile()` and `main`'s generator on about
   1.2 million grammar/input pairs, and a planted mutant of the fix was caught 9,486 times.
-- **Inline code did not move, and the arm overstates its gap.** These changes leave the inline
-  notation within noise. Run on this machine, `parser:bakeoff:segno` reports ordinary code at
-  4.5x the kernel (215 vs 47 ns). The same dispatcher timed alone takes 78 ns against the
-  kernel's 54 (1.4x), which matches § The engine's 1.5x. So the arm's figure is a property of the
-  harness, not of Segno. Followed up in `followups.d/`.
+- **Inline code did not move, and the arm overstated its gap.** These changes leave the inline
+  notation within noise. `parser:bakeoff:segno` reported ordinary code at 4.5x the kernel (215
+  vs 47 ns). The first guess, that the arm's timing order skewed V8, was wrong: ordinary code
+  timed alone in a fresh process gave the same 4x. The cause is the corpus. The decks are written
+  in Segno's notation now, so 387 of the 4,973 spans the legacy kernel passes through as code are
+  directives to Segno (`{icon=mail}`, chart points like `{$310k, 24%, size=800}`). The kernel
+  returns null on those in about 30 ns; Segno reads a record in about 1.3 µs. The arm now counts
+  as ordinary only the spans both readers call code, times the 387 on a row of their own with no
+  kernel figure, and declares `icon` on its pill as `lib/core/segno-slots.js` does (the
+  directives row had read "26/53 agree" without it). Back to back on 2026-10-07: the arm gives
+  ordinary code at 76 vs 39 ns (1.94x), and the standalone timing 60 vs 32 ns (1.88x).
 
 **In WebKit and Firefox too (2026-10-07).** Every figure above is V8, and the Studio runs the
 generated parsers in Safari and Firefox as well. `npm run parser:bakeoff:languages:browsers --
