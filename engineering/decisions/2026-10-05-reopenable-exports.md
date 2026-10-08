@@ -228,7 +228,10 @@ rail reorder, dragged text) is not touched at all.
 - *A drop over the preview iframe reaches the shell.* The preview is the largest surface, and
   a drop event inside an iframe goes to the iframe's document. Measured with a native drag (CDP
   `Input.dispatchDragEvent`, which routes through Chromium's own hit testing): it imports. The
-  e2e drops there for that reason.
+  reason holds in every engine: the preview frame sits inside StudioShell's slide-frame box,
+  which is `pointer-events-none`, so hit testing never picks the iframe (measured: the computed
+  value is `none` on the revealed frame, and the element at the preview's center is the shell's
+  own pane).
 - *A cancelled drag sends the page nothing.* With CDP `dragCancel`, Chromium delivered no
   `dragleave` at all, and the first build's sign stayed up over a Studio no one was dragging
   onto. The sign now also comes down after one second with no `dragover`. The browser fires one
@@ -244,6 +247,13 @@ and a `.md` dropped there is still inserted as text; a PDF dropped on the compos
 dropped while presenting import nothing and leave the tab on the Studio (both arms fail with
 their guard removed);
 the sign fits at 1440, 820 and 390 px, in light and dark. Unit: `deck-drop.test.ts` (the verdict
-against real DOM nesting). **UNVERIFIED:** Safari and Firefox (the CDP drag is Chromium's, and
-neither engine is installed in the sandbox), and a drag from the iPad Files app. The checker also flagged that WebKit has historically reported
-a null `relatedTarget` on child-to-child drag moves, which would make the sign flicker there.
+against real DOM nesting). **WebKit's null `relatedTarget`.** The checker flagged that WebKit has reported a null
+`relatedTarget` on `dragleave` between two children, which would blink the sign at every element
+edge. A null one now hides the sign only when the pointer is at or past the window's edge; any
+other end of a drag is the dead-man timer's. An e2e arm replays that leave and asserts the sign
+stays; it fails with the old rule. That arm builds its drag in the page, so it is tagged for the
+WebKit and Gecko CI projects as well as Chromium.
+
+**UNVERIFIED:** a person's drag in the Safari and Firefox applications and from the iPad Files
+app. The engines run the shell's logic in CI; the operating system's own drag is not driven
+there.

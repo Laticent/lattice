@@ -3,7 +3,7 @@
 // `closest()` from the event target: a check on class names alone would pass while the
 // Library's own drop zone, nested three levels down, was silently overridden.
 import { describe, expect, it } from 'vitest';
-import { deckDropVerdict } from './deck-drop';
+import { deckDropVerdict, pointerOutsideWindow } from './deck-drop';
 
 const files = { types: ['Files'] };
 const text = { types: ['text/plain'] };
@@ -38,5 +38,14 @@ describe('deckDropVerdict', () => {
 
 	it('treats a non-element target (the document) as the plain shell', () => {
 		expect(deckDropVerdict({ dataTransfer: files, target: document, defaultPrevented: false })).toBe('import');
+	});
+});
+
+describe('pointerOutsideWindow', () => {
+	it('is false inside the window and true at or past each edge', () => {
+		expect(pointerOutsideWindow({ clientX: 400, clientY: 300 }, 800, 600)).toBe(false);
+		for (const [x, y] of [[0, 300], [400, 0], [800, 300], [400, 600], [-5, 300], [400, 900]]) {
+			expect(pointerOutsideWindow({ clientX: x, clientY: y }, 800, 600)).toBe(true);
+		}
 	});
 });

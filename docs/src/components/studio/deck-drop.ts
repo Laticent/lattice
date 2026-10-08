@@ -43,6 +43,11 @@ export function deckDropVerdict(e: DragLike): DropVerdict {
 	return 'import';
 }
 
+/** True when a drag event's pointer is at or past the window's edge, as when it leaves. */
+export function pointerOutsideWindow(e: { clientX: number; clientY: number }, w = window.innerWidth, h = window.innerHeight): boolean {
+	return e.clientX <= 0 || e.clientY <= 0 || e.clientX >= w || e.clientY >= h;
+}
+
 function isEditable(target: EventTarget | null): boolean {
 	return !!(target as HTMLElement | null)?.isContentEditable;
 }
@@ -97,12 +102,16 @@ export function useDeckFileDrop(onFile: (file: File) => void, onRefuse: (message
 			e.preventDefault(); // without this the browser refuses the drop and navigates to the file
 			e.dataTransfer.dropEffect = 'copy';
 		},
-		// Leaving for nothing (out of the window) or for somewhere outside the shell takes the
-		// sign down at once. Crossing into a child does not: then `relatedTarget` is that child.
+		// Leaving for somewhere outside the shell, or out of the window, takes the sign down at
+		// once. Crossing into a child does not: then `relatedTarget` is that child. A NULL
+		// `relatedTarget` alone is not proof of leaving: WebKit has reported null on moves
+		// between children, which would blink the sign at every element edge. So a null one
+		// hides the sign only when the pointer is outside the window; any other end of the drag
+		// is the dead-man timer's, within a second.
 		onDragLeave: (e) => {
 			if (deckDropVerdict(e) === 'none') return;
 			const to = e.relatedTarget as Node | null;
-			if (!to || !e.currentTarget.contains(to)) hide();
+			if (to ? !e.currentTarget.contains(to) : pointerOutsideWindow(e)) hide();
 		},
 		onDrop: (e) => {
 			const verdict = shellVerdict(e);
