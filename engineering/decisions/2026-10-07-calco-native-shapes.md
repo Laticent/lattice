@@ -5,9 +5,10 @@ summary: Cards, pills, tags and rules as native shapes in Calco's editable .odp/
 
 # Calco: cards, pills and rules as native shapes (2026-10-07)
 
-**Status: built, waiting on the owner's device check. The owner picked option B (§3) on
-2026-10-07. §7 records the build: what the reader lifts and refuses, how each writer draws
-and groups it, and the measurements.**
+**Status: built, and checked by the owner on their own devices (2026-10-08): the .pptx and
+.odp look right, and cards, tags and rules move as expected. The owner picked option B (§3) on
+2026-10-07. §7 records the build: what the reader lifts and refuses, how each writer draws and
+groups it, and the measurements. Still open: tags drawn by `::before` (§7, last paragraph).**
 
 **The question.** The owner asked whether a card's corner tag in the editable export is a
 real shape. Before §7 it was not. In Calco's editable `.odp` and `.pptx`, only the WORDS are editable:
