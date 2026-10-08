@@ -1,0 +1,3 @@
+studio: +800
+The Studio shell now takes a deck file dropped anywhere on it (#2600): `deck-drop.ts` (the drop verdict, the drag handlers and the one-second dead-man timer on the sign) and the "Drop to open as a new deck" sign in `StudioShell.tsx`. CI measured +771 B gz against main; +800 covers gzip variation. These pieces have to be loaded before a drag starts, because a drop the page is not listening for makes the browser navigate the tab to the file.
+Given back first: nothing on the reading side was added to the eager path. A dropped file goes through `importDeckFile`, which loads the same lazy `deck-import` chunk the Import deck… menu already uses, so pdf-lib, JSZip and the `.lattice` reader still load only when a file actually arrives.
