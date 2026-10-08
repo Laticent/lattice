@@ -24,8 +24,8 @@ written against [`spec/THEME-1.0.md`](../../THEME-1.0.md), not against Lattice's
 | `knownThemes` | The theme names the reader holds, for §6's import rule. Absent means `["lattice"]` alone. |
 | `expect.ok` | No error-level finding. |
 | `expect.blocked` | A finding on the safety rung (§6), so the reader shows no part of the theme. |
-| `expect.errors` | The distinct rule IDs of the error findings, sorted. |
-| `expect.warnings` | The distinct rule IDs of the warning findings, sorted. Absent means not checked. |
+| `expect.errors` | The distinct rule IDs of the error findings, sorted. These are the reference implementation's IDs; a reader that names its findings differently skips this field (spec §7). |
+| `expect.warnings` | The distinct rule IDs of the warning findings, sorted, as `errors`. Absent means not checked. |
 | `expect.missing` | The tokens reported missing (without `--`), sorted. Absent means not checked. |
 | `expect.composes` | The theme imports another theme rather than only the engine (§4.1). |
 

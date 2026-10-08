@@ -76,9 +76,11 @@ Slides are separated by a thematic break on its own line (`---`). This is
 CommonMark `<hr>`; an unaware renderer shows horizontal rules between sections.
 
 A renderer MAY also start a slide at a heading. The reference implementation does by
-default, at the first `#` and every `##`, and a deck sets `split: rule` to divide at `---`
-only; LFM 1.1 specifies this. A deck that puts `---` between every slide has the same
-slides either way, so a 1.0 deck that wants to render the same everywhere does that.
+default: within each `---`-separated section, every `#` or `##` after the section's first
+heading starts a new slide. A deck sets `split: rule` to divide at `---` only; LFM 1.1
+specifies this. A deck whose every `---`-separated section holds at most one `#` or `##`
+heading has the same slides either way, so a 1.0 deck that wants to render the same
+everywhere is written that way.
 
 - **Degrades to:** horizontal rules. **L0-clean.**
 
@@ -421,7 +423,7 @@ LFM 1.0 deliberately does **not**:
 | 1.0-draft | 2026-06-13 | Initial draft. Formalises the existing extension set, conformance levels, degradation table, and the companion diagnostic protocol. |
 | 1.0-draft | 2026-09-24 | §3.3 registers the `anima` fence (JSON body, read by `scene`). The engine already rendered it; the table and `grammar.json` now say so. Additive — a new extension with its degradation row (§7). |
 | 1.0-draft | 2026-09-24 | §3.2 state markers: six answers, one meaning each in every component. Adds `[!]` (no) and `[?]` (unknown); `[ ]` is "open" everywhere, where verdict-grid used to read it as "not met". §5.1 lists the new non-GFM markers. A breaking change to a normative meaning, landed in the pre-ratification draft per §7; the engine's changelog carries the `Breaking:` line. Record: `engineering/decisions/2026-09-24-six-state-marks.md`. |
-| **1.0** | 2026-10-08 | **Ratified** as the core it describes, with an owner. §2.3 now matches the engine: `boardroom`, `sketch` and `sketch-clean` are `mode:` values (they moved off `finish:` before ratification), and `finish:` names a backdrop. §2.2 notes that a renderer may also divide at headings, as the reference implementation does by default. §3.3 lists the `math` fence, which `grammar.json` already recorded. §8: the shared test cases ship in `spec/conformance/lfm/`. Owner ruling: `engineering/decisions/2026-10-08-spec-audit.md` §8.2. |
+| **1.0** | 2026-10-08 | **Ratified** as the core it describes, with an owner. §2.3 now matches the engine: `boardroom`, `sketch` and `sketch-clean` are `mode:` values (they moved off `finish:` before ratification), and `finish:` names a backdrop. §2.2 notes that a renderer may also divide at headings, as the reference implementation does by default, and when that changes nothing. §3.3 lists the `math` fence, which `grammar.json` already recorded. §8: the shared test cases ship in `spec/conformance/lfm/`. Owner ruling: `engineering/decisions/2026-10-08-spec-audit.md` §8.2. |
 
 ## Appendix A — A worked example (informative)
 

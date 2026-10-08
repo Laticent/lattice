@@ -67,11 +67,12 @@ component manifests.
 Slides are separated by a thematic break on its own line (`---`). This is
 CommonMark `<hr>`; an unaware renderer shows horizontal rules between sections.
 
-A renderer also starts a slide at a heading unless the deck sets `split: rule` (§2.3): at
-the first `#` and at every `##`, never at `###` or deeper. A `---` still divides with
-headings on, so a deck that puts `---` between every slide has the same slides either way.
-A slide's lead-in (its directive comments, and an eyebrow written above the heading) belongs
-to the heading's slide, not the one before.
+A renderer also starts a slide at a heading unless the deck sets `split: rule` (§2.3): within
+each `---`-separated section, every `#` or `##` after the section's first heading starts a new
+slide; `###` and deeper never do. A `---` still divides with headings on. So a deck whose every
+`---`-separated section holds at most one `#` or `##` has the same slides either way, and a deck
+with more does not. A slide's lead-in (its directive comments, and an eyebrow written above the
+heading) belongs to the heading's slide, not the one before.
 
 - **Degrades to:** horizontal rules. **L0-clean.**
 
@@ -80,18 +81,25 @@ to the heading's slide, not the one before.
 A leading YAML front-matter block carries deck-wide directives. Besides Marpit's own
 (`theme`, `paginate`, `class`, `header`, `footer`, …), LFM 1.1 defines two kinds of key.
 
-**Registers** set one deck-wide choice from a closed list of values. Each value is a word.
-A renderer applies the register to every slide, and a slide can override it with the
-matching token in its own `_class` (§2.1). A value outside the list MUST NOT change the
-render, and an L2 tool reports it as `unknown-<key>` (the rule ID in the last column).
+**Registers** set one deck-wide choice from a list of values. Each value is a word, matched
+without regard to case (`mode: Sketch` is `sketch`). A renderer applies the register to every
+slide. A single-word register whose value is not in the list MUST NOT change the render. A
+register that takes one word per axis (`backdrop:`, `tag:`, `spark:`, `icon:`) applies each word
+it knows and ignores the rest, so `tag: corner foot` places tags in the corner. Either way, an L2
+tool reports an unknown word, or a second word for one axis, as `unknown-<key>` (the rule ID in the
+last column).
+
+Many registers also have a per-slide token a slide's `_class` can carry (`lifted`, `corners-rounded`,
+`inline-code-literal`). Those tokens are listed in `lib/base/base.registers.docs.md`; 1.1 does not
+specify them, and `split:` and `preset:` have none.
 
 | Key | Values (default first, where one applies) | What it sets | Rule |
 |---|---|---|---|
 | `mode:` | `boardroom` · `sketch` · `sketch-clean` | The rendering mode: clean, or drawn by hand. | `unknown-mode` |
-| `finish:` | `none` · `atrium` · `meridian` · `strata` · `halo` · `ledger` · `nimbus` · `loom` · `savile` · `gallery` | The backdrop painted behind every slide. | `unknown-finish` |
+| `finish:` | `none` · `atrium` · `meridian` · `strata` · `halo` · `ledger` · `nimbus` · `loom` · `savile` · `gallery` | The backdrop painted behind every slide. A host MAY also accept the name of a finish package it holds or the deck carries (LATTICE-FILE §4); the list is the finishes every renderer knows. | `unknown-finish` |
 | `backdrop:` | a strength (`20` `40` `60` `80` `full`), a mask (`clear` `open`) or a spot (`spot-tl` `spot-t` `spot-tr` `spot-l` `spot-c` `spot-r` `spot-bl` `spot-b` `spot-br`); up to one of each | How strongly the finish shows, and where it clears. | `unknown-backdrop` |
 | `preset:` | `classic` · `editorial` · `brand` · `minimal` | A named look that sets several registers at once. A register the deck sets itself wins over the preset's. | `unknown-preset` |
-| `split:` | `rule` · `headings` | How the deck divides into slides: at `---` (§2.2), or at every `#`/`##` heading as well. | `unknown-split` |
+| `split:` | `headings` · `rule` | How the deck divides into slides: at headings as well as `---` (§2.2), or at `---` only. | `unknown-split` |
 | `stamp:` | `tab` `notch` `bracket` `seal` `pill` `ribbon` `flag` `underline` `dot` `mark` `veil` `bar` `pin` | The shape of a slide's marker. | `unknown-stamp` |
 | `tone:` | `rail` · `edge` · `glow` | The marker's tone. | `unknown-tone` |
 | `spectrum:` | `on` · `solid` · `duo` · `mono` · `off` | The spectrum accent. | `unknown-spectrum` |
@@ -99,7 +107,7 @@ render, and an L2 tool reports it as `unknown-<key>` (the rule ID in the last co
 | `rule:` | `auto` · `full` · `short` · `accent` · `none` | The underline beneath a slide heading. | `unknown-rule` |
 | `eyebrow:` | `plain` · `dot` · `bar` · `arrow` · `underline` | The decoration on a kicker (§3.4). | `unknown-eyebrow` |
 | `headline:` | `auto` · `left` · `center` · `right` | The alignment of a slide's framing text. | `unknown-headline` |
-| `lift:` | `on` · `off` | Whether cards are raised off the slide. | `unknown-lift` |
+| `lift:` | `off` · `on` | Whether cards are raised off the slide. | `unknown-lift` |
 | `cards:` | `center` · `stretch` · `top` · `spread` | Where a row of cards puts the height it does not need. | `unknown-cards` |
 | `tag:` | up to one word per axis: color (`color` `plain` `none`), size (`small` `regular` `large`), placement (`corner` `foot` `notch` `band` `inline`), alignment (`start` `center` `end`) | The look of a card's tag. | `unknown-tag` |
 | `corners:` | `square` · `rounded` | The corners of the slide itself. | `unknown-corners` |
@@ -109,7 +117,7 @@ render, and an L2 tool reports it as `unknown-<key>` (the rule ID in the last co
 | `inline-code:` | `rich` · `literal` | Whether the inline notation (§3.6) runs. `literal` leaves every single-backtick span as code. | `unknown-inline-code` |
 | `claim:` | `framed` · `quiet` · `hero` · `bleed` | The treatment of a slide's lead claim. | `unknown-claim` |
 | `color-mode:` | `light` · `dark` · `system` · `inherited` · `print` | Which palette the deck renders in. | `unknown-color-mode` |
-| `fit:` | `heal` · `report` · `trim` | What the renderer may do to make a slide fit: repair, only report, or cut. `guards:` is an older spelling a renderer SHOULD accept. | `unknown-fit` |
+| `fit:` | `heal` · `report` · `trim` | What the renderer may do to make a slide fit: repair, only report, or cut. A renderer SHOULD accept the older key `guards:`, whose values map `loose` to `heal` and `strict` to `trim`; `fit:` wins when both are set. | `unknown-fit` |
 | `venue:` | `laptop` · `huddle` · `conference` · `hall` | Where the deck is seen, which sets its type scale. | `unknown-venue` |
 
 **Settings** carry a value that is not one word from a list.
@@ -151,8 +159,10 @@ directive:
 ```
 
 The value is a space-separated list of lens ids. A bare id or `+id` puts the slide **in**
-that lens; `-id` takes it **out**. Ids are lowercase, and so is `_lens` itself: a renderer
-MUST NOT treat `_Lens` as a lens tag. Only a slide's first `_lens` comment outside a fenced
+that lens; `-id` takes it **out**. Ids are compared exactly as written, so authors write them
+in lowercase; `_lens` itself is lowercase, and a renderer MUST NOT treat `_Lens` as a lens tag.
+A tag that both includes and excludes one id carries both, and what that means is the host's
+call. Only a slide's first `_lens` comment outside a fenced
 code block counts.
 
 A `_lens` tag is a directive (§3.5), so it is never a speaker note, and a renderer MUST NOT
@@ -322,7 +332,7 @@ in any order, each also writable by name (`shape=tag`). An item that holds a com
 
 **Pill words.** A shape (`tag` `tag-bordered` `chip` `circle` `chevron-right`
 `chevron-left` `diamond`; none gives the capsule `pill`), a color slot (`c1` … `c12`), a
-size (`sm` `lg`), and `icon=NAME` to lead the label with an icon.
+size (`sm` `md` `lg`), and `icon=NAME` to lead the label with an icon.
 
 **Spark data and words.** The data is a series of 2 to 48 numbers, space-separated and
 oldest first, or a ratio (`72/80`, or `72%` for 72 of 100). The words are a type (`line`
@@ -337,8 +347,9 @@ Three rules hold for every form:
 
 1. **All or nothing.** A span that does not parse, or that names a word the form does not
    know or names one twice, renders as the code it is. A renderer MUST NOT draw a partial
-   element, and an L2 tool reports the span (`pill-literal`, `spark-literal`,
-   `<kind>-literal`).
+   element. An L2 tool reports a pill that quoting would fix (`pill-literal`), a spark that
+   does not parse (`spark-literal`) and a plugin kind's equivalent (`<kind>-literal`); 1.1 does
+   not require a finding for a pill with an unknown or repeated word.
 2. **An escape keeps it literal.** A backslash before the sigil (`` `\{LIVE}` ``,
    `` `\[x]` ``) renders the span as code without the backslash. A backslash anywhere else is
    left alone.

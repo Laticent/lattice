@@ -1,2 +1,2 @@
 - LFM 1.0 is ratified, with an owner. Its shared test cases live in `spec/conformance/lfm/`: small decks, each with what a Markdown viewer, a Lattice renderer and a linter must produce from it, so another tool can check itself against the same cases. `node tools/lfm-conformance.js` runs them against Lattice.
-- LFM 1.0 §2.3 now matches the engine: `boardroom`, `sketch` and `sketch-clean` are `mode:` values, and `finish:` names a backdrop such as `halo`. §3.3 lists the `math` fence.
+- LFM 1.0 §2.3 now matches the engine: `boardroom`, `sketch` and `sketch-clean` are `mode:` values, and `finish:` names a backdrop such as `halo`. §3.3 lists the `math` fence, and §2.2 says when splitting at headings changes a deck's slides.

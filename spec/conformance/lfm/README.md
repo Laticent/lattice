@@ -62,11 +62,11 @@ host does.
 | `deck.mode` | The rendering mode (§2.3): `boardroom`, `sketch` or `sketch-clean`. |
 | `deck.finish` | The finish (§2.3), or `none`. |
 | `deck.logo` | The `logo:` path, or `null`. |
-| `slides[i].component` | The component the slide's `_class` names (§2.1), or `null` with no directive. |
+| `slides[i].component` | The component the slide's `_class` names (§2.1): its first token. `null` with no directive. |
 | `slides[i].modifiers` | The modifier tokens after the component name, in order. |
 | `slides[i].cards` | The card grammar's reads (§3.1): `{ "title", "body": [] }` per top-level item. |
 | `slides[i].states` | The answer each top-level list item's state marker carries (§3.2), or `null` when it has none. The answers are the words in §3.2's table: `yes`, `partly`, `no`, `unknown`, `open`, `does not apply`. |
-| `slides[i].fences` | The sub-languages the slide renders (§3.3), named without hyphens (`functionplot`). |
+| `slides[i].fences` | The fences the slide draws as a figure at render time rather than leaving as code for the browser (§3.3), named without hyphens. Today that is `functionplot` and its `latticeplot` alias; a `mermaid`, `math` or `anima` fence is not listed. |
 | `slides[i].notes` | The slide's speaker notes, one string per note comment, in order (§3.5). |
 | `slides[i].lens` | The slide's `_lens` membership (§2.4): `{ "include": [], "exclude": [] }`, each sorted. |
 | `slides[i].inline` | The slide's inline notation (§3.6) and plain inline code, in document order. Each item is one of `{ "kind": "pill", "label", "shape", "color" }` (with `"icon": true` when the pill leads with an icon; `color` is `null` with no slot), `{ "kind": "mark", "answer" }`, `{ "kind": "spark", "type" }`, `{ "kind": "icon", "name" }`, or `{ "kind": "code", "text" }` for a span that stayed code. Code inside a fenced block is not listed. |

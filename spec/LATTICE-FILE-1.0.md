@@ -20,13 +20,16 @@ The owner ruled on 2026-10-08 that the `.lattice` file is a public spec
 (`engineering/decisions/2026-10-08-spec-audit.md` §8.1). Its shape therefore changes only with a
 version of this spec.
 
+The words in parentheses in §5 name each refusal, so the shared test cases can say which one a
+file must get; how a reader words its message is its own business.
+
 ## 1. The four parts
 
 | Part | Where it lives |
 |---|---|
 | Document | this file |
 | Schema | §3 below (the manifest is small enough to state in full) |
-| Reference implementation | the writer, `buildLatticeZip` and `buildLatticeManifest` in `lib/core/reopenable.js`; the reader, `readLatticeFile` and `parseLatticeManifest` in `docs/src/components/studio/lattice-file.ts` |
+| Reference implementation | the writer, `buildLatticeZip` and `buildLatticeManifest` in `lib/core/reopenable.js`; the reader, `readLatticeFile` and `parseLatticeManifest` in `docs/src/components/studio/lattice-file.ts`, with each comment's shape checked by `isComment` in `docs/src/components/studio/slide-comments.ts` before it is stored |
 | Shared test cases | [`spec/conformance/lattice-file/`](./conformance/lattice-file/README.md) |
 
 ## 2. The container
@@ -95,11 +98,12 @@ A `.lattice` file is a file from anyone. Before it trusts any part of one, a rea
    archive over 25 MiB, a total declared inflated size over 64 MiB, and more than 2,000 entries; it
    also stops reading at the chunk that crosses 64 MiB, so an entry that understates its size cannot
    inflate past the cap. A reader MAY choose other limits; it MUST have some.
-2. **Refuse a file missing `deck.md` or `manifest.json`.**
-3. **Refuse a manifest that does not parse, has no `"format": "lattice"`, or has a `version` that is
-   not a whole number of at least 1.**
-4. **Refuse a `version` newer than it reads,** with a message that says a newer reader is needed,
-   rather than half-reading it.
+2. **Refuse a file missing `deck.md` or `manifest.json`** (`missing-entry`).
+3. **Refuse a manifest that does not parse as JSON, or has no `"format": "lattice"`**
+   (`not-lattice`).
+4. **Refuse a `version` that is not a whole number of at least 1** (`bad-version`), **and one newer
+   than it reads** (`newer-version`), with a message that says a newer reader is needed, rather
+   than half-reading it.
 5. **Clamp the title** to one line (collapse whitespace) and a sane length; the reference reader
    keeps 120 characters and uses `Untitled deck` when nothing is left.
 6. **Treat each comment as untrusted** data: check its shape before storing or showing it, and never
@@ -118,7 +122,7 @@ return or refuse.
 The manifest's `version` is the file's version.
 
 - **A new version (2):** removing or renaming an entry or a field, changing what one means, or making
-  an optional one required. A version-1 reader refuses the file (§5.4).
+  an optional one required. A version-1 reader refuses the file (`newer-version`, §5.4).
 - **The same version:** adding an optional field or entry. A version-1 reader ignores it.
 
 ## 8. Non-goals

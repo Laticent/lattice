@@ -30,7 +30,7 @@ the entries in the order listed.
 | `title` | The title it returns, after §5's clamp. |
 | `comments` | How many comments it returns. |
 | `themes` | The names of the theme packages it returns, in order. |
-| `refused` | Why it refuses: `missing-entry`, `not-lattice`, `bad-version` or `newer-version` (§5). |
+| `refused` | Why it refuses, by the name §5 gives each refusal: `missing-entry` (§5.2), `not-lattice` (§5.3), `bad-version` or `newer-version` (§5.4). |
 
 A reader's own message for a refusal is its own business. A conformant reader refuses each of these
 files for the reason named, however it says so.

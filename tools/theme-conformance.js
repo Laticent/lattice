@@ -54,7 +54,7 @@ function observe(c) {
     composes: r.composes,
     errors: uniq(of('error').map((f) => f.rule)),
     warnings: uniq(of('warning').map((f) => f.rule)),
-    missing: uniq(r.findings.filter((f) => f.rule === 'token-missing').map((f) => /--([a-z0-9-]+)/.exec(f.message)?.[1])),
+    missing: uniq(r.findings.filter((f) => f.rule === 'token-missing').map((f) => /--([a-z0-9_-]+)/.exec(f.message)?.[1])),
   };
 }
 

@@ -39,11 +39,13 @@ name it does not know is not fixed by 1.0.
 
 A theme file is a CSS stylesheet with three kinds of content.
 
-1. **A name directive** in its first comment, `/* @theme <name> */`, matching its file name.
-2. **At most one import, naming what it builds on.** A **base** theme imports the engine,
+1. **A name directive** in its first comment, `/* @theme <name> */`. A writer SHOULD write one
+   matching the file name; a reader uses it to refuse a theme that imports itself (§6).
+2. **An import naming what it builds on.** A **base** theme imports the engine,
    `@import 'lattice';`. A theme that builds on another (a dark variant, or a derived palette)
-   imports that theme by its bare name, `@import 'indaco';`. The import is a quoted bare name and
-   nothing else (§6).
+   imports that theme by its bare name, `@import 'indaco';`. Every import is a quoted bare name
+   and nothing else (§6). A writer SHOULD write exactly one. A theme that imports no other theme
+   is self-contained, whether or not it imports the engine.
 3. **Token declarations at the root**, in a rule whose selector is `:root`, `:where(:root)` or a
    repetition of `:root` (`:root:root`). A value may use `light-dark(<light>, <dark>)` to give the
    token two faces (§4.2).
@@ -141,10 +143,15 @@ reasons are in `engineering/decisions/2026-08-17-theme-css-is-a-preview-sink.md`
 
 ## 7. Conformance
 
-A theme file is **conformant** when the reference checks report no error: no blocking finding, and,
-for a self-contained theme, no missing unmarked token. A **reader** is conformant when it resolves
-the tokens a conformant theme declares, keeps the tokens it does not know, and refuses what §6
-lists. The shared test cases pair a theme file with the findings the checks must produce.
+A theme file is **conformant** when it has no finding §6 refuses and, if it is self-contained,
+declares every unmarked token in §4.1. The SHOULDs in §3 are advice, not conformance. A **reader**
+is conformant when it resolves the tokens a conformant theme declares, keeps the tokens it does
+not know, and refuses what §6 lists.
+
+The shared test cases pair a theme file with what the checks conclude: `ok`, `blocked` and the
+missing tokens are the contract. The cases also name the reference implementation's finding IDs
+(`errors`, `warnings`); a reader whose findings are named differently checks the contract fields
+and skips those two.
 
 ## 8. Versioning
 

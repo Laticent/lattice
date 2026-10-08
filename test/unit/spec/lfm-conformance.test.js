@@ -1,4 +1,4 @@
-'use strict';
+
 // LFM's shared test cases (spec/conformance/lfm/) run against the reference
 // implementation. The second describe is the failing arm: every level of every
 // case is broken on purpose, and the runner must say so. A case that cannot fail
@@ -79,5 +79,34 @@ describe('LFM conformance: a wrong expectation fails (the arm that bites)', () =
         assert.ok(wrong(c, 'L2', (e) => { e.findings = [...e.findings, { rule: 'phantom', severity: 'error', slide: 1 }]; }).length);
       });
     }
+  }
+});
+
+describe('spec/LFM-1.1.md §2.3 lists exactly the values each register accepts', () => {
+  // The cases catch a value the engine DROPS; this catches one it ADDS, which would otherwise
+  // leave the public table silently short. Each register's list is its resolve-*.js *_NAMES.
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const core = (f) => require(`../../../lib/core/resolve-${f}`);
+  const SOURCES = {
+    mode: () => core('mode.js').MODE_NAMES, finish: () => core('finish.js').FINISH_NAMES, backdrop: () => core('backdrop.js').BACKDROP_NAMES,
+    preset: () => core('preset.js').PRESET_NAMES, split: () => core('split.js').SPLIT_NAMES, stamp: () => core('stamp.js').STAMP_STYLE_NAMES,
+    tone: () => core('tone-style.js').TONE_STYLE_NAMES, spectrum: () => core('spectrum.js').SPECTRUM_NAMES, 'spectrum-edge': () => core('spectrum.js').SPECTRUM_EDGE_NAMES,
+    rule: () => core('rule.js').RULE_NAMES, eyebrow: () => core('eyebrow.js').EYEBROW_NAMES, headline: () => core('headline.js').HEADLINE_NAMES,
+    lift: () => core('lift.js').LIFT_NAMES, cards: () => core('cards.js').CARDS_NAMES, tag: () => core('card-tag.js').CARD_TAG_NAMES,
+    corners: () => core('corners.js').CORNERS_NAMES, 'chart-finish': () => core('chart-finish.js').CHART_FINISH_NAMES, spark: () => core('spark.js').SPARK_NAMES,
+    'inline-code': () => core('inline-code.js').INLINE_CODE_NAMES, claim: () => core('claim.js').CLAIM_NAMES, 'color-mode': () => core('color-mode.js').COLOR_MODE_NAMES,
+    icon: () => require('../../../lib/plugins/registers.generated.js').PLUGIN_REGISTERS.find((r) => r.key === 'icon').axes.flatMap((x) => x.names),
+    fit: () => core('guards.js').FIT_NAMES, venue: () => core('venue.js').VENUE_NAMES, pace: () => core('pace.mjs').PACE_NAMES, delivery: () => core('delivery.mjs').DELIVERY_NAMES,
+  };
+  const spec = fs.readFileSync(path.join(__dirname, '../../../spec/LFM-1.1.md'), 'utf8');
+  const rows = new Map(
+    [...spec.matchAll(/^\| `([a-z-]+):` \| ([^|]+) \|/gm)].map((m) => [m[1], [...m[2].matchAll(/`([^`]+)`/g)].map((v) => v[1])]),
+  );
+  for (const [key, names] of Object.entries(SOURCES)) {
+    test(`${key}:`, () => {
+      assert.ok(rows.has(key), `§2.3 has a row for ${key}:`);
+      assert.deepEqual([...rows.get(key)].sort(), [...names()].map(String).sort());
+    });
   }
 });
