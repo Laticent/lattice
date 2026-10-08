@@ -5,14 +5,16 @@ summary: Audit of every spec in the repo — what counts as one, the four parts 
 
 # Spec audit (2026-10-08)
 
-**The answer.** Lattice has **eleven** contracts that another program could implement or produce,
-and only **three** live in `spec/`. Only one, the LTT, has all four parts a spec owes: a versioned
-document, a schema, a reference implementation, and shared test cases that any implementation
-must pass. LTT is also the one spec filed as a library rather than as a spec. The two most
-important specs have drifted from the code with nothing to catch it:
+**The answer.** Lattice has **at least thirteen** contracts that another program could implement
+or produce, and only **three** live in `spec/`. **None has all four parts** a spec owes: a
+versioned document, a schema, a reference implementation, and shared test cases that any
+implementation must pass. Two come close. **LTT** has the schema, the implementation and the test
+cases, but its document sits outside `spec/` with no status or change log, and it is filed as a
+library. **LPM** has all four but names no owner. The two most important specs have drifted from
+the code with nothing to catch it:
 
 - **The Diagnostic Protocol** registers **13** rule IDs and calls the list frozen. The linter
-  emits **125**, so 112 rule IDs exist only in code.
+  emits **at least 157**, so at least 144 rule IDs (over 90%) exist only in code.
 - **LFM 1.0** says its two front-matter keys (`finish:` and `logo:`) are "the complete
   LFM-added front-matter surface". The engine reads about two dozen deck-wide settings
   (`lib/base/base.registers.docs.md`). The spec does not mention the inline notation (pills,
@@ -56,39 +58,59 @@ that merely use it.
 |---|---|---|---|---|---|
 | **LFM** (Lattice-Flavored Markdown) | The deck format | `spec/LFM-1.0.md`, "1.0-draft (pre-ratification)" since 2026-06-13; published at `/spec/lfm/` | `dist/docs/grammar.json`, generated per component | the engine | ✗ none; `build-grammar.test.js` checks the generated grammar, not documents against the spec |
 | **Diagnostic Protocol** | The shape of a lint finding, and the rule registry | `spec/diagnostics.md`, draft 1.0; published at `/spec/diagnostics/` | ✗ | `lib/authoring/lint-core.js` | ✗; nothing compares the registry with the linter (§4) |
-| **LPM** (Lattice Plugin Model) | How a plugin and the host talk | `spec/LPM.md`, 0.5-draft; not published while a draft | `lib/plugins/plugin.schema.json` | the plugin host | our own plugin manifests are validated (`tools/manifest-schemas.js`) |
-| **LTT** (Lattice Timing Track) | Word-timing files | `engineering/ltt.md`, outside `spec/`; not published on the site | `ltt.schema.json`, generated, gated | `@laticent/ltt` | ✓ `docs/src/lib/ltt/conformance/*.json` |
+| **LPM** (Lattice Plugin Model) | How a plugin and the host talk | `spec/LPM.md`, 0.5-draft, with a status and a change log (§12); not published while a draft; no owner named | `lib/plugins/plugin.schema.json` | the plugin host | ✓ §9 makes `<name>.fixtures.md` required, and `test/unit/plugins/conformance.test.js` runs all six plugins' cases; manifests are also schema-validated |
+| **LTT** (Lattice Timing Track) | Word-timing files | `engineering/ltt.md`, outside `spec/`, with a version and an owner but no status or change log; not published on the site | `ltt.schema.json`, generated, gated | `@laticent/ltt` | ✓ `docs/src/lib/ltt/conformance/*.json` |
 | **Theme contract** | The tokens a palette must supply | `design/theming.md`, prose, no version | `themes/theme.schema.json` | build + engine | partial: contract tests such as `accent-contract.test.js` |
 | **Component manifest** | What a component declares | `design/design-system.md`, prose | `lib/components/manifest.schema.json` | build | our own manifests are validated in `build:check` |
 | **Finish and motion manifests** | Data files for a finish or a motion | ✗ | `finish.schema.json`, `motion.schema.json` | engine | our own manifests are validated (`tools/manifest-schemas.js`) |
 | **Forms** (frame / cell / tile) | How a slide is composed | `design/forms.md` | `lib/forms/schema/*.schema.json` | engine | `frame-conformance.test.js` (integration) |
 | **Portable package shape** | One folder shape for themes, components, finishes, motion | a decision note only (`2026-09-23-portable-packages.md`) | per type, via the manifests above | build, CLI, Studio | ✗ |
-| **`.lattice` project file** and **asset bundle** (`lattice-asset/1`) | What the Studio saves and reopens | ✗ code only (`docs/src/components/studio/lattice-file.ts`, `asset-bundle.ts`) | ✗ | Studio | Studio unit tests |
+| **`.lattice` project file** and **asset bundle** (`lattice-asset/1`) | What the Studio saves and reopens | decision notes only (`2026-06-16-lattice-export-format.md`, `2026-06-29-lattice-asset-share.md`) | ✗ | Studio (`lattice-file.ts`, `asset-bundle.ts`) and `lib/core/reopenable.js`, shared with the CLI | `lattice-file.test.ts`, `asset-bundle.test.ts`, `test/unit/core/reopenable.test.js` |
+| **Workspace backup** (`lattice-workspace/1`) | A zip of every deck in a Studio | a decision note only (`2026-07-02-workspace-backup.md`) | ✗ | Studio (`workspace-backup.ts`) | Studio unit tests |
+| **Re-openable export** | A PDF attachment `deck.lattice` (`application/vnd.lattice+zip`) and a PPTX part `lattice/deck.lattice` that carry the source, so an export opens back in Lattice | ✗ code only | ✗ | `lib/core/reopenable.js`, used by the CLI's `--reopenable` and the Studio | `test/unit/core/reopenable.test.js` |
 | **Segno inline notation** | What an author types inside backticks: pills, sparks, icons, values | Segno's README and `2026-09-28-segno-unified-inline-notation.md` | the grammar is data in Segno | `@laticent/segno` | Segno's own tests, including a fuzz test |
 
 Three observations:
 
 - **The site already has a "Specification" section** (`/spec/lfm/`, `/spec/diagnostics/`),
   generated from `spec/` by `tools/build-spec-docs.js`, and `docs:spec:check` fails CI when the
-  pages drift. So the projection pipeline exists. LTT just never joined it.
+  pages drift (it runs in CI as a step inside `build:check`). So the projection pipeline exists. LTT just never joined it.
 - **`spec/*.md` is licensed CC-BY-4.0** (`tools/build-spec-docs.js` header), apart from the
   code. A spec moved into `spec/` takes that license with it, which is the right license for a
   document we want others to implement.
-- **Schema `$id`s use two domains**: `laticent.io/schema/…` for themes and
-  `lattice.laticent.io/…` for the rest. This audit could not check whether either resolves (the
-  sandbox's network policy refuses the host).
+- **Schema `$id`s use three domains**: `laticent.io/schema/…` for themes,
+  `laticent.github.io/lattice/schemas/…` for LTT, and `lattice.laticent.io/…` for the rest. This
+  audit could not check whether any of them resolves (the sandbox's network policy refuses the
+  host).
+- **Two more files arguably qualify**: `dist/docs/components.json` and `grammar.json`, which the
+  `dist-kits` branch publishes "for tools". They are left out of the count because they are
+  generated catalogs, not formats anyone writes.
 
 ## 4. Two drifts, measured
 
 ### 4.1 The Diagnostic Protocol's "frozen" registry
 
 `spec/diagnostics.md` §3 says the rule IDs are "frozen for LFM 1.x", that "new rules are added in
-minor versions", and that "a rule is never silently removed". The registry lists **13** IDs.
-`lib/authoring/lint-core.js` and its siblings emit **125** distinct rule IDs (counted by
-`grep -oE "rule: *'…'"` over `lib/authoring/`). All 13 registered IDs are still emitted, so
-nothing was removed. But 112 IDs were added without a minor version, and nothing checks the
-registry against the code. A tool that relied on the registry, as §3 invites, would not know
-that 90% of the findings exist.
+minor versions", and that "a rule is never silently removed". The registry lists **13** IDs. The
+linter emits **at least 157** distinct ones:
+
+| Source | Distinct rule IDs |
+|---|---|
+| written in `lib/authoring/lint-core.js` | 107 |
+| from `lib/core/flowchart-grammar.js`, mapped in by `lint-core` | 19 |
+| from `lib/core/hub-spoke-model.js`, mapped in by `lint-core` | 31 |
+| **total, written as literals** | **157** |
+
+Families built at runtime come on top: `unknown-spark`, one `unknown-<register>` per plugin
+register, and `<plugin kind>-literal` such as `icon-literal`. The opt-in review pass
+(`lib/authoring/review-core.js`, run by `lint:deck --review`) adds 18 more suggestion-tier IDs
+plus a `verbose-*` family, and the CLI adds `narration-acronyms` and `narration-passthrough`.
+
+All 13 registered IDs are still emitted, so nothing was removed. But at least 144 IDs were added
+without a minor version, and nothing checks the registry against the code. A tool that relied on
+the registry, as §3 invites, would not know that over 90% of the findings exist. The severities
+drifted too: the spec says v1 has only `error` and `warning`, and `lint-core.js` also emits
+`info` (3 sites) and `suggestion` (5 sites).
 
 ### 4.2 LFM's front-matter surface
 
@@ -97,8 +119,10 @@ LFM-added front-matter surface in 1.0." `lib/base/base.registers.docs.md` docume
 dozen deck-wide settings an author can write today: `plugins:`, `preset:`, `mode:`, `fit:`,
 `backdrop:`, `split:`, `stamp:` / `tone:`, `spectrum:`, `rule:`, `inline-code:`, `eyebrow:`,
 `headline:`, `lift:`, `venue:`, `chart-finish:`, `cards:`, `tag:`, `spark:`, `corners:`,
-`delivery:`, `greeting:` / `closing:`, and `pace:`. The spec also has no section on the inline
-notation (pills, sparks, icons), the `_lens` tag, or plugins. A second implementer following
+`delivery:`, and `greeting:` / `closing:`. (LFM §2.3 itself names one more, `pace:`, as a
+delivery setting 1.0 does not define; see `lib/core/resolve-pace.mjs`.) The spec says nothing
+about pills, sparks, icons, the `_lens` tag or plugins. (§3.2 does cover state marks inside
+inline code, so the inline notation is covered in part.) A second implementer following
 LFM 1.0 today would render a fraction of a real deck.
 
 Neither drift is anyone's mistake in one PR. They are what happens to a spec with no shared test
@@ -115,7 +139,7 @@ keep up.
      shared test cases): LFM, the Diagnostic Protocol, LPM, LTT.
    - **Internal contracts** (only our code reads them; a schema and our own tests are enough):
      the theme contract, the component, finish, motion and form manifests, the package shape,
-     the `.lattice` file.
+     the `.lattice` file, the asset bundle, the workspace backup and the re-openable export.
    - **Folded into LFM**: Segno's inline notation and the `_lens` tag. They are things an
      author writes in a deck, so they are LFM, with Segno as their reference implementation.
 3. **LTT moves its document to `spec/LTT-1.0.md`** and joins the site's Specification section.
@@ -129,8 +153,8 @@ Each step is one PR (HARD RULE #17). They are ordered by what each one unblocks.
 
 | # | Step | Why this order | Done when |
 |---|---|---|---|
-| 1 | **Close the registry drift.** A test that fails when `lint-core` emits a rule ID the registry does not list, or the registry lists one it no longer emits; then register the 112 IDs in a Diagnostic Protocol 1.1 | Smallest step, and it adds the first spec-level gate outside LTT | the test exists, its failing arm fails, and the registry matches |
-| 2 | **Move LTT into `spec/`** and project it onto the site; the home page gets a Specs group | Gives the category its home, using the one spec that is already complete | `/spec/ltt/` is live, and `docs:spec:check` covers it |
+| 1 | **Close the registry drift.** A test that fails when `lint-core` emits a rule ID the registry does not list, or the registry lists one it no longer emits; then register the rest (at least 144 IDs, plus the `info` and `suggestion` severities) in a Diagnostic Protocol 1.1 | Smallest step, and it adds the first spec-level gate outside LTT | the test exists, its failing arm fails, and the registry matches |
+| 2 | **Move LTT into `spec/`** with a status and a change log, and project it onto the site; the home page gets a Specs group | Gives the category its home, using the spec closest to complete that is not yet in `spec/` | `/spec/ltt/` is live, and `docs:spec:check` covers it |
 | 3 | **Start LFM's shared test cases**: a folder of small decks, each with its expected structure (for example, the slide classes and slots it produces), run against the engine | LFM cannot be brought up to date safely until there is something to check the update against | a first set covers §2–§3 of the current spec |
 | 4 | **LFM 1.1**: document the front-matter settings, the inline notation and the `_lens` tag, each with test cases | The big rewrite, made safe by step 3 | every documented setting has a test case |
 | 5 | **A spec gate**: `spec/` entries declare their four parts in a header, and a check fails when one is missing or a path rots | Keeps the category honest once it exists | the check runs in `build:check` |
@@ -148,4 +172,8 @@ needs a new workflow.
    the small core it describes and add the rest as 1.1, or keep 1.0 a draft until it covers the
    real surface. Recommendation: the first, because a draft that never ratifies gives an outside
    implementer nothing stable.
-3. **Who owns each spec.** LTT names the owner. The other three public specs name nobody.
+3. **Who owns each spec.** LTT names the owner. LFM, the Diagnostic Protocol and LPM name
+   nobody (LFM §12 names "the Laticent project" as steward, not a person).
+4. **The re-openable export and the workspace backup** are formats other copies of Lattice
+   read. Proposed: internal contracts, like the `.lattice` file, unless a third-party tool should
+   ever open them.
