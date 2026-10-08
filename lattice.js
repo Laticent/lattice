@@ -2,7 +2,8 @@
 /**
  * lattice.js — the Lattice CLI: HTML renderer + PDF exporter
  *
- * This is the package's `bin` and `main` (built to dist/lattice.js).
+ * This is the package's `bin` (built to dist/lattice.js). It is not an import path: the
+ * package's root import is the engine, lib/engine/index.js.
  * It renders on the OWNED engine (lib/engine/), which is canonical for every
  * first-party render path — this CLI and the browser runtime both interpret it.
  * It emits the section elements, pagination attribute, and header/footer

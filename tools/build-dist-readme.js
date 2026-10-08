@@ -112,12 +112,12 @@ const DESCRIPTIONS = {
     consume: '`<script src="lattice-dagre-min.js">`, beside the runtime',
   },
   'lattice.js': {
-    purpose: 'Lattice\'s own engine, bundled as a CLI — renders PDF, PPTX, and PNG directly (no Marp involved); the local engine graph inlined, node_modules deps left external. This is the package `bin` and `main`.',
-    consume: '`lattice` bin / `@laticent/lattice`',
+    purpose: 'Lattice\'s own engine, bundled as a CLI — renders PDF, PPTX, and PNG directly (no Marp involved); the local engine graph inlined, node_modules deps left external. This is the package `bin`; it is not an import path (the root import `@laticent/lattice` is the engine, `lib/engine/index.js`).',
+    consume: '`lattice` bin',
   },
   'lattice-min.js': {
-    purpose: 'Minified `lattice.js` — the same CLI bundle compressed, shebang + executable bit preserved. Leaner install footprint; the bin/main stays the unminified file.',
-    consume: '`@laticent/lattice/min`',
+    purpose: 'Minified `lattice.js` — the same CLI bundle compressed, shebang + executable bit preserved. Leaner install footprint; the bin stays the unminified file. Not exported: run it directly.',
+    consume: '`node dist/lattice-min.js`',
   },
   'docs/components.json': {
     purpose: 'Machine-readable component catalog (axes, tags, slots, skeletons, when/anti/related) — the JSON an agent or tool loads to pick a component.',

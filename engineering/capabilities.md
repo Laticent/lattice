@@ -60,7 +60,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `calco-lib:check` | Freshness gate for the Calco library dist/ (stale vs docs/src/lib/calco/*.ts). |
 | `capabilities:build` | Generate engineering/capabilities.md — the index of every script, tool, and framework. |
 | `capabilities:check` | Freshness gate for capabilities.md; fails on drift or any undescribed script/tool. |
-| `cli:build` | Build dist/lattice.js — the bundled owned-engine CLI (package bin/main). |
+| `cli:build` | Build dist/lattice.js — the bundled owned-engine CLI (package bin). |
 | `cli:check` | Freshness gate for the CLI bundle (dist/lattice.js). |
 | `css:build` | Bundle dist/lattice.css (+ -min) — the palette-blind engine stylesheet. |
 | `css:check` | Freshness gate for dist/lattice.css. |

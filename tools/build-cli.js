@@ -7,7 +7,7 @@
  * The repo-root `lattice.js` is the SOURCE (tests, tools, and
  * `node lattice.js` run it in place). The committed
  * `dist/lattice.js` is the published artifact: it is the
- * package `bin`/`main`, so an `npm install` / `npx lattice` consumer runs
+ * package `bin`, so an `npm install` / `npx lattice` consumer runs
  * the bundle, not the loose source. This mirrors the runtime split
  * (lib/runtime/index.js → dist/lattice-runtime.js).
  *
@@ -99,7 +99,7 @@ const BUILD_OPTIONS = {
 
 // Minified twin: same CJS bundle, compressed, no source map. The shebang
 // is preserved by esbuild so it stays directly runnable; the published
-// bin/main remains the unminified file (the debug surface) — the -min.js
+// bin remains the unminified file (the debug surface) — the -min.js
 // is the lean install/CDN variant.
 const MIN_OPTIONS = {
   ...BUILD_OPTIONS,

@@ -38,7 +38,14 @@ What ships is defined entirely by `package.json` — don't special-case
 it at release time:
 
 - **`exports`** — the public entry points, and at 1.0 every one of them is
-  a promise. Consumers reach the engine through named subpaths (`/css`,
+  a promise. The root import (`.` and `main`) is the engine,
+  `lib/engine/index.js`, the same module as `/engine`: importing the
+  package must never run the CLI, which parses the host's argv and calls
+  `process.exit`. The CLI is reachable only as the `lattice` bin, and its
+  minified twin `dist/lattice-min.js` is not exported.
+  `test/integration/export/installed-package.test.js` fails if a
+  `require` or `import` of the root does not return. Consumers reach the
+  engine's other surfaces through named subpaths (`/css`,
   `/runtime`, `/engine`, `/themes/<name>.css`, and the two named `dist/`
   files `dist/lattice-emoji.css` and `dist/docs/components.json`). There
   is deliberately no `./lib/*` or `./dist/*` wildcard: a wildcard makes

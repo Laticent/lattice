@@ -23,13 +23,12 @@
   },
   "license": "AGPL-3.0-only",
   "author": "Sharmarke Aden (Laticent) <sharmarke.aden@gmail.com>",
-  "main": "dist/lattice.js",
+  "main": "lib/engine/index.js",
   "bin": {
     "lattice": "dist/lattice.js"
   },
   "exports": {
-    ".": "./dist/lattice.js",
-    "./min": "./dist/lattice-min.js",
+    ".": "./lib/engine/index.js",
     "./runtime": "./dist/lattice-runtime.js",
     "./runtime/min": "./dist/lattice-runtime-min.js",
     "./css": "./dist/lattice.css",
