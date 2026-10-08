@@ -3,7 +3,7 @@
 The canonical, hand-written spec for LFM (Lattice-Flavored Markdown) and
 the Diagnostic Protocol:
 
-- `LFM-1.0.md`
+- `LFM-1.0.md` — ratified 2026-10-08. Its shared test cases are in `conformance/lfm/`.
 - `diagnostics.md`
 - `LPM.md` — the Lattice Plugin Model, a **draft** (0.x) until Mermaid and the chart family run on
   it. Not projected into the docs site while it is a draft.

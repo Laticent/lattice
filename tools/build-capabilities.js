@@ -195,6 +195,7 @@ const SCRIPT_META = {
   'test:playground':          ['Test & verify', 'Unit scope: the playground bundle/core.'],
   'test:engine':              ['Test & verify', 'Unit scope: lattice-engine internals.'],
   'test:plugins':             ['Test & verify', 'Unit scope: the plugin host — resolver, install order, and every plugin\'s conformance fixtures.'],
+  'test:spec':                ['Test & verify', 'Unit scope: the shared spec test cases (spec/conformance/), run against the reference implementation with a failing arm.'],
   'test:layout':              ['Test & verify', 'Unit scope: the layout system.'],
   'test:transformers':        ['Test & verify', 'Unit scope: transformer registry/adapters.'],
   'test:calco':               ['Test & verify', 'Unit scope: calco, the office-export library behind .odp and editable .pptx (reader, ODP + PPTX writers, font metrics, serialization).'],

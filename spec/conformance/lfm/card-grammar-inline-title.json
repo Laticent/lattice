@@ -1,0 +1,6 @@
+{
+  "title": "The inline - **Title.** body form is not valid on a card-style layout",
+  "spec": "LFM-1.0",
+  "section": "3.1",
+  "L2": { "findings": [{ "rule": "card-style-inline-title", "severity": "error", "slide": 1 }] }
+}

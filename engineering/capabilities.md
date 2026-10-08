@@ -238,6 +238,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `test:plugins` | Unit scope: the plugin host — resolver, install order, and every plugin's conformance fixtures. |
 | `test:release` | Unit scope: the release tooling. |
 | `test:runtime` | Unit scope: lib/runtime/* — the pure decisions behind the in-page runtime (fluid-view policy, the diagram queue, per-slide mermaid bands, the axis DOM catalog). |
+| `test:spec` | Unit scope: the shared spec test cases (spec/conformance/), run against the reference implementation with a failing arm. |
 | `test:tap` | The unit suite as a TAP stream, for anything that parses test output rather than reading the exit code. `npm test` reports as dots (557x cheaper to capture); reach for this when you need per-test records. |
 | `test:theme` | Unit scope: lib/theme/chain.mjs — the theme chain and the one content-addressed `@import` scan (the caller-supplied `--css` layout sheet). |
 | `test:tokens` | Unit scope: the universal token system. |
@@ -526,6 +527,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/golden-diff.mjs` | Golden before/after — what visually changed in THIS PR's committed goldens. |
 | `tools/graph-typing-bench.mjs` | graph-typing-bench — time each stage of a graph chart's live redraw, key by key, in the real Studio. |
 | `tools/jank-census.js` | jank-census — run check-jank's `--anchors` discovery across the WHOLE catalog and rank what moves. |
+| `tools/lfm-conformance.js` | Run the LFM shared test cases (spec/conformance/lfm/) against the reference |
 | `tools/library-prepack.js` | `prepack` for every workspace library under docs/src/lib/<name>/. npm runs it in the |
 | `tools/live-session-check.mjs` | Live-session check: drives a REAL two-browser Live session in the Studio, end to end. |
 | `tools/manifest-schemas.js` | The ONE declaration of which manifest families exist, which schema governs |

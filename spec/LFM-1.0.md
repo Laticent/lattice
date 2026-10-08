@@ -1,6 +1,6 @@
 # LFM 1.0 — Lattice-Flavored Markdown
 
-**Version:** 1.0-draft (pre-ratification) · **Status:** Draft · **Date:** 2026-06-13
+**Version:** 1.0 · **Status:** Ratified · **Date:** 2026-10-08 · **Owner:** @saden1
 **License:** [CC-BY-4.0](#12-governance--license)
 
 LFM (Lattice-Flavored Markdown) is the authoring dialect of the
@@ -60,6 +60,11 @@ component manifests.
 Slides are separated by a thematic break on its own line (`---`). This is
 CommonMark `<hr>`; an unaware renderer shows horizontal rules between sections.
 
+A renderer MAY also start a slide at a heading. The reference implementation does by
+default, at the first `#` and every `##`, and a deck sets `split: rule` to divide at `---`
+only; LFM 1.1 specifies this. A deck that puts `---` between every slide has the same
+slides either way, so a 1.0 deck that wants to render the same everywhere does that.
+
 - **Degrades to:** horizontal rules. **L0-clean.**
 
 ### 2.3 Front-matter directives
@@ -69,11 +74,13 @@ in addition to Marpit's own (`theme`, `paginate`, `_class`, …):
 
 | Key | Value | Effect |
 |---|---|---|
-| `finish:` | `boardroom` \| `sketch` \| `sketch-clean` | Deck-wide visual register. Unknown values are a diagnostic (§ `unknown-finish`). |
+| `mode:` | `boardroom` \| `sketch` \| `sketch-clean` | The deck's rendering mode. `boardroom` is the default. |
+| `finish:` | a finish name, or `none` | The backdrop drawn behind every slide. The names are the finishes the engine ships (`FINISH_NAMES` in `lib/core/resolve-finish.js`). Unknown values are a diagnostic (§ `unknown-finish`); so are `boardroom`, `sketch` and `sketch-clean`, which are modes. |
 | `logo:` | path | Deck logo injected into the masthead. |
 
-These two keys are the complete LFM-added front-matter surface in 1.0; every
-other recognized key belongs to Marpit.
+These three keys are the complete LFM-added front-matter surface in 1.0; every
+other recognized key belongs to Marpit. The many other settings the engine reads
+(`lib/base/base.registers.docs.md`) arrive in LFM 1.1.
 
 A **delivery** register is a third category, and 1.0 does not define one: `pace:`
 (2026-08-04) tells a self-presenting player how long to hold on a new slide before speaking, and
@@ -152,6 +159,7 @@ is its own mini-spec; LFM only requires that it degrades to a code block.
 |---|---|---|
 | `functionplot` | A [function-plot](https://mauriciopoppe.github.io/function-plot/) graph spec (JSON body: mathematical functions + axes). Used today by the `math` component's `canvas` variant to draw a curve beside an equation. | A code block showing the JSON config. **L0-clean.** |
 | `mermaid` | Mermaid (passthrough), used by the `diagram` component. | A code block. **L0-clean** (and Mermaid-aware hosts render the diagram). |
+| `math` | A TeX display equation, used by the `math` component, written as a fence instead of `$$…$$`. | A code block showing the TeX. **L0-clean.** |
 | `anima` | An Anima motion-scene spec (JSON body), used by the `scene` component to animate its poster still on the HTML and present surfaces. The PDF keeps the poster. | A code block showing the JSON spec. **L0-clean.** |
 
 Each fence is **named after the library that renders it**: `functionplot` for
@@ -318,10 +326,12 @@ Conformance is verifiable at each level, with a distinct test shape per level:
   autofix result. The reference implementation's lint fixtures are the seed and
   its output is the v1 oracle.
 
-A formal, runnable conformance suite is **forthcoming** — step 2 of the adoption
-path in the `2026-06-13-lfm-standard` decision note. Until it ships, the
-degradation tables in §2–§3 and the reference implementation's fixtures are the
-conformance contract.
+The shared test cases live in [`spec/conformance/lfm/`](./conformance/lfm/README.md):
+small decks, each with the L0, L1 and L2 results it must produce, in JSON a second
+implementation can read. They cover §2 and §3. The reference adapter,
+`tools/lfm-conformance.js`, runs them against the Lattice engine in the unit tier.
+Where a case and this prose disagree, the disagreement is a defect in one of them,
+and the owner decides which.
 
 ## 9. Security considerations
 
@@ -380,6 +390,7 @@ LFM 1.0 deliberately does **not**:
   spec, with attribution. The Lattice engine's *code* is AGPL-3.0; the spec carries
   its own license because a normative document is a different artifact from the
   reference implementation.
+- **Owner.** @saden1 owns this spec and signs off every change to its meaning.
 - **Steward.** The Laticent project stewards LFM. The spec is the owned
   asset; conformant implementations are interchangeable, and a second
   implementation is an explicit adoption goal.
@@ -395,6 +406,7 @@ LFM 1.0 deliberately does **not**:
 | 1.0-draft | 2026-06-13 | Initial draft. Formalises the existing extension set, conformance levels, degradation table, and the companion diagnostic protocol. |
 | 1.0-draft | 2026-09-24 | §3.3 registers the `anima` fence (JSON body, read by `scene`). The engine already rendered it; the table and `grammar.json` now say so. Additive — a new extension with its degradation row (§7). |
 | 1.0-draft | 2026-09-24 | §3.2 state markers: six answers, one meaning each in every component. Adds `[!]` (no) and `[?]` (unknown); `[ ]` is "open" everywhere, where verdict-grid used to read it as "not met". §5.1 lists the new non-GFM markers. A breaking change to a normative meaning, landed in the pre-ratification draft per §7; the engine's changelog carries the `Breaking:` line. Record: `engineering/decisions/2026-09-24-six-state-marks.md`. |
+| **1.0** | 2026-10-08 | **Ratified** as the core it describes, with an owner. §2.3 now matches the engine: `boardroom`, `sketch` and `sketch-clean` are `mode:` values (they moved off `finish:` before ratification), and `finish:` names a backdrop. §2.2 notes that a renderer may also divide at headings, as the reference implementation does by default. §3.3 lists the `math` fence, which `grammar.json` already recorded. §8: the shared test cases ship in `spec/conformance/lfm/`. Owner ruling: `engineering/decisions/2026-10-08-spec-audit.md` §8.2. |
 
 ## Appendix A — A worked example (informative)
 
@@ -403,7 +415,7 @@ A three-slide LFM deck, and how the same source reads in each environment:
 ````markdown
 ---
 theme: indaco
-finish: boardroom
+mode: boardroom
 paginate: true
 ---
 

@@ -1,0 +1,49 @@
+'use strict';
+// LFM's shared test cases (spec/conformance/lfm/) run against the reference
+// implementation. The second describe is the failing arm: every level of every
+// case is broken on purpose, and the runner must say so. A case that cannot fail
+// is not a test case.
+const { describe, test } = require('node:test');
+const assert = require('node:assert/strict');
+const { listCases, readCase, runCase } = require('../../../tools/lfm-conformance.js');
+
+const cases = listCases().map((n) => readCase(n));
+
+describe('LFM conformance: every shared case passes on the reference implementation', () => {
+  test('the folder holds cases for every section of LFM §2 and §3', () => {
+    const sections = new Set(cases.map((c) => c.expect.section));
+    for (const s of ['2.1', '2.2', '2.3', '3.1', '3.2', '3.3', '3.5']) assert.ok(sections.has(s), `§${s} has a case`);
+  });
+  for (const c of cases) {
+    test(c.name, () => assert.deepEqual(runCase(c), []));
+  }
+});
+
+describe('LFM conformance: a wrong expectation fails (the arm that bites)', () => {
+  const wrong = (c, level, mutate) => {
+    const expect = structuredClone(c.expect);
+    mutate(expect[level]);
+    return runCase({ ...c, expect });
+  };
+  for (const c of cases) {
+    if (c.expect.L0) {
+      test(`${c.name} · L0`, () => {
+        assert.ok(wrong(c, 'L0', (e) => { e.visible = [...(e.visible || []), 'NEVER RENDERED']; }).length);
+      });
+    }
+    if (c.expect.L1) {
+      test(`${c.name} · L1`, () => {
+        assert.ok(wrong(c, 'L1', (e) => {
+          if (e.slides?.length) { const k = Object.keys(e.slides[0])[0]; e.slides[0][k] = 'WRONG'; }
+          else if (e.deck) { const k = Object.keys(e.deck)[0]; e.deck[k] = 'WRONG'; }
+          else e.slideCount += 1;
+        }).length);
+      });
+    }
+    if (c.expect.L2) {
+      test(`${c.name} · L2`, () => {
+        assert.ok(wrong(c, 'L2', (e) => { e.findings = [...e.findings, { rule: 'phantom', severity: 'error', slide: 1 }]; }).length);
+      });
+    }
+  }
+});
