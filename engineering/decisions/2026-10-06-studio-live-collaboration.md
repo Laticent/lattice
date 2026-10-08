@@ -235,6 +235,9 @@ the existing assistant width; max 420px) so the editor and preview keep the room
 └───────────────────────────────┘
 ```
 
+*Revised 2026-10-07 (§12.2, "Panel layout on a phone"): the invite is one line, your own call
+controls sit on your own row, and the header menu is on every screen size.*
+
 Section order follows the ask's priorities: **who** (waiting, then present), then
 **talk** (call), then **text** (chat). Chat takes the remaining height and scrolls; the
 other sections are fixed.
@@ -844,7 +847,68 @@ Fixed, in two places:
   through the media channel, so the silent switch still cannot mute read-aloud.
 
 `live-audio.test.ts` models the spec's rule and fails without either fix. A failure now names its
-reason in the toast. UNVERIFIED on the device until the owner retests.
+reason in the toast. Verified on the owner's iPhone on the PR #2579 preview (2026-10-07): the
+microphone starts and the call works.
+
+**Call quality** (the same iPhone test, 2026-10-07). The owner heard the call as muffled, choppy
+and too quiet. Measured on the preview, two Chromium processes over real WebRTC, sending a
+generated 48 kHz test signal (voice-like harmonics plus 9 kHz and 14 kHz tones):
+
+| Send | Measured | 14 kHz tone heard at | Noise floor (18–20 kHz) |
+|---|---|---|---|
+| Browser default (nothing set) | Opus mono, 32.3 kbit/s, in-band FEC on, 0 packets lost | −62.8 dBFS | −69.0 dBFS |
+| `maxBitrate` 96 000 | 96.3 kbit/s | −52.7 dBFS | −65.5 dBFS |
+| `maxBitrate` 64 000 (the new default) | 64.5 kbit/s | −52.3 dBFS | −59.5 dBFS |
+
+So the default was ordinary voice-call audio, and a higher cap keeps more of the top end. Calls
+now send at 64 kbit/s (`CALL_BITRATE` in `live-audio.ts`, passed as
+`session.setMedia(stream, { maxBitrate })`; the Trystero adapter's `capBitrate` sets the
+`RTCRtpSender` encoding at once where it exists (Chromium), and otherwise again each time
+negotiation settles until it lands, because Trystero's `addTrack` resolves before the offer and
+answer and a browser may have no encodings until then; checker, PR #2594). Measured on Chromium
+only; Safari and Firefox are UNVERIFIED. In a four-person call each
+person uploads one stream per other member, about 190 kbit/s. It also doubles the relay cost of a
+call that goes through TURN (roadmap §3.1), about 29 MB per hour per stream.
+
+**Who sets quality: each person, not the host.** Each browser sends its own audio straight to
+the others, so the bits it sends cost its own upload and depend on its own microphone and
+network. A host-wide setting would make someone on weak mobile data send more than their link
+carries, and turning voice processing off for everyone brings back echo for anyone on a
+speaker. Products that let the host pick (Discord's channel bitrate) pay for a server that mixes
+the call; Zoom and Meet make "original sound" a per-person switch. The owner chose this on
+2026-10-07: the 64 kbit/s default now, and a per-person *High fidelity* switch (processing off,
+128 kbit/s stereo) later.
+
+What the bitrate does not fix, all on iOS and out of the page's reach:
+- WebKit bug 311451 (open, filed 2026-04, still reported on iOS 27): with the microphone on,
+  iOS degrades all of the page's audio (lower sample rate, mono, crackling), with or without
+  `echoCancellation: false`. That matches *muffled* and part of *choppy*.
+- Bluetooth headphones switch to the hands-free profile while their microphone is in use, which
+  is telephone-quality in both directions.
+- *Too quiet*: iOS plays call audio at call volume once the microphone is on (WebKit bugs 230902
+  and 311451). Raising the gain of each person's playback is part of the follow-up.
+- *Choppy* that is network loss needs a measure from the device; the follow-up adds a per-person
+  call-quality readout (loss, jitter, bitrate), the way §8.1's connection readout did for paths.
+
+**Panel layout on a phone** (the owner's iPhone test, 2026-10-07). Three findings:
+- *No way to leave the session on a phone.* The session menu (the clock; copy, bring everyone,
+  leave or end) lived in the panel's title bar, and the phone sheet renders the panel without
+  one, so a phone could neither leave nor end a session. The menu is now one component,
+  `SessionMenu`, drawn in the title bar on a wide screen and portaled into the sheet's header on
+  a phone (`headerSlot`, the way the AI chat puts its cost readout there).
+- *"Leave audio" read as leaving the session.* The owner wanted the session's Leave and found
+  only the call's. The call's hang-up is now a red **Leave call** button on your own row, and
+  leaving or ending the session asks first in a dialog (*Leave the session?* / *End the session
+  for everyone?*): one stray tap must not drop you out, or end it for everyone.
+- *Rows spent on controls.* The invite is one line: copy, the link, *Can edit ▾*. Your own row
+  carries the call: *Join audio* before you join; then Mute (with a thin microphone picker when
+  there is more than one mic) and Leave call. The separate call row and your own read-only mic
+  icon are gone; "You" moved to the second line so the name keeps its room. In the docked column
+  at its default width the link would show as "http…", so there (a container query on the
+  panel's own width, `@max-[17rem]/live`) the button says *Copy* and the link wraps to its own
+  line. On touch, the row's buttons are 40 px (`pointer-coarse`).
+
+Screenshots at 390 (dark and light), 820 and 1440 px are in the PR.
 
 **The checker** (tier 1, on Opus) confirmed the gate and found audio going one-way after a
 takeover or a same-id blip, which the in-memory network reproduced. Fixed, each with a test that

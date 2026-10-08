@@ -74,7 +74,8 @@ export type LiveView = {
 
 export type LiveActions = {
 	start: (name: string) => void;
-	copyLink: () => void;
+	/** Resolves whether the link reached the clipboard. */
+	copyLink: () => Promise<boolean>;
 	setLinkRole: (r: 'edit' | 'view') => void;
 	setAutoAdmit: (on: boolean) => void;
 	admit: (id: string) => void;

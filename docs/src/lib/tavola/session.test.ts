@@ -1154,6 +1154,22 @@ describe('media: audio rides the same gate (S4, 2026-10-07)', () => {
 		expect(a.s.hasMedia).toBe(true);
 	});
 
+	it('setMedia passes its bitrate cap to every send, including to a member admitted later', async () => {
+		const net = createMemoryNetwork();
+		const h = host(net);
+		const a = await joined(net, h, 'Amina');
+		const sends: string[] = [];
+		const add = h.t.addTrack?.bind(h.t);
+		h.t.addTrack = (tr, st, to, o) => {
+			sends.push(`${to === a.t.selfId ? 'amina' : 'chen'} ${o?.maxBitrate}`);
+			add?.(tr, st, to, o);
+		};
+		h.s.setMedia(fakeStream('host-mic').stream, { maxBitrate: 64000 });
+		await settle(net);
+		await joined(net, h, 'Chen');
+		expect(sends).toEqual(['amina 64000', 'chen 64000']);
+	});
+
 	it('the host never sends its tracks to a peer that holds the link but was not admitted', async () => {
 		const net = createMemoryNetwork();
 		const h = host(net);

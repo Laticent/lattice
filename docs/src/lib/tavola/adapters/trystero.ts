@@ -22,6 +22,34 @@ export type TrysteroOptions = {
 	turnConfig?: Array<{ urls: string | string[]; username?: string; credential?: string }>;
 };
 
+/** Cap the bitrate `track` is sent at on `pc` (best-effort: a browser that refuses keeps its default). */
+/**
+ * Cap the bitrate `track` is sent at on `pc` (best-effort: a browser that refuses keeps its default).
+ * Trystero's addTrack resolves straight after `pc.addTrack`, before the offer and answer, and a
+ * browser may have no encodings to set until negotiation is done. So: try now, and if the sender
+ * is not capped yet, try again each time negotiation settles (`stable`), until it is or the
+ * connection closes. Exported for its test.
+ */
+export function capBitrate(pc: RTCPeerConnection | undefined, track: MediaStreamTrack, maxBitrate: number): void {
+	if (!pc) return;
+	const apply = (): boolean => {
+		const sender = pc.getSenders().find((s) => s.track === track);
+		if (!sender) return true; // the track was taken back meanwhile: nothing left to cap
+		const params = sender.getParameters();
+		if (!params.encodings?.length) return false;
+		if (params.encodings[0].maxBitrate === maxBitrate) return true;
+		params.encodings[0].maxBitrate = maxBitrate;
+		sender.setParameters(params).catch(() => {});
+		return true;
+	};
+	if (apply()) return;
+	const retry = () => {
+		const done = pc.connectionState === 'closed' || (pc.signalingState === 'stable' && apply());
+		if (done) pc.removeEventListener('signalingstatechange', retry);
+	};
+	pc.addEventListener('signalingstatechange', retry);
+}
+
 export function trysteroTransport(room: string, secret: string, opts: TrysteroOptions = {}): Transport {
 	const r = joinRoom({ appId: opts.appId ?? TAVOLA_APP_ID, password: secret, ...(opts.relayUrls ? { relayUrls: opts.relayUrls } : {}), ...(opts.rtcConfig ? { rtcConfig: opts.rtcConfig } : {}), ...(opts.turnConfig?.length ? { turnConfig: opts.turnConfig } : {}) }, room);
 	const wire = r.makeAction<Uint8Array>('tavola');
@@ -42,8 +70,11 @@ export function trysteroTransport(room: string, secret: string, opts: TrysteroOp
 		leave() {
 			return r.leave();
 		},
-		addTrack(track, stream, to) {
-			for (const p of r.addTrack(track, stream, { target: to })) void p.catch(() => {});
+		addTrack(track, stream, to, opts) {
+			const sent = r.addTrack(track, stream, { target: to });
+			for (const p of sent) void p.catch(() => {});
+			// The sender exists once these settle; capBitrate waits out negotiation if it has to.
+			if (opts?.maxBitrate) void Promise.allSettled(sent).then(() => capBitrate(r.getPeers()[to], track, opts.maxBitrate as number));
 		},
 		removeTrack(track, to) {
 			try {

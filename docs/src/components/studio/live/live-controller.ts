@@ -7,7 +7,7 @@ import { Awareness, applyAwarenessUpdate, encodeAwarenessUpdate, removeAwareness
 import * as Y from 'yjs';
 import { cleanName, createHostKey, createSession, formatFragment, formatLink, fromBase64Url, type HostKey, hostKeyFrom, type LinkPath, linkKind, mintLink, parseFragment, type Session, type SessionState, type Succession, type TokenEntry, toBase64Url, tokenId } from '@/lib/tavola';
 import { trysteroTransport } from '@/lib/tavola/adapters/trystero';
-import { LiveAudio } from './live-audio';
+import { CALL_BITRATE, LiveAudio } from './live-audio';
 import { LIVE_TURN } from './live-ice';
 import { IDLE_VIEW, type LiveActions, type LiveChatLine, type LiveColor, type LivePerson, type LiveView, type LobbyActions, type LobbyView, liveColor, liveColorLight } from './live-model';
 import { clearJoinIntent, HOST_KEY, hasFreshJoin, type LiveCollab, type LiveDeps, type LiveHost, readSealedJoin, saveName, scrubLiveFragment, storedLiveName, storeSealedJoin, takeFreshJoin } from './live-store';
@@ -886,7 +886,7 @@ export class LiveController {
 				return;
 			}
 			this.micDenied = false;
-			r.session.setMedia(stream);
+			r.session.setMedia(stream, { maxBitrate: CALL_BITRATE });
 			this.post({ k: 'mic', on: !a.isMuted });
 			this.micDevices = await a.devices();
 			this.startSpeaking();
@@ -1479,16 +1479,23 @@ export class LiveController {
 		return { stage, title: s?.invite?.title ?? null, hostName: s?.invite?.hostName ?? null, slides: s?.invite?.slides ?? null, theme: s?.invite?.theme ?? null, name: this.lobbyName };
 	}
 
-	private copy(link: string, caveat: string | null = null) {
+	/** Resolves whether the link reached the clipboard, so a button can show "Copied" only when it did. */
+	private copy(link: string, caveat: string | null = null): Promise<boolean> {
 		const tail = caveat ?? '';
 		const done = (m: string) => this.host.notify(m + tail);
 		if (!navigator.clipboard) {
 			done('Copy the invite link from the Live panel.');
-			return;
+			return Promise.resolve(false);
 		}
-		void navigator.clipboard.writeText(link).then(
-			() => done('Invite link copied. Anyone you send it to will knock first.'),
-			() => done('Copy the invite link from the Live panel.'),
+		return navigator.clipboard.writeText(link).then(
+			() => {
+				done('Invite link copied. Anyone you send it to will knock first.');
+				return true;
+			},
+			() => {
+				done('Copy the invite link from the Live panel.');
+				return false;
+			},
 		);
 	}
 
@@ -1524,11 +1531,11 @@ export class LiveController {
 				);
 				const saved = await this.saveHost();
 				const live = this.rt as Runtime | null;
-				if (live) this.copy(live.link, keyKept && saved ? null : " This browser can't keep the session across a reload, so keep this tab open.");
+				if (live) void this.copy(live.link, keyKept && saved ? null : " This browser can't keep the session across a reload, so keep this tab open.");
 				this.host.rerender();
 			})();
 		},
-		copyLink: () => this.rt && this.copy(this.rt.link),
+		copyLink: () => (this.rt ? this.copy(this.rt.link) : Promise.resolve(false)),
 		setLinkRole: (role) => this.rt?.session.setLinkRole(role),
 		setAutoAdmit: (on) => this.rt?.session.setAutoAdmit(on),
 		admit: (id) => this.rt?.session.admit(id),

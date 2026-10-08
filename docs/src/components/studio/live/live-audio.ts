@@ -5,7 +5,7 @@ import { createStage, type Meter, type Stage } from '@/lib/suono';
 //
 // Media rides the session's own connections (Tavola `setMedia` / `onMedia`), so it reaches admitted
 // members only, through the same gate as the document. This module owns the browser side:
-//   - the microphone: captured on "Join with audio" (echo cancellation and noise suppression on),
+//   - the microphone: captured on "Join audio" (echo cancellation and noise suppression on),
 //     muted by turning the track off, so unmuting needs no renegotiation;
 //   - playback: one hidden <audio> element per member, MUTED until this browser joins the call, so
 //     nobody hears sound they did not ask for. (Attached all the same: Chromium meters a remote
@@ -19,6 +19,12 @@ const SPEAKING_LEVEL = 0.02;
 const HOLD_MS = 350;
 
 type Metered = { meter: Meter; lastLoud: number };
+
+/** What each person's voice is sent at. The browser default is 32 kbit/s Opus; measured on the
+ *  preview (2026-10-07), 96 kbit/s carried a 14 kHz tone 10 dB stronger. 64 kbit/s keeps most of
+ *  that detail while a four-person call costs each person ~190 kbit/s of upload (one stream per
+ *  other member). A later per-person High fidelity switch goes higher. */
+export const CALL_BITRATE = 64_000;
 
 export type AudioDevice = { id: string; label: string };
 

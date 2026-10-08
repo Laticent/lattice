@@ -1,6 +1,8 @@
-import { ArrowLeftRight, ArrowUp, Check, Crown, Eye, Link2, LogOut, Mic, MicOff, MoreHorizontal, Pencil, Server, UserMinus, UsersRound, Wifi, X } from 'lucide-react';
+import { ArrowLeftRight, ArrowUp, Check, ChevronDown, Copy, Crown, Eye, Headphones, Link2, LogOut, Mic, MicOff, MoreHorizontal, Pencil, PhoneOff, Server, UserMinus, UsersRound, Wifi, X } from 'lucide-react';
 import * as React from 'react';
+import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -14,9 +16,11 @@ import { elapsed, type LiveActions, type LiveChatLine, type LivePerson, type Liv
 // engineering/decisions/2026-10-06-studio-live-collaboration.md). It is narrow on purpose:
 // the editor and preview are where the work happens, and they carry the presence
 // (carets, navigator avatars). Section order follows the ask: who (waiting, then
-// present), the call row, then text.
+// present, with your own call controls on your own row), then text.
 
 const SECTION = 'px-3.5 pt-3 pb-1 font-mono text-[10px] font-bold uppercase tracking-widest text-muted-foreground';
+/** A finger needs a bigger target than a cursor: the row's icon buttons grow to 40 px on touch. */
+const TOUCH = 'pointer-coarse:size-10';
 
 /** The connection to a person: an icon in the row, the words in the person's menu (what the
  *  two-network check screenshots on a phone, where a hover title cannot be read). */
@@ -40,16 +44,18 @@ function PersonRow({ p, view, actions }: { p: LivePerson; view: LiveView; action
 			<div className="min-w-0 flex-1">
 				<div className="flex items-center gap-1 truncate text-[12.5px] font-semibold text-foreground">
 					<span className="truncate">{p.name}</span>
-					{p.me && <span className="font-normal text-muted-foreground">(you)</span>}
 					{p.role === 'host' && <Crown className="size-3 shrink-0 text-muted-foreground" aria-label="Host" />}
 					{p.role === 'view' && <Eye className="size-3 shrink-0 text-muted-foreground" aria-label="View only" />}
 				</div>
 				<div className="flex items-center gap-1 text-[11px] text-muted-foreground">
-					<span className="truncate">{following ? `Following · ${whereLabel(p)}` : whereLabel(p)}</span>
+					{/* "You" sits here rather than beside the name: your row also carries the call buttons,
+					    and in the docked column a "(you)" beside the name squeezed the name itself out. */}
+					<span className="truncate">{p.me ? `You · ${whereLabel(p)}` : following ? `Following · ${whereLabel(p)}` : whereLabel(p)}</span>
 					{LinkGlyph && p.link && <LinkGlyph className="size-3 shrink-0 text-muted-foreground/70" role="img" aria-label={`${LINK_LABEL[p.link.kind]} (${p.link.detail})`} data-live-link={p.link.kind} />}
 				</div>
 			</div>
-			{view.audio && p.mic !== 'off' && <MicGlyph className={cn('size-3.5 shrink-0', p.mic === 'muted' ? 'text-muted-foreground/60' : 'text-foreground')} aria-label={p.mic === 'muted' ? 'Muted' : 'Mic on'} />}
+			{view.audio && p.me && <CallControls view={view} actions={actions} />}
+			{view.audio && !p.me && p.mic !== 'off' && <MicGlyph className={cn('size-3.5 shrink-0', p.mic === 'muted' ? 'text-muted-foreground/60' : 'text-foreground')} aria-label={p.mic === 'muted' ? 'Muted' : 'Mic on'} />}
 			{!p.me && !p.away && (
 				<DropdownMenu>
 					<DropdownMenuTrigger asChild>
@@ -92,46 +98,116 @@ function PersonRow({ p, view, actions }: { p: LivePerson; view: LiveView; action
 }
 
 /**
- * The call row (§5.8): join with audio, then mute / unmute, pick the microphone, or leave the call.
- * Being in the session is not being on the call: someone can edit silently.
+ * Your own call controls, on your own row (§5.8): join; then mute and hang up, and pick the
+ * microphone when there is more than one. Being in the session is not being on the call (someone
+ * can edit silently), so hanging up says "Leave call"; leaving the SESSION is the session menu's.
  */
-function CallRow({ view, actions }: { view: LiveView; actions: LiveActions }) {
+function CallControls({ view, actions }: { view: LiveView; actions: LiveActions }) {
 	const c = view.call;
 	if (!c.inCall)
 		return (
-			<div className="flex flex-col gap-1 px-3.5 pt-1 pb-2">
-				<Button size="sm" variant="outline" onClick={actions.toggleMic} className="h-7 w-full gap-1.5 text-[11.5px]">
-					<Mic className="size-3.5" /> Join with audio
-				</Button>
-				{c.denied && <p className="text-[11px] leading-snug text-muted-foreground" data-live-mic-denied>The browser blocked the microphone. Allow it from the icon in the address bar, then join again.</p>}
-			</div>
+			<Button size="sm" variant="outline" onClick={actions.toggleMic} className="h-7 shrink-0 gap-1.5 px-2.5 text-[11.5px] pointer-coarse:h-10">
+				<Headphones className="size-3.5" /> Join audio
+			</Button>
 		);
 	return (
-		<div className="flex items-center gap-1.5 px-3.5 pt-1 pb-2" data-live-call>
-			<Button size="sm" variant={c.muted ? 'outline' : 'default'} onClick={actions.toggleMic} aria-pressed={!c.muted} className="h-7 flex-1 gap-1.5 text-[11.5px]">
-				{c.muted ? <><MicOff className="size-3.5" /> Unmute</> : <><Mic className="size-3.5" /> Mute</>}
+		<div className="flex shrink-0 items-center gap-1" data-live-call>
+			<div className="flex items-stretch">
+				<Button
+					size="icon"
+					variant={c.muted ? 'outline' : 'default'}
+					onClick={actions.toggleMic}
+					aria-pressed={!c.muted}
+					aria-label={c.muted ? 'Unmute' : 'Mute'}
+					title={c.muted ? 'Unmute' : 'Mute'}
+					className={cn('size-7', TOUCH, c.devices.length > 1 && 'rounded-r-none')}
+				>
+					{c.muted ? <MicOff className="size-3.5" /> : <Mic className="size-3.5" />}
+				</Button>
+				{/* The microphone picker rides on the mute button (a thin arrow), only when there is a choice. */}
+				{c.devices.length > 1 && (
+					<DropdownMenu>
+						<DropdownMenuTrigger asChild>
+							<Button size="icon" variant={c.muted ? 'outline' : 'default'} className="-ml-px h-7 w-4 rounded-l-none pointer-coarse:h-10 pointer-coarse:w-6" aria-label="Microphone" title="Microphone">
+								<ChevronDown className="size-3" />
+							</Button>
+						</DropdownMenuTrigger>
+						<DropdownMenuContent align="end" className="w-60">
+							<DropdownMenuLabel className="text-[11px] font-normal text-muted-foreground">Microphone</DropdownMenuLabel>
+							{c.devices.map((d) => (
+								<DropdownMenuItem key={d.id} onSelect={() => actions.pickMic(d.id)}>
+									<Mic className="size-4" /> <span className="truncate">{d.label}</span>
+									{d.id === c.device && <Check className="ml-auto size-4" />}
+								</DropdownMenuItem>
+							))}
+						</DropdownMenuContent>
+					</DropdownMenu>
+				)}
+			</div>
+			<Button size="icon" variant="outline" onClick={actions.leaveCall} aria-label="Leave call" title="Leave call" className={cn('size-7 border-destructive/50 text-destructive hover:bg-destructive/10 hover:text-destructive', TOUCH)}>
+				<PhoneOff className="size-3.5" />
 			</Button>
+		</div>
+	);
+}
+
+/**
+ * The session menu: the clock, then copy, bring everyone, and leave or end. One menu on every
+ * size: in the panel's title bar on a wide screen, in the sheet's header on a phone (where the
+ * panel has no title bar of its own). Leaving and ending each ask first: one stray tap would
+ * otherwise drop you out of the session, or end it for everyone.
+ */
+function SessionMenu({ view, actions, now }: { view: LiveView; actions: LiveActions; now: number }) {
+	const [confirming, setConfirming] = React.useState(false);
+	// One leave or end per confirmation: a double tap would otherwise run it (and its toast) twice.
+	const acted = React.useRef(false);
+	const ending = view.isHost;
+	return (
+		<>
+			<span className="size-1.5 rounded-full bg-[var(--accent)]" aria-hidden />
+			{view.startedAt !== null && <span className="font-mono text-[11px] font-normal tabular-nums tracking-normal text-muted-foreground">{elapsed(view.startedAt, now)}</span>}
 			<DropdownMenu>
 				<DropdownMenuTrigger asChild>
-					<Button size="icon" variant="ghost" className="size-7" aria-label="Call options">
+					<Button variant="ghost" size="icon" className={cn('-my-1 size-6', TOUCH)} aria-label="Session options">
 						<MoreHorizontal className="size-3.5" />
 					</Button>
 				</DropdownMenuTrigger>
-				<DropdownMenuContent align="end" className="w-60">
-					{c.devices.length > 0 && <DropdownMenuLabel className="text-[11px] font-normal text-muted-foreground">Microphone</DropdownMenuLabel>}
-					{c.devices.map((d) => (
-						<DropdownMenuItem key={d.id} onSelect={() => actions.pickMic(d.id)}>
-							<Mic className="size-4" /> <span className="truncate">{d.label}</span>
-							{d.id === c.device && <Check className="ml-auto size-4" />}
-						</DropdownMenuItem>
-					))}
-					{c.devices.length > 0 && <DropdownMenuSeparator />}
-					<DropdownMenuItem onSelect={actions.leaveCall}>
-						<LogOut className="size-4" /> Leave audio
+				<DropdownMenuContent align="end" className="w-52">
+					<DropdownMenuItem onSelect={() => void actions.copyLink()}><Link2 className="size-4" /> Copy invite link</DropdownMenuItem>
+					{view.isHost && <DropdownMenuItem onSelect={actions.bringEveryone}><Eye className="size-4" /> Bring everyone to my slide</DropdownMenuItem>}
+					<DropdownMenuSeparator />
+					<DropdownMenuItem variant="destructive" onSelect={() => setConfirming(true)}>
+						<LogOut className="size-4" /> {ending ? 'End session for everyone…' : 'Leave session…'}
 					</DropdownMenuItem>
 				</DropdownMenuContent>
 			</DropdownMenu>
-		</div>
+			<Dialog open={confirming} onOpenChange={setConfirming}>
+				<DialogContent data-live-confirm>
+					<DialogHeader>
+						<DialogTitle>{ending ? 'End the session for everyone?' : 'Leave the session?'}</DialogTitle>
+						<DialogDescription>
+							{ending
+								? 'Everyone is disconnected, and the chat and the call end. Each person keeps their own copy of the deck.'
+								: 'You leave the chat and the call. Your copy of the deck stays here. To come back, open the invite link again.'}
+						</DialogDescription>
+					</DialogHeader>
+					<DialogFooter>
+						<Button variant="outline" onClick={() => setConfirming(false)}>Cancel</Button>
+						<Button
+							variant="destructive"
+							onClick={() => {
+								setConfirming(false);
+								if (acted.current) return;
+								acted.current = true;
+								(ending ? actions.end : actions.leave)();
+							}}
+						>
+							{ending ? 'End session' : 'Leave session'}
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+		</>
 	);
 }
 
@@ -290,7 +366,65 @@ function StartCard({ actions, defaultName }: { actions: LiveActions; defaultName
 	);
 }
 
-export function LivePanel({ view, actions, title, now, defaultName = '' }: { view: LiveView; actions: LiveActions; title?: string; now: number; defaultName?: string }) {
+/**
+ * The invite on one line: copy, the link itself (tap to select it), and who the link lets in.
+ * The copy button shows a check for a moment, beside the toast that says the same. In a narrow
+ * column (the docked panel at its default width) the link would show as "http…", so the button
+ * says "Copy" and the link wraps to a line of its own, still there to select by hand if the
+ * clipboard refuses. One field either way, measured by the panel's width, not the window's.
+ */
+function InviteRow({ view, actions, full }: { view: LiveView; actions: LiveActions; full: boolean }) {
+	const [copied, setCopied] = React.useState(false);
+	React.useEffect(() => {
+		if (!copied) return;
+		const t = setTimeout(() => setCopied(false), 2000);
+		return () => clearTimeout(t);
+	}, [copied]);
+	return (
+		<div className="flex flex-wrap items-stretch gap-y-2" data-live-invite>
+			<Button
+				variant="outline"
+				size="sm"
+				onClick={() => void actions.copyLink().then((ok) => ok && setCopied(true))}
+				disabled={full || !view.link}
+				aria-label="Copy invite link"
+				title="Copy invite link"
+				className={cn('h-8 w-9 shrink-0 gap-1.5 rounded-r-none px-0 pointer-coarse:h-10 pointer-coarse:w-11', '@max-[17rem]/live:w-auto @max-[17rem]/live:min-w-0 @max-[17rem]/live:shrink @max-[17rem]/live:flex-1 @max-[17rem]/live:justify-start @max-[17rem]/live:px-2.5')}
+			>
+				{copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+				<span className={cn('hidden truncate text-[12px]', '@max-[17rem]/live:inline')}>{full ? 'Full' : copied ? 'Copied' : 'Copy'}</span>
+			</Button>
+			{full || !view.link ? (
+				<span className={cn('-ml-px flex h-8 min-w-0 flex-1 items-center border border-border bg-background px-2 text-[11.5px] text-muted-foreground pointer-coarse:h-10', '@max-[17rem]/live:hidden')}>{full ? 'Session full' : 'Preparing the link…'}</span>
+			) : (
+				<input
+					readOnly
+					value={view.link}
+					aria-label="Invite link"
+					onFocus={(e) => e.currentTarget.select()}
+					className={cn(
+						'-ml-px h-8 min-w-0 flex-1 truncate border border-border bg-background px-2 font-mono text-[10.5px] text-muted-foreground outline-none pointer-coarse:h-10',
+						'@max-[17rem]/live:order-last @max-[17rem]/live:ml-0 @max-[17rem]/live:h-7 @max-[17rem]/live:basis-full @max-[17rem]/live:rounded-md',
+					)}
+				/>
+			)}
+			<DropdownMenu>
+				<DropdownMenuTrigger asChild>
+					<Button variant="outline" size="sm" className="-ml-px h-8 shrink-0 gap-1 rounded-l-none px-2 text-[11.5px] pointer-coarse:h-10" aria-label="Link permission">
+						{view.linkRole === 'edit' ? 'Can edit' : 'Can view'}
+						<ChevronDown className="size-3" />
+					</Button>
+				</DropdownMenuTrigger>
+				<DropdownMenuContent align="end">
+					<DropdownMenuItem onSelect={() => actions.setLinkRole('edit')}><Pencil className="size-4" /> Can edit{view.linkRole === 'edit' && <Check className="ml-auto size-4" />}</DropdownMenuItem>
+					<DropdownMenuItem onSelect={() => actions.setLinkRole('view')}><Eye className="size-4" /> Can view{view.linkRole === 'view' && <Check className="ml-auto size-4" />}</DropdownMenuItem>
+				</DropdownMenuContent>
+			</DropdownMenu>
+		</div>
+	);
+}
+
+export function LivePanel({ view, actions, title, now, defaultName = '', headerSlot }: { view: LiveView; actions: LiveActions; title?: string; now: number; defaultName?: string; headerSlot?: HTMLElement | null }) {
 	const chatEnd = React.useRef<HTMLLIElement>(null);
 	const chatCount = view.chat.length;
 	React.useEffect(() => {
@@ -299,36 +433,19 @@ export function LivePanel({ view, actions, title, now, defaultName = '' }: { vie
 	const live = view.status === 'live';
 	const full = view.people.length >= view.cap;
 	return (
-		<div className="group/live flex min-h-0 flex-1 flex-col" data-live-panel>
+		<div className="group/live @container/live flex min-h-0 flex-1 flex-col" data-live-panel>
 			{title && (
 				<div className="flex items-center gap-2 border-b border-border px-3.5 py-2 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
 					<span>{title}</span>
 					{live && (
 						<>
-							<span className="size-1.5 rounded-full bg-[var(--accent)]" aria-hidden />
-							{view.startedAt !== null && <span className="tabular-nums font-normal tracking-normal">{elapsed(view.startedAt, now)}</span>}
 							<span className="flex-1" />
-							<DropdownMenu>
-								<DropdownMenuTrigger asChild>
-									<Button variant="ghost" size="icon" className="-my-1 size-6" aria-label="Session options">
-										<MoreHorizontal className="size-3.5" />
-									</Button>
-								</DropdownMenuTrigger>
-								<DropdownMenuContent align="end" className="w-52">
-									<DropdownMenuItem onSelect={actions.copyLink}><Link2 className="size-4" /> Copy invite link</DropdownMenuItem>
-									{view.isHost && <DropdownMenuItem onSelect={actions.bringEveryone}><Eye className="size-4" /> Bring everyone to my slide</DropdownMenuItem>}
-									<DropdownMenuSeparator />
-									{view.isHost ? (
-										<DropdownMenuItem variant="destructive" onSelect={actions.end}><LogOut className="size-4" /> End session for everyone</DropdownMenuItem>
-									) : (
-										<DropdownMenuItem variant="destructive" onSelect={actions.leave}><LogOut className="size-4" /> Leave session</DropdownMenuItem>
-									)}
-								</DropdownMenuContent>
-							</DropdownMenu>
+							<SessionMenu view={view} actions={actions} now={now} />
 						</>
 					)}
 				</div>
 			)}
+			{!title && live && headerSlot && createPortal(<SessionMenu view={view} actions={actions} now={now} />, headerSlot)}
 			{!live ? (
 				<StartCard actions={actions} defaultName={defaultName} />
 			) : (
@@ -339,31 +456,7 @@ export function LivePanel({ view, actions, title, now, defaultName = '' }: { vie
 					<div className="max-h-[55%] min-h-0 shrink-0 overflow-y-auto max-[699px]:group-has-[textarea:focus]/live:hidden">
 						{view.isHost && (
 							<div className="flex flex-col gap-2 px-3.5 pt-3">
-								<div className="flex items-stretch">
-									<Button size="sm" variant="outline" onClick={actions.copyLink} className="min-w-0 flex-1 justify-start gap-1.5 rounded-r-none" disabled={full}>
-										<Link2 className="size-4" /> <span className="truncate">{full ? 'Session full' : 'Copy link'}</span>
-									</Button>
-									<DropdownMenu>
-										<DropdownMenuTrigger asChild>
-											<Button size="sm" variant="outline" className="-ml-px rounded-l-none px-2 text-[11.5px]" aria-label="Link permission">
-												{view.linkRole === 'edit' ? 'Can edit' : 'Can view'}
-											</Button>
-										</DropdownMenuTrigger>
-										<DropdownMenuContent align="end">
-											<DropdownMenuItem onSelect={() => actions.setLinkRole('edit')}><Pencil className="size-4" /> Can edit{view.linkRole === 'edit' && <Check className="ml-auto size-4" />}</DropdownMenuItem>
-											<DropdownMenuItem onSelect={() => actions.setLinkRole('view')}><Eye className="size-4" /> Can view{view.linkRole === 'view' && <Check className="ml-auto size-4" />}</DropdownMenuItem>
-										</DropdownMenuContent>
-									</DropdownMenu>
-								</div>
-								{view.link && (
-									<input
-										readOnly
-										value={view.link}
-										aria-label="Invite link"
-										onFocus={(e) => e.currentTarget.select()}
-										className="w-full truncate rounded-md border border-border bg-background px-2 py-1 font-mono text-[10.5px] text-muted-foreground"
-									/>
-								)}
+								<InviteRow view={view} actions={actions} full={full} />
 								<div className="flex items-center justify-between gap-2 text-[11.5px] text-muted-foreground">
 									<label htmlFor="live-auto-admit">Let people in automatically</label>
 									<Switch id="live-auto-admit" checked={view.autoAdmit} onCheckedChange={actions.setAutoAdmit} />
@@ -404,7 +497,11 @@ export function LivePanel({ view, actions, title, now, defaultName = '' }: { vie
 						<ul className="flex flex-col px-1.5">
 							{view.people.map((p) => <PersonRow key={p.id} p={p} view={view} actions={actions} />)}
 						</ul>
-						{view.audio && <CallRow view={view} actions={actions} />}
+						{view.audio && view.call.denied && !view.call.inCall && (
+							<p className="px-3.5 pb-2 text-[11px] leading-snug text-muted-foreground" data-live-mic-denied>
+								The browser blocked the microphone. Allow it from the icon in the address bar, then join again.
+							</p>
+						)}
 					</div>
 					<div className="mt-1.5 flex min-h-0 flex-1 flex-col border-t border-border max-[699px]:group-has-[textarea:focus]/live:mt-0 max-[699px]:group-has-[textarea:focus]/live:border-t-0">
 						<div className={SECTION}>Chat</div>

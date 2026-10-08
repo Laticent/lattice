@@ -36,8 +36,8 @@ Studio's Live panel. It knows **peers and bytes**; the app knows **screens**. It
   rejoin tokens only by id (`tokenId`, SHA-256), so it can check a knock but never knock with
   one. `state.heir` names the heir everywhere; `state.minTerm` is the floor a guest persists;
   a host carries `succession()` across its own reload;
-- **media** — `session.setMedia(stream)` sends a stream's tracks (a call's microphone) to every
-  admitted member and to each one admitted later, never to a stranger; `SessionOptions.media` gets
+- **media** — `session.setMedia(stream, { maxBitrate })` sends a stream's tracks (a call's microphone),
+  capped at `maxBitrate` bits per second when given, to every admitted member and to each one admitted later, never to a stranger; `SessionOptions.media` gets
   a member's stream (`add`) and its end (`drop`), and a stream from a peer that is not admitted yet
   is held until it is. It rides the same connections as the document (`Transport.addTrack` /
   `onTrack`, optional; the Trystero adapter implements them);

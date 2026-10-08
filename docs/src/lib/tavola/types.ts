@@ -31,10 +31,17 @@ export interface Transport {
 	paths?(): Promise<Record<PeerId, LinkPath>>;
 	/** Optional media on the same connections: send `track` (of `stream`) to one peer, stop sending
 	 *  it, and hear what peers send. A transport without media (the in-memory one) leaves them out. */
-	addTrack?(track: MediaStreamTrack, stream: MediaStream, to: PeerId): void;
+	addTrack?(track: MediaStreamTrack, stream: MediaStream, to: PeerId, opts?: MediaOptions): void;
 	removeTrack?(track: MediaStreamTrack, to: PeerId): void;
 	onTrack?(cb: (track: MediaStreamTrack, stream: MediaStream, from: PeerId) => void): void;
 }
+
+/** How a transport sends this browser's media. */
+export type MediaOptions = {
+	/** Cap on the bits per second each track is sent at (RTCRtpEncodingParameters.maxBitrate).
+	 *  Unset leaves the browser's default (Opus voice: 32 kbit/s in Chromium). */
+	maxBitrate?: number;
+};
 
 /**
  * The ICE candidate pair a connection settled on. `host` is a device's own address (the two are on

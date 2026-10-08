@@ -61,7 +61,7 @@
 import { type Cert, createHostKey, type HostKey, MAX_CHAIN, ROOT_MAX, signCert, signHello, tokenId, verifyChain, verifyHostHello } from './hostkey.js';
 import { randomBytes, toBase64Url } from './link.js';
 import { type Control, cleanName, decodeControl, encodeControl, frame, PROTOCOL_VERSION, TAG_AWARENESS, TAG_CONTROL, TAG_DOC, TAG_POST, type TokenEntry } from './protocol.js';
-import type { Clock, Color, Invite, Knock, LinkPath, Member, PeerId, Role, SessionState, Stream, Transport } from './types.js';
+import type { Clock, Color, Invite, Knock, LinkPath, MediaOptions, Member, PeerId, Role, SessionState, Stream, Transport } from './types.js';
 
 export type { TokenEntry };
 
@@ -163,7 +163,7 @@ export type Session = {
 	paths(): Promise<Record<PeerId, LinkPath>>;
 	/** Send `stream`'s tracks to every admitted member, and to each one admitted later; never to a
 	 *  stranger. Null stops sending. A transport without media ignores it. */
-	setMedia(stream: MediaStream | null): void;
+	setMedia(stream: MediaStream | null, opts?: MediaOptions): void;
 	/** Whether the transport carries media at all. */
 	readonly hasMedia: boolean;
 };
@@ -234,6 +234,8 @@ export function createSession(opts: SessionOptions): Session {
 	let localMedia: MediaStream | null = null;
 	/** Peer → the tracks we are sending it. */
 	const sentTo = new Map<PeerId, MediaStreamTrack[]>();
+	/** How setMedia asked for its tracks to be sent (a bitrate cap), passed to every addTrack. */
+	let mediaOpts: MediaOptions | undefined;
 	/** Peer → the stream it sends us, and whether the app has it. */
 	const heard = new Map<PeerId, { stream: MediaStream; given: boolean }>();
 	function syncMedia() {
@@ -249,7 +251,7 @@ export function createSession(opts: SessionOptions): Session {
 		if (localMedia)
 			for (const peer of want) {
 				if (sentTo.has(peer)) continue;
-				for (const tr of tracks) t.addTrack(tr, localMedia, peer);
+				for (const tr of tracks) t.addTrack(tr, localMedia, peer, mediaOpts);
 				sentTo.set(peer, tracks);
 			}
 		for (const [peer, h] of heard) {
@@ -1126,8 +1128,9 @@ export function createSession(opts: SessionOptions): Session {
 			await Promise.all([controlChain, ...signing]);
 		},
 		succession: () => (isHost && signer && root ? { key: signer, root, fingerprint: linkFp, chain, base: baseChain.length, top, issued: [...issuedTo], selfToken } : null),
-		setMedia(stream) {
+		setMedia(stream, opts) {
 			localMedia = stream;
+			mediaOpts = opts;
 			// Every peer gets the new tracks: drop what we sent, then sync sends the new set.
 			for (const [peer, sent] of [...sentTo]) {
 				if (connected.has(peer)) for (const tr of sent) t.removeTrack?.(tr, peer);
