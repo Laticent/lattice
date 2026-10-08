@@ -34,6 +34,7 @@ const {
   isBucketGalleryAuthored,
 } = require('../../../tools/build-bucket-galleries');
 const { pageCount } = require('../../helpers/pdf');
+const { pendingBless } = require('../../helpers/golden-pending');
 
 describe('bucket-galleries', () => {
   const groups = groupByBucket(loadAll());
@@ -80,18 +81,31 @@ describe('bucket-galleries', () => {
             ? `${bucket} bucket gallery is hand-authored (page count not derived from manifest)`
             : false,
         },
-        () => {
+        (t) => {
           if (manifests.length === 0) return;
           const pdfPath = bucketGalleryPdfPath(bucket, theme);
+          // A committed PDF waiting on the nightly bless (PRs no longer commit PDFs; goldens
+          // step 3) may be missing or a component behind. Only a check that WOULD fail is
+          // excused, and only then, so a correct PDF is still asserted.
+          const pending = pendingBless(pdfPath, [path.join('lib', 'components', bucket)]);
+          if (!fs.existsSync(pdfPath) && pending) {
+            t.skip(`${bucket}.gallery.${theme}.pdf: ${pending}`);
+            return;
+          }
           assert.ok(
             fs.existsSync(pdfPath),
-            `bucket gallery PDF missing: ${path.relative(process.cwd(), pdfPath)} — run \`npm run build:bucket-galleries\``,
+            `bucket gallery PDF missing: ${path.relative(process.cwd(), pdfPath)} — the nightly bless renders it`,
           );
           // Title slide + one slide per component that has a `sample`.
           const componentsWithSample = manifests.filter((m) => typeof m.sample === 'string' && m.sample.trim()).length;
           const expectedPages = 1 + componentsWithSample;
+          const actual = pageCount(pdfPath);
+          if (actual !== expectedPages && pending) {
+            t.skip(`${bucket}.gallery.${theme}.pdf has ${actual} pages, ${expectedPages} expected: ${pending}`);
+            return;
+          }
           assert.equal(
-            pageCount(pdfPath),
+            actual,
             expectedPages,
             `${bucket}.gallery.${theme}.pdf page count diverged from manifest membership`,
           );
