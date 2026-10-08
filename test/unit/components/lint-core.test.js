@@ -134,7 +134,7 @@ describe('lint-core: the capacity budget speaks, and autosplit is retired', () =
     `${Array.from({ length: 14 }, (_, i) => `- [ ] item ${i + 1}`).join('\n')}\n`;
 
   // WHICH terminal an over-`hard` slide gets is a question about the BOX, because the SPLIT
-  // move is gated on the box (lattice-emulator.js `AUTOSPLIT_APPLIES`): square · tall · strip
+  // move is gated on the box (lattice.js `AUTOSPLIT_APPLIES`): square · tall · strip
   // paginate, `wide` does not — 16:9 is the box a deck is AUTHORED in, and the engine does not
   // re-cut a slide its author composed. So the linter forks the same way, and each half must
   // describe the terminal that actually happens.

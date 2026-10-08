@@ -21,7 +21,7 @@ const { spawn } = require('child_process');
 
 describe('cli', { concurrency: true }, () => {
   const ROOT = path.join(__dirname, '..', '..', '..');
-  const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+  const EMULATOR = path.join(ROOT, 'lattice.js');
   const SCREENSHOT = path.join(ROOT, 'tools', 'screenshot-slides.js');
 
   function run(script, args = [], { env = {} } = {}) {
@@ -49,42 +49,63 @@ describe('cli', { concurrency: true }, () => {
     });
   }
 
-  // ── lattice-emulator ──────────────────────────────────────────────────────
+  // ── lattice ──────────────────────────────────────────────────────
 
-  test('emulator: --help exits 0 with usage on stdout', async () => {
+  test('lattice: --help exits 0 with one screen of usage on stdout', async () => {
     const r = await run(EMULATOR, ['--help']);
     assert.equal(r.status, 0, `expected 0, got ${r.status}; stderr: ${r.stderr}`);
     assert.match(r.stdout, /USAGE/);
-    assert.match(r.stdout, /lattice-emulator/);
-    assert.match(r.stdout, /EXIT CODES/);
+    assert.match(r.stdout, /lattice <deck\.md> <output>/);
+    assert.match(r.stdout, /lattice --help all/, 'the short help points at the full reference');
+    // One terminal window: the first screen is for a first-time user, the rest is --help all.
+    const lines = r.stdout.trimEnd().split('\n').length;
+    assert.ok(lines <= 40, `--help is ${lines} lines; keep it to one screen and move detail to --help all`);
   });
 
-  test('emulator: -h is a synonym for --help', async () => {
+  for (const args of [['--help='], ['--help=nope']]) {
+    test(`lattice: ${args.join(' ')} prints the short help, not an error`, async () => {
+      const r = await run(EMULATOR, args);
+      assert.equal(r.status, 0, `expected 0, got ${r.status}; stderr: ${r.stderr}`);
+      assert.match(r.stdout, /lattice --help all/);
+    });
+  }
+
+  for (const args of [['--help', 'all'], ['--help=all'], ['-h', 'all'], ['--help', 'all', '-h'], ['--help=ALL'], ['--help', 'ALL']]) {
+    test(`lattice: ${args.join(' ')} prints every option`, async () => {
+      const r = await run(EMULATOR, args);
+      assert.equal(r.status, 0, `expected 0, got ${r.status}; stderr: ${r.stderr}`);
+      assert.match(r.stdout, /EXIT CODES/);
+      assert.match(r.stdout, /--image-format/);
+      assert.doesNotMatch(r.stdout, /lattice-emulator|node lattice\.js/, 'the help names the command users type');
+    });
+  }
+
+  test('lattice: -h is a synonym for --help', async () => {
     const r = await run(EMULATOR, ['-h']);
     assert.equal(r.status, 0);
     assert.match(r.stdout, /USAGE/);
   });
 
-  test('emulator: --version exits 0 with version string', async () => {
+  test('lattice: --version exits 0 with version string', async () => {
     const r = await run(EMULATOR, ['--version']);
     assert.equal(r.status, 0);
-    assert.match(r.stdout, /^lattice-emulator \d+\.\d+\.\d+/);
+    assert.match(r.stdout, /^lattice \d+\.\d+\.\d+/);
   });
 
-  test('emulator: -v is a synonym for --version', async () => {
+  test('lattice: -v is a synonym for --version', async () => {
     const r = await run(EMULATOR, ['-v']);
     assert.equal(r.status, 0);
-    assert.match(r.stdout, /^lattice-emulator \d/);
+    assert.match(r.stdout, /^lattice \d/);
   });
 
-  test('emulator: no args exits 1 with usage on stderr', async () => {
+  test('lattice: no args exits 1 with usage on stderr', async () => {
     const r = await run(EMULATOR);
     assert.equal(r.status, 1);
     assert.match(r.stderr, /Usage/);
     assert.equal(r.stdout, '');
   });
 
-  test('emulator: unknown flag exits 1 with friendly error', async () => {
+  test('lattice: unknown flag exits 1 with friendly error', async () => {
     const r = await run(EMULATOR, ['--bogus', 'deck.md', 'out.pdf']);
     assert.equal(r.status, 1);
     assert.match(r.stderr, /unknown option: --bogus/);
@@ -94,40 +115,40 @@ describe('cli', { concurrency: true }, () => {
   // Retired 2026-09-28 with `caption:` (engineering/decisions/2026-09-28-say-not-caption.md). A
   // script still passing it asked for a PRIVACY strip, so it must fail loudly and name the flag
   // that does the job now — never render the deck unstripped, never a bare "unknown option".
-  test('emulator: retired --strip-captions exits 1 and names --strip-say', async () => {
+  test('lattice: retired --strip-captions exits 1 and names --strip-say', async () => {
     const r = await run(EMULATOR, ['deck.md', 'out.html', '--strip-captions']);
     assert.equal(r.status, 1);
     assert.match(r.stderr, /--strip-captions is retired — use --strip-say/);
     assert.doesNotMatch(r.stderr, /at .+\.js:\d+/, 'stderr should not contain a stack trace');
   });
 
-  test('emulator: --palette without value exits 1', async () => {
+  test('lattice: --palette without value exits 1', async () => {
     const r = await run(EMULATOR, ['deck.md', 'out.pdf', '--palette']);
     assert.equal(r.status, 1);
     assert.match(r.stderr, /--palette requires a value/);
   });
 
-  test('emulator: missing source.md exits 1 with friendly message (no stack trace)', async () => {
+  test('lattice: missing source.md exits 1 with friendly message (no stack trace)', async () => {
     const r = await run(EMULATOR, ['does-not-exist.md', 'out.pdf']);
     assert.equal(r.status, 1);
     assert.match(r.stderr, /source markdown not found/);
     assert.doesNotMatch(r.stderr, /at .+\.js:\d+/);
   });
 
-  test('emulator: missing custom CSS exits 1 with friendly message', async () => {
+  test('lattice: missing custom CSS exits 1 with friendly message', async () => {
     const r = await run(EMULATOR, ['examples/gallery-jargon.md', 'does-not-exist.css', 'out.pdf']);
     assert.equal(r.status, 1);
     assert.match(r.stderr, /layout CSS not found/);
   });
 
-  test('emulator: bad palette exits 1 and lists available palettes', async () => {
+  test('lattice: bad palette exits 1 and lists available palettes', async () => {
     const r = await run(EMULATOR, ['examples/gallery-jargon.md', 'out.pdf', 'nonesuch']);
     assert.equal(r.status, 1);
     assert.match(r.stderr, /palette not found: nonesuch/);
     assert.match(r.stderr, /available palettes:.*indaco/);
   });
 
-  test('emulator: unknown size: directive exits 1 and lists valid sizes (fails fast, no Chrome) [#502]', async () => {
+  test('lattice: unknown size: directive exits 1 and lists valid sizes (fails fast, no Chrome) [#502]', async () => {
     // A typo'd size must error at CONFIG time with the valid set — not resolve
     // silently to the first declared @size (a deck rendered at the wrong
     // geometry) nor wedge the render. Exits before any puppeteer work.

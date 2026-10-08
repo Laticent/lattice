@@ -26,7 +26,7 @@ const os = require('os');
 const { spawnSync, execFileSync } = require('child_process');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
-const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+const EMULATOR = path.join(ROOT, 'lattice.js');
 
 const DECK = [
   '---', 'theme: cuoio', '---', '',

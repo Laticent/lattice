@@ -13,6 +13,7 @@ live here:
 | `gotchas.md` | Symptom-indexed debugging ("X looks wrong" → cause) |
 | `capabilities.md` | GENERATED index of every script/tool — don't edit |
 | `quality-assessment.md` | The 7-dimension codebase health tooling |
+| `science.md` | Map of the algorithms and models we ship (color science, Segno, Trama's router, formats, statistics), and what we deliberately don't do |
 | `jank.md` | Does a layout STAY PUT as its content grows — drift, silent collision, crowding (`check:jank`) |
 | `cascade.md`, `typography.md`, `treatments.md`, `pipeline.md`, `mermaid.md`, `visual-review.md`, `marp-independence.md` | Deep dives |
 | `decisions/` | Dated investigation/decision notes; its README's index is GENERATED (`npm run decisions:index`) |

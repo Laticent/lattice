@@ -119,7 +119,7 @@ function listSweepThemes() {
 
 /**
  * One ThemeStore holding the default layout sheet and every shipped palette, built once —
- * the same registration `lattice-emulator.js` makes for a single deck, widened to the matrix.
+ * the same registration `lattice.js` makes for a single deck, widened to the matrix.
  */
 let _store = null;
 function sweepStore() {
@@ -306,7 +306,7 @@ async function sweep(page, themes, panes = null) {
   const shipped = await page.evaluate(SHEET_TEXT, SHEET_START_MARK);
   const mark = readStartMark(shipped);
   if (!mark) {
-    throw new Error(`palette-sweep: no deck sheet marked ${SHEET_START_MARK} … ${SHEET_END_MARK} in this document — render it with lattice-emulator.js`);
+    throw new Error(`palette-sweep: no deck sheet marked ${SHEET_START_MARK} … ${SHEET_END_MARK} in this document — render it with lattice.js`);
   }
   // THE IDENTITY CHECK, before any swap: this tool's builder must reproduce the region the CLI
   // shipped, for the palette and size the mark names. A render made with a caller's `--css`

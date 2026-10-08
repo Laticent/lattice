@@ -67,7 +67,7 @@ function wav(ms, lead = LEAD, rate = 24000) {
 }
 tic('export');
 const base = path.join(OUT, 'deck');
-execFileSync(process.execPath, ['lattice-emulator.js', DECK, base, '--quiet', '--captions', '--keep-html'], { stdio: 'pipe' });
+execFileSync(process.execPath, ['lattice.js', DECK, base, '--quiet', '--captions', '--keep-html'], { stdio: 'pipe' });
 // Folded like every deck read (#1349): a BOM or a CRLF would defeat the `^---` anchor below.
 const source = readFileSync(DECK, 'utf8').replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
 const docHtml = readFileSync(`${base}.html`, 'utf8');

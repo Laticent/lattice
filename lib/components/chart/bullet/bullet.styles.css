@@ -96,7 +96,7 @@
  * lighter in the CLI's PDF export than the browser paints them, with specific
  * RGB values and a contrast ratio. That claim is NOT reproducible on this tree
  * and it is retracted (HARD RULE #23). Measured: a `bar` slide rendered through
- * `lattice-emulator.js` twice off one deck, once to PNG (Chromium's own paint)
+ * `lattice.js` twice off one deck, once to PNG (Chromium's own paint)
  * and once to PDF (rasterized at 150 dpi), samples rgb(194,213,229) at every
  * height of the bar in BOTH. The gradient does not diverge, and the three
  * siblings that do wear the recipe are not shipping under any floor because of

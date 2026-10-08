@@ -14,7 +14,7 @@ so everything downstream (CSS, transforms, export) is renderer-agnostic.
 - `background-image.js`, `render-guard.js`. (Video provider resolution moved to
   the shared registry `lib/core/video-providers.mjs`, which the docs site reads too.)
 
-Consumed by `lattice-emulator.js` (CLI/PDF), `lib/playground` (browser),
+Consumed by `lattice.js` (CLI/PDF), `lib/playground` (browser),
 and `tools/export-marp.js`. History: `engineering/marp-independence.md`.
 
 **Gotchas:** the engine's built-in `css` is a minimal stub — callers supply

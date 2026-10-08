@@ -375,14 +375,14 @@ section.divider:not(.light).spectrum-edge-off {
    palette token, so every style is on-brand across themes/palettes automatically.
    See engineering/decisions/2026-07-03-status-marker-style-variants.md. */
 
-section.confidential { --stamp-label: "Confidential"; --stamp-color: var(--fail); }
-section.wip          { --stamp-label: "WIP";          --stamp-color: var(--warn); }
-section.draft        { --stamp-label: "Draft";        --stamp-color: var(--warn); }
-section.tbd          { --stamp-label: "TBD";          --stamp-color: var(--text-muted); }
-section.redacted     { --stamp-label: "Redacted";     --stamp-color: var(--fail); }
-section.archived     { --stamp-label: "Archived";     --stamp-color: var(--text-muted); }
-section.pinned       { --stamp-label: "Pinned";       --stamp-color: var(--accent); }
-section.revised      { --stamp-label: "Revised";      --stamp-color: var(--accent); }
+section.confidential { --stamp-label: "Confidential"; --stamp-color: var(--fail); --stamp-len: 12; }
+section.wip          { --stamp-label: "WIP";          --stamp-color: var(--warn); --stamp-len: 3; }
+section.draft        { --stamp-label: "Draft";        --stamp-color: var(--warn); --stamp-len: 5; }
+section.tbd          { --stamp-label: "TBD";          --stamp-color: var(--text-muted); --stamp-len: 3; }
+section.redacted     { --stamp-label: "Redacted";     --stamp-color: var(--fail); --stamp-len: 8; }
+section.archived     { --stamp-label: "Archived";     --stamp-color: var(--text-muted); --stamp-len: 8; }
+section.pinned       { --stamp-label: "Pinned";       --stamp-color: var(--accent); --stamp-len: 6; }
+section.revised      { --stamp-label: "Revised";      --stamp-color: var(--accent); --stamp-len: 7; }
 
 /* ── NO STAMP RESERVES ANYTHING FOR THE MARKER ANY MORE ───────────────────────
  *
@@ -543,9 +543,15 @@ section.stamp-dot::before {
 
 /* ── MARK — a restrained diagonal watermark (opt-in; the iconic DRAFT look). */
 section.stamp-mark::before {
-  inset: 0; clip-path: none; display: grid; place-items: center;
+  /* `background: none` — the shared DEFAULT+TAB rule above fills every state marker's
+   * pseudo with --stamp-color, and this full-slide box would carry that fill as an opaque
+   * rotated slab over the content instead of a faint word. */
+  inset: 0; clip-path: none; display: grid; place-items: center; background: none; padding: 0;
   color: color-mix(in srgb, var(--stamp-color) 12%, transparent);
-  font-family: var(--font-display); font-weight: 900; font-size: 16cqi; /* cqi-ok: decorative status-marker label, shape-fitted to the slide */
+  /* Sized to its word: 16cqi for a short label, smaller for a long one, so CONFIDENTIAL
+   * fits across the slide instead of running off it. --stamp-len is each state's letter
+   * count (set beside --stamp-label); a glyph of this face at weight 900 is ~0.78em wide. */
+  font-family: var(--font-display); font-weight: 900; font-size: min(16cqi, calc(105cqi / (var(--stamp-len, 5) * 0.78))); /* cqi-ok: decorative status-marker label, shape-fitted to the slide */
   letter-spacing: 0.06em; transform: rotate(-18deg);
 }
 
@@ -558,12 +564,12 @@ section.stamp-veil::before {
   font-size: 0.74cqi; /* cqi-ok: decorative status-marker label, shape-fitted to the slide */
 }
 
-/* ── BAR — a redaction bar (label hidden; the shape is the message). */
+/* ── BAR — a redaction bar that names its state: a dark strip, the label in light caps. */
 section.stamp-bar::before {
   top: 6.5%; right: 5%; clip-path: none;
-  color: transparent; overflow: hidden;
+  color: var(--on-accent);
   background: color-mix(in srgb, var(--stamp-color) 82%, var(--text-heading));
-  border-radius: 0.2cqi; height: 1.5cqi; width: 8cqi;
+  border-radius: 0.2cqi; min-width: 8cqi; padding: 0.4cqi 1.2cqi; text-align: center;
 }
 
 /* ── PIN — a bookmark pin dropped from the top edge (label hidden). */

@@ -56,7 +56,7 @@ const SCRIPT_FOR_LIB = {
 // changes under lib/runtime/** trigger the bundle rebuild AND the
 // transformer test scope via the rule below.
 const FULL_SUITE_TRIGGER = new Set([
-  'lattice-emulator.js',
+  'lattice.js',
   'dist/lattice.css',
   'lib/plugins/mermaid/vendor/mermaid.min.js',
   'package.json',
@@ -111,7 +111,7 @@ for (const f of process.argv.slice(2)) {
   }
 
   // lib/transformers/* — shared transformer registry consumed by
-  // lattice-emulator.js and the runtime bundle.
+  // lattice.js and the runtime bundle.
   if (rel.startsWith('lib/transformers/') && rel.endsWith('.js')) {
     scripts.add('test:transformers');
     continue;

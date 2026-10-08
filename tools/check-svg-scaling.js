@@ -24,7 +24,7 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 
 const ROOT = path.join(__dirname, '..');
-const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+const EMULATOR = path.join(ROOT, 'lattice.js');
 const FIXTURE = process.argv[2] || path.join(ROOT, 'test', 'fixtures', 'responsive-charts.md');
 
 // Selectors measured + the size names (front-matter `size:`) and their widths.

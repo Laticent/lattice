@@ -24,7 +24,7 @@
  *   node tools/build-exemplar-pdfs.js --only seminar  # decks whose stem matches
  *   node tools/build-exemplar-pdfs.js academic/seminar.md corporate/sales-deck.md
  *
- * Chrome: lattice-emulator.js auto-detects the puppeteer-cached binary,
+ * Chrome: lattice.js auto-detects the puppeteer-cached binary,
  * so no CHROME_PATH wiring is needed here.
  *
  * Exit codes:
@@ -37,7 +37,7 @@ const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 
 const ROOT = path.join(__dirname, '..');
-const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+const EMULATOR = path.join(ROOT, 'lattice.js');
 const EXEMPLARS_DIR = path.join(ROOT, 'exemplars');
 
 // Every exemplar deck: exemplars/<sector>/<name>.md, sorted.

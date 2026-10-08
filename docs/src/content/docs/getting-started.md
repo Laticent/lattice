@@ -5,7 +5,7 @@ description: Install the Lattice toolchain, render the gallery deck, and build y
 
 The quickest first look is the [playground](/playground/) — the full
 engine, in your browser, nothing to install. To render locally you need
-**Node 22 or newer**; `npm install` pulls in everything else, including a
+**Node 22.13 or newer**; `npm install` pulls in everything else, including a
 headless Chromium for rendering. You won't need an account or any
 configuration.
 

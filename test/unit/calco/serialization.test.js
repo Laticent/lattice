@@ -37,11 +37,11 @@ describe('calco — serialization', () => {
   });
 
   test('the published CLI bundle carries Calco inline, not as a runtime require', (t) => {
-    const bundle = path.join(__dirname, '../../../dist/lattice-emulator.js');
-    if (!fs.existsSync(bundle)) return t.skip('dist/lattice-emulator.js not built');
+    const bundle = path.join(__dirname, '../../../dist/lattice.js');
+    if (!fs.existsSync(bundle)) return t.skip('dist/lattice.js not built');
     const src = fs.readFileSync(bundle, 'utf8');
     // Substring checks: a regex assertion would print the whole 16 MB bundle on failure.
     assert.ok(!/require\(["']@laticent\/calco["']\)/.test(src), 'the bundle requires @laticent/calco at runtime');
-    assert.ok(src.includes('data-calco-freeze'), 'the reader is not inlined in the bundle (rebuild: npm run emulator:build)');
+    assert.ok(src.includes('data-calco-freeze'), 'the reader is not inlined in the bundle (rebuild: npm run cli:build)');
   });
 });

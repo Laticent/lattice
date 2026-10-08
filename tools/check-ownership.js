@@ -1056,7 +1056,7 @@ function checkFinishPackages(errors, { root = ROOT, css = FINISH_CSS } = {}) {
 // skip: the sanction list already had a staleness check while the root list did
 // not, so a renamed directory would have quietly dropped coverage to zero while
 // the gate kept reporting OK — the asymmetry exactly backwards.
-const THEME_REG_ROOTS = ['lib', 'docs/src', 'tools', 'lattice-emulator.js'];
+const THEME_REG_ROOTS = ['lib', 'docs/src', 'tools', 'lattice.js'];
 // `test/**` is deliberately OUT of scope: ~30 suites construct engines with bare
 // CSS to exercise the legacy path itself, and gating them would mean rewriting the
 // tests that PROVE the legacy path still works. Stated here because the omission is
@@ -1073,7 +1073,7 @@ const SANCTIONED_UNNAMED_THEME_REGISTRATIONS = [
        + 'bare-CSS shape working for external consumers.',
   },
   {
-    file: 'lattice-emulator.js',
+    file: 'lattice.js',
     why: 'ONLY under the `--css` / positional layout-CSS override, where the caller substitutes '
        + 'their own engine stylesheet and its identity is genuinely whatever it declares. The '
        + 'DEFAULT path constructs `dist/lattice.css` itself and now passes `{ name: \'lattice\' }`.',
@@ -2036,7 +2036,7 @@ const SANCTIONED_MARGINS = [
 // then pins onto the section — the engine scaffold as `article.lattice > section`
 // (lib/engine/css.js), the PDF/HTML export as
 // `section[data-lattice-slide] { width/height !important }`
-// (lattice-emulator.js), the live preview via its own frame CSS. A component
+// (lattice.js), the live preview via its own frame CSS. A component
 // that also sizes the section element is a second, competing source of truth
 // for a value the deck already decided, and the paths do NOT agree on who wins.
 //
@@ -2225,7 +2225,7 @@ function checkSectionBoxOwnership(errors) {
       `${o.file}: \`${o.selector}\` sets \`${o.decl}\` on the SECTION element. The slide box belongs ` +
       `to the deck — the \`size:\` directive resolves to a named \`@size\` and each render path pins ` +
       `it onto the section itself. A component-level box is a competing source of truth, and the paths ` +
-      `disagree on who wins: the export survives only because lattice-emulator.js uses \`!important\`, ` +
+      `disagree on who wins: the export survives only because lattice.js uses \`!important\`, ` +
       `while in the live Playground a percentage resolves against \`article.lattice\` — whose height is the ` +
       `whole FILMSTRIP — so the slide silently stops clipping and the runtime then mis-stamps ` +
       `data-orientation from the wrong aspect (#1207). Invisible to golden-diff, which only compares ` +
@@ -3982,7 +3982,7 @@ function listRepoTextFiles(dir = ROOT, out = []) {
     const p = path.join(dir, e.name);
     const rel = path.relative(ROOT, p);
     // The emulator writes an .html sibling beside every PDF it renders
-    // (lattice-emulator.js:2752, unconditional — no flag suppresses it), and
+    // (lattice.js:2752, unconditional — no flag suppresses it), and
     // examples/**/*.html is gitignored (.gitignore:56-57). Same local-only
     // false-red class as playground/v below: a clean checkout and CI never have
     // these; any tree that previewed an example deck does, at ~375 hits for one
@@ -4603,7 +4603,7 @@ function ruleRanges(css, from = 0, out = [], depth = 0) {
 
 /**
  * True for a `:root` block the EXPORT PATH actually parses. `parsePaletteVars`
- * (lattice-emulator.js) matches `/:root\s*\{/`, so `:root` must sit immediately
+ * (lattice.js) matches `/:root\s*\{/`, so `:root` must sit immediately
  * before the brace: `:root {` and `:root:root {` qualify, `:root, section {` and
  * `:where(:root) {` do NOT — the reader never sees them. The gate used to treat all
  * four as equivalent, which is MORE PERMISSIVE THAN THE READER IT MODELS: 12 tokens
@@ -5181,7 +5181,7 @@ function checkAdaptDeclarations(manifests, errors) {
     const mermaidReflow = /```\s*mermaid/i.test(`${m.skeleton || ''}\n${m.sample || ''}`);
     // A carousel RESHAPE recipe is the fourth mechanism, and it is box-conditional by
     // construction: auto-split is skipped outright on a landscape @size
-    // (lattice-emulator.js `AUTOSPLIT_APPLIES`), so a `split.strategy` fires only on
+    // (lattice.js `AUTOSPLIT_APPLIES`), so a `split.strategy` fires only on
     // square/tall/strip. `table` is the case — a wide read-across table cannot
     // paginate out of HORIZONTAL overflow, so `cover-cards` transposes each row into a
     // card with the column headers as labeled fields. That is "the box is
@@ -5853,7 +5853,7 @@ const DOC_ASSEMBLER_MARKER = /<!doctype html/i;
 // HTML document a human then opens. A root is a directory or a single file.
 //
 // It shipped as `docs/src` alone, and that was half the class: the CLI export pipeline
-// assembles the same document from the same caller CSS (`lattice-emulator.js`'s `htmlDoc`
+// assembles the same document from the same caller CSS (`lattice.js`'s `htmlDoc`
 // scaffold takes a `--css` layout sheet and a theme file, both caller-supplied by
 // construction) and was not scanned at ALL, so the same breakout could recur there in
 // silence. Measured over the repo, the marker selects 2 files outside `docs/src` under
@@ -5872,7 +5872,7 @@ const DOC_ASSEMBLER_MARKER = /<!doctype html/i;
 //
 // Widening this set widens HARD RULE #22. Its test pins the set by value, so it cannot
 // move without saying so out loud.
-const DOC_STYLE_SINK_ROOTS = ['docs/src', 'lib/export', 'lattice-emulator.js'];
+const DOC_STYLE_SINK_ROOTS = ['docs/src', 'lib/export', 'lattice.js'];
 // A document assembler that legitimately does not call the sanitizer, with the reason.
 // Same anti-rot shape as the other allowlists: a stale entry fails.
 //
@@ -6967,7 +6967,7 @@ function checkFrontMatterReaders(errors) {
   ];
   const files = [
     ...roots.flatMap((d) => listClassAttrFiles(d)),
-    ...[path.join(ROOT, 'lattice-emulator.js')].filter((f) => fs.existsSync(f)),
+    ...[path.join(ROOT, 'lattice.js')].filter((f) => fs.existsSync(f)),
   ];
   for (const file of files) {
     const rel = path.relative(ROOT, file).split(path.sep).join('/');
@@ -7115,7 +7115,7 @@ const EOL_UTF8_READ = /readFileSync\s*\([^)]*['"]utf-?8['"]|\.text\(\)|readFile\
 const EOL_STRICT_FM_ANCHOR = /\/\^---\\n|startsWith\(\s*['"`]---\\n/g;
 
 const EOL_BOUNDARY_ROOTS = ['lib', 'tools', 'docs/src', 'docs/scripts'];
-const EOL_BOUNDARY_FILES = ['lattice-emulator.js'];
+const EOL_BOUNDARY_FILES = ['lattice.js'];
 
 /**
  * The authoritative boundary list. `expect` defaults to the full ingest idiom — BOM strip AND
@@ -7141,7 +7141,7 @@ const SANCTIONED_EOL_BOUNDARIES = [
        + 'pinned because a door added later would inherit the old bug silently.',
   },
   {
-    file: 'lattice-emulator.js',
+    file: 'lattice.js',
     why: 'readFileOrDie — the CLI\'s only door for author text, and the one that actually fixes '
        + '#1349. The emulator calls resolve-palette on raw file text OUTSIDE the engine\'s '
        + 'render(), so nothing downstream could rescue it.',
@@ -7528,7 +7528,7 @@ function classAttrOffenses(dirs = {}) {
   // The root emulator only — there is no root `lattice-runtime.js` (the runtime's source is
   // `lib/runtime/**`, already covered by the `lib` root), and naming a file that does not
   // exist reads as a coverage claim the gate does not honor.
-  const extra = dirs.files || [path.join(ROOT, 'lattice-emulator.js')];
+  const extra = dirs.files || [path.join(ROOT, 'lattice.js')];
   const files = [...roots.flatMap((d) => listClassAttrFiles(d)), ...extra.filter((f) => fs.existsSync(f))];
   const out = [];
   for (const file of files) {
@@ -7635,7 +7635,7 @@ function checkPreviewHtmlSinks(errors, sanctions = SANCTIONED_PREVIEW_BUILDERS, 
 function checkDocumentStyleSinks(errors, exempt = SANCTIONED_STYLE_SINK_EXEMPT, root = ROOT) {
   const excused = new Map(exempt.map((e) => [e.file, e]));
   const seen = new Set();
-  // A root is a directory to walk or a single file to read; `lattice-emulator.js` is the
+  // A root is a directory to walk or a single file to read; `lattice.js` is the
   // latter, and resolving it by `listSourceFiles` would silently scan nothing.
   const files = [];
   for (const r of DOC_STYLE_SINK_ROOTS) {
@@ -7692,7 +7692,7 @@ function checkDocumentStyleSinks(errors, exempt = SANCTIONED_STYLE_SINK_EXEMPT, 
  *
  * So whatever guarded the document upstream is undone at the re-wrap, and the re-wrap owes
  * the call itself. There are two such sites and they are twins: the CLI's
- * (`lattice-emulator.js`) and the browser's (`player-prune-browser.ts`, whose output
+ * (`lattice.js`) and the browser's (`player-prune-browser.ts`, whose output
  * `share-export.ts` mounts in a same-origin frame and then hands to a recipient). The
  * first cut of this work guarded one of the two, and a red-team pass drove the other to a
  * real cross-origin fetch from the shipped artifact — which is exactly the kind of
@@ -7780,7 +7780,7 @@ function checkCssTreeRewrapSinks(errors, root = ROOT) {
       const body = m[1];
       // A literal body (no interpolation, no concatenation) is our own static CSS.
       if (!/\$\{|['"`]\s*\+|\+\s*['"`]/.test(body)) continue;
-      // Only elements built out of PRUNED CSS are this check's business. `lattice-emulator.js`'s
+      // Only elements built out of PRUNED CSS are this check's business. `lattice.js`'s
       // base64 font block is a fixed manifest in the same file and must stay out.
       if (!mentionsTaint(body)) continue;
       found = true;
@@ -7888,7 +7888,7 @@ function pluginMigrationCounts(root = ROOT) {
   const FENCE_OVERRIDE = /(?:\.\s*fence|\[\s*(['"`])fence\1\s*\])\s*=(?!=)/g;
   const fenceFiles = [];
   for (const dir of ['lib', 'docs/src']) listSourceFiles(path.join(root, dir), fenceFiles);
-  fenceFiles.push(path.join(root, 'lattice-emulator.js'));
+  fenceFiles.push(path.join(root, 'lattice.js'));
   let fenceWrappers = 0;
   for (const file of fenceFiles) {
     const rel = path.relative(root, file).split(path.sep).join('/');
@@ -7911,7 +7911,7 @@ function pluginMigrationCounts(root = ROOT) {
     const re = new RegExp(`\\b(?:${tokens.join('|')})\\b`, 'g');
     const files = [];
     for (const dir of ['lib', 'tools', 'docs/src']) listSourceFiles(path.join(root, dir), files);
-    files.push(path.join(root, 'lattice-emulator.js'));
+    files.push(path.join(root, 'lattice.js'));
     for (const file of files) {
       const rel = path.relative(root, file).split(path.sep).join('/');
       if (rel.startsWith('lib/plugins/') || rel === 'tools/check-ownership.js') continue;
@@ -7929,7 +7929,7 @@ function pluginMigrationCounts(root = ROOT) {
     const re = new RegExp(`\\blanguage-(?:${drawn.join('|')})(?![\\w-])`, 'g');
     const files = [];
     for (const dir of ['lib', 'tools', 'docs/src']) listSourceFiles(path.join(root, dir), files);
-    files.push(path.join(root, 'lattice-emulator.js'));
+    files.push(path.join(root, 'lattice.js'));
     for (const file of files) {
       const rel = path.relative(root, file).split(path.sep).join('/');
       if (rel.startsWith('lib/plugins/') || rel === 'tools/check-ownership.js') continue;
@@ -7954,7 +7954,7 @@ function pluginMigrationCounts(root = ROOT) {
     const stateRe = new RegExp(`data-(?:${drawnPlugins.join('|')})-(?:state|final)\\b|\\b(?:${drawnPlugins.map(camel).join('|')})(?:State|Final)\\b`, 'g');
     const files = [];
     for (const dir of ['lib', 'tools', 'docs/src', 'docs/scripts']) listFilesByExt(path.join(root, dir), ['.js', '.mjs', '.cjs', '.ts', '.tsx', '.astro', '.css'], files);
-    files.push(path.join(root, 'lattice-emulator.js'));
+    files.push(path.join(root, 'lattice.js'));
     for (const file of files) {
       const rel = path.relative(root, file).split(path.sep).join('/');
       if (rel.startsWith('lib/plugins/') || rel === 'tools/check-ownership.js') continue;
@@ -8002,7 +8002,7 @@ function pluginMigrationCounts(root = ROOT) {
     // unrelated `searchParams.get('math')` never trips it. A tripwire for this one idiom: a
     // `.get(name)` through a variable, or a `.find()` over the values, is not counted.
     const re = new RegExp(`\\b\\w*contexts\\s*\\.get\\(\\s*(['"\`])(?:${allNames.map(reEscape).join('|')})\\1\\s*\\)`, 'gi');
-    const files = [path.join(root, 'lattice-emulator.js')];
+    const files = [path.join(root, 'lattice.js')];
     for (const dir of ['lib', 'tools']) listSourceFiles(path.join(root, dir), files);
     for (const file of files) {
       const rel = path.relative(root, file).split(path.sep).join('/');
@@ -8028,7 +8028,7 @@ function pluginMigrationCounts(root = ROOT) {
     ].join('|'), 'gm');
     const files = [];
     for (const dir of ['lib', 'tools', 'themes', 'docs/src', 'docs/scripts']) listFilesByExt(path.join(root, dir), ['.js', '.mjs', '.cjs', '.ts', '.tsx', '.astro', '.css', '.json'], files);
-    files.push(path.join(root, 'lattice-emulator.js'));
+    files.push(path.join(root, 'lattice.js'));
     for (const file of files) {
       const rel = path.relative(root, file).split(path.sep).join('/');
       if (rel.startsWith('lib/plugins/') || rel === 'tools/check-ownership.js') continue;
@@ -11138,7 +11138,7 @@ function auditPdfOwnership(files) {
 // comment claimed until #1780: the whole tree is gitignored, so `git ls-files`
 // never returns a path under it and the gate has never once looked there. Nothing
 // is hiding — `dist/` was scanned directly and is clean, because esbuild
-// re-serializes a separator as an escape on its own (`dist/lattice-emulator.js`
+// re-serializes a separator as an escape on its own (`dist/lattice.js`
 // carries `var BACK_SEP = "\0";`) — but a sentence claiming coverage that does
 // not exist is how a generator emitting one would go unnoticed.
 //

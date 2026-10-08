@@ -50,7 +50,7 @@ header: "Lattice · presentation mode"
 ## One flag, or one line of front matter.
 
 - Turn it on at export
-  - `lattice-emulator deck.md out.pdf --present` marks the exported PDF; every other byte is unchanged.
+  - `lattice deck.md out.pdf --present` marks the exported PDF; every other byte is unchanged.
 - Or bake it into the deck
   - A `present: true` front-matter key does the same for that deck, mirroring how `--fluid` works.
 - Off by default

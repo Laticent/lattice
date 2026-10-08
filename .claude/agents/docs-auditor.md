@@ -40,10 +40,10 @@ Derive these dynamically every run; never trust a number you remember.
   `base.tokens.css`, `base.variants.css`, `base.elements.css`,
   `base.treatments.css`, documented contract in `lib/base/base.docs.md`.
   The typography token set (`--fs-*`) is in the token CSS.
-- **CLI** — flags/args parsed in `lattice-emulator.js` (the repo-root source).
+- **CLI** — flags/args parsed in `lattice.js` (the repo-root source).
 - **Package surface** — `package.json` `exports` subpaths, `bin`, `main`,
   `files` allowlist, and `scripts` (every `npm run …` users are told exists).
-- **Render paths** — the two that must agree (`lattice-emulator.js` via
+- **Render paths** — the two that must agree (`lattice.js` via
   `lib/engine` + `lib/core` + chart-family + integrations, and
   `dist/lattice-runtime.js` — the vscode Marp preview + published-HTML
   runtime); see `engineering/workflow.md` "Two-renderer rule". Marp/marp-cli

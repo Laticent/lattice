@@ -259,7 +259,7 @@ check('no CSP refusal, page error, or network attempt', problems.length === 0, p
 // the audio says. The dark file is then played end to end.
 const DEMO = 'examples/ltt-timing-track.md';
 const demoOut = path.resolve('.scratch/out/ltt-demo');
-execFileSync(process.execPath, ['lattice-emulator.js', DEMO, demoOut, '--quiet', '--keep-html'], { stdio: 'pipe' });
+execFileSync(process.execPath, ['lattice.js', DEMO, demoOut, '--quiet', '--keep-html'], { stdio: 'pipe' });
 // Folded like every deck read (#1349): a BOM or a CRLF would defeat the `^---` anchor below.
 const demoSource = (await import('node:fs')).readFileSync(DEMO, 'utf8').replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
 const demoDoc = (await import('node:fs')).readFileSync(`${demoOut}.html`, 'utf8');

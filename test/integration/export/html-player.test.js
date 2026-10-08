@@ -20,7 +20,7 @@ const { JSDOM } = require('jsdom');
 
 describe('html-player export (--player)', () => {
 	const ROOT = path.join(__dirname, '..', '..', '..');
-	const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+	const EMULATOR = path.join(ROOT, 'lattice.js');
 	const DECK = path.join(ROOT, 'examples', 'state-chart.md');
 	const TIMEOUT = 120000;
 
@@ -104,7 +104,7 @@ describe('html-player export (--player)', () => {
 // keep its hand fonts. Renders examples/sketch.md and asserts Caveat + Shantell ship.
 describe('html-player export — honors sketch fonts', () => {
 	const ROOT = path.join(__dirname, '..', '..', '..');
-	const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+	const EMULATOR = path.join(ROOT, 'lattice.js');
 	const DECK = path.join(ROOT, 'examples', 'sketch.md');
 	const TIMEOUT = 120000;
 	let html;
@@ -134,7 +134,7 @@ describe('html-player export — honors sketch fonts', () => {
 // foreignObject is left for the sanitizer to take."
 describe('html-player export — Mermaid labels survive the sanitizer', () => {
 	const ROOT = path.join(__dirname, '..', '..', '..');
-	const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+	const EMULATOR = path.join(ROOT, 'lattice.js');
 	const DECK = path.join(ROOT, 'examples', 'mermaid-diagram-surface.md');
 	const TIMEOUT = 180000;
 	let doc;
@@ -176,7 +176,7 @@ describe('html-player export — Mermaid labels survive the sanitizer', () => {
 // AND mobile widths.
 describe('html-player export — Present fits the viewport (P3c)', () => {
 	const ROOT = path.join(__dirname, '..', '..', '..');
-	const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+	const EMULATOR = path.join(ROOT, 'lattice.js');
 	const DECK = path.join(ROOT, 'examples', 'html-player.md');
 	const TIMEOUT = 120000;
 	let file;
@@ -240,7 +240,7 @@ describe('html-player export — Present fits the viewport (P3c)', () => {
 // unit suite AND the rest of this file. This is the cell that fails.
 describe('html-player export — a declared `size:` reaches the player (#1577)', () => {
 	const ROOT = path.join(__dirname, '..', '..', '..');
-	const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+	const EMULATOR = path.join(ROOT, 'lattice.js');
 	// A portrait deck: small, committed, and a canvas that differs from HD on BOTH axes.
 	const DECK = path.join(ROOT, 'examples', 'social-portrait.md');
 	const TIMEOUT = 120000;
@@ -271,7 +271,7 @@ describe('html-player export — a declared `size:` reaches the player (#1577)',
 // The grep test is the whole point: a stripped file that leaks note text is a bug.
 describe('html-player export — speaker notes + --strip-notes (P3d)', () => {
 	const ROOT = path.join(__dirname, '..', '..', '..');
-	const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+	const EMULATOR = path.join(ROOT, 'lattice.js');
 	const { parseEnvelope } = require(path.join(ROOT, 'lib', 'core', 'lattice-doc.js'));
 	const TIMEOUT = 120000;
 	const NOTE_A = 'Pause here and make firm eye contact.';
@@ -355,7 +355,7 @@ describe('html-player export — speaker notes + --strip-notes (P3d)', () => {
 // directly beneath them.)
 describe('html-player export — captions + --strip-say (orthogonal to --strip-notes)', () => {
 	const ROOT = path.join(__dirname, '..', '..', '..');
-	const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+	const EMULATOR = path.join(ROOT, 'lattice.js');
 	const { parseEnvelope } = require(path.join(ROOT, 'lib', 'core', 'lattice-doc.js'));
 	const TIMEOUT = 120000;
 	// Single distinctive tokens survive the .vtt's word-by-word cue split.
@@ -443,7 +443,7 @@ describe('html-player export — captions + --strip-say (orthogonal to --strip-n
 // inspects the shipped bytes.
 describe('html-player export — a baked diagram follows the toggle', () => {
 	const ROOT = path.join(__dirname, '..', '..', '..');
-	const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+	const EMULATOR = path.join(ROOT, 'lattice.js');
 	const DECK = path.join(ROOT, 'examples', 'mermaid-diagram-surface.md');
 	const TIMEOUT = 180000;
 	let html;
@@ -552,7 +552,7 @@ const DARK_SLIDE_ARMS = [
 
 describe('html-player export — nothing shipped depends on light-dark()', () => {
 	const ROOT = path.join(__dirname, '..', '..', '..');
-	const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+	const EMULATOR = path.join(ROOT, 'lattice.js');
 	const TIMEOUT = 180000;
 	/** @type {Record<string, string>} */
 	const exported = {};
@@ -778,7 +778,7 @@ describe('html-player export — a baked label halo follows, or its ink freezes 
 // it is named for is worse than no gate: it certifies.
 describe('html-player export — a MULTI-LINE note on a CHART slide (the leak the ladder cells could not see)', () => {
 	const ROOT = path.join(__dirname, '..', '..', '..');
-	const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+	const EMULATOR = path.join(ROOT, 'lattice.js');
 	const TIMEOUT = 120000;
 
 	// `funnel` narrates through `narrateFunnel` → `speakLeftover`, the path that reads
@@ -843,7 +843,7 @@ describe('html-player export — a MULTI-LINE note on a CHART slide (the leak th
 // the defect is the browser's navigation, which no DOM-level test can see.
 describe('html-player export — a slide link opens a new tab, the deck stays', () => {
 	const ROOT = path.join(__dirname, '..', '..', '..');
-	const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+	const EMULATOR = path.join(ROOT, 'lattice.js');
 	const TIMEOUT = 120000;
 	const WATCH = 'https://www.youtube.com/watch?v=aqz-KE-bpKQ';
 	let file;

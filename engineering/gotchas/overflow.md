@@ -46,7 +46,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 - **Symptom:** the top of a panel or card is simply gone in the render — the
   eyebrow, most of the `h2`, sometimes both — and every channel says the slide
   is fine. `over` is `false`, `npm run overflow:check` counts it clean, the
-  export carries no "Content clipped" tag, and `lattice-emulator.js` prints
+  export carries no "Content clipped" tag, and `lattice.js` prints
   nothing on stderr. Resizing does not change it; it reproduces in the PDF.
 - **Cause:** a flex container that `center`s or end-aligns and then OVERFLOWS
   throws content off the **block-start** edge — and block-start overflow does
@@ -93,7 +93,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   `startOverflowWatcher()` tags the class on every section whose
   scrollHeight/Width exceeds clientHeight/Width by more than 12px
   (the tolerance filters sub-pixel rounding noise from nested flex/
-  grid). The lattice-emulator does the same check in the rendered
+  grid). The lattice does the same check in the rendered
   HTML AND via `page.evaluate()` before `page.pdf()`, so the ring
   is burned into the printed deck.
 - **Triggered by:** Any slide with content past the 720px height (or
@@ -130,7 +130,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 
 ## A false "Overflows" ring appears on the exported `.html` sidecar for a slide that actually fits
 
-- **Symptom:** a deck's exported `.pdf` renders fine and `lattice-emulator.js`'s
+- **Symptom:** a deck's exported `.pdf` renders fine and `lattice.js`'s
   own console warning names the right pages — but opening the alongside
   `.html` sidecar in a plain browser shows a red inset ring (and, for the
   live-preview runtime, an "OVERFLOWS" tab) on a slide that isn't actually in
@@ -182,7 +182,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   page off a list the written file belongs on.
 - **Cause:** every other artifact comes from the LIVE DOM. The PDF and the PNGs are
   rasterized from it, the PPTX from those rasters, the `--player` from a capture of
-  it. The plain `.html` is the exception: `lattice-emulator.js` writes it from
+  it. The plain `.html` is the exception: `lattice.js` writes it from
   `cleanDocHtml`, a Node-side string, BEFORE the page is ever loaded, and only the
   auto-split and rails passes rewrite it — both of which work on the string, not the
   DOM. TRIM works on the DOM, so it never reaches that file. The `.html` still gets
@@ -221,7 +221,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   source of truth for a value the DECK owns. The geometry has one source (the
   `size:` directive → a named `@size`), but each render path pins it onto the
   section differently, and they do **not** agree on who wins. The EXPORT
-  survives only because `lattice-emulator.js` emits `section[data-lattice-slide]
+  survives only because `lattice.js` emits `section[data-lattice-slide]
   { width/height: !important }` — *importance*, not specificity, keeps the
   component declaration out, so the PDF looks correct. In a live DOM preview the
   percentage resolves against `article.lattice`, whose inline height the preview's

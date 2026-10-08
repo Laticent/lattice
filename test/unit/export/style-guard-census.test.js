@@ -47,7 +47,7 @@ const ROOT = path.join(__dirname, '..', '..', '..');
  *            an unguarded sink is a stated decision rather than an oversight.
  */
 const CENSUS = {
-	'lattice-emulator.js': {
+	'lattice.js': {
 		guards: 7,
 		why:
 			'page scaffold, look-diagram scratch page, both --player prune re-wraps, and the --read ' +
@@ -199,7 +199,7 @@ test('the census covers every file that calls the guard outside docs/src preview
 	// snapshot's css crosses localStorage and is replayed into the TOP docs document, and the
 	// file is invisible to all three text-matching gates (it is not a preview builder and it
 	// assembles no document), so the census is its only durable pin.
-	const roots = ['lattice-emulator.js', 'lib/export', 'lib/layout', 'docs/src/components/studio', 'docs/src/playground'];
+	const roots = ['lattice.js', 'lib/export', 'lib/layout', 'docs/src/components/studio', 'docs/src/playground'];
 	const found = [];
 	const walk = (abs) => {
 		// Every step is vanish-tolerant, not just the read: an optional chain on the stat

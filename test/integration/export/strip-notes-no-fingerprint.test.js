@@ -18,7 +18,7 @@
  * THE SHAPE OF THE ASSERTION IS THE POINT, and it is why this is not a unit test.
  * `stripNotesFromSource` returning the right string proves nothing on its own: the leak
  * was in what the EXPORT did with it, and the fix (render pass 2 runs on the scrubbed
- * source — lattice-emulator.js) lives in the wiring, not in notes-core. So both sides
+ * source — lattice.js) lives in the wiring, not in notes-core. So both sides
  * here are real CLI exports of real decks, compared as bytes.
  *
  * THE COUNTERFACTUAL IS COMMITTED, NOT COMPUTED. `strip-notes-deck-no-notes.md` is the
@@ -64,7 +64,7 @@ const { splitSections } = require('../../../lib/core/split-sections.js');
 
 describe('strip-notes: no whitespace fingerprint', () => {
   const ROOT = path.join(__dirname, '..', '..', '..');
-  const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+  const EMULATOR = path.join(ROOT, 'lattice.js');
   const NOTED = path.join(ROOT, 'test', 'fixtures', 'strip-notes-deck.md');
   const TWIN = path.join(ROOT, 'test', 'fixtures', 'strip-notes-deck-no-notes.md');
   // A deck whose notes sit where a comment line is load-bearing — no blank line on either side.

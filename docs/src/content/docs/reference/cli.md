@@ -4,12 +4,18 @@ description: Every command, flag, environment variable and exit code of the latt
 ---
 
 Every option the `lattice` command accepts. To learn the command through
-worked tasks, start with [Using the command line](/guides/cli/). The same
-list, in the terminal:
+worked tasks, start with [Using the command line](/guides/cli/). In the
+terminal, `--help` prints one screen (the formats and the common options) and
+`--help all` prints every option, the same list as this page:
 
 ```sh
 npx lattice --help
+npx lattice --help all
 ```
+
+The command is `lattice`; the package is `@laticent/lattice`. Every `npx lattice`
+below runs the copy installed in your project. Outside one, write
+`npx @laticent/lattice`, because the unscoped `lattice` package on npm is unrelated.
 
 ## Command shapes
 
@@ -51,7 +57,8 @@ instead.
 
 | Option | What it does |
 |---|---|
-| `-h`, `--help` | Print the help and exit |
+| `-h`, `--help` | Print one screen of help (the formats and the common options) and exit |
+| `--help all`, `--help=all` | Print every option and exit |
 | `-v`, `--version` | Print the version and exit |
 | `-o`, `--output <path>` | The output file, instead of the second positional argument |
 | `-p`, `--palette <name>` | The palette, instead of the positional one |

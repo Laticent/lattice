@@ -4,7 +4,7 @@
  *
  * word-cloud is a chart-frame member: the chart-family transformer's applyToDom
  * dispatches to word-cloud.transformWordCloudSection (the same kernel
- * lattice-emulator.js (via lib/engine) uses), rewrites the first <ul> into a
+ * lattice.js (via lib/engine) uses), rewrites the first <ul> into a
  * .word-cloud-canvas, and wraps the section in the chart-frame skeleton. These
  * tests verify the delegation produces the framed canvas and is idempotent.
  */

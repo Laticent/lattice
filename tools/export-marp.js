@@ -34,7 +34,7 @@
  *                             [--no-agent] [--overflow-marker=author|reader|off]
  *                             [--default-plugins=a,b|none] [--disable-plugin=a,b]
  *
- * `--default-plugins` / `--disable-plugin` are the render CLI's plugin knobs (lattice-emulator.js),
+ * `--default-plugins` / `--disable-plugin` are the render CLI's plugin knobs (lattice.js),
  * in the `=` form only (a bare value would read as a positional argument):
  * the deck is admitted under them (lib/plugins/host-grammar.mjs `admitPlugins`) and the plugins left
  * off ride in the bundle's settings block (`pluginsOff`), which the bundled runtime reads before it
@@ -215,7 +215,7 @@ function copyCssInto(srcAbs, destAbs) {
  * WHY A DISCLOSURE AND NOT A MEASUREMENT. export-marp never renders: it bakes
  * source transforms and copies files, which is why it finishes in about a second.
  * Measuring overflow needs a real layout in a real browser, and the tool that
- * does that already exists — `lattice-emulator.js` prints the
+ * does that already exists — `lattice.js` prints the
  * "⚠ OVERFLOW — N slides … CLIPPED … pages X, Y" line from the same probe
  * (lib/core/overflow-probe.js) the runtime uses. So this line states what the
  * export KNOWS (the policy it just wrote) and names the command that knows the
@@ -238,7 +238,7 @@ function printOverflowPolicy(marker, source, deckPath) {
   // Quoted: an unquoted `Q3 Board Review.md` printed a command that fails on its
   // first argument — the exact bug lib/core/marp-bundle.js's `safeName` records.
   console.log(`    export-marp does not render, so it cannot measure overflow. To check: `
-    + `\`node lattice-emulator.js "${deckPath}" /tmp/check.pdf\` — it prints the clipped pages.`);
+    + `\`npx lattice "${deckPath}" /tmp/check.pdf\` — it prints the clipped pages.`);
 }
 
 function main(argv) {

@@ -321,7 +321,7 @@ acronyms:
 *(Review comments are added in Studio, not here — they live in the `.lattice`
 manifest, anchored to this slide.)*
 
-Render with narration sidecars: `node lattice-emulator.js deck.md deck.pdf
+Render with narration sidecars: `npx lattice deck.md deck.pdf
 --notes --captions`.
 
 ---

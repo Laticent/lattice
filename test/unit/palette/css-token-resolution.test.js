@@ -9,7 +9,7 @@
  *
  * Algorithm:
  *   1. Walk every .css and .js source file under lib/, src/, themes/,
- *      plus the top-level lattice.css and lattice-emulator.js
+ *      plus the top-level lattice.css and lattice.js
  *      so author-set inline tokens count as defined.
  *   2. Collect every `var(--token)` reference (with file:line provenance).
  *   3. Collect every `--token:` setter — CSS rules AND JS template literals
@@ -74,7 +74,7 @@ const SOURCE_DIRS = [
 
 const SOURCE_FILES = [
   path.join(ROOT, 'dist', 'lattice.css'),
-  path.join(ROOT, 'lattice-emulator.js'),
+  path.join(ROOT, 'lattice.js'),
 ];
 
 const SKIP_DIRS = new Set(['node_modules', '.git', '.scratch', 'dist']);

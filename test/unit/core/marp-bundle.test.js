@@ -176,7 +176,7 @@ describe('marp-bundle spec', () => {
   test('packageJson pins marp-cli only and scripts reference the deck', () => {
     const pkg = packageJson('My Deck');
     assert.ok(pkg.dependencies['@marp-team/marp-cli']);
-    // The engine ships pre-bundled (dist/lattice-emulator.js), so it is NOT an
+    // The engine ships pre-bundled (dist/lattice.js), so it is NOT an
     // npm dependency — listing the unpublished @laticent/lattice would 404
     // `npm install` and the recipient would never get marp-cli either.
     assert.strictEqual(pkg.dependencies['@laticent/lattice'], undefined);
@@ -220,7 +220,7 @@ describe('marp-bundle spec', () => {
     assert.match(r, /not something we can confirm/);
     assert.match(r, /\.html` opens standalone in any browser/);
     // Marp-native: the README must NOT point at a bundled emulator any more.
-    assert.doesNotMatch(r, /lattice-emulator/);
+    assert.doesNotMatch(r, /lattice-emulator|\blattice\.js\b/);
   });
 
 

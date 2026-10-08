@@ -25,7 +25,7 @@
  * emits a state-chart as an `<ol>` that the browser pass repaints into the SVG
  * overlay. Deriving from `engine.render()` alone would call `diagram` an HTML
  * component and would miss the state-chart repaint entirely. So this gate
- * derives from the EXPORT surface: `lattice-emulator.js` renders the bucket
+ * derives from the EXPORT surface: `lattice.js` renders the bucket
  * gallery to its HTML sidecar (mermaid baked), Chromium loads that sidecar (the
  * runtime pass runs), and the measurement reads the resulting live DOM.
  *
@@ -81,7 +81,7 @@ const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 
 const ROOT = path.join(__dirname, '..');
-const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+const EMULATOR = path.join(ROOT, 'lattice.js');
 const { loadAll, manifestBucket } = require('../lib/components');
 const { resolveChrome } = require('./lib/resolve-chrome');
 

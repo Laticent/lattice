@@ -7,7 +7,7 @@
  * palette doesn't define, Mermaid silently falls back to its own defaults and
  * the diagram drifts off-brand.
  *
- * The map used to live inside lattice-emulator.js, which is a top-level CLI that
+ * The map used to live inside lattice.js, which is a top-level CLI that
  * renders on `require`, so this file had to reach it by regex over the source
  * text. Now that the map is a plain module the token list comes from
  * `diagramThemeTokens()` — an actual read of the actual object, so a map entry
@@ -98,8 +98,8 @@ describe('mermaid-var-map', () => {
   test('neither render path defines a private map — the #511 drift is unrepresentable', () => {
     const root = path.join(__dirname, '..', '..', '..');
     // The emulator's diagram walk is the mermaid plugin's bake since plugin-system phase D.
-    assert.equal(/const\s+MERMAID_VAR_MAP\s*=\s*\{/.test(fs.readFileSync(path.join(root, 'lattice-emulator.js'), 'utf8')), false,
-      'lattice-emulator.js defines its own MERMAID_VAR_MAP — import lib/core/mermaid-theme-map instead');
+    assert.equal(/const\s+MERMAID_VAR_MAP\s*=\s*\{/.test(fs.readFileSync(path.join(root, 'lattice.js'), 'utf8')), false,
+      'lattice.js defines its own MERMAID_VAR_MAP — import lib/core/mermaid-theme-map instead');
     for (const rel of [path.join('lib', 'plugins', 'mermaid', 'mermaid.bake.js'), path.join('lib', 'plugins', 'mermaid', 'mermaid.hydrate.js')]) {
       const src = fs.readFileSync(path.join(root, rel), 'utf8');
       assert.equal(/const\s+MERMAID_VAR_MAP\s*=\s*\{/.test(src), false,

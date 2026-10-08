@@ -39,7 +39,7 @@ const { targetPaths, isEnriched } = require('./build-component-docs');
 const { stalenessAgainstInputs } = require('./lib/render-inputs');
 
 const ROOT = path.join(__dirname, '..');
-const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+const EMULATOR = path.join(ROOT, 'lattice.js');
 const THEME = path.join(ROOT, 'dist', 'lattice.css');
 
 const THEMES = ['light', 'dark'];

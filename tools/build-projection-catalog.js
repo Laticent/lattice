@@ -24,7 +24,7 @@
  *
  * WHY GENERATED AND NOT SCANNED, and WHY .mjs.
  * Generated for the same reason as the chart registry: this file is bundled by
- * esbuild into dist/lattice-emulator.js and five docs-site bundles, which cannot
+ * esbuild into dist/lattice.js and five docs-site bundles, which cannot
  * `fs`-load 69 manifests at run time. Emitted as ESM because the consumers straddle
  * both module systems — three are ESM in docs/src, three are CJS in lib/ — and
  * rollup cannot take named exports from a source-tree CommonJS file. That is the

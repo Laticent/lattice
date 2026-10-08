@@ -1,7 +1,7 @@
 {
   "include": [
     "lib/**/*.js",
-    "lattice-emulator.js",
+    "lattice.js",
     "dist/lattice-runtime.js"
   ],
   "exclude": [

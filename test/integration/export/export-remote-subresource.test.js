@@ -45,7 +45,7 @@ const { pathToFileURL } = require('node:url');
 
 describe('export: a deck cannot beacon out of a live exported document', () => {
 	const ROOT = path.join(__dirname, '..', '..', '..');
-	const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+	const EMULATOR = path.join(ROOT, 'lattice.js');
 	const TIMEOUT = 180000;
 	/** Routed, never resolved: `.invalid` fails at DNS by definition, so without interception a
 	 *  live vector and a blocked one look identical. */

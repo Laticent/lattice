@@ -27,7 +27,7 @@
 // PDF is stale. Re-bless with `--bless` (delegates to build-galleries.js /
 // build-bucket-galleries.js) and commit the refreshed PDFs in the same PR.
 //
-// Sibling render paths (HARD RULE 1): lattice-emulator.js (this gate's render,
+// Sibling render paths (HARD RULE 1): lattice.js (this gate's render,
 // via lib/engine) and dist/lattice-runtime.js (vscode preview / published HTML).
 //
 // TWO SCOPES (#1379). `galleries` is the light/dark pairs under lib/ described above.

@@ -42,7 +42,7 @@ async function deckFiles(): Promise<Record<'pdf' | 'lattice' | 'png' | 'md', str
 	writeFileSync(join(dir, 'deck.md'), DECK);
 	const root = resolve(import.meta.dirname, '..', '..');
 	// The PDF from the real CLI, as a recipient would get it.
-	const r = spawnSync(process.execPath, [join(root, 'lattice-emulator.js'), join(dir, 'deck.md'), join(dir, 'Halcyon.pdf'), '--reopenable', '-q'], { encoding: 'utf8', timeout: 240_000 });
+	const r = spawnSync(process.execPath, [join(root, 'lattice.js'), join(dir, 'deck.md'), join(dir, 'Halcyon.pdf'), '--reopenable', '-q'], { encoding: 'utf8', timeout: 240_000 });
 	expect(r.status, r.stderr).toBe(0);
 	// The `.lattice` from the same kernel both writers use (lib/core/reopenable.js).
 	const req = createRequire(join(root, 'package.json'));

@@ -23,13 +23,13 @@
   },
   "license": "AGPL-3.0-only",
   "author": "Sharmarke Aden (Laticent) <sharmarke.aden@gmail.com>",
-  "main": "dist/lattice-emulator.js",
+  "main": "dist/lattice.js",
   "bin": {
-    "lattice": "dist/lattice-emulator.js"
+    "lattice": "dist/lattice.js"
   },
   "exports": {
-    ".": "./dist/lattice-emulator.js",
-    "./min": "./dist/lattice-emulator-min.js",
+    ".": "./dist/lattice.js",
+    "./min": "./dist/lattice-min.js",
     "./runtime": "./dist/lattice-runtime.js",
     "./runtime/min": "./dist/lattice-runtime-min.js",
     "./css": "./dist/lattice.css",
@@ -57,7 +57,7 @@
     "docs/src/lib/vetrina"
   ],
   "files": [
-    "lattice-emulator.js",
+    "lattice.js",
     "dist/",
     "lib/",
     "themes/",
@@ -76,7 +76,7 @@
     "!dist/agent-kit/"
   ],
   "scripts": {
-    "build:gallery-jargon": "node lattice-emulator.js examples/gallery-jargon.md examples/gallery-jargon.pdf",
+    "build:gallery-jargon": "node lattice.js examples/gallery-jargon.md examples/gallery-jargon.pdf",
     "build": "node tools/build.js",
     "build:uncommitted": "node tools/build.js --only-uncommitted",
     "build:check": "node tools/build.js --check --exclude-uncommitted",
@@ -114,8 +114,8 @@
     "runtime:build": "node tools/build-runtime.js",
     "runtime:check": "node tools/build-runtime.js --check",
     "runtime:watch": "node tools/build-runtime.js --watch",
-    "emulator:build": "node tools/build-emulator.js",
-    "emulator:check": "node tools/build-emulator.js --check",
+    "cli:build": "node tools/build-cli.js",
+    "cli:check": "node tools/build-cli.js --check",
     "playground:build": "node tools/build-playground.js",
     "hljs:build": "node tools/build-hljs-languages.js",
     "parity:transforms": "node tools/transform-parity.mjs",

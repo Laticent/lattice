@@ -41,7 +41,7 @@ import { fileURLToPath } from 'node:url';
 
 const require = createRequire(import.meta.url);
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const CLI = path.join(ROOT, 'lattice-emulator.js');
+const CLI = path.join(ROOT, 'lattice.js');
 const PKG = 'sandboxprobe';
 const MIN_NODE = [22, 12];
 

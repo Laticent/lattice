@@ -33,7 +33,7 @@ const {
 
 const REPO = path.join(__dirname, '..', '..', '..');
 const RUNTIME_SRC = fs.readFileSync(path.join(REPO, 'lib', 'plugins', 'mermaid', 'mermaid.hydrate.js'), 'utf8');
-const EMULATOR_SRC = fs.readFileSync(path.join(REPO, 'lattice-emulator.js'), 'utf8');
+const EMULATOR_SRC = fs.readFileSync(path.join(REPO, 'lattice.js'), 'utf8');
 
 const THEME_VARS = { primaryColor: '#111', fontFamily: 'X' };
 

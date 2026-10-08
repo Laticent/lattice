@@ -83,7 +83,7 @@ describe('golden-affected — shared changes', () => {
     'lib/base/base.tokens.css',
     'lib/engine/index.js',
     'themes/indaco.css',
-    'lattice-emulator.js',
+    'lattice.js',
     'package-lock.json',
     'tools/build-css.js',
     'lib/something-new/x.js',
@@ -168,7 +168,7 @@ describe('golden-affected — a package.json edit is a dependency change only wh
   for (const [what, key, value] of [
     ['a dependency bump', 'dependencies', { 'markdown-it': '14.2.0' }],
     ['a devDependency added', 'devDependencies', { mermaid: '11.0.0' }],
-    ['a version bump (lattice-emulator.js reads it)', 'version', '1.0.1'],
+    ['a version bump (lattice.js reads it)', 'version', '1.0.1'],
     ['a key nobody listed', 'exports', { '.': './index.js' }],
   ]) {
     test(`${what} keeps package.json, so every gallery renders`, async () => {

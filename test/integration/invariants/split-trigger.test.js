@@ -70,7 +70,7 @@ describe('the split trigger is STRUCTURE, and fit is not consulted', () => {
     const a = pagesOf(runEmulator(FIXTURE, { timeout: 120000 })).length;
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lat-determinism-'));
     const out = path.join(dir, 'again.pdf');
-    const res = spawnSync('node', [path.join(ROOT, 'lattice-emulator.js'), FIXTURE, out, '--keep-html'], {
+    const res = spawnSync('node', [path.join(ROOT, 'lattice.js'), FIXTURE, out, '--keep-html'], {
       cwd: ROOT, encoding: 'utf8', timeout: 150000,
     });
     assert.equal(res.status, 0, `emulator failed:\n${res.stderr}`);
@@ -90,7 +90,7 @@ describe('the split move does not run at a landscape @size', () => {
     // Run the emulator directly rather than through the cache: the assertion is partly about what
     // it reports on stderr, which the cache does not keep.
     const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'lat-trigger-')), 'wide.pdf');
-    const res = spawnSync('node', [path.join(ROOT, 'lattice-emulator.js'), FIXTURE, out, '--keep-html'], {
+    const res = spawnSync('node', [path.join(ROOT, 'lattice.js'), FIXTURE, out, '--keep-html'], {
       cwd: ROOT, encoding: 'utf8', timeout: 150000,
     });
     assert.equal(res.status, 0, `emulator failed:\n${res.stderr}`);
@@ -121,7 +121,7 @@ describe('the split move does not run at a landscape @size', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lat-trigger-'));
     const src = path.join(dir, 'tall.md');
     fs.writeFileSync(src, fs.readFileSync(FIXTURE, 'utf8').replace(/^size: hd$/m, 'size: square'));
-    const res = spawnSync('node', [path.join(ROOT, 'lattice-emulator.js'), src, path.join(dir, 'tall.pdf'), '--keep-html'], {
+    const res = spawnSync('node', [path.join(ROOT, 'lattice.js'), src, path.join(dir, 'tall.pdf'), '--keep-html'], {
       cwd: ROOT, encoding: 'utf8', timeout: 150000,
     });
     assert.equal(res.status, 0, `emulator failed:\n${res.stderr}`);

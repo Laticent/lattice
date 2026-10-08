@@ -15,7 +15,7 @@
  * (`test/integration/export/author-script-deferral.test.js`), because source text cannot
  * prove what Chromium actually parsed.
  *
- * SCOPE: `lattice-emulator.js`, the one module that assembles the document the probe runs
+ * SCOPE: `lattice.js`, the one module that assembles the document the probe runs
  * in. The `--player` document is out of scope by construction — `player-core.mjs` deletes
  * every inline `<script>` from the doc it ships and injects one hashed transport block, and
  * no probe ever runs there.
@@ -27,7 +27,7 @@ const fs = require('fs');
 const path = require('path');
 const { ENGINE_SCRIPT_ATTR } = require('../../../lib/core/author-deferral-probe');
 
-const EMULATOR = path.join(__dirname, '..', '..', '..', 'lattice-emulator.js');
+const EMULATOR = path.join(__dirname, '..', '..', '..', 'lattice.js');
 
 // The placeholder form as it appears in the SOURCE — matched with a regex rather than a
 // string so the linter does not read the literal as a template string someone forgot to

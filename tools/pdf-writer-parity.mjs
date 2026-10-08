@@ -63,7 +63,7 @@ fs.mkdirSync(OUT, { recursive: true });
 
 function render(src, out, extra, env = {}) {
 	return new Promise((resolve) => {
-		const p = spawn(process.execPath, [path.join(ROOT, 'lattice-emulator.js'), src, out, '--quiet', ...extra], { cwd: ROOT, env: { ...process.env, ...env } });
+		const p = spawn(process.execPath, [path.join(ROOT, 'lattice.js'), src, out, '--quiet', ...extra], { cwd: ROOT, env: { ...process.env, ...env } });
 		let err = '';
 		p.stderr.on('data', (d) => { err += d; });
 		p.on('close', (code) => resolve({ code, err }));

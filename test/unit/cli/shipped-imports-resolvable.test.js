@@ -10,7 +10,7 @@
  *
  * The scan reads the files `package.json` `files` ships that can load code: `lib/` (minus
  * plugin `vendor/` copies, which are pre-built browser bundles with no bare imports of
- * their own), the root `lattice-emulator.js`, and the top-level `dist/*.js` bundles.
+ * their own), the root `lattice.js`, and the top-level `dist/*.js` bundles.
  * A package an install does NOT provide is admitted only through SANCTIONED_UNINSTALLED,
  * with its reason; an entry nothing still loads fails too, so the list cannot rot.
  */
@@ -53,7 +53,7 @@ function packageOf(spec) {
 }
 
 function shippedCodeFiles() {
-  const out = [path.join(ROOT, 'lattice-emulator.js')];
+  const out = [path.join(ROOT, 'lattice.js')];
   const walk = (dir) => {
     for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
       const p = path.join(dir, e.name);

@@ -107,7 +107,7 @@ test('every re-openable export comes back into the Studio as the exact deck', as
 test('a CLI --reopenable PDF and PowerPoint come back into the Studio as the exact deck', async ({ page }) => {
 	const dir = mkdtempSync(join(tmpdir(), 'lattice-cli-reopenable-'));
 	writeFileSync(join(dir, 'deck.md'), DECK);
-	const cli = resolve(import.meta.dirname, '..', '..', 'lattice-emulator.js');
+	const cli = resolve(import.meta.dirname, '..', '..', 'lattice.js');
 	const files: [string, Buffer][] = [];
 	for (const ext of ['pdf', 'pptx']) {
 		const out = join(dir, `Halcyon.${ext}`);

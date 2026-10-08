@@ -1,6 +1,6 @@
 /**
  * Integration: the CLI's door for code packages (contract note §9), driven through the REAL CLI
- * (lattice-emulator.js → PDF), with a network log (HARD RULE #23).
+ * (lattice.js → PDF), with a network log (HARD RULE #23).
  *
  * A third-party code package, written here the way a stranger would bring one (a self-contained ES
  * module, nothing of Lattice's imported), installs into a fixture store. Its transform is hostile:
@@ -34,7 +34,7 @@ const http = require('node:http');
 const { execFile } = require('node:child_process');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
-const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+const EMULATOR = path.join(ROOT, 'lattice.js');
 const TIMEOUT = 300000;
 const SETTLE_MS = 1500;
 

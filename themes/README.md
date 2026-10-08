@@ -196,10 +196,10 @@ npm run new:theme verdigris
 $EDITOR themes/verdigris/verdigris.css
 
 # 3. build a deck with it (-p selects the palette override)
-node lattice-emulator.js examples/gallery.md /tmp/verdigris.pdf -p verdigris
+node lattice.js examples/gallery.md /tmp/verdigris.pdf -p verdigris
 
 # 4. verify diagrams render correctly
-node lattice-emulator.js examples/mermaid-gallery.md /tmp/verdigris-mermaid.pdf -p verdigris
+node lattice.js examples/mermaid-gallery.md /tmp/verdigris-mermaid.pdf -p verdigris
 ```
 
 The scaffolder copies `themes/indaco/indaco.css`, rewrites the `@theme`
@@ -299,7 +299,7 @@ references the `--c-*` tokens by name — your new values flow through.
                                               catch missing tokens.
 
    Build-time "Palette missing CSS variable"  parsePaletteVars in
-   warning + black gantt / sequence / error   lattice-emulator.js is reading
+   warning + black gantt / sequence / error   lattice.js is reading
    fills in the rendered PDF                  the wrong CSS slice; check that
                                               it parses (layoutCSS + paletteCSS)
                                               so lattice.css's universal

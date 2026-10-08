@@ -1,7 +1,7 @@
 /**
  * Integration: the palette wins the export cascade (#1527).
  *
- * `lattice-emulator.js` builds the deck's single `<style>` from two sheets: the engine
+ * `lattice.js` builds the deck's single `<style>` from two sheets: the engine
  * bundle and the deck's palette chain. For the whole life of the export path it wrote
  * them palette-FIRST, so `lib/base/base.tokens.css`'s plain `:root` block landed later
  * at equal specificity and won. 932 palette declarations across all 32 themes resolved
@@ -39,7 +39,7 @@ const { cliThemeStore, cliDeckSheet } = require('../../../lib/export/cli-deck-sh
 const { sheetFor } = require('../../../tools/palette-sweep.js');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
-const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+const EMULATOR = path.join(ROOT, 'lattice.js');
 const TIMEOUT = 300000;
 
 /** Best-effort Chromium path — mirrors chrome-suppression.test.js. */

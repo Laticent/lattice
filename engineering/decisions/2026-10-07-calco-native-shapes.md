@@ -245,6 +245,32 @@ Chrome would paint the box between the card and the child; the office file draws
 both. It needs two flow boxes to overlap, and no shipped deck does; the independent check
 named it and did not reproduce it.
 
+**Two covers found after the merge (2026-10-08).** A parallel build of B (#2603, closed as
+superseded) had a checker whose fixtures still reproduced on this reader. Both are now fixed
+and tested ("what covers them" in `calco-reader.test.js`):
+- *The slide's own `::before`/`::after` over a card.* The paint-order walk skipped the
+  section's pseudo-elements, so whatever the slide drew over its cards stayed in the picture
+  UNDER the cards' native shapes. The engine's own state stamps are exactly that:
+  `stamp-veil` (a 13% wash) and `stamp-mark` (the diagonal DRAFT band) are `section::before`
+  at `--z-mark`, `inset: 0` (`lib/base/base.variants.css`). On an indaco `cards-grid` slide the
+  export drew four untinted cards over the veil, and over the DRAFT band. The section's
+  pseudo-elements are now picture content like any other element's, so those cards stay
+  in the picture, tinted and under the band as the browser draws them (shapes per slide
+  5 → 0; the other 22 stamps and marks unchanged). `stamp-mark` refuses more than its ink
+  covers, because its box is the whole slide: the picture is right, and those cards are not
+  editable.
+- *A transition on a color, a decoration or a shadow.* A running transition outranks the
+  inline `!important` hide, so the picture still held the box under its shape
+  (`transition: all 2s`: the fill still at full color right after the hide), and the restore
+  faded box and text back in. `readSlide` now turns transitions off for the whole slide,
+  with one temporary stylesheet, from the start of the hide until `restoreSlide` has undone
+  everything and flushed the styles.
+The galleries carry neither (370 and 1300 shapes, unchanged), and the editable card-tags and
+jargon `.pptx` come out with byte-identical slide XML and pictures. A static section measures
+an absolutely placed pseudo-element as the whole slide, and an in-flow one is measured as
+its element's box. Both refuse more than they need to, which keeps the picture correct. No
+engine slide is static or paints an in-flow section pseudo-element, so neither is fixed.
+
 **What B does not reach yet.** A tag drawn by `::before` (`content: counter(card)`, the
 numbered cards; `STEP 01`; `RECOMMENDATION`): the reader cannot read pseudo-element text,
 so the tag and its card stay a picture. A list card (its markers are pseudo-elements). The

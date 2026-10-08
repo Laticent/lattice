@@ -5,7 +5,7 @@ If you are new, read `engineering/architecture.md` first (how a deck flows
 through the engine), then come back to this map.
 
 The big picture: **three render paths must agree** — the CLI/PDF path
-(`lattice-emulator.js` → `lib/engine`), the browser playground
+(`lattice.js` → `lib/engine`), the browser playground
 (`lib/playground`), and the VS Code preview runtime (`lib/runtime`). Most of
 the structure below exists so shared logic lives in exactly one place.
 

@@ -138,7 +138,7 @@ describe('palette-resolution', () => {
   // read the palette fine. Two readers, one question, opposite answers (#1416's class).
   //
   // Caught by rendering the real CLI, not by a unit test: every unit suite passed
-  // while `node dist/lattice-emulator.js` still emitted the wrong `--accent`.
+  // while `node dist/lattice.js` still emitted the wrong `--accent`.
 
   test('resolve: a trailing YAML comment does not lose the deck its palette', () => {
     const r = resolvePalette({ md: '---\ntheme: cuoio  # our brand palette\n---\n\n# T\n', env: {} });

@@ -79,7 +79,7 @@ export function goldenForGallery(galleryMd, theme) {
 // does — or every image/logo slide renders blank and false-fails. A `.regr-` dotfile keeps
 // it out of the committed tree; the caller removes it via the returned cleanup list.
 export function renderGallery(root, galleryMd, theme) {
-  const emulator = join(root, 'lattice-emulator.js');
+  const emulator = join(root, 'lattice.js');
   const themeCss = join(root, 'dist', 'lattice.css');
   const dir = dirname(galleryMd);
   const name = galleryName(galleryMd);
@@ -118,7 +118,7 @@ export function renderGallery(root, galleryMd, theme) {
 // Passing a theme CSS / palette the way the gallery path does would override the deck's
 // theme and false-fail every deck that names another one.
 export function renderDeck(root, md) {
-  const emulator = join(root, 'lattice-emulator.js');
+  const emulator = join(root, 'lattice.js');
   const outPdf = join(dirname(md), `.regr-${basename(md, '.md')}.pdf`);
   const cleanup = [outPdf, outPdf.replace(/\.pdf$/, '.html')];
   try {

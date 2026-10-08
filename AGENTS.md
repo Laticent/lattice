@@ -135,6 +135,10 @@ edit deck.md  →  npm run lint:deck -- deck.md  →  fix  →  render
     npx lattice deck.md deck.pdf
   ```
 
+  `npx lattice` finds the clone's own install. Outside a clone or a project with
+  `@laticent/lattice` installed, write `npx @laticent/lattice`: the unscoped `lattice`
+  package on npm is unrelated.
+
 ## The rules agents most often break
 
 - **Card-style components use nested bullets, not inline bold.**

@@ -560,7 +560,7 @@ never turn "passed in headless" into "works on iOS."
   rendering. If a host knows a slide's place in a deck, it must pass `slideIndex` **with**
   `slideCount` and `slideMarkdown`; omit all three only for a genuinely standalone slide (a
   landing island, a component specimen), where 1-of-1 is the truth. Note the preview number can still differ from the exported PDF's for a
-  portrait/square/story deck: auto-split runs only in `lattice-emulator.js` (the export path,
+  portrait/square/story deck: auto-split runs only in `lattice.js` (the export path,
   `splitDoc`; it was `resplitDoc` until 2026-09-01), never in the browser render, so an export may legitimately have more pages
   than the deck has slides.
 

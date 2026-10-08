@@ -28,7 +28,7 @@ describe('core: splitFactsFor — mirrors what the split registry actually reads
   });
 
   // The drift that bit us: an axis under `adapt.capacity` reads like a per-family COUNT
-  // estimate, but lattice-emulator.js's SPLIT_CAP resolves `capacity.axis ??
+  // estimate, but lattice.js's SPLIT_CAP resolves `capacity.axis ??
   // adapt.capacity.axis` and the registry consumes the result as an OPT-IN switch. The
   // resolver must therefore treat it as enrolling, and say which site it came from.
   test('an axis hidden under adapt.capacity still ENROLLS, and declaredIn says so', () => {

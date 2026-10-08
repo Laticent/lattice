@@ -2264,7 +2264,7 @@ section.divider.numbered :is(h1, h2)[data-lat-section]::after { content: attr(da
  * no `!important` is needed and the finish frame's ordinary cascade survives.
  *
  * The `off` arm is load-bearing for a different reason: a `--fluid` export carries
- * lattice-emulator.js's OWN inline watcher, which knows nothing about the register
+ * lattice.js's OWN inline watcher, which knows nothing about the register
  * and re-stamps `.overflow` on font-settle and on every resize. A one-shot JS sweep
  * cannot win that race, so `off` has to be enforced in CSS — otherwise a deck that
  * asked for silence rendered the LOUDEST marker there is. */
@@ -2608,7 +2608,7 @@ section.illegible > .marker-rail > .illegible-tab {
    * THE BOUND IS THE MARKER LEVEL, NOT "NEVER EXPORTED", and the distinction is one this
    * comment got wrong first time round. The tab is gated on `overflow-marker: author` — but
    * `author` is a level an EXPORT can be run at (`--overflow-marker=author`), and at that
-   * level lattice-emulator.js deliberately keeps it: its strip is `lvl !== 'author'`, and its
+   * level lattice.js deliberately keeps it: its strip is `lvl !== 'author'`, and its
    * own stderr line says "The export carries the amber ring and its tag." So an author-level
    * PDF / --html / --player carries this strip, by design. What is actually true is narrower
    * and still enough: nothing a READER receives has it, because `reader` and `off` — the
@@ -2794,7 +2794,7 @@ section.lattice-exporting .fit-culprit,
  * CUSTOM LOGO — discreet author-supplied brand mark, top-right corner.
  * Author contract, gotchas, and full rationale at lib/base/_logo/logo.docs.md.
  * Implementation: applyDeckLogoToHtml (lib/integrations/markdown-it/plugins.js),
- * which lattice-emulator.js `require`s rather than re-implementing — this note used
+ * which lattice.js `require`s rather than re-implementing — this note used
  * to claim an "inline copy" there and there has not been one; plus
  * applyDeckLogoFromFrontMatter (lattice-runtime.js), the one genuine second
  * implementation, which must mirror deckLogoVars.

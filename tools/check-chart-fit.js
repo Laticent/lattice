@@ -93,7 +93,7 @@ const { execFileSync } = require('node:child_process');
 const { resolveChrome } = require('./lib/resolve-chrome');
 
 const ROOT = path.join(__dirname, '..');
-const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+const EMULATOR = path.join(ROOT, 'lattice.js');
 const FIXTURE = process.argv.find((a) => a.endsWith('.md'))
   || path.join(ROOT, 'test', 'fixtures', 'chart-fit.md');
 
@@ -137,7 +137,7 @@ const SANCTIONED_CLIPS = [
 // The three supported deck shapes. `size:` is the front-matter key the emulator
 // reads; landscape is the default and takes no key.
 // `autosplit` is ON for portrait/square and omitted for landscape, mirroring the
-// engine: `AUTOSPLIT_APPLIES` (lattice-emulator.js) makes it a no-op on a landscape
+// engine: `AUTOSPLIT_APPLIES` (lattice.js) makes it a no-op on a landscape
 // deck, and it is the supported answer for a portrait slide that cannot fit — a
 // roadmap paginates its phase cards rather than clipping (#1209). Measuring portrait
 // WITHOUT it would gate a configuration the engine does not intend anyone to ship.

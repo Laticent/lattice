@@ -207,7 +207,7 @@ describe('--hljs-* contrast against --code-bg', () => {
   });
 
   test('EXPORT PATH — the base value is a FALLBACK, and nothing inherits it today', () => {
-    // Before #1527 `lattice-emulator.js` concatenated `paletteCSS + layoutCSS`, so the
+    // Before #1527 `lattice.js` concatenated `paletteCSS + layoutCSS`, so the
     // base loaded AFTER the theme and its --hljs-* won on every panel; a theme's own
     // value never painted on the export. That is what left indaco rendering
     // --hljs-literal at 3.71:1 and --hljs-comment at 3.06:1 while the gate reported

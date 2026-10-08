@@ -55,7 +55,7 @@ fs.writeFileSync(deckPath, ['---\ntheme: indaco\n---\n', ...slides.map((s) => `$
 process.stdout.write(`${slides.length} components -> ${deckPath}\n`);
 if (process.argv.includes('--deck-only')) process.exit(0);
 
-execFileSync('node', [path.join(ROOT, 'dist/lattice-emulator.js'), deckPath, '-o', path.join(out, 'deck.pdf'), '--captions'], {
+execFileSync('node', [path.join(ROOT, 'dist/lattice.js'), deckPath, '-o', path.join(out, 'deck.pdf'), '--captions'], {
 	cwd: ROOT,
 	stdio: 'inherit',
 });

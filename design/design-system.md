@@ -782,7 +782,7 @@ hand-maintained rosters in `design/skills/chart-component.md` step 9, which the
 manifest does not yet drive.
 
 **Adding a new graph language (substance = graph).** Detect the fence
-in the shared kernel and the two render surfaces — `lattice-emulator.js`
+in the shared kernel and the two render surfaces — `lattice.js`
 and `lattice-runtime.js` (the owned engine, `lib/engine/`, composes the
 same plugins; `marp.config.js` is retired). Resolve palette tokens. Inject
 into the language's theming API. Invoke the external CLI. Inline the SVG.

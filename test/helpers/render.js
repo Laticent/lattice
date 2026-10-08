@@ -12,7 +12,7 @@
  *
  * Cache key inputs (any change invalidates):
  *   - source .md content
- *   - lattice-emulator.js
+ *   - lattice.js
  *   - lattice.css + all themes/*.css
  *   - all lib/**"/"*.js AND lib/**"/"*.css, RECURSIVELY. This listed `lib/*.js` one level deep
  *     until 2026-07-27, which matched ZERO files — nothing .js sits at the top of lib/ — so the
@@ -53,7 +53,7 @@ const { execFileSync } = require('child_process');
 const ROOT       = path.join(__dirname, '..', '..');
 const EXAMPLES   = path.join(ROOT, 'examples');
 const THEME      = path.join(ROOT, 'dist', 'lattice.css');
-const EMULATOR   = path.join(ROOT, 'lattice-emulator.js');
+const EMULATOR   = path.join(ROOT, 'lattice.js');
 const MERMAID_JS = path.join(ROOT, 'lib', 'plugins', 'mermaid', 'vendor', 'mermaid.min.js');
 const LOCKFILE   = path.join(ROOT, 'package-lock.json');
 const CACHE_DIR  = path.join(ROOT, '.scratch', 'test-cache');

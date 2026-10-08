@@ -94,7 +94,7 @@ test('every surface reads the plugin\'s copy', () => {
   assert.match(read('lib/plugins/math/math.render.js'), /katex = require\('\.\/vendor\/katex\/katex\.min\.js'\);/);
   assert.match(read('lib/playground/katex-provider.js'), /import katex from '\.\.\/plugins\/math\/vendor\/katex\/katex\.min\.js';/);
   assert.match(read('tools/build-css.js'), /const KATEX_CSS = vendorPath\('math', 'katex-css'\);/);
-  assert.match(read('lattice-emulator.js'), /vendorPath\('math', 'katex-css'\)/);
+  assert.match(read('lattice.js'), /vendorPath\('math', 'katex-css'\)/);
   assert.match(read('lib/export/html-player.js'), /vendorPath\('math', 'katex-css'\)/);
   // The docs site stages each plugin's copy beside the runtime.
   const sync = read('docs/scripts/sync-playground-assets.mjs');
@@ -107,7 +107,7 @@ test('every surface reads the plugin\'s copy', () => {
     "mermaid/dist/mermaid(\\.min)?\\.js'", 'mermaid-zenuml/dist', 'mermaid-cli/dist', 'mermaid-cli.*index\\.html',
     'function-plot/dist', 'katex/dist', "require\\('katex'\\)", "from 'katex'",
   ];
-  for (const dir of ['lib', 'tools', 'docs/scripts', 'lattice-emulator.js']) {
+  for (const dir of ['lib', 'tools', 'docs/scripts', 'lattice.js']) {
     // `git grep` exits 1 when nothing matches, which is the passing case.
     const r = spawnSync('git', ['grep', '-n', '-E', READS.join('|'), '--', dir], { cwd: ROOT, encoding: 'utf8' });
     assert.ok(r.status === 0 || r.status === 1, `git grep failed: ${r.stderr}`);
@@ -119,7 +119,7 @@ test('every surface reads the plugin\'s copy', () => {
   }
 });
 
-test('a bundle that inlines the reader still finds every copy (the installed CLI is dist/lattice-emulator.js)', () => {
+test('a bundle that inlines the reader still finds every copy (the installed CLI is dist/lattice.js)', () => {
   // The installed `lattice` runs an esbuild bundle in dist/, which inlines payload-path.js, so its
   // `__dirname` is <pkg>/dist. A root COUNTED from __dirname (`../..`) pointed above the package there,
   // every copy read as missing, and the shipped CLI exported math without KaTeX's faces and plots

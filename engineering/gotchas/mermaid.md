@@ -218,7 +218,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 - **Cause:** Mermaid requires the frontmatter (`---\n…\n---\n`) to be
   the very first thing in the diagram source. Naive prepending of a
   `%%{init}%%` directive breaks frontmatter detection.
-- **Mitigation:** `lattice-emulator.js:renderMermaid` detects an opening
+- **Mitigation:** `lattice.js:renderMermaid` detects an opening
   frontmatter block and injects the `%%{init}%%` AFTER the closing
   `---\n` rather than at the top.
 - **Triggered by:** Mermaid sources that include a `title:` or
@@ -366,7 +366,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   Puppeteer has known startup races, especially under contention
   (parallel CI, tight resource limits) and when fetching CDN-hosted
   icon sets for architecture/c4 diagrams.
-- **Mitigation:** [lattice-emulator.js:683-707](../lattice-emulator.js#L683-L707)
+- **Mitigation:** [lattice.js:683-707](../lattice.js#L683-L707)
   retries up to 3 times with a 1s backoff between attempts. Each
   attempt is fully isolated (stale outputs deleted between tries).
 - **Triggered by:** Cold builds, slow networks, contended hosts.
@@ -399,7 +399,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 - **Mitigation:** Add `<div class="mermaid-svg">…</div>` to the skip
   pattern in `extractMath` so math extraction does not reach inside
   inlined SVG. See
-  [lattice-emulator.js extractMath](../lattice-emulator.js).
+  [lattice.js extractMath](../lattice.js).
 - **Triggered by:** Any deck containing both a `$…$` candidate AND a
   Mermaid diagram with a CSS attribute selector using `$`. Latent
   since main's KaTeX-for-math feature landed; only surfaces visually

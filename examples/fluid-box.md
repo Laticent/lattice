@@ -75,7 +75,7 @@ header: "Lattice · fluid-box viewer"
 ## One flag, one toggle.
 
 - Export a fluid viewer
-  - `lattice-emulator deck.md out.pdf --fluid` writes `out.html` as the viewer; the PDF is unchanged.
+  - `lattice deck.md out.pdf --fluid` writes `out.html` as the viewer; the PDF is unchanged.
 - It is opt-in, off by default
   - The viewer opens fluid on a phone and as the authored deck on a laptop; a pill toggles between them.
 - Reflow is wired; density is next

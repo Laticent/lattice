@@ -95,7 +95,7 @@ if (MODE === 'capture') {
     const pdf = path.join(dir, 'd.pdf');
     const t0 = Date.now();
     try {
-      execFileSync(process.execPath, [path.join(ROOT, 'lattice-emulator.js'), path.join(ROOT, deck), pdf, '--quiet', '--keep-html'],
+      execFileSync(process.execPath, [path.join(ROOT, 'lattice.js'), path.join(ROOT, deck), pdf, '--quiet', '--keep-html'],
         { cwd: ROOT, timeout: 300000, stdio: ['ignore', 'ignore', 'pipe'] });
     } catch (e) {
       record.decks[deck] = { error: String(e.message || e).split('\n')[0] };

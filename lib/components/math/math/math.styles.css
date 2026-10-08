@@ -9,7 +9,7 @@
  * physicists, statisticians, and economists.
  *
  * RENDERER-AGNOSTIC. Lattice prefers KaTeX (server-side via the `katex` npm
- * package in lattice-emulator.js, native via `math: 'katex'` in the engine) —
+ * package in lattice.js, native via `math: 'katex'` in the engine) —
  * it is smaller and faster, and it is the default everywhere we control the
  * render. But the typesetter is the deck's choice, not ours, and on surfaces we
  * do NOT control it is not KaTeX: marp-core defaults to MathJax, so every deck

@@ -49,7 +49,7 @@
  * version of this comment said "on every shell" (it was written before #1715 retuned
  * `--text-muted`). Measured on the real EXPORT shell, 2026-08-25:
  *
- *   node lattice-emulator.js test/integration/baseline-decks/gallery.md .scratch/g.html
+ *   node lattice.js test/integration/baseline-decks/gallery.md .scratch/g.html
  *   node tools/check-slide-contrast.js .scratch/g.html
  *   → 1541 text runs, 5 below AA — none of them the running header or footer.
  *
@@ -141,7 +141,7 @@ function render(outPdf, extraArgs = []) {
   // `--keep-html`: the export-shell arm reads the `.html` sidecar beside the PDF, which is deleted
   // on success by default (P1). The `--player`/`--read` arms rewrite it into a viewer and keep it
   // regardless; passing the flag is harmless there.
-  const res = spawnSync('node', [path.join(ROOT, 'lattice-emulator.js'), DECK, outPdf, '--keep-html', ...extraArgs], {
+  const res = spawnSync('node', [path.join(ROOT, 'lattice.js'), DECK, outPdf, '--keep-html', ...extraArgs], {
     cwd: ROOT, encoding: 'utf8', timeout: 900000,
   });
   assert.equal(res.status, 0, `render failed (${extraArgs.join(' ') || 'export'}):\n${res.stderr}`);

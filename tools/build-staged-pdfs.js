@@ -28,7 +28,7 @@
  * move many PDFs at once; the bless bot's nightly check of the whole corpus finds and
  * re-renders what they moved.
  *
- * Chrome: lattice-emulator.js auto-detects the puppeteer-cached binary,
+ * Chrome: lattice.js auto-detects the puppeteer-cached binary,
  * so no CHROME_PATH wiring is needed here.
  *
  * Exit codes:
@@ -43,7 +43,7 @@ const { execSync, execFileSync, spawn } = require('node:child_process');
 const { EXTRA_NAMES } = require('./build-bucket-galleries');
 
 const ROOT = path.join(__dirname, '..');
-const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+const EMULATOR = path.join(ROOT, 'lattice.js');
 
 // Each deck render spawns its own headless Chromium, so cap how many run at
 // once — unbounded parallelism across a many-deck commit would exhaust memory.

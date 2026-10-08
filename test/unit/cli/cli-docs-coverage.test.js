@@ -43,7 +43,7 @@ function flagsBetween(src, start, end, file) {
 
 /** The options the `lattice` render command, `lattice packages` and `lattice video` accept. */
 function latticeCliFlags() {
-  const render = flagsBetween(read('lattice-emulator.js'), 'function parseArgs(argv)', 'return { flags, positional };', 'lattice-emulator.js');
+  const render = flagsBetween(read('lattice.js'), 'function parseArgs(argv)', 'return { flags, positional };', 'lattice.js');
   // --help / --version are handled before parseArgs runs.
   for (const f of ['-h', '--help', '-v', '--version']) render.add(f);
   const packages = flagsBetween(read('lib/packages/cli.js'), 'function parse(argv)', 'return { flags, pos };', 'lib/packages/cli.js');

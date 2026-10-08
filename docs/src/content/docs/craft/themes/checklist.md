@@ -113,7 +113,7 @@ node tools/composed-contrast.js evergreen
 npm run test:palette               # the palette suite
 npm run build:check                # the blocking gates
 
-node lattice-emulator.js test/integration/baseline-decks/gallery.md \
+npx lattice test/integration/baseline-decks/gallery.md \
   /tmp/gallery.pdf -p evergreen    # render the gallery and LOOK at it
 ```
 

@@ -472,3 +472,52 @@ describe('calco reader: native shapes', () => {
     assert.equal(await page.evaluate(() => document.documentElement.outerHTML), before);
   });
 });
+
+// Two ways a lifted box could still hide paint (followups 2556-p3-calco-shapes-latent-covers):
+// the slide's OWN ::after placed over a card, and a transition on the card's colors.
+const COVER_FIXTURE = `<!doctype html><html><head><style>
+  body { margin: 0; font-family: sans-serif; }
+  section { width: 1280px; height: 720px; position: relative; background: #ffffff; }
+  .card { position: absolute; left: 100px; top: 100px; width: 300px; height: 200px; padding: 16px; box-sizing: border-box; background: rgb(240, 240, 250); border-radius: 8px; box-shadow: rgba(0, 0, 0, 0.2) 0 4px 12px; }
+  .card p { margin: 0; font-size: 18px; }
+  #stamp::after { content: ""; position: absolute; left: 150px; top: 150px; width: 100px; height: 100px; background: rgb(255, 0, 0); }
+  .slow, .slow p { transition: all 2s; }
+</style></head><body>
+  <section id="stamp"><div class="card"><p>Under a stamp</p></div></section>
+  <section id="slow"><div class="card slow"><p>Transition</p></div></section>
+</body></html>`;
+
+describe('calco reader: native shapes and what covers them', () => {
+  let browser;
+  let page;
+  before(async () => {
+    browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+    page = await browser.newPage();
+    await page.setViewport({ width: 1280, height: 720 });
+    await page.setContent(COVER_FIXTURE, { waitUntil: 'load' });
+  });
+  after(async () => {
+    await browser?.close();
+  });
+
+  test("a card under the slide's own ::after stays in the picture", async () => {
+    const res = await (await page.$('#stamp')).evaluate(readSlide, { shapes: true });
+    assert.equal(res.shapes.length, 0);
+  });
+
+  test('a transition on the colors neither keeps the box in the picture nor animates it back', async () => {
+    const s = await page.$('#slow');
+    const look = () => page.evaluate(() => {
+      const cs = getComputedStyle(document.querySelector('#slow .card'));
+      return [cs.backgroundColor, cs.boxShadow, getComputedStyle(document.querySelector('#slow p')).color, document.getAnimations().length];
+    });
+    const shown = await look();
+    const before = await page.evaluate(() => document.documentElement.outerHTML);
+    const res = await s.evaluate(readSlide, { hide: true, shapes: true });
+    assert.equal(res.shapes.length, 1);
+    assert.deepEqual((await look()).slice(0, 2), ['rgba(0, 0, 0, 0)', 'none'], 'the box is gone at once, not fading');
+    await s.evaluate(restoreSlide);
+    assert.deepEqual(await look(), shown, 'box and text back at once, with nothing animating');
+    assert.equal(await page.evaluate(() => document.documentElement.outerHTML), before, 'restore is exact');
+  });
+});

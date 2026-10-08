@@ -55,9 +55,9 @@ function declaredMarks() {
  */
 function renderDeck(deck = CHART_GALLERY, { theme = null, label = 'chart-probe' } = {}) {
   if (!fs.existsSync(deck)) throw new Error(`no such deck — ${deck}`);
-  const emulator = path.join(REPO, 'dist/lattice-emulator.js');
+  const emulator = path.join(REPO, 'dist/lattice.js');
   if (!fs.existsSync(emulator)) {
-    throw new Error('dist/lattice-emulator.js is missing — run `npm run build` first');
+    throw new Error('dist/lattice.js is missing — run `npm run build` first');
   }
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), `${label}-`));
   const html = path.join(dir, 'deck.html');
