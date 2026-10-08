@@ -191,7 +191,9 @@ A `slide` or `stretch` segment's `track` is exactly a Cadenza `CaptionTrack`:
 `cues[]` and `durationMs`. Each cue has `display`, `words[]`, `startMs`,
 `endMs`, `charOffset`, and optionally `endsParagraph` and `weight`. Each word
 has `display`, `spoken`, `startMs`, `endMs`, `charOffset`, and optionally
-`weight`. `durationMs` is the end of the last cue. A narrated segment has at
+`weight`. A `charOffset` counts UTF-16 code units into the source text, as a
+JavaScript string index does, so a character outside the Basic Multilingual
+Plane counts two. `durationMs` is the end of the last cue. A narrated segment has at
 least one cue, and every cue has at least one word.
 
 The core is **closed**: a key it does not define is an error. Every reader must
@@ -258,9 +260,14 @@ passes both checks, and a key inside the core fails both.
 
 ## Versions
 
-`version` is `"1.0"`. A new optional field outside the core is a minor
-revision. A new **required** field, or any change to the core, is a new major
-version, because the core is closed and every reader depends on it.
+`version` is `"1.<minor>"`, and this spec is `"1.0"`. A new optional field
+outside the core is a minor revision. A new **required** field, or any change to
+the core, is a new major version, because the core is closed and every reader
+depends on it.
+
+So a reader of any 1.x MUST read every 1.y file, ignoring the fields it does not
+know outside the core, and MUST refuse a file whose major version it does not
+know. A writer writes the version it implements (`LTT_VERSION`).
 
 ## Encodings
 
@@ -308,8 +315,11 @@ to `packTrack` fails the test (G1).
 ## Staleness
 
 - A segment's `hash` is SHA-256 over the UTF-8 bytes of
-  `segmentHashInput(text, inputs)` (`docs/src/lib/ltt/hash.ts`): canonical JSON
-  of `[text, inputs]`, with object keys sorted at **every** depth. `text` is the
+  `segmentHashInput(text, inputs, emphasis?)` (`docs/src/lib/ltt/hash.ts`):
+  canonical JSON of `[text, inputs]`, or of `[text, inputs, emphasis]` when the
+  segment's narration carries emphasis (one list of spans per line, in line
+  order; an absent or empty `emphasis` leaves the two-element form). Object keys
+  are sorted at **every** depth, and the rest follows `JSON.stringify`. `text` is the
   exact string the segment's track was built from, the one handed to
   `buildTrack`. A tour stretch also covers the storyboard steps it spans.
   `inputs` is the file's `inputs` object.

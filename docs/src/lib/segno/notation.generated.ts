@@ -12,7 +12,7 @@ const T6 = new Uint8Array([1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
 const R0 = /[\u0000-\u0008\u000a-\u001f\u0021-\u009f\u00a1-\uffff]/g;
 const R1 = /[\u0022\u002c\u003d\u005b\u005d\u007b-\u007d]/g;
 
-export interface GenError { at: number; expected: string; found: string | null }
+export interface GenError { at: number; expected: string; found: string | null; code?: 'stack' }
 export interface GenTree { buf: Int32Array; top: number; kinds: readonly string[] }
 
 const KINDS: readonly string[] = ["tagged","word","bare","record","list","quoted"];

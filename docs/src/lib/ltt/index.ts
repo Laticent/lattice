@@ -47,5 +47,5 @@ export type {
 } from './types.js';
 export { normalizeMatch, validateLtt } from './validate.js';
 
-/** The spec version this package reads and writes. */
+/** The spec version this package writes. It reads every 1.x file (spec/LTT-1.0.md §Versions). */
 export const LTT_VERSION = '1.0';

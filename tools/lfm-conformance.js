@@ -12,7 +12,7 @@
  * Exit 1 when any case fails. The unit tier runs the same cases
  * (test/unit/spec/lfm-conformance.test.js), plus a failing arm.
  */
-'use strict';
+
 
 const fs = require('node:fs');
 const path = require('node:path');

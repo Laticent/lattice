@@ -522,6 +522,7 @@ For the newest notes, list the folder: `ls engineering/decisions/20*.md | tail`.
 - ☑ [2026-06-07-layout-redundancy-analysis.md](2026-06-07-layout-redundancy-analysis.md) — Re-opens the layout audit's no-cuts verdict and consolidates components that share form and slot grammar into one component plus variants
 - ☑ [2026-06-07-layout-redundancy-clusters.md](2026-06-07-layout-redundancy-clusters.md) — Decision-aid deck rendering each redundancy cluster's members with parallel content to show keep / merge / drop calls
 - ☑ [2026-06-13-lfm-standard.md](2026-06-13-lfm-standard.md) — Naming and owning Lattice's Markdown dialect as LFM, a versioned standard over CommonMark and markdown-it
+- ☑ [2026-10-08-library-trio-before-publish.md](2026-10-08-library-trio-before-publish.md) — The adversarial trio over LTT, Segno and Trama before their first npm version — the verdicts, every finding and what happened to it; all…
 - ☑ [2026-08-04-line-endings-lf-boundaries.md](2026-08-04-line-endings-lf-boundaries.md) — A Windows-authored deck exported in the WRONG PALETTE because one front-matter reader of ~55 lacked a `\r?`, and it survived an earlier…
 - ☑ [2026-07-28-lint-coverage-effect-gate.md](2026-07-28-lint-coverage-effect-gate.md) — The replacement for the lint gate that was removed before merge in #1232.
 - ☑ [2026-07-28-lint-exclusions-and-off-studio-back.md](2026-07-28-lint-exclusions-and-off-studio-back.md) — Three follow-ups from the back-gesture work, landed together.

@@ -240,7 +240,7 @@ function generate(sourceText = fs.readFileSync(SOURCE, 'utf8')) {
   refuseOrphanDocs(sf);
   return {
     $schema: 'https://json-schema.org/draft/2020-12/schema',
-    $id: 'https://laticent.github.io/lattice/schemas/ltt-1.0.schema.json',
+    $id: 'https://lattice.style/schemas/ltt-1.0.schema.json',
     title: 'Lattice Timing Track (LTT) 1.0, canonical encoding',
     description:
       'GENERATED from docs/src/lib/ltt/types.ts by tools/build-ltt-schema.js — do not edit. Rebuild: npm run ltt-schema:build. Spec: engineering/ltt.md.',

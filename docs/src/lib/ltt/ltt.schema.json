@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://laticent.github.io/lattice/schemas/ltt-1.0.schema.json",
+  "$id": "https://lattice.style/schemas/ltt-1.0.schema.json",
   "title": "Lattice Timing Track (LTT) 1.0, canonical encoding",
   "description": "GENERATED from docs/src/lib/ltt/types.ts by tools/build-ltt-schema.js — do not edit. Rebuild: npm run ltt-schema:build. Spec: engineering/ltt.md.",
   "$ref": "#/$defs/Ltt",
@@ -28,7 +28,7 @@
           "minimum": 0
         },
         "charOffset": {
-          "description": "Index into the source text where `display` begins (best-effort forward scan).",
+          "description": "Index into the source text where `display` begins (best-effort forward scan), counted in UTF-16 code units, as a JavaScript string index counts: an emoji outside the Basic Multilingual Plane is two.",
           "type": "integer",
           "maximum": 9007199254740991,
           "minimum": 0
@@ -72,6 +72,7 @@
           "minimum": 0
         },
         "charOffset": {
+          "description": "Index into the source text where the cue begins, in UTF-16 code units.",
           "type": "integer",
           "maximum": 9007199254740991,
           "minimum": 0
@@ -653,7 +654,9 @@
           "const": "ltt"
         },
         "version": {
-          "const": "1.0"
+          "description": "`1.<minor>`. A writer writes `LTT_VERSION`; a 1.x reader reads any 1.y file.",
+          "type": "string",
+          "pattern": "^1\\.[0-9]+$"
         },
         "source": {
           "$ref": "#/$defs/LttSource"

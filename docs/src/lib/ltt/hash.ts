@@ -7,14 +7,20 @@
 // pipeline (Node) both reach it. A second hasher per runtime is how two producers come to disagree
 // and flag every segment stale forever.
 
+const unwritable = (v: unknown) => v === undefined || typeof v === 'function' || typeof v === 'symbol';
+
 /** JSON with every object's keys sorted, at every depth, so two producers that build the same value
  *  in a different key order write the same string. Arrays keep their order: order is data there. */
 export function canonicalJson(value: unknown): string {
-	if (Array.isArray(value)) return `[${value.map((v) => canonicalJson(v === undefined ? null : v)).join(',')}]`;
+	// JSON.stringify's rules, so a value that is not plain JSON still hashes as JSON would write
+	// it: `toJSON` first (a Date is its ISO string), a hole or an undefined / function / symbol
+	// entry in an array is null, and such a value under an object key drops the key.
+	if (value && typeof (value as { toJSON?: unknown }).toJSON === 'function') return canonicalJson((value as { toJSON: () => unknown }).toJSON());
+	if (Array.isArray(value)) return `[${Array.from(value, (v) => (unwritable(v) ? 'null' : canonicalJson(v))).join(',')}]`;
 	if (value && typeof value === 'object') {
 		const rec = value as Record<string, unknown>;
 		const keys = Object.keys(rec)
-			.filter((k) => rec[k] !== undefined)
+			.filter((k) => !unwritable(rec[k]))
 			.sort();
 		return `{${keys.map((k) => `${JSON.stringify(k)}:${canonicalJson(rec[k])}`).join(',')}}`;
 	}

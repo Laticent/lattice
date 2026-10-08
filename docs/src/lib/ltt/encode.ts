@@ -127,6 +127,11 @@ export function pack(ltt: Ltt): PackedLtt {
  *  from a track's shape would turn a corrupt canonical file into a wrong one. */
 export function unpack(packed: PackedLtt): Ltt {
 	if (!packed || packed.encoding !== 'packed') throw new TypeError('unpack: this file is not in the packed encoding (encoding !== "packed")');
+	if (!Array.isArray(packed.segments)) throw new TypeError('unpack: segments is not an array');
+	packed.segments.forEach((seg, i) => {
+		if (!seg || typeof seg !== 'object') throw new TypeError(`unpack: segments[${i}] is not an object`);
+		if ('track' in seg && !Array.isArray((seg as { track?: unknown }).track)) throw new TypeError(`unpack: segments[${i}].track is not a packed track (an array)`);
+	});
 	const { encoding: _encoding, segments, bookends, ...rest } = packed;
 	return {
 		...rest,

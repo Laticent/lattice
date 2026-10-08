@@ -225,7 +225,9 @@ function check(ltt: unknown, out: string[]): string[] {
 	}
 	if (ltt.format !== 'ltt') out.push(`format is ${q(ltt.format)}; want "ltt"`);
 	if ('encoding' in ltt) out.push(`this file is in the ${q(ltt.encoding)} encoding — unpack it before validating`);
-	if (ltt.version !== '1.0') out.push(`version is ${q(ltt.version)}; this reader knows "1.0"`);
+	// A 1.x reader reads every 1.y file: a minor revision only adds optional fields outside the
+	// closed core, which this reader ignores (spec/LTT-1.0.md §Versions). A new major is refused.
+	if (typeof ltt.version !== 'string' || !/^1\.[0-9]+$/.test(ltt.version)) out.push(`version is ${q(ltt.version)}; this reader knows 1.x`);
 
 	const source = ltt.source;
 	const kind = isRec(source) ? source.kind : undefined;

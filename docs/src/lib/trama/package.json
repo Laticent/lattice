@@ -15,12 +15,12 @@
   },
   "type": "module",
   "sideEffects": false,
-  "types": "./index.ts",
+  "types": "./dist/index.d.ts",
   "module": "./dist/index.mjs",
   "main": "./dist/index.cjs",
   "exports": {
     ".": {
-      "types": "./index.ts",
+      "@laticent/source": "./index.ts",
       "import": {
         "types": "./dist/index.d.ts",
         "default": "./dist/index.mjs"
@@ -31,7 +31,7 @@
       }
     },
     "./radial": {
-      "types": "./radial.ts",
+      "@laticent/source": "./radial.ts",
       "import": {
         "types": "./dist/radial.d.ts",
         "default": "./dist/radial.mjs"

@@ -158,7 +158,9 @@ export function timeline(
 	if (!ltt || ltt.seekable !== true) throw new TypeError('timeline: this file is not seekable — some wait has no recorded length (engineering/ltt.md §seekable)');
 	const segments: LttTimelineEntry[] = [];
 	const ends = opts.bookends === false ? undefined : ltt.bookends;
-	const hello = ends?.greeting ? ends.greeting[opts.greeting || 'neutral'] : undefined;
+	const variant = opts.greeting || 'neutral';
+	// Own keys only: a plain-JS caller's `greeting: 'constructor'` must not reach the prototype.
+	const hello = ends?.greeting && Object.hasOwn(ends.greeting, variant) ? ends.greeting[variant] : undefined;
 	let at = 0;
 	let greeting: LttTimelineEntry | undefined;
 	if (hello) {

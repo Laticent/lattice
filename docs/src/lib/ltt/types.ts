@@ -25,8 +25,9 @@ export interface Word {
 	startMs: number;
 	/** @integer @minimum 0 */
 	endMs: number;
-	/** Index into the source text where `display` begins (best-effort forward scan).
-	 *  @integer @minimum 0 */
+	/** Index into the source text where `display` begins (best-effort forward scan), counted in
+	 *  UTF-16 code units, as a JavaScript string index counts: an emoji outside the Basic
+	 *  Multilingual Plane is two. @integer @minimum 0 */
 	charOffset: number;
 	/** Emphasis weight, 1 = ordinary. ABSENT for an ordinary word — an unweighted deck therefore
 	 *  serializes exactly as it did before emphasis existed, so no golden or manifest moves. */
@@ -42,7 +43,7 @@ export interface Cue {
 	startMs: number;
 	/** @integer @minimum 0 */
 	endMs: number;
-	/** @integer @minimum 0 */
+	/** Index into the source text where the cue begins, in UTF-16 code units. @integer @minimum 0 */
 	charOffset: number;
 	/** True when a PARAGRAPH / topic boundary (a blank line) follows this cue — so the gap before the
 	 *  next cue is the deeper `PARAGRAPH_PAUSE_MS` beat, not the sentence pause. The clocked player reads
@@ -287,7 +288,8 @@ export interface LttBookends {
 /** A Lattice Timing Track, in its canonical encoding (`*.ltt.json`). */
 export interface Ltt {
 	format: 'ltt';
-	version: '1.0';
+	/** `1.<minor>`. A writer writes `LTT_VERSION`; a 1.x reader reads any 1.y file. @pattern ^1\.[0-9]+$ */
+	version: string;
 	source: LttSource;
 	inputs: LttInputs;
 	/** True when every segment's length is known, so the segments lay end to end on one timeline. */

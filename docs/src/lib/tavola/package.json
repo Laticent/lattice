@@ -15,12 +15,12 @@
   },
   "type": "module",
   "sideEffects": false,
-  "types": "./index.ts",
+  "types": "./dist/index.d.ts",
   "module": "./dist/index.mjs",
   "main": "./dist/index.cjs",
   "exports": {
     ".": {
-      "types": "./index.ts",
+      "@laticent/source": "./index.ts",
       "import": {
         "types": "./dist/index.d.ts",
         "default": "./dist/index.mjs"
@@ -31,7 +31,7 @@
       }
     },
     "./trystero": {
-      "types": "./adapters/trystero.ts",
+      "@laticent/source": "./adapters/trystero.ts",
       "import": {
         "types": "./dist/adapters/trystero.d.ts",
         "default": "./dist/trystero.mjs"

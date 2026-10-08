@@ -199,10 +199,21 @@ export function schemaProblems(spec: RecordSpec): string[] {
   return problems;
 }
 
+// Each entry point (`.`, `./read`, `./values`) is bundled on its own, so each carries its own copy of
+// this class, and a plain `instanceof` failed across them: an error thrown by `/read` was not a
+// SchemaError imported from the root. The brand is a registered symbol, the same in every copy and
+// every realm, and `instanceof` checks it instead of the prototype chain.
+const SCHEMA_ERROR = Symbol.for('@laticent/segno/SchemaError');
+
 export class SchemaError extends Error {
   constructor(readonly problems: readonly string[]) {
     super(`segno: this schema is ambiguous:\n  - ${problems.join('\n  - ')}`);
     this.name = 'SchemaError';
+    Object.defineProperty(this, SCHEMA_ERROR, { value: true });
+  }
+
+  static [Symbol.hasInstance](x: unknown): boolean {
+    return typeof x === 'object' && x !== null && (x as Record<symbol, unknown>)[SCHEMA_ERROR] === true;
   }
 }
 

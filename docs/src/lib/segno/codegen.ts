@@ -356,7 +356,7 @@ function x_${k}(): GenError {
   // declared its rules inside itself allocated a closure per rule on every span.
   return `${options.banner ?? ''}${tableDecls}
 
-export interface GenError { at: number; expected: string; found: string | null }
+export interface GenError { at: number; expected: string; found: string | null; code?: 'stack' }
 export interface GenTree { buf: Int32Array; top: number; kinds: readonly string[] }
 
 const KINDS: readonly string[] = ${JSON.stringify(kinds)};
@@ -405,7 +405,7 @@ export function parse(input: string, rule = ${q(spec.start)}): { ok: true; tree:
     // A grammar deep in frames per level can exhaust the stack before maxDepth: report it as
     // nesting, never throw it (compile() does the same).
     if (!(x instanceof Error && /call stack size|too much recursion/i.test(x.message))) throw x;
-    return { ok: false, error: { at: i, expected: ${q(STACK_EXHAUSTED)}, found: i < n ? s[i] : null } };
+    return { ok: false, error: { at: i, expected: ${q(STACK_EXHAUSTED)}, found: i < n ? s[i] : null, code: 'stack' } };
   }` : 'const ok = start();'}
   if (ok && i < n) fail('end of input');
   const e = err as GenError | null;

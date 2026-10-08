@@ -75,6 +75,13 @@ describe('validateLtt', () => {
 		}
 	});
 
+	it('reads a later 1.x file and refuses a new major (spec §Versions)', () => {
+		expect(after(deck, (l) => { (l as Mut).version = '1.1'; })).toBe('');
+		expect(after(deck, (l) => { (l as Mut).version = '1.12'; })).toBe('');
+		expect(after(deck, (l) => { (l as Mut).version = '1'; })).toMatch(/this reader knows 1\.x/);
+		expect(after(deck, (l) => { (l as Mut).version = 1.1; })).toMatch(/this reader knows 1\.x/);
+	});
+
 	it('ignores a key it does not know outside the core — a reader skips a layer it has not heard of', () => {
 		expect(after(deck, (l) => { l.future = 1; (l.segments[0] as Mut).futureLayer = { x: 1 }; l.inputs = { ...l.inputs, future: 2 } as Mut; })).toBe('');
 	});
@@ -82,7 +89,7 @@ describe('validateLtt', () => {
 	// Each rule, broken on purpose. The fragment is what a person reading the report needs to see.
 	const cases: [string, () => Ltt, (l: Ltt & Record<string, Mut>) => void, RegExp][] = [
 		['a wrong format tag', deck, (l) => { (l as Mut).format = 'vtt'; }, /format is "vtt"/],
-		['an unknown version', deck, (l) => { (l as Mut).version = '2.0'; }, /this reader knows "1\.0"/],
+		['an unknown version', deck, (l) => { (l as Mut).version = '2.0'; }, /this reader knows 1\.x/],
 		['a packed file handed in unpacked', deck, (l) => { l.encoding = 'packed'; }, /unpack it before validating/],
 		['a malformed hash', deck, (l) => { l.inputs.engine = 'sha256:abc'; }, /inputs\.engine is not a content hash/],
 		['an unknown pace', deck, (l) => { l.inputs.pace = 'quick' as Mut; }, /inputs\.pace is "quick"/],
