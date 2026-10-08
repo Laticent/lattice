@@ -935,6 +935,32 @@ export async function embeddableLattice(source: string, deckTitle: string, now: 
 	return new Uint8Array(await (await latticeBlob(source, deckTitle, [], now, packages)).arrayBuffer());
 }
 
+/** The Share toast's note on an Export-to-Marp bundle, or undefined: the deck's own script the export
+ *  left out (§ 11), what the bundle's HTML list will show as text or drop in marp-cli (§ 13,
+ *  lib/core/marp-bundle-html.js), a <title> left open, which swallows the slides after it, and any
+ *  equation the export could not typeset (lib/core/marp-bundle-math.js). */
+export function marpExportNote(removed?: {
+	scripts: number; handlers: number; urls: number; escaped?: boolean;
+	refused?: { tags?: Record<string, number>; attrs?: Record<string, number>; unclosed?: string[] };
+	math?: { failed?: number };
+}): string | undefined {
+	if (removed?.escaped) return "the deck's HTML could not be separated from its script, so the bundle shows all of it as text";
+	const n = removed ? removed.scripts + removed.handlers + removed.urls : 0;
+	const script = n ? `it left out the deck's own script (${n} ${n === 1 ? 'piece' : 'pieces'}), which Marp would run on the recipient's machine` : '';
+	// What the bundle's HTML list will show as text or drop in marp-cli (lib/core/marp-bundle-html.js).
+	const tags = Object.keys(removed?.refused?.tags ?? {});
+	const attrs = Object.keys(removed?.refused?.attrs ?? {});
+	const refused = tags.length || attrs.length
+		? `marp-cli will ${tags.length ? `show ${tags.map((t) => `<${t}>`).join(', ')} as text` : ''}${tags.length && attrs.length ? ' and ' : ''}${attrs.length ? `drop ${attrs.join(', ')}` : ''}`
+		: '';
+	// A <title> left open swallows the slides after it as text in any browser; only the author can close it.
+	const unclosed = removed?.refused?.unclosed?.includes('title') ? 'the deck leaves a <title> open, so the slides after it show as text' : '';
+	// Equations the export could not typeset ship as TeX text (lib/core/marp-bundle-math.js, fail closed).
+	const failed = removed?.math?.failed ?? 0;
+	const math = failed ? `${failed} ${failed === 1 ? 'equation' : 'equations'} could not be typeset and ${failed === 1 ? 'shows' : 'show'} as TeX` : '';
+	return [script, refused, unclosed, math].filter(Boolean).join('; ') || undefined;
+}
+
 /** The self-contained Marp ZIP bundle (renders anywhere). Resolves to a reason for the toast
  *  when the bundle dropped the deck's own executable HTML, which marp-cli would otherwise run on
  *  the recipient's machine (theme-css-is-a-preview-sink.md § 11). */
@@ -965,18 +991,7 @@ export async function shareMarp(options: SingleSlideOptions, source: string, nam
 		if (katexUrl) await ensureKatexProvider(katexUrl).catch(() => {});
 	}
 	const removed = await ex.exportMarp(embedFinishInMarkdown(source, finishClass, finishCss), name, palette, options.themeBase, { includeAgent: true, overflowMarker: overflowMarker ?? loadSettings().overflowMarker, extraTheme: extra, components: [...components], pluginsOff: deckPluginsOff(source) });
-	if (removed?.escaped) return "the deck's HTML could not be separated from its script, so the bundle shows all of it as text";
-	const n = removed ? removed.scripts + removed.handlers + removed.urls : 0;
-	const script = n ? `it left out the deck's own script (${n} ${n === 1 ? 'piece' : 'pieces'}), which Marp would run on the recipient's machine` : '';
-	// What the bundle's HTML list will show as text or drop in marp-cli (lib/core/marp-bundle-html.js).
-	const tags = Object.keys(removed?.refused?.tags ?? {});
-	const attrs = Object.keys(removed?.refused?.attrs ?? {});
-	const refused = tags.length || attrs.length
-		? `marp-cli will ${tags.length ? `show ${tags.map((t) => `<${t}>`).join(', ')} as text` : ''}${tags.length && attrs.length ? ' and ' : ''}${attrs.length ? `drop ${attrs.join(', ')}` : ''}`
-		: '';
-	const failed = removed?.math?.failed ?? 0;
-	const math = failed ? `${failed} ${failed === 1 ? 'equation' : 'equations'} could not be typeset and ${failed === 1 ? 'shows' : 'show'} as TeX` : '';
-	return [script, refused, math].filter(Boolean).join('; ') || undefined;
+	return marpExportNote(removed);
 }
 
 /** One-click image PDF (2× raster, one slide per page). The page-image format

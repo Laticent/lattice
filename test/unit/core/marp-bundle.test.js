@@ -127,10 +127,11 @@ describe('marp-bundle spec', () => {
     // input here, and saying so in a comment would not make the pattern stop looking like
     // one. Equality is also the stronger assertion: the strip form passed no matter how the
     // generated blocks were ordered or spelled.
-    const trailer = out.slice(out.indexOf('<!-- markdownlint-disable MD033 -->'));
+    const trailer = out.slice(out.indexOf('<!-- Lattice: ends any HTML block left open above'));
     assert.equal(
       trailer,
-      '<!-- markdownlint-disable MD033 -->\n'
+      '<!-- Lattice: ends any HTML block left open above: </pre></script></style></textarea> ?> ]]> -->\n'
+      + '<!-- markdownlint-disable MD033 -->\n'
       + '<script src="mermaid-v11-min.js"></script>\n'
       + '<script src="lattice-dagre-min.js"></script>\n'
       + '<script src="lattice-runtime-min.js"></script>\n'
@@ -596,5 +597,36 @@ describe('marp-bundle — asset references (mapImageRefs, withSampleAssets)', ()
     assert.match(out, /!\[Ada\]\(sample:portrait-ada\.svg "Ada"\)/, 'not fetched, so left as written');
     assert.match(out, /!\[y\]\(sample:\.\.\/etc\/passwd\)/, 'malformed, so never a sample');
     assert.match(out, /!\[x\]\(https:\/\/x\.test\/a\.png\)/);
+  });
+});
+
+// The guard line before the trailer ends any raw-HTML block the deck left open, so an unclosed <pre>,
+// <textarea> or <style> on the last slide cannot swallow the runtime lines (an unclosed <style> was
+// lifted into the theme as CSS, measured: the runtime did not load). Driven through markdown-it with a
+// stand-in sanitizer; the integration test renders the real thing.
+describe('marp-bundle trailer guard', () => {
+  const { configSource } = require('../../../lib/core/marp-bundle-html');
+  const vm = require('node:vm');
+  const ctx = {};
+  vm.runInNewContext(`${configSource(RUNTIME_SCRIPT_SRCS)}\nthis.engine = engine;`, ctx);
+  const md = require('markdown-it')({ html: true });
+  md.renderer.rules.html_block = () => '[sanitized]\n';
+  ctx.engine({ marp: { use(p) { p(md); return this; } } });
+
+  test('a deck ending inside an open raw-HTML block keeps every runtime line', () => {
+    for (const tail of ['<pre>\nunclosed\n', '<textarea>\nx\n', '<style>\na{}\n', '<!--\nopen\n', '<?php\n', '<![CDATA[\nx\n']) {
+      const deck = withRuntimeScripts(`---\nmarp: true\n---\n\n# A\n\n${tail}`);
+      const out = md.render(deck);
+      for (const src of RUNTIME_SCRIPT_SRCS) assert.ok(out.includes(`<script src="${src}"></script>`), `${JSON.stringify(tail)}: ${src}`);
+      assert.equal(withRuntimeScripts(deck), deck, 'and re-export stays idempotent');
+    }
+  });
+
+  test('re-export matches the guard by its opening, and keeps an author comment that only resembles it', () => {
+    const reworded = withRuntimeScripts('# A\n').replace(/<!-- Lattice: ends[^\n]*-->/, '<!-- Lattice: ends any HTML block (older wording) -->');
+    assert.equal((withRuntimeScripts(reworded).match(/<!-- Lattice: ends/g) || []).length, 1);
+    const preGuard = '# A\n\n<!-- Lattice: ends the story here -->\n<!-- markdownlint-disable MD033 -->\n'
+      + RUNTIME_SCRIPT_SRCS.map((src) => `<script src="${src}"></script>`).join('\n') + '\n';
+    assert.match(withRuntimeScripts(preGuard), /<!-- Lattice: ends the story here -->/);
   });
 });
