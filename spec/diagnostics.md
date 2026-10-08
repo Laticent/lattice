@@ -107,8 +107,8 @@ distinct, stable ID.
 | `unknown-class` | warning | ✓ | A `_class` token that is not a known component or modifier, or one that was renamed. Carries a did-you-mean. |
 | `conflicting-variants` | warning | — | Two tokens on one slide from an axis that takes one value at a time (two variants, two finishes); only one wins. |
 | `block-unsupported` | warning | — | An editorial modifier (`insight-*`, `no-note`) on a layout that has nothing for it to act on. |
-| `list-modifier-inert` | warning | — | A `list` counter modifier that the slide's list register never reads (`numbered` on `principles`, `roman` on `takeaway`). |
-| `card-style-inline-title` | error | ✓ | `- **Title.** body` on a card-style layout — the body inherits the parent `li` bold. Fix: nested `- Title` / `  - body`. |
+| `list-modifier-inert` | warning | — | On a list slide, a counter modifier its register never reads: `numbered` without `takeaway`, or `lettered`/`roman`/`bullet` without `principles`. Also `principles` over `-` bullets (it numbers an ordered list only), and `takeaway` over a `1.` list without `numbered` (the numbers are hidden). |
+| `card-style-inline-title` | error | ✓ | `- **Title.** body` (or ordered `1. **Title.** body`) on a card-style layout — the body inherits the parent `li` bold. Fix: nested `- Title` / `  - body`. |
 | `ledger-inline-title` | error | ✓ | The unordered inline-bold shape on a ledger/numbered layout — autofixes to the ordered `1. Name` / `   - body` shape the layout wants. |
 | `statement-ol-bold` | error | — | A `**bold**` span inside an ordered-list statement, which splits the counter-grid row (e.g. `principles`). |
 | `split-bodyless-item` | error | ✓ | A right-panel item with no nested body on a split layout — the title won't lift to bold. |
@@ -117,18 +117,18 @@ distinct, stable ID.
 | `split-compare-option-count` | warning | — | `split-compare` without exactly two top-level options — the layout assumes a two-up and highlights the 2nd as preferred. |
 | `number-slot-bodyless-item` | warning | — | A `kpi`/`stats` number item with no nested label — the number won't render in display type. |
 | `big-number-hero-heading` | warning | — | A `big-number` slide whose number is written as a heading, so the required number slot (the first list item) is empty. |
-| `claim-bleed-unsafe` | warning | — | A claim variant that bleeds to the true edge of the slide, where its content is cropped. |
+| `claim-bleed-unsafe` | warning | — | A bleeding claim (a per-slide `claim-*` or the deck-wide `claim:`) on a component that excludes it (a prose-dense or table layout), whose content is cropped at the true edge. |
 | `qr-empty-payload` | error | — | A `qr` payload bullet with no value. |
 | `qr-missing-payload` | error | — | A `qr` slide with no scannable payload bullet. |
 | `qr-duplicate-payload` | error | — | A `qr` slide with more than one payload bullet; it renders only one. |
-| `track-directive` | warning | — | A bare `track:` (deck-wide from that slide on) where `_track:` was meant, `_track` on a slide that is not `topic` or on `topic fact`, a track with fewer than two labels (none is drawn), or a track with no current topic. |
+| `track-directive` | warning | — | On a slide with a class directive: a bare `track:` (deck-wide from that slide on) where `_track:` was meant, `_track` on a slide that is not `topic` or on `topic fact`, a track with fewer than two labels (none is drawn), or a track with no current topic. |
 | `track-list` | warning | — | A list on a `topic` slide, which shows as plain content; the track is built from the section's headings. |
-| `focus-spec` | warning | — | A malformed `_focus` directive, which silently does nothing at render. |
-| `focus-style` | warning | — | A `_focusStyle` value that is not `spotlight`, `ring` or `list-fill`. |
-| `focus-steps` | warning | — | A `_focusSteps` step that is not a valid `_focus` spec. |
+| `focus-spec` | warning | — | A malformed `_focus` directive on a slide with a class directive; it silently does nothing at render. |
+| `focus-style` | warning | — | A `_focusStyle` value that is not `spotlight`, `ring`, `list-fill`, `blur` or `pop`, on a slide with a class directive. |
+| `focus-steps` | warning | — | A `_focusSteps` step that is not a valid `_focus` spec (only the first bad step is reported), on a slide with a class directive. |
 | `unknown-map-region` | warning | — | A `map` list item whose lead name the basemap can't resolve. Carries a did-you-mean against the basemap vocabulary. |
 | `trail-budget` | warning | — | A word in an `authority-chain trail` column too long for the column, which squeezes the others. |
-| `tag-budget` | warning | — | A card tag or band label long enough to wrap, which pushes every card on the slide down. |
+| `tag-budget` | warning | — | On `decision` and `compare-prose` (not `axis`), a card tag long enough to wrap, or a band label long enough to run past two lines, which grows every tag on the slide and pushes the cards down. |
 | `tag-alias` | info | — | `banner-tag`, the old name for `tag-band`. |
 | `label-set-above-body` | warning | — | A label list naming key entries, placed above the chart: there it names the axes instead of relabeling the key, or shows as text if it has more items than the chart has axes. |
 | `label-set-unbound` | warning | — | A bracketed label list that relabels nothing: on a component with no key, an entry that is not one of the component's key members, or a key named twice (the last wins). |
@@ -138,17 +138,17 @@ distinct, stable ID.
 
 | Rule ID | Severity | Autofix | What it catches |
 |---|---|---|---|
-| `capacity-overflow` | warning | — | More elements than the layout fits; whatever does not fit may be cut off. |
+| `capacity-overflow` | warning | — | More elements than the layout's capacity, on a wide (16:9) deck or under `fit: report`, where nothing splits the slide; the extra ones may be cut off. (At other sizes the slide splits and nothing is reported.) |
 | `capacity-crowd` | suggestion | — | More elements than the layout reads well with; it still renders whole. |
-| `capacity-scale` | warning / info | — | More elements, or longer text, than the layout fits at the deck's type size (a `venue:`, a `scale-*` class, or the laptop size itself), so some may be cut off. A warning at a named venue or wherever it clips at every size; `info` under a bare `scale-*`. |
+| `capacity-scale` | warning / info | — | More elements, longer text, or a longer or wider code block than the layout fits at the deck's type size (a `venue:`, a `scale-*` class, or, on a 16:9 deck with neither, the laptop size itself), so some may be cut off. A warning at a named venue, at the laptop size, or for a code block too long even at laptop size; otherwise `info` under a bare `scale-*`. |
 | `spot-scale` | warning / info | — | A `scale-*` or `venue-*` class on some slides only, so type size jumps between slides. |
 | `code-line-clipped` | info | — | A code line wider than the pane it renders into, so its end is cut off. |
-| `pane-layout` | warning | — | A pane layout that does not lay out as written: set deck-wide or for a run of slides, fewer than two or more than two panes, a ratio that is not a class name or more than one ratio, both `columns` and `rows`, a `###` above the title, or a class token, slide layout or modifier a pane cannot use. |
+| `pane-layout` | warning | — | A pane layout that does not lay out as written: set deck-wide or for a run of slides, fewer than two or more than two panes, a ratio that is not a class name, off the 25–75 grid in 5% steps, or more than one ratio, both `columns` and `rows`, a `###` above the title, or a class token, slide layout or modifier a pane cannot use. |
 | `pane-syntax` | warning | — | The old pane syntax (`<!-- panes: -->`, `<!-- pane: -->`), which still works but may be removed. |
 | `pane-title` | suggestion | — | A pill or label above a pane title that joins the title on one line. |
 | `pane-insight` | warning | — | More than one Key Insight on a panes slide; they all show together below the panes. |
 | `pane-arrange` | suggestion | — | Panes that will render reoriented, or split into one slide per pane, rather than as written. |
-| `pane-overflow` | warning | — | A pane with more than fits on the slide it becomes. |
+| `pane-overflow` | warning | — | A pane with more elements than fit: in its share of the slide as laid out (after a pane title and the slide's eyebrow, subtitle, Key Insight or note take their height), or, when the panes split into one slide per pane, on the slide it becomes. |
 | `pane-crowd` | suggestion | — | A pane with more elements than it reads well with. |
 
 ### 3.3 Inline notation (pills, sparks, marks, plugin kinds)
@@ -197,11 +197,11 @@ distinct, stable ID.
 | `unknown-color-mode` | warning | ✓ | A `color-mode:` value the engine does not know; the deck uses the theme's default colors. |
 | `unknown-delivery` | warning | ✓ | A `delivery:` value the engine does not know; the deck uses `restrained`. |
 | `unknown-pace` | warning | ✓ | A `pace:` value the engine does not know; playback uses each viewer's own setting. |
-| `unknown-debug-facet` | warning | — | A `debug:` value the engine does not know; the overlay falls back to on-hover. |
+| `unknown-debug-facet` | warning | — | A word in a front-matter `debug:` value or a `<!-- _debug: -->` directive that the engine does not know; the overlay falls back to on-hover. |
 | `deck-wide-component` | warning | — | A component named in the deck-wide `class:` register (every slide would become it), or a class `color-mode:` overrides. Ignored. |
 | `bad-render-target-value` | warning | — | A render-target setting that is neither on nor off; the export treats it as off. |
 | `nested-render-target-key` | warning | — | An indented render-target key that the export still reads as the deck setting. |
-| `guards-renamed` | warning / info | — | `guards:`, the old name of `fit:`. |
+| `guards-renamed` | warning / info | — | `guards:`, the old name of `fit:`. A warning when its value is not valid and no `fit:` is set (the deck uses `heal`); otherwise `info`, including when `fit:` is also set and wins. |
 | `retired-backdrop-key` | warning | — | The retired multi-line `backdrop:` block, which is no longer read. |
 | `retired-form-key` | warning | — | `form: off`, which no longer works; slides now show the title band and progress bar. |
 | `retired-form-token` | warning | — | The retired `no-form` class token. |
