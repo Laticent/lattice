@@ -4052,7 +4052,7 @@ function listRepoTextFiles(dir = ROOT, out = []) {
       !/\.gallery\.(light|dark)\.html$/.test(e.name) &&
       // Deck render sidecars more broadly — the emulator writes <name>.html next to
       // EVERY <name>.pdf it renders (examples/, baseline-decks/, exemplars/), and the
-      // pre-commit pdf-rebuild regenerates them; the committed artifact is the .pdf.
+      // nightly bless (and any local render) regenerates them; the committed artifact is the .pdf.
       // Skip any .html that has a sibling .md of the same basename (a deck render
       // sidecar, never house prose) — same transient-flicker reason as galleries.
       !(path.extname(e.name) === '.html' && fs.existsSync(p.replace(/\.html$/, '.md')))

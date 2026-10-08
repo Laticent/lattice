@@ -359,7 +359,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | Name | What it does |
 |---|---|
 | `tools/affected-tests.js` | Map staged file paths → the npm test scripts that cover them. |
-| `tools/build-staged-pdfs.js` | Pre-commit helper: rebuild + re-stage the PDF for every staged deck |
+| `tools/build-staged-pdfs.js` | Which markdown produces a committed PDF, and how to render it. |
 | `tools/check-chart-responsiveness.js` | check-chart-responsiveness — the S4 responsiveness lint (#180). |
 | `tools/check-commit-msg.sh` | Validate commit message format: `area(scope): summary` or `area: summary`. |
 | `tools/check-ownership.js` | Ownership / collision guard for the Lattice build. |

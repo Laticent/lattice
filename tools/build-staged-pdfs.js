@@ -1,11 +1,19 @@
 #!/usr/bin/env node
 /**
- * Pre-commit helper: rebuild + re-stage the PDF for every staged deck
- * markdown, incrementally — only the decks whose source actually
- * changed. Replaces the "edited markdown, forgot to rebuild the PDF"
- * gate (check-pdf-freshness.sh) with an auto-rebuild: the PDF is a pure
- * derived artifact, so the hook regenerates it and stages it for you
- * rather than failing and making you do it by hand.
+ * Which markdown produces a committed PDF, and how to render it.
+ *
+ * Until goldens rollout step 3 this was the pre-commit `pdf-rebuild` hook, which
+ * re-rendered and STAGED the PDF of every staged deck. Pull requests no longer commit
+ * PDFs (tools/check-no-pdf-in-pr.mjs; engineering/decisions/2026-10-06-goldens-bot-
+ * blessed.md §2.3): the nightly bless bot is their one writer. So this file is now
+ *
+ *   - the predicate `classify()`: which markdown should have a committed PDF. The bless
+ *     bot uses it to find a deck that has none yet and render it;
+ *   - `buildFor(files)`: render the PDFs those files produce, in place, and return the
+ *     paths. The bot calls it; nothing stages the result except the bot's own commit;
+ *   - a local preview: `node tools/build-staged-pdfs.js [file...]` renders the PDFs for
+ *     the given files (default: the staged ones) and NEVER stages them. Do not commit
+ *     what it writes; `git checkout -- '*.pdf'` puts the committed ones back.
  *
  * Scope — markdown that produces a committed PDF:
  *   examples/<name>.md                          → examples/<name>.pdf
@@ -16,19 +24,16 @@
  *   lib/components/<bucket>/<bucket>.gallery.md        (bucket survey)
  *       → build-bucket-galleries.js --only <bucket>  (light + dark)
  *
- * NOT in scope (deliberately): component CSS / transforms / shared CSS /
- * themes / the engine. Those affect many decks at once and a full
- * rebuild is ~30 min — too slow for a commit hook. CI's freshness
- * checks (build:galleries:check / build:bucket-galleries:check) are the
- * safety net there. This hook only ever rebuilds decks whose *markdown*
- * is in the commit, so its cost scales with the change, not the repo.
+ * NOT in scope: component CSS / transforms / shared CSS / themes / the engine. Those
+ * move many PDFs at once; the bless bot's nightly check of the whole corpus finds and
+ * re-renders what they moved.
  *
  * Chrome: lattice-emulator.js auto-detects the puppeteer-cached binary,
  * so no CHROME_PATH wiring is needed here.
  *
  * Exit codes:
- *   0  every staged deck rebuilt + staged (or nothing to do)
- *   1  a rebuild failed
+ *   0  every PDF rendered (or nothing to do)
+ *   1  a render failed
  */
 
 const fs = require('node:fs');
@@ -144,7 +149,7 @@ function classify(file) {
 // would buffer stdout to a 1 MB default and spuriously fail a chatty render.
 function buildDeckAsync(job) {
   return new Promise((resolve, reject) => {
-    process.stderr.write(`build-staged-pdfs: rebuilding ${job.out}\n`);
+    process.stderr.write(`build-staged-pdfs: rendering ${job.out}\n`);
     const child = spawn('node', [EMULATOR, job.src, job.out], { cwd: ROOT, stdio: 'inherit' });
     child.on('error', (err) => reject(new Error(`${job.out}: ${err.message}`)));
     child.on('close', (code) => {
@@ -201,8 +206,9 @@ function globGallery(_pattern, name, _bucket) {
   return [];
 }
 
-async function main() {
-  const files = stagedFiles();
+// Render the PDFs that `files` produce, in place. Returns the repo-relative paths written.
+// Throws on the first render failure.
+async function buildFor(files) {
   const decks = [];
   const components = new Set();
   const buckets = new Set();
@@ -217,46 +223,49 @@ async function main() {
     else if (job.kind === 'showcase') showcases.add(job.id);
   }
 
-  if (!decks.length && !components.size && !buckets.size && !showcases.size) return;
-
   const rebuilt = [];
+  // Decks are independent (distinct outputs) → render concurrently. Component and bucket
+  // gallery builds stay serial (the --only tools manage their own shared output).
+  rebuilt.push(...(await buildDecks(decks)));
+  for (const c of components) {
+    process.stderr.write(`build-staged-pdfs: rendering component gallery ${c}\n`);
+    rebuilt.push(...buildComponent(c));
+  }
+  for (const b of buckets) {
+    process.stderr.write(`build-staged-pdfs: rendering bucket gallery ${b}\n`);
+    rebuilt.push(...buildBucket(b));
+  }
+  for (const id of showcases) {
+    process.stderr.write(`build-staged-pdfs: rendering showcase gallery ${id}\n`);
+    execFileSync('node', [path.join(ROOT, 'tools', 'build-showcase-galleries.js')], { cwd: ROOT, stdio: 'inherit' });
+    rebuilt.push(`examples/${id}-gallery.md`, `examples/${id}-gallery.light.pdf`, `examples/${id}-gallery.dark.pdf`);
+  }
+  return rebuilt.filter((p) => fs.existsSync(path.join(ROOT, p)));
+}
+
+async function main() {
+  const args = process.argv.slice(2);
+  const files = args.length ? args : stagedFiles();
+  let written;
   try {
-    // Decks are independent (distinct outputs) → render concurrently. Component
-    // and bucket gallery builds stay serial (the --only tools manage their own
-    // shared output and are the rarer path).
-    rebuilt.push(...(await buildDecks(decks)));
-    for (const c of components) {
-      process.stderr.write(`build-staged-pdfs: rebuilding component gallery ${c}\n`);
-      rebuilt.push(...buildComponent(c));
-    }
-    for (const b of buckets) {
-      process.stderr.write(`build-staged-pdfs: rebuilding bucket gallery ${b}\n`);
-      rebuilt.push(...buildBucket(b));
-    }
-    for (const id of showcases) {
-      process.stderr.write(`build-staged-pdfs: rebuilding showcase gallery ${id}\n`);
-      execFileSync('node', [path.join(ROOT, 'tools', 'build-showcase-galleries.js')], { cwd: ROOT, stdio: 'inherit' });
-      rebuilt.push(`examples/${id}-gallery.md`, `examples/${id}-gallery.light.pdf`, `examples/${id}-gallery.dark.pdf`);
-    }
+    written = await buildFor(files);
   } catch (err) {
-    process.stderr.write(`build-staged-pdfs: rebuild failed — ${err.message}\n`);
+    process.stderr.write(`build-staged-pdfs: render failed — ${err.message}\n`);
     process.exit(1);
   }
-
-  const existing = rebuilt.filter((p) => fs.existsSync(path.join(ROOT, p)));
-  if (existing.length) {
-    execFileSync('git', ['add', '--', ...existing], { cwd: ROOT, stdio: 'inherit' });
-    // Loud + explicit: this hook adds derived PDFs INTO your commit. Name them.
+  if (written.length) {
     process.stderr.write(
-      `build-staged-pdfs: staged ${existing.length} rebuilt PDF(s) into this commit:\n` +
-        existing.map((p) => `  + ${p}\n`).join(''),
+      `build-staged-pdfs: rendered ${written.length} file(s) for local preview, NOT staged:\n` +
+        written.map((p) => `  ${p}\n`).join('') +
+        'Pull requests do not commit PDFs; the nightly bless bot does. Restore them with\n' +
+        "  git checkout -- '*.pdf'   (and delete any new ones) before you commit.\n",
     );
   }
 }
 
-// Run as a hook; `require`d only by the test that keeps `classify()` and the
-// pre-commit glob in lefthook.yml in sync (a path one can see and the other
-// cannot is a dead gate — that is how 27 committed PDFs went stale).
+// Run by hand for a local preview. `require`d by the bless bot (classify, buildFor) and
+// by test/unit/tools/staged-pdf-glob.test.js, which keeps classify() covering every deck
+// that ships a committed PDF.
 if (require.main === module) main();
 
-module.exports = { classify };
+module.exports = { classify, buildFor };
