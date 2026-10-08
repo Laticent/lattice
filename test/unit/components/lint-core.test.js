@@ -603,7 +603,12 @@ describe('lint-core: focus directive grammar (rule 11)', () => {
     assert.match(ruleFor(slide('<!-- _focus: row abc -->'), 'focus-spec').message, /ordinal/);
   });
   test('unknown _focusStyle is flagged, valid ones pass', () => {
-    assert.match(ruleFor(slide('<!-- _focusStyle: glow -->'), 'focus-style').message, /spotlight \| ring \| list-fill/);
+    const f = ruleFor(slide('<!-- _focusStyle: glow -->'), 'focus-style');
+    // The message and the fix are built from FOCUS_STYLES, so neither can fall behind it.
+    for (const s of core.FOCUS_STYLES) {
+      assert.match(f.message, new RegExp(`\\b${s}\\b`), `message names ${s}`);
+      assert.match(f.fix, new RegExp(`\\b${s}\\b`), `fix names ${s}`);
+    }
     for (const s of ['spotlight', 'ring', 'list-fill', 'blur', 'pop']) {
       assert.equal(ruleFor(slide(`<!-- _focusStyle: ${s} -->`), 'focus-style'), undefined, s);
     }
@@ -1517,6 +1522,31 @@ describe('lint-core: shell-fence-is-script (rule 12b)', () => {
   });
 });
 
+describe('lint-core: focus and track rules run on a slide with no class', () => {
+  // These four rules read their own directives, not the class, so a class-less slide
+  // gets them too. A bare deck-wide `track:` is the case track-directive exists for.
+  const bare = (dir) => `${FM}${dir}\n\n## Head\n\nA claim.\n`;
+  test('a bare `track:` is flagged', () => {
+    assert.ok(ruleFor(bare('<!-- track: A | [B] -->'), 'track-directive'));
+  });
+  test('`_track` off a topic slide is flagged', () => {
+    assert.match(ruleFor(bare('<!-- _track: A | [B] -->'), 'track-directive').message, /not `topic`/);
+  });
+  test('a malformed `_focus` is flagged', () => {
+    assert.ok(ruleFor(bare('<!-- _focus: rows 4 -->'), 'focus-spec'));
+  });
+  test('an unknown `_focusStyle` is flagged', () => {
+    assert.ok(ruleFor(bare('<!-- _focusStyle: glow -->'), 'focus-style'));
+  });
+  test('a malformed `_focusSteps` is flagged', () => {
+    assert.ok(ruleFor(bare('<!-- _focusSteps: row 1 | rows 2 -->'), 'focus-steps'));
+  });
+  test('a well-formed class-less slide stays silent', () => {
+    const rules = core.lintTextWith(bare('<!-- _focus: row 2 -->'), vocab).map((f) => f.rule);
+    for (const r of ['track-directive', 'focus-spec', 'focus-style', 'focus-steps']) assert.ok(!rules.includes(r), r);
+  });
+});
+
 describe("lint-core: the topic anchor's `_track` override", () => {
   // The `topic` anchor derives its sibling track from every topic slide's own
   // `<h2>`; `_track` overrides that. Both failures below are SILENT on the
@@ -1846,7 +1876,10 @@ describe("lint-core: the topic anchor's `_track` override", () => {
           const spec = parseTrackSpec(raw);
           should = spec.labels.length < MIN || spec.current === -1;
         }
-        const fired = Boolean(rule(src, 'track-directive'));
+        // This oracle models a DEGENERATE scale only. A `## H` line opens a second,
+        // class-less slide, where the rule rightly says `_track` does nothing off
+        // `topic` — a different finding with its own tests, so it is left out here.
+        const fired = core.lintTextWith(src, tv).some((f) => f.rule === 'track-directive' && !/not `topic`/.test(f.message));
         if (fired && !should) {
           warned.push(`${JSON.stringify(a)} + ${JSON.stringify(pre)} + ${JSON.stringify(below)}`
             + ` + first=${JSON.stringify(first)} value=${JSON.stringify(value)}: engine applied nothing degenerate, linter WARNED`);

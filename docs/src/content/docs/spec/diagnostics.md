@@ -130,11 +130,11 @@ distinct, stable ID.
 | `qr-empty-payload` | error | — | A `qr` payload bullet with no value. |
 | `qr-missing-payload` | error | — | A `qr` slide with no scannable payload bullet. |
 | `qr-duplicate-payload` | error | — | A `qr` slide with more than one payload bullet; it renders only one. |
-| `track-directive` | warning | — | On a slide with a class directive: a bare `track:` (deck-wide from that slide on) where `_track:` was meant, `_track` on a slide that is not `topic` or on `topic fact`, a track with fewer than two labels (none is drawn), or a track with no current topic. |
+| `track-directive` | warning | — | A bare `track:` (deck-wide from that slide on) where `_track:` was meant, `_track` on a slide that is not `topic` or on `topic fact`, a track with fewer than two labels (none is drawn), or a track with no current topic. |
 | `track-list` | warning | — | A list on a `topic` slide, which shows as plain content; the track is built from the section's headings. |
-| `focus-spec` | warning | — | A malformed `_focus` directive on a slide with a class directive; it silently does nothing at render. |
-| `focus-style` | warning | — | A `_focusStyle` value that is not `spotlight`, `ring`, `list-fill`, `blur` or `pop`, on a slide with a class directive. |
-| `focus-steps` | warning | — | A `_focusSteps` step that is not a valid `_focus` spec (only the first bad step is reported), on a slide with a class directive. |
+| `focus-spec` | warning | — | A malformed `_focus` directive; it silently does nothing at render. |
+| `focus-style` | warning | — | A `_focusStyle` value that is not `spotlight`, `ring`, `list-fill`, `blur` or `pop`. |
+| `focus-steps` | warning | — | A `_focusSteps` step that is not a valid `_focus` spec (only the first bad step is reported). |
 | `unknown-map-region` | warning | — | A `map` list item whose lead name the basemap can't resolve. Carries a did-you-mean against the basemap vocabulary. |
 | `trail-budget` | warning | — | A word in an `authority-chain trail` column too long for the column, which squeezes the others. |
 | `tag-budget` | warning | — | On `decision` and `compare-prose` (not `axis`), a card tag long enough to wrap, or a band label long enough to run past two lines, which grows every tag on the slide and pushes the cards down. |
@@ -431,7 +431,7 @@ The reference engine is `lintTextWith(source, vocab)` in `lint-core.js`:
   rules with a did-you-mean (`unknown-class`, `unknown-plugin` and most
   `unknown-*` front-matter rules) now mark autofix ✓, because the reference
   implementation offers the rewrite; the test checks each row's Severity and
-  Autofix against the code. No rule ID was renamed or removed. The spec gains an owner. Source:
+  Autofix against the code. No rule ID was renamed or removed. The spec gains an owner. `focus-spec`, `focus-style`, `focus-steps` and `track-directive` now run on every slide, a slide with no class included. Source:
   `engineering/decisions/2026-10-08-spec-audit.md` §4.1.
 - **1.0 (2026-06-13).** First draft: the finding shape, two severities, and a
   registry of 13 rules.
