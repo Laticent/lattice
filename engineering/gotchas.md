@@ -118,6 +118,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [A `visibility: hidden` measuring element makes its scroll container scroll SIDEWAYS](gotchas/css.md#a-visibility-hidden-measuring-element-makes-its-scroll-container-scroll-sideways)
 - [A `finish:` shows on every slide except the split ones, and their header vanishes halfway across](gotchas/css.md#a-finish-shows-on-every-slide-except-the-split-ones-and-their-header-vanishes-halfway-across)
 - [A render wedges at "load fonts" on one palette only — `max()` in a relative color over `light-dark()`](gotchas/css.md#a-render-wedges-at-load-fonts-on-one-palette-only--max-in-a-relative-color-over-light-dark)
+- [An `accent` or `tone-edge` slide shows the spectrum bar after a Vite build — `border-image: none` minified to nothing](gotchas/css.md#an-accent-or-tone-edge-slide-shows-the-spectrum-bar-after-a-vite-build--border-image-none-minified-to-nothing)
 
 ### [Docs site build and dev server (Astro + GitHub Pages)](gotchas/docs-site.md)
 

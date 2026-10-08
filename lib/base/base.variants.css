@@ -130,7 +130,7 @@ section:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-edge {
   --_bar-t: calc(0.3125 * var(--_sec-1cqi, 1cqi));
   --_edge-l: 1;                   /* …and the rail is gone, so the left keyline returns */
   border-top: calc(var(--_sec-1cqi, 1cqi) * 0.3125) solid var(--tone-color); /* section-OWN cqi: route through --_sec-1cqi (preview self-reference) */
-  border-image: none;
+  border-image-source: none; /* the longhand, not `border-image: none`: lightningcss empties that (engineering/gotchas/css.md) */
 }
 
 /* ── SPECTRUM registers ── the accent-gradient controls, two orthogonal keys.

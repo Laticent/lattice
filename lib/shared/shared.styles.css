@@ -44,7 +44,7 @@ section.compact {
  * ribbon segment instead; see each component's styles file. */
 section.accent:not(.split-panel, .split-compare) {
   border-top: calc(0.3125 * var(--_sec-1cqi, 1cqi)) solid var(--accent); /* section-OWN cqi: route through --_sec-1cqi (preview self-reference) */
-  border-image: none;
+  border-image-source: none; /* the longhand, not `border-image: none`: lightningcss empties that (engineering/gotchas/css.md) */
   --_edge-t: 0; /* this bar is the top edge, even in a `spectrum: off` deck (base.modifiers.css) */
   --_bar-t: calc(0.3125 * var(--_sec-1cqi, 1cqi));
 }

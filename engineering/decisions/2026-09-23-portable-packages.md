@@ -1010,3 +1010,63 @@ it is the record of what was wrong.
     `@import 'lattice'` 404'd and the engine's own `:root` tokens (26 of them, the
     `--diagram-*` family among them) overrode the palette's on source order. It now links the
     engine, then `dist/palettes/<name>.css`.
+- **The packed palette form, prototyped and measured (2026-10-07, p11).** The follow-up
+  `followups.d/2580-p3-packed-palette-form.md` asks the owner to choose between (a) publishing a
+  stylesheet pair that renders slides without the engine and (b) keeping `render()` as the one
+  slide path. The prototype was built so the choice rests on numbers, and it is **not published**:
+  nothing in `package.json` `exports` or `dist/` changed.
+  - **The candidate.** Two files, both built from functions `lib/engine/css.js` already exports.
+    `slides.css` is `scaffold()` + `packTheme(dist/lattice.css)` + the 16:9 geometry stamp, run
+    through `hoistImports`: the sheet `composeCss` writes for a 16:9 deck without panes, minus the
+    palette (1.15 MB, the base's comments stripped). Each
+    `palette/<name>.slides.css` is `packTheme(dist/palettes/<name>.css)`, the palette's tokens
+    moved from `:root` onto every slide (353 KB for all 33). A consumer links `slides.css` once and
+    swaps a palette file to change palette.
+  - **Measured.** `tools/palette-slide-parity.js` is the #2580 harness, now committed: the CLI's
+    HTML render is the reference, `engine.render()`'s slide markup goes in a plain page under each
+    candidate stylesheet, and every slide is diffed with `compare -metric AE -fuzz 3%`.
+
+    | Decks | Palette | `render()` css | packed pair | today's pair |
+    |---|---|---|---|---|
+    | six galleries, 51 slides | indaco | 51/51 | **51/51** | 0/51 |
+    | six galleries, 51 slides | cuoio-dark | 51/51 | **51/51** | 0/51 |
+    | a two-slide panes deck | both | 2/2 | **0/2** | 0/2 |
+    | quote gallery at `size: story`, first 7 slides | both | 7/7 | **0/7** | 0/7 |
+
+    Every match is 0 px over the fuzz. The `story` row stops at slide 7 because the CLI splits
+    that deck into 12 slides and `render()` does not, so later slides compare different content.
+  - **What the two failures are.** A panes slide loses its component styling: the list cards and
+    the table's styling (header labels, row rules, row tint) are gone, because `composeCss` adds a `lat-pane` twin for each rule
+    that reaches a pane's body (`widenForPanes`, decided per deck), and a published sheet cannot
+    know the deck. A `story` slide keeps the 16:9 box, because the scaffold writes one size. Both
+    are fixed by construction, so a published form would be documented as "16:9, no panes", with
+    `render()` for everything else.
+  - **What (a) would cost.** About 25 lines in `tools/build-default-bundle.js` (the two loops
+    above), two `exports` entries, a unit test beside `test/unit/tools/palette-bundle.test.js`,
+    1.5 MB unpacked in the package, and a public contract that must keep matching the CLI.
+  - **Whose slides it serves.** The packed pair styles markup; it does not make any. The only
+    source of `<article class="lattice">` markup is `render()`. The CLI renders through the same
+    engine but writes flat `<section data-lattice-slide>` HTML with its own stylesheet. So the
+    packed pair's only real input is `render()`'s markup, and `render()` already returns a
+    stylesheet that matches 51 of 51. So (a) helps a consumer that renders once
+    (at build time or on a server) and then changes palette in the browser without rendering again,
+    or that ships many decks and wants one cached engine sheet instead of a sheet per render (1.16
+    MB for the quote gallery in indaco).
+  - **Through a bundler (measured the same day, after the merge ask, to raise the card).** The
+    numbers above link the candidate files from a plain page; a consumer imports them through a
+    bundler, so the pair was built with Vite 8.2.2 from a package whose `exports` map the two
+    files, and the built stylesheet became a fourth arm (`--bundled`). It matched **47 of 51** in
+    each palette. The 4 misses were the `accent` slides, whose solid top bar came out as the
+    spectrum gradient: Vite's default CSS minifier, lightningcss 1.32.0, rewrites
+    `border-image: none` to an empty `border-image:`, which the browser drops. Today's published
+    `@laticent/lattice/css` export minifies the same way through Vite. Two declarations in the
+    engine had the shorthand (`accent` in `lib/shared/shared.styles.css`, `tone-edge` in
+    `lib/base/base.variants.css`). Both now reset the longhand, `border-image-source: none`, which
+    draws the same and survives the minifier. Afterwards the bundled pair matched **51 of 51** in
+    both palettes, and 10 of 10 on `examples/status-markers.md`, the deck that uses `tone-edge`.
+    The CLI's own renders did not move: 102 gallery slides and the 10 status-marker slides are
+    pixel-identical before and after the fix, with no fuzz.
+    `test/unit/css/border-image-none-shorthand.test.js` keeps the shorthand out of `lib/` and
+    `themes/`, and `engineering/gotchas/css.md` has the symptom.
+  - **Status.** Left for the owner's pick, with the measurement in the follow-up. The
+    recommendation there is (b) unless a named consumer needs the palette swap.
