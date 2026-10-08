@@ -251,6 +251,7 @@ async function main(argv) {
           file,
           slide: 0, // deck-level (front-matter registry), not a single slide
           rule: 'narration-acronyms',
+          severity: 'suggestion',
           message: `${unknown.length} all-caps token(s) will read letter-by-letter in narration: ${unknown.join(', ')}.`,
           fix: `Register any you want spoken as words in the deck's acronyms: front matter, e.g.\nacronyms:\n  ${unknown[0]}: <spoken expansion>`,
         });
@@ -267,6 +268,7 @@ async function main(argv) {
           file,
           slide: 0, // deck-level (front-matter registry), not a single slide
           rule: 'narration-passthrough',
+          severity: 'suggestion',
           message: `${unspoken.length} token(s) will read as glyphs in narration, because a slash or a colon means several different things and the normalizer will not guess: ${unspoken.join(', ')}.`,
           fix: `Say how you want each one read, in the deck's lexicon: front matter, e.g.\nlexicon:\n  ${unspoken[0]}: <spoken form>\nA ratio reads "x to y", a rate reads "x per y", an alternative reads "x or y" — only you know which.`,
         });
