@@ -542,6 +542,14 @@ describe('theme-parse — hazards', () => {
       assert.equal(themeTokenMap(parseTheme(':where(:root), :root{--accent:red}\n:where(:root){--accent:blue}')).accent, 'red');
     });
 
+    test('a "/*" inside an attribute string is not a comment opener', () => {
+      // The naive /\/\*[\s\S]*?\*\// pairs the quoted "/*" with the next real
+      // closer and swallows `:root:root` with it, scoring the list 1 instead of 2.
+      assert.equal(rootSpecificity(':root[data-x="/*"], :root:root /* note */'), 2);
+      // A real comment still reads as whitespace, never as part of a selector.
+      assert.equal(rootSpecificity(':root/* :root */'), 1);
+    });
+
     test('within one selector it IS source order — that half is unchanged', () => {
       assert.equal(themeTokenMap(parseTheme(':root{--accent:#111;--accent:#999}')).accent, '#999');
     });
