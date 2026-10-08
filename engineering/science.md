@@ -30,11 +30,11 @@ No color library. The kernel is `lib/theme/color.js` and `lib/theme/cvd.js`.
 | OKLab and OKLCH (Ottosson 2020) | `color.js` (`hexToOklab`, `oklabToLinearRgb`, `oklabDistance`) | Both directions through the cone-response (LMS) matrix. Hue, chroma and lightness edits all happen here. |
 | Gamut mapping | `color.js` (`oklchToHex`) | Bisects chroma 24 times at fixed lightness and hue, the CSS Color 4 idea. |
 | Contrast repair | `color.js` (`ensureContrast`) | Walks OKLCH lightness only, so a repaired color keeps its hue. |
-| Two-surface ink solver | `lib/theme/cat-ink.js` (`solveInk`, `feasibleRange`) | A chart mark must clear 4.65:1 on both slide surfaces. A second pass restores OKLab separation the solve destroyed, measured relative to what the palette already had. |
+| Two-surface ink solver | `lib/theme/cat-ink.js` (`solveInk`, `feasibleRange`) | A category's text ink is solved to 4.65:1 (AA plus a 0.15 margin) on both slide surfaces; marks themselves sit at the 3:1 graphical floor. A second pass restores OKLab separation the solve destroyed, measured relative to what the palette already had. |
 | Color-vision deficiency simulation (Machado, Oliveira and Fernandes 2009) | `lib/theme/cvd.js` | Applied in **linear** RGB; the header explains why most web simulators get this wrong. Total color blindness is modeled as equal-luminance gray. |
 | Perceptual distance floors | `lib/theme/contrast.js`, `tools/cvd-audit.js`, `tools/chart-mark-separation.js`, `checkHljsSeparation` and `checkMutedTierFloors` in `tools/check-ownership.js` | Every distance is Euclidean OKLab. Charts also check that a mark's own gradient never spreads wider than its gap to the next category. |
 | Palette generation by hue strategy | `lib/theme/derive.js` | Spectrum, analogous, triad, complementary and brand-mono. Brand-mono adds lightness spread because chroma alone collapses to about two distinct colors. |
-| Color math in CSS | `tools/build-chart-finish-css.js`, `lib/plugins/mermaid/mermaid.styles.css`, `lib/base/base.tokens.css` | A branch-free black/white switch (`clamp()` on OKLCH `l`, a hand-built `contrast-color()`); the `none` channel in `color-mix`; quartic lightness curves; sequential ramps whose poles flip with `color-scheme`. |
+| Color math in CSS | `tools/build-chart-finish-css.js`, `lib/plugins/mermaid/mermaid.styles.css`, `lib/base/base.tokens.css` | A branch-free black/white switch (`clamp()` on OKLCH `l`, a hand-built `contrast-color()`); the `none` channel in `color-mix`; sequential ramps whose poles flip with `color-scheme`. |
 | Texture as a second category channel | `lib/core/accessibility-textures.js`, `lib/core/texture-ramp.js` | Twelve 8×8 SVG pattern tiles for color-blind readers and grayscale print. |
 | Contrast on rendered pixels | `tools/check-slide-contrast.js`, `tools/check-player-contrast.js`, `tools/chart-contrast-solve.js` | Glyphs are hidden and the backdrop read back. The compositing model documents its own known error (#1717). |
 
@@ -48,7 +48,7 @@ No color library. The kernel is `lib/theme/color.js` and `lib/theme/cvd.js`.
 | CSS lexing | `lib/core/css-comments.mjs` (`eachCssRun`), `lib/core/css-scan.js` | One state machine for comments, strings and `url(` per CSS Syntax; escape decoding with position mapping feeds the exfiltration scanners. |
 | The compile pipeline | `lib/engine/slides.js`, `lib/engine/directives.js`, `lib/transformers/registry.js` | markdown-it core rules, then ordered HTML passes. Directive scoping: spot replaces global, global carries forward. |
 | Topological order for plugins | `lib/plugins/resolve.js` | Kahn's algorithm, ties broken by name for determinism, cycles reported with their path. |
-| TeX display-equation reflow | `lib/core/tex-linebreak.js` | A nesting-depth scan picks depth-0 break points and tells a binary `+` from a unary sign; KaTeX re-typesets, with fallback on error. |
+| TeX display-equation reflow | `lib/core/tex-linebreak.js`, `lib/plugins/math/math.render.js` | A nesting-depth scan finds the binary operators safe to break at (a binary `+`, not a unary sign), then descends once into the group that dominates the long side; the header explains why depth-0 alone is a regression. `math.render.js` re-typesets with KaTeX and falls back on error. |
 | Parser memo | `lib/engine/index.js` | Single entry, keyed on the full input set, guarded by a byte comparison over every committed deck. |
 | Untrusted transform rules | `lib/core/transform-dsl/` | A closed operation set, one forward pass, budgets, idempotence. Prototype, not wired in. |
 | Edit distance | `lib/authoring/lint-core.js`, `docs/src/lib/intent-search.ts` | Bounded Levenshtein with early exit, for "did you mean" and typo repair. |
@@ -57,10 +57,10 @@ No color library. The kernel is `lib/theme/color.js` and `lib/theme/cvd.js`.
 
 | Idea | Where | What is worth knowing |
 |---|---|---|
-| The HTML RAWTEXT trap | `lib/core/sanitize-style-text.mjs` | `</style` ends a style element even inside a CSS comment; the guard writes `<\/style`. Fuzzed with 300,000 cases. `css-tree` turns the escape back into a live terminator, which is why every CSS re-wrap guards again (HARD RULE #22). |
+| The HTML RAWTEXT trap | `lib/core/sanitize-style-text.mjs` | `</style` ends a style element even inside a CSS comment; the guard writes `<\/style`. Fuzzed with 300,000 cases against an independent oracle (the decision note's probe); the unit suite runs 200,000. `css-tree` turns the escape back into a live terminator, which is why every CSS re-wrap guards again (HARD RULE #22). |
 | Layered sandbox for package code | `lib/packages/code-door-core.mjs`, `code-shape.mjs`, `code-syntax.mjs`, `lib/core/os-sandbox.js` | Opaque-origin iframe, CSP allowing one script by hash, a worker with `eval` and `Function` stubbed out, network names removed, frozen inputs, an acorn parse for dynamic `import()`, and a measured seccomp check on Linux. |
 | Consent pinned to content | `lib/packages/trust.js` | Trust is the SHA-256 of `transform.js`, stored where no package can write it. |
-| SHA-256 from scratch | `docs/src/lib/lente/hash.ts` | Checked against NIST vectors; Lente hashes an injective encoding because an earlier one let two decks share a digest. |
+| SHA-256 from scratch | `docs/src/lib/lente/hash.ts`, `docs/src/lib/lente/project.ts` | Checked against NIST vectors; Lente hashes an injective encoding because an earlier one let two decks share a digest. |
 | Peer-to-peer editing | `docs/src/lib/tavola/`, `docs/src/components/studio/live/` | ECDSA P-256 host identity, AES-GCM with a non-extractable key, Yjs (a conflict-free replicated data type) over WebRTC, and an anchor-based rebase that refuses rather than guesses. |
 | OAuth PKCE | `docs/src/components/studio/ai/architect-model.js` | S256 challenge for bring-your-own-key OpenRouter. |
 | Input-size bombs | `lib/packages/zip-read.js`, `lib/packages/json-guard.js` | Streamed inflation under a running byte cap; a one-pass bound on what `JSON.parse` will build. |
@@ -85,7 +85,7 @@ No color library. The kernel is `lib/theme/color.js` and `lib/theme/cvd.js`.
 |---|---|---|
 | Visual-angle legibility | `engineering/typography.md`, `lib/core/resolve-venue.js` | arcminutes ≈ 3438 × height ÷ distance; venue rungs target about 12′ body x-height. |
 | Overflow predicted without rendering | `lib/authoring/lint-core.js` (`wrapLines`), `tools/measure-glyph-advances.js` | Greedy wrap over per-glyph advances measured from the shipped fonts. |
-| Font engineering | `lib/core/pdf-compose/font-subset.mjs`, `docs/src/lib/calco/sfnt.ts` | HarfBuzz subsetting pins `wght` and drops ligatures, which broke copied text; sfnt checksums; EOT wrapping for PowerPoint. |
+| Font engineering | `lib/core/pdf-compose/font-subset.mjs`, `docs/src/lib/calco/sfnt.ts` | HarfBuzz subsetting pins `wght` and keeps only the layout features the text asks for, because a kept `fi` ligature made "first" copy out as "rst"; sfnt checksums; EOT wrapping for PowerPoint. |
 | The Fit Spine | `lib/core/auto-split.js`, `lib/core/collections.js` (`evenGroups`) | Collapse, shed, split, never scale. Splits are balanced partitions (4/3/3/3, not 4/4/4/1). |
 
 ## 6. File formats, media and signal processing
@@ -121,9 +121,9 @@ No color library. The kernel is `lib/theme/color.js` and `lib/theme/cvd.js`.
 | Idea | Where | What is worth knowing |
 |---|---|---|
 | Leak detection by trend test | `tools/perf-torture/engine.mjs` | Mann-Kendall plus Sen's slope, judged against an idle control because memory samples are autocorrelated; then a breadth-first search back to a GC root. |
-| Benchmark noise bands | `test/benchmark/engine-bench.mjs`, `tools/perf-nightly-compare.mjs` | Bands widen with measured noise but are capped so a 2× regression cannot pass; a calibration probe on code that is not ours. |
+| Benchmark noise bands | `test/benchmark/engine-bench.mjs`, `tools/perf-nightly-compare.mjs` | Bands widen with measured noise; the nightly comparator caps them below 100% so a 2× regression cannot pass. `engine-bench` adds a calibration probe on code that is not ours. |
 | Asymptotic tests | `test/benchmark/relationship-scaling.test.js` | Assert a time **ratio** across input sizes, not a wall clock. |
-| Scorecard science | `lib/authoring/scorecard.js`, `tools/score-variance.js`, `tools/score-venue-lint.js` | A saturating penalty curve; weights checked by variance decomposition and ablation; the linter graded with a confusion matrix against real exports. |
+| Scorecard science | `lib/authoring/scorecard.js`, `tools/score-variance.js`, `tools/score-venue-lint.js` | A saturating penalty curve; each category's share of score variance by decomposition, and rules attributed to categories by ablation; the linter graded with a confusion matrix against real exports. |
 | Metamorphic and mutation testing | `test/unit/tools/jank-drift.metamorphic.test.js`, `tools/mutate-segno.mjs`, `tools/mutate-guide-gestures.mjs`, `tools/mutate-stage-window.mjs` | Relations that need no oracle; hand-built mutants. |
 | Jank geometry | `tools/lib/jank-drift.js`, `tools/check-jank.js` | Drift as the minimum spread over three references tells a moving anchor from a growing one. |
 | Software-evolution metrics | `tools/complexity-report.js`, `tools/change-coupling.js` | McCabe complexity on the acorn tree; change coupling from git history as a Jaccard index. |
@@ -134,30 +134,40 @@ No color library. The kernel is `lib/theme/color.js` and `lib/theme/cvd.js`.
 
 ## What comes from libraries
 
-dagre (layered layout), KaTeX (math), Mermaid, HarfBuzz and woff2-encoder (fonts),
-kokoro-js and ONNX Runtime (speech), Transformers.js (embeddings), `qrcode` (including
-its Reed-Solomon error correction), DOMPurify, parse5, css-tree, acorn and the TypeScript
-compiler API (parsing for gates), Yjs and trystero (collaboration), pdf-lib, JSZip,
-pptxgenjs, mediabunny and lamejs (containers and codecs), rough.js (sketch strokes),
-d3-geo (build-time paths), Fuse.js and wink-porter2-stemmer (search), tinybench,
-dependency-cruiser, jscpd and knip (measurement).
+markdown-it (the core parser), dagre via `dagre-d3-es` (layered layout), KaTeX (math),
+Mermaid, highlight.js, function-plot, HarfBuzz via harfbuzzjs, woff2-encoder and
+subset-font (fonts), `qrcode` (including its Reed-Solomon error correction), DOMPurify,
+jsdom, parse5, css-tree (optional), acorn and the TypeScript compiler API (parsing for
+gates), Yjs and trystero (collaboration), pdf-lib with `@pdf-lib/fontkit`, JSZip,
+pptxgenjs, mediabunny and lamejs (containers and codecs), puppeteer (headless Chromium),
+rough.js (sketch strokes), d3-geo (build-time paths), Fuse.js and wink-porter2-stemmer
+(search), tinybench, dependency-cruiser, jscpd and knip (measurement).
+
+Two are not declared dependencies at all: kokoro-js (speech, with ONNX Runtime under it)
+is an optional install (`npm i --no-save`, see `lib/export/kokoro-voice.mjs`), and
+Transformers.js (embeddings) loads from a CDN at runtime
+(`docs/src/components/studio/ai/architect-model.js`).
 
 ## What we deliberately do not do
 
 Each of these is a choice, not a gap; read the linked reason before adding one.
 
-- **No shrink-to-fit by binary search.** The Fit Spine never scales text down
-  (`lib/core/tex-linebreak.js` header restates it).
+- **No shrink-to-fit by binary search.** The Fit Spine's order is collapse, shed, split,
+  never scale (`lib/core/tex-linebreak.js` header restates it). Two bounded exceptions
+  exist: the word cloud's stepped 0.9× retries, and reflowed display equations, which
+  `lib/components/math/math/math.styles.css` argues are not the forbidden shrink.
 - **No Knuth–Plass line breaking or hyphenation dictionaries.** Line breaking is the
   browser's (`text-wrap: balance | pretty`).
 - **No APCA, CIEDE2000 or wide-gamut output.** WCAG 2 ratios and Euclidean OKLab only.
 - **No force-directed layout, A\*, visibility graph or constraint solver.** Trama
   enumerates candidates and prunes instead, which keeps it deterministic.
-- **No perceptual image diff (SSIM).** Goldens compare bytes, then pixels with a fixed
-  per-channel tolerance.
+- **No perceptual image diff (SSIM).** Goldens are rasterized and compared pixel by pixel
+  (an ImageMagick AE count) with a fixed per-channel fuzz tolerance; the regression gate
+  never byte-compares PDFs (`tools/regression-gate.mjs`).
 - **No bootstrap or confidence intervals** in the benchmarks; tinybench's relative margin
   of error is the only spread.
 - **No readability formula.** Prose budgets count words per role.
 - **No Myers diff.** The Studio's line diff is quadratic dynamic programming.
-- **No incremental per-slide render cache.** A design note exists; only the single-entry
-  parser memo is built.
+- **No incremental per-slide transform cache.** Step 1 of that design shipped as a
+  per-section sanitize cache (`docs/src/playground/deck-render.js`); step 2 is deferred
+  (`engineering/decisions/2026-07-15-incremental-per-slide-render-cache.md`).
