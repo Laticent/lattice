@@ -623,3 +623,31 @@ export function NextSteps({ links }: { links: NextStep[] }) {
 		</div>
 	);
 }
+
+// ── Libraries ────────────────────────────────────────────────────────────────
+// One card per workspace library, from the same `librariesNav` list the header's
+// Libraries menu renders, so the home page and the nav cannot disagree about which
+// libraries exist. A library with a demo page links to it; one without links to its
+// README on GitHub and says so in the CTA.
+export type LibraryCard = { label: string; href: string; pkg: string; desc: string; external?: boolean };
+
+export function LibraryCards({ libraries }: { libraries: LibraryCard[] }) {
+	// Plain classes from landing.css, not Tailwind utilities: nine cards repeat every class string,
+	// and the utilities cost the home page's HTML about 6 KB against its route budget.
+	return (
+		<ul className="lib-cards">
+			{libraries.map((l) => (
+				<li key={l.pkg}>
+					<a href={l.href} className="lib-card">
+						<h3>{l.label}</h3>
+						<code>{l.pkg}</code>
+						<p>{l.desc}</p>
+						<span className="lib-card-cta">
+							{l.external ? 'Read the README' : 'Open the demo'} <span className="ico ico-arrow-right" aria-hidden="true" />
+						</span>
+					</a>
+				</li>
+			))}
+		</ul>
+	);
+}

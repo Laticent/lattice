@@ -24,6 +24,7 @@ import {
 	ByomSection,
 	FieldCards,
 	HowItWorks,
+	LibraryCards,
 	NextSteps,
 	nextStepsFor,
 	ProofStrip,
@@ -37,6 +38,7 @@ import FieldCardsLive from '../components/landing/FieldCardsLive.tsx';
 import RestyleShowcase from '../components/landing/RestyleShowcase.tsx';
 import StudioPreview from '../components/landing/StudioPreview.tsx';
 import { DECKS } from '../components/studio/decks';
+import { librariesNav } from '../lib/nav.mjs';
 import { assetBase } from '../playground/asset-version.mjs';
 import { joinBase } from '../lib/base-url.mjs';
 import ResourceHints from '../components/site/ResourceHints.astro';
@@ -180,6 +182,7 @@ const studioData = {
 // copy — card 4's body carries an inline link, and JSX can't appear in Astro
 // frontmatter.
 const nextSteps = nextStepsFor(url);
+const libraries = librariesNav(url);
 ---
 
 <!doctype html>
@@ -338,8 +341,21 @@ const nextSteps = nextStepsFor(url);
 				</div>
 			</section>
 
-			<!-- Next steps — drops bg-muted (the showcase above now carries it) but
-			     keeps its top rule, so the page still closes on a boundary. -->
+			<!-- Libraries — plain, after the muted showcase. Every workspace library,
+			     from the same list as the header's Libraries menu (nav.mjs), so a
+			     library can no longer exist with no link from this page. -->
+			<section id="libraries" class="scroll-mt-20 py-[clamp(48px,6vw,88px)]">
+				<div class="wrap">
+					<SectionHead eyebrow="Built from parts you can reuse" title="Nine libraries, each usable without Lattice.">
+						The engine is assembled from small, framework-free libraries. Each one imports nothing from Lattice, and
+						each is packaged on its own, so you can lift the piece you need into your own app.
+					</SectionHead>
+					<LibraryCards libraries={libraries} />
+				</div>
+			</section>
+
+			<!-- Next steps — plain like the Libraries band above it, so its top rule is
+			     what divides the two; the page still closes on a boundary. -->
 			<section class="border-t border-border py-[clamp(48px,6vw,88px)]">
 				<div class="wrap">
 					<SectionHead eyebrow="Where to go next" title="Pick a starting point.">
@@ -366,6 +382,7 @@ const nextSteps = nextStepsFor(url);
 					<a href={url('components/')}>Components</a>
 					<a href={url('features/')}>Features</a>
 					<a href={url('comparison/')}>Comparison</a>
+					<a href={url('#libraries')}>Libraries</a>
 					<a href="https://github.com/Laticent/lattice">GitHub</a>
 				</nav>
 				<span class="legal">Designed by humans. Refined with Claude. · Part of Laticent · AGPL-3.0-licensed</span>
