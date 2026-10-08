@@ -563,9 +563,11 @@ jobs:
         # store, never merged) and the comment embeds raw.githubusercontent.com
         # URLs. Same-repo PRs only — a fork PR's GITHUB_TOKEN is read-only and
         # can't push; those fall back to the table + downloadable artifact.
+        # Also the rendered PDF of a deck or gallery new on this PR (goldens step 3: PRs
+        # no longer commit PDFs, so this link is how a reviewer opens the new deck).
         if: >-
           github.event.pull_request.head.repo.full_name == github.repository &&
-          hashFiles('.scratch/golden-diff/montages/*.png') != ''
+          (hashFiles('.scratch/golden-diff/montages/*.png') != '' || hashFiles('.scratch/golden-diff/montages/*.pdf') != '')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR: ${{ github.event.pull_request.number }}
@@ -586,7 +588,9 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           rm -rf "pr-${PR}" # keep only this PR's latest commit → bound branch growth
           mkdir -p "$DEST"
-          cp "$GITHUB_WORKSPACE"/.scratch/golden-diff/montages/*.png "$DEST"/
+          for f in "$GITHUB_WORKSPACE"/.scratch/golden-diff/montages/*.png "$GITHUB_WORKSPACE"/.scratch/golden-diff/montages/*.pdf; do
+            if [ -e "$f" ]; then cp "$f" "$DEST"/; fi
+          done
           git add -A
           git commit -q -m "ci(golden-diff): #${PR} @ ${SHA:0:7} before/after montages" \
             || echo "no image delta (tree already matches branch tip)"
@@ -639,6 +643,16 @@ jobs:
                 : '';
               const n = imgs.length, of = report.inlineCapped ? ` (of ${report.montages.length})` : '';
               body += `\n<details><summary>🖼️ before │ after │ overlay — ${n} slide${n === 1 ? '' : 's'}${of}</summary>\n\n${blocks}${more}\n\n</details>\n`;
+            }
+
+            // Link the rendered PDF of every golden new on this PR. The nightly bless commits
+            // it to main after the merge; until then this is the PDF a reviewer opens.
+            const pdfs = report.addedPdfs || [];
+            if (process.env.PUBLISHED === 'true' && pdfs.length) {
+              const sha = context.payload.pull_request.head.sha;
+              const blob = `https://github.com/${context.payload.repository.full_name}/blob/ci-drift-images/pr-${context.issue.number}/${sha}`;
+              body += '\n**📄 New on this PR, rendered by CI** (the nightly bless commits them after the merge):\n\n' +
+                pdfs.map((p) => `- [\`${p.name}\`${p.kind === 'gallery' ? ` · ${p.mood}` : ''}](${blob}/${p.file})`).join('\n') + '\n';
             }
 
             body += '\n' + marker;

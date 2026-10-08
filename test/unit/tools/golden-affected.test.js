@@ -58,6 +58,25 @@ describe('golden-affected — targeted changes', () => {
   });
 });
 
+describe('golden-affected — a new deck with no committed PDF (goldens step 3)', () => {
+  const newDeckPdf = (md) => (md === 'examples/brand-new.md' ? 'examples/brand-new.pdf' : null);
+  test('renders it, through the classifier golden-diff passes in', async () => {
+    await load();
+    const r = affectedGoldens(['examples/brand-new.md'], { galleries: GALLERIES, deckGoldens: DECKS, newDeckPdf });
+    assert.deepEqual(r.decks, ['examples/brand-new.pdf']);
+    assert.equal(r.scope, 'targeted');
+  });
+  test('prose the classifier rejects renders nothing', async () => {
+    await load();
+    const r = affectedGoldens(['examples/README.md'], { galleries: GALLERIES, deckGoldens: DECKS, newDeckPdf });
+    assert.equal(r.scope, 'none');
+  });
+  test('without a classifier, a deck with no PDF is not rendered (the old behavior)', async () => {
+    await load();
+    assert.equal(run(['examples/brand-new.md']).scope, 'none');
+  });
+});
+
 describe('golden-affected — shared changes', () => {
   for (const f of [
     'lib/core/fit.js',

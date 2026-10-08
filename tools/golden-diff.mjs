@@ -70,6 +70,9 @@ import { classifyChangedPdf, deckGoldenPdfs } from './lib/golden-set.mjs';
 
 const require = createRequire(import.meta.url);
 const { pixelDiff, montageTriptych, pngsToPdf } = require('./pixel-check.js');
+// classify(): which markdown should have a committed PDF. Pull requests no longer commit
+// PDFs (goldens step 3), so a new deck has none, and this is how its PR still renders it.
+const { classify } = require('./build-staged-pdfs.js');
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = join(ROOT, '.scratch', 'golden-diff');
@@ -160,7 +163,9 @@ function changedGoldens(base) {
 // on base (a newly-added golden).
 function baseBlob(base, relPath, tmp) {
   try {
-    const buf = execFileSync('git', ['show', `${base}:${relPath}`], { cwd: ROOT, maxBuffer: 256 * 1024 * 1024 });
+    // stderr ignored: a golden new on this branch has no base version, which is expected
+    // (and common since PRs stopped committing PDFs), not an error worth a "fatal:" line.
+    const buf = execFileSync('git', ['show', `${base}:${relPath}`], { cwd: ROOT, maxBuffer: 256 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore'] });
     writeFileSync(tmp, buf);
     return tmp;
   } catch {
@@ -260,9 +265,16 @@ function renderAndCompare(base, item) {
     return { status: 'error', error: `head render failed: ${String(err.message).split('\n')[0]}` };
   }
   const cleanups = [...head.cleanup];
+  // A golden with no "before" (new on this PR) has nothing to diff: keep the head render, so
+  // the PR can link the PDF the nightly bless will commit after the merge (HARD RULE #9).
+  const keepAdded = () => {
+    const file = `new_${slug}.pdf`;
+    cpSync(head.outPdf, join(MONTAGE_DIR, file));
+    return { status: 'added', pdf: file };
+  };
   try {
     const committed = baseBlob(base, item.relPath, join(OUT, `.base-${slug}.pdf`));
-    if (!committed) return { status: 'added' };
+    if (!committed) return keepAdded();
     cleanups.push(committed);
     const floor = item.kind === 'gallery' ? failFractionForGallery(item.md) : failFractionForDeck(join(ROOT, item.md));
     const vsMain = pixelDiff(committed, head.outPdf, `golden-r-${slug}`, { fuzz: FUZZ });
@@ -271,7 +283,7 @@ function renderAndCompare(base, item) {
 
     const tree = baseTreeFor(base);
     if (tree.error) return { status: 'error', error: `base render unavailable: ${tree.error}` };
-    if (!existsSync(join(tree.root, item.md))) return { status: 'added' };
+    if (!existsSync(join(tree.root, item.md))) return keepAdded();
     let baseRender;
     try {
       baseRender = renderAt(tree.root);
@@ -407,7 +419,11 @@ function main() {
       () => (existsSync(join(ROOT, 'package.json')) ? readFileSync(join(ROOT, 'package.json'), 'utf8') : null),
     );
     const galleries = galleryDecks(ROOT).map((g) => relative(ROOT, g));
-    renderPlan = affectedGoldens(changedFiles, { galleries, deckGoldens: deckGoldenPdfs(ROOT), cap: RENDER_CAP });
+    const newDeckPdf = (md) => {
+      const job = classify(md);
+      return job?.kind === 'deck' && existsSync(join(ROOT, md)) && !existsSync(join(ROOT, job.out)) ? job.out : null;
+    };
+    renderPlan = affectedGoldens(changedFiles, { galleries, deckGoldens: deckGoldenPdfs(ROOT), cap: RENDER_CAP, newDeckPdf });
     // DEPENDENCY CHANGES DEFEAT ATTRIBUTION. The base render shares this checkout's
     // node_modules and Chromium, so a Chromium, Mermaid or markdown-it bump renders the
     // same on both sides, and every golden it moved would read "stale on main" with no
@@ -426,7 +442,7 @@ function main() {
       if (r.status === 'stale-on-main' && !depChange) { staleOnMain.push(item.relPath); continue; }
       const why = r.status === 'stale-on-main' ? 'dependency change' : 'rendered';
       if (r.status === 'error') { renderErrors.push(`${item.relPath}: ${r.error}`); continue; }
-      if (r.status === 'added') { entries.push({ name, mood, kind: item.kind, relPath: item.relPath, status: 'added', slides: 0, rendered: true }); continue; }
+      if (r.status === 'added') { entries.push({ name, mood, kind: item.kind, relPath: item.relPath, status: 'added', slides: 0, rendered: true, pdf: r.pdf }); continue; }
       if (r.status === 'unchanged') continue;
       for (const d of r.drifted) {
         if (montagePngs.length >= MONTAGE_CAP) { montagesOmitted += 1; continue; }
@@ -506,7 +522,9 @@ function main() {
   // Machine-readable: the goldens this comment SHOWED as changed. The nightly bless counts
   // a golden as already seen only if a human-merged PR's comment lists it here
   // (tools/lib/golden-bless-verdict.mjs, rule 4).
-  lines.push('', `<!-- golden-diff-changed: ${changedEntries.map((e) => e.relPath).sort().join(',')} -->`);
+  // New goldens this PR rendered count as shown too: their PDF is linked on the PR.
+  const shown = [...changedEntries, ...added.filter((e) => e.pdf)].map((e) => e.relPath);
+  lines.push('', `<!-- golden-diff-changed: ${[...new Set(shown)].sort().join(',')} -->`);
   const summary = lines.join('\n') + '\n';
   writeFileSync(join(OUT, 'summary.md'), summary);
 
@@ -532,6 +550,8 @@ function main() {
     montages: montageMeta,
     inlineMontages: inlineOrder.slice(0, INLINE_CAP),
     inlineCapped: montageMeta.length > INLINE_CAP,
+    // Rendered PDFs of goldens new on this PR, published beside the montages and linked.
+    addedPdfs: added.filter((e) => e.pdf).map((e) => ({ name: e.name, mood: e.mood, kind: e.kind, file: e.pdf })),
     montageCap: MONTAGE_CAP,
     montagesOmitted,
     render: renderPlan
