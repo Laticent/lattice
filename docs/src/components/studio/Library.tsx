@@ -153,13 +153,13 @@ function LibraryFrame({ docked, open, onOpenChange, dropProps, children }: { doc
 	// dropped anywhere in the Library is caught — not only over the card grid. Inside the
 	// Sheet that needs its own filling div: PanelSheet owns its root, and a drop target
 	// that covers only part of the panel is one an author finds by accident.
-	if (docked) return <div className="relative flex h-full min-h-0 flex-col [container-type:inline-size]" {...dropProps}>{children}</div>;
+	if (docked) return <div data-file-drop="" className="relative flex h-full min-h-0 flex-col [container-type:inline-size]" {...dropProps}>{children}</div>;
 	// PanelSheet, not a hand-rolled SheetContent: it is what makes this a bottom sheet
 	// on a phone (and keeps the 720px right sheet at tablet) — one framing decision,
 	// made once, for every panel the drawer can open (#1211).
 	return (
 		<PanelSheet open={open} onOpenChange={onOpenChange} side="right" width="lg">
-			<div className="relative flex h-full min-h-0 flex-col" {...dropProps}>{children}</div>
+			<div data-file-drop="" className="relative flex h-full min-h-0 flex-col" {...dropProps}>{children}</div>
 		</PanelSheet>
 	);
 }

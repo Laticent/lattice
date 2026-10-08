@@ -1083,7 +1083,7 @@ if (v1Slides.length) {
 // Resolve palette name from the precedence chain (CLI > env > front
 // matter > default). Logic lives in lib/resolve-palette.js so it can
 // be unit-tested in isolation; see test/unit/palette-resolution.test.js.
-const { resolvePalette } = require('./lib/core/resolve-palette');
+const { resolvePalette, readFrontMatterTheme, DEFAULT: DEFAULT_PALETTE } = require('./lib/core/resolve-palette');
 // THE theme graph, from the manifests — never re-derived from the stylesheets.
 const { themeChain, flattenCssImports } = require('./lib/theme/chain.mjs');
 const { THEME_EDGES } = require('./lib/theme/edges.generated.mjs');
@@ -1174,8 +1174,11 @@ function applyImageModePalette(name) {
 // `Module._load`. The unit tests asserted the throw and were right to; nobody had looked at the
 // terminal.
 let paletteName;
+let paletteSource;
 try {
-  paletteName = applyImageModePalette(resolvePalette({ md, cliArg: paletteArg }).name);
+  const resolved = resolvePalette({ md, cliArg: paletteArg });
+  paletteSource = resolved.source;
+  paletteName = applyImageModePalette(resolved.name);
 } catch (e) {
   console.error(`error: ${e?.message ?? e}`);
   process.exit(1);
@@ -1805,6 +1808,19 @@ if (OUT_FORMAT === 'html') {
 // find out from the person they sent it to.
 if (REOPENABLE && OUT_FORMAT !== 'pdf' && OUT_FORMAT !== 'pptx') {
   console.warn(`  ⚠ --reopenable embeds the deck in a .pdf or .pptx — ignoring for this output.${OUT_FORMAT === 'html' ? ' Use --player, which embeds the source for lossless re-import.' : ''}`);
+}
+// `-p` (or LATTICE_PALETTE) themes THIS render without editing the deck, and the `.lattice`
+// carries the deck as written — so the file re-opens in the deck's own theme, not the one the
+// PDF shows (reopenable-exports §8). Said once, naming both themes and the fix. Silent when
+// the deck re-opens in the theme it was rendered in (named, or the default), since then
+// nothing is lost.
+if (REOPENABLE && (OUT_FORMAT === 'pdf' || OUT_FORMAT === 'pptx') && (paletteSource === 'cli' || paletteSource === 'env')) {
+  const declared = readFrontMatterTheme(md);
+  if ((declared ?? DEFAULT_PALETTE) !== paletteName) {
+    const how = paletteSource === 'cli' ? `-p ${paletteName}` : `LATTICE_PALETTE=${paletteName}`;
+    const reopensIn = declared ? `its own theme, ${declared}` : `the default theme, ${DEFAULT_PALETTE}, because the deck names none`;
+    console.warn(`  ⚠ --reopenable: this export is themed ${paletteName} by ${how}, but the embedded deck re-opens in ${reopensIn}. To make ${paletteName} travel, put \`theme: ${paletteName}\` in the deck's front matter.`);
+  }
 }
 // Self-contained HTML PLAYER (2026-07-07-html-lattice-player.md): rewrite the .html
 // sidecar into a portable, offline, three-view player (Present · Read·Slides ·

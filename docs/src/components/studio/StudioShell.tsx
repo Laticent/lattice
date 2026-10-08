@@ -63,6 +63,7 @@ import { applyProfileToSource, assessDeck, type CoachAssessment, type CoachCard,
 import { FindingCard, type FindingFixState } from './coach/FindingCard';
 import { listStudioComponents, type StudioComponent } from './component-library';
 import { activeCorners, CORNERS } from './corners-catalog';
+import { useDeckFileDrop } from './deck-drop';
 import { addSlideAfter, deleteSlide, duplicateSlide, moveSlide, replaceSlide, SLIDE_SEP } from './deck-ops';
 import { applyPreset, clearPresetOverrides, PRESET_ENTRIES, presetChanges, presetOf, registerValue, writeRegister } from './deck-preset';
 import { DECKS, deckSource, type StudioDeck } from './decks';
@@ -2499,7 +2500,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	function onImportFile(e: React.ChangeEvent<HTMLInputElement>) {
 		const file = e.target.files?.[0];
 		e.target.value = ''; // allow re-importing the same file
-		if (!file) return;
+		if (file) importDeckFile(file);
+	}
+	// A file dropped on the shell takes the same path as the menu's file chooser (deck-drop.ts
+	// says where a drop is someone else's).
+	const deckDrop = useDeckFileDrop(importDeckFile, (message) => notify(message), { enabled: !presentOpen });
+	function importDeckFile(file: File) {
 		// ONE reader for every format — `.lattice`, `.md`, `.html`, and a PDF or PowerPoint
 		// exported "Re-openable in Lattice". It sniffs the bytes, so the name is only a hint.
 		import('./deck-import')
@@ -6002,7 +6008,22 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			// "‹ Menu" chevron still step back one level; that is what back means.
 			onLeave={disarmDrawerReturn}
 		>
-		<div ref={rootRef} data-studio-root="" className="lx-ui flex h-[100dvh] flex-col bg-background text-foreground">
+		<div ref={rootRef} data-studio-root="" className="lx-ui flex h-[100dvh] flex-col bg-background text-foreground" {...deckDrop.props}>
+			{/* The drop sign. `pointer-events-none` is load-bearing, as on the Library's: an
+			    overlay that took the pointer would take the `dragleave` too, and stick. */}
+			{deckDrop.over && (
+				<div data-deck-drop-sign="" className="pointer-events-none fixed inset-0 z-[90] bg-[color-mix(in_srgb,var(--bg)_72%,transparent)] p-3 backdrop-blur-[3px]">
+					<div className="grid h-full place-items-center rounded-2xl border-2 border-dashed border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_8%,transparent)] p-6">
+						<div className="flex max-w-[380px] flex-col items-center gap-2 text-center">
+							<Upload className="size-8 text-[var(--accent)]" />
+							<div className="text-[15px] font-bold text-[var(--text-heading)]">Drop to open as a new deck</div>
+							<div className="text-[12.5px] leading-relaxed text-muted-foreground">
+								A .lattice, .md, .html, or a PDF or PowerPoint exported <span className="whitespace-nowrap">“Re-openable in Lattice”</span>. The deck you have open is not changed.
+							</div>
+						</div>
+					</div>
+				</div>
+			)}
 			{/* Announce a stop change to assistive tech — the surface can change from a
 			    keystroke (⌘.) or the "Edit this slide" reveal, which would otherwise be
 			    silent (M3/M4 a11y). `stopAnnounce` starts empty and is updated only on a
