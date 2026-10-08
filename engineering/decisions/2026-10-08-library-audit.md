@@ -25,9 +25,9 @@ folder. Ten folders meet that definition.
 
 | Library | Package | What it does | Who uses it inside Lattice | Public page |
 |---|---|---|---|---|
-| LTT | `@laticent/ltt` | The word-timing track format: types, schema, validator, cursor | HTML export, Cadenza, Vetrina | README only |
+| LTT | `@laticent/ltt` | The word-timing track format: types, schema, validator, cursor | `lib/core`, HTML and video export, Cadenza, Vetrina | README only |
 | Cadenza | `@laticent/cadenza` | Turns narration text into timed caption words | `lib/core`, Studio, Playground | `/cadenza` |
-| Segno | `@laticent/segno` | Grammar engine that refuses non-linear grammars; the inline notation | `lib/core`, plugins, the QR card | `/segno` |
+| Segno | `@laticent/segno` | Grammar engine that refuses non-linear grammars; the inline notation | `lib/core`, the linter, the QR card | `/segno` |
 | Trama | `@laticent/trama` | Graph layout and elbow line routing | flowchart, state chart, hub-spoke | `/trama` |
 | Calco | `@laticent/calco` | Rendered slides to editable `.odp` / `.pptx` | `lib/export`, CLI, Studio export | `/calco` |
 | Vetrina | `@laticent/vetrina` | Self-driving product tour that never fakes a click | Studio tours and lessons | `/vetrina` |
@@ -72,8 +72,10 @@ README opens with a "SUPERSEDED" banner. It is internal until the owner decides 
 
 ## 3. The bar, and where each library stands
 
-**Yes, the nine need the full bar.** A version on npm cannot be withdrawn after 72 hours, and
-outside projects build on it. That makes publishing the "irreversible or externally visible"
+**Yes, the nine need the full bar.** npm lets an author unpublish a version freely only within
+72 hours. After that, unpublishing needs no dependents, low downloads and a single owner, and a
+version number can never be reused. Once outside projects build on a version, it is effectively
+permanent. That makes publishing the "irreversible or externally visible"
 row in CLAUDE.md's second filter. The internal folders in §1 ride on Lattice's own gates and owe
 nothing more.
 
@@ -87,8 +89,8 @@ names the check that enforces it.
 | 3 | `npm publish --dry-run` is clean | measured in #2595 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ |
 | 4 | Typechecks in an outside `nodenext` project | `package-nodenext-types.test.js` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ |
 | 5 | A README fit for npmjs.com (install, license, absolute links) | #2595 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ superseded |
-| 6 | Its own tests (files) | unit suite | 5 | 10 | 11 | 4 | 7 | 17 | 8 | 6 | 2 | 10 |
-| 7 | A library-level adversarial review on record | HARD RULE #25 | not found | 07-18 | not found | planned | 10-06 | 07-18 | 07-18 | 07-18 | 10-06 | ✗ |
+| 6 | Its own tests (files) | unit suite | 5 | 10 | 11 | 4 | 6 | 17 | 8 | 6 | 2 | 10 |
+| 7 | A full trio over the library's code on record | HARD RULE #25 | design only | 07-18 | partial | per change | 10-06 | 07-18 | 07-18 | 07-18 | 10-06 | ✗ |
 | 8 | A public page the site links to | `nav.test.ts` (this change) | README | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | README | ✗ |
 | 9 | Versions on its own line | Changesets, slice C | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | 10 | A license the owner chose for outside use | owner, release plan §4 | open | open | open | open | open | open | open | open | open | — |
@@ -102,18 +104,30 @@ How to read the gaps:
   `AGPL-3.0-only`, which keeps them out of closed-source apps
   (`followups.d/2556-p3-calco-license-and-types-for-outside-users.md`). Changing a license
   before the first publish costs an edit. After it, the old versions stay AGPL forever.
-- **Row 7, "not found", means a grep of `engineering/decisions/` found no red-team pass aimed
-  at the library itself.** It does not mean nobody reviewed the code, only that no note records
-  a review of the library as a published product. Trama's note plans a trio for its second PR
-  (`2026-09-27-trama-graph-chart-library.md` §review tier), and this audit did not confirm it
-  ran. A library this repo publishes for strangers to build on is "high blast radius" under
-  HARD RULE #25. So the publish slice should give LTT, Segno and Trama the trio before their
-  first version.
+- **Row 7 asks whether the full adversarial trio (red team, inversion, independent checker) has
+  reviewed the library's code as a whole.** Calco and Tavola got it on the first cut, which was
+  the whole library (`2026-10-06-calco-office-export-library.md`,
+  `2026-10-06-studio-live-collaboration.md`). The four July libraries got it together
+  (`2026-07-18-library-adversarial-trio-backlog.md`). The other three have reviews of a part:
+  - **LTT** — a trio on the design note's draft, not on the code
+    (`2026-09-24-lattice-timing-track.md`).
+  - **Segno** — a red team and four checkers on the engine, with no inversion
+    (`2026-09-28-segno-unified-inline-notation.md`).
+  - **Trama** — a trio on each of two changes: the radial layout
+    (`2026-10-05-trama-radial-layout.md`) and the crossing-aware wrap
+    (`2026-10-06-trama-crossing-aware-wrap.md`). The trio its own note planned for its second PR
+    (`2026-09-27-trama-graph-chart-library.md` §review tier) has no record of running.
+
+  A library published for strangers to build on is "high blast radius" under HARD RULE #25, so
+  the publish slice gives LTT, Segno and Trama a whole-library trio before their first version.
+  (An earlier draft of this row said "not found" for all three. The fact-checker on #2609 found
+  the partial reviews above.)
 - **Row 8 for LTT and Tavola** is a README link, not a demo page. That is honest: LTT is a data
   format, and Tavola needs two browsers to show anything. None of the nine has a section in the
   Starlight docs. Vetrina's is followup `2371-p2-vetrina-demo-and-docs-section.md`.
 - **Types point at source on purpose.** Each package's `exports` names `./index.ts` first, so
-  a consumer typechecks the source. `package-nodenext-types.test.js` pins that choice. It
+  a consumer typechecks the source. `package-nodenext-types.test.js` proves the packed source
+  typechecks under nodenext. No test asserts the ordering, so it is a convention, not a gate. It
   works, but a consumer with stricter settings than ours can hit errors in our files.
   Followup 2556 asks for `.d.ts` first. It belongs in slice C, not here.
 

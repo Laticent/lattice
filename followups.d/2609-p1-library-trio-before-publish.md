@@ -10,9 +10,11 @@ source: https://github.com/Laticent/lattice/pull/2609
 
 # Run the adversarial trio on LTT, Segno and Trama before their first npm version
 
-why now   — owner ruling 2026-10-08 (library audit §6). No decision note records a library-level
-            red team, inversion and checker pass for these three, and they publish in 1.0 as
-            dependencies of @laticent/lattice. A published version cannot be taken back.
+why now   — owner ruling 2026-10-08 (library audit §6). None of the three has had the full trio
+            over its code as a whole: LTT's trio reviewed its design note, Segno's review had no
+            inversion, and Trama's two trios each reviewed one change (audit §3, row 7). They
+            publish in 1.0 as dependencies of @laticent/lattice, and an npm version number can
+            never be reused.
 where     — docs/src/lib/ltt/, docs/src/lib/segno/, docs/src/lib/trama/; the shape of
             engineering/decisions/2026-07-18-library-adversarial-trio-backlog.md.
 done when — each library has a trio verdict recorded in a decision note, and every finding on the
