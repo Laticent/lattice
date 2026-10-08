@@ -463,7 +463,7 @@ MORE
   lattice video …      Render a deck to an MP4 with a voice-over
 
   lattice --help all   Every option (image sets, captions, the player, plugins, …)
-  Guide:  https://laticent.github.io/lattice/guides/cli/
+  Guide:  https://lattice.style/guides/cli/
 
 EXAMPLES
   lattice deck.md deck.pdf
@@ -495,8 +495,9 @@ if (process.argv[2] === 'video') {
 
 if (process.argv.includes('--help') || process.argv.includes('-h')) {
   // `--help all` (or `--help=all`) is the full reference; plain `--help` is one screen.
-  const i = Math.max(process.argv.indexOf('--help'), process.argv.indexOf('-h'));
-  if (process.argv[i + 1] === 'all' || process.argv.includes('--help=all')) showFullHelp();
+  // Any help flag followed by `all` asks for it, wherever the flags sit (`--help all -h`).
+  const full = process.argv.some((a, j) => (a === '--help' || a === '-h') && process.argv[j + 1] === 'all');
+  if (full || process.argv.includes('--help=all')) showFullHelp();
   else showShortHelp();
   process.exit(0);
 }

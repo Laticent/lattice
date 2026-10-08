@@ -342,7 +342,7 @@ describe('export-marp — the overflow-marker export setting', () => {
     const { said } = exportWith('off-warn', ['--overflow-marker=off']);
     assert.match(said, /ONLY channel/);
     assert.match(said, /does not render, so it cannot measure overflow/);
-    assert.match(said, /lattice\.js/, 'and names the command that does measure');
+    assert.match(said, /npx lattice /, 'and names the command that does measure');
   });
 
   // A deck key is not an input any more. It does nothing, and `lint:deck` says so

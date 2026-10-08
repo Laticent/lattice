@@ -238,7 +238,7 @@ function printOverflowPolicy(marker, source, deckPath) {
   // Quoted: an unquoted `Q3 Board Review.md` printed a command that fails on its
   // first argument — the exact bug lib/core/marp-bundle.js's `safeName` records.
   console.log(`    export-marp does not render, so it cannot measure overflow. To check: `
-    + `\`node lattice.js "${deckPath}" /tmp/check.pdf\` — it prints the clipped pages.`);
+    + `\`npx lattice "${deckPath}" /tmp/check.pdf\` — it prints the clipped pages.`);
 }
 
 function main(argv) {
