@@ -143,6 +143,10 @@ function defineLibraryBuild(spec) {
       [
         TSC, '--declaration', '--emitDeclarationOnly', '--outDir', outDir, '--rootDir', LIB_DIR,
         '--module', types.module, '--moduleResolution', types.moduleResolution, '--target', 'es2022',
+        // A sibling library resolves to its TypeScript source through the repo-only
+        // `@laticent/source` export condition, never through its built `types`, which a fresh
+        // checkout has not built yet (Cadenza reads @laticent/ltt before ltt's dist/ exists).
+        '--customConditions', '@laticent/source',
         '--strict', '--skipLibCheck', ...(types.lib === null ? [] : ['--lib', types.lib ?? 'es2022,dom']), ...sourceFiles(LIB_DIR),
       ],
       { cwd: ROOT, stdio: 'inherit' },
