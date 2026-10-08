@@ -4637,7 +4637,7 @@ async function renderBody(browser, g, closeBrowser) {
       REOPENABLE && OUT_FORMAT === 'pptx' ? { lattice: await reopenableLattice(), date: reopenableDate() } : {});
       if (!QUIET) {
         const kind = OUT_FORMAT === 'odp' ? 'ODP' : 'PPTX';
-        const detail = EDITABLE ? ` (editable: ${res.frames} text boxes${res.fonts ? `, ${res.fonts} fonts embedded` : ''})` : '';
+        const detail = EDITABLE ? ` (editable: ${res.frames} text boxes${res.shapes ? `, ${res.shapes} shapes` : ''}${res.fonts ? `, ${res.fonts} fonts embedded` : ''})` : '';
         const reopen = REOPENABLE && OUT_FORMAT === 'pptx' ? ' (re-openable in Lattice)' : '';
         console.log(`${kind}: ${res.slides} slides → ${outFile}${detail}${reopen}`);
       }

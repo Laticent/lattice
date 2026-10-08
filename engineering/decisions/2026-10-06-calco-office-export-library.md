@@ -271,7 +271,10 @@ line, is the one reader not yet checked
 - `test/unit/calco/` — the writers' package rules and styles, font metrics, placement maths,
   and serialization of the built reader (31 tests).
 - `test/integration/export/calco-reader.test.js` — the reader in Chromium against a fixture
-  holding every case in §5.
+  holding every case in §5, and a second fixture for native shapes: which boxes lift, which
+  stay because something above them would be covered, grouping, and the paint hide.
+- `test/unit/calco/shapes.test.js` — shape geometry, label insets, draw order, and both
+  writers' shapes and groups (`2026-10-07-calco-native-shapes.md`).
 - `test/integration/export/export-formats.test.js` — the CLI end to end for `.odp`,
   `--editable` `.odp` and `.pptx`, and the warning on other formats.
 - The measurements in §3, rendered by LibreOffice and compared with Chrome.
@@ -279,5 +282,7 @@ line, is the one reader not yet checked
 ## 8. What this does not do
 
 - No native charts, diagrams or equations; no reflow; no editable speaker-note formatting.
+  Plain boxes and rules DO come out as native shapes, grouped with their text
+  (`2026-10-07-calco-native-shapes.md` §7); a tag drawn by `::before` does not yet.
 - The `/calco` page and the brand mark are later commits in this PR.
 - No `.lattice` source inside an `.odp` (the re-openable switch is PowerPoint and PDF only).

@@ -60,6 +60,60 @@ export interface TextFrame {
 	lineHeight: number;
 	align: 'left' | 'center' | 'right';
 	lines: TextRun[][];
+	/** The group this text moves with: the index of its card in `Slide.shapes`. */
+	group?: number;
+}
+
+/** A color with its opacity. */
+export interface Paint {
+	/** `#rrggbb`. */
+	color: string;
+	/** 0–1, the element's opacity folded in. */
+	alpha: number;
+}
+
+/** An outer shadow, in px. */
+export interface Shadow extends Paint {
+	x: number;
+	y: number;
+	blur: number;
+}
+
+/**
+ * A box or a rule the reader lifted out of the slide picture, so it can be drawn as a
+ * native office shape (engineering/decisions/2026-10-07-calco-native-shapes.md).
+ *
+ * A `box` is a CSS border box: `x, y, w, h` its outer edge, `radii` its outer corner radii
+ * (top-left, top-right, bottom-right, bottom-left, already clamped as CSS clamps them),
+ * `stroke` a border the same on all four sides, drawn INSIDE the edge as CSS draws it. A
+ * writer whose outline straddles the path insets the path by half the stroke width.
+ *
+ * A `line` is one side of a border: a straight stroke from `(x, y)` to `(x + w, y + h)`
+ * along the middle of the border band, so `h` is 0 for a horizontal rule and `w` for a
+ * vertical one.
+ */
+export interface Shape {
+	kind: 'box' | 'line';
+	x: number;
+	y: number;
+	w: number;
+	h: number;
+	radii?: [number, number, number, number];
+	fill?: Paint;
+	stroke?: Paint & { width: number };
+	shadow?: Shadow;
+	/** A line: the side of its box it was. */
+	side?: 'top' | 'right' | 'bottom' | 'left';
+	/**
+	 * A line on a rounded box: the radius of the corner at its start and at its end. Each
+	 * end wraps 45° of that corner's arc (at the middle of the band), as the browser hands
+	 * the corner to the next side there. Absent when both corners are square.
+	 */
+	wrap?: [number, number];
+	/** A label: the index in `Slide.frames` of the text this box carries inside it. */
+	text?: number;
+	/** The group this shape moves with: the index of its card in `Slide.shapes`. */
+	group?: number;
 }
 
 /** A slide, read. */
@@ -71,6 +125,11 @@ export interface Slide {
 	image: Uint8Array;
 	/** Editable text. Empty in picture mode. */
 	frames: TextFrame[];
+	/**
+	 * Native shapes, in paint order (back to front), drawn over the picture and under the
+	 * text. Absent or empty when the reader was not asked for shapes.
+	 */
+	shapes?: Shape[];
 	/** Speaker notes, plain text. */
 	notes?: string | null;
 	/** Alt text for the slide picture. */

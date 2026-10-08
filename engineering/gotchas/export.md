@@ -690,8 +690,15 @@ paths on Chromium, Firefox and WebKit (iPhone 15 Pro, Safari / Firefox / Chrome 
   `counter-increment` and `counter-set`. Its clone carried `content: counter(x)` with no
   counter ever reset or incremented, so each one read 0. It was never `content` being copied
   as a string.
-- **Fix:** `deck-export.js` › `captureStyleProperties` passes html-to-image the browser's list
-  plus the three counter properties, as `includeStyleProperties`, on every capture. html-to-image
-  keeps the list from its FIRST call for the whole page, so every capture must pass the same
-  one: route a new capture through `captureOptions`, never a bare `toPng`/`toCanvas`.
+- **Fix:** `lib/core/capture-style-properties.mjs` › `captureStyleProperties` passes
+  html-to-image the browser's list plus the three counter properties, as
+  `includeStyleProperties`, on every capture: the Studio's (`deck-export.js` › `captureOptions`),
+  the /calco page's, and the composed PDF's html-to-image camera (`pdf-compose/compose.mjs`).
+  html-to-image keeps the list from its FIRST call for the whole page, so every capture must
+  pass the same one: route a new capture through that helper, never a bare `toPng`/`toCanvas`.
   Native list markers (`<ol start="3">`) are unaffected, measured.
+- **Engines:** the fix holds outside Chromium. On 2026-10-07 the built Studio exported
+  `examples/card-tags.md` in Firefox 142 and WebKit 26 (Playwright, the driver in
+  `tools/bench-pdf-export.mjs`): the PDF and the picture `.pptx` draw the corner tags 1–4,
+  `STEP 01`–`04` and an `agenda progress-2` list as 01, →, 03, 04, and the editable `.odp`
+  carries the same shapes as Chromium's. WebKit does not need a separate code path.

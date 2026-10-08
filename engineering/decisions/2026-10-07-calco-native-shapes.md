@@ -1,17 +1,17 @@
 ---
 status: in-progress
-summary: Options for making cards, pills, tags and rules native shapes in Calco's editable .odp/.pptx instead of pixels in the slide picture. Measured on three decks; recommends label shapes first (a pill or tag becomes one shape that carries its own text), built so containers and rules can follow. The owner picks before any code.
+summary: Cards, pills, tags and rules as native shapes in Calco's editable .odp/.pptx instead of pixels in the slide picture. Measured on three decks; the owner picked option B on 2026-10-07 (labels that carry their text, plus cards with native shadows and rules as lines, each card grouped with its contents), and §7 records how it was built and what it measured.
 ---
 
 # Calco: cards, pills and rules as native shapes (2026-10-07)
 
-**Status: in progress. The owner picked option B on 2026-10-07** (labels, then cards and
-rules, grouped with their text). It is built in slices: A's labels first, since A's pieces are
-B's base, then rules, then cards with grouping. §4's recommendation of A alone stands as the
-reasoning the owner weighed.
+**Status: built, and checked by the owner on their own devices (2026-10-08): the .pptx and
+.odp look right, and cards, tags and rules move as expected. The owner picked option B (§3) on
+2026-10-07. §7 records the build: what the reader lifts and refuses, how each writer draws and
+groups it, and the measurements. Still open: tags drawn by `::before` (§7, last paragraph).**
 
 **The question.** The owner asked whether a card's corner tag in the editable export is a
-real shape. It is not. In Calco's editable `.odp` and `.pptx`, only the WORDS are editable:
+real shape. Before §7 it was not. In Calco's editable `.odp` and `.pptx`, only the WORDS are editable:
 every paragraph is a text box, laid over one picture of the slide with its text removed
 (`2026-10-06-calco-office-export-library.md` §2). The tag's colored box, the card behind it
 and the rule under the title are pixels in that picture. Drag the tag's text box and the
@@ -140,7 +140,7 @@ behind. Not recommended: it makes the file look more editable than it behaves.
 
 Today's behavior. It costs nothing and answers the owner's question with "no".
 
-## 4. Recommendation
+## 4. Recommendation (as proposed; the owner chose B, see §7)
 
 **A now, built so B can follow.** It answers the question the owner asked (the tag), it is
 the case with no grouping and no ghost problem, and its pieces (a shape in the deck model,
@@ -169,6 +169,87 @@ Whichever option is picked, the build is checked as the followup asks: card-tags
 muted-tier exported both ways, opened in LibreOffice, Collabora on iOS and Google Slides,
 with a shape resized in each; a tier 1 checker, because the reader and both writers change;
 and dark and light renders to the owner before merge, because the export bytes change.
+
+## 7. What was built (option B)
+
+The owner picked B. It shipped as one slice, because A's pieces (a shape in the deck model,
+the inline paint hide, a shape writer in each format) carry B with little more code once
+the reader knows paint order.
+
+**The reader** (`reader.ts`, `readSlide(section, { hide: true, shapes: true })`, off unless
+asked) lifts a box when its paint is plain: a solid fill, solid borders, circular corner
+radii (a `%` resolved, scaled down as CSS scales them), at most one outer shadow (and only
+under an opaque fill: an office suite draws a shadow through a translucent one), no
+`border-image`, and no transform, filter, mask, clip or blend on it or any ancestor. A fill
+clipped to the padding or content box (`rule: accent` draws its short rule as a padded
+segment) is lifted at the box it paints; with borders as well it stays a picture. Two shadow shapes are read as
+borders, not shadows: an inset ring (`inset 0 0 0 1px`, how `tag-plain` outlines a tag
+without moving its text) is the outline; any other inset or spread keeps the box a picture.
+A border the same on most sides is the box's outline; a side that differs (an accent edge)
+is a `line` along the middle of its band, and on a rounded box each end wraps 45° of the
+corner arc, where Chrome hands the corner to the next side.
+
+**What keeps a box in the picture: the one rule.** A shape is drawn over the picture, so it
+may not cover anything the picture still holds that the slide painted above it. The reader
+lists what the picture keeps: text it did not read, SVG and MathML, images, list markers,
+every `::before`/`::after` that paints (at its own box when it is absolutely placed), and
+every box it refused. A lifted box that overlaps one of them, painted above it (compared by
+stacking level below their common ancestor, then tree order; a level counts positioned
+boxes, a z-indexed flex or grid item, and anything with opacity, a transform, a filter or
+isolation, and an absolutely placed pseudo-element has its own), is refused, becomes picture content itself, and the check
+runs again until nothing changes. That one rule covers §2a's ghost and §3B's risk: a card
+holding an icon, a chart, a counted `::before` tag or a bulleted list stays a picture whole,
+with its tag and rules. A z-index −1 backdrop (the `finish-*` washes) paints below, so the
+boxes over it still lift.
+
+**Groups.** A box that covers its area (a fill, an outline or a shadow) is a card;
+everything lifted inside it (its rules, its labels, its paragraphs) carries its index as
+`group`. Groups are flat: the outermost card wins. A box with no shadow holding exactly one
+paragraph of its own and nothing else lifted is a **label**: it carries that text inside
+it (`Shape.text`), one object.
+
+**The writers** share `shapes.ts`: the outline as a path (a box inset by half its stroke,
+because both formats straddle the path; a uniform radius is a preset so a resized shape
+keeps round corners), where a label's text sits inside its shape (insets from the edge its
+alignment grows from; when an inset would be negative, the shape and a text box are grouped
+instead), and the draw order (each group whole where its card first paints, shapes then
+text; text that belongs to no group on top). The `.odp` writes `draw:rect` (with
+`draw:corner-radius`), `draw:custom-shape` (per-corner paths), `draw:line`, and `draw:g`.
+The `.pptx` writes `roundRect`/`rect`/`line` presets and `custGeom` through PptxGenJS, then
+`tidyPptx` wraps each tagged run of `<p:sp>` in a `p:grpSp` whose child frame equals its
+frame, so every member keeps the coordinates PptxGenJS gave it (`groupShapes`).
+
+**Measured** (LibreOffice 24.2 render of the `.odp` against the Chrome PDF, mean absolute
+gray difference per slide at 1280×720, lower is closer):
+
+| Deck | Mode | Text only | With shapes | Shapes lifted |
+|---|---|---:|---:|---:|
+| card-tags (10) | light | 2.55 | 2.40 | 41 |
+| card-tags (10) | dark | 2.34 | 2.23 | 41 |
+| muted-tier (8) | light | 2.62 | 2.47 | 39 |
+| muted-tier (8) | dark | 2.43 | 2.31 | 39 |
+| jargon gallery (58) | light | 3.22 | 2.99 | 370 |
+
+Every slide is as close or closer, except jargon slide 26 at this scale (3.40 → 3.56):
+that deck is 3840px wide, its table hairlines are 1px, and poppler draws a stroked line at
+least one device pixel wide where Chrome's PDF fills a quarter-point rectangle. At the
+deck's own 3840×2160 the slide measures 1.68 → 1.70, the same ink in one crisp pixel
+instead of two faint ones. Each `.pptx` validates against `pml.xsd` (xmllint) and the Open
+XML SDK 3.3.0 with zero errors. In LibreOffice, driven through UNO, moving a card's group
+moves its tag, its accent rule and its text with it and leaves a clean slide; widening a
+label keeps its word at its inset.
+
+**A known limit of the draw order.** A group is drawn whole where its card first paints. If
+a static box that comes after a card in the tree overlapped a positioned child of that card,
+Chrome would paint the box between the card and the child; the office file draws it above
+both. It needs two flow boxes to overlap, and no shipped deck does; the independent check
+named it and did not reproduce it.
+
+**What B does not reach yet.** A tag drawn by `::before` (`content: counter(card)`, the
+numbered cards; `STEP 01`; `RECOMMENDATION`): the reader cannot read pseudo-element text,
+so the tag and its card stay a picture. A list card (its markers are pseudo-elements). The
+sketch finish (elliptical radii). These need the scoped-stylesheet hide of §2a and a way to
+read a counter's value, a separate decision.
 
 ## Appendix: the census script
 

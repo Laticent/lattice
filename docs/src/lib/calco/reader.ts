@@ -29,21 +29,34 @@
  * transparent. Freezing is plain inline style plus one stylesheet, so it survives any
  * capture that copies computed style (a headless screenshot, html-to-image). Everything
  * is undone by `restoreSlide`.
+ *
+ * SHAPES (`shapes: true`). Plain boxes and rules are lifted too, as native shapes: a box
+ * with a solid fill, solid borders, round corners and at most one outer shadow, unless it
+ * would cover something the picture keeps above it. Their paint is hidden with the text and
+ * restored with it. See the SHAPES block below and
+ * engineering/decisions/2026-10-07-calco-native-shapes.md §7.
  */
-import type { TextFrame, TextRun, TextStyle } from './types.js';
+import type { Paint, Shadow, Shape, TextFrame, TextRun, TextStyle } from './types.js';
 
 /** What `readSlide` returns. */
 export interface ReadResult {
 	width: number;
 	height: number;
 	frames: TextFrame[];
-	/** True when the slide's read text is now hidden (call `restoreSlide` after capture). */
+	/** Boxes and rules lifted out of the picture, back to front. Empty unless `shapes` was asked for. */
+	shapes: Shape[];
+	/** True when the slide's read text (and lifted shapes) is now hidden (call `restoreSlide` after capture). */
 	hidden: boolean;
 }
 
 export interface ReadOptions {
 	/** Hide the text that was read, for a text-free background capture. Default false. */
 	hide?: boolean;
+	/**
+	 * Also lift plain boxes and rules out of the picture as native shapes (see SHAPES below).
+	 * With `hide`, their paint is hidden too. Default false.
+	 */
+	shapes?: boolean;
 }
 
 /**
@@ -341,6 +354,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 
 	// ── words → lines → frames. An unplaceable block is dropped, and its text is not hidden.
 	const frames: TextFrame[] = [];
+	const frameBlocks: Element[] = [];
 	const textOwners = new Set<Element>();
 	const kept: Word[] = [];
 	for (const [block, words] of blocks) {
@@ -434,6 +448,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			const blanks = Math.round((tops[k] - tops[k - 1]) / lineHeight) - 1;
 			if (blanks > 0 && blanks < 50) lines.splice(k, 0, ...Array.from({ length: blanks }, () => [] as Word[]));
 		}
+		frameBlocks.push(block);
 		frames.push({
 			x,
 			y: firstTop,
@@ -488,6 +503,419 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 				return runs;
 			}),
 		});
+	}
+
+	// ── SHAPES (`shapes: true`). A box whose paint an office shape can carry exactly — a solid
+	// fill, solid borders, circular corners, one outer shadow — is lifted out of the picture:
+	// read here, hidden below with the text, drawn by the writer as a native shape. A border
+	// that differs from its box's outline is a rule: a line along the middle of its band.
+	// Design: engineering/decisions/2026-10-07-calco-native-shapes.md.
+	//
+	// The rule that decides everything: a shape is drawn OVER the picture, so it may not
+	// cover anything the picture still holds that the slide painted above it. Text that was
+	// not read, an icon, a chart, a `::before` tag or a list marker inside a card would be
+	// covered by the card's fill — and if the card were moved, would stay behind as a ghost.
+	// So a box that overlaps picture content painted above it stays in the picture, and that
+	// refusal is itself picture content, which can refuse the box around it in turn.
+	const shapes: Shape[] = [];
+	const shapeEls: Element[] = [];
+	if (options?.shapes) {
+		const keptNodes = new Set<Node>(kept.map((wd) => wd.node));
+		const px = (v: string) => Number.parseFloat(v) || 0;
+		// A color as the page wrote it. rgb() and color(srgb) are read from the string: the
+		// canvas returns a faint color (a 4% row wash) premultiplied to a byte, which moves its hue.
+		const paintOf = (css: string, opacity: number): Paint | null => {
+			const m = css.match(/^rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?\)$/) || css.match(/^color\(srgb ([\d.e-]+) ([\d.e-]+) ([\d.e-]+)(?: \/ ([\d.e-]+))?\)$/);
+			let c: { r: number; g: number; b: number; a: number } | null;
+			if (m) {
+				const k = css.startsWith('color(') ? 255 : 1;
+				c = { r: Number(m[1]) * k, g: Number(m[2]) * k, b: Number(m[3]) * k, a: m[4] === undefined ? 1 : Number(m[4]) };
+			} else c = parseColor(css);
+			if (!c || !(c.a > 0)) return null;
+			const alpha = Math.round(c.a * opacity * 1000) / 1000;
+			return alpha > 0 ? { color: hex(c), alpha } : null;
+		};
+		const opacityCache = new Map<Element, number>();
+		const opacityOf = (el: Element): number => {
+			const hit = opacityCache.get(el);
+			if (hit !== undefined) return hit;
+			const v = el === section || !el.parentElement ? 1 : opacityOf(el.parentElement) * Number.parseFloat(win.getComputedStyle(el).opacity || '1');
+			opacityCache.set(el, v);
+			return v;
+		};
+		// Anything that changes how a subtree LOOKS beyond its boxes — a transform, a filter, a
+		// mask, a clip, a blend — keeps every box in it in the picture.
+		const fxCache = new Map<Element, boolean>();
+		const effected = (el: Element | null): boolean => {
+			if (!el || el === section) return false;
+			const hit = fxCache.get(el);
+			if (hit !== undefined) return hit;
+			const cs = win.getComputedStyle(el) as CSSStyleDeclaration & Record<string, string>;
+			const set = (v: string | undefined) => !!v && v !== 'none' && v !== 'auto' && v !== 'normal';
+			const v =
+				set(cs.transform) || set(cs.rotate) || set(cs.scale) || set(cs.translate) || set(cs.filter) || set(cs.backdropFilter) || set(cs.webkitBackdropFilter) ||
+				set(cs.maskImage) || set(cs.webkitMaskImage) || set(cs.clipPath) || (cs.clip !== '' && set(cs.clip)) || set(cs.mixBlendMode) || effected(el.parentElement);
+			fxCache.set(el, v);
+			return v;
+		};
+		// Painting LEVEL, the part of CSS's stacking order that matters here: under the flow
+		// (negative z-index), the flow, positioned, then above by z-index.
+		// Measured from `stop` down: two things are only ordered by the stacking contexts BELOW
+		// their common ancestor (a static child under an absolute `::before` of its parent is
+		// in the flow there, whatever positions the parent).
+		const levelOf = (el: Element, stop: Element = section): number => {
+			let level = 1;
+			for (let p: Element | null = el; p && p !== section && p !== stop; p = p.parentElement) {
+				const cs = win.getComputedStyle(p) as CSSStyleDeclaration & Record<string, string>;
+				const parent = p.parentElement ? win.getComputedStyle(p.parentElement).display : '';
+				// A flex or grid item takes z-index without being positioned; and opacity, a
+				// transform, a filter, a mask, a clip, a blend or isolation make a stacking context
+				// that paints with the positioned boxes, in tree order.
+				const zStatic = cs.zIndex !== 'auto' && /flex|grid/.test(parent);
+				const layer =
+					Number.parseFloat(cs.opacity || '1') < 1 ||
+					['transform', 'filter', 'maskImage', 'webkitMaskImage', 'clipPath'].some((k) => cs[k] && cs[k] !== 'none') ||
+					(cs.mixBlendMode && cs.mixBlendMode !== 'normal') ||
+					cs.isolation === 'isolate';
+				if (cs.position === 'static' && !zStatic && !layer) continue;
+				const z = cs.zIndex === 'auto' || (cs.position === 'static' && !zStatic) ? Number.NaN : Number(cs.zIndex);
+				level = Number.isNaN(z) ? Math.max(level, 2) : z < 0 ? -1 : 2 + z;
+			}
+			return level;
+		};
+		const commonAncestor = (a: Element, b: Element): Element => {
+			let c: Element | null = a;
+			while (c && !c.contains(b)) c = c.parentElement;
+			return c || section;
+		};
+		type Rect = { x: number; y: number; w: number; h: number };
+		const relRect = (r: { left: number; top: number; width: number; height: number }): Rect => ({ x: (r.left - origin.left) / scale, y: (r.top - origin.top) / scale, w: r.width / scale, h: r.height / scale });
+		const overlaps = (a: Rect, b: Rect) => a.x < b.x + b.w - 0.5 && b.x < a.x + a.w - 0.5 && a.y < b.y + b.h - 0.5 && b.y < a.y + a.h - 0.5;
+		// Inside every box that clips it, and on the slide: a clipped box is not a shape.
+		const unclipped = (el: Element, r: Rect): boolean => {
+			if (r.x < -0.5 || r.y < -0.5 || r.x + r.w > boxW + 0.5 || r.y + r.h > boxH + 0.5) return false;
+			for (let p = el.parentElement; p && p !== section; p = p.parentElement) {
+				const cs = win.getComputedStyle(p);
+				if (cs.overflowX === 'visible' && cs.overflowY === 'visible') continue;
+				const c = relRect(p.getBoundingClientRect());
+				if (r.x < c.x - 0.5 || r.y < c.y - 0.5 || r.x + r.w > c.x + c.w + 0.5 || r.y + r.h > c.y + c.h + 0.5) return false;
+			}
+			return true;
+		};
+
+		// What the picture keeps, with where it sits in paint order. `node` orders it in the
+		// tree; `pseudo` marks a `::before` (painted as a first child) or `::after` (a last one).
+		interface Item {
+			node: Node;
+			owner: Element;
+			rect: Rect;
+			pseudo?: 'before' | 'after';
+			text?: boolean;
+			/** The box this item IS, when it is a box that was refused. */
+			paintOf?: Element;
+		}
+		const items: Item[] = [];
+		interface Candidate {
+			el: Element;
+			rect: Rect;
+			alpha: number;
+			fill: Paint | null;
+			radii: [number, number, number, number];
+			sides: Array<(Paint & { width: number }) | null>;
+			shadow: Shadow | null;
+			/** Fill, outline or shadow: the box covers its area, not just its edges. */
+			covers: boolean;
+		}
+		const candidates: Candidate[] = [];
+		const SIDES = ['Top', 'Right', 'Bottom', 'Left'] as const;
+		const CORNERS = ['TopLeft', 'TopRight', 'BottomRight', 'BottomLeft'] as const;
+		const splitTop = (v: string) => {
+			const out: string[] = [];
+			let depth = 0;
+			let cur = '';
+			for (const ch of v) {
+				if (ch === '(') depth++;
+				if (ch === ')') depth--;
+				if (ch === ',' && !depth) {
+					out.push(cur.trim());
+					cur = '';
+				} else cur += ch;
+			}
+			if (cur.trim()) out.push(cur.trim());
+			return out;
+		};
+		// One outer shadow an office suite can draw: the visible layer with the widest blur. An
+		// inset ring (no offset, no blur, a spread) is a border drawn inside the edge, which is
+		// how a tag outlines itself without moving its text: it comes back as `ring`. `false`
+		// when a layer is neither (an inner glow, an outer spread).
+		const shadowOf = (v: string, opacity: number): { outer: Shadow | null; ring: (Paint & { width: number }) | null } | false => {
+			const out: { outer: Shadow | null; ring: (Paint & { width: number }) | null } = { outer: null, ring: null };
+			if (!v || v === 'none') return out;
+			for (const layer of splitTop(v)) {
+				const color = layer.match(/^((?:rgba?|color|oklab|oklch|lab|lch|hsla?|hwb)\([^)]*\)|#[0-9a-f]+|[a-z]+)\s*/i);
+				const rest = (color ? layer.slice(color[0].length) : layer).trim();
+				const paint = paintOf(color ? color[1] : 'currentcolor', opacity);
+				if (!paint) continue;
+				const [x, y, blur, spread] = rest.replace(/\binset\b/, '').trim().split(/\s+/).map(px);
+				if (/\binset\b/.test(rest)) {
+					if (x || y || blur || !(spread > 0) || out.ring) return false;
+					out.ring = { ...paint, width: spread };
+					continue;
+				}
+				if (spread) return false;
+				// Two outer layers (a tight shadow under a soft one) are not one office shadow.
+				if (out.outer) return false;
+				out.outer = { ...paint, x, y, blur };
+			}
+			return out;
+		};
+		// Where a pseudo-element paints: its own box when it is absolutely placed in its
+		// element (a corner tag, an icon), else the element's box.
+		const pseudoRect = (el: Element, which: '::before' | '::after', box: Rect): Rect => {
+			const ps = win.getComputedStyle(el, which);
+			const ecs = win.getComputedStyle(el);
+			if (ps.position !== 'absolute' || ecs.position === 'static') return box;
+			const n = [ps.left, ps.top, ps.width, ps.height].map((v) => (/px$/.test(v) ? Number.parseFloat(v) : Number.NaN));
+			if (n.some((v) => Number.isNaN(v))) return box;
+			const extra = ps.boxSizing === 'border-box' ? [0, 0] : [px(ps.paddingLeft) + px(ps.paddingRight) + px(ps.borderLeftWidth) + px(ps.borderRightWidth), px(ps.paddingTop) + px(ps.paddingBottom) + px(ps.borderTopWidth) + px(ps.borderBottomWidth)];
+			return { x: box.x + px(ecs.borderLeftWidth) + n[0], y: box.y + px(ecs.borderTopWidth) + n[1], w: n[2] + extra[0], h: n[3] + extra[1] };
+		};
+		const pseudoPaints = (el: Element, which: '::before' | '::after'): boolean => {
+			const ps = win.getComputedStyle(el, which) as CSSStyleDeclaration & Record<string, string>;
+			const content = ps.content;
+			if (!content || content === 'none' || content === 'normal' || ps.display === 'none') return false;
+			if (content !== '""' && content !== "''" && paintOf(ps.color, 1)) return true;
+			if (paintOf(ps.backgroundColor, 1) || ps.backgroundImage !== 'none' || (ps.boxShadow && ps.boxShadow !== 'none')) return true;
+			if ((ps.maskImage && ps.maskImage !== 'none') || (ps.webkitMaskImage && ps.webkitMaskImage !== 'none')) return true;
+			return SIDES.some((sd) => px(ps[`border${sd}Width`]) > 0 && ps[`border${sd}Style`] !== 'none' && !!paintOf(ps[`border${sd}Color`], 1));
+		};
+
+		const DRAWN = new Set(['svg', 'math', 'img', 'canvas', 'video', 'iframe', 'object', 'embed', 'input', 'select', 'textarea', 'button', 'picture']);
+		const walk = (el: Element) => {
+			const cs = win.getComputedStyle(el) as CSSStyleDeclaration & Record<string, string>;
+			if (cs.display === 'none') return;
+			const tag = String(el.localName).toLowerCase();
+			const shown = cs.visibility === 'visible' && opacityOf(el) > 0;
+			const rect = relRect(el.getBoundingClientRect());
+			if (el !== section && DRAWN.has(tag)) {
+				if (shown && rect.w > 0 && rect.h > 0) items.push({ node: el, owner: el, rect });
+				return;
+			}
+			if (el !== section && shown) {
+				for (const which of ['::before', '::after'] as const) {
+					if (pseudoPaints(el, which)) items.push({ node: el, owner: el, rect: pseudoRect(el, which, rect), pseudo: which === '::before' ? 'before' : 'after' });
+				}
+				if (cs.display === 'list-item' && (cs.listStyleType !== 'none' || cs.listStyleImage !== 'none')) {
+					const em = px(cs.fontSize) * 2;
+					items.push({ node: el, owner: el, rect: { x: rect.x - em, y: rect.y, w: rect.w + em, h: rect.h }, pseudo: 'before' });
+				}
+				const op = opacityOf(el);
+				const fill = paintOf(cs.backgroundColor, op);
+				let sides = SIDES.map((sd) => {
+					const width = px(cs[`border${sd}Width`]);
+					const st = cs[`border${sd}Style`];
+					if (!(width > 0) || st === 'none' || st === 'hidden') return null;
+					const p = paintOf(cs[`border${sd}Color`], op);
+					return p ? { ...p, width, style: st } : null;
+				});
+				let shadow: Shadow | null | false = null;
+				const shadows = shadowOf(cs.boxShadow, op);
+				if (shadows === false) shadow = false;
+				else {
+					shadow = shadows.outer;
+					// A ring inside a border would be a second outline: that box stays a picture.
+					if (shadows.ring && sides.some(Boolean)) shadow = false;
+					else if (shadows.ring) {
+						const ring = { ...shadows.ring, style: 'solid' };
+						sides = SIDES.map(() => ring);
+					}
+				}
+				// A shadow under a translucent fill or no fill would show THROUGH it in an office
+				// suite, where CSS clips it to outside the box.
+				if (shadow && !(fill && fill.alpha >= 1)) shadow = false;
+				const image = (cs.backgroundImage && cs.backgroundImage !== 'none') || (cs.borderImageSource && cs.borderImageSource !== 'none');
+				const outline = cs.outlineStyle !== 'none' && px(cs.outlineWidth) > 0 && !!paintOf(cs.outlineColor, 1);
+				if (fill || image || outline || shadow !== null || sides.some(Boolean)) {
+					// Corner radii: circular only, `%` resolved, scaled down as CSS scales them.
+					const rx = CORNERS.map((c) => {
+						const parts = (cs[`border${c}Radius`] || '0px').split(/\s+/);
+						const h = parts[0].endsWith('%') ? (px(parts[0]) / 100) * rect.w : px(parts[0]);
+						const v = parts[1] ? (parts[1].endsWith('%') ? (px(parts[1]) / 100) * rect.h : px(parts[1])) : parts[0].endsWith('%') ? (px(parts[0]) / 100) * rect.h : h;
+						return [h, v];
+					});
+					const circular = rx.every(([h, v]) => Math.abs(h - v) <= 0.5);
+					const r = rx.map(([h]) => h);
+					const f = Math.min(1, rect.w / (r[0] + r[1] || 1), rect.w / (r[3] + r[2] || 1), rect.h / (r[0] + r[3] || 1), rect.h / (r[1] + r[2] || 1));
+					let radii = r.map((v) => Math.round(v * f * 100) / 100) as Candidate['radii'];
+					// A fill clipped to the padding or content box (a short accent rule drawn as a
+					// padded segment) paints a smaller box than the border box. Borders around it
+					// would need two boxes: that stays a picture.
+					let shape = rect;
+					let clipBad = false;
+					if (fill && cs.backgroundClip !== 'border-box') {
+						const content = cs.backgroundClip === 'content-box';
+						const ins = SIDES.map((sd) => px(cs[`border${sd}Width`]) + (content ? px(cs[`padding${sd}`]) : 0));
+						if (ins.some((v) => v > 0)) {
+							if (sides.some(Boolean) || shadow) clipBad = true;
+							shape = { x: rect.x + ins[3], y: rect.y + ins[0], w: rect.w - ins[1] - ins[3], h: rect.h - ins[0] - ins[2] };
+							radii = radii.map((v, i) => Math.max(0, Math.round((v - Math.max(ins[i === 0 || i === 3 ? 3 : 1], ins[i < 2 ? 0 : 2])) * 100) / 100)) as Candidate['radii'];
+							if (!(shape.w > 0 && shape.h > 0)) clipBad = true;
+						}
+					}
+					const plain =
+						!image && !outline && !clipBad && shadow !== false && circular && rect.w >= 1 && rect.h >= 1 && sides.every((sd) => !sd || sd.style === 'solid') &&
+						cs.backgroundClip !== 'text' && !effected(el) && unclipped(el, rect) && tag !== 'html' && tag !== 'body';
+					const box = { el, rect: shape, alpha: op, fill, radii, sides: sides.map((sd) => (sd ? { color: sd.color, alpha: sd.alpha, width: sd.width } : null)), shadow: shadow || null, covers: false };
+					box.covers = !!fill || !!box.shadow || box.sides.every(Boolean);
+					if (plain) candidates.push(box);
+					else items.push({ node: el, owner: el, rect, paintOf: el });
+				}
+			}
+			for (let child = el.firstChild; child; child = child.nextSibling) {
+				if (child.nodeType === 1) {
+					if (!SKIP.has(String((child as Element).localName).toLowerCase()) || DRAWN.has(String((child as Element).localName).toLowerCase())) walk(child as Element);
+				} else if (child.nodeType === 3 && shown && !keptNodes.has(child) && /\S/.test(child.nodeValue || '')) {
+					// Text the picture keeps (not read, or left whole): its ink is picture content.
+					range2.selectNodeContents(child);
+					const r = range2.getBoundingClientRect();
+					if (r.width > 0 && r.height > 0) items.push({ node: child, owner: el, rect: relRect(r), text: true });
+				}
+			}
+		};
+		const range2 = doc.createRange();
+		walk(section);
+		range2.detach();
+
+		// The section's own paint is the slide's background: never a shape, always beneath.
+		const lifted = new Set(candidates.filter((c) => c.el !== section));
+		// What a lifted box covers: its whole box, or just the bands of its borders.
+		const coverOf = (c: Candidate): Rect[] => {
+			if (c.covers) return [c.rect];
+			const { x, y, w, h } = c.rect;
+			const [t, r, b, l] = c.sides;
+			return [t && { x, y, w, h: t.width }, r && { x: x + w - r.width, y, w: r.width, h }, b && { x, y: y + h - b.width, w, h: b.width }, l && { x, y, w: l.width, h }].filter(Boolean) as Rect[];
+		};
+		// Is picture item `p` painted ABOVE lifted box `el`?
+		const above = (p: Item, el: Element): boolean => {
+			if (p.paintOf && p.node !== el && p.node.contains(el)) return false; // an ancestor's own paint
+			if (p.node === el) return true; // the box's own pseudo-element or marker
+			const common = commonAncestor(p.owner, el);
+			let lp = p.owner === common ? 1 : levelOf(p.owner, common);
+			// An absolutely placed `::before`/`::after` paints at its own level, not its owner's.
+			if (p.pseudo && !p.text) {
+				const ps = win.getComputedStyle(p.owner, p.pseudo === 'before' ? '::before' : '::after');
+				if (ps.position !== 'static') {
+					const z = ps.zIndex === 'auto' ? Number.NaN : Number(ps.zIndex);
+					lp = Number.isNaN(z) ? Math.max(lp, 2) : z < 0 ? Math.min(lp, -1) : Math.max(lp, 2 + z);
+				}
+			}
+			const le = levelOf(el, common);
+			if (lp !== le) return lp > le;
+			if (p.text) return true; // inline content paints after every block background in its level
+			if (p.node === el) return true; // the box's own pseudo-element or marker
+			if (p.pseudo && p.node.contains(el)) return p.pseudo === 'after';
+			return !!(p.node.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_PRECEDING);
+		};
+		for (let changed = true; changed; ) {
+			changed = false;
+			for (const c of lifted) {
+				const cover = coverOf(c);
+				if (!items.some((p) => cover.some((r) => overlaps(r, p.rect)) && above(p, c.el))) continue;
+				lifted.delete(c);
+				items.push({ node: c.el, owner: c.el, rect: c.rect, paintOf: c.el });
+				changed = true;
+			}
+		}
+
+		// Back to front: a parent before its children, else by painting level below their common
+		// ancestor, then tree order.
+		const order = [...lifted].sort((a, b) => {
+			if (a.el.contains(b.el)) return -1;
+			if (b.el.contains(a.el)) return 1;
+			const common = commonAncestor(a.el, b.el);
+			const d = levelOf(a.el, common) - levelOf(b.el, common);
+			return d || (a.el.compareDocumentPosition(b.el) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1);
+		});
+		const same = (a: Paint & { width: number }, b: Paint & { width: number }) => a.color === b.color && Math.abs(a.alpha - b.alpha) < 0.01 && Math.abs(a.width - b.width) < 0.01;
+		for (const c of order) {
+			const { x, y, w, h } = c.rect;
+			// The outline is the border most sides share; a side that differs is a rule over it.
+			let stroke: (Paint & { width: number }) | undefined;
+			if (c.sides.every(Boolean)) {
+				const all = c.sides as Array<Paint & { width: number }>;
+				stroke = all.map((sd) => ({ sd, n: all.filter((o) => same(o, sd)).length })).sort((p, q) => q.n - p.n)[0].sd;
+				// A side thinner than the outline would show the outline on both sides of it.
+				if (all.some((sd) => sd.width < (stroke as Paint & { width: number }).width)) stroke = undefined;
+			}
+			if (c.fill || stroke || c.shadow) {
+				const box: Shape = { kind: 'box', x, y, w, h, radii: c.radii };
+				if (c.fill) box.fill = c.fill;
+				if (stroke) box.stroke = stroke;
+				if (c.shadow) box.shadow = c.shadow;
+				shapes.push(box);
+				shapeEls.push(c.el);
+			}
+			const [rTL, rTR, rBR, rBL] = c.radii;
+			c.sides.forEach((sd, i) => {
+				if (!sd || (stroke && same(sd, stroke))) return;
+				const half = sd.width / 2;
+				// A rule runs between the corners it meets; on a rounded corner it wraps 45° of the
+				// arc, where the browser hands the corner to the next side.
+				const line: Shape =
+					i === 0
+						? { kind: 'line', x: x + rTL, y: y + half, w: w - rTL - rTR, h: 0, stroke: sd, side: 'top', wrap: [rTL, rTR] }
+						: i === 1
+							? { kind: 'line', x: x + w - half, y: y + rTR, w: 0, h: h - rTR - rBR, stroke: sd, side: 'right', wrap: [rTR, rBR] }
+							: i === 2
+								? { kind: 'line', x: x + rBL, y: y + h - half, w: w - rBL - rBR, h: 0, stroke: sd, side: 'bottom', wrap: [rBL, rBR] }
+								: { kind: 'line', x: x + half, y: y + rTL, w: 0, h: h - rTL - rBL, stroke: sd, side: 'left', wrap: [rTL, rBL] };
+				if (!(line.wrap as number[]).some((v) => v > half)) delete line.wrap;
+				shapes.push(line);
+				shapeEls.push(c.el);
+			});
+		}
+
+		// LABELS: a box with no shadow that holds nothing lifted but ONE paragraph of its own
+		// carries that text inside it: one object, which moves and resizes with its words.
+		const carried = new Set<number>();
+		shapes.forEach((sh, i) => {
+			if (sh.kind !== 'box' || sh.shadow) return;
+			const el = shapeEls[i];
+			if (shapeEls.some((o, j) => j !== i && (o === el || el.contains(o)))) return;
+			const inside = frames.map((_f, j) => j).filter((j) => el.contains(frameBlocks[j]));
+			if (inside.length === 1 && frameBlocks[inside[0]] === el) {
+				sh.text = inside[0];
+				carried.add(inside[0]);
+			}
+		});
+		// GROUPS: a box that covers its area is a card; everything lifted inside it — its rules,
+		// its labels, its text — moves with it. Groups are flat: the outermost card wins.
+		const cardOf = (el: Element, self: boolean): number => {
+			let best = -1;
+			shapes.forEach((sh, i) => {
+				if (sh.kind !== 'box') return;
+				const box = shapeEls[i];
+				if ((box === el ? self : box.contains(el)) && (best < 0 || shapeEls[i].contains(shapeEls[best]))) best = i;
+			});
+			return best;
+		};
+		const groups = new Set<number>();
+		shapes.forEach((sh, i) => {
+			const g = cardOf(shapeEls[i], sh.kind !== 'box');
+			if (g >= 0 && g !== i) {
+				sh.group = g;
+				groups.add(g);
+			}
+		});
+		frames.forEach((f, i) => {
+			if (carried.has(i)) return;
+			const g = cardOf(frameBlocks[i], true);
+			if (g >= 0) {
+				f.group = g;
+				groups.add(g);
+			}
+		});
+		for (const g of groups) shapes[g].group = g;
 	}
 
 	// ── hide. FIRST CHOICE: wrap each text node that was read in an inline element that is
@@ -646,7 +1074,33 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 		if (!wrapHide()) freezeHide();
 		hidden = true;
 	}
-	return { width: boxW, height: boxH, frames, hidden };
+	// A lifted shape's paint goes the same way: transparent, inline and !important, every
+	// border WIDTH kept so nothing moves. Undone first, before the text, because the color
+	// freeze may have written inline styles on the same element.
+	if (options?.hide && shapes.length) {
+		const undo: Array<() => void> = [];
+		for (const el of new Set(shapeEls) as Set<HTMLElement>) {
+			const saved = el.getAttribute('style');
+			for (const [k, v] of [
+				['background-color', 'transparent'],
+				['border-top-color', 'transparent'],
+				['border-right-color', 'transparent'],
+				['border-bottom-color', 'transparent'],
+				['border-left-color', 'transparent'],
+				['box-shadow', 'none'],
+			]) {
+				el.style.setProperty(k, v, 'important');
+			}
+			undo.push(() => flushStyle(el, saved));
+		}
+		const text = host.__calcoRestore;
+		host.__calcoRestore = () => {
+			for (const u of undo) u();
+			if (typeof text === 'function') text();
+		};
+		hidden = true;
+	}
+	return { width: boxW, height: boxH, frames, shapes, hidden };
 }
 
 /** Undo `readSlide(section, { hide: true })`. Safe to call when nothing is hidden. */
