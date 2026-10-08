@@ -11,8 +11,9 @@ source: https://github.com/Laticent/lattice/pull/2612
 # Move LTT's spec into spec/LTT-1.0.md, publish it, and give the home page a Specs group
 
 why now   — spec audit §6 step 2. LTT is the most complete spec but lives in engineering/ltt.md
-            and is filed as a library; this gives specs their public home. The owner ruled
-            (2026-10-08) that LTT is presented as a spec, not a library card.
+            and is filed as a library; this gives specs their public home. Spec audit §8.5
+            records the owner's direction that LTT is presented as a spec, which settles library
+            audit §6.2.
 where     — engineering/ltt.md → spec/LTT-1.0.md (with Owner, Status and a change log, CC-BY-4.0);
             tools/build-spec-docs.js SPECS; docs/src/lib/nav.mjs (LTT out of librariesNav, into a
             specs list, keeping nav.test.ts's workspace check honest: @laticent/ltt stays a

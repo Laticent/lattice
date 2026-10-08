@@ -65,9 +65,9 @@ that merely use it.
 | **Finish and motion manifests** | Data files for a finish or a motion | ✗ | `finish.schema.json`, `motion.schema.json` | engine | our own manifests are validated (`tools/manifest-schemas.js`) |
 | **Forms** (frame / cell / tile) | How a slide is composed | `design/forms.md` | `lib/forms/schema/*.schema.json` | engine | `frame-conformance.test.js` (integration) |
 | **Portable package shape** | One folder shape for themes, components, finishes, motion | a decision note only (`2026-09-23-portable-packages.md`) | per type, via the manifests above | build, CLI, Studio | ✗ |
-| **`.lattice` project file** and **asset bundle** (`lattice-asset/1`) | What the Studio saves and reopens | decision notes only (`2026-06-16-lattice-export-format.md`, `2026-06-29-lattice-asset-share.md`) | ✗ | Studio (`lattice-file.ts`, `asset-bundle.ts`) and `lib/core/reopenable.js`, shared with the CLI | `lattice-file.test.ts`, `asset-bundle.test.ts`, `test/unit/core/reopenable.test.js` |
+| **`.lattice` project file** and **asset bundle** (since 2026-09 the package-folder zip; the old `lattice-asset/1` envelope is import-only, and nothing writes it) | What the Studio saves and reopens | decision notes only (`2026-06-16-lattice-export-format.md`, `2026-06-29-lattice-asset-share.md`) | ✗ | Studio (`lattice-file.ts`, `asset-bundle.ts`) and `lib/core/reopenable.js`, shared with the CLI | `lattice-file.test.ts`, `asset-bundle.test.ts`, `test/unit/core/reopenable.test.js` |
 | **Workspace backup** (`lattice-workspace/1`) | A zip of every deck in a Studio | a decision note only (`2026-07-02-workspace-backup.md`) | ✗ | Studio (`workspace-backup.ts`) | Studio unit tests |
-| **Re-openable export** | A PDF attachment `deck.lattice` (`application/vnd.lattice+zip`) and a PPTX part `lattice/deck.lattice` that carry the source, so an export opens back in Lattice | ✗ code only | ✗ | `lib/core/reopenable.js`, used by the CLI's `--reopenable` and the Studio | `test/unit/core/reopenable.test.js` |
+| **Re-openable export** | A PDF attachment `deck.lattice` (`application/vnd.lattice+zip`) and a PPTX part `lattice/deck.lattice` that carry the source, so an export opens back in Lattice | a decision note only (`2026-10-05-reopenable-exports.md`) | ✗ | `lib/core/reopenable.js`, used by the CLI's `--reopenable` and the Studio | `test/unit/core/reopenable.test.js` |
 | **Segno inline notation** | What an author types inside backticks: pills, sparks, icons, values | Segno's README and `2026-09-28-segno-unified-inline-notation.md` | the grammar is data in Segno | `@laticent/segno` | Segno's own tests, including a fuzz test |
 
 Three observations:
@@ -102,15 +102,16 @@ linter emits **at least 157** distinct ones:
 | **total, written as literals** | **157** |
 
 Families built at runtime come on top: `unknown-spark`, one `unknown-<register>` per plugin
-register, and `<plugin kind>-literal` such as `icon-literal`. The opt-in review pass
-(`lib/authoring/review-core.js`, run by `lint:deck --review`) adds 18 more suggestion-tier IDs
+register, and `<plugin kind>-literal` such as `icon-literal`. The review pass
+(`lib/authoring/review-core.js`, which `lint:deck` runs by default on named files and skips under
+`--all` or `--no-review`) adds 18 more suggestion-tier IDs
 plus a `verbose-*` family, and the CLI adds `narration-acronyms` and `narration-passthrough`.
 
 All 13 registered IDs are still emitted, so nothing was removed. But at least 144 IDs were added
 without a minor version, and nothing checks the registry against the code. A tool that relied on
 the registry, as §3 invites, would not know that over 90% of the findings exist. The severities
 drifted too: the spec says v1 has only `error` and `warning`, and `lint-core.js` also emits
-`info` (3 sites) and `suggestion` (5 sites).
+`info` (6 sites, 3 of them conditional) and `suggestion` (6 sites, 1 of them conditional).
 
 ### 4.2 LFM's front-matter surface
 
@@ -183,8 +184,9 @@ needs a new workflow.
 1. **Six public specs:** LFM, the Diagnostic Protocol, LPM, LTT, **the theme contract** and
    **the `.lattice` file**. The owner chose to make the last two public as well, which goes
    further than §5.2 recommended. Each gets a versioned document in `spec/`, CC-BY-4.0, and
-   shared test cases. The cost is the one §7.1 named: the theme's token names, and the shape of
-   the `.lattice` file, become things we change only with a version bump. The manifests, the
+   shared test cases. The cost is the one §7.1 named for the theme, and the same for the `.lattice` file:
+   the theme's token names, and the shape of the `.lattice` file, become things we change only
+   with a version bump. The manifests, the
    package shape, the asset bundle, the workspace backup and the re-openable export stay internal
    contracts.
 2. **LFM ratifies 1.0 as the small core it describes today,** and the front-matter settings, the
@@ -192,3 +194,8 @@ needs a new workflow.
 3. **The owner (@saden1) owns every public spec,** as with LTT: each spec carries an owner line,
    and a change to its meaning needs the owner's sign-off.
 4. **Step 1 of §6 starts now,** on its own branch.
+5. **LTT is presented as a spec.** Asked how LTT should be presented on the site, the owner
+   answered: "we need to start thinking about specs as their own thing and having a place in our
+   thinking. specs need documentation and implementation and a test harness." This note reads
+   that as settling the question `2026-10-08-library-audit.md` §6.2 left open: LTT's card moves
+   from the Libraries group to a Specs group (§5.3), which is step 2 of §6.
