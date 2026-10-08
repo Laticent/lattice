@@ -22,6 +22,7 @@ import '../styles/chart-interact.css';
 import SiteHeader from '../components/site/SiteHeader.astro';
 import ResourceHints from '../components/site/ResourceHints.astro';
 import ColorSchemeSeed from '../components/site/ColorSchemeSeed.astro';
+import StaleDeployRecovery from '../components/site/StaleDeployRecovery.astro';
 import PlaygroundIsland from '../components/playground/PlaygroundIsland.tsx';
 import { buildCatalog, buildLenses } from '../lib/families.mjs';
 import { PG_SPLIT_BUCKET, PG_SPLIT_KEY, PG_SPLIT_MIN, PG_SPLIT_PANEL_IDS, PG_SPLIT_SNAP_MIDPOINT } from '../components/playground/pg-split';
@@ -190,6 +191,9 @@ const pgData = {
 		    blank canvas (shown while the render-blocking CSS loads) is never a white flash — even
 		    for a dark-app visitor on a light-OS device. Must precede ResourceHints + the seed. */}
 		<ColorSchemeSeed />
+		{/* Before any module preload: a page served from a stale cache after a deploy names
+		    chunks that no longer exist, and the island would never mount. */}
+		<StaleDeployRecovery island="PlaygroundIsland" />
 		<ResourceHints />
 		{/* The runtime prefetch that <RuntimeWarm> issues elsewhere is issued by the boot seed
 		    below on this page: it must NOT run beside the newcomer bake (see there). */}

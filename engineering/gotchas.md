@@ -307,6 +307,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [A Radix Sheet's first control is dead to the first tap on iOS](gotchas/studio-playground.md#a-radix-sheets-first-control-is-dead-to-the-first-tap-on-ios)
 - [A panel's controls fall outside it when the reader scales text up](gotchas/studio-playground.md#a-panels-controls-fall-outside-it-when-the-reader-scales-text-up)
 - [A long-lived tab 404s on the next asset it fetches after a deploy](gotchas/studio-playground.md#a-long-lived-tab-404s-on-the-next-asset-it-fetches-after-a-deploy)
+- [The Studio stays on its loading shell after you open it, and a reload fixes it](gotchas/studio-playground.md#the-studio-stays-on-its-loading-shell-after-you-open-it-and-a-reload-fixes-it)
 - [A chart's hover card flashes up and vanishes as you sweep onto a mark](gotchas/studio-playground.md#a-charts-hover-card-flashes-up-and-vanishes-as-you-sweep-onto-a-mark)
 - [A CSS comment in ComposeView's stylesheet breaks the whole file, with errors 130 lines away](gotchas/studio-playground.md#a-css-comment-in-composeviews-stylesheet-breaks-the-whole-file-with-errors-130-lines-away)
 - [A notification's button can't be clicked while a Studio sheet is open](gotchas/studio-playground.md#a-notifications-button-cant-be-clicked-while-a-studio-sheet-is-open)
