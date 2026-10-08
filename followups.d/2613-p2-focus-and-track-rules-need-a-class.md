@@ -2,7 +2,7 @@
 origin: 2613
 priority: P2
 recorded: 2026-10-08
-area: authoring
+area: engine
 severity: medium
 swimlane: spec/diagnostics.md
 source: https://github.com/Laticent/lattice/pull/2613
