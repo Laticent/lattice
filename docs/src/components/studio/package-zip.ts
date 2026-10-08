@@ -16,12 +16,16 @@ import type { Scene } from '@/lib/anima';
 // only ever loaded on demand (asset-bundle.ts, share-export.ts), never on the Studio's eager path.
 import { refuseCode } from '../../../../lib/packages/code-shape.mjs';
 import jsonGuard from '../../../../lib/packages/json-guard.js';
+// The plugin refusal, one string shared with `lattice packages add` (a CommonJS leaf, read as a default import).
+import pluginRefusal from '../../../../lib/packages/plugin-refusal.js';
 import type { StudioComponent } from './component-library';
 import { coerceRecipe, type FinishRecipe } from './finish-generate';
 import type { StudioFinish } from './finish-library';
 import type { PackageCarry } from './library/package-carry';
 import type { StudioScene } from './scene-library';
 import type { StudioTheme } from './theme-library';
+
+const { PLUGIN_REFUSAL } = pluginRefusal;
 
 export type PackageType = 'theme' | 'component' | 'finish' | 'motion';
 /** One package as files: file name (`<name>.<role>`) → text. */
@@ -229,6 +233,13 @@ export async function readPackagesFromZip(zip: Zip, read: (path: string) => Prom
 		const norm = spine.readPackage(written, { strict: true });
 		if (!norm.ok || !norm.pkg) {
 			refused.push({ name: folder ?? 'the zip', why: norm.errors.join('; ') });
+			continue;
+		}
+		// A plugin is refused by name before its files are judged, as `lattice packages add` refuses
+		// it (lib/packages/gate.js). The spine reads one fine, and no caller below has a plugin
+		// branch, so without this a code-free plugin vanished from the import with no word.
+		if (norm.pkg.type === 'plugin') {
+			refused.push({ name: norm.pkg.name, why: PLUGIN_REFUSAL });
 			continue;
 		}
 		const roles: Record<string, string> = {};

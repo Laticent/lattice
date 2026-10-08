@@ -254,6 +254,7 @@ const faces = previewFontFaceCss();
 
 		<script>
 			import { readSlide, restoreSlide, prepareFonts, writeOdp, writePptx, type Deck, type TextFrame } from '@/lib/calco';
+			import { captureStyleProperties } from '../../../lib/core/capture-style-properties.mjs';
 
 			const $ = <T extends Element = HTMLElement>(s: string) => document.querySelector(s) as T;
 			const root = document.documentElement;
@@ -346,7 +347,8 @@ const faces = previewFontFaceCss();
 			async function capture(el: HTMLElement): Promise<Uint8Array> {
 				const { toBlob } = await import('html-to-image');
 				// html-to-image clones the element at its own size: the scale lives on the parent.
-				const blob = await toBlob(el, { width: 1280, height: 720, pixelRatio: 2, cacheBust: true });
+				// The counter properties ride along, or a numbered tag captures as 0 (the Studio's list).
+				const blob = await toBlob(el, { width: 1280, height: 720, pixelRatio: 2, cacheBust: true, includeStyleProperties: captureStyleProperties() });
 				if (!blob) throw new Error('capture failed');
 				return new Uint8Array(await blob.arrayBuffer());
 			}

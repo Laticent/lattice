@@ -5,7 +5,9 @@
  * Every page is a full-bleed picture with zero or more text boxes on top. In PICTURE mode
  * the picture is the whole slide and there are no boxes; in EDITABLE mode the picture is the
  * slide with its text hidden and every paragraph is a real text box, in its own font, which
- * is embedded in the file. One code path writes both.
+ * is embedded in the file. One code path writes both. Native shapes (a slide's `shapes`) sit
+ * between the picture and the text: `draw:rect`, `draw:custom-shape` and `draw:line`, each
+ * card and what it holds in a `draw:g`.
  *
  * Package rules a reader enforces, each learned the hard way:
  *   - `mimetype` is the FIRST zip entry and STORED, so a reader can sniff the type unzipped;
@@ -16,7 +18,8 @@
 import { type FontMetrics, faceFor, facesUsed, readFontMetrics, uniqueFaceNames } from './fonts.js';
 import { dominantStyle, metricsFor, placeFrame } from './layout.js';
 import { renameFace } from './sfnt.js';
-import type { Deck, EmbeddedFont, JSZipClass, TextStyle } from './types.js';
+import { drawOrder, type Insets, labelInsets, type ShapeGeometry, shapeGeometry } from './shapes.js';
+import type { Deck, EmbeddedFont, JSZipClass, Shape, TextFrame, TextStyle } from './types.js';
 
 export const ODP_MIMETYPE = 'application/vnd.oasis.opendocument.presentation';
 
@@ -196,21 +199,92 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 	};
 
 	const metricsCache = new Map<EmbeddedFont, FontMetrics | null>();
+	// A frame's placed box and its paragraph, as the browser drew it.
+	const textOf = (f: TextFrame) => {
+		const lead = dominantStyle(f.lines.find((l) => l.length) || f.lines[0]);
+		const box = placeFrame(f, W, metricsFor(lead, used, metricsCache), lead.size);
+		const body = f.lines
+			.map((runs, li) => (li ? '<text:line-break/>' : '') + runs.map((r) => `<text:span text:style-name="${textStyle(r.style)}">${textBody(r.text)}</text:span>`).join(''))
+			.join('');
+		return { box, para: `<text:p text:style-name="${paraStyle(f.align, f.lineHeight)}">${body}</text:p>` };
+	};
+	const pct = (a: number) => `${Math.round(a * 1000) / 10}%`;
+	// One graphic style per distinct paint (and, for a label, text placement).
+	const shapeStyles = new Map<string, string>();
+	const shapeStyle = (shape: Shape, closed: boolean, label?: { ins: Insets; align: TextFrame['align'] }): string => {
+		const attrs: string[] = [];
+		const stroke = shape.stroke;
+		attrs.push(stroke ? `draw:stroke="solid" svg:stroke-width="${cm(stroke.width)}" svg:stroke-color="${stroke.color}" svg:stroke-opacity="${pct(stroke.alpha)}" svg:stroke-linecap="butt"` : 'draw:stroke="none"');
+		attrs.push(shape.fill && closed ? `draw:fill="solid" draw:fill-color="${shape.fill.color}" draw:opacity="${pct(shape.fill.alpha)}"` : 'draw:fill="none"');
+		if (shape.shadow) {
+			const sh = shape.shadow;
+			attrs.push(`draw:shadow="visible" draw:shadow-offset-x="${cm(sh.x)}" draw:shadow-offset-y="${cm(sh.y)}" draw:shadow-color="${sh.color}" draw:shadow-opacity="${pct(sh.alpha)}" loext:shadow-blur="${cm(sh.blur)}"`);
+		} else attrs.push('draw:shadow="hidden"');
+		if (label) {
+			// The text does not wrap and sits at the top; the edge its alignment grows from is inset.
+			const h = label.align === 'center' ? 'center' : label.align === 'right' ? 'right' : 'left';
+			attrs.push(
+				`draw:textarea-vertical-align="top" draw:textarea-horizontal-align="${h}" fo:wrap-option="no-wrap" draw:auto-grow-height="false" draw:auto-grow-width="false" ` +
+					`fo:padding-top="${cm(label.ins.t)}" fo:padding-bottom="0cm" fo:padding-left="${cm(label.ins.l)}" fo:padding-right="${cm(label.ins.r)}"`,
+			);
+		}
+		const key = attrs.join(' ');
+		const hit = shapeStyles.get(key);
+		if (hit) return hit;
+		const name = `gr${shapeStyles.size + 2}`;
+		shapeStyles.set(key, name);
+		automatic.push(`<style:style style:name="${name}" style:family="graphic"><style:graphic-properties ${key}/></style:style>`);
+		return name;
+	};
+	// Enhanced-path coordinates are integers in the shape's viewBox: hundredths of a px.
+	const pathOf = (geom: ShapeGeometry) =>
+		geom.path
+			.map((c) => (c[0] === 'Z' ? 'Z' : `${c[0]} ${c.slice(1).map((v) => Math.round((v as number) * 100)).join(' ')}`))
+			.join(' ') + (geom.closed ? ' N' : ' F N');
+	const shapeXml = (shape: Shape, name: string, label?: TextFrame): string => {
+		const geom = shapeGeometry(shape);
+		const pos = `svg:x="${cm(geom.x)}" svg:y="${cm(geom.y)}" svg:width="${cm(geom.w)}" svg:height="${cm(geom.h)}"`;
+		if (geom.preset === 'line') {
+			return `<draw:line draw:style-name="${shapeStyle(shape, false)}" draw:name="${xmlEscape(name)}" svg:x1="${cm(geom.x)}" svg:y1="${cm(geom.y)}" svg:x2="${cm(geom.x + geom.w)}" svg:y2="${cm(geom.y + geom.h)}"/>`;
+		}
+		let style = shapeStyle(shape, geom.closed);
+		let text = '';
+		if (label) {
+			const t = textOf(label);
+			style = shapeStyle(shape, geom.closed, { ins: labelInsets(geom, t.box, label.align) as Insets, align: label.align });
+			text = t.para;
+		}
+		// A rectangle (rounded or not) keeps its corners when resized; any other outline is a path.
+		if (geom.preset === 'rect') {
+			const radius = geom.radius ? ` draw:corner-radius="${cm(geom.radius)}"` : '';
+			return `<draw:rect draw:style-name="${style}" draw:name="${xmlEscape(name)}" ${pos}${radius}>${text}</draw:rect>`;
+		}
+		return (
+			`<draw:custom-shape draw:style-name="${style}" draw:name="${xmlEscape(name)}" ${pos}>${text}` +
+			`<draw:enhanced-geometry svg:viewBox="0 0 ${Math.round(geom.w * 100)} ${Math.round(geom.h * 100)}" draw:type="non-primitive" draw:enhanced-path="${pathOf(geom)}"/></draw:custom-shape>`
+		);
+	};
+	const frameXml = (f: TextFrame, name: string): string => {
+		const { box, para } = textOf(f);
+		return (
+			`<draw:frame draw:style-name="gr1" draw:name="${xmlEscape(name)}" svg:x="${cm(box.x)}" svg:y="${cm(box.y)}" svg:width="${cm(box.w)}" svg:height="${cm(box.h)}">` +
+			`<draw:text-box>${para}</draw:text-box></draw:frame>`
+		);
+	};
 	const pages = deck.slides.map((slide, i) => {
 		const n = i + 1;
 		const alt = (slide.description || '').trim() || `Slide ${n}`;
-		const boxes = (slide.frames || [])
-			.filter((f) => f.lines.length && f.lines.some((l) => l.length))
-			.map((f, j) => {
-				const lead = dominantStyle(f.lines.find((l) => l.length) || f.lines[0]);
-				const box = placeFrame(f, W, metricsFor(lead, used, metricsCache), lead.size);
-				const body = f.lines
-					.map((runs, li) => (li ? '<text:line-break/>' : '') + runs.map((r) => `<text:span text:style-name="${textStyle(r.style)}">${textBody(r.text)}</text:span>`).join(''))
+		const carries = (shape: Shape, f: TextFrame) => !!labelInsets(shapeGeometry(shape), textOf(f).box, f.align);
+		const boxes = drawOrder(slide, carries)
+			.map(({ group, items }) => {
+				const xml = items
+					.map((item) =>
+						'frame' in item
+							? frameXml(item.frame, `Text ${n}.${item.index + 1}`)
+							: shapeXml(item.shape, `${item.label ? 'Label' : item.shape.kind === 'line' ? 'Rule' : 'Shape'} ${n}.${item.index + 1}`, item.label),
+					)
 					.join('');
-				return (
-					`<draw:frame draw:style-name="gr1" draw:name="Text ${n}.${j + 1}" svg:x="${cm(box.x)}" svg:y="${cm(box.y)}" svg:width="${cm(box.w)}" svg:height="${cm(box.h)}">` +
-					`<draw:text-box><text:p text:style-name="${paraStyle(f.align, f.lineHeight)}">${body}</text:p></draw:text-box></draw:frame>`
-				);
+				return group === undefined ? xml : `<draw:g draw:name="Group ${group + 1}">${xml}</draw:g>`;
 			})
 			.join('');
 		const note = slide.notes;

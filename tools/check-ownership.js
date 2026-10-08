@@ -6061,6 +6061,15 @@ function listSourceFiles(dir, out = []) {
 //   · a COUNT that drifted — e.g. a 24th `settle(page)` call, which no text grep would see.
 const SANCTIONED_E2E_SLEEPS = [
   {
+    file: 'docs/e2e/deck-drop-import.spec.ts', ms: 1000, count: 3,
+    why: 'THREE ABSENCE ASSERTIONS: a PDF dropped on the code editor, on the compose editor and '
+       + 'while presenting must import NOTHING and leave the tab on the Studio. There is no signal '
+       + 'for an import that must not happen; a poll of the unchanged source goes green on its first '
+       + 'tick, before the lazy deck-import chunk could even load. 1000ms covers that chunk, the PDF '
+       + 'read and the debounced source save that a wrong import would cause; the same file\'s '
+       + 'POSITIVE arms show those all land inside it (a real import there is polled, and passes).',
+  },
+  {
     file: 'docs/e2e/print-preview-documents.spec.ts', ms: 1500, count: 1,
     why: 'AN ABSENCE ASSERTION: the Share sheet keeps the Print drawer mounted but FROZEN while '
        + 'closed, and the claim is that editing the deck then re-renders nothing in it. A '

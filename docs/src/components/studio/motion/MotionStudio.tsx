@@ -443,6 +443,7 @@ function Empty({ paste, setPaste, busy, replacing, describe, setDescribe, genera
 		// the region itself needs no keyboard handler, and naming it keeps it in the a11y tree.
 		<section
 			aria-label="Start a drawing"
+			data-file-drop=""
 			onDragOver={(e) => { e.preventDefault(); setOver(true); }}
 			onDragLeave={() => setOver(false)}
 			onDrop={(e) => {

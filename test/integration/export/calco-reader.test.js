@@ -319,3 +319,156 @@ describe('calco reader: the review cases', () => {
     assert.notEqual(space.style.family, code.family);
   });
 });
+
+// Native shapes (engineering/decisions/2026-10-07-calco-native-shapes.md): which boxes leave
+// the picture as shapes, which stay because something above them would be covered or left
+// behind, how a card groups with what is inside it, and how the paint is hidden and restored.
+const SHAPES = `<!doctype html><html><head><style>
+  body { margin: 0; font-family: sans-serif; }
+  section { width: 1280px; height: 720px; position: relative; background: #ffffff; color: #112233; }
+  .card { position: absolute; width: 300px; height: 160px; background: #f2f5fa; border: 1px solid #898e95; border-radius: 10px; box-sizing: border-box; }
+  .card p { margin: 0; position: absolute; left: 20px; top: 60px; font-size: 18px; line-height: 24px; }
+  #c1 { left: 40px; top: 40px; border-bottom: 3px solid #2e608a; }
+  #c1 .tag { position: absolute; left: 0; top: 0; padding: 4px 10px; background: #2e608a; color: #fff; font-size: 12px; line-height: 16px; border-radius: 10px 0 7px 0; }
+  #c2 { left: 380px; top: 40px; }
+  #c3 { left: 720px; top: 40px; }
+  #c3::before { content: "1"; position: absolute; left: 0; top: 0; padding: 2px 6px; background: #006fa8; color: #fff; }
+  #c4 { left: 40px; top: 260px; }
+  #c4 ul { position: absolute; left: 30px; top: 20px; margin: 0; padding: 0 0 0 20px; font-size: 16px; }
+  #c5 { left: 380px; top: 260px; border-radius: 40px / 10px; }
+  #c6 { left: 720px; top: 260px; border: 0; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25); }
+  #ring { position: absolute; left: 1060px; top: 40px; padding: 4px 8px; background: #fff; box-shadow: inset 0 0 0 1px #6b7f9a; font-size: 12px; }
+  h2 { position: absolute; left: 40px; top: 470px; width: 600px; margin: 0; font-size: 28px; line-height: 40px; border-bottom: 2px solid #898e95; }
+  #under { position: absolute; left: 720px; top: 470px; width: 200px; height: 80px; background: #eef; }
+  #over { position: absolute; left: 700px; top: 460px; width: 300px; height: 120px; background: linear-gradient(90deg, rgba(255,0,0,.2), transparent); }
+  #back { position: absolute; left: 1000px; top: 450px; width: 260px; height: 200px; z-index: -1; background: radial-gradient(circle, #ddd, transparent); }
+  #onback { position: absolute; left: 1040px; top: 500px; width: 180px; height: 100px; background: #eef; }
+  #seg { position: absolute; left: 40px; top: 560px; width: 100px; height: 2.5px; padding-top: 16px; background: #006fa8; background-clip: content-box; }
+  #bimg { position: absolute; left: 200px; top: 560px; width: 100px; height: 40px; border: 6px solid red; border-image: linear-gradient(green, blue) 1; }
+  #pre { position: absolute; left: 340px; top: 560px; width: 120px; height: 80px; }
+  #pre::before { content: ""; position: absolute; left: 0; top: 0; width: 60px; height: 60px; background: red; }
+  #pre div { width: 100px; height: 50px; background: #00f; }
+  #two { position: absolute; left: 500px; top: 560px; width: 100px; height: 60px; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.15); }
+</style></head><body>
+<section id="sh">
+  <div class="card" id="c1"><span class="tag">Build</span><p>Owns the policy.</p></div>
+  <div class="card" id="c2"><svg width="24" height="24" style="position:absolute;right:12px;top:12px"><circle cx="12" cy="12" r="10" fill="#006fa8"/></svg><p>Has an icon.</p></div>
+  <div class="card" id="c3"><p>Counted tag.</p></div>
+  <div class="card" id="c4"><ul><li>One point</li><li>Two points</li></ul></div>
+  <div class="card" id="c5"><p>Elliptical.</p></div>
+  <div class="card" id="c6"><p>Shadowed.</p></div>
+  <span id="ring">Plain tag</span>
+  <h2>A rule under a heading</h2>
+  <div id="back"></div>
+  <div id="under"></div>
+  <div id="over"></div>
+  <div id="onback"></div>
+  <div id="seg"></div>
+  <div id="bimg"></div>
+  <div id="pre"><div></div></div>
+  <div id="two"></div>
+</section></body></html>`;
+
+describe('calco reader: native shapes', () => {
+  let browser;
+  let page;
+  let res;
+  before(async () => {
+    browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+    page = await browser.newPage();
+    await page.setViewport({ width: 1280, height: 720 });
+    await page.setContent(SHAPES, { waitUntil: 'load' });
+    res = await (await page.$('#sh')).evaluate(readSlide, { shapes: true });
+  });
+  after(async () => {
+    await browser?.close();
+  });
+  const textOf = (frame) => frame.lines.map((l) => l.map((r) => r.text).join('')).join('\n');
+  const boxAt = (x, y) => res.shapes.find((s) => s.kind === 'box' && Math.abs(s.x - x) < 1 && Math.abs(s.y - y) < 1);
+
+  test('no shapes unless asked', async () => {
+    const plain = await (await page.$('#sh')).evaluate(readSlide);
+    assert.deepEqual(plain.shapes, []);
+  });
+
+  test('a card lifts with its outline, its accent edge as a rule, and its tag carrying its text', () => {
+    const card = boxAt(40, 40);
+    assert.ok(card, JSON.stringify(res.shapes));
+    assert.deepEqual(card.fill, { color: '#f2f5fa', alpha: 1 });
+    assert.deepEqual(card.stroke, { color: '#898e95', alpha: 1, width: 1 });
+    assert.deepEqual(card.radii, [10, 10, 10, 10]);
+    const accent = res.shapes.find((s) => s.kind === 'line' && s.side === 'bottom' && s.stroke.color === '#2e608a');
+    assert.ok(accent, 'the 3px bottom border is a rule');
+    assert.equal(accent.stroke.width, 3);
+    assert.ok(Math.abs(accent.y - (40 + 160 - 1.5)) < 0.01, `the rule runs along the middle of its band: ${accent.y}`);
+    assert.deepEqual(accent.wrap, [10, 10]);
+    const tag = res.shapes.find((s) => s.text !== undefined && textOf(res.frames[s.text]) === 'Build');
+    assert.ok(tag, 'the tag carries its word');
+    assert.deepEqual(tag.radii, [10, 0, 7, 0]);
+    // One group: the card, its rule, its tag and its paragraph.
+    const g = res.shapes.indexOf(card);
+    assert.equal(card.group, g);
+    assert.equal(accent.group, g);
+    assert.equal(tag.group, g);
+    assert.equal(res.frames.find((f) => textOf(f) === 'Owns the policy.').group, g);
+    assert.equal(res.frames[tag.text].group, undefined, 'the carried text is the label, not a group member');
+  });
+
+  test('a card stays in the picture when something it would cover stays there: an icon, a ::before tag, list markers', () => {
+    assert.equal(boxAt(380, 40), undefined, 'the card with an SVG icon');
+    assert.equal(boxAt(720, 40), undefined, 'the card with a counted ::before tag');
+    assert.equal(boxAt(40, 260), undefined, 'the card holding a bulleted list');
+    assert.equal(res.frames.find((f) => textOf(f) === 'Has an icon.').group, undefined);
+  });
+
+  test('elliptical corners stay in the picture; a shadow and an inset ring are carried', () => {
+    assert.equal(boxAt(380, 260), undefined);
+    const shadowed = boxAt(720, 260);
+    assert.ok(shadowed);
+    assert.deepEqual(shadowed.shadow, { color: '#000000', alpha: 0.25, x: 0, y: 2, blur: 8 });
+    const ring = res.shapes.find((s) => s.kind === 'box' && s.stroke && s.stroke.color === '#6b7f9a');
+    assert.ok(ring, 'an inset 1px ring is the outline');
+    assert.equal(ring.stroke.width, 1);
+    assert.equal(textOf(res.frames[ring.text]), 'Plain tag');
+  });
+
+  test('a heading rule is a line; a box under a later overlay stays; one over a z-index -1 backdrop lifts', () => {
+    const rule = res.shapes.find((s) => s.kind === 'line' && s.stroke.width === 2);
+    assert.ok(rule);
+    assert.equal(rule.h, 0);
+    assert.equal(rule.group, undefined);
+    assert.equal(boxAt(720, 470), undefined, 'the overlay paints above it');
+    assert.ok(boxAt(1040, 500), 'the backdrop paints below it');
+  });
+
+  test('a fill clipped to its content box is that box; border-image, two shadows and a covered child stay', () => {
+    const seg = res.shapes.find((s) => s.kind === 'box' && s.fill?.color === '#006fa8' && Math.abs(s.x - 40) < 1);
+    assert.ok(seg, 'the padded accent segment lifts');
+    assert.ok(Math.abs(seg.y - 576) < 0.5 && Math.abs(seg.h - 2.5) < 0.1, `the fill is the content box: ${JSON.stringify(seg)}`);
+    assert.equal(res.shapes.find((s) => Math.abs(s.x - 200) < 4 && Math.abs(s.y - 560) < 4), undefined, 'a border-image box');
+    assert.equal(boxAt(340, 560), undefined, 'a static child under its parent\'s absolutely placed ::before');
+    assert.equal(boxAt(500, 560), undefined, 'two outer shadow layers');
+  });
+
+  test('hiding takes the paint out without moving anything, and restore is exact', async () => {
+    const s = await page.$('#sh');
+    const before = await page.evaluate(() => document.documentElement.outerHTML);
+    const probe = () => {
+      const cs = getComputedStyle(document.querySelector('#c1'));
+      const r = document.querySelector('#c1 p').getBoundingClientRect();
+      return { bg: cs.backgroundColor, bottom: cs.borderBottomColor, width: cs.borderBottomWidth, tag: getComputedStyle(document.querySelector('#c1 .tag')).backgroundColor, p: [r.left, r.top], c2: getComputedStyle(document.querySelector('#c2')).backgroundColor };
+    };
+    const shown = await page.evaluate(probe);
+    const hiddenRes = await s.evaluate(readSlide, { hide: true, shapes: true });
+    assert.equal(hiddenRes.hidden, true);
+    const hidden = await page.evaluate(probe);
+    assert.equal(hidden.bg, 'rgba(0, 0, 0, 0)');
+    assert.equal(hidden.bottom, 'rgba(0, 0, 0, 0)');
+    assert.equal(hidden.tag, 'rgba(0, 0, 0, 0)');
+    assert.equal(hidden.width, shown.width, 'border widths stay');
+    assert.deepEqual(hidden.p, shown.p, 'nothing moves');
+    assert.equal(hidden.c2, shown.c2, 'a card that stays in the picture keeps its paint');
+    await s.evaluate(restoreSlide);
+    assert.equal(await page.evaluate(() => document.documentElement.outerHTML), before);
+  });
+});

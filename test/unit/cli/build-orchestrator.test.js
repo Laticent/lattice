@@ -74,6 +74,10 @@ describe('build orchestrator', () => {
       JOIN_BEFORE_SCRIPTS.has('build-read-along-core.js'),
       'build-read-along-core.js inlines docs/src/lib/cadenza/dist/index.cjs and must be a join point',
     );
+    assert.ok(
+      JOIN_BEFORE_SCRIPTS.has('build-cli.js'),
+      'build-cli.js inlines the LTT and Cadenza dists (INLINE_PACKAGES) and must be a join point',
+    );
     for (const script of JOIN_BEFORE_SCRIPTS) {
       assert.ok(idx(script) >= 0, `JOIN_BEFORE_SCRIPTS names ${script}, which is not a step`);
     }
