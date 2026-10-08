@@ -220,6 +220,9 @@ jobs:
       PUPPETEER_SKIP_DOWNLOAD: '1'
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The no-PDF check below diffs GitHub's test merge against its first parent.
+          fetch-depth: 2
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -227,6 +230,14 @@ jobs:
       - run: npm ci
       - name: Lint
         run: npm run lint
+      # Pull requests do not commit PDFs: the nightly bless bot is their one writer
+      # (engineering/decisions/2026-10-06-goldens-bot-blessed.md §2.3; inside this job by
+      # the owner's decision of 2026-10-07). About a second.
+      - name: No committed PDF in this PR
+        if: github.event_name == 'pull_request'
+        env:
+          PR_FROM_SAME_REPO: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+        run: node tools/check-no-pdf-in-pr.mjs
       - name: Lint decks
         # Author-facing footgun checks across every deck (--strict): both
         # errors (card-style inline-title, ordered-list bold) and warnings
