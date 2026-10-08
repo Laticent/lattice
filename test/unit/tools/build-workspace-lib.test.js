@@ -13,7 +13,7 @@ const { spawn } = require('node:child_process');
 // twice on #2613 with ENOENT, once under `.dist.tmp-12417/` and once under `suono/dist/`.
 //
 // So the second of two builds in a row must leave `dist/` as the same directory (same inode)
-// and must not create anything in the library's folder while it runs. Before the fix, `dist/`'s
+// and must not create a `.dist.tmp-*` staging folder in the library's folder while it runs. Before the fix, `dist/`'s
 // inode changed on every build (measured on ltt: 885356, then 885409).
 
 const ROOT = path.join(__dirname, '..', '..', '..');
@@ -30,12 +30,14 @@ function build() {
   });
 }
 
-test('a rebuild with nothing to change leaves dist/ in place and creates nothing beside it', async () => {
+test('a rebuild with nothing to change leaves dist/ in place and stages nothing beside it', async () => {
   await build(); // makes dist/ current, whatever state it was in
   const before = fs.statSync(path.join(LIB, 'dist')).ino;
   const created = [];
-  const watcher = fs.watch(LIB, (event, name) => {
-    if (event === 'rename' && name && name !== 'dist' && fs.existsSync(path.join(LIB, name))) created.push(name);
+  // Only a staging folder counts. `npm pack` (package-nodenext-types.test.js, possibly running
+  // now) also copies LICENSE into the folder through tools/library-prepack.js, which is not the
+  // builder's write, and the inode check below already covers dist/ itself.
+  const watcher = fs.watch(LIB, (_event, name) => {
     if (name?.startsWith('.dist.tmp-')) created.push(name);
   });
   try {
@@ -44,6 +46,6 @@ test('a rebuild with nothing to change leaves dist/ in place and creates nothing
     watcher.close();
   }
   assert.equal(fs.statSync(path.join(LIB, 'dist')).ino, before, 'the second build replaced dist/ although nothing changed');
-  assert.deepEqual([...new Set(created)], [], 'the second build created entries in the library folder');
+  assert.deepEqual([...new Set(created)], [], 'the second build created a staging folder in the library folder');
   assert.deepEqual(fs.readdirSync(LIB).filter((n) => n.startsWith('.dist.tmp-')), []);
 });
