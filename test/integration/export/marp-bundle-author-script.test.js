@@ -178,7 +178,7 @@ describe('Export-to-Marp runs none of the deck\'s own script — real marp-cli, 
  *   - the UNBAKED deck under the bundle's config (the config alone: Marp's math is off);
  *   - the bundle under the worst config a recipient could pick — every tag allowed and MathJax on,
  *     what VS Code does with the lone `.md` open outside the bundle's folder: the escaped `$`s leave
- *     MathJax nothing to typeset.
+ *     MathJax nothing to typeset, in the slides and in a `header:` / `footer:` directive alike.
  */
 describe('Export-to-Marp math runs nothing and loads nothing — real marp-cli, real Chromium', () => {
   let skip = null;
@@ -187,10 +187,15 @@ describe('Export-to-Marp math runs nothing and loads nothing — real marp-cli, 
   const hits = [];
   const arms = {};
 
+  // A `header:` / `footer:` directive is rendered as inline Markdown too, math included, so the
+  // payload also rides in the front matter and in a comment directive (the red team's find).
   const mathDeck = (port) => String.raw`---
 marp: true
 theme: indaco
+footer: '$a\style{background:url(http://127.0.0.1:${port}/beacon-footer)}{b}$'
 ---
+
+<!-- _header: "$x\style{animation:lattice-math-probe 1ms"/onanimationstart="top.__hit_header=1}{y}$" -->
 
 # Math probe
 

@@ -140,6 +140,33 @@ describe('bakeMath — the math the engine would typeset, written into the deck'
     assert.equal(bakeMath(once).markdown, once);
   });
 
+  test('header and footer directives have their dollars escaped, YAML-aware', () => {
+    const deck = [
+      '---', 'marp: true', "footer: '$a$ and \\$b'", 'header: "$x\\\\y$"', 'title: Costs $5', '---', '',
+      '# S', '', "<!-- _footer: '$q$' -->", '', '```', '<!-- footer: $k$ -->', '```', '',
+    ].join('\n');
+    const { markdown } = bakeMath(deck);
+    assert.match(markdown, /^footer: '\\\$a\\\$ and \\\$b'$/m, 'single-quoted: one backslash, an escaped one left alone');
+    assert.match(markdown, /^header: "\\\\\$x\\\\y\\\\\$"$/m, 'double-quoted: two backslashes, which YAML reads as one');
+    assert.match(markdown, /^title: Costs \$5$/m, 'other keys untouched');
+    assert.match(markdown, /<!-- _footer: '\\\$q\\\$' -->/);
+    assert.match(markdown, /<!-- footer: \$k\$ -->/, 'a comment inside code is quoted material');
+  });
+
+  test('display math in a tight list keeps the list tight', () => {
+    const { markdown } = bakeMath('- one\n- $$x^2$$\n- three\n');
+    assert.match(markdown, /^- <p>.*<\/p>\n- three$/m);
+  });
+
+  test('a dollar inside a bare URL is left as written', () => {
+    assert.match(bakeMath('see https://ex.com/$abc and $5\n').markdown, /https:\/\/ex\.com\/\$abc and \\\$5/);
+  });
+
+  test('a CRLF deck keeps CRLF around a display block', () => {
+    const { markdown } = bakeMath('$$\r\nx\r\n$$\r\nAfter.\r\n');
+    assert.doesNotMatch(markdown.replace(/\r\n/g, ''), /[\r\n]/);
+  });
+
   test('blankFor keeps a quote open and drops a list marker', () => {
     assert.equal(blankFor('> '), '>');
     assert.equal(blankFor('> - '), '>');

@@ -80,6 +80,19 @@ means "no gap logged for the runtime route", never "the preview is complete.
   migration. Individual rows retire if the underlying transform is dropped
   or a mirror is later added for it.
 
+## An Export-to-Marp bundle's equations lose their layout in Restricted Mode
+
+- **Symptom:** In an untrusted folder, a bundle's fractions and superscripts collapse onto one line,
+  and a square root or stretchy arrow prints as escaped `<svg…` text.
+- **Cause:** The bundle's math is typeset at export (KaTeX markup, `lib/core/marp-bundle-math.js`),
+  and its `.vscode/settings.json` turns the extension's own math off. `enableHtml` is a restricted
+  setting and `mathTypesetting` is not, so in Restricted Mode the math stays off while the HTML
+  filter strips each equation's `style` and its `<svg>`.
+- **Mitigation:** Trust the folder, or render with `npm run pdf`. The bundle README says so.
+- **Triggered by:** Opening a bundle with math in VS Code without granting workspace trust.
+- **Removable when:** never: turning the extension's MathJax back on is the injection surface the
+  bake closes (`engineering/decisions/2026-08-17-theme-css-is-a-preview-sink.md` § 15).
+
 ## `git worktree` doesn't share `node_modules`
 
 - **Symptom:** Inspecting a historical commit via

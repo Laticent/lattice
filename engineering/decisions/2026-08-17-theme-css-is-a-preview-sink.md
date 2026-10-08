@@ -1259,7 +1259,42 @@ MathJax nothing to typeset. No arm runs a handler or makes a request. The unit s
 - **A long display equation is not reflowed** in a non-16:9 bundle (`family: 'wide'`). It was not
   under MathJax either.
 
-**What it does not close.** A recipient who renders with marp-cli's `--html` and a config of their
-own that turns MathJax back on is choosing the risk; even then, every `$` the engine saw is escaped
-or typeset. The VS Code preview check is P2 of the #2578 handoff, on the real extension.
+**What the adversarial trio changed (HARD RULE #25, tier 2).**
+
+- **Red team, inversion and checker, the same hole: `header:` / `footer:` directives.** Marp renders
+  a header or footer value as inline Markdown, math included, and the bake never saw it: the front
+  matter is blanked before the parse and a comment is an HTML token. Under marp-cli's default config
+  (MathJax on) a `footer: '$…\style{…url(…)}…$'` fired its beacon in Chromium, and a comment
+  `<!-- _header: … -->` wrote a live handler; that is the lone-`.md` surface this section claimed
+  to cover. The bake now escapes every `$` in a header or footer value, in the front matter and in
+  every comment outside code, YAML-aware (`\\$` inside double quotes, where `\$` is not a YAML
+  escape). The integration test's deck carries both forms, and with the escape switched off the
+  worst-config arm fails on `/beacon-footer`. Cost: math in a header or footer shows as TeX in the
+  bundle, where the engine typesets it.
+- **Inversion: a display equation in a tight list loosened it**, because the bake always wrote a
+  blank line after the HTML. It now writes one only when the next line would run on into the block.
+- **Inversion: a bare URL holding `$` broke** (`https://x/\$a`), because Marp linkifies before it
+  escapes. A `$` inside a URL is left alone; Marp's linkify takes it before any math rule.
+- **Inversion: a Studio export failed outright when KaTeX would not load.** It now goes out, every
+  equation as TeX text, and the toast counts them.
+- **Checker: a CRLF deck got a bare `\n`** after a display block; the bake now keeps the line
+  ending it found.
+- **Checker: a KaTeX parse error counts as typeset**, because it is: the bundle shows KaTeX's red
+  error text, exactly as the engine does. `failed` counts only what did not reach KaTeX at all.
+- **Checker: the HTML list now admits author MathML, not only baked equations.** That is a wider
+  surface, of the same class as the SVG already on it: no MathML element takes a URL, and
+  `maction`, `mglyph` and `annotation-xml` stay off.
+
+**What it does not close, and what it costs a cautious recipient.**
+
+- A recipient who renders with marp-cli's `--html` and a config of their own that turns MathJax back
+  on is choosing the risk; even then, every `$` the engine saw is escaped or typeset.
+- **VS Code's Restricted Mode garbles the equations.** `enableHtml` is a restricted setting and
+  `mathTypesetting` is not, so in an untrusted folder the preview's HTML filter strips each
+  equation's `style` and prints KaTeX's `<svg>` as text. Restricted Mode already stopped the
+  bundle's runtime, so the deck was degraded there before; the README says to trust the folder.
+- **The deck grows.** Each equation is one line of several kilobytes: `math.gallery.md` goes from
+  8 KB to 135 KB. Baking the 121 tracked `marp: true` decks that hold a `$` (250 equations, 0
+  failures) takes 278 ms in all.
+- The VS Code preview check is P2 of the #2578 handoff, on the real extension.
 
