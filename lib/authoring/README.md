@@ -20,4 +20,12 @@ dependencies. The vocabulary is *injected* (Node builds it from manifests;
 the browser passes a precomputed one) — never `require` the component
 catalog from `lint-core`.
 
+**A new rule ID needs a row in the spec.** Every rule ID that `lint-core`,
+`review-core`, the flowchart or hub-spoke kernels, or `tools/lint-deck.js` can emit
+is listed in `spec/diagnostics.md` §3, and
+`test/unit/authoring/diagnostics-registry.test.js` fails until the new ID has a
+row there (with its severity, whether it can autofix, and what it catches). An ID
+generated at run time (`` `unknown-${key}` ``) gets one `<…>` family row instead.
+Then run `npm run docs:spec` to refresh the site's copy.
+
 *(File lists here are a snapshot — `ls` is the truth if they ever disagree.)*

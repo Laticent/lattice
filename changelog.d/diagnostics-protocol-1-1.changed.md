@@ -1,0 +1,2 @@
+- The Diagnostic Protocol spec (`spec/diagnostics.md`, published at `/spec/diagnostics/`) is now version 1.1. Its rule registry lists all 177 rule IDs the linter can report, up from 13, plus three families of IDs generated at run time, grouped by what they check. It adds two severities, `info` and `suggestion`. A test now fails when the linter and the registry disagree.
+- `lint:deck --discover` findings (`narration-acronyms`, `narration-passthrough`) now carry `severity: suggestion`, which the protocol requires on every finding.
