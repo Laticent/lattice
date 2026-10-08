@@ -13,6 +13,10 @@ npx lattice --help
 npx lattice --help all
 ```
 
+The command is `lattice`; the package is `@laticent/lattice`. Every `npx lattice`
+below runs the copy installed in your project. Outside one, write
+`npx @laticent/lattice`, because the unscoped `lattice` package on npm is unrelated.
+
 ## Command shapes
 
 ```sh

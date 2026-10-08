@@ -102,9 +102,13 @@ engine — there is no Marp dependency or Marp render path:
 ```sh
 npm install @laticent/lattice
 
-# The `lattice` command. It resolves the engine and every theme relative to
-# the installed package, so it works from any directory.
+# The `lattice` command, run from inside that project (npx finds the local
+# install). It resolves the engine and every theme relative to the package.
 npx lattice deck.md deck.pdf
+
+# Outside a project, name the package: the unscoped `lattice` on npm is an
+# unrelated package, so a bare `npx lattice` there would fetch it instead.
+npx @laticent/lattice deck.md deck.pdf
 ```
 
 Need a portable bundle for someone who renders with Marp? The docs-site

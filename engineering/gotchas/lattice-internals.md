@@ -1044,3 +1044,20 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   interpolate engine values. The CLI's `--size` rewrite (`lib/engine/sizes.js`, not deck text,
   but typed by a person) is a function replacer too, pinned in
   `test/unit/authoring/pill-literal.test.js`.
+
+## An issue or note cites `lattice-emulator.js`, and the file does not exist
+
+- **Symptom:** A backlog card, followup or decision note points at
+  `lattice-emulator.js:2755`, `dist/lattice-emulator.js` or `tools/build-emulator.js`,
+  and none of those files is in the tree.
+- **Cause:** The CLI was renamed for 1.0.0. The CLI stopped emulating Marp long
+  before; only the name had not caught up. `lattice-emulator.js` is now
+  `lattice.js`, the bundle is `dist/lattice.js` (`dist/lattice-min.js` minified),
+  the build script is `tools/build-cli.js`, and the npm scripts are
+  `cli:build` / `cli:check`. Dated decision notes, changelog history and issue text
+  keep the old name on purpose: they record what was true when written.
+- **Mitigation:** Read the old path as the new one. A line number from before the
+  rename will have drifted, so search for the function the note names
+  (`grep -n "function <name>" lattice.js`) rather than jumping to the line.
+- **Triggered by:** Any card written before the rename (2026-10-08).
+- **Commits:** #2601.

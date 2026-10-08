@@ -19,7 +19,7 @@ else is an option you add after the two file names.
 
 ## Before you start
 
-You need **Node 22.12 or newer**. Install Lattice into your project:
+You need **Node 22.13 or newer**. Install Lattice into your project:
 
 ```sh
 npm install @laticent/lattice
@@ -36,6 +36,12 @@ npm install
 
 Either way, `npm install` downloads the headless Chromium that Lattice renders
 with. The render itself needs no network and no account.
+
+Every command on this page runs the copy installed in your project, which is
+what `npx lattice` finds. Outside a project, use `npx @laticent/lattice` (or
+install it globally with `npm install -g @laticent/lattice` and type `lattice`):
+the unscoped `lattice` package on npm belongs to someone else, so a bare
+`npx lattice` in an empty folder downloads that package instead.
 
 To check it works, ask for the version:
 

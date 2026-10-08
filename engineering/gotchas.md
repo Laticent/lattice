@@ -210,6 +210,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [A code block or a prose line after a heading is pulled into the masthead band](gotchas/lattice-internals.md#a-code-block-or-a-prose-line-after-a-heading-is-pulled-into-the-masthead-band)
 - [G-gen merge must use non-G file's G-gen block, not the G-file's block](gotchas/lattice-internals.md#g-gen-merge-must-use-non-g-files-g-gen-block-not-the-g-files-block)
 - [An author's `$&` in a label turns into a piece of the slide](gotchas/lattice-internals.md#an-authors--in-a-label-turns-into-a-piece-of-the-slide)
+- [An issue or note cites `lattice-emulator.js`, and the file does not exist](gotchas/lattice-internals.md#an-issue-or-note-cites-lattice-emulatorjs-and-the-file-does-not-exist)
 
 ### [Marp / Marpit](gotchas/marp.md)
 
