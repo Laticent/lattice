@@ -225,6 +225,29 @@ compares against a fresh baseline. That makes it a separate PR: the bot reads
 `AUTOMATION_PAT` from an environment only `main` can use, so it cannot run before #2570
 merges. Steps 1 and 2 ship in #2570; steps 3 and 4 are recorded in `followups.d/2570-*`.
 
+**Step 3, as built** (branch `claude/goldens-step3-no-pdf-in-prs`, after the first bless,
+#2598, merged on 2026-10-08). Taking PDFs out of pull requests needed more than the check
+and the hook, because several things assumed every deck already had a committed PDF:
+
+- **The check:** `tools/check-no-pdf-in-pr.mjs` in the `lint` job, `pull_request` runs
+  only, the bless branch exempt when it is in this repository. Deleting a PDF is allowed,
+  so a PR that removes a deck removes its PDF and `build:check` finds no orphan.
+- **The hook:** pre-commit `pdf-rebuild` is gone. `tools/build-staged-pdfs.js` keeps
+  `classify()` (which markdown should have a PDF) and gains `buildFor()`.
+- **The bot renders what does not exist yet:** a deck or gallery merged without a PDF,
+  found by `classify()` over the tracked markdown, and the generated showcase decks only
+  the old hook ever rebuilt. It stages new files (`git status` / `git add -A`). Its
+  verdict scores a first-time golden as new: no before for rules 1 and 2, but it counts
+  toward rules 3 and 4.
+- **A PR shows its new deck:** golden-diff renders a changed deck that has no PDF,
+  publishes the PDF beside the montages, links it, and lists it as shown for rule 4.
+- **Nightly tests:** three integration tests assert on committed PDFs. They now excuse a
+  failure only while the PDF is waiting on a bless (its sources changed after the last
+  merged bless; `test/helpers/golden-pending.js`), so a correct PDF is still asserted.
+- **Left as a documented edge:** a new component flagged for the docs landing-page
+  showcase fails docs-build until its first bless, because the showcase image is cut from
+  the gallery PDF. Set the flag in a follow-up PR (`design/skills/component.md`).
+
 ## 6. Decisions (owner, 2026-10-07)
 
 | Question | Decision |

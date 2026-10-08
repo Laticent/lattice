@@ -3,16 +3,11 @@
  * Regenerate the committed PDF for every worked exemplar deck
  * (exemplars/<sector>/<name>.md → sibling <name>.pdf).
  *
- * The 45 exemplars ship a committed PDF each (HARD RULE #9 — external
- * reviewers and a future gallery need raw-URL access). The pre-commit
- * hook (tools/build-staged-pdfs.js) auto-rebuilds the PDF for an
- * exemplar whose *markdown* you edit, so day-to-day the committed PDFs
- * stay fresh for free. This script is the BULK path: when a
- * component / shared-CSS / engine change reflows many decks at once,
- * run it to re-render all 45 (or a subset) and commit the refreshed
- * PDFs — the blessed regenerate path the render gate
- * (test/integration/exemplars/exemplar-render.test.js) points to when
- * it flags structural drift.
+ * The 45 exemplars ship a committed PDF each, and since goldens rollout
+ * step 3 the nightly bless bot (tools/golden-bless.mjs) is the one writer
+ * of those PDFs: pull requests do not commit PDFs. This script is a
+ * LOCAL bulk render, to look at many decks after a component / shared-CSS
+ * / engine change. Do not commit what it writes; the bless commits it.
  *
  * On-demand, like `npm run bless` — NOT part of `npm run build` /
  * `build:check`. Re-rendering 45 full decks is minutes of work; gating

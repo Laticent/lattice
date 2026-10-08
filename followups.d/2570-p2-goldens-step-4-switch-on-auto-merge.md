@@ -32,5 +32,8 @@ source: engineering/decisions/2026-10-06-goldens-bot-blessed.md
                    everything moves. (d) design/*.gallery.md decks are never rendered on
                    a PR (golden-affected maps only lib/ galleries, and the CI `code`
                    filter has no design/**), so they always count as unseen.
+       also (e)  — CLAUDE.md rule 7: name the bless bot as the fourth machine PR class
+                   that merges itself, with the hybrid rules, in the same PR that
+                   switches auto-merge on (moved here from step 3: until then it does not).
        blocked   — after a week of dry-run nights. Adding a label is shared state: ask first.
 ```

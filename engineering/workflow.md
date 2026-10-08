@@ -187,9 +187,12 @@ Run the emulator directly — no npm script is added per feature:
 node lattice.js examples/<feature-slug>.md examples/<feature-slug>.pdf
 ```
 
-Commit `examples/<feature-slug>.md` and `examples/<feature-slug>.pdf`
-together. If you push without the rebuilt PDF the reviewer's link
-404s — that is the bug the convention prevents.
+That render is for your own look. **Commit the `.md` only, never the PDF:**
+the `lint` job fails a pull request that adds or changes a PDF
+(`tools/check-no-pdf-in-pr.mjs`). CI's golden-diff job renders the new
+deck and links its PDF in the PR comment, and the nightly bless bot
+commits it to `main` after the merge
+(`decisions/2026-10-06-goldens-bot-blessed.md` §2.3).
 
 ### Iteration cycle
 
@@ -241,25 +244,22 @@ that rebuilds on save and opens the PDF in the default viewer (which
 auto-reloads). For VS Code users, the marp-vscode preview pane is the
 fastest inner loop — no preview tool needed.
 
-**Pre-commit auto-rebuild.** Lefthook's `pdf-rebuild` job
-(`tools/build-staged-pdfs.js`) regenerates and re-stages the PDF for
-every staged deck markdown — incrementally, only the decks whose source
-changed (examples decks, the baseline deck, per-component and bucket
-gallery markdown). It supersedes the old `check-pdf-freshness.sh` gate:
-rather than failing when a PDF is stale and making you rebuild by hand,
-it rebuilds for you. Scope is markdown-only — component CSS, shared CSS,
-themes, and the engine affect many decks at once (a full rebuild is
-~30 min), so those stay in CI via the integration page-count tests and
-`build:galleries:check`. Bypassable via `git commit --no-verify` only
-as last resort.
+**No PDF in a pull request.** The nightly bless bot
+(`.github/workflows/golden-bless.yml`) is the one writer of committed
+PDFs: it re-renders every golden that drifted on `main`, renders the
+first PDF of a deck or gallery merged without one, and opens one PR a
+person merges. A pull request shows its visual change through
+golden-diff's rendered before/after, and links the PDF of any new deck.
+The pre-commit hook that used to render and stage PDFs is gone; for a
+local look, `node tools/build-staged-pdfs.js <deck.md>` renders without
+staging, and `npm run preview` shows the slides. Put any PDF it writes
+back (`git checkout -- '*.pdf'`) before committing.
 
-**At PR end, paste the raw URL** on its own line, plain text, last
-paragraph of the reply — for external reviewers who don't have the
-`SendUserFile` deliverable in their feed:
-
-```
-https://raw.githubusercontent.com/Laticent/lattice/<branch>/examples/<slug>.pdf
-```
+**At PR end, paste the link to the rendered PDF** on its own line, plain
+text, last paragraph of the reply — for external reviewers who don't have
+the `SendUserFile` deliverable in their feed. It is the "New on this PR,
+rendered by CI" link in the PR's golden-diff comment (the PDF is not on
+the branch: pull requests do not commit PDFs).
 
 Use `raw.githubusercontent.com`, never `github.com/.../blob/...`
 (lower-fidelity web preview) or `github.com/.../raw/...`
@@ -322,8 +322,7 @@ graduates from "new" to "documented". Treat them like
 - Small, focused units. One logical change per commit.
 - Message format: `area(scope): short summary` — follow `git log` for the established pattern.
 - If a fix is non-obvious, add a gotcha **before** committing, and link it from the commit message. Write it as a `##` entry in the matching `engineering/gotchas/<topic>.md`, then run `npm run gotchas:index` — `engineering/gotchas.md` is GENERATED and anything written into it is deleted on the next regeneration. **Keep the heading to a scannable symptom**: it is rendered twice per index row (link label, then slugged again as the anchor), so a character there costs two, and a heading over `ROW_CAP` (280 characters of row, in `tools/build-gotchas-index.js`) makes both `npm run gotchas:index` and `build:check` refuse and name the entry. Put the detail in the entry body, where nobody pays for it until they open the topic file.
-- Gallery edits: rebuild the PDF (`npm run preview -- <deck>` during dev; include the rebuilt PDF in the PR's final commit).
-- Feature decks: rebuild `examples/<slug>.pdf` and include it in the same commit as the `.md` change.
+- Gallery edits and feature decks: look at the render locally (`npm run preview -- <deck>`), and commit only the markdown. CI shows the before/after on the PR, and the nightly bless commits the PDFs to `main`.
 
 ## Changelog entries — one file per PR (`changelog.d/`)
 

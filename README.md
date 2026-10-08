@@ -389,7 +389,7 @@ lattice/
 │                         #   Regenerate: npm run build · index: dist/README.md
 ├── lib/                  # engine source: core kernels, transformers, components/, theme/, forms/
 ├── themes/               # palettes (each light theme + a paired dark variant)
-├── examples/             # the galleries + per-feature demo decks (+ committed PDFs)
+├── examples/             # the galleries + per-feature demo decks (PDFs committed by the nightly bless)
 ├── docs/                 # the public documentation site (separate Astro package)
 ├── engineering/          # internal engineering references (+ decisions/ — design/ADR notes)
 ├── design/               # the design system + the deck-authoring contract
