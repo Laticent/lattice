@@ -1,6 +1,6 @@
 # Rendering pipeline — running PDF / PPTX / ODP / PNG / HTML
 
-<!-- Output-format table below: keep in sync with `lattice-emulator.js` --help and
+<!-- Output-format table below: keep in sync with `lattice.js` --help and
      the format switch (`OUT_FORMAT`). Cost figures come from
      engineering/decisions/2026-08-16-render-format-cost-assessment.md. -->
 
@@ -11,7 +11,7 @@ transforms Markdown into HTML, why it works the way it does), read
 doesn't repeat that, it tells you how to run it and what to do when it
 misbehaves.
 
-**One render path, one engine.** `dist/lattice-emulator.js` (built from
+**One render path, one engine.** `dist/lattice.js` (built from
 `lib/engine`) IS the renderer — there is no separate "when the real tool
 isn't available, fall back to a hand-rolled one" path. If you're rendering a
 Lattice deck, this is the tool, full stop.
@@ -19,7 +19,7 @@ Lattice deck, this is the tool, full stop.
 ## 1. Run it
 
 ```bash
-node lattice-emulator.js <source.md> <output.pdf|.pptx|.odp|.png|.zip|.html> [palette]
+node lattice.js <source.md> <output.pdf|.pptx|.odp|.png|.zip|.html> [palette]
 ```
 
 The output extension picks the format — `.pdf` (vector, selectable text),
@@ -109,7 +109,7 @@ deck's `.pdf`. (Auto-split itself stopped measuring on 2026-09-01; it reads the
 markup. The browser is still needed here for everything else.) For markup with **no** layout (0.78s,
 and no fonts/measurement/overflow/split), call `lib/engine` directly instead —
 a different coverage tier, not a faster version of this one.
-`node lattice-emulator.js --help` is the full reference (flags for speaker
+`node lattice.js --help` is the full reference (flags for speaker
 notes, WebVTT captions, the fluid-box mobile viewer, the offline player, and
 more — it's grown considerably past a bare PDF exporter).
 
@@ -350,7 +350,7 @@ Set `SOURCE_DATE_EPOCH` (the [reproducible-builds][rb] convention) to stamp a
 real date instead, and still get stable bytes:
 
 ```bash
-SOURCE_DATE_EPOCH=$(git log -1 --format=%ct) node lattice-emulator.js deck.md out.pdf
+SOURCE_DATE_EPOCH=$(git log -1 --format=%ct) node lattice.js deck.md out.pdf
 ```
 
 [rb]: https://reproducible-builds.org/specs/source-date-epoch/
@@ -378,8 +378,8 @@ A `.zip` output writes an **image set**: one raster per slide plus, by default,
 small thumbnails and the deck's charts + Mermaid diagrams as standalone SVGs.
 
 ```bash
-node lattice-emulator.js deck.md out.zip                              # perfect-fidelity PNG
-node lattice-emulator.js deck.md out.zip --image-format webp --image-size 1x
+node lattice.js deck.md out.zip                              # perfect-fidelity PNG
+node lattice.js deck.md out.zip --image-format webp --image-size 1x
 ```
 
 The zip is one folder (`<deck>/`) holding `slides/`, `thumbnails/`, `assets/`
@@ -453,12 +453,12 @@ fonts embedded so each `.svg` opens anywhere.
 HTML export:
 
 ```bash
-node lattice-emulator.js video deck.md                # voiced with Kokoro -> deck.mp4 + deck.vtt
-node lattice-emulator.js video deck.md --mode light   # the export's mode, over the deck's own
-node lattice-emulator.js video deck.md --no-guide     # no Guide (on by default; delivery: picks its style)
-node lattice-emulator.js video deck.md --no-captions  # no caption track and no .vtt (on by default)
-node lattice-emulator.js video deck.html              # a narrated export (the Studio's)
-node lattice-emulator.js video deck.html out.mp4 --fps 30 --lead-in 1000 --outro 1000
+node lattice.js video deck.md                # voiced with Kokoro -> deck.mp4 + deck.vtt
+node lattice.js video deck.md --mode light   # the export's mode, over the deck's own
+node lattice.js video deck.md --no-guide     # no Guide (on by default; delivery: picks its style)
+node lattice.js video deck.md --no-captions  # no caption track and no .vtt (on by default)
+node lattice.js video deck.html              # a narrated export (the Studio's)
+node lattice.js video deck.html out.mp4 --fps 30 --lead-in 1000 --outro 1000
 ```
 
 **A deck is voiced first, through the Studio's clip steps.** `lattice video deck.md` runs the

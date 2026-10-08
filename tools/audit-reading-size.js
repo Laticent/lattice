@@ -122,7 +122,7 @@ function render(src, tag, assetDir) {
   const html = path.join(dir, `${tag}.html`);
   fs.writeFileSync(md, src);
   return new Promise((resolve, reject) => {
-    const p = spawn(process.execPath, [path.join(ROOT, 'lattice-emulator.js'), md, html, 'indaco', '-q', '--no-split'], { cwd: ROOT, stdio: ['ignore', 'ignore', 'pipe'] });
+    const p = spawn(process.execPath, [path.join(ROOT, 'lattice.js'), md, html, 'indaco', '-q', '--no-split'], { cwd: ROOT, stdio: ['ignore', 'ignore', 'pipe'] });
     let err = '';
     p.stderr.on('data', (d) => { err += d; });
     p.on('close', (code) => (code === 0 && fs.existsSync(html) ? resolve({ html, dir }) : reject(new Error(`emulator exited ${code} for ${tag}:\n${err.slice(0, 600)}`))));

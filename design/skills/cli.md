@@ -54,7 +54,7 @@ is not done.
 | What | Where |
 |---|---|
 | The command | `npx lattice` — the `bin` of `@laticent/lattice` (`npm install @laticent/lattice`) |
-| Its full option list | `npx lattice --help` |
+| Its full option list | `npx lattice --help all` (`--help` alone is one screen) |
 | Package store | `$LATTICE_HOME/packages`, else `~/.lattice/packages` |
 | The linter (clone only) | `npm run lint:deck -- <deck.md>` |
 | Layout skeletons (clone only) | `node tools/new-slide.js <layout>` · `--list` |
@@ -222,7 +222,7 @@ npx lattice deck.md slides.zip --image-format webp --image-size 1x --no-svg
 
 ## Canonical sources
 
-- `npx lattice --help` — the command's own list, printed from the code that
+- `npx lattice --help all` — the command's own list, printed from the code that
   parses it. When this skill and the help disagree, the help wins.
 - The docs site: **Using the command line** (`/guides/cli/`) and **CLI
   reference** (`/reference/cli/`).

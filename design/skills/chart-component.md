@@ -54,7 +54,7 @@ three distinguishing traits:
    `<svg viewBox preserveAspectRatio="xMidYMid meet" role="img">` with
    `<polygon>` / `<path>` / `<text>` marks. Each mark carries a `--i` index or a
    `--mix` percentage; **the kernel emits no color** — palette lives in CSS.
-3. **It runs through the three-renderer dispatcher** (engine, emulator, VS Code
+3. **It runs through the three-renderer dispatcher** (engine, CLI, VS Code
    runtime) — write-once, render-everywhere (HARD RULE #1). Because VS Code Marp
    filters out `<script>`, the transform bakes into rendered HTML, not a runtime
    script.

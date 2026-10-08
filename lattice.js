@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * lattice-emulator.js — the Lattice CLI: HTML renderer + PDF exporter
+ * lattice.js — the Lattice CLI: HTML renderer + PDF exporter
  *
- * This is the package's `bin` and `main` (built to dist/lattice-emulator.js).
+ * This is the package's `bin` and `main` (built to dist/lattice.js).
  * It renders on the OWNED engine (lib/engine/), which is canonical for every
  * first-party render path — this CLI and the browser runtime both interpret it.
  * It emits the section elements, pagination attribute, and header/footer
@@ -20,8 +20,8 @@
  * measures a label.
  *
  * Usage:
- *   node lattice-emulator.js <source.md> <output.pdf> [palette]
- *   node lattice-emulator.js <source.md> <custom-layouts.css> <output.pdf> [palette]
+ *   node lattice.js <source.md> <output.pdf> [palette]
+ *   node lattice.js <source.md> <custom-layouts.css> <output.pdf> [palette]
  *
  * The bundled `lattice.css` is auto-resolved when no `.css` arg is given;
  * pass an explicit `.css` path only to override the layout engine (rare —
@@ -74,8 +74,8 @@ function inlineLogoMarkSvg(html, baseFileUrl) {
 
 // Package root for sibling-asset lookups (themes/, dist/lattice.css, dist/fonts/,
 // the Mermaid render worker). This file runs from two locations: as repo-root
-// source (tests, `node lattice-emulator.js`) where __dirname IS the root,
-// and as the bundled dist/lattice-emulator.js (the published `bin`) where
+// source (tests, `node lattice.js`) where __dirname IS the root,
+// and as the bundled dist/lattice.js (the published `bin`) where
 // __dirname is <root>/dist. esbuild collapses every bundled module onto the
 // output file's __dirname, so a fixed `..` is wrong for the source case —
 // walk up to the nearest package.json instead, which lands on the root in
@@ -89,7 +89,7 @@ const PKG_ROOT = pkgRootFrom(__dirname);
 // The package version, READ at runtime from PKG_ROOT — never `require`d.
 // `require('./package.json')` would look correct, but esbuild treats it as a
 // local relative import and inlines the WHOLE manifest into the bundle, so
-// dist/lattice-emulator.js carried every dependency range. That made the
+// dist/lattice.js carried every dependency range. That made the
 // committed bundle byte-stale on any dependency bump — reddening `build:check`
 // on a diff no human wrote and no bot could repair, since Dependabot cannot
 // run `npm run build`. Only `version` is ever wanted; read just that.
@@ -126,12 +126,13 @@ function listAvailablePalettes() {
   } catch (_e) { return '(themes/ not readable)'; }
 }
 
-function showHelp() {
-  console.log(`lattice-emulator — PDF / PPTX / PNG / HTML renderer for Lattice decks
+/** Every option: `lattice --help all`. */
+function showFullHelp() {
+  console.log(`lattice — turn a Markdown deck into PDF / PPTX / ODP / PNG / HTML (every option)
 
 USAGE
-  node lattice-emulator.js <source.md> <output.pdf|.pptx|.odp|.png|.zip|.html> [palette]
-  node lattice-emulator.js <source.md> <custom.css> <output> [palette]
+  lattice <source.md> <output.pdf|.pptx|.odp|.png|.zip|.html> [palette]
+  lattice <source.md> <custom.css> <output> [palette]
 
 ARGUMENTS
   source.md          Markdown source (required)
@@ -373,7 +374,7 @@ OPTIONS
 
 SPEAKER NOTES
   A non-directive HTML comment on a slide is that slide's speaker note
-  (Marp-faithful; see spec/LFM-1.0.md). Each note is embedded as a per-page PDF
+  (see spec/LFM-1.0.md). Each note is embedded as a per-page PDF
   text annotation and a hidden HTML presenter-notes channel. By default the PDF
   annotation is hidden — the note is embedded and tool-extractable, but no icon
   marks the slide; --notes-icon exposes a clickable sticky note instead. --notes
@@ -416,17 +417,58 @@ VIDEO
                      .vtt sidecar. See lattice video --help
 
 EXAMPLES
-  node lattice-emulator.js deck.md out.pdf
-  node lattice-emulator.js deck.md out.pptx          # PowerPoint (image slides)
-  node lattice-emulator.js deck.md out.odp           # LibreOffice Impress (image slides)
-  node lattice-emulator.js deck.md out.odp --editable  # … with editable text boxes
-  node lattice-emulator.js deck.md out.png           # → out.001.png, out.002.png, …
-  node lattice-emulator.js deck.md out.zip           # image set (PNG + thumbs + SVGs)
-  node lattice-emulator.js deck.md out.zip --image-format webp --image-size 1x
-  node lattice-emulator.js deck.md out.pdf cuoio
-  node lattice-emulator.js deck.md custom-layouts.css out.pdf cuoio
-  LATTICE_PALETTE=cuoio node lattice-emulator.js deck.md out.pdf
+  lattice deck.md out.pdf
+  lattice deck.md out.pptx          # PowerPoint (image slides)
+  lattice deck.md out.odp           # LibreOffice Impress (image slides)
+  lattice deck.md out.odp --editable  # … with editable text boxes
+  lattice deck.md out.png           # → out.001.png, out.002.png, …
+  lattice deck.md out.zip           # image set (PNG + thumbs + SVGs)
+  lattice deck.md out.zip --image-format webp --image-size 1x
+  lattice deck.md out.pdf cuoio
+  lattice deck.md custom-layouts.css out.pdf cuoio
+  LATTICE_PALETTE=cuoio lattice deck.md out.pdf
 `);
+}
+
+/**
+ * The first screen: `lattice --help`. It fits one terminal window, and every line is something a
+ * first-time user reaches for. The rest lives behind `lattice --help all` and the website's CLI
+ * reference, so the two must stay in step: a flag listed here is documented there too.
+ */
+function showShortHelp() {
+  console.log(`lattice — turn a Markdown deck into a finished presentation
+
+USAGE
+  lattice <deck.md> <output> [palette] [options]
+
+  The output's extension picks the format:
+    deck.pdf    vector PDF with selectable text
+    deck.pptx   PowerPoint            (--editable for real text boxes)
+    deck.odp    LibreOffice Impress   (--editable for real text boxes)
+    deck.png    one PNG per slide     (deck.001.png, deck.002.png, …)
+    deck.html   the rendered deck     (--player for a self-contained player)
+
+COMMON OPTIONS
+  -p, --palette NAME   Color palette, e.g. indaco, cuoio, onyx (default: the deck's theme:)
+      --print          Black-and-white-safe print mode
+      --notes          Also write the speaker notes as a text file
+      --strip-notes    Remove speaker notes from everything you share
+      --size NAME      Another canvas: story, square, 4K, …
+      --paper SIZE     Fit slides on a sheet: letter, legal, a4
+  -q, --quiet          Only print errors
+  -v, --version        Show the version
+
+MORE
+  lattice packages …   Install and manage themes, components, finishes and motion
+  lattice video …      Render a deck to an MP4 with a voice-over
+
+  lattice --help all   Every option (image sets, captions, the player, plugins, …)
+  Guide:  https://laticent.github.io/lattice/guides/cli/
+
+EXAMPLES
+  lattice deck.md deck.pdf
+  lattice deck.md deck.pptx --editable
+  lattice deck.md deck.pdf cuoio --print`);
 }
 
 // `lattice packages …` — the package store (lib/packages/cli.js). Dispatched BEFORE the render
@@ -452,11 +494,18 @@ if (process.argv[2] === 'video') {
 }
 
 if (process.argv.includes('--help') || process.argv.includes('-h')) {
-  showHelp();
+  // `--help all` (or `--help=all`) is the full reference; plain `--help` is one screen.
+  const i = Math.max(process.argv.indexOf('--help'), process.argv.indexOf('-h'));
+  if (process.argv[i + 1] === 'all' || process.argv.includes('--help=all')) showFullHelp();
+  else showShortHelp();
+  process.exit(0);
+}
+if (process.argv.includes('--help=all')) {
+  showFullHelp();
   process.exit(0);
 }
 if (process.argv.includes('--version') || process.argv.includes('-v')) {
-  console.log(`lattice-emulator ${pkgVersion() ?? ''}`);
+  console.log(`lattice ${pkgVersion() ?? ''}`);
   process.exit(0);
 }
 
@@ -464,9 +513,9 @@ if (process.argv.includes('--version') || process.argv.includes('-v')) {
 // CSS positional is optional; the bundled `lattice.css` is auto-resolved
 // when no .css positional is given.
 //
-//   node lattice-emulator.js source.md output.pdf [palette]                 # bundled
-//   node lattice-emulator.js source.md custom.css output.pdf [palette]      # override
-//   node lattice-emulator.js -o out.pdf -p cuoio source.md                  # named flags
+//   node lattice.js source.md output.pdf [palette]                 # bundled
+//   node lattice.js source.md custom.css output.pdf [palette]      # override
+//   node lattice.js -o out.pdf -p cuoio source.md                  # named flags
 //
 // Named flags take precedence over positional args when both are given.
 function parseArgs(argv) {
@@ -782,12 +831,10 @@ for (const bad of OVERFLOW_MARKER.ignored) {
 // enabled by `--fluid` OR a `fluid: true` front-matter key).
 
 if (!mdFile || !outFile) {
-  console.error('Usage:');
-  console.error('  node lattice-emulator.js source.md output.pdf [palette]               # bundled lattice.css');
-  console.error('  node lattice-emulator.js source.md custom.css output.pdf [palette]    # explicit layout CSS');
-  console.error('  node lattice-emulator.js [-o out.pdf] [-p palette] [-c css] source.md # named flags');
+  console.error('Usage: lattice <deck.md> <output> [palette] [options]');
+  console.error('  e.g. lattice deck.md deck.pdf');
   console.error('');
-  console.error('Run with --help for full options. Default palette: indaco.');
+  console.error('Run `lattice --help` for the common options, `lattice --help all` for every one.');
   process.exit(1);
 }
 
@@ -5606,7 +5653,7 @@ async function embedSourceInPdf(pdfBytes) {
     const doc = await PDFDocument.load(pdfBytes);
     await doc.attach(Buffer.from(attachableSource(md), 'utf8'), path.basename(mdFile), {
       mimeType: 'text/markdown',
-      description: 'Lattice deck source (Markdown). Re-render with: lattice-emulator <this file> out.pdf',
+      description: 'Lattice deck source (Markdown). Re-render with: lattice <this file> out.pdf',
     });
     return await pinPdfLibDates(doc).save();
   } catch (e) {

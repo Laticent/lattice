@@ -224,7 +224,7 @@ at every use site based on the computed `color-scheme` of the element:
 
 Role-named, palette-blind tokens consumed by `lattice.css`'s DIAGRAM
 OVERRIDES section and by the renderer bridges (`lattice-runtime.js`,
-`lattice-emulator.js`). Slide layouts also consume them directly for
+`lattice.js`). Slide layouts also consume them directly for
 nth-child cycles (decision list, roadmap horizons, actor pills, kpi
 trajectory).
 
@@ -310,7 +310,7 @@ and re-hue it (the `new:theme` scaffold does this for you).
   `var(--cat-N-ink, var(--cat-N-mark))` — at every consumer. That spelling is the
   contract, not a decoration: `lib/base/base.tokens.css` declares **no** `:root`
   default for this tier. The original reason was an ordering hazard — the emulator's
-  export bundle concatenated the theme *before* the base (`lattice-emulator.js`,
+  export bundle concatenated the theme *before* the base (`lattice.js`,
   `paletteCSS + layoutCSS`), so a base default won on equal specificity and silently
   reverted every curated ink to its mark on the PDF path; measured in Chromium, the
   curated `#006D70` became the mark `#008386`. **#1527 flipped that concat**, so the
@@ -695,7 +695,7 @@ If you prefer not to run the scaffolder:
    the `@theme` directive and `@import` target to match.
 5. Register both palettes in `.vscode/settings.json` under
    `markdown.marp.themes` so the Marp VS Code extension picks them up.
-6. Build a deck: `node lattice-emulator.js deck.md out.pdf -p <name>`.
+6. Build a deck: `npx lattice deck.md out.pdf -p <name>`.
 7. Re-render `examples/mermaid-gallery.md` with your palette to verify
    every diagram type renders correctly.
 8. Run `node --test test/unit/*.test.js` — the contrast assertions will

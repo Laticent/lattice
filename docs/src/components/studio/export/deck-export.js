@@ -669,7 +669,7 @@ const FIT_INLINE_PROPS = ['transform', 'transform-origin', 'margin-bottom', 'vis
  * (state-chart, function-plot) come out as inert scripts. On the CLI both are
  * resolved before the player is assembled — `mmdc` substitutes an inline SVG for the
  * fence, and the emulator serializes the DOM after the browser has run the inflaters
- * ("Bake the player's DOM", lattice-emulator.js). The Studio had no equivalent step,
+ * ("Bake the player's DOM", lattice.js). The Studio had no equivalent step,
  * so its webpage export shipped the raw fence: the player strips every script, so the
  * diagram could never render afterwards, and Read·Article projected the fence as a
  * code block — a wall of Mermaid source where the diagram belonged.

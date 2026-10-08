@@ -1,7 +1,7 @@
 /**
  * Integration: the owned multi-format export (PDF / PPTX / PNG) end-to-end.
  *
- * Renders the 3-slide fixture deck through lattice-emulator once per output
+ * Renders the 3-slide fixture deck through lattice once per output
  * extension and asserts each artifact is real and well-formed:
  *   - .pdf  : the original vector path still works (regression guard).
  *   - .pptx : a valid OOXML zip with one slide part + one media image per slide.
@@ -20,7 +20,7 @@ const { spawnSync, execFileSync } = require('child_process');
 
 describe('export-formats', () => {
   const ROOT     = path.join(__dirname, '..', '..', '..');
-  const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+  const EMULATOR = path.join(ROOT, 'lattice.js');
   const FIXTURE  = path.join(ROOT, 'test', 'fixtures', 'preview-deck.md');
   // A deck carrying one keyed chart + one Mermaid diagram — exercises the image
   // set's standalone-SVG extraction (both kinds), which the no-Mermaid FIXTURE can't.
@@ -152,8 +152,8 @@ describe('export-formats', () => {
   // The source CLI passed while the PUBLISHED bundle crashed: esbuild wrapped a default
   // import (woff2-encoder) so that `--editable` died on "decompress is not a function".
   test('the published CLI bundle writes an editable .odp too', { timeout: TIMEOUT }, async (t) => {
-    const bundle = path.join(ROOT, 'dist', 'lattice-emulator.js');
-    if (!fs.existsSync(bundle)) return t.skip('dist/lattice-emulator.js not built');
+    const bundle = path.join(ROOT, 'dist', 'lattice.js');
+    if (!fs.existsSync(bundle)) return t.skip('dist/lattice.js not built');
     const out = path.join(tmpDir(), 'deck.odp');
     const r = spawnSync(process.execPath, [bundle, FIXTURE, out, '--quiet', '--editable'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT });
     assert.equal(r.status, 0, `bundled CLI failed: ${r.stderr}`);

@@ -28,7 +28,7 @@ const { spawnSync, execFileSync } = require('child_process');
 
 describe('pdf-reproducible', () => {
   const ROOT = path.join(__dirname, '..', '..', '..');
-  const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+  const EMULATOR = path.join(ROOT, 'lattice.js');
   // The 3-slide no-Mermaid fixture the other export tests use: enough of a real
   // deck to carry embedded fonts, cheap enough to render twice per case.
   const FIXTURE = path.join(ROOT, 'test', 'fixtures', 'preview-deck.md');

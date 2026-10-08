@@ -86,7 +86,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const wantExport = process.argv.includes('--export');
 const wantPrint = process.argv.includes('--print');
 const wantDiagrams = process.argv.includes('--diagrams');
-// --cli  whole-CLI render tier. The ONLY tier that spawns `lattice-emulator.js`, and so the
+// --cli  whole-CLI render tier. The ONLY tier that spawns `lattice.js`, and so the
 //        only one that can see the export path's `page.goto` waits, the auto-split re-navigation
 //        loop, or node boot. (--diagrams also shells out, but to the Mermaid render worker, not
 //        to the CLI; every other tier drives `api.render` / `page.setContent` in THIS process.)
@@ -1001,7 +1001,7 @@ async function diagramTier() {
 //
 // Everything above measures this process: `api.render` in-process, or `page.setContent`
 // on engine output in a puppeteer the bench itself launched. None of it spawns
-// `lattice-emulator.js`, so none of it can observe what the SHIPPED render actually
+// `lattice.js`, so none of it can observe what the SHIPPED render actually
 // costs — node boot, the browser launch the CLI does itself, `page.goto` and whatever
 // it waits for, the measured auto-split loop's re-navigations, and the PDF encode.
 //
@@ -1044,7 +1044,7 @@ async function cliTier() {
       chrome = execSync('ls /root/.cache/puppeteer/chrome/linux-*/chrome-linux64/chrome 2>/dev/null | sort -V | tail -1', { encoding: 'utf8' }).trim();
     } catch { /* default */ }
   }
-  const EMULATOR = join(ROOT, 'lattice-emulator.js');
+  const EMULATOR = join(ROOT, 'lattice.js');
   const env = { ...process.env, ...(chrome ? { CHROME_PATH: chrome } : {}) };
 
   // NOT test/helpers/render.js. That helper caches by input hash and would hand back
@@ -1096,7 +1096,7 @@ async function cliTier() {
   for (const t of bench.tasks) {
     if (t.result?.error) throw new Error(`cli tier · ${t.name}: ${t.result.error.message || t.result.error}`);
   }
-  console.log('\n=== CLI · whole `lattice-emulator.js` render (node boot + browser + goto + encode) ===');
+  console.log('\n=== CLI · whole `lattice.js` render (node boot + browser + goto + encode) ===');
   console.table(bench.table());
 
   const summary = [];

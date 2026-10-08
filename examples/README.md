@@ -12,7 +12,7 @@ Conventions:
 - Subfolders: `assets/` (sample images), `chart-theme-gallery/` and
   `token-contrast/` (own docs inside).
 
-To render one by hand: `node lattice-emulator.js examples/<name>.md
+To render one by hand: `node lattice.js examples/<name>.md
 examples/<name>.pdf` (set `CHROME_PATH` first; see
 `engineering/development.md`).
 

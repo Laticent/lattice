@@ -7,7 +7,7 @@
  * document. Two halves install that global:
  *
  *   emulator / CLI export  →  tools/build-dagre-bundle.js's IIFE, prepended at
- *                             the lattice-emulator.js call site, and only for a
+ *                             the lattice.js call site, and only for a
  *                             deck whose machine actually BRANCHES
  *   every browser host     →  dist/lattice-dagre-min.js, the same IIFE as a
  *                             standalone script, tagged BEFORE the runtime tag
@@ -85,7 +85,7 @@ describe('dagre delivery to the state-chart pass', () => {
   });
 
   test('the emulator prepends the IIFE at its call site', () => {
-    const src = fs.readFileSync(path.join(ROOT, 'lattice-emulator.js'), 'utf8');
+    const src = fs.readFileSync(path.join(ROOT, 'lattice.js'), 'utf8');
     assert.match(src, /dagre-bundle\.generated\.js/,
       'the export path is the one that needs the global installed for it');
     assert.match(src, /\$\{dagreIife \? `\$\{dagreIife\}\\n` : noDagreMark\}\$\{stateChartBrowserJs\(\)\}/,
@@ -93,7 +93,7 @@ describe('dagre delivery to the state-chart pass', () => {
   });
 
   test('a missing bundle degrades rather than throwing', () => {
-    const src = fs.readFileSync(path.join(ROOT, 'lattice-emulator.js'), 'utf8');
+    const src = fs.readFileSync(path.join(ROOT, 'lattice.js'), 'utf8');
     // The require is guarded: a fresh clone that never ran `npm install` has no
     // generated bundle, and must still render — a chain on Trama's grid.
     assert.match(src, /try \{ \(\{ DAGRE_IIFE: dagreIife \} = require\([^)]*\)\); \} catch/);

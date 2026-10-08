@@ -7,7 +7,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 
 - **Symptom:** Lattice's authoring plugins (e.g., `splitPanelCounter`,
   `verdictGridBadges`, `deckClassPropagate`) work in the owned engine
-  and the lattice-emulator pipeline but never fire in the VS Code Marp
+  and the lattice pipeline but never fire in the VS Code Marp
   preview.
 - **Cause:** marp-vscode 3.5.1 has no `markdown.marp.engine` setting.
   It loads themes via `markdown.marp.themes` but uses the bare Marp
@@ -267,7 +267,7 @@ CI-contract decision, not one to take on the way past.
 - **Cause:** The convenience `logo:` directive is handled by
   `applyDeckLogoToHtml` in `lib/integrations/markdown-it/plugins.js`
   (run by the owned engine) plus the post-render hook in
-  [lattice-emulator.js](../lattice-emulator.js) and the runtime
+  [lattice.js](../lattice.js) and the runtime
   mirror `applyDeckLogoFromFrontMatter` in
   [lattice-runtime.js](../dist/lattice-runtime.js). The owned-engine and
   emulator paths run at build time; the runtime path fetches the
@@ -296,7 +296,7 @@ CI-contract decision, not one to take on the way past.
   runs for >60s on a fixture with two slides and times out.
 - **Cause:** marp-cli fetches Google Fonts on cold starts (the
   Playfair / Outfit / JetBrains-Mono imports we use). Slow network or
-  DNS resolution makes this multiply. The lattice-emulator pre-emits
+  DNS resolution makes this multiply. The lattice pre-emits
   the font links the same way but doesn't block on them at render time
   (and self-hosts the woff2 for offline renders — see "A rendered PDF shows
   serif/fallback type" in `fonts.md`), so the owned engine doesn't hit this.

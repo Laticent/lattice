@@ -12,7 +12,7 @@ don't need to read this.
 
 ## Why the owned engine, not a Marp CLI wrapper
 
-Lattice's engine (`lib/engine`, shipped as the `lattice-emulator.js` CLI) is
+Lattice's engine (`lib/engine`, shipped as the `lattice.js` CLI) is
 a **native re-implementation** of a Marpit-compatible slide model, not a
 wrapper around Marp CLI — Lattice ships zero `@marp-team` runtime
 dependencies (`engineering/marp-independence.md` tracks the scorecard).
@@ -75,7 +75,7 @@ Mermaid blocks ──→ %%{init: { themeVariables } }%% ──→ │
 The renderer is a single Node script. No framework, no plugins, ~1000
 lines. Its job is:
 
-1. Parse argv: `lattice-emulator.js source.md theme.css output.pdf [palette]`.
+1. Parse argv: `lattice.js source.md theme.css output.pdf [palette]`.
 2. Read the palette file. Parse `:root { ... }` blocks into a flat
    variable map.
 3. For each ` ```mermaid ` block in the source: prepend a `%%{init}%%`
@@ -103,7 +103,7 @@ Every layout falls into one of two categories. The distinction matters
 because it changes what the source markdown looks like and where bugs
 are most likely to live.
 
-**Structured layouts** are post-processed by `lattice-emulator.js`: a
+**Structured layouts** are post-processed by `lattice.js`: a
 flat `ul`/`ol` (sometimes with nested children) is rewritten into
 purpose-built DOM (`.card`, `.stat-item`, `.vcard`, `.feat-card`,
 `.compare-prose-inner`, `.panel-left`/`.panel-right`, etc.). The CSS
@@ -117,7 +117,7 @@ lists the CSS styles.
 
 | Category | Classes | Post-processor |
 |---|---|---|
-| Structured | `cards-grid`, `cards-stack`, `checklist`, `compare-prose`, `compare-code`, `list-tabular`, `quadrant`, `radar`, `roadmap`, `split-panel`, `stats`, `verdict-grid`, `word-cloud` | yes — `lattice-emulator.js` rewrites DOM |
+| Structured | `cards-grid`, `cards-stack`, `checklist`, `compare-prose`, `compare-code`, `list-tabular`, `quadrant`, `radar`, `roadmap`, `split-panel`, `stats`, `verdict-grid`, `word-cloud` | yes — `lattice.js` rewrites DOM |
 | Unstructured | `title`, `divider`, `closing`, `content`, `diagram`, `quote`, `list`, `list-steps`, `big-number`, `image`, `code` | no — CSS-only |
 
 Modifiers (`dark`, `mirror`, image-specific `full` / `contain`, etc.)
@@ -256,8 +256,8 @@ exercised by the unit suite:
 | progress Tile | counts `divider` sections → dot-rail + `has-progress` | derive from deck structure | `lib/forms/tile/progress/progress.transform.js` (`applyToHtml` + `applyToDom`) — self-contained Tile (#356) |
 | watermark Tile | section-number ghost | compute the number | `lib/forms/tile/watermark/watermark.transform.js` (`applyToHtml` + `applyToDom`) — self-contained Tile (#356) |
 | footer / paginate / header | front-matter directives → chrome | directive parsing | `lib/engine/directives.js` (owned engine) |
-| overflow signal | measures the laid-out slide → ring + "Overflows" / "Content clipped" tab, the type-floor alarm, and the Fix-Me outline | measure + react | probe `lib/core/overflow-probe.js` · WHEN/WHERE `lib/core/fit-sweep.js` · the tabs' markup `lib/core/fit-berth.js` · watchers `lib/runtime/index.js` + `lattice-emulator.js` |
-| split verdict | turns the probe's EXTENT into `{ ratio, canSplit, splitRatio }` — is this overflow one a split can fix, and into how many pages | decide, then feed the overflow RING (it fed `resplitDoc` until 2026-09-01; the split is structural now and consults no measurement) | `lib/core/split-verdict.js` (`buildSplitVerdict` + `SPLIT_VERDICT_SRC` for injection), consumed by `lattice-emulator.js`'s `measureOverflow` |
+| overflow signal | measures the laid-out slide → ring + "Overflows" / "Content clipped" tab, the type-floor alarm, and the Fix-Me outline | measure + react | probe `lib/core/overflow-probe.js` · WHEN/WHERE `lib/core/fit-sweep.js` · the tabs' markup `lib/core/fit-berth.js` · watchers `lib/runtime/index.js` + `lattice.js` |
+| split verdict | turns the probe's EXTENT into `{ ratio, canSplit, splitRatio }` — is this overflow one a split can fix, and into how many pages | decide, then feed the overflow RING (it fed `resplitDoc` until 2026-09-01; the split is structural now and consults no measurement) | `lib/core/split-verdict.js` (`buildSplitVerdict` + `SPLIT_VERDICT_SRC` for injection), consumed by `lattice.js`'s `measureOverflow` |
 | marker berth | emits the three empty, hidden marker tabs into every slide, so no watcher creates marker DOM | none — it is markup | `lib/core/fit-berth.js` (`applyToHtml` + `applyToDom`), called LAST on both paths |
 | geometry bridge | sets `--_sec-1cqi` (= section width ÷ 100) so `cqi`/`cqh` sizing resolves in the preview iframe | self-measure for the container-query fallback | `lib/runtime` `patchSectionGeometry` |
 
@@ -422,7 +422,7 @@ rather than Mermaid's auto-derived white-on-pale.
 The renderer expects this layout relative to its own location:
 
 ```text
-lattice-emulator.js
+lattice.js
 themes/
   indaco.css     (default palette; or whatever palette is named)
   cuoio.css

@@ -189,7 +189,7 @@ jobs:
               # it — build:check would catch the resulting dist staleness, but
               # only after the render tier had been skipped.
               - 'kit/**'
-              - 'lattice-emulator.js'
+              - 'lattice.js'
               - 'package.json'
               - 'package-lock.json'
               - '.github/workflows/ci.yml'

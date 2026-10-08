@@ -184,7 +184,7 @@ measured table, the arm that proves the thing can fail.*
 Run the emulator directly — no npm script is added per feature:
 
 ```bash
-node lattice-emulator.js examples/<feature-slug>.md examples/<feature-slug>.pdf
+node lattice.js examples/<feature-slug>.md examples/<feature-slug>.pdf
 ```
 
 Commit `examples/<feature-slug>.md` and `examples/<feature-slug>.pdf`
@@ -394,7 +394,7 @@ strictly worse.
      `changelog.d/` file two branches genuinely named the same — resolve by
      **keeping both** entries, never picking a side.
    - Binary `examples/*.pdf` conflicts: resolve the `.md` first, re-render
-     with the owned engine (`node dist/lattice-emulator.js <deck> <out.pdf>`,
+     with the owned engine (`node dist/lattice.js <deck> <out.pdf>`,
      with `CHROME_PATH` set), `git add` both, continue.
 
    Force-push the rebased branch with `git push --force-with-lease` — never
@@ -529,7 +529,7 @@ expensive for anything scheduled to pass it:
 | `--print` | print re-place — rasterize + jsPDF assemble | ~11 min | `printDatasets` |
 | `--sweep` | fit-sweep — overflow/legibility probes over laid-out DOM | ~30s | `sweepDatasets` |
 | `--diagrams` | Mermaid render worker, 1 fence vs N | ~30s | *(report-only, by design)* |
-| `--cli` | whole `lattice-emulator.js` render — node boot, browser launch, `page.goto`, PDF encode | ~25s | `cliDatasets` |
+| `--cli` | whole `lattice.js` render — node boot, browser launch, `page.goto`, PDF encode | ~25s | `cliDatasets` |
 
 The **flowchart layout tier** replays every `graphLayoutKernel().layout()` call one
 Chromium render of `examples/flowchart.md` made (`test/benchmark/fixtures/flowchart-deck-layouts.json`),

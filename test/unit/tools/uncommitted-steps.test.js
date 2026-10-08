@@ -46,7 +46,7 @@ const EXPECTED_UNCOMMITTED = new Set([
   'build-css.js',
   'build-default-bundle.js',
   'build-runtime.js',
-  'build-emulator.js',
+  'build-cli.js',
   'build-docs-portal.js',
   'build-forms.js',
   'build-concepts.js',
@@ -206,7 +206,7 @@ test('built-not-committed build steps', async (t) => {
     assert.equal(isIgnored('docs/src/lib/theme-catalog.generated.ts'), false);
     assert.equal(isIgnored('lib/theme/edges.generated.mjs'), false);
     // And the sanity check in the other direction: the bundles ARE ignored.
-    assert.equal(isIgnored('dist/lattice-emulator.js'), true);
+    assert.equal(isIgnored('dist/lattice.js'), true);
     assert.equal(isIgnored('docs/public/playground/lattice-playground.js'), true);
   });
 });

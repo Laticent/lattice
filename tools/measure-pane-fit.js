@@ -5,7 +5,7 @@
  * `pane.stack` (the least share a pane of it holds), which decide whether a panes slide renders
  * as written, re-oriented, or split into slides (lib/core/pane-spec.js `arrangePanes`).
  *
- * THE EXPERIMENT. One deck per component, rendered by lattice-emulator.js at 16:9 (panes are a
+ * THE EXPERIMENT. One deck per component, rendered by lattice.js at 16:9 (panes are a
  * 16:9 composition: every other size splits them). Each slide puts the component in the FIRST
  * pane at one share — side by side at 25, 35, 50 and 65%, stacked at 30, 40, 50 and 60% — with
  * one short line of `content` in the second. The pane holds REALISTIC content: the component's

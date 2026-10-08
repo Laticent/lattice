@@ -174,7 +174,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 
 - [A page number / progress rail / proof-panel color looks wrong in the preview, right in the export](gotchas/lattice-internals.md#a-page-number--progress-rail--proof-panel-color-looks-wrong-in-the-preview-right-in-the-export)
 - [Editing a manifest `sample` staled the bucket survey gallery](gotchas/lattice-internals.md#editing-a-manifest-sample-staled-the-bucket-survey-gallery)
-- [`dist/lattice-emulator.js` rejects a manifest key the schema already declares](gotchas/lattice-internals.md#distlattice-emulatorjs-rejects-a-manifest-key-the-schema-already-declares)
+- [`dist/lattice.js` rejects a manifest key the schema already declares](gotchas/lattice-internals.md#distlatticejs-rejects-a-manifest-key-the-schema-already-declares)
 - [A generated file is in the bundle that was built before it](gotchas/lattice-internals.md#a-generated-file-is-in-the-bundle-that-was-built-before-it)
 - [A committed render golden doesn't match a fresh render — check staleness FIRST](gotchas/lattice-internals.md#a-committed-render-golden-doesnt-match-a-fresh-render--check-staleness-first)
 - [A manifest slot's `selector` describes AUTHORING input — a transform may consume it](gotchas/lattice-internals.md#a-manifest-slots-selector-describes-authoring-input--a-transform-may-consume-it)
@@ -189,7 +189,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [Section geometry AND body font (padding, border, body text) look wrong in any non-canonical preview](gotchas/lattice-internals.md#section-geometry-and-body-font-padding-border-body-text-look-wrong-in-any-non-canonical-preview)
 - [Layout components inherit line-height silently from the section body default](gotchas/lattice-internals.md#layout-components-inherit-line-height-silently-from-the-section-body-default)
 - [Emulator line-by-line builder only supports 2-deep list nesting by default](gotchas/lattice-internals.md#emulator-line-by-line-builder-only-supports-2-deep-list-nesting-by-default)
-- [lattice-emulator doesn't auto-load `style:` from front matter](gotchas/lattice-internals.md#lattice-emulator-doesnt-auto-load-style-from-front-matter)
+- [lattice doesn't auto-load `style:` from front matter](gotchas/lattice-internals.md#lattice-doesnt-auto-load-style-from-front-matter)
 - [Mermaid diagrams render at HD size inside 4K slides in VS Code preview](gotchas/lattice-internals.md#mermaid-diagrams-render-at-hd-size-inside-4k-slides-in-vs-code-preview)
 - [Docs-site preview/export rendered 4K decks oversized + cropped](gotchas/lattice-internals.md#docs-site-previewexport-rendered-4k-decks-oversized--cropped)
 - [lattice-engine: deck looks fine on desktop but collapses on mobile WebKit (no `:root` token relocation)](gotchas/lattice-internals.md#lattice-engine-deck-looks-fine-on-desktop-but-collapses-on-mobile-webkit-no-root-token-relocation)

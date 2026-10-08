@@ -81,10 +81,10 @@ A theme is one CSS file that declares **CSS custom properties (tokens) only** an
   - `npm run new:theme <name>` — copies `indaco.css` (a correct three-layer block),
     rewrites `@theme`, stamps a `TODO(palette):` checklist (see the warning above about
     its stale prose), and stamps the `<name>-dark.css` wrapper.
-  - `node lattice-emulator.js test/integration/baseline-decks/gallery.md /tmp/x.pdf
+  - `npx lattice test/integration/baseline-decks/gallery.md /tmp/x.pdf
     -p <name>` — render a broad component gallery in your palette (`-p`/`--palette`
     overrides the deck's `theme:`).
-  - `node lattice-emulator.js examples/diagram-narration.md /tmp/x.pdf -p <name>` —
+  - `npx lattice examples/diagram-narration.md /tmp/x.pdf -p <name>` —
     verify Mermaid diagram colors.
   - `node tools/contrast-audit.js`, `node tools/cvd-audit.js` — contrast tooling.
 

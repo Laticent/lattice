@@ -29,7 +29,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | **Testing** | Node's built-in test runner (`node:test`) — no Jest/Mocha/Vitest. | `npm test` (suite) · `node --test <file>` (one file; the `<dir>` form errors) |
 | **Benchmarking** | `tinybench` render benchmark — the owned lattice-engine over time, on-demand (NOT in `npm test`). A committed baseline (`test/benchmark/baseline.json`) is the perf ratchet: `bench:bless` writes it, `bench:check` compares within a variance band (HARD RULE #19). | `npm run bench` (`-- --export` adds rasterize · `-- --json` machine-readable) · `npm run bench:bless` / `bench:check` · `test/benchmark/engine-bench.mjs` |
 | **Lint / format** | Biome (linter on, formatter off). The registry `biome` is the WRONG package — always go through npm. | `npm run lint` / `lint:fix` · never `npx biome` |
-| **Rendering** | The owned lattice-engine renders every shipping path (the emulator CLI + the docs playground). | `node lattice-emulator.js deck.md deck.pdf` (set `CHROME_PATH`) |
+| **Rendering** | The owned lattice-engine renders every shipping path (the emulator CLI + the docs playground). | `node lattice.js deck.md deck.pdf` (set `CHROME_PATH`) |
 | **Browser automation** | puppeteer with the cached Chromium (screenshots, export, DOM checks). | `tools/screenshot.js` · custom scripts from repo root |
 | **Bundling** | esbuild — every `dist/` JS bundle and docs-site core is an esbuild build. | `npm run build` (orchestrates all generators behind the ownership gate) |
 | **Docs site** | Astro + Starlight + React 19 + Tailwind v4 + shadcn/ui (new-york) + CodeMirror — a SEPARATE npm package under docs/. shadcn maps onto the 14-palette Lattice theme via the token bridge (`docs/src/styles/tailwind.css`); React islands are tested with Vitest + Testing Library. House additions to `docs/src/components/ui/` beyond stock shadcn: `split.tsx` — the pane splitter (pointer-captured drag, rail collapse, ARIA window-splitter, persisted ratio) shared by the Playground and Studio; don't hand-roll another. | `cd docs && npm run dev` (runs the sync steps + astro; see CLAUDE.md § Cloud sandbox) |
@@ -60,6 +60,8 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `calco-lib:check` | Freshness gate for the Calco library dist/ (stale vs docs/src/lib/calco/*.ts). |
 | `capabilities:build` | Generate engineering/capabilities.md — the index of every script, tool, and framework. |
 | `capabilities:check` | Freshness gate for capabilities.md; fails on drift or any undescribed script/tool. |
+| `cli:build` | Build dist/lattice.js — the bundled owned-engine CLI (package bin/main). |
+| `cli:check` | Freshness gate for the emulator bundle. |
 | `css:build` | Bundle dist/lattice.css (+ -min) — the palette-blind engine stylesheet. |
 | `css:check` | Freshness gate for dist/lattice.css. |
 | `decisions:index` | Regenerate the "Current notes" index in engineering/decisions/README.md from each note's YAML front-matter. Refuses a note whose index row exceeds ROW_CAP (285 characters). |
@@ -80,8 +82,6 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `docs:portal:check` | Freshness gate for the component catalog (md/json) + LFM grammar.json. |
 | `docs:spec` | Generate the docs-site Specification pages (LFM 1.0 + Diagnostic Protocol) from the canonical spec/*.md. |
 | `docs:spec:check` | Freshness gate for the generated docs-site spec pages (stale vs spec/). |
-| `emulator:build` | Build dist/lattice-emulator.js — the bundled owned-engine CLI (package bin/main). |
-| `emulator:check` | Freshness gate for the emulator bundle. |
 | `engine-hash:build` | Regenerate docs/src/lib/cadenza/engine-hash.ts — ENGINE_HASH, the timing engine's content hash every LTT carries as inputs.engine. Deliberately not part of `npm run build`: a unit test fails when the committed value is stale. |
 | `exemplar-core:build` | Bundle the pure exemplar tier-filter for the browser (Drafting picker length chooser). |
 | `exemplar-core:check` | Freshness gate for the exemplar-core bundle. |
@@ -174,7 +174,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `bless` | Re-render the gallery goldens (the regression gate baseline) and overwrite them; commit the refreshed PDFs. `-- --only <name>` for one. |
 | `css:values` | Ask the RENDERING engine whether every CSS value we ship is actually in its property's grammar — CSS.supports() in the same Chromium the PDF/HTML paths use. Catches the declaration a browser DROPS at parse time, which no other gate can see: it is valid SYNTAX so checkCssSyntax passes, and a dropped override usually moves no pixels so no golden drifts. Budget 0 + a SANCTIONED allowlist for deliberate cross-engine pairs (stale entries fail too). On-demand, not in build:check — that gate is contractually render-free. |
 | `dom:bakeoff` | Correctness bake-off for the Node HTML parser — can a candidate do the jobs jsdom does here? Probes SVG camelCase survival, serialization against jsdom byte for byte, the selectors this repo actually writes, the transformer mutation surface, script execution, CSSOM, parser corners, and whether DOMPurify sanitizes when hosted on it (HARD RULE #22). Only jsdom is a dependency; the rest of the field is opt-in via `npm i --no-save happy-dom linkedom node-html-parser cheerio`. On-demand. See engineering/decisions/2026-09-20-dom-library-bakeoff.md. |
-| `dom:bakeoff:chromium` | Third arm of the DOM bake-off — measures the Chromium the CLI export ALREADY launches as a DOM provider, since lattice-emulator.js builds jsdom windows while a puppeteer page is open in the same process. Prints the CDP round-trip floor beside the per-input cost, because that floor is what makes this option lose on a slide and win on a deck. Structurally limited to paths that already run inside the page: withDom is synchronous and CDP is not. Needs CHROME_PATH. On-demand. |
+| `dom:bakeoff:chromium` | Third arm of the DOM bake-off — measures the Chromium the CLI export ALREADY launches as a DOM provider, since lattice.js builds jsdom windows while a puppeteer page is open in the same process. Prints the CDP round-trip floor beside the per-input cost, because that floor is what makes this option lose on a slide and win on a deck. Structurally limited to paths that already run inside the page: withDom is synchronous and CDP is not. Needs CHROME_PATH. On-demand. |
 | `dom:bakeoff:speed` | Throughput arm of the DOM bake-off — cold module load plus parse/serialize/mutate over real engine output at three sizes (median slide, heaviest slide, whole deck), each cell in its own process. Read it beside `dom:bakeoff`: on its own it argues for whichever parser is fastest, which is the reading that nearly shipped one that lowercases SVG element names. On-demand. |
 | `equiv` | Slice/deck equivalence sweep — for every slide of every committed deck, does rendering it ALONE match rendering it inside the deck? The headless half of the preview-fidelity diagnostic; the author-facing half is the Studio's "Preview fidelity" overlay. It RUNS THE SHIPPED REPAIR: each slice is handed the deck position `supplyablePosition` would give it (lib/diagnostics/slice-equivalence-core.mjs, the same copy the Studio's slice route calls), so breaking that path collapses the rate instead of moving it 0.0 points. It prints its supplied-position count, prelude count, neutralizer set and skipped decks every run so the number stays legible. On-demand rather than a CI gate — its subject is a diagnostic prototype and a corpus edit moves it. |
 | `equiv:bless` | Write the committed slice/deck equivalence baseline (test/benchmark/slice-equivalence.json) from a fresh `equiv` run. |
@@ -335,13 +335,13 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/build-basemap.world.js` | World basemap builder for the `map` component — the `world` companion to the |
 | `tools/build-bucket-galleries.js` | Build per-bucket survey gallery PDFs in light and dark themes. |
 | `tools/build-capabilities.js` | Generate engineering/capabilities.md — the single index of what this repo |
+| `tools/build-cli.js` | Build the distributable emulator CLI bundle. |
 | `tools/build-component-docs.js` | Generate per-component documentation + gallery decks from manifests. |
 | `tools/build-concepts.js` | Generate dist/docs/concepts.json — the machine-readable catalog of Lattice's |
 | `tools/build-css.js` | CSS bundler. Concatenates lib/_*.css + lib/components/<name>/styles.css |
 | `tools/build-default-bundle.js` | Builds dist/lattice-default.css (the flattened, zero-config default) and dist/palettes/ (every palette, imports resolved). |
 | `tools/build-dist-readme.js` | Generate dist/README.md — the index for the distribution folder. |
 | `tools/build-docs-portal.js` | Aggregate every component manifest into the canonical machine + plain-text |
-| `tools/build-emulator.js` | Build the distributable emulator CLI bundle. |
 | `tools/build-exemplar-core.js` | Bundle the pure exemplar tier-filter for the browser (sibling of |
 | `tools/build-galleries.js` | Build per-component gallery PDFs in light and dark themes. |
 | `tools/build-landing-tokens.js` | Emit the per-palette / per-mode CSS token blocks the docs LANDING page |

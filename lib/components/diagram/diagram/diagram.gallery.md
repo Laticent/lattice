@@ -722,7 +722,7 @@ treeView-beta
 
 
 <!-- Import Mermaid and the Lattice runtime theme for VS Code / web preview.
-     The build script (lattice-emulator.js) pre-renders Mermaid to SVG at build time
+     The build script (lattice.js) pre-renders Mermaid to SVG at build time
      so these scripts are a no-op in the PDF/HTML output. -->
 <!-- markdownlint-disable MD033 -->
 <script src="../../../../lib/plugins/mermaid/vendor/mermaid.min.js"></script>

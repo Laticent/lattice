@@ -544,7 +544,7 @@ describe('core: relationship — textOf reads typeset math as rendered symbols',
   });
 
   test('math with the MathML mirror suppressed still degrades to the visual half, not to nothing', () => {
-    // NOT what any shipping path passes — this comment used to claim it was. `lattice-emulator.js`
+    // NOT what any shipping path passes — this comment used to claim it was. `lattice.js`
     // sets `htmlAndMathml`, and `'html'` was removed there for accessibility. It is asserted
     // anyway because it is the shape a differently-configured caller would produce, and because
     // the annotation cannot rescue it: the annotation lives INSIDE the MathML, so a render with no

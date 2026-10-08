@@ -56,12 +56,12 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 - **Commits:** `29c3022` (regen chart survey after the word-cloud
   `sample` 1–5 normalization).
 
-## `dist/lattice-emulator.js` rejects a manifest key the schema already declares
+## `dist/lattice.js` rejects a manifest key the schema already declares
 
-- **Symptom:** `node dist/lattice-emulator.js deck.md out.pdf` dies with
+- **Symptom:** `node dist/lattice.js deck.md out.pdf` dies with
   `unknown manifest key 'x' — not in manifest.schema.json (the schema is the source of
   truth; add the field there first)` — naming a field `lib/components/manifest.schema.json`
-  visibly HAS. `node lattice-emulator.js` on the same tree renders fine. Typically hits a
+  visibly HAS. `node lattice.js` on the same tree renders fine. Typically hits a
   fresh sandbox whose `dist/` predates the checkout, or a local edit that adds a manifest
   field and its schema entry without rebuilding.
 - **Cause:** `lib/components/index.js` read its two inputs from two different ERAS. The
@@ -71,10 +71,10 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   on the day it was built. The error message is the misleading part: it points the author
   at the one file that is already correct.
 - **Mitigation:** The schema is READ from the package root now, not `require`d
-  (`lib/components/index.js`) — the same rule `lattice-emulator.js:92` already stated for
+  (`lib/components/index.js`) — the same rule `lattice.js:92` already stated for
   `package.json`, and for the same reason. The `require` survives as the fallback for a
   tree with no `lib/`. Both sides now resolve under one `PKG_ROOT`, which is the same
-  directory `lattice-emulator.js` hands `loadAll()`, so they cannot disagree.
+  directory `lattice.js` hands `loadAll()`, so they cannot disagree.
 - **Triggered by:** Bundling a file whose runtime twin is read from disk. Any
   `require('./x.json')` in a module that reaches `dist/` has this shape.
 - **Commits:** see `engineering/decisions/2026-09-13-bundle-era-skew.md`.
@@ -86,7 +86,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 - **Cause:** A `tools/build.js` STEP that produces a file ordered AFTER a step that
   `require`s it. esbuild inlines at bundle time, so the bundle carries the PREVIOUS
   revision. `dist/` is gitignored and CI's `build:check --exclude-uncommitted` skips the
-  built-not-committed artifacts, so nothing catches it: `dist/lattice-emulator.js` was
+  built-not-committed artifacts, so nothing catches it: `dist/lattice.js` was
   written 2.6s before `lib/export/anima-player-bundle.generated.mjs`, which it contains.
 - **Mitigation:** Generator steps come before every bundle that inlines them. The
   background library dists (Cadenza, Vetrina, Lente, Suono) are joined before their FIRST
@@ -94,7 +94,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 - **Triggered by:** Adding a generator, or adding an import that reaches one. To check a
   bundle's real inputs, grep its esbuild module markers **unanchored** —
   `grep -n '// lib/' <bundle>` — because only some bundles put them in column 0.
-  `dist/lattice-emulator.js` does (468 at column 0); `dist/lattice-runtime.js` wraps every
+  `dist/lattice.js` does (468 at column 0); `dist/lattice-runtime.js` wraps every
   module in the CJS closure form and indents all **167** of them — one per `__commonJS`
   wrapper, a count the two greps agree on — so `'^// lib/'` scores that bundle a flat zero.
   (An earlier cut of this entry said 1288. That was every indented comment LINE in the file,
@@ -113,7 +113,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   pixel-identical (AE=0), so it is not session noise, and fuzz/blur can't
   tolerate it away.
 - **Do NOT conclude the renderer is non-deterministic.** Self-hosted fonts
-  (`assets/fonts/`, embedded by `lattice-emulator.js`) + pinned Chromium make
+  (`assets/fonts/`, embedded by `lattice.js`) + pinned Chromium make
   cross-session renders deterministic *by design* (the P4 §7.1 spike measured 0px
   drift). A cross-*artifact* diff is almost always a **stale golden**, not jitter.
   Relitigating a de-risked design (CI-blessed goldens / an AA-tolerant comparator
@@ -216,16 +216,16 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   narration. Both producers run the shared `narrateChart`
   (`lib/core/chart-narration.js`) **on top of it** and substitute its
   full-slide narration wherever it fires — the CLI at
-  `lattice-emulator.js:5037`, the live Studio through `narrationAt`. For a
+  `lattice.js:5037`, the live Studio through `narrationAt`. For a
   `diagram` slide that means `narrateDiagram` speaks the whole flowchart, node
   by node ("From API Service: reads from Postgres; writes to Redis; publishes
   to Kafka"), which is many times longer than the heading-and-caption text the
   projection alone returns. Author caption overrides then win above both, via
   `mergeNarration`.
 - **Fix:** measure the narration the way the pipeline builds it. Either export
-  captions and read the `.vtt` (`node lattice-emulator.js deck.md out.html
+  captions and read the `.vtt` (`node lattice.js deck.md out.html
   --captions` writes a per-slide `out.NN.vtt`), or apply `narrateChart` over
-  the projection yourself the way `lattice-emulator.js` does. Do not time the
+  the projection yourself the way `lattice.js` does. Do not time the
   projection and call it narration.
 - **Measured:** `examples/diagram-narration.md` slide 2 — projection 4.3s,
   shipped caption **40.6s**. Slide 3 — projection 4.7s, caption **29.9s**.
@@ -260,7 +260,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   slot-label lift) appears to work in the owned engine / emulator output
   but is missing in the `lattice-runtime.js` path, or vice versa.
 - **Cause:** Lattice has two render paths (HARD RULE #1):
-  1. The **owned engine** (`lib/engine`, bundled as `dist/lattice-emulator.js`)
+  1. The **owned engine** (`lib/engine`, bundled as `dist/lattice.js`)
      — the `lattice` CLI/emulator and the docs playground.
   2. **`dist/lattice-runtime.js`** — the VS Code Marp preview + published-HTML
      runtime (DOM transforms).
@@ -453,7 +453,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   sub-sub-bullets (4-space indent, `- item`) appear as siblings of their parent
   bullet rather than nested children. In kanban this means label text like `compliance`
   becomes a separate card box instead of the meta row inside its parent card.
-- **Cause:** `lattice-emulator.js` builds HTML from raw markdown line-by-line
+- **Cause:** `lattice.js` builds HTML from raw markdown line-by-line
   (`raw.split('\n')`). The original loop tracked only `inList` (level 1) and
   `inSubList` (level 2). The 4-space sub-sub-item matched the same `/^ {2,}- /`
   regex as 2-space items, so it was treated as another level-2 sibling.
@@ -462,7 +462,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   was also changed to defer its `</li>` close (checking whether the next line is
   a level-3 item), mirroring the same lookahead the level-1 handler already used.
   All blank-line, paragraph-break, and end-of-content close-out paths updated.
-- **Affects:** `lattice-emulator.js` only. Marp-core-rendered HTML (the
+- **Affects:** `lattice.js` only. Marp-core-rendered HTML (the
   VS Code Marp preview, a marp-cli-rendered Export-to-Marp bundle) nests
   correctly from CommonMark; `lattice-runtime.js` uses the DOM so nesting
   is also correct there.
@@ -470,21 +470,21 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   Currently only `kanban` (column → card → meta/body).
 - **Commits:** `277a2c3` (feat(kanban): structured authoring convention and card layout redesign)
 
-## lattice-emulator doesn't auto-load `style:` from front matter
+## lattice doesn't auto-load `style:` from front matter
 
 - **Symptom:** Same `style: ":root{…}"` works in the VS Code Marp
-  preview but was silently ignored by `lattice-emulator.js`.
+  preview but was silently ignored by `lattice.js`.
 - **Cause:** The emulator hand-rolls its front-matter reader (it
   doesn't use markdown-it / Marpit for parse). Until recently it only
   looked for `paginate:`, `header:`, `footer:`, `class:`, and
   `headingDivider:`.
 - **Mitigation:** Front-matter reader in
-  [lattice-emulator.js:773-792](../lattice-emulator.js#L773-L792)
+  [lattice.js:773-792](../lattice.js#L773-L792)
   now parses both inline (`style: "..."`) and YAML block scalar
   (`style: |`) forms and injects the content into the `<style>` block
   after the theme CSS so author overrides win.
 - **Triggered by:** Any `style:` directive in front matter when
-  rendering through `lattice-emulator.js`.
+  rendering through `lattice.js`.
 - **Removable when:** The emulator switches to a real Marpit/Marp
   engine. Tracked separately.
 - **Since the CLI ships the engine's flat sheet (2026-09-25):** the palette's

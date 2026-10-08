@@ -324,7 +324,7 @@ function renderSweep(size, deck, tag, { split = false } = {}) {
     // "no overflow" become the same string and the sentinel below has nothing to
     // check. The `HTML: N slides` tally is the proof the read worked.
     const r = spawnSync(process.execPath,
-      [path.join(ROOT, 'lattice-emulator.js'), file, pdf, 'indaco', '--keep-html', ...(split ? [] : ['--no-split'])],
+      [path.join(ROOT, 'lattice.js'), file, pdf, 'indaco', '--keep-html', ...(split ? [] : ['--no-split'])],
       { cwd: ROOT, encoding: 'utf8', timeout: 900000 });
     if (r.error) throw r.error;
     if (r.status !== 0) throw new Error(`emulator exited ${r.status} for ${size}:\n${r.stderr || r.stdout}`);
@@ -1045,7 +1045,7 @@ async function presetReport() {
     fs.mkdirSync(path.dirname(src), { recursive: true });
     fs.writeFileSync(src, `---\nmarp: true\ntheme: indaco\nsize: ${s.size}\n---\n\n${PRESET_DECK}`);
     const base = path.join(os.tmpdir(), `preset-${s.size}-${process.pid}`);
-    execFileSync(process.execPath, [path.join(ROOT, 'lattice-emulator.js'), src, `${base}.pdf`, 'indaco', '-q', '--keep-html'],
+    execFileSync(process.execPath, [path.join(ROOT, 'lattice.js'), src, `${base}.pdf`, 'indaco', '-q', '--keep-html'],
       { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'], timeout: 600000 });
     const page = await browser.newPage();
     await page.setViewport({ width: s.vp[0], height: s.vp[1] });
@@ -1103,7 +1103,7 @@ const PRESETS_ONLY = process.argv.includes('--presets');
     fs.mkdirSync(path.dirname(src), { recursive: true });
     fs.writeFileSync(src, `---\nsize: ${s.size}\ntheme: indaco\n---\n\n` + DECK.split('---\ntheme: indaco\n---\n\n')[1]);
     const base = path.join(os.tmpdir(), `vf-${s.size}-${process.pid}`);
-    execFileSync(process.execPath, [path.join(ROOT, 'lattice-emulator.js'), src, `${base}.pdf`, 'indaco', '-q'],
+    execFileSync(process.execPath, [path.join(ROOT, 'lattice.js'), src, `${base}.pdf`, 'indaco', '-q'],
       { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'], timeout: 600000 });
     const page = await browser.newPage();
     await page.setViewport({ width: s.vp[0], height: s.vp[1] });

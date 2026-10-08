@@ -288,7 +288,7 @@
 
 /* ── Diagram tokens ────────────────────────────────────────────────────
  * Role-named, palette-blind tokens consumed by lattice-diagram.css and
- * the renderer bridges (lattice-runtime.js, lattice-emulator.js). The
+ * the renderer bridges (lattice-runtime.js, lattice.js). The
  * structural shape — which slot is band, stroke, state, etc. — is the
  * same across every palette; this file supplies cuoio's warm-earth
  * values. */

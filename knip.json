@@ -1,7 +1,7 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "entry": [
-    "lattice-emulator.js",
+    "lattice.js",
     "lib/runtime/index.js",
     "lib/playground/index.js",
     "lib/engine/index.js",

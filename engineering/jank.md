@@ -489,7 +489,7 @@ wherever the real element exists. It is also live on committed decks, which is t
 first version of this section denied. What it is NOT is the common case — a draft of this
 paragraph called it "the page number on most paginated slides we ship", and it is the
 minority mark. Measured over the whole population — every deck in `examples/` that sets
-`paginate: true`, exported through `dist/lattice-emulator.js` and read in Chromium:
+`paginate: true`, exported through `dist/lattice.js` and read in Chromium:
 
 **Everything from here to "The page number is ONE mark now" describes the tree BEFORE #2206.**
 The split it measures is closed: the pseudo no longer ships on any frame, and the figures below
@@ -581,7 +581,7 @@ the element on every paginated frame, and `.cell-footer` decides only WHERE the 
 a flex item in the band, or a direct section child — never whether there is one.
 
 **Measured on a committed deck, not inferred.** `examples/bloom-engineering-journey.md`
-exported through `dist/lattice-emulator.js` and opened in Chromium paints the pseudo on **7 of
+exported through `dist/lattice.js` and opened in Chromium paints the pseudo on **7 of
 its 13 slides** — `premise`, `split-panel` and friends, `visibility: visible`, `opacity: 1`, no
 `.cell-footer`. 164 of the decks in `examples/` set `paginate: true`. This is the shipped
 behavior, not an edge case waiting for an author to find it.

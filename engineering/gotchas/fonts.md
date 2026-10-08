@@ -21,7 +21,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   swaps don't change slide count), so the broken PDF ships green. The
   trap: "open it on a networked device and the fonts resolve" is FALSE
   — a fallback-font PDF is fallback forever.
-- **Fix:** `lattice-emulator.js` base64-injects the self-hosted woff2 in
+- **Fix:** `lattice.js` base64-injects the self-hosted woff2 in
   `assets/fonts/` (Caveat, Shantell Sans, Outfit) as an inline
   `@font-face` block that wins over the `@import`, and waits on
   `document.fonts` before `page.pdf()`. So the repo's own renders embed
@@ -112,7 +112,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 ## Color emoji needs an installed font on the owned render paths
 
 - **Symptom:** Emoji render as monochrome glyphs or tofu boxes (▯) in
-  PDFs produced by `lattice-engine` or `lattice-emulator` on a bare
+  PDFs produced by `lattice-engine` or `lattice` on a bare
   host (CI runner, server, a freshly-provisioned desktop WebView) — even
   though they look fine on a Mac/Windows dev machine.
 - **Cause:** Unlike the marp-core-based surfaces — the VS Code Marp
@@ -134,7 +134,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   - **The Laticent desktop app** — its WebView/packaging must ship or
     install a color emoji font; the engine alone can't guarantee it.
 - **Triggered by:** Any unicode emoji in a deck rendered through
-  `lattice-engine` / `lattice-emulator` on a host without a color
+  `lattice-engine` / `lattice` on a host without a color
   emoji font.
 - **Removable when:** Never fully — it's inherent to emitting emoji as
   text. The webfont `@import` and the font installs together are the
@@ -147,7 +147,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 ## Flex-centered caps read high in JetBrains Mono (and `text-box-trim` can't fix it here)
 
 - **Symptom:** A pill/badge laid out as `display:inline-flex; align-items:center; line-height:1` in **JetBrains Mono** looks like its text sits slightly HIGH — more empty space below the glyphs than above — even though the box is centered. Adding `text-box-trim:trim-both; text-box-edge:cap alphabetic` (the spec-correct fix) changes nothing in the rendered PDF.
-- **Cause:** `align-items:center` centers the line BOX, but a font's baseline sits asymmetrically inside it — the descender space below the baseline is reserved even for caps/digits that never use it. The magnitude is **font-specific**: JetBrains Mono seats caps badly (caps land ~7px high, mixed-case ~15px high, in a 60px test pill), while the body sans Outfit lands caps ~1px off — imperceptible. `text-box-trim` would trim the box to the cap/baseline edges and fix it for any font, but it shipped unprefixed only in **Chrome 133** (Feb 2025); the puppeteer-cached Chromium that lattice-emulator renders with is **131**, where the property is silently ignored (a `text-box-trim` pill is pixel-identical to one without).
+- **Cause:** `align-items:center` centers the line BOX, but a font's baseline sits asymmetrically inside it — the descender space below the baseline is reserved even for caps/digits that never use it. The magnitude is **font-specific**: JetBrains Mono seats caps badly (caps land ~7px high, mixed-case ~15px high, in a 60px test pill), while the body sans Outfit lands caps ~1px off — imperceptible. `text-box-trim` would trim the box to the cap/baseline edges and fix it for any font, but it shipped unprefixed only in **Chrome 133** (Feb 2025); the puppeteer-cached Chromium that lattice renders with is **131**, where the property is silently ignored (a `text-box-trim` pill is pixel-identical to one without).
 - **Mitigation:** Don't center small caps labels in JetBrains Mono. The universal pill uses the **body sans** (`--pill-font: var(--font-body)`), whose metrics center caps correctly with plain symmetric padding — no optical nudge, no `text-box-trim`. This was the fix for the pill family; it also suits a pill better (a status chip is a label, not code). Measured by rasterising caps pills in both fonts and comparing the ink-gap above vs below. If you must center caps in mono somewhere, either accept the ~7px lean or wait for `text-box-trim`.
 - **Triggered by:** Any small flex-centered caps label set in JetBrains Mono.
 - **Removable when:** The render Chromium reaches ≥133 — then `text-box-trim:trim-both; text-box-edge:cap alphabetic` becomes the general, font-agnostic fix.

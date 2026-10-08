@@ -16,7 +16,7 @@ pre-commit:
     - name: affected-tests
       # Maps staged files → scoped test scripts and runs only those.
       # Falls back to the full unit suite for cross-cutting changes
-      # (lattice-emulator.js, lattice.css, package.json, …). The full
+      # (lattice.js, lattice.css, package.json, …). The full
       # suite runs in CI on every PR and in the merge queue, not in pre-push.
       run: node tools/affected-tests.js {staged_files}
     - name: lint-deck
@@ -197,7 +197,7 @@ pre-push:
         base="$(git merge-base HEAD origin/main 2>/dev/null || true)"
         run_it=1
         if [ -n "$base" ] && files="$(git diff --name-only "$base"...HEAD 2>/dev/null)"; then
-          printf '%s\n' "$files" | grep -qE '^lib/|^tools/|^test/|^themes/|^dist/|^examples/|^exemplars/|^marp\.config\.js$|^lattice-emulator\.js$|^package\.json$|^package-lock\.json$|^\.github/workflows/ci\.yml$' || run_it=0
+          printf '%s\n' "$files" | grep -qE '^lib/|^tools/|^test/|^themes/|^dist/|^examples/|^exemplars/|^marp\.config\.js$|^lattice\.js$|^package\.json$|^package-lock\.json$|^\.github/workflows/ci\.yml$' || run_it=0
         fi
         if [ "$run_it" = 1 ]; then
           export CHROME_PATH="${CHROME_PATH:-$(ls /root/.cache/puppeteer/chrome/linux-*/chrome-linux64/chrome 2>/dev/null | sort -V | tail -1)}"

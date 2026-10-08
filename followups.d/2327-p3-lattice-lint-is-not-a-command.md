@@ -10,7 +10,7 @@ source: https://github.com/Laticent/lattice/pull/2327
 
 # The retired-Form render warning points at a `lattice lint` command that does not exist
 
-Found while #2327 added a render warning beside it. `lattice-emulator.js` tells an author
+Found while #2327 added a render warning beside it. `lattice.js` tells an author
 with a retired Form opt-out to "run `lattice lint` for the full list and the fix". The
 `lattice` CLI has no `lint` subcommand: `lattice lint deck.md` is read as a render to an
 output named `deck.md` and fails with "unsupported output extension '.md'". The linter,
@@ -21,7 +21,7 @@ slide, and names `npm run lint:deck` only as a checkout command.
 ```text
   P3 · Point the retired-Form warning at a command the reader has
        why now   — the one line meant to unblock an author sends them to an error.
-       where     — lattice-emulator.js, the retired-Form warning block (search
+       where     — lattice.js, the retired-Form warning block (search
                    "lattice lint"); package.json `bin` / `files`.
        done when — the warning names a command that works from the published
                    package, or says what to change on each slide instead.

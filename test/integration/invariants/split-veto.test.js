@@ -1,7 +1,7 @@
 /**
  * SPLIT VETO — the measured pass's "can a split actually fix this?" gate, on a real render.
  *
- * `measureOverflow` (lattice-emulator.js) refuses to hand a slide to the splitter when the
+ * `measureOverflow` (lattice.js) refuses to hand a slide to the splitter when the
  * NON-collection content already fills the box: splitting a slide whose height comes from a tall
  * figure or paragraph just copies that block onto every piece and never fits, and it balloons the
  * deck pass after pass. Right rule, but it was measured two ways that were both wrong on a real
@@ -135,7 +135,7 @@ describe('type floor + overflow — two axes, never one instead of the other', (
     // what it REPORTS on stderr, which the cache does not keep.
     const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'lat-split-')), 'both.pdf');
     // `--keep-html`: this reads the `.html` sidecar, deleted on success by default (P1).
-    const res = spawnSync('node', [path.join(ROOT, 'lattice-emulator.js'), FIXTURE, out, '--keep-html'], {
+    const res = spawnSync('node', [path.join(ROOT, 'lattice.js'), FIXTURE, out, '--keep-html'], {
       cwd: ROOT, encoding: 'utf8', timeout: 150000,
     });
     assert.equal(res.status, 0, `emulator failed:\n${res.stderr}`);

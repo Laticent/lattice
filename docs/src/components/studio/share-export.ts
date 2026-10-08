@@ -188,7 +188,7 @@ function escAttr(s: string): string {
  * Assemble a self-contained document equivalent to the emulator's `cleanDocHtml`
  * (the `docHtml` input `assemblePlayer` expects): base64 fonts + the deck CSS +
  * per-slide sizing + a11y texture defs + the rendered `<section>` slides. This
- * mirrors the emulator's scaffold (lattice-emulator.js htmlDoc) so the shared
+ * mirrors the emulator's scaffold (lattice.js htmlDoc) so the shared
  * assembler sees the same shape from either host. Offline by construction — the
  * `#lattice-embedded-fonts` block is data-URI base64, not bundled URLs.
  */
@@ -250,7 +250,7 @@ type SplitSectionsCore = (html: string) => { type: 'gap' | 'section'; openTag?: 
 
 /**
  * Materialize speaker notes + accessible descriptions into the (already re-tagged)
- * sections, mirroring the CLI emulator (lattice-emulator.js): the engine emits notes
+ * sections, mirroring the CLI emulator (lattice.js): the engine emits notes
  * ONLY as raw HTML comments, so — like the emulator — lift them via the shared
  * `notesCore` and inject a `hidden` `aside.lattice-notes` (spoken by the presenter,
  * kept out of the a11y tree) plus an sr-only `p.lattice-description` referenced by
@@ -484,7 +484,7 @@ export async function shareHtmlPlayer(
 	// by the recipient from the shipped file alone, since the envelope carries this same
 	// scrubbed source to re-render (#1985). Parity with the CLI is the point: `--strip-notes`
 	// and this button are the same guarantee, and the CLI does exactly this
-	// (lattice-emulator.js, "PASS 2"). Costs one extra render, on this flag's path only.
+	// (lattice.js, "PASS 2"). Costs one extra render, on this flag's path only.
 	//
 	// FAIL-CLOSED ON FIDELITY, and the measurement lives in `strip-notes-guard.ts` — loaded on
 	// demand, because it runs when someone exports and never on the way to first paint. Keeping
@@ -516,7 +516,7 @@ export async function shareHtmlPlayer(
 		}
 	}
 	// The engine omits `data-lattice-slide`; the CLI's emulator re-tags each section with it
-	// (lattice-emulator.js), and the player CSS + transport key off it. Split the render into
+	// (lattice.js), and the player CSS + transport key off it. Split the render into
 	// per-slide sections and re-tag them the same way, so the assembled player finds its slides.
 	// (The emulator's extra image fixups are preview-parity concerns handled the same way the
 	// Studio preview does — i.e. not here.) Then materialize speaker notes + a11y descriptions the
@@ -780,7 +780,7 @@ export async function shareHtmlPlayer(
 			// Describes the ARTIFACT — does this file carry notes — not the FLAG that made it.
 			// Parity with the CLI export: `!stripNotes` was a one-bit answer to "did the author
 			// run the privacy flag?", in plain base64 at the bottom of a file people share. See
-			// the same field in lattice-emulator.js for the reasoning (#1833).
+			// the same field in lattice.js for the reasoning (#1833).
 			notes: !stripNotes && noteRecord.some((r) => !!r.note),
 			// Motion in a forwarded file: a separate choice from motion while presenting,
 			// because it costs bytes and it moves for a recipient the author is not there to
@@ -1197,7 +1197,7 @@ export async function shareCaptions(
 	const lang = resolveNarrationMod.frontMatterLang(source); // non-English → bypass English say-as (#919)
 	// Project the ALREADY-rendered sections (no second full render — projected[i] ≡ sections[i]
 	// by construction). Failure leaves the projection empty, exactly as the CLI's does
-	// (lattice-emulator.js projectDeckSpeechFromHtml) — there is no notes fallback behind it,
+	// (lattice.js projectDeckSpeechFromHtml) — there is no notes fallback behind it,
 	// so a deck whose projection fails exports only its authored say overrides.
 	let projected: string[] = [];
 	// Parallel to `projected`, and the guard below compares against THIS array rather than the

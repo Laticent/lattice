@@ -225,18 +225,18 @@ describe('the export roots — the CLI half the docs/src walk never saw', () => 
   test('the roots are exactly the three shipped document assemblers', () => {
     assert.deepEqual(
       [...DOC_STYLE_SINK_ROOTS].sort(),
-      ['docs/src', 'lattice-emulator.js', 'lib/export'].sort(),
+      ['docs/src', 'lattice.js', 'lib/export'].sort(),
       'changing this set changes what HARD RULE #22 covers — update the note with it',
     );
   });
 
   test('fires on the emulator scaffold (a ROOT FILE, not a directory)', () => {
-    const errs = gateAt('lattice-emulator.js', RAW_DOC);
+    const errs = gateAt('lattice.js', RAW_DOC);
     assert.ok(errs.some((e) => /sanitizeStyleText/.test(e)), `the CLI scaffold must owe the stylesheet channel; got: ${errs.join(' | ')}`);
   });
 
   test('quiet once the emulator scaffold sanitizes', () => {
-    assert.deepEqual(gateAt('lattice-emulator.js', SAFE_DOC), []);
+    assert.deepEqual(gateAt('lattice.js', SAFE_DOC), []);
   });
 
   test('fires on an unguarded assembler under lib/export', () => {
@@ -249,9 +249,9 @@ describe('the export roots — the CLI half the docs/src walk never saw', () => 
   });
 
   test('the GENERATED dist/ copy is NOT scanned — HARD RULE #2 forbids editing it', () => {
-    // dist/lattice-emulator.js is a build product of the very file above. Scanning it would
+    // dist/lattice.js is a build product of the very file above. Scanning it would
     // demand a hand-edit to a generated artifact, which is the one fix that is never allowed.
-    assert.deepEqual(gateAt(path.join('dist', 'lattice-emulator.js'), RAW_DOC), []);
+    assert.deepEqual(gateAt(path.join('dist', 'lattice.js'), RAW_DOC), []);
   });
 
   test('an exemption excuses a file under a new root, and a stale one still fires', () => {
@@ -297,7 +297,7 @@ describe('the css-tree re-wrap arm', () => {
   });
 
   test('fires on an unguarded re-wrap at a file root (the CLI\'s shape)', () => {
-    const errs = gateAt('lattice-emulator.js', REWRAP_RAW);
+    const errs = gateAt('lattice.js', REWRAP_RAW);
     assert.ok(errs.some((e) => /sanitizeStyleText/.test(e)), `the CLI re-wrap must owe the guard; got: ${errs.join(' | ')}`);
   });
 
@@ -325,7 +325,7 @@ describe('the css-tree re-wrap arm', () => {
     const errors = [];
     const seen = checkCssTreeRewrapSinks(errors);
     assert.deepEqual(errors, [], `unguarded css-tree re-wrap on the live tree:\n${errors.join('\n')}`);
-    for (const must of ['lattice-emulator.js', 'docs/src/components/studio/player-prune-browser.ts']) {
+    for (const must of ['lattice.js', 'docs/src/components/studio/player-prune-browser.ts']) {
       assert.ok(seen.includes(must), `${must} is no longer discovered as a css-tree re-wrap — did the prune move?`);
     }
   });
@@ -382,7 +382,7 @@ describe('the live tree', () => {
     }
     // The CLI scaffold, the export player, and its generated browser bundle are the three
     // this change added; the docs-site assemblers #1718 already covered are the rest.
-    for (const must of ['lattice-emulator.js', 'lib/export/player-core.mjs', 'docs/src/playground/player-core.generated.js']) {
+    for (const must of ['lattice.js', 'lib/export/player-core.mjs', 'docs/src/playground/player-core.generated.js']) {
       assert.ok(seen.includes(must), `${must} is no longer discovered as a document style sink — did a root move?`);
     }
   });

@@ -473,7 +473,7 @@ function renderDocs(m) {
 
 /**
  * Build <name>.gallery.md content from a manifest. The deck is a Marp
- * source file rendered to PDF by lattice-emulator.
+ * source file rendered to PDF by lattice.
  *
  * Slide order:
  *   1. Title (dark bookend, no chrome)

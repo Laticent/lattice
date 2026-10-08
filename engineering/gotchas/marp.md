@@ -33,14 +33,14 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   `section img { …; display:block; max-width:100% }`, which is intended
   for author-inserted figures. Block + 100% width = own line, full slide
   width. The VS Code Marp preview (and any marp-cli-rendered Export-to-Marp
-  bundle) hits this; lattice-emulator leaves emoji as raw text (no rewrite) but inherits
+  bundle) hits this; lattice leaves emoji as raw text (no rewrite) but inherits
   the inline alignment issue when no emoji font is in the stack.
 - **Mitigation:** Two parts in [lattice.css](../dist/lattice.css):
   1. Exempt the emoji class from the block image rule — the catch-all
      is now `section img:not(.emoji)`, and `section img.emoji` is set
      to `display:inline-block; height:1em; vertical-align:-0.1em`.
   2. Append `'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji'`
-     to every `--font-*` stack in `:root` so the lattice-emulator path
+     to every `--font-*` stack in `:root` so the lattice path
      (raw unicode) also has a defined emoji font and doesn't fall back
      to a glyph with wildly different metrics.
 - **Triggered by:** Any unicode emoji anywhere in a deck.
@@ -60,8 +60,8 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 - **Mitigation:** The `deckClassPropagate` markdown-it plugin in
   `lib/integrations/markdown-it/plugins.js` (run by the owned engine)
   reads the front-matter `class:` line directly from source and *appends*
-  its tokens to every section. The lattice-emulator front-matter parser
-  mirrors this in [lattice-emulator.js](../lattice-emulator.js).
+  its tokens to every section. The lattice front-matter parser
+  mirrors this in [lattice.js](../lattice.js).
   This intentionally diverges from Marpit's spec.
 - **Triggered by:** Any `class: <value>` in deck front matter — except a value the
   register refuses: a COMPONENT name (it would claim every slide's layout, and collide
@@ -202,7 +202,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   theme), but the marp-cli PDF render comes out with white background,
   black text, and no palette tokens — looks like dark mode is broken,
   or like the theme silently failed. The same deck rendered through the
-  owned engine (`lattice-emulator.js`) looks fine.
+  owned engine (`lattice.js`) looks fine.
 - **Cause:** marp-cli only resolves theme names to files registered in
   its `themeSet` (or passed via `--theme-set`). If the theme file isn't
   registered, marp-cli falls back to no theme — every color token

@@ -19,7 +19,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 
 - **Symptom:** A slide whose photo is an **SVG file** (`![bg](photo.svg)` or an inline `![](photo.svg)`) renders perfectly in poppler (CI rasterization, desktop viewers) but breaks in iOS Safari's built-in PDF viewer and other Quartz-based viewers: the image draws only partially (a top band) or the photo column is dropped entirely, showing bare canvas. Other SVG placements on the same device can draw fine — the failure is construct-specific (clipped/cropped placements), not SVG-wholesale. First observed on-device reviewing the full-coverage gallery (#690).
 - **Cause:** Chromium prints an SVG `<img>`/`background-image` into the vector PDF as shading patterns and transparency groups; the clipped/cover placements emit combinations Quartz mishandles (the same viewer-strictness family as the `mask-image` gotcha above). Poppler renders them correctly, which is why single-renderer verification never caught it.
-- **Mitigation:** Since #690 landed, **lattice-emulator rasterizes SVG `<img>`/`background-image` references at export time by default** — each unique SVG becomes a 2× PNG twin (a plain image XObject, the universally supported construct) swapped into the loaded page before `page.pdf()`. Inline `<svg>` (Mermaid, charts, logo marks) stays vector. Opt out with `--keep-vector-images` if you need the vector construct and control the viewers. For decks rendered by other paths (marp-cli), prefer raster assets (`.jpg`/`.png` twins), as the baseline gallery does (#681).
+- **Mitigation:** Since #690 landed, **lattice rasterizes SVG `<img>`/`background-image` references at export time by default** — each unique SVG becomes a 2× PNG twin (a plain image XObject, the universally supported construct) swapped into the loaded page before `page.pdf()`. Inline `<svg>` (Mermaid, charts, logo marks) stays vector. Opt out with `--keep-vector-images` if you need the vector construct and control the viewers. For decks rendered by other paths (marp-cli), prefer raster assets (`.jpg`/`.png` twins), as the baseline gallery does (#681).
 - **Triggered by:** Any deck embedding `.svg` images, opened on an iPhone/iPad or macOS Preview — which is exactly where a shared `/gallery.pdf` link gets opened first.
 - **Removable when:** Quartz gains parity with poppler/Skia for Chromium's SVG-image print constructs. No timeline; treat SVG-in-PDF as a portability hazard.
 - **Commits:** The pdf-export-portability branch (#690); the deck-side raster twins landed in #681.
@@ -348,7 +348,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   at the bottom of the shared file, so a deck that never had a note said `true` and only a
   stripped one said `false`: a one-bit answer to "were there notes here?". It now reads the
   materialized array, so both cases say `false`. Two writers, both changed —
-  `lattice-emulator.js` and `docs/src/components/studio/share-export.ts`.
+  `lattice.js` and `docs/src/components/studio/share-export.ts`.
 - **A third tell in the same class, now closed (#1985).** Stripping used to remove the comment
   NODE from already-rendered HTML and leave the whitespace around it, so re-rendering the deck's
   own embedded source and diffing showed a one-byte-per-slide residue naming WHICH slides
@@ -358,7 +358,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   two words in `a<!-- n -->\nb`. Instead `--strip-notes` scrubs the SOURCE and renders that —
   removing the comment before markdown-it ever sees it, which is how `directives.js` has always
   kept a consumed directive from leaving a trace. Costs one extra engine render on this flag's
-  path only. Both writers changed, so the two paths stay in step — `lattice-emulator.js`
+  path only. Both writers changed, so the two paths stay in step — `lattice.js`
   ("PASS 2") and the Studio's Webpage export, whose half of the measurement lives in
   `docs/src/components/studio/strip-notes-guard.ts` (loaded on demand from `share-export.ts`;
   it is off the studio route's eager bundle deliberately). Pinned by
@@ -537,7 +537,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   `md` anyway was not. The fidelity guard never saw the attached document.
 - **Fix:** `notesCore.measureScrubBoundary` in `lib/authoring/notes-core.js`, three steps
   cheapest-first, because the expensive one is reached by no deck here. (`attachmentCut()` in
-  `lattice-emulator.js` is now just the call site that supplies the two documents and injects the
+  `lattice.js` is now just the call site that supplies the two documents and injects the
   scrub and the render — the decision moved into the kernel so its branches could be asserted
   against synthetic documents, which needs no deck whose pre-render moves a comment's own
   neighbors. No such deck was ever found.) (1) `md === rawMd` — the measurement is *of* this
@@ -605,7 +605,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   three of `split-envelope` (52 pages, portrait) were byte-identical.
 - **Cause:** the PDF writer photographs what it does not draw as vectors (pipeline.md § 4a0),
   and caps a photo at 2560 px on the long edge. On a 4K slide the CLI's camera
-  (`lattice-emulator.js`, the `__latticePdfPhoto` binding) gets there by setting Chrome's
+  (`lattice.js`, the `__latticePdfPhoto` binding) gets there by setting Chrome's
   `deviceScaleFactor` to 0.667 and taking a screenshot. A screenshot at that fractional scale
   is not deterministic when the machine is busy: content streams, fonts and vectors are
   identical across runs, and only the page's photo XObject differs, in the anti-aliasing of

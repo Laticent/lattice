@@ -1,7 +1,7 @@
 /**
  * The published emulator bundle must not carry the repo manifest.
  *
- * `dist/lattice-emulator.js` is the package `bin`/`main`, built by esbuild from
+ * `dist/lattice.js` is the package `bin`/`main`, built by esbuild from
  * the repo-root source. esbuild inlines the local relative graph, so a
  * `require('./package.json')` anywhere in that graph embeds the WHOLE manifest
  * — dependency ranges and all — into the committed artifact.
@@ -12,7 +12,7 @@
  * `npm run build`. Both routine bump groups sat red on exactly this.
  *
  * The version — the only field the CLI ever wanted — is read at runtime from
- * PKG_ROOT instead (`pkgVersion()` in lattice-emulator.js), which resolves to
+ * PKG_ROOT instead (`pkgVersion()` in lattice.js), which resolves to
  * the installed package's own manifest for an npm consumer.
  */
 
@@ -23,8 +23,8 @@ const path   = require('node:path');
 const { execFileSync } = require('node:child_process');
 
 const ROOT   = path.resolve(__dirname, '..', '..', '..');
-const BUNDLE = path.join(ROOT, 'dist', 'lattice-emulator.js');
-const SOURCE = path.join(ROOT, 'lattice-emulator.js');
+const BUNDLE = path.join(ROOT, 'dist', 'lattice.js');
+const SOURCE = path.join(ROOT, 'lattice.js');
 
 test('the emulator source never `require`s the manifest', () => {
   // Comments are stripped first — the note above `pkgVersion()` explains the
@@ -36,9 +36,9 @@ test('the emulator source never `require`s the manifest', () => {
   assert.equal(
     /require\(\s*['"]\.\/package\.json['"]\s*\)/.test(src),
     false,
-    'lattice-emulator.js must read the version from PKG_ROOT at runtime, not ' +
+    'lattice.js must read the version from PKG_ROOT at runtime, not ' +
     "`require('./package.json')` — the require inlines the whole manifest into " +
-    'dist/lattice-emulator.js and makes the bundle stale on every dependency bump.',
+    'dist/lattice.js and makes the bundle stale on every dependency bump.',
   );
 });
 
@@ -48,7 +48,7 @@ test('the built bundle carries no dependency ranges', () => {
     assert.equal(
       bundle.includes(`"${field}"`) || bundle.includes(`${field}:`),
       false,
-      `dist/lattice-emulator.js contains the manifest's ${field} — something in ` +
+      `dist/lattice.js contains the manifest's ${field} — something in ` +
       'the bundled graph is requiring package.json again.',
     );
   }
@@ -60,7 +60,7 @@ test('the built bundle carries no dependency ranges', () => {
     assert.equal(
       bundle.includes(`${name}: "${range}"`),
       false,
-      `dist/lattice-emulator.js embeds the declared range for ${name} (${range}); ` +
+      `dist/lattice.js embeds the declared range for ${name} (${range}); ` +
       'the bundle must not move when a dependency is bumped.',
     );
   }
@@ -75,7 +75,7 @@ test('--version still reports the package version from the bundle', () => {
     const out = execFileSync(process.execPath, [entry, '--version'], { encoding: 'utf8' }).trim();
     assert.equal(
       out,
-      `lattice-emulator ${pkg.version}`,
+      `lattice ${pkg.version}`,
       `${path.relative(ROOT, entry)} --version must report the manifest version`,
     );
   }

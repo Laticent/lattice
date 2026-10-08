@@ -64,7 +64,7 @@ describe('export-marp bundle (end-to-end)', () => {
     }
     // No emulator / dist/ folder — the bundle is rendered with Marp.
     assert.ok(!fs.existsSync(path.join(dest, 'dist')), 'bundle must not ship a dist/ folder');
-    assert.ok(!fs.existsSync(path.join(dest, 'dist', 'lattice-emulator.js')), 'no bundled emulator');
+    assert.ok(!fs.existsSync(path.join(dest, 'dist', 'lattice.js')), 'no bundled emulator');
   });
 
   test('bundled themes are the minified build; .vscode registers them', () => {
@@ -275,7 +275,7 @@ describe('export-marp — the overflow-marker export setting', () => {
   after(() => fs.rmSync(tmp, { recursive: true, force: true }));
 
   // Both streams: the policy line is stdout, the `off` warning is stderr (the
-  // same split lattice-emulator.js uses for its own overflow report).
+  // same split lattice.js uses for its own overflow report).
   const exportWith = (slug, args = [], { deck = DECK, env = {} } = {}) => {
     const out = path.join(tmp, slug);
     const r = spawnSync('node', [TOOL, deck, out, ...args], {
@@ -342,7 +342,7 @@ describe('export-marp — the overflow-marker export setting', () => {
     const { said } = exportWith('off-warn', ['--overflow-marker=off']);
     assert.match(said, /ONLY channel/);
     assert.match(said, /does not render, so it cannot measure overflow/);
-    assert.match(said, /lattice-emulator\.js/, 'and names the command that does measure');
+    assert.match(said, /lattice\.js/, 'and names the command that does measure');
   });
 
   // A deck key is not an input any more. It does nothing, and `lint:deck` says so

@@ -37,7 +37,7 @@ shows until you replace it with a real color from your palette.
 Render something with it right away, so you know the loop works:
 
 ```bash
-node lattice-emulator.js examples/finish-backdrops.md /tmp/check.pdf -p evergreen
+npx lattice examples/finish-backdrops.md /tmp/check.pdf -p evergreen
 ```
 
 ## 2. Pick two or three brand colors first
@@ -113,7 +113,7 @@ Render the component gallery in your palette, in both canvases — the light
 version of the deck and the dark one — and look at every page:
 
 ```bash
-node lattice-emulator.js test/integration/baseline-decks/gallery.md \
+npx lattice test/integration/baseline-decks/gallery.md \
   /tmp/gallery.pdf -p evergreen
 ```
 

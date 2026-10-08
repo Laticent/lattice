@@ -221,7 +221,7 @@ section.diagram > .cell-stage > :is(pre, marp-pre):where([data-lattice-hydrate="
  * `[data-lattice-diagrams]` IS THE SAFETY ARGUMENT, and this rule shipped two wrong
  * versions before it. Hiding the source is only right when something is going to replace
  * it; in a document that draws no diagram nothing will, and the rule blanked the slide —
- * including in an EXPORT. `preprocessMermaid` (lattice-emulator.js) matches
+ * including in an EXPORT. `preprocessMermaid` (lattice.js) matches
  * ```` ```mermaid ```` and nothing else, so a `~~~mermaid` fence, or one carrying an
  * info-string, reaches the exported HTML unsubstituted with the runtime stripped.
  * That renders as raw source: ugly, and the author's only signal that the CLI never

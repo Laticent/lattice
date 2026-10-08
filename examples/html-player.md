@@ -78,4 +78,4 @@ Both color modes are baked in, so the file follows the reader's system preferenc
 
 ## Write once. Present, read, and share from the same file.
 
-`lattice-emulator deck.md deck.pdf --player`
+`lattice deck.md deck.pdf --player`

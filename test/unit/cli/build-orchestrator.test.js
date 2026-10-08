@@ -50,8 +50,8 @@ describe('build orchestrator', () => {
     assert.ok(anima >= 0, 'build-anima-player.js is not in STEPS');
     // lib/export/anima-player-bundle.generated.mjs is in the emulator's require
     // graph (marker `// lib/export/anima-player-bundle.generated.mjs` in
-    // dist/lattice-emulator.js) and in player-core's. It once ran 18 steps late.
-    for (const consumer of ['build-runtime.js', 'build-emulator.js', 'build-player-core.js']) {
+    // dist/lattice.js) and in player-core's. It once ran 18 steps late.
+    for (const consumer of ['build-runtime.js', 'build-cli.js', 'build-player-core.js']) {
       const at = idx(consumer);
       assert.ok(at >= 0, `${consumer} is not in STEPS`);
       assert.ok(anima < at, `build-anima-player.js (${anima}) must run before ${consumer} (${at})`);

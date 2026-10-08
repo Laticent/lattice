@@ -213,7 +213,7 @@ section.compare-prose :is(ul,ol) > li > strong ~ * { font-weight: 400; }
  *
  * The leading <strong> wrapper is produced automatically by the build
  * pipeline (slotLabelLift in the engine, mirrored in
- * lattice-emulator.js) — authors write plain `- Label` and the structural
+ * lattice.js) — authors write plain `- Label` and the structural
  * lift happens in the Marpit token layer. Wrapping `**Label**` in source
  * still works (idempotent) for authors who prefer to be explicit. */
 /* The tag itself — corner geometry, voice, and the space the card reserves for it —

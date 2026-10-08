@@ -11,7 +11,7 @@
  * hard to open quietly:
  *
  *   1. The case list is checked against the emulator's OWN closed format table
- *      (`OUT_FORMATS` in lattice-emulator.js, which its comment calls closed: "A format
+ *      (`OUT_FORMATS` in lattice.js, which its comment calls closed: "A format
  *      is added by adding a row here"). Add a row without adding a case and this suite
  *      fails, naming the uncovered format. The next format is covered by construction
  *      rather than by someone remembering.
@@ -61,7 +61,7 @@ const JSZip = require('jszip');
 
 describe('strip-notes: every export format', () => {
   const ROOT = path.join(__dirname, '..', '..', '..');
-  const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+  const EMULATOR = path.join(ROOT, 'lattice.js');
   const FIXTURE = path.join(ROOT, 'test', 'fixtures', 'strip-notes-deck.md');
   // The note text the fixture carries on all three slides. Absence of THIS is the claim.
   const TOKEN = 'PRIVATELEAKTOKEN';
@@ -74,7 +74,7 @@ describe('strip-notes: every export format', () => {
   function outFormatsFromSource() {
     const src = fs.readFileSync(EMULATOR, 'utf8');
     const block = /const OUT_FORMATS = Object\.freeze\(\{([\s\S]*?)\}\);/.exec(src);
-    assert.ok(block, 'could not find the OUT_FORMATS table in lattice-emulator.js — has it moved?');
+    assert.ok(block, 'could not find the OUT_FORMATS table in lattice.js — has it moved?');
     // TWO passes, and the second is the one that matters. Counting ROWS is deliberately
     // permissive (any key shape, any value shape); reading VALUES is necessarily narrower.
     // If the narrow pass reads fewer rows than the permissive one saw, some row is written in

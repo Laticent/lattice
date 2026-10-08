@@ -144,7 +144,7 @@ async function main() {
   const html = path.join(tmp, 'deck.html');
   execFileSync(
     process.execPath,
-    [path.join(REPO, 'dist/lattice-emulator.js'), args.deck, html, args.theme],
+    [path.join(REPO, 'dist/lattice.js'), args.deck, html, args.theme],
     { stdio: ['ignore', 'ignore', 'inherit'] },
   );
 

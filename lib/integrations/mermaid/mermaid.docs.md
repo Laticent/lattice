@@ -24,7 +24,7 @@ history and its theme bridge.
 
 A `\`\`\`mermaid` fenced block is processed in this order:
 
-1. **At build time** (`lattice-emulator.js`):
+1. **At build time** (`lattice.js`):
    - Mermaid source is extracted from the fence.
    - `mmdc` (the Mermaid CLI binary that ships with the npm package) is
      invoked with the source + a theme-variables JSON object derived
@@ -38,7 +38,7 @@ A `\`\`\`mermaid` fenced block is processed in this order:
    - Same theme-variables object derived from CSS custom properties.
    - Same wrapper + override CSS.
 
-3. **At build time (raw fallback)** (`lattice-emulator.js`):
+3. **At build time (raw fallback)** (`lattice.js`):
    - If `mmdc` isn't available OR Mermaid source fails to parse, the
      raw source is shown as a syntax-highlighted code block.
    - Highlighting is provided by `mermaid.highlight.js`, our custom
@@ -50,7 +50,7 @@ A `\`\`\`mermaid` fenced block is processed in this order:
 
 Lattice's palette tokens (`--accent`, `--text-body`, `--bg`, etc.) are
 mapped to Mermaid's `themeVariables` object at render time. The mapping
-lives in `lattice-emulator.js` and `lattice-runtime.js` (mirrored —
+lives in `lattice.js` and `lattice-runtime.js` (mirrored —
 must stay in lockstep). When you swap palettes, Mermaid diagrams
 recolor without re-rendering.
 

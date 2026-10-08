@@ -76,7 +76,7 @@ jobs:
           key: puppeteer-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
 
       # Root deps: `prepare` builds the uncommitted dist/ artifacts, among them
-      # dist/lattice-emulator.js, which the audit renders with.
+      # dist/lattice.js, which the audit renders with.
       - run: npm ci
 
       # Docs deps: the audit imports Playwright from docs/node_modules/@playwright/test,
@@ -101,8 +101,8 @@ jobs:
             echo "::error::puppeteer resolved $CHROME but nothing executable is there — the browser cache did not restore and npm ci did not download it."
             exit 1
           fi
-          if [ ! -f dist/lattice-emulator.js ]; then
-            echo "::error::dist/lattice-emulator.js is missing — npm ci's prepare step did not build it."
+          if [ ! -f dist/lattice.js ]; then
+            echo "::error::dist/lattice.js is missing — npm ci's prepare step did not build it."
             exit 1
           fi
           echo "path=$CHROME" >> "$GITHUB_OUTPUT"

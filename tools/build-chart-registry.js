@@ -5,7 +5,7 @@
  *
  * WHY A GENERATED FILE AND NOT A DIRECTORY SCAN. Discovery is an authoring-time
  * convenience, never a render-time cost (LPM § Performance): chart-family.dispatch.js is
- * bundled by esbuild into dist/lattice-runtime.js, dist/lattice-emulator.js and
+ * bundled by esbuild into dist/lattice-runtime.js, dist/lattice.js and
  * five docs-site bundles, and a bundler cannot resolve `require(templateLiteral)`
  * — a scan would leave every kernel out of every bundle. So the scan runs HERE,
  * at build time, and emits a module of static `require`s that esbuild follows

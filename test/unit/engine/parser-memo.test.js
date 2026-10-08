@@ -71,7 +71,7 @@ test('parser memo: output matches an engine whose memo never warmed', () => {
 // A bare engine has NO themes registered, so `theme:` changes neither the html nor the css and any
 // assertion about it is vacuous. (`size:` resolves against the engine's own registry and needs no
 // theme.) These two tests therefore build their own engine and register the real bundle + a
-// palette, the way lattice-emulator.js does before it renders.
+// palette, the way lattice.js does before it renders.
 function themedEngine() {
 	const { createEngine } = require('../../../lib/engine/index.js');
 	const e = createEngine();

@@ -25,7 +25,7 @@ const DECK = '---\ntheme: indaco\n---\n\n# A plot with a superscript\n\n' +
 
 function render(dir, name, args) {
   const out = path.join(dir, name);
-  const res = spawnSync('node', [path.join(ROOT, 'lattice-emulator.js'), path.join(dir, 'deck.md'), out, 'indaco', ...args, '-q'], {
+  const res = spawnSync('node', [path.join(ROOT, 'lattice.js'), path.join(dir, 'deck.md'), out, 'indaco', ...args, '-q'], {
     cwd: ROOT, encoding: 'utf8', timeout: 900000,
   });
   assert.equal(res.status, 0, `render failed (${args.join(' ')}):\n${res.stderr}`);

@@ -8,7 +8,7 @@
  *
  * WHY THIS EXISTS. The preview bundle ships highlight.js's 36-language `common`
  * build; the CLI and marp-core both ship all 192. So a `powershell` fence measured
- * 11 highlight spans in a lattice-emulator export and 0 in the Playground — same
+ * 11 highlight spans in a lattice export and 0 in the Playground — same
  * deck, same theme, silently different. The fix has to close that gap WITHOUT
  * putting the full build in front of first paint: measured, `common` is 53 KB
  * gzipped and the full build is 312 KB, which nearly doubles the whole Playground

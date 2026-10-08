@@ -14,7 +14,7 @@ why now   — `-p` / `--palette` themes one render without editing the deck, and
             carries the deck as written. A deck with no `theme:` line therefore re-opens in the
             Studio in the default theme, not the one the PDF shows (decision doc
             2026-10-05-reopenable-exports.md §8, "Known gap"). Today it is documented, not said.
-where     — `lattice-emulator.js` › `reopenableLattice` (compare `paletteName` with the deck's
+where     — `lattice.js` › `reopenableLattice` (compare `paletteName` with the deck's
             front-matter `theme:`).
 done when — `--reopenable -p X` on a deck whose `theme:` is not X prints one warning naming
             both themes and the fix (put the theme in the deck). Or the owner decides the payload

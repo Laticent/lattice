@@ -29,7 +29,7 @@ const { spawnSync } = require('node:child_process');
 const JSZip = require('jszip');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
-const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+const EMULATOR = path.join(ROOT, 'lattice.js');
 const TIMEOUT = 180000;
 const NOTE = 'reopenable private note 4b1e';
 

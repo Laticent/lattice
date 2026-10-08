@@ -124,7 +124,7 @@ the rest are substance- or domain-defined.
 5. **If structure/series** and you must rebuild DOM: add `<name>.transform.js` as a
    pure, idempotent string-in/string-out function, and register it in
    `lib/transformers/registry.js` in the right order — wired identically across the
-   engine, emulator, and runtime (HARD RULE #1).
+   engine, CLI, and runtime (HARD RULE #1).
 6. **Ship a demo deck** `examples/<name>.md` (6–10 slides) + committed PDF (HARD
    RULE #9).
 7. **`npm run build`** to regenerate everything, then `npm run build:check` +
@@ -230,7 +230,7 @@ reflow rule that matches its `adapt.mode: "reflow"`, every variant documented, t
 - `tags: ["grid", "cards"]` — restates form/name; tags must be complementary.
 - Listing `dark` or `compact` in `variants` — those are universal/semi-universal,
   added automatically.
-- Landing a transform in `lattice-emulator.js` only — HARD RULE #1; it must run in
+- Landing a transform in `lattice.js` only — HARD RULE #1; it must run in
   all three paths via the shared kernel.
 - Editing `<name>.docs.md` by hand — it's generated; edit the manifest and rebuild.
 

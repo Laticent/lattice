@@ -98,7 +98,7 @@ const FIELD_DEFAULTS = {
   // Lives in front matter so the choice TRAVELS with the deck (and its exported .md).
   validate: 'on',
   // (`math:` was a managed field with a Math-renderer control until 2026-08-18. NOTHING
-  // in lib/ or lattice-emulator.js reads the key — a grep for `mathjax` across the engine
+  // in lib/ or lattice.js reads the key — a grep for `mathjax` across the engine
   // returns only the control that wrote it. Lattice types all math with KaTeX; the value
   // means something only to marp-core, i.e. to an exported .md later rendered by marp-cli.
   // A control that LOOKS like an input and is not is exactly what lib/core/export-settings.js
@@ -670,7 +670,7 @@ export function createConfigPanel({ host, trigger, getSource, setSource, palette
     // Auto-split — opt the deck into the Fit Ladder's SPLIT move: an over-capacity
     // slide is divided across extra pages. A portrait/square-family behavior, so the
     // hint names the gate (lint warns on a landscape deck). It's a build-time pass
-    // (lattice-emulator.js) — UNLIKE the Form composition (a live CSS class the
+    // (lattice.js) — UNLIKE the Form composition (a live CSS class the
     // engine stamps on every slide), it shows only on EXPORT, never in this live
     // preview. The hint says so, so the toggle doesn't
     // read as broken when the preview doesn't visibly change.

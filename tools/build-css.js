@@ -250,7 +250,7 @@ const TAIL_SOURCES = [
   // node fills). Scoped to section.print; inert on every non-print deck.
   'lib/base/base.print-textures.css',
   // Fluid-box viewer mode — inert unless :root[data-lattice-view="fluid"] is set
-  // (lattice-emulator --fluid + the runtime fluid controller). Last so its
+  // (lattice --fluid + the runtime fluid controller). Last so its
   // viewport-box override also wins on source order, not just specificity.
   'lib/base/base.fluid-view.css',
 ];

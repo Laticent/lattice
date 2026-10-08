@@ -42,7 +42,7 @@ const { spawnSync } = require('child_process');
 
 describe('mermaid-deck-color-mode', () => {
   const ROOT     = path.join(__dirname, '..', '..', '..');
-  const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+  const EMULATOR = path.join(ROOT, 'lattice.js');
   const FIXTURE  = path.join(ROOT, 'test', 'fixtures', 'mermaid-deck-color-mode.md');
 
   const TIMEOUT = 120000;

@@ -1870,7 +1870,7 @@ function renderDoc() {
     '',
     'If you have the source checked out, the engine renders PDF, PPTX, PNG and HTML:',
     '',
-    ...fenced('node dist/lattice-emulator.js your-deck.md your-deck.pdf', 'sh'),
+    ...fenced('node dist/lattice.js your-deck.md your-deck.pdf', 'sh'),
     '',
     'The output format is chosen by the extension — `.pdf`, `.pptx`, `.png`, `.zip`, `.html`.',
     'Needs Node 22.13 or newer and a Chromium that Puppeteer can find. This route needs no',
@@ -1967,7 +1967,7 @@ function exampleDecks() {
  * layout absent, no error anywhere. With them it composes correctly.
  *
  * Safe on every route: the CLI strips deck-embedded runtime scripts before
- * export (`lattice-emulator.js`), so a deck carrying them renders identically
+ * export (`lattice.js`), so a deck carrying them renders identically
  * there. That is what makes them the right default rather than a Marp-only
  * footnote.
  */

@@ -32,7 +32,7 @@ const RENDER_IRRELEVANT = [
 // Paths outside lib/ that DO change renders, for every gallery.
 const SHARED_OUTSIDE_LIB = [
   /^themes\//,
-  /^lattice-emulator\.js$/,
+  /^lattice\.js$/,
   /^mermaid-v11-min\.js$/,
   /^package(-lock)?\.json$/, // a dependency bump can move every render
   /^assets\/fonts\//,
@@ -46,7 +46,7 @@ const SHARED_OUTSIDE_LIB = [
 // dependency change: a PR that only adds an npm script must not widen the render to every
 // gallery or skip the base render that tells "this PR moved it" from "stale on main" (#2583
 // listed 46 changed slides for a one-line `scripts` edit). An ALLOWLIST, not a list of
-// dependency fields, so a key nobody thought about (`version`, which lattice-emulator.js
+// dependency fields, so a key nobody thought about (`version`, which lattice.js
 // reads; `exports`; `engines`) still counts as a render input — the module errs toward
 // rendering more. The lockfile is a separate path and always counts.
 const PACKAGE_JSON_INERT_KEYS = new Set([

@@ -83,7 +83,7 @@ describe('preview scope detector', () => {
   });
 
   test('renderer (engine) change → L3', () => {
-    assert.equal(detectScope(['lattice-emulator.js']).level, 'L3');
+    assert.equal(detectScope(['lattice.js']).level, 'L3');
     assert.equal(detectScope(['lib/plugins/chart-family/chart-family.dispatch.js']).level, 'L3');
   });
 

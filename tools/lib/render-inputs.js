@@ -61,7 +61,7 @@ const ROOT = path.join(__dirname, '..', '..');
 // is the stale-bundle case `npm run build:check` already covers. What must not happen
 // is prose claiming the coverage is live.
 const INPUT_DIRS = ['lib/', 'themes/', 'dist/'];
-const INPUT_FILES = ['lattice-emulator.js'];
+const INPUT_FILES = ['lattice.js'];
 const INPUT_EXT = new Set(['.css', '.js', '.mjs', '.cjs']);
 
 // A component's own gallery deck is not a shared input — the caller compares it

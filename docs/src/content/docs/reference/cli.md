@@ -8,7 +8,8 @@ worked tasks, start with [Using the command line](/guides/cli/). The same
 list, in the terminal:
 
 ```sh
-npx lattice --help
+npx lattice --help       # one screen: the formats and the common options
+npx lattice --help all   # every option, as on this page
 ```
 
 ## Command shapes
@@ -51,7 +52,8 @@ instead.
 
 | Option | What it does |
 |---|---|
-| `-h`, `--help` | Print the help and exit |
+| `-h`, `--help` | Print one screen of help (the formats and the common options) and exit |
+| `--help all`, `--help=all` | Print every option and exit |
 | `-v`, `--version` | Print the version and exit |
 | `-o`, `--output <path>` | The output file, instead of the second positional argument |
 | `-p`, `--palette <name>` | The palette, instead of the positional one |

@@ -55,7 +55,7 @@ const { spawnSync } = require('node:child_process');
 
 const ROOT = path.join(__dirname, '..');
 const WORK = path.join(ROOT, '.scratch', 'geometry-parity');
-const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+const EMULATOR = path.join(ROOT, 'lattice.js');
 const { PROBE_SRC, CLIP_CELL_SELECTOR, IGNORED_CLIP_SELECTOR } = require('../lib/core/overflow-probe');
 const { resolveChrome } = require('./lib/resolve-chrome');
 
@@ -158,7 +158,7 @@ async function main() {
       const page = await browser.newPage();
       await page.setViewport({ width: su.w, height: su.h, deviceScaleFactor: 1 });
       // `load` + an explicit font force-load, which is exactly what the render does
-      // (lattice-emulator.js, the three `page.goto` calls and the `page.evaluate` that
+      // (lattice.js, the three `page.goto` calls and the `page.evaluate` that
       // follows each). This tool's whole job is to check the geometry the RENDER
       // measures, so it has to observe the page at the same moment the render does —
       // `networkidle0` here would have been checking a different instant than the one

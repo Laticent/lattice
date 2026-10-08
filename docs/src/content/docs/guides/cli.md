@@ -43,6 +43,10 @@ To check it works, ask for the version:
 npx lattice --version
 ```
 
+`npx lattice --help` prints one screen: the output formats and the options most
+decks need. `npx lattice --help all` prints every option, the same list as the
+[CLI reference](/reference/cli/).
+
 ## Everyday tasks
 
 ### Render a PDF

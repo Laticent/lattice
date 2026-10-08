@@ -180,7 +180,7 @@ describe("a dark bookend's inline-code eyebrow is legible at either heading leve
     }
     // DOCTYPE is required: without it the probe runs in quirks mode, where the UA applies
     // `-internal-quirk-inherit` to table ink and a measurement here stops describing the
-    // shipped document. Every real render writes a doctype (lattice-emulator.js).
+    // shipped document. Every real render writes a doctype (lattice.js).
     await probe.setContent(`<!DOCTYPE html><style>${theme}\n${bundle}</style><article class="lattice">${blocks.join('')}</article>`);
 
     const mode = await probe.evaluate(() => document.compatMode);

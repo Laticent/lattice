@@ -1,7 +1,7 @@
 /**
  * Unit tests for the focus resolver transformer.
  *
- * Covers both the HTML-string kernel (applyToHtml, used by lattice-emulator via
+ * Covers both the HTML-string kernel (applyToHtml, used by lattice via
  * lib/engine) and the DOM walk (applyToDom, used by lattice-runtime) — the two
  * must agree (HARD RULE 1). The contract: the ordinal target of `_focus:` (via
  * the `data-focus` attribute the directive apply step stamps) is tagged

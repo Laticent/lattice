@@ -119,7 +119,7 @@ const QUIET = flags.quiet;
 
 if (!fs.existsSync(htmlFile)) {
   console.error(`error: HTML not found: ${htmlFile}`);
-  console.error('       Render a deck first (e.g. `node lattice-emulator.js deck.md out.pdf`)');
+  console.error('       Render a deck first (e.g. `node lattice.js deck.md out.pdf`)');
   console.error('       or pass an explicit path: --html <file>');
   process.exit(1);
 }

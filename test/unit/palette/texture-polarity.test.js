@@ -368,7 +368,7 @@ describe('texture-polarity', () => {
       + 'both render paths now share, so it distinguishes nothing (#1332 step 4)');
     assert.equal(stampSlideBake, undefined, 'resolve-color-mode still exports stampSlideBake');
     assert.doesNotMatch(
-      fs.readFileSync(path.join(ROOT, 'lattice-emulator.js'), 'utf8'),
+      fs.readFileSync(path.join(ROOT, 'lattice.js'), 'utf8'),
       /stampSlideBake\(/,
       'the emulator still stamps the retired marker',
     );
