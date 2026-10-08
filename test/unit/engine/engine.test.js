@@ -406,6 +406,9 @@ describe('lattice-engine: css emission (P1.1)', () => {
     // scale in the export.
     assert.match(block, /deckOrientation\(aspect\) === 'square'/);
     assert.doesNotMatch(block, /0\.95/);
+    // Nor any other private split: the only aspect literal allowed is the landscape
+    // early return, which the classifier agrees with at exactly 1.05.
+    assert.deepEqual(block.match(/aspect\s*[<>]=?\s*\d*\.\d+/g), ['aspect > 1.05']);
     assert.match(block, /1\.75 \+ \(1 - aspect\) \* 1\.0/);
     assert.match(block, /Math\.min\(2\.4/);
   });
