@@ -155,6 +155,7 @@ describe('the Diagnostic Protocol registry (spec/diagnostics.md §3)', () => {
 
   test('fails when a run-time family loses its row (failing arm)', () => {
     const noFamily = { literal: registry.literal, families: registry.families.filter((f) => !f.id.startsWith('verbose-')) };
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: the template's source text, as the scan reads it
     assert.deepEqual(drift(noFamily, code), ['a run-time family with no <…> row: verbose-${ov.kind}']);
   });
 
