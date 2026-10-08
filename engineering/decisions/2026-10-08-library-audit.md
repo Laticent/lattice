@@ -144,12 +144,14 @@ so this PR stays one change.
   proposes, for all nine libraries.
 - `docs/src/lib/anima/README.md` opens with a SUPERSEDED banner over its whole design.
 
-## 6. Open decisions for the owner
+## 6. Owner rulings (2026-10-08)
 
-1. **Anima: publish it as a tenth library, or declare it internal?** Recommendation: internal
-   for 1.0. Its design changed a month ago, its README is superseded, and nothing outside the
-   Studio asks for it. Its gate keeps it spin-off-able if that changes.
-2. **LTT and Tavola: demo pages, or README links?** Recommendation: README links for 1.0. LTT is
-   a format with nothing to watch, and a Tavola demo needs two browsers.
-3. **License** — already open as the release plan's §4 default. This audit adds no new
-   information to it, only that the call applies to all nine at once.
+1. **Anima stays internal for 1.0.** It does not publish. Its boundary gate stays, so it can
+   still be split out later.
+2. **Tavola gets a demo page** before it publishes
+   (`followups.d/2609-p2-tavola-demo-page.md`). **LTT is still open:** the owner asked for a
+   plain explanation first. Until then, LTT's card links to its README.
+3. **LTT, Segno and Trama get the adversarial trio before their first npm version**
+   (`followups.d/2609-p1-library-trio-before-publish.md`). That is three libraries, three agents
+   each: nine agents.
+4. **License** stays open as the release plan's §4 default. The call applies to all nine at once.
