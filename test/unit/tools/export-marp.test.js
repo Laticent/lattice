@@ -213,12 +213,14 @@ describe('export-marp bundle (end-to-end)', () => {
     }
   });
 
-  test('marp.config.cjs carries the HTML allowlist and engine; .vscode enables HTML so the runtime tags survive', () => {
+  test('marp.config.cjs carries the HTML allowlist and engine with Marp\'s math off; .vscode enables HTML and turns math off', () => {
     const cfg = fs.readFileSync(path.join(dest, 'marp.config.cjs'), 'utf8');
     assert.doesNotMatch(cfg, /html:\s*true/);
-    assert.match(cfg, /module\.exports = \{ themeSet, allowLocalFiles: true, html, engine \};/);
+    assert.match(cfg, /module\.exports = \{ themeSet, allowLocalFiles: true, html, engine, options: \{ math: false \} \};/);
     const settings = JSON.parse(fs.readFileSync(path.join(dest, '.vscode', 'settings.json'), 'utf8'));
     assert.equal(settings['markdown.marp.enableHtml'], true);
+    // The deck's math is typeset at export; `off` also disables a deck's own `math:` directive.
+    assert.equal(settings['markdown.marp.mathTypesetting'], 'off');
   });
 
   test('package.json pins marp-cli only', () => {

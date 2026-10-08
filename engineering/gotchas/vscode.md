@@ -49,7 +49,7 @@ backstop behind it: a gap nobody logs is a gap nobody knows about. Corrected
 
 | Transform | Symptom on a Marp-rendered surface | Added |
 |---|---|---|
-| whatever `lib/core/marp-fidelity.js` lists as `unmirrored` | The constructs a Marp render genuinely does not reproduce, plus one it renders with a different typesetter. Each is built while the deck is PARSED — earlier than any Marp tool lets a plugin in — so a browser runtime cannot cover for it. **This row deliberately names no list.** It carried one for a day and was wrong within a day: it said five-plus-math while the ledger shipped seven (the imagery `![bg]` gap was found after the row was written), and then imagery was CLOSED by baking the lift, taking it back to six. The ledger is the list: `lib/core/marp-fidelity.js` is the ledger, `test/unit/core/marp-fidelity.test.js` fails when a new markdown-it plugin is added without a coverage verdict, and the generated bundle README prints the gaps from the same rows — so what a recipient is told cannot drift from what the repo knows. | 2026-07-29 |
+| whatever `lib/core/marp-fidelity.js` lists as `unmirrored` | The constructs a Marp render genuinely does not reproduce. (Math is no longer one: the export typesets it with KaTeX, `lib/core/marp-bundle-math.js`.) Each is built while the deck is PARSED — earlier than any Marp tool lets a plugin in — so a browser runtime cannot cover for it. **This row deliberately names no list.** It carried one for a day and was wrong within a day: it said five-plus-math while the ledger shipped seven (the imagery `![bg]` gap was found after the row was written), and then imagery was CLOSED by baking the lift, taking it back to six. The ledger is the list: `lib/core/marp-fidelity.js` is the ledger, `test/unit/core/marp-fidelity.test.js` fails when a new markdown-it plugin is added without a coverage verdict, and the generated bundle README prints the gaps from the same rows — so what a recipient is told cannot drift from what the repo knows. | 2026-07-29 |
 
 **Deck-wide front-matter registers: row retired 2026-07-29.** `color-mode:` / `class:` /
 `logo:` / `meta:` (and the whole finish / mode / claim / spectrum family) used to be
@@ -79,6 +79,19 @@ means "no gap logged for the runtime route", never "the preview is complete.
 - **Removable when:** never fully — it's a living list, not a one-time
   migration. Individual rows retire if the underlying transform is dropped
   or a mirror is later added for it.
+
+## An Export-to-Marp bundle's equations lose their layout in Restricted Mode
+
+- **Symptom:** In an untrusted folder, a bundle's fractions and superscripts collapse onto one line,
+  and a square root or stretchy arrow prints as escaped `<svg…` text.
+- **Cause:** The bundle's math is typeset at export (KaTeX markup, `lib/core/marp-bundle-math.js`),
+  and its `.vscode/settings.json` turns the extension's own math off. `enableHtml` is a restricted
+  setting and `mathTypesetting` is not, so in Restricted Mode the math stays off while the HTML
+  filter strips each equation's `style` and its `<svg>`.
+- **Mitigation:** Trust the folder, or render with `npm run pdf`. The bundle README says so.
+- **Triggered by:** Opening a bundle with math in VS Code without granting workspace trust.
+- **Removable when:** never: turning the extension's MathJax back on is the injection surface the
+  bake closes (`engineering/decisions/2026-08-17-theme-css-is-a-preview-sink.md` § 15).
 
 ## `git worktree` doesn't share `node_modules`
 

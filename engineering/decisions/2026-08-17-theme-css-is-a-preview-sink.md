@@ -1180,3 +1180,121 @@ strip-notes and author-script export tests) opt in by name.
 no `deck.html`; `--keep-html`, `LATTICE_KEEP_HTML=1`, an `.html` output, an extensionless output,
 `--player` and `--fluid` each leave the `.html`; a `.png` and a `.pptx` export each delete it.
 The integration export tier is green with the readers opted in.
+
+## 15. The Export-to-Marp bundle carries its math typeset (2026-10-08)
+
+§ 13 left one hole open on purpose: marp-core typesets `$…$` and `$$…$$` itself, with MathJax by
+default, and that output never meets the HTML list. MathJax writes an unescaped `"` into an attribute
+for `\style`, `\cssId`, `\unicode` and others, so a deck could run a handler or fetch a remote
+`url()` with no click. Two regex guards lost to the red team, so this section closes it without one.
+
+**Measured first, on marp-core 4.4.0.** Both followup vectors reproduce: `\style{…"/onanimationstart="…}`
+writes a live handler, and `\style{background:url(…)}` writes a remote `url()`. marp-core's KaTeX
+mode neutralized all ten payloads tried (`\style`, `\href`, `\url`, `\htmlStyle`,
+`\includegraphics`, `\color`, `\unicode`, `\cssId`, `\bbox`). But **a deck's own `math: mathjax`
+directive overrides `math: 'katex'` in the config**, in front matter or in a comment. Only
+`math: false` holds against it, and VS Code's `markdown.marp.mathTypesetting` behaves the same way:
+only `off` disables the directive. So a config switch to KaTeX alone could be bypassed.
+
+**The owner's pick, from three options** (bake with KaTeX, bake with MathJax SVG, or force KaTeX live
+and keep the TeX editable): **bake with KaTeX.**
+
+**What ships.** `lib/core/marp-bundle-math.js` `bakeMath`, called from `withRuntimeScriptsReport`, so
+the CLI and the Studio both run it:
+
+- It finds the math the way the engine does (commonmark, raw HTML on, the math plugin's own rules
+  at their own anchors) and typesets each `$…$`, `$$…$$` and math fence with the engine's own
+  renderers (`math.render.js`: KaTeX, `trust` off, MathML included). The bundle's math is now the
+  bytes Lattice draws.
+- `canonicalKatexHtml` does not trust KaTeX's output as text. It reads it with a strict whole-string
+  grammar: KaTeX's own tags and attributes (measured on the shipped decks' 281 spans and a
+  ~110-command stress corpus), every value quoted and free of `<` and `>`, a style grammar with named
+  properties and no function but `calc()` and `var()`, tags closed in order, and only the entities
+  KaTeX writes. It then **writes the markup again from what it read**. Text is entity-encoded down to
+  letters, digits and spaces, so Markdown has nothing to act on (`*`, `_`, `|`, `$`, `\`, newline),
+  and no element on the list is raw-text or RCDATA. Anything outside the grammar fails closed: the
+  TeX is written out as plain text and the export says so.
+- A display equation becomes one `<p>` line and a blank line, keeping a quote or list prefix.
+- **Every other `$` in the deck's text is escaped (`\$`).** That covers the residual surface: VS
+  Code with the lone `.md` open outside the bundle's folder still typesets with MathJax, and where
+  its parser and ours disagree about what is math, it finds no unescaped delimiter to start on. A
+  token that cannot be mapped back to its bytes typesets nothing and has every `$` on its lines
+  escaped.
+- `marp.config.cjs` sets `options: { math: false }` in every bundle, and `.vscode/settings.json`
+  sets `markdown.marp.mathTypesetting: "off"`. Under the bundle's own settings, no math engine runs
+  on the recipient's side.
+- The HTML list (§ 13) gains the MathML a baked equation carries. It still excludes `maction`,
+  `mglyph`, `annotation-xml` and every URL attribute on MathML.
+
+KaTeX's CSS and fonts already ride in the bundle's `lattice.css`, so the bake adds no files.
+
+**Measured, real marp-cli and Chromium, with a local listener.** The same probe deck exported by
+`main` and by this branch:
+
+| | handler ran | beacon requests | MathJax nodes | KaTeX nodes |
+|---|---|---|---|---|
+| `main` | `__hit_style` | `/beacon` | 3 | 0 |
+| this branch | none | none | 0 | 3 |
+
+`lib/components/math/math/math.gallery.md` through the bundle, light and dark, 17 pages: the
+equations now match Lattice's own render slide for slide. `main`'s MathJax bundle set them in
+different metrics (smaller, and slide 5's QED box wrapped to its own line). The function-plot fence
+on slide 7 still shows as code: the pre-existing gap #2589 recorded.
+
+**Pinned against the real thing.** `test/integration/export/marp-bundle-author-script.test.js`
+gains a math describe with three arms against a listener: the bundle as exported; the UNBAKED deck
+under the bundle's config (the config alone holds: the TeX shows as text); and the bundle under the
+worst config a recipient can pick (every tag allowed, MathJax on), where the escaped `$`s leave
+MathJax nothing to typeset. No arm runs a handler or makes a request. The unit side is
+`test/unit/core/marp-bundle-math.test.js`.
+
+**What it costs.**
+
+- **The TeX is no longer editable in the bundle.** It survives in each equation's `<annotation>`.
+  The bundle README and `AGENTS.md` say to edit math in the Lattice source and re-export.
+- **Prose dollars read `\$400M` in the bundle's source.** They render unchanged.
+- **The bundle's math looks like Lattice's, not MathJax's.** That changes the pixels of every math
+  deck's bundle against `main`, toward the engine's own render. The two `marp-fidelity.js` math rows
+  (typesetting, accessibility) and the math-fence row move from `unmirrored` to `baked`.
+- **A long display equation is not reflowed** in a non-16:9 bundle (`family: 'wide'`). It was not
+  under MathJax either.
+
+**What the adversarial trio changed (HARD RULE #25, tier 2).**
+
+- **Red team, inversion and checker, the same hole: `header:` / `footer:` directives.** Marp renders
+  a header or footer value as inline Markdown, math included, and the bake never saw it: the front
+  matter is blanked before the parse and a comment is an HTML token. Under marp-cli's default config
+  (MathJax on) a `footer: '$…\style{…url(…)}…$'` fired its beacon in Chromium, and a comment
+  `<!-- _header: … -->` wrote a live handler; that is the lone-`.md` surface this section claimed
+  to cover. The bake now escapes every `$` in a header or footer value, in the front matter and in
+  every comment outside code, YAML-aware (`\\$` inside double quotes, where `\$` is not a YAML
+  escape). The integration test's deck carries both forms, and with the escape switched off the
+  worst-config arm fails on `/beacon-footer`. Cost: math in a header or footer shows as TeX in the
+  bundle, where the engine typesets it.
+- **Inversion: a display equation in a tight list loosened it**, because the bake always wrote a
+  blank line after the HTML. It now writes one only when the next line would run on into the block.
+- **Inversion: a bare URL holding `$` broke** (`https://x/\$a`), because Marp linkifies before it
+  escapes. A `$` inside a URL is left alone; Marp's linkify takes it before any math rule.
+- **Inversion: a Studio export failed outright when KaTeX would not load.** It now goes out, every
+  equation as TeX text, and the toast counts them.
+- **Checker: a CRLF deck got a bare `\n`** after a display block; the bake now keeps the line
+  ending it found.
+- **Checker: a KaTeX parse error counts as typeset**, because it is: the bundle shows KaTeX's red
+  error text, exactly as the engine does. `failed` counts only what did not reach KaTeX at all.
+- **Checker: the HTML list now admits author MathML, not only baked equations.** That is a wider
+  surface, of the same class as the SVG already on it: no MathML element takes a URL, and
+  `maction`, `mglyph` and `annotation-xml` stay off.
+
+**What it does not close, and what it costs a cautious recipient.**
+
+- A recipient who renders with marp-cli's `--html` and a config of their own that turns MathJax back
+  on is choosing the risk; even then, every `$` the engine saw is escaped or typeset.
+- **VS Code's Restricted Mode garbles the equations.** `enableHtml` is a restricted setting and
+  `mathTypesetting` is not, so in an untrusted folder the preview's HTML filter strips each
+  equation's `style` and prints KaTeX's `<svg>` as text. Restricted Mode already stopped the
+  bundle's runtime, so the deck was degraded there before; the README says to trust the folder.
+- **The deck grows.** Each equation is one line of several kilobytes: `math.gallery.md` goes from
+  8 KB to 135 KB. Baking the 121 tracked `marp: true` decks that hold a `$` (250 equations, 0
+  failures) takes 278 ms in all.
+- The VS Code preview check is P2 of the #2578 handoff, on the real extension.
+

@@ -316,6 +316,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 
 - [The VS Code Marp preview runs marp-core directly, without Lattice's markdown-it plugins](gotchas/vscode.md#the-vs-code-marp-preview-runs-marp-core-directly-without-lattices-markdown-it-plugins)
 - [Known preview gaps — transforms shipped without a `lattice-runtime.js` mirror](gotchas/vscode.md#known-preview-gaps--transforms-shipped-without-a-lattice-runtimejs-mirror)
+- [An Export-to-Marp bundle's equations lose their layout in Restricted Mode](gotchas/vscode.md#an-export-to-marp-bundles-equations-lose-their-layout-in-restricted-mode)
 - [`git worktree` doesn't share `node_modules`](gotchas/vscode.md#git-worktree-doesnt-share-node_modules)
 - [Does the marp-vscode webview execute `<script>`? — SETTLED: it depends on the preview security level](gotchas/vscode.md#does-the-marp-vscode-webview-execute-script--settled-it-depends-on-the-preview-security-level)
 - [`enableHtml` / `html: true` is required or the runtime `<script>` tags print as TEXT](gotchas/vscode.md#enablehtml--html-true-is-required-or-the-runtime-script-tags-print-as-text)

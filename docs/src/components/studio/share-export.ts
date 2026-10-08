@@ -8,6 +8,7 @@
 // renderer options + current palette, so Share hands off real artifacts rather
 // than a toast.
 
+import { deriveKatexProviderUrl, ensureKatexProvider } from '@/lib/ensure-katex';
 import { ensureEngine } from '@/lib/load-engine';
 import type { LatticePlaygroundEngine } from '@/lib/playground-global';
 import { renderMarkdown } from '@/lib/render-engine';
@@ -955,6 +956,14 @@ export async function shareMarp(options: SingleSlideOptions, source: string, nam
 	// The plugins this deck's admission leaves off under the playground bundle's host (none on the
 	// shipped default set), so the bundle's runtime draws no more than the Studio's preview does.
 	const { deckPluginsOff } = await import('@/lib/plugin-admission');
+	// The bundle carries its math TYPESET (lib/core/marp-bundle-math.js): Marp's own typesetter is the
+	// injection surface it closes. Typesetting needs the real KaTeX, which the Studio loads on demand,
+	// so load it first. If it will not load, the export still goes out: each equation ships as TeX
+	// text (fail closed), and the toast below counts them.
+	if (sourceHasMath(source)) {
+		const katexUrl = deriveKatexProviderUrl();
+		if (katexUrl) await ensureKatexProvider(katexUrl).catch(() => {});
+	}
 	const removed = await ex.exportMarp(embedFinishInMarkdown(source, finishClass, finishCss), name, palette, options.themeBase, { includeAgent: true, overflowMarker: overflowMarker ?? loadSettings().overflowMarker, extraTheme: extra, components: [...components], pluginsOff: deckPluginsOff(source) });
 	if (removed?.escaped) return "the deck's HTML could not be separated from its script, so the bundle shows all of it as text";
 	const n = removed ? removed.scripts + removed.handlers + removed.urls : 0;
@@ -965,7 +974,9 @@ export async function shareMarp(options: SingleSlideOptions, source: string, nam
 	const refused = tags.length || attrs.length
 		? `marp-cli will ${tags.length ? `show ${tags.map((t) => `<${t}>`).join(', ')} as text` : ''}${tags.length && attrs.length ? ' and ' : ''}${attrs.length ? `drop ${attrs.join(', ')}` : ''}`
 		: '';
-	return [script, refused].filter(Boolean).join('; ') || undefined;
+	const failed = removed?.math?.failed ?? 0;
+	const math = failed ? `${failed} ${failed === 1 ? 'equation' : 'equations'} could not be typeset and ${failed === 1 ? 'shows' : 'show'} as TeX` : '';
+	return [script, refused, math].filter(Boolean).join('; ') || undefined;
 }
 
 /** One-click image PDF (2× raster, one slide per page). The page-image format
