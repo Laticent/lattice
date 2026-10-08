@@ -4,12 +4,13 @@ description: Every command, flag, environment variable and exit code of the latt
 ---
 
 Every option the `lattice` command accepts. To learn the command through
-worked tasks, start with [Using the command line](/guides/cli/). The same
-list, in the terminal:
+worked tasks, start with [Using the command line](/guides/cli/). In the
+terminal, `--help` prints one screen (the formats and the common options) and
+`--help all` prints every option, the same list as this page:
 
 ```sh
-npx lattice --help       # one screen: the formats and the common options
-npx lattice --help all   # every option, as on this page
+npx lattice --help
+npx lattice --help all
 ```
 
 ## Command shapes
