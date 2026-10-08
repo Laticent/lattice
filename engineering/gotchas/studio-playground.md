@@ -1502,6 +1502,35 @@ never turn "passed in headless" into "works on iOS."
   on every deploy, so frequency scales with release cadence, not with anything in the code.
 - **Removable when** — a retention or recovery option above is chosen and shipped.
 
+## The Studio stays on its loading shell after you open it, and a reload fixes it
+
+- **Symptom** — you open the Studio and the pre-paint shell (skeleton chrome, a blurred slide,
+  gray pills) never goes away. A new tab, or a reload, shows the app within a second. Reported
+  on an iPhone in Safari Private Browsing on 2026-10-08, minutes after a deploy.
+- **Cause** — GitHub Pages serves every page with `Cache-Control: max-age=600`, and each
+  deploy publishes a complete snapshot, so the previous build's `/_astro/<name>.<hash>.js`
+  files 404 the moment it lands. For up to ten minutes the browser (or the CDN) can hand out
+  the old page, which names an island chunk that is gone. Astro's loader catches the failed
+  `import()` and only logs `[astro-island] Error hydrating … Importing a module script
+  failed.`, so the island never mounts, and the shell's own 8s backstop lives in the bundle
+  that never arrived. `src/lib/chunk-load.ts` cannot help: it ships in that bundle too.
+  Reproduced in WebKit 2215 by serving `/studio/` with its island chunk renamed to a missing
+  one: the shell is still up after 18s.
+- **Fix** — `src/lib/stale-deploy-recovery.js`, inlined at the top of `<head>` on the Studio
+  and the Playground by `<StaleDeployRecovery>`. When a same-origin `/_astro/*.js` load fails
+  before the island hydrates, it fetches the page under `?__fresh=<n>` (past every cache). If
+  that page no longer names the missing chunk, it refreshes the browser's copy and swaps to it
+  once (at most once a minute per tab). If the fresh page still names it, the deploy is broken
+  or the reader is offline, and it does nothing. Measured on the same WebKit repro: the app is
+  up in about 2.7s, against never.
+- **Not fixed** — the window itself. Keeping the previous deploy's `/_astro/` files would
+  close it for every page and every lazy chunk; that is the retention option in
+  `engineering/decisions/2026-09-15-playground-asset-retention.md`, a deploy-workflow change
+  for the owner.
+- **Testing it** — `serviceWorkers: 'block'` is not required (the service worker serves
+  `/_astro/` cache-first, so a warm cache can even hide the bug); a proxy that rewrites the
+  island chunk name in `/studio/` and passes `?__fresh=` through reproduces it in any engine.
+
 ## A chart's hover card flashes up and vanishes as you sweep onto a mark
 
 - **Symptom** — sweep the pointer onto a chart mark in the Playground, the Studio

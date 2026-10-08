@@ -247,6 +247,9 @@ self.addEventListener('fetch', (event) => {
 
 	const url = new URL(request.url);
 	if (!url.protocol.startsWith('http')) return;
+	// The stale-deploy probe (src/lib/stale-deploy-recovery.js) asks the origin for a fresh page
+	// under a one-off `?__fresh=` URL. Caching it would only fill the cache with dead entries.
+	if (url.searchParams.has('__fresh')) return;
 
 	if (request.mode === 'navigate') {
 		// Downloadables opened as top-level navigations (the gallery-PDF link)

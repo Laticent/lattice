@@ -21,6 +21,7 @@ import PreviewFidelityOverlay from '../components/studio/PreviewFidelityOverlay.
 import SkipLink from '../components/SkipLink.astro';
 import ResourceHints from '../components/site/ResourceHints.astro';
 import ColorSchemeSeed from '../components/site/ColorSchemeSeed.astro';
+import StaleDeployRecovery from '../components/site/StaleDeployRecovery.astro';
 import EngineWarm from '../components/site/EngineWarm.astro';
 import RuntimeWarm from '../components/site/RuntimeWarm.astro';
 // The webfont files the PRE-PAINT SHELL's top bar paints with, imported with `?url` so
@@ -463,6 +464,9 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 		    for a dark-app visitor on a light-OS device. Must precede ResourceHints + the inline
 		    CSS below, which would otherwise delay it. */}
 		<ColorSchemeSeed />
+		{/* Before any module preload: a page served from a stale cache after a deploy names
+		    chunks that no longer exist, and the island would never mount. */}
+		<StaleDeployRecovery island="StudioIsland" />
 		<ResourceHints />
 		{/* The font preloads are NOT here any more: `font-display: optional` made them decide
 		    whether a page gets its typeface at all, not just when, so they moved to
