@@ -106,6 +106,13 @@ violations, not "this got worse".
   it off at 146,176 bytes. The bot now reads the gate's `report.json` file, and the gate
   drains stdout before exiting.
 
+  **Files derived from goldens ride in the bless commit.** The docs landing page's showcase
+  WebPs are cut from gallery PDFs, and docs-build fails when a source PDF changes without
+  them: the first bless PR (#2598, 296 goldens) went red on it. The bot reruns
+  `rasterize-showcase.mjs` and keeps only the WebPs whose gallery it re-blessed. On a night
+  that large, golden-diff's PR job also runs out of time comparing every committed PDF;
+  the verdict comment links the run whose artifact holds the check's own montages.
+
   **The first week is a dry run.** The bot opens its PR and comments "would auto-merge:
   yes/no, and why" for each rule, but merges nothing. After a week of real nights, the
   thresholds in rules 2 and 3 are set from that data, recorded here, and auto-merge is

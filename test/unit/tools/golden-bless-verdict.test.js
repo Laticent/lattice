@@ -181,3 +181,10 @@ test('the markdown names the verdict, every rule, and carries the sticky marker'
   for (const n of [1, 2, 3, 4]) assert.match(md, new RegExp(`\\| ${n}\\. `));
   assert.ok(md.endsWith(m.VERDICT_MARKER));
 });
+
+test('the markdown links the run that holds the drift montages, when given one', async () => {
+  await load();
+  const v = m.verdict([row(Q)], null, [Q]);
+  assert.match(m.verdictMarkdown(v, { runUrl: 'https://github.com/o/r/actions/runs/1' }), /\[this run\]\(https:\/\/github\.com\/o\/r\/actions\/runs\/1\)/);
+  assert.doesNotMatch(m.verdictMarkdown(v), /this run/);
+});

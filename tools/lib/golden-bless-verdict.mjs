@@ -161,7 +161,7 @@ export function verdict(rows, seen, written, { maxPageFraction = MAX_PAGE_FRACTI
 
 /** The verdict comment body. The marker lets the workflow update one comment in place. */
 export const VERDICT_MARKER = '<!-- golden-bless-verdict -->';
-export function verdictMarkdown(v, { dryRun = true, renderedFrom = '' } = {}) {
+export function verdictMarkdown(v, { dryRun = true, renderedFrom = '', runUrl = '' } = {}) {
   const lines = [
     `### Golden bless: would auto-merge? **${v.autoMerge ? 'yes' : 'no'}**`,
     '',
@@ -177,6 +177,10 @@ export function verdictMarkdown(v, { dryRun = true, renderedFrom = '' } = {}) {
   lines.push(
     '',
     `${v.changed.length} golden${v.changed.length === 1 ? '' : 's'} re-blessed${renderedFrom ? ` from \`${renderedFrom.slice(0, 12)}\`` : ''}. The golden-diff comment on this PR shows each one before and after.`,
+    // On a large night golden-diff's PR job can run out of time comparing hundreds of
+    // PDFs; the check's own before │ after │ overlay montages are always in the run's
+    // artifact, so link them.
+    ...(runUrl ? ['', `Drift montages from the check (every drifted page): the \`golden-bless\` artifact of [this run](${runUrl}).`] : []),
     '',
     VERDICT_MARKER,
   );

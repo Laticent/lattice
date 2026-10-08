@@ -80,13 +80,36 @@ function prsSince(from) {
   return { prs, problems };
 }
 
+const SHOWCASE = 'docs/scripts/rasterize-showcase.mjs';
+const SHOWCASE_SOURCES = 'docs/scripts/showcase-sources.json';
+const SHOWCASE_DIR = 'docs/public/showcase';
+
+function refreshShowcase(writtenSet) {
+  const run = (args) => spawnSync(process.execPath, [SHOWCASE, ...args], { cwd: ROOT, encoding: 'utf8' });
+  if (run(['--check']).status === 0) return { kept: [], problems: [] };
+  const built = run([]);
+  if (built.status !== 0) {
+    return { kept: [], problems: [`rasterize-showcase.mjs exited ${built.status}: ${(built.stderr || '').trim().split('\n').slice(-2).join(' | ')}`] };
+  }
+  const sources = JSON.parse(readFileSync(join(ROOT, SHOWCASE_SOURCES), 'utf8'));
+  const unmoved = Object.entries(sources)
+    .filter(([, rec]) => !writtenSet.has(rec.src))
+    .map(([key]) => `${SHOWCASE_DIR}/${key}.webp`);
+  const changed = new Set(git(['diff', '--name-only', '--', SHOWCASE_DIR]).split('\n').filter(Boolean));
+  const restore = unmoved.filter((f) => changed.has(f));
+  if (restore.length) git(['checkout', 'HEAD', '--', ...restore]);
+  const after = run(['--check']);
+  const problems = after.status === 0 ? [] : [`showcase still stale after refresh: ${(after.stderr || '').trim().split('\n')[0]}`];
+  return { kept: [...changed].filter((f) => !restore.includes(f)), problems };
+}
+
 function main() {
   const args = process.argv.slice(2);
   const reportIdx = args.indexOf('--report');
 
-  const dirty = changedPdfs();
+  const dirty = [...changedPdfs(), ...git(['diff', '--name-only', '--', SHOWCASE_DIR, SHOWCASE_SOURCES]).split('\n').filter(Boolean)];
   if (dirty.length) {
-    process.stderr.write(`golden-bless: ${dirty.length} tracked PDF(s) already have uncommitted changes (${dirty.slice(0, 3).join(', ')}…). Commit or restore them first: this tool rewrites and restores PDFs.\n`);
+    process.stderr.write(`golden-bless: ${dirty.length} tracked golden or showcase file(s) already have uncommitted changes (${dirty.slice(0, 3).join(', ')}…). Commit or restore them first: this tool rewrites and restores PDFs.\n`);
     process.exit(2);
   }
   rmSync(OUT, { recursive: true, force: true });
@@ -143,6 +166,14 @@ function main() {
   if (restore.length) git(['checkout', 'HEAD', '--', ...restore]);
   const written = changedPdfs();
 
+  // Step 3b. Files derived from the goldens. The docs landing page's showcase WebPs are
+  // cut from gallery PDFs, and `rasterize-showcase.mjs --check` (docs-build and preview)
+  // fails when a source PDF changed and its WebP did not: the first bless PR (#2598) went
+  // red on exactly that. The script rewrites every WebP, and WebP bytes are not stable
+  // between runs, so keep only the WebPs whose gallery PDF this bless wrote.
+  const derived = refreshShowcase(new Set(written));
+  blessProblems.push(...derived.problems);
+
   // Step 4.
   const renderedFrom = git(['rev-parse', 'HEAD']).trim();
   const log = git(['log', '--first-parent', '-n', '2000', '--format=%H%x09%s', 'HEAD'])
@@ -161,7 +192,8 @@ function main() {
   v.renderedFrom = renderedFrom;
   v.windowFrom = from;
   v.restoredUnmoved = restore.length;
-  const md = verdictMarkdown(v, { renderedFrom });
+  v.showcaseRefreshed = derived.kept;
+  const md = verdictMarkdown(v, { renderedFrom, runUrl: process.env.GOLDEN_BLESS_RUN_URL || '' });
   writeFileSync(join(OUT, 'verdict.json'), JSON.stringify(v, null, 2));
   writeFileSync(join(OUT, 'verdict.md'), `${md}\n`);
   writeFileSync(join(OUT, 'rendered-from.txt'), `${renderedFrom.slice(0, 12)}\n`);
