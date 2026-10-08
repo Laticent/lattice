@@ -29,3 +29,9 @@ status    — (2026-10-07) the design note is written:
             rules as line shapes, each card grouped with its text (draw:g; p:grpSp by
             post-processing, since PptxGenJS 3.12 cannot group). Build A first, then rules, then
             cards and grouping.
+            (2026-10-08) all three slices are built (design note §7–§9): labels, rules and cards,
+            each grouped with its text. Verified here: CLI exports of four decks validate with 0
+            schema errors, and LibreOffice 24.2 draws them where the PDF has them. LEFT: open
+            card-tags and the jargon gallery in Collabora on iOS, Google Slides and desktop
+            PowerPoint, move and resize a card group in each, and confirm the shadow reads as
+            the CSS one. That is the owner's check (P1's PowerPoint files go with it).
