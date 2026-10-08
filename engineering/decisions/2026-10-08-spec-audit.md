@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: in-progress
 summary: Audit of every spec in the repo — what counts as one, the four parts each owes (document, schema, reference implementation, shared test cases), where each stands, two measured drifts, and a proposed order of work.
 ---
 
@@ -177,3 +177,18 @@ needs a new workflow.
 4. **The re-openable export and the workspace backup** are formats other copies of Lattice
    read. Proposed: internal contracts, like the `.lattice` file, unless a third-party tool should
    ever open them.
+
+## 8. Owner rulings (2026-10-08)
+
+1. **Six public specs:** LFM, the Diagnostic Protocol, LPM, LTT, **the theme contract** and
+   **the `.lattice` file**. The owner chose to make the last two public as well, which goes
+   further than §5.2 recommended. Each gets a versioned document in `spec/`, CC-BY-4.0, and
+   shared test cases. The cost is the one §7.1 named: the theme's token names, and the shape of
+   the `.lattice` file, become things we change only with a version bump. The manifests, the
+   package shape, the asset bundle, the workspace backup and the re-openable export stay internal
+   contracts.
+2. **LFM ratifies 1.0 as the small core it describes today,** and the front-matter settings, the
+   inline notation and the `_lens` tag arrive as 1.1, each with test cases.
+3. **The owner (@saden1) owns every public spec,** as with LTT: each spec carries an owner line,
+   and a change to its meaning needs the owner's sign-off.
+4. **Step 1 of §6 starts now,** on its own branch.
