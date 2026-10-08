@@ -632,22 +632,18 @@ export function NextSteps({ links }: { links: NextStep[] }) {
 export type LibraryCard = { label: string; href: string; pkg: string; desc: string; external?: boolean };
 
 export function LibraryCards({ libraries }: { libraries: LibraryCard[] }) {
+	// Plain classes from landing.css, not Tailwind utilities: nine cards repeat every class string,
+	// and the utilities cost the home page's HTML about 6 KB against its route budget.
 	return (
-		<ul className="m-0 grid list-none grid-cols-1 gap-[14px] p-0 sm:grid-cols-2 md:grid-cols-3">
+		<ul className="lib-cards">
 			{libraries.map((l) => (
-				<li key={l.pkg} className="flex">
-					<a
-						href={l.href}
-						className="group flex w-full flex-col rounded-xl border border-border bg-card p-[22px] text-card-foreground shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary hover:shadow-lg"
-					>
-						<h3 className="m-0 font-[family-name:var(--font-body)] text-[19px] font-semibold tracking-[-0.01em] text-[var(--text-heading)]">
-							{l.label}
-						</h3>
-						<p className="m-0 pt-1 font-mono text-[12.5px] text-muted-foreground">{l.pkg}</p>
-						<p className="m-0 flex-1 pt-2.5 pb-3.5 text-[15px] text-foreground">{l.desc}</p>
-						<span className="inline-flex items-center gap-1.5 text-[14px] font-semibold text-primary">
-							{l.external ? 'Read the README' : 'Open the demo'}{' '}
-							<ArrowRight aria-hidden="true" className="size-3.5 transition-transform group-hover:translate-x-0.5" />
+				<li key={l.pkg}>
+					<a href={l.href} className="lib-card">
+						<h3>{l.label}</h3>
+						<code>{l.pkg}</code>
+						<p>{l.desc}</p>
+						<span className="lib-card-cta">
+							{l.external ? 'Read the README' : 'Open the demo'} <span className="ico ico-arrow-right" aria-hidden="true" />
 						</span>
 					</a>
 				</li>

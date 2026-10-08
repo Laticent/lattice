@@ -433,3 +433,70 @@ iframe.live {
 	from { opacity: 0; transform: translateY(4px); }
 	to { opacity: 1; transform: translateY(0); }
 }
+
+/* Home-page library cards (LibraryCards in components/landing/sections.tsx). Plain classes rather
+ * than Tailwind utilities because nine cards repeat every class string in the HTML, and the home
+ * page's HTML has a route budget (docs/route-budget.json). Values match the NextSteps cards. */
+.lib-cards {
+	display: grid;
+	grid-template-columns: 1fr;
+	gap: 14px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+@media (min-width: 640px) {
+	.lib-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 768px) {
+	.lib-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+.lib-cards > li { display: flex; }
+.lib-card {
+	display: flex;
+	flex-direction: column;
+	width: 100%;
+	padding: 22px;
+	border: 1px solid var(--border);
+	border-radius: 0.75rem;
+	background: var(--bg-alt);
+	color: var(--text-body);
+	text-decoration: none;
+	box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+	transition: transform 150ms, border-color 150ms, box-shadow 150ms;
+}
+.lib-card:hover {
+	transform: translateY(-2px);
+	border-color: var(--accent);
+	box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+}
+.lib-card h3 {
+	margin: 0;
+	font-family: var(--font-display);
+	font-size: 19px;
+	font-weight: 600;
+	letter-spacing: -0.01em;
+	color: var(--text-heading);
+}
+.lib-card code {
+	padding-top: 4px;
+	font-family: var(--font-mono);
+	font-size: 12.5px;
+	color: var(--text-muted);
+}
+.lib-card p {
+	flex: 1;
+	margin: 0;
+	padding: 10px 0 14px;
+	font-size: 15px;
+}
+.lib-card-cta {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 14px;
+	font-weight: 600;
+	color: var(--accent);
+}
+.lib-card-cta .ico { width: 14px; height: 14px; transition: transform 150ms; }
+.lib-card:hover .lib-card-cta .ico { transform: translateX(2px); }
