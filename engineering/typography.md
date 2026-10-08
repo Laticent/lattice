@@ -75,11 +75,12 @@ the `data-orientation` stamp:
 | Category | Aspect | Sizes | Reference width |
 |---|---|---|---|
 | `landscape` | `> 1.05` | hd · standard · 4k | 1280 (1cqi = 12.8 px) |
-| `square` | `0.95–1.05` | 1:1 social | 1080 (1cqi = 10.8 px) |
-| `portrait` | `< 0.95` | portrait · story · mobile | 1080 (1cqi = 10.8 px) |
+| `square` | `0.9 < aspect ≤ 1.05` | 1:1 social | 1080 (1cqi = 10.8 px) |
+| `portrait` | `≤ 0.9` | portrait · story · mobile | 1080 (1cqi = 10.8 px) |
 
-(Boundaries are the `data-orientation` stamp's — `orientationFor` in
-`lib/engine/css.js`.) Each is a *curated* hierarchy, NOT the landscape scale times a constant: portrait
+(Boundaries are the `data-orientation` stamp's. `orientationFor` in
+`lib/engine/css.js` takes them from the shared classifier,
+`lib/adaptive/families.js` `BOUNDARIES`.) Each is a *curated* hierarchy, NOT the landscape scale times a constant: portrait
 pulls the title ramp down (so a 2-line `h1` fits a tall frame) while keeping body
 generous; square stays punchier than landscape but smaller-titled than portrait
 (a 1:1 box is height-limited). `landscape` is the unstamped default and is
