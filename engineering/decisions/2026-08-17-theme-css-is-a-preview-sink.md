@@ -1140,6 +1140,36 @@ bundle with its own `npm run pdf`. A hand-edited deck that appends a forged `app
 block after the bundle's own wins the runtime's last-block read. That bypasses only the producer's
 front-matter cleaning, and only for a file the recipient edited themselves.
 
+**Markup left open over the trailer (2026-10-08, #2599).** A parallel branch built the same allowlist
+and ran its own three checker rounds. Its 22 probe decks, run against this section's engine in real
+marp-cli and Chrome, found six where the runtime did not load and one notes leak; each is fixed here
+and pinned in `marp-bundle-author-script.test.js`, whose new arms fail on the engine before the fix
+(measured):
+
+- *A deck ending inside an open HTML `<title>`* (also `<title/>`, and one inside a table cell). A
+  `<title>` is raw text to the browser, so the runtime lines became its text after markdown-it was
+  done, where peeling cannot reach. *Inside an open block-level `<svg>`* they parsed as SVG
+  `<script>` elements, which never load their `src`. The engine now writes `</title></svg>` before the
+  lines it peels off: `</title>` ends an open title, `</svg>` the author's open SVG, and with nothing
+  open both are ignored and neither climbs past the slide's `<section>`. `</title>` alone is a trap
+  the parallel branch's third checker caught: it closes an SVG `<title>` and leaves the lines inside
+  the SVG.
+- *A deck ending in an unclosed `<style>`.* Marpit lifts a block that opens with `<style>` into the
+  theme before any renderer runs, so the runtime lines became CSS and the peel never saw them. The
+  trailer now opens with a guard comment carrying every terminator markdown-it reads
+  (`</pre></script></style></textarea> ?> ]]> -->`), so an open block ends there; re-export matches
+  it by its fixed opening, so a reworded guard never stacks and an author comment that merely starts
+  "Lattice: ends" is kept.
+- *The trailer's comments were speaker notes.* `marp --notes` printed the front-matter snapshot note;
+  the guard and the lint switch would have joined it. The engine now marks the bundle's own comments
+  as parsed before Marpit collects notes (an author comment that begins `Lattice:` is hidden the same
+  way). A Marpit without that rule only shows them again.
+- *The report now names a `<title>` left open across a slide break* (`refusedHtml(...).unclosed`), read
+  in document order as the browser reads it, because the slides it swallows are the author's to fix.
+
+Re-measured on the result: 0 beacons with the strip bypassed, the 422 tracked decks DOM-identical to
+`html: true`, and `examples/marp-export-fidelity.md` byte-identical in light and dark at 110 dpi.
+
 ## 14. A PDF/PPTX/PNG export no longer leaves a live `.html` on disk (2026-10-07)
 
 § 10 wrote a warning onto the sidecar — the `<out>.html` the emulator writes beside every

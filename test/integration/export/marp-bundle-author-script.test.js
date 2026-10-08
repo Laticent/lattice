@@ -60,6 +60,8 @@ Quoted: \`<script>alert(1)</script>\` stays code.
 
 ---
 
+<!-- Say the number slowly. -->
+
 # Drawings
 
 <svg viewBox="0 0 10 10" width="80" height="80"><defs><linearGradient id="g1"><stop offset="0" stop-color="red"/><stop offset="1" stop-color="blue"/></linearGradient></defs><rect width="10" height="10" fill="url(#g1)"/></svg>
@@ -76,6 +78,16 @@ function marp(args, cwd, timeout = TIMEOUT) {
   return spawnSync('npx', ['-y', `@marp-team/marp-cli@${MARP_CLI_RANGE}`, '--no-stdin', ...args], { cwd, encoding: 'utf8', env, timeout });
 }
 
+// The markup a deck can leave open on its last slide that swallows the bundle's trailing lines: an
+// <svg><title> (the SVG title closes and the lines parse as SVG scripts), an HTML <title> (raw text to
+// the browser), an <svg> (foreign content) and a <style> (Marpit lifts it into the theme as CSS).
+const TAILS = {
+  'open-svg-title': '<svg viewBox="0 0 10 10">\n<title>left open\n',
+  'open-title': 'text <title>left open\n',
+  'open-svg': '<svg viewBox="0 0 10 10">\n<rect width="1" height="1"/>\n',
+  'open-style': '<style>\nsection { color: red; }\n',
+};
+
 describe('Export-to-Marp runs none of the deck\'s own script — real marp-cli, real Chromium', () => {
   let skip = null;
   let browser;
@@ -83,6 +95,8 @@ describe('Export-to-Marp runs none of the deck\'s own script — real marp-cli, 
   let html = '';
   let rawPage;
   let rawHtml = '';
+  let notes = '';
+  const tails = {};
 
   before(async () => {
     const probe = marp(['--version'], ROOT, 90000);
@@ -110,7 +124,7 @@ describe('Export-to-Marp runs none of the deck\'s own script — real marp-cli, 
     await new Promise((res) => setTimeout(res, 1000));
     // The allowlist alone: the UNSTRIPPED deck, plus the trailing block the bundle appended.
     const bundled = fs.readFileSync(path.join(bundle, 'probe.md'), 'utf8');
-    const tail = bundled.slice(bundled.indexOf('<!-- markdownlint-disable MD033 -->'));
+    const tail = bundled.slice(bundled.indexOf('<!-- Lattice: ends any HTML block'));
     fs.writeFileSync(path.join(bundle, 'raw.md'), `${DECK}\n${tail}`);
     const m2 = marp(['raw.md', '--config-file', 'marp.config.cjs', '--allow-local-files', '-o', 'raw.html'], bundle);
     assert.equal(m2.status, 0, `marp failed:\n${m2.stdout}\n${m2.stderr}`);
@@ -119,6 +133,29 @@ describe('Export-to-Marp runs none of the deck\'s own script — real marp-cli, 
     await rawPage.goto(require('node:url').pathToFileURL(path.join(bundle, 'raw.html')).href, { waitUntil: 'networkidle0' });
     await rawPage.waitForFunction(() => document.documentElement.getAttribute('data-lattice-runtime') === 'loaded', { timeout: 30000 }).catch(() => {});
     await new Promise((res) => setTimeout(res, 1000));
+    // The speaker notes, from the real marp-cli.
+    const n = marp(['probe.md', '--config-file', 'marp.config.cjs', '--notes', '-o', 'notes.txt'], bundle);
+    assert.equal(n.status, 0, `marp --notes failed:\n${n.stdout}\n${n.stderr}`);
+    notes = fs.readFileSync(path.join(bundle, 'notes.txt'), 'utf8');
+    // Decks that END inside markup the browser (or Marpit) keeps open over the trailer. Each one killed
+    // the runtime before the engine's `</title></svg>` and the trailer's guard line (measured).
+    for (const [name, end] of Object.entries(TAILS)) {
+      const deck = path.join(OUT, `${name}.md`);
+      fs.writeFileSync(deck, `---\nmarp: true\ntheme: indaco\n---\n\n# One\n\n---\n\n# Two\n\n${end}`);
+      const e = spawnSync(process.execPath, [EXPORT_CLI, deck, path.join(OUT, `${name}-out`), '--no-agent'], { cwd: ROOT, encoding: 'utf8', timeout: TIMEOUT });
+      assert.equal(e.status, 0, `export-marp failed:\n${e.stdout}\n${e.stderr}`);
+      const dir = path.join(OUT, `${name}-out`, name);
+      const mt = marp([`${name}.md`, '--config-file', 'marp.config.cjs', '--allow-local-files', '-o', 'out.html'], dir);
+      assert.equal(mt.status, 0, `marp failed:\n${mt.stdout}\n${mt.stderr}`);
+      const p = await browser.newPage();
+      await p.goto(require('node:url').pathToFileURL(path.join(dir, 'out.html')).href, { waitUntil: 'networkidle0' });
+      await p.waitForFunction(() => document.documentElement.getAttribute('data-lattice-runtime') === 'loaded', { timeout: 30000 }).catch(() => {});
+      tails[name] = await p.evaluate(() => ({
+        runtime: document.documentElement.getAttribute('data-lattice-runtime'),
+        svgScripts: [...document.querySelectorAll('script')].filter((x) => x.namespaceURI !== 'http://www.w3.org/1999/xhtml').length,
+      }));
+      await p.close();
+    }
   });
 
   after(async () => {
@@ -164,6 +201,19 @@ describe('Export-to-Marp runs none of the deck\'s own script — real marp-cli, 
     }
     assert.doesNotMatch(rawHtml, /&lt;script src=/, 'no runtime tag printed as text');
   });
+
+  test('the speaker notes hold only the author\'s note, not the bundle\'s own comments', (t) => {
+    if (skip) return t.skip(skip);
+    assert.match(notes, /Say the number slowly\./);
+    assert.doesNotMatch(notes, /Lattice:|markdownlint/);
+  });
+
+  for (const name of Object.keys(TAILS)) {
+    test(`a deck ending in ${name} still loads the runtime, as HTML scripts`, (t) => {
+      if (skip) return t.skip(skip);
+      assert.deepEqual(tails[name], { runtime: 'loaded', svgScripts: 0 });
+    });
+  }
 });
 
 /**

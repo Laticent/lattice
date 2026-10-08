@@ -6070,6 +6070,13 @@ const SANCTIONED_E2E_SLEEPS = [
        + 'POSITIVE arms show those all land inside it (a real import there is polled, and passes).',
   },
   {
+    file: 'docs/e2e/segno-playground.spec.ts', ms: 250, count: 1,
+    why: 'THE CADENCE IS THE INPUT, not a wait for an outcome: step 13 reproduces #2573\'s finding 3, '
+       + 'where every keystroke re-armed the 1.5 s build timer and typing kept a runaway build alive '
+       + '(6.5 s). The spec types one character every 250 ms during the runaway and asserts the timer '
+       + 'still stops it inside 4 s; a keystroke polled on a signal would not be the user typing.',
+  },
+  {
     file: 'docs/e2e/print-preview-documents.spec.ts', ms: 1500, count: 1,
     why: 'AN ABSENCE ASSERTION: the Share sheet keeps the Print drawer mounted but FROZEN while '
        + 'closed, and the claim is that editing the deck then re-renders nothing in it. A '

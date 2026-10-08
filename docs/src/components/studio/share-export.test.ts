@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { embedFinishInMarkdown } from './share-export';
+import { embedFinishInMarkdown, marpExportNote } from './share-export';
 
 // The source-handoff finish embed (Markdown / Marp share). A saved finish renders
 // only from its generated CSS, so the exported copy must carry that CSS inline —
@@ -117,5 +117,27 @@ describe('buildDeckRender — KaTeX faces on the export path', () => {
 	it('does NOT ensure them for a deck with no math — the export pays nothing extra', async () => {
 		const ensureKatexFaces = await exportWith('# Title\n\nNo math at all, just prose.\n');
 		expect(ensureKatexFaces).not.toHaveBeenCalled();
+	});
+});
+
+// The Export-to-Marp toast: what the bundle left out, what its HTML list refuses, and an open <title>.
+describe('marpExportNote', () => {
+	const none = { scripts: 0, handlers: 0, urls: 0 };
+	it('says nothing when nothing was left out', () => {
+		expect(marpExportNote(none)).toBeUndefined();
+		expect(marpExportNote({ ...none, refused: { tags: {}, attrs: {}, unclosed: [] } })).toBeUndefined();
+	});
+	it('names the stripped script, the refused HTML and an unclosed <title>', () => {
+		const note = marpExportNote({ scripts: 1, handlers: 0, urls: 0, refused: { tags: { iframe: 1 }, attrs: { 'span[data-foo]': 1 }, unclosed: ['title'] } });
+		expect(note).toContain("it left out the deck's own script (1 piece)");
+		expect(note).toContain('marp-cli will show <iframe> as text and drop span[data-foo]');
+		expect(note).toContain('the deck leaves a <title> open, so the slides after it show as text');
+	});
+	it('counts the equations the export could not typeset', () => {
+		expect(marpExportNote({ ...none, math: { failed: 1 } })).toBe('1 equation could not be typeset and shows as TeX');
+		expect(marpExportNote({ ...none, math: { failed: 3 } })).toBe('3 equations could not be typeset and show as TeX');
+	});
+	it('reports an escaped deck on its own', () => {
+		expect(marpExportNote({ ...none, escaped: true, refused: { tags: { iframe: 1 } } })).toMatch(/shows all of it as text/);
 	});
 });

@@ -84,6 +84,8 @@ test('a URL attribute keeps a web, relative or image URL and drops one that can 
   }
 });
 
+// Each line comes back after `</title></svg>`, which ends an author's open <title> or <svg> in the browser
+// and is ignored otherwise; the integration test's deck ends inside an open <svg><title> to pin that.
 test('the engine passes the bundle\'s own trailing blocks byte for byte, and nothing that only resembles them', () => {
   const { engine } = load();
   const calls = [];
@@ -93,11 +95,11 @@ test('the engine passes the bundle\'s own trailing blocks byte for byte, and not
   const render = (content) => md.renderer.rules.html_block([{ content }], 0, {}, {}, {});
   // Every runtime tag the bundle appends, and both data blocks.
   for (const line of RUNTIME_SCRIPTS.split('\n').filter((l) => l.startsWith('<script'))) {
-    assert.equal(render(`${line}\n`), `${line}\n`);
+    assert.equal(render(`${line}\n`), `</title></svg>${line}\n`);
   }
   for (const block of ['<script type="application/lattice-front-matter">"marp: true"</script>\n',
     '<script type="application/lattice-export-settings">{"overflowMarker":"reader"}</script>\n']) {
-    assert.equal(render(block), block);
+    assert.equal(render(block), `</title></svg>${block}`);
   }
   assert.equal(calls.length, 0);
   for (const forged of [
@@ -119,7 +121,7 @@ test('an author block that swallowed a runtime line (an unclosed <pre>) is sanit
   const md = { renderer: { rules: { html_block: (tokens, idx) => { seen.push(tokens[idx].content); return '[S]'; } } } };
   engine({ marp: { use(p) { p(md); return this; } } });
   const tokens = [{ content: '<pre>\ncode\n\n<!-- markdownlint-disable MD033 -->\n<script src="mermaid-v11-min.js"></script>\n' }];
-  assert.equal(md.renderer.rules.html_block(tokens, 0), '[S]<script src="mermaid-v11-min.js"></script>\n');
+  assert.equal(md.renderer.rules.html_block(tokens, 0), '[S]</title></svg><script src="mermaid-v11-min.js"></script>\n');
   assert.deepEqual(seen, ['<pre>\ncode\n\n<!-- markdownlint-disable MD033 -->\n']);
   assert.match(tokens[0].content, /mermaid/, 'the token is restored after the call');
 });
@@ -131,3 +133,49 @@ test('the CLI line prints no control character a deck wrote into an attribute na
   assert.match(line, /div\[x\?\[31my\]/);
 });
 
+
+// The trailer's own comments are not the author's speaker notes. A stand-in for Marpit's comment token
+// and collect rule drives the hook; marp-bundle-author-script.test.js runs real `marp --notes`.
+test('the engine keeps the bundle\'s own comments out of the speaker notes, and only those', () => {
+  const { engine } = load();
+  const md = require('markdown-it')({ html: true });
+  md.core.ruler.push('marpit_collect', () => {});
+  engine({ marp: { use(p) { p(md); return this; } } });
+  const hide = md.core.ruler.__rules__.find((r) => r.name === 'lattice_hide_notes');
+  assert.ok(hide, 'registered before Marpit collects notes');
+  assert.ok(md.core.ruler.__rules__.indexOf(hide) < md.core.ruler.__rules__.findIndex((r) => r.name === 'marpit_collect'));
+  const tokens = [
+    { type: 'marpit_comment', content: 'Lattice: ends any HTML block left open above', meta: {} },
+    { type: 'marpit_comment', content: 'markdownlint-disable MD033', meta: {} },
+    { type: 'inline', children: [{ type: 'marpit_comment', content: 'Lattice: generated snapshot', meta: null }] },
+    { type: 'marpit_comment', content: 'Say the number slowly.', meta: {} },
+    { type: 'marpit_comment', content: 'Recap. Lattice: the product, not the trailer.', meta: {} },
+  ];
+  hide.fn({ tokens });
+  assert.equal(tokens[0].meta.marpitCommentParsed, 'lattice');
+  assert.equal(tokens[1].meta.marpitCommentParsed, 'lattice');
+  assert.equal(tokens[2].children[0].meta.marpitCommentParsed, 'lattice');
+  assert.equal(tokens[3].meta.marpitCommentParsed, undefined, 'the author\'s own note stays a note');
+  assert.equal(tokens[4].meta.marpitCommentParsed, undefined, '"Lattice:" mid-text is still the author\'s');
+  // A Marpit without the collect rule must not break the render: the notes only show the trailer again.
+  assert.doesNotThrow(() => engine({ marp: { use(p) { p(require('markdown-it')({ html: true })); return this; } } }));
+});
+
+// An HTML <title> left open at a slide break swallows the slides after it as text in a browser. The
+// report reads the deck in document order, as the browser does.
+test('the report flags a <title> left open across a slide break, and nothing else', () => {
+  const { refusedHtml, formatRefusedHtml } = require('../../../lib/core/marp-bundle-html');
+  for (const [deck, want, why] of [
+    ['# A\n\ntext <title>x\n\n---\n\n# B\n', ['title'], 'open across a slide break'],
+    ['# A\n\ntext <title/>x\n\n---\n\n# B\n', ['title'], 'self-closing is still open in HTML'],
+    ['# A\n\nx <title>a\n\n---\n\n# B\n\n---\n\ny </title> z\n', ['title'], 'closed only two slides later'],
+    ['# A\n\n</title> x <title>y\n', ['title'], 'a close before the open does not count'],
+    ['<svg viewBox="0 0 1 1"><title>t</svg>\n\n---\n\n# B\n', [], 'an SVG title closes with its <svg>'],
+    ['<svg><title>t</title></svg>\n', [], 'closed SVG title'],
+    ['# A\n\na <title>t</title> b\n', [], 'balanced on one slide'],
+    ['# A\n\n`<title>`\n\n```\n<title>\n```\n', [], 'quoted code is not markup'],
+    ['# A\n\n<!-- <title> -->\n', [], 'nor is a comment'],
+  ]) assert.deepEqual(refusedHtml(deck).unclosed, want, why);
+  assert.match(formatRefusedHtml(refusedHtml('# A\n\ntext <title>x\n\n---\n\n# B\n')), /leaves a <title> open/);
+  assert.equal(formatRefusedHtml(refusedHtml('# A\n')), '');
+});
