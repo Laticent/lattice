@@ -28,8 +28,7 @@
  *   5. `npm version <next> --no-git-tag-version` (updates package.json + lock).
  *   6. Roll the changelog: `## Unreleased` → `## <version> - <date>`, fresh
  *      empty Unreleased seeded above it.
- *   7. `npm run build` — regenerate dist/ (the emulator bundle inlines
- *      package.json, so the version bump restales it).
+ *   7. `npm run build` — regenerate dist/ from the bumped tree.
  *   8. Commit `release: v<version>` (hooks run — dist is fresh).
  *
  * --publish sequence (HEAD = the merged release commit on main):

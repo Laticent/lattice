@@ -1,7 +1,7 @@
 /* Fluid-box viewer mode — opt-in responsive *viewing* of a fixed deck.
  *
  * INERT BY DEFAULT. Every rule is gated on `:root[data-lattice-view="fluid"]`,
- * a marker that ONLY the fluid viewer sets (lattice-emulator `--fluid` flags the
+ * a marker that ONLY the fluid viewer sets (lattice `--fluid` flags the
  * page capable; the runtime's fluid controller sets the attribute). No normal
  * deck, gallery, or export render ever sets it, so this block never matches and
  * cannot regress an existing render. Design + decisions:

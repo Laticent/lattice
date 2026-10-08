@@ -82,7 +82,7 @@
  *     safe value. The opaque value is written ONCE, in the preset rule.
  *   - ONE shared guarded block (the OPAQUE FLIP, below) re-points every slot to
  *     its `-opaque` mirror. It fires for BOTH export paths:
- *       @media print                — the CLI vector PDF (lattice-emulator.js
+ *       @media print                — the CLI vector PDF (lattice.js
  *                                      `page.pdf` prints with print media on).
  *       :where(.lattice-exporting)  — the Studio raster export
  *                                      (drawing-board-export.js adds this class
@@ -973,7 +973,7 @@ section.finish-gallery :is(.panel-left, .panel-right, .compare-left) {
  * lib/finishes/finish-generate.js `EXPORT_FACES`, shared with a saved finish's own flip
  * (finish-generate.js), so the two cannot drift (followup 2400-p2).
  *
- *   @media print               — CLI vector PDF (lattice-emulator.js page.pdf) and the
+ *   @media print               — CLI vector PDF (lattice.js page.pdf) and the
  *                                Studio's desktop Print. A baked spotlight mask flips to
  *                                its hard-edged mirror too.
  *   :where(.lattice-exporting) — Studio raster export (deck-export.js tags the capture

@@ -1952,7 +1952,7 @@
 "<!-- _footer: \"Real calendar dates, axis auto-derived · gantt\" -->",
 "<!-- _footer: \"Recommendation bar · split-compare\" -->",
 "<!-- _footer: \"Rendered by this deck, which sets inline-code: literal.\" -->",
-"<!-- _footer: \"Rendered with `node lattice-emulator.js examples/mermaid-tilde-fences.md`\" -->",
+"<!-- _footer: \"Rendered with `node lattice.js examples/mermaid-tilde-fences.md`\" -->",
 "<!-- _footer: \"Retired · the automatic step-down\" -->",
 "<!-- _footer: \"SLO tiles · kpi ops\" -->",
 "<!-- _footer: \"SVG donut with legend · piechart donut\" -->",

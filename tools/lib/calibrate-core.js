@@ -25,7 +25,7 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
 const ROOT = path.join(__dirname, '..', '..');
-const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+const EMULATOR = path.join(ROOT, 'lattice.js');
 
 // Deck sizes to calibrate against. The four adaptive FAMILIES (lib/adaptive/
 // families.js) are the useful axis — a component's capacity is a property of the

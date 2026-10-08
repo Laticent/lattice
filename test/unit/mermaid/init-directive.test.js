@@ -252,7 +252,7 @@ describe('mermaid init-directive: render-path wiring', () => {
   const ROOT = path.join(__dirname, '..', '..', '..');
   const read = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8');
   // The PDF path: the emulator, and the mermaid plugin's bake it runs (plugin-system phase D).
-  const pdfPath = () => read('lattice-emulator.js') + read('lib/plugins/mermaid/mermaid.bake.js');
+  const pdfPath = () => read('lattice.js') + read('lib/plugins/mermaid/mermaid.bake.js');
 
   test('the PDF path hands its config to the worker, and leaves the source alone', () => {
     const src = pdfPath();

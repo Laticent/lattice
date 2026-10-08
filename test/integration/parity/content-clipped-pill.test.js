@@ -46,7 +46,7 @@ function renderAt(markdown, key, level) {
   const pdf = path.join(OUT, `${key}.pdf`);
   fs.writeFileSync(md, markdown);
   // `--keep-html`: this test inspects the laid-out sidecar, which is deleted on success by default (P1).
-  const args = [path.join(ROOT, 'lattice-emulator.js'), md, pdf, '-q', '--keep-html'];
+  const args = [path.join(ROOT, 'lattice.js'), md, pdf, '-q', '--keep-html'];
   if (level) args.push(`--overflow-marker=${level}`);
   execFileSync(process.execPath, args, { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'], timeout: 240000 });
   const html = pdf.replace(/\.pdf$/, '.html');

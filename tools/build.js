@@ -20,7 +20,7 @@
  *   2b. axis-DOM catalog      tools/build-axis-dom-catalog.js (lib/runtime/, before step 3)
  *   2c. chart dispatch registry tools/build-chart-registry.js (lib/components/chart/, before step 3)
  *   3. lattice-runtime.js     tools/build-runtime.js
- *   4. lattice-emulator.js    tools/build-emulator.js    (bundled CLI bin)
+ *   4. lattice.js    tools/build-cli.js    (bundled CLI bin)
  *   5. VS Code snippets       tools/build-snippets.js
  *   6. per-component docs      tools/build-component-docs.js
  *   7. canonical doc portal    tools/build-docs-portal.js (components.md/.json)
@@ -110,7 +110,7 @@ const STEPS = [
   { label: 'chart finish rules (lib/components/chart/_chart-family)', script: 'build-chart-finish-css.js' },
   { label: 'lattice.css', script: 'build-css.js', uncommitted: true },
   { label: 'lattice-default.css', script: 'build-default-bundle.js', uncommitted: true },
-  // Must run BEFORE lattice-runtime.js / lattice-emulator.js — those bundles
+  // Must run BEFORE lattice-runtime.js / lattice.js — those bundles
   // `require()` these generated catalogs directly (esbuild inlines them at
   // bundle time). The stage catalog is the single source of the stage-cell
   // classification the masthead kernel reads (stage-cell classification, step A).
@@ -134,13 +134,13 @@ const STEPS = [
   { label: 'projection catalog (lib/core)', script: 'build-projection-catalog.js' },
   // Ahead of the bundles: the state-chart transform requires the generated
   // dagre IIFE at BUNDLE time, so a stale or missing file would be baked into
-  // lattice-runtime.js and lattice-emulator.js rather than caught later.
+  // lattice-runtime.js and lattice.js rather than caught later.
   { label: 'dagre bundle (state-chart layout)', script: 'build-dagre-bundle.js', uncommitted: true },
   // Ahead of the bundles for the same reason as dagre, and it used to sit 18 steps
   // LATER, next to build-player-core.js — its first-discovered consumer. player-core
-  // is not its only one: lattice-emulator.js's graph reaches
+  // is not its only one: lattice.js's graph reaches
   // lib/export/anima-player-bundle.generated.mjs too, so esbuild inlined it into
-  // dist/lattice-emulator.js at step 8 and this step then rewrote it at step 26.
+  // dist/lattice.js at step 8 and this step then rewrote it at step 26.
   // Measured on a real `npm run build`: the emulator was written 2.6s BEFORE the file
   // it contains. One build could not converge when an anima source changed — and
   // nothing caught it, because dist/ is gitignored and `build:check
@@ -153,7 +153,7 @@ const STEPS = [
   // Ahead of the emulator bundle for the same reason as the two above: the emulator
   // dynamic-imports lib/export/speech-projection-bundle.generated.mjs (the caption
   // projection it evaluates inside its own Chromium page), so esbuild inlines it at
-  // bundle time and a stale file would be baked into dist/lattice-emulator.js.
+  // bundle time and a stale file would be baked into dist/lattice.js.
   { label: 'speech-projection bundle (engine export)', script: 'build-speech-projection-bundle.js' },
   // Trama, the graph-chart library (2026-09-27-trama-graph-chart-library.md). FOREGROUND and
   // ahead of the runtime and the emulator, which both bundle `@laticent/trama` from this
@@ -163,7 +163,7 @@ const STEPS = [
   // and ahead of the emulator, which bundles `@laticent/calco` from this dist/.
   { label: 'Calco library dist (CJS + .d.ts)', script: 'build-calco-lib.js', uncommitted: true },
   { label: 'lattice-runtime.js', script: 'build-runtime.js', uncommitted: true },
-  { label: 'lattice-emulator.js', script: 'build-emulator.js', uncommitted: true },
+  { label: 'lattice.js', script: 'build-cli.js', uncommitted: true },
   // The shared PDF writer the CLI injects into its own Chrome (the Studio imports the same
   // modules through Vite). dist/ only: ~1.8 MB is too large to commit. See
   // engineering/decisions/2026-09-27-studio-export-one-engine.md.
@@ -245,7 +245,7 @@ const STEPS = [
 
 // The slowest steps (non-incremental `tsc --emitDeclarationOnly`). Their only
 // ordering dependency is on the steps that BUNDLE their dist/ — today
-// build-emulator.js, build-player-core.js and build-read-along-core.js, all of which reach
+// build-cli.js, build-player-core.js and build-read-along-core.js, all of which reach
 // Cadenza's (see JOIN_BEFORE_SCRIPTS below; this comment claimed read-along-core
 // was the only one, and it was wrong). Run them in the background as soon as the
 // pipeline starts; join right before the first step that consumes one. Each -lib
@@ -279,10 +279,10 @@ const BACKGROUND_LABELS = new Set([
 // serial form, is already on the record: the bootstrap loop below hit
 // `Could not resolve "@laticent/cadenza"` for exactly this reason.
 //
-// build-emulator.js joined the set when the CLI bundle began inlining `@laticent/ltt` and
-// `@laticent/cadenza` (tools/build-emulator.js INLINE_PACKAGES): it now reads both dists, and it
+// build-cli.js joined the set when the CLI bundle began inlining `@laticent/ltt` and
+// `@laticent/cadenza` (tools/build-cli.js INLINE_PACKAGES): it now reads both dists, and it
 // runs ahead of player-core, so it is the first consumer and the one that does the joining.
-const JOIN_BEFORE_SCRIPTS = new Set(['build-emulator.js', 'build-player-core.js', 'build-read-along-core.js']);
+const JOIN_BEFORE_SCRIPTS = new Set(['build-cli.js', 'build-player-core.js', 'build-read-along-core.js']);
 
 function runStep(step, check) {
   const args = [path.join(__dirname, step.script), ...(step.args || [])];
@@ -381,7 +381,7 @@ async function main(argv) {
   // CONSTRAINT this creates, and it is load-bearing: an uncommitted step may not
   // depend on a COMMITTED step's output being freshly generated, because the
   // bootstrap skips those. Today that holds — build-player-core.js AND
-  // build-emulator.js both need build-anima-player.js's
+  // build-cli.js both need build-anima-player.js's
   // lib/export/anima-player-bundle.generated.mjs, and that file is committed, so a
   // checkout always has it. If a dependency of an uncommitted step is ever moved out
   // of git, bootstrap it here too.

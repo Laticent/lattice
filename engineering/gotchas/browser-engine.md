@@ -13,7 +13,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   HARD RULE #12 (`checkThemeHasSelectors` in `tools/check-ownership.js`,
   scoped to `themes/*.css`).
 - **Why retired:** re-tested empirically against a real, current Chromium
-  build (131.0.6778.204 — the same one `lattice-emulator.js`/CLI/docs
+  build (131.0.6778.204 — the same one `lattice.js`/CLI/docs
   playground render with) — both forms behaved exactly per spec, 5/5
   test cases. No corroborating Chromium bug report was found anywhere.
   The gate's own "Removable when: verified across all Marp/Electron
@@ -142,9 +142,9 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 
 ## Chromium blocks `file://` URLs as `mask-image` sources
 
-- **Symptom:** A CSS rule like `.foo { background: white; mask: url("./asset.svg") center / contain no-repeat; }` works in HTTP-served pages and in dev tools, but the masked element renders completely invisible in headless Chromium loading from `file://` (which is how every lattice-emulator PDF build works).
+- **Symptom:** A CSS rule like `.foo { background: white; mask: url("./asset.svg") center / contain no-repeat; }` works in HTTP-served pages and in dev tools, but the masked element renders completely invisible in headless Chromium loading from `file://` (which is how every lattice PDF build works).
 - **Cause:** Chromium treats each `file://` URL as its own origin and refuses to load mask sources cross-origin, even within `file://`. The same URL works fine as `<img src>` or as `background-image` — only `mask-image` is restricted. No console error; the mask just resolves to fully-transparent.
-- **Mitigation:** Don't use `file://` URLs as `mask-image`. Inline the source as a `data:` URL (works), use an inline SVG `<mask>` element reference (works), or do the visual treatment via a different mechanism (`filter`, `mix-blend-mode`, etc.). The custom-logo feature went through three iterations on this: `::before` pseudo with `var(--deck-logo)` mask → real `<img>` with mask → final filter-only approach with no mask, because filter has none of the origin restrictions and works equally well in lattice-emulator, the VS Code Marp preview, exported HTML, and a marp-cli-rendered Export-to-Marp bundle.
+- **Mitigation:** Don't use `file://` URLs as `mask-image`. Inline the source as a `data:` URL (works), use an inline SVG `<mask>` element reference (works), or do the visual treatment via a different mechanism (`filter`, `mix-blend-mode`, etc.). The custom-logo feature went through three iterations on this: `::before` pseudo with `var(--deck-logo)` mask → real `<img>` with mask → final filter-only approach with no mask, because filter has none of the origin restrictions and works equally well in lattice, the VS Code Marp preview, exported HTML, and a marp-cli-rendered Export-to-Marp bundle.
 - **Triggered by:** Any author writing `mask-image: url("./local.svg")` and building locally.
 - **Removable when:** Chromium relaxes the file-origin policy for mask sources. Unlikely.
 - **Commits:** This branch (the custom-logo redesign).

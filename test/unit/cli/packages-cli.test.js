@@ -341,7 +341,7 @@ describe('the render path', () => {
   test('a deck naming a theme that is neither shipped nor installed fails with its name and the install command', () => {
     const dir = tmp('deck');
     fs.writeFileSync(path.join(dir, 'deck.md'), '---\ntheme: probe-missing\n---\n\n# Hi\n');
-    const r = spawnSync(process.execPath, [path.join(ROOT, 'lattice-emulator.js'), path.join(dir, 'deck.md'), path.join(dir, 'out.pdf'), '--packages', tmp('store')], { encoding: 'utf8' });
+    const r = spawnSync(process.execPath, [path.join(ROOT, 'lattice.js'), path.join(dir, 'deck.md'), path.join(dir, 'out.pdf'), '--packages', tmp('store')], { encoding: 'utf8' });
     assert.equal(r.status, 1);
     assert.match(r.stderr, /palette not found: probe-missing/);
     assert.match(r.stderr, /lattice packages add probe-missing\.lattice-theme\.zip/);
@@ -359,12 +359,12 @@ describe('the render path', () => {
     const deck = path.join(tmp('deck'), 'deck.md');
     fs.writeFileSync(deck, '---\ntheme: indaco\n---\n\n# Hi\n');
     // A browser that isn't there ends the run right after the theme is resolved.
-    const r = spawnSync(process.execPath, [path.join(ROOT, 'lattice-emulator.js'), deck, deck.replace(/md$/, 'pdf'), '--packages', store], { encoding: 'utf8', env: { ...process.env, CHROME_PATH: '/nonexistent/chrome', PUPPETEER_EXECUTABLE_PATH: '/nonexistent/chrome' } });
+    const r = spawnSync(process.execPath, [path.join(ROOT, 'lattice.js'), deck, deck.replace(/md$/, 'pdf'), '--packages', store], { encoding: 'utf8', env: { ...process.env, CHROME_PATH: '/nonexistent/chrome', PUPPETEER_EXECUTABLE_PATH: '/nonexistent/chrome' } });
     assert.match(r.stderr, /warning: "indaco" is a theme Lattice ships, so the installed package of that name is not used/);
   });
 
   test('`lattice packages` is dispatched before the render arguments are parsed', () => {
-    const r = spawnSync(process.execPath, [path.join(ROOT, 'lattice-emulator.js'), 'packages', 'list', '--type', 'finish', '--packages', tmp('store')], { encoding: 'utf8' });
+    const r = spawnSync(process.execPath, [path.join(ROOT, 'lattice.js'), 'packages', 'list', '--type', 'finish', '--packages', tmp('store')], { encoding: 'utf8' });
     assert.equal(r.status, 0, r.stderr);
     assert.match(r.stdout, /finish\s+halo\s+shipped/);
   });

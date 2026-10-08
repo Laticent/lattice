@@ -788,7 +788,7 @@ const ROOT_COMPOUND = /^(?::root|:root:root|:where\(:root\))(?:\[[^\]]*\]|:(?!:)
 /**
  * The B column of a root-family compound, and it is LOAD-BEARING on the export arm.
  *
- * `lattice-emulator.js` concatenates the bundle AFTER the palette, so at EQUAL
+ * `lattice.js` concatenates the bundle AFTER the palette, so at EQUAL
  * specificity the engine default wins on source order and the palette's value is
  * silently discarded in the rendered PDF (#1527). `:root:root` is (0,2,0) and beats
  * the bundle's (0,1,0) whatever the order — which is exactly why four palettes
@@ -936,7 +936,7 @@ function bundleVars() {
  * Merged token map for one palette.
  *
  * `baseWins` composes the OTHER way, with `base.tokens.css`'s universal defaults
- * overriding everything a palette curated. That was the order `lattice-emulator.js`
+ * overriding everything a palette curated. That was the order `lattice.js`
  * used for the document shell until #1527 flipped it; no path renders it now, and it
  * is kept because the REGRESSION arm needs it as a REFERENCE — "is the palette's own
  * value worse than the default it replaces" is a question about two inks on one

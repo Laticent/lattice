@@ -27,7 +27,7 @@ was retired in favor of the real skeleton.
 The dispatcher runs in both render paths:
 - **The owned engine** (`lib/engine`) — wraps the
   `render()` output and post-processes the HTML string.
-- **Emulator build path** (`lattice-emulator.js`) — calls the same
+- **Emulator build path** (`lattice.js`) — calls the same
   dispatch inline during per-slide HTML construction.
 
 ---
@@ -785,7 +785,7 @@ The dispatcher runs identically in three places:
 | Render path | Where the dispatch is called |
 |---|---|
 | Engine (HTML) | `lib/engine` → `applyChartFamilyToHtml(html)` |
-| Lattice emulator | `lattice-emulator.js` → inline `transformChartSection()` calls per slide |
+| Lattice emulator | `lattice.js` → inline `transformChartSection()` calls per slide |
 | VS Code preview | `lattice-runtime.js` → DOM mirror that recreates the same wrappers at runtime |
 
 Editorial guarantee: every chart slide renders identically across the

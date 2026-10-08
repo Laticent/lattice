@@ -1541,7 +1541,7 @@ independently.
 
 1. `lib/engine` — `applyDeckLogoToHtml(html, markdown)` runs in
    the `render()` wrapper alongside `applyChartFamilyToHtml`.
-2. `lattice-emulator.js` — `require()`s the same helper from
+2. `lattice.js` — `require()`s the same helper from
    `lib/engine` and calls it on the assembled HTML.
 3. `lattice-runtime.js` — `applyDeckLogoFromFrontMatter()` mirrors
    the same DOM injection at view time for published HTML decks.

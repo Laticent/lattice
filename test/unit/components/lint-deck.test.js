@@ -386,7 +386,7 @@ describe('deck linter', () => {
 
   // The RENDER path repeats a retired Form shape on stderr only when the deck
   // actually moved, and it decides that from this flag rather than by matching the
-  // message prose (lattice-emulator.js). An inert value marked shape-changing would
+  // message prose (lattice.js). An inert value marked shape-changing would
   // nag a deck that renders identically; a shape-changing one marked inert would let
   // a breaking change through in silence. Both directions are pinned.
   test('`shapeChange` marks exactly the retired Form shapes that move a deck', () => {

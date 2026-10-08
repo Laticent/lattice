@@ -22,13 +22,13 @@ const path = require('node:path');
 const REPO = path.join(__dirname, '..', '..', '..');
 const SKETCH_CSS = fs.readFileSync(path.join(REPO, 'lib', 'base', 'base.sketch.css'), 'utf8');
 const TOKENS_CSS = fs.readFileSync(path.join(REPO, 'lib', 'base', 'base.tokens.css'), 'utf8');
-const EMULATOR_SRC = fs.readFileSync(path.join(REPO, 'lattice-emulator.js'), 'utf8');
+const EMULATOR_SRC = fs.readFileSync(path.join(REPO, 'lattice.js'), 'utf8');
 const { MERMAID_VAR_MAP } = require('../../../lib/core/mermaid-theme-map');
 
 /** The `SKETCH_TOKEN_REPOINTS` table, read out of the emulator source. */
 function repointTable() {
   const m = /const SKETCH_TOKEN_REPOINTS = Object\.freeze\(\{([^}]*)\}\);/.exec(EMULATOR_SRC);
-  assert.ok(m, 'SKETCH_TOKEN_REPOINTS not found in lattice-emulator.js');
+  assert.ok(m, 'SKETCH_TOKEN_REPOINTS not found in lattice.js');
   const out = {};
   for (const pair of m[1].split(',')) {
     const kv = /'([^']+)'\s*:\s*'([^']+)'/.exec(pair);
@@ -42,7 +42,7 @@ describe('sketch font re-point — the CSS rule and the export reader agree', ()
     for (const [base, sketch] of Object.entries(repointTable())) {
       const rule = new RegExp(`--${base}\\s*:\\s*var\\(\\s*--${sketch}\\s*\\)`);
       assert.match(SKETCH_CSS, rule,
-        `lattice-emulator.js re-points --${base} to --${sketch} for sketch diagrams, but `
+        `lattice.js re-points --${base} to --${sketch} for sketch diagrams, but `
         + `base.sketch.css no longer declares that. Rename one and diagram labels silently `
         + 'revert to the clean face while the rest of the slide stays hand-drawn.');
     }

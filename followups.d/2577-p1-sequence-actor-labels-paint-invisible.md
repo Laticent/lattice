@@ -16,7 +16,7 @@ why now   — found while comparing the installed CLI's render to the in-tree on
             empty boxes, so it is on `main` and older than this work. A sequence diagram without
             participant names does not say who talks to whom, which is its whole content.
 where     — the names ARE in the SVG: `<text class="actor actor-box"><tspan>Log</tspan></text>` sits
-            in each box (`lattice-emulator.js lib/components/diagram/diagram.gallery.md out.pdf`, then
+            in each box (`lattice.js lib/components/diagram/diagram.gallery.md out.pdf`, then
             read out.html). So the text paints invisibly rather than going missing. First suspect: a
             `.actor` fill rule (the box color) reaching the `<text>`, which carries the same `actor`
             class, ahead of Mermaid's `text.actor > tspan` rule; check the diagram overrides in

@@ -32,7 +32,7 @@ const os = require('os');
 const { spawnSync } = require('child_process');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
-const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+const EMULATOR = path.join(ROOT, 'lattice.js');
 const FIXTURE = path.join(ROOT, 'test', 'fixtures', 'pdf-photo-hairline.md');
 const FIXTURE_4K = path.join(ROOT, 'test', 'fixtures', 'pdf-photo-hairline-4k.md');
 const TOLERANCE = 6;

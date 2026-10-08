@@ -47,7 +47,7 @@ const REPO = path.join(__dirname, '..', '..', '..');
 // The PDF path's source: the emulator, and the mermaid plugin's bake it runs (plugin-system phase D
 // moved the diagram walk there, and its browser half moved the one palette-assembly site there too,
 // so the export's bake services name no plugin).
-const EMULATOR_SRC = fs.readFileSync(path.join(REPO, 'lattice-emulator.js'), 'utf8')
+const EMULATOR_SRC = fs.readFileSync(path.join(REPO, 'lattice.js'), 'utf8')
   + fs.readFileSync(path.join(REPO, 'lib', 'plugins', 'mermaid', 'mermaid.bake.js'), 'utf8');
 const RUNTIME_SRC = fs.readFileSync(path.join(REPO, 'lib', 'plugins', 'mermaid', 'mermaid.hydrate.js'), 'utf8');
 
@@ -69,7 +69,7 @@ const fakeReadToken = (name) => `#${name}`;
 
 /** The PDF path: its scope IS the band, and its reader is a table lookup. */
 function pdfThemeVars(readToken) {
-  // lattice-emulator.js is a CLI that renders on require, so it cannot be imported.
+  // lattice.js is a CLI that renders on require, so it cannot be imported.
   // Its port is three lines (`readBandToken` + `renderMermaidOne`) and reproducing
   // them here would test a copy — so instead: assert the real source still routes
   // through the kernel (below), and drive the kernel with the port shape that source
@@ -304,7 +304,7 @@ describe('neither path keeps a private copy', () => {
   test('the map is defined exactly once in the tree', () => {
     // `grep MERMAID_VAR_MAP` must find ONE definition. A second `const
     // MERMAID_VAR_MAP = {` anywhere means the drift has been reintroduced.
-    for (const [label, src] of [['lattice-emulator.js', EMULATOR_SRC], ['lib/plugins/mermaid/mermaid.hydrate.js', RUNTIME_SRC]]) {
+    for (const [label, src] of [['lattice.js', EMULATOR_SRC], ['lib/plugins/mermaid/mermaid.hydrate.js', RUNTIME_SRC]]) {
       assert.equal(/const\s+MERMAID_VAR_MAP\s*=\s*\{/.test(src), false, `${label} must not define its own map`);
     }
   });
@@ -334,7 +334,7 @@ describe('neither path keeps a private copy', () => {
     // Mermaid-shaped from them. The `hand` argument (#1674 — the sketch re-point of
     // `--font-body`, which this path's OFFLINE reader cannot see in the cascade) rides the
     // generic reader, so the one assembly site still routes through the map.
-    const EMULATOR_ONLY = fs.readFileSync(path.join(REPO, 'lattice-emulator.js'), 'utf8');
+    const EMULATOR_ONLY = fs.readFileSync(path.join(REPO, 'lattice.js'), 'utf8');
     assert.equal(/buildDiagramTheme\(/.test(EMULATOR_ONLY), false, 'the emulator must not assemble Mermaid theme variables');
     assert.match(EMULATOR_SRC, /function themeFor\(palette, hand = false\) \{[\s\S]{0,300}buildDiagramTheme\(ctx\.paletteReader\(palette, hand\)\)/);
   });

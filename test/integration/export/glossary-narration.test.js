@@ -44,7 +44,7 @@ test('the glossary page is silent and the closing is not said twice', { timeout:
     const src = path.join(dir, 'deck.md');
     fs.writeFileSync(src, DECK);
     const out = path.join(dir, 'deck.html');
-    const res = spawnSync('node', [path.join(ROOT, 'lattice-emulator.js'), src, out, '--captions', '-q'], {
+    const res = spawnSync('node', [path.join(ROOT, 'lattice.js'), src, out, '--captions', '-q'], {
       cwd: ROOT, encoding: 'utf8', timeout: 900000,
     });
     assert.equal(res.status, 0, `render failed:\n${res.stderr}`);

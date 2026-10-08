@@ -246,9 +246,9 @@ function main() {
     `     should sit in the curated group. Then run \`npm run theme-catalog:build\`.\n` +
     `  2. Edit the brand axis first; everything else hangs off it.\n` +
     `  3. Build a deck:\n` +
-    `       node lattice-emulator.js examples/gallery.md /tmp/${name}.pdf ${name}\n` +
+    `       node lattice.js examples/gallery.md /tmp/${name}.pdf ${name}\n` +
     `  4. Verify diagrams:\n` +
-    `       node lattice-emulator.js examples/mermaid-gallery.md /tmp/${name}-mermaid.pdf ${name}\n` +
+    `       node lattice.js examples/mermaid-gallery.md /tmp/${name}-mermaid.pdf ${name}\n` +
     `  5. Audit contrast:\n` +
     `       node tools/contrast-audit.js ${name}\n` +
     `\n` +

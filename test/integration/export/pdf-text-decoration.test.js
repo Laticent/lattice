@@ -26,7 +26,7 @@ const os = require('os');
 const { spawnSync, execFileSync } = require('child_process');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
-const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+const EMULATOR = path.join(ROOT, 'lattice.js');
 const FIXTURE = path.join(ROOT, 'test', 'fixtures', 'text-decoration.md');
 const DPI = 96;
 const PX = DPI / 72;

@@ -95,7 +95,7 @@ export async function projectDeckScript(
 	// `glossary: auto` renders one or more sections the source does not contain, at the end. Drop it HERE, at
 	// the one producer Present and the narration bake both read, so every narrator gets a list indexed
 	// by authored slide and none of them stands its projection down for a slide nobody narrates. The
-	// CLI trims the same section through the same kernel (lattice-emulator.js resolveReadAlong).
+	// CLI trims the same section through the same kernel (lattice.js resolveReadAlong).
 	const authored = counts ? counts.reduce((a, b) => a + b, 0) : slides.length;
 	const sections = withoutAutoGlossary(splitSections(html), authored, source);
 	const scripts = await projectSectionsToScript(sections);

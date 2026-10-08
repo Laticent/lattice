@@ -41,7 +41,7 @@ const DECK = process.env.DECK || 'examples/finish-backdrops.md';
 const out = path.resolve('.scratch/out/player-input');
 mkdirSync('.scratch/out', { recursive: true });
 console.log(`exporting ${DECK} through the CLI player path…`);
-execFileSync(process.execPath, ['lattice-emulator.js', DECK, out, '--player'], { stdio: 'pipe' });
+execFileSync(process.execPath, ['lattice.js', DECK, out, '--player'], { stdio: 'pipe' });
 const file = `${out}.html`;
 
 const check = (label, ok, detail = '') => {
@@ -322,7 +322,7 @@ const CANVASES = [
 ];
 for (const [label, deck, expected] of CANVASES) {
 	const szOut = path.resolve(`.scratch/out/player-size-${label}`);
-	execFileSync(process.execPath, ['lattice-emulator.js', deck, szOut, '--player'], { stdio: 'pipe' });
+	execFileSync(process.execPath, ['lattice.js', deck, szOut, '--player'], { stdio: 'pipe' });
 
 	const szCtx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
 	const sz = await szCtx.newPage();

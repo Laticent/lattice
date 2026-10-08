@@ -50,7 +50,7 @@ it at release time:
   never shipped. So are `dist/marp-kit/` and `dist/agent-kit/`, which
   ship on the `dist-kits` branch and in the release zip instead. The
   tarball is ~22 MB packed, ~71 MB unpacked (measured 2026-10-07); the
-  bundled `dist/lattice-emulator.js` and `dist/lattice-runtime.js` are
+  bundled `dist/lattice.js` and `dist/lattice-runtime.js` are
   the bulk of it.
 - **`dependencies`** — everything shipped code loads at run time, and
   nothing else. That includes the workspace libraries the engine imports
@@ -169,9 +169,9 @@ PDFs** (npm drops them, the source zip buries them in the tree). It is a
 tracked-only and deterministic per commit. Contents (full showcase):
 
 - `dist/` — the engine: `lattice.css`, `lattice-default.css`,
-  `lattice-runtime.js`, the bundled `lattice-emulator.js`, each one's
+  `lattice-runtime.js`, the bundled `lattice.js`, each one's
   minified `-min` twin (`lattice-min.css`, `lattice-default-min.css`,
-  `lattice-runtime-min.js`, `lattice-emulator-min.js`), `README.md`,
+  `lattice-runtime-min.js`, `lattice-min.js`), `README.md`,
   and `docs/components.{md,html,json}`. The whole `dist/` directory is
   archived (`git archive … -- dist`), so any tracked artifact ships
   automatically — no per-file allowlist to keep in sync.
@@ -186,7 +186,7 @@ tracked-only and deterministic per commit. Contents (full showcase):
   `CHANGELOG.md`.
 
 Deliberately excluded: `test/`, `tools/`, `engineering/`, editor/CI
-config, `node_modules/`, and the repo-root `lattice-emulator.js` source
+config, `node_modules/`, and the repo-root `lattice.js` source
 (the bundle supersedes it).
 
 The tool gates on a clean tree (it archives HEAD, not the working tree —

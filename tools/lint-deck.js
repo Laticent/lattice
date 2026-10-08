@@ -176,7 +176,7 @@ async function main(argv) {
   let warnings = 0;
 
   for (const file of files) {
-    // LINE ENDINGS: normalize at the READ, like `lattice-emulator.js` does, because a deck on
+    // LINE ENDINGS: normalize at the READ, like `lattice.js` does, because a deck on
     // disk is author input and may be CRLF. Without it the same deck lints DIFFERENTLY by
     // encoding — measured on examples/a11y.md: LF reported verbose-eyebrow, verbose-key-insight
     // and no-ask; CRLF silently dropped verbose-eyebrow; lone CR dropped it and invented

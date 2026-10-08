@@ -159,7 +159,7 @@ test('the reference scan does not confuse a set with its longer-named sibling', 
 
 // ── ACCEPTANCE #3: both emission sites derive the SAME answer ────────────────
 //
-// lattice-emulator.js scans the assembled deck stylesheet (theme chain files on
+// lattice.js scans the assembled deck stylesheet (theme chain files on
 // disk + the layout sheet); lib/runtime/index.js scans the live document through
 // CSSOM. Different routes to the same question, and the issue's stated risk is
 // that they diverge. Two pins:
@@ -176,7 +176,7 @@ test('neither emission site re-implements the reference matcher', () => {
   // the only surviving mention of a texture id in each site is a CSS ATTRIBUTE
   // SELECTOR — never a regex, a slot number, or an id built by hand.
   const root = path.join(__dirname, '..', '..', '..');
-  for (const site of ['lattice-emulator.js', 'lib/runtime/index.js']) {
+  for (const site of ['lattice.js', 'lib/runtime/index.js']) {
     const src = fs.readFileSync(path.join(root, site), 'utf8');
     assert.match(src, /texturePrefixesReferencedIn/,
       `${site} must ask the kernel which sets to emit`);

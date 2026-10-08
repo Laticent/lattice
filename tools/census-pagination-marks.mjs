@@ -3,7 +3,7 @@
  * census-pagination-marks — which NODE actually paints the page number, over the WHOLE shipped deck population.
  *
  * Exports every deck under `examples/` that sets `paginate: true` through
- * `dist/lattice-emulator.js`, opens each in Chromium, and counts — per paginated
+ * `dist/lattice.js`, opens each in Chromium, and counts — per paginated
  * slide — whether the mark that paints is the real `<span class="lat-pagination">`
  * element, the `section::after` PSEUDO, or neither.
  *
@@ -99,12 +99,12 @@ function population() {
     .slice(0, LIMIT);
 }
 
-const EMULATOR = path.join(ROOT, 'dist', 'lattice-emulator.js');
+const EMULATOR = path.join(ROOT, 'dist', 'lattice.js');
 fs.mkdirSync(OUT, { recursive: true });
 
 const decks = population();
 if (!fs.existsSync(EMULATOR)) {
-  console.error('census: dist/lattice-emulator.js is missing — run `npm run build` first.');
+  console.error('census: dist/lattice.js is missing — run `npm run build` first.');
   process.exit(2);
 }
 

@@ -536,7 +536,7 @@ test('THE COMMITTED CORPUS IS CLEAN — every tracked deck, through the shipped 
 // ---------------------------------------------------------------------------
 
 test('the emulator reads all three through the kernel, not its own regex', () => {
-	const src = readFileSync(join(REPO, 'lattice-emulator.js'), 'utf8');
+	const src = readFileSync(join(REPO, 'lattice.js'), 'utf8');
 	for (const key of RENDER_TARGET_KEY_NAMES) {
 		assert.match(src, new RegExp(`readRenderTargetKey\\(fm, '${key}'\\)`), `${key} is not read through the kernel`);
 		// The replaced shape must not come back beside it.

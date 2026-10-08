@@ -19,7 +19,7 @@
  * math plugin's own copy of KaTeX (lib/plugins/math/vendor/katex/katex.min.js,
  * required by math.render.js) is swapped for lib/engine/katex-browser-stub.js
  * for THIS build only (katexStubPlugin) — a Node/CLI build of the same
- * renderer (lattice-emulator.js, the npm package) still requires the real copy,
+ * renderer (lattice.js, the npm package) still requires the real copy,
  * since esbuild never runs there. The real
  * KaTeX ships as a separate on-demand bundle — tools/build-katex-provider.js
  * → lattice-katex.js — loaded only when a deck actually has math.

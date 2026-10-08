@@ -63,7 +63,7 @@ function runDependencyCruiser() {
   const result = runBin('depcruise', [
     '--config', '.dependency-cruiser.cjs',
     '--output-type', 'json',
-    'lib', 'tools', 'lattice-emulator.js',
+    'lib', 'tools', 'lattice.js',
   ]);
   // depcruise exits 1 when any error-severity rule fired — expected, not a tool failure.
   const data = JSON.parse(result.stdout);

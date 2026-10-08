@@ -48,25 +48,27 @@ every first-party path and needs no Marp.
 code highlighting) — no DPI knob to turn. PNG export rasterizes through Chromium;
 the `lattice` CLI emits 3840×2160 PNGs (3× the 1280×720 slide) by default.
 
-**Mode 3 — the `lattice` CLI (`lattice-emulator.js`, the default):** the owned
+**Mode 3 — the `lattice` CLI (`lattice.js`, the default):** the owned
 engine — no marp needed. `lattice.css` is auto-resolved; the deck's `theme:` front
 matter selects the palette; the OUTPUT EXTENSION picks the format.
 ```bash
-node lattice-emulator.js examples/gallery-jargon.md output.pdf
+npx lattice examples/gallery-jargon.md output.pdf
 # vector PDF (+ HTML sidecar); bundled lattice.css; palette from front matter
-node lattice-emulator.js examples/gallery-jargon.md output.pptx
+npx lattice examples/gallery-jargon.md output.pptx
 # PowerPoint (one full-bleed image per slide)
-node lattice-emulator.js examples/gallery-jargon.md output.png
+npx lattice examples/gallery-jargon.md output.png
 # one PNG per slide → output.001.png, output.002.png, … (2× = 2560×1440)
-node lattice-emulator.js examples/gallery-jargon.md output.pdf cuoio
+npx lattice examples/gallery-jargon.md output.pdf cuoio
 # explicit palette override (CLI arg has highest precedence)
-node lattice-emulator.js -o output.pdf -p cuoio examples/gallery-jargon.md
+npx lattice -o output.pdf -p cuoio examples/gallery-jargon.md
 # named flags: -o/--output, -p/--palette, -c/--css, -q/--quiet (positional still works)
 ```
+`npx lattice` runs the copy installed in this clone or project. With no install, write
+`npx @laticent/lattice`: the unscoped `lattice` package on npm is unrelated.
 
-Palette resolution precedence: CLI flag > positional palette > `LATTICE_PALETTE` env > deck front matter `theme:` > default `indaco`. Run `node lattice-emulator.js --help` for the full reference. Exit codes: `0` success, `1` usage/file/render error.
+Palette resolution precedence: CLI flag > positional palette > `LATTICE_PALETTE` env > deck front matter `theme:` > default `indaco`. Run `npx lattice --help` for the full reference. Exit codes: `0` success, `1` usage/file/render error.
 
-The 2nd positional accepts either an output path or a `.css` path; if it ends in `.css` the emulator treats it as a custom layout CSS and shifts the remaining args right (backward-compat with the old 3-arg form).
+The 2nd positional accepts either an output path or a `.css` path; if it ends in `.css` the CLI treats it as a custom layout CSS and shifts the remaining args right (backward-compat with the old 3-arg form).
 
 Full rendering pipeline (Mermaid, PPTX, image conversion): see [pipeline.md](../engineering/pipeline.md).
 
@@ -76,7 +78,7 @@ Full rendering pipeline (Mermaid, PPTX, image conversion): see [pipeline.md](../
 
 Lattice renders dark canvas via the native CSS `color-scheme` cascade —
 no class-list surgery, no per-renderer logic. Same recipe in the engine,
-the emulator, and the VS Code preview.
+the CLI, and the VS Code preview.
 
 | Goal | Front-matter |
 |---|---|
@@ -128,9 +130,9 @@ the export is.
 Choose it per export, or once for everything:
 
 ```sh
-node lattice-emulator.js <deck.md> <out.pdf> --overflow-marker=off   # this PDF
+npx lattice <deck.md> <out.pdf> --overflow-marker=off   # this PDF
 node tools/export-marp.js <deck.md> <out> --overflow-marker=author   # this bundle
-LATTICE_OVERFLOW_MARKER=author node lattice-emulator.js …            # every export here
+LATTICE_OVERFLOW_MARKER=author npx lattice …            # every export here
 ```
 
 `off` is per-export only. A standing default cannot be `off` — a silence applying to
@@ -142,7 +144,7 @@ In the Studio it is both: **Share → Marp bundle** has a pre-export step where 
 pick it for that one export (including "No marker"), and **Workspace settings** holds
 the standing default that step starts from, beside the PDF page-format choice.
 
-**Whatever you choose, the console still tells you.** `lattice-emulator.js` renders,
+**Whatever you choose, the console still tells you.** `lattice.js` renders,
 so it names the clipped pages on stderr at every level — including `off`, where it is
 the only channel. `export-marp` does not render, so it says so rather than implying a
 check it never ran.
@@ -278,8 +280,8 @@ Five paths can produce a slide screenshot or rebuilt PDF. They have meaningfully
 | --------------------------------------------------- | ------------------------------------------------- | -------------: | -------------------: | ----------- |
 | **Fast author loop on a deck or component** (default during development) | `npm run preview` (auto-scope from `git diff`) or `npm run preview:watch -- <deck>` for live rebuild | ~2s/deck | scope-detected | PDF (vector) |
 | Inspect **committed baseline** (CSS unchanged)      | `pdftoppm` on `examples/gallery.pdf`              |          0.3s  |              0.1s/slide | 4000×2250   |
-| **Single slide, fastest** (PNG)                     | `lattice-emulator` → `screenshot-slides.js`       |          1.6s  |              0.5s/slide | configurable (use scale 3 → 3840×2160) |
-| **Multi-slide** (one PNG per slide)                 | `lattice-emulator` → `rasterize-for-review.sh --overview` |   2.4s  |              0.7s/slide | 300dpi      |
+| **Single slide, fastest** (PNG)                     | `lattice` → `screenshot-slides.js`       |          1.6s  |              0.5s/slide | configurable (use scale 3 → 3840×2160) |
+| **Multi-slide** (one PNG per slide)                 | `lattice` → `rasterize-for-review.sh --overview` |   2.4s  |              0.7s/slide | 300dpi      |
 | Iterative loop on prebuilt HTML                     | `screenshot-slides.js` against existing HTML      |          1.6s  |              0.5s/slide | configurable |
 | Cross-renderer regression                           | `npm run test:integration`                        |             —  |                  ~30s | full check  |
 
@@ -288,9 +290,9 @@ Five paths can produce a slide screenshot or rebuilt PDF. They have meaningfully
 **Picking the path.**
 
 - **No CSS changes? Just inspecting what's shipped?** → `pdftoppm` on the committed gallery PDF. ~10× faster than any render path because no browser is involved.
-- **Single-slide spot check on current CSS?** → `lattice-emulator` to produce HTML, then `screenshot-slides.js` against that HTML. Skips loading a prebuilt HTML — fastest for one slide.
-- **Multi-slide preview?** → render with `lattice-emulator` then `tools/rasterize-for-review.sh <pdf> --overview` (one PNG per slide). Per-slide cost amortizes well across a deck.
-- **Iterative inner loop (changing the deck or screenshotting different slides repeatedly)?** → Build HTML once with `lattice-emulator`, then loop `screenshot-slides.js [html] [out] <idx> 3`. Each screenshot is ~1.6s with no re-render.
+- **Single-slide spot check on current CSS?** → `lattice` to produce HTML, then `screenshot-slides.js` against that HTML. Skips loading a prebuilt HTML — fastest for one slide.
+- **Multi-slide preview?** → render with `lattice` then `tools/rasterize-for-review.sh <pdf> --overview` (one PNG per slide). Per-slide cost amortizes well across a deck.
+- **Iterative inner loop (changing the deck or screenshotting different slides repeatedly)?** → Build HTML once with `lattice`, then loop `screenshot-slides.js [html] [out] <idx> 3`. Each screenshot is ~1.6s with no re-render.
 - **Suspect renderer drift?** → `npm run test:integration` rebuilds both galleries through both renderers and asserts page counts.
 
 **Identifying which slide.** Don't count `---` separators in source — that's fragile during authoring (code fences containing `---`, WIP decks with stray rules, `headingDivider` mode). The reliable way is to identify slides by their *content*. `tools/screenshot-slides.js` accepts a content selector as its 3rd positional arg or `--selector EXPR`:
@@ -306,7 +308,7 @@ Five paths can produce a slide screenshot or rebuilt PDF. They have meaningfully
 
 Substring match is case-insensitive; first hit wins. When a selector matches zero slides the tool prints the first 10 H2 titles to help you correct the term.
 
-The emulator's source splitter is fence-aware — `---` lines inside fenced code blocks (` ``` ` or `~~~`) are *not* treated as slide breaks, and `headingDivider: N` from front matter splits on h1..hN as Marp does. Rendered HTML therefore reliably has one `<section>` per intended slide, which is what the selector logic above walks.
+The CLI's source splitter is fence-aware — `---` lines inside fenced code blocks (` ``` ` or `~~~`) are *not* treated as slide breaks, and `headingDivider: N` from front matter splits on h1..hN as Marp does. Rendered HTML therefore reliably has one `<section>` per intended slide, which is what the selector logic above walks.
 
 **Recipes.**
 
@@ -317,7 +319,7 @@ pdftoppm -png -r 300 -f 47 -l 47 examples/gallery.pdf .scratch/peek/slide
 
 # 2. Single slide on current CSS, by H2 substring (no slide-counting)
 mkdir -p .scratch/peek
-node lattice-emulator.js deck.md .scratch/peek/deck.pdf
+npx lattice deck.md .scratch/peek/deck.pdf
 #  lattice.css auto-resolved · palette from front matter (no CLI args needed) ↑
 node tools/screenshot-slides.js .scratch/peek/deck.html .scratch/peek h2:banner-tag 3
 #                                                                    │             │
@@ -325,7 +327,7 @@ node tools/screenshot-slides.js .scratch/peek/deck.html .scratch/peek h2:banner-
 
 # 3. Multi-slide, single-step (owned engine → one PNG per slide)
 mkdir -p .scratch/peek
-node lattice-emulator.js deck.md .scratch/peek/deck.pdf
+npx lattice deck.md .scratch/peek/deck.pdf
 tools/rasterize-for-review.sh .scratch/peek/deck.pdf --overview
 # Front matter `theme:` selects the palette. Outputs are .scratch/peek/p-NN.png.
 ```

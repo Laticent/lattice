@@ -93,7 +93,7 @@
    * WHERE THESE ACTUALLY PAINT, measured on each path rather than assumed. It differs by
    * path, and the difference is the whole caveat:
    *
-   *   lattice-emulator.js (the PDF / HTML-player EXPORT) used to concatenate
+   *   lattice.js (the PDF / HTML-player EXPORT) used to concatenate
    *     `paletteCSS + layoutCSS`, so the base loaded AFTER the theme and
    *     lib/base/base.tokens.css's own --hljs-* WON. Measured on a rendered PDF of this
    *     palette at the time: the `function` keyword sampled #C792EA, the BASE's

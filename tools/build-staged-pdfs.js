@@ -23,7 +23,7 @@
  * safety net there. This hook only ever rebuilds decks whose *markdown*
  * is in the commit, so its cost scales with the change, not the repo.
  *
- * Chrome: lattice-emulator.js auto-detects the puppeteer-cached binary,
+ * Chrome: lattice.js auto-detects the puppeteer-cached binary,
  * so no CHROME_PATH wiring is needed here.
  *
  * Exit codes:
@@ -38,7 +38,7 @@ const { execSync, execFileSync, spawn } = require('node:child_process');
 const { EXTRA_NAMES } = require('./build-bucket-galleries');
 
 const ROOT = path.join(__dirname, '..');
-const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+const EMULATOR = path.join(ROOT, 'lattice.js');
 
 // Each deck render spawns its own headless Chromium, so cap how many run at
 // once — unbounded parallelism across a many-deck commit would exhaust memory.

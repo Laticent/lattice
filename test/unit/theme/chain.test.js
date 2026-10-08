@@ -71,7 +71,7 @@ describe('themeChain', () => {
 });
 
 describe('the chain reproduces the flattener it replaced', () => {
-  // THE regression test for this change. `lattice-emulator.js` used to flatten a
+  // THE regression test for this change. `lattice.js` used to flatten a
   // palette by regexing `@import` and concatenating imported-first. If the
   // manifest-driven chain is a true drop-in, concatenating its files in order is
   // byte-identical for every palette — which is exactly what was measured before

@@ -955,7 +955,7 @@ Four stages over eighteen months. The connective tissue is called "momentum."
 `Walk these questions with me in 60–90 minutes. The output is a design we can execute — or agreement that we need another session to design it.`
 
 <!-- Import Mermaid and the Lattice runtime theme for VS Code / web preview.
-     The build script (lattice-emulator.js) pre-renders Mermaid to SVG at build time
+     The build script (lattice.js) pre-renders Mermaid to SVG at build time
      so these scripts are a no-op in the PDF/HTML output. -->
 <!-- markdownlint-disable MD033 -->
 <script src="../lib/plugins/mermaid/vendor/mermaid.min.js"></script>

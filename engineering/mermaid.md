@@ -20,7 +20,7 @@ flowchart LR
 
 | Path | Who renders | When |
 | --- | --- | --- |
-| PDF / export (`lattice-emulator.js`) | the engine's own Mermaid render worker, one batched child process (it replaced a per-diagram `mmdc` shell-out — `lib/plugins/mermaid/shared/render-worker.js`) | build time, pre-rendered to inline SVG |
+| PDF / export (`lattice.js`) | the engine's own Mermaid render worker, one batched child process (it replaced a per-diagram `mmdc` shell-out — `lib/plugins/mermaid/shared/render-worker.js`) | build time, pre-rendered to inline SVG |
 | Live preview (`dist/lattice-runtime.js`) | `mermaid.render()` in the browser | on the live DOM, in the Playground / Studio / marp-vscode¹ |
 
 ¹ **marp-vscode only at preview security = Disable.** Its webview carries
@@ -134,7 +134,7 @@ none — a chart is token-driven and must keep filling its band. `class` is not 
 `lattice-mermaid-N` from the browser).
 
 The rule lives once per host — `#lp-article` in `lib/export/player-core.mjs`, `#lat-read`
-in `lattice-emulator.js`, `.st-read-article` in `docs/src/components/studio/ReadArticle.tsx`
+in `lattice.js`, `.st-read-article` in `docs/src/components/studio/ReadArticle.tsx`
 — and not in `mermaid.css`, because the Studio's pane ships no `lattice.css` at all and a
 kernel rule at (0,1,2) loses to the other two hosts' generic figure rules ((1,1,1) and
 (1,0,2)). `mermaid.css` § THE RE-HOSTED FIGURE carries the long form and the measurements.
@@ -379,7 +379,7 @@ Two wrong versions of that gate shipped before this one, and both are worth know
 because both looked right:
 
 - **Ungated.** The rule matched anywhere the stylesheet did. The Mermaid bake (`mermaid.bake.js`)
-  (`lattice-emulator.js`) substituted only ```` ```mermaid ```` at the time, so a
+  (`lattice.js`) substituted only ```` ```mermaid ```` at the time, so a
   `~~~mermaid` fence reached the exported HTML unsubstituted with the runtime stripped —
   and the author's only signal that the CLI never drew their diagram became an empty slot,
   in export bytes. (That substitution gap is closed now — see §5.1 — but the gate stays:
@@ -1349,7 +1349,7 @@ Some types accept both. The rendered CSS class is determined by diagram type, no
 **Diagnostic recipe (when Mermaid adds a new diagram type).**
 
 1. Add a `title` directive to the diagram in `lib/components/diagram/diagram/diagram.gallery.md`.
-2. Build to HTML via `node lattice-emulator.js lib/components/diagram/diagram/diagram.gallery.md ...`.
+2. Build to HTML via `node lattice.js lib/components/diagram/diagram/diagram.gallery.md ...`.
 3. Open the HTML in a browser so Mermaid renders the SVG client-side.
 4. Save the post-render DOM (DevTools → Elements → copy outerHTML on the `<svg>`).
 5. Grep for the title text string. Inspect the surrounding `<text>` element's `class` attribute.
@@ -1413,7 +1413,7 @@ measured on Mermaid 11.14, a 60-node flowchart bakes to ~228 KB, so the line sit
 | --- | --- | --- |
 | Live (Playground, Studio, Present) | the runtime, right after it writes a drawn SVG (`tagDiagramMotion`, `lib/runtime/index.js`) | the only place a live diagram is born |
 | Studio HTML-player export | inherited — the bake reads the runtime's DOM | `flattenSvgStyles` clones with attributes |
-| CLI HTML-player export | `lattice-emulator.js`'s player capture, on the baked copy | the CLI's diagrams come from the render worker, not the runtime |
+| CLI HTML-player export | `lattice.js`'s player capture, on the baked copy | the CLI's diagrams come from the render worker, not the runtime |
 
 `tagMermaidMotion` is closure-free because the CLI serializes it into the capture page with
 `toString()`, exactly as it does `flattenSvgStyles`. In the runtime it must never throw: it runs in

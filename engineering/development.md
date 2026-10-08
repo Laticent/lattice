@@ -338,7 +338,7 @@ lib/<X>.js              → SCRIPT_FOR_LIB[X]      (e.g. palette.js → test:pal
 test/unit/<scope>/*     → test:<scope>
 themes/*.css            → test:palette
 docs/, examples/, *.md  → skip — no tests needed
-lattice-emulator.js,    → full unit suite        (safe fallback;
+lattice.js,    → full unit suite        (safe fallback;
 lattice-runtime.js,                                renderers touch everything)
 lattice.css,
 package.json, etc.
@@ -358,7 +358,7 @@ Configured in `.c8rc.json`. Reports HTML to `.scratch/coverage/` (the
 **Coverage is NOT a CI gate** — it's a diagnostic for "what's untested
 in the area I'm changing?" Baseline today: ~41% statements / ~80%
 branches / ~77% functions. Statement number is low because
-`lattice-emulator.js` and `lattice-runtime.js` are exercised by
+`lattice.js` and `lattice-runtime.js` are exercised by
 integration tests, not unit tests.
 
 ## CI
@@ -446,7 +446,7 @@ inputs).
 
 **Hash inputs** (any change invalidates):
 - source `.md` content
-- `lattice-emulator.js`
+- `lattice.js`
 - `lattice.css` + every `themes/*.css`
 - every `lib/*.js`
 - `lib/plugins/mermaid/vendor/mermaid.min.js` (the Mermaid plugin's own copy, which the CLI bake draws with)

@@ -141,7 +141,7 @@ describe('render worker: contract', () => {
     const src = fs.readFileSync(WORKER, 'utf8');
     assert.equal(INVOKES_MMDC.test(src), false, 'the worker must not invoke the CLI binary');
     // The export path: the emulator, and the mermaid plugin's bake it runs (plugin-system phase D).
-    const emulator = fs.readFileSync(path.join(REPO, 'lattice-emulator.js'), 'utf8')
+    const emulator = fs.readFileSync(path.join(REPO, 'lattice.js'), 'utf8')
       + fs.readFileSync(path.join(REPO, 'lib', 'plugins', 'mermaid', 'mermaid.bake.js'), 'utf8');
     assert.equal(INVOKES_MMDC.test(emulator), false,
       'the export path still shells out to mmdc somewhere — that page carries no Lattice '
@@ -197,7 +197,7 @@ describe('render worker: a dead page is not a diagram error', () => {
     // The worker bounds its own CDP calls, but a child that wedges before it can report
     // leaves the caller's synchronous `execFileSync` blocked with no budget at all.
     // The export path: the emulator, and the mermaid plugin's bake it runs (plugin-system phase D).
-    const emulator = fs.readFileSync(path.join(REPO, 'lattice-emulator.js'), 'utf8')
+    const emulator = fs.readFileSync(path.join(REPO, 'lattice.js'), 'utf8')
       + fs.readFileSync(path.join(REPO, 'lib', 'plugins', 'mermaid', 'mermaid.bake.js'), 'utf8');
     assert.match(emulator, /execFileSync\(process\.execPath, \[MERMAID_WORKER, jobFile\], \{[^}]*timeout \}/,
       'the worker spawn must carry a timeout');

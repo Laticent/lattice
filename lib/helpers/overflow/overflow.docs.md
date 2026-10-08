@@ -15,7 +15,7 @@ Shipped decks should never have overflow rings.
 - `lattice-runtime.js` measures rendered slide height against the
   720px budget. If overflow is detected, it adds `.overflow` to the
   section at runtime.
-- `lattice-emulator.js` produces an analogous static check during PDF
+- `lattice.js` produces an analogous static check during PDF
   build, and what reaches the artifact is the `overflow-marker` EXPORT
   SETTING's job (`--overflow-marker`, `LATTICE_OVERFLOW_MARKER`, or the
   Studio's per-export step — `lib/core/resolve-overflow-marker.js`):
@@ -54,7 +54,7 @@ uniformly dense (no real outlier) or the cell has no known collection at all,
 it falls back to the whole cell — never a guess dressed as a fact.
 
 This is preview-only, like the ring itself: it lives entirely in
-`lib/runtime/index.js` (never in `lattice-emulator.js`, so it can never reach
+`lib/runtime/index.js` (never in `lattice.js`, so it can never reach
 an exported PDF/PPTX/HTML). The cell-level signal comes from
 `lib/core/overflow-probe.js`'s `overCells` — every clip cell whose own spill
 exceeded the 12px tolerance, a geometrically certain cause, not a guess. The

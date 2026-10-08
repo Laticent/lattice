@@ -49,7 +49,7 @@
      CI/server with no system emoji font shows monochrome glyphs unless the
      opt-in full-offline tier is loaded (`npm run fonts:emoji` +
      dist/lattice-emoji.css, which @font-faces this same family to a local ttf).
-     The owned render paths (lattice-engine, lattice-emulator) emit emoji as
+     The owned render paths (lattice-engine, lattice) emit emoji as
      plain text (no twemoji). The marp-cli / marp-vscode paths instead rewrite
      emoji to <img class="emoji"> (twemoji); section img.emoji handles that
      variant. */
@@ -725,7 +725,7 @@
    * THE INK IS DELIBERATELY NOT DECLARED HERE, and since #1527 the reason is history rather
    * than mechanism. It used to be — `--code-inline-fg: var(--accent)` sat on this line — and on
    * the CLI/export path that default silently beat the theme's own value, because
-   * `lattice-emulator.js` composed a render as `paletteCSS + '\n' + layoutCSS`: the raw palette
+   * `lattice.js` composed a render as `paletteCSS + '\n' + layoutCSS`: the raw palette
    * first, this bundle second, both declarations landing at the same specificity where source
    * order decides.
    *
@@ -771,7 +771,7 @@
   --print-bg:              #FFFFFF;
   --print-bg-alt:          #F5F5F5;
   /* Containment rung. REQUIRED, not decorative: `overlayPrintVars` in
-   * lattice-emulator.js only flattens a token when a `--print-<token>` sibling
+   * lattice.js only flattens a token when a `--print-<token>` sibling
    * exists, so without this a Mermaid subgraph box keeps its THEME tint and a
    * pink/blue/violet cluster lands in an otherwise grayscale handout. Matches
    * --print-bg-alt because that is what the cluster resolved to before the fill
@@ -1496,7 +1496,7 @@
 
   /* hljs fallbacks — Night Owl values, EXCEPT the two solved below.
    *
-   * A FALLBACK IS ALL THEY ARE AGAIN. `lattice-emulator.js` used to concatenate
+   * A FALLBACK IS ALL THEY ARE AGAIN. `lattice.js` used to concatenate
    * `paletteCSS + layoutCSS`, so on the EXPORT path the base loaded AFTER the theme
    * and these values WON — a theme's own `--hljs-*` never painted there. #1527 flipped
    * it, so what paints now is the theme's value where it declares one (all 32 declare
@@ -1688,7 +1688,7 @@ section[data-cards-coda="spread"]:has(> .cell-coda)  { --cards-align: space-even
  *
  * And a thing worth knowing before anyone debugs split furniture in the Studio: THE PLAYGROUND
  * HAS NO SPLITTER. `lat-split-native` appears 0 times in `docs/public/playground/
- * lattice-playground.js` against 5 in `dist/lattice-emulator.js`, and a deck that splits into
+ * lattice-playground.js` against 5 in `dist/lattice.js`, and a deck that splits into
  * a cover plus three pages on export renders as ONE slide there. It honors `size:` — the same
  * deck reports `data-family="tall"` at 719x899 — so this is the splitter being absent from that
  * bundle, not the size being ignored. So split-scoped rules do not paint there today. Treat that

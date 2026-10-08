@@ -3,7 +3,7 @@
  *
  * The registry is the central plugin list behind the engine's two HTML-stage
  * consumers: `applyToHtml` (lib/engine — serves both the CLI/PDF path,
- * lattice-emulator.js, and the browser playground, which shares the same
+ * lattice.js, and the browser playground, which shares the same
  * call) and `applyToDom` (lattice-runtime.js, the VS Code preview runtime).
  * These tests pin the registry's shape contract and assert that the
  * currently-registered transformers each conform to it.

@@ -137,7 +137,7 @@ describe('type-floor watcher — the live runtime, on the real bundle', () => {
     // fixture; `type-floor-dense.md` says what it is for.
     const deck = path.join(ROOT, 'test', 'fixtures', 'type-floor-dense.md');
     const out = path.join(dir, 'fluid.pdf');
-    const res = spawnSync('node', [path.join(ROOT, 'lattice-emulator.js'), deck, out, '--fluid'], {
+    const res = spawnSync('node', [path.join(ROOT, 'lattice.js'), deck, out, '--fluid'], {
       cwd: ROOT, encoding: 'utf8', timeout: 240000,
     });
     assert.equal(res.status, 0, `--fluid export failed:\n${res.stderr}`);

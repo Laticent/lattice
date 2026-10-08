@@ -40,7 +40,7 @@ const puppeteer = require('puppeteer');
 const { resolveChrome, skipWithoutChrome } = require('../../helpers/chrome.js');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
-const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+const EMULATOR = path.join(ROOT, 'lattice.js');
 const OUT = path.join(ROOT, '.scratch', 'numbered-bookend-stamp');
 const TIMEOUT = 300000;
 

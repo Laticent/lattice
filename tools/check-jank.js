@@ -152,7 +152,7 @@ const SLACK = 1.0;
 // ── argv ──────────────────────────────────────────────────────────────────
 //
 // PARSED, NOT SCANNED. The first cut used `argv.indexOf('--max')` per flag, which
-// silently ignored BOTH the `--flag=value` form (the one `lattice-emulator.js` itself
+// silently ignored BOTH the `--flag=value` form (the one `lattice.js` itself
 // accepts, so the natural thing to type) and any misspelling. `--anchor='h2::after'`
 // therefore ran a full sweep with NO anchor: no DRIFT line, no COLLISION line, exit 0
 // — a rig reporting clean because it was never told what to look at. Unknown flags and

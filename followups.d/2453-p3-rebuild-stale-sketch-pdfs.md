@@ -24,5 +24,5 @@ done when — each PDF is re-rendered from main in one PR whose golden-diff comm
             accumulated drift, reviewed as such.
 evidence  — the pixel diff in the #2453 session: 1 to 17 changed pages per deck, including
             non-sketch pages.
-verify    — `node dist/lattice-emulator.js examples/<deck>.md examples/<deck>.pdf` for each,
+verify    — `node dist/lattice.js examples/<deck>.md examples/<deck>.pdf` for each,
             then read the golden-diff comment on the PR.

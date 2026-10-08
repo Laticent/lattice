@@ -267,7 +267,7 @@ describe('code-line-clipped — the budgets, as the browser resolves them', () =
         + `---\n\n<!-- _class: code -->\n\n\`\`\`js\n${ruler}\n\`\`\`\n`);
       const base = path.join(os.tmpdir(), `codewidth-${tag}-${process.pid}`);
       // `--keep-html`: this reads the `.html` sidecar beside the PDF, deleted on success by default (P1).
-      execFileSync(process.execPath, [path.join(ROOT, 'dist/lattice-emulator.js'), src, `${base}.pdf`, 'indaco', '-q', '--keep-html'],
+      execFileSync(process.execPath, [path.join(ROOT, 'dist/lattice.js'), src, `${base}.pdf`, 'indaco', '-q', '--keep-html'],
         { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'], timeout: 600000 });
       const page = await browser.newPage();
       await page.setViewport({ width: 1600, height: 1000 });

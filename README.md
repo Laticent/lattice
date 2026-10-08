@@ -51,7 +51,7 @@ and what the name means — is at
 
 ## What you get
 
-- **A renderer.** The bundled `lattice-emulator.js` emits PDF, PPTX, ODP, and PNG
+- **A renderer.** The `lattice` command emits PDF, PPTX, ODP, and PNG
   sets (plus an HTML sidecar) from the same source — the output extension picks
   the format, and PPTX/PNG rasterize from the same render as the PDF. Mermaid diagrams pre-render
   as inline SVG. Code blocks syntax-highlight. Slides are 1280×720.
@@ -102,9 +102,13 @@ engine — there is no Marp dependency or Marp render path:
 ```sh
 npm install @laticent/lattice
 
-# The emulator, exposed as a bin (the owned engine). Resolves the engine +
-# every theme relative to the installed package, so it works from any dir.
+# The `lattice` command, run from inside that project (npx finds the local
+# install). It resolves the engine and every theme relative to the package.
 npx lattice deck.md deck.pdf
+
+# Outside a project, name the package: the unscoped `lattice` on npm is an
+# unrelated package, so a bare `npx lattice` there would fetch it instead.
+npx @laticent/lattice deck.md deck.pdf
 ```
 
 Need a portable bundle for someone who renders with Marp? The docs-site
@@ -126,8 +130,8 @@ The package also exposes these named entry points:
 | `@laticent/lattice/css/min` | `dist/lattice-min.css` | minified engine bundle (Marp `@theme`/`@size` directives preserved) |
 | `@laticent/lattice/palette/<name>.css` | `dist/palettes/<name>.css` | one palette's **tokens**, imports resolved, for a bundler (Vite, webpack) or your own UI. Not a slide renderer: to show slides, use `render()` from `@laticent/lattice/engine` (see the themes guide) |
 | `@laticent/lattice/themes/<name>.css` | `themes/<name>/<name>.css` | one palette — a **Marp theme file**, not a standalone stylesheet; a bundler stops on its `@import 'lattice'` |
-| `lattice` bin · `@laticent/lattice` (`main`/`.`) | `dist/lattice-emulator.js` | the bundled CLI renderer / PDF exporter (`npx lattice deck.md out.pdf`) |
-| `@laticent/lattice/min` | `dist/lattice-emulator-min.js` | minified CLI bundle (shebang + executable bit preserved); the bin/main stays the unminified file |
+| `lattice` bin · `@laticent/lattice` (`main`/`.`) | `dist/lattice.js` | the bundled CLI renderer / PDF exporter (`npx lattice deck.md out.pdf`) |
+| `@laticent/lattice/min` | `dist/lattice-min.js` | minified CLI bundle (shebang + executable bit preserved); the bin/main stays the unminified file |
 
 The `-min` variants are byte-for-byte render-faithful to their unminified
 siblings — the CSS minifier preserves Marp's directive comments, so a
@@ -170,7 +174,7 @@ package.
 
 ### Render to PDF, PPTX, ODP, or PNG
 
-The bundled `lattice` bin (the emulator) emits all of them from one source —
+The `lattice` command emits all of them from one source —
 the **output extension picks the format** — plus an HTML sidecar:
 
 ```sh
@@ -262,8 +266,8 @@ For other delivery formats from the same source, just change the output
 extension — the deck's `theme:` front matter selects the palette:
 
 ```sh
-node lattice-emulator.js deck.md deck.pptx   # PowerPoint (image slides)
-node lattice-emulator.js deck.md deck.png    # → deck.001.png, deck.002.png, …
+npx lattice deck.md deck.pptx   # PowerPoint (image slides)
+npx lattice deck.md deck.png    # → deck.001.png, deck.002.png, …
 ```
 
 PNG slides rasterize at 2× the slide dimensions (2560×1440 from 1280×720) —
@@ -295,7 +299,7 @@ theme: cuoio    # warm leather
 For CLI builds, the active palette can also be overridden positionally:
 
 ```sh
-node lattice-emulator.js deck.md out.pdf <palette-name>
+npx lattice deck.md out.pdf <palette-name>
 ```
 
 The third positional argument names a file in `themes/`. The default is
@@ -379,9 +383,9 @@ indexed elsewhere; follow the pointers.
 
 ```text
 lattice/
-├── lattice-emulator.js   # the owned engine (CLI renderer; esbuild entry)
+├── lattice.js            # the `lattice` command's source (bundled to dist/lattice.js)
 ├── dist/                 # GENERATED, NOT committed — built by `npm install` / `npm run build`
-│                         #   (lattice.css, the runtime/emulator bundles, docs/).
+│                         #   (lattice.css, the runtime and CLI bundles, docs/).
 │                         #   Regenerate: npm run build · index: dist/README.md
 ├── lib/                  # engine source: core kernels, transformers, components/, theme/, forms/
 ├── themes/               # palettes (each light theme + a paired dark variant)
@@ -410,7 +414,7 @@ Two tiers, both built on Node's `node:test`:
 ```sh
 npm test                  # unit tier — palette, var-map contract, source parse
 npm run test:integration  # integration tier — rebuilds the galleries through
-                          # lattice-emulator and the runtime; cross-renderer parity
+                          # lattice and the runtime; cross-renderer parity
 npm run test:all          # both tiers
 ```
 
@@ -423,7 +427,7 @@ per-component galleries derive their counts from the manifest itself
 via `expectedGallerySlideCount()`.
 
 The integration suite asserts cross-renderer parity between the two
-render paths — the owned engine (`lattice-emulator.js`) and the browser
+render paths — the owned engine (`lattice.js`) and the browser
 runtime (`dist/lattice-runtime.js`).
 
 ## The Laticent project

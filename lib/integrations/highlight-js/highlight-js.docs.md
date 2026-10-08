@@ -34,7 +34,7 @@ Note the `<code>` carries `language-<lang>` and **not** an `hljs` class. (The
 `section code.hljs` rule in `highlight-js.css` is therefore inert on the engine
 path; `section :is(pre, marp-pre) code` in `base.elements.css` does the work.)
 
-**One highlighter, every path.** `lattice-emulator.js` does not import
+**One highlighter, every path.** `lattice.js` does not import
 highlight.js — it calls `createEngine()` like everything else, so the CLI, the
 PDF/PPTX exports, the HTML player bake and the browser preview all run the same
 callback with the same custom grammars registered.

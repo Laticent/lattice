@@ -68,7 +68,7 @@ Spawn the makers (then the checkers) **concurrently**: one message, multiple
   `--region` / `--crop` for detail. See the script header for all modes. `Read`
   the output PNG and it renders inline.
 - **Deck → per-slide PNG (no PDF in hand yet):** render with the owned engine,
-  `node dist/lattice-emulator.js <deck> .scratch/x.pdf`, then rasterize as above
+  `node dist/lattice.js <deck> .scratch/x.pdf`, then rasterize as above
   (`tools/rasterize-for-review.sh .scratch/x.pdf --overview`) for one PNG per
   slide. Needs `CHROME_PATH` for the render; see `engineering/development.md`
   (cloud-sandbox tooling) and `engineering/gotchas.md` (the "no browser" symptom).
@@ -102,7 +102,7 @@ diverges in its own ways: html-to-image inlines computed styles onto
 HTMLElements only, so anything styled from the document stylesheet inside an
 `<svg>` needs explicit baking (see `engineering/gotchas.md` § "Charts export
 black/unstyled"). A change that renders perfectly in the live preview and
-through lattice-emulator can still export corrupted — the black-chart jargon
+through lattice can still export corrupted — the black-chart jargon
 export shipped exactly that way.
 
 So for ANY export-pipeline change (the capture frame, the rasterizers, the

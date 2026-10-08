@@ -39,7 +39,7 @@ const { stalenessAgainstInputs } = require('./lib/render-inputs');
 
 const ROOT = path.join(__dirname, '..');
 const COMPONENTS_DIR = path.join(ROOT, 'lib', 'components');
-const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+const EMULATOR = path.join(ROOT, 'lattice.js');
 const THEME_CSS = path.join(ROOT, 'dist', 'lattice.css');
 
 // Human-facing copy for the bucket title slides. Keep terse — the

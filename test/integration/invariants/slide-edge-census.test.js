@@ -23,7 +23,7 @@ const { spawnSync } = require('node:child_process');
 const puppeteer = require('puppeteer');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
-const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+const EMULATOR = path.join(ROOT, 'lattice.js');
 const GALLERY = path.join(ROOT, 'test', 'integration', 'baseline-decks', 'gallery.md');
 const TIMEOUT = 600000;
 

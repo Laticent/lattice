@@ -55,7 +55,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 
   ```bash
   CHROME_PATH=$(ls /root/.cache/puppeteer/chrome/linux-*/chrome-linux64/chrome | sort -V | tail -1) \
-    node dist/lattice-emulator.js <deck>.md <deck>.pdf
+    node dist/lattice.js <deck>.md <deck>.pdf
   ```
 
   `sort -V | tail -1`, not `head -1`: a cache that has accumulated two

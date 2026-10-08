@@ -44,7 +44,7 @@
  *
  * Sibling implementations:
  *   - lib/word-cloud.js     transform module (shared)
- *   - lattice-emulator.js   per-slide HTML-string transform
+ *   - lattice.js   per-slide HTML-string transform
  *   - lib/engine           the engine render path
  *   - lattice-runtime.js    DOM transform for marp-vscode preview
  */

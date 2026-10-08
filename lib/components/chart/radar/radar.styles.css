@@ -33,7 +33,7 @@
  *
  * Sibling implementations:
  *   - lib/radar.js          transform module (canonical)
- *   - lattice-emulator.js   per-slide HTML-string transform
+ *   - lattice.js   per-slide HTML-string transform
  *   - lib/engine           the engine render path
  *   - lattice-runtime.js    DOM transform for marp-vscode preview
  */
@@ -311,7 +311,7 @@ section.form.radar:not(.claim-hero):not(.claim-bleed) .radar-figure[data-variant
  *
  * The token is calibrated by MEASUREMENT against the surface whose BYTES ship —
  * the emulator document Chrome prints the PDF from, AT THE VIEWPORT IT PRINTS
- * AT (1280x720; `lattice-emulator.js` setViewport before `page.pdf`). There
+ * AT (1280x720; `lattice.js` setViewport before `page.pdf`). There
  * `cqi` resolves against the nearest size container's CONTENT box, `.chart-body`
  * at 921.8px, so 1cqi = 9.218px and the old 188px is 20.399cqi.
  *

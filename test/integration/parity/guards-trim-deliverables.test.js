@@ -5,7 +5,7 @@
  * DOM — the metamorphic relations model it, the adapter test measures it in real
  * Chromium, the corpus sweep diffs PDF bytes rendered from it. Nothing opened a
  * written `.html` and asked whether the trim was in there, and the gap is exactly
- * where the defect was: `lattice-emulator.js` writes `outHtml` from `cleanDocHtml`,
+ * where the defect was: `lattice.js` writes `outHtml` from `cleanDocHtml`,
  * a Node-side string, BEFORE the page ever loads, and no later pass rewrites it
  * from the DOM. So the trim never reaches it.
  *
@@ -63,7 +63,7 @@ function render(out, ...flags) { return renderDeck(DECK, out, ...flags); }
 
 function renderDeck(deck, out, ...flags) {
   const r = spawnSync('node',
-    [path.join(ROOT, 'lattice-emulator.js'), deck, '-o', path.join(TMP, out), ...flags],
+    [path.join(ROOT, 'lattice.js'), deck, '-o', path.join(TMP, out), ...flags],
     { cwd: ROOT, encoding: 'utf8' });
   assert.equal(r.status, 0, `render ${out} failed (exit ${r.status}):\n${r.stderr}`);
   return r.stderr || '';

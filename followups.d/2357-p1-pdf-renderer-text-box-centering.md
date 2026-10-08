@@ -16,7 +16,7 @@ why now   — PDFs are the boardroom artifact, and they are the one surface stil
             (`CHROME_PATH=…/linux-131.0.6778.204`), so every PDF takes the `@supports not`
             fallback, a 0.05em nudge measured at worst 0.68px and mean 0.30px off. Current
             Chrome, Firefox and Safari measure 0.2–0.6px worst.
-where     — the puppeteer/Chrome pin in package.json and lattice-emulator.js's browser
+where     — the puppeteer/Chrome pin in package.json and lattice.js's browser
             resolution (~line 1460); CI's setup-chrome step in .github/workflows/ci.yml.
 done when — the export Chrome is ≥ 133, `CSS.supports('text-box', 'trim-both cap alphabetic')`
             is true in the renderer, and the pill ink-diff probe (PR #2357's method: render

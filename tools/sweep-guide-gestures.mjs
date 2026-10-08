@@ -52,7 +52,7 @@ const require = createRequire(import.meta.url);
 const { resolveChrome } = require('./lib/resolve-chrome');
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
-const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+const EMULATOR = path.join(ROOT, 'lattice.js');
 const OUT = path.join(ROOT, '.scratch', 'guide-sweep');
 /** The cursor's half-footprint in PARENT pixels (`POINTER_BOX / 2`), and the width Present shows
  *  a slide at. The footprint does NOT scale with the preview, so inside a 3840-wide deck shown in

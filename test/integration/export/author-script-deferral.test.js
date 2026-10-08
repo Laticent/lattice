@@ -34,7 +34,7 @@
  * CONCURRENT RENDERS competing for the same cores, which is what a CI runner is actually
  * doing to this suite. Six at once:
  *
- *   for i in $(seq 1 6); do (node lattice-emulator.js test/fixtures/author-script-deferral.md \
+ *   for i in $(seq 1 6); do (node lattice.js test/fixtures/author-script-deferral.md \
  *     /tmp/f$i.pdf >/tmp/o$i.txt 2>&1) & done; wait
  *
  * At 400 ms the window reached 450/458/870/941 ms and `LATE ARRIVED` landed in 4 of 6.
@@ -81,7 +81,7 @@ const { spawnSync, execFileSync } = require('child_process');
 
 describe('author-script-deferral', () => {
   const ROOT = path.join(__dirname, '..', '..', '..');
-  const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+  const EMULATOR = path.join(ROOT, 'lattice.js');
   const FIXTURE = path.join(ROOT, 'test', 'fixtures', 'author-script-deferral.md');
   const TIMEOUT = 120000;
 
