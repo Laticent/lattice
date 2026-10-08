@@ -14,6 +14,11 @@ tokenization/
 *.pptx
 *.pdf
 !examples/*.pdf
+# One level down too (the token-contrast set): tools/build-staged-pdfs.js classify()
+# accepts examples/<dir>/<name>.md, and the nightly bless can only commit what git sees.
+!examples/*/*.pdf
+# design-system demo decks, rendered and committed by the nightly bless.
+!design/*.gallery.pdf
 !exemplars/**/*.pdf
 !lib/components/**/*.pdf
 !lib/base/**/*.pdf

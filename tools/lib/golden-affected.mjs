@@ -128,7 +128,9 @@ export function affectedGoldens(changed, { galleries, deckGoldens, cap = DEFAULT
 
   for (const f of changed) {
     if (RENDER_IRRELEVANT.some((re) => re.test(f))) continue;
-    if (f.endsWith('.gallery.md')) {
+    // A gallery the gallery builders render. A `.gallery.md` they do not know (the
+    // design-system decks under design/) is a deck, and falls through to the deck checks.
+    if (f.endsWith('.gallery.md') && gallerySet.has(f)) {
       add(f);
       continue;
     }

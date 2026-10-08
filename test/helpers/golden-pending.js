@@ -40,15 +40,28 @@ function lastCommitTime(paths) {
   }
 }
 
-// The commit time of the last merged bless reachable from HEAD (any parent: on a branch
-// with main merged in, the bless sits on the second-parent side). The bless PR
-// squash-merges as `chore(goldens): nightly bless of <sha> (#N)` (golden-bless.yml).
+// The bless PR squash-merges as `chore(goldens): nightly bless of <sha> (#N)`
+// (golden-bless.yml), and <sha> is the commit it RENDERED from. Same pattern as
+// tools/lib/golden-bless-verdict.mjs, which starts rule 4's window there too.
+const BLESS_SUBJECT_RE = /^chore\(goldens\): nightly bless of ([0-9a-f]{12,40}) \(#\d+\)$/;
+
+// The commit time of what the last merged bless rendered from. Not the time it merged: a
+// person merges the bless PR hours later, and a source committed in between was never
+// rendered, so dating the bless by its merge would assert a PDF that is still waiting.
+// Searched over every parent: on a branch with main merged in, the bless sits on the
+// second-parent side.
 function lastBlessTime() {
   try {
-    const out = execFileSync('git', ['log', '-1', '--format=%ct', '--grep=^chore(goldens): nightly bless of [0-9a-f]* (#[0-9]*)$', 'HEAD'], { cwd: ROOT, encoding: 'utf8' });
-    return Number(out.trim()) || 0;
-  } catch {
+    const subjects = execFileSync('git', ['log', '-n', '50', '--format=%s', '--grep=^chore(goldens): nightly bless of ', 'HEAD'], { cwd: ROOT, encoding: 'utf8' });
+    for (const subject of subjects.split('\n')) {
+      const m = subject.match(BLESS_SUBJECT_RE);
+      if (!m) continue;
+      const out = execFileSync('git', ['log', '-1', '--format=%ct', m[1]], { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+      return Number(out.trim()) || 0;
+    }
     return 0;
+  } catch {
+    return 0; // the rendered-from commit is not in this (shallow) checkout: assert as before
   }
 }
 
@@ -70,4 +83,4 @@ function pendingBless(pdf, sources, { now = Date.now } = {}) {
     : 'no committed PDF yet; the nightly bless renders it after the merge';
 }
 
-module.exports = { pendingBless, PENDING_DAYS };
+module.exports = { pendingBless, PENDING_DAYS, BLESS_SUBJECT_RE };

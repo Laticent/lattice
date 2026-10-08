@@ -88,11 +88,11 @@ describe('component-galleries', () => {
         }
         assert.ok(
           fs.existsSync(lightPdfPath),
-          `light PDF missing: ${path.relative(process.cwd(), lightPdfPath)} — run \`npm run build:galleries\``,
+          `light PDF missing: ${path.relative(process.cwd(), lightPdfPath)} — the nightly bless renders it; check that its PR merged`,
         );
         assert.ok(
           fs.existsSync(darkPdfPath),
-          `dark PDF missing: ${path.relative(process.cwd(), darkPdfPath)} — run \`npm run build:galleries\``,
+          `dark PDF missing: ${path.relative(process.cwd(), darkPdfPath)} — the nightly bless renders it; check that its PR merged`,
         );
         assert.equal(
           pageCount(darkPdfPath),

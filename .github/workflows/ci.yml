@@ -650,9 +650,15 @@ jobs:
             const pdfs = report.addedPdfs || [];
             if (process.env.PUBLISHED === 'true' && pdfs.length) {
               const sha = context.payload.pull_request.head.sha;
-              const blob = `https://github.com/${context.payload.repository.full_name}/blob/ci-drift-images/pr-${context.issue.number}/${sha}`;
+              const raw = `https://raw.githubusercontent.com/${context.payload.repository.full_name}/ci-drift-images/pr-${context.issue.number}/${sha}`;
               body += '\n**📄 New on this PR, rendered by CI** (the nightly bless commits them after the merge):\n\n' +
-                pdfs.map((p) => `- [\`${p.name}\`${p.kind === 'gallery' ? ` · ${p.mood}` : ''}](${blob}/${p.file})`).join('\n') + '\n';
+                pdfs.map((p) => `- [\`${p.name}\`${p.kind === 'gallery' ? ` · ${p.mood}` : ''}](${raw}/${p.file})`).join('\n') + '\n';
+            } else if (pdfs.length) {
+              // Nothing was published, so no one could open these PDFs: take them out of the
+              // `golden-diff-changed` marker, or the bless's rule 4 would count them as shown.
+              const unseen = new Set(pdfs.map((p) => p.relPath));
+              body = body.replace(/<!-- golden-diff-changed: ([^>]*) -->/, (_m, list) =>
+                `<!-- golden-diff-changed: ${list.split(',').filter((g) => g && !unseen.has(g)).join(',')} -->`);
             }
 
             body += '\n' + marker;

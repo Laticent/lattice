@@ -54,7 +54,7 @@ function main() {
   const i = args.indexOf('--base');
   const base = i >= 0 ? args[i + 1] : 'HEAD^1';
   const git = (a) => execFileSync('git', a, { encoding: 'utf8' });
-  const changes = parseNameStatus(git(['diff', '--name-status', '-M', base, 'HEAD', '--', '*.pdf', '*.PDF']));
+  const changes = parseNameStatus(git(['diff', '--name-status', '-M', base, 'HEAD', '--', ':(icase)*.pdf']));
   const r = judge(changes, {
     headRef: process.env.GITHUB_HEAD_REF || '',
     sameRepo: process.env.PR_FROM_SAME_REPO === 'true',
@@ -72,9 +72,10 @@ function main() {
       r.offending.map((f) => `  ${f}\n`).join('') +
       '\nPull requests do not commit PDFs: the nightly bless bot renders and commits them\n' +
       'after merge, and golden-diff shows your visual change on this PR meanwhile.\n' +
-      'Take them out of the PR with:\n' +
-      `  git checkout origin/main -- ${r.offending.join(' ')}   (files main already has)\n` +
-      '  git rm --cached <file>                                  (new files)\n' +
+      'Take them out of the PR: for a file main already has, put main\'s copy back with\n' +
+      '  git checkout origin/main -- <file>\n' +
+      'and for a new or renamed file, untrack it (the file stays on disk) with\n' +
+      '  git rm --cached <file>\n' +
       'See engineering/decisions/2026-10-06-goldens-bot-blessed.md.\n',
   );
   process.exitCode = 1;

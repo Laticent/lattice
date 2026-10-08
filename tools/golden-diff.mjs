@@ -551,7 +551,7 @@ function main() {
     inlineMontages: inlineOrder.slice(0, INLINE_CAP),
     inlineCapped: montageMeta.length > INLINE_CAP,
     // Rendered PDFs of goldens new on this PR, published beside the montages and linked.
-    addedPdfs: added.filter((e) => e.pdf).map((e) => ({ name: e.name, mood: e.mood, kind: e.kind, file: e.pdf })),
+    addedPdfs: added.filter((e) => e.pdf).map((e) => ({ name: e.name, mood: e.mood, kind: e.kind, file: e.pdf, relPath: e.relPath })),
     montageCap: MONTAGE_CAP,
     montagesOmitted,
     render: renderPlan

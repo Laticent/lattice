@@ -71,6 +71,16 @@ describe('golden-affected — a new deck with no committed PDF (goldens step 3)'
     const r = affectedGoldens(['examples/README.md'], { galleries: GALLERIES, deckGoldens: DECKS, newDeckPdf });
     assert.equal(r.scope, 'none');
   });
+  test('a design-system deck (a .gallery.md no gallery builder knows) renders as a deck', async () => {
+    await load();
+    const r = affectedGoldens(['design/forms.gallery.md', 'design/new.gallery.md'], {
+      galleries: GALLERIES,
+      deckGoldens: [...DECKS, 'design/forms.gallery.pdf'],
+      newDeckPdf: (md) => (md === 'design/new.gallery.md' ? 'design/new.gallery.pdf' : null),
+    });
+    assert.deepEqual(r.decks.sort(), ['design/forms.gallery.pdf', 'design/new.gallery.pdf']);
+    assert.deepEqual(r.galleries, []);
+  });
   test('without a classifier, a deck with no PDF is not rendered (the old behavior)', async () => {
     await load();
     assert.equal(run(['examples/brand-new.md']).scope, 'none');

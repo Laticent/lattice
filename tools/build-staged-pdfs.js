@@ -96,8 +96,10 @@ function classify(file) {
   // guard, so the hook never renders one, so it fails the guard forever. The lowercase
   // leading character in the stem already excludes README.md, which is what the guard
   // was really for.
+  // examples/chart-theme-gallery/ holds hand-rendered reviewer PDFs, not decks
+  // (PDF_OWNERSHIP in tools/check-ownership.js): a note there must not become a golden.
   m = file.match(/^(examples\/[a-z][a-z0-9-]*\/[a-z][a-z0-9-]*)\.md$/);
-  if (m) return { kind: 'deck', src: file, out: `${m[1]}.pdf` };
+  if (m && !file.startsWith('examples/chart-theme-gallery/')) return { kind: 'deck', src: file, out: `${m[1]}.pdf` };
 
   // Design-system demo decks (design/<name>.gallery.md → sibling .pdf). These
   // "live with their owner" rather than under examples/, so tools/preview.js
