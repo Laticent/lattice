@@ -1,0 +1,16 @@
+{
+  "title": "A theme that is not a base must name what it extends",
+  "spec": "THEME-1.0",
+  "section": "5",
+  "manifest": {
+    "name": "specimen-dark",
+    "role": "variant-dark",
+    "family": "brand",
+    "modes": [
+      "dark"
+    ]
+  },
+  "expect": {
+    "valid": false
+  }
+}

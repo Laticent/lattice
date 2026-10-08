@@ -1,0 +1,20 @@
+{
+  "title": "A base theme must say whether it has a dark variant",
+  "spec": "THEME-1.0",
+  "section": "5",
+  "manifest": {
+    "name": "specimen",
+    "role": "base",
+    "family": "brand",
+    "tier": "curated",
+    "modes": [
+      "light",
+      "dark"
+    ],
+    "order": 0,
+    "swatch": "#006FA8"
+  },
+  "expect": {
+    "valid": false
+  }
+}

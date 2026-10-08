@@ -554,6 +554,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/spike-composition-snapshot.mjs` | SPIKE — not production tooling. The measurement harness behind |
 | `tools/spike-video-export.mjs` | Spike for LTT step 3 (engineering/decisions/2026-09-25-video-export.md): a narrated HTML |
 | `tools/state-chart-label-probe.js` | state-chart-label-probe — does any state-chart edge label touch another label, a line, a node, or the edge of its drawing? |
+| `tools/theme-conformance.js` | Run the theme contract's shared test cases (spec/conformance/theme/) against the reference |
 | `tools/transform-parity.mjs` | transform-parity — does the DOM implementation of each registry transformer |
 | `tools/us-english.js` | The house US-English word list: a curated British-to-American map, used by the commit-msg hook to warn on British spellings (HARD RULE #21). |
 | `tools/vendor-plugin-libs.js` | Refresh the third-party libraries plugins OWN a copy of (`payload.<key>.vendored` and |

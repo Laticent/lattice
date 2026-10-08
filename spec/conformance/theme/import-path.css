@@ -1,0 +1,172 @@
+/* @theme import-path
+ *
+ * Lattice · Specimen
+ * ────────────────────────────────────────────────────────────────────────
+ * A complete theme derived from ten colors.
+ *
+ * Token-only palette on the Lattice contract (design/theming.md). Surfaces,
+ * ink, and accent are light-dark() pairs so the dark variant works from the
+ * native color-scheme cascade — no per-variant file required. Every
+ * text-bearing token clears WCAG AA on its paired surface in both modes
+ * (derived contrast-aware; verify with `npm run test:palette`).
+ */
+
+@import 'lattice';
+@import './other.css';
+
+/* Zero-specificity light default — author overrides always win. */
+:where(:root) { color-scheme: light; }
+
+:root {
+  /* Surfaces · ink · graphical · accent · semantic signals */
+  --bg: light-dark(#fbfbfd, #04060a);
+  --bg-alt: light-dark(#eef1f7, #11141a);
+  --surface-inverse: #0b0d13;
+  --border: light-dark(#d5d7dc, #272a30);
+  --text-display: #fdfdfe;
+  --text-heading: light-dark(#161a22, #fdfdfe);
+  --text-body: light-dark(#3c4350, #a1a5ac);
+  --text-secondary: light-dark(#4e5563, #90949a);
+  --text-label: light-dark(#2d4ed8, #aac3ff);
+  --text-muted: light-dark(#646c7a, #7b7f85);
+  --code-inline-fg: light-dark(#2d4ed8, #98b5ff);
+  --muted-mark: light-dark(#646c7a, #bcc2cc);
+  --accent: light-dark(#2d4ed8, #98b5ff);
+  --accent-soft: light-dark(#e7ecfb, #202c4c);
+  --on-accent: light-dark(#ffffff, #010025);
+  --on-accent-soft: light-dark(#2d4ed8, #98b5ff);
+  --accent-soft-body: var(--text-body);
+  --pass: light-dark(#1f7a4d, #6aa17f);
+  --fail: light-dark(#c0392b, #d97a6b);
+  --warn: light-dark(#a66200, #cb9763);
+  --pass-bg: color-mix(in srgb, var(--pass) 10%, transparent);
+  --fail-bg: color-mix(in srgb, var(--fail) 10%, transparent);
+  --warn-bg: color-mix(in srgb, var(--warn) 10%, transparent);
+}
+
+:root {
+  /* Dark-variant tokens (section.dark + light-dark() dark sides) */
+  --scheme-dark-bg: #04060a;
+  --scheme-dark-bg-alt: #11141a;
+  --scheme-dark-border: #272a30;
+  --scheme-dark-text-heading: #fdfdfe;
+  --scheme-dark-text-body: #a1a5ac;
+  --scheme-dark-text-display: #fdfdfe;
+  --scheme-dark-text-secondary: #90949a;
+  --scheme-dark-text-label: #aac3ff;
+  --scheme-dark-text-muted: #7b7f85;
+  --scheme-dark-muted-mark: #bcc2cc;
+}
+
+:root {
+  /* highlight.js syntax */
+  --hljs-comment: #7a818e;
+  --hljs-keyword: #86a2ea;
+  --hljs-built_in: #e1897f;
+  --hljs-number: #c98cc8;
+  --hljs-literal: #5aafe1;
+  --hljs-string: #b792da;
+  --hljs-title: #a09ae6;
+  --hljs-type: #c2a04c;
+  --hljs-variable: #e1897f;
+  --hljs-punctuation: #acb7d2;
+}
+
+:root {
+  /* Categorical cycle (paired light/dark) + on-canvas ink + structural + alarm */
+  --cat-1-fill: light-dark(#d2defa, #30478e);
+  --cat-2-fill: light-dark(#e0d9f6, #553b85);
+  --cat-3-fill: light-dark(#edd5ec, #6e316e);
+  --cat-4-fill: light-dark(#f5d4de, #7d2a4e);
+  --cat-5-fill: light-dark(#f8d5d0, #822c26);
+  --cat-6-fill: light-dark(#f3d8c5, #753c00);
+  --cat-7-fill: light-dark(#e9ddc1, #614900);
+  --cat-8-fill: light-dark(#dce2c4, #4a5300);
+  --cat-9-fill: light-dark(#cde6cf, #085e21);
+  --cat-10-fill: light-dark(#c3e7dd, #005b4c);
+  --cat-11-fill: light-dark(#c0e6ec, #005861);
+  --cat-12-fill: light-dark(#c6e3f6, #005379);
+  --cat-1-mark: light-dark(#354f9d, #acc3fc);
+  --cat-2-mark: light-dark(#5e4193, #cab9f5);
+  --cat-3-mark: light-dark(#79367a, #e2b1e1);
+  --cat-4-mark: light-dark(#8a2f56, #f2adc5);
+  --cat-5-mark: light-dark(#90302a, #f7afa6);
+  --cat-6-mark: light-dark(#814200, #efb78e);
+  --cat-7-mark: light-dark(#6b5100, #dcc184);
+  --cat-8-mark: light-dark(#525c00, #c0cc8c);
+  --cat-9-mark: light-dark(#076725, #a0d4a4);
+  --cat-10-mark: light-dark(#006454, #85d7c3);
+  --cat-11-mark: light-dark(#00616b, #7ed4e0);
+  --cat-12-mark: light-dark(#005c85, #8ecdf5);
+  --cat-1-ink: light-dark(#354f9d, #acc3fc);
+  --cat-2-ink: light-dark(#5e4193, #cab9f5);
+  --cat-3-ink: light-dark(#79367a, #e2b1e1);
+  --cat-4-ink: light-dark(#8a2f56, #f2adc5);
+  --cat-5-ink: light-dark(#90302a, #f7afa6);
+  --cat-6-ink: light-dark(#814200, #efb78e);
+  --cat-7-ink: light-dark(#6b5100, #dcc184);
+  --cat-8-ink: light-dark(#525c00, #c0cc8c);
+  --cat-9-ink: light-dark(#076725, #a0d4a4);
+  --cat-10-ink: light-dark(#006454, #85d7c3);
+  --cat-11-ink: light-dark(#00616b, #7ed4e0);
+  --cat-12-ink: light-dark(#005c85, #8ecdf5);
+  --cat-on-fill: light-dark(#161a22, #ffffff);
+  --cat-on-mark: light-dark(#ffffff, #161a22);
+  --diagram-stroke: #4c6197;
+  --diagram-line: light-dark(#2c333f, #b3b8bf);
+  --diagram-accent-warm: var(--accent);
+  --diagram-critical: light-dark(#c20000, #ff5544);
+}
+
+:root {
+  /* Containment tier — nested structural surfaces, their edges and label ink */
+  --c-container: light-dark(#e4e7f0, #0f1217);
+  --c-subcontainer: light-dark(#cdd0d9, #1f2228);
+  --c-container-edge: light-dark(#2d4ed8, #98b5ff);
+  --c-subcontainer-edge: light-dark(#2d4ed8, #98b5ff);
+  --c-on-container: light-dark(#161a22, #ffffff);
+  --c-on-subcontainer: light-dark(#161a22, #ffffff);
+}
+
+:root {
+  /* Spectrum ribbon (brand bar, divider rail, structural hairline) */
+  --spectrum: linear-gradient(90deg, #122293 0%, #5079ff 55%, #ff544b 100%);
+  --spectrum-vertical: linear-gradient(180deg, #122293 0%, #5079ff 55%, #ff544b 100%);
+  --spectrum-end: #ff544b;
+}
+
+:root {
+  /* Sequential ramp anchor (the other nine stops derive in lattice.css) */
+  --seq-500: light-dark(#2d4ed8, #6a91ff);
+}
+
+:root {
+  /* Chart-family spectrums */
+  --chart-cat1: light-dark(#455fa7, #798ec3);
+  --chart-cat2: light-dark(#7a4c94, #a180b4);
+  --chart-cat3: light-dark(#974264, #b97a90);
+  --chart-cat4: light-dark(#9a4825, #bb7e66);
+  --chart-cat5: light-dark(#7c5e00, #a28c5b);
+  --chart-cat6: light-dark(#48711e, #7c9a64);
+  --chart-cat7: light-dark(#007462, #629c8e);
+  --chart-cat8: light-dark(#006e89, #6198ac);
+  --chart-state-pass: var(--pass);
+  --chart-state-warn: var(--warn);
+  --chart-state-fail: var(--fail);
+  --chart-state-info: light-dark(#32669a, #6da3da);
+  --chart-state-mute: light-dark(#858d9a, #a4acba);
+}
+
+:root {
+  /* Heatmap ramp — five stop positions and the ink solved against each stop's fill */
+  --heatmap-step1: 18%;
+  --heatmap-step2: 36.5%;
+  --heatmap-step3: 55%;
+  --heatmap-step4: 73.5%;
+  --heatmap-step5: 92%;
+  --heatmap-step1-ink: light-dark(#3c4350, #a1a5ac);
+  --heatmap-step2-ink: light-dark(#3c4350, #afb3bb);
+  --heatmap-step3-ink: light-dark(#2b313d, #cdd2d9);
+  --heatmap-step4-ink: light-dark(#131824, #f1f6fd);
+  --heatmap-step5-ink: light-dark(#eaf2ff, #181b21);
+}

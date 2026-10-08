@@ -1,0 +1,10 @@
+{
+  "title": "An inline data: URI is allowed",
+  "spec": "THEME-1.0",
+  "section": "6",
+  "expect": {
+    "ok": true,
+    "blocked": false,
+    "errors": []
+  }
+}
