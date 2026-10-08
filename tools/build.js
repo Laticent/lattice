@@ -197,7 +197,8 @@ const STEPS = [
   // The LTT format package (2026-09-24-lattice-timing-track.md §6). Ordered before Cadenza,
   // which depends on it — though Cadenza's build inlines it from SOURCE (build-cadenza-lib.js),
   // so the two run in parallel with no join between them. What reads this dist/ is root CJS
-  // (`require('@laticent/ltt')` from lib/core/) and an npm publish.
+  // (`require('@laticent/ltt')` from lib/core/), the emulator bundle, which inlines it, and an
+  // npm publish.
   // Guardrail G1: the LTT JSON Schema is GENERATED from docs/src/lib/ltt/types.ts and
   // committed, so build:check fails when a type changes without it. Reads source only.
   { label: 'LTT JSON Schema (docs/src/lib/ltt/ltt.schema.json)', script: 'build-ltt-schema.js' },
@@ -244,7 +245,7 @@ const STEPS = [
 
 // The slowest steps (non-incremental `tsc --emitDeclarationOnly`). Their only
 // ordering dependency is on the steps that BUNDLE their dist/ — today
-// build-player-core.js and build-read-along-core.js, both of which reach
+// build-emulator.js, build-player-core.js and build-read-along-core.js, all of which reach
 // Cadenza's (see JOIN_BEFORE_SCRIPTS below; this comment claimed read-along-core
 // was the only one, and it was wrong). Run them in the background as soon as the
 // pipeline starts; join right before the first step that consumes one. Each -lib
@@ -277,7 +278,11 @@ const BACKGROUND_LABELS = new Set([
 // colder container, or one step moved earlier flips it. The same dependency, in its
 // serial form, is already on the record: the bootstrap loop below hit
 // `Could not resolve "@laticent/cadenza"` for exactly this reason.
-const JOIN_BEFORE_SCRIPTS = new Set(['build-player-core.js', 'build-read-along-core.js']);
+//
+// build-emulator.js joined the set when the CLI bundle began inlining `@laticent/ltt` and
+// `@laticent/cadenza` (tools/build-emulator.js INLINE_PACKAGES): it now reads both dists, and it
+// runs ahead of player-core, so it is the first consumer and the one that does the joining.
+const JOIN_BEFORE_SCRIPTS = new Set(['build-emulator.js', 'build-player-core.js', 'build-read-along-core.js']);
 
 function runStep(step, check) {
   const args = [path.join(__dirname, step.script), ...(step.args || [])];

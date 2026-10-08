@@ -1533,6 +1533,28 @@ Answered by the owner on #2509 after #2508 merged; written here with the E0 chan
   slides with math off and 2 with it on follows each switch with no keystroke. With the listener
   removed, the case fails (expected 3, received 2).
 
+- **The emulator bundle waits for the background library builds.** #2595 inlined LTT and Cadenza
+  into `dist/lattice-emulator.js` (`tools/build-emulator.js` `INLINE_PACKAGES`), but both dists
+  build as BACKGROUND steps in `tools/build.js`, joined only at player-core, which runs after the
+  emulator. So the emulator could bundle a dist a live child process was still writing: the race
+  `JOIN_BEFORE_SCRIPTS` exists to close. `build-emulator.js` is now in that set, and the
+  orchestrator test pins it. The same session's clean-room comparison (math and diagram galleries,
+  72 pages, pixel-identical to the in-tree render) found the sequence slide's participant names
+  painting invisibly in both renders and in the committed golden: logged as
+  `2577-p1-sequence-actor-labels-…`.
+
+- **Phase E mapped, and the Studio's silent drop closed (`2417-p5`).** A read of what phase E
+  touches found it is three pieces of work, now written into
+  `followups.d/2417-p5-plugin-roadmap-phases-e-to-g.md`: a fence-level code door first (today's door
+  claims slides, not fences), then the CLI half, then the Studio half, with three owner questions
+  before the second starts. On the way it found the Studio's Library import dropping a code-free
+  plugin zip with no refusal, while `lattice packages add` refused it by name. Both doors now return
+  `PLUGIN_REFUSAL` from `lib/packages/plugin-refusal.js` (its own leaf, off the eager path), checked before any file is judged; the Studio's
+  check sits in `package-zip.ts` `readPackagesFromZip`, which loads only on an import, so the Studio's
+  eager bundle does not grow. Pinned by `asset-bundle.test.ts` (with the check removed, the code-free
+  case receives `[]`) and `code-door.test.js`, and seen on the PR's docs preview: the Library's toast
+  reads "Refused 1: glow — plugin packages cannot be installed yet".
+
 ## References
 
 - [`2026-06-14-plugin-extension-system.md`](2026-06-14-plugin-extension-system.md) — LPM.

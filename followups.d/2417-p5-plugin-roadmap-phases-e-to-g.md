@@ -58,3 +58,32 @@ done when — each phase lands as its own PR with the ratchet still at 0, and th
 evidence  — per phase: byte identity or export sign-off (dark and light renders via
             SendUserFile) where a render changes, as phase A and B did.
 verify    — tier 1 for E and G, because trust and packaging decisions are hard to reverse.
+
+**Mapped 2026-10-07 (the P4 of #2577's brief), not built.** Phase E is three pieces of work, in
+this order, and none fits inside another feature's PR (HARD RULE #17):
+1. **A fence-level code door (the prerequisite).** The shipped door (`lib/packages/code-door.js`,
+   `code-door-core.mjs` `claimedSlides`, `lib/transformers/code-packages.js`, the Studio's
+   `docs/src/lib/code-packages/`) claims whole SLIDES by class. Nothing claims, captures or
+   substitutes a FENCE, so §9 decision 3 ("a fence renderer is `body → html`") has no hook yet.
+   It also needs `refuseCode` (`code-shape.mjs`) to admit a plugin `render.js` and `trust.js` keys
+   for `plugin/<name>`. An engine transform, so it takes the adversarial trio (#25).
+2. **The CLI half.** Plugins are compiled into generated registries at build time
+   (`tools/build-plugin-registry.js` → `registry.generated.js`, `grammar.generated.mjs`), and
+   `admitPlugins` (`host-grammar.mjs`) reports an unknown name and nothing more, so a zip plugin
+   needs a RUNTIME merge into the grammar and `installPlugins`, a collision rule that disables
+   (today `resolve.js` fails the build), per-deck CSS through #22's style sink
+   (`lib/layout/bridge.js` `componentBlock` is the route to copy), a `targets` field in
+   `plugin.schema.json`, the `gate.js` plugin branch with the `highlight` / `hydrate: "pass"`
+   refusals, subfolder reporting in `cli.js` `readSource` and `home.js` `readFolder`, and export
+   provenance (name + SHA-256) in `lib/core/reopenable.js`, which records none today.
+3. **The Studio half.** `package-zip.ts` (a plugin writer and reader; `readPackagesFromZip` drops
+   subfolders silently too), `asset-store.js` (no plugin kind), `PluginsSettings.tsx` (shipped
+   plugins only), `plugin-admission.ts`.
+
+Three questions are still the owner's before step 2 or 3 starts: where the Studio keeps a zip
+plugin (§9 decision 8 defers it to this phase); whether decision 7's "token-only gates" REFUSE a
+hex literal or an unscoped selector, or only report it as a component import does today
+(`lib/packages/import-gate.js` `REFUSING_RULES` refuses off-device rules only); and the fence
+door's contract (what a fence renderer is handed, and whether a deck's `plugins:` admission also
+gates the door's consent). Fixed on the way: the Studio's Library import dropped a code-free plugin
+zip with no word; both doors now refuse a plugin by name with one string (`PLUGIN_REFUSAL`).
