@@ -111,7 +111,7 @@ All 13 registered IDs are still emitted, so nothing was removed. But at least 14
 without a minor version, and nothing checks the registry against the code. A tool that relied on
 the registry, as §3 invites, would not know that over 90% of the findings exist. The severities
 drifted too: the spec says v1 has only `error` and `warning`, and `lint-core.js` also emits
-`info` (6 sites, 3 of them conditional) and `suggestion` (6 sites, 1 of them conditional).
+`info` (9 sites, 6 of them conditional) and `suggestion` (6 sites, 1 of them conditional).
 
 ### 4.2 LFM's front-matter surface
 
