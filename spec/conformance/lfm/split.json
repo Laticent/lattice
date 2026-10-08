@@ -1,0 +1,12 @@
+{
+ "title": "split: headings (the default) starts a slide at the first # and every ##; split: rule only at ---",
+ "spec": "LFM-1.1",
+ "section": "2.3",
+ "rows": [
+  { "name": "default", "source": "## One\n\nA.\n\n## Two\n\nB.\n", "L1": { "slideCount": 2 } },
+  { "name": "headings", "source": "---\nsplit: headings\n---\n\n## One\n\nA.\n\n## Two\n\nB.\n", "L1": { "slideCount": 2 } },
+  { "name": "rule", "source": "---\nsplit: rule\n---\n\n## One\n\nA.\n\n## Two\n\nB.\n", "L1": { "slideCount": 1 } },
+  { "name": "hybrid: --- still breaks", "source": "## One\n\nA.\n\n---\n\nB, with no heading.\n", "L1": { "slideCount": 2 } },
+  { "name": "a ### does not split", "source": "## One\n\n### Part\n\nA.\n", "L1": { "slideCount": 1 } }
+ ]
+}

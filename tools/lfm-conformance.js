@@ -27,29 +27,33 @@ let engine;
 let lint;
 let notes;
 let grammar;
+let lente;
+let splitTopLevel;
 function load() {
   if (engine) return;
   engine = require('../lib/engine');
+  lente = require('@laticent/lente');
+  ({ splitTopLevel } = require('../lib/authoring/slide-split.js'));
   lint = require('../lib/authoring/lint.js');
   notes = require('../lib/authoring/notes-core.js');
   grammar = JSON.parse(fs.readFileSync(path.join(ROOT, 'dist', 'docs', 'grammar.json'), 'utf8'));
 }
 
-/** Every case in the folder: `<name>.md` beside `<name>.json`. */
+/** Every case in the folder: `<name>.md` beside `<name>.json`, or a `<name>.json` table whose
+ *  `rows` each carry their own deck. */
 function listCases(dir = CASES_DIR) {
   return fs.readdirSync(dir)
     .filter((f) => f.endsWith('.json'))
     .map((f) => f.slice(0, -5))
-    .filter((name) => fs.existsSync(path.join(dir, `${name}.md`)))
+    .filter((name) => fs.existsSync(path.join(dir, `${name}.md`)) || Array.isArray(readJson(dir, name).rows))
     .sort();
 }
 
+const readJson = (dir, name) => JSON.parse(fs.readFileSync(path.join(dir, `${name}.json`), 'utf8'));
+
 function readCase(name, dir = CASES_DIR) {
-  return {
-    name,
-    source: fs.readFileSync(path.join(dir, `${name}.md`), 'utf8'),
-    expect: JSON.parse(fs.readFileSync(path.join(dir, `${name}.json`), 'utf8')),
-  };
+  const md = path.join(dir, `${name}.md`);
+  return { name, source: fs.existsSync(md) ? fs.readFileSync(md, 'utf8') : null, expect: readJson(dir, name) };
 }
 
 const sameJson = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -69,6 +73,11 @@ function l0(source) {
 }
 
 // ── L1: the structure the reference renderer resolves ──────────────────────
+function lensOf(slideSource) {
+  const { include, exclude } = lente.parseSlideTags(slideSource);
+  return { include: [...include].sort(), exclude: [...exclude].sort() };
+}
+
 function answerOf(li) {
   const markers = grammar.stateMarkers;
   for (const m of Object.values(markers)) if (li.classList.contains(m.semantic) && li.classList.contains('state')) return m.answer;
@@ -85,11 +94,41 @@ function cardsOf(stage) {
   });
 }
 
+// The inline notation (§3.6), in document order. A pill's icon has no name in the output, so
+// the adapter reports `icon: true` and a case that names the icon checks only that there is one.
+const INLINE = '.lat-pill, .lat-state, .lat-spark, .lat-icon, code';
+function inlineOf(section) {
+  return [...section.querySelectorAll(INLINE)]
+    .filter((el) => !el.closest('pre') && !el.parentElement.closest(INLINE))
+    .map((el) => {
+      if (el.matches('.lat-pill')) {
+        const item = { kind: 'pill', label: text(el), shape: el.getAttribute('data-shape'), color: el.getAttribute('data-c') };
+        if (el.querySelector('.lat-pill-icon')) item.icon = true;
+        return item;
+      }
+      if (el.matches('.lat-state')) return { kind: 'mark', answer: answerOf(el) };
+      if (el.matches('.lat-spark')) return { kind: 'spark', type: el.getAttribute('data-type') };
+      if (el.matches('.lat-icon')) return { kind: 'icon', name: el.getAttribute('data-icon') };
+      return { kind: 'code', text: el.textContent };
+    });
+}
+
+// A slide's own source, for the tags the engine reads from source rather than renders (§2.4).
+// The split is at `---` only, which matches the render whenever a case divides its slides that
+// way or has one slide.
+function slideSources(source, count) {
+  const body = source.replace(/^---\r?\n[\s\S]*?\r?\n---[ \t]*\r?\n?/, '');
+  if (count === 1) return [body];
+  const chunks = splitTopLevel(source);
+  return /^---\r?\n/.test(source) ? chunks.slice(2) : chunks;
+}
+
 function l1(source) {
   const out = engine.render(source, {});
   const html = typeof out === 'string' ? out : out.html;
   const doc = new JSDOM(html).window.document;
   const sections = [...doc.querySelectorAll('article.lattice > section')];
+  const sources = slideSources(source, sections.length);
   const first = sections[0];
   const finish = first ? ([...first.classList].find((c) => c.startsWith('finish-')) || 'finish-none').slice(7) : 'none';
   const logo = first?.querySelector(':scope > img.deck-logo')?.getAttribute('src') ?? null;
@@ -99,7 +138,8 @@ function l1(source) {
       finish,
       logo,
     },
-    slides: sections.map((s) => {
+    html,
+    slides: sections.map((s, i) => {
       const tokens = (s.getAttribute('data-class') || '').split(/\s+/).filter(Boolean);
       const stage = s.querySelector('.cell-stage') || s;
       const items = [...stage.querySelectorAll(':scope > ul > li, :scope > ol > li')];
@@ -110,6 +150,8 @@ function l1(source) {
         states: items.map(answerOf),
         fences: [...s.querySelectorAll('[data-lattice-hydrate]')].map((e) => e.getAttribute('data-lattice-hydrate').replace(/-/g, '')),
         notes: notes.noteBodiesFromHtml(s.outerHTML),
+        inline: inlineOf(s),
+        lens: lensOf(sources[i] ?? ''),
       };
     }),
   };
@@ -120,9 +162,12 @@ function l2(source) {
   return lint.lintText(source).map((f) => ({ rule: f.rule, severity: f.severity, slide: f.slide }));
 }
 
-/** Run one case; return the list of failures (empty = pass). */
+/** Run one case; return the list of failures (empty = pass). A table case runs each row. */
 function runCase(c) {
   load();
+  if (Array.isArray(c.expect.rows)) {
+    return c.expect.rows.flatMap((row) => runCase({ name: row.name, source: row.source, expect: row }).map((f) => `[${row.name}] ${f}`));
+  }
   const fails = [];
   const { L0, L1, L2 } = c.expect;
   if (L0) {
@@ -134,6 +179,7 @@ function runCase(c) {
   }
   if (L1) {
     const got = l1(c.source);
+    for (const s of L1.absent || []) if (got.html.includes(s)) fails.push(`L1: "${s}" reaches the rendered output`);
     if (L1.slideCount !== undefined && got.slides.length !== L1.slideCount) fails.push(`L1: ${got.slides.length} slides, expected ${L1.slideCount}`);
     for (const [k, v] of Object.entries(L1.deck || {})) {
       if (!sameJson(got.deck[k], v)) fails.push(`L1: deck.${k} is ${JSON.stringify(got.deck[k])}, expected ${JSON.stringify(v)}`);
@@ -164,7 +210,7 @@ if (require.main === module) {
   let failed = 0;
   for (const c of cases) {
     const fails = runCase(c);
-    const levels = ['L0', 'L1', 'L2'].filter((l) => c.expect[l]).join(' ');
+    const levels = c.expect.rows ? `${c.expect.rows.length} rows` : ['L0', 'L1', 'L2'].filter((l) => c.expect[l]).join(' ');
     console.log(`${fails.length ? 'FAIL' : 'pass'}  §${c.expect.section.padEnd(4)} ${levels.padEnd(9)} ${c.name}`);
     for (const f of fails) console.log(`        ${f}`);
     if (fails.length) failed += 1;

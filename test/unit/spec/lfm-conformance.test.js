@@ -12,12 +12,35 @@ const cases = listCases().map((n) => readCase(n));
 describe('LFM conformance: every shared case passes on the reference implementation', () => {
   test('the folder holds cases for every section of LFM §2 and §3', () => {
     const sections = new Set(cases.map((c) => c.expect.section));
-    for (const s of ['2.1', '2.2', '2.3', '3.1', '3.2', '3.3', '3.5']) assert.ok(sections.has(s), `§${s} has a case`);
+    for (const s of ['2.1', '2.2', '2.3', '2.4', '3.1', '3.2', '3.3', '3.5', '3.6']) assert.ok(sections.has(s), `§${s} has a case`);
   });
   for (const c of cases) {
     test(c.name, () => assert.deepEqual(runCase(c), []));
   }
 });
+
+// One wrong answer per level the expectation checks. Returns the broken copies.
+function broken(expect) {
+  const out = [];
+  if (expect.L0) {
+    const e = structuredClone(expect);
+    e.L0.visible = [...(e.L0.visible || []), 'NEVER RENDERED'];
+    out.push(['L0', e]);
+  }
+  if (expect.L1) {
+    const e = structuredClone(expect);
+    if (e.L1.slides?.length) { const k = Object.keys(e.L1.slides[0])[0]; e.L1.slides[0][k] = 'WRONG'; }
+    else if (e.L1.deck) { const k = Object.keys(e.L1.deck)[0]; e.L1.deck[k] = 'WRONG'; }
+    else e.L1.slideCount += 1;
+    out.push(['L1', e]);
+  }
+  if (expect.L2) {
+    const e = structuredClone(expect);
+    e.L2.findings = [...e.L2.findings, { rule: 'phantom', severity: 'error', slide: 1 }];
+    out.push(['L2', e]);
+  }
+  return out;
+}
 
 describe('LFM conformance: a wrong expectation fails (the arm that bites)', () => {
   const wrong = (c, level, mutate) => {
@@ -25,7 +48,18 @@ describe('LFM conformance: a wrong expectation fails (the arm that bites)', () =
     mutate(expect[level]);
     return runCase({ ...c, expect });
   };
-  for (const c of cases) {
+  for (const c of cases.filter((x) => x.expect.rows)) {
+    test(`${c.name} · every row, every level`, () => {
+      const missed = [];
+      for (const row of c.expect.rows) {
+        for (const [level, e] of broken(row)) {
+          if (!runCase({ name: row.name, source: row.source, expect: e }).length) missed.push(`${row.name} · ${level}`);
+        }
+      }
+      assert.deepEqual(missed, []);
+    });
+  }
+  for (const c of cases.filter((x) => !x.expect.rows)) {
     if (c.expect.L0) {
       test(`${c.name} · L0`, () => {
         assert.ok(wrong(c, 'L0', (e) => { e.visible = [...(e.visible || []), 'NEVER RENDERED']; }).length);

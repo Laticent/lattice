@@ -1,0 +1,1318 @@
+{
+ "title": "Every register value in \u00a72.3 is accepted, and a value outside the list is unknown-<key>",
+ "spec": "LFM-1.1",
+ "section": "2.3",
+ "rows": [
+  {
+   "name": "mode: boardroom",
+   "source": "---\nmode: boardroom\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "mode: sketch",
+   "source": "---\nmode: sketch\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "mode: sketch-clean",
+   "source": "---\nmode: sketch-clean\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "mode: (unknown)",
+   "source": "---\nmode: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": [
+     {
+      "rule": "unknown-mode",
+      "severity": "warning",
+      "slide": 0
+     }
+    ]
+   }
+  },
+  {
+   "name": "finish: none",
+   "source": "---\nfinish: none\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "finish: atrium",
+   "source": "---\nfinish: atrium\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "finish: meridian",
+   "source": "---\nfinish: meridian\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "finish: strata",
+   "source": "---\nfinish: strata\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "finish: halo",
+   "source": "---\nfinish: halo\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "finish: ledger",
+   "source": "---\nfinish: ledger\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "finish: nimbus",
+   "source": "---\nfinish: nimbus\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "finish: loom",
+   "source": "---\nfinish: loom\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "finish: savile",
+   "source": "---\nfinish: savile\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "finish: gallery",
+   "source": "---\nfinish: gallery\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "finish: (unknown)",
+   "source": "---\nfinish: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": [
+     {
+      "rule": "unknown-finish",
+      "severity": "warning",
+      "slide": 0
+     }
+    ]
+   }
+  },
+  {
+   "name": "backdrop: 20",
+   "source": "---\nbackdrop: 20\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "backdrop: 40",
+   "source": "---\nbackdrop: 40\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "backdrop: 60",
+   "source": "---\nbackdrop: 60\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "backdrop: 80",
+   "source": "---\nbackdrop: 80\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "backdrop: full",
+   "source": "---\nbackdrop: full\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "backdrop: clear",
+   "source": "---\nbackdrop: clear\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "backdrop: open",
+   "source": "---\nbackdrop: open\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "backdrop: spot-tl",
+   "source": "---\nbackdrop: spot-tl\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "backdrop: spot-t",
+   "source": "---\nbackdrop: spot-t\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "backdrop: spot-tr",
+   "source": "---\nbackdrop: spot-tr\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "backdrop: spot-l",
+   "source": "---\nbackdrop: spot-l\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "backdrop: spot-c",
+   "source": "---\nbackdrop: spot-c\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "backdrop: spot-r",
+   "source": "---\nbackdrop: spot-r\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "backdrop: spot-bl",
+   "source": "---\nbackdrop: spot-bl\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "backdrop: spot-b",
+   "source": "---\nbackdrop: spot-b\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "backdrop: spot-br",
+   "source": "---\nbackdrop: spot-br\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "backdrop: (unknown)",
+   "source": "---\nbackdrop: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": [
+     {
+      "rule": "unknown-backdrop",
+      "severity": "warning",
+      "slide": 0
+     }
+    ]
+   }
+  },
+  {
+   "name": "preset: classic",
+   "source": "---\npreset: classic\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "preset: editorial",
+   "source": "---\npreset: editorial\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "preset: brand",
+   "source": "---\npreset: brand\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "preset: minimal",
+   "source": "---\npreset: minimal\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "preset: (unknown)",
+   "source": "---\npreset: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": [
+     {
+      "rule": "unknown-preset",
+      "severity": "warning",
+      "slide": 0
+     }
+    ]
+   }
+  },
+  {
+   "name": "split: rule",
+   "source": "---\nsplit: rule\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "split: headings",
+   "source": "---\nsplit: headings\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "split: (unknown)",
+   "source": "---\nsplit: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": [
+     {
+      "rule": "unknown-split",
+      "severity": "warning",
+      "slide": 0
+     }
+    ]
+   }
+  },
+  {
+   "name": "stamp: tab",
+   "source": "---\nstamp: tab\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "stamp: notch",
+   "source": "---\nstamp: notch\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "stamp: bracket",
+   "source": "---\nstamp: bracket\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "stamp: seal",
+   "source": "---\nstamp: seal\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "stamp: pill",
+   "source": "---\nstamp: pill\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "stamp: ribbon",
+   "source": "---\nstamp: ribbon\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "stamp: flag",
+   "source": "---\nstamp: flag\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "stamp: underline",
+   "source": "---\nstamp: underline\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "stamp: dot",
+   "source": "---\nstamp: dot\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "stamp: mark",
+   "source": "---\nstamp: mark\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "stamp: veil",
+   "source": "---\nstamp: veil\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "stamp: bar",
+   "source": "---\nstamp: bar\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "stamp: pin",
+   "source": "---\nstamp: pin\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "stamp: (unknown)",
+   "source": "---\nstamp: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": [
+     {
+      "rule": "unknown-stamp",
+      "severity": "warning",
+      "slide": 0
+     }
+    ]
+   }
+  },
+  {
+   "name": "tone: rail",
+   "source": "---\ntone: rail\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "tone: edge",
+   "source": "---\ntone: edge\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "tone: glow",
+   "source": "---\ntone: glow\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "tone: (unknown)",
+   "source": "---\ntone: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": [
+     {
+      "rule": "unknown-tone",
+      "severity": "warning",
+      "slide": 0
+     }
+    ]
+   }
+  },
+  {
+   "name": "spectrum: on",
+   "source": "---\nspectrum: on\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "spectrum: solid",
+   "source": "---\nspectrum: solid\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "spectrum: duo",
+   "source": "---\nspectrum: duo\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "spectrum: mono",
+   "source": "---\nspectrum: mono\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "spectrum: off",
+   "source": "---\nspectrum: off\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "spectrum: (unknown)",
+   "source": "---\nspectrum: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": [
+     {
+      "rule": "unknown-spectrum",
+      "severity": "warning",
+      "slide": 0
+     }
+    ]
+   }
+  },
+  {
+   "name": "spectrum-edge: top",
+   "source": "---\nspectrum-edge: top\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "spectrum-edge: left",
+   "source": "---\nspectrum-edge: left\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "spectrum-edge: right",
+   "source": "---\nspectrum-edge: right\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "spectrum-edge: bottom",
+   "source": "---\nspectrum-edge: bottom\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "spectrum-edge: off",
+   "source": "---\nspectrum-edge: off\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "spectrum-edge: (unknown)",
+   "source": "---\nspectrum-edge: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": [
+     {
+      "rule": "unknown-spectrum-edge",
+      "severity": "warning",
+      "slide": 0
+     }
+    ]
+   }
+  },
+  {
+   "name": "rule: auto",
+   "source": "---\nrule: auto\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "rule: full",
+   "source": "---\nrule: full\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "rule: short",
+   "source": "---\nrule: short\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "rule: accent",
+   "source": "---\nrule: accent\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "rule: none",
+   "source": "---\nrule: none\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "rule: (unknown)",
+   "source": "---\nrule: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": [
+     {
+      "rule": "unknown-rule",
+      "severity": "warning",
+      "slide": 0
+     }
+    ]
+   }
+  },
+  {
+   "name": "eyebrow: plain",
+   "source": "---\neyebrow: plain\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "eyebrow: dot",
+   "source": "---\neyebrow: dot\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "eyebrow: bar",
+   "source": "---\neyebrow: bar\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "eyebrow: arrow",
+   "source": "---\neyebrow: arrow\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "eyebrow: underline",
+   "source": "---\neyebrow: underline\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "eyebrow: (unknown)",
+   "source": "---\neyebrow: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": [
+     {
+      "rule": "unknown-eyebrow",
+      "severity": "warning",
+      "slide": 0
+     }
+    ]
+   }
+  },
+  {
+   "name": "headline: auto",
+   "source": "---\nheadline: auto\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "headline: left",
+   "source": "---\nheadline: left\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "headline: center",
+   "source": "---\nheadline: center\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "headline: right",
+   "source": "---\nheadline: right\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "headline: (unknown)",
+   "source": "---\nheadline: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": [
+     {
+      "rule": "unknown-headline",
+      "severity": "warning",
+      "slide": 0
+     }
+    ]
+   }
+  },
+  {
+   "name": "lift: on",
+   "source": "---\nlift: on\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "lift: off",
+   "source": "---\nlift: off\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "lift: (unknown)",
+   "source": "---\nlift: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": [
+     {
+      "rule": "unknown-lift",
+      "severity": "warning",
+      "slide": 0
+     }
+    ]
+   }
+  },
+  {
+   "name": "cards: center",
+   "source": "---\ncards: center\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "cards: stretch",
+   "source": "---\ncards: stretch\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "cards: top",
+   "source": "---\ncards: top\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "cards: spread",
+   "source": "---\ncards: spread\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "cards: (unknown)",
+   "source": "---\ncards: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": [
+     {
+      "rule": "unknown-cards",
+      "severity": "warning",
+      "slide": 0
+     }
+    ]
+   }
+  },
+  {
+   "name": "tag: color",
+   "source": "---\ntag: color\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "tag: plain",
+   "source": "---\ntag: plain\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "tag: none",
+   "source": "---\ntag: none\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "tag: small",
+   "source": "---\ntag: small\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "tag: regular",
+   "source": "---\ntag: regular\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "tag: large",
+   "source": "---\ntag: large\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "tag: corner",
+   "source": "---\ntag: corner\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "tag: foot",
+   "source": "---\ntag: foot\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "tag: notch",
+   "source": "---\ntag: notch\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "tag: band",
+   "source": "---\ntag: band\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "tag: inline",
+   "source": "---\ntag: inline\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "tag: start",
+   "source": "---\ntag: start\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "tag: center",
+   "source": "---\ntag: center\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "tag: end",
+   "source": "---\ntag: end\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "tag: (unknown)",
+   "source": "---\ntag: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": [
+     {
+      "rule": "unknown-tag",
+      "severity": "warning",
+      "slide": 0
+     }
+    ]
+   }
+  },
+  {
+   "name": "corners: square",
+   "source": "---\ncorners: square\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "corners: rounded",
+   "source": "---\ncorners: rounded\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "corners: (unknown)",
+   "source": "---\ncorners: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": [
+     {
+      "rule": "unknown-corners",
+      "severity": "warning",
+      "slide": 0
+     }
+    ]
+   }
+  },
+  {
+   "name": "chart-finish: off",
+   "source": "---\nchart-finish: off\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "chart-finish: pigment",
+   "source": "---\nchart-finish: pigment\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "chart-finish: etching",
+   "source": "---\nchart-finish: etching\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "chart-finish: tone",
+   "source": "---\nchart-finish: tone\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "chart-finish: (unknown)",
+   "source": "---\nchart-finish: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": [
+     {
+      "rule": "unknown-chart-finish",
+      "severity": "warning",
+      "slide": 0
+     }
+    ]
+   }
+  },
+  {
+   "name": "spark: framed",
+   "source": "---\nspark: framed\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "spark: bare",
+   "source": "---\nspark: bare\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "spark: pigment",
+   "source": "---\nspark: pigment\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "spark: etching",
+   "source": "---\nspark: etching\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "spark: tone",
+   "source": "---\nspark: tone\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "spark: square",
+   "source": "---\nspark: square\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "spark: rounded",
+   "source": "---\nspark: rounded\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "spark: (unknown)",
+   "source": "---\nspark: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": [
+     {
+      "rule": "unknown-spark",
+      "severity": "warning",
+      "slide": 0
+     }
+    ]
+   }
+  },
+  {
+   "name": "icon: framed",
+   "source": "---\nicon: framed\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "icon: bare",
+   "source": "---\nicon: bare\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "icon: pigment",
+   "source": "---\nicon: pigment\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "icon: etching",
+   "source": "---\nicon: etching\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "icon: tone",
+   "source": "---\nicon: tone\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "icon: square",
+   "source": "---\nicon: square\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "icon: rounded",
+   "source": "---\nicon: rounded\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "icon: (unknown)",
+   "source": "---\nicon: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": [
+     {
+      "rule": "unknown-icon",
+      "severity": "warning",
+      "slide": 0
+     }
+    ]
+   }
+  },
+  {
+   "name": "inline-code: rich",
+   "source": "---\ninline-code: rich\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "inline-code: literal",
+   "source": "---\ninline-code: literal\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "inline-code: (unknown)",
+   "source": "---\ninline-code: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": [
+     {
+      "rule": "unknown-inline-code",
+      "severity": "warning",
+      "slide": 0
+     }
+    ]
+   }
+  },
+  {
+   "name": "claim: framed",
+   "source": "---\nclaim: framed\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "claim: quiet",
+   "source": "---\nclaim: quiet\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "claim: hero",
+   "source": "---\nclaim: hero\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "claim: bleed",
+   "source": "---\nclaim: bleed\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "claim: (unknown)",
+   "source": "---\nclaim: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": [
+     {
+      "rule": "unknown-claim",
+      "severity": "warning",
+      "slide": 0
+     }
+    ]
+   }
+  },
+  {
+   "name": "color-mode: light",
+   "source": "---\ncolor-mode: light\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "color-mode: dark",
+   "source": "---\ncolor-mode: dark\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "color-mode: system",
+   "source": "---\ncolor-mode: system\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "color-mode: inherited",
+   "source": "---\ncolor-mode: inherited\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "color-mode: print",
+   "source": "---\ncolor-mode: print\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "color-mode: (unknown)",
+   "source": "---\ncolor-mode: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": [
+     {
+      "rule": "unknown-color-mode",
+      "severity": "warning",
+      "slide": 0
+     }
+    ]
+   }
+  },
+  {
+   "name": "fit: heal",
+   "source": "---\nfit: heal\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "fit: report",
+   "source": "---\nfit: report\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "fit: trim",
+   "source": "---\nfit: trim\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "fit: (unknown)",
+   "source": "---\nfit: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": [
+     {
+      "rule": "unknown-fit",
+      "severity": "warning",
+      "slide": 0
+     }
+    ]
+   }
+  },
+  {
+   "name": "venue: laptop",
+   "source": "---\nvenue: laptop\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "venue: huddle",
+   "source": "---\nvenue: huddle\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "venue: conference",
+   "source": "---\nvenue: conference\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "venue: hall",
+   "source": "---\nvenue: hall\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "venue: (unknown)",
+   "source": "---\nvenue: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": [
+     {
+      "rule": "unknown-venue",
+      "severity": "warning",
+      "slide": 0
+     }
+    ]
+   }
+  },
+  {
+   "name": "pace: natural",
+   "source": "---\npace: natural\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "pace: brisk",
+   "source": "---\npace: brisk\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "pace: deliberate",
+   "source": "---\npace: deliberate\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "pace: (unknown)",
+   "source": "---\npace: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": [
+     {
+      "rule": "unknown-pace",
+      "severity": "warning",
+      "slide": 0
+     }
+    ]
+   }
+  },
+  {
+   "name": "delivery: restrained",
+   "source": "---\ndelivery: restrained\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "delivery: expressive",
+   "source": "---\ndelivery: expressive\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "delivery: somber",
+   "source": "---\ndelivery: somber\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "delivery: (unknown)",
+   "source": "---\ndelivery: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": [
+     {
+      "rule": "unknown-delivery",
+      "severity": "warning",
+      "slide": 0
+     }
+    ]
+   }
+  }
+ ]
+}

@@ -1,7 +1,8 @@
 # LFM shared test cases
 
 These cases say what a conformant LFM implementation does with a given deck. They are written
-against [`spec/LFM-1.0.md`](../../LFM-1.0.md), not against Lattice's code, so a second
+against the spec ([`LFM-1.0.md`](../../LFM-1.0.md), and [`LFM-1.1.md`](../../LFM-1.1.md) for
+the cases marked `LFM-1.1`), not against Lattice's code, so a second
 implementation can run this folder with its own adapter and compare.
 
 **License:** CC-BY-4.0, like the spec. **Owner:** @saden1.
@@ -26,6 +27,19 @@ Each case is two files with the same name:
 ```
 
 A case lists only the levels and fields it checks. A field it leaves out is not checked.
+`spec` names the version that introduced the case: a 1.0 implementation passes the `LFM-1.0`
+cases, and a 1.1 implementation passes them all.
+
+### A table
+
+When many small decks check one rule, a case is a table instead: `<name>.json` alone, with
+`rows` in place of the deck. Each row carries its own `name`, its deck as `source`, and its
+own `L0`, `L1` and `L2`.
+
+```json
+{ "title": "…", "spec": "LFM-1.1", "section": "2.3",
+  "rows": [{ "name": "lift: off", "source": "---\nlift: off\n---\n\n## A\n", "L2": { "findings": [] } }] }
+```
 
 ### L0: what a CommonMark host shows
 
@@ -44,6 +58,7 @@ host does.
 | Field | Meaning |
 |---|---|
 | `slideCount` | The number of slides. |
+| `absent` | Strings that MUST NOT appear anywhere in the rendered output (a `_lens` tag, §2.4). |
 | `deck.mode` | The rendering mode (§2.3): `boardroom`, `sketch` or `sketch-clean`. |
 | `deck.finish` | The finish (§2.3), or `none`. |
 | `deck.logo` | The `logo:` path, or `null`. |
@@ -53,6 +68,8 @@ host does.
 | `slides[i].states` | The answer each top-level list item's state marker carries (§3.2), or `null` when it has none. The answers are the words in §3.2's table: `yes`, `partly`, `no`, `unknown`, `open`, `does not apply`. |
 | `slides[i].fences` | The sub-languages the slide renders (§3.3), named without hyphens (`functionplot`). |
 | `slides[i].notes` | The slide's speaker notes, one string per note comment, in order (§3.5). |
+| `slides[i].lens` | The slide's `_lens` membership (§2.4): `{ "include": [], "exclude": [] }`, each sorted. |
+| `slides[i].inline` | The slide's inline notation (§3.6) and plain inline code, in document order. Each item is one of `{ "kind": "pill", "label", "shape", "color" }` (with `"icon": true` when the pill leads with an icon; `color` is `null` with no slot), `{ "kind": "mark", "answer" }`, `{ "kind": "spark", "type" }`, `{ "kind": "icon", "name" }`, or `{ "kind": "code", "text" }` for a span that stayed code. Code inside a fenced block is not listed. |
 
 `slides` is matched by position: entry `i` checks slide `i + 1`, and a deck may have more slides
 than the case lists.
