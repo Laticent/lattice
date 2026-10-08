@@ -38,7 +38,7 @@ A diagnostic is a JSON object:
 {
   "slide": 3,                       // 1-based slide number; 0 = deck-wide (front matter)
   "rule": "card-style-inline-title",// stable rule ID from the registry (§3)
-  "severity": "error",              // "error" | "warning" (§2)
+  "severity": "error",              // "error" | "warning" | "info" | "suggestion" (§2)
   "classToken": "cards-grid",       // the component/modifier token the finding is about
   "line": "- **Title.** body",      // the offending source line (trimmed), or the directive
   "message": "inline \"- **Title.** body\" on a card-style slide — the body inherits the parent li bold",
@@ -73,9 +73,9 @@ A diagnostic is a JSON object:
   example, a typo silently selected a fallback (unknown class, unknown finish,
   unresolved map region). Warnings are surfaced but do not block rendering.
 
-- **`info`** *(1.1)* — the slide renders as written, but something the author
-  may not expect is happening: a retired name still accepted, a code line whose
-  end is cut off. Nothing is wrong enough to fix by default.
+- **`info`** *(1.1)* — nothing the author must fix, but something they may not
+  expect: a retired name still accepted, a code line whose end is cut off, text
+  that may clip under a bare `scale-*` class.
 - **`suggestion`** *(1.1)* — advice. The slide renders whole and as intended;
   the finding says it could read better (a crowded layout, a long heading). A
   tool SHOULD show suggestions apart from errors and warnings, and MUST NOT
@@ -96,9 +96,13 @@ below are the canonical identifiers the reference implementation emits, and
 
 **The registry is complete.** Every rule ID the reference implementation can
 emit is listed here, and every ID listed here is one it emits.
-`test/unit/authoring/diagnostics-registry.test.js` fails when the two disagree,
-so a new rule cannot ship without a row. (Version 1.0 listed 13 IDs while the
-implementation emitted 177; §7 records the catch-up.)
+`test/unit/authoring/diagnostics-registry.test.js` reads the reference
+implementation and fails when the code emits an ID the registry does not list,
+the registry lists one the code does not emit, or a row's Severity or Autofix
+cell disagrees with what the code can produce. So a new rule cannot ship without
+a row. (The test reads the code statically; a rule ID set through a variable is
+allowed only where the test's allowlist says where it really comes from.) (Version 1.0 listed 13 IDs while the
+implementation emitted 178; §7 records the catch-up.)
 
 **Families.** A row whose ID contains `<…>` stands for a family: one ID per
 member, generated at run time (for example, `unknown-<axis register>` covers
@@ -126,7 +130,7 @@ distinct, stable ID.
 | `qr-empty-payload` | error | — | A `qr` payload bullet with no value. |
 | `qr-missing-payload` | error | — | A `qr` slide with no scannable payload bullet. |
 | `qr-duplicate-payload` | error | — | A `qr` slide with more than one payload bullet; it renders only one. |
-| `track-directive` | warning | — | A bare `track:` (deck-wide from that slide on) where `_track:` was meant, or `_track` on a slide that is not `topic`. |
+| `track-directive` | warning | — | A bare `track:` (deck-wide from that slide on) where `_track:` was meant, `_track` on a slide that is not `topic` or on `topic fact`, a track with fewer than two labels (none is drawn), or a track with no current topic. |
 | `track-list` | warning | — | A list on a `topic` slide, which shows as plain content; the track is built from the section's headings. |
 | `focus-spec` | warning | — | A malformed `_focus` directive, which silently does nothing at render. |
 | `focus-style` | warning | — | A `_focusStyle` value that is not `spotlight`, `ring` or `list-fill`. |
@@ -135,8 +139,8 @@ distinct, stable ID.
 | `trail-budget` | warning | — | A word in an `authority-chain trail` column too long for the column, which squeezes the others. |
 | `tag-budget` | warning | — | A card tag or band label long enough to wrap, which pushes every card on the slide down. |
 | `tag-alias` | info | — | `banner-tag`, the old name for `tag-band`. |
-| `label-set-above-body` | warning | — | A bracketed label list above a chart that cannot name its axes (too many items, or a component with no key). |
-| `label-set-unbound` | warning | — | A bracketed label list on a component that has no key, so it does nothing. |
+| `label-set-above-body` | warning | — | A label list naming key entries, placed above the chart: there it names the axes instead of relabeling the key, or shows as text if it has more items than the chart has axes. |
+| `label-set-unbound` | warning | — | A bracketed label list that relabels nothing: on a component with no key, an entry that is not one of the component's key members, or a key named twice (the last wins). |
 | `shell-fence-is-script` | info | — | A `shell` (or similar) fence holding a script; the language only colors terminal prompts, so it renders nearly plain. |
 
 ### 3.2 Fit and capacity
@@ -145,10 +149,10 @@ distinct, stable ID.
 |---|---|---|---|
 | `capacity-overflow` | warning | — | More elements than the layout fits; whatever does not fit may be cut off. |
 | `capacity-crowd` | suggestion | — | More elements than the layout reads well with; it still renders whole. |
-| `capacity-scale` | warning | — | Content that fits at the designed size but not at the deck's `venue:` / type scale. |
+| `capacity-scale` | warning / info | — | More elements, or longer text, than the layout fits at the deck's type size (a `venue:`, a `scale-*` class, or the laptop size itself), so some may be cut off. A warning at a named venue or wherever it clips at every size; `info` under a bare `scale-*`. |
 | `spot-scale` | warning / info | — | A `scale-*` or `venue-*` class on some slides only, so type size jumps between slides. |
 | `code-line-clipped` | info | — | A code line wider than the pane it renders into, so its end is cut off. |
-| `pane-layout` | warning | — | A pane layout set deck-wide in front matter, where it does nothing; pane layouts are per slide. |
+| `pane-layout` | warning | — | A pane layout that does not lay out as written: set deck-wide or for a run of slides, fewer than two or more than two panes, a ratio that is not a class name or more than one ratio, both `columns` and `rows`, a `###` above the title, or a class token, slide layout or modifier a pane cannot use. |
 | `pane-syntax` | warning | — | The old pane syntax (`<!-- panes: -->`, `<!-- pane: -->`), which still works but may be removed. |
 | `pane-title` | suggestion | — | A pill or label above a pane title that joins the title on one line. |
 | `pane-insight` | warning | — | More than one Key Insight on a panes slide; they all show together below the panes. |
@@ -163,10 +167,10 @@ distinct, stable ID.
 | `pill-literal` | warning | — | A span that opens like a pill (`{…}`) but does not parse, so it renders as code. |
 | `spark-literal` | warning | — | A span that opens like a spark (`~{…}`) but does not parse, so it renders as code. |
 | `<inline kind>-literal` | warning | — | A family: one ID per plugin inline kind (for example `icon-literal`). A span that opens like the kind but renders as code; the plugin supplies the reason. |
-| `spark-too-big` | warning | ✓ | A spark too tall or too wide for its line. The autofix resizes it. |
+| `spark-too-big` | warning | ✓ | A spark too tall or too wide for its line; the autofix resizes it. Reported by the Studio from a measured render (`sparkFitFindings`), not by `lintTextWith` or the CLI. |
 | `pill-shape-crowded` | warning | — | A shaped pill (`{X, circle}`) holding more than the shape can, so it stretches out of shape. |
 | `bracket-list-closed-early` | warning | — | An extra `]` that closes a bracketed list early, so it shows as plain text. |
-| `mixed-spelling` | warning | — | A word spelled two ways in one deck's inline notation; the fix uses the spelling the deck uses most. |
+| `mixed-spelling` | warning | ✓ | A word spelled two ways in one deck's inline notation; the autofix rewrites it to the spelling the deck uses most. |
 | `typed-shape-glyph` | warning | — | A typed glyph (`✓`, `→`, `●`) doing the job of a drawn shape (HARD RULE #29); the fix names the modifier or mark that draws it. |
 
 ### 3.4 Front matter: unknown or retired values
@@ -210,7 +214,7 @@ distinct, stable ID.
 | `retired-backdrop-key` | warning | — | The retired multi-line `backdrop:` block, which is no longer read. |
 | `retired-form-key` | warning | — | `form: off`, which no longer works; slides now show the title band and progress bar. |
 | `retired-form-token` | warning | — | The retired `no-form` class token. |
-| `autosplit-retired` | error / suggestion | — | `autosplit:`, which no longer controls splitting. An error where the engine splits anyway; a suggestion where nothing splits. |
+| `autosplit-retired` | error / suggestion | — | `autosplit:`, which no longer controls splitting. An error for `off` at a size that splits anyway; otherwise a suggestion (the line is stale). |
 | `paginate-unsupported-value` | suggestion | — | `paginate: skip` or `paginate: hold`, Marp values Lattice treats as `false`. |
 | `stray-overflow-marker` | warning | — | `overflow-marker:` in the deck; it is an export setting, so the line does nothing. |
 | `stray-export-settings` | warning | — | An export-settings block copied in from another export. |
@@ -219,7 +223,7 @@ distinct, stable ID.
 
 | Rule ID | Severity | Autofix | What it catches |
 |---|---|---|---|
-| `caption-key-retired` | error / warning | — | `captions:` / `caption:`, renamed `say:`; the line is ignored. An error in lowercase, a warning when capitalized (it may be a real note). |
+| `caption-key-retired` | error / warning | — | Front-matter `captions:` (renamed `say:`; ignored, so an error) or a `caption:` comment (now a speaker note: an error in lowercase, a warning when capitalized). |
 | `say-key-case` | warning | — | A capitalized `Say:`, which is a speaker note; only lowercase `say:` is spoken. |
 | `lexicon-single-letter-key` | warning | — | A single-letter/digit `lexicon:` key (`e:`, `2:`) — read-aloud rewrites every embedded occurrence, not just the standalone token, garbling the deck's narration. A single glyph (`→`, `×`) is safe. |
 | `greeting-hardcoded-period` | warning | — | A greeting that names a time of day; `{greeting}` adapts to the listener's clock. |
@@ -250,7 +254,7 @@ distinct, stable ID.
 | `state-chart-v1-tint` | warning | — | The retired v1 `:::token` tint, which is read as part of the name. |
 | `flowchart-duplicate-id` | error | — | An `#id` already used by another shape. |
 | `flowchart-conflicting-style` | error | — | A shape styled twice with different values. |
-| `flowchart-unknown-modifier` | warning | — | A span that is not a style; it is ignored. |
+| `flowchart-unknown-modifier` | warning | — | A span that is not a style; it is ignored, or read as part of the shape's name. |
 | `flowchart-orphan-connection` | error | — | A connection row with no shape above it. |
 | `flowchart-nested-under-connection` | error | — | A row nested under a connection, which is neither a member nor a connection. |
 | `flowchart-empty-name` | error | — | A row with no usable shape name. |
@@ -292,7 +296,7 @@ distinct, stable ID.
 | `hub-spoke-bad-record` | warning | — | A record that is not an icon record; it is dropped. |
 | `hub-spoke-inline-kind` | warning | — | A mark, spark or icon kind on a hub-spoke row, which draws nothing there. |
 | `hub-spoke-extra-record` | warning | — | A second icon record on an item. |
-| `hub-spoke-status-group` | warning | — | Every satellite carrying a status, which most likely meant groups. |
+| `hub-spoke-status-group` | warning | — | Every satellite carrying a status, which most likely meant groups, or a status word on one satellite where the others carry groups. |
 | `hub-spoke-too-many-groups` | warning | — | More groups than the hue cap; satellites stay neutral and no key is drawn. |
 | `hub-spoke-missing-value` | warning | — | Some satellites with a value and some without, or a scaling modifier with no values. |
 | `hub-spoke-nonpositive-value` | warning | — | A zero or negative value, which no area or weight can show; scaling is off. |
@@ -304,9 +308,9 @@ distinct, stable ID.
 | `hub-spoke-hub-overflow` | error | — | Hub text that does not fit the hub at the smallest type. |
 | `hub-spoke-crowded` | warning | — | A figure outside the envelope the layout is certified for (names, pills or spokes past their limits). |
 
-### 3.9 The review tier (opt-in)
+### 3.9 The review tier
 
-These come from `reviewText` in `lib/authoring/review-core.js`, which a tool runs only when asked (`lint:deck --review`, the Studio's review panel). They judge how well a slide communicates, not whether it renders, so every one is a `suggestion`.
+These come from `reviewText` in `lib/authoring/review-core.js`, which `lint:deck` runs by default on named files (skipped under `--all` or `--no-review`) and the Studio shows in its review panel. They judge how well a slide communicates, not whether it renders, so every one is a `suggestion`.
 
 | Rule ID | Severity | Autofix | What it catches |
 |---|---|---|---|
@@ -317,7 +321,8 @@ These come from `reviewText` in `lib/authoring/review-core.js`, which a tool run
 | `divider-numbered-heading` | suggestion | — | A numbered divider heading long enough to run off the frame. |
 | `density-overflow` | suggestion | — | An element run well past its word budget. |
 | `density-crowd` | suggestion | — | An element crowding its word budget. |
-| `verbose-<chrome slot>` | suggestion | — | A family: one ID per chrome slot (`verbose-eyebrow`, `verbose-subtitle`, `verbose-key-insight`). The slot is past its word budget. |
+| `verbose-<chrome slot>` | suggestion | — | A family: one ID per chrome slot whose name is one word (`verbose-eyebrow`, `verbose-subtitle`). The slot is past its word budget. |
+| `verbose-key-insight` | suggestion | — | The Key Insight past its word budget (the `verbose-*` family's member with a two-word slot name). |
 | `pill-not-a-checkbox` | suggestion | — | `{x}` written as a checkbox; braces make a pill, brackets make a mark. |
 | `stub-slide` | suggestion | — | A heading with no body. |
 | `metric-no-referent` | suggestion | — | A hero number with nothing to compare it to. |
@@ -344,9 +349,14 @@ Emitted by `tools/lint-deck.js` itself (`--discover`), not by `lint-core`, becau
 > source line. `card-style-inline-title`, `ledger-inline-title`, and
 > `split-bodyless-item` autofix the bold inline shape (`- **Title.** body`); the
 > gantt span rule `gantt-retired-delimiter` autofixes the retired delimiter to
-> `..`. A rule with a did-you-mean (`unknown-class` and the `unknown-*`
-> front-matter rules) autofixes only when a valid name is close enough to
-> suggest; the finding then carries `replace: { from, to }`. A bare-title or
+> `..`; `quadrant-retired-axis` rewrites the old axis format; `spark-too-big`
+> resizes the spark; `mixed-spelling` rewrites to the deck's majority spelling.
+> A rule with a did-you-mean (`unknown-class`, `unknown-plugin` and the
+> `unknown-*` rules marked ✓; not `unknown-fit`, `unknown-corners` or
+> `unknown-debug-facet`) autofixes only when a valid name is close enough to
+> suggest, and never for a second word on an axis already set; the finding then
+> carries `replace: { from, to }`. `unknown-map-region` names its did-you-mean in
+> the message only. A bare-title or
 > otherwise ambiguous finding emits `autofixable: false` and relies on the
 > `fix` guidance (§4).
 
@@ -402,20 +412,26 @@ The reference engine is `lintTextWith(source, vocab)` in `lint-core.js`:
   slide IDs, asset existence). Out of scope for 1.x.
 - **The optional fields the reference implementation already emits.** Some
   findings carry fields §1 does not define yet: `didYouMean` and `replace`
-  (a did-you-mean rewrite), `span` and `col` (a span inside the line), and
-  `shapeChange` (the fix changes how an existing deck renders). Some findings
-  also omit `classToken`, which §1 lists as required. Specifying these is the
+  (a did-you-mean rewrite), `span` and `col` (a span inside the line),
+  `chunkLine` (which line an autofix starts on), and `shapeChange` (the fix
+  changes how an existing deck renders). Some findings also omit `classToken` or
+  `line`, which §1 lists as required: the review tier's slide- and deck-level
+  findings and the CLI's `--discover` findings carry no `line`. And three
+  front-matter findings (`autosplit-retired`, `caption-key-retired`,
+  `paginate-unsupported-value`) report `slide: 1`, where §1 says front matter is
+  `slide: 0`. Specifying these is the
   next minor version's work.
 
 ## 7. Change log
 
 - **1.1 (2026-10-08).** The registry catches up with the reference
-  implementation: 13 rows became 177 rule IDs plus three families, grouped by
+  implementation: 13 rows became 181: all 178 literal rule IDs plus three families, grouped by
   what they check (§3), and a test now pins the registry to the code. Two
   severities join `error` and `warning`: `info` and `suggestion` (§2). Rows for
-  rules with a did-you-mean (`unknown-class`, the `unknown-*` front-matter
-  rules) now mark autofix ✓, because the reference implementation offers the
-  rewrite. No rule ID was renamed or removed. The spec gains an owner. Source:
+  rules with a did-you-mean (`unknown-class`, `unknown-plugin` and most
+  `unknown-*` front-matter rules) now mark autofix ✓, because the reference
+  implementation offers the rewrite; the test checks each row's Severity and
+  Autofix against the code. No rule ID was renamed or removed. The spec gains an owner. Source:
   `engineering/decisions/2026-10-08-spec-audit.md` §4.1.
 - **1.0 (2026-06-13).** First draft: the finding shape, two severities, and a
   registry of 13 rules.
