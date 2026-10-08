@@ -105,12 +105,16 @@ const BUCKET_FILE_RE = /^lib\/components\/([^/]+)\/[^/]+$/;
  * @param {string[]} corpus.galleries    repo-relative `*.gallery.md` paths
  * @param {string[]} corpus.deckGoldens  repo-relative committed deck-golden `.pdf` paths
  * @param {number}   [corpus.cap]        max gallery renders (gallery × mood); default 40
+ * @param {(md: string) => string|null} [corpus.newDeckPdf]  for a deck markdown with NO
+ *        committed PDF yet: the PDF it should produce, or null when it is not a deck.
+ *        Pull requests no longer commit PDFs (goldens step 3), so a new deck has none, and
+ *        without this it would never be rendered on its PR.
  * @returns {{ galleries: string[], decks: string[], omitted: string[], scope: 'none'|'targeted'|'shared', reasons: string[] }}
  *   galleries — `*.gallery.md` to render in both moods (within the cap)
  *   decks     — deck-golden `.pdf` paths to render
  *   omitted   — galleries the cap dropped (left to the nightly bless)
  */
-export function affectedGoldens(changed, { galleries, deckGoldens, cap = DEFAULT_RENDER_CAP }) {
+export function affectedGoldens(changed, { galleries, deckGoldens, cap = DEFAULT_RENDER_CAP, newDeckPdf = () => null }) {
   const gallerySet = new Set(galleries);
   const deckSet = new Set(deckGoldens);
   const wantGalleries = new Set();
@@ -124,13 +128,19 @@ export function affectedGoldens(changed, { galleries, deckGoldens, cap = DEFAULT
 
   for (const f of changed) {
     if (RENDER_IRRELEVANT.some((re) => re.test(f))) continue;
-    if (f.endsWith('.gallery.md')) {
+    // A gallery the gallery builders render. A `.gallery.md` they do not know (the
+    // design-system decks under design/) is a deck, and falls through to the deck checks.
+    if (f.endsWith('.gallery.md') && gallerySet.has(f)) {
       add(f);
       continue;
     }
     if (f.endsWith('.md') && deckSet.has(f.replace(/\.md$/, '.pdf'))) {
       decks.add(f.replace(/\.md$/, '.pdf'));
       continue;
+    }
+    if (f.endsWith('.md')) {
+      const pdf = newDeckPdf(f);
+      if (pdf) { decks.add(pdf); continue; }
     }
     if (f.endsWith('.pdf')) continue; // committed PDFs are golden-diff's other path
     const comp = f.match(COMPONENT_RE);

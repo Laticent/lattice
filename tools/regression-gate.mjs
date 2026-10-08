@@ -24,8 +24,10 @@
 //
 // GREEN = the committed golden still matches a fresh render (the author blessed
 // correctly). RED = unblessed drift — CSS/source changed but a deck's committed
-// PDF is stale. Re-bless with `--bless` (delegates to build-galleries.js /
-// build-bucket-galleries.js) and commit the refreshed PDFs in the same PR.
+// PDF is stale. The nightly bless bot (tools/golden-bless.mjs) runs this gate and
+// re-blesses what drifted; pull requests no longer commit PDFs (goldens step 3).
+// `--bless` (delegating to build-galleries.js / build-bucket-galleries.js) is what
+// the bot calls, and works by hand for a local look.
 //
 // Sibling render paths (HARD RULE 1): lattice.js (this gate's render,
 // via lib/engine) and dist/lattice-runtime.js (vscode preview / published HTML).
@@ -439,7 +441,7 @@ function main() {
   if (blessMode) {
     if (decks.length) {
       bless(only);
-      if (!json) process.stdout.write(`blessed ${only ? `gallery "${only}"` : 'all galleries'} — commit the refreshed PDFs.\n`);
+      if (!json) process.stdout.write(`blessed ${only ? `gallery "${only}"` : 'all galleries'} — for a local look; the nightly bless commits PDFs, a PR does not.\n`);
       decks = [];
     }
     // SAY WHAT THE DEFAULT DID NOT DO. The scope defaults above are asymmetric on purpose —
@@ -533,7 +535,7 @@ function main() {
     if (decks.length) parts.push(`${decks.length} galleries × ${THEMES.length} moods`);
     if (goldens.length) parts.push(`${goldens.length} deck goldens`);
     process.stdout.write(`\n${parts.join(' + ')}. `);
-    if (blessed.length) process.stdout.write(`${blessed.length} re-blessed — commit the refreshed PDFs. `);
+    if (blessed.length) process.stdout.write(`${blessed.length} re-blessed (the nightly bless commits PDFs; a PR does not). `);
     process.stdout.write(anyFail ? `${failed.length} DRIFTED: ${failed.map((r) => r.name).join(', ')}\n` : 'all match committed goldens.\n');
     if (anyFail) {
       process.stdout.write(`Artifacts: ${relative(ROOT, OUT)}/. Re-bless with: node tools/regression-gate.mjs --bless [--only <name>]\n`);

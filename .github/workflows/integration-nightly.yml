@@ -38,6 +38,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # History, so test/helpers/golden-pending.js can find the last merged bless and
+          # skip committed-PDF checks still waiting on it (goldens step 3). blob:none keeps
+          # it cheap: commits and trees only, file contents fetched on demand.
+          fetch-depth: 0
+          filter: blob:none
       - uses: actions/setup-node@v4
         with:
           node-version: 22

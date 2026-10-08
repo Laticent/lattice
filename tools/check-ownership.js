@@ -4052,7 +4052,7 @@ function listRepoTextFiles(dir = ROOT, out = []) {
       !/\.gallery\.(light|dark)\.html$/.test(e.name) &&
       // Deck render sidecars more broadly — the emulator writes <name>.html next to
       // EVERY <name>.pdf it renders (examples/, baseline-decks/, exemplars/), and the
-      // pre-commit pdf-rebuild regenerates them; the committed artifact is the .pdf.
+      // nightly bless (and any local render) regenerates them; the committed artifact is the .pdf.
       // Skip any .html that has a sibling .md of the same basename (a deck render
       // sidecar, never house prose) — same transient-flicker reason as galleries.
       !(path.extname(e.name) === '.html' && fs.existsSync(p.replace(/\.html$/, '.md')))
@@ -11036,7 +11036,7 @@ const PDF_OWNERSHIP = [
       && !/-gallery\.(light|dark)\.pdf$/.test(f) && !f.startsWith('examples/chart-theme-gallery/')
       && hasSourceDeck(f),
     what: 'per-feature demo decks (HARD RULE #9) and the token-contrast set',
-    producer: 'sibling .md via tools/build-staged-pdfs.js (pre-commit)',
+    producer: 'sibling .md, rendered by the nightly bless (tools/golden-bless.mjs via tools/build-staged-pdfs.js buildFor)',
     // `overflow:check` alone used to be named here and it OVERSTATED the claim: it
     // re-renders the markdown to a scratch dir and deletes it, so it never opens the
     // committed artifact. `regress --scope decks` does (#1379).
@@ -11045,25 +11045,25 @@ const PDF_OWNERSHIP = [
   {
     test: (f) => /^exemplars\/[a-z][a-z0-9-]*\/[a-z][a-z0-9-]*\.pdf$/.test(f) && hasSourceDeck(f),
     what: 'the worked boardroom exemplars',
-    producer: 'tools/build-exemplar-pdfs.js · tools/build-staged-pdfs.js (pre-commit)',
+    producer: 'tools/build-exemplar-pdfs.js · the nightly bless (tools/golden-bless.mjs)',
     watcher: 'npm run regress (pixel, --scope decks) · test:integration:exemplars · overflow:check',
   },
   {
     test: (f) => /^design\/[a-z][a-z0-9-]*\.gallery\.pdf$/.test(f) && hasSourceDeck(f),
     what: 'design-system demo decks (they live with their owner, not under examples/)',
-    producer: 'sibling .md via tools/build-staged-pdfs.js (pre-commit)',
+    producer: 'sibling .md, rendered by the nightly bless (tools/golden-bless.mjs via tools/build-staged-pdfs.js buildFor)',
     watcher: 'npm run regress (pixel, --scope decks) · overflow:check',
   },
   {
     test: (f) => /^test\/integration\/baseline-decks\/[a-z][a-z0-9-]*\.pdf$/.test(f) && hasSourceDeck(f),
     what: 'the CI baseline deck',
-    producer: 'sibling .md via tools/build-staged-pdfs.js (pre-commit)',
+    producer: 'sibling .md, rendered by the nightly bless (tools/golden-bless.mjs via tools/build-staged-pdfs.js buildFor)',
     watcher: 'npm run regress (pixel, --scope decks) · test:integration (page-count assertions) · overflow:check',
   },
   {
     test: (f) => f === 'themes/palette-audit.pdf' && hasSourceDeck(f),
     what: "the theme designer's palette audit",
-    producer: 'sibling .md via tools/build-staged-pdfs.js (pre-commit)',
+    producer: 'sibling .md, rendered by the nightly bless (tools/golden-bless.mjs via tools/build-staged-pdfs.js buildFor)',
     // Still outside the OVERFLOW corpus on purpose — a designer's sweep, not a shipped
     // deck — but it has a sibling deck and a committed PDF, so the pixel gate reaches it
     // like any other deck golden. That is the point of deriving that corpus from
@@ -11078,18 +11078,23 @@ const PDF_OWNERSHIP = [
     // what a recipient's marp-cli produces, so regenerating it with our engine would
     // quietly replace the artifact with one made by the engine it is being compared to.
     watcher: null,
+    // The nightly bless does not write it (tools/check-no-pdf-in-pr.mjs reads this flag):
+    // a pull request still commits it, by hand.
+    prCommitted: true,
   },
   {
     test: (f) => f.startsWith('examples/chart-theme-gallery/'),
     what: 'the chart bucket rendered under three curated chart palettes',
     producer: 'by hand: lib/components/chart/chart.gallery.md re-rendered per theme (see that folder README)',
     watcher: null, // Its own README: "reviewer deliverables, not regression baselines."
+    prCommitted: true,
   },
   {
     test: (f) => /^engineering\/decisions\/\d{4}-\d{2}-\d{2}-.+\.pdf$/.test(f),
     what: 'evidence attached to a dated decision record',
     producer: 'none — a frozen artifact of the decision it sits beside',
     watcher: null, // A dated record is a snapshot; rebuilding it would destroy the evidence.
+    prCommitted: true,
   },
 ];
 

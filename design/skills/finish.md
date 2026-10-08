@@ -155,7 +155,7 @@ interpolates color and opacity separately.
    `var(--text-heading)`. No hex, no `url()`, no `mask-image`, no `margin`.
 4. **Default glyph marks to empty** — `--fin-mark-text: ""`. A deck-wide finish
    paints no monogram/numeral until the author personalizes it per slide.
-5. **Ship a demo deck** in `examples/` + committed PDF; add a `changelog.d/` fragment + the
+5. **Ship a demo deck** in `examples/` (CI links its PDF; the nightly bless commits it); add a `changelog.d/` fragment + the
    canonical doc.
 6. **Export sign-off** through **both** engines (CLI vector PDF *and* Studio
    html-to-image raster), in **dark and light**. A finish alters exported bytes, so

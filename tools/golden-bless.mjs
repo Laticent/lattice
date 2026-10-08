@@ -25,6 +25,7 @@
 
 import { execFileSync, spawnSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -43,8 +44,68 @@ const OUT = join(ROOT, '.scratch', 'golden-bless');
 const GATE = join(ROOT, 'tools', 'regression-gate.mjs');
 const REGRESSION_OUT = join(ROOT, '.scratch', 'regression');
 
+const require = createRequire(import.meta.url);
+// classify(): which markdown should have a committed PDF; buildFor(): render those PDFs.
+const { classify, buildFor } = require('./build-staged-pdfs.js');
+const { SHOWCASES: SHOWCASE_DEFS } = require('./build-showcase-galleries.js');
+
 const git = (args) => execFileSync('git', args, { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 << 20 });
-const changedPdfs = () => git(['diff', '--name-only', '--', '*.pdf']).split('\n').filter(Boolean);
+// Changed AND new PDFs. `git diff` alone misses an untracked file, so a PDF the bless
+// renders for a deck that never had one would be invisible to every step below.
+// -z: a path with a space or a non-ASCII character comes back as is, not C-quoted.
+function statusPaths(pathspecs, { untrackedOnly = false } = {}) {
+  const fields = git(['status', '--porcelain=v1', '-z', '--untracked-files=all', '--', ...pathspecs]).split('\0');
+  const out = [];
+  for (let i = 0; i < fields.length; i++) {
+    const f = fields[i];
+    if (!f) continue;
+    if (f[0] === 'R' || f[0] === 'C') i++; // a staged rename carries its old path next
+    if (!untrackedOnly || f.startsWith('??')) out.push(f.slice(3));
+  }
+  return out;
+}
+// Case-insensitive, like tools/check-no-pdf-in-pr.mjs: `x.Pdf` is a PDF too.
+const PDFS = [':(icase)*.pdf'];
+const changedPdfs = () => statusPaths(PDFS);
+const newPdfs = () => statusPaths(PDFS, { untrackedOnly: true });
+const isTracked = (f) => git(['ls-files', '--', f]).trim() !== '';
+const commitTime = (paths) => Number(git(['log', '-1', '--format=%ct', '--', ...paths]).trim()) || 0;
+
+// Put the working tree back for these paths: a tracked file from HEAD, an untracked one
+// (rendered for the first time) deleted. `git checkout HEAD --` alone throws on the second.
+function undo(paths) {
+  const tracked = paths.filter(isTracked);
+  if (tracked.length) git(['checkout', 'HEAD', '--', ...tracked]);
+  for (const f of paths.filter((p) => !tracked.includes(p))) rmSync(join(ROOT, f), { force: true });
+}
+
+// First-time renders per night. A night with hundreds missing (a mass rename, a new
+// family) would otherwise run past the job's timeout and commit nothing, every night.
+// The rest wait for the next night.
+const MISSING_CAP = 40;
+
+// The PDFs a classified markdown file should have committed beside it.
+function expectedPdfs(md, job) {
+  if (job.kind === 'deck') return [job.out];
+  if (job.kind === 'component' || job.kind === 'bucket' || job.kind === 'showcase') {
+    return ['light', 'dark'].map((mood) => md.replace(/(\.gallery|-gallery)\.md$/, `$1.${mood}.pdf`));
+  }
+  return [];
+}
+
+// Tracked markdown that should have a committed PDF and does not. Pull requests no longer
+// commit PDFs (step 3), so a new deck or gallery gets its first PDF here, the night after
+// it merges.
+function sourcesMissingPdfs() {
+  const tracked = new Set(git(['ls-files']).split('\n').filter(Boolean));
+  const out = [];
+  for (const md of git(['ls-files', '--', '*.md']).split('\n').filter(Boolean)) {
+    const job = classify(md);
+    if (!job) continue;
+    if (expectedPdfs(md, job).some((p) => !tracked.has(p))) out.push(md);
+  }
+  return out;
+}
 
 function gate(args, okCodes) {
   const r = spawnSync(process.execPath, [GATE, ...args], { cwd: ROOT, encoding: 'utf8', maxBuffer: 256 << 20 });
@@ -95,19 +156,19 @@ function refreshShowcase(writtenSet) {
   const unmoved = Object.entries(sources)
     .filter(([, rec]) => !writtenSet.has(rec.src))
     .map(([key]) => `${SHOWCASE_DIR}/${key}.webp`);
-  const changed = new Set(git(['diff', '--name-only', '--', SHOWCASE_DIR]).split('\n').filter(Boolean));
+  const changed = new Set(statusPaths([SHOWCASE_DIR]));
   const restore = unmoved.filter((f) => changed.has(f));
-  if (restore.length) git(['checkout', 'HEAD', '--', ...restore]);
+  if (restore.length) undo(restore);
   const after = run(['--check']);
   const problems = after.status === 0 ? [] : [`showcase still stale after refresh: ${(after.stderr || '').trim().split('\n')[0]}`];
   return { kept: [...changed].filter((f) => !restore.includes(f)), problems };
 }
 
-function main() {
+async function main() {
   const args = process.argv.slice(2);
   const reportIdx = args.indexOf('--report');
 
-  const dirty = [...changedPdfs(), ...git(['diff', '--name-only', '--', SHOWCASE_DIR, SHOWCASE_SOURCES]).split('\n').filter(Boolean)];
+  const dirty = [...changedPdfs(), ...statusPaths([SHOWCASE_DIR, SHOWCASE_SOURCES, 'examples/*-gallery.md'])];
   if (dirty.length) {
     process.stderr.write(`golden-bless: ${dirty.length} tracked golden or showcase file(s) already have uncommitted changes (${dirty.slice(0, 3).join(', ')}…). Commit or restore them first: this tool rewrites and restores PDFs.\n`);
     process.exit(2);
@@ -163,8 +224,51 @@ function main() {
   // Step 3. The tree was clean at the start, so every changed PDF is ours to keep or undo.
   const want = new Set(drifted.map((r) => r.golden));
   const restore = changedPdfs().filter((f) => !want.has(f));
-  if (restore.length) git(['checkout', 'HEAD', '--', ...restore]);
-  const written = changedPdfs();
+  if (restore.length) undo(restore);
+
+  // Step 3a. Goldens that do not exist yet: a deck or gallery merged without a PDF. One
+  // source at a time, so a deck that will not render costs only its own PDF: it becomes a
+  // problem in the verdict, and every other golden still lands tonight.
+  const renderProblems = [];
+  const missing = sourcesMissingPdfs();
+  for (const md of missing.slice(0, MISSING_CAP)) {
+    try {
+      await buildFor([md]);
+    } catch (err) {
+      renderProblems.push(`rendering ${md} for the first time failed: ${String(err.message).split('\n')[0]}`);
+      undo(expectedPdfs(md, classify(md)).filter((p) => changedPdfs().includes(p)));
+    }
+  }
+  // Deferred is not failed: it holds auto-merge (a problem) but does not turn the night red.
+  const deferred = [];
+  if (missing.length > MISSING_CAP) {
+    deferred.push(`${missing.length - MISSING_CAP} more golden(s) have no PDF yet; the next night renders them (cap ${MISSING_CAP})`);
+  }
+  // The generated showcase decks (examples/<id>-gallery.md, built from the component
+  // manifests of their buckets). The pre-commit hook step 3 removed was their only writer,
+  // and their builder judges freshness from UNCOMMITTED inputs, so on a clean checkout it
+  // always says "fresh". Judge from history instead: re-render when the deck or any
+  // component in its buckets was committed after its PDFs were.
+  for (const md of git(['ls-files', '--', 'examples/*-gallery.md']).split('\n').filter(Boolean)) {
+    const job = classify(md);
+    if (job?.kind !== 'showcase' || missing.includes(md)) continue;
+    const def = SHOWCASE_DEFS.find((d) => d.id === job.id);
+    const pdfs = expectedPdfs(md, job);
+    const sourcesAt = commitTime([md, ...(def?.buckets || []).map((b) => `lib/components/${b}`)]);
+    if (pdfs.every((p) => isTracked(p) && commitTime([p]) >= sourcesAt)) continue;
+    for (const p of pdfs) rmSync(join(ROOT, p), { force: true }); // a missing PDF is always stale
+    try {
+      await buildFor([md]);
+    } catch (err) {
+      renderProblems.push(`regenerating ${md} failed: ${String(err.message).split('\n')[0]}`);
+      undo(pdfs);
+    }
+  }
+  // The showcase decks' PDFs ride in the commit but are not goldens the check scores.
+  const showcaseDeckPdf = (f) => /^examples\/[a-z][a-z0-9-]*-gallery\.(light|dark)\.pdf$/.test(f);
+  const showcaseDecks = changedPdfs().filter(showcaseDeckPdf);
+  const created = newPdfs().filter((f) => !showcaseDeckPdf(f));
+  const written = changedPdfs().filter((f) => !showcaseDeckPdf(f));
 
   // Step 3b. Files derived from the goldens. The docs landing page's showcase WebPs are
   // cut from gallery PDFs, and `rasterize-showcase.mjs --check` (docs-build and preview)
@@ -186,12 +290,13 @@ function main() {
     seen = seenFromPrs(prs);
     seenProblems.push(...problems);
   }
-  const v = verdict(rows, seen, written);
-  v.problems.push(...blessProblems, ...seenProblems);
+  const v = verdict(rows, seen, written, { created });
+  v.problems.push(...blessProblems, ...renderProblems, ...deferred, ...seenProblems);
   if (v.problems.length) v.autoMerge = false;
   v.renderedFrom = renderedFrom;
   v.windowFrom = from;
   v.restoredUnmoved = restore.length;
+  v.showcaseDecks = showcaseDecks;
   v.showcaseRefreshed = derived.kept;
   const md = verdictMarkdown(v, { renderedFrom, runUrl: process.env.GOLDEN_BLESS_RUN_URL || '' });
   writeFileSync(join(OUT, 'verdict.json'), JSON.stringify(v, null, 2));
@@ -204,6 +309,10 @@ function main() {
     process.stderr.write(`golden-bless: ${blessProblems.length} bless(es) failed; see the verdict.\n`);
     process.exit(3);
   }
+  // A golden that could not be rendered for the first time still turns the night red, but
+  // AFTER the bless PR is opened (golden-bless.yml reads this file last), so one broken
+  // deck does not hold back every other golden.
+  writeFileSync(join(OUT, 'failed.txt'), renderProblems.map((p) => `${p}\n`).join(''));
 }
 
-main();
+await main();

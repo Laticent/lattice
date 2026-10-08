@@ -58,6 +58,35 @@ describe('golden-affected — targeted changes', () => {
   });
 });
 
+describe('golden-affected — a new deck with no committed PDF (goldens step 3)', () => {
+  const newDeckPdf = (md) => (md === 'examples/brand-new.md' ? 'examples/brand-new.pdf' : null);
+  test('renders it, through the classifier golden-diff passes in', async () => {
+    await load();
+    const r = affectedGoldens(['examples/brand-new.md'], { galleries: GALLERIES, deckGoldens: DECKS, newDeckPdf });
+    assert.deepEqual(r.decks, ['examples/brand-new.pdf']);
+    assert.equal(r.scope, 'targeted');
+  });
+  test('prose the classifier rejects renders nothing', async () => {
+    await load();
+    const r = affectedGoldens(['examples/README.md'], { galleries: GALLERIES, deckGoldens: DECKS, newDeckPdf });
+    assert.equal(r.scope, 'none');
+  });
+  test('a design-system deck (a .gallery.md no gallery builder knows) renders as a deck', async () => {
+    await load();
+    const r = affectedGoldens(['design/forms.gallery.md', 'design/new.gallery.md'], {
+      galleries: GALLERIES,
+      deckGoldens: [...DECKS, 'design/forms.gallery.pdf'],
+      newDeckPdf: (md) => (md === 'design/new.gallery.md' ? 'design/new.gallery.pdf' : null),
+    });
+    assert.deepEqual(r.decks.sort(), ['design/forms.gallery.pdf', 'design/new.gallery.pdf']);
+    assert.deepEqual(r.galleries, []);
+  });
+  test('without a classifier, a deck with no PDF is not rendered (the old behavior)', async () => {
+    await load();
+    assert.equal(run(['examples/brand-new.md']).scope, 'none');
+  });
+});
+
 describe('golden-affected — shared changes', () => {
   for (const f of [
     'lib/core/fit.js',

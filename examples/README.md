@@ -1,14 +1,14 @@
 # examples/ — single-feature demo decks
 
-Small decks that each exercise one engine feature, committed together with
-their rendered PDFs (HARD RULE #9: every feature ships a demo deck).
+Small decks that each exercise one engine feature (HARD RULE #9: every
+feature ships a demo deck).
 
 Conventions:
 
-- Filenames are lowercase-kebab (`feature-name.md`); the pre-commit hook
-  auto-rebuilds `feature-name.pdf` when the source is staged.
-- The PDFs are committed on purpose — reviewers read them without
-  building.
+- Filenames are lowercase-kebab (`feature-name.md`).
+- A pull request commits the `.md` only. CI renders `feature-name.pdf` and
+  links it on the PR, and the nightly bless bot commits it to `main` after
+  the merge, so reviewers read it without building.
 - Subfolders: `assets/` (sample images), `chart-theme-gallery/` and
   `token-contrast/` (own docs inside).
 

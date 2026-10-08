@@ -12,7 +12,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 - **Cause:** Fonts are embedded into a PDF **at render time**, never
   fetched when viewed. The engine loads its faces from a Google-Fonts
   `<link>`/`@import`, which needs the network. A render with no network
-  — the pre-commit PDF rebuild offline — silently embeds a system
+  — a local render offline — silently embeds a system
   fallback instead. In the **cloud sandbox** specifically the network is
   present but a **TLS-intercepting (MITM) proxy** sits in front of CDNs,
   so the webfont fetch fails the certificate check and falls back the

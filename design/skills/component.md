@@ -125,8 +125,11 @@ the rest are substance- or domain-defined.
    pure, idempotent string-in/string-out function, and register it in
    `lib/transformers/registry.js` in the right order — wired identically across the
    engine, CLI, and runtime (HARD RULE #1).
-6. **Ship a demo deck** `examples/<name>.md` (6–10 slides) + committed PDF (HARD
-   RULE #9).
+6. **Ship a demo deck** `examples/<name>.md` (6–10 slides); CI renders its PDF and
+   links it on the PR, and the nightly bless commits it (HARD RULE #9). Commit no PDF.
+   If the component is flagged for the docs landing-page showcase (`showcase.featured` or
+   `.hero`), set that flag in a follow-up PR after the first bless: the showcase image is
+   cut from the gallery PDF, which does not exist until then, so docs-build fails.
 7. **`npm run build`** to regenerate everything, then `npm run build:check` +
    `npm test`.
 8. **Graduate** exemplar slides into `test/integration/baseline-decks/gallery.md`
@@ -246,7 +249,7 @@ reflow rule that matches its `adapt.mode: "reflow"`, every variant documented, t
       `> .cell-stage`, palette-blind, margin-free; covers native + post-processed
       paths; `@container` matches `adapt.mode`.
 - [ ] Transform (if any) is pure, idempotent, registered, wired in all three paths.
-- [ ] `examples/<name>.md` demo deck (6–10 slides) + committed PDF.
+- [ ] `examples/<name>.md` demo deck (6–10 slides), no PDF committed (CI links it; the bless commits it).
 - [ ] `npm run build` run; **no generated file hand-edited**.
 - [ ] `npm run build:check` + `npm test` green (validator, page-count assertions,
       stale-output gates).

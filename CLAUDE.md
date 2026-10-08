@@ -320,7 +320,8 @@ anchors). Both are binding; the split tells you *where the enforcement lives*.
 - **#8 — Isolate feature/fix content from the six long-running galleries** —
   layouts graduate in a separate post-review commit. See `engineering/workflow.md`.
 - **#9 — A change a human can SEE ON A SLIDE ships a per-feature demo deck**
-  `examples/<slug>.md` (+ committed `.pdf`), 6–10 slides. Contract in
+  `examples/<slug>.md` (6–10 slides); CI renders its PDF and links it on the PR, and the
+  nightly bless commits it to `main`. Contract in
   `engineering/workflow.md`. **The trigger is the rendered surface, not the word
   "feature".** A layout, modifier, token, theme or chart change — or a fix to one —
   owes a deck, because the deck IS how a reviewer sees it. Work that renders no new
@@ -711,7 +712,8 @@ after a squash-merge) and the browser-free PNG preview are documented in
 
 Iterate visually with `npm run preview` + `SendUserFile` (no per-iteration
 commits; auto-detects scope + pixel-diffs). Lint drafts with
-`npm run lint:deck -- <file>`. The final PR commit includes all rebuilt PDFs.
+`npm run lint:deck -- <file>`. Pull requests never commit PDFs: CI renders and links
+them, and the nightly bless commits them to `main` (HARD RULE #9).
 `.scratch/` is for throwaway experiments (`npm run clean:scratch`).
 
 ## Design-before-code on "rethink X" requests

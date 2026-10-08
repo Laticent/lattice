@@ -45,6 +45,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { runEmulator, ROOT } = require('../../helpers/render');
 const { pageCount } = require('../../helpers/pdf');
+const { pendingBless } = require('../../helpers/golden-pending');
 const { splitDeck } = require('../../../lib/exemplars/tier-filter');
 
 const EXEMPLARS_DIR = path.join(ROOT, 'exemplars');
@@ -85,16 +86,23 @@ describe('exemplar-render', () => {
       `${rel}: renders to ${expected} pages and its committed PDF is fresh`,
       { timeout: 600000 },
       () => {
-        // (2) committed artifact is present and structurally current.
+        // (2) committed artifact is present and structurally current, unless it is
+        // waiting on the nightly bless (PRs no longer commit PDFs; goldens step 3).
+        const pending = pendingBless(committedPdf, [deckPath]);
+        const committedOk = fs.existsSync(committedPdf) && pageCount(committedPdf) === expected;
+        if (!committedOk && pending) {
+          process.stderr.write(`exemplar-render: ${rel}: committed-PDF check skipped, ${pending}\n`);
+        } else {
         assert.ok(
           fs.existsSync(committedPdf),
-          `committed PDF missing: ${path.relative(ROOT, committedPdf)} — run \`npm run build:exemplar-pdfs\``,
+          `committed PDF missing: ${path.relative(ROOT, committedPdf)} — the nightly bless renders it`,
         );
         assert.equal(
           pageCount(committedPdf),
           expected,
-          `${path.relative(ROOT, committedPdf)} page count drifted from its source (${expected} slides) — run \`npm run build:exemplar-pdfs\``,
+          `${path.relative(ROOT, committedPdf)} page count drifted from its source (${expected} slides) — the nightly bless refreshes it`,
         );
+        }
 
         // (1) fresh render succeeds and yields one page per slide.
         const pdf = runEmulator(deckPath);
