@@ -87,19 +87,28 @@ test.beforeAll(async () => {
 	files = await deckFiles();
 });
 
-test.beforeEach(async ({ page }) => {
+test.beforeEach(async ({ page, viewport }) => {
+	// Seeding types into the code editor, which is off-screen at phone width; the one arm that
+	// reaches the 390 px project (the cross-engine arm, by its `@crosswidth` tag) stands down there.
+	test.skip((viewport?.width ?? 1440) < 600, 'the shared setup seeds the deck through the code editor, off-screen at phone width');
 	await gotoStudio(page);
 	await setEditorContent(page, SCRATCH);
 	await expect.poll(() => activeSource(page)).toBe(SCRATCH);
 });
 
-// THE CROSS-ENGINE ARM. The drag is built in the page (Playwright passes a real DataTransfer
+// THE CROSS-ENGINE ARM. It needs `@crosswidth` so the desktop project keeps it (desktop drops
+// any `@webkit` title without that tag), which also routes it to the 390 px `mobile` project.
+// There the shared beforeEach cannot seed the deck: it types into the code editor, which is
+// off-screen at phone width. This arm is about ENGINES, not widths (the sign at 390 px is the
+// screenshot arm's), so the shared beforeEach stands it down below 600 px rather than reshaping the setup.
+// The drag is built in the page (Playwright passes a real DataTransfer
 // holding a real File), so it runs in WebKit and Gecko as well as Chromium. It replays the
 // WebKit pattern the checker flagged: a `dragleave` between two children with a NULL
 // `relatedTarget`, which must not take the sign down. Then the drop must import.
 // The preview needs no native-routing arm in those engines: its frame sits inside a
 // `pointer-events-none` box (StudioShell's slide frame), so hit testing never picks the iframe.
-test('@crosswidth @gecko @webkit-tablet a dropped .lattice opens in this engine, and a null-relatedTarget leave keeps the sign', async ({ page }) => {
+test.describe('cross-engine', () => {
+	test('@crosswidth @gecko @webkit-tablet a dropped .lattice opens in this engine, and a null-relatedTarget leave keeps the sign', async ({ page }) => {
 	const bytes = [...readFileSync(files.lattice)];
 	const dt = await page.evaluateHandle((b) => {
 		const d = new DataTransfer();
@@ -121,6 +130,7 @@ test('@crosswidth @gecko @webkit-tablet a dropped .lattice opens in this engine,
 	await expect(toastText(page)).toContainText('Imported');
 	await expect.poll(() => activeSource(page)).toBe(DECK);
 	expect(await allSources(page)).toContain(SCRATCH);
+});
 });
 
 test.describe('native drags (Chromium CDP)', () => {
