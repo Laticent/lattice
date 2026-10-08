@@ -55,6 +55,9 @@ It does **not** own the document. The app passes its own replicated streams in (
 stays the app's dependency, and the transport is passed in too (`Transport`) — the way Trama takes
 dagre. The core imports nothing outside this folder.
 
+**See it run:** the [`/tavola` demo](https://lattice.style/tavola) runs a host and a guest in one tab,
+joined by the in-memory network: knock, admit, edit from either side, make the guest view-only.
+
 > Design, threat model and measurements:
 > [`engineering/decisions/2026-10-06-studio-live-collaboration.md`](https://github.com/Laticent/lattice/blob/main/engineering/decisions/2026-10-06-studio-live-collaboration.md).
 

@@ -78,10 +78,11 @@ describe('nav model', () => {
 		expect([...listed].sort()).toEqual(published.sort());
 	});
 
-	it('points a library without a demo page at its README, and never marks it current', () => {
-		for (const l of librariesNav(url).filter((x) => x.external)) {
-			expect(l.href).toMatch(/^https:\/\/github\.com\/Laticent\/lattice\/tree\/main\/docs\/src\/lib\/[a-z]+#readme$/);
-			expect(l.match).toEqual([]);
+	it('points every library at its own demo page, which marks it current (Tavola was the last README link)', () => {
+		for (const l of librariesNav(url)) {
+			const slug = l.label.toLowerCase();
+			expect(l.match).toEqual([slug]);
+			expect(isCurrent(l, `/lattice/${slug}/`)).toBe(true);
 		}
 	});
 

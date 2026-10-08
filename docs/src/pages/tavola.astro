@@ -1,0 +1,424 @@
+---
+// Tavola — a standalone, framework-free showcase driven by the REAL library
+// (docs/src/lib/tavola, the `@laticent/tavola` workspace). Two whole sessions run in this one
+// tab: a host and a guest, each with its own Yjs document, joined by Tavola's in-memory network
+// (`createMemoryNetwork`) instead of WebRTC, so a visitor sees the handshake, the gate and the sync
+// without opening a second browser. Every byte between the panes goes through the same session
+// code the Studio's Live panel runs; only the transport is swapped. Reached at /tavola.
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+		<meta name="robots" content="noindex, nofollow" />
+		<title>Tavola — edit together, browser to browser</title>
+		<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+		<style is:global>
+			:root {
+				--paper: #f6f4ef; --stage: #ecebe6; --ink: #1c2430; --muted: #5f6b78; --line: #d9dde2;
+				--accent: #1f5f8b; --accent-ink: #fff; --panel: #fdfcfa; --warn: #a2560f; --warn-bg: #fbeedd;
+				--ok: #2f6b3b; --ok-bg: #e5f1e6; --no: #a3332a; --no-bg: #f8e3e0;
+				--seat-1: #1f5f8b; --seat-2: #b4572e; --seat-3: #3c7a4a; --seat-4: #7a4f99;
+				--shadow: 0 1px 2px rgba(28,36,48,.06), 0 8px 24px rgba(28,36,48,.06);
+				--serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
+				--sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+				--mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+				color-scheme: light;
+			}
+			@media (prefers-color-scheme: dark) {
+				:root:not([data-theme="light"]) {
+					--paper: #111316; --stage: #171a1e; --ink: #e4e9ef; --muted: #98a3b0; --line: #2a3038;
+					--accent: #7db8e2; --accent-ink: #0a1c2a; --panel: #15181c; --warn: #f0b36a; --warn-bg: #2d2214;
+					--ok: #8fd19c; --ok-bg: #16261a; --no: #f2958b; --no-bg: #2c1714;
+					--seat-1: #7db8e2; --seat-2: #f0a07a; --seat-3: #8fd19c; --seat-4: #c9a3e6;
+					--shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
+					color-scheme: dark;
+				}
+			}
+			:root[data-theme="dark"] {
+				--paper: #111316; --stage: #171a1e; --ink: #e4e9ef; --muted: #98a3b0; --line: #2a3038;
+				--accent: #7db8e2; --accent-ink: #0a1c2a; --panel: #15181c; --warn: #f0b36a; --warn-bg: #2d2214;
+				--ok: #8fd19c; --ok-bg: #16261a; --no: #f2958b; --no-bg: #2c1714;
+				--seat-1: #7db8e2; --seat-2: #f0a07a; --seat-3: #8fd19c; --seat-4: #c9a3e6;
+				--shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
+				color-scheme: dark;
+			}
+			* { box-sizing: border-box; }
+			body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--sans);
+				line-height: 1.5; -webkit-font-smoothing: antialiased; padding: clamp(16px, 4vw, 48px); }
+			.wrap { max-width: 1080px; margin: 0 auto; }
+			header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+			.brand { display: flex; align-items: center; gap: 13px; }
+			.brand .logo { width: 46px; height: 46px; flex-shrink: 0; }
+			.logo .table { fill: none; stroke: var(--ink); }
+			.logo .s1 { fill: var(--seat-1); } .logo .s2 { fill: var(--seat-2); } .logo .s3 { fill: var(--seat-3); } .logo .s4 { fill: var(--seat-4); }
+			h1 { font-family: var(--serif); font-size: clamp(28px, 5vw, 40px); font-weight: 600; margin: 0; letter-spacing: -.01em; }
+			.tag { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--accent);
+				border: 1px solid var(--accent); padding: 3px 8px; border-radius: 999px; font-weight: 600; white-space: nowrap; }
+			.home { color: var(--muted); text-decoration: none; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; }
+			.home:hover { color: var(--accent); }
+			.home svg, .theme svg { width: 12px; height: 12px; }
+			.theme { background: none; border: 1px solid var(--line); color: var(--muted); border-radius: 999px; font-size: 11px;
+				padding: 5px 11px; cursor: pointer; font-family: var(--sans); display: inline-flex; align-items: center; gap: 6px; }
+			.theme:hover { color: var(--accent); border-color: var(--accent); }
+			.sub { color: var(--muted); font-size: 14px; max-width: 72ch; margin: 6px 0 0; }
+			.sub b { color: var(--ink); font-weight: 600; }
+
+			.stage { margin: 26px 0 0; background: var(--stage); border: 1px solid var(--line); border-radius: 18px;
+				box-shadow: var(--shadow); padding: clamp(14px, 3vw, 26px); display: flex; flex-direction: column; gap: 14px; }
+			.controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+			.spacer { flex: 1; }
+			.btn { border: 1px solid var(--line); background: var(--panel); color: var(--ink); font-family: var(--sans);
+				font-size: 12.5px; font-weight: 600; border-radius: 999px; padding: 7px 14px; cursor: pointer; white-space: nowrap;
+				display: inline-flex; align-items: center; gap: 6px; transition: transform .08s ease, border-color .12s ease; }
+			.btn:hover:not([disabled]) { transform: translateY(-1px); border-color: var(--accent); }
+			.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+			.btn[disabled] { opacity: .5; cursor: not-allowed; }
+			.btn.ok { color: var(--ok); } .btn.no { color: var(--no); }
+			.switch { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--line); background: var(--panel);
+				color: var(--ink); font-family: var(--sans); font-size: 12.5px; font-weight: 600; border-radius: 999px; padding: 6px 13px 6px 7px; cursor: pointer; }
+			.switch[disabled] { opacity: .5; cursor: not-allowed; }
+			.switch .knob { width: 28px; height: 16px; border-radius: 999px; background: var(--line); position: relative; flex-shrink: 0; transition: background .15s ease; }
+			.switch .knob::after { content: ""; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--panel); transition: transform .15s ease; }
+			.switch[aria-pressed="true"] .knob { background: var(--accent); }
+			.switch[aria-pressed="true"] .knob::after { transform: translateX(12px); }
+
+			.panes { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+			@media (max-width: 780px) { .panes { grid-template-columns: 1fr; } }
+			.pane { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; display: flex; flex-direction: column; min-width: 0; }
+			.pane-head { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+			.seat { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; background: var(--line); }
+			.seat.c1 { background: var(--seat-1); } .seat.c2 { background: var(--seat-2); } .seat.c3 { background: var(--seat-3); } .seat.c4 { background: var(--seat-4); }
+			.who { font-weight: 600; font-size: 14px; }
+			.who small { color: var(--muted); font-weight: 500; font-size: 12px; margin-left: 4px; }
+			.badge { margin-left: auto; font-family: var(--mono); font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+			.badge.live { color: var(--ok); background: var(--ok-bg); border-color: transparent; }
+			.badge.waiting, .badge.lobby, .badge.connecting { color: var(--warn); background: var(--warn-bg); border-color: transparent; }
+			.badge.denied, .badge.removed, .badge.ended { color: var(--no); background: var(--no-bg); border-color: transparent; }
+			.pane-body { padding: 14px; display: flex; flex-direction: column; gap: 12px; flex: 1; }
+			.label { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 600; margin: 0 0 6px; }
+			.link { font-family: var(--mono); font-size: 11.5px; color: var(--ink); background: var(--stage); border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; overflow-wrap: anywhere; }
+			.link b { color: var(--accent); font-weight: 600; }
+			.rows { display: flex; flex-direction: column; gap: 6px; list-style: none; padding: 0; margin: 0; }
+			.rows li { display: flex; align-items: center; gap: 8px; font-size: 13px; min-height: 30px; }
+			.rows li .name { font-weight: 600; }
+			.rows li .role { color: var(--muted); font-size: 12px; }
+			.rows li .act { margin-left: auto; display: flex; gap: 6px; }
+			.rows .empty { color: var(--muted); font-size: 12.5px; font-style: italic; }
+			textarea { width: 100%; min-height: 168px; resize: vertical; font-family: var(--mono); font-size: 13px; line-height: 1.55; color: var(--ink);
+				background: var(--paper); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; flex: 1; }
+			textarea[readonly] { opacity: .75; cursor: not-allowed; }
+			textarea:focus { border-color: var(--accent); outline: none; }
+			.invite { border: 1px dashed var(--line); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+			.invite h3 { font-family: var(--serif); font-size: 20px; margin: 0; font-weight: 600; }
+			.invite p { margin: 0; color: var(--muted); font-size: 13px; }
+			.knock-row { display: flex; gap: 8px; flex-wrap: wrap; }
+			.knock-row input { flex: 1; min-width: 140px; font-family: var(--sans); font-size: 14px; color: var(--ink); background: var(--paper);
+				border: 1px solid var(--line); border-radius: 999px; padding: 7px 13px; }
+			.knock-row input:focus { border-color: var(--accent); outline: none; }
+			.note { font-size: 12.5px; color: var(--muted); margin: 0; }
+			.no-deck { flex: 1; min-height: 120px; border: 1px dashed var(--line); border-radius: 10px; display: grid; place-items: center;
+				color: var(--muted); font-size: 12.5px; text-align: center; padding: 14px; }
+			.wire { font-family: var(--mono); font-size: 11.5px; color: var(--muted); display: flex; flex-direction: column; gap: 3px; max-height: 132px; overflow: auto;
+				border-top: 1px solid var(--line); padding-top: 10px; }
+			.wire span b { color: var(--ink); font-weight: 600; }
+
+			.rail-head h2 { font-family: var(--serif); font-size: 22px; font-weight: 600; margin: 34px 0 12px; }
+			.beats { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; }
+			.beat { border: 1px solid var(--line); border-radius: 14px; background: var(--panel); padding: 14px 15px; display: flex; gap: 12px; align-items: flex-start; }
+			.beat .n { flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%; background: var(--stage); border: 1px solid var(--line);
+				color: var(--accent); font-family: var(--mono); font-size: 12px; font-weight: 700; display: grid; place-items: center; }
+			.beat .bt { display: block; font-size: 14px; font-weight: 600; margin: 0 0 2px; }
+			.beat .bd { display: block; font-size: 12.5px; color: var(--muted); margin: 0 0 4px; line-height: 1.45; }
+			.beat .api { display: block; font-family: var(--mono); font-size: 11px; color: var(--accent); overflow-wrap: anywhere; }
+			.limits { margin-top: 18px; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+			.limits div { border: 1px dashed var(--line); border-radius: 12px; padding: 12px 14px; font-size: 13px; color: var(--muted); }
+			.limits b { display: block; color: var(--ink); font-size: 13.5px; margin-bottom: 3px; }
+			.foot { margin-top: 26px; color: var(--muted); font-size: 12px; line-height: 1.7; }
+			.foot code { overflow-wrap: anywhere; font-family: var(--mono); background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
+			.foot a { color: var(--accent); }
+			:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+			@media (max-width: 640px) { .spacer { display: none; } .controls .btn, .controls .switch { flex: 1; justify-content: center; } }
+			@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+		</style>
+	</head>
+	<body>
+		<div class="wrap">
+			<header>
+				<div class="brand">
+					<!-- The mark: a table seen from above with its four seats, in the four session colors. -->
+					<svg class="logo" viewBox="0 0 48 48" aria-hidden="true">
+						<circle cx="24" cy="24" r="12" class="table" stroke-width="2.6" />
+						<circle cx="24" cy="5.5" r="4" class="s1" /><circle cx="42.5" cy="24" r="4" class="s2" />
+						<circle cx="24" cy="42.5" r="4" class="s3" /><circle cx="5.5" cy="24" r="4" class="s4" />
+					</svg>
+					<h1>Tavola</h1><span class="tag">live editing</span>
+				</div>
+				<div style="display:flex; gap:14px; align-items:center;">
+					<a class="home" href="/"><svg viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M7.5 2.5 L4 6 L7.5 9.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" /></svg>Lattice</a>
+					<button class="theme" id="themeBtn" type="button"><svg viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="4.8" fill="none" stroke="currentColor" stroke-width="1.3" /><path d="M6 1.2 A4.8 4.8 0 0 1 6 10.8 Z" fill="currentColor" /></svg>theme</button>
+				</div>
+			</header>
+			<p class="sub">
+				Share a link; the other person opens it, <b>knocks</b>, you let them in, and you are <b>editing the same document</b>, browser to browser, with no server of yours in the middle. Both people below are real Tavola sessions running in this tab, joined by an in-memory network instead of WebRTC. Knock as the guest, admit them as the host, then type in either box.
+			</p>
+
+			<div class="stage">
+				<div class="controls">
+					<button class="btn" id="resetBtn" type="button">Start over</button>
+					<button class="switch" id="viewBtn" type="button" aria-pressed="false" disabled><span class="knob"></span>View only</button>
+					<button class="btn" id="dropBtn" type="button" disabled>Remove the guest</button>
+					<span class="spacer"></span>
+				</div>
+				<div class="panes">
+					<section class="pane" aria-label="The host">
+						<div class="pane-head"><span class="seat c1"></span><span class="who">Sharmarke <small>host</small></span><span class="badge live" id="hostStage">hosting</span></div>
+						<div class="pane-body">
+							<div><p class="label">The link you share</p><div class="link" id="link"></div></div>
+							<div><p class="label">Knocking</p><ul class="rows" id="knocks"></ul></div>
+							<div><p class="label">In the room</p><ul class="rows" id="members"></ul></div>
+							<div style="display:flex; flex-direction:column; flex:1;"><p class="label">The deck</p><textarea id="hostText" spellcheck="false" aria-label="The host's copy of the deck"></textarea></div>
+						</div>
+					</section>
+					<section class="pane" aria-label="The guest">
+						<div class="pane-head"><span class="seat" id="guestSeat"></span><span class="who" id="guestWho">Guest <small>opened the link</small></span><span class="badge" id="guestStage">connecting</span></div>
+						<div class="pane-body" id="guestBody"></div>
+					</section>
+				</div>
+				<div class="wire" id="wire" role="log" aria-live="polite" aria-label="What happened"></div>
+			</div>
+
+			<div class="rail-head"><h2>How it works</h2></div>
+			<div class="beats">
+				<div class="beat"><span class="n">1</span><span><span class="bt">The link</span><span class="bd">Room, secret and the host key's fingerprint ride in the URL fragment, which a browser never sends to a server. Only a hello signed by that key is believed.</span><span class="api">mintLink(key.fingerprint) · formatLink(url, parts)</span></span></div>
+				<div class="beat"><span class="n">2</span><span><span class="bt">The knock</span><span class="bd">A guest sees only the invite: the deck's title and who is hosting. Nothing of the document crosses until the host admits them.</span><span class="api">guest.knock(name) · host.admit(id) · host.deny(id)</span></span></div>
+				<div class="beat"><span class="n">3</span><span><span class="bt">The gate</span><span class="bd">An edit is sent only to admitted members, and applied only from a member who may edit. A view-only member's typing never reaches anyone.</span><span class="api">host.setRole(id, 'view') · host.remove(id)</span></span></div>
+			</div>
+
+			<div class="limits">
+				<div><b>One tab, not two machines</b>The transport here is in memory. Between real browsers the Studio passes a WebRTC transport instead; the session code is the same.</div>
+				<div><b>Four at the table</b>A session holds four people, host included, each with one of four colors.</div>
+				<div><b>Edits are not signed</b>Tavola decides who may edit, not what an editor writes. An admitted editor is trusted with the text.</div>
+			</div>
+
+			<p class="foot">
+				Driven by the real library (<code>@laticent/tavola</code>, <code>docs/src/lib/tavola</code>): <code>createHostKey()</code> makes the host's signing key, <code>mintLink</code> the link, <code>createSession</code> each side, and <code>createMemoryNetwork()</code> joins them in this tab. The document is a Yjs text per side, passed in as a stream, so Tavola never owns it. Tavola is AGPL-3.0, like Lattice. <a href="https://github.com/Laticent/lattice/tree/main/docs/src/lib/tavola">Read the README</a>.
+			</p>
+		</div>
+
+		<script>
+			import * as Y from 'yjs';
+			import { createHostKey, createMemoryNetwork, createSession, formatLink, type HostKey, type MemoryNetwork, mintLink, type Session, type Stream } from '../lib/tavola';
+
+			const $ = <T extends HTMLElement = HTMLElement>(s: string) => document.querySelector(s) as T;
+			const root = document.documentElement;
+
+			// ── Theme (the key the docs site uses) ──
+			const THEME_LS = 'lattice-docs-mode';
+			const osDark = () => matchMedia('(prefers-color-scheme: dark)').matches;
+			const applyTheme = (t: string | null) => { if (t === 'light' || t === 'dark') root.setAttribute('data-theme', t); else root.removeAttribute('data-theme'); };
+			try { const t = localStorage.getItem(THEME_LS); applyTheme(t === 'light' || t === 'dark' ? t : osDark() ? 'dark' : 'light'); } catch { /* storage blocked */ }
+			$('#themeBtn').addEventListener('click', () => {
+				const next = (root.getAttribute('data-theme') || (osDark() ? 'dark' : 'light')) === 'dark' ? 'light' : 'dark';
+				applyTheme(next);
+				try { localStorage.setItem(THEME_LS, next); } catch { /* storage blocked */ }
+			});
+
+			const SEED = '---\ntheme: indaco\n---\n\n# Q3 Board Review\n\n---\n\n## Revenue held while costs fell\n\n- Price\n  - Moves with the index\n';
+			const INVITE = { title: 'Q3 Board Review', hostName: 'Sharmarke', slides: 2 };
+
+			// A Yjs text as the stream Tavola asks for: it never sees the document type.
+			function yStream(doc: Y.Doc): Stream {
+				return {
+					encodeAll: () => Y.encodeStateAsUpdate(doc),
+					applyRemote: (u) => Y.applyUpdate(doc, u, 'remote'),
+					onLocal(cb) {
+						const h = (u: Uint8Array, origin: unknown) => { if (origin !== 'remote') cb(u); };
+						doc.on('update', h);
+						return () => doc.off('update', h);
+					},
+				};
+			}
+
+			// Bind a textarea to a Y.Text: local typing becomes the smallest delete + insert, and a
+			// remote change rewrites the box while keeping the caret where it was.
+			function bind(area: HTMLTextAreaElement, text: Y.Text): () => void {
+				area.value = text.toString();
+				const onInput = () => {
+					const was = text.toString(), now = area.value;
+					let a = 0;
+					while (a < was.length && a < now.length && was[a] === now[a]) a++;
+					let b = 0;
+					while (b < was.length - a && b < now.length - a && was[was.length - 1 - b] === now[now.length - 1 - b]) b++;
+					text.doc?.transact(() => {
+						if (was.length - a - b) text.delete(a, was.length - a - b);
+						if (now.length - a - b) text.insert(a, now.slice(a, now.length - b));
+					});
+				};
+				const onRemote = (_e: unknown, tr: Y.Transaction) => {
+					if (tr.origin !== 'remote') return;
+					const { selectionStart: s, selectionEnd: e } = area;
+					area.value = text.toString();
+					if (document.activeElement === area) area.setSelectionRange(s, e);
+				};
+				area.addEventListener('input', onInput);
+				text.observe(onRemote);
+				return () => { area.removeEventListener('input', onInput); text.unobserve(onRemote); };
+			}
+
+			const wire = $('#wire');
+			function log(html: string) {
+				const line = document.createElement('span');
+				line.innerHTML = html; // our own fixed strings; names go through esc()
+				wire.append(line);
+				wire.scrollTop = wire.scrollHeight;
+			}
+			const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+
+			let key: HostKey | null = null;
+			let net: MemoryNetwork;
+			let host: Session, guest: Session;
+			let hostDoc: Y.Doc, guestDoc: Y.Doc;
+			let unbind: (() => void)[] = [];
+			let pumping = false, again = false, gen = 0;
+
+			// Deliver everything queued, including what each delivery queues, then render once.
+			async function pump() {
+				if (pumping) { again = true; return; }
+				pumping = true;
+				const mine = gen;
+				do {
+					again = false;
+					for (let i = 0; i < 50; i++) {
+						await net.settle();
+						await Promise.all([host.idle(), guest.idle()]);
+						if (net.pending() === 0) break;
+					}
+				} while (again && mine === gen);
+				pumping = false;
+				if (mine === gen) render();
+			}
+
+			let lastGuestStage = '';
+			async function start() {
+				gen++;
+				for (const u of unbind) u();
+				unbind = [];
+				host?.leave(); guest?.leave();
+				wire.textContent = '';
+				lastGuestStage = '';
+				key ??= await createHostKey();
+				const link = mintLink(key.fingerprint);
+				net = createMemoryNetwork();
+				hostDoc = new Y.Doc();
+				hostDoc.getText('source').insert(0, SEED);
+				host = createSession({ transport: net.join(link.room, link.secret), doc: yStream(hostDoc), host: { name: 'Sharmarke', key, invite: INVITE } });
+				guestDoc = new Y.Doc();
+				guest = createSession({ transport: net.join(link.room, link.secret), doc: yStream(guestDoc), hostFingerprint: key.fingerprint });
+				const shown = formatLink('https://lattice.style/studio/', link);
+				const [before, frag] = shown.split('#');
+				$('#link').innerHTML = `${esc(before)}#<b>${esc(frag)}</b>`;
+				unbind.push(bind($('#hostText') as HTMLTextAreaElement, hostDoc.getText('source')));
+				hostDoc.on('update', (_u: Uint8Array, origin: unknown) => { if (origin !== 'remote') pump(); });
+				guestDoc.on('update', (_u: Uint8Array, origin: unknown) => { if (origin !== 'remote') pump(); });
+				log('<b>host</b> made a signing key and minted a link; the room is open');
+				log('<b>guest</b> opened the link and is connecting');
+				render();
+				await pump();
+			}
+
+			function seatFor(c?: number) { return c ? `seat c${c}` : 'seat'; }
+
+			function renderHost() {
+				const s = host.getState();
+				const knocks = $('#knocks');
+				knocks.innerHTML = s.waiting.length ? '' : '<li class="empty">No one is waiting.</li>';
+				for (const k of s.waiting) {
+					const li = document.createElement('li');
+					li.innerHTML = `<span class="seat"></span><span class="name">${esc(k.name)}</span><span class="role">wants in</span><span class="act"><button class="btn ok" type="button">Admit</button><button class="btn no" type="button">Deny</button></span>`;
+					const [admit, deny] = li.querySelectorAll('button');
+					admit.addEventListener('click', () => { host.admit(k.id); log(`<b>host</b> admitted ${esc(k.name)}; the deck goes to them now, not before`); pump(); });
+					deny.addEventListener('click', () => { host.deny(k.id); log(`<b>host</b> turned ${esc(k.name)} away; they never saw the deck`); pump(); });
+					knocks.append(li);
+				}
+				const members = $('#members');
+				members.innerHTML = '';
+				for (const m of s.members) {
+					const li = document.createElement('li');
+					li.innerHTML = `<span class="${seatFor(m.color)}"></span><span class="name">${esc(m.name)}</span><span class="role">${m.role === 'host' ? 'host' : m.role === 'edit' ? 'can edit' : 'can view'}</span>`;
+					members.append(li);
+				}
+				const g = s.members.find((m) => m.role !== 'host');
+				const viewBtn = $('#viewBtn'), dropBtn = $('#dropBtn') as HTMLButtonElement;
+				viewBtn.toggleAttribute('disabled', !g);
+				viewBtn.setAttribute('aria-pressed', String(g?.role === 'view'));
+				dropBtn.disabled = !g;
+			}
+
+			function renderGuest() {
+				const s = guest.getState();
+				const body = $('#guestBody');
+				const badge = $('#guestStage');
+				badge.textContent = s.stage;
+				badge.className = `badge ${s.stage}`;
+				$('#guestSeat').className = seatFor(s.me?.color);
+				$('#guestWho').innerHTML = s.me ? `${esc(s.me.name)} <small>${s.me.role === 'view' ? 'can view' : 'can edit'}</small>` : 'Guest <small>opened the link</small>';
+				if (s.stage !== lastGuestStage) {
+					if (s.stage === 'lobby') log('<b>guest</b> got the signed hello: it sees the invite, and nothing of the deck');
+					if (s.stage === 'live') log('<b>guest</b> is in the room, with the deck synced');
+					if (s.stage === 'denied') log('<b>guest</b> was turned away at the door');
+					if (s.stage === 'removed') log('<b>guest</b> was removed; edits stop flowing both ways');
+				}
+				const entering = s.stage !== lastGuestStage;
+				lastGuestStage = s.stage;
+				if (!entering && s.stage === 'live') {
+					const area = body.querySelector('textarea');
+					if (area) area.readOnly = s.me?.role === 'view';
+					return; // the bound box updates itself
+				}
+				for (const u of unbind.splice(1)) u();
+				const noDeck = '<div class="no-deck">The deck appears here once the host lets you in.<br />Until then, nothing of it is in this tab.</div>';
+				if (s.stage === 'connecting') body.innerHTML = `<p class="note">Reaching the host…</p>${noDeck}`;
+				else if (s.stage === 'lobby' && s.invite) {
+					body.innerHTML = `<div class="invite"><p>${esc(s.invite.hostName)} invites you to</p><h3>${esc(s.invite.title)}</h3><p>${s.invite.slides ?? ''} slides. Say who you are, and they decide whether to let you in.</p><div class="knock-row"><input id="name" value="Amina" aria-label="Your name" maxlength="40" /><button class="btn primary" id="knock" type="button">Knock</button></div></div>${noDeck}`;
+					const input = body.querySelector('#name') as HTMLInputElement;
+					const go = () => { const n = input.value.trim() || 'Guest'; guest.knock(n); log(`<b>guest</b> knocked as ${esc(n)}`); pump(); };
+					body.querySelector('#knock')?.addEventListener('click', go);
+					input.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
+				} else if (s.stage === 'waiting') body.innerHTML = `<p class="note">Waiting for Sharmarke to let you in.</p>${noDeck}`;
+				else if (s.stage === 'live') {
+					body.innerHTML = '<div style="display:flex; flex-direction:column; flex:1;"><p class="label">The deck</p><textarea spellcheck="false" aria-label="The guest\'s copy of the deck"></textarea></div><p class="note">Type here or in the host\'s box: each side has its own document, and Tavola carries the changes.</p>';
+					const area = body.querySelector('textarea') as HTMLTextAreaElement;
+					unbind.push(bind(area, guestDoc.getText('source')));
+					area.readOnly = s.me?.role === 'view';
+				} else {
+					const why = s.stage === 'denied' ? 'The host turned you away.' : s.stage === 'removed' ? 'The host removed you from the room.' : 'The session ended.';
+					body.innerHTML = `<p class="note">${why} Your copy keeps what you had; nothing more arrives.</p><div><button class="btn" id="again" type="button">Open the link again</button></div>`;
+					body.querySelector('#again')?.addEventListener('click', start);
+				}
+			}
+
+			function render() { renderHost(); renderGuest(); }
+
+			$('#resetBtn').addEventListener('click', start);
+			$('#viewBtn').addEventListener('click', () => {
+				const g = host.getState().members.find((m) => m.role !== 'host');
+				if (!g) return;
+				const next = g.role === 'view' ? 'edit' : 'view';
+				host.setRole(g.id, next);
+				log(next === 'view' ? `<b>host</b> made ${esc(g.name)} view-only: their typing no longer leaves their tab` : `<b>host</b> let ${esc(g.name)} edit again`);
+				pump();
+			});
+			$('#dropBtn').addEventListener('click', () => {
+				const g = host.getState().members.find((m) => m.role !== 'host');
+				if (!g) return;
+				host.remove(g.id);
+				pump();
+			});
+
+			start();
+		</script>
+	</body>
+</html>

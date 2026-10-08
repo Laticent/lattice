@@ -66,13 +66,12 @@ export function appsNav(url) {
 // published to npm as `pkg` (engineering/decisions/2026-10-08-library-audit.md). Grouped under one
 // "Libraries" disclosure on desktop, listed flat in the mobile menu + command palette, and drawn as
 // cards on the home page. A library with a standalone showcase demo (own chrome, reached by URL)
-// links to it; a library with no demo page links to its README on GitHub and carries an empty
-// `match` (no route of ours is "inside" it). LTT is listed under specsNav instead: it is a format
+// links to it; a library with no demo page would link to its README on GitHub with an empty
+// `match` (no route of ours is "inside" it). Since /tavola (2026-10-08), every library has one. LTT is listed under specsNav instead: it is a format
 // first, and @laticent/ltt is its reference implementation (spec audit §8.5). nav.test.ts fails
 // when a workspace package is missing from both lists, which is how LTT and Tavola went unlisted.
 // Anima is internal (no package, no build), so it is not listed.
 export function librariesNav(url) {
-	const readme = (name) => `${GITHUB_URL}/tree/main/docs/src/lib/${name}#readme`;
 	return [
 		{ label: 'Suono', href: url('suono'), match: ['suono'], pkg: '@laticent/suono', desc: 'Audio scheduler + owned clock' },
 		{ label: 'Lente', href: url('lente'), match: ['lente'], pkg: '@laticent/lente', desc: 'Reader lenses, human-approved' },
@@ -81,7 +80,7 @@ export function librariesNav(url) {
 		{ label: 'Trama', href: url('trama'), match: ['trama'], pkg: '@laticent/trama', desc: 'Graph layout + elbow routing' },
 		{ label: 'Segno', href: url('segno'), match: ['segno'], pkg: '@laticent/segno', desc: 'Grammar engine + notation' },
 		{ label: 'Calco', href: url('calco'), match: ['calco'], pkg: '@laticent/calco', desc: 'Slides to editable office files' },
-		{ label: 'Tavola', href: readme('tavola'), match: [], pkg: '@laticent/tavola', desc: 'Peer-to-peer live editing', external: true },
+		{ label: 'Tavola', href: url('tavola'), match: ['tavola'], pkg: '@laticent/tavola', desc: 'Peer-to-peer live editing' },
 	];
 }
 
