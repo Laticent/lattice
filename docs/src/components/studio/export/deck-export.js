@@ -366,15 +366,15 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 
 	// generated text files (the shared bundle spec).
 	const themesList = ['lattice.css', ...bundledThemes];
-	// Marp typesets math itself; with the math plugin off for this deck, its config turns that off too.
-	dir.file('marp.config.cjs', marpConfigCjs({ math: !pluginsOff.includes('math') }));
+	// Marp's own math typesetter is always off: the deck's math is already typeset (marp-bundle-math.js).
+	dir.file('marp.config.cjs', marpConfigCjs());
 	dir.file('package.json', `${JSON.stringify(packageJson(slug), null, 2)}\n`);
 	dir.file('.vscode/settings.json', vscodeSettings(themesList));
 	dir.file('README.md', readme({ name: slug, palette: chosen, themes: themesList, agent: agentOk }));
 
 	const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
 	download(blob, `${slug}.zip`);
-	return { ...bundled.removed, escaped: bundled.escaped, refused: bundled.refused };
+	return { ...bundled.removed, escaped: bundled.escaped, refused: bundled.refused, math: bundled.math };
 }
 
 // ── Dedicated capture host ─────────────────────────────────────────────────────

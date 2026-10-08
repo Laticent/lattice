@@ -21,7 +21,10 @@ function load() {
 
 test('no tag that can run script or load a document of the deck\'s own is on the list', () => {
   for (const tag of ['script', 'frame', 'object', 'embed', 'base', 'meta', 'link', 'style', 'form', 'input',
-    'button', 'textarea', 'foreignobject', 'image', 'animate', 'set', 'animatetransform', 'animatemotion', 'math', 'template']) {
+    'button', 'textarea', 'foreignobject', 'image', 'animate', 'set', 'animatetransform', 'animatemotion', 'template',
+    // MathML is on the list for baked equations (§ 15), but not the parts that link, load or switch
+    // namespace: `maction`, `mglyph` (an image), `annotation-xml` (an HTML integration point).
+    'maction', 'mglyph', 'annotation-xml', 'malignmark']) {
     assert.equal(MARP_HTML_ALLOWLIST[tag], undefined, tag);
   }
   for (const [tag, attrs] of Object.entries(MARP_HTML_ALLOWLIST)) {

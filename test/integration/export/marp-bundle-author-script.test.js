@@ -165,3 +165,126 @@ describe('Export-to-Marp runs none of the deck\'s own script — real marp-cli, 
     assert.doesNotMatch(rawHtml, /&lt;script src=/, 'no runtime tag printed as text');
   });
 });
+
+/**
+ * Math: marp-core typesets `$…$` itself (MathJax by default), and that output never meets the HTML
+ * allowlist. MathJax writes an unescaped `"` into an attribute for `\style`, `\cssId`, `\unicode`, …,
+ * so a deck could run a handler (vector 1, a `/`-separated attribute the HTML tokenizer accepts) or
+ * load a remote `url()` (vector 2), click-free. The producer now typesets the math itself, with the
+ * engine's KaTeX, and the config turns Marp's typesetter off
+ * (engineering/decisions/2026-08-17-theme-css-is-a-preview-sink.md § 15). Three arms, each against a
+ * local listener that counts every request:
+ *   - the bundle as exported, under its own config;
+ *   - the UNBAKED deck under the bundle's config (the config alone: Marp's math is off);
+ *   - the bundle under the worst config a recipient could pick — every tag allowed and MathJax on,
+ *     what VS Code does with the lone `.md` open outside the bundle's folder: the escaped `$`s leave
+ *     MathJax nothing to typeset.
+ */
+describe('Export-to-Marp math runs nothing and loads nothing — real marp-cli, real Chromium', () => {
+  let skip = null;
+  let browser;
+  let server;
+  const hits = [];
+  const arms = {};
+
+  const mathDeck = (port) => String.raw`---
+marp: true
+theme: indaco
+---
+
+# Math probe
+
+$x\style{animation:lattice-math-probe 1ms"/onanimationstart="top.__hit_style=1}{y}$ and $a\style{background:url(http://127.0.0.1:${port}/beacon-style)}{b}$
+
+$\cssId{c"/onanimationstart="top.__hit_cssid=1}{c}$ $\unicode{x"/onanimationstart="top.__hit_unicode=1}$ $\href{javascript:top.__hit_href=1}{d}$ $\bbox[background:url(http://127.0.0.1:${port}/beacon-bbox)]{e}$
+
+Display:
+
+$$
+\frac{1}{2} + \style{background:url(http://127.0.0.1:${port}/beacon-display)}{\sum_{i=1}^{n} i}
+$$
+
+Prose with $5 and $18M stays prose.
+
+And $E = mc^2$ is math.
+
+<style>@keyframes lattice-math-probe { from { opacity: 1 } to { opacity: 1 } }</style>
+`;
+
+  async function open(file) {
+    const p = await browser.newPage();
+    await p.goto(require('node:url').pathToFileURL(file).href, { waitUntil: 'networkidle0' });
+    await new Promise((res) => setTimeout(res, 1000));
+    return p;
+  }
+
+  before(async () => {
+    const probe = marp(['--version'], ROOT, 90000);
+    if (probe.status !== 0) {
+      const reason = `could not fetch marp-cli (exit ${probe.status}): ${String(probe.stderr || '').slice(0, 300)}`;
+      if (process.env.CI) throw new Error(`[marp-bundle-author-script] ${reason}`);
+      skip = reason;
+      return;
+    }
+    server = require('node:http').createServer((req, res) => { hits.push(req.url); res.end(''); });
+    await new Promise((res) => server.listen(0, '127.0.0.1', res));
+    const deck = mathDeck(server.address().port);
+    const dir = path.join(OUT, 'math');
+    fs.rmSync(dir, { recursive: true, force: true });
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, 'math.md'), deck);
+    const r = spawnSync(process.execPath, [EXPORT_CLI, path.join(dir, 'math.md'), path.join(dir, 'out'), '--no-agent'], { cwd: ROOT, encoding: 'utf8', timeout: TIMEOUT });
+    assert.equal(r.status, 0, `export-marp failed:\n${r.stdout}\n${r.stderr}`);
+    const bundle = path.join(dir, 'out', 'math');
+    const bundled = fs.readFileSync(path.join(bundle, 'math.md'), 'utf8');
+    fs.writeFileSync(path.join(bundle, 'raw.md'), `${deck}\n${bundled.slice(bundled.indexOf('<!-- markdownlint-disable MD033 -->'))}`);
+    // The worst case a recipient can choose: every tag through, MathJax on.
+    fs.writeFileSync(path.join(bundle, 'open.config.cjs'), "module.exports = { html: true, allowLocalFiles: true, options: { math: 'mathjax' } };\n");
+    for (const [arm, md, cfg] of [['bundle', 'math.md', 'marp.config.cjs'], ['raw', 'raw.md', 'marp.config.cjs'], ['open', 'math.md', 'open.config.cjs']]) {
+      const m = marp([md, '--config-file', cfg, '--allow-local-files', '-o', `${arm}.html`], bundle);
+      assert.equal(m.status, 0, `marp (${arm}) failed:\n${m.stdout}\n${m.stderr}`);
+      arms[arm] = { html: fs.readFileSync(path.join(bundle, `${arm}.html`), 'utf8') };
+    }
+    browser = await require('puppeteer').launch({ headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+    for (const arm of Object.keys(arms)) arms[arm].page = await open(path.join(bundle, `${arm}.html`));
+  });
+
+  after(async () => {
+    if (browser) await browser.close();
+    if (server) server.close();
+  });
+
+  test('no arm runs a handler or fires the beacon', async (t) => {
+    if (skip) return t.skip(skip);
+    for (const [arm, { page }] of Object.entries(arms)) {
+      const ran = await page.evaluate(() => Object.keys(window).filter((k) => k.startsWith('__hit_')));
+      assert.deepEqual(ran, [], `${arm} ran: ${ran.join(', ')}`);
+    }
+    assert.deepEqual(hits, [], `requests reached the listener: ${hits.join(', ')}`);
+  });
+
+  test('the bundle\'s math renders, typeset by KaTeX at export, and Marp typeset none of it', async (t) => {
+    if (skip) return t.skip(skip);
+    const { page } = arms.bundle;
+    // A DOM query, not a text match: lattice.css itself names `mjx-container` in a selector.
+    assert.equal(await page.evaluate(() => document.querySelector('mjx-container')), null);
+    // Seven inline equations and one display, typeset or (a command KaTeX refuses) shown as KaTeX's
+    // own red error text; every typeset one carries the MathML a screen reader reads.
+    const count = (sel) => page.evaluate((q) => document.querySelectorAll(q).length, sel);
+    assert.equal(await count('section .katex, section .katex-error'), 8);
+    assert.equal(await count('section .katex-display'), 1);
+    assert.equal(await count('section .katex-mathml math'), await count('section .katex'));
+    assert.ok(await count('section .katex') >= 4, 'the plain equations typeset');
+    assert.match(await page.evaluate(() => document.querySelector('section .katex-display annotation').textContent), /\\frac\{1\}\{2\}/);
+    // The prose dollars are text.
+    assert.match(await page.evaluate(() => document.body.textContent), /Prose with \$5 and \$18M stays prose/);
+  });
+
+  test('the unbaked deck under the bundle\'s config shows its TeX as text, and the open config typesets nothing', async (t) => {
+    if (skip) return t.skip(skip);
+    assert.equal(await arms.raw.page.evaluate(() => document.querySelector('mjx-container, section .katex')), null);
+    assert.match(await arms.raw.page.evaluate(() => document.body.textContent), /And \$E = mc\^2\$ is math/);
+    assert.equal(await arms.open.page.evaluate(() => document.querySelector('mjx-container')), null);
+    assert.equal(await arms.open.page.evaluate(() => document.querySelectorAll('section .katex, section .katex-error').length), 8);
+  });
+});

@@ -38,9 +38,9 @@
  * in the `=` form only (a bare value would read as a positional argument):
  * the deck is admitted under them (lib/plugins/host-grammar.mjs `admitPlugins`) and the plugins left
  * off ride in the bundle's settings block (`pluginsOff`), which the bundled runtime reads before it
- * draws anything — Marp renders the deck, so the engine's own marker is never written. Marp draws
- * MATH itself (marp-core's own math), which no marker reaches, so with math off the bundle's
- * marp.config.cjs turns Marp's math off too (`marpConfigCjs`).
+ * draws anything — Marp renders the deck, so the engine's own marker is never written. MATH is
+ * typeset at export (lib/core/marp-bundle-math.js) and Marp's own typesetter is always off in the
+ * bundle's marp.config.cjs; with the math plugin off, the TeX is left as written.
  *
  * `--overflow-marker` decides who the overflow signal in the rendered bundle is
  * addressed to — see lib/core/resolve-overflow-marker.js. It is an EXPORT setting,
@@ -386,6 +386,9 @@ function main(argv) {
     console.log(`  removed the deck's own executable HTML (${removed.scripts} <script>, ${removed.handlers} on… handler, ${removed.urls} URL/frame/redirect):`
       + ' marp-cli would run it on the recipient\'s machine. Your source .md keeps it.');
   }
+  if (bundled.math.failed) {
+    console.log(`  ${bundled.math.failed} equation${bundled.math.failed === 1 ? '' : 's'} could not be typeset into the bundle and show${bundled.math.failed === 1 ? 's' : ''} as TeX (marp-bundle-math.js).`);
+  }
   const refusedLine = formatRefusedHtml(bundled.refused);
   if (refusedLine) console.log(refusedLine);
   if (bundled.escaped) {
@@ -429,7 +432,7 @@ function main(argv) {
   // 5) generated text files (from the shared bundle spec): marp-cli config,
   //    package.json, .vscode/settings.json (Marp VS Code theme registration),
   //    and the README.
-  fs.writeFileSync(path.join(dest, 'marp.config.cjs'), marpConfigCjs({ math: !admission.off.includes('math') }));
+  fs.writeFileSync(path.join(dest, 'marp.config.cjs'), marpConfigCjs());
   fs.writeFileSync(path.join(dest, 'package.json'), JSON.stringify(packageJson(name), null, 2) + '\n');
   fs.mkdirSync(path.join(dest, '.vscode'), { recursive: true });
   fs.writeFileSync(path.join(dest, '.vscode', 'settings.json'), vscodeSettings(themesList));

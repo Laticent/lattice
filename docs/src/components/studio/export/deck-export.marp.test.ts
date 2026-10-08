@@ -44,7 +44,7 @@ beforeEach(() => {
 			fontAssetsFor: () => [],
 			STATIC_ASSETS: [],
 			AGENT_ASSETS: [],
-			marpConfigCjs: ({ math = true }: { math?: boolean } = {}) => (math ? 'module.exports = {};' : 'module.exports = { options: { math: false } };'),
+			marpConfigCjs: () => 'module.exports = { options: { math: false } };',
 			packageJson: (name: string) => ({ name }),
 			vscodeSettings: (themes: string[]) => JSON.stringify({ themes }),
 			readme: ({ palette }: { palette: string }) => `palette: ${palette}`,
@@ -172,10 +172,12 @@ describe('importedThemeNames', () => {
 	});
 });
 
-describe('exportMarp — the bundle\'s Marp config follows the deck\'s math admission', () => {
-	it('turns Marp\'s own math off only when the deck\'s admission left math off', async () => {
+// The deck's math is typeset at export (lib/core/marp-bundle-math.js), so Marp's own typesetter is off
+// in every bundle, whatever the deck's admission says.
+describe('exportMarp — the bundle\'s Marp config turns Marp\'s own math off', () => {
+	it('writes math: false with the math plugin on and off', async () => {
 		await exportMarp('# Hi $x$', 'deck', 'indaco', BASE, { includeAgent: false });
-		expect(await (await bundle()).file('deck/marp.config.cjs')?.async('string')).toBe('module.exports = {};');
+		expect(await (await bundle()).file('deck/marp.config.cjs')?.async('string')).toContain('math: false');
 		blobs = [];
 		await exportMarp('# Hi $x$', 'deck', 'indaco', BASE, { includeAgent: false, pluginsOff: ['math', 'mermaid'] });
 		expect(await (await bundle()).file('deck/marp.config.cjs')?.async('string')).toContain('math: false');

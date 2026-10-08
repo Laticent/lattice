@@ -78,9 +78,15 @@ describe('the Marp bundle carries the producer\'s admission', () => {
   test('nothing off writes the block exactly as before', () => {
     assert.equal(withRuntimeScripts('# Hi\n', { overflowMarker: 'reader', pluginsOff: [] }), withRuntimeScripts('# Hi\n', { overflowMarker: 'reader' }));
   });
-  test('the marp config turns Marp\'s own math off only when the deck\'s admission did', () => {
-    assert.equal(marpConfigCjs(), MARP_CONFIG_CJS, 'math on writes the default config');
-    assert.ok(!MARP_CONFIG_CJS.includes('options'));
-    assert.match(marpConfigCjs({ math: false }), /module\.exports = \{ themeSet, allowLocalFiles: true, html, engine, options: \{ math: false \} \};/);
+  // The deck's math is typeset at export (lib/core/marp-bundle-math.js), so Marp's own typesetter is
+  // off in every bundle, math plugin on or off: it is the injection surface the bake closes.
+  test('the marp config turns Marp\'s own math off, always', () => {
+    assert.equal(marpConfigCjs(), MARP_CONFIG_CJS);
+    assert.match(MARP_CONFIG_CJS, /module\.exports = \{ themeSet, allowLocalFiles: true, html, engine, options: \{ math: false \} \};/);
+  });
+  test('with the math plugin off, the TeX is left as written and every $ is escaped', () => {
+    const md = withRuntimeScripts('# Hi $x$\n', { overflowMarker: 'reader', pluginsOff: ['math'] });
+    assert.match(md, /^# Hi \\\$x\\\$$/m);
+    assert.doesNotMatch(md, /katex/);
   });
 });
