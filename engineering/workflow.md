@@ -680,6 +680,13 @@ STEP green so later steps run, carry the verdict in an output, put the step time
 job's (a job-level timeout kills every later step, including one guarded by `always()`), and gate
 the issue step on `always() && (outputs.failed == 'true' || outcome != 'success')`.
 
+**A green step must not leave a green JOB.** The shape above keeps the run step green so the
+artifact and issue steps fire, and that also left the run reading green: three Guide specs sat red
+on `main` for days while every Studio E2E run passed, and a `spec:` dispatch files no issue, so
+nothing said red at all. `studio-e2e-nightly.yml`'s `e2e` and `security` jobs therefore end with
+one more step, `if: always() && steps.<id>.outputs.failed == 'true'` → `exit 1`, placed LAST so
+every report and issue step has already run (owner's pick, 2026-10-08).
+
 **And an alarm that cannot STAND ITSELF DOWN is a ratchet, not a signal.** Filing was only half
 the mechanism. Until 2026-09-01 five of the six nightly workflows could open a rolling issue and
 none of them could close one, so after a thread's first firing — statistically likelier a harness
