@@ -26,6 +26,9 @@
  * box. PptxGenJS cannot group, so the pair is named `Calco Label …` and `tidyPptx` wraps it
  * in a `p:grpSp` when the caller passes JSZip; the label then moves and resizes as one.
  *
+ * CARDS: a card's box is a shape (with its drop shadow) followed by its rules, text boxes and
+ * labels; `tidyPptx` wraps the run in one `p:grpSp` named `Calco Card …`.
+ *
  * SCHEMA: PptxGenJS 3.12 writes three things the OOXML schema forbids, and `tidyPptx` mends
  * them whenever the caller passes JSZip: a `<a:pPr>` before EVERY run of a paragraph (the
  * schema allows one, first), `p:notesMasterIdLst` after `p:sldIdLst` (it belongs before),
@@ -35,7 +38,7 @@
 import { type FontMetrics, faceFamilyName, faceFor, faceKey, facesUsed, uniqueFaceNames } from './fonts.js';
 import { applyTransform, bareHex, dominantStyle, metricsFor, placeFrame, shapeOutline, spacingMultiple } from './layout.js';
 import { canEmbedAsEot, renameFace, toEot } from './sfnt.js';
-import type { Deck, EmbeddedFont, JSZipClass, Shape, TextRun } from './types.js';
+import type { Card, Deck, EmbeddedFont, JSZipClass, Line, TextFrame, TextRun } from './types.js';
 
 /** The family name PowerPoint sees for an embedded face (`faceFamilyName`, with the PPTX-safe family). */
 export function pptxFaceName(face: { family: string; weight: number; italic: boolean }): string {
@@ -162,9 +165,20 @@ export function buildPptx(PptxGenJS: PptxGenJSClass, deck: Deck, options?: { emb
 
 	// A label's box: a plain or rounded rectangle, or custom geometry when its corners differ.
 	// Points are inches, local to the shape; an `arc` turns 90° from where the last point left.
-	const addLabelShape = (s: ReturnType<PptxGenJSLike['addSlide']>, sh: Shape, name: string) => {
+	const addLabelShape = (s: ReturnType<PptxGenJSLike['addSlide']>, sh: Card, name: string) => {
 		const o = shapeOutline(sh);
 		const opts: Record<string, unknown> = { x: inch(o.x), y: inch(o.y), w: inch(o.w), h: inch(o.h), objectName: name };
+		// A card's drop shadow, as DrawingML's outer shadow: a distance along a direction, and
+		// the CSS blur radius as the blur radius.
+		const sd = sh.shadow;
+		if (sd) {
+			// PptxGenJS reads a zero as "unset" (`blur || 8`, `offset || 4`, `angle || 270`), so a
+			// hard shadow, a centered glow or a shadow to the right would come out blurred or
+			// shifted up. A thousandth of a point (13 EMU, an angle of 0.001°) is zero to the eye.
+			const nz = (v: number) => v || 0.001;
+			const angle = Math.round(((Math.atan2(sd.y, sd.x) * 180) / Math.PI + 360) % 360);
+			opts.shadow = { type: 'outer', angle: nz(angle), offset: nz(points(Math.hypot(sd.x, sd.y))), blur: nz(points(sd.blur)), color: bareHex(sd.color), opacity: sd.alpha };
+		}
 		// No fill: PptxGenJS writes `<a:noFill/>` when `fill` is absent. No stroke: it writes an
 		// empty `<a:ln></a:ln>` whatever `line` says, and `groupLabels` fills in `<a:noFill/>`.
 		if (sh.fill) opts.fill = { color: bareHex(sh.fill.color), transparency: Math.round((1 - sh.fill.alpha) * 100) };
@@ -193,7 +207,9 @@ export function buildPptx(PptxGenJS: PptxGenJSClass, deck: Deck, options?: { emb
 		// ALWAYS set altText: PptxGenJS otherwise writes the image's file name, which a
 		// screen reader reads aloud.
 		s.addImage({ data: `image/png;base64,${toBase64(slide.image)}`, x: 0, y: 0, w: slideW, h: slideH, altText: xmlSafe((slide.description || '').trim()) || `Slide ${i + 1}` });
-		(slide.lines || []).forEach((l, k) => {
+		const cards = slide.cards || [];
+		const own = (card?: number) => card !== undefined && card >= 0 && card < cards.length;
+		const addRule = (l: Line, k: number) => {
 			s.addShape('line', {
 				x: inch(Math.min(l.x1, l.x2)),
 				y: inch(Math.min(l.y1, l.y2)),
@@ -202,10 +218,9 @@ export function buildPptx(PptxGenJS: PptxGenJSClass, deck: Deck, options?: { emb
 				line: { color: bareHex(l.color), width: points(l.width), transparency: Math.round((1 - l.alpha) * 100) },
 				objectName: `Calco Rule ${i + 1}.${k + 1}`,
 			});
-		});
-		(slide.frames || []).forEach((frame, j) => {
+		};
+		const addFrame = (frame: TextFrame, j: number) => {
 			const lines = frame.lines;
-			if (!lines.some((l) => l.length)) return;
 			const label = `Calco Label ${i + 1}.${j + 1}`;
 			if (frame.shape) addLabelShape(s, frame.shape, label);
 			const lead = dominantStyle(lines.find((l) => l.length) || lines[0]);
@@ -239,7 +254,21 @@ export function buildPptx(PptxGenJS: PptxGenJSClass, deck: Deck, options?: { emb
 				wrap: false,
 				...(frame.shape ? { objectName: `${label} Text` } : {}),
 			});
+		};
+		const frames = (slide.frames || []).map((f, j) => [f, j] as const).filter(([f]) => f.lines.some((l) => l.length));
+		const rules = (slide.lines || []).map((l, k) => [l, k] as const);
+		// Paint order: the free rules, each card (its shape, then its rules, text and labels),
+		// then the free text. A card's shape is named with how many objects follow it, which
+		// `groupCards` wraps with it once each label is one group.
+		for (const [l, k] of rules) if (!own(l.card)) addRule(l, k);
+		cards.forEach((card, c) => {
+			const myRules = rules.filter(([l]) => l.card === c);
+			const myFrames = frames.filter(([f]) => f.card === c);
+			addLabelShape(s, card, `Calco Card ${i + 1}.${c + 1} +${myRules.length + myFrames.length}`);
+			for (const [l, k] of myRules) addRule(l, k);
+			for (const [f, j] of myFrames) addFrame(f, j);
 		});
+		for (const [f, j] of frames) if (!own(f.card)) addFrame(f, j);
 		if (slide.notes) s.addNotes(xmlSafe(slide.notes));
 	});
 	return pptx;
@@ -332,6 +361,62 @@ function groupLabels(xml: string): string {
 }
 
 /**
+ * Wrap each card's shape (`Calco Card i.c +n`) and the n objects after it (its rules, text
+ * boxes and label groups) in a `p:grpSp` named `Calco Card i.c`, the shape renamed
+ * `Calco Card i.c Shape`. Runs after `groupLabels`, so a label counts as one object. A card
+ * whose count does not match what follows is left ungrouped, never half-grouped.
+ */
+function groupCards(xml: string): string {
+	if (!xml.includes('name="Calco Card ')) return xml;
+	let nextId = Math.max(0, ...Array.from(xml.matchAll(/<p:cNvPr id="(\d+)"/g), (m) => Number(m[1]))) + 1;
+	const boxOf = (el: string) => {
+		const off = el.match(/<a:off x="(-?\d+)" y="(-?\d+)"\/>/);
+		const ext = el.match(/<a:ext cx="(\d+)" cy="(\d+)"\/>/);
+		return off && ext ? { x: +off[1], y: +off[2], r: +off[1] + +ext[1], b: +off[2] + +ext[2] } : null;
+	};
+	// One top-level object starting at `at`: a shape, a picture, a connector or a (label) group.
+	const objectAt = (at: number): string | null => {
+		const m = xml.slice(at).match(/^\s*<(p:sp|p:pic|p:cxnSp|p:grpSp)>/);
+		if (!m) return null;
+		const close = `</${m[1]}>`;
+		const end = xml.indexOf(close, at);
+		return end < 0 ? null : xml.slice(at, end + close.length);
+	};
+	const card = /<p:sp>(?:(?!<\/p:sp>)[\s\S])*?name="(Calco Card [\d.]+) \+(\d+)"[\s\S]*?<\/p:sp>/g;
+	let out = '';
+	let from = 0;
+	for (let m = card.exec(xml); m; m = card.exec(xml)) {
+		const [shape, name, count] = m;
+		let at = m.index + shape.length;
+		const members: string[] = [];
+		for (let k = 0; k < Number(count); k++) {
+			const el = objectAt(at);
+			if (!el) break;
+			members.push(el);
+			at += el.length;
+		}
+		const named = shape.replace(`name="${name} +${count}"`, `name="${name} Shape"`);
+		out += xml.slice(from, m.index);
+		const boxes = [shape, ...members].map(boxOf);
+		if (members.length !== Number(count) || boxes.some((b) => !b)) {
+			out += named + members.join('');
+		} else {
+			const bs = boxes as Array<{ x: number; y: number; r: number; b: number }>;
+			const x = Math.min(...bs.map((b) => b.x));
+			const y = Math.min(...bs.map((b) => b.y));
+			const cx = Math.max(...bs.map((b) => b.r)) - x;
+			const cy = Math.max(...bs.map((b) => b.b)) - y;
+			const body = /<a:ln[ >]/.test(named) ? named.replace('<a:ln></a:ln>', '<a:ln><a:noFill/></a:ln>') : named.replace('</p:spPr>', '<a:ln><a:noFill/></a:ln></p:spPr>');
+			const xfrm = `<a:xfrm><a:off x="${x}" y="${y}"/><a:ext cx="${cx}" cy="${cy}"/><a:chOff x="${x}" y="${y}"/><a:chExt cx="${cx}" cy="${cy}"/></a:xfrm>`;
+			out += `<p:grpSp><p:nvGrpSpPr><p:cNvPr id="${nextId++}" name="${name}"/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr>${xfrm}</p:grpSpPr>${body}${members.join('')}</p:grpSp>`;
+		}
+		from = at;
+		card.lastIndex = at;
+	}
+	return out + xml.slice(from);
+}
+
+/**
  * Mend what PptxGenJS 3.12 writes against the OOXML schema (see the header): one `<a:pPr>`
  * per paragraph in every slide and notes slide, `p:notesMasterIdLst` straight after
  * `p:sldMasterIdLst`, and no content-type override for a part the package does not hold.
@@ -342,7 +427,7 @@ async function tidyPptx(zip: ZipLike): Promise<void> {
 	const text = async (name: string) => (zip.file(name) as { async(type: string): Promise<string> }).async('string');
 	for (const name of Object.keys(zip.files).filter((n) => /^ppt\/(slides|notesSlides)\/[^/]+\.xml$/.test(n))) {
 		const xml = await text(name);
-		const tidy = flatRules(groupLabels(onePPrPerParagraph(xml)));
+		const tidy = groupCards(flatRules(groupLabels(onePPrPerParagraph(xml))));
 		if (tidy !== xml) zip.file(name, tidy);
 	}
 	if (zip.file('ppt/presentation.xml')) {

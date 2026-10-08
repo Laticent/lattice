@@ -43,8 +43,24 @@
  * the box at both ends, and `hide: true` makes that side's color transparent. A side whose
  * corners are rounded, or a box that is filled, faded by a filter or mask, tilted, scaled
  * apart from the slide, cut by a clipping ancestor, or bordered by an image, stays a picture.
+ *
+ * CARDS. A box that paints like a label (a solid fill and/or one border all round, any radii)
+ * plus at most one outer shadow with no spread, and whose every descendant is native — every
+ * word read, every painted box inside a label or a rule drawn whole, no picture, no
+ * pseudo-element content, no list marker — is a card. It is given as one of `cards`, and the
+ * frames and lines inside it carry its index as `card`, so a writer can group them. Nothing
+ * outside may paint over it: every box that overlaps it is hit-tested with pointer events
+ * forced on, walking down the stack to the card; an ancestor's positioned `::before`/`::after`
+ * over it, or a picture in its shadow's reach, fails it too. Nothing may fade, filter or clip
+ * it and its shadow apart. Only an opaque card's shadow is native (CSS shades only outside the
+ * box; an office shadow shades the shape), so a see-through card keeps its shadow in the
+ * picture. `hide: true` takes its fill, border and (native) shadow out of the picture. The
+ * outermost qualifying box wins; a card inside a card makes the outer one a picture.
+ *
+ * HIT TESTS see only what is on screen, so `readSlide` scrolls the slide into view for the
+ * read and puts every scroll position back; a point still off screen fails its test.
  */
-import type { Line, Shape, TextFrame, TextRun, TextStyle } from './types.js';
+import type { Card, Line, Shape, TextFrame, TextRun, TextStyle } from './types.js';
 
 /** What `readSlide` returns. */
 export interface ReadResult {
@@ -53,6 +69,8 @@ export interface ReadResult {
 	frames: TextFrame[];
 	/** Rules: single border sides drawn as native lines (see RULES in the header). */
 	lines: Line[];
+	/** Cards: painted boxes drawn as native shapes, with what sits in them (see CARDS). */
+	cards: Card[];
 	/** True when the slide's read text is now hidden (call `restoreSlide` after capture). */
 	hidden: boolean;
 }
@@ -70,6 +88,24 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 	const win = doc.defaultView as Window & typeof globalThis;
 	const boxW = section.offsetWidth;
 	const boxH = section.offsetHeight;
+	// The hit tests below (is anything painted over this card, this rule?) only see what is on
+	// screen, so the slide is scrolled into view for the read, and every scroll position it
+	// moved is put back before returning. A point that still lands off screen fails the test.
+	const scrolled: Array<[Element | null, number, number]> = [[null, win.scrollX, win.scrollY]];
+	for (let p = section.parentElement; p; p = p.parentElement) if (p.scrollTop || p.scrollLeft || p.scrollHeight > p.clientHeight || p.scrollWidth > p.clientWidth) scrolled.push([p, p.scrollLeft, p.scrollTop]);
+	{
+		const r0 = section.getBoundingClientRect();
+		if (r0.left < 0 || r0.top < 0 || r0.right > win.innerWidth || r0.bottom > win.innerHeight) section.scrollIntoView({ block: 'start', inline: 'start' });
+	}
+	const unscroll = () => {
+		for (const [p, x, y] of scrolled) {
+			if (!p) win.scrollTo(x, y);
+			else {
+				p.scrollLeft = x;
+				p.scrollTop = y;
+			}
+		}
+	};
 	const origin = section.getBoundingClientRect();
 	// A fit-to-viewport transform scales the slide; client rects are in that scaled space.
 	const scale = boxW > 0 && origin.width > 0 ? origin.width / boxW : 1;
@@ -443,6 +479,8 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 		return shape;
 	};
 	const labels: Element[] = [];
+	// The block each frame came from, by frame index (cards claim frames by containment).
+	const frameBlocks: Element[] = [];
 
 	// ── words → lines → frames. An unplaceable block is dropped, and its text is not hidden.
 	const frames: TextFrame[] = [];
@@ -541,6 +579,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 		}
 		const shape = labelShape(block);
 		if (shape) labels.push(block);
+		frameBlocks.push(block);
 		frames.push({
 			...(shape ? { shape } : {}),
 			x,
@@ -597,6 +636,97 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			}),
 		});
 	}
+
+	// ── what paints where: shadows, pseudo-elements, and the hit tests the rules and cards share.
+	// The visible layers of a computed `box-shadow` (a transparent layer paints nothing; Chrome
+	// reports `rgba(0, 0, 0, 0) 0px 0px 0px 0px` for many boxes that set a shadow to animate).
+	const shadowLayers = (v: string) => {
+		if (!v || v === 'none') return [];
+		const layers: string[] = [];
+		let depth = 0;
+		let cur = '';
+		for (const ch of v) {
+			if (ch === '(') depth++;
+			if (ch === ')') depth--;
+			if (ch === ',' && !depth) {
+				layers.push(cur);
+				cur = '';
+			} else cur += ch;
+		}
+		layers.push(cur);
+		return layers
+			.map((l) => {
+				const inset = /\binset\b/.test(l);
+				const color = (l.match(/(rgba?|hsla?|oklch|oklab|lab|lch|color)\([^)]*\)|#[0-9a-f]+|\b[a-z]+\b(?!\()/i) || [''])[0];
+				const nums = (l.replace(color, '').match(/-?[\d.]+px|\b0\b/g) || []).map((x) => Number.parseFloat(x));
+				return { inset, c: parseColor(color === 'inset' ? 'currentColor' : color), x: nums[0] || 0, y: nums[1] || 0, blur: nums[2] || 0, spread: nums[3] || 0 };
+			})
+			.filter((l) => l.c && l.c.a > 0);
+	};
+	// Hit tests must see every box, including an overlay drawn with `pointer-events: none` (a
+	// slide-edge vignette), so the cards' tests run with pointer events forced on.
+	const probeStyle = doc.createElement('style');
+	probeStyle.setAttribute('data-calco', 'probe');
+	probeStyle.textContent = '[data-calco-probe], [data-calco-probe] *, [data-calco-probe]::before, [data-calco-probe]::after, [data-calco-probe] *::before, [data-calco-probe] *::after { pointer-events: auto !important; }';
+	// Does `el`'s `::before`/`::after` paint something over `box` (client px)? Only a positioned
+	// pseudo-element has a box the computed style can place.
+	type Box = { left: number; top: number; right: number; bottom: number };
+	const pseudoOver = (el: Element, box: Box) => {
+		const er = el.getBoundingClientRect();
+		const ecs = win.getComputedStyle(el);
+		// The box a positioned pseudo-element is placed in: the element's padding box when the
+		// element is itself positioned; otherwise some ancestor's, which is not worked out here.
+		const padL = er.left + (Number.parseFloat(ecs.borderLeftWidth) || 0) * scale;
+		const padT = er.top + (Number.parseFloat(ecs.borderTopWidth) || 0) * scale;
+		const padR = er.right - (Number.parseFloat(ecs.borderRightWidth) || 0) * scale;
+		const padB = er.bottom - (Number.parseFloat(ecs.borderBottomWidth) || 0) * scale;
+		for (const ps of ['::before', '::after'] as const) {
+			const q = win.getComputedStyle(el, ps);
+			if (!q.content || q.content === 'none' || q.content === 'normal' || q.display === 'none' || q.visibility !== 'visible') continue;
+			const qbg = parseColor(q.backgroundColor);
+			const paints = (qbg && qbg.a > 0) || q.backgroundImage !== 'none' || shadowLayers(q.boxShadow).length || ['top', 'right', 'bottom', 'left'].some((sd) => visibleSide(q, sd)) || /\S/.test(q.content.replace(/^["']|["']$/g, ''));
+			if (!paints) continue;
+			// In flow, it is laid out inside the element like a child and overlaps nothing beside it.
+			if (q.position !== 'absolute' && q.position !== 'fixed') continue;
+			if (ecs.position === 'static' || q.position === 'fixed') return true;
+			const px = (v: string) => Number.parseFloat(v);
+			const w = px(q.width) * scale;
+			const h = px(q.height) * scale;
+			const left = Number.isFinite(px(q.left)) ? padL + px(q.left) * scale : padR - (px(q.right) || 0) * scale - w;
+			const top = Number.isFinite(px(q.top)) ? padT + px(q.top) * scale : padB - (px(q.bottom) || 0) * scale - h;
+			// A box with no area paints nothing but a shadow, which the check below does not place.
+			if (!(w > 0 && h > 0)) {
+				if (shadowLayers(q.boxShadow).length) return true;
+				continue;
+			}
+			if (left < box.right && left + w > box.left && top < box.bottom && top + h > box.top) return true;
+		}
+		return false;
+	};
+	const pictureSel = Array.from(PICTURE).join(',');
+	// Does `h` paint at this client point? A box that is only a layout wrapper (a transparent
+	// full-slide overlay) does not, and the walk goes on beneath it.
+	const coversAt = (h: Element, px: number, py: number): boolean => {
+		// Hit testing rounds the point to a whole pixel, so the middle of a 1px border can come
+		// back as the box beside it (the next row's cell). A box that does not hold the point can
+		// only paint there through a pseudo-element.
+		const hb = h.getBoundingClientRect();
+		const dot = { left: px - 0.5, top: py - 0.5, right: px + 0.5, bottom: py + 0.5 };
+		if (px < hb.left || px > hb.right || py < hb.top || py > hb.bottom) return pseudoOver(h, dot);
+		if (h.closest(pictureSel)) return true;
+		const hcs = win.getComputedStyle(h);
+		if (hcs.visibility !== 'visible') return false;
+		const hbg = parseColor(hcs.backgroundColor);
+		if ((hbg && hbg.a > 0) || hcs.backgroundImage !== 'none' || shadowLayers(hcs.boxShadow).length) return true;
+		const hr = h.getBoundingClientRect();
+		const near: Record<string, number> = { top: py - hr.top, bottom: hr.bottom - py, left: px - hr.left, right: hr.right - px };
+		for (const sd of ['top', 'right', 'bottom', 'left']) {
+			const v = visibleSide(hcs, sd);
+			if (v && near[sd] <= v.width * scale + 0.5) return true;
+		}
+		if (Array.from(h.childNodes).some((n) => n.nodeType === 3 && /\S/.test(n.nodeValue || ''))) return true;
+		return pseudoOver(h, dot);
+	};
 
 	// ── rules: border sides of unfilled boxes, as lines. See RULES in the header.
 	const lines: Line[] = [];
@@ -660,15 +790,27 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 		const out: Array<[string, Line]> = [];
 		// Is the box itself on top all along this strip? Something painted over the border (a
 		// positioned sibling) would end up under the native line. Sampled at the ends and in
-		// between; skipped when the slide is not on screen, where no point can be tested.
+		// between; a point off screen cannot be tested, so it fails.
 		const onTop = (x1: number, y1: number, x2: number, y2: number) => {
+			// The end samples sit a pixel inside the strip: at the very end, a short border meets
+			// the box beside it (the next row's cell), which paints nothing over the line.
+			const e = Math.min(0.5, 1 / (Math.hypot(x2 - x1, y2 - y1) || 1));
 			for (let k = 0; k <= 8; k++) {
-				const t = Math.min(0.995, Math.max(0.005, k / 8));
+				const t = Math.min(1 - e, Math.max(e, k / 8));
 				const px = origin.left + (x1 + (x2 - x1) * t) * scale;
 				const py = origin.top + (y1 + (y2 - y1) * t) * scale;
-				const hit = doc.elementFromPoint(px, py);
-				if (!hit) return true;
-				if (hit !== el && !(el.contains(hit) && !paintsBox(win.getComputedStyle(hit)))) return false;
+				const stack = doc.elementsFromPoint(px, py);
+				let found = false;
+				// Down the stack to the box: a child that paints a box, or anything else that
+				// paints at this point (not a transparent wrapper), is over the border.
+				for (const h of stack) {
+					if (h === el) {
+						found = true;
+						break;
+					}
+					if (el.contains(h) ? paintsBox(win.getComputedStyle(h)) && coversAt(h, px, py) : !h.contains(el) && coversAt(h, px, py)) return false;
+				}
+				if (!found) return false;
 			}
 			return true;
 		};
@@ -702,6 +844,8 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 	const RANK: Record<string, number> = { 'table-cell': 3, 'table-row': 2, 'table-row-group': 1, 'table-header-group': 1, 'table-footer-group': 1 };
 	type Entry = { el: HTMLElement; side: string; line: Line; rank: number };
 	const entries: Entry[] = [];
+	section.setAttribute('data-calco-probe', '');
+	(doc.head || doc.documentElement).appendChild(probeStyle);
 	for (const el of Array.from(section.querySelectorAll('*'))) {
 		if (el.closest('svg, math') || SKIP.has(el.localName.toLowerCase())) continue;
 		const got = ruleSides(el);
@@ -710,6 +854,8 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 		const rank = tableOf && win.getComputedStyle(tableOf).borderCollapse === 'collapse' ? RANK[win.getComputedStyle(el).display] || 0 : 0;
 		for (const [side, line] of got) entries.push({ el: el as HTMLElement, side, line, rank });
 	}
+	section.removeAttribute('data-calco-probe');
+	probeStyle.remove();
 	// Cluster the collapsed-table lines by shared edge. A cluster whose lines all span the same
 	// stretch has one winner, drawn, and every member's side hidden; one whose spans differ
 	// (a row's border across columns where only one cell also has one) is left to the picture.
@@ -735,14 +881,189 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 		for (const e of c) if (e !== win2) hiddenToo.add(e);
 	}
 	const sidesOf = new Map<HTMLElement, string[]>();
+	const lineEls: Element[] = [];
 	for (const e of entries) {
-		if (keep.has(e)) lines.push(e.line);
+		if (keep.has(e)) {
+			lines.push(e.line);
+			lineEls.push(e.el);
+		}
 		if (!keep.has(e) && !hiddenToo.has(e)) continue;
 		const list = sidesOf.get(e.el) || [];
 		list.push(e.side);
 		sidesOf.set(e.el, list);
 	}
 	for (const [el, sides] of sidesOf) ruled.push([el, sides]);
+
+	// ── cards: a painted box whose every descendant is native. See CARDS in the header.
+	const cards: Card[] = [];
+	const cardEls: HTMLElement[] = [];
+	const ruledSides = new Map(ruled);
+	const firstPaints = (el: Element) =>
+		(['::first-letter', '::first-line'] as const).some((ps) => {
+			const q = win.getComputedStyle(el, ps);
+			const qbg = parseColor(q.backgroundColor);
+			return (qbg && qbg.a > 0) || q.backgroundImage !== 'none' || ['top', 'right', 'bottom', 'left'].some((sd) => visibleSide(q, sd));
+		});
+	// Cards whose shadow stays in the picture: CSS paints a shadow only OUTSIDE the box, as if
+	// the box were opaque, and an office shadow shades the shape itself, so a see-through card
+	// keeps its shadow in the picture and draws only its box.
+	const shadowInPicture = new Set<Element>();
+	const cardShape = (el: HTMLElement): Card | null => {
+		if (el === section || labels.includes(el)) return null;
+		const cs = win.getComputedStyle(el);
+		const fx = cs as unknown as Record<string, string>;
+		if (cs.display === 'none' || cs.visibility !== 'visible' || /^(inline|table-row|table-row-group|table-header-group|table-footer-group|table-column)/.test(cs.display)) return null;
+		const bg = parseColor(cs.backgroundColor);
+		const fill = bg && bg.a > 0 ? { color: hex(bg), alpha: Math.round(bg.a * 100) / 100 } : undefined;
+		const sides = ['top', 'right', 'bottom', 'left'].map((sd) => visibleSide(cs, sd));
+		let stroke: Shape['stroke'];
+		if (sides.some(Boolean)) {
+			const [a] = sides;
+			if (!a || sides.some((sd) => !sd || Math.abs(sd.width - a.width) > 0.01 || sd.color !== a.color || sd.st !== 'solid')) return null;
+			stroke = { width: a.width, color: hex(a.c), alpha: a.c.a };
+		}
+		if (!fill && !stroke) return null;
+		const layers = shadowLayers(cs.boxShadow);
+		// One outer layer with no spread is what an office shadow is; a ring, an inset, or a
+		// stack of layers stays a picture.
+		if (layers.length > 1 || (layers[0] && (layers[0].inset || Math.abs(layers[0].spread) > 0.5))) return null;
+		if (cs.backgroundImage !== 'none' || (cs.borderImageSource && cs.borderImageSource !== 'none') || (cs.backgroundClip && cs.backgroundClip !== 'border-box')) return null;
+		if (tilted(el) || hasPseudo(el) || (cs.outlineStyle !== 'none' && (Number.parseFloat(cs.outlineWidth) || 0) > 0)) return null;
+		if ((fx.backdropFilter && fx.backdropFilter !== 'none') || (cs.mixBlendMode && cs.mixBlendMode !== 'normal')) return null;
+		if (cs.display === 'list-item' && cs.listStyleType !== 'none' && win.getComputedStyle(el, '::marker').content !== 'none') return null;
+		if ((cs.columnRuleStyle !== 'none' && (Number.parseFloat(cs.columnRuleWidth) || 0) > 0) || firstPaints(el)) return null;
+		if ((cs.textDecorationLine || 'none') !== 'none' && !textOwners.has(el)) return null;
+		// Everything inside must come out of the picture: every word read, every painted box a
+		// label or a rule whose painted sides all became lines, no picture, no pseudo-element
+		// content, no list marker. The card's shape covers whatever the picture still holds there.
+		const read = new Set(kept.map((wd) => wd.node));
+		const walker = doc.createTreeWalker(el, 4);
+		for (let t = walker.nextNode(); t; t = walker.nextNode()) {
+			if (/\S/.test(t.nodeValue || '') && !read.has(t as Text)) return null;
+		}
+		let holds = false;
+		for (const d of Array.from(el.querySelectorAll('*'))) {
+			if (PICTURE.has(d.localName.toLowerCase())) return null;
+			const dcs = win.getComputedStyle(d);
+			if (dcs.display === 'none') continue;
+			if (hasPseudo(d)) return null;
+			if (dcs.display === 'list-item' && dcs.listStyleType !== 'none' && win.getComputedStyle(d, '::marker').content !== 'none') return null;
+			// Paint the checks below would miss: a column rule, a styled first letter or line, and a
+			// decoration declared on an element whose own text was not hidden with it.
+			if (dcs.columnRuleStyle !== 'none' && (Number.parseFloat(dcs.columnRuleWidth) || 0) > 0) return null;
+			if (firstPaints(d)) return null;
+			if ((dcs.textDecorationLine || 'none') !== 'none' && !textOwners.has(d)) return null;
+			if (labels.includes(d)) {
+				holds = true;
+				continue;
+			}
+			const dbg = parseColor(dcs.backgroundColor);
+			if ((dbg && dbg.a > 0) || dcs.backgroundImage !== 'none' || shadowLayers(dcs.boxShadow).length) return null;
+			if (dcs.borderImageSource && dcs.borderImageSource !== 'none') return null;
+			if (dcs.outlineStyle !== 'none' && (Number.parseFloat(dcs.outlineWidth) || 0) > 0) return null;
+			const drawn = ruledSides.get(d as HTMLElement) || [];
+			for (const sd of ['top', 'right', 'bottom', 'left']) if (visibleSide(dcs, sd) && !drawn.includes(sd)) return null;
+			if (drawn.length) holds = true;
+		}
+		if (!holds && !frameBlocks.some((b) => el.contains(b))) return null;
+		// The card fades, filters and clips as one group in the browser; its pieces would not.
+		const r = el.getBoundingClientRect();
+		const opaque = !!fill && fill.alpha === 1;
+		const shadow = opaque ? layers[0] : undefined;
+		const reach = layers[0] ? Math.abs(layers[0].x) + Math.abs(layers[0].y) + layers[0].blur : 0;
+		for (let p: Element | null = el; p && p !== section.parentElement; p = p.parentElement) {
+			const pcs = win.getComputedStyle(p);
+			const pfx = pcs as unknown as Record<string, string>;
+			if ((Number.parseFloat(pcs.opacity) || 0) < 1) return null;
+			if ((pcs.filter && pcs.filter !== 'none') || (pfx.maskImage && pfx.maskImage !== 'none') || (pfx.webkitMaskImage && pfx.webkitMaskImage !== 'none') || (pcs.clipPath && pcs.clipPath !== 'none') || (pcs.clip && pcs.clip !== 'auto')) return null;
+			if (p !== el && p !== section && (/paint|strict|content/.test(pfx.contain || '') || pcs.overflow !== 'visible' || pcs.overflowX !== 'visible' || pcs.overflowY !== 'visible')) {
+				// A clipping ancestor must hold the box and its shadow; the slide itself clips
+				// every capture the same way, so it does not count.
+				const c = p.getBoundingClientRect();
+				const k = reach * scale;
+				if (r.left - k < c.left - 0.5 || r.top - k < c.top - 0.5 || r.right + k > c.right + 0.5 || r.bottom + k > c.bottom + 0.5) return null;
+			}
+		}
+		const ow = el.offsetWidth;
+		const oh = el.offsetHeight;
+		const off = (got: number, layout: number) => Math.abs(got / scale - layout) > Math.max(1, 0.01 * layout);
+		if (!(ow > 0) || off(r.width, ow) || (oh > 0 && off(r.height, oh))) return null;
+		const x = (r.left - origin.left) / scale;
+		const y = (r.top - origin.top) / scale;
+		const w = r.width / scale;
+		const h = r.height / scale;
+		if (!(w > 0 && h > 0) || x < -0.5 || y < -0.5 || x + w > boxW + 0.5 || y + h > boxH + 0.5) return null;
+		// Nothing outside the card may paint over it (a positioned badge, a sibling's overhang, an
+		// ancestor's `::after` vignette): the native card would cover it. Every other box that
+		// overlaps the card is hit-tested at the middle of the overlap, with pointer events
+		// forced on; a picture (a chart, an image) inside the shadow's reach fails too, since the
+		// native shadow would be drawn over it. A point off screen cannot be tested and fails.
+		const k = reach * scale;
+		const grown = { left: r.left - k, top: r.top - k, right: r.right + k, bottom: r.bottom + k };
+		for (let p = el.parentElement; p && p !== section.parentElement; p = p.parentElement) if (pseudoOver(p, grown)) return null;
+		section.setAttribute('data-calco-probe', '');
+		(doc.head || doc.documentElement).appendChild(probeStyle);
+		try {
+			for (const o of Array.from(section.querySelectorAll('*'))) {
+				if (o === el || el.contains(o) || o.contains(el)) continue;
+				const q = o.getBoundingClientRect();
+				const over = (box: Box) => {
+					const L = Math.max(q.left, box.left);
+					const T = Math.max(q.top, box.top);
+					const R = Math.min(q.right, box.right);
+					const B = Math.min(q.bottom, box.bottom);
+					return R - L >= 1 && B - T >= 1 ? [(L + R) / 2, (T + B) / 2] : null;
+				};
+				const inBox = over(r);
+				const inReach = inBox || (k > 0 ? over(grown) : null);
+				if (!inReach) continue;
+				const [px, py] = inReach;
+				const stack = doc.elementsFromPoint(px, py);
+				if (!stack.length) return null;
+				// Walk down from the top until the card: whatever paints above it there covers it.
+				for (const h of stack) {
+					if (h === el || el.contains(h)) break;
+					if (h.contains(el)) continue;
+					if (inBox ? coversAt(h, px, py) : !!h.closest(pictureSel)) return null;
+				}
+			}
+		} finally {
+			section.removeAttribute('data-calco-probe');
+			probeStyle.remove();
+		}
+		const corner = (v: string) => {
+			const parts = v.trim().split(/\s+/);
+			const one = (part: string, ref: number) => (part.endsWith('%') ? (Number.parseFloat(part) / 100) * ref : Number.parseFloat(part) || 0);
+			return [one(parts[0], w), one(parts[1] || parts[0], h)];
+		};
+		const c = [cs.borderTopLeftRadius, cs.borderTopRightRadius, cs.borderBottomRightRadius, cs.borderBottomLeftRadius].map(corner);
+		const f = Math.min(1, w / (c[0][0] + c[1][0] || 1), w / (c[3][0] + c[2][0] || 1), h / (c[0][1] + c[3][1] || 1), h / (c[1][1] + c[2][1] || 1));
+		const radii = c.map(([rx, ry]) => Math.round(Math.min(rx, ry) * f * 100) / 100) as Shape['radii'];
+		const round = (n: number) => Math.round(n * 100) / 100;
+		const card: Card = { x: round(x), y: round(y), w: round(w), h: round(h), radii };
+		if (fill) card.fill = fill;
+		if (stroke) card.stroke = stroke;
+		if (layers[0] && !shadow) shadowInPicture.add(el);
+		if (shadow?.c) card.shadow = { x: round(shadow.x), y: round(shadow.y), blur: round(shadow.blur), color: hex(shadow.c), alpha: Math.round(shadow.c.a * 100) / 100 };
+		return card;
+	};
+	for (const el of Array.from(section.querySelectorAll('*')) as HTMLElement[]) {
+		if (el.closest('svg, math') || SKIP.has(el.localName.toLowerCase())) continue;
+		// The outermost qualifying box wins; a box inside a card is part of it.
+		if (cardEls.some((c) => c.contains(el))) continue;
+		const card = cardShape(el);
+		if (!card) continue;
+		cardEls.push(el);
+		cards.push(card);
+	}
+	cardEls.forEach((el, ci) => {
+		frameBlocks.forEach((b, fi) => {
+			if (el.contains(b)) frames[fi].card = ci;
+		});
+		lineEls.forEach((le, li) => {
+			if (el.contains(le)) lines[li].card = ci;
+		});
+	});
 
 	// ── hide. FIRST CHOICE: wrap each text node that was read in an inline element that is
 	// itself transparent. Nothing else changes — not the owner's color, so its `::marker`,
@@ -903,9 +1224,9 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 	// The labels' boxes and the rules go after the text, so the text hide's paint check sees
 	// them as they were. Undone first, before the text, since each restore puts back the
 	// style attribute it found.
-	if (options?.hide && (labels.length || ruled.length)) {
+	if (options?.hide && (labels.length || ruled.length || cardEls.length)) {
 		const undoText = host.__calcoRestore;
-		const touched = [...new Set([...labels, ...ruled.map(([el]) => el)])];
+		const touched = [...new Set([...labels, ...ruled.map(([el]) => el), ...cardEls])];
 		const saved = touched.map((el) => [el, el.getAttribute('style')] as const);
 		// A transition on a border or background color would outrank the inline `!important`
 		// for its duration, and the picture would still hold the box.
@@ -916,13 +1237,26 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			for (const sd of ['top', 'right', 'bottom', 'left']) st.setProperty(`border-${sd}-color`, 'transparent', 'important');
 		}
 		for (const [el, sides] of ruled) for (const sd of sides) el.style.setProperty(`border-${sd}-color`, 'transparent', 'important');
+		for (const el of cardEls) {
+			el.style.setProperty('background-color', 'transparent', 'important');
+			if (!shadowInPicture.has(el)) el.style.setProperty('box-shadow', 'none', 'important');
+			for (const sd of ['top', 'right', 'bottom', 'left']) el.style.setProperty(`border-${sd}-color`, 'transparent', 'important');
+		}
 		host.__calcoRestore = () => {
+			// Colors back first, with transitions still off, then the transitions: restoring both
+			// at once would animate the box back in over the next frames.
+			for (const [el, s] of saved) {
+				flushStyle(el, s);
+				(el as HTMLElement).style.setProperty('transition', 'none', 'important');
+			}
+			for (const [el] of saved) void win.getComputedStyle(el).backgroundColor;
 			for (const [el, s] of saved) flushStyle(el, s);
 			undoText?.();
 		};
 		hidden = true;
 	}
-	return { width: boxW, height: boxH, frames, lines, hidden };
+	unscroll();
+	return { width: boxW, height: boxH, frames, lines, cards, hidden };
 }
 
 /** Undo `readSlide(section, { hide: true })`. Safe to call when nothing is hidden. */

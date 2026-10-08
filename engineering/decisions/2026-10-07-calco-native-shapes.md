@@ -5,9 +5,9 @@ summary: Options for making cards, pills, tags and rules native shapes in Calco'
 
 # Calco: cards, pills and rules as native shapes (2026-10-07)
 
-**Status: in progress. The owner picked option B on 2026-10-07** (labels, then cards and
-rules, grouped with their text). It is built in slices: A's labels first, since A's pieces are
-B's base, then rules, then cards with grouping. §4's recommendation of A alone stands as the
+**Status: built, pending the owner's look. The owner picked option B on 2026-10-07** (labels,
+then cards and rules, grouped with their text). It was built in three slices: labels (§7),
+rules (§8) and cards (§9). §4's recommendation of A alone stands as the
 reasoning the owner weighed.
 
 **The question.** The owner asked whether a card's corner tag in the editable export is a
@@ -248,6 +248,91 @@ jargon gallery 99; every `.pptx` validates with 0 errors (`xmllint` `pml.xsd` an
 SDK). LibreOffice draws each where the PDF has it (checked at 150 dpi on the jargon table),
 and the picture no longer holds them. The muted-tier table's heavier header line is a
 `background-image` gradient on `thead tr`, not a border, so it stays a picture.
+
+## 9. Slice 3 as built: cards (2026-10-08)
+
+A card is a box the slide paints (a fill and/or one border all round, any radii) that holds
+text. It becomes one native shape, with its drop shadow, grouped with the text, labels and
+rules inside it.
+
+- **Reader** (`reader.ts`, CARDS). The deciding rule is **everything inside must already be
+  native**, because the card's shape is drawn over the picture and covers whatever the
+  picture still holds there. So a box qualifies only when every word in it was read into a
+  frame, every box inside that paints is a label or a ruled element whose painted sides all
+  became lines, and nothing inside is a picture (`svg`, `img`, …), pseudo-element content or a
+  visible list marker. On top of that, the box itself:
+  - paints like a label (solid fill and/or one uniform solid border), with **at most one outer
+    shadow and no spread**. A transparent shadow layer counts as none (Chrome reports
+    `rgba(0, 0, 0, 0) 0px 0px 0px 0px` on boxes that animate a shadow);
+  - is not faded, filtered, masked, clip-pathed, tilted or scaled apart from the slide, and no
+    clipping ancestor cuts it or its shadow;
+  - has nothing outside it painted on top: every other box that overlaps it is hit-tested at
+    the middle of the overlap.
+  The outermost qualifying box wins, and frames and lines inside carry its index as `card`.
+- **What the checker on this slice found, and the fixes.** Each was reproduced with a fixture
+  and is now an integration test (`calco-reader.test.js`, "what covers them, and off screen"):
+  - *Off screen, every hit test passed.* `elementFromPoint` returns `null` for a point outside
+    the viewport, and the CLI reads each slide before the screenshot scrolls to it, so on every
+    slide after the first nothing guarded the card (or, since slice 2, the rule). `readSlide`
+    now scrolls the slide into view for the read and restores every scroll position, and a
+    point that still lands nowhere fails.
+  - *Paint the hit test could not see:* an overlay with `pointer-events: none`, an ancestor's
+    positioned `::after`, a column rule, a descendant's `border-image`, a painted
+    `::first-letter`, a decoration declared on the card. The overlap test now forces pointer
+    events on and walks `elementsFromPoint` down to the card, counting only what paints at
+    that point (a transparent full-slide veil does not); ancestors' pseudo-elements are placed
+    from their computed insets; the rest reject the card.
+  - *PptxGenJS reads a zero as unset* (`blur || 8`, `offset || 4`, `angle || 270`), so a hard
+    `0 1px 0` shadow came out blurred and a centered glow shifted up. Zeros go in as a
+    thousandth.
+  - *A see-through or unfilled card's shadow.* CSS shades only outside the box; an office
+    shadow shades the shape, so it darkened the inside of a translucent card and drew only an
+    outline's shadow for an unfilled one. Only an opaque card's shadow is native now; any other
+    card keeps its shadow in the picture and draws just its box.
+  - *A picture under the shadow's reach* (a chart beside the card) would be drawn under the
+    native shadow; it now stops the card.
+  - *Hit tests round to a whole pixel.* Once slides were really on screen, the rules test
+    (slice 2) ran for the first time on most slides, and dropped the jargon phase grid's 9
+    column dividers and 20 of the obligation matrix's row hairlines (gallery slide 105). The
+    middle of a 1px border at y = 634.95 comes back from `elementsFromPoint` as the next row's
+    cell, whose box starts at 635.45. Both tests now walk the stack and count an element only
+    where it paints: a box that does not hold the point counts only through a pseudo-element
+    placed there, and a transparent wrapper not at all. The end samples also sit a pixel inside
+    the strip rather than 0.5% from its end.
+  - *Restore animated the box back* when it had a CSS transition. Colors now come back while
+    `transition: none` still holds, then the transition.
+  Measured cost (the checker, headless Chromium, slides on screen): reading the 120-slide
+  gallery went from 670 to 804 ms, the 58-slide jargon gallery from 354 to 430 ms.
+  `hide: true` clears its fill, border colors and shadow, after the text, with
+  `transition: none`, and restores them first.
+- **Writers.** The `.odp` writes a `draw:g` named `Card n.c`: a `draw:custom-shape` whose style
+  carries `draw:shadow="visible"` with offset, color, opacity and `loext:shadow-blur`, then the
+  card's rules, text boxes and label groups. The `.pptx` writes the card shape (with PptxGenJS's
+  outer `shadow`: distance and direction from the CSS offset, the CSS blur radius as the blur)
+  followed by its members, and `tidyPptx`'s `groupCards` wraps the run in a `p:grpSp` named
+  `Calco Card i.c`, after `groupLabels` has made each label one object. Paint order on a slide
+  is: picture, free rules, cards, free text.
+- **What stays a picture, by design.** Measured on the decks, the cards that do not qualify are
+  mostly: accent-edge cards (a thicker colored side on a rounded box, which curves round the
+  corners: card-tags slides 4, 5, 10 and the muted-tier cards); numbered cards whose number is
+  a `::before` counter (card-tags 2, 3, 8); the sketch finish's offset shadow with negative
+  spread (card-tags 9); and boxes holding an icon or an inline pill. Each would need the
+  shape to reproduce something the picture keeps, so each stays whole in the picture.
+
+Measured on the CLI's `--editable` export (2026-10-08, after the fixes):
+
+| Deck | Cards | Labels | Rules |
+|---|---:|---:|---:|
+| card-tags | 2 | 8 | 9 |
+| muted-tier-and-syntax | 0 | 3 | 20 |
+| gallery-jargon | 32 | 34 | 99 |
+| baseline gallery (120 slides) | 55 | 52 | 187 |
+
+The `.odp` holds the same cards. Every `.pptx` validates with 0 errors (`xmllint` against
+`pml.xsd`, and the Open XML SDK for Office 2007 and Microsoft 365), with no card left
+ungrouped. LibreOffice draws the cards, their shadows and their text where the PDF has them
+(jargon slides 5 and 10 compared at 80 dpi); in the `.pptx` it substitutes the fonts, since
+it cannot read embedded EOT, as before this slice.
 
 ## Appendix: the census script
 

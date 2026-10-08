@@ -188,3 +188,71 @@ describe('calco pptx — rules', () => {
     assert.ok(xml.indexOf('Calco Rule 1.1') < xml.indexOf('>Title</a:t>'), 'the rule is under the text');
   });
 });
+
+describe('calco pptx — cards', () => {
+  const card = { x: 80, y: 160, w: 400, h: 300, radii: [12, 12, 12, 12], fill: { color: '#ffffff', alpha: 1 }, shadow: { x: 0, y: 4, blur: 12, color: '#000000', alpha: 0.1 } };
+  const deck = () => ({
+    width: 1280,
+    height: 720,
+    slides: [{
+      image: ONE_PX_PNG,
+      cards: [card],
+      lines: [{ x1: 0, y1: 100, x2: 1280, y2: 100, width: 1, color: '#000000', alpha: 1 }, { card: 0, x1: 100, y1: 220, x2: 460, y2: 220, width: 1, color: '#cccccc', alpha: 1 }],
+      frames: [
+        frame([[{ text: 'Head', style: style() }]], { x: 100, y: 180, card: 0 }),
+        frame([[{ text: 'Pill', style: style() }]], { x: 100, y: 240, card: 0, shape: { x: 96, y: 236, w: 60, h: 24, radii: [12, 12, 12, 12], fill: { color: '#2e608a', alpha: 1 } } }),
+        frame([[{ text: 'Free', style: style() }]], { x: 600, y: 180 }),
+      ],
+    }],
+  });
+  const slideOf = async (d) => (await JSZip.loadAsync(await writePptx(PptxGenJS, d, 'nodebuffer', JSZip))).file('ppt/slides/slide1.xml').async('string');
+
+  test('a card is one group: its shape, its rule, its text and its label group, in that order', async () => {
+    const xml = await slideOf(deck());
+    const g = xml.match(/<p:grpSp><p:nvGrpSpPr><p:cNvPr id="\d+" name="Calco Card 1\.1"\/>[\s\S]*<\/p:grpSp>/);
+    assert.ok(g, 'the card is a group');
+    const body = g[0];
+    const at = (s) => body.indexOf(s);
+    assert.ok(at('name="Calco Card 1.1 Shape"') > 0, 'the shape is renamed, without its count');
+    assert.ok(at('name="Calco Card 1.1 Shape"') < at('Calco Rule 1.2') && at('Calco Rule 1.2') < at('>Head</a:t>') && at('>Head</a:t>') < at('name="Calco Label 1.2"'));
+    assert.ok(!body.includes('>Free</a:t>') && !body.includes('Calco Rule 1.1"'), 'free text and free rules stay outside');
+    assert.ok(xml.indexOf('Calco Rule 1.1"') < xml.indexOf('Calco Card 1.1"'), 'free rules sit under the cards');
+    assert.ok(xml.indexOf('>Free</a:t>') > xml.lastIndexOf('</p:grpSp>'), 'free text sits over the cards');
+    assert.doesNotMatch(xml, /Calco Card 1\.1 \+/);
+    const ids = Array.from(xml.matchAll(/<p:cNvPr id="(\d+)"/g), (m) => m[1]);
+    assert.equal(new Set(ids).size, ids.length, 'every id on the slide is unique');
+  });
+
+  test('the card shape carries its drop shadow as an outer shadow', async () => {
+    const xml = await slideOf(deck());
+    const shape = xml.match(/<p:sp>(?:(?!<\/p:sp>)[\s\S])*?name="Calco Card 1\.1 Shape"[\s\S]*?<\/p:sp>/)[0];
+    // 4px down on a 1280px slide: 3pt = 38100 EMU, direction 90° = 5400000; blur 12px = 9pt.
+    assert.match(shape, /<a:outerShdw[^>]*blurRad="114300"[^>]*dist="38100"[^>]*dir="5400000"/);
+    assert.match(shape, /<a:outerShdw[\s\S]*?<a:srgbClr val="000000">\s*<a:alpha val="10000"\/>/);
+  });
+
+  test('without JSZip the card is not grouped, and nothing is lost', async () => {
+    const zip = await JSZip.loadAsync(await writePptx(PptxGenJS, deck(), 'nodebuffer'));
+    const xml = await zip.file('ppt/slides/slide1.xml').async('string');
+    assert.doesNotMatch(xml, /<p:grpSp>/);
+    for (const t of ['Head', 'Pill', 'Free']) assert.match(xml, new RegExp(`>${t}</a:t>`));
+  });
+});
+
+describe('calco pptx — card shadows PptxGenJS would default', () => {
+  test('a hard shadow stays hard, a glow stays centered, a shadow to the right points right', async () => {
+    const one = async (shadow) => {
+      const d = { width: 1280, height: 720, slides: [{ image: ONE_PX_PNG, cards: [{ x: 80, y: 160, w: 400, h: 300, radii: [0, 0, 0, 0], fill: { color: '#ffffff', alpha: 1 }, shadow: { color: '#000000', alpha: 0.2, ...shadow } }], frames: [frame([[{ text: 'In', style: style() }]], { card: 0 })] }] };
+      const xml = await (await JSZip.loadAsync(await writePptx(PptxGenJS, d, 'nodebuffer', JSZip))).file('ppt/slides/slide1.xml').async('string');
+      const m = xml.match(/<a:outerShdw[^>]*blurRad="(\d+)"[^>]*dist="(\d+)"[^>]*dir="(\d+)"/);
+      return { blur: +m[1], dist: +m[2], dir: +m[3] };
+    };
+    const hard = await one({ x: 0, y: 1, blur: 0 });
+    assert.ok(hard.blur < 100, `no blur (${hard.blur} EMU)`);
+    assert.equal(hard.dir, 5400000);
+    const glow = await one({ x: 0, y: 0, blur: 12 });
+    assert.ok(glow.dist < 100, `no offset (${glow.dist} EMU)`);
+    const right = await one({ x: 5, y: 0, blur: 4 });
+    assert.ok(right.dir < 1000, `points right (${right.dir})`);
+  });
+});

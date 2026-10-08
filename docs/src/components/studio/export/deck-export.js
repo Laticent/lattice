@@ -2139,20 +2139,22 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 					// the deliverable; the text boxes are the improvement.
 					let frames = [];
 					let lines = [];
+					let cards = [];
 					if (editable) {
 						try {
-							({ frames, lines } = calco.readSlide(section, { hide: true }));
+							({ frames, lines, cards } = calco.readSlide(section, { hide: true }));
 						} catch (e) {
 							console.warn(`[deck-export] slide ${i + 1} exports as a picture: ${e?.message || e}`);
 							calco.restoreSlide(section);
 							frames = [];
 							lines = [];
+							cards = [];
 						}
 					}
 					try {
 						const canvas = await toCanvas(section, captureOptions(w, h, pixelRatio, fontEmbedCSS, log));
 						const blob = await new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('canvas.toBlob returned null'))), 'image/png'));
-						return { bytes: new Uint8Array(await blob.arrayBuffer()), frames, lines };
+						return { bytes: new Uint8Array(await blob.arrayBuffer()), frames, lines, cards };
 					} finally {
 						calco.restoreSlide(section);
 					}
@@ -2160,7 +2162,7 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 			} catch (e) {
 				throw captureError(e);
 			}
-			slides.push({ image: shot.bytes, frames: shot.frames, lines: shot.lines, notes: record[i]?.note || null, description: (record[i]?.description || '').trim() || null });
+			slides.push({ image: shot.bytes, frames: shot.frames, lines: shot.lines, cards: shot.cards, notes: record[i]?.note || null, description: (record[i]?.description || '').trim() || null });
 			// Yield so the progress paints and input stays live between slides.
 			await new Promise((r) => setTimeout(r));
 		}

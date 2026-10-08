@@ -216,3 +216,34 @@ describe('calco odp — rules', () => {
     assert.doesNotMatch(xml, /<draw:line /);
   });
 });
+
+describe('calco odp — cards', () => {
+  const deckWithCard = () => {
+    const deck = picture(1);
+    deck.slides[0].cards = [{ x: 80, y: 160, w: 400, h: 300, radii: [12, 12, 12, 12], fill: { color: '#ffffff', alpha: 1 }, shadow: { x: 0, y: 4, blur: 12, color: '#000000', alpha: 0.1 } }];
+    deck.slides[0].lines = [{ x1: 0, y1: 100, x2: 1280, y2: 100, width: 1, color: '#000000', alpha: 1 }, { card: 0, x1: 100, y1: 220, x2: 460, y2: 220, width: 1, color: '#cccccc', alpha: 1 }];
+    deck.slides[0].frames = [
+      frame([[{ text: 'Head', style: style() }]], { x: 100, y: 180, card: 0 }),
+      frame([[{ text: 'Pill', style: style() }]], { x: 100, y: 240, card: 0, shape: { x: 96, y: 236, w: 60, h: 24, radii: [12, 12, 12, 12], fill: { color: '#2e608a', alpha: 1 } } }),
+      frame([[{ text: 'Free', style: style() }]], { x: 600, y: 180 }),
+    ];
+    return deck;
+  };
+
+  test('a card is a draw:g: its shape, its rule, its text and its label, between the free rules and the free text', async () => {
+    const xml = await read((await open(deckWithCard())).zip, 'content.xml');
+    const g = xml.match(/<draw:g draw:name="Card 1\.1">([\s\S]*?)<\/draw:g><\/draw:g>/);
+    assert.ok(g, 'the card group closes after its nested label group');
+    const body = g[1];
+    const at = (s) => body.indexOf(s);
+    assert.match(body, /^<draw:custom-shape [^>]*draw:name="Card 1\.1 Shape"/, 'the shape comes first');
+    assert.ok(at('Rule 1.2') < at('>Head<') && at('>Head<') < at('draw:name="Label 1.2"'));
+    assert.ok(!body.includes('>Free<') && !body.includes('"Rule 1.1"'));
+    assert.ok(xml.indexOf('"Rule 1.1"') < xml.indexOf('"Card 1.1"') && xml.indexOf('"Card 1.1"') < xml.indexOf('>Free<'));
+  });
+
+  test('the shadow is visible, offset, colored, faded and blurred', async () => {
+    const xml = await read((await open(deckWithCard())).zip, 'content.xml');
+    assert.match(xml, /draw:shadow="visible" draw:shadow-offset-x="0(?:\.0+)?cm" draw:shadow-offset-y="[\d.]+cm" draw:shadow-color="#000000" draw:shadow-opacity="10%" loext:shadow-blur="[\d.]+cm"/);
+  });
+});

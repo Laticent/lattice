@@ -87,7 +87,10 @@ nothing, so a headless browser can receive them as source.
 - Shapes: a paragraph whose own box is a plain fill or an all-round border and holds nothing
   else (a pill, a tag) is written as a native shape grouped with its text, and one to three
   solid border sides of an unfilled box (a heading underline, a hairline) as native lines.
-  Cards and anything shadowed, faded or holding an icon are still part of the picture.
+  A card (a filled or bordered box, with at most one plain drop shadow, whose every word,
+  pill and rule came out of the picture) is a native shape grouped with everything in it.
+  A box with an accent edge, a ring or layered shadow, a `::before` number, an icon, an
+  inline pill, or a fade stays part of the picture.
 - No native charts, diagrams or equations.
 
 Design, measurements and the LibreOffice behaviors the writers work around:

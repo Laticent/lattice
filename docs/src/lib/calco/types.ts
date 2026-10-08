@@ -68,11 +68,29 @@ export interface Shape {
 	radii: [number, number, number, number];
 }
 
+/** An outer drop shadow, px: offset, blur radius, and its color. */
+export interface Shadow extends Paint {
+	x: number;
+	y: number;
+	blur: number;
+}
+
+/**
+ * A card: a box that holds more than one paragraph (or labels and rules), drawn as a native
+ * shape under everything inside it. The frames, labels and lines inside carry `card`, its
+ * index, and a writer groups them with it, so the card moves as one.
+ */
+export interface Card extends Shape {
+	shadow?: Shadow;
+}
+
 /**
  * A rule: one side of a box's border drawn on its own (a heading underline, a table
  * hairline), px. The ends are the border strip's ends; the line runs down its middle.
  */
 export interface Line extends Paint {
+	/** The card this rule belongs to (an accent edge, a hairline inside), by index. */
+	card?: number;
 	x1: number;
 	y1: number;
 	x2: number;
@@ -84,6 +102,8 @@ export interface Line extends Paint {
 export interface TextFrame {
 	/** The label box this text sits in, drawn as a shape under it (a pill, a tag). */
 	shape?: Shape;
+	/** The card this text sits in, by index into `cards`. */
+	card?: number;
 	/** Left edge of the text column, px. */
 	x: number;
 	/** Top of the first line's glyph box (ascent + descent), px. */
@@ -111,6 +131,8 @@ export interface Slide {
 	frames: TextFrame[];
 	/** Rules drawn as native lines under the text (editable mode). */
 	lines?: Line[];
+	/** Cards drawn as native shapes, each grouped with what sits in it (editable mode). */
+	cards?: Card[];
 	/** Speaker notes, plain text. */
 	notes?: string | null;
 	/** Alt text for the slide picture. */

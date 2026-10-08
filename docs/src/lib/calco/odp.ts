@@ -5,7 +5,8 @@
  * Every page is a full-bleed picture with zero or more text boxes on top. A frame that sits in
  * a label (a pill, a tag) is drawn as a group: the label's box as a `draw:custom-shape`,
  * its text box over it, so the two move and resize together. A rule (a heading underline, a
- * hairline) is a `draw:line` with butt ends, under every text box. In PICTURE mode
+ * hairline) is a `draw:line` with butt ends, under every text box. A card is a group too:
+ * its box (with its drop shadow), then the rules, text boxes and labels inside it. In PICTURE mode
  * the picture is the whole slide and there are no boxes; in EDITABLE mode the picture is the
  * slide with its text hidden and every paragraph is a real text box, in its own font, which
  * is embedded in the file. One code path writes both.
@@ -19,7 +20,7 @@
 import { type FontMetrics, faceFor, facesUsed, readFontMetrics, uniqueFaceNames } from './fonts.js';
 import { dominantStyle, metricsFor, placeFrame, shapeOutline } from './layout.js';
 import { renameFace } from './sfnt.js';
-import type { Deck, EmbeddedFont, JSZipClass, Line, Shape, TextStyle } from './types.js';
+import type { Card, Deck, EmbeddedFont, JSZipClass, Line, TextStyle } from './types.js';
 
 export const ODP_MIMETYPE = 'application/vnd.oasis.opendocument.presentation';
 
@@ -199,8 +200,8 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 	};
 
 	const shapeStyles = new Map<string, string>();
-	const shapeStyle = (sh: Shape): string => {
-		const key = JSON.stringify([sh.fill, sh.stroke]);
+	const shapeStyle = (sh: Card): string => {
+		const key = JSON.stringify([sh.fill, sh.stroke, sh.shadow]);
 		const hit = shapeStyles.get(key);
 		if (hit) return hit;
 		const name = `gs${shapeStyles.size + 1}`;
@@ -211,13 +212,18 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 		const stroke = sh.stroke
 			? `draw:stroke="solid" svg:stroke-width="${cm(sh.stroke.width)}" svg:stroke-color="${sh.stroke.color}"${sh.stroke.alpha < 1 ? ` svg:stroke-opacity="${Math.round(sh.stroke.alpha * 100)}%"` : ''}`
 			: 'draw:stroke="none"';
-		automatic.push(`<style:style style:name="${name}" style:family="graphic"><style:graphic-properties ${fill} ${stroke} draw:shadow="hidden"/></style:style>`);
+		// A card's drop shadow: offset, color and opacity are ODF 1.2; the blur is LibreOffice's own.
+		const sd = sh.shadow;
+		const shadow = sd
+			? `draw:shadow="visible" draw:shadow-offset-x="${cm(sd.x)}" draw:shadow-offset-y="${cm(sd.y)}" draw:shadow-color="${sd.color}" draw:shadow-opacity="${Math.round(sd.alpha * 100)}%" loext:shadow-blur="${cm(sd.blur)}"`
+			: 'draw:shadow="hidden"';
+		automatic.push(`<style:style style:name="${name}" style:family="graphic"><style:graphic-properties ${fill} ${stroke} ${shadow}/></style:style>`);
 		return name;
 	};
 	// A rounded rectangle in the shape's own units (1/100 px), each corner its own radius. `X`
 	// and `Y` are ODF's elliptical quadrants: `X` leaves its point along the x axis, `Y` along
 	// the y axis, so the four corners alternate.
-	const shapeXml = (sh: Shape, name: string): string => {
+	const shapeXml = (sh: Card, name: string): string => {
 		const o = shapeOutline(sh);
 		const u = (px: number) => Math.round(px * 100);
 		const [tl, tr, br, bl] = o.radii.map(u);
@@ -262,9 +268,8 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 	const pages = deck.slides.map((slide, i) => {
 		const n = i + 1;
 		const alt = (slide.description || '').trim() || `Slide ${n}`;
-		const boxes = (slide.frames || [])
-			.filter((f) => f.lines.length && f.lines.some((l) => l.length))
-			.map((f, j) => {
+		const placed = (slide.frames || []).filter((f) => f.lines.length && f.lines.some((l) => l.length));
+		const frameXml = placed.map((f, j) => {
 				const lead = dominantStyle(f.lines.find((l) => l.length) || f.lines[0]);
 				const box = placeFrame(f, W, metricsFor(lead, used, metricsCache), lead.size);
 				const body = f.lines
@@ -274,8 +279,23 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 					`<draw:frame draw:style-name="gr1" draw:name="Text ${n}.${j + 1}" svg:x="${cm(box.x)}" svg:y="${cm(box.y)}" svg:width="${cm(box.w)}" svg:height="${cm(box.h)}">` +
 					`<draw:text-box><text:p text:style-name="${paraStyle(f.align, f.lineHeight)}">${body}</text:p></draw:text-box></draw:frame>`;
 				return f.shape ? `<draw:g draw:name="Label ${n}.${j + 1}">${shapeXml(f.shape, `Label ${n}.${j + 1} Shape`)}${text}</draw:g>` : text;
-			})
+			});
+		// Paint order: the picture, the free rules, each card as a group (its shape, then its
+		// rules, then its text and labels), then the free text.
+		const cards = slide.cards || [];
+		const own = (card?: number) => card !== undefined && card >= 0 && card < cards.length;
+		const ruleXml = (slide.lines || []).map((l, k) => [l, lineXml(l, `Rule ${n}.${k + 1}`)] as const);
+		const freeRules = ruleXml.filter(([l]) => !own(l.card)).map(([, x]) => x).join('');
+		const cardXml = cards
+			.map(
+				(card, c) =>
+					`<draw:g draw:name="Card ${n}.${c + 1}">${shapeXml(card, `Card ${n}.${c + 1} Shape`)}` +
+					ruleXml.filter(([l]) => l.card === c).map(([, x]) => x).join('') +
+					placed.map((f, j) => (f.card === c ? frameXml[j] : '')).join('') +
+					'</draw:g>',
+			)
 			.join('');
+		const boxes = placed.map((f, j) => (own(f.card) ? '' : frameXml[j])).join('');
 		const note = slide.notes;
 		const notesXml = note
 			? `<presentation:notes><draw:page-thumbnail presentation:class="page" draw:page-number="${n}" svg:x="2.1cm" svg:y="2.3cm" svg:width="16.8cm" svg:height="9.45cm"/>` +
@@ -287,7 +307,7 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 			`<draw:image xlink:href="Pictures/slide${pad3(i)}.png" xlink:type="simple" xlink:show="embed" xlink:actuate="onLoad"/>` +
 			// Alt text: LibreOffice reads svg:title as the picture's title, svg:desc as its description.
 			`<svg:title>${xmlEscape(`Slide ${n}`)}</svg:title><svg:desc>${xmlEscape(alt)}</svg:desc>` +
-			`</draw:frame>${(slide.lines || []).map((l, k) => lineXml(l, `Rule ${n}.${k + 1}`)).join('')}${boxes}${notesXml}</draw:page>`
+			`</draw:frame>${freeRules}${cardXml}${boxes}${notesXml}</draw:page>`
 		);
 	});
 

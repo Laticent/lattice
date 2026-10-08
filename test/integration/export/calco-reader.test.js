@@ -605,3 +605,152 @@ describe('calco reader — rules match the paint', () => {
     assert.equal(await page.evaluate(() => document.body.innerHTML), before);
   });
 });
+
+// Cards: a painted box whose every descendant is native. #c1 qualifies (a shadowed card with
+// a heading, a body, a rule and a pill); each other box breaks exactly one condition.
+const CARD_FIXTURE = `<!doctype html><html><head><style>
+  body { margin: 0; font-family: sans-serif; }
+  section { width: 1280px; height: 720px; position: relative; background: #ffffff; color: #112233; }
+  .card { position: absolute; width: 260px; height: 200px; padding: 16px; box-sizing: border-box; background: rgb(240, 240, 250); border: 1px solid rgb(200, 200, 210); border-radius: 12px; box-shadow: rgba(0, 0, 0, 0.2) 0px 4px 12px; }
+  .card h3 { margin: 0; font-size: 20px; border-bottom: 2px solid rgb(120, 120, 140); }
+  .card p { margin: 8px 0 0; font-size: 14px; }
+  .pill { display: block; width: max-content; margin-top: 8px; padding: 2px 8px; background: rgb(46, 96, 138); color: #fff; border-radius: 9px; font-size: 12px; }
+  .ring { box-shadow: rgba(0, 0, 0, 0.2) 0 0 0 3px; }
+  .two { box-shadow: rgba(0, 0, 0, 0.2) 0 1px 2px, rgba(0, 0, 0, 0.1) 0 8px 24px; }
+  .tag::before { content: "01"; }
+  .accent { border-bottom: 4px solid rgb(46, 96, 138); }
+  .badge { position: absolute; left: 1150px; top: 30px; width: 40px; height: 40px; background: rgb(200, 0, 0); }
+  .invisible { box-shadow: rgba(0, 0, 0, 0) 0 0 0 0; }
+</style></head><body><section id="cs">
+  <div class="card" id="c1" style="left:20px;top:20px"><h3>Head</h3><p>Body text</p><span class="pill">Pill</span></div>
+  <div class="card ring" style="left:300px;top:20px"><p>Ring</p></div>
+  <div class="card two" style="left:580px;top:20px"><p>Two layers</p></div>
+  <div class="card tag" style="left:860px;top:20px"><p>Tagged</p></div>
+  <div class="card accent" style="left:20px;top:300px"><p>Accent edge</p></div>
+  <div class="card" style="left:300px;top:300px"><p>Icon</p><svg width="10" height="10"><rect width="10" height="10"/></svg></div>
+  <div class="card" style="left:1000px;top:20px;width:200px"><p>Covered</p></div>
+  <div class="badge"></div>
+  <div class="card invisible" id="c2" style="left:580px;top:300px;box-shadow:rgba(0,0,0,0) 0 0 0 0"><p>Invisible shadow</p></div>
+  <div class="card" style="left:860px;top:300px;opacity:0.5"><p>Faded</p></div>
+</section></body></html>`;
+
+describe('calco reader — cards', () => {
+  let browser;
+  let page;
+  before(async () => {
+    browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+    page = await browser.newPage();
+    await page.setViewport({ width: 1280, height: 720 });
+    await page.setContent(CARD_FIXTURE, { waitUntil: 'load' });
+  });
+  after(async () => {
+    await browser?.close();
+  });
+
+  test('only a box whose contents are all native is a card, with its one plain shadow', { timeout: 60000 }, async () => {
+    const res = await (await page.$('#cs')).evaluate(readSlide);
+    assert.equal(res.cards.length, 2, 'the shadowed card and the one whose shadow is transparent');
+    const [c1, c2] = res.cards;
+    assert.deepEqual({ x: c1.x, y: c1.y, w: c1.w, h: c1.h, radii: c1.radii }, { x: 20, y: 20, w: 260, h: 200, radii: [12, 12, 12, 12] });
+    assert.deepEqual(c1.fill, { color: '#f0f0fa', alpha: 1 });
+    assert.deepEqual(c1.stroke, { width: 1, color: '#c8c8d2', alpha: 1 });
+    assert.deepEqual(c1.shadow, { x: 0, y: 4, blur: 12, color: '#000000', alpha: 0.2 });
+    assert.equal(c2.shadow, undefined, 'a transparent shadow is no shadow');
+    const inC1 = res.frames.filter((f) => f.card === 0).map((f) => f.lines.flat().map((r) => r.text).join(''));
+    assert.deepEqual(inC1, ['Head', 'Body text', 'Pill']);
+    assert.ok(res.frames.find((f) => f.card === 0 && f.shape), 'the pill is a label inside the card');
+    assert.equal(res.lines.filter((l) => l.card === 0).length, 1, 'the heading rule belongs to the card');
+    for (const t of ['Ring', 'Two layers', 'Tagged', 'Accent edge', 'Icon', 'Covered', 'Faded']) {
+      const f = res.frames.find((fr) => fr.lines.flat().some((r) => r.text === t));
+      assert.ok(f && f.card === undefined, `${t} stays in the picture`);
+    }
+  });
+
+  test('hiding takes the card out of the picture, moves nothing, and restores exactly', { timeout: 60000 }, async () => {
+    const before = await page.evaluate(() => document.body.innerHTML);
+    const look = () => page.evaluate(() => {
+      const el = document.querySelector('#c1');
+      const cs = getComputedStyle(el);
+      const r = el.getBoundingClientRect();
+      return { bg: cs.backgroundColor, sh: cs.boxShadow, top: cs.borderTopColor, box: [r.left, r.top, r.width, r.height].join() };
+    });
+    const shown = await look();
+    await (await page.$('#cs')).evaluate(readSlide, { hide: true });
+    const hidden = await look();
+    assert.equal(hidden.bg, 'rgba(0, 0, 0, 0)');
+    assert.equal(hidden.sh, 'none');
+    assert.equal(hidden.top, 'rgba(0, 0, 0, 0)');
+    assert.equal(hidden.box, shown.box, 'nothing moved');
+    await (await page.$('#cs')).evaluate(restoreSlide);
+    assert.deepEqual(await look(), shown);
+    assert.equal(await page.evaluate(() => document.body.innerHTML), before);
+  });
+});
+
+// The checker's cases on slice 3: each slide holds one card that would qualify on its own,
+// plus the one thing that should stop it (or, for #ok, should not).
+const CARD_EDGE_FIXTURE = `<!doctype html><html><head><style>
+  body { margin: 0; font-family: sans-serif; }
+  section { width: 1280px; height: 720px; position: relative; background: #ffffff; overflow: hidden; }
+  .card { position: absolute; left: 100px; top: 100px; width: 300px; height: 200px; padding: 16px; box-sizing: border-box; background: rgb(240, 240, 250); border-radius: 8px; box-shadow: rgba(0, 0, 0, 0.2) 0 4px 12px; }
+  .card p { margin: 0; font-size: 18px; }
+  #anc::after { content: ""; position: absolute; left: 150px; top: 150px; width: 100px; height: 100px; background: rgb(255, 0, 0); }
+  .ghost { position: absolute; left: 150px; top: 150px; width: 100px; height: 100px; background: rgb(255, 0, 0); pointer-events: none; }
+  .veil { position: absolute; inset: 0; pointer-events: none; }
+  .see { background: rgba(240, 240, 250, 0.5); }
+  .cols { column-count: 2; column-rule: 2px solid rgb(255, 0, 0); }
+  .tr { transition: all 2s; }
+  .chart { position: absolute; left: 404px; top: 120px; width: 40px; height: 40px; }
+</style></head><body>
+  <section id="anc"><div class="card"><p>Ancestor overlay</p></div></section>
+  <section id="pe"><div class="card"><p>Ghost overlay</p></div><div class="ghost"></div></section>
+  <section id="ok"><div class="card"><p>Transparent veil</p></div><div class="veil"></div></section>
+  <section id="see"><div class="card see"><p>See-through</p></div></section>
+  <section id="cols"><div class="card cols"><p>Columns</p></div></section>
+  <section id="pic"><div class="card"><p>Chart in reach</p></div><svg class="chart"><rect width="40" height="40" fill="rgb(0,0,255)"/></svg></section>
+  <section id="tr"><div class="card tr"><p>Transition</p></div></section>
+</body></html>`;
+
+describe('calco reader — cards: what covers them, and off screen', () => {
+  let browser;
+  let page;
+  before(async () => {
+    browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+    page = await browser.newPage();
+    // One slide per screen, as the CLI export sets it: every slide after the first starts off screen.
+    await page.setViewport({ width: 1280, height: 720 });
+    await page.setContent(CARD_EDGE_FIXTURE, { waitUntil: 'load' });
+  });
+  after(async () => {
+    await browser?.close();
+  });
+  const cardsOf = async (id) => (await (await page.$(`#${id}`)).evaluate(readSlide)).cards;
+
+  test('an ancestor overlay, a pointer-events:none overlay, a column rule or a chart in the shadow stops a card; a transparent veil does not', { timeout: 60000 }, async () => {
+    for (const id of ['anc', 'pe', 'cols', 'pic']) assert.equal((await cardsOf(id)).length, 0, `#${id} stays in the picture`);
+    assert.equal((await cardsOf('ok')).length, 1, 'a veil that paints nothing does not cover the card');
+  });
+
+  test('a slide read off screen is scrolled in for the read, and the scroll put back', { timeout: 60000 }, async () => {
+    await page.evaluate(() => window.scrollTo(0, 0));
+    assert.equal((await cardsOf('tr')).length, 1, 'the last slide, far below the viewport, still gives its card');
+    assert.equal(await page.evaluate(() => window.scrollY), 0);
+  });
+
+  test('a see-through card is drawn without a native shadow, and its shadow stays in the picture', { timeout: 60000 }, async () => {
+    const [card] = await cardsOf('see');
+    assert.ok(card && card.fill.alpha === 0.5 && card.shadow === undefined);
+    await (await page.$('#see')).evaluate(readSlide, { hide: true });
+    const sh = await page.evaluate(() => getComputedStyle(document.querySelector('#see .card')).boxShadow);
+    await (await page.$('#see')).evaluate(restoreSlide);
+    assert.notEqual(sh, 'none');
+  });
+
+  test('restoring a card with a transition puts it back at once, not animated', { timeout: 60000 }, async () => {
+    const sec = await page.$('#tr');
+    await sec.evaluate(readSlide, { hide: true });
+    await sec.evaluate(restoreSlide);
+    const bg = await page.evaluate(() => getComputedStyle(document.querySelector('#tr .card')).backgroundColor);
+    assert.equal(bg, 'rgb(240, 240, 250)');
+  });
+});
