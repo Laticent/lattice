@@ -502,6 +502,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/check-geometry-parity.js` | geometry-parity — does a slide measure the SAME on every surface it renders on? |
 | `tools/check-lint-coverage.js` | Lint-coverage gate — asks what Biome ACTUALLY checks, never how the config is spelled. |
 | `tools/check-modifier-effects.js` | check-modifier-effects — does a `_class:` modifier actually CHANGE the slide on |
+| `tools/check-no-pdf-in-pr.mjs` | A pull request may not add or change a committed PDF. Run by the `lint` job in ci.yml. |
 | `tools/check-overflow-corpus.js` | overflow-corpus — how many slides in the SHIPPED corpus does the export clip? |
 | `tools/check-player-contrast.js` | check-player-contrast — WCAG AA audit of an EXPORTED HTML PLAYER, in BOTH of its |
 | `tools/check-render-nature.js` | check-render-nature — the DERIVE-AND-GATE half of the `render` manifest field. |
