@@ -112,8 +112,7 @@ An imported PDF or PPTX is a file from anyone.
 ## 6. Not done here (and why)
 
 - ~~**CLI exports** do not embed.~~ Done in §8: `--reopenable`.
-- **Drag a file onto the Studio** to import it: the user asked for the menu, and a drop target
-  on the whole shell is its own UX question.
+- ~~**Drag a file onto the Studio** to import it.~~ Done in §9.
 - **A webpage export carries the artifact copy** of the source, with a saved finish's class
   baked in. That is existing behavior of the player, unchanged here.
 
@@ -187,3 +186,64 @@ installed component rides along, `--strip-notes --strip-say` scrub a PPTX payloa
 on `.png`) and in the real Studio
 (`docs/e2e/deck-import-roundtrip.spec.ts`: the CLI renders a PDF and a PPTX, the built Studio
 imports both through the deck switcher and stores the exact source).
+
+## 9. Drop a file to import it (2026-10-07)
+
+**The owner's pick** (one round, four options: whole shell, the deck switcher only, shell plus
+editor, menu only): **the whole shell**, except the zones that already own a drop.
+
+**The model.** `docs/src/components/studio/deck-drop.ts` puts one set of drag handlers on the
+Studio root. A file drag over the shell shows a full-window sign, "Drop to open as a new deck",
+and a drop hands the file to `importDeckFile`, the same function the menu's file chooser calls.
+So a dropped file meets the same reader (`readDeckFile`: sniffs the bytes, caps the size), the
+same funnel (`openLatticeImport`: package gates, `keepMine`) and the same refusals and toasts.
+A drop always creates a new deck and never edits the open one.
+
+**Where a drop is someone else's** (`OWN_DROP_ZONES`, matched with `closest()`):
+
+- the Library panel and the motion drawing well, which already take files (`data-file-drop`);
+- the code editor and the compose editor, where a drop is text placed at a caret;
+- an open dialog, which is about something else;
+- the whole shell while Present is up, so a drop cannot swap the deck the audience is watching
+  (Present's backdrop sits outside its dialog, so `closest()` alone would not catch it).
+
+An inner handler that already called `preventDefault` also wins, so a zone that forgets the
+marker still keeps its drop.
+
+**A refused drop stays in the Studio.** The browser's default for an unhandled file drop is to
+navigate the tab to the file. So in a zone that did not take the drop, the shell refuses it: on
+`dragover` with the no-drop cursor (dialogs, Present), and on `drop` when a zone accepted the drag
+and then ignored the file. ProseMirror is that case: it cancels `dragover`, then leaves a drop
+with no text in it alone. The `dragover` refusal skips editable elements, because the browser
+lets those take a drop natively and CodeMirror depends on it. CodeMirror never cancels
+`dragover` and reads a dropped file in its own `drop` handler. Measured: refusing there blocked
+the code editor's file drop, and an e2e arm now pins that it still inserts a dropped `.md`.
+
+**Refusals.** More than one file: "Drop one deck at a time", and nothing opens. A file that is not
+a deck (a PNG): the reader's own "can't open that kind of file". A drag that carries no files (a
+rail reorder, dragged text) is not touched at all.
+
+**Two things measured, not assumed.**
+
+- *A drop over the preview iframe reaches the shell.* The preview is the largest surface, and
+  a drop event inside an iframe goes to the iframe's document. Measured with a native drag (CDP
+  `Input.dispatchDragEvent`, which routes through Chromium's own hit testing): it imports. The
+  e2e drops there for that reason.
+- *A cancelled drag sends the page nothing.* With CDP `dragCancel`, Chromium delivered no
+  `dragleave` at all, and the first build's sign stayed up over a Studio no one was dragging
+  onto. The sign now also comes down after one second with no `dragover`. The browser fires one
+  every 350 ms ± 200 ms while a drag is over the page, even when the pointer is still, so a live
+  drag never trips it. The Library's own drop overlay uses a depth counter with no such timer,
+  and is logged in `followups.d/` rather than changed here.
+
+**Verified on** the built site (`docs/e2e/deck-drop-import.spec.ts`, Chromium, native drags): a
+CLI `--reopenable` PDF dropped on the preview opens as a new deck byte for byte, and the deck
+that was open is still stored unchanged; a `.lattice` dropped on the header opens; two files and
+a PNG are refused and nothing opens; a drop on the code editor shows no sign and imports nothing,
+and a `.md` dropped there is still inserted as text; a PDF dropped on the compose editor and one
+dropped while presenting import nothing and leave the tab on the Studio (both arms fail with
+their guard removed);
+the sign fits at 1440, 820 and 390 px, in light and dark. Unit: `deck-drop.test.ts` (the verdict
+against real DOM nesting). **UNVERIFIED:** Safari and Firefox (the CDP drag is Chromium's, and
+neither engine is installed in the sandbox), and a drag from the iPad Files app. The checker also flagged that WebKit has historically reported
+a null `relatedTarget` on child-to-child drag moves, which would make the sign flicker there.
