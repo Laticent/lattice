@@ -150,3 +150,30 @@ whether to install it. Slice E finalizes it.
 
 Each claim gets checked against the shipped package in slice E, and the
 `prose-checker` agent reviews the final text.
+
+## 8. Slice C is blocked: Changesets cannot version the root package (2026-10-08)
+
+Measured before building slice C, on a replica of this repo's package layout (the root
+`package.json` and its nine workspaces):
+
+- **Changesets 2 (2.x latest) and 3.0.3 both leave `@laticent/lattice` out.** `@manypkg/get-packages`
+  lists the nine workspaces and no root package, and a changeset that names `@laticent/lattice`
+  stops `changeset status` with `Found changeset test for package @laticent/lattice which is not in
+  the workspace`. The engine lives at the repo root, so the plan's per-package versioning of
+  `@laticent/lattice` (§5 C, and `2026-08-09-changesets-multi-package-release.md`) does not work as
+  written. The 2026-08-09 note flagged two unproven points; this is a third, and it decides the slice.
+- **The libraries alone work.** With the engine moved into a workspace folder in the replica,
+  `changeset version` bumped it 1.0.0 → 1.1.0 and `@laticent/ltt` 0.1.0 → 0.1.1 from one changeset,
+  and wrote a `CHANGELOG.md` for each.
+
+Three ways forward. Each is an architectural choice, and each changes how every later PR records a
+change, so the owner picks:
+
+| Option | What it is | Cost | Risk |
+|---|---|---|---|
+| **A. A publish folder for the engine** (recommended) | `packages/lattice/` holds the engine's `package.json` (name, version, `bin`, `exports`, `dependencies`, `files`) and a `prepack` that copies `lattice.js`, `lib/`, `dist/`, `themes/` and the shipped docs in from the root. The root becomes a private workspace root. Source stays where it is. | One new folder and a `prepack`; the root `package.json` loses its published fields; tests that read the root manifest (`shipped-imports-resolvable`, the clean-room install test) read the new one. Measured working in the replica. | `npm pack` from a copied tree must ship exactly what the root ships today; the clean-room test (slice A) is the check. |
+| B. Changesets for the libraries, `tools/release.js` for the engine | Two release paths: changesets for the nine, the current fragment flow for the engine. | No restructure. | Two formats for one act (recording a change), two version tools, and a weekly release that must run both in order. |
+| C. Our own multi-package versioner | Extend `tools/release.js` to read changeset-format files for all ten packages. | No dependency; we own every edge case (dependency ranges between packages, prerelease, notes). | Rebuilds what Changesets does (HARD RULE #15), and the edge cases are where release tools break. |
+
+Until the owner picks, slice C does not start and the 955 pending fragments stay in `changelog.d/`.
+Slices D and E wait on C, so the first publish waits on this choice.
