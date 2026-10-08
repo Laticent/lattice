@@ -59,3 +59,16 @@ test('look-alikes and forks are not exempt', async () => {
     assert.equal(m.judge(rows, ctx).ok, false, JSON.stringify(ctx));
   }
 });
+
+test('the families the bless never writes are still committed by pull requests', async () => {
+  await load();
+  for (const f of [
+    'engineering/decisions/2026-10-08-some-note.pdf',
+    'kit/Sample-Deck.pdf',
+    'examples/chart-theme-gallery/indaco.pdf',
+  ]) {
+    assert.equal(m.judge([{ status: 'A', path: f }]).ok, true, f);
+  }
+  // A bot-owned golden beside them is still refused.
+  assert.equal(m.judge([{ status: 'A', path: 'examples/chart-theme.pdf' }]).ok, false);
+});

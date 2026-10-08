@@ -17,6 +17,11 @@
  *
  * Commit times come from git, so the checkout needs history: in a depth-1 clone no bless
  * commit is visible, nothing reads as pending, and the old behavior holds.
+ *
+ * The excuse EXPIRES. A source change older than PENDING_DAYS is no longer "waiting on
+ * tonight's bless": the bless PR has sat unmerged, or the bless cannot render it. Either
+ * way the test fails again, so a stalled bless turns the nightly red instead of widening a
+ * silent skip window (inversion, step 3).
  */
 
 const fs = require('node:fs');
@@ -24,6 +29,7 @@ const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 
 const ROOT = path.join(__dirname, '..', '..');
+const PENDING_DAYS = 3;
 
 function lastCommitTime(paths) {
   try {
@@ -51,16 +57,17 @@ function lastBlessTime() {
  * @param {string[]} sources  absolute or repo-relative paths (files or directories) it is built from
  * @returns {string|null}     why it is pending a bless, or null when it should be checked
  */
-function pendingBless(pdf, sources) {
+function pendingBless(pdf, sources, { now = Date.now } = {}) {
   const blessed = lastBlessTime();
   if (!blessed) return null;
   const rel = (p) => (path.isAbsolute(p) ? path.relative(ROOT, p) : p);
   const srcTime = lastCommitTime(sources.map(rel));
   if (srcTime <= blessed) return null; // the last merged bless already saw these sources
+  if (now() / 1000 - srcTime > PENDING_DAYS * 86400) return null; // waited too long: assert
   const abs = path.isAbsolute(pdf) ? pdf : path.join(ROOT, pdf);
   return fs.existsSync(abs)
     ? 'its sources changed after the last merged bless; the next bless refreshes it'
     : 'no committed PDF yet; the nightly bless renders it after the merge';
 }
 
-module.exports = { pendingBless };
+module.exports = { pendingBless, PENDING_DAYS };

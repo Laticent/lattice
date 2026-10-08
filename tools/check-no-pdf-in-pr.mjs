@@ -11,6 +11,9 @@
 // What counts: a PDF the PR adds, modifies, copies or renames. DELETING one is allowed, so
 // a PR that removes a deck can remove its PDF too. The bless PR itself is exempt: its
 // branch is `chore/golden-bless` IN THIS REPOSITORY (a fork can name a branch anything).
+// So are the families the bless never writes, which a person still commits by hand: the
+// rows of PDF_OWNERSHIP (tools/check-ownership.js) flagged `prCommitted` — decision-record
+// evidence, the Marp kit sample, the chart-theme gallery.
 //
 // It runs on pull_request only. Auto-merge needs the PR's own run green, and the merge
 // queue then tests the same change on top of main, so a second check there adds nothing.
@@ -20,6 +23,11 @@
 // Usage: node tools/check-no-pdf-in-pr.mjs [--base <ref>]   (default HEAD^1)
 
 import { execFileSync } from 'node:child_process';
+import { createRequire } from 'node:module';
+
+const { PDF_OWNERSHIP } = createRequire(import.meta.url)('./check-ownership.js');
+/** True for a PDF the bless never writes, so a pull request still commits it. */
+export const prCommitted = (f) => PDF_OWNERSHIP.some((r) => r.prCommitted && r.test(f));
 
 export const BLESS_BRANCH = 'chore/golden-bless';
 /**
@@ -29,7 +37,7 @@ export const BLESS_BRANCH = 'chore/golden-bless';
  */
 export function judge(changes, { headRef = '', sameRepo = false } = {}) {
   const exempt = headRef === BLESS_BRANCH && sameRepo;
-  const offending = changes.filter((c) => !c.status.startsWith('D')).map((c) => c.path);
+  const offending = changes.filter((c) => !c.status.startsWith('D') && !prCommitted(c.path)).map((c) => c.path);
   return { ok: exempt || offending.length === 0, exempt, offending };
 }
 

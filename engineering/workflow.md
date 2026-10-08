@@ -184,10 +184,10 @@ measured table, the arm that proves the thing can fail.*
 Run the emulator directly — no npm script is added per feature:
 
 ```bash
-node lattice.js examples/<feature-slug>.md examples/<feature-slug>.pdf
+node lattice.js examples/<feature-slug>.md .scratch/<feature-slug>.pdf
 ```
 
-That render is for your own look. **Commit the `.md` only, never the PDF:**
+That render is for your own look, so it goes to `.scratch/`, which git ignores. **Commit the `.md` only, never the PDF:**
 the `lint` job fails a pull request that adds or changes a PDF
 (`tools/check-no-pdf-in-pr.mjs`). CI's golden-diff job renders the new
 deck and links its PDF in the PR comment, and the nightly bless bot
@@ -392,9 +392,10 @@ strictly worse.
      § Changelog entries below). If you still hit one — an older branch, or a
      `changelog.d/` file two branches genuinely named the same — resolve by
      **keeping both** entries, never picking a side.
-   - Binary `examples/*.pdf` conflicts: resolve the `.md` first, re-render
-     with the owned engine (`node dist/lattice.js <deck> <out.pdf>`,
-     with `CHROME_PATH` set), `git add` both, continue.
+   - A PDF conflict should not happen any more: pull requests do not commit
+     PDFs, and only the nightly bless writes them. If an older branch still
+     carries one, take `main`'s copy (`git checkout origin/main -- <file>`)
+     or drop it from the branch; the bless re-renders it after the merge.
 
    Force-push the rebased branch with `git push --force-with-lease` — never
    plain `--force`.

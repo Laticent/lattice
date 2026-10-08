@@ -11071,18 +11071,23 @@ const PDF_OWNERSHIP = [
     // what a recipient's marp-cli produces, so regenerating it with our engine would
     // quietly replace the artifact with one made by the engine it is being compared to.
     watcher: null,
+    // The nightly bless does not write it (tools/check-no-pdf-in-pr.mjs reads this flag):
+    // a pull request still commits it, by hand.
+    prCommitted: true,
   },
   {
     test: (f) => f.startsWith('examples/chart-theme-gallery/'),
     what: 'the chart bucket rendered under three curated chart palettes',
     producer: 'by hand: lib/components/chart/chart.gallery.md re-rendered per theme (see that folder README)',
     watcher: null, // Its own README: "reviewer deliverables, not regression baselines."
+    prCommitted: true,
   },
   {
     test: (f) => /^engineering\/decisions\/\d{4}-\d{2}-\d{2}-.+\.pdf$/.test(f),
     what: 'evidence attached to a dated decision record',
     producer: 'none — a frozen artifact of the decision it sits beside',
     watcher: null, // A dated record is a snapshot; rebuilding it would destroy the evidence.
+    prCommitted: true,
   },
 ];
 
