@@ -1533,33 +1533,15 @@ Answered by the owner on #2509 after #2508 merged; written here with the E0 chan
   slides with math off and 2 with it on follows each switch with no keystroke. With the listener
   removed, the case fails (expected 3, received 2).
 
-- **The installed CLI starts (`2577-p1`).** #2577's pre-merge raise packed the tarball, installed it
-  in an empty directory and found the bin exiting before it rendered anything:
-  `Cannot find module '@laticent/segno/read'`. `dist/lattice-emulator.js` required Segno, LTT and
-  Cadenza at run time, and none of the three is published or in `dependencies`.
-  `tools/build-emulator.js` `INLINE_PACKAGES` now names all five workspace libraries the CLI
-  reaches, and `tools/build.js` makes the emulator the first join point for the LTT and Cadenza
-  dists, which build in the background. The bin grows from 18.0 to 18.7 MiB (the `-min` twin from
-  2.59 to 2.69 MiB). `test/unit/tools/shipped-bundle-externals.test.js` reads every Node-loaded file
-  the package ships under `dist/` and fails on a bare import that is not a builtin, a dependency, or
-  one of three sanctioned opt-ins (`kokoro-js` and `@breezystack/lamejs` for the local voice, and
-  `jsdom`, which `--player` still needs: `2248-p3`). Against a bundle built with the old list it fails
-  2 of 4 cases, naming all three libraries. A clean-room install
-  (`npm pack` → `npm i <tarball>` in an empty directory, `PUPPETEER_SKIP_DOWNLOAD=1`, no
-  `@laticent/*` package beside it) rendered the math and diagram galleries, bucket and component,
-  72 pages, pixel-identical to the in-tree render (ImageMagick `compare -metric AE` = 0 on every
-  page at 72 dpi). The same comparison showed the sequence slide's participant names painting
-  invisibly in both renders and in the committed golden: logged as `2577-p1-sequence-actor-labels-…`.
-  The checker then found the same bin still dying in two subcommands, `lattice packages` and
-  `lattice video`, which it runs as child processes of RAW `lib/` entries (`lib/packages/cli.js`
-  reaches Segno through the gate's sample-slide render; `lib/export/video.mjs` imports LTT). Both
-  are now bundles beside the bin, `dist/lattice-packages.js` and `dist/lattice-video.mjs`
-  (`SUBCOMMAND_BUNDLES`), and the bin spawns them when it runs from `dist/`; the loose source still
-  spawns `lib/`, so an edit there needs no rebuild. `lattice video` in turn spawns the bundled bin
-  rather than the loose source. In the clean-room install, `packages check` and `packages add` of a
-  component zip pass where they were refused (`Cannot find module '@laticent/segno/read'`), and
-  `lattice video` reaches its own "needs a narrated HTML export" message. The test reads the bin's
-  dispatch and fails on a subcommand spawned from a raw `lib/` path.
+- **The emulator bundle waits for the background library builds.** #2595 inlined LTT and Cadenza
+  into `dist/lattice-emulator.js` (`tools/build-emulator.js` `INLINE_PACKAGES`), but both dists
+  build as BACKGROUND steps in `tools/build.js`, joined only at player-core, which runs after the
+  emulator. So the emulator could bundle a dist a live child process was still writing: the race
+  `JOIN_BEFORE_SCRIPTS` exists to close. `build-emulator.js` is now in that set, and the
+  orchestrator test pins it. The same session's clean-room comparison (math and diagram galleries,
+  72 pages, pixel-identical to the in-tree render) found the sequence slide's participant names
+  painting invisibly in both renders and in the committed golden: logged as
+  `2577-p1-sequence-actor-labels-…`.
 
 - **Phase E mapped, and the Studio's silent drop closed (`2417-p5`).** A read of what phase E
   touches found it is three pieces of work, now written into

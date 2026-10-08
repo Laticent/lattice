@@ -24,10 +24,10 @@
  * and a `[Content_Types].xml` override for a slide master per slide, where one exists.
  */
 
-import { type FontMetrics, faceFamilyName, faceFor, faceKey, facesUsed, uniqueFaceNames } from './fonts';
-import { applyTransform, bareHex, dominantStyle, metricsFor, placeFrame, spacingMultiple } from './layout';
-import { canEmbedAsEot, renameFace, toEot } from './sfnt';
-import type { Deck, EmbeddedFont, JSZipClass, TextRun } from './types';
+import { type FontMetrics, faceFamilyName, faceFor, faceKey, facesUsed, uniqueFaceNames } from './fonts.js';
+import { applyTransform, bareHex, dominantStyle, metricsFor, placeFrame, spacingMultiple } from './layout.js';
+import { canEmbedAsEot, renameFace, toEot } from './sfnt.js';
+import type { Deck, EmbeddedFont, JSZipClass, TextRun } from './types.js';
 
 /** The family name PowerPoint sees for an embedded face (`faceFamilyName`, with the PPTX-safe family). */
 export function pptxFaceName(face: { family: string; weight: number; italic: boolean }): string {

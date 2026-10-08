@@ -1,8 +1,18 @@
 {
   "name": "@laticent/vetrina",
   "version": "0.1.0",
-  "description": "A self-driving UI walkthrough engine \u2014 theater over real state, seamlessly interruptible. Framework-free core; an optional React adapter at ./react.",
+  "description": "A self-driving UI walkthrough engine — theater over real state, seamlessly interruptible. Framework-free core; an optional React adapter at ./react.",
   "license": "AGPL-3.0-only",
+  "author": "Sharmarke Aden (Laticent) <sharmarke.aden@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Laticent/lattice.git",
+    "directory": "docs/src/lib/vetrina"
+  },
+  "homepage": "https://github.com/Laticent/lattice/tree/main/docs/src/lib/vetrina#readme",
+  "bugs": {
+    "url": "https://github.com/Laticent/lattice/issues"
+  },
   "type": "module",
   "sideEffects": false,
   "types": "./index.ts",
@@ -48,6 +58,13 @@
     "dist",
     "*.ts",
     "!*.test.ts",
-    "README.md"
-  ]
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "prepack": "node ../../../../tools/library-prepack.js"
+  }
 }

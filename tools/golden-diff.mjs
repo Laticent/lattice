@@ -59,11 +59,11 @@
 // the blocker). A git/tool failure exits 2 so CI surfaces a broken run.
 
 import { execFileSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { affectedGoldens, DEFAULT_RENDER_CAP } from './lib/golden-affected.mjs';
+import { affectedGoldens, DEFAULT_RENDER_CAP, renderRelevantChanges } from './lib/golden-affected.mjs';
 import { prBaseRef } from './lib/golden-base.mjs';
 import { failFractionForDeck, failFractionForGallery, galleryDecks, renderDeck, renderGallery, THEMES } from './lib/golden-render.mjs';
 import { classifyChangedPdf, deckGoldenPdfs } from './lib/golden-set.mjs';
@@ -398,7 +398,14 @@ function main() {
     } catch {
       // A step unrelated to rendering can fail locally; the render itself reports a real problem.
     }
-    const changedFiles = git(['diff', '--name-only', base]).split('\n').map((s) => s.trim()).filter(Boolean);
+    // A package.json edit confined to inert keys (an npm script, the description) moves no
+    // render, so it is neither a shared change nor a dependency change. It drops out here,
+    // before both the render scope and `depChange` read the list.
+    const changedFiles = renderRelevantChanges(
+      git(['diff', '--name-only', base]).split('\n').map((s) => s.trim()).filter(Boolean),
+      () => { try { return git(['show', `${base}:package.json`]); } catch { return null; } },
+      () => (existsSync(join(ROOT, 'package.json')) ? readFileSync(join(ROOT, 'package.json'), 'utf8') : null),
+    );
     const galleries = galleryDecks(ROOT).map((g) => relative(ROOT, g));
     renderPlan = affectedGoldens(changedFiles, { galleries, deckGoldens: deckGoldenPdfs(ROOT), cap: RENDER_CAP });
     // DEPENDENCY CHANGES DEFEAT ATTRIBUTION. The base render shares this checkout's

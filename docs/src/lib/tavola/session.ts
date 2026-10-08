@@ -58,10 +58,10 @@
 // fresh signed hello on the new link; and a member whose link drops is dropped from every roster
 // at once, so a squatter under its id is a stranger until the host admits it again.
 
-import { type Cert, createHostKey, type HostKey, MAX_CHAIN, ROOT_MAX, signCert, signHello, tokenId, verifyChain, verifyHostHello } from './hostkey';
-import { randomBytes, toBase64Url } from './link';
-import { type Control, cleanName, decodeControl, encodeControl, frame, PROTOCOL_VERSION, TAG_AWARENESS, TAG_CONTROL, TAG_DOC, TAG_POST, type TokenEntry } from './protocol';
-import type { Clock, Color, Invite, Knock, LinkPath, Member, PeerId, Role, SessionState, Stream, Transport } from './types';
+import { type Cert, createHostKey, type HostKey, MAX_CHAIN, ROOT_MAX, signCert, signHello, tokenId, verifyChain, verifyHostHello } from './hostkey.js';
+import { randomBytes, toBase64Url } from './link.js';
+import { type Control, cleanName, decodeControl, encodeControl, frame, PROTOCOL_VERSION, TAG_AWARENESS, TAG_CONTROL, TAG_DOC, TAG_POST, type TokenEntry } from './protocol.js';
+import type { Clock, Color, Invite, Knock, LinkPath, Member, PeerId, Role, SessionState, Stream, Transport } from './types.js';
 
 export type { TokenEntry };
 

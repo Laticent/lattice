@@ -35,6 +35,12 @@ does not build.
 
 (segno, Italian: sign, mark — and the musical *dal segno*.)
 
+## Install
+
+```sh
+npm i @laticent/segno
+```
+
 ## Write a grammar
 
 ```ts
@@ -219,13 +225,13 @@ the same document (whatever you group by: a file, a config, a slide deck), with 
 
 ## First user: Lattice
 
-[Lattice](../../../../README.md) renders slide decks from Markdown, and its inline code spans carry
+[Lattice](https://github.com/Laticent/lattice/blob/main/README.md) renders slide decks from Markdown, and its inline code spans carry
 directives: `` `{BETA, tag, c4}` `` is a pill, `` `[x]` `` a state mark, `` `[{Effort, 0..10}, Reach]` ``
 a chart's axes. Before Segno it had 27 hand-written grammars for them with 21 sigils between them;
 it is moving all of them onto the one notation, with one schema per place a span can sit. Why it
 built an engine rather than adopting a parser library, and what it measured:
-[`engineering/decisions/2026-09-28-parser-library-bakeoff.md`](../../../../engineering/decisions/2026-09-28-parser-library-bakeoff.md).
-The design: [`2026-09-28-segno-unified-inline-notation.md`](../../../../engineering/decisions/2026-09-28-segno-unified-inline-notation.md).
+[`engineering/decisions/2026-09-28-parser-library-bakeoff.md`](https://github.com/Laticent/lattice/blob/main/engineering/decisions/2026-09-28-parser-library-bakeoff.md).
+The design: [`2026-09-28-segno-unified-inline-notation.md`](https://github.com/Laticent/lattice/blob/main/engineering/decisions/2026-09-28-segno-unified-inline-notation.md).
 
 ## Speed
 
@@ -244,7 +250,7 @@ lists and 4,645 inline spans in Lattice's decks); run 2026-09-29, Node 22:
 | Ohm | PEG, memoized | 107,161 ns | 24,597 ns | did not finish |
 
 Reproduce with `npm run parser:bakeoff:versus`; the method and caveats are in
-[`2026-09-28-parser-library-bakeoff.md` § Head to head with Segno](../../../../engineering/decisions/2026-09-28-parser-library-bakeoff.md).
+[`2026-09-28-parser-library-bakeoff.md` § Head to head with Segno](https://github.com/Laticent/lattice/blob/main/engineering/decisions/2026-09-28-parser-library-bakeoff.md).
 Absolute times move with the machine; the ratios carry.
 
 **Against the parsers it replaces, in detail:**
@@ -261,10 +267,27 @@ bracket lists in Lattice's shipped decks (`npm run parser:bakeoff:segno`; best o
 | bracket lists, split into parts (the kernel's job) | 767 ns | 828 ns | 1.1x |
 | quadrant axes, typed numbers and ranges | 721 ns | 1.02 µs | 1.4x |
 
-Re-run on 2026-10-07 in a cloud sandbox, ordinary code is 1.9x (39 vs 76 ns) and pills 4.0x (214
-vs 854 ns). That run excludes the spans that are already written in Segno's notation, which the
-retired kernel reads as plain code, and times them on a row of their own. Its pill also declares
-`icon`, as the shipped slot does.
+**Against the dispatcher Lattice ships.** The table above times the arm's own copy of the
+dispatcher. Lattice renders with `lib/core/inline-code-directives.js`, which asks each kind in
+turn (state mark, pill, spark, then the icons plugin's row), so the arm now times that too. Run
+2026-10-07 on Node 22 in a cloud sandbox, so the absolute figures are about half what a laptop
+gives:
+
+| job | kernel (retired) | arm's dispatcher | shipped | shipped/kernel |
+|---|---|---|---|---|
+| inline dispatch, every span both read alike | 35 ns | 72 ns | 181 ns | 5.2x |
+| &nbsp;&nbsp;ordinary code (code to both) | 31 ns | 67 ns | 136 ns | 4.4x |
+| &nbsp;&nbsp;state marks `[x]` | 62 ns | 39 ns | 91 ns | 1.5x |
+| &nbsp;&nbsp;pills `{BETA, tag, c4}` | 217 ns | 802 ns | 734 ns | 3.4x |
+| Segno syntax the kernel reads as code (386 spans) | — | 1.15 µs | 3.54 µs | — |
+
+The shipped dispatcher misses the design note's 1.5x target. Ordinary code costs it about twice
+what it costs the arm's copy, because every row runs its own check where the arm parses once.
+That gap is a followup (`followups.d/2593-p1-inline-dispatch-asks-every-row.md`). The last row
+covers spans that the decks already write in Segno's notation (`{icon=mail}`, chart points).
+The retired kernel reads them as plain code, so they have no kernel figure. The shipped column
+times what the engine asks per span, the escape and then "does any kind render this?". It does
+not include building the HTML.
 
 Two things to know when reading it. The kernel's axis figure returns strings, which each chart
 then re-reads; Segno's returns typed numbers and ranges, so the axis row undercounts today's cost.
@@ -338,3 +361,7 @@ alone. Tests: `cd docs && npx vitest run src/lib/segno` (fuzzing against a brute
 against Lattice's number and time readers, and metamorphic tests of the notation's promises).
 `npm run mutate:segno` injects 77 defects one at a time and fails if the suite misses any; it takes
 about fifteen minutes and is not a CI gate.
+
+## License
+
+AGPL-3.0-only. The full text ships as `LICENSE` in the package.

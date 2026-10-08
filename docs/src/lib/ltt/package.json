@@ -3,6 +3,16 @@
   "version": "0.1.0",
   "description": "The Lattice Timing Track (LTT) format — the types, the JSON Schema generated from them, a structural validator, the canonical ↔ packed encodings, and the timing functions that read it (makeCursor, positionAt, timeline). No engine, no audio, no DOM, and no dependencies.",
   "license": "AGPL-3.0-only",
+  "author": "Sharmarke Aden (Laticent) <sharmarke.aden@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Laticent/lattice.git",
+    "directory": "docs/src/lib/ltt"
+  },
+  "homepage": "https://github.com/Laticent/lattice/tree/main/docs/src/lib/ltt#readme",
+  "bugs": {
+    "url": "https://github.com/Laticent/lattice/issues"
+  },
   "type": "module",
   "sideEffects": false,
   "types": "./index.ts",
@@ -28,6 +38,13 @@
     "*.ts",
     "!*.test.ts",
     "ltt.schema.json",
-    "README.md"
-  ]
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "prepack": "node ../../../../tools/library-prepack.js"
+  }
 }

@@ -1870,7 +1870,7 @@ function renderDoc() {
     ...fenced('node dist/lattice-emulator.js your-deck.md your-deck.pdf', 'sh'),
     '',
     'The output format is chosen by the extension — `.pdf`, `.pptx`, `.png`, `.zip`, `.html`.',
-    'Needs Node 22.12 or newer and a Chromium that Puppeteer can find. This route needs no',
+    'Needs Node 22.13 or newer and a Chromium that Puppeteer can find. This route needs no',
     '`--theme-set` and no `<script>` tags: the engine owns both ends, and it strips the',
     'deck\'s runtime scripts before export, so a deck carrying them renders the same here.',
     '',

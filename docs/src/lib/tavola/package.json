@@ -3,17 +3,43 @@
   "version": "0.1.0",
   "description": "Live collaboration on one document, browser to browser: an invite link in the URL fragment, a knock-and-admit handshake, a roster gate that sends and accepts the document only for admitted members (and document edits only from members who may edit), a cap, and rejoin by token. The transport and the document are passed in, so the core has no dependencies; a Trystero adapter (public Nostr relays, then WebRTC) ships beside it.",
   "license": "AGPL-3.0-only",
+  "author": "Sharmarke Aden (Laticent) <sharmarke.aden@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Laticent/lattice.git",
+    "directory": "docs/src/lib/tavola"
+  },
+  "homepage": "https://github.com/Laticent/lattice/tree/main/docs/src/lib/tavola#readme",
+  "bugs": {
+    "url": "https://github.com/Laticent/lattice/issues"
+  },
   "type": "module",
   "sideEffects": false,
   "types": "./index.ts",
+  "module": "./dist/index.mjs",
+  "main": "./dist/index.cjs",
   "exports": {
     ".": {
       "types": "./index.ts",
-      "default": "./index.ts"
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.cjs"
+      }
     },
     "./trystero": {
       "types": "./adapters/trystero.ts",
-      "default": "./adapters/trystero.ts"
+      "import": {
+        "types": "./dist/adapters/trystero.d.ts",
+        "default": "./dist/trystero.mjs"
+      },
+      "require": {
+        "types": "./dist/adapters/trystero.d.ts",
+        "default": "./dist/trystero.cjs"
+      }
     },
     "./package.json": "./package.json"
   },
@@ -26,9 +52,17 @@
     }
   },
   "files": [
+    "dist",
     "*.ts",
     "adapters/*.ts",
     "!*.test.ts",
-    "README.md"
-  ]
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "prepack": "node ../../../../tools/library-prepack.js"
+  }
 }

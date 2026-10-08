@@ -10,6 +10,9 @@ dist/
 # silently kept 47 files tracked and undone the change at the root.
 # See 2026-08-17-generated-bundles-uncommitted.md, and
 # 2026-07-08-library-shape-cadenza-vetrina.md for why they exist at all.
+# Each library's LICENSE is copied from the repo root by tools/library-prepack.js at
+# pack time, so the text lives once.
+src/lib/*/LICENSE
 # generated types
 .astro/
 # portal copies staged from ../docs by scripts/sync-portal.mjs

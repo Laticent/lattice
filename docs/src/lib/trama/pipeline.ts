@@ -29,7 +29,7 @@
  * (section width / 1280), and the SVG viewBox stays in HD units while the scale box is S
  * times larger in CSS px.
  */
-import type { Box, Geometry, GraphModel, KernelFactory, LayoutOptions, Point, Rect, SizeMap } from './types';
+import type { Box, Geometry, GraphModel, KernelFactory, LayoutOptions, Point, Rect, SizeMap } from './types.js';
 
 /** A rect in the page's own CSS px, with any host transform divided out. */
 export interface RectLike {

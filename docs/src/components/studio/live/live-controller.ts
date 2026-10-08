@@ -893,7 +893,9 @@ export class LiveController {
 		} catch (e) {
 			const denied = (e as { name?: string })?.name === 'NotAllowedError' || (e as { name?: string })?.name === 'SecurityError';
 			this.micDenied = denied;
-			this.host.notify(denied ? 'The browser blocked the microphone. Allow it in the address bar, then try again.' : "Couldn't start the microphone.");
+			// Name the reason: a device answer we never saw on a desktop run is diagnosable from a phone screenshot.
+			const why = (e as { name?: string; message?: string })?.name || (e as { message?: string })?.message || 'unknown error';
+			this.host.notify(denied ? 'The browser blocked the microphone. Allow it in the address bar, then try again.' : `Couldn't start the microphone (${why}).`);
 		}
 		this.onAirTitle();
 		this.host.rerender();

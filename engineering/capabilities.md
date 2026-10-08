@@ -137,6 +137,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `standalone-core:check` | Freshness gate for the standalone-core bundle. |
 | `suono-lib:build` | Build the Suono library dist/ (ESM + CJS + .d.ts, esbuild + tsc) so import/require('@laticent/suono') and npm publish resolve — the audio engine's consumable artifact. |
 | `suono-lib:check` | Freshness gate for the Suono library dist/ (stale vs docs/src/lib/suono/*.ts). |
+| `tavola-lib:build` | Build the Tavola library dist/ (ESM + CJS for the core and the Trystero adapter, + .d.ts) on the shared tools/lib/build-workspace-lib.js, so @laticent/tavola publishes JavaScript rather than raw TypeScript. |
 | `theme-catalog:build` | Generate docs/src/lib/theme-catalog.generated.ts — the palette picker's groups (tier/order) and swatches, baked from themes/*.manifest.json so the docs bundle gets the one scope declaration without fs-loading 32 manifests at runtime. Replaces two hand-kept lists a test had to reconcile. |
 | `theme-catalog:check` | Freshness gate for the generated Studio palette catalog. |
 | `theme-core:build` | Bundle the pure Theme Studio core for the browser (docs site). |
@@ -477,6 +478,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/build-standalone-core.js` | Bundle the standalone chart-SVG export core for the browser. |
 | `tools/build-stress-deck.js` | build-stress-deck — assemble one bucket's CEILING cases into a single deck. |
 | `tools/build-suono-lib.js` | Build the Suono library's consumable dist/ — the ESM entry + the CJS entry + type |
+| `tools/build-tavola-lib.js` | Builds @laticent/tavola's dist/: ESM + CJS bundles of the core and of the Trystero |
 | `tools/build-theme-catalog.js` | Generates docs/src/components/studio/palettes.generated.ts — the palette picker's |
 | `tools/build-trama-lib.js` | Build the Trama library's consumable dist/: the ESM and CJS entries and the type |
 | `tools/build-vetrina-lib.js` | Build the Vetrina library's consumable dist/ — the ESM + CJS entries + type |
@@ -523,6 +525,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/golden-diff.mjs` | Golden before/after — what visually changed in THIS PR's committed goldens. |
 | `tools/graph-typing-bench.mjs` | graph-typing-bench — time each stage of a graph chart's live redraw, key by key, in the real Studio. |
 | `tools/jank-census.js` | jank-census — run check-jank's `--anchors` discovery across the WHOLE catalog and rank what moves. |
+| `tools/library-prepack.js` | `prepack` for every workspace library under docs/src/lib/<name>/. npm runs it in the |
 | `tools/live-session-check.mjs` | Live-session check: drives a REAL two-browser Live session in the Studio, end to end. |
 | `tools/manifest-schemas.js` | The ONE declaration of which manifest families exist, which schema governs |
 | `tools/marp-inventory.mjs` | marp-inventory — classify every Marp reference in the repo by DISPOSITION. |

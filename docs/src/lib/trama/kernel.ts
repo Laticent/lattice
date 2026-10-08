@@ -28,7 +28,7 @@
  * reversed, so dagre's own cycle breaker never chooses. Sizes are quantized to half a
  * unit before layout. dagre itself has no randomness.
  */
-import type { Box, DagreLike, Geometry, GraphEdge, GraphGroup, GraphKernel, GraphModel, KernelStats, LayoutOptions, Point, Quality, Rect, Route, Size, SizeMap } from './types';
+import type { Box, DagreLike, Geometry, GraphEdge, GraphGroup, GraphKernel, GraphModel, KernelStats, LayoutOptions, Point, Quality, Rect, Route, Size, SizeMap } from './types.js';
 
 // Local shapes. Types are erased, so none of these reaches the serialized kernel.
 

@@ -28,6 +28,12 @@ const odp = await writeOdp(JSZip, deck);               // Uint8Array
 const pptx = await writePptx(PptxGenJS, deck, 'uint8array', JSZip); // fonts embedded
 ```
 
+## Install
+
+```sh
+npm i @laticent/calco
+```
+
 ## What it reads, and what it leaves in the picture
 
 Every visible word in the HTML part of the slide, grouped into paragraphs and broken into
@@ -81,4 +87,8 @@ nothing, so a headless browser can receive them as source.
 - No native charts, diagrams or equations.
 
 Design, measurements and the LibreOffice behaviors the writers work around:
-[`engineering/decisions/2026-10-06-calco-office-export-library.md`](../../../../engineering/decisions/2026-10-06-calco-office-export-library.md).
+[`engineering/decisions/2026-10-06-calco-office-export-library.md`](https://github.com/Laticent/lattice/blob/main/engineering/decisions/2026-10-06-calco-office-export-library.md).
+
+## License
+
+AGPL-3.0-only. The full text ships as `LICENSE` in the package.

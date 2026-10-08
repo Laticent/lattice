@@ -3,6 +3,16 @@
   "version": "0.1.0",
   "description": "Graph-chart layout for slides: a dagre-placed, cost-routed elbow router (no line through a box, none along another, crossings then symmetry then turns); a radial kernel (circles on one or two rings round a center, straight bands, labels placed clear of everything); and a browser pipeline that measures a chart in its own fonts, fits it, lays it out in a worker while you type, and paints it through a chart adapter. No dependencies: dagre is passed in.",
   "license": "AGPL-3.0-only",
+  "author": "Sharmarke Aden (Laticent) <sharmarke.aden@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Laticent/lattice.git",
+    "directory": "docs/src/lib/trama"
+  },
+  "homepage": "https://github.com/Laticent/lattice/tree/main/docs/src/lib/trama#readme",
+  "bugs": {
+    "url": "https://github.com/Laticent/lattice/issues"
+  },
   "type": "module",
   "sideEffects": false,
   "types": "./index.ts",
@@ -37,6 +47,13 @@
     "dist",
     "*.ts",
     "!*.test.ts",
-    "README.md"
-  ]
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "prepack": "node ../../../../tools/library-prepack.js"
+  }
 }
