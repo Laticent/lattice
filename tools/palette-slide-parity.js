@@ -151,7 +151,7 @@ async function main() {
         const dir = path.join(opts.out, palette, slug);
         fs.mkdirSync(dir, { recursive: true });
         const cliHtml = path.join(dir, 'cli.html');
-        if (!fs.existsSync(cliHtml)) execFileSync(process.execPath, [path.join(ROOT, 'dist/lattice-emulator.js'), deck, cliHtml, palette], { stdio: 'ignore' });
+        if (!fs.existsSync(cliHtml)) execFileSync(process.execPath, [path.join(ROOT, 'dist/lattice.js'), deck, cliHtml, palette], { stdio: 'ignore' });
         const sizes = await shoot(browser, cliHtml, path.join(dir, 'cli'), 'section[data-lattice-slide]');
         const { html, css } = engine.render(read(deck), palette);
         for (const arm of opts.arms) {
