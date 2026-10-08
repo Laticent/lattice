@@ -1,5 +1,5 @@
 // The timing functions: where in a segment a player is (`positionAt`), and where each segment
-// starts on one timeline (`timeline`). engineering/ltt.md §The timing functions is the contract;
+// starts on one timeline (`timeline`). spec/LTT-1.0.md §The timing functions is the contract;
 // 2026-09-24-lattice-timing-track.md §5 is why the work splits this way.
 //
 // `positionAt` is INLINED into the exported HTML player by serializing its source, exactly as
@@ -46,7 +46,7 @@ export interface LttPosition {
 /**
  * Where in `segment` a player is, `localMs` after the segment starts.
  *
- * It lays the segment out as the transport plays it (engineering/ltt.md §The transport):
+ * It lays the segment out as the transport plays it (spec/LTT-1.0.md §The transport):
  *  - a slide first holds for `holdMs`, and a stretch for its recorded `waitedMs` (0 if none);
  *  - a cue with a clip in the audio layer plays for its measured speech: `measuredMs − leadMs`,
  *    or the track's estimate when no measurement has been recorded;

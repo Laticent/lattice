@@ -38,7 +38,7 @@ import FieldCardsLive from '../components/landing/FieldCardsLive.tsx';
 import RestyleShowcase from '../components/landing/RestyleShowcase.tsx';
 import StudioPreview from '../components/landing/StudioPreview.tsx';
 import { DECKS } from '../components/studio/decks';
-import { librariesNav } from '../lib/nav.mjs';
+import { librariesNav, specsNav } from '../lib/nav.mjs';
 import { assetBase } from '../playground/asset-version.mjs';
 import { joinBase } from '../lib/base-url.mjs';
 import ResourceHints from '../components/site/ResourceHints.astro';
@@ -183,6 +183,7 @@ const studioData = {
 // frontmatter.
 const nextSteps = nextStepsFor(url);
 const libraries = librariesNav(url);
+const specs = specsNav(url);
 ---
 
 <!doctype html>
@@ -346,11 +347,24 @@ const libraries = librariesNav(url);
 			     library can no longer exist with no link from this page. -->
 			<section id="libraries" class="scroll-mt-20 py-[clamp(48px,6vw,88px)]">
 				<div class="wrap">
-					<SectionHead eyebrow="Built from parts you can reuse" title="Nine libraries, each usable without Lattice.">
+					<SectionHead eyebrow="Built from parts you can reuse" title="Eight libraries, each usable without Lattice.">
 						The engine is assembled from small, framework-free libraries. Each one imports nothing from Lattice, and
 						each is packaged on its own, so you can lift the piece you need into your own app.
 					</SectionHead>
 					<LibraryCards libraries={libraries} />
+				</div>
+			</section>
+
+			<!-- Specs — the formats, written down so another tool can implement them. Same card
+			     list as the libraries (specsNav in nav.mjs); each names its reference
+			     implementation's package. Plain, and divided from the libraries by its top rule. -->
+			<section id="specs" class="scroll-mt-20 border-t border-border py-[clamp(48px,6vw,88px)]">
+				<div class="wrap">
+					<SectionHead eyebrow="Open formats" title="Three specs another tool can implement.">
+						The formats Lattice reads and writes are written down as specs, licensed CC-BY-4.0. Each has an owner, a
+						reference implementation and shared test cases, so a second tool can read and write the same files.
+					</SectionHead>
+					<LibraryCards libraries={specs} />
 				</div>
 			</section>
 

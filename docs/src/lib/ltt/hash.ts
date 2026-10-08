@@ -1,4 +1,4 @@
-// The staleness hash's INPUT, defined once (engineering/ltt.md §Staleness).
+// The staleness hash's INPUT, defined once (spec/LTT-1.0.md §Staleness).
 //
 // A segment's hash is SHA-256 over the UTF-8 bytes of `segmentHashInput(text, inputs)`. This file
 // builds that string and nothing else: a digest needs `node:crypto` in Node and `crypto.subtle` in
@@ -38,7 +38,7 @@ export function canonicalJson(value: unknown): string {
  * `emphasis` is the segment's emphasis spans, one list per line, in line order. Emphasis changes
  * timing (a weighted word buys an extra hold), so a hash that missed it would call a re-timed
  * segment fresh. It belongs HERE and not in `inputs` because a span is a character range into one
- * line: it means nothing file-wide (LTT step 4 settled this, engineering/ltt.md §Staleness). An
+ * line: it means nothing file-wide (LTT step 4 settled this, spec/LTT-1.0.md §Staleness). An
  * absent or empty `emphasis` leaves the string exactly as it was, so no existing hash moves.
  */
 export function segmentHashInput(text: string, inputs: object, emphasis?: readonly (readonly unknown[] | undefined)[]): string {

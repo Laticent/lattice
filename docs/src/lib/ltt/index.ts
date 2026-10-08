@@ -4,7 +4,7 @@
 // reads it with (`makeCursor`, `positionAt`, `timeline`). No engine (that is Cadenza),
 // no audio (Suono), no DOM, and no dependencies — this package imports nothing outside its own
 // folder, and a boundary gate in tools/check-ownership.js holds it to that. The spec is
-// engineering/ltt.md; the JSON Schema beside this file is generated from `types.ts`.
+// spec/LTT-1.0.md; the JSON Schema beside this file is generated from `types.ts`.
 
 export type { Active, Cursor } from './cursor.js';
 export { makeCursor } from './cursor.js';

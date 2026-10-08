@@ -352,7 +352,7 @@ describe('the third checker pass (PR #2347)', () => {
 	});
 });
 
-describe('bookends (engineering/ltt.md §Bookends)', () => {
+describe('bookends (spec/LTT-1.0.md §Bookends)', () => {
 	const line = (id: string, text: string, holdMs: number, tailMs: number) => ({ id, kind: 'bookend' as const, hash: H, basis: 'estimate' as const, holdMs, track: buildTrack(text), tailMs });
 	function withBookends(): Ltt {
 		const ltt = deck();

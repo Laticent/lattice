@@ -4,7 +4,7 @@
 // It checks more than the JSON Schema can say (the schema has no way to express "cue starts
 // are monotonic" or "the word at {cue, word} still reads as the action's `match`"), and less
 // than it in one place on purpose: it ignores keys it does not know, because a reader must
-// skip a layer it has not heard of (engineering/ltt.md §Layers).
+// skip a layer it has not heard of (spec/LTT-1.0.md §Layers).
 
 import { validateTrack } from './track.js';
 import type { CaptionTrack } from './types.js';
@@ -147,7 +147,7 @@ function checkAudio(audio: unknown, track: unknown, where: string, out: string[]
 		out.push(`${where}.audio.clips is not an array`);
 		return;
 	}
-	// One clip per CUE, in cue order, at most one each (engineering/ltt.md §Layers). A player
+	// One clip per CUE, in cue order, at most one each (spec/LTT-1.0.md §Layers). A player
 	// advances on each clip's end, so a clip naming a cue the track does not have would speak a
 	// sentence no caption shows.
 	const cueCount = isRec(track) && Array.isArray(track.cues) ? track.cues.length : 0;
@@ -337,7 +337,7 @@ function check(ltt: unknown, out: string[]): string[] {
 
 const GREETING_VARIANTS = ['morning', 'afternoon', 'evening', 'neutral'];
 
-/** The greeting and closing a deck says outside its slides (engineering/ltt.md §Bookends). Each is
+/** The greeting and closing a deck says outside its slides (spec/LTT-1.0.md §Bookends). Each is
  *  laid out as a narrated slide with no arrival hold, so it carries the same core, hash and audio
  *  layer a slide does. Its id shares the file's id space, because a transport or a render log may
  *  name either. */

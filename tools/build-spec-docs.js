@@ -6,6 +6,7 @@
  *
  *   spec/LFM-1.0.md    → docs/src/content/docs/spec/lfm.md         (/spec/lfm/)
  *   spec/diagnostics.md → docs/src/content/docs/spec/diagnostics.md (/spec/diagnostics/)
+ *   spec/LTT-1.0.md    → docs/src/content/docs/spec/ltt.md         (/spec/ltt/)
  *
  * `spec/*.md` stays the single source of truth (it is what we license CC-BY-4.0
  * and ask a second implementation to follow). This generator only mirrors it
@@ -47,6 +48,7 @@ const GH_BLOB = 'https://github.com/Laticent/lattice/blob/main';
 const SITE_ROUTES = {
   'spec/LFM-1.0.md': '/spec/lfm/',
   'spec/diagnostics.md': '/spec/diagnostics/',
+  'spec/LTT-1.0.md': '/spec/ltt/',
   'README.md': '/overview/',
 };
 
@@ -66,6 +68,14 @@ const SPECS = [
     title: 'LFM Diagnostic Protocol',
     description:
       'The stable contract a tooling vendor implements to give LFM authors inline findings and quick-fixes: the finding shape, the frozen rule registry, severities, and machine-applicable fixes.',
+  },
+  {
+    source: 'spec/LTT-1.0.md',
+    out: 'ltt.md',
+    title: 'LTT 1.0 — the Lattice Timing Track',
+    description:
+      'The normative specification for the Lattice Timing Track: one JSON file that says when each word of a narration is spoken, for a deck or a tour, with its encodings, staleness hash, timing functions and transport rules.',
+    intro: 'The reference implementation is the `@laticent/ltt` package.',
   },
 ];
 
@@ -127,7 +137,7 @@ function render(spec) {
     `:::note[Canonical source]\n` +
     `This page is generated from [\`${spec.source}\`](${GH_BLOB}/${spec.source}) and ` +
     `published under [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/). ` +
-    `New to LFM? Start with [Understanding LFM](/spec/understanding-lfm/).\n` +
+    `${spec.intro ?? 'New to LFM? Start with [Understanding LFM](/spec/understanding-lfm/).'}\n` +
     `:::`;
   return (
     `---\n` +

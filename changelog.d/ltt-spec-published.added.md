@@ -1,0 +1,1 @@
+- The Lattice Timing Track spec is published at `/spec/ltt/`, from its new home `spec/LTT-1.0.md`, and the home page has a Specs group listing LFM 1.0, the Diagnostic Protocol and LTT 1.0. LTT's card moved there from the Libraries group; `@laticent/ltt` is named as its reference implementation.

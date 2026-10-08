@@ -243,7 +243,7 @@ function generate(sourceText = fs.readFileSync(SOURCE, 'utf8')) {
     $id: 'https://lattice.style/schemas/ltt-1.0.schema.json',
     title: 'Lattice Timing Track (LTT) 1.0, canonical encoding',
     description:
-      'GENERATED from docs/src/lib/ltt/types.ts by tools/build-ltt-schema.js — do not edit. Rebuild: npm run ltt-schema:build. Spec: engineering/ltt.md.',
+      'GENERATED from docs/src/lib/ltt/types.ts by tools/build-ltt-schema.js — do not edit. Rebuild: npm run ltt-schema:build. Spec: spec/LTT-1.0.md.',
     $ref: `#/$defs/${ROOT_TYPE}`,
     $defs,
   };

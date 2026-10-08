@@ -356,7 +356,7 @@ await variant(
 // CAPTIONS ONLY — a teleprompter read-along on the player's own wall clock, no audio at all.
 // With no clip anywhere, every length is known before Play, so this is also where the player's
 // own timing is checked against the LTT's: each slide must ARRIVE when `timeline()` says it
-// starts (engineering/ltt.md §The transport; the conformance fixtures pin the same arithmetic).
+// starts (spec/LTT-1.0.md §The transport; the conformance fixtures pin the same arithmetic).
 const captionsOnly = { ...narration, voice: null, slides: narration.slides.map((s) => ({ ...s, clips: [] })) };
 await variant('captions-only', captionsOnly, async (p) => {
   check('captions-only: the band is there', (await p.locator('#lp-caption').count()) === 1);
@@ -459,7 +459,7 @@ await variant('captions-only', captionsOnly, async (p) => {
   });
 }
 
-// A CLIP THAT WILL NOT DECODE (followups.d/2347-p2-…, engineering/ltt.md transport rule 4). The
+// A CLIP THAT WILL NOT DECODE (followups.d/2347-p2-…, spec/LTT-1.0.md transport rule 4). The
 // PR #2347 checker's repro: the first cue carries a truncated WAV header. The player used to stop
 // on it — aria-pressed false from the first sample, caption empty, never leaving slide 1 — because
 // the rejected play() ran the autoplay-refusal branch and cleared the fallback. It must instead

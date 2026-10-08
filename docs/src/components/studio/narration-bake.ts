@@ -64,7 +64,7 @@ export type BakedCue = {
 	 *  each caption lights before its voice speaks. See ENCODER_LEAD_SAMPLES. */
 	leadMs?: number;
 	/** SHA-256 of the clip bytes as shipped, `sha256:` + hex — the LTT audio layer's `clip`
-	 *  (engineering/ltt.md §Layers). Set with `audio`. */
+	 *  (spec/LTT-1.0.md §Layers). Set with `audio`. */
 	clip?: string;
 	/** A complete `data:` URI. Never null on a bake that RESOLVED — an incomplete set throws
 	 *  rather than returning one (see `BakeIncompleteError`). Null only when the caller asked

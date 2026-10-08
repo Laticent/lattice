@@ -1,4 +1,4 @@
-// The two encodings of one data model (engineering/ltt.md §Encodings).
+// The two encodings of one data model (spec/LTT-1.0.md §Encodings).
 //
 // CANONICAL is what tools read and write: named keys, every field `buildTrack` produced. It is
 // exactly the `Ltt` type, and a segment's `track` is exactly a Cadenza `CaptionTrack` — so

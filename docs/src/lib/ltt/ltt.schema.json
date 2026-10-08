@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://lattice.style/schemas/ltt-1.0.schema.json",
   "title": "Lattice Timing Track (LTT) 1.0, canonical encoding",
-  "description": "GENERATED from docs/src/lib/ltt/types.ts by tools/build-ltt-schema.js — do not edit. Rebuild: npm run ltt-schema:build. Spec: engineering/ltt.md.",
+  "description": "GENERATED from docs/src/lib/ltt/types.ts by tools/build-ltt-schema.js — do not edit. Rebuild: npm run ltt-schema:build. Spec: spec/LTT-1.0.md.",
   "$ref": "#/$defs/Ltt",
   "$defs": {
     "Word": {
@@ -279,7 +279,7 @@
       ]
     },
     "LttAudio": {
-      "description": "AUDIO layer (Suono). A reader that does not know it plays silently on the estimate. One clip per CUE, not per segment (owner ruling, 2026-09-24): every producer records a sentence at a time, and the transport advances on each clip's end (engineering/ltt.md §The transport, rule 3). A cue with no entry in `clips` has no audio, and a player holds it for its estimate.",
+      "description": "AUDIO layer (Suono). A reader that does not know it plays silently on the estimate. One clip per CUE, not per segment (owner ruling, 2026-09-24): every producer records a sentence at a time, and the transport advances on each clip's end (spec/LTT-1.0.md §The transport, rule 3). A cue with no entry in `clips` has no audio, and a player holds it for its estimate.",
       "type": "object",
       "properties": {
         "voice": {
@@ -310,7 +310,7 @@
           "minimum": 0
         },
         "src": {
-          "description": "The clip: a path relative to the file, a `data:` URI, or, inside an HTML export, the fragment `#lp-audio/<block>/<n>` naming entry n of the export's audio block (engineering/ltt.md §Encodings).",
+          "description": "The clip: a path relative to the file, a `data:` URI, or, inside an HTML export, the fragment `#lp-audio/<block>/<n>` naming entry n of the export's audio block (spec/LTT-1.0.md §Encodings).",
           "type": "string"
         },
         "clip": {
@@ -565,7 +565,7 @@
       ]
     },
     "LttBookend": {
-      "description": "A spoken line that belongs to no slide: the greeting before slide 1, or the closing after the last slide (a deck's `greeting:` / `closing:`, lib/core/resolve-bookends.mjs). It is laid out exactly like a narrated slide: `holdMs`, its track, then `tailMs`. A player plays it at most once per page load (engineering/ltt.md §Bookends).",
+      "description": "A spoken line that belongs to no slide: the greeting before slide 1, or the closing after the last slide (a deck's `greeting:` / `closing:`, lib/core/resolve-bookends.mjs). It is laid out exactly like a narrated slide: `holdMs`, its track, then `tailMs`. A player plays it at most once per page load (spec/LTT-1.0.md §Bookends).",
       "type": "object",
       "properties": {
         "id": {

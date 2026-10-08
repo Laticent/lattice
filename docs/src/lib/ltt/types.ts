@@ -11,7 +11,7 @@
 // carries it: the packed encoding knows the core field by field, so an undeclared core key would
 // not survive packing, while every other object stays open for the layers a reader skips.
 //
-// The spec that gives these fields their meaning is engineering/ltt.md.
+// The spec that gives these fields their meaning is spec/LTT-1.0.md.
 
 // ── The core: a caption track (moved here from Cadenza; Cadenza re-exports it) ─────────────
 
@@ -138,7 +138,7 @@ export interface LttVoice {
 /** AUDIO layer (Suono). A reader that does not know it plays silently on the estimate.
  *
  *  One clip per CUE, not per segment (owner ruling, 2026-09-24): every producer records a sentence
- *  at a time, and the transport advances on each clip's end (engineering/ltt.md §The transport,
+ *  at a time, and the transport advances on each clip's end (spec/LTT-1.0.md §The transport,
  *  rule 3). A cue with no entry in `clips` has no audio, and a player holds it for its estimate. */
 export interface LttAudio {
 	/** What spoke the clips. */
@@ -152,7 +152,7 @@ export interface LttClip {
 	/** Index of the cue this clip speaks, in the segment's track. @integer @minimum 0 */
 	cue: number;
 	/** The clip: a path relative to the file, a `data:` URI, or, inside an HTML export, the
-	 *  fragment `#lp-audio/<block>/<n>` naming entry n of the export's audio block (engineering/ltt.md
+	 *  fragment `#lp-audio/<block>/<n>` naming entry n of the export's audio block (spec/LTT-1.0.md
 	 *  §Encodings). */
 	src: string;
 	/** Content hash of the clip bytes. */
@@ -251,7 +251,7 @@ export type LttSegment = LttSlideSegment | LttHoldSegment | LttStretchSegment;
 /** A spoken line that belongs to no slide: the greeting before slide 1, or the closing after the
  *  last slide (a deck's `greeting:` / `closing:`, lib/core/resolve-bookends.mjs). It is laid out
  *  exactly like a narrated slide: `holdMs`, its track, then `tailMs`. A player plays it at most
- *  once per page load (engineering/ltt.md §Bookends). */
+ *  once per page load (spec/LTT-1.0.md §Bookends). */
 export interface LttBookend {
 	id: string;
 	kind: 'bookend';

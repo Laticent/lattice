@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { appsNav, contentNav, isCurrent, librariesActive, librariesNav, primaryNav } from './nav.mjs';
+import { appsNav, contentNav, isCurrent, librariesActive, librariesNav, primaryNav, specsNav } from './nav.mjs';
 
 // The site's primary navigation is ONE source of truth (nav.mjs) that every
 // surface renders from: the desktop bar + mobile Sheet (SiteHeader/NavActions),
@@ -58,8 +58,10 @@ describe('nav model', () => {
 		expect(isCurrent(docs, '/lattice/studio/')).toBe(false);
 	});
 
-	it('lists every workspace library, Trama, Segno, Calco, LTT and Tavola included', () => {
-		expect(labels(librariesNav(url))).toEqual(['Suono', 'Lente', 'Cadenza', 'Vetrina', 'Trama', 'Segno', 'Calco', 'LTT', 'Tavola']);
+	it('lists every workspace library, Trama, Segno, Calco and Tavola included, and LTT under Specs', () => {
+		expect(labels(librariesNav(url))).toEqual(['Suono', 'Lente', 'Cadenza', 'Vetrina', 'Trama', 'Segno', 'Calco', 'Tavola']);
+		expect(labels(specsNav(url))).toEqual(['LFM 1.0', 'Diagnostic Protocol', 'LTT 1.0']);
+		for (const s of specsNav(url)) expect(s.href).toMatch(/\/spec\/[a-z]+\/$/);
 		expect(librariesActive('/lattice/trama/', url)).toBe(true);
 		expect(librariesActive('/lattice/segno/', url)).toBe(true);
 		expect(librariesActive('/lattice/calco/', url)).toBe(true);
@@ -71,7 +73,9 @@ describe('nav model', () => {
 		const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 		const workspaces: string[] = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).workspaces;
 		const published = workspaces.map((dir) => JSON.parse(readFileSync(join(root, dir, 'package.json'), 'utf8')).name);
-		expect(librariesNav(url).map((l) => l.pkg).sort()).toEqual(published.sort());
+		// A spec's reference implementation counts: @laticent/ltt is listed under Specs (spec audit §8.5).
+		const listed = new Set([...librariesNav(url), ...specsNav(url)].map((l) => l.pkg).filter((p) => p !== '@laticent/lattice'));
+		expect([...listed].sort()).toEqual(published.sort());
 	});
 
 	it('points a library without a demo page at its README, and never marks it current', () => {

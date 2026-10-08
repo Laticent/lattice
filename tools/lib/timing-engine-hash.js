@@ -1,6 +1,6 @@
 /**
  * The timing engine's content hash — `inputs.engine` in every LTT a producer writes
- * (engineering/ltt.md §The file). NOT a package version: Cadenza's has never moved, so a version
+ * (spec/LTT-1.0.md §The file). NOT a package version: Cadenza's has never moved, so a version
  * could not tell an engine change from no change (2026-09-24-lattice-timing-track.md §4.5).
  *
  * The hash covers the SOURCE the estimate is computed from: Cadenza's `track.ts` (`buildTrack`)
