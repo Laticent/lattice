@@ -64,12 +64,17 @@ jobs:
       - name: Allow ImageMagick PDF coder (for the drift montages)
         run: sudo sed -i 's/rights="none" pattern="PDF"/rights="read|write" pattern="PDF"/' /etc/ImageMagick-6/policy.xml || true
       - run: npm ci
+      # The docs landing page's showcase WebPs are cut from gallery PDFs with `sharp`, a
+      # docs dependency, and docs-build fails when they go stale (#2598). ~16 s.
+      - name: Install the docs dependencies (for the showcase WebPs)
+        run: npm ci --prefix docs
       - name: Build the generated bundles
         run: npm run build
 
       - name: Check every golden, re-bless what drifted, score the four rules
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} # read-only: rule 4 reads merged PRs' golden-diff comments
+          GOLDEN_BLESS_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         # pipefail: without it the step takes `tee`'s exit code, and a crash goes green.
         run: |
           set -euo pipefail
@@ -113,7 +118,7 @@ jobs:
 
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -u -- '*.pdf'
+          git add -u -- '*.pdf' docs/public/showcase docs/scripts/showcase-sources.json
           # The title is load-bearing: tools/lib/golden-bless-verdict.mjs finds the last
           # merged bless by it, and starts rule 4's window at the commit it names.
           TITLE="chore(goldens): nightly bless of $(cat .scratch/golden-bless/rendered-from.txt)"
