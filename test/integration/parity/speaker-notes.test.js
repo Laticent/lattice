@@ -22,9 +22,10 @@ const FIXTURE = path.join(ROOT, 'test', 'fixtures', 'speaker-notes.md');
 
 function render(extraArgs = []) {
   const out = tmpFile('.pdf');
+  // `--keep-html`: two cases below read the `.html` sidecar, which is deleted on success by default (P1).
   execFileSync(
     process.execPath,
-    [EMULATOR, FIXTURE, THEME, out, 'indaco', '-q', ...extraArgs],
+    [EMULATOR, FIXTURE, THEME, out, 'indaco', '-q', '--keep-html', ...extraArgs],
     { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'], timeout: 60000 },
   );
   return out;

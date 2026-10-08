@@ -461,7 +461,7 @@ async function main() {
       scratch.push(md, `${base}.pdf`, `${base}.html`);
       fs.writeFileSync(md, withSize(src, s.size, s.autosplit));
 
-      execFileSync(process.execPath, [EMULATOR, md, `${base}.pdf`, 'indaco', '-q'], {
+      execFileSync(process.execPath, [EMULATOR, md, `${base}.pdf`, 'indaco', '-q', '--keep-html'], {
         cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'], timeout: 10 * 60_000,
       });
       if (!fs.existsSync(`${base}.html`)) throw new Error(`emulator produced no HTML sidecar for ${s.name}`);

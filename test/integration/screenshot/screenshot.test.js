@@ -55,7 +55,8 @@ describe('screenshot', () => {
     const dir = tmpDir();
     const pdf = path.join(dir, 'deck.pdf');
     const html = path.join(dir, 'deck.html');
-    const r = run(EMULATOR, [FIXTURE, pdf, '--quiet']);
+    // `--keep-html`: the sidecar is the screenshot source, and it is deleted on success by default (P1).
+    const r = run(EMULATOR, [FIXTURE, pdf, '--quiet', '--keep-html']);
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
     assert.ok(fs.existsSync(html), `expected HTML sidecar at ${html}`);
     return { dir, html, pdf };

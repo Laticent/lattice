@@ -852,7 +852,7 @@ can call are fenced to the deck folder and the Lattice install by real path, and
 images and fonts (`lib/export/pdf-asset-reader.js`). `--allow-remote` drops the offline set,
 which is the exporter's own choice.
 
-**Found on the way, not decided here (both in `followups.d/`; the first is now §11):**
+**Found on the way, not decided here (both in `followups.d/`; the first is now §11, the second §14):**
 
 - **Export-to-Marp ships a recipient a renderer told to run the deck's HTML with local file
   access.** `lib/core/marp-bundle.js` writes `html: true, allowLocalFiles: true` into the
@@ -865,7 +865,8 @@ which is the exporter's own choice.
   `marp.config.cjs` is already code the recipient runs, so the real gap is the Studio path, where the
   author never saw the script. The fix changes an exported artifact, so it waits for the owner.
 - **Whether the sidecar should be written at all** when nobody asked for an `.html`. Changing the
-  default changes what every PDF export leaves on disk, so that is the owner's call too.
+  default changes what every PDF export leaves on disk, so that is the owner's call too. Decided
+  and done in § 14: the export deletes the sidecar on success; a reader opts in with `--keep-html`.
 
 ## 11. The Export-to-Marp bundle drops the deck's own executable HTML (2026-10-07)
 
@@ -1138,3 +1139,44 @@ replaces the config's list with "everything", so the bundle's README and the age
 bundle with its own `npm run pdf`. A hand-edited deck that appends a forged `application/lattice-*` data
 block after the bundle's own wins the runtime's last-block read. That bypasses only the producer's
 front-matter cleaning, and only for a file the recipient edited themselves.
+
+## 14. A PDF/PPTX/PNG export no longer leaves a live `.html` on disk (2026-10-07)
+
+§ 10 wrote a warning onto the sidecar — the `<out>.html` the emulator writes beside every
+`.pdf`, `.pptx`, `.odp`, `.png` and `.zip`, captures the raster from, and then left on disk —
+and logged two things for the owner to decide. One was the Export-to-Marp bundle (§ 11, § 13).
+The other was this: **whether the sidecar should be written at all** when nobody asked for an
+`.html`. That is the owner's call, because it changes what every export leaves behind. The owner
+decided: **delete it.**
+
+**The problem it fixes.** An author who runs `lattice deck.md deck.pdf` asked for a PDF. They
+also got `deck.html` — a file that keeps the deck's own raw HTML and runs its `<script>` and
+`on…` handlers when anyone opens it (§ 10's table: `window.p` and `window.q` both set from the
+plain `.html`). The § 10 warning named the hazard; it did not remove it. The file sat beside the
+PDF, unasked for, live.
+
+**What ships.** `removeSidecarHtml()` (`lattice-emulator.js`) unlinks the sidecar after a
+successful raster. It is a byproduct — Chrome prints the PDF from `file://<out>.html` — and
+nothing the caller asked for needs it once the raster is written. The delete is best-effort: a
+failing `unlink` never fails an otherwise good export.
+
+**Where the `.html` IS the deliverable, it stays.** Four cases, each the same file the caller
+wants:
+
+- the output extension is `.html` (`outHtml === outFile`);
+- the output path carries **no extension** — the sidecar idiom, where the PDF is the byproduct
+  and `<out>.html` is the deliverable the player verifiers (`tools/verify-player-input.mjs`,
+  `tools/verify-narrated-player.mjs`) read;
+- `--player`, `--fluid` or `--read` rewrote the file into a deliverable viewer after the raster;
+- `--keep-html` (or `LATTICE_KEEP_HTML=1`) asks to keep it — the opt-in.
+
+A reader that needs the live sidecar opts in, rather than every export leaving a live file
+behind for the ones that do not. Our own tools and tests that inspect the sidecar pass
+`--keep-html`: the two player verifiers already render extensionless, and the integration arms
+that read the sidecar beside a raster (`export-remote-subresource.test.js`'s raster probe, the
+strip-notes and author-script export tests) opt in by name.
+
+**Measured.** With the sidecar gone by default: `lattice deck.md deck.pdf` leaves `deck.pdf` and
+no `deck.html`; `--keep-html`, `LATTICE_KEEP_HTML=1`, an `.html` output, an extensionless output,
+`--player` and `--fluid` each leave the `.html`; a `.png` and a `.pptx` export each delete it.
+The integration export tier is green with the readers opted in.

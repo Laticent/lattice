@@ -72,14 +72,13 @@ function sourceForTheme(m, theme) {
   return theme === 'dark' ? injectDark(md) : md;
 }
 
-// The emulator writes a .html sidecar next to every .pdf it renders.
-// Useful when debugging by hand; just clutter when build-galleries.js
-// is what produced the PDF. Remove it after each successful build so
-// the component folder stays tidy (only the .gallery.{light,dark}.pdf
-// pair lives there).
+// The emulator now deletes the .html sidecar beside a .pdf on success (P1), so
+// this is a belt-and-suspenders sweep: it still clears a sidecar a FAILED render
+// left behind, keeping the component folder tidy (only the
+// .gallery.{light,dark}.pdf pair lives there).
 function cleanHtmlSidecar(pdfPath) {
   const htmlPath = pdfPath.replace(/\.pdf$/, '.html');
-  try { fs.unlinkSync(htmlPath); } catch { /* ignore — never existed */ }
+  try { fs.unlinkSync(htmlPath); } catch { /* ignore — already gone */ }
 }
 
 function buildOne(m, theme) {

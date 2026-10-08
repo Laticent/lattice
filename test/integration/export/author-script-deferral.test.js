@@ -166,7 +166,7 @@ describe('author-script-deferral', () => {
     // positive machine — the probe would attribute the overflow watcher's own 2,000 ms
     // settleFonts race to the deck, on every deck in the repo.
     const out = path.join(tmpDir(), 'marked.pdf');
-    render(out);
+    render(out, '--keep-html');
     const html = fs.readFileSync(out.replace(/\.pdf$/, '.html'), 'utf8');
     // Case-insensitive: an uppercase `<SCRIPT>` emitter would otherwise skip this census
     // entirely (CodeQL 190).

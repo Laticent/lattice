@@ -82,7 +82,7 @@ describe('diagram cluster shape — rendered', () => {
     // tier mode-invariant while the canvas flips, so it is the one where ink meant
     // for a chip and ink meant for the canvas cannot be the same color. On the
     // other 27 palettes the two tokens resolve equal and the bug is invisible.
-    const r = spawnSync(process.execPath, [EMULATOR, md, path.join(dir, 'deck.pdf'), 'a11y-deuteranopia', '--quiet'], {
+    const r = spawnSync(process.execPath, [EMULATOR, md, path.join(dir, 'deck.pdf'), 'a11y-deuteranopia', '--quiet', '--keep-html'], {
       cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
     });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);

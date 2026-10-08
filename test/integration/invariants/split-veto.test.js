@@ -134,7 +134,8 @@ describe('type floor + overflow — two axes, never one instead of the other', (
     // Run the emulator directly rather than through the cached helper: the assertion is about
     // what it REPORTS on stderr, which the cache does not keep.
     const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'lat-split-')), 'both.pdf');
-    const res = spawnSync('node', [path.join(ROOT, 'lattice-emulator.js'), FIXTURE, out], {
+    // `--keep-html`: this reads the `.html` sidecar, deleted on success by default (P1).
+    const res = spawnSync('node', [path.join(ROOT, 'lattice-emulator.js'), FIXTURE, out, '--keep-html'], {
       cwd: ROOT, encoding: 'utf8', timeout: 150000,
     });
     assert.equal(res.status, 0, `emulator failed:\n${res.stderr}`);

@@ -58,7 +58,7 @@ async function facesFor(source) {
   try {
     const md = path.join(dir, 'deck.md');
     fs.writeFileSync(md, source);
-    const r = spawnSync(process.execPath, [EMULATOR, md, path.join(dir, 'deck.pdf')],
+    const r = spawnSync(process.execPath, [EMULATOR, md, path.join(dir, 'deck.pdf'), '--keep-html'],
       { cwd: ROOT, encoding: 'utf8', timeout: TIMEOUT });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
 

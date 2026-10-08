@@ -37,11 +37,15 @@ it.
 | `.png` | One PNG per slide, named `<output>.001.png`, `<output>.002.png`, … |
 | `.zip` | An image set: one image per slide, plus thumbnails and chart SVGs. See [Image set](#image-set) |
 | `.html` | The rendered HTML as the deliverable, with no PDF. See [HTML output](#html-output) |
-| no extension | A PDF, plus the HTML sidecar |
+| no extension | A PDF, plus the HTML sidecar as the deliverable |
 
-Every format except `.html` also writes an HTML sidecar, `<output>.html`.
-Any other extension stops with an error. For `.webp`, `.jpg` or `.jpeg`, the
-error also prints the `.zip` command to use instead.
+For a `.pdf`, `.pptx`, `.odp`, `.png` or `.zip`, the render captures from an
+HTML file, `<output>.html`, and then deletes it — it keeps the deck's own raw
+HTML and runs it when opened. Pass `--keep-html` (or set `LATTICE_KEEP_HTML=1`)
+to keep it. An extensionless output path is the exception: there the `.html` is
+the deliverable and stays. Any other extension stops with an error. For
+`.webp`, `.jpg` or `.jpeg`, the error also prints the `.zip` command to use
+instead.
 
 ## General options
 
@@ -56,6 +60,7 @@ error also prints the `.zip` command to use instead.
 | `--size <name>` | Render on another canvas, over the deck's `size:` — for example `square`, `portrait`, `story`, `mobile-landscape`, `4K` |
 | `--print` | Render in print mode: black ink on white, with textures on chart series. Any format. Same as `color-mode: print` |
 | `--allow-remote` | Let the render fetch web images, media and fonts. Off by default, so web images show as placeholders |
+| `--keep-html` | Keep the `<output>.html` sidecar beside a `.pdf`/`.pptx`/`.odp`/`.png`/`.zip` instead of deleting it on success. Also via `LATTICE_KEEP_HTML=1` |
 | `--packages <dir>` | Use `<dir>` as the package store for this run |
 | `--disable-plugin <names>` | Switch plugins off for this run, comma-separated (`mermaid,math`) or repeated. The engine and the plugins' bakes both skip them, so the PDF, images and PowerPoint show their source, and a deck's `plugins:` list cannot turn them back on. A `--fluid` or `--player` page shows their source too. An unknown name fails the run |
 | `--default-plugins <names>` | Narrow the default plugin set for this run, comma-separated, or `none` (default: every shipped plugin). A plugin outside it loads only when the deck lists it in `plugins:` or a component the deck uses requires it; one that does not load exports as source on every output. An unknown name fails the run |
@@ -196,6 +201,7 @@ Chrome for Testing. Set `CHROME_PATH` to choose one.
 |---|---|
 | `LATTICE_PALETTE` | The palette, below the command line and above the deck's `theme:` |
 | `LATTICE_OVERFLOW_MARKER` | The standing `--overflow-marker` level (`reader` or `author`; `off` is per render only) |
+| `LATTICE_KEEP_HTML` | `1` keeps the `<output>.html` sidecar beside a non-HTML export, same as `--keep-html` |
 | `LATTICE_HOME` | The folder that holds the package store, `<dir>/packages` |
 | `CHROME_PATH` | The Chrome or Chromium binary to render with. `PUPPETEER_EXECUTABLE_PATH` wins when both are set |
 | `LATTICE_RENDER_WATCHDOG_MS` | How long one render step may take before it is stopped. Default `90000` |

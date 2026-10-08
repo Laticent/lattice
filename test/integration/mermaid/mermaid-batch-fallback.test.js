@@ -44,7 +44,7 @@ describe('mermaid batch fallback', () => {
   test('a malformed fence costs only itself — the valid one still renders', { timeout: TIMEOUT }, () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-mmd-fb-'));
     const out = path.join(dir, 'deck.pdf');
-    const r = spawnSync(process.execPath, [EMULATOR, FIXTURE, out], {
+    const r = spawnSync(process.execPath, [EMULATOR, FIXTURE, out, '--keep-html'], {
       cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
     });
 

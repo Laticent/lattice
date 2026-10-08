@@ -172,7 +172,8 @@ describe('guards: strict — what the deliverable carries, and what the console 
   });
 
   test('beside a PDF the sidecar still carries no trim — and the console DECLARES the divergence', async () => {
-    const err = render('sidecar.pdf');
+    // `--keep-html`: this arm reads the sidecar beside the PDF, deleted on success by default (P1).
+    const err = render('sidecar.pdf', '--keep-html');
     // The PDF pass really did trim: without this the arm below is a test of a
     // feature that never fired.
     assert.match(err, /TRIMMED — fit: trim cut text on \d+ slide/,

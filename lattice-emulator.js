@@ -139,8 +139,8 @@ ARGUMENTS
                      extension that is not on this list is a usage error rather than
                      a PDF under the wrong name (a path with NO extension is still
                      the PDF path — nothing is mislabeled when nothing is labeled):
-                       .pdf   vector PDF, selectable text (+ HTML sidecar; or one
-                              image per page with --raster)
+                       .pdf   vector PDF, selectable text (or one image per page
+                              with --raster)
                        .pptx  PowerPoint, one full-bleed slide image per slide
                        .odp   LibreOffice Impress (OpenDocument), one full-bleed
                               slide image per slide; written without soffice
@@ -153,8 +153,11 @@ ARGUMENTS
                               the overflow/legibility passes measure laid-out DOM,
                               and this file is their post-split result); it only
                               skips the PDF encode
-                     For every format EXCEPT .html, an HTML sidecar is written
-                     alongside; with .html that sidecar IS the output file.
+                     For every format EXCEPT .html, the page is captured from a
+                     temporary HTML file that is deleted once the raster is
+                     written — pass --keep-html (or set LATTICE_KEEP_HTML=1) to
+                     keep it. With .html that file IS the output. --player /
+                     --fluid / --read keep it too, as their viewer.
                      For per-slide JPEG or WebP, ask for a .zip and pass
                      --image-format jpeg|webp — there is no loose .jpg/.webp output.
   custom.css         Optional layout CSS override; if omitted, the bundled
@@ -279,6 +282,9 @@ OPTIONS
                           compatibility; selectable text is lost. Speaker
                           notes, --present, and --embed-source still apply.
                           PDF only.
+      --keep-html         Keep the temporary HTML the raster is captured from
+                          (deleted by default for .pdf/.pptx/.odp/.png/.zip).
+                          Also via LATTICE_KEEP_HTML=1.
       --editable          With .odp or .pptx: every paragraph becomes a real text
                           box in the deck's own font, over a picture of the
                           slide with its text removed, so the file can be
@@ -515,6 +521,7 @@ function parseArgs(argv) {
     if (a === '--present') { flags.present = true; continue; }
     if (a === '--print') { flags.print = true; continue; }
     if (a === '--raster') { flags.raster = true; continue; }
+    if (a === '--keep-html') { flags['keep-html'] = true; continue; }
     if (a === '--editable') { flags.editable = true; continue; }
     if (a === '--allow-remote') { flags['allow-remote'] = true; continue; }
     if (a === '--embed-source') { flags['embed-source'] = true; continue; }
@@ -2986,6 +2993,29 @@ ${ENGINE_SCRIPT_OPEN}
 const outHtml = OUT_FORMAT === 'html'
   ? outFile
   : outFile.replace(/\.(pdf|pptx|odp|png|zip|html)$/i, '') + '.html';
+
+// THE HTML SIDECAR IS A BYPRODUCT, deleted after a successful raster unless asked for.
+// The `.html` beside a .pdf/.pptx/.odp/.png/.zip is the page the raster was captured from
+// (Chrome prints the PDF from `file://outHtml`). Nothing the caller asked for needs it once
+// the raster is written, and because it keeps the deck's raw HTML it can run the deck's own
+// script when opened (theme-css note § 10). So it is removed on success — EXCEPT when:
+//   · the output IS the `.html` (outHtml === outFile, the deliverable);
+//   · the output path carries NO extension — that is the sidecar idiom (lines ~841–849), where
+//     the PDF is the byproduct and `<out>.html` is the deliverable the player verifiers read;
+//   · `--player` / `--fluid` / `--read` rewrote it into a deliverable viewer after the raster;
+//   · `--keep-html` or `LATTICE_KEEP_HTML=1` asks to keep it (the opt-in our own tools use).
+// A reader that needs the sidecar opts in rather than every export leaving a live file behind.
+// engineering/decisions/2026-08-17-theme-css-is-a-preview-sink.md § 14.
+const KEEP_HTML = !!flags['keep-html'] || process.env.LATTICE_KEEP_HTML === '1';
+function removeSidecarHtml() {
+  // `FLUID_BEATS_READ` decides which viewer `--fluid`+`--read` resolves to; the sidecar is a
+  // deliverable whenever any viewer rewrote it (the same arms as the post-raster rewrite).
+  const isViewer = PLAYER || (FLUID_VIEW && FLUID_BEATS_READ) || READ_VIEW;
+  if (OUT_FORMAT === 'html' || !OUT_EXT || isViewer || KEEP_HTML) return;
+  try {
+    if (fs.existsSync(outHtml) && path.resolve(outHtml) !== path.resolve(outFile)) fs.unlinkSync(outHtml);
+  } catch { /* best-effort: a failing unlink must not fail an otherwise good export */ }
+}
 // Strip the live-preview runtime (lattice-runtime.js) from the export HTML.
 // A deck may embed `<script src="…/lattice-runtime.js">` for the VS Code / web
 // preview; that runtime runs the overflow watcher, which CREATES the red
@@ -5431,6 +5461,9 @@ async function rasterizeSvgImagesInPage(browser, g, page) {
       throw e;
     }
   }
+  // Only here, on a fully successful render: the raster has been captured from the sidecar
+  // and any viewer rewrite is done, so a byproduct `.html` can go (see removeSidecarHtml).
+  removeSidecarHtml();
 })().catch((e) => {
   // A FAILED `.html` render must not leave a complete-looking deliverable behind.
   // Every other format writes its artifact only on success, so a failure leaves no
