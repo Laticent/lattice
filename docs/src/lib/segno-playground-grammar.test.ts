@@ -101,8 +101,12 @@ describe('readGrammarSource', () => {
     const sent = clipText(generated);
     expect(sent.length).toBeLessThan(MAX_REPLY_TEXT + 100);
     expect(sent).toMatch(/cut here: [\d,]+ more characters not shown$/);
-    // ...and a refused grammar lists one problem per overlapping pair: 60 alternatives, 1,770.
-    const refused = `return { start: 'r', rules: { r: ref('k'), k: alt(${"seq('a', 'b'), ".repeat(59)}seq('a', 'b')) } };`;
+    // ...and a refused grammar still lists more problems than the page shows. lint() names ten
+    // overlapping pairs per alternation and counts the rest in one line (library trio, SEG-R6), so
+    // six alternations of 60 overlapping branches give 66.
+    const alt60 = `alt(${"seq('a', 'b'), ".repeat(59)}seq('a', 'b'))`;
+    const ks = Array.from({ length: 6 }, (_, i) => `k${i}: ${alt60}`).join(', ');
+    const refused = `return { start: 'r', rules: { r: seq(${Array.from({ length: 6 }, (_, i) => `ref('k${i}')`).join(', ')}), ${ks} } };`;
     let problems: readonly string[] = [];
     try { compile(readGrammarSource(refused, DSL) as Parameters<typeof compile>[0]); } catch (e) { if (e instanceof GrammarError) problems = e.problems; }
     expect(problems.length).toBeGreaterThan(MAX_PROBLEMS);
