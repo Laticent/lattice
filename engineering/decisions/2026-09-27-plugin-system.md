@@ -1567,7 +1567,7 @@ Answered by the owner on #2509 after #2508 merged; written here with the E0 chan
   claims slides, not fences), then the CLI half, then the Studio half, with three owner questions
   before the second starts. On the way it found the Studio's Library import dropping a code-free
   plugin zip with no refusal, while `lattice packages add` refused it by name. Both doors now return
-  `PLUGIN_REFUSAL` from `lib/packages/import-gate.js`, checked before any file is judged; the Studio's
+  `PLUGIN_REFUSAL` from `lib/packages/plugin-refusal.js` (its own leaf, off the eager path), checked before any file is judged; the Studio's
   check sits in `package-zip.ts` `readPackagesFromZip`, which loads only on an import, so the Studio's
   eager bundle does not grow. Pinned by `asset-bundle.test.ts` (with the check removed, the code-free
   case receives `[]`) and `code-door.test.js`, and seen on the PR's docs preview: the Library's toast

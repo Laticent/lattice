@@ -342,7 +342,7 @@ describe('asset-bundle — package zips from elsewhere', () => {
 			if (withCode) zip.file('glow/glow.render.js', 'export default () => "";');
 			return zip.generateAsync({ type: 'blob' });
 		};
-		const { PLUGIN_REFUSAL } = (await import('../../../../lib/packages/import-gate.js')).default;
+		const { PLUGIN_REFUSAL } = (await import('../../../../lib/packages/plugin-refusal.js')).default;
 		for (const withCode of [false, true]) {
 			const round = await unpackBundle(await plugin(withCode));
 			expect(round.refused).toEqual([{ name: 'glow', why: PLUGIN_REFUSAL }]);

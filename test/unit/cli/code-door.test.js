@@ -541,7 +541,7 @@ describe('codeSyntaxRefusal: a dynamic import(), parsed', () => {
 
   test('a plugin package is refused by name, with the string the Studio import uses too', () => {
     const { refusePackage } = require('../../../lib/packages/gate.js');
-    const { PLUGIN_REFUSAL } = require('../../../lib/packages/import-gate.js');
+    const { PLUGIN_REFUSAL } = require('../../../lib/packages/plugin-refusal.js');
     // Code-free and with code alike: the name decides, before any file is judged.
     assert.equal(refusePackage({ type: 'plugin', name: 'glow', code: false, files: {}, roles: {} }), PLUGIN_REFUSAL);
     assert.equal(refusePackage({ type: 'plugin', name: 'glow', code: true, files: {}, roles: {} }), PLUGIN_REFUSAL);

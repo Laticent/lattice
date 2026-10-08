@@ -15,9 +15,9 @@ import type { Scene } from '@/lib/anima';
 // The JSON value cap (lib/packages/json-guard.js). A static import is fine here: this module is
 // only ever loaded on demand (asset-bundle.ts, share-export.ts), never on the Studio's eager path.
 import { refuseCode } from '../../../../lib/packages/code-shape.mjs';
-// The plugin refusal, one string shared with `lattice packages add` (a CommonJS leaf, read as a default import).
-import importGate from '../../../../lib/packages/import-gate.js';
 import jsonGuard from '../../../../lib/packages/json-guard.js';
+// The plugin refusal, one string shared with `lattice packages add` (a CommonJS leaf, read as a default import).
+import pluginRefusal from '../../../../lib/packages/plugin-refusal.js';
 import type { StudioComponent } from './component-library';
 import { coerceRecipe, type FinishRecipe } from './finish-generate';
 import type { StudioFinish } from './finish-library';
@@ -25,7 +25,7 @@ import type { PackageCarry } from './library/package-carry';
 import type { StudioScene } from './scene-library';
 import type { StudioTheme } from './theme-library';
 
-const { PLUGIN_REFUSAL } = importGate;
+const { PLUGIN_REFUSAL } = pluginRefusal;
 
 export type PackageType = 'theme' | 'component' | 'finish' | 'motion';
 /** One package as files: file name (`<name>.<role>`) → text. */
