@@ -187,3 +187,36 @@ test('strip: raw-text elements inside SVG or MathML are markup, so a handler the
     assert.doesNotMatch(withoutLiveAuthorHtml(md).markdown, /onerror/, md);
   }
 });
+
+test('strip: a fence opened inside the front matter does not hide the body', () => {
+  // Marp removes the front matter before it parses; plain markdown-it read this YAML value as an
+  // unclosed fence and so the whole body as code (the independent checker, real marp-cli + Chromium).
+  const { withoutLiveAuthorHtml } = require('../../../lib/core/live-author-html');
+  const fm = '---\nmarp: true\nnote: |\n  ```\n---\n\n# Forged\n\n';
+  const strip = withoutLiveAuthorHtml(`${fm}<img src=x onerror="document.title='pwned'">\n`);
+  assert.equal(strip.removed.handlers, 1);
+  assert.doesNotMatch(strip.markdown, /onerror/);
+  // A real fence in the body after a plain front matter is still quoted material.
+  const quoted = '---\nmarp: true\n---\n\n```html\n<img src=x onerror="q()">\n```\n';
+  assert.equal(withoutLiveAuthorHtml(quoted).markdown, quoted);
+});
+
+test('front matter by Marp\'s rule: a longer opener, a trailing word, a longer closer; and no body when unclosed', () => {
+  const { frontMatterEnd, withoutFrontMatterLines } = require('../../../lib/core/marp-front-matter');
+  const { withoutLiveAuthorHtml } = require('../../../lib/core/live-author-html');
+  // Measured on marp-core 4.4 (lib/core/marp-front-matter.js).
+  assert.equal(frontMatterEnd(['---x\n', 'a: 1\n', '---\n', 'body']), 2);
+  assert.equal(frontMatterEnd(['---\n', 'a: 1\n', '-----\n', 'body']), 2);
+  assert.equal(frontMatterEnd(['---\n', 'a: 1\n', '...\n', 'body']), 2);
+  assert.equal(frontMatterEnd(['---\n', 'a: 1\n', '   ---\n', 'body']), 2);
+  assert.equal(frontMatterEnd(['----\n', 'a: 1\n', '---\n', 'body']), 3, '---- is not closed by ---');
+  assert.equal(frontMatterEnd(['---\n', 'a: 1\n', '--- x\n', 'body']), 3, '--- x closes nothing');
+  assert.equal(frontMatterEnd([' ---\n', 'body']), -1);
+  assert.equal(withoutFrontMatterLines('---\r\nx\r\n---\r\nbody'), '\r\n\r\n\r\nbody');
+  // Each variant that blinded the strip in the checker's run now strips the handler.
+  for (const [open, close] of [['----', '----'], ['---x', '---'], ['---', '-----']]) {
+    const deck = `${open}\nmarp: true\nnote: |\n  \`\`\`\n${close}\n\n# Hi\n\n<img src=x onerror="q()">\n`;
+    assert.equal(withoutLiveAuthorHtml(deck).removed.handlers, 1, `${open} / ${close}`);
+  }
+});
+

@@ -687,3 +687,30 @@ so.
 `lattice-plugin-icons.js` the render uses, fetched the first time the grid opens
 (`ensurePluginData`). Each drawing is built as DOM from the data (`icon-preview.ts` `paintIcon`),
 never parsed from a string.
+
+## 18. Graph-chart names at a stale scale: not reproducible (2026-10-07)
+
+`followups.d/2558-p3-studio-graph-chart-text-drawn-at-a-stale-scale.md` reported a Studio preview that
+sometimes painted a flowchart's names at about 0.8x while the shapes sat right, in 4 of 10 runs during
+#2558, on the deployed docs preview. #2572 ran 97 probes on a local server and the static build and
+saw none, and suggested starting from #2558's own probe. That script was never saved (not in the PR,
+its comments or the tree), so this pass rebuilt it from the followup's description and ran it where
+#2558 saw the fault: a DEPLOYED Studio.
+
+**The probe.** `https://lattice.style/studio/` (production `main`, 2026-10-07), Chromium 131, a fresh
+profile per run at 1440x900, Craft posture. The Deck source is replaced with a flowchart or a state
+chart with no icons (the fault predates icons). The probe waits until the preview has painted (three
+identical frames a second apart, heavier than the loading skeleton), then 8 s, then captures the
+slide and compares it with a known-good capture (`compare -metric AE -fuzz 5%`). The first version
+waited a fixed 8 s with four browsers at once and caught the skeleton or the blurred placeholder in
+most runs: a probe that does not wait for the paint measures the network, not the preview.
+
+| deck | runs | painted after | differing from the good capture |
+|---|---|---|---|
+| flowchart | 20 | 3–11 s | 0 runs (0 px each) |
+| state chart | 20 | 3–10 s | 0 runs (0 px each) |
+
+**Closed as not reproducible.** 137 runs across a local server, the static build and production, none
+stale. What differs from #2558's runs is not knowable without its script. If it comes back, the probe
+above is the place to start, with the frame captured while still loading, since a stale scale would
+show between the first paint and the fit.

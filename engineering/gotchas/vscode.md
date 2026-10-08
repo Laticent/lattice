@@ -202,8 +202,11 @@ CI-contract decision, not one to take on the way past.
   rather than dropping it — so the tags survive as visible text and the
   runtime is never fetched. The owned engine parses with `html: true`
   (`lib/engine/index.js`), so nothing on our own render path ever showed it.
-- **Mitigation:** marp-cli needs `html: true` in the config (the generated
-  `marp.config.cjs` sets it) or `--html` on the command line; marp-vscode
+- **Mitigation:** marp-cli needs raw HTML on. An Export-to-Marp bundle's
+  `marp.config.cjs` turns it on as an allowlist plus an engine that passes the
+  runtime tags (`lib/core/marp-bundle-html.js`), so render a bundle with its
+  config and never `--html`, which replaces the list with "everything". The Marp
+  kit's config sets `html: true`, and a bare deck needs `--html`. marp-vscode
   needs `markdown.marp.enableHtml: true` (the generated
   `.vscode/settings.json` sets it, and so does the repo's own). Note this is
   necessary but NOT sufficient in the vscode preview — the webview still

@@ -5,7 +5,7 @@
  * mark. A Marp bundle is rendered by MARP, so nothing marks it; the bundle records the plugins its
  * producer left off (`pluginsOff`, the settings block) and its runtime marks them before it draws
  * (lib/plugins/mark-off.mjs). This drives the real artifact through the real tool: tools/export-marp.js
- * with `--default-plugins=none --disable-plugin=chart-family`, `marp --html` from the registry, then the page in Chromium — and,
+ * with `--default-plugins=none --disable-plugin=chart-family`, `marp` from the registry with the bundle's own config, then the page in Chromium — and,
  * as the control, the same deck on the default set, where the diagram and the chart draw.
  *
  * Local runs skip when marp-cli cannot be fetched; CI fails instead (marp-kit-render.test.js
@@ -103,8 +103,14 @@ describe('Export-to-Marp follows the deck\'s plugin admission — real marp-cli,
       const r = spawnSync(process.execPath, [EXPORT_CLI, path.join(dir, 'admission.md'), path.join(dir, 'out'), '--no-agent', ...flags], { cwd: ROOT, encoding: 'utf8', timeout: TIMEOUT });
       assert.equal(r.status, 0, `export-marp failed:\n${r.stdout}\n${r.stderr}`);
       const bundle = path.join(dir, 'out', 'admission');
-      const m = marp(['admission.md', '--config-file', 'marp.config.cjs', '--allow-local-files', '--html', '-o', 'out.html'], bundle);
-      assert.equal(m.status, 0, `marp --html failed:\n${m.stdout}\n${m.stderr}`);
+      // The bundle does not ship function-plot's library today, so a forged placeholder would wait
+      // for it and draw nothing whatever its markers said. Put the plugin's own copy beside the
+      // runtime, where the host fetches it from, so this arm fails on the markers alone.
+      if (arm === 'forged') fs.copyFileSync(path.join(ROOT, 'lib', 'plugins', 'function-plot', 'vendor', 'function-plot.js'), path.join(bundle, 'function-plot.js'));
+      // The bundle's own command line (package.json `npm run html`): no `--html`, which would replace
+      // the config's allowlist with "everything".
+      const m = marp(['admission.md', '--config-file', 'marp.config.cjs', '--allow-local-files', '-o', 'out.html'], bundle);
+      assert.equal(m.status, 0, `marp failed:\n${m.stdout}\n${m.stderr}`);
       const page = await browser.newPage();
       await page.goto(require('node:url').pathToFileURL(path.join(bundle, 'out.html')).href, { waitUntil: 'networkidle0' });
       await page.waitForFunction(() => document.documentElement.getAttribute('data-lattice-runtime') === 'loaded', { timeout: 30000 });
@@ -169,8 +175,10 @@ describe('Export-to-Marp follows the deck\'s plugin admission — real marp-cli,
     assert.equal(await page.$eval('.inline', (e) => e.hasAttribute('data-lattice-off')), false, 'an author cannot mark their own markup off');
     assert.equal(await page.$$eval('[data-lattice-figure]', (e) => e.length), 0, 'no diagram drawn');
     assert.match(await page.$eval('pre.raw code', (e) => e.className), /^language-off-mermaid-source$/);
-    // Marp decoded and rendered the footer; the name it decoded to was refused before it could.
-    assert.equal(await page.$$eval('footer b.ff[data-author-lattice-settle]', (e) => e.length) > 0, true, 'the footer Marp rendered carries the refused name');
+    // Marp decoded and rendered the footer; the name it decoded to was refused before it could, and
+    // the bundle's HTML allowlist then dropped the renamed attribute, which it does not list (§ 13).
+    assert.equal(await page.$$eval('footer b.ff', (e) => e.length) > 0, true, 'the footer Marp rendered');
+    assert.equal(await page.$$eval('footer b.ff[data-lattice-settle], footer b.ff[data-author-lattice-settle]', (e) => e.length), 0, 'and it carries no marker, live or renamed');
     assert.match(await page.$eval('pre.raw code', (e) => e.textContent), /flowchart LR/);
     if (process.env.ADMISSION_EVIDENCE) {
       fs.mkdirSync(process.env.ADMISSION_EVIDENCE, { recursive: true });

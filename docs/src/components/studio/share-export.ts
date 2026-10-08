@@ -958,7 +958,14 @@ export async function shareMarp(options: SingleSlideOptions, source: string, nam
 	const removed = await ex.exportMarp(embedFinishInMarkdown(source, finishClass, finishCss), name, palette, options.themeBase, { includeAgent: true, overflowMarker: overflowMarker ?? loadSettings().overflowMarker, extraTheme: extra, components: [...components], pluginsOff: deckPluginsOff(source) });
 	if (removed?.escaped) return "the deck's HTML could not be separated from its script, so the bundle shows all of it as text";
 	const n = removed ? removed.scripts + removed.handlers + removed.urls : 0;
-	return n ? `it left out the deck's own script (${n} ${n === 1 ? 'piece' : 'pieces'}), which Marp would run on the recipient's machine` : undefined;
+	const script = n ? `it left out the deck's own script (${n} ${n === 1 ? 'piece' : 'pieces'}), which Marp would run on the recipient's machine` : '';
+	// What the bundle's HTML list will show as text or drop in marp-cli (lib/core/marp-bundle-html.js).
+	const tags = Object.keys(removed?.refused?.tags ?? {});
+	const attrs = Object.keys(removed?.refused?.attrs ?? {});
+	const refused = tags.length || attrs.length
+		? `marp-cli will ${tags.length ? `show ${tags.map((t) => `<${t}>`).join(', ')} as text` : ''}${tags.length && attrs.length ? ' and ' : ''}${attrs.length ? `drop ${attrs.join(', ')}` : ''}`
+		: '';
+	return [script, refused].filter(Boolean).join('; ') || undefined;
 }
 
 /** One-click image PDF (2× raster, one slide per page). The page-image format

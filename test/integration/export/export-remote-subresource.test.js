@@ -8,9 +8,10 @@
  *   · CONTAINED — `--player` (and the Studio's Webpage export). Its own CSP has carried
  *     `default-src 'none'; img-src data:` all along. Nothing to decide.
  *   · LIVE DOCUMENT — the `.html` deliverable, the `--fluid` viewer ("a single emailable file",
- *     its own `--help`), and the `.html` sidecar written beside a pdf/pptx/png. Someone OPENS
- *     these, so a deck's remote image beacons on the RECIPIENT's machine, on every open —
- *     measured at 2 requests each before this change. Contained.
+ *     its own `--help`), and the `.html` sidecar beside a pdf/pptx/png when it is KEPT
+ *     (`--keep-html`; it is deleted on success by default since P1). Someone OPENS these, so a
+ *     deck's remote image beacons on the RECIPIENT's machine, on every open — measured at 2
+ *     requests each before this change. Contained.
  *   · RASTER — pdf/pptx/png/imageset. Left fetching until 2026-09-24, on the reasoning that the
  *     exporting author chose every image. Portable packages broke that: a stranger's component
  *     can put its sample slide into the author's deck on Insert, and every bypass the package
@@ -198,11 +199,14 @@ theme: indaco
 			const deck = path.join(dir, 'raster.md');
 			fs.writeFileSync(deck, `---\nmarp: true\ntheme: indaco\n---\n\n# Raster\n\n![pic](http://127.0.0.1:${port}/plain.png)\n\n<span style="background-image:url(http://127.0.0.1:${port}/bg.png)">shaded</span>\n`);
 			const out = path.join(dir, 'raster.pdf');
+			// `--keep-html`: the `.html` beside a raster export is now DELETED on success (the P1
+			// sidecar-deletion default). This arm inspects that sidecar to prove it carries the CSP,
+			// so it opts the sidecar back in — exactly as a human who wants the live document does.
 			// `spawn`, NOT `spawnSync`: the image server is in THIS process, and a synchronous
 			// spawn blocks the event loop, so the export's own Chromium waits 60 s for a
 			// response that cannot be sent and the whole arm fails as a navigation timeout.
 			const r = await new Promise((res, rej) => {
-				const child = spawn(process.execPath, [EMULATOR, deck, out, '--quiet', ...args], {
+				const child = spawn(process.execPath, [EMULATOR, deck, out, '--quiet', '--keep-html', ...args], {
 					cwd: ROOT, env: { ...process.env },
 				});
 				let stderr = '';
@@ -211,11 +215,11 @@ theme: indaco
 				child.on('close', (status) => res({ status, stderr }));
 			});
 			assert.equal(r.status, 0, `emulator failed on the raster deck: ${r.stderr}`);
-			// The sidecar written beside it is a live document, so it carries the policy either way.
+			// The kept sidecar (--keep-html) is a live document, so it carries the policy either way.
 			assert.match(
 				fs.readFileSync(path.join(dir, 'raster.html'), 'utf8'),
 				/http-equiv="Content-Security-Policy"/i,
-				'the .html sidecar beside a raster export is a live document and carries the policy'
+				'the kept .html sidecar beside a raster export is a live document and carries the policy'
 			);
 			return hits.sort();
 		} finally {

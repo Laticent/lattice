@@ -133,7 +133,7 @@ function ensureDir(d) { fs.mkdirSync(d, { recursive: true }); }
 function buildEmulator(mdPath, palette, outPdf, timeout) {
   execFileSync(
     process.execPath,
-    [EMULATOR, mdPath, THEME, outPdf, palette, '-q'],
+    [EMULATOR, mdPath, THEME, outPdf, palette, '-q', '--keep-html'],
     { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'], timeout },
   );
   if (!fs.existsSync(outPdf) || fs.statSync(outPdf).size < 10000) {

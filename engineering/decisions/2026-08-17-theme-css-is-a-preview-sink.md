@@ -852,7 +852,7 @@ can call are fenced to the deck folder and the Lattice install by real path, and
 images and fonts (`lib/export/pdf-asset-reader.js`). `--allow-remote` drops the offline set,
 which is the exporter's own choice.
 
-**Found on the way, not decided here (both in `followups.d/`; the first is now §11):**
+**Found on the way, not decided here (both in `followups.d/`; the first is now §11, the second §14):**
 
 - **Export-to-Marp ships a recipient a renderer told to run the deck's HTML with local file
   access.** `lib/core/marp-bundle.js` writes `html: true, allowLocalFiles: true` into the
@@ -865,7 +865,8 @@ which is the exporter's own choice.
   `marp.config.cjs` is already code the recipient runs, so the real gap is the Studio path, where the
   author never saw the script. The fix changes an exported artifact, so it waits for the owner.
 - **Whether the sidecar should be written at all** when nobody asked for an `.html`. Changing the
-  default changes what every PDF export leaves on disk, so that is the owner's call too.
+  default changes what every PDF export leaves on disk, so that is the owner's call too. Decided
+  and done in § 14: the export deletes the sidecar on success; a reader opts in with `--keep-html`.
 
 ## 11. The Export-to-Marp bundle drops the deck's own executable HTML (2026-10-07)
 
@@ -974,5 +975,208 @@ a tag nobody remembered (as `<base>` nearly was) breaks it quietly. An allowlist
 class: load the runtime through a marp-cli `engine:` plugin in `marp.config.cjs` instead of raw
 `<script>` tags, then set marp-core's `html` option to an allowlist of the tags and attributes
 Lattice decks use. It costs every deck that uses unusual HTML, and the allowlist needs keeping.
-Logged in `followups.d/` rather than built in this PR.
+Logged in `followups.d/` rather than built in this PR; built in § 13.
 
+
+## 12. A fence opened in the front matter blinded both of the bundle's checks (2026-10-07)
+
+The bundle's two passes over the deck's markdown both read it with plain markdown-it: § 11's strip
+(`lib/core/live-author-html.js`, to tell code from live HTML), and #2577's refusal of forged plugin
+markers (`lib/plugins/author-markup.js` `refuseAuthorMarkupInSource`, to find the raw-HTML lines).
+Plain markdown-it reads the YAML front matter as Markdown; Marp removes it before it parses. So a
+front-matter value whose next line opens a fence made the whole body one unclosed code block to both
+passes and live HTML to Marp:
+
+````markdown
+---
+marp: true
+note: |
+  ```
+---
+
+<img src=x onerror="document.title='pwned'">
+<div data-lattice-hydrate="function-plot" data-lattice-config="…" data-lattice-settle="pending"></div>
+````
+
+The independent checker on #2578's first draft found it and ran it through `tools/export-marp.js`,
+real marp-cli 4.3.1 and Chromium 131: the strip removed nothing and `title` became `pwned`, and,
+with `function-plot.js` beside the runtime, the forged figure was drawn. `main` after #2577 still
+let the marker through (measured).
+
+**What ships.** Both passes now parse the deck with a closed front matter's lines emptied, as Marp
+parses it, so line numbers still match (`withoutFrontMatterLines` in the strip; the same step in
+`refuseAuthorMarkupInSource`, which already refuses the front matter's own text whole). The strip still
+scans the front matter's text, because Marp renders a `header:` value as Markdown. An unclosed front
+matter is not front matter to Marp, so it stays in the parse.
+
+**Measured.** The bundled markdown of all 422 tracked `marp: true` decks (`withRuntimeScripts`) is
+byte-identical to `main`'s, in 335 ms. Each pass has a unit case that fails without the change
+(`test/unit/core/live-author-html.test.js`, `test/unit/plugins/author-markup.test.js`).
+
+## 13. The Export-to-Marp bundle's HTML is an allowlist (2026-10-07)
+
+§ 11 closed the bundle's script hole with a strip, which is a denylist, and logged the stronger design:
+let marp-cli pass only HTML on a list. This section builds it.
+
+**What ships.** The bundle's `marp.config.cjs` no longer sets `html: true`. It sets marp-core's `html`
+option to an allowlist of tags and attributes (`lib/core/marp-bundle-html.js` `MARP_HTML_ALLOWLIST`). It
+also installs a marp-cli functional `engine:` that wraps the `html_block` renderer rule:
+
+- **`html_block`.** It passes through, byte for byte, only the bundle's own trailing lines: a runtime
+  `<script src>` that names one of the bundle's three files, or one of the two inert JSON data blocks
+  (`lib/core/data-block.js`, whose payload never holds a raw `<`). Every other block goes through
+  marp-core's js-xss filter with the list. A tag that is not on it prints as text, and an attribute
+  that is not on it is dropped.
+
+(Math is deliberately NOT touched by the engine — see "Math is a pre-existing injection surface" below.)
+
+The deck file is byte-identical to § 11's; only what marp-cli makes of it changes. The § 11 strip stays
+in front, because VS Code's preview renders the same file with `enableHtml` on and reads neither the
+list nor the engine. The followup asked for "the runtime loads without raw `<script>` tags". It does
+not: the tags stay in the deck, so that VS Code and other Marp tools still see them, and the engine
+passes exactly those lines. An author who writes the same line loads the same bundled file.
+
+The config's code is a real function (`bundleConfig`), written into the config as its source, so the
+unit tests call what ships. A URL attribute never takes a bare `true`. `href`, `src` and `poster` take
+`safeUrl` (no `javascript:`, `vbscript:` or non-image `data:`), `srcset` takes the same check per
+candidate, a frame takes an `https:` page only, and an SVG `<use>` takes a `#` reference only. marp-core
+replaces js-xss's own value check with one that only escapes, so without these an allowed `href` would
+carry `javascript:` through.
+
+**What is on the list.** The tags and attributes in the raw HTML of the 422 shipped decks (measured), plus
+the plain authoring set:
+
+- text, blocks and tables, legacy `align`/`width` included;
+- images with `srcset`;
+- `<video>`, `<audio>`, `<picture>`, `<source>`;
+- `<iframe>` with an `https:` source and no `srcdoc`. This keeps § 11's call that a remote page runs in
+  its own origin;
+- inline SVG with its paint servers and clips (`linearGradient`, `stop`, `clipPath`, `mask`, `pattern`,
+  `marker`, `symbol`, `use`). Fabricate Motion keeps those in a drawing on purpose
+  (`docs/src/components/studio/motion/svg-intake.ts`), and a fill pointing at a dropped gradient paints
+  nothing at all.
+
+Not on it: `script`, `object`, `embed`, `base`, `meta`, `link`, form controls, `foreignObject`, SVG
+`image` and `animate*`, MathML, and any `on…` or `srcdoc`. A deck's `<style>` never reaches the filter,
+because Marp reads it first.
+
+**The export says what the list refuses.** The inversion pass's strongest point was that failing safe
+only holds if the failure is seen: a tag printed as text is visible, but a dropped gradient is a blank
+drawing. `refusedHtml` reads the deck the way the strip does (code blanked, one forward tag scan) and
+lists every tag and attribute the list refuses. The CLI prints it:
+
+```
+  marp-cli will show these tags as text: <marquee>; and drop these attributes: div[data-foo]. They are outside the bundle's HTML list (marp.config.cjs). VS Code's preview still shows them.
+```
+
+The Studio's Share sheet adds the same to its toast. None of the 422 shipped decks triggers it.
+
+**Measured with real marp-cli 4.5.1 and marp-core 4.4.0.** Every tracked `marp: true` deck was exported
+on `main` and on this branch and rendered to HTML with each bundle's own config:
+
+| | decks |
+|---|---|
+| byte-identical HTML | 417 |
+| same page once parsed (parse5); the other 4 differ only by `viewBox` → `viewbox`, which the HTML parser restores for SVG | 421 |
+| different | 1: `design/forms.gallery.md`, whose last slide carried two stray `</content>` / `</invoke>` lines from an old edit. `html: true` let the browser ignore them, and the list would have printed them, so they are deleted here. The only change is two empty line breaks at the end of that slide |
+
+`examples/inline-icons.md` through the bundle to PDF, light and dark: all 18 pages are pixel-identical to
+`main`'s config (`compare -metric AE -fuzz 2%`, 0 px). The first comparison showed every icon missing on
+`main`. That was the test worktree, which lacked the built `lattice-plugin-icons.js`, not the code.
+
+**Pinned against the real thing.** `test/integration/export/marp-bundle-author-script.test.js` gains an
+`allowlist` arm: the UNSTRIPPED probe deck plus the bundle's trailing block, through the bundle's config.
+Through `main`'s config the same file ran four payloads (`script`, `onerror`, `srcdoc`, the
+`<svg><style>` breakout), and its `<base>` kept the runtime from loading. Through this one: none ran, the
+runtime loaded, and the deck's `<script>` printed as text. The test also clicks the middle of the math
+slide, and checks that a gradient drawing keeps its `<stop>`s and that an unclosed `<pre>` on the last
+slide still loads Mermaid.
+
+**What the adversarial trio changed (HARD RULE #25, tier 2).**
+
+- **Red team: math is an injection surface the allowlist does not reach** — see "Math is a
+  pre-existing injection surface" below; it is unchanged from `main` and deferred to its own PR.
+- **Inversion: the first list was the 422 decks' vocabulary and little more.** That would have turned
+  user decks' video, frames and gradient drawings into text or blanks with no warning. The list was
+  widened as above, and the refusal report was added. It also showed that the first list quietly
+  reversed § 11's choice to keep remote frames; the frame is back, `https:` only.
+- **Inversion and checker, the same regression: an unclosed `<pre>` or `<textarea>` swallowed a runtime
+  line.** markdown-it ends such a block only at a line holding its closing tag, so the
+  author's block took in the Mermaid tag. The trusted check matched whole blocks, so the tag printed as
+  text and Mermaid never loaded. Under `html: true` it had loaded. The engine now peels trusted lines off
+  the END of any block and sanitizes only the author's part.
+- **Checker:** a runtime file name holding `/` would have ended the generated regex literal; the name is
+  escaped now. It also found the stale `html: true` claims in `engineering/gotchas/vscode.md`,
+  `engineering/workflow.md`, `README.md`, `design/skill.md` and a code comment, all corrected.
+
+**What a fourth, independent checker changed (on the post-trio code).**
+
+- **Math is a pre-existing injection surface, and this PR does NOT touch it.** marp-core typesets
+  math with MathJax, and that output reaches the page without passing the HTML allowlist at all — it
+  is emitted by the math renderer, not an `html_block` token. MathJax does not escape a `"` in several
+  command arguments (`\href`, `\style`, `\unicode`, `\cssId`, …), so a deck can break out of an
+  attribute and run a handler with no click, or load a remote resource with a CSS `url()`. Four
+  verification passes (checkers four and five, then a red team) explored a guard here; each regex
+  shape the red team then defeated (a `/`-separated handler the HTML parser accepts, a `url()` beacon
+  with no break-out at all), because a regex over the output cannot match the browser's parser. The
+  whole surface is **unchanged from `main`** — the bundle renders math exactly as the current release
+  does. Closing it is a separate, focused change (bake math to sanitized SVG at export so no live
+  MathJax reaches the recipient, or a parser-based cleaner on every surface), tracked in
+  `followups.d/2589-p3-marp-bundle-math-style-breakout-in-vscode.md`. It was deliberately kept OUT of
+  this PR rather than shipped as a bypassable partial filter (the owner's call: no half-measure, the
+  real fix in its own PR).
+- **The front matter was found by one spelling.** Marp's rule, measured on marp-core 4.4, accepts a
+  longer opener (`----`), a trailing word (`---x`) and a longer closer (`-----` closes `---`). With
+  those, § 12's bypass came back for the strip and the marker refusal. The allowlist still held in
+  marp-cli, but VS Code was exposed. Both now use one helper with Marp's rule
+  (`lib/core/marp-front-matter.js`), pinned per variant.
+- **Smaller:** the backstop filter fused two attributes when it dropped one, and now keeps the space;
+  and the CLI's refusal line printed a deck's control characters raw, and now prints `?`.
+
+**What it does not change.** The Marp kit (`tools/build-marp-kit.js`) keeps `html: true`. Its decks are
+the author's own, written in the kit, and no producer strips them. `--html` on marp-cli's command line
+replaces the config's list with "everything", so the bundle's README and the agent kit say to render a
+bundle with its own `npm run pdf`. A hand-edited deck that appends a forged `application/lattice-*` data
+block after the bundle's own wins the runtime's last-block read. That bypasses only the producer's
+front-matter cleaning, and only for a file the recipient edited themselves.
+
+## 14. A PDF/PPTX/PNG export no longer leaves a live `.html` on disk (2026-10-07)
+
+§ 10 wrote a warning onto the sidecar — the `<out>.html` the emulator writes beside every
+`.pdf`, `.pptx`, `.odp`, `.png` and `.zip`, captures the raster from, and then left on disk —
+and logged two things for the owner to decide. One was the Export-to-Marp bundle (§ 11, § 13).
+The other was this: **whether the sidecar should be written at all** when nobody asked for an
+`.html`. That is the owner's call, because it changes what every export leaves behind. The owner
+decided: **delete it.**
+
+**The problem it fixes.** An author who runs `lattice deck.md deck.pdf` asked for a PDF. They
+also got `deck.html` — a file that keeps the deck's own raw HTML and runs its `<script>` and
+`on…` handlers when anyone opens it (§ 10's table: `window.p` and `window.q` both set from the
+plain `.html`). The § 10 warning named the hazard; it did not remove it. The file sat beside the
+PDF, unasked for, live.
+
+**What ships.** `removeSidecarHtml()` (`lattice-emulator.js`) unlinks the sidecar after a
+successful raster. It is a byproduct — Chrome prints the PDF from `file://<out>.html` — and
+nothing the caller asked for needs it once the raster is written. The delete is best-effort: a
+failing `unlink` never fails an otherwise good export.
+
+**Where the `.html` IS the deliverable, it stays.** Four cases, each the same file the caller
+wants:
+
+- the output extension is `.html` (`outHtml === outFile`);
+- the output path carries **no extension** — the sidecar idiom, where the PDF is the byproduct
+  and `<out>.html` is the deliverable the player verifiers (`tools/verify-player-input.mjs`,
+  `tools/verify-narrated-player.mjs`) read;
+- `--player`, `--fluid` or `--read` rewrote the file into a deliverable viewer after the raster;
+- `--keep-html` (or `LATTICE_KEEP_HTML=1`) asks to keep it — the opt-in.
+
+A reader that needs the live sidecar opts in, rather than every export leaving a live file
+behind for the ones that do not. Our own tools and tests that inspect the sidecar pass
+`--keep-html`: the two player verifiers already render extensionless, and the integration arms
+that read the sidecar beside a raster (`export-remote-subresource.test.js`'s raster probe, the
+strip-notes and author-script export tests) opt in by name.
+
+**Measured.** With the sidecar gone by default: `lattice deck.md deck.pdf` leaves `deck.pdf` and
+no `deck.html`; `--keep-html`, `LATTICE_KEEP_HTML=1`, an `.html` output, an extensionless output,
+`--player` and `--fluid` each leave the `.html`; a `.png` and a `.pptx` export each delete it.
+The integration export tier is green with the readers opted in.

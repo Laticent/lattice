@@ -45,7 +45,7 @@ describe('mermaid-init-merge', () => {
 
   before(() => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-mmd-init-'));
-    const r = spawnSync(process.execPath, [EMULATOR, FIXTURE, path.join(dir, 'deck.pdf'), '--quiet'], {
+    const r = spawnSync(process.execPath, [EMULATOR, FIXTURE, path.join(dir, 'deck.pdf'), '--quiet', '--keep-html'], {
       cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
     });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);

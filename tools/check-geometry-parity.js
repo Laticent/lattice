@@ -84,7 +84,7 @@ const DEFAULT_DECKS = [
 function renderDeck(deck) {
   fs.mkdirSync(WORK, { recursive: true });
   const out = path.join(WORK, path.basename(deck, '.md') + '.pdf');
-  const r = spawnSync(process.execPath, [EMULATOR, path.join(ROOT, deck), out, '-q'], { cwd: ROOT, env: process.env });
+  const r = spawnSync(process.execPath, [EMULATOR, path.join(ROOT, deck), out, '-q', '--keep-html'], { cwd: ROOT, env: process.env });
   if (r.status !== 0) {
     return { ok: false, error: (r.stderr || r.stdout || Buffer.from('')).toString().trim().split('\n').slice(-3).join(' ') };
   }

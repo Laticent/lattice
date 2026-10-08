@@ -200,7 +200,7 @@ async function main() {
 			// deck renders; iterating on the MEASUREMENT should not re-pay for the corpus.
 			if (!(reuse && fs.existsSync(`${base}.html`))) {
 				try {
-					execFileSync(process.execPath, [EMULATOR, md, `${base}.pdf`, 'indaco', '--captions', '-q'], {
+					execFileSync(process.execPath, [EMULATOR, md, `${base}.pdf`, 'indaco', '--captions', '-q', '--keep-html'], {
 						cwd: ROOT,
 						stdio: ['ignore', 'ignore', 'ignore'],
 						timeout: 10 * 60_000,

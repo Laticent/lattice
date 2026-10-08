@@ -49,7 +49,7 @@ describe('mermaid-smoke', () => {
     const dir = tmpDir();
     const pdf = path.join(dir, 'deck.pdf');
     const html = path.join(dir, 'deck.html');
-    const args = [FIXTURE, pdf, '--quiet'];
+    const args = [FIXTURE, pdf, '--quiet', '--keep-html'];
     if (palette) args.push(palette);
     const r = run(args);
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);

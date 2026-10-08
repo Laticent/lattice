@@ -359,8 +359,10 @@ everything else composes as the chrome-hosting `standard` Frame. See
 **Where this actually runs.** Anywhere the browser executes the `<script>`
 tags: a plain HTML page, an Export-to-Marp bundle's `.html`, and marp-cli's
 `marp --html … --pdf` (it drives a real headless browser). Marp tools need
-raw HTML enabled or the tags are escaped into visible text — `html: true` /
-`--html` for marp-cli, `markdown.marp.enableHtml` for the VS Code extension.
+raw HTML enabled or the tags are escaped into visible text — for marp-cli, an
+Export-to-Marp bundle's own `marp.config.cjs` (an HTML allowlist; do not add
+`--html`, which replaces it with "everything") or `html: true` / `--html` for
+the Marp kit and a bare deck; `markdown.marp.enableHtml` for the VS Code extension.
 The one surface where this is **not** guaranteed is the **marp-vscode preview
 pane** — its webview is understood to block script execution, which would leave
 runtime-composed structure (Form, split panels, Mermaid, the chart family) flat

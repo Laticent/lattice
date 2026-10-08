@@ -238,5 +238,3 @@ A sovereign Frame: the masthead and footer Cells are suppressed and the canvas i
 # Author once; read anywhere.
 
 One block of Tiles, any Frame the consumer selects.
-</content>
-</invoke>

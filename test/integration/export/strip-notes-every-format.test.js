@@ -18,7 +18,7 @@
  *
  *      WHAT THIS LOCKS IS THE **FORMAT** AXIS, NOT THE CHANNEL AXIS — say it plainly,
  *      because the stronger claim is tempting and false. Four output channels are written
- *      OUTSIDE that table: the `<out>.html` sidecar (emitted for every non-html format),
+ *      OUTSIDE that table: the `<out>.html` sidecar (kept here with --keep-html; deleted by default),
  *      the `<out>.notes.txt` sidecar, the `.vtt` caption sidecar, and the `--player` /
  *      `--fluid` rewrite (which sits outside the format if/else, so it applies to pdf,
  *      pptx, png and zip too). Those are caught here only because `producedFiles` walks
@@ -152,7 +152,9 @@ describe('strip-notes: every export format', () => {
 
   function render(dir, c, extra = []) {
     const out = path.join(dir, c.out);
-    const r = spawnSync(process.execPath, [EMULATOR, FIXTURE, out, '--quiet', ...c.args, ...extra], {
+    // --keep-html: the HTML sidecar is deleted by default for a non-html format now, so this
+    // sidecar-contents test opts in to keep it (the point here is that it carries no stripped note).
+    const r = spawnSync(process.execPath, [EMULATOR, FIXTURE, out, '--quiet', '--keep-html', ...c.args, ...extra], {
       cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
     });
     assert.equal(r.status, 0, `emulator failed for ${c.name}: ${r.stderr}`);
@@ -160,7 +162,7 @@ describe('strip-notes: every export format', () => {
   }
 
   // Every file the render produced, not just the named deliverable — a sidecar leak is
-  // still a leak, and the HTML sidecar is written alongside every non-html format.
+  // still a leak, and the HTML sidecar is kept here (--keep-html) alongside every non-html format.
   function producedFiles(dir) {
     const out = [];
     for (const entry of fs.readdirSync(dir, { withFileTypes: true, recursive: true })) {
