@@ -701,10 +701,14 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 				if (shown && rect.w > 0 && rect.h > 0) items.push({ node: el, owner: el, rect });
 				return;
 			}
-			if (el !== section && shown) {
+			// The slide's own `::before`/`::after` count too: a `::after` the slide places over a
+			// card (a vignette, a stamp) is painted above it, and stays in the picture.
+			if (shown) {
 				for (const which of ['::before', '::after'] as const) {
 					if (pseudoPaints(el, which)) items.push({ node: el, owner: el, rect: pseudoRect(el, which, rect), pseudo: which === '::before' ? 'before' : 'after' });
 				}
+			}
+			if (el !== section && shown) {
 				if (cs.display === 'list-item' && (cs.listStyleType !== 'none' || cs.listStyleImage !== 'none')) {
 					const em = px(cs.fontSize) * 2;
 					items.push({ node: el, owner: el, rect: { x: rect.x - em, y: rect.y, w: rect.w + em, h: rect.h }, pseudo: 'before' });
@@ -926,7 +930,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 	// `:first-child`), so every word is measured again; if one moved, the wrappers come out
 	// and the FALLBACK below freezes colors instead.
 	let hidden = false;
-	const host = section as unknown as { __calcoRestore?: () => void };
+	const host = section as unknown as { __calcoRestore?: () => void; __calcoStill?: () => void };
 	const flushStyle = (el: Element, saved: string | null) => {
 		// Read first: Chrome writes CSSOM changes back to the attribute lazily, and a
 		// removeAttribute before that flush comes back as `style=""` (measured).
@@ -1070,6 +1074,23 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			for (const r of restores) r();
 		};
 	};
+	// STILL. A running transition on a color, a decoration or a shadow outranks the inline
+	// `!important` the hide writes, for its whole duration: the picture would still hold the
+	// text or the box, and the restore would fade it back in. So transitions are off for the
+	// whole slide from here until every undo has run and the styles are flushed.
+	if (options?.hide && (textOwners.size || shapes.length)) {
+		const still = doc.createElement('style');
+		still.setAttribute('data-calco', 'still');
+		still.textContent = '[data-calco-still], [data-calco-still] *, [data-calco-still] ::before, [data-calco-still] ::after, [data-calco-still]::before, [data-calco-still]::after { transition: none !important; }';
+		(doc.head || doc.documentElement).appendChild(still);
+		section.setAttribute('data-calco-still', '');
+		void win.getComputedStyle(section).color;
+		host.__calcoStill = () => {
+			for (const el of [section, ...Array.from(section.querySelectorAll('*'))]) void win.getComputedStyle(el).color;
+			section.removeAttribute('data-calco-still');
+			still.remove();
+		};
+	}
 	if (options?.hide && textOwners.size) {
 		if (!wrapHide()) freezeHide();
 		hidden = true;
@@ -1105,10 +1126,16 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 
 /** Undo `readSlide(section, { hide: true })`. Safe to call when nothing is hidden. */
 export function restoreSlide(section: HTMLElement): void {
-	const host = section as unknown as { __calcoRestore?: () => void };
+	const host = section as unknown as { __calcoRestore?: () => void; __calcoStill?: () => void };
 	const restore = host.__calcoRestore;
 	if (typeof restore === 'function') {
 		host.__calcoRestore = undefined;
 		restore();
+	}
+	// Transitions come back last, once every style the hide wrote is undone and flushed.
+	const still = host.__calcoStill;
+	if (typeof still === 'function') {
+		host.__calcoStill = undefined;
+		still();
 	}
 }
