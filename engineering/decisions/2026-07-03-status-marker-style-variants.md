@@ -97,7 +97,14 @@ respect that budget:
 
 **State — `stamp-*` (13):** `tab` (default), `notch`, `pill`, `bracket`, `seal`,
 `ribbon`, `flag`, `underline`, `dot`, `mark` (watermark), `veil` (overlay+corner
-label), `bar` (redaction bar — label-hidden), `pin` (drop pin — label-hidden).
+label), `bar` (redaction bar — label shown on the bar since 2026-10-08), `pin` (drop pin — label-hidden).
+
+*2026-10-08:* `mark` had stopped being a watermark. The shared tab rule fills every state
+marker's pseudo with `--stamp-color`, and `mark` never cleared it, so its full-slide box
+printed as an opaque rotated slab over the content (in Chrome's own print too). It now sets
+`background: none` and sizes its word to fit (`--stamp-len`, each state's letter count), so
+CONFIDENTIAL stays on the slide. `bar` hid its label, which left an unexplained dark
+rectangle; it now prints the state on the bar. Demo: `examples/stamp-mark-and-bar.pdf`.
 **Boardroom subset (drawer surfaces first):** `tab`, `notch`, `bracket`, `seal`, `pill`.
 
 **Tone — `tone-<style>` (3 in v1):** `rail` (default), `edge`, `glow`.
