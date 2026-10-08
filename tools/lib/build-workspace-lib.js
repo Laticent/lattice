@@ -10,11 +10,18 @@
  * the values its own copy used, so its dist/ is byte-for-byte what that copy built.
  * What every library shares:
  *
- * - Build into a pid-suffixed sibling staging directory and swap it in only on success, so a
- *   failed build never leaves `dist/` deleted, and two concurrent runs never write into each
- *   other's tree (#2117). A dead run's staging is swept by pid.
+ * - Build into a scratch folder in the OS temp directory. Only output that differs from `dist/`
+ *   is copied into a pid-suffixed sibling staging directory and swapped in, so a failed build
+ *   never leaves `dist/` deleted, and two concurrent runs never write into each other's tree
+ *   (#2117). A dead run's staging is swept by pid on every build.
  * - Losing the final swap to a concurrent run is not a failure when what landed is what we
  *   built: the build is deterministic, so equal trees mean the job is done.
+ * - A rebuild that would change nothing touches nothing. The build goes to a scratch folder
+ *   outside the repo first, and only output that differs from `dist/` is staged in the tree
+ *   and swapped in. `npm pack` runs this through `prepack`, and test/unit/tools/
+ *   package-nodenext-types.test.js packs every library while other unit tests walk
+ *   docs/src/lib in parallel; deleting an unchanged `dist/` (or creating a `.dist.tmp-*`
+ *   beside it) under them failed CI with ENOENT (#2613).
  */
 
 const esbuild = require('esbuild');
@@ -209,13 +216,27 @@ function defineLibraryBuild(spec) {
       }
       return;
     }
+    const scratch = fs.mkdtempSync(path.join(os.tmpdir(), `${spec.name}-lib-`));
     const staging = path.join(LIB_DIR, `${STAGING_PREFIX}${process.pid}`);
-    sweepStaleStaging();
-    fs.rmSync(staging, { recursive: true, force: true });
     try {
-      await buildInto(staging);
+      sweepStaleStaging();
+      await buildInto(scratch);
+      let current = null;
+      try {
+        current = readTree(DIST_DIR);
+      } catch {
+        // no dist/ yet
+      }
+      if (current && !diffTrees(readTree(scratch), current).length) {
+        if (!silent) console.log(`${tag} ${path.relative(ROOT, DIST_DIR)}/ is already current; left it untouched.`);
+        return;
+      }
+      // Staging stays in LIB_DIR, beside dist/, so the final rename never crosses filesystems.
+      fs.rmSync(staging, { recursive: true, force: true });
+      fs.cpSync(scratch, staging, { recursive: true });
       installStaging(staging);
     } finally {
+      fs.rmSync(scratch, { recursive: true, force: true });
       fs.rmSync(staging, { recursive: true, force: true });
     }
     if (!silent) {
