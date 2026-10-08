@@ -63,6 +63,8 @@ npx lattice examples/gallery-jargon.md output.pdf cuoio
 npx lattice -o output.pdf -p cuoio examples/gallery-jargon.md
 # named flags: -o/--output, -p/--palette, -c/--css, -q/--quiet (positional still works)
 ```
+`npx lattice` runs the copy installed in this clone or project. With no install, write
+`npx @laticent/lattice`: the unscoped `lattice` package on npm is unrelated.
 
 Palette resolution precedence: CLI flag > positional palette > `LATTICE_PALETTE` env > deck front matter `theme:` > default `indaco`. Run `npx lattice --help` for the full reference. Exit codes: `0` success, `1` usage/file/render error.
 

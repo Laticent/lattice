@@ -64,6 +64,10 @@ is not done.
 Node 22.13 or newer. `npm install` downloads the Chromium the render uses. If a
 render says it cannot find a browser, set `CHROME_PATH`.
 
+`npx lattice` runs the copy installed in the current project (or the clone). With no
+install, write `npx @laticent/lattice` instead: the unscoped `lattice` package on npm is
+an unrelated package, and a bare `npx lattice` in an empty folder downloads it and fails.
+
 ## Recipe
 
 1. **Lint first, when you can.** From a clone: `npm run lint:deck -- deck.md`.

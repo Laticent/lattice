@@ -62,7 +62,15 @@ describe('cli', { concurrency: true }, () => {
     assert.ok(lines <= 40, `--help is ${lines} lines; keep it to one screen and move detail to --help all`);
   });
 
-  for (const args of [['--help', 'all'], ['--help=all'], ['-h', 'all'], ['--help', 'all', '-h']]) {
+  for (const args of [['--help='], ['--help=nope']]) {
+    test(`lattice: ${args.join(' ')} prints the short help, not an error`, async () => {
+      const r = await run(EMULATOR, args);
+      assert.equal(r.status, 0, `expected 0, got ${r.status}; stderr: ${r.stderr}`);
+      assert.match(r.stdout, /lattice --help all/);
+    });
+  }
+
+  for (const args of [['--help', 'all'], ['--help=all'], ['-h', 'all'], ['--help', 'all', '-h'], ['--help=ALL'], ['--help', 'ALL']]) {
     test(`lattice: ${args.join(' ')} prints every option`, async () => {
       const r = await run(EMULATOR, args);
       assert.equal(r.status, 0, `expected 0, got ${r.status}; stderr: ${r.stderr}`);

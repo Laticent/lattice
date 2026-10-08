@@ -8,8 +8,8 @@
  * It emits the section elements, pagination attribute, and header/footer
  * structure that lattice.css targets.
  *
- * The name is historical. The file began as a Marp CLI stand-in during the
- * migration, and the HTML shape it emits stays Marpit-compatible on purpose
+ * This file began as a Marp CLI stand-in during the migration (it took its
+ * current name for 1.0.0), and the HTML shape it emits stays Marpit-compatible on purpose
  * (that compatibility is what LFM specifies and what Export-to-Marp hands
  * off) — but nothing here defers to Marp, and lattice.css is written for
  * this engine, not for Marp. See engineering/marp-independence.md.
@@ -493,17 +493,19 @@ if (process.argv[2] === 'video') {
   process.exit(r.status ?? 1);
 }
 
-if (process.argv.includes('--help') || process.argv.includes('-h')) {
-  // `--help all` (or `--help=all`) is the full reference; plain `--help` is one screen.
-  // Any help flag followed by `all` asks for it, wherever the flags sit (`--help all -h`).
-  const full = process.argv.some((a, j) => (a === '--help' || a === '-h') && process.argv[j + 1] === 'all');
-  if (full || process.argv.includes('--help=all')) showFullHelp();
-  else showShortHelp();
-  process.exit(0);
-}
-if (process.argv.includes('--help=all')) {
-  showFullHelp();
-  process.exit(0);
+// `--help` / `-h` is one screen; `--help all` (`-h all`, `--help=all`, any case) is the full
+// reference. A help flag anywhere asks for help, as it always has; `--help=<anything>` counts too,
+// so `--help=` or a mistyped value prints the short help rather than "unknown option".
+{
+  const isHelp = (a) => a === '--help' || a === '-h' || a.startsWith('--help=');
+  if (process.argv.some(isHelp)) {
+    const full = process.argv.some((a, j) =>
+      (a.startsWith('--help=') && a.slice(7).toLowerCase() === 'all') ||
+      ((a === '--help' || a === '-h') && String(process.argv[j + 1]).toLowerCase() === 'all'));
+    if (full) showFullHelp();
+    else showShortHelp();
+    process.exit(0);
+  }
 }
 if (process.argv.includes('--version') || process.argv.includes('-v')) {
   console.log(`lattice ${pkgVersion() ?? ''}`);
