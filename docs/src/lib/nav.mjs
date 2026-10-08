@@ -62,18 +62,26 @@ export function appsNav(url) {
 	];
 }
 
-// The framework-free sibling LIBRARIES, each with a standalone showcase demo (own chrome,
-// reached by URL). Grouped under one "Libraries" disclosure on desktop, listed flat in the mobile
-// menu + command palette. Anima's demo lands with its build (not listed yet).
+// The framework-free sibling LIBRARIES — every workspace library in the root package.json, each
+// published to npm as `pkg` (engineering/decisions/2026-10-08-library-audit.md). Grouped under one
+// "Libraries" disclosure on desktop, listed flat in the mobile menu + command palette, and drawn as
+// cards on the home page. A library with a standalone showcase demo (own chrome, reached by URL)
+// links to it; LTT and Tavola have no demo page, so they link to their README on GitHub and carry
+// an empty `match` (no route of ours is "inside" them). nav.test.ts fails when a workspace library
+// is missing here, which is how LTT and Tavola went unlisted. Anima is internal (no package, no
+// build), so it is not listed.
 export function librariesNav(url) {
+	const readme = (name) => `${GITHUB_URL}/tree/main/docs/src/lib/${name}#readme`;
 	return [
-		{ label: 'Suono', href: url('suono'), match: ['suono'], desc: 'Audio scheduler + owned clock' },
-		{ label: 'Lente', href: url('lente'), match: ['lente'], desc: 'Reader lenses, human-approved' },
-		{ label: 'Cadenza', href: url('cadenza'), match: ['cadenza'], desc: 'Caption + timeline engine' },
-		{ label: 'Vetrina', href: url('vetrina'), match: ['vetrina'], desc: 'Self-driving walkthrough' },
-		{ label: 'Trama', href: url('trama'), match: ['trama'], desc: 'Graph layout + elbow routing' },
-		{ label: 'Segno', href: url('segno'), match: ['segno'], desc: 'Grammar engine + notation' },
-		{ label: 'Calco', href: url('calco'), match: ['calco'], desc: 'Slides to editable office files' },
+		{ label: 'Suono', href: url('suono'), match: ['suono'], pkg: '@laticent/suono', desc: 'Audio scheduler + owned clock' },
+		{ label: 'Lente', href: url('lente'), match: ['lente'], pkg: '@laticent/lente', desc: 'Reader lenses, human-approved' },
+		{ label: 'Cadenza', href: url('cadenza'), match: ['cadenza'], pkg: '@laticent/cadenza', desc: 'Caption + timeline engine' },
+		{ label: 'Vetrina', href: url('vetrina'), match: ['vetrina'], pkg: '@laticent/vetrina', desc: 'Self-driving walkthrough' },
+		{ label: 'Trama', href: url('trama'), match: ['trama'], pkg: '@laticent/trama', desc: 'Graph layout + elbow routing' },
+		{ label: 'Segno', href: url('segno'), match: ['segno'], pkg: '@laticent/segno', desc: 'Grammar engine + notation' },
+		{ label: 'Calco', href: url('calco'), match: ['calco'], pkg: '@laticent/calco', desc: 'Slides to editable office files' },
+		{ label: 'LTT', href: readme('ltt'), match: [], pkg: '@laticent/ltt', desc: 'Word-timing track format', external: true },
+		{ label: 'Tavola', href: readme('tavola'), match: [], pkg: '@laticent/tavola', desc: 'Peer-to-peer live editing', external: true },
 	];
 }
 

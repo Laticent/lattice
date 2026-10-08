@@ -1,6 +1,9 @@
 // @vitest-environment node
 // This file touches no DOM. Under the suite default it paid for a jsdom window it
 // never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
+import { readFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { appsNav, contentNav, isCurrent, librariesActive, librariesNav, primaryNav } from './nav.mjs';
 
@@ -55,11 +58,27 @@ describe('nav model', () => {
 		expect(isCurrent(docs, '/lattice/studio/')).toBe(false);
 	});
 
-	it('lists every workspace library that ships a demo page, Trama, Segno and Calco included', () => {
-		expect(labels(librariesNav(url))).toEqual(['Suono', 'Lente', 'Cadenza', 'Vetrina', 'Trama', 'Segno', 'Calco']);
+	it('lists every workspace library, Trama, Segno, Calco, LTT and Tavola included', () => {
+		expect(labels(librariesNav(url))).toEqual(['Suono', 'Lente', 'Cadenza', 'Vetrina', 'Trama', 'Segno', 'Calco', 'LTT', 'Tavola']);
 		expect(librariesActive('/lattice/trama/', url)).toBe(true);
 		expect(librariesActive('/lattice/segno/', url)).toBe(true);
 		expect(librariesActive('/lattice/calco/', url)).toBe(true);
+	});
+
+	it('lists exactly the workspace libraries in the root package.json, by package name', () => {
+		// The drift that left LTT and Tavola off the site for weeks: a library joined `workspaces`
+		// and nothing asked the nav to list it. Each workspace's own package.json names the package.
+		const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
+		const workspaces: string[] = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).workspaces;
+		const published = workspaces.map((dir) => JSON.parse(readFileSync(join(root, dir, 'package.json'), 'utf8')).name);
+		expect(librariesNav(url).map((l) => l.pkg).sort()).toEqual(published.sort());
+	});
+
+	it('points a library without a demo page at its README, and never marks it current', () => {
+		for (const l of librariesNav(url).filter((x) => x.external)) {
+			expect(l.href).toMatch(/^https:\/\/github\.com\/Laticent\/lattice\/tree\/main\/docs\/src\/lib\/[a-z]+#readme$/);
+			expect(l.match).toEqual([]);
+		}
 	});
 
 	it('lights the Libraries disclosure only from a library route', () => {

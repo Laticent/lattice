@@ -623,3 +623,35 @@ export function NextSteps({ links }: { links: NextStep[] }) {
 		</div>
 	);
 }
+
+// ── Libraries ────────────────────────────────────────────────────────────────
+// One card per workspace library, from the same `librariesNav` list the header's
+// Libraries menu renders, so the home page and the nav cannot disagree about which
+// libraries exist. A library with a demo page links to it; one without links to its
+// README on GitHub and says so in the CTA.
+export type LibraryCard = { label: string; href: string; pkg: string; desc: string; external?: boolean };
+
+export function LibraryCards({ libraries }: { libraries: LibraryCard[] }) {
+	return (
+		<ul className="m-0 grid list-none grid-cols-1 gap-[14px] p-0 sm:grid-cols-2 md:grid-cols-3">
+			{libraries.map((l) => (
+				<li key={l.pkg} className="flex">
+					<a
+						href={l.href}
+						className="group flex w-full flex-col rounded-xl border border-border bg-card p-[22px] text-card-foreground shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary hover:shadow-lg"
+					>
+						<h3 className="m-0 font-[family-name:var(--font-body)] text-[19px] font-semibold tracking-[-0.01em] text-[var(--text-heading)]">
+							{l.label}
+						</h3>
+						<p className="m-0 pt-1 font-mono text-[12.5px] text-muted-foreground">{l.pkg}</p>
+						<p className="m-0 flex-1 pt-2.5 pb-3.5 text-[15px] text-foreground">{l.desc}</p>
+						<span className="inline-flex items-center gap-1.5 text-[14px] font-semibold text-primary">
+							{l.external ? 'Read the README' : 'Open the demo'}{' '}
+							<ArrowRight aria-hidden="true" className="size-3.5 transition-transform group-hover:translate-x-0.5" />
+						</span>
+					</a>
+				</li>
+			))}
+		</ul>
+	);
+}
