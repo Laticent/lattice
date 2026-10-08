@@ -13,6 +13,8 @@ source: https://github.com/Laticent/lattice/pull/2226#issuecomment-5673609887
 Backfilled verbatim from the continuation brief on #2226 (merged 2026-09-15).
 Triaged 2026-09-24 against `main` at 6110a1e: still open. Also carries #2217 P1, the same decision (that file is deleted as a duplicate). `sync-playground-assets.mjs:292` still `rmSync`s the whole `v/` tree. #2226 already corrected the `sw.js` comment that #2217 flagged.
 
+**2026-10-08 (#2615):** the window also hits Astro's own `/_astro/` chunks, not just `playground/v/`. GitHub Pages serves HTML with `max-age=600`, so for ten minutes after a deploy a cached page can name an island chunk that is gone, and the Studio hung on its shell (reproduced in WebKit). #2615 recovers by swapping to the fresh page once; retaining the previous deploy's `/_astro/` files would close the window instead. Weigh that alongside A/B/C.
+
 ```text
   P1 · [no ticket] Take the retention decision, then implement it
        why now   — every deploy re-opens the window; #2226 only documented it.
