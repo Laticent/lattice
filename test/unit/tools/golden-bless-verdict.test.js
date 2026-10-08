@@ -188,3 +188,42 @@ test('the markdown links the run that holds the drift montages, when given one',
   assert.match(m.verdictMarkdown(v, { runUrl: 'https://github.com/o/r/actions/runs/1' }), /\[this run\]\(https:\/\/github\.com\/o\/r\/actions\/runs\/1\)/);
   assert.doesNotMatch(m.verdictMarkdown(v), /this run/);
 });
+
+describe('verdict — goldens rendered for the first time (step 3)', () => {
+  const NEWG = 'examples/new-feature.pdf';
+  test('a created golden is changed, not a problem, and has no before for rules 1 and 2', async () => {
+    await load();
+    const v = m.verdict([row(Q, { status: 'ok' })], new Set([NEWG]), [NEWG], { created: [NEWG] });
+    assert.deepEqual(v.changed, [NEWG]);
+    assert.deepEqual(v.created, [NEWG]);
+    assert.deepEqual(v.problems, []);
+    assert.equal(v.rules[0].ok, true);
+    assert.equal(v.rules[1].ok, true);
+    assert.equal(v.autoMerge, true);
+  });
+  test('a created gallery the check reported NO_GOLDEN is not a problem', async () => {
+    await load();
+    const G = 'lib/components/a/b/b.gallery.light.pdf';
+    const v = m.verdict([row(G, { status: 'NO_GOLDEN' })], new Set([G]), [G], { created: [G] });
+    assert.deepEqual(v.problems, []);
+    assert.equal(v.autoMerge, true);
+  });
+  test('a created golden no merged PR showed is unseen (rule 4)', async () => {
+    await load();
+    const v = m.verdict([], new Set(), [NEWG], { created: [NEWG] });
+    assert.equal(v.rules[3].ok, false);
+    assert.equal(v.autoMerge, false);
+  });
+  test('NO_GOLDEN that was NOT created stays a problem', async () => {
+    await load();
+    const G = 'lib/components/a/b/b.gallery.dark.pdf';
+    const v = m.verdict([row(G, { status: 'NO_GOLDEN' })], new Set([G]), [], { created: [] });
+    assert.equal(v.problems.length, 1);
+  });
+  test('a "created" path that was not written is ignored', async () => {
+    await load();
+    const v = m.verdict([], new Set(), [], { created: [NEWG] });
+    assert.deepEqual(v.created, []);
+    assert.equal(v.autoMerge, false);
+  });
+});

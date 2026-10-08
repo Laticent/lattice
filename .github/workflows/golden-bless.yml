@@ -101,8 +101,11 @@ jobs:
           set -euo pipefail
           OPEN="$(gh pr list --head "$BLESS_BRANCH" --state open --json number,createdAt --jq '.[0] // empty')"
 
-          if git diff --quiet -- '*.pdf'; then
-            echo "No golden drifted. Nothing to bless."
+          # `git status`, not `git diff`: a golden rendered for the first time (a deck or
+          # gallery merged without a PDF, goldens rollout step 3) is an UNTRACKED file, and
+          # `git diff` cannot see it.
+          if [ -z "$(git status --porcelain --untracked-files=all -- '*.pdf')" ]; then
+            echo "No golden drifted or is missing. Nothing to bless."
             # An open bless PR from an earlier night now holds PDFs that no longer match
             # main. Merging it would bless them back in, so close it.
             if [ -n "$OPEN" ]; then
@@ -118,7 +121,9 @@ jobs:
 
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -u -- '*.pdf' docs/public/showcase docs/scripts/showcase-sources.json
+          # -A, not -u, for the same reason: new goldens and new showcase WebPs are untracked.
+          # .gitignore keeps the gate's .regr-* renders out.
+          git add -A -- '*.pdf' docs/public/showcase docs/scripts/showcase-sources.json 'examples/*-gallery.md'
           # The title is load-bearing: tools/lib/golden-bless-verdict.mjs finds the last
           # merged bless by it, and starts rule 4's window at the commit it names.
           TITLE="chore(goldens): nightly bless of $(cat .scratch/golden-bless/rendered-from.txt)"

@@ -25,6 +25,7 @@
 
 import { execFileSync, spawnSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -43,8 +44,43 @@ const OUT = join(ROOT, '.scratch', 'golden-bless');
 const GATE = join(ROOT, 'tools', 'regression-gate.mjs');
 const REGRESSION_OUT = join(ROOT, '.scratch', 'regression');
 
+const require = createRequire(import.meta.url);
+// classify(): which markdown should have a committed PDF; buildFor(): render those PDFs.
+const { classify, buildFor } = require('./build-staged-pdfs.js');
+
 const git = (args) => execFileSync('git', args, { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 << 20 });
-const changedPdfs = () => git(['diff', '--name-only', '--', '*.pdf']).split('\n').filter(Boolean);
+// Changed AND new PDFs. `git diff` alone misses an untracked file, so a PDF the bless
+// renders for a deck that never had one would be invisible to every step below.
+const statusPaths = (pathspecs, { untrackedOnly = false } = {}) =>
+  git(['status', '--porcelain=v1', '--untracked-files=all', '--', ...pathspecs])
+    .split('\n').filter(Boolean)
+    .filter((l) => !untrackedOnly || l.startsWith('??'))
+    .map((l) => l.slice(3));
+const changedPdfs = () => statusPaths(['*.pdf']);
+const newPdfs = () => statusPaths(['*.pdf'], { untrackedOnly: true });
+
+// The PDFs a classified markdown file should have committed beside it.
+function expectedPdfs(md, job) {
+  if (job.kind === 'deck') return [job.out];
+  if (job.kind === 'component' || job.kind === 'bucket' || job.kind === 'showcase') {
+    return ['light', 'dark'].map((mood) => md.replace(/(\.gallery|-gallery)\.md$/, `$1.${mood}.pdf`));
+  }
+  return [];
+}
+
+// Tracked markdown that should have a committed PDF and does not. Pull requests no longer
+// commit PDFs (step 3), so a new deck or gallery gets its first PDF here, the night after
+// it merges.
+function sourcesMissingPdfs() {
+  const tracked = new Set(git(['ls-files']).split('\n').filter(Boolean));
+  const out = [];
+  for (const md of git(['ls-files', '--', '*.md']).split('\n').filter(Boolean)) {
+    const job = classify(md);
+    if (!job) continue;
+    if (expectedPdfs(md, job).some((p) => !tracked.has(p))) out.push(md);
+  }
+  return out;
+}
 
 function gate(args, okCodes) {
   const r = spawnSync(process.execPath, [GATE, ...args], { cwd: ROOT, encoding: 'utf8', maxBuffer: 256 << 20 });
@@ -103,11 +139,11 @@ function refreshShowcase(writtenSet) {
   return { kept: [...changed].filter((f) => !restore.includes(f)), problems };
 }
 
-function main() {
+async function main() {
   const args = process.argv.slice(2);
   const reportIdx = args.indexOf('--report');
 
-  const dirty = [...changedPdfs(), ...git(['diff', '--name-only', '--', SHOWCASE_DIR, SHOWCASE_SOURCES]).split('\n').filter(Boolean)];
+  const dirty = [...changedPdfs(), ...statusPaths([SHOWCASE_DIR, SHOWCASE_SOURCES, 'examples/*-gallery.md'])];
   if (dirty.length) {
     process.stderr.write(`golden-bless: ${dirty.length} tracked golden or showcase file(s) already have uncommitted changes (${dirty.slice(0, 3).join(', ')}…). Commit or restore them first: this tool rewrites and restores PDFs.\n`);
     process.exit(2);
@@ -164,7 +200,38 @@ function main() {
   const want = new Set(drifted.map((r) => r.golden));
   const restore = changedPdfs().filter((f) => !want.has(f));
   if (restore.length) git(['checkout', 'HEAD', '--', ...restore]);
-  const written = changedPdfs();
+
+  // Step 3a. Goldens that do not exist yet: a deck or gallery merged without a PDF.
+  const missing = sourcesMissingPdfs();
+  if (missing.length) {
+    try {
+      await buildFor(missing);
+    } catch (err) {
+      blessProblems.push(`rendering a missing golden failed: ${String(err.message).split('\n')[0]}`);
+    }
+  }
+  // The generated showcase decks (examples/<id>-gallery.md, built from component manifests)
+  // were only ever rebuilt by the pre-commit hook step 3 removed. Regenerate them, and keep
+  // the result only when the generated markdown changed, which is when a manifest moved.
+  for (const md of git(['ls-files', '--', 'examples/*-gallery.md']).split('\n').filter(Boolean)) {
+    const job = classify(md);
+    if (job?.kind !== 'showcase' || missing.includes(md)) continue;
+    try {
+      await buildFor([md]);
+    } catch (err) {
+      blessProblems.push(`regenerating ${md} failed: ${String(err.message).split('\n')[0]}`);
+      continue;
+    }
+    if (!git(['diff', '--name-only', '--', md]).trim()) {
+      const back = expectedPdfs(md, job).filter((p) => changedPdfs().includes(p));
+      if (back.length) git(['checkout', 'HEAD', '--', ...back]);
+    }
+  }
+  // The showcase decks' PDFs ride in the commit but are not goldens the check scores.
+  const showcaseDeckPdf = (f) => /^examples\/[a-z][a-z0-9-]*-gallery\.(light|dark)\.pdf$/.test(f);
+  const showcaseDecks = changedPdfs().filter(showcaseDeckPdf);
+  const created = newPdfs().filter((f) => !showcaseDeckPdf(f));
+  const written = changedPdfs().filter((f) => !showcaseDeckPdf(f));
 
   // Step 3b. Files derived from the goldens. The docs landing page's showcase WebPs are
   // cut from gallery PDFs, and `rasterize-showcase.mjs --check` (docs-build and preview)
@@ -186,12 +253,13 @@ function main() {
     seen = seenFromPrs(prs);
     seenProblems.push(...problems);
   }
-  const v = verdict(rows, seen, written);
+  const v = verdict(rows, seen, written, { created });
   v.problems.push(...blessProblems, ...seenProblems);
   if (v.problems.length) v.autoMerge = false;
   v.renderedFrom = renderedFrom;
   v.windowFrom = from;
   v.restoredUnmoved = restore.length;
+  v.showcaseDecks = showcaseDecks;
   v.showcaseRefreshed = derived.kept;
   const md = verdictMarkdown(v, { renderedFrom, runUrl: process.env.GOLDEN_BLESS_RUN_URL || '' });
   writeFileSync(join(OUT, 'verdict.json'), JSON.stringify(v, null, 2));
@@ -206,4 +274,4 @@ function main() {
   }
 }
 
-main();
+await main();

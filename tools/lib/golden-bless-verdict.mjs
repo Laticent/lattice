@@ -116,14 +116,20 @@ export function goldenRows(report) {
  * @param {Set<string>|null} seen                null when there is no earlier bless to measure from
  * @param {string[]} written                     the golden PDFs the bless actually changed on disk
  */
-export function verdict(rows, seen, written, { maxPageFraction = MAX_PAGE_FRACTION, maxGoldens = MAX_GOLDENS } = {}) {
+export function verdict(rows, seen, written, { maxPageFraction = MAX_PAGE_FRACTION, maxGoldens = MAX_GOLDENS, created = [] } = {}) {
   const writtenSet = new Set(written);
+  // A golden rendered for the first time (a deck or gallery merged without a PDF, step 3)
+  // has no "before": rules 1 and 2 cannot apply, and the check reported it NO_GOLDEN or not
+  // at all. It still counts toward rules 3 and 4: it must have been shown on a merged PR.
+  const createdSet = new Set(created.filter((g) => writtenSet.has(g)));
+  const asNew = (golden) => ({ golden, status: 'NEW', worstFraction: 0, pageShapeChanged: false });
+  rows = rows.map((r) => (createdSet.has(r.golden) && r.status === 'NO_GOLDEN' ? asNew(r.golden) : r));
   const byGolden = new Map(rows.map((r) => [r.golden, r]));
   // The commit is the truth, not the check: a bless can fail, or a re-render can stop
   // drifting, and then the check's list names goldens the commit does not contain.
-  const changed = written.map((g) => byGolden.get(g) || { golden: g, status: 'DRIFT', worstFraction: 1, pageShapeChanged: false, unchecked: true });
+  const changed = written.map((g) => byGolden.get(g) || (createdSet.has(g) ? asNew(g) : { golden: g, status: 'DRIFT', worstFraction: 1, pageShapeChanged: false, unchecked: true }));
   const problems = [
-    ...rows.filter((r) => r.status !== 'DRIFT' && r.status !== 'ok').map((r) => `${r.golden} (${r.status})`),
+    ...rows.filter((r) => !['DRIFT', 'ok', 'NEW'].includes(r.status)).map((r) => `${r.golden} (${r.status})`),
     ...rows.filter((r) => r.status === 'DRIFT' && !writtenSet.has(r.golden)).map((r) => `${r.golden} (drifted, but the bless did not write it)`),
     ...changed.filter((r) => r.unchecked).map((r) => `${r.golden} (written, but the check did not report it)`),
   ];
@@ -154,6 +160,7 @@ export function verdict(rows, seen, written, { maxPageFraction = MAX_PAGE_FRACTI
   return {
     autoMerge: changed.length > 0 && problems.length === 0 && rules.every((r) => r.ok),
     changed: changed.map((r) => r.golden),
+    created: [...createdSet],
     problems,
     rules,
   };
@@ -176,7 +183,7 @@ export function verdictMarkdown(v, { dryRun = true, renderedFrom = '', runUrl = 
   if (v.problems.length) lines.push('', `**Problems** (a person looks): ${v.problems.join('; ')}`);
   lines.push(
     '',
-    `${v.changed.length} golden${v.changed.length === 1 ? '' : 's'} re-blessed${renderedFrom ? ` from \`${renderedFrom.slice(0, 12)}\`` : ''}. The golden-diff comment on this PR shows each one before and after.`,
+    `${v.changed.length} golden${v.changed.length === 1 ? '' : 's'} re-blessed${(v.created || []).length ? ` (${v.created.length} rendered for the first time)` : ''}${renderedFrom ? ` from \`${renderedFrom.slice(0, 12)}\`` : ''}. The golden-diff comment on this PR shows each one before and after.`,
     // On a large night golden-diff's PR job can run out of time comparing hundreds of
     // PDFs; the check's own before │ after │ overlay montages are always in the run's
     // artifact, so link them.
