@@ -9,6 +9,12 @@ description: "The stable contract a tooling vendor implements to give LFM author
 This page is generated from [`spec/diagnostics.md`](https://github.com/Laticent/lattice/blob/main/spec/diagnostics.md) and published under [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/). New to LFM? Start with [Understanding LFM](/spec/understanding-lfm/).
 :::
 
+<!-- spec-parts
+schema: none: the finding shape is stated in §1
+reference: lib/authoring/lint-core.js
+tests: test/unit/authoring/diagnostics-registry.test.js
+-->
+
 **Status:** Draft · **Version:** 1.1 · **Date:** 2026-10-08 · **Owner:** @saden1
 **Companion to:** [`LFM-1.0.md`](/spec/lfm/) (conformance level **L2**)
 

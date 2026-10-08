@@ -1,5 +1,11 @@
 # The `.lattice` file — spec 1.0
 
+<!-- spec-parts
+schema: none: the manifest is stated in full in §3
+reference: lib/core/reopenable.js docs/src/components/studio/lattice-file.ts
+tests: spec/conformance/lattice-file/
+-->
+
 **Version:** 1.0 · **Status:** Draft, for the owner's sign-off · **Date:** 2026-10-08 · **Owner:** @saden1 ·
 **License:** [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/) (this document and its shared test cases)
 

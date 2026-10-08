@@ -9,6 +9,12 @@ description: "The normative specification for Lattice-Flavored Markdown: the ext
 This page is generated from [`spec/LFM-1.0.md`](https://github.com/Laticent/lattice/blob/main/spec/LFM-1.0.md) and published under [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/). New to LFM? Start with [Understanding LFM](/spec/understanding-lfm/).
 :::
 
+<!-- spec-parts
+schema: tools/build-docs-portal.js lib/components/index.js
+reference: lib/engine/index.js lib/authoring/lint-core.js
+tests: spec/conformance/lfm/ tools/lfm-conformance.js
+-->
+
 **Version:** 1.0 · **Status:** Ratified · **Date:** 2026-10-08 · **Owner:** @saden1
 **License:** [CC-BY-4.0](#12-governance--license)
 

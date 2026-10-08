@@ -1,5 +1,11 @@
 # LFM 1.1 — Lattice-Flavored Markdown
 
+<!-- spec-parts
+schema: tools/build-docs-portal.js lib/components/index.js
+reference: lib/engine/index.js lib/authoring/lint-core.js docs/src/lib/segno/ docs/src/lib/lente/tags.ts
+tests: spec/conformance/lfm/ tools/lfm-conformance.js
+-->
+
 **Version:** 1.1 · **Status:** Draft, for the owner's sign-off · **Date:** 2026-10-08 · **Owner:** @saden1
 **Supersedes:** [LFM 1.0](./LFM-1.0.md) once ratified. 1.1 adds the front-matter registers (§2.3), the `_lens` tag (§2.4) and the inline notation (§3.6); nothing in 1.0 changes meaning.
 **License:** [CC-BY-4.0](#12-governance--license)

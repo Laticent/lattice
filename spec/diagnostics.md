@@ -1,5 +1,11 @@
 # LFM Diagnostic Protocol 1.1
 
+<!-- spec-parts
+schema: none: the finding shape is stated in §1
+reference: lib/authoring/lint-core.js
+tests: test/unit/authoring/diagnostics-registry.test.js
+-->
+
 **Status:** Draft · **Version:** 1.1 · **Date:** 2026-10-08 · **Owner:** @saden1
 **Companion to:** [`LFM-1.0.md`](./LFM-1.0.md) (conformance level **L2**)
 

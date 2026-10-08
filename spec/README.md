@@ -21,3 +21,21 @@ the Lattice Timing Track (LTT):
 These are the source of truth. `npm run docs:spec` projects them into the
 docs site; `docs:spec:check` fails CI if the generated pages drift. Edit
 here, regenerate — never edit the generated docs-site copies.
+
+## The four parts
+
+A spec is four things: the document, a schema, a reference implementation and shared test cases
+(`engineering/decisions/2026-10-08-spec-audit.md` §2). Each file here names the other three in a
+comment under its title, which the site does not show:
+
+```markdown
+<!-- spec-parts
+schema: themes/theme.schema.json
+reference: lib/theme/gate.js lib/theme/derive.js
+tests: spec/conformance/theme/
+-->
+```
+
+Paths are repo-relative and space-separated. `schema` may instead say `none: <why>` when the
+document states the shape itself. `checkSpecParts` in `tools/check-ownership.js` runs inside
+`npm run build:check` and fails on a missing block, a missing part or a path that no longer exists.

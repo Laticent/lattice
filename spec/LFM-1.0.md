@@ -1,5 +1,11 @@
 # LFM 1.0 — Lattice-Flavored Markdown
 
+<!-- spec-parts
+schema: tools/build-docs-portal.js lib/components/index.js
+reference: lib/engine/index.js lib/authoring/lint-core.js
+tests: spec/conformance/lfm/ tools/lfm-conformance.js
+-->
+
 **Version:** 1.0 · **Status:** Ratified · **Date:** 2026-10-08 · **Owner:** @saden1
 **License:** [CC-BY-4.0](#12-governance--license)
 

@@ -1,5 +1,11 @@
 # The Lattice theme contract — spec 1.0
 
+<!-- spec-parts
+schema: themes/theme.schema.json
+reference: lib/theme/gate.js lib/theme/derive.js
+tests: spec/conformance/theme/ tools/theme-conformance.js
+-->
+
 **Version:** 1.0 · **Status:** Draft, for the owner's sign-off · **Date:** 2026-10-08 · **Owner:** @saden1 ·
 **License:** [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/) (this document and its shared test cases)
 

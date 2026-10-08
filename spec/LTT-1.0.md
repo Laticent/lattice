@@ -1,5 +1,11 @@
 # The Lattice Timing Track (LTT) — spec 1.0
 
+<!-- spec-parts
+schema: docs/src/lib/ltt/ltt.schema.json
+reference: docs/src/lib/ltt/
+tests: docs/src/lib/ltt/conformance/
+-->
+
 **Version:** 1.0 · **Status:** Ratified · **Date:** 2026-10-08 · **Owner:** @saden1 ·
 **License:** [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/) (this document and its
 conformance fixtures; the reference implementation `@laticent/ltt` is AGPL-3.0)

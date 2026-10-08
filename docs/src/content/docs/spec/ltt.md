@@ -9,6 +9,12 @@ description: "The normative specification for the Lattice Timing Track: one JSON
 This page is generated from [`spec/LTT-1.0.md`](https://github.com/Laticent/lattice/blob/main/spec/LTT-1.0.md) and published under [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/). The reference implementation is the `@laticent/ltt` package.
 :::
 
+<!-- spec-parts
+schema: docs/src/lib/ltt/ltt.schema.json
+reference: docs/src/lib/ltt/
+tests: docs/src/lib/ltt/conformance/
+-->
+
 **Version:** 1.0 · **Status:** Ratified · **Date:** 2026-10-08 · **Owner:** @saden1 ·
 **License:** [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/) (this document and its
 conformance fixtures; the reference implementation `@laticent/ltt` is AGPL-3.0)
