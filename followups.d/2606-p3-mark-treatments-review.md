@@ -38,7 +38,7 @@ evidence  — the same review deck before and after, sent to the owner: one page
             of 48 `cards-grid` slides (12 rows: no mark, then each mark × 4 columns: no finish,
             `finish finish-atrium`, `finish finish-nimbus`, `finish finish-ledger`) once with
             `color-mode: light` and once with `color-mode: dark`, render both with
-            `node dist/lattice-emulator.js`, and tile each mark's 8 slides on one page.
+            `node dist/lattice.js`, and tile each mark's 8 slides on one page.
             Also a feature deck per HARD RULE #9 if any mark changes.
 verify    — tier 0 gates plus the owner's look, because this is a visual judgment on decorative
             CSS with no export or engine path; golden-diff will show which galleries move.
