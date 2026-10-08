@@ -40,6 +40,7 @@ const { themeEntries } = require('./lib/theme/files.js');
 const path          = require('path');
 const { pathToFileURL, fileURLToPath } = require('node:url');
 const { pkgRootFrom } = require('./lib/core/pkg-root');
+const { VALUE_BY_FLAG, SWITCH_BY_FLAG, PAPER_CHOICES, ORIENT_CHOICES, PLAYER_MODES } = require('./lib/cli/options.js');
 
 // Inline each local `logo-wall` mark as a REAL `<svg>` for the export path.
 // The logo-marks transform emits `<span class="logo-mark" … style="--logo-mask:
@@ -411,6 +412,12 @@ EXIT CODES
   0  Success
   1  Usage error, missing file, palette not found, or render failure
 
+COMPLETION
+  lattice completion <bash|zsh|fish|powershell>
+                     Print a Tab-completion script; install it with one line, e.g.
+                     eval "$(lattice completion bash)" in ~/.bashrc. See
+                     lattice completion --help
+
 VIDEO
   lattice video <deck.md | narrated-export.html> [out.mp4]
                      Render a deck, voiced with Kokoro, or a narrated HTML export
@@ -462,6 +469,7 @@ COMMON OPTIONS
 MORE
   lattice packages …   Install and manage themes, components, finishes and motion
   lattice video …      Render a deck to an MP4 with a voice-over
+  lattice completion   Tab completion for bash, zsh, fish or PowerShell
 
   lattice --help all   Every option (image sets, captions, the player, plugins, …)
   Guide:  https://lattice.style/guides/cli/
@@ -470,6 +478,16 @@ EXAMPLES
   lattice deck.md deck.pdf
   lattice deck.md deck.pptx --editable
   lattice deck.md deck.pdf cuoio --print`);
+}
+
+// `lattice completion <shell>` prints a shell's completion script; `lattice __complete …` is the
+// hidden protocol those scripts call (lib/cli/complete.js). Both run before the render path and
+// load nothing of the engine. The installed scripts normally call lib/cli/complete.js directly,
+// which skips parsing this bundle; this dispatch is their fallback.
+if (process.argv[2] === 'completion') process.exit(require('./lib/cli/complete.js').completionCommand(process.argv.slice(3)));
+if (process.argv[2] === '__complete') {
+  process.stdout.write(require('./lib/cli/complete.js').protocolOutput(process.argv.slice(3)));
+  process.exit(0);
 }
 
 // `lattice packages …` — the package store (lib/packages/cli.js). Dispatched BEFORE the render
@@ -525,40 +543,11 @@ if (process.argv.includes('--version') || process.argv.includes('-v')) {
 function parseArgs(argv) {
   const flags = { quiet: false };
   const positional = [];
-  const opts = {
-    '-o': 'output', '--output': 'output',
-    '-p': 'palette', '--palette': 'palette',
-    '-c': 'css', '--css': 'css',
-    '--paper': 'paper', '--orientation': 'orientation',
-    // Image-set (.zip) tuning — see normalizeImageSetOptions (lib/export/image-set.js).
-    '--image-format': 'image-format', '--image-size': 'image-size',
-    '--image-quality': 'image-quality', '--thumb-width': 'thumb-width',
-    '--image-mode': 'image-mode', '--svg-background': 'svg-background',
-    // Who a clipped slide's marker speaks to in THIS render — the same export
-    // setting tools/export-marp.js takes (lib/core/resolve-overflow-marker.js).
-    '--overflow-marker': 'overflow-marker',
-    // The package store for THIS run (lib/packages/home.js): an installed theme or component
-    // the deck names is found here. Default: $LATTICE_HOME/packages, else ~/.lattice/packages.
-    '--packages': 'packages',
-    // The mode the --player opens in, over the deck's own (light, dark or system).
-    '--player-mode': 'player-mode',
-    // Render on another canvas, over the deck's own `size:` (lib/engine/sizes.js).
-    '--size': 'size',
-    // Plugins switched off for this run (lib/plugins/host-grammar.mjs `admitPlugins`'s `disabled`).
-    '--disable-plugin': 'disable-plugin',
-    // The host's default plugin set for this run (`admitPlugins`'s `defaults`); `none` for empty.
-    '--default-plugins': 'default-plugins',
-  };
+  // The options live in ONE table (lib/cli/options.js) that shell completion reads too, so a
+  // flag added there is accepted, offered on Tab and checked against the docs in one place.
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
-    if (a === '-q' || a === '--quiet') { flags.quiet = true; continue; }
-    if (a === '--notes') { flags.notes = true; continue; }
-    if (a === '--captions') { flags.captions = true; continue; }
-    if (a === '--no-split') { flags['no-split'] = true; continue; }
-    if (a === '--strip-notes') { flags['strip-notes'] = true; continue; }
-    if (a === '--no-player-motion') { flags['no-player-motion'] = true; continue; }
-    if (a === '--no-guide') { flags['no-guide'] = true; continue; }
-    if (a === '--strip-say') { flags['strip-say'] = true; continue; }
+    if (SWITCH_BY_FLAG[a]) { flags[SWITCH_BY_FLAG[a].key] = true; continue; }
     // Retired 2026-09-28 with the `caption:` key (engineering/decisions/2026-09-28-say-not-caption.md).
     // Named, not left to the unknown-option error: a script still passing it asked for a privacy
     // strip, and "unknown option" does not tell them which flag gives it to them now.
@@ -566,34 +555,17 @@ function parseArgs(argv) {
       console.error('error: --strip-captions is retired — use --strip-say (the author\'s spoken lines are `say:` now).');
       process.exit(1);
     }
-    if (a === '--notes-icon') { flags['notes-icon'] = true; continue; }
-    if (a === '--fluid') { flags.fluid = true; continue; }
-    if (a === '--player') { flags.player = true; continue; }
-    if (a === '--narrate') { flags.narrate = true; continue; }
-    if (a === '--read') { flags.read = true; continue; }
-    if (a === '--present') { flags.present = true; continue; }
-    if (a === '--print') { flags.print = true; continue; }
-    if (a === '--raster') { flags.raster = true; continue; }
-    if (a === '--keep-html') { flags['keep-html'] = true; continue; }
-    if (a === '--editable') { flags.editable = true; continue; }
-    if (a === '--allow-remote') { flags['allow-remote'] = true; continue; }
-    if (a === '--embed-source') { flags['embed-source'] = true; continue; }
-    if (a === '--reopenable') { flags.reopenable = true; continue; }
-    if (a === '--keep-vector-images') { flags['keep-vector-images'] = true; continue; }
-    if (a === '--chrome-pdf') { flags['chrome-pdf'] = true; continue; }
-    if (a === '--no-thumbnails') { flags['no-thumbnails'] = true; continue; }
-    if (a === '--no-svg') { flags['no-svg'] = true; continue; }
     // --flag=value form
     const eq = a.match(/^(--?[A-Za-z][\w-]*)=(.*)$/);
-    if (eq && opts[eq[1]]) { flags[opts[eq[1]]] = eq[2]; continue; }
+    if (eq && VALUE_BY_FLAG[eq[1]]) { flags[VALUE_BY_FLAG[eq[1]].key] = eq[2]; continue; }
     // --flag value form
-    if (opts[a]) {
+    if (VALUE_BY_FLAG[a]) {
       const v = argv[i + 1];
       if (v === undefined || v.startsWith('-')) {
         console.error(`error: ${a} requires a value`);
         process.exit(1);
       }
-      flags[opts[a]] = v;
+      flags[VALUE_BY_FLAG[a].key] = v;
       i++;
       continue;
     }
@@ -691,7 +663,7 @@ const PLAYER_MODE = flags['player-mode'] ?? null;
 if ((NARRATE || PLAYER_MODE !== null) && !flags.player && !QUIET) {
   console.warn(`note: ${NARRATE ? '--narrate' : '--player-mode'} applies to the --player export; it is ignored unless the deck asks for one (--player or 'player: true')`);
 }
-if (PLAYER_MODE !== null && !['light', 'dark', 'system'].includes(PLAYER_MODE)) {
+if (PLAYER_MODE !== null && !PLAYER_MODES.includes(PLAYER_MODE)) {
   console.error('error: --player-mode is light, dark or system');
   process.exit(1);
 }
@@ -964,8 +936,6 @@ if (flags.editable && !EDITABLE) {
 // `auto` picks the least-wasteful sheet + orientation for the deck's aspect — the same
 // decision the Studio Print drawer makes, via the shared kernel (lib/core/print-sheet.mjs,
 // HARD RULE #1). PDF only (the raster/PPTX/PNG paths are full-bleed image-per-slide).
-const PAPER_CHOICES = ['auto', 'letter', 'legal', 'a4'];
-const ORIENT_CHOICES = ['auto', 'landscape', 'portrait'];
 const PAPER = flags.paper ? String(flags.paper).toLowerCase() : null;
 const ORIENTATION = flags.orientation ? String(flags.orientation).toLowerCase() : null;
 if (PAPER && !PAPER_CHOICES.includes(PAPER)) {

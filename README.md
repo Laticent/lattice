@@ -111,6 +111,10 @@ npx lattice deck.md deck.pdf
 npx @laticent/lattice deck.md deck.pdf
 ```
 
+Tab completion for bash, zsh, fish and PowerShell is one line, for example
+`eval "$(lattice completion bash)"` in `~/.bashrc`; `lattice completion --help`
+lists the line for each shell.
+
 Need a portable bundle for someone who renders with Marp? The docs-site
 **Studio**'s **Export to Marp** (also available via `npm run export:marp`)
 produces a self-contained `.zip`. That bundle

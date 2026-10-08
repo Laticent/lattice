@@ -129,6 +129,23 @@ describe('export: an installed @laticent/lattice renders with only what it decla
     assert.match(r.stderr, /ERR_PACKAGE_PATH_NOT_EXPORTED/);
   });
 
+  // Shell completion's fast path runs lib/cli/complete.js straight from the install, outside the
+  // bundle, so every file it loads must ship and resolve with only what the package declares.
+  test('shell completion works from the install: the script, the bundle fallback and the fast path', { timeout: TIMEOUT }, () => {
+    const bin = path.join(nm, '@laticent', 'lattice', PKG.bin.lattice);
+    const script = spawnSync(process.execPath, [bin, 'completion', 'bash'], { cwd: dir, encoding: 'utf8' });
+    assert.equal(script.status, 0, script.stderr);
+    const self = path.join(nm, '@laticent', 'lattice', 'lib', 'cli', 'complete.js');
+    assert.ok(script.stdout.includes(self), 'the script does not call the installed lib/cli/complete.js');
+    for (const argv of [[bin, '__complete', '-p', 'ind'], [self, '-p', 'ind']]) {
+      const r = spawnSync(process.execPath, argv, { cwd: dir, encoding: 'utf8' });
+      assert.equal(r.status, 0, r.stderr);
+      assert.equal(r.stdout, ':values\nindaco\nindaco-dark\n');
+    }
+    const plugins = spawnSync(process.execPath, [self, '--disable-plugin', 'mer'], { cwd: dir, encoding: 'utf8' });
+    assert.equal(plugins.stdout, ':values\nmermaid\n', plugins.stderr);
+  });
+
   test('the CLI renders a PDF with math and a Mermaid diagram', { timeout: TIMEOUT }, () => {
     const r = render('deck.pdf');
     assert.equal(r.status, 0, `the installed CLI failed:\n${r.stderr}`);

@@ -25,6 +25,7 @@ npx lattice <deck.md> <layouts.css> <output> [palette] [options]
 npx lattice -o <output> [-p palette] [-c layouts.css] <deck.md>
 npx lattice packages <command> [options]
 npx lattice video <deck.md | narrated-export.html> [out.mp4] [options]
+npx lattice completion <bash | zsh | fish | powershell>
 ```
 
 Named flags win over positional arguments when you give both. Flags that take
@@ -201,6 +202,26 @@ a `.vtt` beside it.
 
 It needs a Chromium that encodes H.264 with WebCodecs, such as Chrome or
 Chrome for Testing. Set `CHROME_PATH` to choose one.
+
+## `lattice completion`
+
+Prints a Tab-completion script for one shell to stdout. It completes the
+subcommands, every option above, the closed-set values (palettes, `--size`,
+`--paper`, `--orientation`, `--player-mode`, the image-set options,
+`--overflow-marker`, plugin names) and installed package names, and leaves
+paths to the shell, narrowed by extension.
+
+| Shell | Install (one line) |
+|---|---|
+| `bash` | `eval "$(lattice completion bash)"` in `~/.bashrc` (bash 3.2 or newer) |
+| `zsh` | `source <(lattice completion zsh)` in `~/.zshrc`, after `compinit` |
+| `fish` | `mkdir -p ~/.config/fish/completions && lattice completion fish > ~/.config/fish/completions/lattice.fish` |
+| `powershell` | `lattice completion powershell \| Out-String \| Invoke-Expression` in `$PROFILE` |
+
+The script calls the installed `lib/cli/complete.js` directly, so a Tab press
+costs one Node start (about 50 ms here), not a load of the CLI bundle. If that file
+has moved, it falls back to `lattice __complete`, the hidden command that
+serves the candidates. cmd.exe has no programmable completion.
 
 ## Environment variables
 
