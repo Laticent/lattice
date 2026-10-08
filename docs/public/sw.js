@@ -250,6 +250,10 @@ self.addEventListener('fetch', (event) => {
 	// The stale-deploy probe (src/lib/stale-deploy-recovery.js) asks the origin for a fresh page
 	// under a one-off `?__fresh=` URL. Caching it would only fill the cache with dead entries.
 	if (url.searchParams.has('__fresh')) return;
+	// A request that explicitly bypasses caches (that probe's `cache: 'reload'` refresh of the
+	// page's own URL, for one) must not be answered from ours: stale-while-revalidate would hand
+	// back the old copy and file a page under ASSETS.
+	if (request.cache === 'reload' || request.cache === 'no-store') return;
 
 	if (request.mode === 'navigate') {
 		// Downloadables opened as top-level navigations (the gallery-PDF link)

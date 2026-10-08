@@ -21,7 +21,13 @@
 // page no longer names the missing chunk, this page was stale: it refreshes the browser's
 // cached copy and swaps to the fresh page once. If the fresh page still names it, the deploy
 // itself is broken or the visitor is offline, and a reload would fix nothing, so it does
-// nothing. A per-tab guard allows one swap a minute, so it cannot loop.
+// nothing. A per-tab guard allows one swap a minute for a given page and chunk, so it cannot
+// loop, and with no sessionStorage to hold that guard it does not swap at all.
+//
+// It reacts only to links and scripts the PARSER inserted, i.e. the ones named in the page's
+// own HTML. Vite's preload helper also adds modulepreload links at run time; those chunks are
+// never in the HTML, so the fresh-page comparison could not tell a stale page from a network
+// blip on one of them.
 //
 // The function is SELF-CONTAINED on purpose: the Astro component inlines it with
 // `Function.prototype.toString`, so it must not touch anything outside its own body.
@@ -36,7 +42,7 @@ export const FRESH_PARAM = '__fresh';
  */
 export function installStaleDeployRecovery(win, opts) {
 	const PARAM = '__fresh';
-	const GUARD_KEY = 'lattice:stale-deploy-swap';
+	const GUARD_PREFIX = 'lattice:stale-deploy-swap:';
 	const GUARD_MS = 60000;
 	const doc = win.document;
 	const loc = win.location;
@@ -51,6 +57,22 @@ export function installStaleDeployRecovery(win, opts) {
 		}
 	} catch (_) {}
 
+	// Parser-inserted <link>/<script> elements, collected while the document is still loading.
+	// Module scripts (and so Vite's preload helper) run only after parsing ends, so nothing
+	// they add lands in this set.
+	const parsed = new WeakSet();
+	if (doc.readyState === 'loading' && typeof win.MutationObserver === 'function') {
+		const mo = new win.MutationObserver((records) => {
+			for (const r of records) for (const n of r.addedNodes) if (n.tagName === 'LINK' || n.tagName === 'SCRIPT') parsed.add(n);
+		});
+		mo.observe(doc.documentElement, { childList: true, subtree: true });
+		doc.addEventListener('readystatechange', () => {
+			if (doc.readyState === 'loading') return;
+			for (const r of mo.takeRecords()) for (const n of r.addedNodes) if (n.tagName === 'LINK' || n.tagName === 'SCRIPT') parsed.add(n);
+			mo.disconnect();
+		});
+	}
+
 	function hydrated() {
 		for (const el of doc.querySelectorAll('astro-island[component-url]')) {
 			if (el.getAttribute('component-url').includes(`/${opts.island}.`)) return !el.hasAttribute('ssr');
@@ -62,7 +84,7 @@ export function installStaleDeployRecovery(win, opts) {
 	function onError(ev) {
 		if (fired) return;
 		const el = ev?.target;
-		if (!el?.tagName) return;
+		if (!el?.tagName || !parsed.has(el)) return;
 		const tag = el.tagName.toUpperCase();
 		const raw = tag === 'LINK' ? el.getAttribute('href') : tag === 'SCRIPT' ? el.getAttribute('src') : null;
 		if (!raw) return;
@@ -81,10 +103,14 @@ export function installStaleDeployRecovery(win, opts) {
 	}
 
 	function swapIfStale(missing) {
+		// Keyed by page and chunk, so recovering the Playground never blocks the Studio.
+		const guardKey = GUARD_PREFIX + new URL(loc.href).pathname + missing;
 		try {
-			const last = Number(win.sessionStorage.getItem(GUARD_KEY)) || 0;
+			const last = Number(win.sessionStorage.getItem(guardKey)) || 0;
 			if (Date.now() - last < GUARD_MS) return;
-		} catch (_) {}
+		} catch (_) {
+			return; // no storage, no guard: never risk a reload loop
+		}
 		const fresh = new URL(loc.href);
 		fresh.searchParams.set(PARAM, String(Date.now()));
 		win.fetch(fresh.pathname + fresh.search, { cache: 'no-store', credentials: 'same-origin' })
@@ -93,8 +119,10 @@ export function installStaleDeployRecovery(win, opts) {
 				// No answer, or the live page still names the chunk: not a stale page.
 				if (!html || html.includes(missing)) return;
 				try {
-					win.sessionStorage.setItem(GUARD_KEY, String(Date.now()));
-				} catch (_) {}
+					win.sessionStorage.setItem(guardKey, String(Date.now()));
+				} catch (_) {
+					return;
+				}
 				// Replace the stale copy in the browser cache, so the next plain visit to this
 				// URL inside the ten minutes gets the new page rather than another swap.
 				const plain = new URL(loc.href);

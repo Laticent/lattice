@@ -1520,7 +1520,9 @@ never turn "passed in headless" into "works on iOS."
   and the Playground by `<StaleDeployRecovery>`. When a same-origin `/_astro/*.js` load fails
   before the island hydrates, it fetches the page under `?__fresh=<n>` (past every cache). If
   that page no longer names the missing chunk, it refreshes the browser's copy and swaps to it
-  once (at most once a minute per tab). If the fresh page still names it, the deploy is broken
+  once (at most once a minute per tab for a given page and chunk; never without sessionStorage).
+  It reacts only to links and scripts in the page's own HTML, not to preloads Vite adds at run
+  time. If the fresh page still names it, the deploy is broken
   or the reader is offline, and it does nothing. Measured on the same WebKit repro: the app is
   up in about 2.7s, against never.
 - **Not fixed** — the window itself. Keeping the previous deploy's `/_astro/` files would
