@@ -15,8 +15,10 @@
 // rows of PDF_OWNERSHIP (tools/check-ownership.js) flagged `prCommitted` — decision-record
 // evidence, the Marp kit sample, the chart-theme gallery.
 //
-// It runs on pull_request only. Auto-merge needs the PR's own run green, and the merge
-// queue then tests the same change on top of main, so a second check there adds nothing.
+// It runs on pull_request only. Auto-merge needs the PR's own run green, so a PR pushed
+// after this check landed cannot enter the queue with a PDF. A PR whose last run is OLDER
+// than the check keeps its green result and is not re-checked in the queue (the red team
+// counted 8 such open PRs on 2026-10-08); running it on merge_group too is the owner's call.
 // GitHub checks out its test merge commit, whose first parent is the base, so the diff is
 // HEAD^1..HEAD and the job's checkout needs fetch-depth: 2.
 //

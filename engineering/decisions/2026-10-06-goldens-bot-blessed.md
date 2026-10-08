@@ -244,6 +244,16 @@ and the hook, because several things assumed every deck already had a committed 
 - **Nightly tests:** three integration tests assert on committed PDFs. They now excuse a
   failure only while the PDF is waiting on a bless (its sources changed after the last
   merged bless; `test/helpers/golden-pending.js`), so a correct PDF is still asserted.
+- **What the adversarial trio changed before merge** (#2614): the bless re-renders the
+  generated showcase deck from history, because its builder only sees uncommitted inputs
+  and would never render on a clean checkout; first-time renders run one source at a
+  time, 40 a night, and a deck that will not render turns the night red after the bless PR
+  opens rather than blocking it; the pending excuse dates the bless by the commit it
+  rendered from and expires after 3 days, so a bless PR left unmerged turns the nightly
+  red; the check exempts the three PDF families the bless never writes
+  (`prCommitted` rows in `PDF_OWNERSHIP`) and matches `.pdf` in any case; `design/`
+  demo decks render on their PR and can be committed by the bot; a new golden whose PDF
+  was not published is not counted as shown.
 - **Left as a documented edge:** a new component flagged for the docs landing-page
   showcase fails docs-build until its first bless, because the showcase image is cut from
   the gallery PDF. Set the flag in a follow-up PR (`design/skills/component.md`).

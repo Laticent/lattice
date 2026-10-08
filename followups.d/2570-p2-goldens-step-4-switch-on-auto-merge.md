@@ -29,11 +29,21 @@ source: engineering/decisions/2026-10-06-goldens-bot-blessed.md
                    does not stop the same goldens returning; decide how a rejection
                    sticks. (c) Pin `runs-on` for golden-bless.yml and the golden-diff
                    job, so a runner image change is a deliberate PR, not a night where
-                   everything moves. (d) design/*.gallery.md decks are never rendered on
-                   a PR (golden-affected maps only lib/ galleries, and the CI `code`
-                   filter has no design/**), so they always count as unseen.
+                   everything moves. (d) design/*.gallery.md decks: golden-affected
+                   renders them as decks since step 3, but the CI `code` filter has no
+                   design/**, so a design-only PR runs no golden-diff and its deck counts
+                   as unseen (a CI-contract change, put to the owner on #2614).
        also (e)  — CLAUDE.md rule 7: name the bless bot as the fourth machine PR class
                    that merges itself, with the hybrid rules, in the same PR that
                    switches auto-merge on (moved here from step 3: until then it does not).
+       also (f)  — a first-time golden (NEW) passes rules 1 and 2 vacuously: it has no
+                   before. Decide what a NEW golden must show before it merges unseen
+                   (page count equals slide count, or never auto-merge NEW), and whether
+                   rule 4's "shown" should compare the bless render with the PR's
+                   published PDF, since an engine PR can change it in between (#2614 red
+                   team).
+       also (g)  — reverting a bless PR with GitHub's Revert button opens a branch the
+                   no-PDF check does not exempt. Decide the path (a revert pushed to
+                   chore/golden-bless, or an exemption for revert-*-chore/golden-bless).
        blocked   — after a week of dry-run nights. Adding a label is shared state: ask first.
 ```
