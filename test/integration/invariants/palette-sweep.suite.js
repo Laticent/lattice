@@ -49,6 +49,17 @@
  *     unmeasurable by swapping — `tools/palette-native.js` scores them on the nightly.
  *   · The decorative exclusions are NOT re-litigated here. They are the same adjudications
  *     `slide-contrast.test.js` made, imported from the module both gates share.
+ *
+ * ONE FILE PER DECK, AND WHY THE SPLIT IS BY DECK AND NOT BY PALETTE. This module holds the
+ * suite; `palette-sweep-<deck id>.test.js` runs it for one entry of `DECKS`. As one file it
+ * took 454 s in CI and set a floor under whichever runner of the sharded integration job drew
+ * it (`.github/workflows/ci.yml`, the `integration` job). Deck is the only axis that splits
+ * without changing a verdict: each deck already had its own page, its own `sweep()` call and
+ * its own result, and no state crossed between them. Palette is NOT such an axis. `sweep()`
+ * unions the foreign and ambiguous drop sets across EVERY palette it probes and then scores
+ * each palette against that union, so a sweep over a third of the palettes would drop fewer
+ * runs, score different rows, and miss the `foreign` / `ambiguous` pins below. The last test
+ * in the suite fails if a deck in `DECKS` has no file, or a file names no deck.
  */
 
 const { test, describe, before, after } = require('node:test');
@@ -264,189 +275,218 @@ function scored(rows, unswept) {
     .filter((r) => !SANCTIONED_CONTRAST_EXEMPTIONS.some((e) => e.match(r)));
 }
 
-describe('palette sweep — every shipped palette, on every swept deck', () => {
-  let browser;
-  /** deck id -> sweep result. */
-  const results = new Map();
-  let themes;
+/**
+ * Define the suite for ONE deck of `DECKS`. Every test body below is the one the single-file
+ * version ran; the loops walk `SWEPT` (this file's one deck) where they used to walk `DECKS`,
+ * and every assertion inside them is unchanged.
+ *
+ * @param {string} deckId  an `id` from `DECKS`
+ */
+function defineSweep(deckId) {
+  const SWEPT = DECKS.filter((d) => d.id === deckId);
+  if (SWEPT.length !== 1) throw new Error(`palette-sweep: no deck '${deckId}' in DECKS`);
 
-  before(async () => {
-    themes = listSweepThemes();
-    browser = await puppeteer.launch({
-      executablePath: resolveChrome(),
-      args: ['--no-sandbox', '--font-render-hinting=none'],
+  describe(`palette sweep — every shipped palette, on ${deckId}`, () => {
+    let browser;
+    /** deck id -> sweep result. */
+    const results = new Map();
+    let themes;
+
+    before(async () => {
+      themes = listSweepThemes();
+      browser = await puppeteer.launch({
+        executablePath: resolveChrome(),
+        args: ['--no-sandbox', '--font-render-hinting=none'],
+      });
+      // Serially, not in parallel: the swap rewrites a `<style>` in the page it is given, and
+      // two pages sharing one browser is not the cost here — the render is, and it is cached.
+      for (const d of SWEPT) {
+        const pdf = runEmulator(d.deck, {});
+        const html = pdf.replace(/\.pdf$/, '.html');
+        assert.ok(fs.existsSync(html), `no HTML sidecar at ${html}`);
+        const page = await browser.newPage();
+        await page.setViewport({ width: 1280, height: 720, deviceScaleFactor: 1 });
+        await page.goto(`file://${html}`, { waitUntil: 'networkidle0' });
+        results.set(d.id, await sweep(page, themes));
+        await page.close();
+      }
     });
-    // Serially, not in parallel: the swap rewrites a `<style>` in the page it is given, and
-    // two pages sharing one browser is not the cost here — the render is, and it is cached.
-    for (const d of DECKS) {
-      const pdf = runEmulator(d.deck, {});
-      const html = pdf.replace(/\.pdf$/, '.html');
-      assert.ok(fs.existsSync(html), `no HTML sidecar at ${html}`);
-      const page = await browser.newPage();
-      await page.setViewport({ width: 1280, height: 720, deviceScaleFactor: 1 });
-      await page.goto(`file://${html}`, { waitUntil: 'networkidle0' });
-      results.set(d.id, await sweep(page, themes));
-      await page.close();
-    }
-  });
 
-  after(async () => { if (browser) await browser.close(); });
+    after(async () => { if (browser) await browser.close(); });
 
-  /**
-   * The green-because-nothing-ran guard. Every assertion below is vacuously true over an
-   * empty sweep, so a render that produced no slides — or a PROBE that threw and returned
-   * [] — would pass this file as "32 clean palettes", once per deck.
-   */
-  test('every deck swept every shipped palette', () => {
-    assert.ok(themes.length >= 30, `expected the full palette set, saw ${themes.length}`);
-    assert.equal(results.size, DECKS.length, 'a deck failed to sweep');
-    for (const d of DECKS) {
-      const result = results.get(d.id);
-      assert.equal(result.palettes.length, themes.length, `${d.id}: a palette failed to probe`);
-      for (const p of result.palettes) {
-        assert.ok(p.rows.length >= d.minRows,
-          `${d.id}/${p.theme}: only ${p.rows.length} text runs measured — the probe is not reaching the deck`);
-      }
-    }
-  });
-
-  /**
-   * THE ORACLE CHECK, and the reason this file can be trusted at all.
-   *
-   * Injecting `dist/themes/<name>-min.css` LOOKED like it worked and was fiction for 18 of
-   * the 32: those files are override layers that reach their base through `@import`, which
-   * does not load inside an injected `<style>`, so each one landed on top of whichever
-   * palette went before it. The sweep reported confident per-palette numbers for hybrids
-   * that exist in no build — `mustard` and `a11y-base`, unrelated palettes, produced
-   * byte-identical offender breakdowns, which is the only reason it was caught.
-   *
-   * So every palette is checked against the static resolver every ANALYTIC gate uses: the
-   * browser's resolved `--bg` and `--text-body` must equal what `contrast-audit.js` says
-   * that palette declares. Two independent paths to the same answer, on each deck.
-   */
-  test('every palette fully applied — browser agrees with the static resolver', () => {
-    const bad = [];
-    for (const d of DECKS) {
-      for (const p of results.get(d.id).palettes.filter((x) => !x.applied)) {
-        bad.push(`${d.id}/${p.theme}: painted ${p.paint.bg} / ${p.paint.ink}, declared ${p.expected.bg} / ${p.expected.ink}`);
-      }
-    }
-    assert.deepEqual(bad, [], `palettes whose swapped stylesheet did not fully apply:\n  ${bad.join('\n  ')}`);
-  });
-
-  /** A matrix that collapses to one painted canvas measured one palette 32 times. */
-  test('the palettes actually painted differently from each other', () => {
-    for (const d of DECKS) {
-      const { distinctPaints } = results.get(d.id);
-      assert.ok(distinctPaints >= 20,
-        `${d.id}: only ${distinctPaints} distinct painted canvases across ${themes.length} palettes — the swap looks inert`);
-    }
-  });
-
-  /**
-   * Provenance detection is live. It works by DISABLING the stylesheets a third-party
-   * renderer ships inside its own `<svg>` and re-probing; if it finds none to disable, it
-   * silently classifies nothing as foreign and every baked run gets scored with a stale
-   * channel. Both decks render Mermaid, so the count is known and pinned PER DECK.
-   *
-   * This count was 3 and is 1 as of #1863, and the drop is the detector getting MORE
-   * precise, not less. `SET_FOREIGN_SHEETS` disables every stylesheet whose owner node
-   * sits inside an `<svg>` — which always swept up our OWN two scheme-aware texture
-   * `<style>` blocks (onyx and concrete) along with Mermaid's. Those two carry nothing
-   * but `.latt-onyx-tex-rN{fill:…}` rules: they paint `<pattern>` internals and can
-   * never move a text run's color, so they were passengers inflating the count. Now that
-   * a page emits only the sets it references, a hue-carried render carries neither, and
-   * the count is exactly the one genuinely third-party sheet.
-   *
-   * The proof that nothing was lost is in the NEXT test, not this one: `foreign` (5) and
-   * `ambiguous` (6/5) are unchanged on both decks across the same 32-palette sweep. Had
-   * either of our sheets been supplying paint, dropping it from the disable set would
-   * have moved those numbers.
-   */
-  test('provenance detection found the svg-scoped stylesheets it keys on', () => {
-    for (const d of DECKS) {
-      assert.equal(results.get(d.id).foreignSheets, d.sheets,
-        `${d.id}: svg-scoped stylesheets moved from ${d.sheets} to ${results.get(d.id).foreignSheets} — `
-        + 'either the renderer changed shape, or the detection stopped finding them');
-    }
-  });
-
-  /**
-   * The drop set, pinned both ways and split by reason.
-   *
-   * A jump means new un-swappable paint shipped. A drop toward zero means the detection
-   * broke and stale ink is being scored as if it followed the swap — which is not
-   * hypothetical: the rule this replaced identified third-party paint by INVARIANCE ("a
-   * channel that never changed must be baked"), and that cannot distinguish Mermaid's baked
-   * edge-label pill from a hardcoded hex in our own CSS. It dropped 17 runs on `gallery`,
-   * six more than provenance does, and the six it over-dropped were ours to score.
-   */
-  test('exactly the recorded runs are dropped, per deck', () => {
-    for (const d of DECKS) {
-      const result = results.get(d.id);
-      assert.equal(result.foreign.size, d.foreign,
-        `${d.id}: runs dropped as third-party-painted moved from ${d.foreign} to ${result.foreign.size}`);
-      assert.equal(result.ambiguous.size, d.ambiguous,
-        `${d.id}: runs dropped for an ambiguous key moved from ${d.ambiguous} to ${result.ambiguous.size}`);
-      assert.equal(result.unswept.size, d.unswept,
-        `${d.id}: total dropped moved from ${d.unswept} to ${result.unswept.size}`);
-    }
-  });
-
-  /**
-   * The offender path is live. Without this, an `offenders()` that returned [] — a bad
-   * filter, a renamed row field, a threshold that stopped being attached — would satisfy
-   * EVERY ceiling below and this file would report 32 clean palettes. The ceilings are all
-   * upper bounds, so nothing else here can tell the difference between "clean" and "not
-   * measuring". Asserted on the RAW count, before the exemptions, because the exemptions
-   * are themselves a filter that could swallow everything: the decorative watermark and the
-   * pullquote glyph are sub-threshold on every palette by construction.
-   *
-   * Per deck, and that matters now that `gallery`'s scored total is ZERO: a shared assertion
-   * would be satisfied by the other deck while `gallery`'s probe quietly stopped measuring.
-   */
-  test('the offender detection is actually returning rows on every deck', () => {
-    for (const d of DECKS) {
-      const result = results.get(d.id);
-      const totals = result.palettes.map((p) => offenders(p.rows, result.unswept).length);
-      assert.ok(Math.max(...totals) > 0,
-        `${d.id}: no palette reported a single sub-threshold run — the offender filter is not measuring`);
-    }
-  });
-
-  test('the ceiling table lines up with the decks and palettes actually swept', () => {
-    assert.deepEqual(Object.keys(CEILING).sort(), DECKS.map((d) => d.id).sort(),
-      'the ceiling table and DECKS disagree about which decks are swept');
-    const swept = new Set(themes);
-    for (const d of DECKS) {
-      const listed = new Set(Object.keys(CEILING[d.id]));
-      const missing = [...swept].filter((t) => !listed.has(t));
-      const stale = [...listed].filter((t) => !swept.has(t));
-      assert.deepEqual(missing, [], `${d.id}: palettes swept with no ceiling entry: ${missing.join(', ')}`);
-      assert.deepEqual(stale, [], `${d.id}: ceiling entries for palettes that no longer ship: ${stale.join(', ')}`);
-    }
-  });
-
-  test('no palette exceeds its recorded ceiling on any deck', () => {
-    const over = [];
-    const under = [];
-    for (const d of DECKS) {
-      const result = results.get(d.id);
-      for (const p of result.palettes) {
-        const bad = scored(p.rows, result.unswept);
-        const ceiling = CEILING[d.id][p.theme];
-        if (bad.length > ceiling) {
-          const worst = [...bad].sort((a, b) => a.r - b.r).slice(0, 5);
-          over.push(`${d.id}/${p.theme}: ${bad.length} > ${ceiling}\n${worst.map(
-            (r) => `        ${r.r}:1 <${r.tag}> ${r.cls || ''} "${String(r.text).slice(0, 56)}"`).join('\n')}`);
-        } else if (bad.length < ceiling) {
-          under.push(`${d.id}/${p.theme}: ${bad.length} (ceiling ${ceiling})`);
+    /**
+     * The green-because-nothing-ran guard. Every assertion below is vacuously true over an
+     * empty sweep, so a render that produced no slides — or a PROBE that threw and returned
+     * [] — would pass this file as "32 clean palettes", once per deck.
+     */
+    test('every deck swept every shipped palette', () => {
+      assert.ok(themes.length >= 30, `expected the full palette set, saw ${themes.length}`);
+      assert.equal(results.size, SWEPT.length, 'a deck failed to sweep');
+      for (const d of SWEPT) {
+        const result = results.get(d.id);
+        assert.equal(result.palettes.length, themes.length, `${d.id}: a palette failed to probe`);
+        for (const p of result.palettes) {
+          assert.ok(p.rows.length >= d.minRows,
+            `${d.id}/${p.theme}: only ${p.rows.length} text runs measured — the probe is not reaching the deck`);
         }
       }
-    }
-    // Progress prints and invites lowering the number, exactly as the sibling gate's
-    // pre-existing backlog does — a ceiling nobody ever lowers is a budget, not a ratchet.
-    if (under.length) console.log(`      ↓ below ceiling — lower these:\n        ${under.join('\n        ')}`);
-    assert.deepEqual(over, [], `palettes above their recorded ceiling:\n  ${over.join('\n  ')}`);
+    });
+
+    /**
+     * THE ORACLE CHECK, and the reason this file can be trusted at all.
+     *
+     * Injecting `dist/themes/<name>-min.css` LOOKED like it worked and was fiction for 18 of
+     * the 32: those files are override layers that reach their base through `@import`, which
+     * does not load inside an injected `<style>`, so each one landed on top of whichever
+     * palette went before it. The sweep reported confident per-palette numbers for hybrids
+     * that exist in no build — `mustard` and `a11y-base`, unrelated palettes, produced
+     * byte-identical offender breakdowns, which is the only reason it was caught.
+     *
+     * So every palette is checked against the static resolver every ANALYTIC gate uses: the
+     * browser's resolved `--bg` and `--text-body` must equal what `contrast-audit.js` says
+     * that palette declares. Two independent paths to the same answer, on each deck.
+     */
+    test('every palette fully applied — browser agrees with the static resolver', () => {
+      const bad = [];
+      for (const d of SWEPT) {
+        for (const p of results.get(d.id).palettes.filter((x) => !x.applied)) {
+          bad.push(`${d.id}/${p.theme}: painted ${p.paint.bg} / ${p.paint.ink}, declared ${p.expected.bg} / ${p.expected.ink}`);
+        }
+      }
+      assert.deepEqual(bad, [], `palettes whose swapped stylesheet did not fully apply:\n  ${bad.join('\n  ')}`);
+    });
+
+    /** A matrix that collapses to one painted canvas measured one palette 32 times. */
+    test('the palettes actually painted differently from each other', () => {
+      for (const d of SWEPT) {
+        const { distinctPaints } = results.get(d.id);
+        assert.ok(distinctPaints >= 20,
+          `${d.id}: only ${distinctPaints} distinct painted canvases across ${themes.length} palettes — the swap looks inert`);
+      }
+    });
+
+    /**
+     * Provenance detection is live. It works by DISABLING the stylesheets a third-party
+     * renderer ships inside its own `<svg>` and re-probing; if it finds none to disable, it
+     * silently classifies nothing as foreign and every baked run gets scored with a stale
+     * channel. Both decks render Mermaid, so the count is known and pinned PER DECK.
+     *
+     * This count was 3 and is 1 as of #1863, and the drop is the detector getting MORE
+     * precise, not less. `SET_FOREIGN_SHEETS` disables every stylesheet whose owner node
+     * sits inside an `<svg>` — which always swept up our OWN two scheme-aware texture
+     * `<style>` blocks (onyx and concrete) along with Mermaid's. Those two carry nothing
+     * but `.latt-onyx-tex-rN{fill:…}` rules: they paint `<pattern>` internals and can
+     * never move a text run's color, so they were passengers inflating the count. Now that
+     * a page emits only the sets it references, a hue-carried render carries neither, and
+     * the count is exactly the one genuinely third-party sheet.
+     *
+     * The proof that nothing was lost is in the NEXT test, not this one: `foreign` (5) and
+     * `ambiguous` (6/5) are unchanged on both decks across the same 32-palette sweep. Had
+     * either of our sheets been supplying paint, dropping it from the disable set would
+     * have moved those numbers.
+     */
+    test('provenance detection found the svg-scoped stylesheets it keys on', () => {
+      for (const d of SWEPT) {
+        assert.equal(results.get(d.id).foreignSheets, d.sheets,
+          `${d.id}: svg-scoped stylesheets moved from ${d.sheets} to ${results.get(d.id).foreignSheets} — `
+          + 'either the renderer changed shape, or the detection stopped finding them');
+      }
+    });
+
+    /**
+     * The drop set, pinned both ways and split by reason.
+     *
+     * A jump means new un-swappable paint shipped. A drop toward zero means the detection
+     * broke and stale ink is being scored as if it followed the swap — which is not
+     * hypothetical: the rule this replaced identified third-party paint by INVARIANCE ("a
+     * channel that never changed must be baked"), and that cannot distinguish Mermaid's baked
+     * edge-label pill from a hardcoded hex in our own CSS. It dropped 17 runs on `gallery`,
+     * six more than provenance does, and the six it over-dropped were ours to score.
+     */
+    test('exactly the recorded runs are dropped, per deck', () => {
+      for (const d of SWEPT) {
+        const result = results.get(d.id);
+        assert.equal(result.foreign.size, d.foreign,
+          `${d.id}: runs dropped as third-party-painted moved from ${d.foreign} to ${result.foreign.size}`);
+        assert.equal(result.ambiguous.size, d.ambiguous,
+          `${d.id}: runs dropped for an ambiguous key moved from ${d.ambiguous} to ${result.ambiguous.size}`);
+        assert.equal(result.unswept.size, d.unswept,
+          `${d.id}: total dropped moved from ${d.unswept} to ${result.unswept.size}`);
+      }
+    });
+
+    /**
+     * The offender path is live. Without this, an `offenders()` that returned [] — a bad
+     * filter, a renamed row field, a threshold that stopped being attached — would satisfy
+     * EVERY ceiling below and this file would report 32 clean palettes. The ceilings are all
+     * upper bounds, so nothing else here can tell the difference between "clean" and "not
+     * measuring". Asserted on the RAW count, before the exemptions, because the exemptions
+     * are themselves a filter that could swallow everything: the decorative watermark and the
+     * pullquote glyph are sub-threshold on every palette by construction.
+     *
+     * Per deck, and that matters now that `gallery`'s scored total is ZERO: a shared assertion
+     * would be satisfied by the other deck while `gallery`'s probe quietly stopped measuring.
+     */
+    test('the offender detection is actually returning rows on every deck', () => {
+      for (const d of SWEPT) {
+        const result = results.get(d.id);
+        const totals = result.palettes.map((p) => offenders(p.rows, result.unswept).length);
+        assert.ok(Math.max(...totals) > 0,
+          `${d.id}: no palette reported a single sub-threshold run — the offender filter is not measuring`);
+      }
+    });
+
+    test('the ceiling table lines up with the decks and palettes actually swept', () => {
+      assert.deepEqual(Object.keys(CEILING).sort(), DECKS.map((d) => d.id).sort(),
+        'the ceiling table and DECKS disagree about which decks are swept');
+      const swept = new Set(themes);
+      for (const d of SWEPT) {
+        const listed = new Set(Object.keys(CEILING[d.id]));
+        const missing = [...swept].filter((t) => !listed.has(t));
+        const stale = [...listed].filter((t) => !swept.has(t));
+        assert.deepEqual(missing, [], `${d.id}: palettes swept with no ceiling entry: ${missing.join(', ')}`);
+        assert.deepEqual(stale, [], `${d.id}: ceiling entries for palettes that no longer ship: ${stale.join(', ')}`);
+      }
+    });
+
+    test('no palette exceeds its recorded ceiling on any deck', () => {
+      const over = [];
+      const under = [];
+      for (const d of SWEPT) {
+        const result = results.get(d.id);
+        for (const p of result.palettes) {
+          const bad = scored(p.rows, result.unswept);
+          const ceiling = CEILING[d.id][p.theme];
+          if (bad.length > ceiling) {
+            const worst = [...bad].sort((a, b) => a.r - b.r).slice(0, 5);
+            over.push(`${d.id}/${p.theme}: ${bad.length} > ${ceiling}\n${worst.map(
+              (r) => `        ${r.r}:1 <${r.tag}> ${r.cls || ''} "${String(r.text).slice(0, 56)}"`).join('\n')}`);
+          } else if (bad.length < ceiling) {
+            under.push(`${d.id}/${p.theme}: ${bad.length} (ceiling ${ceiling})`);
+          }
+        }
+      }
+      // Progress prints and invites lowering the number, exactly as the sibling gate's
+      // pre-existing backlog does — a ceiling nobody ever lowers is a budget, not a ratchet.
+      if (under.length) console.log(`      ↓ below ceiling — lower these:\n        ${under.join('\n        ')}`);
+      assert.deepEqual(over, [], `palettes above their recorded ceiling:\n  ${over.join('\n  ')}`);
+    });
+
+    /**
+     * The split's own guard: one file per deck, no more and no less. Without it, a deck
+     * added to `DECKS` with no file would sit in the ceiling table, pass the key check above,
+     * and never be swept.
+     */
+    test('every deck in DECKS has exactly one palette-sweep file', () => {
+      const files = fs.readdirSync(__dirname)
+        .map((f) => /^palette-sweep-(.+)\.test\.js$/.exec(f))
+        .filter(Boolean)
+        .map((m) => m[1])
+        .sort();
+      assert.deepEqual(files, DECKS.map((d) => d.id).sort(),
+        'palette-sweep-<deck id>.test.js files and DECKS disagree');
+    });
   });
-});
+}
+
+module.exports = { defineSweep, DECKS, CEILING };
