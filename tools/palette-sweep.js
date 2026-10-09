@@ -87,7 +87,7 @@
  *
  * Exits non-zero if any palette fails its canary. Sub-threshold RUNS are reported but do
  * not set the exit code here — policy belongs to the gate
- * (`test/integration/invariants/palette-sweep.test.js`), the same split
+ * (`test/integration/invariants/palette-sweep.suite.js`), the same split
  * `check-slide-contrast.js` and `slide-contrast.test.js` already use: the tool owns the
  * number, the test owns what is allowed.
  */

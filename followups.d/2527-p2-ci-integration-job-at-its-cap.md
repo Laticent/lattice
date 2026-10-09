@@ -10,6 +10,10 @@ swimlane: engineering/development.md
 # CI's integration (node 22) job runs at its 25-minute cap, and a capped run reads green
 
 ```text
+status    — the owner picked the split (2026-10-09): branch `claude/ci-shard-integration` runs
+            the slice as four `--test-shard` legs, 25 min cap each. The merge queue already
+            fails a `cancelled` tier; the PR run still passes one, with the reason in ci.yml's
+            Verify gate. Done once the table below is re-measured on the sharded legs.
 why now   — measured on the 11 newest completed merge-queue runs of ci.yml (2026-10-05 21:17Z
             to 2026-10-06 03:18Z): the integration (node 22) job's median is 25.0 min and its
             max 25.3. 8 of 11 ran within 2 min of the cap or hit it. Six ended `cancelled` at

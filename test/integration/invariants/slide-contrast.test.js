@@ -102,7 +102,7 @@ const SURFACES = [
   { id: 'seq-ramp @ indaco', deck: path.join(ROOT, 'examples/seq-ramp-canvas-aware.md'), palette: 'indaco', minRows: 60 },
 ];
 
-// The decorative-exemption predicates are shared with `palette-sweep.test.js`; the
+// The decorative-exemption predicates are shared with `palette-sweep.suite.js`; the
 // per-surface `counts` pinned below belong to THIS gate's SURFACES. See that module.
 const { SANCTIONED_CONTRAST_EXEMPTIONS } = require('../../../tools/contrast-exemptions.js');
 

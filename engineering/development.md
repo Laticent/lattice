@@ -78,7 +78,7 @@ scaffolders, …). This section calls out only the daily inner-loop:
 | `test:watch` | Re-run the unit suite on file change |
 | `test:<scope>` | Scoped unit subset (`palette`/`mermaid`/`parsing`/`components`/`cli`/`engine`/`layout`/…) |
 | `test:integration` | The FULL integration tier (every suite) — what pre-push runs under `LATTICE_FULL_PUSH=1` |
-| `test:integration:pr` | The PR-blocking slice CI gates on: cross-path wiring (`parity/`) + export pipeline (`export/`) + per-component semantic invariants (`invariants/`) |
+| `test:integration:pr` | The PR-blocking slice CI gates on: cross-path wiring (`parity/`) + export pipeline (`export/`) + per-component semantic invariants (`invariants/`). CI runs it as four shards (see *CI* below) |
 | `test:integration:nightly` | The render-regression slice that runs nightly on `main` (`integration-nightly.yml`): gallery/component/exemplar page-counts + mermaid + screenshot |
 | `bench` | tinybench render benchmark — the owned engine over time (`-- --export` adds the rasterize tier, `-- --json` dumps machine-readable) |
 | `lint`, `lint:fix` | Biome check / Biome check --write (never `npx biome`) |
@@ -392,11 +392,19 @@ integration tests, not unit tests.
   freshness gate (`build:check`) lives in `lint`. Costs ~12 runner-minutes
   a run (457s + 260s, measured on PR #2554).
 - **`integration`** — code changes only, `needs: changes` (it runs beside
-  `unit`, not after it), single Node (22).
+  `unit`, not after it), single Node (22), **sharded across four runners**:
+  check runs `integration (node 22, shard K/4)`, `fail-fast: false`.
   The only tier that renders, so the only one that downloads Chromium —
   **cached** via `actions/cache` on `~/.cache/puppeteer` (keyed on the
   lockfile). Installs `poppler-utils` (for `pdfinfo`), runs
-  `npm run test:integration`. ~2–3 min cold.
+  `npm run test:integration:pr` with `NODE_OPTIONS=--test-shard=K/4`, so each
+  leg runs every fourth file. Node splits by file COUNT, not by time, so a leg
+  finishes no sooner than its slowest file; that is why the palette sweep is one
+  file per deck (`test/integration/invariants/palette-sweep.suite.js`). Run one leg
+  locally with `NODE_OPTIONS=--test-shard=2/4 npm run test:integration:pr`
+  (`npm run test:integration:pr -- --test-shard=2/4` does NOT shard: node reads
+  the trailing flag as one more file pattern). The `ci` gate still sees one
+  `needs.integration.result` for all four legs, and any red leg makes it `failure`.
 - **`player-webkit`** — re-runs `test/integration/export/player-no-js.test.js` (the
   exported player with JavaScript off) in Playwright's WebKit, because iOS Quick Look
   opens exports with scripts off and Quick Look is WebKit. Runs only when `lib/export/**`
@@ -426,8 +434,8 @@ this only `studio-smoke` had a cap. `npm ci` on node 24 wedges: **four times in 
 run), 29m11s and 11m04s — every one of them `unit (node 24)`, every one ending
 *cancelled* rather than finishing, against 16–19s for node 22 in those same runs. Six
 hours is the exposure an uncancelled wedge would reach, not a bill the repo has paid.
-Caps: `changes` 5 · `lint` 10 · `unit` 15 · `integration` 45 (raised from 25 on
-2026-10-05; `ci.yml` has the re-sample) · `golden-diff` 25 ·
+Caps: `changes` 5 · `lint` 10 · `unit` 15 · `integration` 25 per leg (raised 25 -> 45 on
+2026-10-05, cut to 25 with the four-way shard on 2026-10-09; `ci.yml` has both) · `golden-diff` 25 ·
 `docs-build` 20 · `studio-smoke` 15 · `player-webkit` 12 · `ci` 5.
 
 **A cap is a ceiling, not a detector — and it does not catch every wedge.** 15m on

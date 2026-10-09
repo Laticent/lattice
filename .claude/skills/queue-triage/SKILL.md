@@ -182,7 +182,7 @@ Then, once approved:
   subject was claims nobody re-derives. **Before citing any gate as evidence, name where
   it ran and check that its duration is physically possible for the work it claims to
   have done** (#23). `export LATTICE_FULL_PUSH=1` if you want it locally; otherwise cite
-  CI's `integration (node 22)`, which is the required gate and really does run it.
+  CI's `integration (node 22, shard K/4)` legs, which feed the required gate and really do run it.
   **The `ci-green-beacon` had the same bug and it is now fixed** (this change): it posted
   the hardcoded roster `lint · unit · integration · docs-build` regardless of what ran, so
   on any path-filtered PR it announced three skipped tiers as green. It now reports

@@ -142,7 +142,7 @@ jobs:
 
       # THE PALETTE MATRIX, RENDERED FOR REAL — the referee for the per-PR sweep.
       #
-      # `test/integration/invariants/palette-sweep.test.js` gates all 32 palettes on every
+      # `test/integration/invariants/palette-sweep.suite.js` gates all 32 palettes on every
       # PR by rendering the gallery ONCE and re-theming it in place. That is ~70x cheaper
       # than re-rendering the matrix and it is what makes the palette axis affordable at
       # all — but it buys the speed with an assumption: that overwriting the palette region
