@@ -121,7 +121,7 @@ describe('the inline-code table — against a FROZEN copy of the pre-table outpu
 describe('the inline-code table — plugin rows', () => {
   test('every plugin row names its plugin, a tag sigil and the four functions', () => {
     for (const k of table.KINDS.filter((r) => r.plugin)) {
-      assert.match(k.sigil, /^[~^]$/, k.name);
+      assert.match(k.sigil, /^[~^!]$/, k.name);
       for (const fn of ['resolve', 'html', 'element', 'diagnose']) assert.equal(typeof k[fn], 'function', `${k.name}.${fn}`);
     }
   });

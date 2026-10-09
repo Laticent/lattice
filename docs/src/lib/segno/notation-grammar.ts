@@ -14,14 +14,14 @@ export const WS = ' \t\u00a0';
 export const STOP = ',={}[]"|';
 /**
  * TAGS: a character directly before a span's opening `{` names what kind of record it is —
- * `~{12 14 17}`, `^{database}`. Only at the very START of a span: there, a tag character
+ * `~{12 14 17}`, `^{database}`, `!{Ada Okafor}`. Only at the very START of a span: there, a tag character
  * always opens a tagged record, so the choice is made on one character and the grammar stays
  * LL(1). The price is that a span's top-level bare value cannot start with a tag character —
  * `~/path` simply fails to parse, which for inline code means it stays code. Inside a record or
  * a list a tag character is ordinary text (`{~5 min}`). What each tag MEANS is the slot's
  * business (`record({ tag: '~' })`), not the grammar's.
  */
-export const TAGS = '~^';
+export const TAGS = '~^!';
 
 const ws = many(oneOf(WS, 'a space'));
 const bare = node('bare', seq(noneOf(STOP + WS, 'a value'), many(noneOf(STOP, 'a value'))));
