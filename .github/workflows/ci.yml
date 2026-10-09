@@ -117,6 +117,13 @@ concurrency:
 # This mattered more than a red PR: until the same change, the `ci` gate accepted a
 # `cancelled` tier on merge_group too, and in the 39 completed queue runs from
 # 2026-09-29 to 2026-10-05, 11 merged with integration cut off mid-suite.
+#
+# SHARDED 2026-10-09: the job above is now four legs, `integration (node 22, shard
+# K/4)`, each capped at 25 min. The 41-run sample here describes the ONE-job suite,
+# so its numbers are history now, not the per-leg cap's basis. Merge-queue run
+# 37865229530 put that one job's test step at 25.4 min against ~10 min for every
+# other tier; the integration job's own comment has the per-leg measurement and the
+# balance. Re-sample the legs, not the sum, before moving the cap again.
 
 jobs:
   # ── Change classifier ──────────────────────────────────────────────────
@@ -403,14 +410,50 @@ jobs:
   # runner-minute is cheaper than a person waiting. The saved minutes on a red run are
   # the price; the aggregate `ci` gate below still requires BOTH, so nothing merges on
   # a red unit tier.
+  #
+  # SHARDED FOUR WAYS (2026-10-09). As one job the PR slice took 25.4 min of test step
+  # on one 4-vCPU runner (merge_group run 37865229530), and every other tier was done
+  # by ~10 min, so it alone set the length of every CI run, twice per PR (once on the
+  # PR, once in the queue). Each leg runs every fourth file: `node --test
+  # --test-shard=K/N` takes the file list `test:integration:pr` globs, in its own
+  # order, and keeps the files whose index is K-1 mod N. That is by FILE COUNT, not by
+  # time, so a leg can never finish before its slowest file does; the palette sweep
+  # is split one file per deck for that reason (palette-sweep.suite.js).
+  #
+  # The flag rides in NODE_OPTIONS rather than on the command line because
+  # `npm run test:integration:pr -- --test-shard=K/N` does NOT work: node treats an
+  # option after the globs as one more pattern and runs every file. NODE_OPTIONS keeps
+  # the glob list in one place (package.json) and the script unsharded locally. It
+  # reaches every child node process too; a plain `node script.js` ignores the flag,
+  # and no file in the slice starts its own `node --test`.
+  #
+  # The aggregate `ci` gate still reads ONE `needs.integration.result` for all four
+  # legs: `success` only when every leg succeeded, `failure` when any failed, and
+  # `cancelled` when one was cut off and none failed — the same three values the
+  # single job produced, so the Verify gate below needed no change.
+  # `fail-fast: false` so a red leg does not cancel the other three: one run then
+  # names every failing file, instead of one fix-and-rerun round per leg.
   integration:
     needs: changes
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
-    # Raised 25 -> 45 on 2026-10-05: the suite outgrew 25 (the INTEGRATION RE-SAMPLE
-    # note at the top of this file has the numbers).
-    timeout-minutes: 45
-    name: integration (node 22)
+    # PER LEG. Raised 25 -> 45 on 2026-10-05 when the unsharded suite outgrew 25 (the
+    # INTEGRATION RE-SAMPLE note at the top of this file has the numbers); cut to
+    # 25 on 2026-10-09 with the four-way shard.
+    # Measured on a 4-vCPU sandbox, each leg run alone (2026-10-09): test step
+    # 535s / 343s / 502s / 230s, summing to 27 min, about the unsharded CI step. The
+    # 1.75x slow-runner factor the re-sample found makes the worst leg ~16 min of
+    # tests plus ~2 min of install and build, so 25 is ~1.4x that and ~2.3x a normal
+    # leg. Re-derive it from real runs once the matrix has a week of history.
+    # NOT BALANCED: legs 1 and 3 each draw three of the slowest files (export-formats,
+    # strip-notes, axe / the gallery palette sweep, frame identity, the clipped pill),
+    # and leg 4 draws none, so the critical path is leg 1, not a quarter of the suite.
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    name: integration (node 22, shard ${{ matrix.shard }}/4)
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -418,6 +461,8 @@ jobs:
           node-version: 22
           cache: npm
       - name: Cache Puppeteer browser
+        # All four legs share this key. On a cold key each leg downloads Chromium and
+        # one of them saves it; the others log "unable to reserve cache" and go on.
         uses: actions/cache@v4
         with:
           path: ~/.cache/puppeteer
@@ -439,7 +484,11 @@ jobs:
       # `--check` after it passes vacuously and stops being a gate at all.
       - name: Build the generated bundles
         run: npm run build
-      - name: Integration tests (PR slice)
+      - name: Integration tests (PR slice, one shard)
+        env:
+          # `strategy.job-total` rather than a literal 4, so resizing the matrix
+          # cannot leave a file in no leg or in two.
+          NODE_OPTIONS: --test-shard=${{ matrix.shard }}/${{ strategy.job-total }}
         run: npm run test:integration:pr
       - name: Upload Marp renders on failure
         # The marp-kit render gate exists because every defect it guards was
@@ -449,7 +498,9 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: marp-renders
+          # One name per leg: upload-artifact@v4 refuses a second artifact with
+          # the same name in one run, so two red legs would lose the second upload.
+          name: marp-renders-shard-${{ matrix.shard }}
           path: .scratch/marp-render/
           if-no-files-found: ignore
           retention-days: 7
@@ -1007,7 +1058,9 @@ jobs:
             // this SHA — CodeQL, the advisory jobs, other workflows — is OUTSIDE the
             // claim, which is the whole point of the snapshot below.
             const COVERED = new Set(['changes', 'ci', 'lint', 'unit', 'integration', 'docs-build']);
-            const isCovered = (n) => COVERED.has(n) || /^(unit|integration) \(node \d+\)$/.test(n);
+            // `integration` runs as four legs named `integration (node 22, shard K/4)`.
+            const isCovered = (n) => COVERED.has(n)
+              || /^(unit|integration) \(node \d+(, shard \d+\/\d+)?\)$/.test(n);
 
             let failed = [];
             let pending = [];
