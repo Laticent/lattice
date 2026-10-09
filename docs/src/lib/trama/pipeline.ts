@@ -188,7 +188,9 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
       const w = doc.defaultView as (Window & typeof globalThis) | null;
       if (!w || typeof w.Worker !== 'function' || typeof w.Blob !== 'function' || !w.URL?.createObjectURL) return null;
       let dagreSrc = '';
-      for (const el of doc.querySelectorAll<HTMLScriptElement>('script[src]')) if (/lattice-dagre(-min)?\.js(\?|#|$)/.test(el.src)) { dagreSrc = el.src; break; }
+      // Only a script the page actually ran: an inert `<script type="x/template" src=…>` that a
+      // sanitizer let through must not become code in the worker (library trio, TRA-R5).
+      for (const el of doc.querySelectorAll<HTMLScriptElement>('script[src]')) if ((!el.type || /^(text|application)\/(javascript|ecmascript)$|^module$/i.test(el.type)) && /lattice-dagre(-min)?\.js(\?|#|$)/.test(el.src)) { dagreSrc = el.src; break; }
       // No dagre tag YET is not a verdict: a host adds it once a chart appears (the Studio's
       // `ensureDagre`), and a pass can run first. Ask again next time, rather than caching a
       // null that would keep every later layout on the editor's thread for the frame's life.

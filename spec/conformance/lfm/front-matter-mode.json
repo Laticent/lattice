@@ -1,0 +1,7 @@
+{
+  "title": "mode: sets the deck's rendering mode",
+  "spec": "LFM-1.0",
+  "section": "2.3",
+  "L0": { "visible": ["A sketched deck"] },
+  "L1": { "deck": { "mode": "sketch" } }
+}

@@ -1,5 +1,11 @@
 # LPM — the Lattice Plugin Model
 
+<!-- spec-parts
+schema: lib/plugins/plugin.schema.json
+reference: lib/plugins/
+tests: test/unit/plugins/conformance.test.js
+-->
+
 **Version:** 0.5-draft · **Status:** Draft · **Date:** 2026-10-06 · **Host API:** `api: 1`
 
 A **plugin** teaches Lattice something that works on any slide — a syntax (`$…$`), a fenced block

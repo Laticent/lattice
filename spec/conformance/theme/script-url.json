@@ -1,0 +1,13 @@
+{
+  "title": "A javascript: URL is refused",
+  "spec": "THEME-1.0",
+  "section": "6",
+  "expect": {
+    "ok": false,
+    "blocked": true,
+    "errors": [
+      "css-scheme",
+      "css-url-remote"
+    ]
+  }
+}

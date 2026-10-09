@@ -1,0 +1,19 @@
+{
+  "title": "A card is a list item's title with its nested list as the body",
+  "spec": "LFM-1.0",
+  "section": "3.1",
+  "L0": { "visible": ["Speed", "Ship weekly", "Trust", "Sign every release"] },
+  "L1": {
+    "slides": [
+      {
+        "component": "cards-grid",
+        "cards": [
+          { "title": "Speed", "body": ["Ship weekly"] },
+          { "title": "Trust", "body": ["Sign every release"] },
+          { "title": "Reach", "body": ["Two new regions"] }
+        ]
+      }
+    ]
+  },
+  "L2": { "findings": [] }
+}

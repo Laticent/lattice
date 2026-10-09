@@ -8,7 +8,7 @@ word cursor (`makeCursor`), and the timing functions (`positionAt`, `timeline`).
 engine (that is [Cadenza](https://github.com/Laticent/lattice/blob/main/docs/src/lib/cadenza/)), no audio ([Suono](https://github.com/Laticent/lattice/blob/main/docs/src/lib/suono/)) and no DOM, and it imports
 nothing outside this folder, not even a `node:` built-in. A boundary gate enforces that.
 
-- **Spec:** [`engineering/ltt.md`](https://github.com/Laticent/lattice/blob/main/engineering/ltt.md), including its owner, the
+- **Spec:** [LTT 1.0](https://lattice.style/spec/ltt/) (source: `spec/LTT-1.0.md` in the repo), including its owner, the
   transport rules and what video export guarantees.
 - **Why:** [`engineering/decisions/2026-09-24-lattice-timing-track.md`](https://github.com/Laticent/lattice/blob/main/engineering/decisions/2026-09-24-lattice-timing-track.md).
 

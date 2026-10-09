@@ -41,6 +41,25 @@ does not build.
 npm i @laticent/segno
 ```
 
+## What is stable
+
+This is 0.x: a minor version may break the API. Within that, two halves move at different speeds.
+
+- **Stable for 0.x:** declaring a slot (`record`, the types, `read`, `values`), `parse` for the
+  inline notation, `readNumber` / `readTime`, and `SchemaError`. Lattice reads every deck through
+  these.
+- **Experimental:** the grammar engine (`compile`, the combinators, `lint`, `generate`) and the
+  notation's own grammar (`notationSpec`, `TAGS`). Their names and shapes may change in any minor
+  version. The notation itself is specified in LFM 1.1 §3.6
+  ([`spec/LFM-1.1.md`](https://github.com/Laticent/lattice/blob/main/spec/LFM-1.1.md)), which wins
+  where it and this package disagree.
+
+The notation is one line: a newline inside a span is an ordinary character, not whitespace. That
+matches Markdown inline code, which folds a line break into a space before Segno sees it.
+
+`SchemaError` and `GrammarError` are branded, so `instanceof` holds across the package's entry
+points (`.`, `./read`, `./values`), each of which is bundled on its own.
+
 ## Write a grammar
 
 ```ts
@@ -69,8 +88,14 @@ listing EVERY violation with its rule path:
   (unless the loop is marked `greedy`, below);
 - a rule that reaches itself without consuming (left recursion).
 
-`lint(spec)` returns the same list without throwing. Nesting is capped at `MAX_DEPTH` (64) so a
-deeply nested input is an error, never a stack overflow.
+`lint(spec)` returns the same list without throwing. On a wide alternation it names the first ten
+overlapping pairs and counts the rest, so a grammar built at run time cannot stall it. Nesting is
+capped at `MAX_DEPTH` (64), so a deeply nested input returns an error instead of overflowing the
+stack.
+
+A set holds characters one UTF-16 unit long: `chars()` and `charRange()` throw on an emoji or any
+other character outside the Basic Multilingual Plane, and on a range that runs backwards. Match such
+a character with `lit()`.
 
 ### Longest match, skip-to, and deeper nesting
 
@@ -116,8 +141,8 @@ flowchart row. Three never let a parse go back over what it read; `attempt()` go
   `npm run segno-lib:build` rewrites that file, and the change owes its tests
   (`test/unit/tools/flow-row-grammar.test.js`) and a checker, as any render-path change does.
 - **`maxDepth`** on the spec raises the nesting cap for one grammar, up to `MAX_DEPTH_LIMIT`
-  (1,000). If the JavaScript stack runs out first, the parse returns an error, `STACK_EXHAUSTED`,
-  instead of throwing. That happens in `compile()`, which spends a stack frame per expression, on
+  (1,000). If the JavaScript stack runs out first, the parse returns an error with
+  `code: 'stack'` instead of throwing. Test `error.code`, not the wording of `error.expected`. That happens in `compile()`, which spends a stack frame per expression, on
   grammars with many expressions per level. The generated parser gets further on the same input,
   so on such a grammar the two can disagree.
 

@@ -1,0 +1,13 @@
+{
+  "title": "Fenced sub-languages degrade to code blocks; latticeplot is an alias of functionplot",
+  "spec": "LFM-1.0",
+  "section": "3.3",
+  "L0": { "codeBlocks": ["mermaid", "functionplot", "latticeplot"], "visible": ["graph LR", "\"fn\":\"x^2\""] },
+  "L1": {
+    "slides": [
+      { "component": "diagram" },
+      { "component": "math", "modifiers": ["canvas"], "fences": ["functionplot"] },
+      { "component": "math", "modifiers": ["canvas"], "fences": ["functionplot"] }
+    ]
+  }
+}

@@ -12380,6 +12380,44 @@ function checkFollowups(errors) {
   for (const problem of followupProblems()) errors.push(problem);
 }
 
+// ─── Every spec declares its four parts (spec audit §2, §6 step 5) ───────────────
+// A spec is a document, a schema, a reference implementation and shared test cases
+// (engineering/decisions/2026-10-08-spec-audit.md §2). Each spec/*.md says where its other three
+// live in one HTML comment under its title, invisible on the site:
+//
+//   <!-- spec-parts
+//   schema: themes/theme.schema.json
+//   reference: lib/theme/gate.js lib/theme/derive.js
+//   tests: spec/conformance/theme/
+//   -->
+//
+// Paths are repo-relative and space-separated, and each must exist. `schema` alone may instead
+// say `none: <why>` (a shape stated in the document itself). A part that cannot be found fails
+// here, inside build:check, so the category cannot quietly lose a part or keep a rotted path.
+const SPEC_PARTS = ['schema', 'reference', 'tests'];
+
+/** The problems with one spec's parts block, as messages. Pure over its inputs. */
+function specPartProblems(file, text, exists) {
+  const block = /<!--\s*spec-parts\s*\n([\s\S]*?)-->/.exec(text);
+  if (!block) return [`${file}: no <!-- spec-parts --> block naming its schema, reference implementation and tests (spec audit §2)`];
+  const parts = Object.fromEntries(block[1].split('\n').map((l) => /^\s*([a-z]+):\s*(.*?)\s*$/.exec(l)).filter(Boolean).map((m) => [m[1], m[2]]));
+  const out = [];
+  for (const part of SPEC_PARTS) {
+    const value = parts[part];
+    if (!value) { out.push(`${file}: the spec-parts block names no ${part}`); continue; }
+    if (part === 'schema' && /^none:\s*\S/.test(value)) continue;
+    for (const p of value.split(/\s+/)) if (!exists(p)) out.push(`${file}: its ${part} path ${p} does not exist`);
+  }
+  return out;
+}
+
+function checkSpecParts(errors, root = ROOT) {
+  const dir = path.join(root, 'spec');
+  for (const f of fs.readdirSync(dir).filter((n) => n.endsWith('.md') && n !== 'README.md').sort()) {
+    for (const problem of specPartProblems(`spec/${f}`, fs.readFileSync(path.join(dir, f), 'utf8'), (p) => fs.existsSync(path.join(root, p)))) errors.push(problem);
+  }
+}
+
 // ─── dist/ verbatim copies ────────────────────────────────────────────────────
 // A file that dist/ COPIES from a committed source must still equal it. A copy is the one
 // class of generated artifact with a second, silently drifting original: everything else in
@@ -13384,6 +13422,7 @@ function run() {
   checkNulBytes(errors);
   checkChangelogFragments(errors);
   checkFollowups(errors);
+  checkSpecParts(errors);
   checkVerbatimDistCopies(errors);
   checkLockfileOptionalPeers(errors);
   checkDanglingTokenReads(errors);
@@ -13426,6 +13465,8 @@ function main(argv) {
 if (require.main === module) process.exit(main(process.argv.slice(2)));
 
 module.exports = {
+  checkSpecParts,
+  specPartProblems,
   checkTavolaBoundary,
   checkReadingRole,
   readingRoleCountsIn,

@@ -1,0 +1,24 @@
+{
+  "title": "A field and an entry the reader does not know are ignored",
+  "spec": "LATTICE-FILE-1.0",
+  "section": "3",
+  "entries": {
+    "deck.md": "---\ntheme: indaco\n---\n\n# Q3 board review\n\n---\n\n## Revenue\n\nUp 12%.\n",
+    "manifest.json": {
+      "format": "lattice",
+      "version": 1,
+      "title": "Q3 board review",
+      "engine": "lattice",
+      "generatedAt": 0,
+      "comments": [],
+      "future": {
+        "x": 1
+      }
+    },
+    "notes/extra.txt": "ignored"
+  },
+  "expect": {
+    "ok": true,
+    "source": "---\ntheme: indaco\n---\n\n# Q3 board review\n\n---\n\n## Revenue\n\nUp 12%.\n"
+  }
+}

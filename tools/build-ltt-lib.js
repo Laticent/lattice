@@ -17,7 +17,7 @@
  * this build has no ordering dependency on anything. What reads it is root CJS — the
  * `lib/core/` producers that `require('@laticent/ltt')` — and an npm publish. The format
  * is pure data and pure functions, so every export is node-safe.
- * Design: engineering/decisions/2026-09-24-lattice-timing-track.md §6; spec: engineering/ltt.md.
+ * Design: engineering/decisions/2026-09-24-lattice-timing-track.md §6; spec: spec/LTT-1.0.md.
  *
  * Bundler = the in-tree esbuild (engineering/capabilities.md names it the house
  * bundler); declarations = `tsc --emitDeclarationOnly` (esbuild can't emit .d.ts).

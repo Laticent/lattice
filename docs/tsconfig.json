@@ -1,4 +1,5 @@
 {
+  "//customConditions": "Typecheck the workspace libraries against their TypeScript source, as before #2595's publish: each package.json maps \"@laticent/source\" to its .ts entry. An outside consumer has no such condition and resolves the built dist/*.d.ts.",
   "extends": "astro/tsconfigs/strict",
   "include": [".astro/types.d.ts", "**/*"],
   "exclude": ["dist"],
@@ -7,6 +8,7 @@
       "@/*": ["./src/*"],
       "@laticent/ltt": ["./src/lib/ltt/index.ts"]
     },
+    "customConditions": ["@laticent/source"],
     "jsx": "react-jsx",
     "jsxImportSource": "react"
   }

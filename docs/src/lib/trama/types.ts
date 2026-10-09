@@ -9,7 +9,7 @@ export interface Point {
   y: number;
 }
 
-/** A placed box: top-left corner, size and centre. */
+/** A placed box: top-left corner, size and center. */
 export interface Box {
   x: number;
   y: number;
@@ -101,16 +101,16 @@ export interface LayoutOptions {
   maxScale?: number;
   spacing?: Spacing;
   margin?: number;
-  /** Internal: lay out only the boxes and return their bounds (the direction skip). */
+  /** @internal lay out only the boxes and return their bounds (the direction skip). */
   boundsOnly?: boolean;
-  /** Internal: whether crowded shapes may grow along the flow. */
+  /** @internal whether crowded shapes may grow along the flow. */
   grow?: boolean;
   /**
    * Also try the reading-order grid: the shapes in authored order on 1 or more lines,
    * every line running the same way (the state chart's wrapping chain). Needs no dagre.
    */
   wrap?: boolean;
-  /** Internal: lay out on the grid with this many lines. */
+  /** @internal lay out on the grid with this many lines. */
   grid?: number;
   /**
    * The order a wrapped chart's grid reads in. `'text'` (the default) keeps the authored order;
@@ -118,13 +118,13 @@ export interface LayoutOptions {
    * neighbors), so a side state sits beside the state it leaves, at the cost of reading order.
    */
   order?: 'text' | 'graph';
-  /** Internal: with `grid`, the shapes' ids in the order the grid places them (`order: 'graph'`). */
+  /** @internal with `grid`, the shapes' ids in the order the grid places them (`order: 'graph'`). */
   seq?: string[];
-  /** Internal: with `grid`, how many shapes each line holds, in order (the even split when unset). */
+  /** @internal with `grid`, how many shapes each line holds, in order (the even split when unset). */
   breaks?: number[];
-  /** Internal: dagre's ranker for this pass (its default, network-simplex, when unset). */
+  /** @internal dagre's ranker for this pass (its default, network-simplex, when unset). */
   ranker?: 'network-simplex' | 'tight-tree' | 'longest-path';
-  /** Internal: place each shape's centre here instead of asking dagre (see `route`). */
+  /** @internal place each shape's center here instead of asking dagre (see `route`). */
   positions?: Record<string, Point>;
 }
 
@@ -199,7 +199,7 @@ export interface GraphKernel {
   layout(model: GraphModel, sizes: SizeMap, opts: LayoutOptions, dagre: DagreLike | null | undefined): Geometry | null;
   layoutOnce(model: GraphModel, sizes: SizeMap, opts: LayoutOptions, dagre: DagreLike | null | undefined): Geometry | { width: number; height: number; grew: boolean } | null;
   /**
-   * Route lines between boxes the caller placed (each shape's centre); no dagre. The
+   * Route lines between boxes the caller placed (each shape's center); no dagre. The
    * drawing comes back moved so its top-left sits at the margin: the positions are
    * relative. Positions must be finite.
    */

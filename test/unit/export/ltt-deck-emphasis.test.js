@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const { createHash } = require('node:crypto');
 
 // A deck segment's hash covers its emphasis spans, as the tour recorder's already does (LTT step 4,
-// engineering/ltt.md §Staleness). Without them an emphasis-only edit left the hash unchanged, so the
+// spec/LTT-1.0.md §Staleness). Without them an emphasis-only edit left the hash unchanged, so the
 // first isStale caller on a deck would have called a re-weighted slide fresh.
 
 async function build(slides) {

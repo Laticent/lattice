@@ -30,7 +30,7 @@ model, see `design/concepts.md`.
 | [`mode:`](#the-mode-front-matter-register-rendering-mode) | The deck's rendering hand — clean, sketch, sketch-clean | `boardroom` |
 | [`finish:`](#the-finish-front-matter-register-backdrop) | The palette-blind backdrop layer painted behind content | `none` |
 | [`backdrop:`](#restraining-a-finish--backdrop) | Dims or masks whatever finish is applied, deck-wide or per slide | *(none)* |
-| [`split:`](#the-split-front-matter-divider) | How the deck is divided into slides | `---` rules |
+| [`split:`](#the-split-front-matter-divider) | How the deck is divided into slides | `headings` (and `---`) |
 | [`stamp:` / `tone:`](#the-stamp--tone-front-matter-registers-marker-shape) | The marker shape and its tone | *(none)* |
 | [`spectrum:` / `spectrum-edge:`](#the-spectrum--spectrum-edge-registers-the-spectrum-accent-finish) | The spectrum accent finish and which edge carries it | *(none)* |
 | [`rule:`](#the-rule-front-matter-register-heading-underline) | The heading underline | *(none)* |

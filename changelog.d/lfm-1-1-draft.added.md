@@ -1,0 +1,1 @@
+- LFM 1.1 is drafted for the owner's sign-off in `spec/LFM-1.1.md`. It specifies every front-matter setting a deck can use (26 of them, each with its values and the warning an unknown value gets), how slides divide at headings, the `_lens` tag, and the inline notation for pills, marks, sparks and icons. Each part has shared test cases in `spec/conformance/lfm/`.

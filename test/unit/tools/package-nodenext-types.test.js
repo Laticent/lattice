@@ -7,7 +7,7 @@ const { execFileSync } = require('node:child_process');
 
 // THE LIBRARIES' PUBLISHED TYPES, AS A `nodenext` CONSUMER SEES THEM.
 //
-// Each workspace library publishes `types: ./index.ts`: its TypeScript source is its type surface.
+// Each workspace library publishes `types: ./dist/index.d.ts`, built from its TypeScript source.
 // Under `moduleResolution: nodenext`, a relative import in an ES module must name its file
 // (`./track.js`), so a source written `from './track'` fails the CONSUMER'S typecheck with TS2835 —
 // and `skipLibCheck` cannot help, because it skips only `.d.ts` files. `@laticent/ltt` was fixed
@@ -38,6 +38,11 @@ const PACKAGES = {
 	tavola: ['.', './trystero'],
 };
 const PEER_TYPES = ['@types/react', 'csstype', 'trystero', '@trystero-p2p'];
+// A consumer's own strict settings. `skipLibCheck` skips only `.d.ts`, so while `types` pointed at
+// the `.ts` source a consumer compiled our source under these and got 904 errors inside our
+// packages (engineering/decisions/2026-10-08-library-trio-before-publish.md, X-1). With `types` on
+// the built `dist/*.d.ts`, their settings stop reaching our code.
+const STRICTEST = { noUncheckedIndexedAccess: true, exactOptionalPropertyTypes: true, noPropertyAccessFromIndexSignature: true };
 
 function pack(dir, into) {
 	const out = execFileSync('npm', ['pack', '--silent', '--pack-destination', into], { cwd: dir, encoding: 'utf8' });
@@ -67,7 +72,7 @@ test('every library typechecks in a nodenext consumer, from its packed tarball',
 		fs.writeFileSync(
 			path.join(consumer, 'tsconfig.json'),
 			JSON.stringify({
-				compilerOptions: { module: 'nodenext', moduleResolution: 'nodenext', target: 'es2022', lib: ['es2022', 'dom'], strict: true, noEmit: true, skipLibCheck: true, types: [] },
+				compilerOptions: { module: 'nodenext', moduleResolution: 'nodenext', target: 'es2022', lib: ['es2022', 'dom'], strict: true, ...STRICTEST, noEmit: true, skipLibCheck: true, types: [] },
 				files: ['index.ts'],
 			}),
 		);

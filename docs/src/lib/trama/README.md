@@ -21,8 +21,6 @@ its own markup. The design contract is
 [`engineering/decisions/2026-09-27-trama-graph-chart-library.md`](https://github.com/Laticent/lattice/blob/main/engineering/decisions/2026-09-27-trama-graph-chart-library.md).
 **See it run:** the [`/trama` demo](https://lattice.style/trama) drives the graph kernel live: type
 rows, flip the direction, wrap a chain, drag a box and watch `route()` weave the lines again.
-**Not yet on npm:** no workflow publishes the workspace libraries today
-(`followups.d/2360-p3-publish-workspace-libraries.md`).
 
 ## Install
 
@@ -33,6 +31,7 @@ npm i @laticent/trama
 ## 60-second start
 
 ```ts
+import dagre from '@dagrejs/dagre';
 import { graphLayoutKernel } from '@laticent/trama';
 
 const K = graphLayoutKernel();
@@ -43,7 +42,7 @@ const geo = K.layout(
   },
   { a: { w: 96, h: 42 }, b: { w: 120, h: 70 }, c: { w: 96, h: 42 } }, // measured sizes
   { stage: { w: 1072, h: 440 }, labelSizes: { 1: { w: 70, h: 16 } } },
-  globalThis.__latticeDagre, // your dagre build: { layout, Graph }
+  { layout: dagre.layout, Graph: dagre.graphlib.Graph }, // dagre, passed in: npm i @dagrejs/dagre
 );
 // geo.nodes, geo.groups, geo.routes[i].points, geo.routes[i].labelAt, geo.quality
 ```
@@ -69,7 +68,7 @@ are cached per kernel.
   legible fan-out keeps its shape, and the grid only rescues a layout dagre has shrunk.
   Both graph charts ask for `wrap`.
 - **`K.route(model, sizes, positions, opts)`** routes lines between boxes you have already
-  placed (each shape's centre), with the same solver and never-rules, for a chart whose
+  placed (each shape's center), with the same solver and never-rules, for a chart whose
   positions an axis fixes. No dagre. The positions set the boxes' places RELATIVE to each
   other: the drawing comes back moved so its top-left sits at the margin, so read the
   offset from any one box (`positions.a.x - geo.nodes.a.cx`). A shape with two or more
@@ -134,6 +133,13 @@ function returning:
 | `signature(fig, harness)` | the inputs, besides size and fonts, that change the drawing |
 | `measure(model, ctx)` | sizes from the harness, and the kernel's input |
 | `paint(model, measured, geo, ctx)` | the SVG's painted children, as markup |
+
+**`paint` returns markup, and the pipeline sets it as the `<svg>`'s `innerHTML` unchanged.** So
+every string an adapter paints that came from the page (a label, a title, a class) must go through
+`ctx.esc` or be checked against a closed list first; the pipeline does not sanitize. The adapter
+API (`installGraphPass` and the adapter shape) is **experimental** in 0.x and may change in a minor
+version. The kernels (`graphLayoutKernel`, `radialLayoutKernel`) are the stable part, and the
+`LayoutOptions` fields marked `@internal` are not part of the API.
 
 The context carries the unit scale and the helpers an adapter paints with: `rectL`,
 `textLines`, `outline`, `grow`, `toOutline`, `cut`, `rounded`, `head`, `r1`, `esc`, and two

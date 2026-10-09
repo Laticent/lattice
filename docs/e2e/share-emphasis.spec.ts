@@ -88,7 +88,7 @@ test('the Captions (.vtt) download carries the emphasis hold', async ({ page }) 
 /**
  * Every breath the exported player will hold, in play order: the gap after each cue, and after a
  * slide's last cue its `tailMs`. Read from the deck's timing track — the packed LTT the player
- * plays from since LTT step 2 (engineering/ltt.md §Encodings) — where a packed cue is
+ * plays from since LTT step 2 (spec/LTT-1.0.md §Encodings) — where a packed cue is
  * `[display, startMs, durationMs, charOffset, words, extra?]`.
  */
 function gapsOf(html: string): number[] {

@@ -1,0 +1,22 @@
+{
+  "title": "A manifest carries no token values",
+  "spec": "THEME-1.0",
+  "section": "5",
+  "manifest": {
+    "name": "specimen",
+    "role": "base",
+    "family": "brand",
+    "tier": "curated",
+    "modes": [
+      "light",
+      "dark"
+    ],
+    "darkCounterpart": "specimen-dark",
+    "order": 0,
+    "swatch": "#006FA8",
+    "accent": "#123456"
+  },
+  "expect": {
+    "valid": false
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "title": "A self-contained theme missing a token with no engine default fails, naming each token",
+  "spec": "THEME-1.0",
+  "section": "4.1",
+  "expect": {
+    "ok": false,
+    "blocked": false,
+    "errors": [
+      "token-missing"
+    ],
+    "missing": [
+      "accent",
+      "cat-3-fill",
+      "hljs-string"
+    ]
+  }
+}

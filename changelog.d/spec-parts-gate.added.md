@@ -1,0 +1,1 @@
+- Every spec in `spec/` now names its schema, reference implementation and shared test cases in a short block under its title, and `npm run build:check` fails when a spec loses one or names a path that no longer exists.

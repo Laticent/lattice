@@ -1,0 +1,7 @@
+{
+  "title": "A thematic break on its own line separates slides",
+  "spec": "LFM-1.0",
+  "section": "2.2",
+  "L0": { "visible": ["First", "Second", "Third"], "rules": 2 },
+  "L1": { "slideCount": 3 }
+}

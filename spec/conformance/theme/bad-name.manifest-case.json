@@ -1,0 +1,21 @@
+{
+  "title": "A theme name is lower-case",
+  "spec": "THEME-1.0",
+  "section": "5",
+  "manifest": {
+    "name": "Specimen",
+    "role": "base",
+    "family": "brand",
+    "tier": "curated",
+    "modes": [
+      "light",
+      "dark"
+    ],
+    "darkCounterpart": "specimen-dark",
+    "order": 0,
+    "swatch": "#006FA8"
+  },
+  "expect": {
+    "valid": false
+  }
+}

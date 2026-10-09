@@ -1,0 +1,6 @@
+/* @theme specimen-dark */
+@import 'specimen';
+
+:root {
+  color-scheme: dark;
+}

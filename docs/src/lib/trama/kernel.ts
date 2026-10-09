@@ -63,7 +63,7 @@ interface SolveCtx {
 }
 /** What dagre's graphlib hands back for a node once laid out (it mutates these in place). */
 interface DagreNode { x: number; y: number; width: number; height: number }
-/** A laid-out edge label: dagre's waypoints, and the label's centre when it had a size. */
+/** A laid-out edge label: dagre's waypoints, and the label's center when it had a size. */
 interface DagreEdgeLabel { points?: Point[]; x?: number; y?: number }
 interface DagreEdgeRef { v: string; w: string; name?: string }
 /** The slice of graphlib's untyped Graph API this kernel calls. */
@@ -242,7 +242,7 @@ export function graphLayoutKernel(): GraphKernel {
 
     /**
      * Place every shape's box without dagre. `positions` is the caller's own (each box's
-     * centre). `grid` lays the shapes out in READING ORDER on that many lines, every line
+     * center). `grid` lays the shapes out in READING ORDER on that many lines, every line
      * running the same way (the state chart's wrapping chain): cell i sits at line
      * floor(i / per), column i % per, each column as wide as its widest box along the
      * flow and each line as deep as its deepest box across it. The gaps leave room for the
@@ -2048,6 +2048,16 @@ export function graphLayoutKernel(): GraphKernel {
   // `evals` sums the router's candidate evaluations and `capped` counts the routings that
   // ran past its work budget (and so skipped the refinements): the router's cost, in work.
   const stats: KernelStats = { calls: 0, hits: 0, routed: 0, bounded: 0, evals: 0, capped: 0 };
+  // A fresh layout keys its boxes by shape id on null-prototype records, so an id like
+  // `constructor` or `toString` is only ever a shape. JSON.parse rebuilds them on Object.prototype,
+  // which made a cache hit differ from the fresh result it stands for (`'toString' in geo.nodes`
+  // flipped). Put the null prototype back.
+  const ID_KEYED = ['nodes', 'groups', 'titles'] as const;
+  function revive(geo: Geometry): Geometry {
+    const bag = geo as unknown as Record<string, unknown>;
+    for (const k of ID_KEYED) if (bag[k] && typeof bag[k] === 'object') bag[k] = Object.assign(Object.create(null), bag[k]);
+    return geo;
+  }
   function layout(model: GraphModel, sizes: SizeMap, opts: LayoutOptions, dagre: DagreLike | null | undefined): Geometry | null {
     stats.calls++;
     // Without dagre there is no layout to cache (it degrades to null).
@@ -2059,7 +2069,7 @@ export function graphLayoutKernel(): GraphKernel {
       stats.hits++;
       cache.delete(key);
       cache.set(key, hit);
-      return JSON.parse(hit);
+      return revive(JSON.parse(hit));
     }
     const geo = layoutFresh(model, sizes, opts, dagre);
     if (key != null && geo) {
@@ -2545,7 +2555,7 @@ export function graphLayoutKernel(): GraphKernel {
 
   /**
    * THE FIXED-POSITIONS ROUTER. Route every line between boxes the caller has already
-   * placed (each shape's centre in `positions`), with the same solver, never-rules and
+   * placed (each shape's center in `positions`), with the same solver, never-rules and
    * quality counts as `layout`: for a chart whose positions an axis fixes (a gantt's
    * bars), where dagre must not move anything. No dagre is needed; groups are not held.
    */

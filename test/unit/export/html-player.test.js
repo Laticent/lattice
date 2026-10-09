@@ -1975,7 +1975,7 @@ function carriers(html) {
 test('narration: the deck ships ONE packed LTT that validates, and one clip block per slide with audio', async () => {
 	const { html } = await narratedPlayer();
 	const { packed, ltt, audio } = carriers(html);
-	assert.equal(packed.encoding, 'packed', 'the HTML export embeds the packed encoding (engineering/ltt.md §Encodings)');
+	assert.equal(packed.encoding, 'packed', 'the HTML export embeds the packed encoding (spec/LTT-1.0.md §Encodings)');
 	assert.deepEqual(validateLtt(ltt), [], 'and it is a valid LTT once unpacked');
 	assert.deepEqual(ltt.segments.map((s) => [s.kind, s.at.slide, s.holdMs]), [
 		['slide', 1, 0],
@@ -2518,7 +2518,7 @@ test('narration: an encoded clip carries its lead, and the player seeks past it'
 	// clip WE compress and no decoder trims it. Left in, audio starts after its own caption on
 	// every sentence and the tuned breath grows ~28% — the defect that drove compression off the
 	// live reading path, delivered instead to the recipient's copy. So the bake ships the figure
-	// and the player skips it (engineering/ltt.md §The transport, rule 7).
+	// and the player skips it (spec/LTT-1.0.md §The transport, rule 7).
 	const withLead = { ...NARRATION, slides: NARRATION.slides.map((s) => ({ ...s, clips: s.clips.map((c) => c && { ...c, leadMs: 46 }) })) };
 	const { html } = await narratedPlayer({ narration: withLead });
 	assert.equal(carriers(html).ltt.segments[0].audio.clips[0].leadMs, 46, 'the lead travels in the audio layer');

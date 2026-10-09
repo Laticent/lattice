@@ -66,12 +66,12 @@ export function appsNav(url) {
 // published to npm as `pkg` (engineering/decisions/2026-10-08-library-audit.md). Grouped under one
 // "Libraries" disclosure on desktop, listed flat in the mobile menu + command palette, and drawn as
 // cards on the home page. A library with a standalone showcase demo (own chrome, reached by URL)
-// links to it; LTT and Tavola have no demo page, so they link to their README on GitHub and carry
-// an empty `match` (no route of ours is "inside" them). nav.test.ts fails when a workspace library
-// is missing here, which is how LTT and Tavola went unlisted. Anima is internal (no package, no
-// build), so it is not listed.
+// links to it; a library with no demo page would link to its README on GitHub with an empty
+// `match` (no route of ours is "inside" it). Since /tavola (2026-10-08), every library has one. LTT is listed under specsNav instead: it is a format
+// first, and @laticent/ltt is its reference implementation (spec audit §8.5). nav.test.ts fails
+// when a workspace package is missing from both lists, which is how LTT and Tavola went unlisted.
+// Anima is internal (no package, no build), so it is not listed.
 export function librariesNav(url) {
-	const readme = (name) => `${GITHUB_URL}/tree/main/docs/src/lib/${name}#readme`;
 	return [
 		{ label: 'Suono', href: url('suono'), match: ['suono'], pkg: '@laticent/suono', desc: 'Audio scheduler + owned clock' },
 		{ label: 'Lente', href: url('lente'), match: ['lente'], pkg: '@laticent/lente', desc: 'Reader lenses, human-approved' },
@@ -80,8 +80,19 @@ export function librariesNav(url) {
 		{ label: 'Trama', href: url('trama'), match: ['trama'], pkg: '@laticent/trama', desc: 'Graph layout + elbow routing' },
 		{ label: 'Segno', href: url('segno'), match: ['segno'], pkg: '@laticent/segno', desc: 'Grammar engine + notation' },
 		{ label: 'Calco', href: url('calco'), match: ['calco'], pkg: '@laticent/calco', desc: 'Slides to editable office files' },
-		{ label: 'LTT', href: readme('ltt'), match: [], pkg: '@laticent/ltt', desc: 'Word-timing track format', external: true },
-		{ label: 'Tavola', href: readme('tavola'), match: [], pkg: '@laticent/tavola', desc: 'Peer-to-peer live editing', external: true },
+		{ label: 'Tavola', href: url('tavola'), match: ['tavola'], pkg: '@laticent/tavola', desc: 'Peer-to-peer live editing' },
+	];
+}
+
+// The public SPECS published on the site (spec/*.md, projected by tools/build-spec-docs.js), drawn
+// as the home page's Specs group. `pkg` is each spec's reference implementation, so the workspace
+// check in nav.test.ts counts @laticent/ltt here. A spec still in draft (LPM, LFM 1.1) is not
+// listed until it is ratified and published.
+export function specsNav(url) {
+	return [
+		{ label: 'LFM 1.0', href: url('spec/lfm/'), match: ['spec/lfm'], pkg: '@laticent/lattice', desc: 'The Markdown dialect decks are written in', cta: 'Read the spec' },
+		{ label: 'Diagnostic Protocol', href: url('spec/diagnostics/'), match: ['spec/diagnostics'], pkg: '@laticent/lattice', desc: 'Findings and fixes a linter reports', cta: 'Read the spec' },
+		{ label: 'LTT 1.0', href: url('spec/ltt/'), match: ['spec/ltt'], pkg: '@laticent/ltt', desc: 'When each word of a narration is spoken', cta: 'Read the spec' },
 	];
 }
 

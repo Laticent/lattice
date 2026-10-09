@@ -1,4 +1,4 @@
-// isStale — which segments of an LTT no longer match their source (engineering/ltt.md §Staleness).
+// isStale — which segments of an LTT no longer match their source (spec/LTT-1.0.md §Staleness).
 //
 // A producer hashes each segment's source (`segmentHashInput`, digested with its own SHA-256) and
 // hands the hashes here. This package imports no digest, which is why the caller brings hashes and

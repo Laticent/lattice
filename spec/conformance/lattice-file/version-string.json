@@ -1,0 +1,20 @@
+{
+  "title": "A version that is not a number is refused",
+  "spec": "LATTICE-FILE-1.0",
+  "section": "5",
+  "entries": {
+    "deck.md": "---\ntheme: indaco\n---\n\n# Q3 board review\n\n---\n\n## Revenue\n\nUp 12%.\n",
+    "manifest.json": {
+      "format": "lattice",
+      "version": "1",
+      "title": "Q3 board review",
+      "engine": "lattice",
+      "generatedAt": 0,
+      "comments": []
+    }
+  },
+  "expect": {
+    "ok": false,
+    "refused": "bad-version"
+  }
+}

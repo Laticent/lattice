@@ -15,12 +15,12 @@
   },
   "type": "module",
   "sideEffects": false,
-  "types": "./index.ts",
+  "types": "./dist/index.d.ts",
   "module": "./dist/index.mjs",
   "main": "./dist/index.cjs",
   "exports": {
     ".": {
-      "types": "./index.ts",
+      "@laticent/source": "./index.ts",
       "import": {
         "types": "./dist/index.d.ts",
         "default": "./dist/index.mjs"
@@ -31,7 +31,7 @@
       }
     },
     "./values": {
-      "types": "./values.ts",
+      "@laticent/source": "./values.ts",
       "import": {
         "types": "./dist/values.d.ts",
         "default": "./dist/values.mjs"
@@ -42,7 +42,7 @@
       }
     },
     "./read": {
-      "types": "./read.ts",
+      "@laticent/source": "./read.ts",
       "import": {
         "types": "./dist/read.d.ts",
         "default": "./dist/read.mjs"
