@@ -66,9 +66,9 @@ a consumer needs Node 18 or 20, they pin to Lattice 1.x.
 ## npm scripts
 
 **The full, always-current catalog of every script, tool, and framework is
-[`engineering/capabilities.md`](./capabilities.md)** — generated from
-`package.json` + the `tools/` headers and gated by `capabilities:check`, so it
-can't drift. `npm run` lists every script live. **Before building any tool or
+`dist/engineering/capabilities.md`** — generated from `package.json` + the
+`tools/` headers by `npm install` (not committed) and gated by
+`capabilities:check`, so it can't drift. `npm run` lists every script live. **Before building any tool or
 harness, look there first** (we already have a benchmark, a parity harness,
 scaffolders, …). This section calls out only the daily inner-loop:
 
@@ -88,16 +88,27 @@ scaffolders, …). This section calls out only the daily inner-loop:
 | `build:check:all` | The same gate WITHOUT `--exclude-uncommitted`: every generator, dist/ bundles included |
 
 Everything else — the `*:build` / `*:check` generators, `new:*` scaffolders,
-gallery builds, release and docs-portal scripts — lives in `capabilities.md`.
+gallery builds, release and docs-portal scripts — lives in `dist/engineering/capabilities.md`.
 
 ### What `build:check` does and does not cover
 
 `build:check` is `node tools/build.js --check --exclude-uncommitted`, so it checks the
-16 COMMITTED generated artifacts and skips the 28 built-not-committed ones (`dist/`, the
-docs-site bundles). That scope is deliberate and its reasoning is in `tools/build.js`: the
+COMMITTED generated artifacts and skips the built-not-committed ones (`dist/`, the
+docs-site bundles) — with one exception, the `validates` steps below. (No counts here on
+purpose: `node -e "const {STEPS}=require('./tools/build.js'); …"` gives the live ones.) That scope is deliberate and its reasoning is in `tools/build.js`: the
 gate's question is "did you commit the regenerated artifacts you own?", and an artifact
 that is never committed cannot be stale relative to a commit — a CI checkout has no `dist/`
 at all, so those generators would fail on a missing file rather than a stale one.
+
+**Generated indexes are `uncommitted` + `validates`.** The capability, decision and gotcha
+indexes are built into `dist/engineering/` and never committed, because a committed index is
+a file every PR adding an item rewrites. Their `--check` reads only their SOURCES — is every
+tool and script described, is every note's front-matter valid, is any row over its cap — so
+`build:check` still runs it. A new index follows the same contract: one file per item as
+the source, output under `dist/`, `uncommitted: true, validates: true` in `STEPS`, and a
+`--check` that never reads the output. `uncommitted-steps.test.js` holds the tags; the decision and
+gotcha index tests run their `--check` with no output on disk.
+`engineering/decisions/2026-10-09-generated-indexes-uncommitted.md`.
 
 **Its closing line says which half it measured**, and that is a fix rather than a detail
 (#2204). It used to read "all artifacts up to date" on every run, contradicting the opening
@@ -649,7 +660,7 @@ Two consequences, and they are the whole of the discipline:
 
 - **Read sections, not files.** `grep -n '^## ' <doc>` then `sed -n 'A,Bp'`. Ten documents
   reachable from `CLAUDE.md`'s routing table are 14k tokens or more — the largest being
-  `engineering/decisions/README.md` (36k), `engineering/workflow.md` (29.5k) and
+  `dist/engineering/decisions.md` (the generated decision index, ~36k), `engineering/workflow.md` (29.5k) and
   `lib/base/base.docs.md` (21.6k), and that last is a HARD RULE #6 mandated read carrying no
   "don't open it whole" guidance anywhere. Don't work from a list of names; measure, or just
   open the section.

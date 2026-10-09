@@ -3,24 +3,25 @@
 Things in this codebase that look wrong but aren't, plus workarounds
 whose rationale lives in commit messages and would otherwise be lost.
 
-This is a **living index**. When you hit something surprising — a hack
+This is a **living reference**. When you hit something surprising — a hack
 in the code, a quirk in a dependency, a behavior that took a bisect to
 understand — add an entry. Future-you and future-collaborators (human
 or LLM) will thank you.
 
 ## How to use this file
 
-This page is the **symptom index** — one line per gotcha, grouped by topic, each
-linking into a file under `engineering/gotchas/`. Do not read the topic files
-top-to-bottom; they hold ~150 entries between them and they are a reference, not a
-narrative. (No exact count here on purpose — a hand-maintained total in prose goes
-stale the first time someone adds an entry, and nothing regenerates this paragraph.
-The generated index below is the live list.)
+The gotchas live one topic per file under `engineering/gotchas/`. The **symptom
+index** — one line per gotcha, grouped by topic, each linking to its entry — is
+generated into **`dist/engineering/gotchas.md`** and is not committed: `npm install`,
+the SessionStart hook and `npm run build` write it (no `dist/`? run
+`npm run gotchas:index`). Do not read the topic files top-to-bottom; they are a
+reference, not a narrative.
 
 **Two ways in, and picking the wrong one is how you conclude "gotchas has nothing":**
 
 - **You can describe the SYMPTOM** ("the ring lags an edit", "type falls back in the
-  PDF") — skim or `grep` this index, then open the ONE file it points at.
+  PDF") — skim or `grep` `dist/engineering/gotchas.md`, then open the ONE file it
+  points at.
 - **You have a NAME instead** — an API, a CSS property, a selector, a token, an error
   string (`z-index`, `srcdoc`, `container-type`, `getBoundingClientRect`) — then
   **`grep -rn <term> engineering/gotchas/`**. Those words are in the entry BODIES,
@@ -29,12 +30,13 @@ The generated index below is the live list.)
   the directory as on one file — you pay for the hits, not the haystack.
 
 When fixing or working around something subtle, add an entry **before** committing
-the fix so the commit message can link to it. Add it to the topic file (as a `##`
-heading), then run `npm run gotchas:index` — the list below is generated, and
-`npm run gotchas:index:check` fails the build if it drifts. **Keep the heading to a
-symptom a reader can scan.** It is rendered twice in the row below — as the link label,
+the fix so the commit message can link to it. Add it to the topic file as a `##`
+heading — that is the whole job: the index is regenerated from the headings, and
+`npm run gotchas:index:check` (inside `build:check`) validates them. Never write an
+entry in this file. **Keep the heading to a
+symptom a reader can scan.** It is rendered twice in its index row — as the link label,
 then slugged again as the anchor — so a character there costs two, and a heading over
-`ROW_CAP` (280 characters of row) makes the regeneration refuse and name your entry. The
+`ROW_CAP` (280 characters of row) fails the check and names your entry. The
 detail belongs in the entry body, where nobody pays for it until they open the file.
 
 Each entry has the same shape:
@@ -49,285 +51,3 @@ Each entry has the same shape:
 
 Keep entries terse — one screen each. If something needs a deep dive,
 spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
-
-## Symptom index
-
-<!-- gotchas-index:begin -->
-
-### [Browser engines (Chromium and WebKit quirks)](gotchas/browser-engine.md)
-
-- [RETIRED (2026-07-10) — `:not(:has(...))` / `:is(:has(...))` were believed unreliable inside Marp's webview Chromium](gotchas/browser-engine.md#retired-2026-07-10--nothas--ishas-were-believed-unreliable-inside-marps-webview-chromium)
-- [Marp / Chromium `foreignObject` creates anonymous grid items](gotchas/browser-engine.md#marp--chromium-foreignobject-creates-anonymous-grid-items)
-- [`dominant-baseline` on a `<text>` never reaches its `<tspan>` in WebKit — every wrapped SVG label paints high in Safari](gotchas/browser-engine.md#dominant-baseline-on-a-text-never-reaches-its-tspan-in-webkit--every-wrapped-svg-label-paints-high-in-safari)
-- [Sub-pixel rounding diverges across Chromium platforms](gotchas/browser-engine.md#sub-pixel-rounding-diverges-across-chromium-platforms)
-- [MutationObserver fires on its own writes (self-triggering loop)](gotchas/browser-engine.md#mutationobserver-fires-on-its-own-writes-self-triggering-loop)
-- [Chromium blocks `file://` URLs as `mask-image` sources](gotchas/browser-engine.md#chromium-blocks-file-urls-as-mask-image-sources)
-- [`svh` can resolve LARGER than `dvh` on a real mobile browser](gotchas/browser-engine.md#svh-can-resolve-larger-than-dvh-on-a-real-mobile-browser)
-- [Preview slides collapse (cqi shrinks to near-zero) on iOS if scaled with CSS `zoom`](gotchas/browser-engine.md#preview-slides-collapse-cqi-shrinks-to-near-zero-on-ios-if-scaled-with-css-zoom)
-- [A long press on a button selects its label on iOS (Copy / Look Up callout)](gotchas/browser-engine.md#a-long-press-on-a-button-selects-its-label-on-ios-copy--look-up-callout)
-- [Tapping an input zooms the page on iOS (sub-16px text controls)](gotchas/browser-engine.md#tapping-an-input-zooms-the-page-on-ios-sub-16px-text-controls)
-- [Tapping an in-slide link blanks the live preview on iOS](gotchas/browser-engine.md#tapping-an-in-slide-link-blanks-the-live-preview-on-ios)
-- [`fetch('data:…')` fails inside a preview/export document — the CSP, and two things that impersonate a size limit](gotchas/browser-engine.md#fetchdata-fails-inside-a-previewexport-document--the-csp-and-two-things-that-impersonate-a-size-limit)
-
-### [Charts](gotchas/charts.md)
-
-- [Pie wedge borders off-by-one (`nth-child` vs `<defs>`)](gotchas/charts.md#pie-wedge-borders-off-by-one-nth-child-vs-defs)
-- [`chart-anima`: a gradient-filled chart animates as bare OUTLINES (duplicate `<defs>` ids)](gotchas/charts.md#chart-anima-a-gradient-filled-chart-animates-as-bare-outlines-duplicate-defs-ids)
-- [Chart renders as a thumbnail after an ancestor gains `container-type` (cqh re-basing)](gotchas/charts.md#chart-renders-as-a-thumbnail-after-an-ancestor-gains-container-type-cqh-re-basing)
-- [Chart caption swallowed when `_footer` is set](gotchas/charts.md#chart-caption-swallowed-when-_footer-is-set)
-- [Charts export black/unstyled from the Studio image PDF or PPTX](gotchas/charts.md#charts-export-blackunstyled-from-the-studio-image-pdf-or-pptx)
-- [Charts render black in the Studio Webpage player's Read · Article view](gotchas/charts.md#charts-render-black-in-the-studio-webpage-players-read--article-view)
-- [A `::before` rule is pruned from a Studio sheet though its element is on the page](gotchas/charts.md#a-before-rule-is-pruned-from-a-studio-sheet-though-its-element-is-on-the-page)
-- [A chart's code package renders differently from the in-repo render on a symmetric layout](gotchas/charts.md#a-charts-code-package-renders-differently-from-the-in-repo-render-on-a-symmetric-layout)
-
-### [CI and the cloud sandbox](gotchas/ci.md)
-
-- [The `CodeQL` check reports a verdict BEFORE its `Analyze` jobs finish](gotchas/ci.md#the-codeql-check-reports-a-verdict-before-its-analyze-jobs-finish)
-- [Rendering in the cloud sandbox needs `CHROME_PATH`](gotchas/ci.md#rendering-in-the-cloud-sandbox-needs-chrome_path)
-- [A generated `dist/` artifact goes "stale" after a rebase, and that is not a defect](gotchas/ci.md#a-generated-dist-artifact-goes-stale-after-a-rebase-and-that-is-not-a-defect)
-- [A `vi.doMock` intermittently loses to the file's hoisted `vi.mock` — under LOAD, not under shuffle](gotchas/ci.md#a-vidomock-intermittently-loses-to-the-files-hoisted-vimock--under-load-not-under-shuffle)
-- [A docs test passes in declaration order and fails under `--sequence.shuffle.tests`](gotchas/ci.md#a-docs-test-passes-in-declaration-order-and-fails-under---sequenceshuffletests)
-- [A Playwright test for a settling-round race passes on the broken code](gotchas/ci.md#a-playwright-test-for-a-settling-round-race-passes-on-the-broken-code)
-- [An integration test that asks the export to BEAT a timer ejects PRs from the merge queue](gotchas/ci.md#an-integration-test-that-asks-the-export-to-beat-a-timer-ejects-prs-from-the-merge-queue)
-- [Every Dependabot PR in a directory is red, and `npm ci` blames a package none of them touched](gotchas/ci.md#every-dependabot-pr-in-a-directory-is-red-and-npm-ci-blames-a-package-none-of-them-touched)
-- [The Studio E2E nightly is GREEN while specs fail — the signal is issue #1705, not the badge](gotchas/ci.md#the-studio-e2e-nightly-is-green-while-specs-fail--the-signal-is-issue-1705-not-the-badge)
-- [The `ci` check is green on a PR whose test tiers never ran](gotchas/ci.md#the-ci-check-is-green-on-a-pr-whose-test-tiers-never-ran)
-
-### [CSS](gotchas/css.md)
-
-- [An ink passes every contrast gate and still renders sub-AA (own-hue band · element opacity)](gotchas/css.md#an-ink-passes-every-contrast-gate-and-still-renders-sub-aa-own-hue-band--element-opacity)
-- [A contrast gate reports sub-AA for a run the rendered pixels show clearing (phantom underlay)](gotchas/css.md#a-contrast-gate-reports-sub-aa-for-a-run-the-rendered-pixels-show-clearing-phantom-underlay)
-- [`margin` corrupts measured layout (virtual lists, the Fit Spine) — HARD RULE #20](gotchas/css.md#margin-corrupts-measured-layout-virtual-lists-the-fit-spine--hard-rule-20)
-- [A finish `::after` EDGE layer is clobbered by the pagination marker](gotchas/css.md#a-finish-after-edge-layer-is-clobbered-by-the-pagination-marker)
-- [A `section::after` `content` renders in the PDF and is BLANK in the browser (`numbered`)](gotchas/css.md#a-sectionafter-content-renders-in-the-pdf-and-is-blank-in-the-browser-numbered)
-- [On a `finish:` deck the running header/footer/logo moved, and ate stage height](gotchas/css.md#on-a-finish-deck-the-running-headerfooterlogo-moved-and-ate-stage-height)
-- [Something decorative on a slide is painting on the wrong side of something else](gotchas/css.md#something-decorative-on-a-slide-is-painting-on-the-wrong-side-of-something-else)
-- [`white-space:nowrap` on `section code` collapsed code blocks + overflowed eyebrows](gotchas/css.md#white-spacenowrap-on-section-code-collapsed-code-blocks--overflowed-eyebrows)
-- [`var(--fg)` is undefined — SVG `fill`/`stroke` silently falls back to black/none](gotchas/css.md#var--fg-is-undefined--svg-fillstroke-silently-falls-back-to-blacknone)
-- [State disc never paints — a recipe var that embeds `--state-color` was defined at `:root`/section](gotchas/css.md#state-disc-never-paints--a-recipe-var-that-embeds---state-color-was-defined-at-rootsection)
-- [Chrome (`<body>`) tokens are the `PORTAL_TOKENS` subset — a slide-only token is `undefined` there (the `--pass`/`--warn`/`--fail` bug, fixed)](gotchas/css.md#chrome-body-tokens-are-the-portal_tokens-subset--a-slide-only-token-is-undefined-there-the---pass--warn--fail-bug-fixed)
-- [CSS custom properties return raw token stream via `getPropertyValue`](gotchas/css.md#css-custom-properties-return-raw-token-stream-via-getpropertyvalue)
-- [G-generation `--c-ink-dark: var(--text-heading)` breaks contrast in both canvas modes](gotchas/css.md#g-generation---c-ink-dark-var--text-heading-breaks-contrast-in-both-canvas-modes)
-- [CSS `ul > li` matches nested sublists — chain `> ul > li` for top-level-only styling](gotchas/css.md#css-ul--li-matches-nested-sublists--chain--ul--li-for-top-level-only-styling)
-- [`:where(:root)` zero-specificity defaults](gotchas/css.md#whereroot-zero-specificity-defaults)
-- [`font-size: 0` collapses `em` width/height on the same element](gotchas/css.md#font-size-0-collapses-em-widthheight-on-the-same-element)
-- [A `::before`/`::after` on a padded inline element paints a stray sliver at the end of the previous line](gotchas/css.md#a-beforeafter-on-a-padded-inline-element-paints-a-stray-sliver-at-the-end-of-the-previous-line)
-- [`100dvw`/`100vw` includes the scrollbar — a full-width child of a scroll container clips when centered](gotchas/css.md#100dvw100vw-includes-the-scrollbar--a-full-width-child-of-a-scroll-container-clips-when-centered)
-- [A CSS reset declaration silently does nothing — the value doesn't exist](gotchas/css.md#a-css-reset-declaration-silently-does-nothing--the-value-doesnt-exist)
-- [The same declaration, but it dies at COMPUTED-VALUE time — and does NOT fall back](gotchas/css.md#the-same-declaration-but-it-dies-at-computed-value-time--and-does-not-fall-back)
-- [A `visibility: hidden` measuring element makes its scroll container scroll SIDEWAYS](gotchas/css.md#a-visibility-hidden-measuring-element-makes-its-scroll-container-scroll-sideways)
-- [A `finish:` shows on every slide except the split ones, and their header vanishes halfway across](gotchas/css.md#a-finish-shows-on-every-slide-except-the-split-ones-and-their-header-vanishes-halfway-across)
-- [A render wedges at "load fonts" on one palette only — `max()` in a relative color over `light-dark()`](gotchas/css.md#a-render-wedges-at-load-fonts-on-one-palette-only--max-in-a-relative-color-over-light-dark)
-- [An `accent` or `tone-edge` slide shows the spectrum bar after a Vite build — `border-image: none` minified to nothing](gotchas/css.md#an-accent-or-tone-edge-slide-shows-the-spectrum-bar-after-a-vite-build--border-image-none-minified-to-nothing)
-
-### [Docs site build and dev server (Astro + GitHub Pages)](gotchas/docs-site.md)
-
-- [`astro dev` serves stale assets after previewing a production build (service worker)](gotchas/docs-site.md#astro-dev-serves-stale-assets-after-previewing-a-production-build-service-worker)
-- [`build:check` fails: "builds a live preview frame … not a sanctioned preview builder" (HARD RULE #22)](gotchas/docs-site.md#buildcheck-fails-builds-a-live-preview-frame--not-a-sanctioned-preview-builder-hard-rule-22)
-- [`build:check` fails: "embeds a `<style>` element but does not call `sanitizeStyleText`" (HARD RULE #22)](gotchas/docs-site.md#buildcheck-fails-embeds-a-style-element-but-does-not-call-sanitizestyletext-hard-rule-22)
-- [Docs build fails `stale: <name>.<mood>: gallery PDF changed since the WebP was generated`](gotchas/docs-site.md#docs-build-fails-stale-namemood-gallery-pdf-changed-since-the-webp-was-generated)
-- [A docs panel is dead in `astro dev` only (source CJS served over `/@fs`)](gotchas/docs-site.md#a-docs-panel-is-dead-in-astro-dev-only-source-cjs-served-over-fs)
-- [Every Fabricate preview is EMPTY in `astro dev` only (StrictMode disposes the renderer, and the sentinel hides it)](gotchas/docs-site.md#every-fabricate-preview-is-empty-in-astro-dev-only-strictmode-disposes-the-renderer-and-the-sentinel-hides-it)
-- [astro 7 backgrounds `preview` and `dev` FOR AN AGENT, and Playwright then dies with `Process from config.webServer exited early`](gotchas/docs-site.md#astro-7-backgrounds-preview-and-dev-for-an-agent-and-playwright-then-dies-with-process-from-configwebserver-exited-early)
-- [A CSS custom property reads back as `#1478dc` where the source says `rgb(20, 120, 220)`](gotchas/docs-site.md#a-css-custom-property-reads-back-as-1478dc-where-the-source-says-rgb20-120-220)
-- [Docs `npm run dev` → `sh: 1: astro: not found`](gotchas/docs-site.md#docs-npm-run-dev--sh-1-astro-not-found)
-- [Docs build dies at config load: "does not provide an export named `unified`"](gotchas/docs-site.md#docs-build-dies-at-config-load-does-not-provide-an-export-named-unified)
-- [`pkill -f astro` kills the shell that's launching astro](gotchas/docs-site.md#pkill--f-astro-kills-the-shell-thats-launching-astro)
-- [An `<astro-island>` without `ssr` is mounted, not yet wired — clicks still vanish](gotchas/docs-site.md#an-astro-island-without-ssr-is-mounted-not-yet-wired--clicks-still-vanish)
-- [A spec is green after `npm run build:e2e` and red after `npm run build`](gotchas/docs-site.md#a-spec-is-green-after-npm-run-builde2e-and-red-after-npm-run-build)
-- [A timing spec re-downloads everything, because `page.route()` turns off the HTTP cache](gotchas/docs-site.md#a-timing-spec-re-downloads-everything-because-pageroute-turns-off-the-http-cache)
-
-### [Export (PDF, PPTX, the HTML player)](gotchas/export.md)
-
-- [Chromium PDF output of CSS `mask-image` renders inconsistently across viewers](gotchas/export.md#chromium-pdf-output-of-css-mask-image-renders-inconsistently-across-viewers)
-- [SVG images in the exported PDF partially render or vanish in iOS Quartz viewers](gotchas/export.md#svg-images-in-the-exported-pdf-partially-render-or-vanish-in-ios-quartz-viewers)
-- [A blurred `box-shadow` renders as an opaque gray block in Apple PDFKit and Quartz PDF viewers](gotchas/export.md#a-blurred-box-shadow-renders-as-an-opaque-gray-block-in-apple-pdfkit-and-quartz-pdf-viewers)
-- [A JSON data block inside a `<script>` comes back with `&amp;` in every string](gotchas/export.md#a-json-data-block-inside-a-script-comes-back-with-amp-in-every-string)
-- [The exported player has no front matter to read](gotchas/export.md#the-exported-player-has-no-front-matter-to-read)
-- [A slide-level color-scheme pin has to be re-emitted for the exported player](gotchas/export.md#a-slide-level-color-scheme-pin-has-to-be-re-emitted-for-the-exported-player)
-- [A token flattened for the player took the print band's value](gotchas/export.md#a-token-flattened-for-the-player-took-the-print-bands-value)
-- [Chart fills took one scheme while the page took the other](gotchas/export.md#chart-fills-took-one-scheme-while-the-page-took-the-other)
-- [A player's dark toggle moved every color except the ones written in a real property](gotchas/export.md#a-players-dark-toggle-moved-every-color-except-the-ones-written-in-a-real-property)
-- [An exported player quietly dropped every `X :is(…)` rule the deck renders](gotchas/export.md#an-exported-player-quietly-dropped-every-x-is-rule-the-deck-renders)
-- [A baked diagram label went dark-on-dark after the player's toggle](gotchas/export.md#a-baked-diagram-label-went-dark-on-dark-after-the-players-toggle)
-- [`--strip-notes` deleted a comment out of a code fence](gotchas/export.md#--strip-notes-deleted-a-comment-out-of-a-code-fence)
-- [`--strip-notes` could not remove a note that opens with a directive keyword](gotchas/export.md#--strip-notes-could-not-remove-a-note-that-opens-with-a-directive-keyword)
-- [`--strip-notes` shipped the note anyway — in the `.pptx`, and in the raster PDF's sidecar](gotchas/export.md#--strip-notes-shipped-the-note-anyway--in-the-pptx-and-in-the-raster-pdfs-sidecar)
-- [The exported player told the recipient a deck HAD notes, after `--strip-notes` removed them](gotchas/export.md#the-exported-player-told-the-recipient-a-deck-had-notes-after---strip-notes-removed-them)
-- [The PDF's embedded source was scrubbed under a cut measured on a different document](gotchas/export.md#the-pdfs-embedded-source-was-scrubbed-under-a-cut-measured-on-a-different-document)
-- [A `tier:` / `galleryAuthored:` pragma shipped as the speaker note in every format](gotchas/export.md#a-tier--galleryauthored-pragma-shipped-as-the-speaker-note-in-every-format)
-- [A Studio PDF drew a pill over the end of its caption](gotchas/export.md#a-studio-pdf-drew-a-pill-over-the-end-of-its-caption)
-- [A 4K deck's PDF changes bytes from run to run when the machine is busy](gotchas/export.md#a-4k-decks-pdf-changes-bytes-from-run-to-run-when-the-machine-is-busy)
-- [A Studio export saves as a UUID (`76f752a8-….html`) in Firefox](gotchas/export.md#a-studio-export-saves-as-a-uuid-76f752a8-html-in-firefox)
-- [A Studio export numbered every step, agenda line and tag `0`](gotchas/export.md#a-studio-export-numbered-every-step-agenda-line-and-tag-0)
-
-### [Fonts and emoji](gotchas/fonts.md)
-
-- [A rendered PDF shows serif/fallback type, not the design fonts](gotchas/fonts.md#a-rendered-pdf-shows-seriffallback-type-not-the-design-fonts)
-- [Studio PDF/PPTX export shows fallback type on some slides](gotchas/fonts.md#studio-pdfpptx-export-shows-fallback-type-on-some-slides)
-- [Studio / playground LIVE PREVIEW shows hand-body decks in a system sans](gotchas/fonts.md#studio--playground-live-preview-shows-hand-body-decks-in-a-system-sans)
-- [Color emoji needs an installed font on the owned render paths](gotchas/fonts.md#color-emoji-needs-an-installed-font-on-the-owned-render-paths)
-- [Flex-centered caps read high in JetBrains Mono (and `text-box-trim` can't fix it here)](gotchas/fonts.md#flex-centered-caps-read-high-in-jetbrains-mono-and-text-box-trim-cant-fix-it-here)
-- [A preview's layout jumps once, shortly after it appears](gotchas/fonts.md#a-previews-layout-jumps-once-shortly-after-it-appears)
-
-### [Lattice internals](gotchas/lattice-internals.md)
-
-- [A page number / progress rail / proof-panel color looks wrong in the preview, right in the export](gotchas/lattice-internals.md#a-page-number--progress-rail--proof-panel-color-looks-wrong-in-the-preview-right-in-the-export)
-- [Editing a manifest `sample` staled the bucket survey gallery](gotchas/lattice-internals.md#editing-a-manifest-sample-staled-the-bucket-survey-gallery)
-- [`dist/lattice.js` rejects a manifest key the schema already declares](gotchas/lattice-internals.md#distlatticejs-rejects-a-manifest-key-the-schema-already-declares)
-- [A generated file is in the bundle that was built before it](gotchas/lattice-internals.md#a-generated-file-is-in-the-bundle-that-was-built-before-it)
-- [A committed render golden doesn't match a fresh render — check staleness FIRST](gotchas/lattice-internals.md#a-committed-render-golden-doesnt-match-a-fresh-render--check-staleness-first)
-- [A manifest slot's `selector` describes AUTHORING input — a transform may consume it](gotchas/lattice-internals.md#a-manifest-slots-selector-describes-authoring-input--a-transform-may-consume-it)
-- [Legacy `--fs-*` token names retired](gotchas/lattice-internals.md#legacy---fs--token-names-retired)
-- [Narration timed from `projectDeckToSpeech` is ~9x too short — it is ONE STAGE](gotchas/lattice-internals.md#narration-timed-from-projectdecktospeech-is-9x-too-short--it-is-one-stage)
-- [Per-slide dwell in Present IS the narration — there is no hidden stall](gotchas/lattice-internals.md#per-slide-dwell-in-present-is-the-narration--there-is-no-hidden-stall)
-- [Two render paths — land transforms in the shared kernel, not one path](gotchas/lattice-internals.md#two-render-paths--land-transforms-in-the-shared-kernel-not-one-path)
-- [Chart-family observer's broad `MutationObserver` scope](gotchas/lattice-internals.md#chart-family-observers-broad-mutationobserver-scope)
-- [Stray colors escape the palette via Mermaid's hardcoded defaults](gotchas/lattice-internals.md#stray-colors-escape-the-palette-via-mermaids-hardcoded-defaults)
-- [`liftSlotLabel` idempotency contract](gotchas/lattice-internals.md#liftslotlabel-idempotency-contract)
-- [`image museum` slides inherit the anchor `border-left` via cascade](gotchas/lattice-internals.md#image-museum-slides-inherit-the-anchor-border-left-via-cascade)
-- [Section geometry AND body font (padding, border, body text) look wrong in any non-canonical preview](gotchas/lattice-internals.md#section-geometry-and-body-font-padding-border-body-text-look-wrong-in-any-non-canonical-preview)
-- [Layout components inherit line-height silently from the section body default](gotchas/lattice-internals.md#layout-components-inherit-line-height-silently-from-the-section-body-default)
-- [Emulator line-by-line builder only supports 2-deep list nesting by default](gotchas/lattice-internals.md#emulator-line-by-line-builder-only-supports-2-deep-list-nesting-by-default)
-- [lattice doesn't auto-load `style:` from front matter](gotchas/lattice-internals.md#lattice-doesnt-auto-load-style-from-front-matter)
-- [Mermaid diagrams render at HD size inside 4K slides in VS Code preview](gotchas/lattice-internals.md#mermaid-diagrams-render-at-hd-size-inside-4k-slides-in-vs-code-preview)
-- [Docs-site preview/export rendered 4K decks oversized + cropped](gotchas/lattice-internals.md#docs-site-previewexport-rendered-4k-decks-oversized--cropped)
-- [lattice-engine: deck looks fine on desktop but collapses on mobile WebKit (no `:root` token relocation)](gotchas/lattice-internals.md#lattice-engine-deck-looks-fine-on-desktop-but-collapses-on-mobile-webkit-no-root-token-relocation)
-- [A slide surface ignores one input device (a wheel mouse does nothing; arrows are dead)](gotchas/lattice-internals.md#a-slide-surface-ignores-one-input-device-a-wheel-mouse-does-nothing-arrows-are-dead)
-- [A pinch on a slide turns the deck (and `preventDefault` in your React handler does nothing)](gotchas/lattice-internals.md#a-pinch-on-a-slide-turns-the-deck-and-preventdefault-in-your-react-handler-does-nothing)
-- [A destructuring default in a plain-JS export erases the rest of its parameter type](gotchas/lattice-internals.md#a-destructuring-default-in-a-plain-js-export-erases-the-rest-of-its-parameter-type)
-- [A card component's eyebrow is missing from the reader view](gotchas/lattice-internals.md#a-card-components-eyebrow-is-missing-from-the-reader-view)
-- [A video slide's lead sentence is missing from the reader view](gotchas/lattice-internals.md#a-video-slides-lead-sentence-is-missing-from-the-reader-view)
-- [A media slide's prose is missing from the reader view](gotchas/lattice-internals.md#a-media-slides-prose-is-missing-from-the-reader-view)
-- [A video in the reader view is a bare link outside the prose column](gotchas/lattice-internals.md#a-video-in-the-reader-view-is-a-bare-link-outside-the-prose-column)
-- [A slide's subtitle shows as the kicker, or vanishes, in the reader view](gotchas/lattice-internals.md#a-slides-subtitle-shows-as-the-kicker-or-vanishes-in-the-reader-view)
-- [A slide's key insight or below-note is missing from the reader view](gotchas/lattice-internals.md#a-slides-key-insight-or-below-note-is-missing-from-the-reader-view)
-- [An image slide jumps in the Studio preview when its picture loads](gotchas/lattice-internals.md#an-image-slide-jumps-in-the-studio-preview-when-its-picture-loads)
-- [A light video poster flashes in on a dark slide in the preview](gotchas/lattice-internals.md#a-light-video-poster-flashes-in-on-a-dark-slide-in-the-preview)
-- [A slide's heading jumps into place just after a slide change in the preview](gotchas/lattice-internals.md#a-slides-heading-jumps-into-place-just-after-a-slide-change-in-the-preview)
-- [Tapping a video poster in the Studio preview does nothing](gotchas/lattice-internals.md#tapping-a-video-poster-in-the-studio-preview-does-nothing)
-- [Tapping a link on a slide in the exported player loses the deck](gotchas/lattice-internals.md#tapping-a-link-on-a-slide-in-the-exported-player-loses-the-deck)
-- [A code block or a prose line after a heading is pulled into the masthead band](gotchas/lattice-internals.md#a-code-block-or-a-prose-line-after-a-heading-is-pulled-into-the-masthead-band)
-- [G-gen merge must use non-G file's G-gen block, not the G-file's block](gotchas/lattice-internals.md#g-gen-merge-must-use-non-g-files-g-gen-block-not-the-g-files-block)
-- [An author's `$&` in a label turns into a piece of the slide](gotchas/lattice-internals.md#an-authors--in-a-label-turns-into-a-piece-of-the-slide)
-- [An issue or note cites `lattice-emulator.js`, and the file does not exist](gotchas/lattice-internals.md#an-issue-or-note-cites-lattice-emulatorjs-and-the-file-does-not-exist)
-
-### [Marp / Marpit](gotchas/marp.md)
-
-- [Marp Preview emits `<marp-pre>`, marp-cli emits `<pre is="marp-pre">`](gotchas/marp.md#marp-preview-emits-marp-pre-marp-cli-emits-pre-ismarp-pre)
-- [Marp Core wraps emoji in `<img class="emoji">` (twemoji)](gotchas/marp.md#marp-core-wraps-emoji-in-img-classemoji-twemoji)
-- [Marpit "spot replaces global" for the `class:` directive](gotchas/marp.md#marpit-spot-replaces-global-for-the-class-directive)
-- [Marpit theme prefixer mangles `:is(...)` and `:where(...)` as a leading selector](gotchas/marp.md#marpit-theme-prefixer-mangles-is-and-where-as-a-leading-selector)
-- [A slide renders with NO canvas — white paper, invisible text — on a third-party theme](gotchas/marp.md#a-slide-renders-with-no-canvas--white-paper-invisible-text--on-a-third-party-theme)
-- [Front-matter `style:` directive specificity vs. theme :root](gotchas/marp.md#front-matter-style-directive-specificity-vs-theme-root)
-- [A theme rule gated on `:root[…]` silently does nothing in a Marp render](gotchas/marp.md#a-theme-rule-gated-on-root-silently-does-nothing-in-a-marp-render)
-- [marp-cli ignores `theme:` front matter unless the theme is registered (Export-to-Marp bundles)](gotchas/marp.md#marp-cli-ignores-theme-front-matter-unless-the-theme-is-registered-export-to-marp-bundles)
-- [A hard-wrapped paragraph renders with line breaks mid-sentence](gotchas/marp.md#a-hard-wrapped-paragraph-renders-with-line-breaks-mid-sentence)
-
-### [Memory profiling (perf-torture / CDP)](gotchas/memory-profiling.md)
-
-- [A CDP/DevTools memory profile shows a "leak" that vanishes off-inspector](gotchas/memory-profiling.md#a-cdpdevtools-memory-profile-shows-a-leak-that-vanishes-off-inspector)
-- [A heap retainer walk names `<DevTools console>` / `ScriptStateProtectingContext` as the holder](gotchas/memory-profiling.md#a-heap-retainer-walk-names-devtools-console--scriptstateprotectingcontext-as-the-holder)
-- [perf-torture says `RISING` but memory isn't leaking (JIT warmup)](gotchas/memory-profiling.md#perf-torture-says-rising-but-memory-isnt-leaking-jit-warmup)
-- [WebKit's memory keeps rising as a grid recycles iframes, with nothing on the page](gotchas/memory-profiling.md#webkits-memory-keeps-rising-as-a-grid-recycles-iframes-with-nothing-on-the-page)
-- [Moving a rendered iframe in the DOM blanks it](gotchas/memory-profiling.md#moving-a-rendered-iframe-in-the-dom-blanks-it)
-
-### [Mermaid](gotchas/mermaid.md)
-
-- [Mermaid labels are clipped on a plain slide ("Order pl…")](gotchas/mermaid.md#mermaid-labels-are-clipped-on-a-plain-slide-order-pl)
-- [A mermaid `click` directive is inert (and used to be an XSS)](gotchas/mermaid.md#a-mermaid-click-directive-is-inert-and-used-to-be-an-xss)
-- [A diagram with an `%%{init}%%` renders in Mermaid's stock colors (yellow clusters)](gotchas/mermaid.md#a-diagram-with-an-init-renders-in-mermaids-stock-colors-yellow-clusters)
-- [Playground: Mermaid (and all DOM transforms) stop rendering after the first edit](gotchas/mermaid.md#playground-mermaid-and-all-dom-transforms-stop-rendering-after-the-first-edit)
-- [Mermaid's color parser rejects `light-dark()`](gotchas/mermaid.md#mermaids-color-parser-rejects-light-dark)
-- [Mermaid kanban applies a lighten step to cScale](gotchas/mermaid.md#mermaid-kanban-applies-a-lighten-step-to-cscale)
-- [Mermaid timeline + journey are tile-stack, not card-on-band](gotchas/mermaid.md#mermaid-timeline--journey-are-tile-stack-not-card-on-band)
-- [A mindmap node takes another diagram's color cycle](gotchas/mermaid.md#a-mindmap-node-takes-another-diagrams-color-cycle)
-- [~~Mermaid's `%%{init}%%` directive is intolerant of CSS comments~~ (RESOLVED)](gotchas/mermaid.md#mermaids-init-directive-is-intolerant-of-css-comments-resolved)
-- [Mermaid frontmatter must be FIRST; `%%{init}%%` injection comes after](gotchas/mermaid.md#mermaid-frontmatter-must-be-first-init-injection-comes-after)
-- [Mermaid `mermaid.run()` is async; restoration logic must wait](gotchas/mermaid.md#mermaid-mermaidrun-is-async-restoration-logic-must-wait)
-- [Mermaid's built-in error renderer breaks slide layout](gotchas/mermaid.md#mermaids-built-in-error-renderer-breaks-slide-layout)
-- [Mermaid `themeVariables` must come from a `<section>`, not `:root`](gotchas/mermaid.md#mermaid-themevariables-must-come-from-a-section-not-root)
-- [`:where(:root)` token blocks are dropped from every rendered slide](gotchas/mermaid.md#whereroot-token-blocks-are-dropped-from-every-rendered-slide)
-- [Mermaid had `layout: 'tidy-tree'` — silent diagram loss](gotchas/mermaid.md#mermaid-had-layout-tidy-tree--silent-diagram-loss)
-- [`mmdc` / Puppeteer flakes intermittently on cold starts](gotchas/mermaid.md#mmdc--puppeteer-flakes-intermittently-on-cold-starts)
-- [KaTeX math extractor splices error spans into inlined Mermaid SVG CSS](gotchas/mermaid.md#katex-math-extractor-splices-error-spans-into-inlined-mermaid-svg-css)
-
-### [Overflow detection and the Fit Spine](gotchas/overflow.md)
-
-- [`overflow:check` reports decks as regressed that nobody touched — and the baseline says they were clean](gotchas/overflow.md#overflowcheck-reports-decks-as-regressed-that-nobody-touched--and-the-baseline-says-they-were-clean)
-- [A slide loses its EYEBROW and HEADING off the top, and no ring / pill / console line fires](gotchas/overflow.md#a-slide-loses-its-eyebrow-and-heading-off-the-top-and-no-ring--pill--console-line-fires)
-- [A fixed-size slide frame silently truncates content past 1280×720](gotchas/overflow.md#a-fixed-size-slide-frame-silently-truncates-content-past-1280720)
-- [The overflow ring lags an edit, or a slide scrolled past keeps a ring it should have lost](gotchas/overflow.md#the-overflow-ring-lags-an-edit-or-a-slide-scrolled-past-keeps-a-ring-it-should-have-lost)
-- [A false "Overflows" ring appears on the exported `.html` sidecar for a slide that actually fits](gotchas/overflow.md#a-false-overflows-ring-appears-on-the-exported-html-sidecar-for-a-slide-that-actually-fits)
-- [`guards: strict` trims the PDF but not the `.html` beside it — or, with `-o deck.html`, nothing at all](gotchas/overflow.md#guards-strict-trims-the-pdf-but-not-the-html-beside-it--or-with--o-deckhtml-nothing-at-all)
-- [One slide renders at ~2x type and overflows, but ONLY in a live preview — the PDF is perfect](gotchas/overflow.md#one-slide-renders-at-2x-type-and-overflows-but-only-in-a-live-preview--the-pdf-is-perfect)
-- [A slide clips 30-70px in the Playground that the exported PDF renders whole](gotchas/overflow.md#a-slide-clips-30-70px-in-the-playground-that-the-exported-pdf-renders-whole)
-- [The Playground and the Studio disagree about which slides overflow (and a slide's own padding changes when the preview pane is resized)](gotchas/overflow.md#the-playground-and-the-studio-disagree-about-which-slides-overflow-and-a-slides-own-padding-changes-when-the-preview-pane-is-resized)
-- [Exported fluid viewer: an overflowing slide shows NO marker tab, or the red author ring leaks to a reader](gotchas/overflow.md#exported-fluid-viewer-an-overflowing-slide-shows-no-marker-tab-or-the-red-author-ring-leaks-to-a-reader)
-- [A dense slide loses its card borders and corners, but not one word of text](gotchas/overflow.md#a-dense-slide-loses-its-card-borders-and-corners-but-not-one-word-of-text)
-- [A slide silently loses its FIRST line, and every gate reads clean](gotchas/overflow.md#a-slide-silently-loses-its-first-line-and-every-gate-reads-clean)
-- [The Studio's PDF export measures at 0.94, not 1 — and the raster is taken at 1](gotchas/overflow.md#the-studios-pdf-export-measures-at-094-not-1--and-the-raster-is-taken-at-1)
-
-### [The Studio and the Playground (docs-site app surfaces)](gotchas/studio-playground.md)
-
-- [The preview `<iframe>` — trap catalog (read this first: surfaces × workarounds)](gotchas/studio-playground.md#the-preview-iframe--trap-catalog-read-this-first-surfaces--workarounds)
-- [Playground/specimen previews 404 on the engine CSS + runtime](gotchas/studio-playground.md#playgroundspecimen-previews-404-on-the-engine-css--runtime)
-- [Playground preview serves a STALE engine bundle (a 200, not a 404)](gotchas/studio-playground.md#playground-preview-serves-a-stale-engine-bundle-a-200-not-a-404)
-- [The editor|preview divider snaps to the middle a moment after the page loads](gotchas/studio-playground.md#the-editorpreview-divider-snaps-to-the-middle-a-moment-after-the-page-loads)
-- [The Playground's preview pane is empty for seconds after a reload](gotchas/studio-playground.md#the-playgrounds-preview-pane-is-empty-for-seconds-after-a-reload)
-- [The Playground's cached slide jumps when the live preview takes over](gotchas/studio-playground.md#the-playgrounds-cached-slide-jumps-when-the-live-preview-takes-over)
-- [The Playground's Explore layout arrives a second after the page does](gotchas/studio-playground.md#the-playgrounds-explore-layout-arrives-a-second-after-the-page-does)
-- [The Playground's divider is in one place before hydration and another after](gotchas/studio-playground.md#the-playgrounds-divider-is-in-one-place-before-hydration-and-another-after)
-- [A header control shows nothing (or the wrong thing) for a second after every page load](gotchas/studio-playground.md#a-header-control-shows-nothing-or-the-wrong-thing-for-a-second-after-every-page-load)
-- [The Studio counts fewer slides than the deck renders — or an edit destroys a slide](gotchas/studio-playground.md#the-studio-counts-fewer-slides-than-the-deck-renders--or-an-edit-destroys-a-slide)
-- [A `split-panel proof` run is one hue in the Studio, but only when the deck doesn't paginate](gotchas/studio-playground.md#a-split-panel-proof-run-is-one-hue-in-the-studio-but-only-when-the-deck-doesnt-paginate)
-- [A live preview prints "1" as the page number on every slide](gotchas/studio-playground.md#a-live-preview-prints-1-as-the-page-number-on-every-slide)
-- [Playground renders broken in mobile Safari/WebKit (counters "00", chart text overlaps, marks drop)](gotchas/studio-playground.md#playground-renders-broken-in-mobile-safariwebkit-counters-00-chart-text-overlaps-marks-drop)
-- [Playground math (and any cqi/cqh layout) renders tiny + "jumps/rescales"](gotchas/studio-playground.md#playground-math-and-any-cqicqh-layout-renders-tiny--jumpsrescales)
-- [Playground preview won't scroll on iOS after opening a settings sheet](gotchas/studio-playground.md#playground-preview-wont-scroll-on-ios-after-opening-a-settings-sheet)
-- [The Studio "crashed" and reloaded itself, and nothing was logged anywhere](gotchas/studio-playground.md#the-studio-crashed-and-reloaded-itself-and-nothing-was-logged-anywhere)
-- [A "crash" notice appeared on returning to a tab, and nothing had crashed](gotchas/studio-playground.md#a-crash-notice-appeared-on-returning-to-a-tab-and-nothing-had-crashed)
-- [The Studio says a feature "hit an unexpected error" on a tab that has been open a while](gotchas/studio-playground.md#the-studio-says-a-feature-hit-an-unexpected-error-on-a-tab-that-has-been-open-a-while)
-- [A crash report shows `Script error.` several times and names nothing](gotchas/studio-playground.md#a-crash-report-shows-script-error-several-times-and-names-nothing)
-- [Data a user deleted comes back when a parked tab wakes up](gotchas/studio-playground.md#data-a-user-deleted-comes-back-when-a-parked-tab-wakes-up)
-- [A Web Lock held for the life of a page silently kills its bfcache](gotchas/studio-playground.md#a-web-lock-held-for-the-life-of-a-page-silently-kills-its-bfcache)
-- [Installed iOS PWA: "Connect OpenRouter" doesn't stick](gotchas/studio-playground.md#installed-ios-pwa-connect-openrouter-doesnt-stick)
-- [The Present rail is completely invisible under `forced-colors: active`](gotchas/studio-playground.md#the-present-rail-is-completely-invisible-under-forced-colors-active)
-- [A multi-line toast renders as a giant lozenge with its last line cut off](gotchas/studio-playground.md#a-multi-line-toast-renders-as-a-giant-lozenge-with-its-last-line-cut-off)
-- [A status toast shows text from the message BEFORE it, or the wrong shape](gotchas/studio-playground.md#a-status-toast-shows-text-from-the-message-before-it-or-the-wrong-shape)
-- [A message raised right after another one flashes and disappears](gotchas/studio-playground.md#a-message-raised-right-after-another-one-flashes-and-disappears)
-- [A DOM census over the chrome agrees with itself, but it is reading the wrong elements](gotchas/studio-playground.md#a-dom-census-over-the-chrome-agrees-with-itself-but-it-is-reading-the-wrong-elements)
-- [A control's own icon renders sliced/outside its button, and every overflow guard is green](gotchas/studio-playground.md#a-controls-own-icon-renders-slicedoutside-its-button-and-every-overflow-guard-is-green)
-- [A CodeMirror `@media (pointer: coarse)` block has no effect on a real touch device](gotchas/studio-playground.md#a-codemirror-media-pointer-coarse-block-has-no-effect-on-a-real-touch-device)
-- [Select-all in the Playground editor paints a light lavender slab](gotchas/studio-playground.md#select-all-in-the-playground-editor-paints-a-light-lavender-slab)
-- [The matching-bracket highlight is teal on every palette](gotchas/studio-playground.md#the-matching-bracket-highlight-is-teal-on-every-palette)
-- [The two deck editors dressed themselves independently](gotchas/studio-playground.md#the-two-deck-editors-dressed-themselves-independently)
-- [A chat panel's state lands on whichever deck is on screen when the turn ends](gotchas/studio-playground.md#a-chat-panels-state-lands-on-whichever-deck-is-on-screen-when-the-turn-ends)
-- [A 4K deck renders oversized and cropped in docs-site preview and export](gotchas/studio-playground.md#a-4k-deck-renders-oversized-and-cropped-in-docs-site-preview-and-export)
-- [A Radix Sheet's first control is dead to the first tap on iOS](gotchas/studio-playground.md#a-radix-sheets-first-control-is-dead-to-the-first-tap-on-ios)
-- [A panel's controls fall outside it when the reader scales text up](gotchas/studio-playground.md#a-panels-controls-fall-outside-it-when-the-reader-scales-text-up)
-- [A long-lived tab 404s on the next asset it fetches after a deploy](gotchas/studio-playground.md#a-long-lived-tab-404s-on-the-next-asset-it-fetches-after-a-deploy)
-- [The Studio stays on its loading shell after you open it, and a reload fixes it](gotchas/studio-playground.md#the-studio-stays-on-its-loading-shell-after-you-open-it-and-a-reload-fixes-it)
-- [A chart's hover card flashes up and vanishes as you sweep onto a mark](gotchas/studio-playground.md#a-charts-hover-card-flashes-up-and-vanishes-as-you-sweep-onto-a-mark)
-- [A CSS comment in ComposeView's stylesheet breaks the whole file, with errors 130 lines away](gotchas/studio-playground.md#a-css-comment-in-composeviews-stylesheet-breaks-the-whole-file-with-errors-130-lines-away)
-- [A notification's button can't be clicked while a Studio sheet is open](gotchas/studio-playground.md#a-notifications-button-cant-be-clicked-while-a-studio-sheet-is-open)
-- [A Studio test can't find the panel it just opened, or clicks a row that does nothing](gotchas/studio-playground.md#a-studio-test-cant-find-the-panel-it-just-opened-or-clicks-a-row-that-does-nothing)
-- [A closed Studio panel stays on screen, or a test still finds its content](gotchas/studio-playground.md#a-closed-studio-panel-stays-on-screen-or-a-test-still-finds-its-content)
-
-### [VS Code / marp-vscode](gotchas/vscode.md)
-
-- [The VS Code Marp preview runs marp-core directly, without Lattice's markdown-it plugins](gotchas/vscode.md#the-vs-code-marp-preview-runs-marp-core-directly-without-lattices-markdown-it-plugins)
-- [Known preview gaps — transforms shipped without a `lattice-runtime.js` mirror](gotchas/vscode.md#known-preview-gaps--transforms-shipped-without-a-lattice-runtimejs-mirror)
-- [An Export-to-Marp bundle's equations lose their layout in Restricted Mode](gotchas/vscode.md#an-export-to-marp-bundles-equations-lose-their-layout-in-restricted-mode)
-- [`git worktree` doesn't share `node_modules`](gotchas/vscode.md#git-worktree-doesnt-share-node_modules)
-- [Does the marp-vscode webview execute `<script>`? — SETTLED: it depends on the preview security level](gotchas/vscode.md#does-the-marp-vscode-webview-execute-script--settled-it-depends-on-the-preview-security-level)
-- [`enableHtml` / `html: true` is required or the runtime `<script>` tags print as TEXT](gotchas/vscode.md#enablehtml--html-true-is-required-or-the-runtime-script-tags-print-as-text)
-- [A rule that LEADS with `:is(section…)` is dead in every Marp render](gotchas/vscode.md#a-rule-that-leads-with-issection-is-dead-in-every-marp-render)
-- [Custom `logo:` front-matter directive shows nothing in marp-vscode preview](gotchas/vscode.md#custom-logo-front-matter-directive-shows-nothing-in-marp-vscode-preview)
-- [marp-cli timeouts under load (60-90s on small fixtures)](gotchas/vscode.md#marp-cli-timeouts-under-load-60-90s-on-small-fixtures)
-- [VS Code's built-in PDF preview hue-shifts our gradients (pink/magenta)](gotchas/vscode.md#vs-codes-built-in-pdf-preview-hue-shifts-our-gradients-pinkmagenta)
-- [Mermaid on a 4K deck renders at HD size in the VS Code preview](gotchas/vscode.md#mermaid-on-a-4k-deck-renders-at-hd-size-in-the-vs-code-preview)
-
-_Generated by `npm run gotchas:index` from the entry headings in `engineering/gotchas/` — add an entry to a topic file, then regenerate. No totals here on purpose: an aggregate over every entry is the one line two concurrent PRs cannot both get right (#1547)._
-
-<!-- gotchas-index:end -->

@@ -63,6 +63,15 @@ const GROUPS = [
     consume: '`import \'@laticent/lattice/palette/<name>.css\';`',
   },
   {
+    prefix: 'engineering/',
+    purpose:
+      'The contributor indexes — `capabilities.md` (every npm script, tool and framework), '
+      + '`decisions.md` (one row per decision note) and `gotchas.md` (one row per gotcha). Each is '
+      + 'generated from one-file-per-item sources and never committed, so two PRs that each add an '
+      + 'item never touch the same file (engineering/decisions/2026-10-09-generated-indexes-uncommitted.md).',
+    consume: '`grep` them in a repo checkout. Not in the npm package: their links point into `engineering/`. Also published on the `dist-kits` branch.',
+  },
+  {
     prefix: 'agent-kit/',
     purpose:
       'The LLM agent kit, organized by task — `authoring/` (the deck canon, the '

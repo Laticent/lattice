@@ -46,7 +46,7 @@ test('every test/unit/<scope> directory has a matching `test:<scope>` npm script
       `Add to package.json:\n` +
       missing.map((s) => `    "test:${s}": "node --test --test-reporter=dot 'test/unit/${s}/*.test.js'",`).join('\n') +
       `\nand a SCRIPT_META entry in tools/build-capabilities.js (the HARD RULE #15 capabilities ` +
-      `gate fails build:check on an undescribed script), then run \`npm run capabilities:build\`.`,
+      `gate fails build:check on an undescribed script), then run \`npm run capabilities:check\`.`,
   );
 });
 

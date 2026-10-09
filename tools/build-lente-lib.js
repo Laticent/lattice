@@ -19,7 +19,7 @@
  * name) — so the docs runtime is unaffected. Lente is the fourth spin-off sibling; this
  * makes it node-consumable and publishable like Cadenza and Vetrina.
  *
- * Bundler = the in-tree esbuild (engineering/capabilities.md names it the house
+ * Bundler = the in-tree esbuild (dist/engineering/capabilities.md names it the house
  * bundler); declarations = `tsc --emitDeclarationOnly` (esbuild can't emit .d.ts).
  * No new bundler dependency (HARD RULE #15).
  *

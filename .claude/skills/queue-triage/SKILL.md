@@ -194,7 +194,8 @@ Then, once approved:
   mid-hook and looked like a failure.
 - **`npm run audit:queue` needs issue BODIES**, because the Definition of Ready lives in
   the body's headings. A label-only fetch cannot feed it.
-- **Regenerate `engineering/decisions/README.md`** (`npm run decisions:index`) and add a
+- **Check the note's front-matter** (`npm run decisions:index:check`; the index itself is
+  generated, never committed) and add a
   `changelog.d/<slug>.added.md` fragment (#10) in the same change.
 - **The note is a dated snapshot, not a second mirror.** `backlog.d/` is the living
   view, regenerated nightly by `sync-backlog.yml`. Say so in the note, or the next

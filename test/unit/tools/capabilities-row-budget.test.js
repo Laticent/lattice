@@ -1,5 +1,5 @@
 /**
- * Unit: the per-ROW budget on engineering/capabilities.md
+ * Unit: the per-ROW budget on dist/engineering/capabilities.md
  * (`ROW_CAP` in tools/build-capabilities.js).
  *
  * The catalog is read by GREP — HARD RULE #15 sends every "am I about to reinvent

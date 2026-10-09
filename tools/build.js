@@ -33,7 +33,7 @@
  *  10. theme-core bundle       tools/build-theme-core.js      (docs site Theme Studio core)
  *  11. layout-core bundle      tools/build-layout-core.js     (docs site Layout Studio core)
  *  12. authoring-core bundle   tools/build-authoring-core.js  (docs site Architect/Coach core)
- *  13. capability index        tools/build-capabilities.js (engineering/capabilities.md)
+ *  13. capability index        tools/build-capabilities.js (dist/engineering/capabilities.md)
  *  14. marp kit               tools/build-marp-kit.js (dist/marp-kit; needs dist/ fresh)
  *  15. dist README            tools/build-dist-readme.js (indexes dist/; runs last)
  *
@@ -223,15 +223,28 @@ const STEPS = [
   // before anything that copies themes/ into dist/.
   { label: 'categorical on-canvas ink (themes/*.css)', script: 'derive-cat-ink.js' },
   { label: 'chart categorical ink (themes/*.css)', script: 'derive-chart-cat-ink.js' },
-  { label: 'capability index (engineering/capabilities.md)', script: 'build-capabilities.js' },
+  // THE THREE INDEXES — `uncommitted` + `validates`. Each is generated from a folder of
+  // one-file-per-item sources (tools/ headers + package.json scripts, the decision notes,
+  // the gotcha topic files) into dist/engineering/, and none is committed: a committed index is a
+  // file every PR that adds an item rewrites, so two unrelated PRs collide on it
+  // (engineering/decisions/2026-10-09-generated-indexes-uncommitted.md).
+  //
+  // `validates` is the half that keeps them gated. `build:check` skips `uncommitted`
+  // steps, because their output is not on disk to compare against; a step that is ALSO
+  // `validates` still runs there, because its `--check` reads only its SOURCES (is every
+  // tool described? is every note's front-matter valid? is any row over its cap?) and
+  // never its output. A new generated index is `uncommitted: true, validates: true` and a
+  // `--check` that reads sources only. test/unit/tools/uncommitted-steps.test.js holds the
+  // TAGS; the decision and gotcha index tests run their --check with no output on disk.
+  { label: 'capability index (dist/engineering/capabilities.md)', script: 'build-capabilities.js', uncommitted: true, validates: true },
   // §0c's split-treatment table — renders TREATMENTS (lib/core/split-facts.js) into
   // the split decision note. Reads manifests + that map; order-independent.
   { label: 'split treatments (§0c of the split decision note)', script: 'build-split-treatments.js' },
   // Decision-doc index — reads each note's front-matter; order-independent.
-  { label: 'decision index (engineering/decisions/README.md)', script: 'build-decisions-index.js' },
+  { label: 'decision index (dist/engineering/decisions.md)', script: 'build-decisions-index.js', uncommitted: true, validates: true },
   // Gotchas symptom index — reads the entry headings in engineering/gotchas/;
   // order-independent, same as the decision index above.
-  { label: 'gotchas index (engineering/gotchas.md)', script: 'build-gotchas-index.js' },
+  { label: 'gotchas index (dist/engineering/gotchas.md)', script: 'build-gotchas-index.js', uncommitted: true, validates: true },
   // Last — it indexes the finished dist/ folder, so every other artifact
   // must already be (re)written before it runs.
   // The copy-and-go Marp kit. Runs LATE: it copies dist/lattice-min.css,
@@ -284,6 +297,16 @@ const BACKGROUND_LABELS = new Set([
 // runs ahead of player-core, so it is the first consumer and the one that does the joining.
 const JOIN_BEFORE_SCRIPTS = new Set(['build-cli.js', 'build-player-core.js', 'build-read-along-core.js']);
 
+// Which steps a run covers. `--only-uncommitted` writes the built-not-committed half;
+// `--exclude-uncommitted` (build:check) checks the committed half PLUS every `validates`
+// step, whose --check reads only its sources (see the three indexes in STEPS).
+// test/unit/tools/uncommitted-steps.test.js pins this.
+function scopeSteps({ onlyUncommitted = false, excludeUncommitted = false } = {}) {
+  if (onlyUncommitted) return STEPS.filter((s) => s.uncommitted);
+  if (excludeUncommitted) return STEPS.filter((s) => !s.uncommitted || s.validates);
+  return STEPS;
+}
+
 function runStep(step, check) {
   const args = [path.join(__dirname, step.script), ...(step.args || [])];
   if (check) args.push('--check');
@@ -324,10 +347,10 @@ async function main(argv) {
   // that is never committed cannot be stale relative to anything.
   //
   // Each surviving generator keeps its OWN --check semantics, which is load-bearing:
-  // build-decisions-index.js's is deliberately WEAKER than a byte-diff (#1547) so
-  // two decision-doc PRs can share the merge queue. An earlier attempt at this
-  // scoping rebuilt the tree and diffed it with git instead, which silently
-  // overrode that and re-opened the ejection #1547 closed.
+  // the three index generators (`validates`) check their SOURCES and never read their
+  // output, which is not committed. An earlier attempt at this scoping rebuilt the tree
+  // and diffed it with git instead, which would override per-generator semantics like
+  // that one.
   //
   // The tags were derived by MEASUREMENT — timestamp the tree, run each of the 39
   // generators alone, see what it writes — not by reading the build; that is how
@@ -350,14 +373,10 @@ async function main(argv) {
   // which is the state the gate needs to judge.
   const onlyUncommitted = argv.includes('--only-uncommitted');
 
-  const steps = onlyUncommitted
-    ? STEPS.filter((s) => s.uncommitted)
-    : excludeUncommitted
-      ? STEPS.filter((s) => !s.uncommitted)
-      : STEPS;
+  const steps = scopeSteps({ onlyUncommitted, excludeUncommitted });
   const mode = check ? 'check' : 'build';
   const scope = excludeUncommitted
-    ? `${steps.length} committed artifacts (${STEPS.length - steps.length} built-not-committed skipped)`
+    ? `${steps.length} committed artifacts and source validators (${STEPS.length - steps.length} built-not-committed skipped)`
     : `${steps.length} artifacts`;
   process.stdout.write(`Lattice ${mode}: ${scope} behind the ownership gate.\n\n`);
 
@@ -517,4 +536,4 @@ async function main(argv) {
 
 if (require.main === module) main(process.argv.slice(2)).then((code) => process.exit(code));
 
-module.exports = { STEPS, GUARD, PREFLIGHT, BACKGROUND_LABELS, JOIN_BEFORE_SCRIPTS };
+module.exports = { STEPS, GUARD, PREFLIGHT, BACKGROUND_LABELS, JOIN_BEFORE_SCRIPTS, scopeSteps };

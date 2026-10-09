@@ -1,7 +1,7 @@
 # Gotchas — CSS
 
-One topic from the [gotchas index](../gotchas.md) — start there to find a symptom;
-this file is the detail. Entry shape and the rule for adding one are in the index.
+One topic of the gotchas. Find a symptom in the generated index, `dist/engineering/gotchas.md`;
+this file is the detail. Entry shape and the rule for adding one are in the [guide](../gotchas.md).
 
 ## An ink passes every contrast gate and still renders sub-AA (own-hue band · element opacity)
 

@@ -1,7 +1,7 @@
 # Gotchas — Overflow detection and the Fit Spine
 
-One topic from the [gotchas index](../gotchas.md) — start there to find a symptom;
-this file is the detail. Entry shape and the rule for adding one are in the index.
+One topic of the gotchas. Find a symptom in the generated index, `dist/engineering/gotchas.md`;
+this file is the detail. Entry shape and the rule for adding one are in the [guide](../gotchas.md).
 
 ## `overflow:check` reports decks as regressed that nobody touched — and the baseline says they were clean
 

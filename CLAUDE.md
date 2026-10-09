@@ -15,7 +15,7 @@ canonical doc for each topic. Each rule is one line + a pointer; the rationale
 lives in the pointed-to doc. **Read that doc before non-trivial work in its
 area — don't work from memory of it.**
 **Many of them are too big to open whole** — ten documents this table routes to are 14k
-tokens or more, `engineering/decisions/README.md` and `engineering/workflow.md` past 29k,
+tokens or more, `dist/engineering/decisions.md` and `engineering/workflow.md` past 29k,
 and `lib/base/base.docs.md` (a #6 mandated read) past 21k. So make the SECTION the unit,
 always: `grep -n '^## ' <doc>` then `sed -n 'A,Bp' <doc>`. A pre-merge card needs about
 1.2k of `workflow.md` rather than all 29.5k, and every token you read stays in context,
@@ -356,7 +356,7 @@ anchors). Both are binding; the split tells you *where the enforcement lives*.
   before merge. See `engineering/workflow.md` § Merging.
 - **#14 — A hook failure is a root cause to fix, never a `--no-verify` to skip.**
 - **#15 — Don't reinvent — reuse, for tooling AND UI.** Tooling: consult
-  `engineering/capabilities.md` before building any script/harness (the
+  `dist/engineering/capabilities.md` before building any script/harness (the
   `capabilities:check` gate enforces it). Docs-site UI: extend the shadcn
   primitives in `docs/src/components/ui/` and the shared chrome
   (`PaletteControls`, `site-chrome.ts`) — don't fork a widget per surface.
@@ -649,7 +649,7 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
 | Branching, feature decks, share-the-PDF, rebase, merge, two-renderer rule | `engineering/workflow.md` |
 | Node, npm scripts, tests, lint, hooks, CI, the cloud sandbox setup | `engineering/development.md` |
 | **Waiting on a slow job** — a build, the integration tier, a push — one waiter per job, always bounded | `engineering/development.md` §Waiting for a slow job. Never hand-roll `until …; do sleep N; done` in a background call: it has no deadline and no identity, and a late fire re-sends the whole conversation at full price. Use `tools/wait-for.sh` |
-| Something behaving strangely (symptom index) | `engineering/gotchas.md` lists SYMPTOMS — skim it, open the ONE `engineering/gotchas/<topic>.md` it names. Searching by API / property / selector / token instead? **`grep -rn <term> engineering/gotchas/`** — the bodies live there, not in the index. Never read either top-to-bottom |
+| Something behaving strangely (symptom index) | `dist/engineering/gotchas.md` (generated on install, not committed) lists SYMPTOMS — skim it, open the ONE `engineering/gotchas/<topic>.md` it names. Searching by API / property / selector / token instead? **`grep -rn <term> engineering/gotchas/`** — the bodies live there, not in the index. Never read either top-to-bottom |
 | Engine internals, where transform kernels live | `engineering/architecture.md` |
 | Where we stand vs Marp (independence scorecard) | `engineering/marp-independence.md` |
 | The CSS cascade / `@layer` (declared-but-inert; the trap) | `engineering/cascade.md` |
@@ -673,7 +673,7 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
 | Cross-cutting authoring (eyebrow, subtitle, base modifiers) | `lib/base/base.docs.md` — and for a deck-level front-matter REGISTER (`mode:` `finish:` `split:` `stamp:`/`tone:` `spectrum:` `rule:` `eyebrow:` `headline:` `lift:` `corners:`), `lib/base/base.registers.docs.md` |
 | A specific component's slots/variants/anti-patterns | `lib/components/<bucket>/<name>/<name>.docs.md` |
 | Picking a component as an agent | `dist/docs/components.pick.md` — one line per component, the whole catalog in ~3.8k tokens; skim or grep it, then read the picked component's `.docs.md` (#6). `dist/docs/components.json` is the full machine record for TOOLS — don't load it to choose. **`dist/` is generated, not committed** — `npm install` (via `prepare`) and the SessionStart hook both build it, so run `npm run build` if it isn't there. Without a clone, the same files are published on the [`dist-kits`](https://github.com/Laticent/lattice/tree/dist-kits/agent) branch. Also `AGENTS.md` |
-| What scripts/tools already exist (don't reinvent) | `engineering/capabilities.md` — 300+ rows; **grep it for the thing you were about to build** (`grep -i contrast`, `grep -i bench`), then open the script or tool the row names — its own header is the long form. Don't read it top-to-bottom |
+| What scripts/tools already exist (don't reinvent) | `dist/engineering/capabilities.md` — 300+ rows; **grep it for the thing you were about to build** (`grep -i contrast`, `grep -i bench`), then open the script or tool the row names — its own header is the long form. Don't read it top-to-bottom |
 | What algorithms/models we already ship (color science, parsers, routing, formats, statistics) — and what we deliberately don't do | `engineering/science.md` — one row per idea, file + symbol; grep it before building or "improving" an algorithm |
 | Automated codebase quality assessment (coupling, boundaries, cycles, change coupling, complexity, duplication, dead code) | `engineering/quality-assessment.md` |
 | The 10/10 visual rubric | `engineering/decisions/2026-06-06-layout-audit/` |
@@ -683,7 +683,7 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
 | A self-driving UI walkthrough / product tour (the **Vetrina** library) | `docs/src/lib/vetrina/README.md` + `engineering/decisions/2026-07-05-vetrina-walkthrough-library.md` |
 | Release / publish | `RELEASE.md` |
 | The Studio's succession of the Drawing Board + Workbench (both **REMOVED**; their routes redirect) | `engineering/decisions/2026-07-03-studio-succession.md` |
-| Durable investigation notes | `engineering/decisions/README.md` — one line per note; grep it for the topic, then open the 2–3 notes it names. A row is a GIST, so a term that isn't in one still won't be found there: **`grep -rln <term> engineering/decisions/`** searches the notes themselves |
+| Durable investigation notes | `dist/engineering/decisions.md` (generated on install, not committed) — one line per note; grep it for the topic, then open the 2–3 notes it names. A row is a GIST, so a term that isn't in one still won't be found there: **`grep -rln <term> engineering/decisions/`** searches the notes themselves |
 
 The 14 component buckets: anchor, statement, inventory, comparison, progression,
 evidence, imagery, chart, diagram, math, code, legal, connect, layout.

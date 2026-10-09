@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Generate engineering/capabilities.md — the single index of what this repo
+ * Generate dist/engineering/capabilities.md — the single index of what this repo
  * already HAS: every npm script, every tool in tools/, and the frameworks we
  * build on.
  *
@@ -17,16 +17,24 @@
  *   - FRAMEWORKS (curated)    → the semantic "what we build on" a name omits
  *
  * Mandatory-description gate: a script with no SCRIPT_META entry, or a tool
- * whose header has no description line, renders a visible **TODO** — which
- * makes --check fail as drift. So a new capability cannot land uncataloged:
- * either describe it here / in the tool header, or the gate blocks the commit.
- * This mirrors tools/build-dist-readme.js.
+ * whose header has no description line, renders a visible **TODO** — and makes
+ * --check fail. So a new capability cannot land uncataloged: either describe it
+ * here / in the tool header, or the gate blocks the push.
+ *
+ * NOT COMMITTED. The output lives in dist/engineering/ and is rebuilt by `npm install`
+ * (prepare), the SessionStart hook and `npm run build`. A committed copy was
+ * rewritten by every PR that added a script or a tool, which made it one of the
+ * two most-collided files in the repo (12 of the 50 commits to 2026-10-09).
+ * Record: engineering/decisions/2026-10-09-generated-indexes-uncommitted.md.
  *
  * Flags:
- *   --check    Generate in memory and diff against the committed
- *              engineering/capabilities.md. Exits 1 on drift (incl. any TODO).
- *              CI / build:check / pre-commit gate.
+ *   --check    Validate the SOURCES: exit 1 on any undescribed script/tool or an
+ *              over-budget row. Reads no output — there is no committed copy to
+ *              diff. `build:check` runs it through the step's `validates` tag.
  *   --silent   Suppress the success log line (implied by --check).
+ *
+ * Write never fails: it renders TODO rows and over-budget rows with a warning,
+ * because it runs inside `npm install`.
  */
 
 const fs   = require('node:fs');
@@ -34,7 +42,7 @@ const path = require('node:path');
 
 const ROOT      = path.resolve(__dirname, '..');
 const TOOLS_DIR = path.join(ROOT, 'tools');
-const OUT_FILE  = path.join(ROOT, 'engineering', 'capabilities.md');
+const OUT_FILE  = path.join(ROOT, 'dist', 'engineering', 'capabilities.md');
 
 const argv   = process.argv.slice(2);
 const check  = argv.includes('--check');
@@ -100,8 +108,8 @@ const SCRIPT_META = {
   'dist-readme:build':        ['Build & bundle', 'Generate dist/README.md — the distribution-folder index.'],
   'dist-readme:check':        ['Build & bundle', 'Freshness gate for dist/README.md.'],
   'marp-kit:build':           ['Build & bundle', 'Build dist/marp-kit — the copy-and-go Marp folder (CSS, runtime, fonts, Mermaid, configs, Sample-Deck.md). No export needed.'],
-  'capabilities:build':       ['Build & bundle', 'Generate engineering/capabilities.md — the index of every script, tool, and framework.'],
-  'capabilities:check':       ['Build & bundle', 'Freshness gate for capabilities.md; fails on drift or any undescribed script/tool.'],
+  'capabilities:build':       ['Build & bundle', 'Generate dist/engineering/capabilities.md (not committed) — the index of every script, tool, and framework.'],
+  'capabilities:check':       ['Build & bundle', 'Gate for the capability index SOURCES: fails on any undescribed script/tool or an over-budget row.'],
   'docs:components':          ['Build & bundle', 'Generate per-component docs.md + gallery.md siblings from each manifest.'],
   'docs:components:check':    ['Build & bundle', 'Freshness gate for the per-component docs.'],
   'docs:portal':              ['Build & bundle', 'Aggregate manifests into dist/docs/components.{md,json} + grammar.json (the LFM per-component grammar) — the canonical component catalog.'],
@@ -162,10 +170,10 @@ const SCRIPT_META = {
   'split:treatments:check':   ['Build & bundle', 'Freshness gate for §0c\'s generated split-treatment table (stale vs lib/core/split-facts.js).'],
   'oracle:bless':             ['Test & verify', 'Write the committed split oracle (test/oracle/split-oracle.json) from the manifests — the standing golden of each component\'s derived split facts (§8 rule 5). Refuses to mint an entry for a newly-enrolled component with no verification record (rule 11).'],
   'oracle:check':             ['Test & verify', 'Verify the committed split oracle against freshly recomputed manifest facts; exit 1 on drift.'],
-  'decisions:index':          ['Build & bundle', 'Regenerate the "Current notes" index in engineering/decisions/README.md from each note\'s YAML front-matter. Refuses a note whose index row exceeds ROW_CAP (285 characters).'],
-  'decisions:index:check':    ['Build & bundle', 'Gate for the decisions-index: every note has its own correct entry, in the right group, exactly once (content, not a byte-diff — row order is deliberately not asserted), and no row over the 285-character ROW_CAP.'],
-  'gotchas:index':            ['Build & bundle', 'Regenerate the symptom index in engineering/gotchas.md from the entry headings of every engineering/gotchas/<topic>.md file. Refuses an entry heading whose index row exceeds ROW_CAP (280 characters).'],
-  'gotchas:index:check':      ['Build & bundle', 'Gate for the gotchas-index: every entry has its own correct row under the right topic, exactly once (content, not a byte-diff — row order is deliberately not asserted), and no entry heading over the 280-character ROW_CAP.'],
+  'decisions:index':          ['Build & bundle', 'Generate dist/engineering/decisions.md (not committed) from each note\'s YAML front-matter. Warns on, and skips, a malformed note.'],
+  'decisions:index:check':    ['Build & bundle', 'Gate for the decision notes: every note has valid front-matter and no index row over ROW_CAP (285 characters).'],
+  'gotchas:index':            ['Build & bundle', 'Generate dist/engineering/gotchas.md (not committed) from the entry headings of every engineering/gotchas/<topic>.md file.'],
+  'gotchas:index:check':      ['Build & bundle', 'Gate for the gotcha topic files: each parses, has no duplicate heading, and no index row over ROW_CAP (280 characters).'],
 
   // Galleries & preview (rendered PDFs)
   'build:galleries':          ['Galleries & preview', 'Rebuild per-component gallery PDFs (light + dark).'],
@@ -508,7 +516,7 @@ function render() {
   }
 
   const body = `<!-- Auto-generated by tools/build-capabilities.js — DO NOT EDIT.
-     Regenerate: npm run capabilities:build (part of npm run build). -->
+     Rebuilt by npm install and npm run build; never committed (dist/ is ignored). -->
 
 # Capabilities — what this repo already has
 
@@ -526,8 +534,8 @@ prints every script, \`ls tools/\` every tool.
 
 To add: a new npm script → describe it in \`SCRIPT_META\` in
 \`tools/build-capabilities.js\`; a new \`tools/\` file → give it a one-line
-header description. Either way, \`npm run capabilities:build\` then commit the
-regenerated file. Skipping it fails the gate. The **Frameworks** list below is
+header description. Either way, \`npm run capabilities:check\` tells you whether
+you did; skipping it fails the gate. This file is rebuilt, never committed. The **Frameworks** list below is
 the one curated-by-hand section — it is NOT gated, so when you add a library or
 harness the index can't infer, add it to \`FRAMEWORKS\` in the generator.
 
@@ -548,35 +556,26 @@ ${toolSections}`;
 function main() {
   const { body, missing, rowProblems } = render();
 
-  // The row budget fails BOTH paths. A write-only check would let a fat row land
-  // in the committed file and then report it as "stale" forever after, which
-  // names the wrong defect; a check-only one would let the author write it,
-  // commit, and meet the gate in CI instead of at their desk.
-  if (rowProblems.length) {
-    console.error(`✗ ${rowProblems.length} catalog row(s) over the ${ROW_CAP}-character budget:`);
-    for (const p of rowProblems) console.error(`    - ${p}`);
+  if (check) {
+    if (!missing.length && !rowProblems.length) process.exit(0);
+    if (missing.length) {
+      console.error('✗ undescribed capabilities — each must be documented (SCRIPT_META in tools/build-capabilities.js, or the tool\'s header):');
+      for (const m of missing) console.error(`    - ${m}`);
+    }
+    if (rowProblems.length) {
+      console.error(`✗ ${rowProblems.length} catalog row(s) over the ${ROW_CAP}-character budget:`);
+      for (const p of rowProblems) console.error(`    - ${p}`);
+    }
     process.exit(1);
   }
 
-  if (check) {
-    const current = fs.existsSync(OUT_FILE) ? fs.readFileSync(OUT_FILE, 'utf8') : '';
-    if (current !== body) {
-      console.error('✗ engineering/capabilities.md is stale relative to package.json scripts / tools/');
-      if (missing.length) {
-        console.error('  Undescribed capabilities (each must be documented):');
-        for (const m of missing) console.error(`    - ${m}`);
-      }
-      console.error('  Run: npm run capabilities:build');
-      console.error('  Bypass (last resort): git commit --no-verify');
-      process.exit(1);
-    }
-    process.exit(0);
-  }
-
+  // Write never fails (see the header): it runs inside `npm install`.
+  fs.mkdirSync(path.dirname(OUT_FILE), { recursive: true });
   fs.writeFileSync(OUT_FILE, body);
   if (!silent) {
     console.log(`[build-capabilities] ${path.relative(ROOT, OUT_FILE)}`);
     if (missing.length) console.log(`  ⚠ ${missing.length} undescribed (rendered as TODO): ${missing.join(', ')}`);
+    for (const p of rowProblems) console.log(`  ⚠ over the ${ROW_CAP}-character budget: ${p}`);
   }
 }
 

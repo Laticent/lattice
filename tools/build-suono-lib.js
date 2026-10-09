@@ -19,7 +19,7 @@
  * emitting a real .mjs is the fix. (The WebAudio playback surface is browser-only at runtime;
  * the encode/cache helpers are node-safe, and the built artifact is what a consumer imports.)
  *
- * Bundler = the in-tree esbuild (engineering/capabilities.md names it the house
+ * Bundler = the in-tree esbuild (dist/engineering/capabilities.md names it the house
  * bundler); declarations = `tsc --emitDeclarationOnly` (esbuild can't emit .d.ts).
  * No new bundler dependency (HARD RULE #15).
  *
