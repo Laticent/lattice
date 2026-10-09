@@ -1,0 +1,45 @@
+# THROWAWAY. Answers one question for #2623 and is deleted with its branch: what does
+# needs.<matrix job>.result report when legs end differently? Runs only on a push to
+# this scratch branch.
+name: matrix-result-probe
+on:
+  push:
+    branches: [claude/matrix-result-probe]
+permissions: {}
+jobs:
+  # 3 legs succeed, 1 is cut off by timeout-minutes — the integration-leg timeout case.
+  timeout_mix:
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ matrix.leg == 4 && 1 || 5 }}
+    strategy:
+      fail-fast: false
+      matrix:
+        leg: [1, 2, 3, 4]
+    steps:
+      - run: if [ "${{ matrix.leg }}" = 4 ]; then sleep 150; else echo ok; fi
+  # 3 legs succeed, 1 fails.
+  failure_mix:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        leg: [1, 2, 3, 4]
+    steps:
+      - run: if [ "${{ matrix.leg }}" = 4 ]; then exit 1; else echo ok; fi
+  # 4 legs, all succeed — the control.
+  all_green:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        leg: [1, 2, 3, 4]
+    steps:
+      - run: echo ok
+  report:
+    needs: [timeout_mix, failure_mix, all_green]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "RESULT timeout_mix=${{ needs.timeout_mix.result }}"
+          echo "RESULT failure_mix=${{ needs.failure_mix.result }}"
+          echo "RESULT all_green=${{ needs.all_green.result }}"
