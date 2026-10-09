@@ -1,0 +1,114 @@
+/* ── Inline avatars — `!{Ada Okafor, hair=coily, c3, lg}` ─────────────────────────────────────
+ * Drawn by lib/plugins/avatars/avatars.inline.js into
+ * `<span class="lat-avatar" data-size=… data-c=…><svg class="lat-avatar-svg">…</svg></span>`.
+ * Design: engineering/decisions/2026-10-09-inline-avatars.md (§ 7 the tile, § 8 accessibility).
+ *
+ * THE FACE IS IDENTITY, THE TILE IS THE DECK'S. Skin, hair, eyes and clothes are fixed colors the
+ * kernel writes into the drawing: they do not follow the theme, as a photograph does not. Only the
+ * TILE behind the person is styled here, from a chart color slot (`c1`…`c12`, written or picked by
+ * the name), so a roster takes the deck's palette the way its charts do.
+ *
+ * THE GROUND IS A PALE TINT OF THE HUE OVER WHITE, IN BOTH MODES. A dark tile in dark mode sank the
+ * clothes (navy, charcoal) into it and left a floating head; a pale ground is what a headshot has
+ * on any slide, and the sample portraits (lib/samples/portrait-*.svg) the avatars sit beside have
+ * one too.
+ *
+ * Three axes, each the avatar's own word, then the slide's `avatar-*` class, then the deck's
+ * `avatar:` register (lib/core/register-factory.js, from this plugin's manifest), then the default:
+ *   shape  circle (default) · rounded · square
+ *   frame  framed (default: the tinted tile) · bare (no tile, the bust alone)
+ * and `border=cN` adds a ring in that slot's ink. No margin (HARD RULE #20); every color but the
+ * white the ground is mixed over is a token (#3). */
+section .lat-avatar {
+  --avatar-size:1.45em;
+  --avatar-hue:var(--chart-cat1);
+  --avatar-ring:transparent;
+  --avatar-ground:color-mix(in oklab, var(--avatar-hue) 24%, white);
+  --avatar-radius:50%;
+  position:relative;
+  display:inline-block;
+  box-sizing:border-box;
+  width:var(--avatar-size);
+  height:var(--avatar-size);
+  vertical-align:middle;
+  line-height:0;
+  overflow:hidden;
+  isolation:isolate;
+  border-radius:var(--avatar-radius);
+  background:var(--avatar-ground);
+}
+section .lat-avatar[data-size='sm'] { --avatar-size:1.1em; }
+section .lat-avatar[data-size='lg'] { --avatar-size:2.4em; }
+section .lat-avatar[data-size='xl'] { --avatar-size:4em; }
+section .lat-avatar > .lat-avatar-svg {
+  display:block;
+  width:100%;
+  height:100%;
+  /* The drawing carries every paint it needs as attributes, and a host must add none. `stroke`
+   * INHERITS in SVG, and a team-profile figure passed one down: every shape of the face came out
+   * traced in the theme's ink. A node's own `stroke` attribute still wins over this inherited
+   * `none`, so the brows, mouth and glasses keep their lines. */
+  stroke:none;
+}
+/* The ring sits OVER the drawing, inside the tile, so it adds nothing to the box. */
+section .lat-avatar::after {
+  content:'';
+  position:absolute;
+  inset:0;
+  z-index:1;
+  box-sizing:border-box;
+  border:max(1.5px, 0.07em) solid var(--avatar-ring);
+  border-radius:inherit;
+  pointer-events:none;
+}
+
+/* shape — the avatar's own word, then the slide class, then the default circle. */
+:is(section.avatar-rounded .lat-avatar:not([data-shape]), section .lat-avatar[data-c][data-shape='rounded']) { --avatar-radius:22%; }
+:is(section.avatar-square .lat-avatar:not([data-shape]), section .lat-avatar[data-c][data-shape='square']) { --avatar-radius:0; }
+:is(section.avatar-circle .lat-avatar:not([data-shape]), section .lat-avatar[data-c][data-shape='circle']) { --avatar-radius:50%; }
+
+/* frame — `bare` drops the tile and the clip: the bust alone, on the slide. */
+:is(section.avatar-bare .lat-avatar:not([data-frame]), section .lat-avatar[data-c][data-frame='bare']) {
+  --avatar-ground:transparent;
+  overflow:visible;
+}
+:is(section.avatar-framed .lat-avatar:not([data-frame]), section .lat-avatar[data-c][data-frame='framed']) {
+  --avatar-ground:color-mix(in oklab, var(--avatar-hue) 24%, white);
+  overflow:hidden;
+}
+
+/* A color slot: the chart cycle's hue for 1–8, the pill mark for 9–12 — the spark's and the
+ * icon's recipe. The ring is the slot's MARK, the graphical color that clears 3:1 on the slide,
+ * the same token team-profile's monogram ring uses. */
+section .lat-avatar[data-c='c1']  { --avatar-hue:var(--chart-cat1); }
+section .lat-avatar[data-c='c2']  { --avatar-hue:var(--chart-cat2); }
+section .lat-avatar[data-c='c3']  { --avatar-hue:var(--chart-cat3); }
+section .lat-avatar[data-c='c4']  { --avatar-hue:var(--chart-cat4); }
+section .lat-avatar[data-c='c5']  { --avatar-hue:var(--chart-cat5); }
+section .lat-avatar[data-c='c6']  { --avatar-hue:var(--chart-cat6); }
+section .lat-avatar[data-c='c7']  { --avatar-hue:var(--chart-cat7); }
+section .lat-avatar[data-c='c8']  { --avatar-hue:var(--chart-cat8); }
+section .lat-avatar[data-c='c9']  { --avatar-hue:var(--cat-9-mark); }
+section .lat-avatar[data-c='c10'] { --avatar-hue:var(--cat-10-mark); }
+section .lat-avatar[data-c='c11'] { --avatar-hue:var(--cat-11-mark); }
+section .lat-avatar[data-c='c12'] { --avatar-hue:var(--cat-12-mark); }
+section .lat-avatar[data-border='c1']  { --avatar-ring:var(--cat-1-mark); }
+section .lat-avatar[data-border='c2']  { --avatar-ring:var(--cat-2-mark); }
+section .lat-avatar[data-border='c3']  { --avatar-ring:var(--cat-3-mark); }
+section .lat-avatar[data-border='c4']  { --avatar-ring:var(--cat-4-mark); }
+section .lat-avatar[data-border='c5']  { --avatar-ring:var(--cat-5-mark); }
+section .lat-avatar[data-border='c6']  { --avatar-ring:var(--cat-6-mark); }
+section .lat-avatar[data-border='c7']  { --avatar-ring:var(--cat-7-mark); }
+section .lat-avatar[data-border='c8']  { --avatar-ring:var(--cat-8-mark); }
+section .lat-avatar[data-border='c9']  { --avatar-ring:var(--cat-9-mark); }
+section .lat-avatar[data-border='c10'] { --avatar-ring:var(--cat-10-mark); }
+section .lat-avatar[data-border='c11'] { --avatar-ring:var(--cat-11-mark); }
+section .lat-avatar[data-border='c12'] { --avatar-ring:var(--cat-12-mark); }
+
+/* Inside a team-profile portrait the avatar IS the portrait: it fills the figure the component
+ * sizes and clips, and takes the figure's shape rather than its own. */
+section .person-figure--avatar > .lat-avatar {
+  --avatar-size:100%;
+  --avatar-radius:inherit;
+  display:block;
+}

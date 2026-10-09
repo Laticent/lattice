@@ -1,0 +1,64 @@
+{
+  "$schema": "../plugin.schema.json",
+  "type": "plugin",
+  "format": 1,
+  "name": "avatars",
+  "api": 1,
+  "title": "Avatars",
+  "description": "Drawn stand-in portraits, written in inline code: `!{Ada Okafor}` draws a head-and-shoulders avatar whose every unwritten trait is chosen by the name, so it is the same face on every render, and `!{Ada Okafor, hair=coily, glasses=round, c3, lg}` sets the traits an author cares about. Twelve traits (skin, hair, hair color, face, eyes, eye color, brows, nose, mouth, beard, glasses, top), a `gender=` preset of defaults, and a tile in the deck's chart colors with an `avatar:` register for its shape and frame. In a team-profile roster an avatar is the portrait. The drawings load only for a deck that writes an avatar.",
+  "contributes": {
+    "inline": {
+      "avatar": {
+        "sigil": "!"
+      }
+    },
+    "registers": {
+      "avatar": {
+        "axes": {
+          "shape": [
+            "circle",
+            "rounded",
+            "square"
+          ],
+          "frame": [
+            "framed",
+            "bare"
+          ]
+        }
+      }
+    },
+    "data": true,
+    "styles": true
+  },
+  "tokens": [
+    "--avatar-ground",
+    "--avatar-hue",
+    "--avatar-radius",
+    "--avatar-ring",
+    "--avatar-size",
+    "--cat-1-mark",
+    "--cat-10-mark",
+    "--cat-11-mark",
+    "--cat-12-mark",
+    "--cat-2-mark",
+    "--cat-3-mark",
+    "--cat-4-mark",
+    "--cat-5-mark",
+    "--cat-6-mark",
+    "--cat-7-mark",
+    "--cat-8-mark",
+    "--cat-9-mark",
+    "--chart-cat1",
+    "--chart-cat2",
+    "--chart-cat3",
+    "--chart-cat4",
+    "--chart-cat5",
+    "--chart-cat6",
+    "--chart-cat7",
+    "--chart-cat8"
+  ],
+  "render": {
+    "parity": "equivalent",
+    "degradesTo": "source"
+  }
+}

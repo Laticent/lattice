@@ -1,0 +1,98 @@
+{
+  "$comment": "The avatars plugin's TRAITS: every option an author may name, the colors behind the color traits, and the pools a name and a gender preset draw defaults from. tools/build-avatars-data.js validates this file against parts.json and writes lib/plugins/avatars/avatars.vocab.generated.js (names and pools, small) and avatars.data.generated.js (drawings and colors). Design: engineering/decisions/2026-10-09-inline-avatars.md.",
+  "palettes": {
+    "skin": {
+      "1": { "base": "#F6DCCB", "lip": "#C4796D" },
+      "2": { "base": "#EFC6A8", "lip": "#B86F5E" },
+      "3": { "base": "#E2AF88", "lip": "#A86352" },
+      "4": { "base": "#CC9468", "lip": "#91503F" },
+      "5": { "base": "#AE7650", "lip": "#733E30" },
+      "6": { "base": "#8C5A3B", "lip": "#552B21" },
+      "7": { "base": "#6E4430", "lip": "#40201A" },
+      "8": { "base": "#4D2F22", "lip": "#2A1410" }
+    },
+    "hair-color": {
+      "black":     { "base": "#1E1917", "brow": "#1E1917" },
+      "darkbrown": { "base": "#3A2A21", "brow": "#2E211A" },
+      "brown":     { "base": "#5E4130", "brow": "#4A3326" },
+      "auburn":    { "base": "#7B3A22", "brow": "#5E2D1B" },
+      "red":       { "base": "#A5512C", "brow": "#7E3E22" },
+      "blonde":    { "base": "#C8A46A", "brow": "#8F7246" },
+      "platinum":  { "base": "#E2D4AE", "brow": "#A8956A" },
+      "gray":      { "base": "#8C8A87", "brow": "#5F5C59" },
+      "white":     { "base": "#E6E3DE", "brow": "#9C978F" }
+    },
+    "eye-color": {
+      "brown": "#5A3A24",
+      "dark":  "#2E1F16",
+      "hazel": "#7C6233",
+      "green": "#4E6E3E",
+      "blue":  "#3E6C93",
+      "gray":  "#6F7A84"
+    },
+    "top": {
+      "navy":     "#34445A",
+      "slate":    "#4A5563",
+      "charcoal": "#33363B",
+      "olive":    "#55603F",
+      "teal":     "#2F5F63",
+      "plum":     "#5E4660",
+      "brick":    "#7A4440",
+      "taupe":    "#6E6255",
+      "cream":    "#E4DED3"
+    },
+    "fixed": {
+      "ink":   "#1C1513",
+      "white": "#FFFFFF",
+      "mouth": "#5A2626",
+      "frame": "#26262B",
+      "shade": "#000000"
+    }
+  },
+  "traits": {
+    "hair":      ["none", "buzz", "short", "side", "curly", "coily", "bob", "long", "bun", "locs"],
+    "face":      ["oval", "round", "long", "square", "heart"],
+    "eyes":      ["round", "almond", "narrow", "smile"],
+    "brows":     ["soft", "straight", "arched", "thick"],
+    "nose":      ["button", "straight", "wide", "long"],
+    "mouth":     ["smile", "grin", "neutral", "smirk"],
+    "beard":     ["none", "stubble", "mustache", "goatee", "full"],
+    "glasses":   ["none", "round", "square"]
+  },
+  "presets": {
+    "neutral": {
+      "hair":  ["short", "side", "curly", "coily", "bob", "long", "bun", "buzz", "locs"],
+      "beard": ["none"],
+      "brows": ["soft", "straight", "arched"]
+    },
+    "woman": {
+      "hair":  ["long", "bob", "bun", "curly", "coily", "locs", "short", "long", "bob"],
+      "beard": ["none"],
+      "brows": ["arched", "soft", "arched"]
+    },
+    "man": {
+      "hair":  ["short", "side", "buzz", "curly", "coily", "none", "locs", "short", "side"],
+      "beard": ["none", "none", "none", "stubble", "full", "goatee", "mustache"],
+      "brows": ["straight", "soft", "thick"]
+    }
+  },
+  "pools": {
+    "skin":       ["1", "2", "3", "4", "5", "6", "7", "8"],
+    "hair-color": ["black", "black", "black", "darkbrown", "darkbrown", "darkbrown", "brown", "brown", "auburn", "blonde", "red", "gray"],
+    "eye-color":  ["brown", "brown", "brown", "dark", "dark", "hazel", "green", "blue", "gray"],
+    "face":       ["oval", "oval", "round", "long", "square", "heart"],
+    "eyes":       ["round", "almond", "almond", "narrow", "round"],
+    "nose":       ["button", "straight", "wide", "long"],
+    "mouth":      ["smile", "smile", "smile", "neutral", "grin", "smirk"],
+    "glasses":    ["none", "none", "none", "none", "none", "round", "square"],
+    "top":        ["navy", "slate", "charcoal", "olive", "teal", "plum", "brick", "taupe"],
+    "color":      ["c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8"]
+  },
+  "deep": {
+    "$comment": "For the deeper skin tones, a default hair color comes from these pools instead, so a name never defaults to blonde or red where it would be rare. A color the author writes always wins.",
+    "skin": ["5", "6", "7", "8"],
+    "pools": {
+      "hair-color": ["black", "black", "black", "black", "darkbrown", "darkbrown", "darkbrown", "brown", "gray"]
+    }
+  }
+}

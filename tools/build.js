@@ -104,6 +104,10 @@ const STEPS = [
   // package. BEFORE the registry: the registry requires each plugin's inline and services modules,
   // which require the vocabulary. engineering/decisions/2026-09-29-inline-icons.md § 7.
   { label: 'icons data (lib/plugins/icons)', script: 'build-icons-data.js' },
+  // The avatars plugin's vocabulary and drawings, from its trait and part sources, for the same
+  // reason: the registry requires its inline module, which requires the vocabulary.
+  // engineering/decisions/2026-10-09-inline-avatars.md § 6.
+  { label: 'avatars data (lib/plugins/avatars)', script: 'build-avatars-data.js' },
   { label: 'plugin registry (lib/plugins)', script: 'build-plugin-registry.js' },
   // The chart-finish rules, generated from the chart manifests. BEFORE lattice.css bundles
   // them, for the same one-build-late reason as the finish presets above.
