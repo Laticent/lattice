@@ -508,11 +508,14 @@ class Analysis {
           if (!isEmpty(intersect(seen, fb))) {
             if (named >= MAX_PAIRS) more++;
             else {
-              for (let a = 0; a < b && named < MAX_PAIRS; a++) {
+              let a = 0;
+              for (; a < b && named < MAX_PAIRS; a++) {
                 if (e.xs[a].t === 'attempt') continue;
                 const both = intersect(this.get(e.xs[a]).first, fb);
                 if (!isEmpty(both)) { problems.push(`${inf.path}: branches ${a} and ${b} can both start with ${describe(both)}`); named++; }
               }
+              // The cap cut this branch's pairs short: count it with the rest, so no branch is lost.
+              if (a < b) more++;
             }
           }
           if (e.xs[b].t !== 'attempt') seen = union(seen, fb);
