@@ -189,6 +189,54 @@ describe('team-profile — the shapes an author actually writes', () => {
   });
 });
 
+describe('team-profile — a drawn avatar is the portrait', () => {
+  // What the avatars plugin's kernel emits for `!{Ada Okafor}` (lib/plugins/avatars/avatars.inline.js),
+  // trimmed to the attributes the transform reads and rewrites.
+  const AVATAR = '<span class="lat-avatar" data-size="md" data-c="c3" role="img" aria-label="Ada Okafor" data-src="!{Ada Okafor}">'
+    + '<svg class="lat-avatar-svg" viewBox="14 14 72 72" aria-hidden="true" focusable="false"><circle cx="50" cy="50" r="10" fill="#E2AF88"/></svg></span>';
+
+  test('the avatar becomes the figure, hidden because the name is beside it', () => {
+    const out = t.applyToRenderedHtml(wrap('team-profile', person(
+      `Ada Okafor<ul><li>${AVATAR}</li><li><code>Executive Sponsor</code></li></ul>`)));
+    assert.match(out, /<span class="person-figure person-figure--avatar"><span class="lat-avatar"/);
+    assert.match(out, /aria-hidden="true"><svg class="lat-avatar-svg"/);
+    // Its image role and name are gone: a reader would otherwise say "Ada Okafor" twice.
+    assert.doesNotMatch(out, /role="img"/);
+    assert.doesNotMatch(out, /aria-label=/);
+    assert.match(out, /<span class="person-role">Executive Sponsor<\/span>/);
+    assert.doesNotMatch(out, /person-figure--monogram/);
+  });
+
+  test('an avatar and a role in the SAME bullet keep both', () => {
+    const out = t.applyToRenderedHtml(wrap('team-profile', person(
+      `Ada Okafor<ul><li>${AVATAR} <code>Sponsor</code></li></ul>`)));
+    assert.match(out, /person-figure--avatar/);
+    assert.match(out, /<span class="person-role">Sponsor<\/span>/);
+  });
+
+  test('an avatar the plugin did not draw is a missing portrait, never the role', () => {
+    // The plugin is off, or its drawings have not arrived: the span stays code. Taking that one-code
+    // item as the role printed `!{Ada Okafor}` under the name.
+    const out = t.applyToRenderedHtml(wrap('team-profile', person(
+      'Ada Okafor<ul><li><code>!{Ada Okafor, hair=coily}</code></li><li><code>Executive Sponsor</code></li></ul>')));
+    assert.match(out, /<span class="person-initials">AO<\/span>/);
+    assert.match(out, /<span class="person-role">Executive Sponsor<\/span>/);
+    assert.doesNotMatch(out, /!\{Ada/);
+  });
+
+  test('the first portrait wins: a photo after an avatar is not a second face', () => {
+    const out = t.applyToRenderedHtml(wrap('team-profile', person(
+      `Ada Okafor<ul><li>${AVATAR}</li><li><img src="ada.jpg" alt=""></li></ul>`)));
+    assert.match(out, /person-figure--avatar/);
+    assert.doesNotMatch(out, /person-photo/);
+  });
+
+  test('idempotent with an avatar: a second pass is a no-op', () => {
+    const once = t.applyToRenderedHtml(wrap('team-profile', person(`Ada Okafor<ul><li>${AVATAR}</li></ul>`)));
+    assert.equal(t.applyToRenderedHtml(once), once);
+  });
+});
+
 describe('team-profile — initials', () => {
   test('first word + last word, uppercased', () => {
     assert.equal(t.initialsOf('Ada Okafor'), 'AO');
