@@ -11,7 +11,7 @@
  *      it (COMP_WORDS, COMP_CWORD, COMP_LINE, COMP_POINT → COMPREPLY). fish (`complete -C`) and
  *      PowerShell (`TabExpansion2`) run through their own completion engines where the shell
  *      is installed.
- *   4. INTERACTIVE — bash and zsh run in a pty: a line is typed, Tab pressed, and the line read
+ *   4. INTERACTIVE — bash, zsh and fish run in a pty: a line is typed, Tab pressed, and the line read
  *      back, so the shell's own word splitting, quoting and insertion are under test too.
  */
 
@@ -363,7 +363,7 @@ for typed in cfg['cases']:
     send("\x01printf '%s%s%s\\n' '@''@' '\x05' '@''@'\r")
     out = until(b'@@\r\n')
     s = out.decode('utf-8', 'replace')
-    m = re.findall(r'(?:^|\n)@@(.*?)@@\r\n', s)
+    m = re.findall(r'(?:^|\n)\r?@@(.*?)@@\r\n', s)
     results.append(m[-1] if m else s[-300:])
 os.kill(pid, 9)
 print(json.dumps(results))
@@ -439,6 +439,33 @@ describe('interactive shells, through a pty', () => {
   }
   test('failing arm: with no script loaded, the same Tab leaves the line as typed', { skip: (!has('bash') && 'bash is not installed') || (!python && 'python3 is not installed') }, () => {
     assert.deepEqual(drive(['bash', '--norc', '--noprofile', '-i'], ['complete -r lattice 2>/dev/null; :'], CASES.slice(0, 2), false), ['lattice --pale', 'lattice --palette=cuoio-d']);
+  });
+  for (const bin of shells('fish', 'COMPLETION_TEST_FISH')) {
+    test(`fish (${bin}), interactive`, { skip: !python && 'python3 is not installed' }, () => {
+      expectLines(drive([bin, '--no-config', '-i'], [
+        'function fish_prompt; printf "READY> "; end',
+        `source ${file('fish')}`,
+        'functions -c __lattice_complete __lattice_inner',
+        'function __lattice_complete; __lattice_inner; printf TABDONE > /dev/tty; end',
+      ]));
+    });
+  }
+  // zsh under oh-my-zsh, the framework most zsh users run: its completion styles (case- and
+  // hyphen-insensitive and substring matchers, menu select) and its own compinit. Opt-in, since
+  // it needs a checkout: COMPLETION_TEST_OMZ=/path/to/ohmyzsh.
+  const omz = process.env.COMPLETION_TEST_OMZ;
+  test('zsh under oh-my-zsh, interactive', { skip: (!omz && 'set COMPLETION_TEST_OMZ to an oh-my-zsh checkout') || (!has('zsh') && 'zsh is not installed') || (!python && 'python3 is not installed') }, () => {
+    const got = drive(['zsh', '-f', '-i'], [
+      `export ZSH=${omz} ZSH_THEME= DISABLE_AUTO_UPDATE=true ZSH_COMPDUMP=${path.join(dir, '.zcompdump')}`,
+      'plugins=(git)',
+      'source $ZSH/oh-my-zsh.sh',
+      'bindkey -e',
+      `source ${file('zsh')}`,
+      'setopt nounset',
+      'functions[_lattice_inner]=$functions[_lattice]',
+      '_lattice() { _lattice_inner "$@"; local r=$?; print -n TABDONE > /dev/tty; return r; }',
+    ]);
+    expectLines(got);
   });
   test('zsh, interactive', { skip: (!has('zsh') && 'zsh is not installed') || (!python && 'python3 is not installed') }, () => {
     const got = drive(['zsh', '-f', '-i'], [
