@@ -7,7 +7,7 @@
  * this exact surface and the first that works: #1703's two earlier passes were both wrong
  * (the palette silently never switched, so every row resolved to cuoio). The four traps
  * below are what took the time, and none of them is guessable — the point of keeping this
- * is that the next person does not rediscover them. See engineering/capabilities.md.
+ * is that the next person does not rediscover them. See dist/engineering/capabilities.md.
  *
  * Not a harness and not jsdom: `astro preview` serving the actual built docs site, a real
  * Chromium, the real Fabricate → Component → "Component CSS" field (which is where

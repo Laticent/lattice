@@ -19,7 +19,7 @@
  * is pure data and pure functions, so every export is node-safe.
  * Design: engineering/decisions/2026-09-24-lattice-timing-track.md §6; spec: spec/LTT-1.0.md.
  *
- * Bundler = the in-tree esbuild (engineering/capabilities.md names it the house
+ * Bundler = the in-tree esbuild (dist/engineering/capabilities.md names it the house
  * bundler); declarations = `tsc --emitDeclarationOnly` (esbuild can't emit .d.ts).
  * No new bundler dependency (HARD RULE #15).
  *

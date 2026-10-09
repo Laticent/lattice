@@ -321,7 +321,7 @@ graduates from "new" to "documented". Treat them like
 
 - Small, focused units. One logical change per commit.
 - Message format: `area(scope): short summary` — follow `git log` for the established pattern.
-- If a fix is non-obvious, add a gotcha **before** committing, and link it from the commit message. Write it as a `##` entry in the matching `engineering/gotchas/<topic>.md`, then run `npm run gotchas:index` — `engineering/gotchas.md` is GENERATED and anything written into it is deleted on the next regeneration. **Keep the heading to a scannable symptom**: it is rendered twice per index row (link label, then slugged again as the anchor), so a character there costs two, and a heading over `ROW_CAP` (280 characters of row, in `tools/build-gotchas-index.js`) makes both `npm run gotchas:index` and `build:check` refuse and name the entry. Put the detail in the entry body, where nobody pays for it until they open the topic file.
+- If a fix is non-obvious, add a gotcha **before** committing, and link it from the commit message. Write it as a `##` entry in the matching `engineering/gotchas/<topic>.md`, and nothing else: the symptom index is generated into `dist/engineering/gotchas.md` on install, and `engineering/gotchas.md` is the hand-written guide, where an entry would never be listed (`gotchas:index:check` refuses one). **Keep the heading to a scannable symptom**: it is rendered twice per index row (link label, then slugged again as the anchor), so a character there costs two, and a heading over `ROW_CAP` (280 characters of row, in `tools/build-gotchas-index.js`) makes `npm run gotchas:index:check`, and so `build:check`, refuse and name the entry (the plain write only warns). Put the detail in the entry body, where nobody pays for it until they open the topic file.
 - Gallery edits and feature decks: look at the render locally (`npm run preview -- <deck>`), and commit only the markdown. CI shows the before/after on the PR, and the nightly bless commits the PDFs to `main`.
 
 ## Changelog entries — one file per PR (`changelog.d/`)
@@ -915,11 +915,12 @@ it alone.
    ```
    `tools/queue-precheck.sh` fetches `main` and merges in memory (`git merge-tree`;
    nothing on disk changes) **on GitHub's terms**: it switches off the merge
-   drivers in `.gitattributes`, because GitHub does not apply them. That matters
-   for `engineering/decisions/README.md`, which is marked `merge=union`: a local
-   rebase merges two PRs' new index rows without a prompt, but GitHub reports the
-   same PR as `mergeable_state: dirty`, runs no `pull_request` CI on it, and the
-   queue will not take it. The script exits **0** clean, **1** on a conflict, and
+   drivers in `.gitattributes`, because GitHub does not apply them. That mattered
+   most for the decision index's old `merge=union` driver: a local rebase merged two
+   PRs' new index rows without a prompt, while GitHub reported the same PR as
+   `mergeable_state: dirty`, ran no `pull_request` CI on it, and the queue would not
+   take it. The index is no longer committed and the driver is gone, but the check
+   still ignores drivers, so no future one can fool it. The script exits **0** clean, **1** on a conflict, and
    **3** when it cannot check (the fetch failed, there is no `origin/main`, the
    clone is shallow and lacks the merge base, or git is too old for
    `--attr-source`). The Stop

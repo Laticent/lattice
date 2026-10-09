@@ -72,7 +72,8 @@
     "!**/*.gallery.md",
     "!dist/fonts/noto-color-emoji.ttf",
     "!dist/marp-kit/",
-    "!dist/agent-kit/"
+    "!dist/agent-kit/",
+    "!dist/engineering/"
   ],
   "scripts": {
     "build:gallery-jargon": "node lattice.js examples/gallery-jargon.md examples/gallery-jargon.pdf",

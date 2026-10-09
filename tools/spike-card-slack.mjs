@@ -24,7 +24,7 @@
  * by finding the widest interval containing no card, not picked.
  *
  * THIS FILE IS THE ENTRY POINT; the four stages live in tools/spike-card-slack/.
- * It is top-level because engineering/capabilities.md is built from a
+ * It is top-level because dist/engineering/capabilities.md is built from a
  * NON-RECURSIVE scan of tools/ (tools/build-capabilities.js), so a harness that
  * lives only in a subdirectory is invisible to the index HARD RULE #15 tells the
  * next agent to grep — which is how a tool gets rebuilt instead of reused.

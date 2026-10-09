@@ -15,7 +15,7 @@
  * dist/index.cjs and `import` → dist/index.mjs, while docs + Vitest import the TS SOURCE
  * through the `@/lib/*` path alias, so the docs runtime never depends on this build.
  *
- * Bundler = the in-tree esbuild (engineering/capabilities.md names it the house
+ * Bundler = the in-tree esbuild (dist/engineering/capabilities.md names it the house
  * bundler); declarations = `tsc --emitDeclarationOnly` (esbuild can't emit .d.ts).
  * No new bundler dependency (HARD RULE #15).
  *

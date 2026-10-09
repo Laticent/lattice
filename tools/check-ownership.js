@@ -1197,7 +1197,7 @@ function producesNamedEntryArray(node, ts) {
 // --test` runs files concurrently, so a probe present for one test is walked by every other
 // check scanning the same roots, and a `finally` that a SIGINT skips leaves a file behind.
 // Both happened — a leaked probe was picked up by the docs generator and committed into
-// `engineering/capabilities.md` as a real tool row (#2117).
+// `dist/engineering/capabilities.md` as a real tool row (#2117).
 function checkThemeRegistrationCallSites(
   errors,
   root = ROOT,

@@ -9,9 +9,9 @@
  * checked, and says nothing about it. That is a gate quietly getting smaller —
  * the failure mode is silence, which is why an earlier attempt rejected step
  * tagging altogether and rebuilt-and-diffed the tree instead. That alternative
- * was worse: it assumed every generator's `--check` IS a byte-diff, and
- * build-decisions-index.js's is deliberately weaker (#1547) so two decision-doc
- * PRs can share the merge queue. Rebuilding and diffing re-opened that ejection.
+ * was worse: it assumed every generator's `--check` IS a byte-diff, and the
+ * index generators' checks validate SOURCES instead (their output is never
+ * committed). Rebuilding and diffing the tree cannot express that.
  *
  * So the tags stay, and the drift risk is answered by ASSERTING THE PARTITION
  * here rather than by trusting whoever edits STEPS next. The tags themselves were
@@ -22,7 +22,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { STEPS } = require('../../../tools/build.js');
+const { STEPS, scopeSteps } = require('../../../tools/build.js');
 const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 
@@ -91,6 +91,12 @@ const EXPECTED_UNCOMMITTED = new Set([
   // dist/lattice-pdf-compose-min.js (the shared PDF writer the CLI injects), which
   // .gitignore's dist/ covers. Its esbuild entry is a temp file it deletes before exiting.
   'build-pdf-compose.js',
+  // Measured 2026-10-09 against a timestamped tree: each one's whole write set is one file
+  // under dist/engineering/ (capabilities.md, decisions.md, gotchas.md). They are the
+  // three generated INDEXES, and they are also `validates` — see the test below.
+  'build-capabilities.js',
+  'build-decisions-index.js',
+  'build-gotchas-index.js',
 ]);
 
 // Generators that write PR-owned artifacts. Listed explicitly, so that tagging
@@ -137,10 +143,7 @@ const EXPECTED_PR_OWNED = new Set([
   'build-speech-projection-bundle.js', // lib/export
   'derive-cat-ink.js', // themes/*.css
   'derive-chart-cat-ink.js', // themes/*.css
-  'build-capabilities.js', // engineering/capabilities.md
   'build-split-treatments.js', // engineering/decisions/*.md
-  'build-decisions-index.js', // engineering/decisions/README.md
-  'build-gotchas-index.js', // engineering/gotchas.md
 ]);
 
 test('built-not-committed build steps', async (t) => {
@@ -179,14 +182,40 @@ test('built-not-committed build steps', async (t) => {
     }
   });
 
-  await t.test('the PR-owned set still covers the artifacts a PR must own', () => {
-    // The load-bearing three: a PR is responsible for its own decision-note row,
-    // its own capability-index row, and its own component docs. If any of these
-    // ever gets tagged built-not-committed, PRs stop being held to them at all.
-    for (const s of ['build-decisions-index.js', 'build-capabilities.js', 'build-component-docs.js']) {
+  await t.test('a PR is still held to its own index rows', () => {
+    // A PR is responsible for its own decision note, its own tool or script description,
+    // and its own gotcha heading. The three indexes are no longer committed, so that duty
+    // moved from "commit the regenerated row" to "pass the source validator": each is
+    // `uncommitted` AND `validates`, and `build:check` runs every `validates` step's
+    // --check even though it skips other uncommitted steps. Lose `validates` and the
+    // gate shrinks silently. Component docs stay a committed, PR-owned artifact.
+    for (const s of ['build-decisions-index.js', 'build-capabilities.js', 'build-gotchas-index.js']) {
       const step = STEPS.find((x) => x.script === s);
       assert.ok(step, `${s} missing from STEPS`);
-      assert.ok(!step.uncommitted, `${s} must stay PR-owned — a PR owns this artifact`);
+      assert.ok(step.uncommitted && step.validates, `${s} must be uncommitted + validates`);
+    }
+    const docs = STEPS.find((x) => x.script === 'build-component-docs.js');
+    assert.ok(docs && !docs.uncommitted, 'build-component-docs.js must stay PR-owned');
+  });
+
+  await t.test('validates only ever rides on an uncommitted step', () => {
+    // On a committed step `validates` means nothing (build:check already runs it), and
+    // a reader would wrongly take it to change what the gate does.
+    for (const step of STEPS) {
+      if (step.validates) assert.ok(step.uncommitted, `${step.script}: validates without uncommitted`);
+    }
+  });
+
+  await t.test('build:check keeps every validates step in scope', () => {
+    // Through the orchestrator's own scoping function, the one `main` calls.
+    const scoped = new Set(scopeSteps({ excludeUncommitted: true }).map((s) => s.script));
+    for (const step of STEPS.filter((s) => s.validates)) {
+      assert.ok(scoped.has(step.script), `${step.script} is not in build:check's scope`);
+    }
+    // And they are still WRITTEN by the install-time bootstrap.
+    const installed = new Set(scopeSteps({ onlyUncommitted: true }).map((s) => s.script));
+    for (const step of STEPS.filter((s) => s.validates)) {
+      assert.ok(installed.has(step.script), `${step.script} is not written by build:uncommitted`);
     }
   });
 

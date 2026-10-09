@@ -1,9 +1,9 @@
 // Unit coverage for tools/build-decisions-index.js — the decision-doc index
-// generator (engineering/decisions/README.md is rendered from front-matter).
+// generator (dist/engineering/decisions.md is rendered from front-matter, never committed).
 
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
-const { frontMatter, render, rowFor, gistFor, rowCostProblems, verify, splice, collect, STATUS, FOOTER, GIST_CAP, ROW_CAP } = require('../../../tools/build-decisions-index');
+const { frontMatter, render, rowFor, gistFor, rowCostProblems, main, collect, STATUS, GIST_CAP, ROW_CAP, LINK_BASE } = require('../../../tools/build-decisions-index');
 
 describe('decisions-index', () => {
   describe('frontMatter', () => {
@@ -109,10 +109,11 @@ describe('decisions-index', () => {
     test('folds whitespace so a block-scalar summary renders as one row', () => {
       assert.equal(gistFor('  one\n  two   three  '), 'one two three');
     });
-    // The row is what `verify` compares, so a truncated gist must still round-trip.
-    test('a truncated row still verifies against its own note', () => {
+    test('a truncated row still renders as exactly one line', () => {
       const note = { file: '2026-06-01-x.md', created: '2026-06-01', status: 'shipped', summary: `${'long '.repeat(80)}tail.` };
-      assert.deepEqual(verify(`# R\n\n${render([note])}\n`, [note]), []);
+      const rows = render([note]).split('\n').filter((l) => l.startsWith('- '));
+      assert.equal(rows.length, 1);
+      assert.ok(rows[0].endsWith('…'));
     });
   });
 
@@ -192,7 +193,26 @@ describe('decisions-index', () => {
     });
     test('uses the status glyph and links superseded-by', () => {
       assert.match(out, new RegExp(`${STATUS.proposed.glyph} \\[2026-06-17-b\\.md\\]`));
-      assert.match(out, /gone → \[2026-06-17-b\.md\]\(2026-06-17-b\.md\)/);
+      assert.match(out, /gone → \[2026-06-17-b\.md\]\(\.\.\/\.\.\/engineering\/decisions\/2026-06-17-b\.md\)/);
+    });
+    // The output lives in dist/engineering/, two levels below the repo root, so every
+    // link must climb back out to the notes. A bare `2026-…md` target would resolve to
+    // dist/engineering/2026-…md, which does not exist.
+    test('links point from dist/engineering/ back to the notes', () => {
+      assert.equal(LINK_BASE, '../../engineering/decisions/');
+      const path = require('node:path');
+      const out = path.join('dist', 'engineering');
+      assert.equal(path.normalize(path.join(out, LINK_BASE)), path.join('engineering', 'decisions') + path.sep);
+      for (const line of render(notes).split('\n').filter((l) => l.startsWith('- '))) {
+        for (const [, target] of line.matchAll(/\]\(([^)]+)\)/g)) assert.ok(target.startsWith(LINK_BASE), line);
+      }
+    });
+    // The cap governs what the author controls. The link prefix is constant and added at
+    // render time, so it must not count against a note's row.
+    test('the row cap measures the row without the link prefix', () => {
+      const note = notes[0];
+      assert.ok(!rowFor(note).includes(LINK_BASE));
+      assert.ok(rowFor(note, LINK_BASE).includes(LINK_BASE));
     });
     // #1547: the footer USED to tally (`_377 notes — 149 active, …_`). That tally is
     // the one line two concurrent decision-doc PRs cannot both be right about — both
@@ -204,196 +224,26 @@ describe('decisions-index', () => {
     });
   });
 
-  // Two PRs that each add a decision note, merged the way GitHub merges them: plain
-  // `git merge-file`, no `merge=union` (GitHub ignores merge drivers — #2466 §4b). The
-  // order the renderer picks decides whether that merge conflicts, so pin both arms:
-  // the ordinary case merges clean, and the case the order cannot help still conflicts,
-  // which proves the harness can tell them apart.
-  describe('two concurrent note PRs, merged on GitHub\'s terms', () => {
+  // The CLI path, against the live corpus: CHECK validates the notes and reads no output
+  // (there is no committed copy), and WRITE never fails, because it runs inside
+  // `npm install`.
+  describe('main', () => {
     const fs = require('node:fs');
     const os = require('node:os');
     const path = require('node:path');
-    const { spawnSync } = require('node:child_process');
-    const n = (file) => ({ file, created: file.slice(0, 10), status: 'proposed', summary: `about ${file.slice(11, -3)}` });
-    const existing = ['2026-06-01-alpha.md', '2026-06-02-mango.md', '2026-06-03-zulu.md'].map(n);
-    const doc = (notes) => `# R\n\nprose\n\n${render(notes)}\n\ntrailer\n`;
-
-    // Exit status of `git merge-file`: the number of conflicts, 0 when clean.
-    function merge(ours, theirs) {
-      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'decisions-merge-'));
+    test('--check passes on the live notes without any output on disk', () => {
+      assert.equal(main(['--check'], { out: path.join(os.tmpdir(), 'does-not-exist', 'decisions.md') }), 0);
+    });
+    test('write creates the output folder and one row per note', () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'decisions-out-'));
       try {
-        const f = (name, notes) => { const p = path.join(dir, name); fs.writeFileSync(p, doc(notes)); return p; };
-        const o = f('ours', [...existing, ours]);
-        const r = spawnSync('git', ['merge-file', '-p', o, f('base', existing), f('theirs', [...existing, theirs])], { encoding: 'utf8' });
-        return { status: r.status, merged: r.stdout };
+        const out = path.join(dir, 'nested', 'decisions.md');
+        assert.equal(main([], { out }), 0);
+        const rows = fs.readFileSync(out, 'utf8').split('\n').filter((l) => l.startsWith('- '));
+        assert.equal(rows.length, collect().notes.length);
       } finally {
         fs.rmSync(dir, { recursive: true, force: true });
       }
-    }
-
-    test('two same-day notes with an existing slug between them merge clean and verify', () => {
-      const a = n('2026-09-29-beta.md');
-      const b = n('2026-09-29-tango.md');
-      const { status, merged } = merge(a, b);
-      assert.equal(status, 0, 'date order made these neighbors at the top of the group; slug order must not');
-      assert.deepEqual(verify(merged, [...existing, a, b]), []);
-    });
-
-    test('two notes with NO existing slug between them still conflict — the residual case', () => {
-      const { status } = merge(n('2026-09-29-beta.md'), n('2026-09-29-bravo.md'));
-      assert.ok(status > 0, 'if this merges clean, the harness is not merging what it claims to');
-    });
-  });
-
-  // #1547 — the CHECK assertion, which is deliberately weaker than `render`.
-  //
-  // `engineering/decisions/README.md` is generated from EVERY note and committed, so a
-  // PR adding a note commits an index that is correct only until the next decision-doc
-  // PR merges. The merge queue rebases onto current `main` and re-runs CI there, so a
-  // byte-comparison ejected the second PR to merge — green on its own head, red on a
-  // `main` it had never seen. These cases pin both halves of the relaxation: the
-  // concurrent-PR states must PASS, and a PR wrong about its OWN note must still FAIL.
-  describe('verify (the --check assertion)', () => {
-    const notes = [
-      { file: '2026-06-17-b.md', created: '2026-06-17', status: 'proposed', summary: 'newer active' },
-      { file: '2026-06-10-a.md', created: '2026-06-10', status: 'in-progress', summary: 'older active' },
-      { file: '2026-05-01-s.md', created: '2026-05-01', status: 'shipped', summary: 'a shipped one' },
-      { file: '2026-04-01-h.md', created: '2026-04-01', status: 'superseded', summary: 'gone', supersededBy: '2026-06-17-b.md' },
-    ];
-    const readme = (notesForBlock) => `# R\n\n${render(notesForBlock)}\n\ntrailer\n`;
-
-    test('the canonical rendering verifies clean', () => {
-      assert.deepEqual(verify(readme(notes), notes), []);
-    });
-
-    // What decides the shape of the race is WHERE the two rows insert — measured with
-    // `git merge-file`: two insertions at the same position conflict, two at any
-    // different positions merge cleanly, even adjacent ones. Dates do not decide it,
-    // and #1535 is the counterexample to the intuitive guess that they do (its two
-    // notes shared a date, with a third same-date note sorting between them).
-    describe('states two concurrent decision-doc PRs actually produce', () => {
-      // DIFFERENT insertion points → git merges cleanly and the rebased tree is
-      // genuinely correct about both notes. Deleting the tally is what fixes this
-      // case: with no aggregate line left, a cleanly-merged index is byte-canonical
-      // again, so this state passes a byte-comparison too. Asserted anyway because
-      // `verify` must not reject a note it has never seen before.
-      test('passes when a rebase brought in ANOTHER PR\'s note and its row', () => {
-        const theirs = { file: '2026-07-04-other.md', created: '2026-07-04', status: 'shipped', summary: 'landed on main first' };
-        assert.deepEqual(verify(readme([...notes, theirs]), [...notes, theirs]), []);
-      });
-
-      // SAME insertion point → a real git conflict. Resolving it mechanically by
-      // keeping both sides (HARD RULE #16) leaves the two rows in MERGE order rather
-      // than sort order, which a byte-comparison rejects in turn. Relaxing row order
-      // is the half of the fix that closes THIS case — it is the only one of these two
-      // that a byte-comparison still fails once the tally is gone.
-      test('passes when rows sit in merge order rather than sort order', () => {
-        const canonical = readme(notes);
-        // Canonical order is a-then-b (slug order); the merge left b-then-a.
-        const swapped = canonical.replace(
-          `${rowFor(notes[1])}\n${rowFor(notes[0])}`,
-          `${rowFor(notes[0])}\n${rowFor(notes[1])}`,
-        );
-        assert.notEqual(swapped, canonical, 'the fixture must actually have reordered two rows');
-        assert.deepEqual(verify(swapped, notes), []);
-      });
-    });
-
-    describe('still fails on what a PR IS responsible for', () => {
-      test('its own note has no entry', () => {
-        const missing = readme(notes.filter((n) => n.file !== '2026-06-17-b.md'));
-        const problems = verify(missing, notes);
-        assert.equal(problems.length, 1);
-        assert.match(problems[0], /2026-06-17-b\.md: no entry/);
-      });
-      test('the entry drifted from the front-matter (summary edited in the note)', () => {
-        const stale = verify(readme(notes), notes.map((n) => (n.file === '2026-05-01-s.md' ? { ...n, summary: 'rewritten' } : n)));
-        assert.equal(stale.length, 1);
-        assert.match(stale[0], /2026-05-01-s\.md: entry does not match its front-matter/);
-      });
-      test('the status changed, so the row is under the wrong heading', () => {
-        const moved = verify(readme(notes), notes.map((n) => (n.file === '2026-06-17-b.md' ? { ...n, status: 'shipped' } : n)));
-        assert.ok(moved.some((p) => /2026-06-17-b\.md: listed under "active"/.test(p)), moved.join('\n'));
-      });
-      test('a row survives a note that was deleted', () => {
-        const orphaned = verify(readme(notes), notes.slice(1));
-        assert.equal(orphaned.length, 1);
-        assert.match(orphaned[0], /2026-06-17-b\.md: listed in the index but there is no such note/);
-      });
-      test('a note is listed twice', () => {
-        const doubled = readme(notes).replace(rowFor(notes[2]), `${rowFor(notes[2])}\n${rowFor(notes[2])}`);
-        assert.match(verify(doubled, notes).join('\n'), /2026-05-01-s\.md: 2 entries/);
-      });
-      test('an unresolved conflict marker is left inside the block', () => {
-        const conflicted = readme(notes).replace(rowFor(notes[0]), `<<<<<<< HEAD\n${rowFor(notes[0])}\n>>>>>>> main`);
-        const problems = verify(conflicted, notes);
-        assert.equal(problems.length, 2, problems.join('\n'));
-        for (const p of problems) assert.match(p, /unrecognized line inside the index block/);
-      });
-      test('the closing line was deleted', () => {
-        const noFooter = readme(notes).split('\n').filter((l) => !l.startsWith('_Generated by')).join('\n');
-        assert.match(verify(noFooter, notes).join('\n'), /closing line is missing/);
-      });
-      // Three shapes the byte-comparison rejected and the first cut of verify() accepted,
-      // found by the red team. All three are states a human would have to look at.
-      test('the block lost its blank lines — markdown renders it as one run-on item', () => {
-        const canonical = readme(notes);
-        const squashed = canonical.replace(/<!-- decisions-index:begin -->[\s\S]*?<!-- decisions-index:end -->/,
-          (m) => m.split('\n').filter((l) => l.trim()).join('\n'));
-        assert.notEqual(squashed, canonical, 'the fixture must actually have removed blank lines');
-        assert.match(verify(squashed, notes).join('\n'), /no blank lines/);
-      });
-      test('the closing line is duplicated', () => {
-        const doubled = readme(notes).replace(FOOTER, `${FOOTER}\n${FOOTER}`);
-        assert.match(verify(doubled, notes).join('\n'), /closing line appears 2 times/);
-      });
-      test('a SECOND marker pair was appended — splice would never rewrite it', () => {
-        const extra = `${readme(notes)}\n<!-- decisions-index:begin -->\n- ☑ [ghost.md](ghost.md) — not a real note\n<!-- decisions-index:end -->\n`;
-        assert.match(verify(extra, notes).join('\n'), /second decisions-index marker pair/);
-      });
-
-      // Set membership in both directions accepts a DUPLICATED heading, which splits a
-      // group's rows into two sections that each verify clean. The decision note claims
-      // the headings are "exactly the non-empty groups", so it has to mean exactly once.
-      test('a group heading is duplicated', () => {
-        const doubled = readme(notes).replace('### Active', '### Active — proposed · in-progress · blocked\n\n### Active');
-        assert.match(verify(doubled, notes).join('\n'), /appears 2 times/);
-      });
-    });
-
-    // The block is compared line-for-line against generated text, so a CRLF-saved README
-    // would otherwise leave a trailing \r on every line and report a dozen problems that
-    // name anything but the line endings. `frontMatter` already normalizes; so does this.
-    test('a CRLF-saved README verifies the same as an LF one', () => {
-      assert.deepEqual(verify(readme(notes).replace(/\n/g, '\r\n'), notes), []);
-    });
-
-    // A gate that cannot fail is also a claim (the same guard #1535 added to
-    // checkNoSafeDefaultTokens): with notes on disk and an empty block, every
-    // per-note assertion above is vacuously clean.
-    test('fails loud on an empty block rather than reporting clean', () => {
-      const empty = readme([]);
-      const problems = verify(empty, notes);
-      assert.ok(problems.length, 'an empty index against a non-empty corpus must not pass');
-      assert.match(problems[0], /no entries at all/);
-    });
-    test('an empty corpus and an empty block is legitimately clean', () => {
-      assert.deepEqual(verify(readme([]), []), []);
-    });
-
-    test('markers missing entirely still throws', () => {
-      assert.throws(() => verify('# no markers here\n', notes), /markers/);
-    });
-  });
-
-  describe('splice', () => {
-    test('replaces only the marked region', () => {
-      const readme = 'pre\n<!-- decisions-index:begin -->\nOLD\n<!-- decisions-index:end -->\npost\n';
-      const next = splice(readme, '<!-- decisions-index:begin -->\nNEW\n<!-- decisions-index:end -->');
-      assert.equal(next, 'pre\n<!-- decisions-index:begin -->\nNEW\n<!-- decisions-index:end -->\npost\n');
-    });
-    test('throws when markers are missing', () => {
-      assert.throws(() => splice('no markers here', 'x'), /markers/);
     });
   });
 

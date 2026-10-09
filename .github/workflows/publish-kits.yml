@@ -169,7 +169,7 @@ jobs:
 
           # Fail loudly on an empty kit rather than publishing a hole. A kit that
           # is silently short is worse than one that is briefly stale.
-          for d in marp-kit agent-kit; do
+          for d in marp-kit agent-kit engineering; do
             if [ -z "$(ls -A "$GITHUB_WORKSPACE/dist/$d" 2>/dev/null)" ]; then
               echo "::error::dist/$d is missing or empty after npm run build" >&2
               exit 1
@@ -179,6 +179,17 @@ jobs:
           mkdir -p marp agent
           cp -r "$GITHUB_WORKSPACE"/dist/marp-kit/. marp/
           cp -r "$GITHUB_WORKSPACE"/dist/agent-kit/. agent/
+          # The contributor indexes (capabilities, decisions, gotchas) are generated,
+          # never committed to main, so this branch is where github.com shows them.
+          # Their links climb out of dist/engineering/ (`../../engineering/…`); here
+          # that path does not exist, so point them at main instead. No push trigger
+          # covers their sources on purpose — a decision note should not cost a full
+          # build — so the nightly run keeps them at most a day behind.
+          # engineering/decisions/2026-10-09-generated-indexes-uncommitted.md.
+          mkdir -p engineering
+          for f in "$GITHUB_WORKSPACE"/dist/engineering/*.md; do
+            sed "s#](\.\./\.\./#](https://github.com/${GITHUB_REPOSITORY}/blob/main/#g" "$f" > "engineering/$(basename "$f")"
+          done
           # Branch-root README + the .vscode fallback that makes opening the
           # branch root (not just marp/) work in VS Code.
           cp -r "$GITHUB_WORKSPACE"/tools/kit-branch/root/. .

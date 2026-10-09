@@ -128,7 +128,7 @@ signal beyond the seven core dimensions, reported but not baseline-gated.
 ## Why these tools, not others
 
 None of the seven dimensions were covered by any existing script or
-harness in this repo before this — see `engineering/capabilities.md` (the
+harness in this repo before this — see `dist/engineering/capabilities.md` (the
 generated index of everything that already exists; checked before writing
 anything new, per HARD RULE #15). `dependency-cruiser` / `jscpd` / `knip`
 are the maintained, widely-used Node tools for graph/duplication/dead-code

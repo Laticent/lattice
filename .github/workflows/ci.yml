@@ -244,16 +244,15 @@ jobs:
         # (unknown _class tokens) fail.
         run: npm run lint:deck:all
       # ── Artifact freshness — ALWAYS runs, on EVERY PR ──────────────────────
-      # build:check regenerates EVERY committed generated artifact (dist bundles,
-      # spec docs, the capability + DECISION indexes, dist README) and byte-diffs.
-      # ONE exception, deliberately: the decision index is checked for CONTENT rather
-      # than bytes — every note has its own correct entry — because a byte-diff there
-      # cannot be satisfied by two decision-doc PRs sharing the queue, and ejected one
-      # of them (#1547, decisions/2026-08-10-decisions-index-merge-queue-race.md).
+      # build:check regenerates EVERY committed generated artifact (spec docs, component
+      # docs, catalogs) and byte-diffs, and runs the SOURCE validators of the three
+      # generated indexes (capabilities, decisions, gotchas), which are built into
+      # dist/engineering/ and never committed
+      # (decisions/2026-10-09-generated-indexes-uncommitted.md).
       # It lives in this ALWAYS-ON job, deliberately NOT behind the code/docs paths
       # filter, because some of its inputs match NEITHER filter — e.g. a new
-      # engineering/decisions/*.md stales engineering/decisions/README.md, and
-      # engineering/** is in no filter. Gating it let a stale generated file pass a
+      # engineering/decisions/*.md with malformed front-matter fails the decision-index
+      # validator, and engineering/** is in no filter. Gating it let a stale generated file pass a
       # docs/prose-only PR's green checks and then FAIL in the merge queue (which
       # forces the full suite on merge_group), ejecting the PR *silently* — the exact
       # trap this closes. Render-free + deterministic (a pure byte-diff), so it's
@@ -341,13 +340,11 @@ jobs:
       #
       # WHAT IT DOES NOT CATCH, and this is deliberate, not a gap to close. The
       # step delegates to each generator's --check, and those semantics differ ON
-      # PURPOSE (build.js's own note above the STEPS table): build-decisions-index
-      # verifies that every note has exactly one correctly-formatted row, NOT that
-      # the file equals a regeneration, so two decision-doc PRs can share the merge
-      # queue without ejecting each other (#1547). Demonstrated consequences —
-      # reversing that index's sort, or appending to an AUTHORED *.gallery.md
-      # (build-component-docs checks those for existence only), both leave this
-      # step green. Anything wanting a true byte-diff has to say so in its own
+      # PURPOSE (build.js's own note above the STEPS table): the three index
+      # generators validate their SOURCES and never read their (uncommitted) output.
+      # Demonstrated consequence — appending to an AUTHORED *.gallery.md
+      # (build-component-docs checks those for existence only) leaves this step
+      # green. Anything wanting a true byte-diff has to say so in its own
       # generator; do not "fix" it here, because rebuilding and git-diffing the
       # tree is exactly what re-opened #1547 once already.
       #

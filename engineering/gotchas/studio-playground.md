@@ -1,7 +1,7 @@
 # Gotchas — The Studio and the Playground (docs-site app surfaces)
 
-One topic from the [gotchas index](../gotchas.md) — start there to find a symptom;
-this file is the detail. Entry shape and the rule for adding one are in the index.
+One topic of the gotchas. Find a symptom in the generated index, `dist/engineering/gotchas.md`;
+this file is the detail. Entry shape and the rule for adding one are in the [guide](../gotchas.md).
 
 ## The preview `<iframe>` — trap catalog (read this first: surfaces × workarounds)
 

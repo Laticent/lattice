@@ -1,7 +1,7 @@
 # tools/ — the script library
 
 Every build generator, gate, linter, renderer, scaffolder, and release
-script. **The catalog lives in `engineering/capabilities.md`** (generated
+script. **The catalog lives in `dist/engineering/capabilities.md`** (generated
 from these files' headers + `package.json` scripts, and gated so it can't
 drift) — check there BEFORE writing anything new (HARD RULE #15).
 
