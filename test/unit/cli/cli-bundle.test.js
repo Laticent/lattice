@@ -1,7 +1,7 @@
 /**
  * The published emulator bundle must not carry the repo manifest.
  *
- * `dist/lattice.js` is the package `bin`/`main`, built by esbuild from
+ * `dist/lattice.js` is the package `bin`, built by esbuild from
  * the repo-root source. esbuild inlines the local relative graph, so a
  * `require('./package.json')` anywhere in that graph embeds the WHOLE manifest
  * — dependency ranges and all — into the committed artifact.

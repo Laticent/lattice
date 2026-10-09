@@ -53,6 +53,25 @@ npx lattice --version
 decks need. `npx lattice --help all` prints every option, the same list as the
 [CLI reference](/reference/cli/).
 
+### Turn on Tab completion
+
+With `lattice` on your `PATH` (a global install, or `npx lattice` replaced by a
+shell alias), one line makes Tab complete subcommands, every option, the values
+an option takes (palettes, `--size` canvases, `--paper` sheets, plugin names)
+and the packages you installed:
+
+| Shell | Add this line |
+|---|---|
+| bash (3.2 or newer) | `eval "$(lattice completion bash)"` in `~/.bashrc` |
+| zsh | `source <(lattice completion zsh)` in `~/.zshrc`, after `compinit` |
+| fish | run `mkdir -p ~/.config/fish/completions && lattice completion fish > ~/.config/fish/completions/lattice.fish` once |
+| PowerShell | `lattice completion powershell \| Out-String \| Invoke-Expression` in your `$PROFILE` |
+
+`lattice completion <shell>` only prints a script; it never edits a file. Paths
+still complete as before, narrowed to the files that fit: `.md` for the deck,
+the output formats for the output. Open a new shell after you reinstall
+Lattice somewhere else, so the script finds the new copy.
+
 ## Everyday tasks
 
 ### Render a PDF

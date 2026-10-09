@@ -73,7 +73,7 @@ const SCRIPT_META = {
   'runtime:check':            ['Build & bundle', 'Freshness gate for the runtime bundle.'],
   'vendor:plugins':           ['Build & bundle', 'Refresh each plugin\'s vendored library copy (lib/plugins/<name>/vendor/) from node_modules and rewrite its manifest record (version, sha256); --check verifies copy, record and installed build agree.'],
   'runtime:watch':            ['Build & bundle', 'Rebuild the runtime bundle on change.'],
-  'cli:build':           ['Build & bundle', 'Build dist/lattice.js — the bundled owned-engine CLI (package bin/main).'],
+  'cli:build':           ['Build & bundle', 'Build dist/lattice.js — the bundled owned-engine CLI (package bin).'],
   'cli:check':           ['Build & bundle', 'Freshness gate for the CLI bundle (dist/lattice.js).'],
   'playground:build':         ['Build & bundle', 'Build docs/public/playground/lattice-playground.js — the in-browser engine bundle.'],
   'playground:check':         ['Build & bundle', 'Freshness gate for the playground bundle.'],

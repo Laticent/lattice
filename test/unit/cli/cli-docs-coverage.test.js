@@ -11,7 +11,8 @@
  *   2. NO PHANTOMS — every `--option` the three docs mention is one some parser
  *      accepts. A renamed or removed flag fails here, not in a copied command.
  *
- * The flags are read from the parser SOURCE rather than from `--help`, because
+ * The flags are read from the parsers (the render command's table in
+ * lib/cli/options.js, the subcommands' SOURCE) rather than from `--help`, because
  * the help text is itself hand-written and is exactly the kind of copy that
  * drifts.
  */
@@ -43,9 +44,12 @@ function flagsBetween(src, start, end, file) {
 
 /** The options the `lattice` render command, `lattice packages` and `lattice video` accept. */
 function latticeCliFlags() {
+  // parseArgs reads its options from one table (lib/cli/options.js); the literals left in its
+  // body are the special cases, such as the retired --strip-captions.
   const render = flagsBetween(read('lattice.js'), 'function parseArgs(argv)', 'return { flags, positional };', 'lattice.js');
+  const { VALUE_OPTIONS, SWITCHES, EARLY_FLAGS } = require('../../../lib/cli/options.js');
   // --help / --version are handled before parseArgs runs.
-  for (const f of ['-h', '--help', '-v', '--version']) render.add(f);
+  for (const row of [...VALUE_OPTIONS, ...SWITCHES, ...EARLY_FLAGS]) for (const f of row.flags) render.add(f);
   const packages = flagsBetween(read('lib/packages/cli.js'), 'function parse(argv)', 'return { flags, pos };', 'lib/packages/cli.js');
   const videoSrc = read('lib/export/video-cli.mjs');
   const video = new Set([...videoSrc.matchAll(/a === '(--?[A-Za-z][\w-]*)'/g)].map((m) => m[1]));

@@ -111,6 +111,10 @@ npx lattice deck.md deck.pdf
 npx @laticent/lattice deck.md deck.pdf
 ```
 
+Tab completion for bash, zsh, fish and PowerShell is one line, for example
+`eval "$(lattice completion bash)"` in `~/.bashrc`; `lattice completion --help`
+lists the line for each shell.
+
 Need a portable bundle for someone who renders with Marp? The docs-site
 **Studio**'s **Export to Marp** (also available via `npm run export:marp`)
 produces a self-contained `.zip`. That bundle
@@ -122,7 +126,7 @@ The package also exposes these named entry points:
 |---|---|---|
 | `@laticent/lattice/default` | `dist/lattice-default.css` | **zero-config default** — engine + the cuoio palette, flattened into one stylesheet that loads without a theme set. Not a slide renderer on its own (see the note below) |
 | `@laticent/lattice/default/min` | `dist/lattice-default-min.css` | minified zero-config default, for production or a CDN |
-| `@laticent/lattice/engine` | `lib/engine/index.js` | the **canonical render kernel** (`render()` + the transform pipeline) — for embedding the engine directly (HARD RULE #1: this is the source of truth all render paths share) |
+| `@laticent/lattice` (`main`/`.`) · `@laticent/lattice/engine` | `lib/engine/index.js` | the **canonical render kernel** (`render()` + the transform pipeline) — for embedding the engine directly (HARD RULE #1: this is the source of truth all render paths share) |
 | `@laticent/lattice/runtime` | `dist/lattice-runtime.js` | the preview / web-export runtime transforms |
 | `@laticent/lattice/runtime/min` | `dist/lattice-runtime-min.js` | minified runtime — production / CDN drop-in (no inline source map). **Not self-sufficient:** ship `dist/lattice-dagre-min.js` beside it (see [Embed in a browser](#embed-in-a-browser)) |
 | — | `dist/lattice-dagre-min.js` | the graph-layout engine for a state chart that BRANCHES. Load it *before* the runtime. Its absence is silent on the slide — the chart draws its branches as skips on the reading-order grid a chain uses |
@@ -130,8 +134,7 @@ The package also exposes these named entry points:
 | `@laticent/lattice/css/min` | `dist/lattice-min.css` | minified engine bundle (Marp `@theme`/`@size` directives preserved) |
 | `@laticent/lattice/palette/<name>.css` | `dist/palettes/<name>.css` | one palette's **tokens**, imports resolved, for a bundler (Vite, webpack) or your own UI. Not a slide renderer: to show slides, use `render()` from `@laticent/lattice/engine` (see the themes guide) |
 | `@laticent/lattice/themes/<name>.css` | `themes/<name>/<name>.css` | one palette — a **Marp theme file**, not a standalone stylesheet; a bundler stops on its `@import 'lattice'` |
-| `lattice` bin · `@laticent/lattice` (`main`/`.`) | `dist/lattice.js` | the bundled CLI renderer / PDF exporter (`npx lattice deck.md out.pdf`) |
-| `@laticent/lattice/min` | `dist/lattice-min.js` | minified CLI bundle (shebang + executable bit preserved); the bin/main stays the unminified file |
+| `lattice` bin (not an import path) | `dist/lattice.js` | the bundled CLI renderer / PDF exporter (`npx lattice deck.md out.pdf`). Run it; don't `require` it — it reads the process's arguments and exits. `dist/lattice-min.js` is its minified twin, shipped in the tarball and the release zip but not exported |
 
 The `-min` variants are byte-for-byte render-faithful to their unminified
 siblings — the CSS minifier preserves Marp's directive comments, so a

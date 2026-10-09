@@ -100,6 +100,52 @@ describe('export: an installed @laticent/lattice renders with only what it decla
     assert.equal(r.status, 0, `require('@laticent/lattice/engine') failed:\n${r.stderr}`);
   });
 
+  // The root import is a library import. It once resolved to the CLI bundle, which parsed the
+  // HOST's argv, printed the usage text and called process.exit(1) inside the program that
+  // imported it (followup 2601-p1). The marker line proves the require RETURNED: an exit
+  // inside it never reaches the write, even if some later version exited 0.
+  test('the root import is the engine and returns to its caller (require and import)', { timeout: TIMEOUT }, () => {
+    const cjs = nodeIn([
+      "const root = require('@laticent/lattice');",
+      "if (root !== require('@laticent/lattice/engine')) throw new Error('root is not the engine export');",
+      "if (typeof root.render !== 'function') throw new Error('root has no render()');",
+      "process.stdout.write('RETURNED');",
+    ].join('\n'));
+    assert.equal(cjs.status, 0, `require('@laticent/lattice') did not return cleanly:\n${cjs.stdout}${cjs.stderr}`);
+    assert.equal(cjs.stdout, 'RETURNED', `require('@laticent/lattice') printed to stdout:\n${cjs.stdout}`);
+    const esm = spawnSync(process.execPath, ['--input-type=module', '-e', [
+      "const root = await import('@laticent/lattice');",
+      "if (root.default !== (await import('@laticent/lattice/engine')).default) throw new Error('import is not the engine export');",
+      "if (typeof root.default.render !== 'function') throw new Error('import has no render()');",
+      "process.stdout.write('RETURNED');",
+    ].join('\n')], { cwd: dir, encoding: 'utf8' });
+    assert.equal(esm.status, 0, `import('@laticent/lattice') did not return cleanly:\n${esm.stdout}${esm.stderr}`);
+    assert.equal(esm.stdout, 'RETURNED');
+  });
+
+  test('the CLI bundle is the bin, not an import path', { timeout: TIMEOUT }, () => {
+    const r = nodeIn("require('@laticent/lattice/min')");
+    assert.notEqual(r.status, 0, "require('@laticent/lattice/min') resolved, so the CLI bundle is still importable");
+    assert.match(r.stderr, /ERR_PACKAGE_PATH_NOT_EXPORTED/);
+  });
+
+  // Shell completion's fast path runs lib/cli/complete.js straight from the install, outside the
+  // bundle, so every file it loads must ship and resolve with only what the package declares.
+  test('shell completion works from the install: the script, the bundle fallback and the fast path', { timeout: TIMEOUT }, () => {
+    const bin = path.join(nm, '@laticent', 'lattice', PKG.bin.lattice);
+    const script = spawnSync(process.execPath, [bin, 'completion', 'bash'], { cwd: dir, encoding: 'utf8' });
+    assert.equal(script.status, 0, script.stderr);
+    const self = path.join(nm, '@laticent', 'lattice', 'lib', 'cli', 'complete.js');
+    assert.ok(script.stdout.includes(self), 'the script does not call the installed lib/cli/complete.js');
+    for (const argv of [[bin, '__complete', '-p', 'ind'], [self, '-p', 'ind']]) {
+      const r = spawnSync(process.execPath, argv, { cwd: dir, encoding: 'utf8' });
+      assert.equal(r.status, 0, r.stderr);
+      assert.equal(r.stdout, ':values\nindaco\nindaco-dark\n');
+    }
+    const plugins = spawnSync(process.execPath, [self, '--disable-plugin', 'mer'], { cwd: dir, encoding: 'utf8' });
+    assert.equal(plugins.stdout, ':values\nmermaid\n', plugins.stderr);
+  });
+
   test('the CLI renders a PDF with math and a Mermaid diagram', { timeout: TIMEOUT }, () => {
     const r = render('deck.pdf');
     assert.equal(r.status, 0, `the installed CLI failed:\n${r.stderr}`);
