@@ -163,6 +163,58 @@ describe('avatars — in a team-profile roster', () => {
     assert.doesNotMatch(out, /!\{Ada/);
   });
 
+  const OFF = (t) => `<code data-lattice-off="avatars">${t}</code>`;
+
+  test('plugin off, beside the role: a monogram AND the role — nothing dropped', () => {
+    // The undrawn-avatar pattern once stretched across `</code>`, so `!{Ada}` `Sponsor` with the
+    // plugin off matched as one avatar and the whole line, role included, vanished.
+    const out = tp.applyToRenderedHtml(wrap(`<li>${OFF('!{Ada Okafor}')} <code>Sponsor</code></li>`));
+    assert.match(out, /<span class="person-initials">AO<\/span>/);
+    assert.match(out, /<span class="person-role">Sponsor<\/span>/);
+  });
+
+  test('plugin off, more on the line: the line stays as a note, every word kept', () => {
+    for (const item of [`${OFF('!{Dee}')} ${OFF('!{Ann}')}`, `${OFF('!{Ada}')} and <code>x</code>`]) {
+      const out = tp.applyToRenderedHtml(wrap(`<li>${item}</li>`));
+      assert.match(out, /<span class="person-note">/, item);
+      assert.ok(out.includes(item.trim()), item);
+    }
+  });
+
+  test('an undrawn avatar beside a photo never becomes the role', () => {
+    const out = tp.applyToRenderedHtml(wrap(`<li>${OFF('!{Ada Okafor}')} <img src="ada.png" alt=""></li>`));
+    assert.doesNotMatch(out, /<span class="person-role">!\{/);
+    assert.match(out, /!\{Ada Okafor\}/);
+  });
+
+  test('two codes on one line are not a role with a stray </code> in it', () => {
+    const out = tp.applyToRenderedHtml(wrap('<li><code>Sponsor</code> <code>Lead</code></li>'));
+    assert.doesNotMatch(out, /<span class="person-role">[^<]*<\/code>/);
+    assert.match(out, /Sponsor/);
+    assert.match(out, /Lead/);
+  });
+
+  test('the first portrait wins, and a later one is a note, not a lost face', () => {
+    const twoAvatars = tp.applyToRenderedHtml(wrap(`<li>${drawn('!{Ada Okafor}')}</li><li>${drawn('!{Marcus Vale}')}</li>`));
+    assert.match(twoAvatars, /person-figure--avatar"><span class="lat-avatar"[^>]*data-src="!\{Ada Okafor\}"/);
+    assert.match(twoAvatars, /<span class="person-note"><span class="lat-avatar"[^>]*data-src="!\{Marcus Vale\}"/);
+    const thenPhoto = tp.applyToRenderedHtml(wrap(`<li>${drawn('!{Ada Okafor}')}</li><li><img src="ada.png" alt=""></li>`));
+    assert.match(thenPhoto, /person-figure--avatar/);
+    assert.match(thenPhoto, /<span class="person-note"><img src="ada\.png"/);
+  });
+
+  test('an escaped span is the author\'s literal, not an avatar', () => {
+    // `\!{Ada}` is text the author wants shown, so it reads like any other code line: the role.
+    const out = tp.applyToRenderedHtml(wrap('<li><code data-lat-escaped="">!{Ada}</code></li>'));
+    assert.match(out, /<span class="person-role">!\{Ada\}<\/span>/);
+  });
+
+  test('the portrait carries aria-hidden exactly once', () => {
+    const out = tp.applyToRenderedHtml(wrap(`<li>${drawn('!{Ada Okafor}')}</li>`));
+    const open = out.match(/<span class="lat-avatar"[^>]*>/)[0];
+    assert.equal((open.match(/aria-hidden=/g) || []).length, 1);
+  });
+
   test('a hostile name survives the runtime re-serialization without injecting markup', () => {
     // applyToDom re-serializes the section. jsdom (like older browsers) leaves `<` and `>` raw inside
     // attribute values, and a `[^>]*` attribute match spliced a live `<img onerror>` out of this name.
