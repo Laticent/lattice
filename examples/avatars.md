@@ -14,7 +14,7 @@ acronyms:
 
 `New plugin · avatars · inline code`
 
-`!{Ada Okafor}` draws a head-and-shoulders portrait. The name chooses every trait you leave out, so it is the same face on every render.
+`\!{Ada Okafor}` draws a head-and-shoulders portrait. The name chooses every trait you leave out, so it is the same face on every render.
 
 ---
 
