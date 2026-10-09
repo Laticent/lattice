@@ -51,7 +51,7 @@ jobs:
       - name: Build the generated bundles
         run: npm run build
       - name: Build with Astro
-        uses: withastro/action@v3
+        uses: withastro/action@v6
         with:
           path: docs
           node-version: 22
