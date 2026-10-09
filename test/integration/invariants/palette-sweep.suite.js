@@ -485,6 +485,14 @@ function defineSweep(deckId) {
         .sort();
       assert.deepEqual(files, DECKS.map((d) => d.id).sort(),
         'palette-sweep-<deck id>.test.js files and DECKS disagree');
+      // The name is not enough: a file named for one deck that sweeps another would pass the
+      // check above while one deck ran twice and the other never. Each file must sweep the
+      // deck its name says.
+      for (const id of files) {
+        const src = fs.readFileSync(path.join(__dirname, `palette-sweep-${id}.test.js`), 'utf8');
+        const swept = [...src.matchAll(/defineSweep\(\s*['"]([^'"]+)['"]\s*\)/g)].map((m) => m[1]);
+        assert.deepEqual(swept, [id], `palette-sweep-${id}.test.js must call defineSweep('${id}') exactly once`);
+      }
     });
   });
 }

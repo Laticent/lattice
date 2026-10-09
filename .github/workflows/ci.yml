@@ -446,8 +446,9 @@ jobs:
     # tests plus ~2 min of install and build, so 25 is ~1.4x that and ~2.3x a normal
     # leg. Re-derive it from real runs once the matrix has a week of history.
     # NOT BALANCED: legs 1 and 3 each draw three of the slowest files (export-formats,
-    # strip-notes, axe / the gallery palette sweep, frame identity, the clipped pill),
-    # and leg 4 draws none, so the critical path is leg 1, not a quarter of the suite.
+    # strip-notes-no-fingerprint, axe / the gallery palette sweep, frame identity, the
+    # clipped pill), and leg 4 draws none of those, so the critical path is leg 1, not a
+    # quarter of the suite.
     timeout-minutes: 25
     strategy:
       fail-fast: false
