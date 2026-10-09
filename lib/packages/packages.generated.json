@@ -1326,6 +1326,7 @@
         "fixtures.md",
         "inline.js",
         "manifest.json",
+        "services.js",
         "styles.css",
         "syntax.mjs",
         "vocab.generated.js"

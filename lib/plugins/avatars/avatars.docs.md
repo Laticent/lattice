@@ -109,8 +109,13 @@ shape, and mixes freely with real photos and monograms:
 ```
 
 Ada gets an avatar, Marcus his photo and Hana a monogram. The name is beside the face, so the
-portrait is hidden from screen readers there, as a photo's is. With the plugin off, an avatar line
-becomes a monogram, never the person's role.
+portrait is hidden from screen readers there, as a photo's is.
+
+- **The portrait is an avatar alone on its line**, or beside the role (`` - `!{Ada}` `Sponsor` ``).
+  An avatar anywhere else (in a note, or two on one line) stays where you wrote it, as part of a note.
+- **With the plugin off**, or before its drawings arrive, the portrait is a monogram, never the
+  person's role.
+- **A broken avatar** (`hair=nope`) stays as the code you typed, as a note, and `lint:deck` says why.
 
 ## Accessibility
 

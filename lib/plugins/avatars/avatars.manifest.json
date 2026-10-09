@@ -12,6 +12,10 @@
         "sigil": "!"
       }
     },
+    "services": [
+      "reads",
+      "pending"
+    ],
     "registers": {
       "avatar": {
         "axes": {

@@ -49,6 +49,8 @@ The owner settled four in one round (2026-10-09):
    with one character of lookahead). Keeping `@` meant a two-character lookahead in a published parser. The
    measured alternatives: 30 existing spans start with `!` and 4 with `&`, and none of either is read as
    notation, so they render exactly as before. `!` won because it echoes Markdown's `![…]` image syntax.
+   This amends `2026-05-11-inline-code-directives.md`, which forbade `!` as a SIGIL because inline code
+   starts with `!important`: a tag means something only directly before `{`, so that span is untouched.
 3. **`gender=` is a preset of defaults, never a lock.** It changes which pools hair, beard and brows are
    drawn from. Every trait an author writes wins, so any combination is expressible.
 4. **v1 is the core set.** Twelve traits and the team-profile integration. Earrings, head coverings,
@@ -69,9 +71,13 @@ so the gate can be looser than the icon's (which must step around TeX's `^{2}`).
 
 ## 5. The name picks the face
 
-Every trait not written is drawn from its pool by FNV-1a of `trait + NUL + name`, the name lower-cased,
+Every trait not written is drawn from its pool by FNV-1a of `trait + NUL + name`, finished with murmur3's
+fmix32, the name lower-cased,
 trimmed, space-collapsed and NFC-normalized. So the face is stable across renders, surfaces and
-copies, and independent per trait: pinning `hair=` does not reshuffle the eyes. Pools are weighted by
+copies, and independent per trait: pinning `hair=` does not reshuffle the eyes. **The finalizer is
+load-bearing.** Bare FNV-1a's low bits depend only on its input's low bits, and every key ends in the same
+name, so every 8-entry pool landed on the same index: the tile color equaled the skin tone for 2000 of 2000
+names, and skin fixed the top and the nose. With fmix32 every pairing occurs. Pools are weighted by
 repetition (`traits.json` `pools`), and the deeper skin tones (5–8) draw hair color from a pool without
 blonde or red, so a default is never a rare pairing. A written value always wins.
 
@@ -115,10 +121,31 @@ photo's empty `alt` does.
 
 ## 9. team-profile
 
-`team-profile.transform.js` takes a drawn avatar as the portrait, the same way it takes an `<img>`. An
-avatar the plugin did NOT draw (off, or data not yet here) is a missing portrait and gets a monogram: before
-that guard, the one-code line read as the person's role and printed `!{Ada Okafor}` under the name. A drawn
-avatar counts as a face for the roster's "nobody has a photo" test, so monograms beside it stay quiet.
+`team-profile.transform.js` takes a drawn avatar as the portrait, the same way it takes an `<img>`, but
+only when it stands ALONE on its line or beside the one role. An avatar anywhere else (a note that
+mentions someone, two faces on one line, a second portrait) makes the line a note, avatars and all, so
+nothing the author wrote is dropped. A drawn avatar counts as a face for the roster's "nobody has a photo"
+test, so monograms beside it stay quiet.
+
+A `!{…}` the plugin did NOT draw is sorted three ways, through the plugin's services (`reads`, `pending`)
+so the component never imports the plugin:
+
+| case | what the author sees |
+|---|---|
+| the plugin is off (the engine marks the span) | a monogram: a missing portrait, never `!{Ada}` printed as the role |
+| valid, drawings not here yet | a monogram on the engine path; on the runtime path the roster WAITS |
+| broken (`hair=nope`) | the span stays literal as a note, so `lint:deck`'s "renders as code" is true |
+
+**The runtime path waits** because its transform pass runs before its data fetch lands: rebuilding then
+would make the person a monogram for good, since the rebuilt roster has no `!{…}` left to draw and the
+idempotence guard refuses a second rebuild. The fetch re-runs the pass when it lands, and when it fails
+it marks the failure (`plugin-data.js` `markDataFailed`) first, so the roster stops waiting.
+
+The portrait's attributes are rewritten QUOTE-AWARE. A `[^>]*` match broke on the runtime path, where
+the section is re-serialized and a serializer may leave a raw `>` inside an attribute value: a name of
+`A>B <img src=x onerror=…>` came out as a live `<img>` (the HARD RULE #22 shape). The checker found this,
+the trait correlation in § 5 and the dropped notes above; each is pinned in
+`test/unit/plugins/avatars.test.js` against the input that reproduced it.
 
 ## 10. Not in v1
 
