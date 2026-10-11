@@ -135,7 +135,7 @@ Geometric accent shapes placed in the known-empty peripheral slots. Three render
 | `mark-ticks` | 5 horizontal ticks (~31×2.8 px) | Far-right margin | Box-shadow |
 | `mark-orbit` | Concentric rings + satellites | Bottom-right corner | Mask |
 | `mark-slashes` | 5 parallel 45° slashes | Top-right corner | Mask |
-| `mark-seeds` | 12 elongated ellipses, 3 per corner | All four corners | Gradient slot |
+| `mark-seeds` | 12 elongated ellipses, 3 per corner | All four corners | Gradient (`::before`) |
 | `mark-pills` | 4 horizontal pill shapes | Far-right margin | Box-shadow |
 | `mark-asterisks` | Asterisks + micro dots | Opposing corners | Mask |
 | `mark-threads` | 3 thin diagonals (stroke 2) | Top-right corner | Mask |
@@ -143,7 +143,7 @@ Geometric accent shapes placed in the known-empty peripheral slots. Three render
 | `mark-grid` | 4×4 dot grid | Top-right corner | Mask |
 | `mark-chevron` | 3 right-pointing chevrons | Bottom-left corner | Mask |
 
-Visibility pass (2026-10-11): brackets, threads, ticks, seeds and asterisks grew in size or stroke, because at 28% a hairline vanishes in dark. The paint stays at the budget; only geometry changed. `mark-orbit` sits 4 cqi further left so it clears the page number. `mark-seeds` still paints nothing on dark slides, and neither does any `tint-*`: `section.dark:not(:where(…))` in `base.modifiers.css` sets `background-image` at (0,1,1) and beats the (0,0,1) compositor (`followups.d/2628-p2-dark-slides-erase-gradient-slot-treatments.md`). No mark was dropped; keep / change / drop per mark remains the owner's call (`followups.d/2606-p3-mark-treatments-review.md`).
+Visibility pass (2026-10-11): brackets, threads, ticks, seeds and asterisks grew in size or stroke, because at 28% a hairline vanishes in dark. The paint stays at the budget; only geometry changed. `mark-orbit` sits 4 cqi further left so it clears the page number. `mark-seeds` moved onto `::before`, because on dark slides and under a finish the background slot it used painted nothing. `tint-*` still has the dark-slide defect (`followups.d/2628-p2-dark-slides-erase-gradient-slot-treatments.md`). No mark was dropped; keep / change / drop per mark remains the owner's call (`followups.d/2606-p3-mark-treatments-review.md`).
 
 ### Reset
 
@@ -155,7 +155,7 @@ Visibility pass (2026-10-11): brackets, threads, ticks, seeds and asterisks grew
 
 ## Layer composability
 
-Every tint (and `mark-seeds`) writes to one of two custom property slots, assembled by a single compositor rule:
+Every tint writes to one of two custom property slots, assembled by a single compositor rule:
 
 ```css
 section:where([class*="tint-"], [class*="mark-"]) {
@@ -165,7 +165,7 @@ section:where([class*="tint-"], [class*="mark-"]) {
 
 | Slot | Classes |
 | --- | --- |
-| `--_bg-radial` | `tint-corner`, `tint-vignette`, `tint-spotlight`, `tint-duotone`, `mark-seeds` |
+| `--_bg-radial` | `tint-corner`, `tint-vignette`, `tint-spotlight`, `tint-duotone` |
 | `--_bg-linear` | `tint-edge`, `tint-horizon`, `tint-ground`, `tint-sweep`, `tint-ambient`, `tint-frame` |
 
 The 10 other marks own no slot — they paint via `::before` (or `::before` + box-shadow stack) and combine freely with any tint.
@@ -176,14 +176,14 @@ The 10 other marks own no slot — they paint via `::before` (or `::before` + bo
 <!-- _class: content tint-corner at-tl tint-edge at-right -->            ✓ radial + linear
 <!-- _class: content tint-vignette mark-micro -->                         ✓ tint + any mark
 <!-- _class: content tint-corner at-tl tint-edge at-right mark-orbit -->  ✓ two tints + mark
-<!-- _class: content tint-horizon mark-seeds dark -->                     ✓ linear-tint + radial-slot mark + dark
+<!-- _class: content tint-horizon mark-seeds dark -->                     ✓ linear-tint + mark + dark
 ```
 
 **Gradient slot conflict (two radials or two linears):** the class defined later in `lattice.css` wins; the first gradient is silently dropped. Examples:
 
 ```markdown
 <!-- _class: content tint-corner at-tl tint-corner at-tr -->  ✗ both radial — at-tr wins
-<!-- _class: content tint-vignette mark-seeds -->             ✗ both radial — seeds wins
+<!-- _class: content tint-vignette mark-seeds -->             ✓ seeds is a ::before mark, it composes
 <!-- _class: content tint-horizon tint-ground -->             ✗ both linear — last-defined wins
 ```
 
@@ -199,7 +199,7 @@ Marks use one of three mechanisms depending on geometry:
 
 2. **Box-shadow** (`mark-ticks`, `mark-pills`). A `::before` sized to one shape, with multiple `box-shadow` copies offsetting it to the other positions. No mask involved.
 
-3. **Gradient slot** (`mark-seeds`). 12 stacked radial gradients in the `--_bg-radial` slot. No mask, no `::before`.
+3. **Gradient on `::before`** (`mark-seeds`). 12 stacked radial gradients on a full-slide `::before`. No mask. (Until 2026-10-11 these sat in the `--_bg-radial` slot, which a `.dark` slide and a finish both hid.)
 
 The mask is the simplest path but is unreliable in Apple PDFKit / Skia / PDFium: rendered PDFs sometimes drop the mask entirely, leaving the bare `::before` rectangle full of paint instead of the masked shapes. Two mitigations are in play:
 

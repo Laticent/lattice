@@ -27,17 +27,17 @@
  *
  * Layer composability — tints stack via two slots (--_bg-radial,
  * --_bg-linear). Most marks paint via ::before and own no slot, so
- * they compose freely with any tint. Two marks consume a slot:
- *   - mark-seeds → --_bg-radial (12 stacked radial gradients, one
- *     per dot; chosen over a mask because shapes span all four
- *     corners and a wide ::before fails the PDFKit mask gotcha)
+ * they compose freely with any tint. mark-seeds paints 12 stacked radial
+ * gradients on a full-slide ::before (no mask, so the PDFKit mask gotcha
+ * does not apply). It used to write --_bg-radial, but a dark slide's
+ * `section.dark` background-image and a finish's backdrop both hid it.
  *   - mark-ticks / mark-pills → no slot, but paint via ::before +
  *     box-shadow rather than a mask, because their mask SVGs
  *     dropped unreliably in Apple PDFKit even after the orbit-
  *     pattern cropped-bbox refactor
  *
  * Slot reference (gradient classes plus the seeds mark — other marks carry no slot)
- *   --_bg-radial  tint-corner, tint-vignette, tint-spotlight, tint-duotone, mark-seeds
+ *   --_bg-radial  tint-corner, tint-vignette, tint-spotlight, tint-duotone
  *   --_bg-linear  tint-edge, tint-horizon, tint-ground, tint-sweep, tint-ambient, tint-frame
  *
  *   <!-- _class: content tint-vignette mark-orbit -->                       tint + mark
@@ -313,7 +313,7 @@ section.tint-ambient {
  * for marks whose shapes straddle multiple corners) with the SVG
  * viewBox cropped to the shapes' bounding box, OR a box-shadow stack
  * for marks whose shapes repeat at evenly-spaced offsets, OR (for
- * mark-seeds) 12 stacked radial-gradients in the --_bg-radial slot.
+ * mark-seeds) 12 stacked radial-gradients on a full-slide ::before.
  *
  *   section.mark-*::before   mask-image: SVG + accent paint — the shapes
  *
@@ -326,13 +326,13 @@ section.tint-ambient {
  * ::before mask still dropped on PDFKit, so they're rendered as
  * box-shadow copies (no mask involved). For mark-seeds the four-
  * corner geometry has no small bbox, so it renders as stacked radial
- * gradients in --_bg-radial (gradients have no mask to drop).
+ * gradients on a full-slide ::before (gradients have no mask to drop).
  *
  * See engineering/gotchas.md → "Chromium PDF output of CSS
  * mask-image renders inconsistently across viewers".
  *
- * Marks (other than mark-seeds) carry no --_bg-radial or --_bg-linear
- * value, so they combine freely with any tint. Two marks on the same
+ * Marks carry no --_bg-radial or --_bg-linear value, so they combine
+ * freely with any tint. Two marks on the same
  * slide: ::before is a singleton so only the last-defined mark's
  * shapes render — avoid stacking two marks.
  *
@@ -432,16 +432,18 @@ section.mark-slashes::before {
 }
 
 /* mark-seeds — 12 elongated micro ellipses, three per corner.
- * Placement-agnostic. Renders as 12 stacked radial-gradients in the
- * --_bg-radial slot rather than an SVG mask: the four-corner geometry
- * can't be localised to a small bbox, so a wide ::before would fail
- * the same way an inset:0 ::before does on Apple PDFKit (mask drops,
- * full-strip background shows). Native gradients have no mask to drop.
+ * Placement-agnostic. Renders as 12 stacked radial-gradients on a
+ * full-slide (inset: 0) ::before rather than an SVG mask: the four-corner
+ * geometry can't be localised to a small bbox, and a mask on a wide ::before
+ * is what drops on Apple PDFKit (full-strip background shows). Native
+ * gradients have no mask to drop.
  *
- * Trade-off: mark-seeds is the only "mark" that consumes the
- * --_bg-radial slot, so it conflicts with corner glows, vignette,
- * spotlight, duotone. Composes cleanly with --_bg-linear classes
- * (edges, horizon, ground, sweep, ambient, frame). The original SVG
+ * Why not the --_bg-radial slot (its home until 2026-10-11): a dark slide's
+ * `section.dark` rule (0,1,1) overwrites the slot's background-image, and a
+ * finish's backdrop covers the section background, so seeds painted nothing
+ * on dark slides or under a finish. On ::before it now composes with every
+ * tint, but it shares the singleton ::before with the other marks, and a
+ * divider slide's own ::before bar (design constraint 4). The original SVG
  * used transform='rotate(...)' on each ellipse for a subtle scatter;
  * radial gradients are axis-aligned so that rotation is dropped here.
  * Imperceptible at this size.
@@ -452,7 +454,7 @@ section.mark-slashes::before {
  * the outer 20% fades to transparent for an antialiased edge.
  */
 section.mark-seeds {
-  --_bg-radial:
+  --_seeds:
     radial-gradient(ellipse 4px 8px at 92.19% 12.22%, color-mix(in srgb, var(--accent) 28%, transparent) 80%, transparent 100%),
     radial-gradient(ellipse 3px 6px at 95.47% 11.11%, color-mix(in srgb, var(--accent) 28%, transparent) 80%, transparent 100%),
     radial-gradient(ellipse 4px 8px at 98.28% 13.33%, color-mix(in srgb, var(--accent) 28%, transparent) 80%, transparent 100%),
@@ -465,6 +467,20 @@ section.mark-seeds {
     radial-gradient(ellipse 3px 6px at 94.53% 88.06%, color-mix(in srgb, var(--accent) 26%, transparent) 80%, transparent 100%),
     radial-gradient(ellipse 4px 8px at 97.66% 86.67%, color-mix(in srgb, var(--accent) 26%, transparent) 80%, transparent 100%),
     radial-gradient(ellipse 3px 6px at 91.25% 89.58%, color-mix(in srgb, var(--accent) 26%, transparent) 80%, transparent 100%);
+}
+
+section.mark-seeds:not(.divider)::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: var(--_seeds);
+}
+
+/* A divider slide draws its own bar on ::before (design constraint 4), so seeds keeps
+ * the --_bg-radial slot there, exactly as it did before it moved to ::before. */
+section.divider.mark-seeds {
+  --_bg-radial: var(--_seeds);
 }
 
 /* mark-pills — 4 horizontal pill shapes, far-right margin.

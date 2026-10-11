@@ -61,7 +61,7 @@ header: "Lattice · Marks"
 - Slot
   - The four corners.
 - Mode
-  - Reads in light. Dark mode still hides it (see the followup).
+  - Now paints on dark slides and under a finish.
 
 ---
 
