@@ -323,8 +323,8 @@ fully-rounded status/metadata chip pinned to the end of the row.
 **One exception: `collage` reads the trailing span as photo hints.** On a `collage` slide a
 trailing code span after a photo is the photo's hint list (`hero`, one of `top` `bottom` `left`
 `right` `center`, a ratio such as `3:2`), consumed before the pill pass, so it never draws.
-It is read all or nothing: if any word is not a hint, nothing is applied and the span stays an
-ordinary pill, and `collage-hint` names the word.
+It is read all or nothing: if any word is not a hint, nothing is applied, the span is
+not drawn, and `collage-hint` names the word.
 
 Authoring guidance: keep pill text to **one word (hyphenated is fine) or
 two words at most**. Pills are `white-space: nowrap`, so a long phrase

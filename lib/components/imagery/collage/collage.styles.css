@@ -56,8 +56,17 @@ section.collage .collage-list {
 	height: var(--collage-h);
 	gap: calc(var(--collage-h) * var(--collage-gap-ratio));
 }
-/* not measured yet (live preview only): hold the space, show nothing */
-section.collage .collage-list[data-collage="pending"] {
+/* Unstamped (a surface that serves the engine's HTML without the build step or the runtime): an
+ * even grid, so the photos are never a stack of full-width pictures or an empty box. The packer's
+ * inline `grid-template-*` replaces it the moment a grid is stamped. */
+section.collage .collage-list {
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+section.collage .collage-list:is([data-collage-n="5"], [data-collage-n="6"]) {
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+/* the live preview is measuring the photos: hold the space, show nothing until it packs */
+section.collage .collage-list[data-collage="measuring"] {
 	visibility: hidden;
 }
 

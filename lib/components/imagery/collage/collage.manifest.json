@@ -25,7 +25,7 @@
     "mood-board"
   ],
   "description": "Four to six photos of any shape packed edge to edge into a mood board, with the usual eyebrow, title, subtitle and description beside them.",
-  "purpose": "Use when several photographs make the argument together: a product line, a site, a collection. You list the photos; the layout reads each photo's shape and packs them with no cropping, so a tall portrait, a square and a panorama share one frame. Every photo is a rectangle of its own shape with flush edges. The packer picks the order that fits best; add `ordered` to keep the order you wrote. Live surfaces add hover focus and click-to-enlarge; a PDF is a clean static collage. Narration reads the description and then names each photo by its alt text, one sentence apiece, and the Present Guide's pointer lands on the photo as it is named. The article view lists every photo in written order.",
+  "purpose": "Use when several photographs make the argument together: a product line, a site, a collection. You list the photos; the layout reads each photo's shape and packs them with no cropping, so a tall portrait, a square and a panorama share one frame. Every photo is a rectangle of its own shape with flush edges. The packer picks the order that fits best; add `ordered` to keep the order you wrote. Live surfaces add hover focus; a PDF is a clean static collage. Narration reads the description and then names each photo by its alt text, one sentence apiece, and the Present Guide's pointer lands on the photo as it is named. The article view lists every photo in written order.",
   "variants": [
     "ordered",
     "fill",
@@ -57,7 +57,7 @@
     "photos": {
       "selector": "ul > li > img",
       "required": true,
-      "description": "One list item per photo, written as `- ![Alt text](path.jpg)`. Four to six photos. The alt text is the screen-reader label and the label in the enlarged view; it is not drawn on the tile. A trailing code span sets hints for that photo: `hero` (largest tile), one of `top` `bottom` `left` `right` `center` (which part stays in view if it is cropped), and a ratio such as `3:2` for a remote image the build cannot measure. Separate hints with commas. An unknown word voids the whole span, and it then shows as an ordinary pill."
+      "description": "One list item per photo, written as `- ![Alt text](path.jpg)`. Four to six photos. The alt text is the screen-reader label and the label in the enlarged view; it is not drawn on the tile. A trailing code span sets hints for that photo: `hero` (largest tile), one of `top` `bottom` `left` `right` `center` (which part stays in view if it is cropped), and a ratio such as `3:2` for a remote image the build cannot measure. Separate hints with commas. An unknown word voids the whole span: nothing in it applies, nothing is drawn for it, and lint names the word."
     }
   },
   "skeleton": "<!-- _class: collage -->\n\n`The atelier`\n\n## Hand-lasted, one pair at a time.\n\n`Five photographs from the autumn bench`\n\nEach pair starts as a last carved to one foot. Leather is cut by hand and finished over fourteen weeks.\n\n- ![Tall portrait](sample:photo-tall.svg) `hero`\n- ![Wide landscape](sample:photo-wide.svg)\n- ![Square](sample:photo-square.svg)\n- ![Panorama](sample:photo-pano.svg)\n- ![Narrow column](sample:photo-column.svg)\n",
@@ -142,7 +142,7 @@
     },
     {
       "mistake": "Writing hints that are not on the hint list, such as `big` or `centre`.",
-      "fix": "An unknown word voids the whole span and it renders as a pill. The words are `hero`, `top`, `bottom`, `left`, `right`, `center` and a ratio like `3:2`."
+      "fix": "An unknown word voids the whole span: nothing in it applies and nothing is drawn for it. Lint names the word. The words are `hero`, `top`, `bottom`, `left`, `right`, `center` and a ratio like `3:2`."
     }
   ],
   "dataCompletion": false,

@@ -306,3 +306,68 @@ test('narration: a collage with no alt text speaks only its prose', async () => 
   const [said] = projectDeckToSpeech(await renderedSections(COLLAGE_MD.replace(/!\[[^\]]*\]/g, '![]')));
   assert.ok(said.includes('Each pair starts as a last.') && !said.includes('Photographs'));
 });
+
+// ── regressions an independent checker reproduced ────────────────────────────────────────
+const os = require('node:os');
+const { pathToFileURL } = require('node:url');
+const { stampCollage } = require('../../../lib/core/collage-stamp');
+
+function pngFile(dir, name, w, h) {
+  const buf = Buffer.alloc(33);
+  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(buf, 0);
+  buf.writeUInt32BE(13, 8); buf.write('IHDR', 12, 'ascii'); buf.writeUInt32BE(w, 16); buf.writeUInt32BE(h, 20);
+  fs.writeFileSync(path.join(dir, name), buf);
+}
+
+test('stampCollage reads deck-relative photos from the deck folder, not from the working directory', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'collage-deck-'));
+  fs.mkdirSync(path.join(dir, 'shoes'));
+  for (const [n, w, h] of [['a', 900, 1600], ['b', 800, 1000], ['c', 1500, 1000], ['d', 1000, 1000]]) pngFile(path.join(dir, 'shoes'), `${n}.png`, w, h);
+  const html = section(['a', 'b', 'c', 'd'].map((n) => `<img src="shoes/${n}.png" alt="${n}" />`));
+  const structured = k.applyToRenderedHtml(html);
+  assert.notEqual(process.cwd(), dir, 'the test runs from somewhere else');
+  const withBase = stampCollage(structured, pathToFileURL(dir + path.sep).href);
+  assert.ok(withBase.includes('data-collage="packed"'), 'resolved against the deck folder');
+  const without = stampCollage(structured);
+  assert.ok(without.includes('data-collage="fallback"'), 'without a base the relative path is not found from here');
+});
+
+test('structure: a loose list (blank lines between bullets) builds the same collage', () => {
+  const loose = section(FOUR.map((i) => `<p>${i}</p>`));
+  const tight = section(FOUR);
+  assert.equal(k.applyToRenderedHtml(loose), k.applyToRenderedHtml(tight));
+});
+
+test('live path: three passes stamp the tiles once, and a failed photo does not burn the 4 s cap', () => {
+  const dom = new JSDOM(`<!doctype html><body>${section([
+    img('a', ' data-w="900" data-h="1600"'), img('b', ' data-w="800" data-h="1000"'),
+    img('c', ' data-w="0" data-h="0"'), img('d', ' data-w="1000" data-h="1000"'),
+  ])}</body>`);
+  const { window } = dom;
+  const proto = window.HTMLImageElement.prototype;
+  Object.defineProperty(proto, 'naturalWidth', { get() { return Number(this.getAttribute('data-w')) || 0; } });
+  Object.defineProperty(proto, 'naturalHeight', { get() { return Number(this.getAttribute('data-h')) || 0; } });
+  Object.defineProperty(proto, 'complete', { get() { return true; } }); // the broken one is complete too, with width 0
+  k.applyToDom(window.document);
+  k.applyToDom(window.document);
+  k.applyToDom(window.document);
+  const tile = window.document.querySelector('ul.collage-list > li');
+  assert.equal((tile.getAttribute('style').match(/grid-area:/g) || []).length, 1, 'one grid-area, not one per pass');
+  assert.equal(window.document.querySelector('ul.collage-list').getAttribute('data-collage'), 'fallback', 'the unreadable photo (no ratio hint) falls back to the even grid, immediately');
+});
+
+test('css: an unstamped list shows an even grid, and only a list being measured is hidden', () => {
+  const css = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'lib', 'components', 'imagery', 'collage', 'collage.styles.css'), 'utf8');
+  assert.ok(!/data-collage="pending"\]\s*\{\s*visibility:\s*hidden/.test(css), 'pending is not hidden');
+  assert.match(css, /data-collage="measuring"\]\s*\{\s*visibility:\s*hidden/);
+  assert.match(css, /grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/);
+});
+
+test('lint: collage-tail, collage-hero-dup, and `*` bullets count', () => {
+  assert.ok(rules(lintCollage(six.replace('(p1.jpg)', '(p1.jpg) `hero` a caption'))).includes('collage-tail'));
+  assert.ok(rules(lintCollage(six.replace('(p1.jpg)', '(p1.jpg) a caption'))).includes('collage-tail'));
+  assert.ok(rules(lintCollage(six.replace('(p1.jpg)', '(p1.jpg) `hero`').replace('(p2.jpg)', '(p2.jpg) `hero`'))).includes('collage-hero-dup'));
+  const starred = six.replace(/^- /gm, '* ');
+  assert.deepEqual(rules(lintCollage(starred)).filter((r) => r.startsWith('collage-')), [], 'six `*` bullets are a valid collage');
+  assert.ok(rules(lintCollage('* ![A](a.jpg)\n* ![B](b.jpg)')).includes('collage-count'), 'two `*` bullets are counted');
+});

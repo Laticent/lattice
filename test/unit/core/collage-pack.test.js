@@ -135,3 +135,56 @@ test('stage aspect table: known rows, and an unknown one falls back to landscape
   assert.equal(stageAspectEstimate({ orientation: 'nonsense', composition: 'nonsense' }), 1.41);
   assert.ok(stageAspectEstimate({ orientation: 'portrait', composition: 'beside' }) < 1);
 });
+
+// ── regressions an independent checker reproduced ────────────────────────────────────────
+// A small seeded generator so the cases are the same on every run.
+function seeded(seed) { let s = seed; return () => (s = (s * 1664525 + 1013904223) % 4294967296) / 4294967296; }
+const COMMON = [9 / 16, 0.8, 0.8, 1, 1, 1.5, 1.5, 4 / 3, 3 / 4, 16 / 9, 2 / 3, 1.5654, 1.778, 1.333, 2.667, 0.4];
+const STAGES = [1.0, 1.41, 1.9, 3.4];
+const randomSet = (rnd) => Array.from({ length: 4 + Math.floor(rnd() * 3) }, () => COMMON[Math.floor(rnd() * COMMON.length)]);
+
+test('every emitted track is positive on 300 random sets (cuts closer than one gutter used to give a negative fr)', () => {
+  const rnd = seeded(11);
+  for (let k = 0; k < 300; k++) {
+    const a = randomSet(rnd);
+    const stage = STAGES[Math.floor(rnd() * STAGES.length)];
+    for (const order of ['free', 'ordered']) {
+      const r = packCollage(a, { stageAspect: stage, order });
+      assert.ok([...r.cols, ...r.rows].every((v) => v > 0), `${order} ${JSON.stringify(a)} @${stage}: ${r.cols} | ${r.rows}`);
+    }
+  }
+});
+
+test('the exact set the checker found with a negative track packs cleanly', () => {
+  const r = packCollage([1, 0.8, 1.778, 1.333, 1.5654, 0.8], { order: 'ordered', stageAspect: 1.9 });
+  assert.ok([...r.cols, ...r.rows].every((v) => v > 0));
+});
+
+test('free order scores at least as well as ordered on 300 random sets (the dedupe used to drop the better layout)', () => {
+  const rnd = seeded(11);
+  const score = (r) => r.empty + r.crop + 1.5 * Math.max(0, 0.4 - r.ratio);
+  for (let k = 0; k < 300; k++) {
+    const a = randomSet(rnd);
+    const stage = STAGES[Math.floor(rnd() * STAGES.length)];
+    const free = packCollage(a, { stageAspect: stage, order: 'free' });
+    const ordered = packCollage(a, { stageAspect: stage, order: 'ordered' });
+    assert.ok(score(free) <= score(ordered) + 1e-9, `${JSON.stringify(a)} @${stage}: free ${score(free)} vs ordered ${score(ordered)}`);
+  }
+});
+
+test('hero on three equal photos packs as tightly as with no hero (the dedupe used to leave 53% empty)', () => {
+  const base = packCollage([1, 1, 1], { stageAspect: 1.41 });
+  for (const hero of [0, 1, 2]) {
+    const r = packCollage([1, 1, 1], { stageAspect: 1.41, hero });
+    assert.ok(r.empty <= base.empty + 0.1, `hero ${hero}: ${r.empty} vs ${base.empty}`);
+    const areas = tileSizes(r, 0.012).map((t) => t.w * t.h);
+    assert.equal(areas.indexOf(Math.max(...areas)), hero, `hero ${hero} holds the largest tile`);
+  }
+});
+
+test('the constants the CSS mirrors are the CSS values', () => {
+  const css = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', '..', '..', 'lib', 'components', 'imagery', 'collage', 'collage.styles.css'), 'utf8');
+  const { DEFAULT_GAP } = require('../../../lib/core/collage-pack');
+  assert.equal(Number(/--collage-gap-ratio:\s*([\d.]+)/.exec(css)[1]), DEFAULT_GAP, 'gap ratio');
+  assert.equal(Number(/section\.collage\.fill\s*\{[^}]*--collage-snap:\s*([\d.]+)/.exec(css)[1]), FILL_MAX, 'fill snap');
+});

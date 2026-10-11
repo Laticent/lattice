@@ -6,7 +6,7 @@
 
 **Tags** `visual` · `showcase` · `pitch` · `masonry` · `mood-board`
 
-Use when several photographs make the argument together: a product line, a site, a collection. You list the photos; the layout reads each photo's shape and packs them with no cropping, so a tall portrait, a square and a panorama share one frame. Every photo is a rectangle of its own shape with flush edges. The packer picks the order that fits best; add `ordered` to keep the order you wrote. Live surfaces add hover focus and click-to-enlarge; a PDF is a clean static collage. Narration reads the description and then names each photo by its alt text, one sentence apiece, and the Present Guide's pointer lands on the photo as it is named. The article view lists every photo in written order.
+Use when several photographs make the argument together: a product line, a site, a collection. You list the photos; the layout reads each photo's shape and packs them with no cropping, so a tall portrait, a square and a panorama share one frame. Every photo is a rectangle of its own shape with flush edges. The packer picks the order that fits best; add `ordered` to keep the order you wrote. Live surfaces add hover focus; a PDF is a clean static collage. Narration reads the description and then names each photo by its alt text, one sentence apiece, and the Present Guide's pointer lands on the photo as it is named. The article view lists every photo in written order.
 
 ## Agent contract
 
@@ -20,13 +20,13 @@ Use when several photographs make the argument together: a product line, a site,
 | `title` | `h2` | no | Optional title. A claim earns its place; a bare label does not. |
 | `subtitle` | `h2 + p > code:only-child` | no | Optional line under the title, in backticks. |
 | `description` | `p` | no | Optional description paragraph, written after the title and subtitle and before the photos. It is the slide's only caption and prints in every export. |
-| `photos` | `ul > li > img` | yes | One list item per photo, written as `- ![Alt text](path.jpg)`. Four to six photos. The alt text is the screen-reader label and the label in the enlarged view; it is not drawn on the tile. A trailing code span sets hints for that photo: `hero` (largest tile), one of `top` `bottom` `left` `right` `center` (which part stays in view if it is cropped), and a ratio such as `3:2` for a remote image the build cannot measure. Separate hints with commas. An unknown word voids the whole span, and it then shows as an ordinary pill. |
+| `photos` | `ul > li > img` | yes | One list item per photo, written as `- ![Alt text](path.jpg)`. Four to six photos. The alt text is the screen-reader label and the label in the enlarged view; it is not drawn on the tile. A trailing code span sets hints for that photo: `hero` (largest tile), one of `top` `bottom` `left` `right` `center` (which part stays in view if it is cropped), and a ratio such as `3:2` for a remote image the build cannot measure. Separate hints with commas. An unknown word voids the whole span: nothing in it applies, nothing is drawn for it, and lint names the word. |
 
 ### Common mistakes
 
 - **Writing the photos as `![bg](path)` background images.** `collage` reads inline photos in a list, one per bullet: `- ![Alt](path.jpg)`. The `bg` syntax belongs to `image`.
 - **Nesting a caption under each photo.** A collage has no per-photo captions. Write one description paragraph after the title and subtitle.
-- **Writing hints that are not on the hint list, such as `big` or `centre`.** An unknown word voids the whole span and it renders as a pill. The words are `hero`, `top`, `bottom`, `left`, `right`, `center` and a ratio like `3:2`.
+- **Writing hints that are not on the hint list, such as `big` or `centre`.** An unknown word voids the whole span: nothing in it applies and nothing is drawn for it. Lint names the word. The words are `hero`, `top`, `bottom`, `left`, `right`, `center` and a ratio like `3:2`.
 
 ## When to use
 
