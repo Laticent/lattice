@@ -109,8 +109,8 @@ const pkgVersion = () => {
 // This stylesheet is also what makes the MathML free: it clips `.katex-mathml` out
 // of the flow, so the accessible alternative costs no layout and no pixels.
 let katexCssAbsPath = '';
-// The math plugin's own copy of the sheet (lib/plugins/payload-path.js), its fonts beside it.
-try { katexCssAbsPath = require('./lib/plugins/payload-path.js').vendorPath('math', 'katex-css'); } catch (_e) { /* no css link emitted */ }
+// The math plugin's own copy of the sheet (lib/plugin-kit/payload-path.js), its fonts beside it.
+try { katexCssAbsPath = require('./lib/plugin-kit/payload-path.js').vendorPath('math', 'katex-css'); } catch (_e) { /* no css link emitted */ }
 
 // ── Plugins with a browser half (function-plot, …) ───────────────────────
 // A plugin that draws in the browser (lib/plugins/<name>/<name>.hydrate.js) reaches this page as
@@ -1594,7 +1594,7 @@ const PALETTE_VARS_PRINT = overlayPrintVars(PALETTE_VARS);
 // The band a slide renders in IS this path's `scope`: hand the kernel a band and a
 // token name, get the value that band resolves. `resolveDiagramBand` decides the
 // band (lib/core/diagram-band.js); the kernel decides when to build a palette from
-// it (lib/core/render-diagrams.js). Nothing here assembles `themeVariables`.
+// it (lib/plugins/mermaid/shared/render-diagrams.js). Nothing here assembles `themeVariables`.
 //
 // The three eager `MERMAID_THEME_VARS*` constants that used to live here are gone.
 // They resolved all 166 variables for all three bands at module load, printing a
@@ -1621,7 +1621,7 @@ function paletteVarsForBand(band) {
  * face. That is #1674 in one sentence.
  *
  * So the re-point is applied HERE, in the reader, which is where a path difference
- * belongs (`lib/core/render-diagrams.js` § THE PORT): the map stays declarative
+ * belongs (`lib/plugins/mermaid/shared/render-diagrams.js` § THE PORT): the map stays declarative
  * (`fontFamily: { var: 'font-body' }`) and both paths answer the same question.
  *
  * Only the tokens the diagram map actually reads need an entry. `base.sketch.css`
@@ -1783,6 +1783,7 @@ const bakeServices = {
   print: WANT_PRINT,
   paletteUsesTexture: PALETTE_USES_TEXTURE,
   orientation: orientationFor(resolveSize(((mdForBake.match(FRONT_MATTER_RE) || [''])[0].match(SIZE_DIRECTIVE_RE) || [])[1] || 'hd')).name,
+  paneOrientations: (src) => require('./lib/engine').paneOrientations(src),
   browser: { path: CHROME_EXEC, args: OFFLINE_ARGS },
   readToken: readScopeToken,
   scopeKey: diagramScopeKey,
@@ -2666,7 +2667,7 @@ const hasHydratedPlugins = pagePlugins.length > 0;
 // A used plugin whose library is missing draws NOTHING: the host settles every placeholder
 // `unavailable` with its config shown, and nothing is left pending for the barrier to warn about.
 // So say it here, once per plugin, rather than ship a page of JSON silently. Every first-party
-// plugin owns its copy (lib/plugins/payload-path.js), so this fires only for a damaged install.
+// plugin owns its copy (lib/plugin-kit/payload-path.js), so this fires only for a damaged install.
 for (const h of pagePlugins) {
   if (h.payload && !payloadPath(h) && !QUIET) {
     console.warn(`  ⚠ ${h.name}: its library (${h.payload.file}) is missing from the package — its figures export showing their source. Reinstall Lattice to restore it.`);
@@ -4100,11 +4101,12 @@ async function renderBody(browser, g, closeBrowser) {
       const { flattenSvgStyles: flattenPlayerSvg } = require('./lib/components/chart/_chart-family/standalone-svg.js');
       await g(() => page.evaluate(`window.__flattenSvgStyles = ${flattenPlayerSvg.toString()};`), 'player capture: inject svg flattener');
       // The motion roles the live runtime writes on every drawn diagram. The CLI's diagrams come
-      // from the render worker, not the runtime, so they arrive untagged; tagging the baked copy
-      // here is what lets a `motion: on` deck animate its diagrams in the player too.
-      // Closure-free for the same reason the flattener is.
-      const { tagMermaidMotion: tagPlayerSvg } = require('./lib/plugins/mermaid/shared/motion-roles.js');
-      await g(() => page.evaluate(`window.__tagMermaidMotion = ${tagPlayerSvg.toString()};`), 'player capture: inject diagram motion tagger');
+      // from a plugin's bake, not the runtime, so they arrive untagged; tagging the baked copy here
+      // is what lets a `motion: on` deck animate its diagrams in the player too. Each bake that
+      // draws figures publishes its own tagger (`ctx.state.motionTagger`, lib/plugins/host-bake.js),
+      // so this names no plugin. Closure-free for the same reason the flattener is.
+      const motionTaggers = [...BAKE_CONTEXTS.values()].map((c) => c.state.motionTagger).filter(Boolean);
+      await g(() => page.evaluate(`window.__motionTaggers = [${motionTaggers.map((f) => f.toString()).join(', ')}];`), 'player capture: inject diagram motion taggers');
       const baked = await g(() => page.evaluate(() => {
         // Clone — never mutate the live page; the raster below still needs it.
         const root = document.documentElement.cloneNode(true);
@@ -4121,7 +4123,9 @@ async function renderBody(browser, g, closeBrowser) {
           try {
             const flat = window.__flattenSvgStyles(live[i], window, { foreignObjectLabels: 'text' });
             // Its own try: a tagging failure costs only the motion, never the bake it rides on.
-            try { window.__tagMermaidMotion(flat); } catch (_t) { /* ships as a still */ }
+            for (const tag of window.__motionTaggers) {
+              try { tag(flat); } catch (_t) { /* ships as a still */ }
+            }
             copies[i].replaceWith(flat);
           } catch (_e) { unbaked++; }
         }

@@ -12,12 +12,12 @@
  * read here when WE decide to upgrade: bump the exact version in package.json, `npm install`, run
  * this, look at the galleries that library draws, commit. The build (lib/plugins/resolve.js) fails
  * when a copy stops matching its record, so the copy and the record can only change together. See
- * lib/plugins/payload-path.js for the three shapes a copy takes (a file, a directory, `/*.<ext>`).
+ * lib/plugin-kit/payload-path.js for the three shapes a copy takes (a file, a directory, `/*.<ext>`).
  */
 
 const fs = require('node:fs');
 const path = require('node:path');
-const { copiesOf, walk, treeSha, sha } = require('../lib/plugins/payload-path.js');
+const { copiesOf, walk, treeSha, sha } = require('../lib/plugin-kit/payload-path.js');
 
 const ROOT = path.join(__dirname, '..');
 const PLUGINS = path.join(ROOT, 'lib', 'plugins');

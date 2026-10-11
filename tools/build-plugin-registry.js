@@ -36,10 +36,13 @@
  *                                        the rows lib/core/inline-code-directives.js appends to its own.
  *   lib/plugins/services.generated.js   CommonJS. Each plugin's services (`<name>.services.js`), for
  *                                        lib/core/plugin-services.js.
+ *   lib/plugins/dispatch.generated.js   CommonJS. Each plugin's dispatch (`<name>.dispatch.js`, the
+ *                                        code that calls an extension point's fillers), for the
+ *                                        transformer that runs it (lib/transformers/chart-family.js).
  *   lib/plugins/registers.generated.js  CommonJS, data only. Each plugin's front-matter registers, for
  *                                        lib/core/register-factory.js.
  *   lib/plugins/data.generated.js       CommonJS. Each plugin's data as a LAZY loader, which the
- *                                        engine registers with lib/plugins/plugin-data.js.
+ *                                        engine registers with lib/plugin-kit/plugin-data.js.
  *   lib/plugins/data-probe.generated.mjs  ESM. Each data plugin's `detect` and on-demand file, for a
  *                                        browser surface that fetches the data before rendering.
  *
@@ -82,6 +85,7 @@ const DRAWN_LIBRARY_FILE = path.join(PLUGINS_DIR, 'drawn-library.generated.mjs')
 const EXTENSION_POINTS_FILE = path.join(PLUGINS_DIR, 'extension-points.generated.json');
 const INLINE_FILE = path.join(PLUGINS_DIR, 'inline.generated.js');
 const SERVICES_FILE = path.join(PLUGINS_DIR, 'services.generated.js');
+const DISPATCH_FILE = path.join(PLUGINS_DIR, 'dispatch.generated.js');
 const REGISTERS_FILE = path.join(PLUGINS_DIR, 'registers.generated.js');
 const DATA_FILE = path.join(PLUGINS_DIR, 'data.generated.js');
 const DATA_PROBE_FILE = path.join(PLUGINS_DIR, 'data-probe.generated.mjs');
@@ -174,8 +178,8 @@ async function readExports(folder, name, manifest) {
   out.hasDispatch = fs.existsSync(path.join(dir, `${name}.dispatch.js`));
   // Each VENDORED library copy's hash as it sits on disk ('' when missing) — a file's SHA-256 or a
   // directory's tree hash — keyed by its `file`, for the resolver to hold against the manifest's
-  // record: the copy the plugin owns is the one that ships (lib/plugins/payload-path.js).
-  const { copiesOf, copySha, walk } = require('../lib/plugins/payload-path.js');
+  // record: the copy the plugin owns is the one that ships (lib/plugin-kit/payload-path.js).
+  const { copiesOf, copySha, walk } = require('../lib/plugin-kit/payload-path.js');
   out.vendored = {};
   for (const { entry } of copiesOf(manifest)) out.vendored[entry.file] = copySha(path.join(dir, entry.file), entry.file.endsWith('/'));
   // Every file under the plugin's vendor/ folder, so the resolver can refuse one no manifest names:
@@ -627,6 +631,23 @@ module.exports = { SERVICES };
 }
 
 /**
+ * The plugins' DISPATCHES, keyed by plugin: each plugin that offers an extension point ships the
+ * code that calls its fillers (`<name>.dispatch.js`), and the transformer that runs it reaches it
+ * here, never by importing the plugin's folder (engineering/decisions/2026-10-11-codebase-structure.md).
+ * Its own module, apart from the registry, because a dispatch loads every filler and the runtime
+ * bundle that carries the chart transformer must not carry every plugin's renderer with it.
+ */
+function renderDispatch(ordered) {
+  const lines = ordered.filter((p) => Object.keys(p.manifest.contributes.extensionPoints || {}).length)
+    .map((p) => `  ${JSON.stringify(p.manifest.name)}: require('./${p.folder}/${p.manifest.name}.dispatch.js'),`);
+  return `${HEADER('The plugins\' DISPATCHES, keyed by plugin name: the code that calls each extension point\'s fillers.')}
+const DISPATCH = Object.freeze({${lines.length ? `\n${lines.join('\n')}\n` : ''}});
+
+module.exports = { DISPATCH };
+`;
+}
+
+/**
  * The plugins' front-matter REGISTERS, as data: the key (which is also the class prefix) and each
  * axis's words, default first. lib/core/register-factory.js builds each into a resolver exactly as
  * it builds \`spark:\`. Plain data, so the linter and the runtime read it for free.
@@ -644,7 +665,7 @@ module.exports = { PLUGIN_REGISTERS };
 }
 
 /**
- * Each plugin's DATA, as a lazy loader the engine registers with lib/plugins/plugin-data.js, so a
+ * Each plugin's DATA, as a lazy loader the engine registers with lib/plugin-kit/plugin-data.js, so a
  * Node render loads it on first use and never otherwise. A browser bundle that carries the engine
  * aliases THIS file to lib/plugins/data-browser-stub.js, and the data arrives as its own script.
  */
@@ -739,6 +760,7 @@ async function build(opts = {}) {
       [EXTENSION_POINTS_FILE, renderExtensionPoints(ordered)],
       [INLINE_FILE, renderInline(ordered)],
       [SERVICES_FILE, renderServices(ordered)],
+      [DISPATCH_FILE, renderDispatch(ordered)],
       [REGISTERS_FILE, renderRegisters(ordered)],
       [DATA_FILE, renderData(ordered)],
       [DATA_PROBE_FILE, renderDataProbe(ordered, exportsByName)],
@@ -762,7 +784,7 @@ async function main() {
     return;
   }
   for (const [file, text] of result.files) fs.writeFileSync(file, text);
-  if (!silent) process.stdout.write(`plugin registry: ${result.count} plugin(s) → lib/plugins/{grammar,registry,blocks,hydrate,passes,styles,bake,drawn,drawn-library,extension-points,inline,services,registers,data,data-probe}.generated.*\n`);
+  if (!silent) process.stdout.write(`plugin registry: ${result.count} plugin(s) → lib/plugins/{grammar,registry,blocks,hydrate,passes,styles,bake,drawn,drawn-library,extension-points,inline,services,dispatch,registers,data,data-probe}.generated.*\n`);
 }
 
 if (require.main === module) {

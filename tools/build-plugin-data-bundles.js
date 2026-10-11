@@ -6,7 +6,7 @@
  *
  * The engine bundle (tools/build-playground.js) aliases lib/plugins/data.generated.js to a stub, so
  * it carries no plugin's data. This script is what carries it instead: it sets
- * `globalThis.__latticePluginData[<name>]`, where lib/plugins/plugin-data.js finds it, and
+ * `globalThis.__latticePluginData[<name>]`, where lib/plugin-kit/plugin-data.js finds it, and
  * docs/src/lib/render-engine.ts loads it before rendering a deck that uses the plugin (the
  * plugin's `detect`). The KaTeX provider's shape (tools/build-katex-provider.js), for any plugin.
  *

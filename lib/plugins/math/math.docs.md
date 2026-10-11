@@ -45,7 +45,7 @@ $$
 |---|---|
 | `math.manifest.json` | the two syntax rules (`math_inline`, `math_block`), their `$` trigger and host anchors, and the `math` fence |
 | `math.syntax.mjs` | the grammar — both markdown-it rules and `detect(source)`, which also finds a ` ```math ` fence. Pure and KaTeX-free, so the boundary parser and the docs site's pre-scan import it without KaTeX's 76 KB gzip |
-| `math.render.js` | the renderers — `katex.renderToString` behind a bounded memo, and the display-equation reflow for non-16:9 decks (`lib/core/tex-linebreak.js`) — and the `math` fence renderer, which is the display renderer |
+| `math.render.js` | the renderers — `katex.renderToString` behind a bounded memo, and the display-equation reflow for non-16:9 decks (`lib/plugins/math/shared/tex-linebreak.js`) — and the `math` fence renderer, which is the display renderer |
 | `math.fixtures.md` | the conformance cases the plugin harness runs |
 
 **Options** (`createEngine`): `math: false` disables the plugin (the `$` stays text);

@@ -136,7 +136,7 @@
         },
         "data": {
           "const": true,
-          "description": "`<name>.data.generated.js` exists: plain data the plugin's kernels read through lib/plugins/plugin-data.js `pluginData(name)`, never by `require`. The engine registers a lazy loader for it (lib/plugins/data.generated.js), so a Node render loads it on first use; a browser bundle aliases that file to a stub and the data arrives as its own script (`globalThis.__latticePluginData`), fetched only for a deck that uses the plugin."
+          "description": "`<name>.data.generated.js` exists: plain data the plugin's kernels read through lib/plugin-kit/plugin-data.js `pluginData(name)`, never by `require`. The engine registers a lazy loader for it (lib/plugins/data.generated.js), so a Node render loads it on first use; a browser bundle aliases that file to a stub and the data arrives as its own script (`globalThis.__latticePluginData`), fetched only for a deck that uses the plugin."
         },
         "styles": {
           "const": true,
@@ -231,7 +231,7 @@
     },
     "vendor": {
       "type": "object",
-      "description": "Third-party libraries the plugin OWNS a committed copy of that are not its browser `payload`: a renderer's library (KaTeX, with its stylesheet and fonts) or the bake's (ZenUML, mermaid-cli's render page). Every surface reads the copy (lib/plugins/payload-path.js `vendorPath`), never the installed package, and the build fails when a copy stops matching `sha256`. `npm run vendor:plugins` refreshes a copy and its record together.",
+      "description": "Third-party libraries the plugin OWNS a committed copy of that are not its browser `payload`: a renderer's library (KaTeX, with its stylesheet and fonts) or the bake's (ZenUML, mermaid-cli's render page). Every surface reads the copy (lib/plugin-kit/payload-path.js `vendorPath`), never the installed package, and the build fails when a copy stops matching `sha256`. `npm run vendor:plugins` refreshes a copy and its record together.",
       "additionalProperties": {
         "type": "object",
         "additionalProperties": false,

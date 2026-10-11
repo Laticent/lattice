@@ -1498,7 +1498,7 @@ function checkComponentCss(manifests, errors) {
 // Recursively list every .css file under a directory.
 /**
  * A plugin's `vendor/` folder: a third-party library the plugin OWNS a committed copy of
- * (`payload.vendored`, lib/plugins/payload-path.js — Mermaid's minified build). It is not our
+ * (`payload.vendored`, lib/plugin-kit/payload-path.js — Mermaid's minified build). It is not our
  * source, so no source gate reads it, exactly as none read the repo-root copy it replaced: its
  * integrity is held instead by the SHA-256 the plugin resolver checks against the manifest.
  */
@@ -6714,7 +6714,7 @@ function checkE2ESleeps(errors, e2eDir = path.join(ROOT, 'docs', 'e2e'), sanctio
 
 // ── The preview's diagram SCOPE KEY invariant (#1332 step 3) ────────────────────
 //
-// `lib/core/diagram-scope.js` keys the preview's Mermaid palette on a section's CLASS
+// `lib/plugins/mermaid/shared/diagram-scope.js` keys the preview's Mermaid palette on a section's CLASS
 // LIST plus its inline style, so two sections agreeing on both share one resolved
 // palette — that grouping is what keeps the cost at one build per band instead of one
 // per slide. It is sound only while every declaration of a diagram token comes from
@@ -6820,7 +6820,7 @@ function checkDiagramScopeSelectors(errors) {
         errors.push(
           `${rel} declares diagram token(s) ${declared.map((t) => `--${t}`).join(', ')} from the selector ` +
           `"${sel}", which is not \`:root\` or a \`section\` + class compound. The preview keys its ` +
-          `Mermaid palette on a section's CLASS LIST (lib/core/diagram-scope.js, #1332 step 3), so a token ` +
+          `Mermaid palette on a section's CLASS LIST (lib/plugins/mermaid/shared/diagram-scope.js, #1332 step 3), so a token ` +
           `set by a positional / attribute / :has() / container selector lets two same-classed slides ` +
           `resolve DIFFERENT palettes and still share one — i.e. one slide renders with another slide's ` +
           `baked ink (#1326). Move the declaration onto a class compound, or change the scope key to ` +

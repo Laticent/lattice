@@ -24,12 +24,16 @@
 // exemption is moot and every remaining call site goes through this module.)
 
 import { appendAutoGlossary } from '../../../lib/core/glossary-auto.mjs';
-import { sourceHasMath } from '../../../lib/plugins/math/math.syntax.mjs';
+import { PLUGIN_GRAMMAR } from '../../../lib/plugins/grammar.generated.mjs';
 import { renderWithCodePackages } from './code-packages/entry';
 import { ensureFenceLanguages } from './ensure-hljs-language';
 import { deriveKatexProviderUrl, ensureKatexProvider } from './ensure-katex';
 import { ensurePluginData } from './ensure-plugin-data';
 import type { LatticePlaygroundEngine } from './playground-global';
+
+// The math plugin's own `detect` (math.syntax.mjs `sourceHasMath`), through the generated grammar
+// table, never by importing the plugin's folder (tools/structure.js holds that line).
+const sourceHasMath = PLUGIN_GRAMMAR.find((p) => p.name === 'math')?.detect as (src: string) => boolean;
 
 export type RenderMarkdownOpts = {
 	baseUrl?: string;

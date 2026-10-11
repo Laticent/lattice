@@ -44,7 +44,7 @@ import { type Breakpoint, hasFinePointer, readBreakpoint, readLandscapePhone, us
 import { cn } from '@/lib/utils';
 import { applyReadAloudDebugParam } from '@/playground/readaloud-overlay-prefs';
 import { onToursEnabledChange, toursEnabled } from '@/playground/tour-prefs.js';
-import { sourceHasMath } from '../../../../lib/plugins/math/math.syntax.mjs';
+import { PLUGIN_GRAMMAR } from '../../../../lib/plugins/grammar.generated.mjs';
 import { attachPreviewZoom, type PreviewZoomHandle } from '../../lib/preview-zoom';
 import { tapVideoAt } from '../../playground/video-overlay.js';
 import { AcronymEditor } from './AcronymEditor';
@@ -137,6 +137,10 @@ import { mayReferenceWebImage } from './web-image-hint';
 import type { WebImageSummary } from './web-images';
 import { isEvictionProneBrowser, takeRestoreReport } from './workspace-backup-meta';
 import { workspaceLensConfig } from './workspace-lenses';
+
+// The math plugin's own `detect` (math.syntax.mjs `sourceHasMath`), through the generated grammar
+// table, never by importing the plugin's folder (tools/structure.js holds that line).
+const sourceHasMath = PLUGIN_GRAMMAR.find((p) => p.name === 'math')?.detect as (src: string) => boolean;
 
 // What "Import deck…" offers in the file picker — every format deck-import.ts reads. Kept
 // here, not in deck-import.ts, so the picker never pulls the reader onto the eager path.

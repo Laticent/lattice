@@ -1189,7 +1189,7 @@ section.math.math.form.canvas:where([data-family="tall"], [data-family="strip"])
 
 /* ── The REFLOWED display scale (#2136, lever 2) ──
  *
- * `lib/core/tex-linebreak.js` breaks a display equation that is too long for anything but a
+ * `lib/plugins/math/shared/tex-linebreak.js` breaks a display equation that is too long for anything but a
  * 16:9 slide onto `aligned` lines, and marks the paragraph `data-math-reflow="N"`. This is
  * the other half of that move: a broken equation is set SMALLER than a single-line hero.
  *

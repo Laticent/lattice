@@ -57,7 +57,7 @@ const PARTS = [
   // formats), and imports nothing: its own part, at the bottom, wherever its folder is.
   { part: 'lib/schemas', layer: 0, match: (f) => /^lib\/.*\.schema\.json$/.test(f) },
   { part: 'lib/core', layer: 1, match: 'lib/core/' },
-  { part: 'lib/plugin-kit', layer: 2, match: 'lib/plugin-kit/' },
+  { part: 'lib/plugin-kit', layer: 3, match: 'lib/plugin-kit/' },
   { part: 'lib/theme', layer: 2, match: 'lib/theme/' },
   { part: 'lib/tokens', layer: 2, match: 'lib/tokens/' },
   { part: 'lib/integrations', layer: 2, match: 'lib/integrations/' },

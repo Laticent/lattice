@@ -43,7 +43,7 @@ import {
 } from '../../../lib/diagnostics/slice-equivalence-core.mjs';
 import { drawnLibraryPreload } from '../../../lib/plugins/drawn-library.mjs';
 import { drawnFenceCount } from '../../../lib/plugins/drawn-probe.mjs';
-import { sourceHasMath } from '../../../lib/plugins/math/math.syntax.mjs';
+import { PLUGIN_GRAMMAR } from '../../../lib/plugins/grammar.generated.mjs';
 import { applyDebug } from '../playground/debug-overlay.js';
 import { hashString, linkGuardAgent, previewDiagramsAttr } from '../playground/deck-preview.js';
 import { hasFidelityListeners, recordFidelity } from '../playground/fidelity-findings';
@@ -58,6 +58,10 @@ import { renderMarkdown } from './render-engine';
 import { samplesBaseFor } from './samples-base';
 import { sanitizeSlideHtml } from './sanitize-slide-html.js';
 import { createThemeFetcher } from './theme-fetch';
+
+// The math plugin's own `detect` (math.syntax.mjs `sourceHasMath`), through the generated grammar
+// table, never by importing the plugin's folder (tools/structure.js holds that line).
+const sourceHasMath = PLUGIN_GRAMMAR.find((p) => p.name === 'math')?.detect as (src: string) => boolean;
 
 // NO CDN CONSTANT HERE — deliberately. A hardcoded third-party bundle URL used to sit
 // behind the Mermaid URL option as its default; see deck-preview.js's note for why it was

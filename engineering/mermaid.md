@@ -1177,7 +1177,7 @@ Three things follow, and all three are load-bearing:
 - **The palette is applied per BAND, not per diagram.** `mermaid.initialize` is
   global and `mermaid.render` takes no config, so per-slide themeVariables mean
   re-initializing between diagrams that resolve differently. Diagrams are grouped by
-  the slide's cascade-context key (`lib/core/diagram-scope.js`) and the palette is
+  the slide's cascade-context key (`lib/plugins/mermaid/shared/diagram-scope.js`) and the palette is
   built and applied once per group — one to three groups per deck, never one per
   slide. Rebuilding 166 variables per fence on a 150 ms debounce is what that avoids.
 - **The renders are ordered against the config.** One promise chain, so
@@ -1198,7 +1198,7 @@ there is no `getComputedStyle` there to be slow.
 ### The kernel drives; the paths supply capabilities (#1332 step 4)
 
 Neither path assembles a palette any more. `renderDiagrams`
-(`lib/core/render-diagrams.js`) walks the deck, resolves each slide's
+(`lib/plugins/mermaid/shared/render-diagrams.js`) walks the deck, resolves each slide's
 `themeVariables` from the one map, and calls the path back:
 
 ```js
@@ -1212,7 +1212,7 @@ through the sketch re-point the offline reader cannot see in the cascade), the p
 the `<section>` element itself.
 `scopeKey(scope)` names the palette that scope resolves, so the theme is built once
 per distinct palette rather than once per slide: the band string on the PDF path, the
-section's class signature (`lib/core/diagram-scope.js`) on the preview. Two spellings
+section's class signature (`lib/plugins/mermaid/shared/diagram-scope.js`) on the preview. Two spellings
 of "these slides paint the same", which is all the kernel needs.
 
 There is **no `finishTheme` port**, and there is no key a path may differ on. Both

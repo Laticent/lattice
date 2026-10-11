@@ -2,7 +2,7 @@
 // tools/build-plugin-data-bundles.js): the icons plugin's drawings, today. The engine bundle carries
 // no plugin's data (tools/build-playground.js stubs lib/plugins/data.generated.js), so a deck that
 // uses a data plugin fetches its script once, before its first render, and every later render
-// finds it in `globalThis.__latticePluginData` (lib/plugins/plugin-data.js). The KaTeX provider's
+// finds it in `globalThis.__latticePluginData` (lib/plugin-kit/plugin-data.js). The KaTeX provider's
 // shape (ensure-katex.ts): a classic <script>, a per-URL promise, a bounded poll.
 //
 // Best-effort: a failed load never fails the render. The plugin's spans stay as the author wrote

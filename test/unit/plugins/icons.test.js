@@ -11,7 +11,7 @@ const icons = require('../../../lib/plugins/icons/icons.inline.js');
 const pills = require('../../../lib/core/inline-pills.js');
 const VOCAB = require('../../../lib/plugins/icons/icons.vocab.generated.js');
 const DATA = require('../../../lib/plugins/icons/icons.data.generated.js');
-const { provideData } = require('../../../lib/plugins/plugin-data.js');
+const { provideData } = require('../../../lib/plugin-kit/plugin-data.js');
 
 // The engine registers the loader; a unit test that never builds an engine does it itself.
 provideData('icons', () => DATA);

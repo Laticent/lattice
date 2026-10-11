@@ -48,7 +48,7 @@ No color library. The kernel is `lib/core/color.js` and `lib/theme/cvd.js`.
 | CSS lexing | `lib/core/css-comments.mjs` (`eachCssRun`), `lib/core/css-scan.js` | One state machine for comments, strings and `url(` per CSS Syntax; escape decoding with position mapping feeds the exfiltration scanners. |
 | The compile pipeline | `lib/engine/slides.js`, `lib/engine/directives.js`, `lib/transformers/registry.js` | markdown-it core rules, then ordered HTML passes. Directive scoping: spot replaces global, global carries forward. |
 | Topological order for plugins | `lib/plugins/resolve.js` | Kahn's algorithm, ties broken by name for determinism, cycles reported with their path. |
-| TeX display-equation reflow | `lib/core/tex-linebreak.js`, `lib/plugins/math/math.render.js` | A nesting-depth scan finds the binary operators safe to break at (a binary `+`, not a unary sign), then descends once into the group that dominates the long side; the header explains why depth-0 alone is a regression. `math.render.js` re-typesets with KaTeX and falls back on error. |
+| TeX display-equation reflow | `lib/plugins/math/shared/tex-linebreak.js`, `lib/plugins/math/math.render.js` | A nesting-depth scan finds the binary operators safe to break at (a binary `+`, not a unary sign), then descends once into the group that dominates the long side; the header explains why depth-0 alone is a regression. `math.render.js` re-typesets with KaTeX and falls back on error. |
 | Parser memo | `lib/engine/index.js` | Single entry, keyed on the full input set, guarded by a byte comparison over every committed deck. |
 | Untrusted transform rules | `lib/core/transform-dsl/` | A closed operation set, one forward pass, budgets, idempotence. Prototype, not wired in. |
 | Edit distance | `lib/authoring/lint-core.js`, `docs/src/lib/intent-search.ts` | Bounded Levenshtein with early exit, for "did you mean" and typo repair. |
@@ -153,7 +153,7 @@ Transformers.js (embeddings) loads from a CDN at runtime
 Each of these is a choice, not a gap; read the linked reason before adding one.
 
 - **No shrink-to-fit by binary search.** The Fit Spine's order is collapse, shed, split,
-  never scale (`lib/core/tex-linebreak.js` header restates it). Two bounded exceptions
+  never scale (`lib/plugins/math/shared/tex-linebreak.js` header restates it). Two bounded exceptions
   exist: the word cloud's stepped 0.9× retries, and reflowed display equations, which
   `lib/components/math/math/math.styles.css` argues are not the forbidden shrink.
 - **No Knuth–Plass line breaking or hyphenation dictionaries.** Line breaking is the
