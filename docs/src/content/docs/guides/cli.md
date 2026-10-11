@@ -138,8 +138,13 @@ the deck's font, over a picture of the slide with the text removed:
 npx lattice deck.md deck.pptx --editable
 ```
 
-Charts, diagrams and equations stay part of the picture. PowerPoint shows the
-deck's fonts only where they are installed.
+Charts, diagrams and equations stay part of the picture. The `.pptx` carries the
+deck's fonts, but an app that ignores embedded fonts (LibreOffice, Keynote, Google
+Slides) shows the deck's fonts only where they are installed. Without them every
+word is measured in a substitute font, so lines run wider or narrower than the
+slide's picture, and a small picture set inside a sentence (an icon, a spark or an
+avatar) can sit off its words. Install the deck's fonts, or use the picture
+`.pptx` or the PDF when the layout must hold exactly.
 
 ### Make a LibreOffice deck
 
