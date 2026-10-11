@@ -23,7 +23,7 @@ const {
   FRONT_MATTER_TYPE, BLOCK_NOTE, readFrontMatterBlock, frontMatterBlock,
   withoutFrontMatterBlock, withoutLocalAssetRefs, readBakedFrontMatter,
 } = require('../../../lib/core/deck-front-matter');
-const { withRuntimeScripts } = require('../../../lib/core/marp-bundle');
+const { withRuntimeScripts } = require('../../../lib/export/marp-bundle');
 
 const DECK = ['---', 'marp: true', 'theme: indaco', 'color-mode: dark', 'logo: assets/mark.svg', '---', '', '# A', ''].join('\n');
 
@@ -185,7 +185,7 @@ describe('deck front matter — a producer that cannot carry local files', () =>
   });
 
   test('localAssets:false keeps a relative logo the producer bundled (bundledAssets)', () => {
-    // The in-browser producer fetches `sample:` art into assets/ (lib/core/marp-bundle.js
+    // The in-browser producer fetches `sample:` art into assets/ (lib/export/marp-bundle.js
     // withSampleAssets), so that one relative path is in the bundle and must survive.
     const doc = (src, opts) => new JSDOM(`<section>${frontMatterBlock(src, opts)}</section>`).window.document;
     const src = '---\nlogo: assets/logo-acme-mark.svg\n---\n# A\n';

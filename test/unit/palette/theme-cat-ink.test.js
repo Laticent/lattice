@@ -20,7 +20,7 @@ const assert = require('node:assert/strict');
 const {
   solveInk, solveInkArm, bestEffortInk, feasibleRange, armCollapsed, separationTarget,
 } = require('../../../lib/theme/cat-ink.js');
-const { contrastRatio, hexToOklch, oklabDistance } = require('../../../lib/theme/color.js');
+const { contrastRatio, hexToOklch, oklabDistance } = require('../../../lib/core/color.js');
 
 // A cycle of twelve distinguishable hues, in the shape a real palette ships.
 const HUES = ['#2E608A', '#8A2E60', '#608A2E', '#333333', '#AAAAAA', '#4444AA',

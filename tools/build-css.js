@@ -47,13 +47,13 @@ const fs = require('node:fs');
 const { themeEntries, themePath } = require('../lib/theme/files.js');
 const path = require('node:path');
 const { minifyCss } = require('./minify-css');
-const { sizeBlock } = require('../lib/engine/sizes');
+const { sizeBlock } = require('../lib/core/sizes');
 
 /**
  * Stamp the engine's size registry into a stylesheet's `@theme` comment, as the
  * `@size` directives Marp reads.
  *
- * The engine owns the page box (lib/engine/sizes.js) and resolves geometry from
+ * The engine owns the page box (lib/core/sizes.js) and resolves geometry from
  * that table, so no SOURCE stylesheet carries `@size` any more. Marp is a
  * different consumer: marp-cli and the Marp for VS Code extension read geometry
  * out of the theme comment, and they only ever see dist/ — so the requirement is

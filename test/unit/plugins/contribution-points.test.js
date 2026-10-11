@@ -113,7 +113,7 @@ describe('the register factory builds a plugin register as it builds spark:', ()
 
 describe('services and plugin data at run time', () => {
   test('a service is handed out by name, and withheld when its plugin is off', () => {
-    const { service } = require('../../../lib/plugins/services');
+    const { service } = require('../../../lib/core/plugin-services');
     assert.equal(typeof service('icons', 'drawHtml'), 'function');
     assert.equal(service('icons', 'drawHtml', new Set(['icons'])), null);
     assert.equal(service('icons', 'nope'), null);

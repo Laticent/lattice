@@ -104,7 +104,7 @@
         },
         "services": {
           "type": "array",
-          "description": "Named functions other code may call through the host (lib/plugins/services.js `service(plugin, name)`), never by importing the plugin: with the plugin off, the caller gets null and renders without it. The plugin's `<name>.services.js` exports a `services` object with exactly these keys. Light, like `inline`. In-tree only.",
+          "description": "Named functions other code may call through the host (lib/core/plugin-services.js `service(plugin, name)`), never by importing the plugin: with the plugin off, the caller gets null and renders without it. The plugin's `<name>.services.js` exports a `services` object with exactly these keys. Light, like `inline`. In-tree only.",
           "minItems": 1,
           "uniqueItems": true,
           "items": {"type": "string", "pattern": "^[a-z][a-zA-Z0-9]*$"}

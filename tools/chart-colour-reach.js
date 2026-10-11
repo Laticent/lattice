@@ -53,7 +53,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
-const { hexToOklch, rgbToHex } = require('../lib/theme/color');
+const { hexToOklch, rgbToHex } = require('../lib/core/color');
 
 const REPO = path.resolve(__dirname, '..');
 const DEFAULT_DECK = path.join(REPO, 'lib/components/chart/chart.gallery.md');

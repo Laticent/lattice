@@ -126,7 +126,7 @@ coordinated rewrite" and reached a firm end:
   at a fraction of the risk. `base.variants.css` now carries essentially no
   cascade-workaround `!important`.
 - **Stage 2 (full layering) VETOED by R-PATH.** Export-to-Marp
-  (`lib/core/marp-bundle.js`) and the marp-vscode preview style decks with
+  (`lib/export/marp-bundle.js`) and the marp-vscode preview style decks with
   **marp-core's own unlayered scaffold CSS, which Lattice does not emit and
   cannot wrap.** Layering `lattice.css` while marp-core's scaffold stays
   unlayered re-creates the rule-3 trap with **marp-core winning** → a broken

@@ -14,7 +14,7 @@ const { JSDOM } = require('jsdom');
 
 const { createEngine } = require('../../../lib/engine');
 const { refuseAuthorMarkup, refuseAuthorMarkupInSource, HOST_MARKERS, BAKE_WRITTEN } = require('../../../lib/plugins/author-markup.js');
-const { withRuntimeScripts } = require('../../../lib/core/marp-bundle.js');
+const { withRuntimeScripts } = require('../../../lib/export/marp-bundle.js');
 const { markPluginsOff } = require('../../../lib/plugins/mark-off.mjs');
 const { RUNTIME_DRAWN } = require('../../../lib/plugins/drawn.generated.mjs');
 const { EXCLUDE_MIRRORS_SHELL } = require('../../helpers/generated-mirrors.js');
@@ -150,7 +150,7 @@ describe('an author cannot write the host\'s figure markers', () => {
 });
 
 // An Export-to-Marp bundle is rendered by MARP with `html: true`, not by the engine, so the producer
-// refuses the same markup in the deck's source (lib/core/marp-bundle.js `withRuntimeScripts`). Marp's
+// refuses the same markup in the deck's source (lib/export/marp-bundle.js `withRuntimeScripts`). Marp's
 // tokenizer is markdown-it, so markdown-it with `html: true` stands in for it here, and jsdom judges
 // what the browser reads; test/integration/export/marp-admission.test.js runs the real marp-cli.
 describe('an Export-to-Marp bundle refuses the same markup in its source', () => {

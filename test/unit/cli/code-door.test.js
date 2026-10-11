@@ -1,8 +1,8 @@
 /**
  * The door for code packages, the parts that need no browser: the registry slot and its hook
- * (lib/transformers/code-packages.js), the shared kernel (lib/packages/code-door-core.mjs), the
+ * (lib/transformers/code-packages.js), the shared kernel (lib/core/code-door-core.mjs), the
  * CLI's capture and substitute hooks (lib/packages/code-door.js), consent (lib/packages/trust.js),
- * the gate (lib/packages/gate.js refuseCode), the attribute rule (lib/core/door-attr.mjs
+ * the gate (lib/cli/package-gate.js refuseCode), the attribute rule (lib/core/door-attr.mjs
  * doorFilterAttr) and the OS layer's user (lib/core/os-sandbox.js). The door run through the real
  * CLI, with a network log, is test/integration/export/code-package-door.test.js.
  */
@@ -11,10 +11,10 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { claimedSlides, spliced, withFailureNote, printableLine, engineClaimsOf, slideInput } = require('../../../lib/packages/code-door-core.mjs');
+const { claimedSlides, spliced, withFailureNote, printableLine, engineClaimsOf, slideInput } = require('../../../lib/core/code-door-core.mjs');
 const { ENGINE_CLAIMS, untrustedCodePackages, captureHook, substituteHook } = require('../../../lib/packages/code-door.js');
 const { codeDigest, isTrusted, grantTrust, revokeTrust, readTrust, trustFile } = require('../../../lib/packages/trust.js');
-const { refuseCode } = require('../../../lib/packages/gate.js');
+const { refuseCode } = require('../../../lib/cli/package-gate.js');
 const { unprivilegedUser, apparmorRestrictsUserns, processSeccompFiltered, offReason, offRemedy } = require('../../../lib/core/os-sandbox.js');
 const { cssRefTargets, doorFilterAttr, handedOf } = require('../../../lib/core/door-attr.mjs');
 const engine = require('../../../lib/engine');
@@ -293,7 +293,7 @@ describe('the OS layer', () => {
   });
 
   test('the consent text carries the remedy for the reason the layer is off', () => {
-    const { consentText } = require('../../../lib/packages/cli.js');
+    const { consentText } = require('../../../lib/cli/packages.js');
     const p = pkg('export default () => {}');
     const off = (reason) => ({ summary: 'OFF: the renderer runs as runner without Chromium’s OS sandbox', layer: { os: 'off', tried: ['with the OS sandbox: Failed to launch the browser process!'], reason } });
     const line = (probed) => consentText('component', 'tally', p, probed).find((l) => l.includes('the OS sandbox on this machine'));
@@ -353,7 +353,7 @@ describe('the OS layer', () => {
 });
 
 describe('the final checker: what a later pass or the runtime acts on', () => {
-  const { codeNameRefusal } = require('../../../lib/packages/code-door-core.mjs');
+  const { codeNameRefusal } = require('../../../lib/core/code-door-core.mjs');
   const filterFor = (pkg, handedAttrs = []) => doorFilterAttr(handedOf([{ localName: 'section', attributes: [{ name: 'class', value: pkg }, ...handedAttrs] }], pkg));
 
   test('an own-name class that merely contains a runtime selector is not the package’s to add', () => {
@@ -435,7 +435,7 @@ describe('doorFinish: the handed classes come back', () => {
 });
 
 describe('workerScript: the second wall', () => {
-  const { workerScript, WORKER_NETWORK } = require('../../../lib/packages/code-door-core.mjs');
+  const { workerScript, WORKER_NETWORK } = require('../../../lib/core/code-door-core.mjs');
   const vm = require('node:vm');
   // In a context of its own: the wall takes `Function` off every function's prototype, and in this
   // process that would break every test after it. Returns the context, to look at its builtins.
@@ -497,7 +497,7 @@ describe('workerScript: the second wall', () => {
 });
 
 describe('codeSyntaxRefusal: a dynamic import(), parsed', () => {
-  const { codeSyntaxRefusal, checkedWorkerScript } = require('../../../lib/packages/code-syntax.mjs');
+  const { codeSyntaxRefusal, checkedWorkerScript } = require('../../../lib/core/code-syntax.mjs');
   const pkgCode = (body) => `function t(s){${body};return s.html}export{t as default};`;
 
   test('refused wherever it sits, however it is spelled', () => {
@@ -533,14 +533,14 @@ describe('codeSyntaxRefusal: a dynamic import(), parsed', () => {
   });
 
   test('the CLI gate refuses it at add and at render', () => {
-    const { refusePackage } = require('../../../lib/packages/gate.js');
+    const { refusePackage } = require('../../../lib/cli/package-gate.js');
     const p = pkg(pkgCode('import("http://x/")'));
     assert.match(refusePackage(p), /dynamic `import\(\)`/);
     assert.match(refusePackage(p, { forRender: true }), /dynamic `import\(\)`/);
   });
 
   test('a plugin package is refused by name, with the string the Studio import uses too', () => {
-    const { refusePackage } = require('../../../lib/packages/gate.js');
+    const { refusePackage } = require('../../../lib/cli/package-gate.js');
     const { PLUGIN_REFUSAL } = require('../../../lib/packages/plugin-refusal.js');
     // Code-free and with code alike: the name decides, before any file is judged.
     assert.equal(refusePackage({ type: 'plugin', name: 'glow', code: false, files: {}, roles: {} }), PLUGIN_REFUSAL);

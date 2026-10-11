@@ -61,7 +61,7 @@ describe('autofix replacements — finding 3', () => {
 
 describe('author text in a string replacement — the rest of finding 3\'s class', () => {
   test('a QR label holding `$&` keeps it', () => {
-    const { qrSvg } = require('../../../lib/engine/qr.js');
+    const { qrSvg } = require('../../../lib/components/connect/_qr-card/qr.js');
     const out = qrSvg('https://example.com', { label: 'Pay $& now' });
     assert.match(out, /aria-label="Pay \$&amp; now"/);
     assert.match(out, /<title>Pay \$&amp; now<\/title>/);
@@ -133,7 +133,7 @@ describe('author text in a string replacement — a class escaped once, and the 
   });
 
   test('the CLI `--size` rewrite keeps a `$&` or `$1` as typed, and a CRLF line ending', () => {
-    const { withSize } = require('../../../lib/engine/sizes.js');
+    const { withSize } = require('../../../lib/core/sizes.js');
     assert.match(withSize('---\nsize: 4:3\n---\nx', 'a$&b$1'), /^size: a\$&b\$1$/m);
     assert.match(withSize('---\r\nsize: 4:3\r\n---\r\nx', 'a$&b'), /size: a\$&b\r\n/);
   });

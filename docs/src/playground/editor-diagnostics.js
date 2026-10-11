@@ -98,7 +98,7 @@ export function buildVocabSets(vocab) {
 	}
 	if (v.capacity) sets.capacity = v.capacity; // per-layout content-capacity contract
 	// No `sizes` handoff: lint-core imports the engine's size registry directly
-	// (lib/engine/sizes.js is pure and fs-free), so the browser linter derives the
+	// (lib/core/sizes.js is pure and fs-free), so the browser linter derives the
 	// deck's adaptive family from the renderer's own table rather than from a
 	// snapshot passed across the boundary.
 	if (v.exclusiveAxes) sets.exclusiveAxes = v.exclusiveAxes; // conflicting-variants axes

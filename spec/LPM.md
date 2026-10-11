@@ -153,14 +153,14 @@ plugin that draws a fence from its code block is not admitted, renames its `lang
 name rather than by tag, because an attribute selector matches a name exactly: no tokenizer
 disagreement can smuggle one through. On the default set (b) never fires, and (a) changes no
 tracked deck. **An Export-to-Marp bundle** is rendered by Marp, not the engine, so its producer
-(`withRuntimeScripts`, lib/core/marp-bundle.js) applies the same (a) and (b) to the deck's SOURCE
+(`withRuntimeScripts`, lib/export/marp-bundle.js) applies the same (a) and (b) to the deck's SOURCE
 (`refuseAuthorMarkupInSource`): it parses the deck as Marp does (markdown-it, `html: true`) and
 renames on the lines of every raw-HTML token, leaving code fences their bytes; and it refuses the
 front matter and every HTML comment whole, after undoing YAML's double-quoted escapes, because
 Marpit decodes those as YAML and renders `header:` and `footer:`. The bundled runtime marks a
 left-off plugin's fences by the substring its pass reads them by (`code[class*="language-<fence>"]`,
 lib/plugins/mark-off.mjs), so a `language-<fence>-source` block is marked too. **An Export-to-Marp bundle** is rendered by Marp, not the engine, so its producer
-(`withRuntimeScripts`, lib/core/marp-bundle.js) applies the same (a) and (b) to the deck's SOURCE:
+(`withRuntimeScripts`, lib/export/marp-bundle.js) applies the same (a) and (b) to the deck's SOURCE:
 it parses the deck as Marp does (markdown-it, `html: true`) and renames on the lines of every
 raw-HTML token, leaving code fences their bytes (`refuseAuthorMarkupInSource`); and the bundled
 runtime marks a left-off plugin's fences by the substring its pass reads them by
@@ -444,7 +444,7 @@ lattice packages new plugin <name>
 writes a folder with a manifest, a fence renderer, a stylesheet, docs and fixtures. Run
 `npm run build` to regenerate the registry; the scaffold then passes `npm run build:check`,
 `npm run test:plugins` and the full `npm test` unedited — its Marp-export row is derived from its
-manifest (`lib/core/marp-fidelity.js`). The name must be free: not a plugin, a plugin fence, a
+manifest (`lib/export/marp-fidelity.js`). The name must be free: not a plugin, a plugin fence, a
 highlight.js language or alias, and at most 64 characters.
 
 ## 12. Changes

@@ -305,7 +305,7 @@ anchors). Both are binding; the split tells you *where the enforcement lives*.
   kernel (`lib/integrations/markdown-it/plugins.js`, `lib/transformers/*`,
   `lib/core/*`), not one path. The owned `lib/engine` is canonical; Marp is
   retired as a render path (the one Marp surface left is export-to-Marp,
-  `lib/core/marp-bundle.js`). See `engineering/architecture.md`.
+  `lib/export/marp-bundle.js`). See `engineering/architecture.md`.
 - **#2 — Never hand-edit `dist/`** — it's generated; regenerate with `npm run build`.
 - **#3 — No hex literals in layout CSS — always `var(--token)`.** *(gated —
   `checkHexLiterals` in `tools/check-ownership.js`, via `build:check`; budget 0 + a small

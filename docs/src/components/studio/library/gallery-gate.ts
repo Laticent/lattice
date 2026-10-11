@@ -1,5 +1,5 @@
 // Does a component package's sample slide (`gallery.md`) fetch anything from the network?
-// The Studio's half of the check; the CLI's is `lib/packages/gallery-gate.js`, and both hand
+// The Studio's half of the check; the CLI's is `lib/cli/gallery-gate.js`, and both hand
 // the parsed elements to the same `lib/core/remote-ref.js` scan (HARD RULE #22).
 //
 // Insert makes a gallery the user's own deck content, so a remote image in it is a beacon in

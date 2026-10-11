@@ -78,8 +78,8 @@ test('each source is pinned exactly, installed at the build the copy came from, 
 });
 
 test('every surface reads the plugin\'s copy', () => {
-  // The Marp kit and the Export-to-Marp bundle (lib/core/marp-bundle.js STATIC_ASSETS; the kit derives from it).
-  const { STATIC_ASSETS } = require('../../../lib/core/marp-bundle.js');
+  // The Marp kit and the Export-to-Marp bundle (lib/export/marp-bundle.js STATIC_ASSETS; the kit derives from it).
+  const { STATIC_ASSETS } = require('../../../lib/export/marp-bundle.js');
   assert.equal(STATIC_ASSETS.find((a) => a.to === 'mermaid-v11-min.js')?.from, 'lib/plugins/mermaid/vendor/mermaid.min.js');
   // The CLI bake: Mermaid, ZenUML and mermaid-cli's render page.
   const { resolveBundles } = require('../../../lib/plugins/mermaid/shared/render-worker.js');

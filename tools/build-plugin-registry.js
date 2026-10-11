@@ -35,7 +35,7 @@
  *   lib/plugins/inline.generated.js     CommonJS. Each plugin's inline-code kinds (`<name>.inline.js`),
  *                                        the rows lib/core/inline-code-directives.js appends to its own.
  *   lib/plugins/services.generated.js   CommonJS. Each plugin's services (`<name>.services.js`), for
- *                                        lib/plugins/services.js.
+ *                                        lib/core/plugin-services.js.
  *   lib/plugins/registers.generated.js  CommonJS, data only. Each plugin's front-matter registers, for
  *                                        lib/core/register-factory.js.
  *   lib/plugins/data.generated.js       CommonJS. Each plugin's data as a LAZY loader, which the
@@ -613,13 +613,13 @@ module.exports = { INLINE };
 }
 
 /**
- * The plugins' SERVICES, keyed by plugin: the named functions lib/plugins/services.js hands a
+ * The plugins' SERVICES, keyed by plugin: the named functions lib/core/plugin-services.js hands a
  * caller that asks the host, never the plugin. Light modules, like the inline kinds.
  */
 function renderServices(ordered) {
   const lines = ordered.filter((p) => (p.manifest.contributes.services || []).length)
     .map((p) => `  ${JSON.stringify(p.manifest.name)}: require('./${p.folder}/${p.manifest.name}.services.js').services,`);
-  return `${HEADER('The plugins\' SERVICES, keyed by plugin name: what lib/plugins/services.js hands a caller.')}
+  return `${HEADER('The plugins\' SERVICES, keyed by plugin name: what lib/core/plugin-services.js hands a caller.')}
 const SERVICES = Object.freeze({${lines.length ? `\n${lines.join('\n')}\n` : ''}});
 
 module.exports = { SERVICES };

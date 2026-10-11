@@ -41,7 +41,7 @@ contains:
    `@laticent/lattice/themes/<name>.css` is a published export documented as a
    Marp theme file, and Marp throws without it. A palette does **not** declare
    `@size` — the page box belongs to the engine's registry
-   (`lib/engine/sizes.js`), and the build stamps those directives into `dist/`.
+   (`lib/core/sizes.js`), and the build stamps those directives into `dist/`.
    See `engineering/decisions/2026-08-16-size-registry-ownership.md` and
    `2026-08-16-theme-identity-ownership.md`.
 2. An `@import 'lattice'` line (pulls in layouts, structural tokens, and

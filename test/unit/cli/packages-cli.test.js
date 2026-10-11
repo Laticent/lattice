@@ -1,5 +1,5 @@
 /**
- * `lattice packages list | add | check | export | remove` (lib/packages/cli.js) and the render
+ * `lattice packages list | add | check | export | remove` (lib/cli/packages.js) and the render
  * path's lookup of an installed theme (engineering/decisions/2026-09-23-portable-packages.md §6).
  *
  * Driven in-process through `main()` with `--packages <tmp>`, so no test touches a real home
@@ -13,7 +13,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const JSZip = require('jszip');
-const { main } = require('../../../lib/packages/cli.js');
+const { main } = require('../../../lib/cli/packages.js');
 
 const ROOT = path.resolve(__dirname, '../../..');
 const tmp = (p) => fs.mkdtempSync(path.join(os.tmpdir(), `lattice-pkgcli-${p}-`));
@@ -307,8 +307,8 @@ describe('lattice packages', () => {
   });
 });
 
-describe('installed components in a deck (lib/packages/render.js)', () => {
-  const { embedInstalledComponents } = require('../../../lib/packages/render.js');
+describe('installed components in a deck (lib/cli/package-render.js)', () => {
+  const { embedInstalledComponents } = require('../../../lib/cli/package-render.js');
   const { embedComponentsInMarkdown } = require('../../../lib/layout/bridge.js');
   const deck = '---\ntheme: indaco\n---\n\n<!-- _class: zeta -->\n\n## Z\n\n---\n\n<!-- _class: yota -->\n\n## Y\n';
 

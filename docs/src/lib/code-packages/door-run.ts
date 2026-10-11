@@ -5,9 +5,9 @@
 // the Playground's first load (docs/route-budget.json).
 
 import DOMPurify from 'dompurify';
+import { captureHook, claimKey, engineClaimsOf, SLIDE_MS, slideInput, spliced, substituteHook, withFailureNote } from '../../../../lib/core/code-door-core.mjs';
 import { doorFinish } from '../../../../lib/core/door-attr.mjs';
 import { createSlideSanitizer } from '../../../../lib/core/sanitize-slide-html.mjs';
-import { captureHook, claimKey, engineClaimsOf, SLIDE_MS, slideInput, spliced, substituteHook, withFailureNote } from '../../../../lib/packages/code-door-core.mjs';
 import SHIPPED from '../../../../lib/packages/packages.generated.json';
 import { type CodePackagesStatus, codePackages, isApproved, type Renderer, report, type StudioCodePackage } from './door';
 import { openPackageFrame, type PackageFrame } from './runner';

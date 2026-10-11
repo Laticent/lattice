@@ -22,11 +22,11 @@ treat this map as nearly complete rather than a census.
 
 ## 1. Color science and perception
 
-No color library. The kernel is `lib/theme/color.js` and `lib/theme/cvd.js`.
+No color library. The kernel is `lib/core/color.js` and `lib/theme/cvd.js`.
 
 | Idea | Where | What is worth knowing |
 |---|---|---|
-| sRGB transfer curve, WCAG 2 relative luminance and contrast ratio | `lib/theme/color.js` (`srgbChannelToLinear`, `contrastRatio`) | Rec. 709 weights. The forward curve uses the WCAG threshold 0.03928, the inverse the IEC 0.0031308; the gap is invisible at 8 bits. |
+| sRGB transfer curve, WCAG 2 relative luminance and contrast ratio | `lib/core/color.js` (`srgbChannelToLinear`, `contrastRatio`) | Rec. 709 weights. The forward curve uses the WCAG threshold 0.03928, the inverse the IEC 0.0031308; the gap is invisible at 8 bits. |
 | OKLab and OKLCH (Ottosson 2020) | `color.js` (`hexToOklab`, `oklabToLinearRgb`, `oklabDistance`) | Both directions through the cone-response (LMS) matrix. Hue, chroma and lightness edits all happen here. |
 | Gamut mapping | `color.js` (`oklchToHex`) | Bisects chroma 24 times at fixed lightness and hue, the CSS Color 4 idea. |
 | Contrast repair | `color.js` (`ensureContrast`) | Walks OKLCH lightness only, so a repaired color keeps its hue. |
@@ -58,7 +58,7 @@ No color library. The kernel is `lib/theme/color.js` and `lib/theme/cvd.js`.
 | Idea | Where | What is worth knowing |
 |---|---|---|
 | The HTML RAWTEXT trap | `lib/core/sanitize-style-text.mjs` | `</style` ends a style element even inside a CSS comment; the guard writes `<\/style`. Fuzzed with 300,000 cases against an independent oracle (the decision note's probe); the unit suite runs 200,000. `css-tree` turns the escape back into a live terminator, which is why every CSS re-wrap guards again (HARD RULE #22). |
-| Layered sandbox for package code | `lib/packages/code-door-core.mjs`, `code-shape.mjs`, `code-syntax.mjs`, `lib/core/os-sandbox.js` | Opaque-origin iframe, CSP allowing one script by hash, a worker with `eval` and `Function` stubbed out, network names removed, frozen inputs, an acorn parse for dynamic `import()`, and a measured seccomp check on Linux. |
+| Layered sandbox for package code | `lib/core/code-door-core.mjs`, `code-shape.mjs`, `code-syntax.mjs`, `lib/core/os-sandbox.js` | Opaque-origin iframe, CSP allowing one script by hash, a worker with `eval` and `Function` stubbed out, network names removed, frozen inputs, an acorn parse for dynamic `import()`, and a measured seccomp check on Linux. |
 | Consent pinned to content | `lib/packages/trust.js` | Trust is the SHA-256 of `transform.js`, stored where no package can write it. |
 | SHA-256 from scratch | `docs/src/lib/lente/hash.ts`, `docs/src/lib/lente/project.ts` | Checked against NIST vectors; Lente hashes an injective encoding because an earlier one let two decks share a digest. |
 | Peer-to-peer editing | `docs/src/lib/tavola/`, `docs/src/components/studio/live/` | ECDSA P-256 host identity, AES-GCM with a non-extractable key, Yjs (a conflict-free replicated data type) over WebRTC, and an anchor-based rebase that refuses rather than guesses. |

@@ -1,6 +1,6 @@
 import JSZip from 'jszip';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { sampleAssetNames, withRuntimeScriptsReport, withSampleAssets } from '../../../../../lib/core/marp-bundle.js';
+import { sampleAssetNames, withRuntimeScriptsReport, withSampleAssets } from '../../../../../lib/export/marp-bundle.js';
 import { exportMarp, importedThemeNames } from './deck-export.js';
 
 // The Marp bundle's THEME and COMPONENT supply (2026-09-23-portable-packages.md §1, §4).
@@ -172,7 +172,7 @@ describe('importedThemeNames', () => {
 	});
 });
 
-// The deck's math is typeset at export (lib/core/marp-bundle-math.js), so Marp's own typesetter is off
+// The deck's math is typeset at export (lib/export/marp-bundle-math.js), so Marp's own typesetter is off
 // in every bundle, whatever the deck's admission says.
 describe('exportMarp — the bundle\'s Marp config turns Marp\'s own math off', () => {
 	it('writes math: false with the math plugin on and off', async () => {

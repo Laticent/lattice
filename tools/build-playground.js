@@ -108,10 +108,10 @@ const pluginDataStubPlugin = {
 };
 
 // The split capacity map, baked in. The browser has no component manifests to read, and the
-// structural split (lib/core/structural-split.js) cannot run without the per-component capacity
+// structural split (lib/engine/structural-split.js) cannot run without the per-component capacity
 // and recipe it reads. Projected by the SAME `splitCapacityFrom` the CLI calls, from the same
 // manifests, so the live preview and the export cut a deck identically.
-const SPLIT_CAPACITY = require('../lib/core/structural-split').splitCapacityFrom(
+const SPLIT_CAPACITY = require('../lib/engine/structural-split').splitCapacityFrom(
   require('../lib/components').loadAll(path.join(ROOT, 'lib', 'components')),
 );
 

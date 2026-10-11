@@ -39,7 +39,7 @@
  * the deck is admitted under them (lib/plugins/host-grammar.mjs `admitPlugins`) and the plugins left
  * off ride in the bundle's settings block (`pluginsOff`), which the bundled runtime reads before it
  * draws anything — Marp renders the deck, so the engine's own marker is never written. MATH is
- * typeset at export (lib/core/marp-bundle-math.js) and Marp's own typesetter is always off in the
+ * typeset at export (lib/export/marp-bundle-math.js) and Marp's own typesetter is always off in the
  * bundle's marp.config.cjs; with the math plugin off, the TeX is left as written.
  *
  * `--overflow-marker` decides who the overflow signal in the rendered bundle is
@@ -57,12 +57,12 @@
  * Fidelity: the baked `.md` + themes + fonts split, style, and TYPESET correctly
  * in ANY Marp tool. The generated marp.config.cjs sets `html` to an allowlist of the
  * tags a deck may write, and an `engine:` plugin passes the deck's trailing runtime
- * <script> tags (lib/core/marp-bundle-html.js) — without them marp-core escapes the
+ * <script> tags (lib/export/marp-bundle-html.js) — without them marp-core escapes the
  * tags into visible text and the runtime never loads, so Mermaid and every JS-driven
  * structural component (split panels, the chart family) come out as bare markdown. WITH it,
  * marp-cli's own headless browser runs the runtime while rendering, so `npm run
  * pdf` / `npm run html` carry every component layout, the deck-wide registers, and
- * Mermaid — with the exceptions `lib/core/marp-fidelity.js` enumerates (printed
+ * Mermaid — with the exceptions `lib/export/marp-fidelity.js` enumerates (printed
  * into the generated README; not counted here, since the count moves). The
  * marp-vscode PREVIEW pane may carry less still: on the reading that its webview
  * blocks scripts it shows palette + CSS layout only — a claim `engineering/gotchas.md`
@@ -79,12 +79,12 @@ const { liftImageBgImages } = require('../lib/core/bg-image');
 const { sampleName } = require('../lib/core/remote-ref');
 const { appendAutoGlossary } = require('../lib/core/glossary-auto.mjs');
 const { isKnownOverflowMarker } = require('../lib/core/resolve-overflow-marker');
-const { formatRefusedHtml } = require('../lib/core/marp-bundle-html');
+const { formatRefusedHtml } = require('../lib/export/marp-bundle-html');
 const {
   STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, marpConfigCjs, withRuntimeScriptsReport, packageJson,
   safeName, vscodeSettings, readme, agentsMd, resolveExportOverflowMarker, OVERFLOW_MARKER_LEVELS,
   mapImageRefs, mapFrontMatterLogo,
-} = require('../lib/core/marp-bundle');
+} = require('../lib/export/marp-bundle');
 
 const ROOT = path.join(__dirname, '..');
 
@@ -187,7 +187,7 @@ function localizeAssets(body, deckDir, destDir, copied = new Map()) {
  * file has to come along too.
  */
 function localizeFrontMatter(fm, deckDir, destDir, copied) {
-  // `mapFrontMatterLogo` (lib/core/marp-bundle.js) matches the same shape the runtime and
+  // `mapFrontMatterLogo` (lib/export/marp-bundle.js) matches the same shape the runtime and
   // the engine read, so the exporter never skips a ref the reader then resolves.
   return mapFrontMatterLogo(fm, (url) => localizeOne(url, deckDir, destDir, copied));
 }
@@ -199,7 +199,7 @@ function copyInto(srcAbs, destAbs) {
 
 /**
  * Copy a stylesheet through `marpScopableCss` — the leading-`:is()` distribution
- * marp-core's scoper needs (see lib/core/marp-bundle.js). Every CSS file in the
+ * marp-core's scoper needs (see lib/export/marp-bundle.js). Every CSS file in the
  * bundle goes through it: lattice.css AND each palette, since a palette can lead
  * a rule with the same dual-surface head.
  */
@@ -236,7 +236,7 @@ function printOverflowPolicy(marker, source, deckPath) {
     console.warn('    and this export did not render, so it did not check.');
   }
   // Quoted: an unquoted `Q3 Board Review.md` printed a command that fails on its
-  // first argument — the exact bug lib/core/marp-bundle.js's `safeName` records.
+  // first argument — the exact bug lib/export/marp-bundle.js's `safeName` records.
   console.log(`    export-marp does not render, so it cannot measure overflow. To check: `
     + `\`npx lattice "${deckPath}" /tmp/check.pdf\` — it prints the clipped pages.`);
 }

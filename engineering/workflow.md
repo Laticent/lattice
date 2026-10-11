@@ -857,7 +857,7 @@ each one, tracked in that doc's backlog (§6).
 
 The owned engine is canonical (the marp-parity gate was retired in P4; Marp
 is no longer a render path). The one remaining Marp surface is **Export to
-Marp** (`lib/core/marp-bundle.js`) — a one-way bundle for recipients, NOT a
+Marp** (`lib/export/marp-bundle.js`) — a one-way bundle for recipients, NOT a
 Lattice render path, so it isn't a third renderer to keep in parity.
 
 **A floor this rule never touches:** manually wiring `dist/lattice-runtime.js`

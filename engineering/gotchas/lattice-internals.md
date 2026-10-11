@@ -1041,7 +1041,7 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   (the chart family's class rewrite, the split-panel QR caption, the code-package failure note and
   the nine before them), and `test/unit/core/replacement-patterns.test.js` renders each with `$`
   swapped for a stand-in. #2545's census found no other such site and added no gate: the rest
-  interpolate engine values. The CLI's `--size` rewrite (`lib/engine/sizes.js`, not deck text,
+  interpolate engine values. The CLI's `--size` rewrite (`lib/core/sizes.js`, not deck text,
   but typed by a person) is a function replacer too, pinned in
   `test/unit/authoring/pill-literal.test.js`.
 

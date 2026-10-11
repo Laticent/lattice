@@ -179,7 +179,7 @@ for (const [dest, src] of collectGalleryAssets(repoRoot)) assets.push([dest, src
 // The Export-to-Marp static assets (minified engine / stylesheet / runtime /
 // mermaid), staged under export/ so the Drawing Board's in-browser export can
 // fetch them and zip the SAME bundle the CLI produces. Sourced from the shared
-// manifest (lib/core/marp-bundle.js) so the two paths can't drift.
+// manifest (lib/export/marp-bundle.js) so the two paths can't drift.
 const { STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor } = createRequire(import.meta.url)(join(repoRoot, 'lib', 'core', 'marp-bundle.js'));
 // The static render assets AND the agent-kit catalog (components.json) — both
 // staged flat under export/ so the in-browser producer fetches them by basename,

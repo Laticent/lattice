@@ -13,11 +13,11 @@
  *
  * TWO FIXTURES, BECAUSE THEY ARE TWO GENERATORS. The kit and the Export-to-Marp
  * bundle share their ASSET list by construction (`build-marp-kit.js` imports
- * `STATIC_ASSETS` + `fontAssetsFor()` from `lib/core/marp-bundle.js`), but they do
+ * `STATIC_ASSETS` + `fontAssetsFor()` from `lib/export/marp-bundle.js`), but they do
  * NOT share the machinery that has actually broken:
  *
  *   - two independently authored marp configs — `build-marp-kit.js` `marpConfig()`
- *     against `lib/core/marp-bundle.js` `MARP_CONFIG_CJS`;
+ *     against `lib/export/marp-bundle.js` `MARP_CONFIG_CJS`;
  *   - `withRuntimeScripts()`, the baked front-matter block and the per-deck
  *     `themeSet` generation exist ONLY in the bundle.
  *
@@ -58,7 +58,7 @@
  * marp-cli is NOT a dependency of this project and is not becoming one — Marp is
  * an export TARGET, not a render path (HARD RULE #1). It is fetched on demand at
  * the SAME version range the export bundle pins, imported from
- * `lib/core/marp-bundle.js` rather than restated, so the gate and the artifacts it
+ * `lib/export/marp-bundle.js` rather than restated, so the gate and the artifacts it
  * gates cannot ask for different tools.
  *
  * Slow tier: fetches marp-cli, then spawns Chromium four times (~19s warm).

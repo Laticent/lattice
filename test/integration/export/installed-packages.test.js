@@ -2,7 +2,7 @@
  * Integration: a deck renders from the CLI with packages from the store, and the store is
  * gated at render time (engineering/decisions/2026-09-23-portable-packages.md §6).
  *
- * The unit tests pin `lattice packages` and the pure embed helper (lib/packages/render.js);
+ * The unit tests pin `lattice packages` and the pure embed helper (lib/cli/package-render.js);
  * this drives the real renderer (lattice.js → .html, a browser render), which is the
  * only place the palette chain, the installed theme's CSS and the embedded component meet.
  *
@@ -53,7 +53,7 @@ describe('the CLI renders from the package store, and gates it', () => {
   test('an installed theme and component render', { timeout: TIMEOUT }, async () => {
     const home = tmp('home');
     const store = path.join(home, 'packages');
-    const { main } = require('../../../lib/packages/cli.js');
+    const { main } = require('../../../lib/cli/packages.js');
     const src = tmp('src');
     fs.mkdirSync(path.join(src, 'probe-brand'));
     for (const [f, b] of Object.entries(themeFiles('probe-brand', "/* @theme probe-brand */\n@import 'lattice';\n:root { --accent: #2d4ed8; }\n"))) fs.writeFileSync(path.join(src, 'probe-brand', f), b);

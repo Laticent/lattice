@@ -130,7 +130,7 @@ const { PAIRS: TOKEN_CROSSWALK } = require('../lib/tokens/crosswalk');
 const { findHexLiterals } = require('../lib/layout/gate'); // HARD RULE #3 hex matcher (reused, not reinvented)
 const { FINISH_REGISTER } = require('../lib/core/resolve-finish'); // skill-freshness: authoritative finish list
 const { resolveTokenExpr } = require('../lib/core/resolve-token-expr'); // cat-contrast: the engine's own custom-property evaluator (reused, not reinvented)
-const { oklabDistance } = require('../lib/theme/color.js'); // cat-contrast: perceptual distance for the ink collapse arm
+const { oklabDistance } = require('../lib/core/color.js'); // cat-contrast: perceptual distance for the ink collapse arm
 // changelog fragments: the assembler owns the format — this gate only reports it (reused, not reinvented)
 const { fragmentProblems: changelogFragmentProblems } = require('./changelog');
 const { followupProblems } = require('./followups');
@@ -2241,7 +2241,7 @@ function checkSectionBoxOwnership(errors) {
 }
 
 // ─── Size-registry ownership gate ─────────────────────────────────────────
-// The engine owns the page box (lib/engine/sizes.js). No SOURCE stylesheet
+// The engine owns the page box (lib/core/sizes.js). No SOURCE stylesheet
 // declares `@size`, and every MARP-FACING ARTIFACT carries the full table.
 //
 // Until 2026-08-16 the registry lived in a `/* @theme … */` comment that the
@@ -2272,7 +2272,7 @@ const SIZE_STAMPED_ARTIFACTS = [
   'dist/marp-kit/lattice-min.css',
 ];
 function checkSizeRegistryOwnership(errors) {
-  const { SIZES } = require('../lib/engine/sizes');
+  const { SIZES } = require('../lib/core/sizes');
   const { parseSizes } = require('../lib/engine/css');
   const registered = Object.keys(SIZES);
 
@@ -2283,9 +2283,9 @@ function checkSizeRegistryOwnership(errors) {
       if (!SIZE_DECL_RE.test(fs.readFileSync(file, 'utf8'))) continue;
       errors.push(
         `${path.relative(ROOT, file)}: declares \`@size\`. Geometry belongs to the engine's registry ` +
-        `(lib/engine/sizes.js), not to a stylesheet — the renderer resolves \`size:\` against the ` +
+        `(lib/core/sizes.js), not to a stylesheet — the renderer resolves \`size:\` against the ` +
         `registry and would IGNORE this table, so it is a second source of truth that is silently ` +
-        `inert. Add or edit the canvas in lib/engine/sizes.js; the build stamps the \`@size\` block ` +
+        `inert. Add or edit the canvas in lib/core/sizes.js; the build stamps the \`@size\` block ` +
         `into the Marp-facing artifacts for you. See ` +
         `engineering/decisions/2026-08-16-size-registry-ownership.md.`,
       );
@@ -3668,7 +3668,7 @@ const SANCTIONED_KATEX_ONLY = [
       + 'multicol fragmentation flow. marp-core\'s MathJax emits a bare <mjx-container> '
       + 'around an inline <svg> and NO assistive MathML at all, so there is no '
       + 'counterpart node to pin — a mjx- half would match nothing. The absence is an '
-      + 'accessibility gap recorded in lib/core/marp-fidelity.js, not a layout one. '
+      + 'accessibility gap recorded in lib/export/marp-fidelity.js, not a layout one. '
       + 'Re-scoped from `section.math.compare` when compare moved onto the Form frame: '
       + 'the multicol is `.cell-stage` now, not the section, so the pin follows it. It '
       + 'survives the migration because it has nothing to do with the `column-span` '
@@ -7154,7 +7154,7 @@ const SANCTIONED_EOL_BOUNDARIES = [
        + 'render(), so nothing downstream could rescue it.',
   },
   {
-    file: 'lib/packages/gallery-gate.js',
+    file: 'lib/cli/gallery-gate.js',
     why: 'galleryRemoteRefs — the CLI half of the package gallery gate reads a component\'s '
        + 'gallery.md straight out of a stranger\'s zip or folder. It must read it as the export '
        + 'will: the CLI folds line endings before Mermaid, so a CRLF fence the fence walker '
@@ -11679,7 +11679,7 @@ function checkFallbackContracts(errors, libDir = LIB_DIR) {
 /**
  * PINNED LITERALS. 4.5 is WCAG AA for normal text and 3.0 is WCAG 1.4.11 for
  * graphical objects; they are written here rather than imported from
- * `lib/theme/color.js` for the reason #1720 §5 records — a gate that takes its
+ * `lib/core/color.js` for the reason #1720 §5 records — a gate that takes its
  * floor from the thing it is measuring cannot fail when that thing moves.
  * `CAT_TEXT_FLOOR` above is the same 4.5 and is deliberately not reused: this arm
  * must keep biting even if that constant is retuned for the categorical tier.
@@ -11950,7 +11950,7 @@ const HLJS_QUIET_PAIR = Object.freeze(['comment', 'punctuation']);
 
 function checkHljsSeparation(errors, themesDir = THEMES_DIR) {
   const { simulate } = require('../lib/theme/cvd.js');
-  const { oklabDistance } = require('../lib/theme/color.js');
+  const { oklabDistance } = require('../lib/core/color.js');
   let compared = 0;
 
   for (const { theme, condition } of A11Y_SYNTAX_CONDITIONS) {

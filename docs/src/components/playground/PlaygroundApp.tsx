@@ -169,7 +169,7 @@ function bandSig(bands: SlideBand[]): string {
  * The frame's slides as WALK UNITS: one entry per rendered section for a deck walk, and one per
  * AUTHORED slide for a component tour (`plan`).
  *
- * The two differ only when the preview split a slide (lib/core/structural-split.js): at
+ * The two differ only when the preview split a slide (lib/engine/structural-split.js): at
  * portrait/square one authored slide renders as a run of pages, numbered `2`, `2.2`, `2.3` on
  * `data-lattice-slide`. A deck walk counts what it sees (its count comes from the render), so a
  * page is its unit. A tour's steps are the plan's AUTHORED slides, so step N has to address the

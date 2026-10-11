@@ -12,7 +12,7 @@ const { markPluginsOff } = require('../../../lib/plugins/mark-off.mjs');
 const { RUNTIME_DRAWN, RUNTIME_DRAWN_FENCE_CODE } = require('../../../lib/plugins/drawn.generated.mjs');
 const { TRANSFORMERS } = require('../../../lib/transformers/registry');
 const chartFamily = require('../../../lib/transformers/chart-family');
-const { withRuntimeScripts, marpConfigCjs, MARP_CONFIG_CJS } = require('../../../lib/core/marp-bundle');
+const { withRuntimeScripts, marpConfigCjs, MARP_CONFIG_CJS } = require('../../../lib/export/marp-bundle');
 const { readExportSettings } = require('../../../lib/core/export-settings');
 
 // What Marp writes for a Mermaid fence and a bar slide: no engine marker anywhere.
@@ -78,7 +78,7 @@ describe('the Marp bundle carries the producer\'s admission', () => {
   test('nothing off writes the block exactly as before', () => {
     assert.equal(withRuntimeScripts('# Hi\n', { overflowMarker: 'reader', pluginsOff: [] }), withRuntimeScripts('# Hi\n', { overflowMarker: 'reader' }));
   });
-  // The deck's math is typeset at export (lib/core/marp-bundle-math.js), so Marp's own typesetter is
+  // The deck's math is typeset at export (lib/export/marp-bundle-math.js), so Marp's own typesetter is
   // off in every bundle, math plugin on or off: it is the injection surface the bake closes.
   test('the marp config turns Marp\'s own math off, always', () => {
     assert.equal(marpConfigCjs(), MARP_CONFIG_CJS);

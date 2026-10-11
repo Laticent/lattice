@@ -148,7 +148,7 @@ A base palette's spine (from `themes/indaco/indaco.css`):
 /* @theme verdigris */          /* MUST match the filename — and it is the ONLY
                                    metadata the file carries. Never declare
                                    `@size`: the page box is the engine's
-                                   (lib/engine/sizes.js), and the build stamps
+                                   (lib/core/sizes.js), and the build stamps
                                    the Marp directives into dist/. */
 @import 'lattice';              /* pulls in layouts + universal semantic palette */
 
@@ -243,7 +243,7 @@ reads, so it takes the AA text floor, not the 3:1 graphical one; an exemption fo
 where a token sits *relative to the code* and the floor is about whether it can be
 read at all. Comment and punctuation must also not **collapse** into each other
 (OKLab ΔE ≥ 0.010, the same anti-collapse floor `--cat-*` uses). Solve a failing
-value with `ensureContrast` (`lib/theme/color.js`) — OKLCH, hue and chroma held —
+value with `ensureContrast` (`lib/core/color.js`) — OKLCH, hue and chroma held —
 rather than by eye. Also define **all 12**
 `--cat-N-fill` / `--cat-N-mark` pairs (the skeleton shows only cat-1); `--text-display`,
 `--text-label`, `--code-text`; `--pass-bg` / `--fail-bg` / `--warn-bg`; the
@@ -312,7 +312,7 @@ The **dark variant in full** — this is the whole file:
 
 - [ ] `@theme <name>` matches the filename AND the manifest's `name` exactly; a variant's
       `@import '<parent>'` matches the manifest's `extends`; and the file declares no `@size`. All three are `check:ownership` failures now, not conventions:
-      the manifest owns the name, geometry lives in `lib/engine/sizes.js`.
+      the manifest owns the name, geometry lives in `lib/core/sizes.js`.
 - [ ] All 11 required core tokens declared directly (both halves of the muted tier).
 - [ ] Every surface/ink/accent token is a `light-dark()` pair; the universal
       semantic palette pinned to fixed hex; `--cat-on-fill` / `--cat-on-mark` **flip**

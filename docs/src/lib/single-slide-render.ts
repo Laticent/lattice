@@ -1753,7 +1753,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				}
 				// A SPLIT SLIDE SHOWS THE PAGE THE CARET IS ON (the owner's pick of three, 2026-09-24).
 				// At portrait/square the export cuts a multi-row slide into cover → one page per row →
-				// closing (lib/core/structural-split.js). The frame still holds ONE page, so the #1551
+				// closing (lib/engine/structural-split.js). The frame still holds ONE page, so the #1551
 				// contract above is untouched: split the one authored section, pick the page holding
 				// the caret line (split-page-pick.ts), narrow back to that page. The slide is stamped
 				// with its real position in the viewed set, so the run reads 2 · 2.2 · 2.3 like the PDF.

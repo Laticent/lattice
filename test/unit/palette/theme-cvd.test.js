@@ -10,7 +10,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 
 const { simulate, distanceUnder, canonicalType, CVD_TYPES, ACHROMATOPSIA, SIMULATED_TYPES } = require('../../../lib/theme/cvd.js');
-const { oklabDistance, normalizeHex } = require('../../../lib/theme/color.js');
+const { oklabDistance, normalizeHex } = require('../../../lib/core/color.js');
 
 const isHex = v => /^#[0-9a-f]{6}$/.test(v);
 

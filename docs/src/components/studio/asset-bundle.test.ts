@@ -322,7 +322,7 @@ describe('asset-bundle — package zips from elsewhere', () => {
 		const undeclared = await unpackBundle(await pkg('function t(s){return s.html}export{t as default};', {}));
 		expect(undeclared.components).toHaveLength(0);
 		expect(undeclared.refused).toEqual([{ name: 'bars', why: expect.stringMatching(/does not say which slide facts it reads: add "facts": 1/) }]);
-		// A dynamic import(), parsed (lib/packages/code-syntax.mjs): refused as `lattice packages add` refuses it.
+		// A dynamic import(), parsed (lib/core/code-syntax.mjs): refused as `lattice packages add` refuses it.
 		const importing = await unpackBundle(await pkg('function t(s){import("https://example.com/x");return s.html}export{t as default};'));
 		expect(importing.components).toHaveLength(0);
 		expect(importing.refused).toEqual([{ name: 'bars', why: expect.stringMatching(/holds a dynamic `import\(\)` at 1:15/) }]);

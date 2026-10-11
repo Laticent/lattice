@@ -9,7 +9,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 
-const ss = require('../../../lib/core/structural-split');
+const ss = require('../../../lib/engine/structural-split');
 const { loadAll } = require('../../../lib/components');
 const { createEngine } = require('../../../lib/engine');
 

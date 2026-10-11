@@ -1,5 +1,5 @@
 /**
- * lib/core/marp-bundle-html.js — the Export-to-Marp bundle's HTML allowlist and its engine plugin
+ * lib/export/marp-bundle-html.js — the Export-to-Marp bundle's HTML allowlist and its engine plugin
  * (engineering/decisions/2026-08-17-theme-css-is-a-preview-sink.md § 13).
  *
  * The config is generated text, so these tests evaluate the SAME source the config ships
@@ -10,8 +10,8 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const vm = require('node:vm');
 
-const { MARP_HTML_ALLOWLIST, URL_ATTRS, configSource } = require('../../../lib/core/marp-bundle-html');
-const { RUNTIME_SCRIPT_SRCS, RUNTIME_SCRIPTS } = require('../../../lib/core/marp-bundle');
+const { MARP_HTML_ALLOWLIST, URL_ATTRS, configSource } = require('../../../lib/export/marp-bundle-html');
+const { RUNTIME_SCRIPT_SRCS, RUNTIME_SCRIPTS } = require('../../../lib/export/marp-bundle');
 
 function load() {
   const ctx = {};
@@ -127,7 +127,7 @@ test('an author block that swallowed a runtime line (an unclosed <pre>) is sanit
 });
 
 test('the CLI line prints no control character a deck wrote into an attribute name', () => {
-  const { formatRefusedHtml } = require('../../../lib/core/marp-bundle-html');
+  const { formatRefusedHtml } = require('../../../lib/export/marp-bundle-html');
   const line = formatRefusedHtml({ tags: {}, attrs: { 'div[x\u001b[31my]': 1 } });
   assert.ok(!line.includes('\u001b'));
   assert.match(line, /div\[x\?\[31my\]/);
@@ -164,7 +164,7 @@ test('the engine keeps the bundle\'s own comments out of the speaker notes, and 
 // An HTML <title> left open at a slide break swallows the slides after it as text in a browser. The
 // report reads the deck in document order, as the browser does.
 test('the report flags a <title> left open across a slide break, and nothing else', () => {
-  const { refusedHtml, formatRefusedHtml } = require('../../../lib/core/marp-bundle-html');
+  const { refusedHtml, formatRefusedHtml } = require('../../../lib/export/marp-bundle-html');
   for (const [deck, want, why] of [
     ['# A\n\ntext <title>x\n\n---\n\n# B\n', ['title'], 'open across a slide break'],
     ['# A\n\ntext <title/>x\n\n---\n\n# B\n', ['title'], 'self-closing is still open in HTML'],
