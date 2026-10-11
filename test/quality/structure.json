@@ -55,7 +55,7 @@
       "part": "@laticent/segno",
       "layer": 0,
       "files": 13,
-      "lines": 3711,
+      "lines": 3712,
       "Ca": 4,
       "Ce": 0,
       "I": 0,
@@ -215,7 +215,7 @@
       "part": "lib/components",
       "layer": 3,
       "files": 51,
-      "lines": 23602,
+      "lines": 23716,
       "Ca": 9,
       "Ce": 6,
       "I": 0.4,
@@ -245,7 +245,7 @@
       "part": "lib/packages",
       "layer": 3,
       "files": 19,
-      "lines": 3404,
+      "lines": 3421,
       "Ca": 7,
       "Ce": 3,
       "I": 0.3,
@@ -255,21 +255,21 @@
       "part": "lib/plugin-kit",
       "layer": 3,
       "files": 8,
-      "lines": 234,
-      "Ca": 9,
+      "lines": 249,
+      "Ca": 10,
       "Ce": 3,
-      "I": 0.25,
+      "I": 0.23,
       "cohesion": 0
     },
     {
       "part": "lib/plugins",
       "layer": 4,
       "files": 28,
-      "lines": 2393,
+      "lines": 2414,
       "Ca": 15,
-      "Ce": 8,
-      "I": 0.35,
-      "cohesion": 0.37
+      "Ce": 9,
+      "I": 0.38,
+      "cohesion": 0.33
     },
     {
       "part": "lib/plugins/anima",
@@ -280,6 +280,16 @@
       "Ce": 0,
       "I": 0,
       "cohesion": 1
+    },
+    {
+      "part": "lib/plugins/avatars",
+      "layer": 4,
+      "files": 5,
+      "lines": 309,
+      "Ca": 1,
+      "Ce": 1,
+      "I": 0.5,
+      "cohesion": 0.4
     },
     {
       "part": "lib/plugins/chart-family",
@@ -395,7 +405,7 @@
       "part": "lib/export",
       "layer": 6,
       "files": 22,
-      "lines": 8988,
+      "lines": 8991,
       "Ca": 5,
       "Ce": 9,
       "I": 0.64,
@@ -415,7 +425,7 @@
       "part": "lib/runtime",
       "layer": 6,
       "files": 3,
-      "lines": 3709,
+      "lines": 3720,
       "Ca": 1,
       "Ce": 9,
       "I": 0.9,
@@ -434,12 +444,12 @@
     {
       "part": "site/lib",
       "layer": 10,
-      "files": 95,
-      "lines": 16331,
+      "files": 96,
+      "lines": 16380,
       "Ca": 7,
       "Ce": 13,
       "I": 0.65,
-      "cohesion": 0.49
+      "cohesion": 0.5
     },
     {
       "part": "site/styles",
@@ -484,12 +494,12 @@
     {
       "part": "site/studio",
       "layer": 14,
-      "files": 255,
-      "lines": 73724,
+      "files": 254,
+      "lines": 73677,
       "Ca": 2,
       "Ce": 21,
       "I": 0.91,
-      "cohesion": 0.51
+      "cohesion": 0.5
     },
     {
       "part": "site/craft",
@@ -514,8 +524,8 @@
     {
       "part": "tools",
       "layer": 20,
-      "files": 273,
-      "lines": 83411,
+      "files": 274,
+      "lines": 83622,
       "Ca": 0,
       "Ce": 25,
       "I": 1,
@@ -531,10 +541,10 @@
       "singleConsumer": 18
     },
     "site/lib": {
-      "files": 95,
+      "files": 96,
       "islands": 57,
       "largestIsland": 17,
-      "isolated": 47,
+      "isolated": 46,
       "singleConsumer": 32
     },
     "site/playground": {
@@ -552,9 +562,9 @@
       "singleConsumer": 34
     },
     "site/studio": {
-      "files": 255,
+      "files": 254,
       "islands": 7,
-      "largestIsland": 244,
+      "largestIsland": 243,
       "isolated": 2,
       "singleConsumer": 6
     },
@@ -566,10 +576,10 @@
       "singleConsumer": 33
     },
     "tools": {
-      "files": 273,
-      "islands": 144,
+      "files": 274,
+      "islands": 145,
       "largestIsland": 35,
-      "isolated": 128,
+      "isolated": 129,
       "singleConsumer": 0
     }
   }

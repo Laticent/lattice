@@ -23,7 +23,7 @@ module.exports = {
     tsConfig: { fileName: 'tools/structure.tsconfig.json' },
     enhancedResolveOptions: {
       conditionNames: ['@laticent/source', 'import', 'require', 'node', 'default'],
-      extensions: ['.ts', '.tsx', '.js', '.mjs', '.cjs', '.json'],
+      extensions: ['.ts', '.tsx', '.d.ts', '.js', '.mjs', '.cjs', '.json'],
     },
     progress: { type: 'none' },
   },
