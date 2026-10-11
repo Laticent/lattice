@@ -1,36 +1,5 @@
 {
-  "$comment": "The avatars plugin's DRAWINGS on a 100-unit grid: a head-and-shoulders bust in the house portrait style (lib/samples/portrait-*.svg). Each node is [tag, attrs]; a paint (fill, stroke) is a ROLE ($skin, $hair, \u2026) the kernel resolves from traits.json, never a literal color. Layers draw in this order: hair.back, body, hair.mid, face, nose, beard, mouth, eyes, brows, hair.front, glasses. tools/build-avatars-data.js validates every node.",
-  "body": [
-    [
-      "path",
-      {
-        "d": "M50 66c16 0 29 11 31 26v8H19v-8c2-15 15-26 31-26z",
-        "fill": "$top"
-      }
-    ],
-    [
-      "rect",
-      {
-        "x": "43",
-        "y": "54",
-        "width": "14",
-        "height": "17",
-        "rx": "7",
-        "fill": "$skin"
-      }
-    ],
-    [
-      "ellipse",
-      {
-        "cx": "50",
-        "cy": "62.5",
-        "rx": "7",
-        "ry": "3.2",
-        "fill": "$shade",
-        "fill-opacity": "0.14"
-      }
-    ]
-  ],
+  "$comment": "The avatars plugin's DRAWINGS on a 100-unit grid: a head-and-shoulders bust in the house portrait style (lib/samples/portrait-*.svg). Each node is [tag, attrs]; a paint (fill, stroke) is a ROLE ($skin, $hair, …) the kernel resolves from traits.json, never a literal color. Layers draw in this order: hair.back, clothing, hair.mid, headwear.back, face, earrings, nose, beard, mouth, eyes, brows, hair.front, headwear.front, glasses. A head covering hides hair layers per traits.json `coverage`. `earrings` is keyed by face shape, because the ears sit differently on each. tools/build-avatars-data.js validates every node.",
   "face": {
     "oval": [
       [
@@ -1280,5 +1249,1141 @@
         }
       ]
     ]
+  },
+  "clothing": {
+    "crew": [
+      [
+        "path",
+        {
+          "d": "M50 66c16 0 29 11 31 26v8H19v-8c2-15 15-26 31-26z",
+          "fill": "$top"
+        }
+      ],
+      [
+        "rect",
+        {
+          "x": "43",
+          "y": "54",
+          "width": "14",
+          "height": "17",
+          "rx": "7",
+          "fill": "$skin"
+        }
+      ],
+      [
+        "ellipse",
+        {
+          "cx": "50",
+          "cy": "62.5",
+          "rx": "7",
+          "ry": "3.2",
+          "fill": "$shade",
+          "fill-opacity": "0.14"
+        }
+      ]
+    ],
+    "vneck": [
+      [
+        "path",
+        {
+          "d": "M50 66c16 0 29 11 31 26v8H19v-8c2-15 15-26 31-26z",
+          "fill": "$top"
+        }
+      ],
+      [
+        "rect",
+        {
+          "x": "43",
+          "y": "54",
+          "width": "14",
+          "height": "17",
+          "rx": "7",
+          "fill": "$skin"
+        }
+      ],
+      [
+        "path",
+        {
+          "d": "M42.4 66.2L50 79.5L57.6 66.2z",
+          "fill": "$skin"
+        }
+      ],
+      [
+        "path",
+        {
+          "d": "M42.4 66.2L50 79.5L57.6 66.2",
+          "fill": "none",
+          "stroke": "$shade",
+          "stroke-opacity": "0.2",
+          "stroke-width": "0.8",
+          "stroke-linecap": "round"
+        }
+      ],
+      [
+        "ellipse",
+        {
+          "cx": "50",
+          "cy": "62.5",
+          "rx": "7",
+          "ry": "3.2",
+          "fill": "$shade",
+          "fill-opacity": "0.14"
+        }
+      ]
+    ],
+    "collar": [
+      [
+        "path",
+        {
+          "d": "M50 66c16 0 29 11 31 26v8H19v-8c2-15 15-26 31-26z",
+          "fill": "$top"
+        }
+      ],
+      [
+        "rect",
+        {
+          "x": "43",
+          "y": "54",
+          "width": "14",
+          "height": "17",
+          "rx": "7",
+          "fill": "$skin"
+        }
+      ],
+      [
+        "path",
+        {
+          "d": "M41.6 63.6L50 72.4L43 79L36 69.4z",
+          "fill": "$white",
+          "stroke": "$shade",
+          "stroke-opacity": "0.28",
+          "stroke-width": "0.6",
+          "stroke-linejoin": "round"
+        }
+      ],
+      [
+        "path",
+        {
+          "d": "M58.4 63.6L50 72.4L57 79L64 69.4z",
+          "fill": "$white",
+          "stroke": "$shade",
+          "stroke-opacity": "0.28",
+          "stroke-width": "0.6",
+          "stroke-linejoin": "round"
+        }
+      ],
+      [
+        "path",
+        {
+          "d": "M50 74V92",
+          "fill": "none",
+          "stroke": "$shade",
+          "stroke-opacity": "0.2",
+          "stroke-width": "0.7",
+          "stroke-linecap": "round"
+        }
+      ],
+      [
+        "ellipse",
+        {
+          "cx": "50",
+          "cy": "62.5",
+          "rx": "7",
+          "ry": "3.2",
+          "fill": "$shade",
+          "fill-opacity": "0.14"
+        }
+      ]
+    ],
+    "turtleneck": [
+      [
+        "path",
+        {
+          "d": "M50 66c16 0 29 11 31 26v8H19v-8c2-15 15-26 31-26z",
+          "fill": "$top"
+        }
+      ],
+      [
+        "rect",
+        {
+          "x": "41.6",
+          "y": "52",
+          "width": "16.8",
+          "height": "22",
+          "rx": "6",
+          "fill": "$top"
+        }
+      ],
+      [
+        "path",
+        {
+          "d": "M42.6 60.2H57.4",
+          "fill": "none",
+          "stroke": "$shade",
+          "stroke-opacity": "0.2",
+          "stroke-width": "0.7",
+          "stroke-linecap": "round"
+        }
+      ],
+      [
+        "path",
+        {
+          "d": "M42.4 66H57.6",
+          "fill": "none",
+          "stroke": "$shade",
+          "stroke-opacity": "0.2",
+          "stroke-width": "0.7",
+          "stroke-linecap": "round"
+        }
+      ],
+      [
+        "ellipse",
+        {
+          "cx": "50",
+          "cy": "62.5",
+          "rx": "7",
+          "ry": "3.2",
+          "fill": "$shade",
+          "fill-opacity": "0.14"
+        }
+      ]
+    ],
+    "hoodie": [
+      [
+        "ellipse",
+        {
+          "cx": "50",
+          "cy": "67",
+          "rx": "17",
+          "ry": "10.5",
+          "fill": "$top"
+        }
+      ],
+      [
+        "path",
+        {
+          "d": "M50 66c16 0 29 11 31 26v8H19v-8c2-15 15-26 31-26z",
+          "fill": "$top"
+        }
+      ],
+      [
+        "ellipse",
+        {
+          "cx": "50",
+          "cy": "65.4",
+          "rx": "10.6",
+          "ry": "7",
+          "fill": "$shade",
+          "fill-opacity": "0.38"
+        }
+      ],
+      [
+        "rect",
+        {
+          "x": "43",
+          "y": "54",
+          "width": "14",
+          "height": "17",
+          "rx": "7",
+          "fill": "$skin"
+        }
+      ],
+      [
+        "ellipse",
+        {
+          "cx": "50",
+          "cy": "62.5",
+          "rx": "7",
+          "ry": "3.2",
+          "fill": "$shade",
+          "fill-opacity": "0.14"
+        }
+      ],
+      [
+        "path",
+        {
+          "d": "M45.4 71.6L44.6 82M54.6 71.6L55.4 82",
+          "fill": "none",
+          "stroke": "$white",
+          "stroke-width": "0.9",
+          "stroke-linecap": "round"
+        }
+      ],
+      [
+        "circle",
+        {
+          "cx": "44.5",
+          "cy": "83",
+          "r": "1",
+          "fill": "$white"
+        }
+      ],
+      [
+        "circle",
+        {
+          "cx": "55.5",
+          "cy": "83",
+          "r": "1",
+          "fill": "$white"
+        }
+      ],
+      [
+        "path",
+        {
+          "d": "M33 76C34 82 34.5 88 34 92M67 76C66 82 65.5 88 66 92",
+          "fill": "none",
+          "stroke": "$shade",
+          "stroke-opacity": "0.16",
+          "stroke-width": "0.8",
+          "stroke-linecap": "round"
+        }
+      ]
+    ],
+    "blazer": [
+      [
+        "path",
+        {
+          "d": "M50 66c16 0 29 11 31 26v8H19v-8c2-15 15-26 31-26z",
+          "fill": "$top"
+        }
+      ],
+      [
+        "path",
+        {
+          "d": "M42.6 63.6L50 92L57.4 63.6z",
+          "fill": "$white"
+        }
+      ],
+      [
+        "rect",
+        {
+          "x": "43",
+          "y": "54",
+          "width": "14",
+          "height": "17",
+          "rx": "7",
+          "fill": "$skin"
+        }
+      ],
+      [
+        "ellipse",
+        {
+          "cx": "50",
+          "cy": "62.5",
+          "rx": "7",
+          "ry": "3.2",
+          "fill": "$shade",
+          "fill-opacity": "0.14"
+        }
+      ],
+      [
+        "path",
+        {
+          "d": "M40.2 64.4L50 92H41.2L32.4 73z",
+          "fill": "$top",
+          "stroke": "$shade",
+          "stroke-opacity": "0.4",
+          "stroke-width": "0.7",
+          "stroke-linejoin": "round"
+        }
+      ],
+      [
+        "path",
+        {
+          "d": "M59.8 64.4L50 92H58.8L67.6 73z",
+          "fill": "$top",
+          "stroke": "$shade",
+          "stroke-opacity": "0.4",
+          "stroke-width": "0.7",
+          "stroke-linejoin": "round"
+        }
+      ]
+    ]
+  },
+  "earrings": {
+    "none": [],
+    "stud": {
+      "oval": [
+        [
+          "circle",
+          {
+            "cx": "34.6",
+            "cy": "52",
+            "r": "1.75",
+            "fill": "$metal",
+            "stroke": "$shade",
+            "stroke-opacity": "0.32",
+            "stroke-width": "0.45"
+          }
+        ],
+        [
+          "circle",
+          {
+            "cx": "65.4",
+            "cy": "52",
+            "r": "1.75",
+            "fill": "$metal",
+            "stroke": "$shade",
+            "stroke-opacity": "0.32",
+            "stroke-width": "0.45"
+          }
+        ]
+      ],
+      "round": [
+        [
+          "circle",
+          {
+            "cx": "33.6",
+            "cy": "52",
+            "r": "1.75",
+            "fill": "$metal",
+            "stroke": "$shade",
+            "stroke-opacity": "0.32",
+            "stroke-width": "0.45"
+          }
+        ],
+        [
+          "circle",
+          {
+            "cx": "66.4",
+            "cy": "52",
+            "r": "1.75",
+            "fill": "$metal",
+            "stroke": "$shade",
+            "stroke-opacity": "0.32",
+            "stroke-width": "0.45"
+          }
+        ]
+      ],
+      "long": [
+        [
+          "circle",
+          {
+            "cx": "35.6",
+            "cy": "51.5",
+            "r": "1.75",
+            "fill": "$metal",
+            "stroke": "$shade",
+            "stroke-opacity": "0.32",
+            "stroke-width": "0.45"
+          }
+        ],
+        [
+          "circle",
+          {
+            "cx": "64.4",
+            "cy": "51.5",
+            "r": "1.75",
+            "fill": "$metal",
+            "stroke": "$shade",
+            "stroke-opacity": "0.32",
+            "stroke-width": "0.45"
+          }
+        ]
+      ],
+      "square": [
+        [
+          "circle",
+          {
+            "cx": "34.6",
+            "cy": "52",
+            "r": "1.75",
+            "fill": "$metal",
+            "stroke": "$shade",
+            "stroke-opacity": "0.32",
+            "stroke-width": "0.45"
+          }
+        ],
+        [
+          "circle",
+          {
+            "cx": "65.4",
+            "cy": "52",
+            "r": "1.75",
+            "fill": "$metal",
+            "stroke": "$shade",
+            "stroke-opacity": "0.32",
+            "stroke-width": "0.45"
+          }
+        ]
+      ],
+      "heart": [
+        [
+          "circle",
+          {
+            "cx": "34.6",
+            "cy": "51",
+            "r": "1.75",
+            "fill": "$metal",
+            "stroke": "$shade",
+            "stroke-opacity": "0.32",
+            "stroke-width": "0.45"
+          }
+        ],
+        [
+          "circle",
+          {
+            "cx": "65.4",
+            "cy": "51",
+            "r": "1.75",
+            "fill": "$metal",
+            "stroke": "$shade",
+            "stroke-opacity": "0.32",
+            "stroke-width": "0.45"
+          }
+        ]
+      ]
+    },
+    "hoop": {
+      "oval": [
+        [
+          "circle",
+          {
+            "cx": "34.2",
+            "cy": "55.1",
+            "r": "2.9",
+            "fill": "none",
+            "stroke": "$metal",
+            "stroke-width": "1.15"
+          }
+        ],
+        [
+          "circle",
+          {
+            "cx": "65.8",
+            "cy": "55.1",
+            "r": "2.9",
+            "fill": "none",
+            "stroke": "$metal",
+            "stroke-width": "1.15"
+          }
+        ]
+      ],
+      "round": [
+        [
+          "circle",
+          {
+            "cx": "33.2",
+            "cy": "55.1",
+            "r": "2.9",
+            "fill": "none",
+            "stroke": "$metal",
+            "stroke-width": "1.15"
+          }
+        ],
+        [
+          "circle",
+          {
+            "cx": "66.8",
+            "cy": "55.1",
+            "r": "2.9",
+            "fill": "none",
+            "stroke": "$metal",
+            "stroke-width": "1.15"
+          }
+        ]
+      ],
+      "long": [
+        [
+          "circle",
+          {
+            "cx": "35.2",
+            "cy": "54.6",
+            "r": "2.9",
+            "fill": "none",
+            "stroke": "$metal",
+            "stroke-width": "1.15"
+          }
+        ],
+        [
+          "circle",
+          {
+            "cx": "64.8",
+            "cy": "54.6",
+            "r": "2.9",
+            "fill": "none",
+            "stroke": "$metal",
+            "stroke-width": "1.15"
+          }
+        ]
+      ],
+      "square": [
+        [
+          "circle",
+          {
+            "cx": "34.2",
+            "cy": "55.1",
+            "r": "2.9",
+            "fill": "none",
+            "stroke": "$metal",
+            "stroke-width": "1.15"
+          }
+        ],
+        [
+          "circle",
+          {
+            "cx": "65.8",
+            "cy": "55.1",
+            "r": "2.9",
+            "fill": "none",
+            "stroke": "$metal",
+            "stroke-width": "1.15"
+          }
+        ]
+      ],
+      "heart": [
+        [
+          "circle",
+          {
+            "cx": "34.2",
+            "cy": "54.1",
+            "r": "2.9",
+            "fill": "none",
+            "stroke": "$metal",
+            "stroke-width": "1.15"
+          }
+        ],
+        [
+          "circle",
+          {
+            "cx": "65.8",
+            "cy": "54.1",
+            "r": "2.9",
+            "fill": "none",
+            "stroke": "$metal",
+            "stroke-width": "1.15"
+          }
+        ]
+      ]
+    },
+    "drop": {
+      "oval": [
+        [
+          "path",
+          {
+            "d": "M34.6 52.1V55.1",
+            "fill": "none",
+            "stroke": "$metal",
+            "stroke-width": "0.8",
+            "stroke-linecap": "round"
+          }
+        ],
+        [
+          "circle",
+          {
+            "cx": "34.6",
+            "cy": "52",
+            "r": "1.3",
+            "fill": "$metal",
+            "stroke": "$shade",
+            "stroke-opacity": "0.32",
+            "stroke-width": "0.45"
+          }
+        ],
+        [
+          "ellipse",
+          {
+            "cx": "34.6",
+            "cy": "57.5",
+            "rx": "1.9",
+            "ry": "2.5",
+            "fill": "$metal",
+            "stroke": "$shade",
+            "stroke-opacity": "0.32",
+            "stroke-width": "0.45"
+          }
+        ],
+        [
+          "path",
+          {
+            "d": "M65.4 52.1V55.1",
+            "fill": "none",
+            "stroke": "$metal",
+            "stroke-width": "0.8",
+            "stroke-linecap": "round"
+          }
+        ],
+        [
+          "circle",
+          {
+            "cx": "65.4",
+            "cy": "52",
+            "r": "1.3",
+            "fill": "$metal",
+            "stroke": "$shade",
+            "stroke-opacity": "0.32",
+            "stroke-width": "0.45"
+          }
+        ],
+        [
+          "ellipse",
+          {
+            "cx": "65.4",
+            "cy": "57.5",
+            "rx": "1.9",
+            "ry": "2.5",
+            "fill": "$metal",
+            "stroke": "$shade",
+            "stroke-opacity": "0.32",
+            "stroke-width": "0.45"
+          }
+        ]
+      ],
+      "round": [
+        [
+          "path",
+          {
+            "d": "M33.6 52.1V55.1",
+            "fill": "none",
+            "stroke": "$metal",
+            "stroke-width": "0.8",
+            "stroke-linecap": "round"
+          }
+        ],
+        [
+          "circle",
+          {
+            "cx": "33.6",
+            "cy": "52",
+            "r": "1.3",
+            "fill": "$metal",
+            "stroke": "$shade",
+            "stroke-opacity": "0.32",
+            "stroke-width": "0.45"
+          }
+        ],
+        [
+          "ellipse",
+          {
+            "cx": "33.6",
+            "cy": "57.5",
+            "rx": "1.9",
+            "ry": "2.5",
+            "fill": "$metal",
+            "stroke": "$shade",
+            "stroke-opacity": "0.32",
+            "stroke-width": "0.45"
+          }
+        ],
+        [
+          "path",
+          {
+            "d": "M66.4 52.1V55.1",
+            "fill": "none",
+            "stroke": "$metal",
+            "stroke-width": "0.8",
+            "stroke-linecap": "round"
+          }
+        ],
+        [
+          "circle",
+          {
+            "cx": "66.4",
+            "cy": "52",
+            "r": "1.3",
+            "fill": "$metal",
+            "stroke": "$shade",
+            "stroke-opacity": "0.32",
+            "stroke-width": "0.45"
+          }
+        ],
+        [
+          "ellipse",
+          {
+            "cx": "66.4",
+            "cy": "57.5",
+            "rx": "1.9",
+            "ry": "2.5",
+            "fill": "$metal",
+            "stroke": "$shade",
+            "stroke-opacity": "0.32",
+            "stroke-width": "0.45"
+          }
+        ]
+      ],
+      "long": [
+        [
+          "path",
+          {
+            "d": "M35.6 51.6V54.6",
+            "fill": "none",
+            "stroke": "$metal",
+            "stroke-width": "0.8",
+            "stroke-linecap": "round"
+          }
+        ],
+        [
+          "circle",
+          {
+            "cx": "35.6",
+            "cy": "51.5",
+            "r": "1.3",
+            "fill": "$metal",
+            "stroke": "$shade",
+            "stroke-opacity": "0.32",
+            "stroke-width": "0.45"
+          }
+        ],
+        [
+          "ellipse",
+          {
+            "cx": "35.6",
+            "cy": "57",
+            "rx": "1.9",
+            "ry": "2.5",
+            "fill": "$metal",
+            "stroke": "$shade",
+            "stroke-opacity": "0.32",
+            "stroke-width": "0.45"
+          }
+        ],
+        [
+          "path",
+          {
+            "d": "M64.4 51.6V54.6",
+            "fill": "none",
+            "stroke": "$metal",
+            "stroke-width": "0.8",
+            "stroke-linecap": "round"
+          }
+        ],
+        [
+          "circle",
+          {
+            "cx": "64.4",
+            "cy": "51.5",
+            "r": "1.3",
+            "fill": "$metal",
+            "stroke": "$shade",
+            "stroke-opacity": "0.32",
+            "stroke-width": "0.45"
+          }
+        ],
+        [
+          "ellipse",
+          {
+            "cx": "64.4",
+            "cy": "57",
+            "rx": "1.9",
+            "ry": "2.5",
+            "fill": "$metal",
+            "stroke": "$shade",
+            "stroke-opacity": "0.32",
+            "stroke-width": "0.45"
+          }
+        ]
+      ],
+      "square": [
+        [
+          "path",
+          {
+            "d": "M34.6 52.1V55.1",
+            "fill": "none",
+            "stroke": "$metal",
+            "stroke-width": "0.8",
+            "stroke-linecap": "round"
+          }
+        ],
+        [
+          "circle",
+          {
+            "cx": "34.6",
+            "cy": "52",
+            "r": "1.3",
+            "fill": "$metal",
+            "stroke": "$shade",
+            "stroke-opacity": "0.32",
+            "stroke-width": "0.45"
+          }
+        ],
+        [
+          "ellipse",
+          {
+            "cx": "34.6",
+            "cy": "57.5",
+            "rx": "1.9",
+            "ry": "2.5",
+            "fill": "$metal",
+            "stroke": "$shade",
+            "stroke-opacity": "0.32",
+            "stroke-width": "0.45"
+          }
+        ],
+        [
+          "path",
+          {
+            "d": "M65.4 52.1V55.1",
+            "fill": "none",
+            "stroke": "$metal",
+            "stroke-width": "0.8",
+            "stroke-linecap": "round"
+          }
+        ],
+        [
+          "circle",
+          {
+            "cx": "65.4",
+            "cy": "52",
+            "r": "1.3",
+            "fill": "$metal",
+            "stroke": "$shade",
+            "stroke-opacity": "0.32",
+            "stroke-width": "0.45"
+          }
+        ],
+        [
+          "ellipse",
+          {
+            "cx": "65.4",
+            "cy": "57.5",
+            "rx": "1.9",
+            "ry": "2.5",
+            "fill": "$metal",
+            "stroke": "$shade",
+            "stroke-opacity": "0.32",
+            "stroke-width": "0.45"
+          }
+        ]
+      ],
+      "heart": [
+        [
+          "path",
+          {
+            "d": "M34.6 51.1V54.1",
+            "fill": "none",
+            "stroke": "$metal",
+            "stroke-width": "0.8",
+            "stroke-linecap": "round"
+          }
+        ],
+        [
+          "circle",
+          {
+            "cx": "34.6",
+            "cy": "51",
+            "r": "1.3",
+            "fill": "$metal",
+            "stroke": "$shade",
+            "stroke-opacity": "0.32",
+            "stroke-width": "0.45"
+          }
+        ],
+        [
+          "ellipse",
+          {
+            "cx": "34.6",
+            "cy": "56.5",
+            "rx": "1.9",
+            "ry": "2.5",
+            "fill": "$metal",
+            "stroke": "$shade",
+            "stroke-opacity": "0.32",
+            "stroke-width": "0.45"
+          }
+        ],
+        [
+          "path",
+          {
+            "d": "M65.4 51.1V54.1",
+            "fill": "none",
+            "stroke": "$metal",
+            "stroke-width": "0.8",
+            "stroke-linecap": "round"
+          }
+        ],
+        [
+          "circle",
+          {
+            "cx": "65.4",
+            "cy": "51",
+            "r": "1.3",
+            "fill": "$metal",
+            "stroke": "$shade",
+            "stroke-opacity": "0.32",
+            "stroke-width": "0.45"
+          }
+        ],
+        [
+          "ellipse",
+          {
+            "cx": "65.4",
+            "cy": "56.5",
+            "rx": "1.9",
+            "ry": "2.5",
+            "fill": "$metal",
+            "stroke": "$shade",
+            "stroke-opacity": "0.32",
+            "stroke-width": "0.45"
+          }
+        ]
+      ]
+    }
+  },
+  "headwear": {
+    "none": {},
+    "hijab": {
+      "back": [
+        [
+          "path",
+          {
+            "d": "M28.5 46C28.5 28 37 19.5 50 19.5S71.5 28 71.5 46V57C71.5 63 77 66 78.5 74C79 78 77 81 74 82Q50 88 26 82C23 81 21 78 21.5 74C23 66 28.5 63 28.5 57z",
+            "fill": "$cover"
+          }
+        ],
+        [
+          "ellipse",
+          {
+            "cx": "50",
+            "cy": "64.6",
+            "rx": "13",
+            "ry": "4",
+            "fill": "$shade",
+            "fill-opacity": "0.2"
+          }
+        ],
+        [
+          "path",
+          {
+            "d": "M30.4 62C32 69 32.6 75 31.6 80M69.6 62C68 69 67.4 75 68.4 80",
+            "fill": "none",
+            "stroke": "$shade",
+            "stroke-opacity": "0.16",
+            "stroke-width": "0.9",
+            "stroke-linecap": "round"
+          }
+        ]
+      ],
+      "front": [
+        [
+          "path",
+          {
+            "d": "M32.6 43C32.6 30 40 24.4 50 24.4S67.4 30 67.4 43C63.4 36.8 57 34.6 50 34.6S36.6 36.8 32.6 43z",
+            "fill": "$cover"
+          }
+        ],
+        [
+          "path",
+          {
+            "d": "M28.6 38C29 47 29 56 29.8 63L36.2 62.4C37.2 60.2 36.2 57.4 35.2 54.4C34.4 50.4 34.8 46 35.4 41.6z",
+            "fill": "$cover"
+          }
+        ],
+        [
+          "path",
+          {
+            "d": "M71.4 38C71 47 71 56 70.2 63L63.8 62.4C62.8 60.2 63.8 57.4 64.8 54.4C65.6 50.4 65.2 46 64.6 41.6z",
+            "fill": "$cover"
+          }
+        ],
+        [
+          "path",
+          {
+            "d": "M38 28.4C43 26.2 57 26.2 62 28.4",
+            "fill": "none",
+            "stroke": "$shade",
+            "stroke-opacity": "0.16",
+            "stroke-width": "0.8",
+            "stroke-linecap": "round"
+          }
+        ]
+      ]
+    },
+    "turban": {
+      "front": [
+        [
+          "path",
+          {
+            "d": "M30 41C29 27 38 17 50 17S71 27 70 41C65 35.6 58 34 50 34S35 35.6 30 41z",
+            "fill": "$cover"
+          }
+        ],
+        [
+          "path",
+          {
+            "d": "M30.4 38.4C36 33.6 43 32 50 32S64 33.6 69.6 38.4V41C64 35.6 58 34 50 34S36 35.6 30.4 41z",
+            "fill": "$shade",
+            "fill-opacity": "0.2"
+          }
+        ],
+        [
+          "path",
+          {
+            "d": "M35.4 27.6C42.4 22.8 56 22.4 64.6 27M32.4 33C41.4 27.4 58 27 67.6 33",
+            "fill": "none",
+            "stroke": "$shade",
+            "stroke-opacity": "0.24",
+            "stroke-width": "0.9",
+            "stroke-linecap": "round"
+          }
+        ],
+        [
+          "path",
+          {
+            "d": "M50 17.6C47 22 45 27 44.4 32.6",
+            "fill": "none",
+            "stroke": "$shade",
+            "stroke-opacity": "0.2",
+            "stroke-width": "0.8",
+            "stroke-linecap": "round"
+          }
+        ]
+      ]
+    },
+    "cap": {
+      "front": [
+        [
+          "path",
+          {
+            "d": "M31 34C30.6 23 39 18.8 50 18.8S69.4 23 69 34C62 31.6 56 31 50 31S38 31.6 31 34z",
+            "fill": "$cover"
+          }
+        ],
+        [
+          "circle",
+          {
+            "cx": "50",
+            "cy": "19.4",
+            "r": "1.5",
+            "fill": "$cover"
+          }
+        ],
+        [
+          "circle",
+          {
+            "cx": "50",
+            "cy": "19.4",
+            "r": "1.5",
+            "fill": "$shade",
+            "fill-opacity": "0.2"
+          }
+        ],
+        [
+          "path",
+          {
+            "d": "M50 19.8V31",
+            "fill": "none",
+            "stroke": "$shade",
+            "stroke-opacity": "0.18",
+            "stroke-width": "0.7",
+            "stroke-linecap": "round"
+          }
+        ],
+        [
+          "path",
+          {
+            "d": "M31.4 33.8C40 30.6 60 30.6 68.6 33.8C66.8 38.8 58.6 40.2 50 40.2S33.2 38.8 31.4 33.8z",
+            "fill": "$cover"
+          }
+        ],
+        [
+          "path",
+          {
+            "d": "M31.4 33.8C40 30.6 60 30.6 68.6 33.8C66.8 38.8 58.6 40.2 50 40.2S33.2 38.8 31.4 33.8z",
+            "fill": "$shade",
+            "fill-opacity": "0.22"
+          }
+        ]
+      ]
+    }
   }
 }

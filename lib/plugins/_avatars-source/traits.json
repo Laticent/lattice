@@ -1,5 +1,5 @@
 {
-  "$comment": "The avatars plugin's TRAITS: every option an author may name, the colors behind the color traits, and the pools a name and a gender preset draw defaults from. tools/build-avatars-data.js validates this file against parts.json and writes lib/plugins/avatars/avatars.vocab.generated.js (names and pools, small) and avatars.data.generated.js (drawings and colors). Design: engineering/decisions/2026-10-09-inline-avatars.md.",
+  "$comment": "The avatars plugin's TRAITS: every option an author may name, the colors behind the color traits, which hair a head covering hides, and the pools a name and a gender preset draw defaults from. tools/build-avatars-data.js validates this file against parts.json and writes lib/plugins/avatars/avatars.vocab.generated.js (names and pools, small) and avatars.data.generated.js (drawings and colors). Design: engineering/decisions/2026-10-09-inline-avatars.md.",
   "palettes": {
     "skin": {
       "1": { "base": "#F6DCCB", "lip": "#C4796D" },
@@ -46,7 +46,8 @@
       "white": "#FFFFFF",
       "mouth": "#5A2626",
       "frame": "#26262B",
-      "shade": "#000000"
+      "shade": "#000000",
+      "metal": "#D4AC58"
     }
   },
   "traits": {
@@ -57,7 +58,10 @@
     "nose":      ["button", "straight", "wide", "long"],
     "mouth":     ["smile", "grin", "neutral", "smirk"],
     "beard":     ["none", "stubble", "mustache", "goatee", "full"],
-    "glasses":   ["none", "round", "square"]
+    "glasses":   ["none", "round", "square"],
+    "earrings":  ["none", "stud", "hoop", "drop"],
+    "headwear":  ["none", "hijab", "turban", "cap"],
+    "clothing":  ["crew", "vneck", "collar", "turtleneck", "hoodie", "blazer"]
   },
   "presets": {
     "neutral": {
@@ -86,8 +90,19 @@
     "mouth":      ["smile", "smile", "smile", "neutral", "grin", "smirk"],
     "glasses":    ["none", "none", "none", "none", "none", "round", "square"],
     "top":        ["navy", "slate", "charcoal", "olive", "teal", "plum", "brick", "taupe"],
-    "color":      ["c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8"]
+    "color":      ["c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8"],
+    "earrings":   ["none"],
+    "headwear":   ["none"],
+    "clothing":   ["crew"],
+    "headwear-color": ["navy", "slate", "charcoal", "olive", "teal", "plum", "brick", "taupe", "cream"]
   },
+  "coverage": {
+    "$comment": "Which hair layers a head covering hides, per hairstyle; \"*\" is every hairstyle not named. A hijab and a turban hide all hair. A cap hides the fringe, and the volume (a bun, an afro, curls) that would otherwise show above it.",
+    "hijab":  { "*": ["back", "mid", "front"] },
+    "turban": { "*": ["back", "mid", "front"] },
+    "cap":    { "*": ["front"], "bun": ["back", "front"], "coily": ["back", "front"], "curly": ["back", "front"] }
+  },
+  "hides-earrings": ["hijab"],
   "deep": {
     "$comment": "For the deeper skin tones, a default hair color comes from these pools instead, so a name never defaults to blonde or red where it would be rare. A color the author writes always wins.",
     "skin": ["5", "6", "7", "8"],

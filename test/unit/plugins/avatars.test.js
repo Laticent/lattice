@@ -235,3 +235,86 @@ describe('avatars — in a team-profile roster', () => {
     assert.equal(tp.applyToRenderedHtml(once), once);
   });
 });
+
+describe('avatars — earrings, head coverings and clothing', () => {
+  before(loadData);
+  const V = require('../../../lib/plugins/avatars/avatars.vocab.generated.js').TRAITS;
+  const svg = (t) => k.svgHtml(k.read(`!{Ada Okafor, ${t}}`));
+  const data = require('../../../lib/plugins/avatars/avatars.data.generated.js');
+
+  test('a name that writes none of them gets none of them: v1 faces do not change', () => {
+    for (let i = 0; i < 200; i++) {
+      const f = k.read(`!{Person ${i}}`);
+      assert.equal(f.traits.earrings, 'none');
+      assert.equal(f.traits.headwear, 'none');
+      assert.equal(f.traits.clothing, 'crew');
+    }
+  });
+
+  test('every option is accepted and stamped on data-traits', () => {
+    for (const [trait, key] of [['earrings', 'earrings'], ['headwear', 'headwear'], ['clothing', 'clothing'], ['headwear-color', 'headwear-color']]) {
+      for (const v of V[trait]) assert.match(k.avatarHtml(`!{Ada, ${trait === 'headwear-color' ? 'headwear=cap, ' : ''}${key}=${v}}`), new RegExp(`data-traits="[^"]*${key}=${v}[ "]`));
+    }
+    assert.match(k.diagnose('!{Ada, headwear=fez}'), /fez.*none, hijab, turban, cap/);
+  });
+
+  test('every covering draws on every hairstyle, face and skin, and paints in its color', () => {
+    for (const h of ['hijab', 'turban', 'cap']) {
+      for (const hair of V.hair) for (const face of V.face) for (const skin of V.skin) {
+        const out = svg(`headwear=${h}, headwear-color=teal, hair=${hair}, face=${face}, skin=${skin}`);
+        assert.ok(out.includes('fill="#2F5F63"'), `${h} ${hair} ${face} ${skin}`);
+      }
+    }
+    assert.ok(!svg('headwear=none, headwear-color=teal').includes('#2F5F63'), 'a covering color is not drawn without a covering');
+  });
+
+  test('a hijab and a turban hide all hair, a cap hides the fringe and the volume above it', () => {
+    // The brows are painted in the hair's color too, so count against a bald baseline.
+    const bald = svg('hair-color=black, beard=none, hair=none').split('fill="#1E1917"').length - 1;
+    const count = (t) => svg(`hair-color=black, beard=none, ${t}`).split('fill="#1E1917"').length - 1 - bald;
+    assert.ok(count('hair=short') > 0);
+    assert.equal(count('hair=long, headwear=hijab'), 0);
+    assert.equal(count('hair=coily, headwear=turban'), 0);
+    assert.ok(count('hair=short, headwear=cap') < count('hair=short'), 'a cap hides the short fringe');
+    assert.ok(count('hair=long, headwear=cap') > 0, 'long hair still falls below a cap');
+    assert.equal(count('hair=bun, headwear=cap, gender=man'), 0, 'a cap hides a bun, which would rise above it');
+  });
+
+  test('earrings sit on the ears of every face shape', () => {
+    const lobes = (face) => data.drawings.earrings.stud[face].map((n) => n[1].cx);
+    assert.notDeepEqual(lobes('round'), lobes('long'));
+    for (const e of ['stud', 'hoop', 'drop']) for (const face of V.face) {
+      assert.ok(svg(`earrings=${e}, face=${face}, hair=short`).includes('#D4AC58'), `${e} ${face}`);
+    }
+    assert.ok(!svg('earrings=none').includes('#D4AC58'));
+  });
+
+  test('every clothing style draws the neck and the top', () => {
+    for (const c of V.clothing) {
+      const out = svg(`clothing=${c}, top=navy, skin=4`);
+      assert.ok(out.includes('#34445A'), `${c} paints the top`);
+      assert.ok(out.includes('#CC9468'), `${c} paints skin`);
+    }
+  });
+
+  test('a hijab hides earrings; data-traits names a covering color only with a covering', () => {
+    assert.ok(!svg('earrings=hoop, headwear=hijab').includes('#D4AC58'));
+    assert.ok(svg('earrings=hoop, headwear=turban').includes('#D4AC58'));
+    assert.doesNotMatch(k.avatarHtml('!{Ada}'), /headwear-color=/);
+    assert.match(k.avatarHtml('!{Ada, headwear=cap}'), /headwear-color=/);
+  });
+
+  test('a data script from before these traits leaves the span as written instead of throwing', () => {
+    // A fresh process, because pluginData caches a hit: drawings with no clothing/earrings/headwear sets.
+    const { spawnSync } = require('node:child_process');
+    const code = `
+      const d = require(${JSON.stringify(require.resolve('../../../lib/plugins/avatars/avatars.data.generated.js'))});
+      const { clothing, earrings, headwear, ...old } = d.drawings;
+      globalThis.__latticePluginData = { avatars: { palettes: d.palettes, drawings: old } };
+      const k = require(${JSON.stringify(require.resolve('../../../lib/plugins/avatars/avatars.inline.js'))});
+      process.stdout.write(String(k.avatarHtml('!{Ada Okafor}')));`;
+    const r = spawnSync(process.execPath, ['-e', code], { encoding: 'utf8' });
+    assert.equal(r.status, 0, r.stderr);
+    assert.equal(r.stdout, 'null');
+  });
+});

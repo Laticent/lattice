@@ -30,7 +30,11 @@ The syntax on one page. [Avatars](/guides/inline/avatars/) explains each part wi
 | `mouth` | `smile` `grin` `neutral` `smirk` |
 | `beard` | `none` `stubble` `mustache` `goatee` `full` |
 | `glasses` | `none` `round` `square` |
+| `earrings` | `none` `stud` `hoop` `drop` (default `none`) |
+| `headwear` | `none` `hijab` `turban` `cap` (default `none`; a hijab or turban hides all hair, a cap the fringe and any volume above it) |
+| `headwear-color` | the nine `top` colors |
 | `top` | `navy` `slate` `charcoal` `olive` `teal` `plum` `brick` `taupe` `cream` |
+| `clothing` | `crew` (default) `vneck` `collar` `turtleneck` `hoodie` `blazer` |
 | `gender` | `neutral` (default) `woman` `man`: changes the defaults for hair, beard and brows; never a lock |
 
 ## The tile
@@ -54,6 +58,8 @@ An avatar's own word wins over both.
 `!{Ada Okafor, hair=coily, skin=6}`                    two traits pinned
 `!{Ada Okafor, glasses=round, c3, lg, rounded}`        a trait, then the tile
 `!{Sam Lee, gender=man, hair=long}`                    a preset, overridden
+`!{Amina Yusuf, headwear=hijab, headwear-color=plum}`   a head covering and its color
+`!{Ada Okafor, earrings=hoop, clothing=blazer}`        earrings and the cut of the top
 `!{Ada Okafor, border=c4, label="Our sponsor"}`        a ring and a spoken name
 `\!{Ada Okafor}`                                       shown as code, not drawn
 ```

@@ -49,10 +49,15 @@ const PAINTS = Object.freeze(['fill', 'stroke']);
 const NUMERIC = Object.freeze(['stroke-width', 'fill-opacity', 'stroke-opacity']);
 const KEYWORD = Object.freeze({ 'stroke-linecap': ['round', 'butt', 'square'], 'stroke-linejoin': ['round', 'miter', 'bevel'] });
 /** The paint roles the kernel resolves (avatars.inline.js `rolesFor`). */
-const ROLES = Object.freeze(['skin', 'lip', 'hair', 'brow', 'eye', 'top', 'ink', 'white', 'mouth', 'frame', 'shade']);
-/** The traits that are drawings, and the layers a hairstyle may have. */
-const DRAWN = Object.freeze(['face', 'eyes', 'brows', 'nose', 'mouth', 'beard', 'glasses']);
-const HAIR_LAYERS = Object.freeze(['back', 'mid', 'front']);
+const ROLES = Object.freeze(['skin', 'lip', 'hair', 'brow', 'eye', 'top', 'cover', 'ink', 'white', 'mouth', 'frame', 'shade', 'metal']);
+/** The traits that are one drawing per option. */
+const DRAWN = Object.freeze(['face', 'eyes', 'brows', 'nose', 'mouth', 'beard', 'glasses', 'clothing']);
+/** The traits whose drawing differs per face shape (the ears sit differently on each). */
+const FACE_KEYED = Object.freeze(['earrings']);
+/** Traits that are off by default: no name, preset or skin tone may turn one on. */
+const OPT_IN = Object.freeze(['earrings', 'headwear', 'clothing']);
+/** The traits drawn in layers, and the layers each may have. */
+const LAYERED = Object.freeze({ hair: ['back', 'mid', 'front'], headwear: ['back', 'front'] });
 const NAME = /^[a-z0-9][a-z0-9-]*$/;
 const HEX = /^#[0-9A-F]{6}$/;
 
@@ -100,6 +105,8 @@ function build() {
   const src = JSON.parse(fs.readFileSync(path.join(SRC, 'traits.json'), 'utf8'));
   const parts = JSON.parse(fs.readFileSync(path.join(SRC, 'parts.json'), 'utf8'));
   const { palettes, traits, presets, pools, deep } = src;
+  const hidesEarrings = src['hides-earrings'] || [];
+  for (const c of hidesEarrings) if (!traits.headwear.includes(c) || c === 'none') fail(`hides-earrings: "${c}" is not a head covering`);
 
   for (const [trait, options] of Object.entries(traits)) {
     for (const o of options) if (!NAME.test(o)) fail(`${trait}: "${o}" is not a lower-case name`);
@@ -119,23 +126,58 @@ function build() {
     'hair-color': Object.keys(palettes['hair-color']),
     'eye-color': Object.keys(palettes['eye-color']),
     top: Object.keys(palettes.top),
+    // A head covering takes its color from the clothes' palette.
+    'headwear-color': Object.keys(palettes.top),
   };
   const options = { ...traits, ...colors };
 
   // Every drawn trait has exactly its options' drawings; hair has a layer set per style.
-  const drawings = { body: validNodes(parts.body, 'body'), hair: {} };
+  const drawings = {};
   for (const t of DRAWN) {
     sameSet(traits[t], Object.keys(parts[t] || {}), t);
     drawings[t] = {};
     for (const o of traits[t]) drawings[t][o] = validNodes(parts[t][o], `${t}.${o}`);
   }
-  sameSet(traits.hair, Object.keys(parts.hair || {}), 'hair');
-  for (const o of traits.hair) {
-    const layers = parts.hair[o];
-    for (const l of Object.keys(layers)) if (!HAIR_LAYERS.includes(l)) fail(`hair.${o}: layer "${l}" is not one of ${HAIR_LAYERS.join(', ')}`);
-    drawings.hair[o] = {};
-    for (const l of HAIR_LAYERS) if (layers[l]) drawings.hair[o][l] = validNodes(layers[l], `hair.${o}.${l}`);
+  // A face-keyed drawing is one list for every face, or an object with a list for each face shape.
+  for (const t of FACE_KEYED) {
+    sameSet(traits[t], Object.keys(parts[t] || {}), t);
+    drawings[t] = {};
+    for (const o of traits[t]) {
+      const v = parts[t][o];
+      if (Array.isArray(v)) {
+        const nodes = validNodes(v, `${t}.${o}`);
+        drawings[t][o] = Object.fromEntries(traits.face.map((f) => [f, nodes]));
+      } else {
+        sameSet(traits.face, Object.keys(v || {}), `${t}.${o}`);
+        drawings[t][o] = Object.fromEntries(traits.face.map((f) => [f, validNodes(v[f], `${t}.${o}.${f}`)]));
+      }
+    }
   }
+  for (const [t, layerNames] of Object.entries(LAYERED)) {
+    sameSet(traits[t], Object.keys(parts[t] || {}), t);
+    drawings[t] = {};
+    for (const o of traits[t]) {
+      const layers = parts[t][o];
+      for (const l of Object.keys(layers)) if (!layerNames.includes(l)) fail(`${t}.${o}: layer "${l}" is not one of ${layerNames.join(', ')}`);
+      drawings[t][o] = {};
+      for (const l of layerNames) if (layers[l]) drawings[t][o][l] = validNodes(layers[l], `${t}.${o}.${l}`);
+    }
+  }
+
+  // Which hair layers a head covering hides: only a real covering, hairstyle and layer may be named.
+  const coverage = {};
+  for (const [cover, rules] of Object.entries(src.coverage || {})) {
+    if (cover === '$comment') continue;
+    if (!traits.headwear.includes(cover) || cover === 'none') fail(`coverage.${cover}: not a head covering`);
+    if (!rules['*']) fail(`coverage.${cover}: needs a "*" rule (the hairstyles not named)`);
+    coverage[cover] = {};
+    for (const [style, layers] of Object.entries(rules)) {
+      if (style !== '*' && !traits.hair.includes(style)) fail(`coverage.${cover}.${style}: not a hairstyle`);
+      for (const l of layers) if (!LAYERED.hair.includes(l)) fail(`coverage.${cover}.${style}: "${l}" is not a hair layer`);
+      coverage[cover][style] = [...layers];
+    }
+  }
+  for (const cover of traits.headwear) if (cover !== 'none' && !coverage[cover]) fail(`coverage: no rule for ${cover}`);
 
   // Pools and presets name real options; `color` names a chart color slot.
   for (const [trait, pool] of Object.entries(pools)) {
@@ -165,6 +207,14 @@ function build() {
     if (!pooled) fail(`${trait}: no pool to draw a default from (add it to pools, or to every preset)`);
   }
 
+  // Opt-in traits default to their first option for everyone, so a name that writes none draws what
+  // v1 drew: one-entry pool, no preset or deep override.
+  for (const t of OPT_IN) {
+    if (pools[t].length !== 1 || pools[t][0] !== traits[t][0]) fail(`pools.${t}: must be exactly ["${traits[t][0]}"] (an opt-in trait)`);
+    for (const [g, p] of Object.entries(presets)) if (p[t]) fail(`presets.${g}.${t}: an opt-in trait takes no preset`);
+    if (deep.pools[t]) fail(`deep.pools.${t}: an opt-in trait takes no deep pool`);
+  }
+
   const vocab = {
     TRAITS: Object.fromEntries(Object.entries(options).map(([k, v]) => [k, [...v]])),
     GENDERS: Object.keys(presets),
@@ -172,7 +222,7 @@ function build() {
     POOLS: pools,
     DEEP: { skin: deep.skin, pools: deep.pools },
   };
-  const data = { palettes, drawings };
+  const data = { palettes, drawings, coverage, hidesEarrings };
 
   const header = (what) => `// GENERATED by tools/build-avatars-data.js from lib/plugins/_avatars-source/ — do not edit.\n// ${what}\n// Design: engineering/decisions/2026-10-09-inline-avatars.md. Regenerate: npm run build.\n`;
   const files = [
