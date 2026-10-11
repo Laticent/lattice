@@ -60,7 +60,7 @@
     "beard":     ["none", "stubble", "mustache", "goatee", "full"],
     "glasses":   ["none", "round", "square"],
     "earrings":  ["none", "stud", "hoop", "drop"],
-    "headwear":  ["none", "hijab", "turban", "cap"],
+    "headwear":  ["none", "hijab", "turban", "skullcap", "cap"],
     "clothing":  ["crew", "vneck", "collar", "turtleneck", "hoodie", "blazer"]
   },
   "presets": {
@@ -97,9 +97,10 @@
     "headwear-color": ["navy", "slate", "charcoal", "olive", "teal", "plum", "brick", "taupe", "cream"]
   },
   "coverage": {
-    "$comment": "Which hair layers a head covering hides, per hairstyle; \"*\" is every hairstyle not named. A hijab and a turban hide all hair. A cap hides the fringe, and the volume (a bun, an afro, curls) that would otherwise show above it.",
+    "$comment": "Which hair layers a head covering hides, per hairstyle; \"*\" is every hairstyle not named. A hijab and a turban hide all hair. A skull cap or a cap hides the fringe, and the volume (a bun, an afro, curls) that would otherwise show above it.",
     "hijab":  { "*": ["back", "mid", "front"] },
     "turban": { "*": ["back", "mid", "front"] },
+    "skullcap": { "*": ["front"], "bun": ["back", "front"], "coily": ["back", "front"], "curly": ["back", "front"] },
     "cap":    { "*": ["front"], "bun": ["back", "front"], "coily": ["back", "front"], "curly": ["back", "front"] }
   },
   "hides-earrings": ["hijab"],

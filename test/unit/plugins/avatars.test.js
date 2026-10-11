@@ -255,11 +255,11 @@ describe('avatars — earrings, head coverings and clothing', () => {
     for (const [trait, key] of [['earrings', 'earrings'], ['headwear', 'headwear'], ['clothing', 'clothing'], ['headwear-color', 'headwear-color']]) {
       for (const v of V[trait]) assert.match(k.avatarHtml(`!{Ada, ${trait === 'headwear-color' ? 'headwear=cap, ' : ''}${key}=${v}}`), new RegExp(`data-traits="[^"]*${key}=${v}[ "]`));
     }
-    assert.match(k.diagnose('!{Ada, headwear=fez}'), /fez.*none, hijab, turban, cap/);
+    assert.match(k.diagnose('!{Ada, headwear=fez}'), /fez.*none, hijab, turban, skullcap, cap/);
   });
 
   test('every covering draws on every hairstyle, face and skin, and paints in its color', () => {
-    for (const h of ['hijab', 'turban', 'cap']) {
+    for (const h of ['hijab', 'turban', 'skullcap', 'cap']) {
       for (const hair of V.hair) for (const face of V.face) for (const skin of V.skin) {
         const out = svg(`headwear=${h}, headwear-color=teal, hair=${hair}, face=${face}, skin=${skin}`);
         assert.ok(out.includes('fill="#2F5F63"'), `${h} ${hair} ${face} ${skin}`);
@@ -277,6 +277,9 @@ describe('avatars — earrings, head coverings and clothing', () => {
     assert.equal(count('hair=coily, headwear=turban'), 0);
     assert.ok(count('hair=short, headwear=cap') < count('hair=short'), 'a cap hides the short fringe');
     assert.ok(count('hair=long, headwear=cap') > 0, 'long hair still falls below a cap');
+    assert.ok(count('hair=short, headwear=skullcap') < count('hair=short'), 'a skull cap hides the short fringe');
+    assert.ok(count('hair=long, headwear=skullcap') > 0, 'long hair still falls below a skull cap');
+    assert.equal(count('hair=coily, headwear=skullcap'), 0, 'a skull cap hides an afro, which would rise above it');
     assert.equal(count('hair=bun, headwear=cap, gender=man'), 0, 'a cap hides a bun, which would rise above it');
   });
 

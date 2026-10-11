@@ -31,7 +31,7 @@ The syntax on one page. [Avatars](/guides/inline/avatars/) explains each part wi
 | `beard` | `none` `stubble` `mustache` `goatee` `full` |
 | `glasses` | `none` `round` `square` |
 | `earrings` | `none` `stud` `hoop` `drop` (default `none`) |
-| `headwear` | `none` `hijab` `turban` `cap` (default `none`; a hijab or turban hides all hair, a cap the fringe and any volume above it) |
+| `headwear` | `none` `hijab` `turban` `skullcap` `cap` (default `none`; a hijab or turban hides all hair, a skull cap or cap the fringe and any volume above it) |
 | `headwear-color` | the nine `top` colors |
 | `top` | `navy` `slate` `charcoal` `olive` `teal` `plum` `brick` `taupe` `cream` |
 | `clothing` | `crew` (default) `vneck` `collar` `turtleneck` `hoodie` `blazer` |

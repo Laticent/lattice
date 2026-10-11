@@ -53,7 +53,7 @@ pair of glasses.
 | `beard` | `none` `stubble` `mustache` `goatee` `full` |
 | `glasses` | `none` `round` `square` |
 | `earrings` | `none` `stud` `hoop` `drop` |
-| `headwear` | `none` `hijab` `turban` `cap` |
+| `headwear` | `none` `hijab` `turban` `skullcap` `cap` |
 | `headwear-color` | `navy` `slate` `charcoal` `olive` `teal` `plum` `brick` `taupe` `cream` |
 | `top` | `navy` `slate` `charcoal` `olive` `teal` `plum` `brick` `taupe` `cream` |
 | `clothing` | `crew` `vneck` `collar` `turtleneck` `hoodie` `blazer` |
@@ -69,6 +69,7 @@ crew-neck top, so every face drawn before they existed is unchanged.
 ```markdown
 `!{Amina Yusuf, headwear=hijab, headwear-color=plum}`
 `!{Rohan Mehta, headwear=turban, headwear-color=olive}`
+`!{Omar Haddad, headwear=skullcap, headwear-color=cream}`
 `!{Sam Lee, headwear=cap, clothing=hoodie}`
 `!{Ada Okafor, earrings=hoop, clothing=blazer}`
 ```
@@ -76,8 +77,10 @@ crew-neck top, so every face drawn before they existed is unchanged.
 - **A head covering takes its own color** (`headwear-color`, the same nine as `top`), and the traits
   it covers stay on the render in `data-traits`: `hair=long headwear=hijab` is a face with long
   hair under a hijab.
-- **Which hair it hides.** A hijab and a turban hide all hair. A cap hides the fringe, and the
-  volume that would rise above it: a bun, an afro or curls. Long hair and locs still fall below a cap.
+- **Which hair it hides.** A hijab and a turban hide all hair. A `skullcap` (a close-fitting dome) and a
+  `cap` hide the fringe, and the volume that would rise above them: a bun, an afro or curls. Long hair
+  and locs still fall below either. A `turban` is wound cloth that stands up from the head; a `skullcap`
+  sits on the crown.
 - **Earrings** sit on the ears of every face shape. A hijab covers the ears, so it hides them. Hair in front of the ear (`bob`) covers the lobe, and only
   the edge of an earring shows.
 - **`clothing`** is the cut of the top: `crew` (the default), `vneck`, `collar` (a white-collared
