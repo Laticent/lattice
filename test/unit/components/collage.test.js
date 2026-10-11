@@ -110,10 +110,13 @@ test('stamp is deterministic', () => {
   assert.equal(a, b);
 });
 
-test('HARD RULE #22: alt text, hint words and file names never reach a style attribute', () => {
-  const evil = `x;}</style><img onerror=alert(1)>`;
+// What the engine does to author text before it reaches the markup: all four characters.
+const escHtml = (t) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+test('HARD RULE #22: alt text, hint words and file names never reach a style attribute or break out of an attribute', () => {
+  const evil = 'x;}</style><img onerror=alert(1)>" onmouseover="alert(2)';
   const items = [
-    `<img src="file:///a.jpg" alt="${evil.replace(/</g, '&lt;').replace(/>/g, '&gt;')}" /> <code>${evil.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</code>`,
+    `<img src="file:///a.jpg" alt="${escHtml(evil)}" /> <code>${escHtml(evil)}</code>`,
     img('b'), img('c'), img('d'),
   ];
   const out = k.stampSection(k.applyToRenderedHtml(section(items)), [1, 1, 1, 1], k.optionsFromClass('collage'), 'landscape');
@@ -123,6 +126,11 @@ test('HARD RULE #22: alt text, hint words and file names never reach a style att
     assert.ok(/^[\w\s:;.,%/()-]*$/.test(s), `style carries only numbers and table constants: ${s}`);
     assert.ok(!/onerror|alert|<|>/.test(s));
   }
+  const doc = new JSDOM(`<body>${out}</body>`).window.document;
+  const attrNames = new Set([...doc.querySelectorAll('*')].flatMap((el) => el.getAttributeNames()));
+  assert.ok(!attrNames.has('onmouseover') && !attrNames.has('onerror'), `the quote in the alt text did not open a new attribute: ${[...attrNames]}`);
+  assert.equal(doc.querySelectorAll('img').length, 4, 'no injected element');
+  assert.ok(out.includes('data-label="x;}&lt;/style&gt;&lt;img onerror=alert(1)&gt;&quot; onmouseover=&quot;alert(2)"'), 'the label carries the alt text still escaped');
 });
 
 test('live path: structures, measures the photos, packs once, and is idempotent', () => {
