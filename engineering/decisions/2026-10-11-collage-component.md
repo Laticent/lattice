@@ -1,3 +1,12 @@
+---
+status: proposed
+summary: >
+  A new `collage` imagery component packs 4 to 6 mixed-aspect photos edge to edge from their real
+  aspect ratios, with free-order packing by default, an `ordered` variant, trailing-code photo
+  hints, full slide chrome and no page number, and hover focus plus click-to-enlarge on live
+  surfaces. Spec after three design tracks, a judge and an adversarial review.
+---
+
 # `collage`: a mixed-aspect photo collage component
 
 Status: proposed spec, before the adversarial trio (HARD RULE #25). Nothing is built yet.
