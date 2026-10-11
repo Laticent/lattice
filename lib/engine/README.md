@@ -10,7 +10,9 @@ so everything downstream (CSS, transforms, export) is renderer-agnostic.
 - `directives.js` — front-matter and `<!-- key: value -->` parsing.
 - `css.js` — per-render scaffold + theme CSS emission.
 - `themes.js` — the theme store.
-- `math.js` / `qr.js` — synchronous KaTeX / QR renderers.
+- `structural-split.js` — the pane and auto split, run above the masthead lift it applies.
+  (KaTeX is the math plugin's, `lib/plugins/math/`; the QR encoder sits beside the QR card,
+  `lib/components/connect/_qr-card/qr.js`.)
 - `background-image.js`, `render-guard.js`. (Video provider resolution moved to
   the shared registry `lib/core/video-providers.mjs`, which the docs site reads too.)
 
@@ -18,7 +20,7 @@ Consumed by `lattice.js` (CLI/PDF), `lib/playground` (browser),
 and `tools/export-marp.js`. History: `engineering/marp-independence.md`.
 
 **Gotchas:** the engine's built-in `css` is a minimal stub — callers supply
-the real `dist/lattice.css` + theme. And `math.js`/`qr.js` are synchronous
+the real `dist/lattice.css` + theme. And the math and QR renderers are synchronous
 BY DESIGN: the headless-Chromium PDF path has raced on async reflow before.
 Do not make a substance renderer async.
 

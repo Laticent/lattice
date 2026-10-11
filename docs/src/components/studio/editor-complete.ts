@@ -1,8 +1,8 @@
 import type { Completion, CompletionContext, CompletionResult } from '@codemirror/autocomplete';
 import { PACE_NAMES } from '@/lib/resolve-pace';
 import { classDirectiveCompletion, classTokenResult, deckSplit, slideBodyAfter } from '@/playground/slide-context.js';
-import { FRONT_MATTER_KEYS } from './front-matter-keys';
-import { MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from './motion-catalog';
+import { FRONT_MATTER_KEYS } from '../../lib/front-matter-keys';
+import { MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from '../../lib/motion-catalog';
 import { STUDIO_LANGUAGES } from './studio-language';
 
 // Studio editor autocomplete — context-aware completion for the three things an
@@ -56,70 +56,10 @@ const PACE_OPTIONS: Completion[] = PACE_NAMES.map((n: string) => ({ label: n, ty
 // The front-matter keys whose VALUE vocabulary the engine publishes in the lint vocab
 // (lib/authoring/lint.js `buildVocab`) — key → vocab field. Reading the engine's own list
 // means the editor can never offer a value the linter then flags, or miss one it accepts.
-export const VOCAB_VALUE_FIELDS: Record<string, string> = {
-	cards: 'cardsNames',
-	fit: 'fitNames',
-	claim: 'claimNames',
-	corners: 'cornersNames',
-	mode: 'modeNames',
-	'color-mode': 'colorModeNames',
-	split: 'splitNames',
-	spectrum: 'spectrumNames',
-	'spectrum-edge': 'spectrumEdgeNames',
-	'spectrum-card': 'spectrumCardNames',
-	'spectrum-card-edge': 'spectrumCardEdgeNames',
-	'spectrum-trim': 'spectrumTrimNames',
-	rule: 'ruleNames',
-	eyebrow: 'eyebrowNames',
-	headline: 'headlineNames',
-	lift: 'liftNames',
-	backdrop: 'backdropNames',
-	tag: 'tagNames',
-	spark: 'sparkNames',
-	venue: 'venueNames',
-	'chart-finish': 'chartFinishNames',
-	preset: 'presetNames',
-	delivery: 'deliveryNames',
-	'inline-code': 'inlineCodeNames',
-	stamp: 'stampStyleNames',
-	tone: 'toneStyleNames',
-};
+// The front-matter value lists live in lib/front-matter-values.ts, below the Studio, so the docs
+// reference page reads the same lists without importing the editor.
+export { registerValueLists, VOCAB_VALUE_FIELDS } from '../../lib/front-matter-values';
 
-// Keys with a small fixed vocabulary that the lint vocab does not carry. Each list is the
-// values its reader accepts: motion-style / motion-speed come from the Inspector's own
-// catalog, and `player-motion` offers only `off` because resolve-motion.mjs reads nothing
-// else (omitting the key follows `motion:`).
-const ON_OFF = ['on', 'off'];
-const TRUE_FALSE = ['true', 'false'];
-const STATIC_VALUES: Record<string, string[]> = {
-	motion: ON_OFF,
-	'motion-style': MOTION_STYLE_ENTRIES.map((e) => e.name),
-	'motion-speed': MOTION_SPEED_ENTRIES.map((e) => e.name),
-	'player-motion': ['off'],
-	paginate: TRUE_FALSE,
-	glossary: ['auto', 'off'],
-	validate: ON_OFF,
-	'logo-on': ['all', 'title'],
-	'logo-style': ['auto', 'brand'],
-	present: TRUE_FALSE,
-	read: TRUE_FALSE,
-	fluid: TRUE_FALSE,
-	player: TRUE_FALSE,
-};
-
-/**
- * The key → value-list map the editor completes against: every fixed-vocabulary register,
- * from the lint vocab where the engine publishes one and from STATIC_VALUES otherwise.
- * Exported so the Editor builds it once per vocab and a test can assert coverage.
- */
-export function registerValueLists(vocab: Record<string, unknown> | null | undefined): Record<string, string[]> {
-	const out: Record<string, string[]> = { ...STATIC_VALUES };
-	for (const [key, field] of Object.entries(VOCAB_VALUE_FIELDS)) {
-		const names = vocab?.[field];
-		if (Array.isArray(names) && names.length) out[key] = names.map(String);
-	}
-	return out;
-}
 
 // Fenced-block languages the engine renders specially, plus common code langs.
 const FENCE_LANGS: { lang: string; info: string }[] = [

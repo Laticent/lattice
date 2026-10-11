@@ -71,7 +71,7 @@ const fs = require('node:fs');
 const { spawnSync, execFileSync } = require('node:child_process');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
-const { MARP_CLI_RANGE } = require(path.join(ROOT, 'lib', 'core', 'marp-bundle.js'));
+const { MARP_CLI_RANGE } = require(path.join(ROOT, 'lib', 'export', 'marp-bundle.js'));
 const { pageCount } = require(path.join(ROOT, 'test', 'helpers', 'pdf.js'));
 
 const DECK = 'Sample-Deck.md';

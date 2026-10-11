@@ -12,7 +12,7 @@ const POLL_MS = 50;
 
 /**
  * Ensure the KaTeX provider bundle at `url` is loaded; resolve once
- * `window.__latticeKatexReady` is set (lib/playground/katex-provider.js sets
+ * `window.__latticeKatexReady` is set (lib/plugins/math/shared/katex-provider.js sets
  * it after registering the real KaTeX with lib/engine/katex-browser-stub.js's
  * closure via `window.__latticeRegisterKatex`).
  */

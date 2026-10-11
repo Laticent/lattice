@@ -16,7 +16,7 @@ why now   — a hostile deck stalls every path that parses author source with ma
             any other markdown-it pass over author source. The time is markdown-it's inline comment
             scan, not Lattice code, and it predates #2599.
 where     — markdown-it's `html_inline` rule over unclosed comments; Lattice callers that parse author
-            source: lib/core/marp-bundle.js, lib/core/marp-bundle-html.js, lib/core/live-author-html.js,
+            source: lib/export/marp-bundle.js, lib/export/marp-bundle-html.js, lib/core/live-author-html.js,
             the engine.
 done when — a 1 MB deck of repeated unclosed `<!--` parses in under a second on every path that takes
             author source, or a size guard refuses it first with a stated reason.

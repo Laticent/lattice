@@ -6,6 +6,7 @@
 // model, the spend gate and the Studio's prompt voice.
 // See engineering/decisions/2026-10-05-studio-chat-agent.md.
 
+import { FRONT_MATTER_KEYS } from '../../lib/front-matter-keys';
 // ONLY LAZY-ONLY MODULES ARE IMPORTED HERE. Vite writes every chunk a lazily imported
 // module statically needs into the IMPORTER's preload map — and the importer is the eager
 // `architect` chunk. Importing `architect.ts`, `front-matter` or the palettes from here put
@@ -16,7 +17,6 @@
 import { agentLibrary } from './agent-library';
 import type { ArchitectModel, ChatGrounding, ChatOptions, ChatResult, ChatTurn, ORPrice, ProposedEdit } from './architect';
 import { AGENT_TOOLS, type AgentComplete, type AgentComponent, type AgentRawEdit, bindKernel, buildAgentSystem, createToolbox, type DeckCheck, deckBrief, deckForTurn, describeEdit, type KernelDeps, runAgentLoop, type ToolCall } from './architect-agent';
-import { FRONT_MATTER_KEYS } from './front-matter-keys';
 import type { ContentPart, MsgContent, ReferenceDoc } from './reference-doc';
 
 type Arch = typeof import('./architect');

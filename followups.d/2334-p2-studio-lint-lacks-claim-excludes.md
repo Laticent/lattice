@@ -17,7 +17,7 @@ why now   — #2334 made the Studio lint check every `*Names` register list, the
             prose-dense slide gets a `claim-bleed-unsafe` warning from `npm run lint:deck`
             and nothing in the Studio or the Coach.
 where     — `studio.astro`'s `lintVocab` handoff (add `claimExcludes`), and
-            `buildVocabSets` in `docs/src/playground/editor-diagnostics.js` (forward it).
+            `buildVocabSets` in `docs/src/lib/editor-diagnostics.js` (forward it).
             The rule itself is at `lib/authoring/lint-core.js` (`vocab.claimExcludes`).
 done when — `claim: bleed` on an excluded component warns in the Studio editor, the
             tracked decks stay silent, and the `studio` htmlRaw budget in

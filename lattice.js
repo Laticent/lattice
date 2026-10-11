@@ -4105,7 +4105,9 @@ async function renderBody(browser, g, closeBrowser) {
       // is what lets a `motion: on` deck animate its diagrams in the player too. Each bake that
       // draws figures publishes its own tagger (`ctx.state.motionTagger`, lib/plugins/host-bake.js),
       // so this names no plugin. Closure-free for the same reason the flattener is.
-      const motionTaggers = [...BAKE_CONTEXTS.values()].map((c) => c.state.motionTagger).filter(Boolean);
+      // Only plain functions: each is injected as its own source text, and a value that is not one would
+      // run as arbitrary code in the capture page or break the injected array.
+      const motionTaggers = [...BAKE_CONTEXTS.values()].map((c) => c.state.motionTagger).filter((f) => typeof f === 'function');
       await g(() => page.evaluate(`window.__motionTaggers = [${motionTaggers.map((f) => f.toString()).join(', ')}];`), 'player capture: inject diagram motion taggers');
       const baked = await g(() => page.evaluate(() => {
         // Clone — never mutate the live page; the raster below still needs it.

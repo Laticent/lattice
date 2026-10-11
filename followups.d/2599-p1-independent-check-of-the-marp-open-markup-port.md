@@ -16,8 +16,8 @@ why now   — #2599 carried four fixes onto #2589's Export-to-Marp engine (`</ti
             rounds on a parallel engine; their application to #2589's engine was self-reviewed and
             re-measured only. Its pre-merge card graded confidence high on exactly that axis. The
             bundle is an export on a security boundary.
-where     — lib/core/marp-bundle-html.js (`bundleConfig` → `latticeBundle`, `latticeBundleNotes`,
-            `unclosedTitle`, `withoutComments`), lib/core/marp-bundle.js (`RUNTIME_BLOCK_GUARD`,
+where     — lib/export/marp-bundle-html.js (`bundleConfig` → `latticeBundle`, `latticeBundleNotes`,
+            `unclosedTitle`, `withoutComments`), lib/export/marp-bundle.js (`RUNTIME_BLOCK_GUARD`,
             `RUNTIME_SCRIPTS_RE`), docs/src/components/studio/share-export.ts (`marpExportNote`);
             § 13 of the decision note, "Markup left open over the trailer".
 done when — an independent checker has read that diff (squash 7ed666a7) against #2589's design, run

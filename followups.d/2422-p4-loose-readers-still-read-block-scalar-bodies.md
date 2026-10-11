@@ -12,7 +12,7 @@ swimlane: engineering/decisions/2026-07-29-front-matter-lossless-writers.md
 why now   — #2422 taught `frontMatterValue` and the engine's `parseFrontMatter` to skip a
             block scalar's body. Other readers keep their own regexes and still read a CSS line
             named like a key: `class:` in lib/layout/bridge.js `FM_CLASS_RE` and
-            lib/packages/render.js:38 (with `style: |\n  class: kpi` and no top-level `class:`,
+            lib/cli/package-render.js:38 (with `style: |\n  class: kpi` and no top-level `class:`,
             the bridge still embeds kpi's CSS the engine no longer applies), the render-target
             keys' `scalarValuesFor` (lib/core/render-target-keys.js, a deliberate union), and lint
             validators (`size:` at lint-core.js:647 and slide-class-spans.js:244,

@@ -14,7 +14,7 @@
 // exists so it's added in ONE: tools/build-playground.js aliases math.js's
 // `katex` import to lib/engine/katex-browser-stub.js, so lattice-playground.js
 // no longer bundles KaTeX at all — a separate on-demand bundle
-// (lib/playground/katex-provider.js → lattice-katex.js) carries it instead,
+// (lib/plugins/math/shared/katex-provider.js → lattice-katex.js) carries it instead,
 // loaded here only when a pre-scan (lib/plugins/math/math.syntax.mjs's
 // sourceHasMath, KaTeX-free by construction) finds math syntax in the source.
 //

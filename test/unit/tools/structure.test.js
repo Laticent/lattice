@@ -9,6 +9,9 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { analyze, partOf, isSeam, structureProblems } = require('../../../tools/structure.js');
 
+// Synthetic graphs carry none of the live tree's sanctions, so a run starts with an empty list.
+const run = (g, opts = {}) => analyze(g, { pluginSanctioned: {}, ...opts });
+
 /** A graph from `[from, [to…]]` pairs, in dependency-cruiser's JSON shape. */
 const graph = (pairs) => ({
   modules: pairs.map(([source, deps]) => ({ source, dependencies: deps.map((resolved) => ({ resolved })) })),
@@ -36,7 +39,7 @@ test('a generated file under lib/ is a seam; a built bundle in the site is not',
 });
 
 test('a layered graph passes', () => {
-  const r = analyze(graph([
+  const r = run(graph([
     ['lib/engine/index.js', ['lib/core/a.js', 'lib/plugins/host.js']],
     ['lib/plugins/host.js', ['lib/core/a.js', 'lib/plugins/registry.generated.js']],
     ['lib/plugins/registry.generated.js', ['lib/plugins/math/math.render.js']],
@@ -48,7 +51,7 @@ test('a layered graph passes', () => {
 });
 
 test('an upward import fails, and names both ends and their layers', () => {
-  const r = analyze(graph([
+  const r = run(graph([
     ['lib/core/a.js', ['lib/engine/index.js']],
     ['lib/engine/index.js', []],
   ]));
@@ -57,7 +60,7 @@ test('an upward import fails, and names both ends and their layers', () => {
 });
 
 test('a loop between two parts on one layer fails, though neither import points up', () => {
-  const r = analyze(graph([
+  const r = run(graph([
     ['lib/components/x.js', ['lib/forms/y.js']],
     ['lib/forms/y.js', ['lib/components/x.js']],
   ]));
@@ -67,7 +70,7 @@ test('a loop between two parts on one layer fails, though neither import points 
 });
 
 test('a seam carries no edge: a lower layer may read a generated table the build writes from above', () => {
-  const r = analyze(graph([
+  const r = run(graph([
     ['lib/core/coda.js', ['lib/forms/cell/coda/coda-catalog.generated.js']],
     ['lib/forms/cell/coda/coda-catalog.generated.js', ['lib/forms/cell/coda/coda.js']],
     ['lib/forms/cell/coda/coda.js', ['lib/core/coda.js']],
@@ -76,7 +79,7 @@ test('a seam carries no edge: a lower layer may read a generated table the build
 });
 
 test('the plugin boundary fails both ways: a plugin past the kit, and code into a plugin', () => {
-  const r = analyze(graph([
+  const r = run(graph([
     ['lib/plugins/math/math.render.js', ['lib/core/a.js']],
     ['lib/transformers/t.js', ['lib/plugins/math/math.render.js']],
     ['lib/core/a.js', []],
@@ -90,14 +93,53 @@ test('a sanction admits its upward import, and a sanction nothing uses is stale'
     ['lib/core/a.js', ['lib/engine/index.js']],
     ['lib/engine/index.js', []],
   ]);
-  assert.deepEqual(analyze(g, { sanctioned: { 'lib/core -> lib/engine': 'reason' } }).upward, []);
-  const stale = analyze(graph([['lib/core/a.js', []]]), { sanctioned: { 'lib/core -> lib/engine': 'reason' } });
+  assert.deepEqual(run(g, { sanctioned: { 'lib/core -> lib/engine': 'reason' } }).upward, []);
+  const stale = run(graph([['lib/core/a.js', []]]), { sanctioned: { 'lib/core -> lib/engine': 'reason' } });
   assert.deepEqual(stale.staleSanctions, ['lib/core -> lib/engine']);
   assert.equal(structureProblems(stale).length, 1);
 });
 
 test('a file in no part is a problem, so a new folder cannot slip past the map', () => {
-  const r = analyze(graph([['lib/brand-new/x.js', []]]));
+  const r = run(graph([['lib/brand-new/x.js', []]]));
   assert.deepEqual(r.unmapped, ['lib/brand-new/x.js']);
   assert.match(structureProblems(r)[0], /belongs to no part/);
+});
+
+test('a file NAMED generated is not a seam: no generator writes it, so it bypasses nothing', () => {
+  // The bypass the red team built: route an upward import, and a loop, through a shim.
+  assert.equal(isSeam('lib/core/shim.generated.js'), false);
+  const r = run(graph([
+    ['lib/core/a.js', ['lib/core/shim.generated.js']],
+    ['lib/core/shim.generated.js', ['lib/engine/index.js']],
+    ['lib/engine/index.js', ['lib/core/a.js']],
+  ]));
+  assert.equal(r.upward.length, 1);
+});
+
+test('a generated JSON file is a seam (pure data), and a real generated module names its generator', () => {
+  assert.equal(isSeam('lib/plugins/extension-points.generated.json'), true);
+  assert.equal(isSeam('lib/plugins/dispatch.generated.js'), true);
+});
+
+test('a seam inside a plugin folder does not exempt the plugin: its reach needs a sanction', () => {
+  const g = graph([
+    ['lib/plugins/math/shared/table.generated.js', ['lib/components/x.js']],
+    ['lib/components/x.js', []],
+  ]);
+  assert.equal(run(g, { pluginSanctioned: {} }).pluginOut.length, 1);
+  assert.deepEqual(run(g, { pluginSanctioned: { 'lib/plugins/math -> lib/components': 'reason' } }).pluginOut, []);
+  const stale = run(graph([['lib/core/a.js', []]]), { pluginSanctioned: { 'lib/plugins/math -> lib/components': 'reason' } });
+  assert.match(structureProblems(stale)[0], /stale .*SANCTIONED_PLUGIN_REACH/);
+});
+
+test('a file dependency-cruiser could not read is a problem, not a pass', () => {
+  const g = graph([['lib/core/a.js', []]]);
+  g.unread = ['lib/core/a.js'];
+  assert.match(structureProblems(run(g)).join('\n'), /read no imports from a file that has some/);
+});
+
+test('a new folder under docs/src belongs to no part until it is placed on a layer', () => {
+  assert.equal(partOf('docs/src/brand-new/x.ts'), null);
+  assert.equal(partOf('docs/src/pages/index.astro').name, 'site/pages');
+  assert.equal(partOf('lib/plugins/math/math.schema.json').name, 'lib/plugins/math');
 });

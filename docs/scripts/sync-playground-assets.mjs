@@ -52,7 +52,7 @@ import { collectGalleryAssets } from '../src/playground/galleries.mjs';
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(here, '..', '..');
 // Where a plugin's library lives: its own committed copy when it vendors one (lib/plugin-kit/payload-path.js).
-const libraryPath = (name) => createRequire(import.meta.url)(join(repoRoot, 'lib', 'plugins', 'payload-path.js')).payloadPath(name, repoRoot);
+const libraryPath = (name) => createRequire(import.meta.url)(join(repoRoot, 'lib', 'plugin-kit', 'payload-path.js')).payloadPath(name, repoRoot);
 // Per-palette themes: the MINIFIED dist build (same bytes the Export-to-Marp
 // bundle ships), staged under the readable <name>.css dest.
 const distThemesDir = join(repoRoot, 'dist', 'themes');
@@ -180,7 +180,7 @@ for (const [dest, src] of collectGalleryAssets(repoRoot)) assets.push([dest, src
 // mermaid), staged under export/ so the Drawing Board's in-browser export can
 // fetch them and zip the SAME bundle the CLI produces. Sourced from the shared
 // manifest (lib/export/marp-bundle.js) so the two paths can't drift.
-const { STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor } = createRequire(import.meta.url)(join(repoRoot, 'lib', 'core', 'marp-bundle.js'));
+const { STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor } = createRequire(import.meta.url)(join(repoRoot, 'lib', 'export', 'marp-bundle.js'));
 // The static render assets AND the agent-kit catalog (components.json) — both
 // staged flat under export/ so the in-browser producer fetches them by basename,
 // the same way the CLI reads them from disk.
@@ -207,7 +207,7 @@ if (bundledLatticeCss) {
 // `url(fonts/…)` resolves against the co-located katex/fonts/. Sourced from the
 // math plugin's OWN copy (lib/plugins/math/vendor/katex/, its manifest's `vendor`),
 // the one the engine renders with, so the site and the CLI cannot drift apart.
-const vendorPath = (name, key) => createRequire(import.meta.url)(join(repoRoot, 'lib', 'plugins', 'payload-path.js')).vendorPath(name, key, repoRoot);
+const vendorPath = (name, key) => createRequire(import.meta.url)(join(repoRoot, 'lib', 'plugin-kit', 'payload-path.js')).vendorPath(name, key, repoRoot);
 const katexFonts = vendorPath('math', 'katex-fonts');
 assets.push(['katex/katex.min.css', vendorPath('math', 'katex-css')]);
 for (const file of readdirSync(katexFonts)) {
