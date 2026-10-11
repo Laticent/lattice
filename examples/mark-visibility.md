@@ -60,8 +60,8 @@ header: "Lattice · Marks"
   - Larger specks, all at the 28% ceiling.
 - Slot
   - The four corners.
-- Finish
-  - Still shows under finish-nimbus.
+- Mode
+  - Reads in light. Dark mode still hides it (see the followup).
 
 ---
 

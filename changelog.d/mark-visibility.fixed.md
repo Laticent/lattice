@@ -1,2 +1,2 @@
-- `mark-brackets`, `mark-threads`, `mark-ticks`, `mark-seeds` and `mark-asterisks` are larger or heavier so they read at viewing size, in light and dark; paint stays at the 28% budget and every mark stays in its peripheral slot.
+- `mark-brackets`, `mark-threads`, `mark-ticks` and `mark-asterisks` are larger or heavier so they read at viewing size, in light and dark; `mark-seeds` is larger and reads in light mode (in dark mode it is still erased by a separate cascade defect, tracked in `followups.d/`). Paint stays at the 28% budget and every mark stays in its peripheral slot.
 - `mark-orbit` moves left so it no longer crowds the page number.

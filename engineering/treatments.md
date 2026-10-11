@@ -143,7 +143,7 @@ Geometric accent shapes placed in the known-empty peripheral slots. Three render
 | `mark-grid` | 4×4 dot grid | Top-right corner | Mask |
 | `mark-chevron` | 3 right-pointing chevrons | Bottom-left corner | Mask |
 
-Visibility pass (2026-10-11): brackets, threads, ticks, seeds and asterisks grew in size or stroke, because at 28% a hairline vanishes in dark. The paint stays at the budget; only geometry changed. `mark-orbit` sits 4 cqi further left so it clears the page number. No mark was dropped; keep / change / drop per mark remains the owner's call (`followups.d/2606-p3-mark-treatments-review.md`).
+Visibility pass (2026-10-11): brackets, threads, ticks, seeds and asterisks grew in size or stroke, because at 28% a hairline vanishes in dark. The paint stays at the budget; only geometry changed. `mark-orbit` sits 4 cqi further left so it clears the page number. `mark-seeds` still paints nothing on dark slides, and neither does any `tint-*`: `section.dark:not(:where(…))` in `base.modifiers.css` sets `background-image` at (0,1,1) and beats the (0,0,1) compositor (`followups.d/2628-p2-dark-slides-erase-gradient-slot-treatments.md`). No mark was dropped; keep / change / drop per mark remains the owner's call (`followups.d/2606-p3-mark-treatments-review.md`).
 
 ### Reset
 
