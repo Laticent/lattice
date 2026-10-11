@@ -60,7 +60,7 @@
     "beard":     ["none", "stubble", "mustache", "goatee", "full"],
     "glasses":   ["none", "round", "square"],
     "earrings":  ["none", "stud", "hoop", "drop"],
-    "headwear":  ["none", "hijab", "turban", "skullcap", "cap"],
+    "headwear":  ["none", "hijab", "turban", "skullcap", "beanie", "kufi", "cap", "backcap"],
     "clothing":  ["crew", "vneck", "collar", "turtleneck", "hoodie", "blazer"]
   },
   "presets": {
@@ -101,6 +101,9 @@
     "hijab":  { "*": ["back", "mid", "front"] },
     "turban": { "*": ["back", "mid", "front"] },
     "skullcap": { "*": ["front"], "bun": ["back", "front"], "coily": ["back", "front"], "curly": ["back", "front"] },
+    "beanie": { "*": ["front"], "bun": ["back", "front"], "coily": ["back", "front"], "curly": ["back", "front"] },
+    "kufi": { "*": ["front"], "bun": ["back", "front"], "coily": ["back", "front"], "curly": ["back", "front"] },
+    "backcap": { "*": ["front"], "bun": ["back", "front"], "coily": ["back", "front"], "curly": ["back", "front"] },
     "cap":    { "*": ["front"], "bun": ["back", "front"], "coily": ["back", "front"], "curly": ["back", "front"] }
   },
   "hides-earrings": ["hijab"],

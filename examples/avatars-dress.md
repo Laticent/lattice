@@ -49,9 +49,10 @@ Four new traits, all opt-in: `\!{Ada Okafor}` draws exactly the face it drew bef
 
 <!-- _class: content -->
 
-## A skull cap or a cap hides the fringe and any volume above it.
+## Caps and hats hide the fringe and any volume above it.
 
-- Skull cap: `!{Ada, xl, headwear=skullcap, hair=short, headwear-color=navy}` `!{Ada, xl, headwear=skullcap, hair=coily, headwear-color=cream, skin=7}` `!{Ada, xl, headwear=skullcap, hair=long, headwear-color=teal, skin=3}`
+- Skull cap, beanie, kufi: `!{Ada, xl, headwear=skullcap, hair=short, headwear-color=navy}` `!{Ada, xl, headwear=beanie, hair=short, headwear-color=teal, skin=3}` `!{Ada, xl, headwear=kufi, headwear-color=brick, skin=6, beard=stubble}`
+- Baseball cap, forward and backwards: `!{Ada, xl, headwear=cap, hair=short, headwear-color=navy, skin=2}` `!{Ada, xl, headwear=backcap, hair=short, headwear-color=olive, skin=4}` `!{Ada, xl, headwear=backcap, hair=long, headwear-color=charcoal, skin=5}`
 - Hair kept: `!{Ada, xl, headwear=cap, hair=short, headwear-color=navy}` `!{Ada, xl, headwear=cap, hair=long, headwear-color=olive}` `!{Ada, xl, headwear=cap, hair=locs, headwear-color=charcoal, skin=6}`
 - Volume hidden: `!{Ada, xl, headwear=cap, hair=bun, headwear-color=teal}` `!{Ada, xl, headwear=cap, hair=coily, headwear-color=brick, skin=7}` `!{Ada, xl, headwear=cap, hair=curly, headwear-color=taupe}`
 

@@ -155,7 +155,7 @@ Age cues, freckles, expression, and hair type as a trait separate from style. Ea
 ## 11. v2: earrings, head coverings, clothing
 
 Four traits, all **opt-in** so that no face drawn in v1 changes: `earrings` (`none` `stud` `hoop` `drop`),
-`headwear` (`none` `hijab` `turban` `skullcap` `cap`), `headwear-color` (the nine `top` colors) and `clothing` (`crew`
+`headwear` (`none` `hijab` `turban` `skullcap` `beanie` `kufi` `cap` `backcap`), `headwear-color` (the nine `top` colors) and `clothing` (`crew`
 `vneck` `collar` `turtleneck` `hoodie` `blazer`). `earrings`, `headwear` and `clothing` each have a one-entry
 pool (`none`, `none`, `crew`), so a name that writes none of them draws exactly what v1 drew. Measured: the
 SVG of 1,200 default faces (400 names × 3 gender presets) is byte-identical before and after.
@@ -164,7 +164,7 @@ SVG of 1,200 default faces (400 names × 3 gender presets) is byte-identical bef
   (the forehead band and the cheek panels of a hijab, a turban's wrap, a cap's dome and bill), drawn above
   front hair. `body` becomes `clothing.crew`; the neck and its chin shadow ship with every style.
 - **Which hair a covering hides is data, not code**: `coverage` in `traits.json`, per covering and
-  hairstyle. A hijab and a turban hide all hair. A skull cap and a cap hide the front layer, and also the back layer for a
+  hairstyle. A hijab and a turban hide all hair. A skull cap, beanie, kufi, cap and backcap hide the front layer, and also the back layer for a
   bun, an afro and curls, whose volume would otherwise rise above the dome (seen on the contact sheet: curls
   puffed out above the cap until `curly` joined the rule). Long hair and locs keep their `mid` layer and still
   fall below a cap. The hair trait stays resolved and stamped on `data-traits`; only its drawing is skipped.
