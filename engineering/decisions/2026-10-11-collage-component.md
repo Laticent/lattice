@@ -127,7 +127,7 @@ Alt text required. The list keeps `ul` and `li` semantics and written order. The
 - **Reader:** EXIF fixtures, and a Chromium arm asserting the build-time aspect equals the browser's `naturalWidth/Height`.
 - **Transform:** build and browser paths produce identical output; idempotent; a HARD RULE #22 arm proving alt text, captions and hint words never reach a `style` attribute or markup.
 - **Atomic:** the 1:1 and 4:5 deck arms from section 5.3, run through `structuralSplit` with the real `splitCapacityFrom(manifests)`.
-- **Free versus fixed order:** a measurement over random mixed photo sets of 4, 5 and 6 photos, recorded in this file, with a pinned test that the free search never leaves more empty space than the fixed one on the same set.
+- **Free versus fixed order:** a measurement over random mixed photo sets of 4, 5 and 6 photos, recorded in this file, with a pinned test that the free search scores at least as well as the fixed one on the same set (the score weighs empty space and tile-size spread, so its empty share can differ).
 - **Page number:** a pixel test that the doubled-class rule hides both the page number and `.lat-pagination`.
 - **Hints:** a collage consumes a valid span; an invalid span stays a pill and lint names the word.
 - **Lightbox:** every state transition with a fake host, capture-phase Escape, close during opening, focus trap and restore, scheme filter on the image source.
