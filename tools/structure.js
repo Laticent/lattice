@@ -193,7 +193,7 @@ function tarjan(nodes, adj) {
 }
 
 /** The whole analysis, from a dependency-cruiser graph (exported so the unit test can feed one). */
-function analyze(graph) {
+function analyze(graph, { sanctioned = SANCTIONED_UPWARD } = {}) {
   const { edges, files } = edgesOf(graph);
   const parts = new Map();
   const get = (p) => parts.get(p.name) || parts.set(p.name, { ...p, files: 0, lines: 0, internal: 0, out: new Map(), inc: new Set() }).get(p.name);
@@ -226,9 +226,9 @@ function analyze(graph) {
 
   const upward = ruled.filter((e) => e.b.layer > e.a.layer);
   const sanctionKey = (e) => `${e.a.name} -> ${e.b.name}`;
-  const unsanctioned = upward.filter((e) => !Object.hasOwn(SANCTIONED_UPWARD, sanctionKey(e)));
+  const unsanctioned = upward.filter((e) => !Object.hasOwn(sanctioned, sanctionKey(e)));
   const usedSanctions = new Set(upward.map(sanctionKey));
-  const staleSanctions = Object.keys(SANCTIONED_UPWARD).filter((k) => !usedSanctions.has(k));
+  const staleSanctions = Object.keys(sanctioned).filter((k) => !usedSanctions.has(k));
 
   const pluginOut = edges.filter((e) => e.a.plugin && e.a.name !== e.b.name && e.b.name !== 'lib/plugin-kit' && !isSeam(e.from) && !/\/dist\//.test(e.to));
   const pluginIn = edges.filter((e) => e.b.plugin && e.a.name !== e.b.name && !isSeam(e.from) && e.a.name !== 'tools');
@@ -283,7 +283,7 @@ function printTable(result) {
   }
 }
 
-module.exports = { PARTS, SANCTIONED_UPWARD, partOf, isSeam, analyze, structureProblems };
+module.exports = { PARTS, SANCTIONED_UPWARD, partOf, isSeam, analyze, structureProblems, cruise };
 
 if (require.main === module) {
   const args = new Set(process.argv.slice(2));

@@ -77,6 +77,10 @@ const GUARD = { label: 'ownership guard', script: 'check-ownership.js' };
 const PREFLIGHT = [
   { label: 'font-embedding parity', script: 'check-fonts.js' },
   { label: 'lint coverage', script: 'check-lint-coverage.js' },
+  // The codebase's parts stay layered: no part loop, no upward import, plugin boundary intact
+  // (tools/structure.js; engineering/decisions/2026-10-11-codebase-structure.md). Shells out to
+  // dependency-cruiser, so it lives here rather than in the ownership guard.
+  { label: 'structure (part loops, layers, plugin boundary)', script: 'check-structure.js' },
 ];
 
 const STEPS = [
