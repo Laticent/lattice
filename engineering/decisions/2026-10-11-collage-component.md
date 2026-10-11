@@ -22,7 +22,7 @@ How it was chosen: three tracks ran the `design-competition` workflow (editorial
 ## 2. What the owner decided
 
 1. **Free order is the default; fixed order is a variant (`ordered`).** The packer may reorder tiles to fit. It stays deterministic: the same photos always give the same layout, so PDFs stay byte-reproducible.
-2. **The slide has full chrome:** eyebrow, title, subtitle, a descriptive caption paragraph, header and footer.
+2. **The slide has full chrome:** eyebrow, title, subtitle, a description paragraph (the only caption), header and footer. There are no per-photo captions. The paragraph is written above the list and prints in every export.
 3. **No page number.** The collage hides it. There are no progress marks. (The owner's word "pagination" means the visible page number.)
 4. **Authoring uses classes for the slide and a trailing code span for per-photo hints** (section 3).
 5. **Interaction:** hover focuses, click enlarges, Escape or click-away resets.
@@ -40,23 +40,23 @@ How it was chosen: three tracks ran the `design-competition` workflow (editorial
 
 `Six photographs from the autumn bench`
 
+Each pair starts as a last carved to one foot. Leather is cut by hand and finished over fourteen weeks.
+
 - ![Tan derby, apron toe](shoes/tan-derby.jpg) `hero`
-  - Tan derby, apron toe
 - ![Black grained derby, macro](shoes/macro.jpg) `top`
 - ![Wingtip brogue, hand-punched](shoes/brogue.jpg) `3:2`
 - ![Suede chelsea boot](shoes/chelsea.jpg)
 - ![Burnished chelsea pair](shoes/pair.jpg) `hero, bottom`
-
-Each pair starts as a last carved to one foot. Leather is cut by hand and finished over fourteen weeks.
 ```
+
+The order an author writes is the order on the slide: eyebrow, title, subtitle, the description paragraph, then the list of photos.
 
 | Piece | Meaning |
 |---|---|
 | `` `Eyebrow` `` above the heading, `` `Subtitle` `` below it | The existing auto-detected patterns in `lib/base/base.docs.md`. |
 | `_header`, `_footer` | The existing Marp directives. |
-| Trailing paragraph | The descriptive caption for the whole slide. |
-| Nested bullet under a photo | That photo's own caption, shown in the enlarged view. Matches `logo-wall`. |
-| Alt text | Required. It is the screen-reader label and the enlarged-view caption fallback. |
+| Paragraph after the subtitle | The description (the caption) for the whole slide. It sits in the text column, is visible and prints in every export. |
+| Alt text | Required. It is the screen-reader label and the label in the enlarged view. It is not drawn on the tile. |
 
 **Slide classes** (after `collage`, any order): `ordered` keeps the written order; `fill` allows up to 8% crop to close empty space (default `tight` crops nothing and leaves a matte); `above` puts the text above the photos (default is beside); `bleed` runs the collage edge to edge; `mirror` is the existing modifier that flips the text side.
 
@@ -77,7 +77,7 @@ Base: Track 2 (reuse). The pure kernel `lib/core/collage-pack.js` lays out at bu
 - **Fit.** The grid fits the real container with container-query units, so a wrong estimate of the stage costs a little matte and can never overflow. `tight` (default) allows no crop; `fill` allows up to 8%, and the focal word decides where a crop falls.
 - **Gaps.** The kernel solves gutters inside the tree, so a tile spanning several tracks keeps its exact aspect.
 - **Compositions.** Text beside (default) or above, and `bleed`. Prototype on six mixed photos: text beside packs at 1% empty; text above at 7% empty and smaller tiles, which is why beside is the default.
-- **Chrome.** Reuse the existing slide chrome. The trailing paragraph is the slide's caption through the existing coda mechanism (the manifest declares `coda: { claims: ["trailing-paragraph"] }` as `image` does). The component hides the page number by composing the existing `no-paginate` arms in `base.variants.css`, which hide both the `::after` page number and `.lat-pagination`. It does not use `silent`, which would also remove the header and footer. `image.styles.css` records that a single-class rule changed zero pixels and that a doubled class is needed; the collage copies that idiom and ships a pixel test. This overrides the plane-model principle against deleting a page number the author asked for with `paginate:`; the owner decided it. `mirror` is implemented per component, so the collage ships its own `mirror` rule.
+- **Chrome.** Reuse the existing slide chrome. The description paragraph is written between the subtitle and the list and renders in the text column; the build step confirms which existing body-paragraph slot it uses, and the collage does not claim a trailing-paragraph coda. The component hides the page number by composing the existing `no-paginate` arms in `base.variants.css`, which hide both the `::after` page number and `.lat-pagination`. It does not use `silent`, which would also remove the header and footer. `image.styles.css` records that a single-class rule changed zero pixels and that a doubled class is needed; the collage copies that idiom and ships a pixel test. This overrides the plane-model principle against deleting a page number the author asked for with `paginate:`; the owner decided it. `mirror` is implemented per component, so the collage ships its own `mirror` rule.
 - **Registry position.** The collage transform runs before `focus` and `pillTag`, because both read the final `li > code` shape.
 - **CSS rules.** Tokens only (#3), no margin (#20; a bare `margin: 0` reset is allowed), typography from the 12-token `--fs-*` set (#4), unlayered (#26), no typed glyphs (#29), the close control drawn as a shape.
 
@@ -107,7 +107,7 @@ One host-agnostic core, `lib/core/collage-lightbox.mjs`: DOM only, no imports, *
 
 ### 5.4a Security shape (HARD RULE #22)
 
-The parent-hosted lightbox copies frame content (the image source and the nested-bullet caption) into the docs-site document. That is a fifth shape beyond the four the rule names, and `checkRuntimeMarkupSinks` scans only `lib/runtime`, `lib/plugins` and `RUNTIME_MARKUP_EXTRA_FILES`. The caption is set with `textContent` only. The image source is rebuilt from an allowlist (http(s), blob, `data:image/`), as `video-overlay.js` does for its source. Both `lib/core/collage-lightbox.mjs` and `docs/src/playground/collage-host.js` are added to the census, or sanctioned with this justification in the PR.
+The parent-hosted lightbox copies frame content (the image source and the alt text) into the docs-site document. That is a fifth shape beyond the four the rule names, and `checkRuntimeMarkupSinks` scans only `lib/runtime`, `lib/plugins` and `RUNTIME_MARKUP_EXTRA_FILES`. The label is set with `textContent` only. The image source is rebuilt from an allowlist (http(s), blob, `data:image/`), as `video-overlay.js` does for its source. Both `lib/core/collage-lightbox.mjs` and `docs/src/playground/collage-host.js` are added to the census, or sanctioned with this justification in the PR.
 
 ### 5.5 Scope cut from v1
 
@@ -134,7 +134,7 @@ Alt text required. The list keeps `ul` and `li` semantics and written order. The
 
 - **Packer:** deterministic; tree counts 1, 2, 6, 22, 90, 394; the ordered variant keeps written order; gap-compensated tiles hit their aspect; every emitted value is finite. **Measure the free-order search time at six photos** before building (the prototype was fast, but it has not been timed).
 - **Reader:** EXIF fixtures, and a Chromium arm asserting the build-time aspect equals the browser's `naturalWidth/Height`.
-- **Transform:** build and browser paths produce identical output; idempotent; a HARD RULE #22 arm proving alt text, captions and hint words never reach a `style` attribute or markup.
+- **Transform:** build and browser paths produce identical output; idempotent; a HARD RULE #22 arm proving alt text and hint words never reach a `style` attribute or markup.
 - **Atomic:** the 1:1 and 4:5 deck arms from section 5.3, run through `structuralSplit` with the real `splitCapacityFrom(manifests)`.
 - **Free versus fixed order:** a measurement over random mixed photo sets of 4, 5 and 6 photos, recorded in this file, with a pinned test that the free search scores at least as well as the fixed one on the same set (the score weighs empty space and tile-size spread, so its empty share can differ).
 - **Page number:** a pixel test that the doubled-class rule hides both the page number and `.lat-pagination`.
