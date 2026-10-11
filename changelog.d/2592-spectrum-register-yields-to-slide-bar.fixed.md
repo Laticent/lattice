@@ -1,0 +1,1 @@
+- `spectrum: solid|duo|mono` no longer paints over a slide's own bar. An `accent` slide and a `tone-pass|warn|fail|skip` + `tone-edge` slide keep their solid accent or tone-colored top bar, as they already did in a default-rainbow deck. Before, the deck-wide gradient covered both, so a `tone-fail` slide lost its failure color. Every other slide still carries the deck's style.
