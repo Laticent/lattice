@@ -60,7 +60,7 @@ import { applyReadAloudDebugParam } from '@/playground/readaloud-overlay-prefs';
 import { onToursEnabledChange, toursEnabled } from '@/playground/tour-prefs.js';
 import { collageDragged } from '../../../../lib/core/collage-tap.mjs';
 import { paginateOn } from '../../../../lib/core/meta-keys.mjs';
-import { sourceHasMathOutsideCode } from '../../../../lib/plugins/math/math.syntax.mjs';
+import { PLUGIN_GRAMMAR } from '../../../../lib/plugins/grammar.generated.mjs';
 import { attachPreviewZoom, type PreviewZoomHandle } from '../../lib/preview-zoom';
 import { hoverCodeCopyAt, tapCodeCopyAt } from '../../playground/code-copy-host.js';
 import { hoverCollageAt, tapCollageAt } from '../../playground/collage-host.js';
@@ -175,6 +175,11 @@ import type { WebImageSummary } from './web-images';
 import { markWelcomed, shouldAutoWelcome } from './welcome-state';
 import { isEvictionProneBrowser, takeRestoreReport } from './workspace-backup-meta';
 import { workspaceLensConfig } from './workspace-lenses';
+
+// The math plugin's own detectors (math.syntax.mjs), through the generated grammar table, never by
+// importing the plugin's folder (tools/structure.js holds that line).
+const MATH = PLUGIN_GRAMMAR.find((p) => p.name === 'math');
+const sourceHasMathOutsideCode = MATH?.queries?.sourceHasMathOutsideCode as (src: string) => boolean;
 
 // The Fabricate studio (theme / component / finish fabrication) is a large,
 // self-contained subtree — FinishStudio, LayoutStudio, CodeField, the manifest

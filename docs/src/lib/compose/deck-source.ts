@@ -2,12 +2,17 @@
 
 import { readDirectiveComment } from '../../../../lib/core/comment-directive.mjs';
 import { CLASS_VOCAB } from '../../../../lib/core/meta-keys.mjs';
-import { hasDisplayMath } from '../../../../lib/plugins/math/math.syntax.mjs';
+import { PLUGIN_GRAMMAR } from '../../../../lib/plugins/grammar.generated.mjs';
 import { frontMatterBlock, stripFrontMatter } from '../../components/studio/front-matter';
 import { splitSlides } from '../../components/studio/lint';
 import { fenceRanges } from '../../components/studio/slide-directives';
 import { normalizeSourceText } from '../normalize-source-text';
 import { withoutModeledBlocks } from './raw-block';
+
+// The math plugin's own detectors (math.syntax.mjs), through the generated grammar table, never by
+// importing the plugin's folder (tools/structure.js holds that line).
+const MATH = PLUGIN_GRAMMAR.find((p) => p.name === 'math');
+const hasDisplayMath = MATH?.queries?.hasDisplayMath as (src: string) => boolean;
 
 
 // Pure deck-source helpers — the fence-aware split/join between a Lattice deck's

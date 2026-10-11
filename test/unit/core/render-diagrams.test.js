@@ -1,7 +1,7 @@
 /**
  * Unit: the diagram render kernel drives, and the paths only supply capabilities.
  *
- * `renderDiagrams` (lib/core/render-diagrams.js) is the inversion #1332 step 4 asked
+ * `renderDiagrams` (lib/plugins/mermaid/shared/render-diagrams.js) is the inversion #1332 step 4 asked
  * for. The point is not that the walk is shared — it is that neither path can decide
  * a palette any more, so the two cannot answer differently. These tests exercise the
  * kernel as BEHAVIOR against fake ports, which is the whole reason it is pure: the
@@ -11,7 +11,7 @@
 
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
-const { renderDiagrams } = require('../../../lib/core/render-diagrams');
+const { renderDiagrams } = require('../../../lib/plugins/mermaid/shared/render-diagrams');
 const { MERMAID_VAR_MAP } = require('../../../lib/core/mermaid-theme-map');
 
 /** A reader whose answer depends on the SCOPE — the one thing the two paths differ in. */

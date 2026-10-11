@@ -262,7 +262,7 @@ describe('graph icons — the cases the red team probed are pinned (HARD RULE #2
   test('the 265 shipped icons survive the rebuild whole', () => {
     // Every shape of every shipped drawing passes drawing()'s vocabulary and its geometry cap,
     // so hardening it cannot cost a real icon a stroke.
-    const { pluginData } = require('../../../lib/plugins/plugin-data.js');
+    const { pluginData } = require('../../../lib/plugin-kit/plugin-data.js');
     const data = pluginData('icons');
     const names = Object.keys(data.icons);
     assert.equal(names.length, 265);

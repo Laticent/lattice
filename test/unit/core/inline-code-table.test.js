@@ -369,7 +369,7 @@ describe('the named form — `@kind{…}` is its alias, on both paths (2026-10-1
   const named = (s) => (ALIAS[s[0]] ? `@${ALIAS[s[0]]}${s.slice(1)}` : `@pill${s}`);
   // The icons and avatars draw nothing until their data is provided (an engine does it; a unit test
   // that builds none does it itself), and nothing equals nothing: load both, and count real drawings.
-  const { provideData } = require('../../../lib/plugins/plugin-data.js');
+  const { provideData } = require('../../../lib/plugin-kit/plugin-data.js');
   provideData('icons', () => require('../../../lib/plugins/icons/icons.data.generated.js'));
   provideData('avatars', () => require('../../../lib/plugins/avatars/avatars.data.generated.js'));
 

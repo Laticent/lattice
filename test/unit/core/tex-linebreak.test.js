@@ -14,7 +14,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const katex = require('katex');
 
-const { reflowDisplayTex, REFLOW_BUDGET, _weight } = require('../../../lib/core/tex-linebreak');
+const { reflowDisplayTex, REFLOW_BUDGET, _weight } = require('../../../lib/plugins/math/shared/tex-linebreak');
 
 // `math feature`'s committed manifest sample — the equation the pass exists for.
 const FEATURE = '\\ell(\\beta) = \\sum_{i=1}^{n} \\left[ y_i \\log \\sigma(x_i^\\top \\beta) '

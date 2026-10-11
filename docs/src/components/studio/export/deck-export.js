@@ -789,7 +789,7 @@ async function slideChannelRecord(html) {
 // the two hosts' files for a deck with diagrams (decisions/2026-10-16-player-as-library-audit.md
 // §11.9). mermaid.styles.css styles both shapes, so the figure keeps its look.
 //
-// `data-mmd-idx` is the figure's place in the shared kernel's walk (lib/core/render-diagrams.js),
+// `data-mmd-idx` is the figure's place in the shared kernel's walk (lib/plugins/mermaid/shared/render-diagrams.js),
 // which runs in document order and counts EVERY fence, drawn or not: the CLI pushes each walked
 // fence before it renders (mermaid.bake.js `MERMAID_REBAKE_DEFS`). So it is the fence's index among
 // all Mermaid fences in the document, not the svg's id number: the browser pass refuses an over-long

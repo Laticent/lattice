@@ -131,7 +131,7 @@ describe('render worker: contract', () => {
     // (pnpm's isolated layout or Yarn PnP threw, and EVERY diagram degraded to a `<pre>`). The
     // plugin now owns all three, at a path under the package itself, so the code asks for none.
     const src = stripComments(fs.readFileSync(WORKER, 'utf8'));
-    assert.doesNotMatch(src, /require\.resolve|node_modules/, 'the worker resolves a library from node_modules again — read the plugin\'s copy (lib/plugins/payload-path.js)');
+    assert.doesNotMatch(src, /require\.resolve|node_modules/, 'the worker resolves a library from node_modules again — read the plugin\'s copy (lib/plugin-kit/payload-path.js)');
   });
 
   test('it does not shell out to mmdc, and nothing else does either', () => {

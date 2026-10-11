@@ -18,7 +18,7 @@ import { createThemeFetcher } from '@/lib/theme-fetch';
 import { glossaryEntries, resolveGlossaryMode, withoutAutoGlossary } from '../../../../lib/core/glossary-auto.mjs';
 import { sanitizeStyleText } from '../../../../lib/core/sanitize-style-text.mjs';
 import { unwrapFlatSheet } from '../../../../lib/export/unwrap-flat-sheet.mjs';
-import { sourceHasMath } from '../../../../lib/plugins/math/math.syntax.mjs';
+import { PLUGIN_GRAMMAR } from '../../../../lib/plugins/grammar.generated.mjs';
 import { samplesBaseFor } from '../../lib/samples-base';
 import type { StudioComponent } from './component-library';
 import { exportSourceFor } from './export/images-override.js';
@@ -30,6 +30,10 @@ import type { SlideComment } from './slide-comments';
 import type { OverflowMarker } from './studio-store';
 import type { StudioTheme } from './theme-library';
 import { MAX_EMBEDDED_MEDIA_BYTES, MAX_LATTICE_MEDIA_BYTES } from './zip-limits';
+
+// The math plugin's own `detect` (math.syntax.mjs `sourceHasMath`), through the generated grammar
+// table, never by importing the plugin's folder (tools/structure.js holds that line).
+const sourceHasMath = PLUGIN_GRAMMAR.find((p) => p.name === 'math')?.detect as (src: string) => boolean;
 
 // `window.LatticePlayground` is declared once, canonically, in playground-global.d.ts.
 type PG = LatticePlaygroundEngine;
