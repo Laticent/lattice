@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 // The engine's reader (CommonJS) — the one the Studio's mirror must agree with.
-import { frontMatterName } from '../../../../lib/core/front-matter-key.js';
+import { frontMatterName } from '../../../lib/core/front-matter-key.js';
 import { getFrontMatterName } from './front-matter';
 
 // Parity: the Inspector's register rows read through `getFrontMatterName`, and a row that

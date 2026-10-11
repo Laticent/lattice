@@ -139,7 +139,7 @@ function report(label: string, samples: Sample[], interaction?: 'navigation' | '
 	// deck (~4.3ms, flat across a 6.5x difference in deck bytes — #1543) and nothing printed it, so
 	// the one number that would have shown the cost was invisible in the suite that measures this
 	// path. What blocks a merge for it is the pass COUNT in
-	// docs/src/lib/single-slide-render.sanitize-memo.test.ts, for the reason the header gives about
+	// docs/src/playground/single-slide-render.sanitize-memo.test.ts, for the reason the header gives about
 	// wall-clock gates; this column is the corroboration a human reads.
 	for (const [i, s] of patch.entries())
 		console.log(`    #${String(i + 1).padStart(2)}  RENDER ${f(s.engineMs).padStart(6)}  SANITIZE ${f(s.sanitizeMs).padStart(5)}  FRAME ${f(s.frameMs).padStart(5)}  TOTAL ${f(s.totalMs).padStart(6)}`);

@@ -2,7 +2,6 @@ import { ChevronLeft, ChevronRight, Eye, GalleryVerticalEnd, Maximize2, Minimize
 import * as React from 'react';
 import { type ChartDetailHandle, ChartDetailLayer } from '@/components/chart-detail-layer';
 import { PG_SPLIT_DEFAULTS, PG_SPLIT_KEY, PG_SPLIT_MIN, PG_SPLIT_PANEL_IDS, PG_SPLIT_RAIL } from '@/components/playground/pg-split';
-import { getFrontMatter } from '@/components/studio/front-matter';
 import { Button } from '@/components/ui/button';
 import { Frozen, useEverTrue } from '@/components/ui/keep-mounted';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
@@ -18,6 +17,7 @@ import { useResizableSplit } from '@/components/ui/use-resizable-split';
 import type { CatalogItem, Lens } from '@/lib/component-search';
 import { isTypingTarget, shellKeyAction } from '@/lib/deck-nav';
 import { createFrameScheduler } from '@/lib/frame-scheduler';
+import { getFrontMatter } from '@/lib/front-matter';
 import type { FocusHub } from '@/lib/fuoco/hub';
 import { notify, notifyAction, notifySticky } from '@/lib/notify';
 import {

@@ -5,7 +5,7 @@ import StudioPreview, { type StudioPreviewData } from './StudioPreview';
 // Stub the shared single-slide renderer so the island never touches
 // window.LatticePlayground / fetch — these tests assert the React chrome (the
 // caption bar), not the separately-wrapped engine render.
-vi.mock('@/lib/single-slide-render', () => ({
+vi.mock('@/playground/single-slide-render', () => ({
 	createSingleSlideRenderer: () => ({
 		ready: () => true,
 		whenReady: () => Promise.resolve(),

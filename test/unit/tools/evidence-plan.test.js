@@ -26,7 +26,7 @@ test('a docs-site change owes three widths, WebKit and Gecko, and screenshots', 
 });
 
 test('a docs/src/lib change owes screenshots too: it renders what the preview shows', () => {
-  assert.ok(surfaces(['docs/src/lib/single-slide-render.ts']).some((x) => /screenshots at 1440/.test(x)));
+  assert.ok(surfaces(['docs/src/playground/single-slide-render.ts']).some((x) => /screenshots at 1440/.test(x)));
   assert.ok(!surfaces(['docs/src/test/x.test.ts']).some((x) => /screenshots at 1440/.test(x)));
 });
 

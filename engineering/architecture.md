@@ -368,7 +368,7 @@ fix lands once, not per surface (see
 - **`docs/src/lib/theme-fetch.ts`** — `createThemeFetcher(themeBase)`: fetch +
   cache theme CSS, register via `PG.addThemes`. The one theme-fetch path all
   bridges use.
-- **Single-slide** — `docs/src/lib/single-slide-render.ts` (one rendered
+- **Single-slide** — `docs/src/playground/single-slide-render.ts` (one rendered
   `<section>` in a scaled `srcdoc` iframe) wrapped by the React
   `docs/src/components/DeckPreview.tsx`. Backs the landing islands, the 53
   component specimen pages, **and every Studio preview** — the editor preview,
@@ -385,7 +385,7 @@ fix lands once, not per surface (see
   `_focusSteps` or `split: headings` deck expands one authored slide into several,
   and picking by index there would paint the WRONG slide — in which case the
   shown slide is re-rendered alone and honestly numbered 1 of 1. See
-  `docs/src/lib/single-slide-render.alignment.test.ts` and the "A live preview
+  `docs/src/playground/single-slide-render.alignment.test.ts` and the "A live preview
   prints 1 as the page number" entry in `engineering/gotchas.md`.
 - **Multi-slide filmstrip** — `docs/src/playground/deck-preview.js` (patch-vs-
   rewrite, FIT/SYNC agents, content-visibility). Backs the playground and the

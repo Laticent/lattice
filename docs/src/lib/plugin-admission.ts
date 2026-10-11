@@ -20,7 +20,7 @@
 //
 // On the shipped default set `pluginAdmission` answers null, nothing is off, and this does nothing.
 
-import { deckPluginsOffFor } from '@/playground/editor-diagnostics.js';
+import { deckPluginsOffFor } from '@/lib/editor-diagnostics.js';
 // The lint bundle's copy is switched through lint-boundary-state.js, never by importing the lint core:
 // the lint core loads after first paint, and importing it here would put it back on the Studio's
 // startup path. The state module holds the `off` set until the lint core loads, and

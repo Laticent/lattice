@@ -14,20 +14,20 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('./render-engine', () => ({ renderMarkdown: vi.fn() }));
-vi.mock('./theme-fetch', () => ({
+vi.mock('../lib/render-engine', () => ({ renderMarkdown: vi.fn() }));
+vi.mock('../lib/theme-fetch', () => ({
 	createThemeFetcher: () => ({ ensure: async () => {}, ensureBase: async () => {}, ensureKatexFaces: async () => {}, katexFacesActive: () => false, fetch: async () => {} }),
 }));
-vi.mock('../playground/font-embed.js', () => ({ previewFontFaceCss: () => '' }));
+vi.mock('./font-embed.js', () => ({ previewFontFaceCss: () => '' }));
 // The spy that does the counting: the REAL sanitizer, wrapped. `sanitizeOnce` calls this only on
 // a miss, so `mock.calls.length` is exactly the number of DOMPurify passes the preview paid.
-vi.mock('./sanitize-slide-html.js', async (importOriginal) => {
-	const actual = (await importOriginal()) as typeof import('./sanitize-slide-html.js');
+vi.mock('../lib/sanitize-slide-html.js', async (importOriginal) => {
+	const actual = (await importOriginal()) as typeof import('../lib/sanitize-slide-html.js');
 	return { ...actual, sanitizeSlideHtml: vi.fn(actual.sanitizeSlideHtml) };
 });
 
-import { renderMarkdown } from './render-engine';
-import { sanitizeSlideHtml } from './sanitize-slide-html.js';
+import { renderMarkdown } from '../lib/render-engine';
+import { sanitizeSlideHtml } from '../lib/sanitize-slide-html.js';
 import { clearDeckMemo, clearSanitizeMemo, clearSliceCache, createSingleSlideRenderer } from './single-slide-render';
 
 const opts = { themeBase: 'https://x/themes/', runtimeUrl: 'https://x/rt.js' };
@@ -217,7 +217,7 @@ describe('sanitize memo — a repeat render pays no DOMPurify pass', () => {
 		// Resolved from the working directory rather than `import.meta.url`, which vitest hands back
 		// as a non-file URL that `readFileSync` refuses.
 		const docsRoot = process.cwd().endsWith('/docs') ? process.cwd() : path.join(process.cwd(), 'docs');
-		const src = fs.readFileSync(path.join(docsRoot, 'src/lib/single-slide-render.ts'), 'utf8');
+		const src = fs.readFileSync(path.join(docsRoot, 'src/playground/single-slide-render.ts'), 'utf8');
 		// Comments mention both names repeatedly, and a mention satisfies the gate — which is
 		// precisely the evasion being covered for, so strip them before counting.
 		const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import { writeFrontMatterLine } from '../../lib/front-matter';
 import { DECKS, deckSource } from './decks';
-import { writeFrontMatterLine } from './front-matter';
 import { addComment, listComments } from './slide-comments';
 import {
 	clearAllDecks,

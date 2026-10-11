@@ -7,7 +7,7 @@ import { describe, expect, it, vi } from 'vitest';
 // irrelevant — narration text is theme-invariant).
 const html = vi.hoisted(() => ({ current: '' }));
 vi.mock('./share-export', () => ({ buildDeckRender: vi.fn(async () => ({ html: html.current })) }));
-vi.mock('@/lib/single-slide-render', () => ({ currentPaletteMode: () => ({ palette: 'indaco', mode: 'light' }) }));
+vi.mock('@/playground/single-slide-render', () => ({ currentPaletteMode: () => ({ palette: 'indaco', mode: 'light' }) }));
 
 import { projectDeckSpeech } from './narration-projection';
 

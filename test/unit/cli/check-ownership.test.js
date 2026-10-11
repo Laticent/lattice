@@ -2289,7 +2289,7 @@ describe('check-ownership', () => {
       for (const src of [
         "import { buildDeckIndex } from '../deck-outline';",
         "import { parseSlideBoundaries } from '../../../../lib/core/slide-boundaries.mjs';",
-        "import { frontMatterBlock } from '@/components/studio/front-matter';",
+        "import { frontMatterBlock } from '@/lib/front-matter';",
         "import fs from 'node:fs';",
         "const m = await import('markdown-it');",
       ]) {
@@ -2429,7 +2429,7 @@ describe('check-ownership', () => {
         "import * as React from 'react';",
         "import { createFocusHub } from '../fuoco';",
         "import { visibleRange } from '../../playground/virtual-window.js';",
-        "import { frontMatterBlock } from '@/components/studio/front-matter';",
+        "import { frontMatterBlock } from '@/lib/front-matter';",
         "import fs from 'node:fs';",
         "const m = await import('markdown-it');",
       ]) {

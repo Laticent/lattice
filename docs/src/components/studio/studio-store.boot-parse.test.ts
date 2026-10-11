@@ -5,8 +5,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const split = vi.hoisted(() => ({ calls: 0 }));
-vi.mock('./lint', async (importOriginal) => {
-	const real = await importOriginal<typeof import('./lint')>();
+vi.mock('../../lib/deck-lint', async (importOriginal) => {
+	const real = await importOriginal<typeof import('../../lib/deck-lint')>();
 	return {
 		...real,
 		splitSlides: (src: string) => {

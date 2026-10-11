@@ -2,9 +2,9 @@ import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { buildDeckIndex } from '@/lib/deck-outline';
 import { partStart, unitAt } from '@/lib/fuoco';
-import { boundaryParser as md } from '../../../../lib/core/boundary-parser.js';
+import { boundaryParser as md } from '../../../lib/core/boundary-parser.js';
+import { presentationIndices, presentationSet, slideClass, slideTitle, splitSlides, unknownComponents, usedComponents } from './deck-lint';
 import { stripFrontMatter } from './front-matter';
-import { presentationIndices, presentationSet, slideClass, slideTitle, splitSlides, unknownComponents, usedComponents } from './lint';
 
 // The caret ↔ slide locators moved into the slide index (docs/src/lib/fuoco); the cases below
 // keep their history, run against it. The old functions clamped (a caret before the first

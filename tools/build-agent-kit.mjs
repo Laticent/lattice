@@ -787,7 +787,7 @@ function rulesDoc(authoringRules) {
     '',
     '---',
     '',
-    'Source: `docs/src/components/studio/ai/architect-knowledge.js` (`AUTHORING_RULES`).',
+    'Source: `docs/src/lib/architect-knowledge.js` (`AUTHORING_RULES`).',
     '',
   ].join('\n');
 }
@@ -942,7 +942,7 @@ async function buildPrimer() {
     pathToFileURL(path.join(ROOT, 'docs', 'src', 'lib', 'studio-catalog.mjs')).href
   );
   const { buildLatticePrimer, AUTHORING_RULES } = await import(
-    pathToFileURL(path.join(ROOT, 'docs', 'src', 'components', 'studio', 'ai', 'architect-knowledge.js')).href
+    pathToFileURL(path.join(ROOT, 'docs', 'src', 'lib', 'architect-knowledge.js')).href
   );
   const catalog = buildStudioCatalog(ROOT);
   if (!catalog.length) {

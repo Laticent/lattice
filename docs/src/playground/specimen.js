@@ -8,13 +8,13 @@
 // sessionStorage so a reload survives, reset on demand); "Open in Playground"
 // hands the current source off to the full playground.
 //
-// Reuses the shared single-slide renderer (../lib/single-slide-render.js) for the
+// Reuses the shared single-slide renderer (./single-slide-render.ts) for the
 // preview and createEditor (editor.js) for the source — the same engine + editor
 // the playground uses.
 
 import { slideFrameShadow } from '../../../lib/core/slide-frame.mjs';
-import { createSingleSlideRenderer } from '../lib/single-slide-render';
 import { createEditor } from './editor.js';
+import { createSingleSlideRenderer } from './single-slide-render';
 
 const FLIP_MS = 350; // keep in sync with @keyframes ll-flip in components.css
 const _SOURCE_KEY = 'lattice-docs-pg-source'; // shared handoff key the playground reads

@@ -102,7 +102,7 @@ on:
       - 'tools/build-concepts.js'
       - 'tools/build-bucket-galleries.js'
       - 'docs/src/lib/studio-catalog.mjs'
-      - 'docs/src/components/studio/ai/architect-knowledge.js'
+      - 'docs/src/lib/architect-knowledge.js'
       - 'tools/build-agent-kit.mjs'
       # The kit's skills/README.md glossary resolves the HARD RULE numbers the
       # seven skills cite, and it reads their titles straight out of CLAUDE.md.

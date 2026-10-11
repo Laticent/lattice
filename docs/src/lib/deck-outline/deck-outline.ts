@@ -22,7 +22,7 @@
 //     parser configured from the engine's own options;
 //   · heading sections come from `headingSplitPoints`, the function the engine's ruler
 //     injects its breaks at;
-//   · the unit model is `splitSlides`'s (docs/src/components/studio/lint.ts), so unit `i`
+//   · the unit model is `splitSlides`'s (docs/src/lib/deck-lint.ts), so unit `i`
 //     here is `splitSlides(body)[i]`. Both follow the engine: an empty slide is a unit
 //     (the engine renders it), except an empty FIRST chunk, which the engine drops.
 //
@@ -44,7 +44,7 @@ import { headingSplitPoints as headingSplitPointsJs } from '../../../../lib/core
 import { resolveSplitMode as resolveSplitModeJs } from '../../../../lib/core/resolve-split.mjs';
 import { parseSlideBoundaries, slideBoundaries } from '../../../../lib/core/slide-boundaries.mjs';
 import { FORWARD_SCAN_LINES } from '../../../../lib/plugins/blocks.generated.mjs';
-import { frontMatterBlock } from '../../components/studio/front-matter';
+import { frontMatterBlock } from '../front-matter';
 import { diffSpan, type EditSpan, type Kinds, nextRevision, nextUnitId, type Outline, type Outliner, partBaseOf, partEnd, partStart, spanHolds, type Unit, type UnitId } from '../fuoco/outline';
 import { normalizeSourceText } from '../normalize-source-text';
 

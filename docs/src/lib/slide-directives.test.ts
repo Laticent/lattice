@@ -36,7 +36,7 @@ describe('directive classification', () => {
 	});
 	it('the vocabulary matches the engine KNOWN_DIRECTIVES (drift gate)', () => {
 		const require = createRequire(import.meta.url);
-		const { KNOWN_DIRECTIVES } = require('../../../../lib/engine/directives.js');
+		const { KNOWN_DIRECTIVES } = require('../../../lib/engine/directives.js');
 		expect([...DIRECTIVE_KEYS].sort()).toEqual([...KNOWN_DIRECTIVES].sort());
 	});
 });

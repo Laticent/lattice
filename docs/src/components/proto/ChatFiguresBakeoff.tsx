@@ -1,5 +1,5 @@
 import * as React from 'react';
-import type { SingleSlideOptions } from '@/lib/single-slide-render';
+import type { SingleSlideOptions } from '@/playground/single-slide-render';
 import DeckPreview from '../DeckPreview';
 import { projectDeckArticle } from '../studio/article-projection';
 import { PooledThumbFace, PreviewPool } from '../studio/preview-pool';

@@ -18,7 +18,7 @@
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
-import { pickGrammarVariants } from '../components/studio/ai/architect-knowledge.js';
+import { pickGrammarVariants } from './architect-knowledge.js';
 
 /**
  * The trimmed component catalog, or [] when the manifest cannot be read.

@@ -15,8 +15,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { SLIDE_SEP } from '../components/studio/deck-ops';
-import { frontMatterBlock, stripFrontMatter } from '../components/studio/front-matter';
-import { splitSlides } from '../components/studio/lint';
+import { splitSlides } from '../lib/deck-lint';
+import { frontMatterBlock, stripFrontMatter } from '../lib/front-matter';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { sectionsOf, sectionOpenCount, alignmentFailure } = require('../../../lib/diagnostics/slice-equivalence-core.mjs') as {

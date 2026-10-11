@@ -21,18 +21,18 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const sanitizer = vi.hoisted(() => ({ passThrough: true }));
 
-vi.mock('./render-engine', () => ({ renderMarkdown: vi.fn() }));
-vi.mock('./theme-fetch', () => ({
+vi.mock('../lib/render-engine', () => ({ renderMarkdown: vi.fn() }));
+vi.mock('../lib/theme-fetch', () => ({
 	createThemeFetcher: () => ({ ensure: async () => {}, ensureBase: async () => {}, ensureKatexFaces: async () => {}, katexFacesActive: () => false, fetch: async () => {} }),
 }));
-vi.mock('../playground/font-embed.js', () => ({ previewFontFaceCss: () => '' }));
-vi.mock('./sanitize-slide-html.js', async (importOriginal) => {
-	const real = await importOriginal<typeof import('./sanitize-slide-html.js')>();
+vi.mock('./font-embed.js', () => ({ previewFontFaceCss: () => '' }));
+vi.mock('../lib/sanitize-slide-html.js', async (importOriginal) => {
+	const real = await importOriginal<typeof import('../lib/sanitize-slide-html.js')>();
 	return { ...real, sanitizeSlideHtml: (html: string) => (sanitizer.passThrough ? html : real.sanitizeSlideHtml(html)) };
 });
 
-import { renderMarkdown } from './render-engine';
-import { sanitizeSlideHtml } from './sanitize-slide-html.js';
+import { renderMarkdown } from '../lib/render-engine';
+import { sanitizeSlideHtml } from '../lib/sanitize-slide-html.js';
 import { clearDeckMemo, clearSanitizeMemo, clearSliceCache, createSingleSlideRenderer } from './single-slide-render';
 
 const opts = { themeBase: 'https://x/themes/', runtimeUrl: 'https://x/rt.js' };

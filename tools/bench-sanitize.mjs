@@ -19,7 +19,7 @@
  *      rebuilds its ~250-tag / ~300-attribute allowlists on every call. What shipped before #1543.
  *   B  setConfig once — what ships now.
  *   C  memo hit — a `Map.get` on the exact input string, the floor `sanitizeOnce` reaches in
- *      docs/src/lib/single-slide-render.ts.
+ *      docs/src/playground/single-slide-render.ts.
  * Inputs are REAL engine output: a prose slide, the median and heaviest slices of the 40-slide
  * gallery, and the whole 40-slide render as a control (at 62KB the config parse is a rounding
  * error, which is what "fixed cost" predicts).

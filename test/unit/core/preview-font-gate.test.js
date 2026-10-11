@@ -293,7 +293,7 @@ describe('preview font gate — the injection order at every call site', () => {
 			what: 'the Stage window, which under `standalone` an audience watches',
 		},
 		{
-			file: 'docs/src/lib/single-slide-render.ts',
+			file: 'docs/src/playground/single-slide-render.ts',
 			revealer: "fr.style.opacity = '1'",
 			// The REVEAL CONDITION itself, not the flag name. `__latticeFontsSettled` also
 			// appears in the `LiveHost` type declaration, so keying on it passed even with

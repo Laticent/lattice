@@ -31,8 +31,8 @@ vi.mock('./theme-fetch', () => ({
 }));
 vi.mock('../playground/font-embed.js', () => ({ previewFontFaceCss: () => '' }));
 
+import { clearDeckMemo, clearSliceCache, createSingleSlideRenderer, deckDerivedFactsFor } from '../playground/single-slide-render';
 import { renderMarkdown } from './render-engine';
-import { clearDeckMemo, clearSliceCache, createSingleSlideRenderer, deckDerivedFactsFor } from './single-slide-render';
 
 const opts = { themeBase: 'https://x/themes/', runtimeUrl: 'https://x/rt.js' };
 

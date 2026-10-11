@@ -161,7 +161,7 @@ describe('both shared readers route through the one rule', () => {
 });
 
 // A `style: |` body is CSS, not keys (followups.d/2391-p3-engine-reader-reads-block-scalar-lines).
-// The Studio's reader skips it (docs/src/components/studio/front-matter.test.ts § block scalars,
+// The Studio's reader skips it (docs/src/lib/front-matter.test.ts § block scalars,
 // the same deck); the engine read `  lift: on` as the `lift` register, and `parseFrontMatter`
 // read a rule's `    color: #c00;` as the deck-wide `color` directive.
 describe('block scalars — the body is never a key', () => {

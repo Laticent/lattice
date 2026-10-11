@@ -14,19 +14,19 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('./render-engine', () => ({ renderMarkdown: vi.fn() }));
-vi.mock('./theme-fetch', () => ({
+vi.mock('../lib/render-engine', () => ({ renderMarkdown: vi.fn() }));
+vi.mock('../lib/theme-fetch', () => ({
 	createThemeFetcher: () => ({ ensure: async () => {}, ensureBase: async () => {}, ensureKatexFaces: async () => {}, katexFacesActive: () => false, fetch: async () => {} }),
 }));
-vi.mock('../playground/font-embed.js', () => ({ previewFontFaceCss: () => '' }));
+vi.mock('./font-embed.js', () => ({ previewFontFaceCss: () => '' }));
 // THE COLLISION. Every string hashes to the same 32-bit value, which is what djb2-32 does to some
 // pair of real decks eventually — this just makes "eventually" deterministic.
-vi.mock('../playground/deck-preview.js', async (importOriginal) => {
-	const actual = (await importOriginal()) as typeof import('../playground/deck-preview.js');
+vi.mock('./deck-preview.js', async (importOriginal) => {
+	const actual = (await importOriginal()) as typeof import('./deck-preview.js');
 	return { ...actual, hashString: () => 1 };
 });
 
-import { renderMarkdown } from './render-engine';
+import { renderMarkdown } from '../lib/render-engine';
 import { clearDeckMemo, clearSanitizeMemo, clearSliceCache, createSingleSlideRenderer } from './single-slide-render';
 
 const opts = { themeBase: 'https://x/themes/', runtimeUrl: 'https://x/rt.js' };

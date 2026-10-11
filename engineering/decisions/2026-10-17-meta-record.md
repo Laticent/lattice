@@ -135,7 +135,7 @@ Five production modules call it (`slides.js`, `lint-core.js`, `class-directive-s
 | Studio | `slide-directives.ts`, `slide-notes.ts`, `slide-say.ts`, `slide-descriptions.ts`, `comment-block.ts`, and more (not counted) | key-list copy (`DIRECTIVE_KEYS`), in-place regex edits |
 | Marp bridge | `lib/export/marp-bundle.js` | passes every comment through verbatim; Marp turns non-directive comments into speaker notes |
 
-**Five hand-kept key lists:** `lib/engine/directives.js:38`, `lib/authoring/notes-core.js:328`, `docs/src/components/studio/slide-directives.ts:17`, `docs/src/playground/grammar-vocab.js:12`, and `lib/core/slide-facts.mjs:73` (`FACT_DIRECTIVES`, pinned to `APPLIED_DIRECTIVES` by a unit test), plus
+**Five hand-kept key lists:** `lib/engine/directives.js:38`, `lib/authoring/notes-core.js:328`, `docs/src/lib/slide-directives.ts:17`, `docs/src/playground/grammar-vocab.js:12`, and `lib/core/slide-facts.mjs:73` (`FACT_DIRECTIVES`, pinned to `APPLIED_DIRECTIVES` by a unit test), plus
 a partial one in `split-slide.ts:29`).
 
 **Stale claims found on the way** (HARD RULE #18, on the path, fixed in step 1): `directives.js:5,165` calls
@@ -391,8 +391,8 @@ entry cannot rewrite what it reads.
 |---|---|---|
 | `lib/plugins/deck-plugins.mjs` | `commentBodies` loop: a `pane` key adds the component's plugin to the deck's set (`:171`) | On the default plugin set nothing changes, because `DEFAULT_PLUGINS` is every plugin (`host-grammar.mjs:33`) and the scan is skipped. It matters only when a host narrows the defaults: then a `{pane="bar"}` deck does not admit the bar chart's plugin. The engine path reports it through `componentPluginDiagnostics` (`engine/index.js:841`); the Studio settings panel would not list it |
 | `lib/diagnostics/slice-equivalence-core.mjs` | `/<!--\s*_?pane\s*:/g` in `positionIsTrustworthy` | When no `paneCounts` map is supplied, a record-form panes deck is trusted as one rendered slide per source slide. Whether a Studio slice ever runs without `paneCounts` is **not verified** |
-| `docs/src/components/studio/slide-directives.ts` | `isPaneMarkerBody`, three marker regexes | The editor treats a record-form marker as a speaker note (`directiveKey('{pane="bar"}')` returns `''`) |
-| `docs/src/components/studio/lint.ts` | `slideClass` counts two `_?pane:` markers to name a panes slide | The rail labels a record-form panes slide `text` |
+| `docs/src/lib/slide-directives.ts` | `isPaneMarkerBody`, three marker regexes | The editor treats a record-form marker as a speaker note (`directiveKey('{pane="bar"}')` returns `''`) |
+| `docs/src/lib/deck-lint.ts` | `slideClass` counts two `_?pane:` markers to name a panes slide | The rail labels a record-form panes slide `text` |
 | `docs/src/lib/compose/deck-source.ts` | `PANE_MARKER_RE` keeps a marker in place | Compose moves a record-form marker like a directive |
 | `docs/src/lib/code-packages/door.ts` | `/^pane\s*:/` (`:266`) adds the pane's component to the packages a deck needs | **Already a live gap today:** the pattern does not match the canonical `_pane:` form, only the alias, so a package used only in a `_pane:` pane is not offered. Fixing it at the door fixes today's bug too |
 | `lib/core/bake-splits.js` | `parseMarker` and `mayHavePanes` at `:99,119,129`, in Studio export | follows `pane-spec`; no regex of its own |
@@ -723,12 +723,12 @@ Key-aware (43; the shared scanner `lib/core/class-directive-scan.mjs` is the one
 - `docs/src/components/studio/StudioShell.tsx`
 - `docs/src/components/studio/coach/coach-core.ts`
 - `docs/src/components/studio/editor-complete.ts`
-- `docs/src/components/studio/lint.ts`
+- `docs/src/lib/deck-lint.ts`
 - `docs/src/components/studio/pane-pages.ts`
 - `docs/src/components/studio/pane-probe.ts`
 - `docs/src/components/studio/present-sections.ts`
 - `docs/src/components/studio/present/rehearsal.js`
-- `docs/src/components/studio/slide-directives.ts`
+- `docs/src/lib/slide-directives.ts`
 - `docs/src/components/studio/split-slide.ts`
 - `docs/src/lib/code-packages/door.ts`
 - `docs/src/lib/compose/comment-block.ts`
@@ -737,7 +737,7 @@ Key-aware (43; the shared scanner `lib/core/class-directive-scan.mjs` is the one
 - `docs/src/lib/compose/pane-model.ts`
 - `docs/src/lib/compose/registers.ts`
 - `docs/src/lib/lente/tags.ts`
-- `docs/src/lib/single-slide-render.ts`
+- `docs/src/playground/single-slide-render.ts`
 - `docs/src/playground/slide-context.js`
 - `lib/authoring/lint-core.js`
 - `lib/authoring/notes-core.js`

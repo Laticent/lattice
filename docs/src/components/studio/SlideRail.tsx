@@ -20,7 +20,7 @@ import { flatPart, partText } from '@/lib/fuoco/outline';
 import { useFocus } from '@/lib/fuoco/react';
 import { SlideMenuButton, type StripActions, type StripSlide, useStripMenuGestures } from '@/lib/strip-actions';
 import { cn } from '@/lib/utils';
-import { slideClass, slideTitle } from './lint';
+import { slideClass, slideTitle } from '../../lib/deck-lint';
 import { type LiveColor, liveColor } from './live/live-model';
 
 // Labels by section text. Bounded by clearing, not by eviction order: the working set is the

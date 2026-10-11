@@ -31,7 +31,7 @@ import type { FocusHub } from '@/lib/fuoco/hub';
 import { partOfFlat, partText } from '@/lib/fuoco/outline';
 import { useFocus } from '@/lib/fuoco/react';
 import { flatOfPage, type RenderedIndex } from '@/lib/rendered-index';
-import type { SingleSlideOptions } from '@/lib/single-slide-render';
+import type { SingleSlideOptions } from '@/playground/single-slide-render';
 
 export interface PlaygroundMapProps {
 	/** The Playground's one focus hub (lib/playground-sync.ts): the editor feeds it, the preview and the map read it. */

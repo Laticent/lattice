@@ -3,7 +3,7 @@
 // never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
 import { describe, expect, it } from 'vitest';
 // The engine's single source of truth for mode name→class (CommonJS).
-import { MODE_NAMES } from '../../../../lib/core/resolve-mode.js';
+import { MODE_NAMES } from '../../../lib/core/resolve-mode.js';
 import { MODES } from './mode-catalog';
 
 // Rot-guard: the Studio display catalog (mode-catalog.ts) MUST stay in step with

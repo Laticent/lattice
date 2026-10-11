@@ -16,7 +16,7 @@
 // The lint core's notes boundary, read synchronously: this module's loaders (studio-panels.ts's
 // slide settings panel, StudioShell's Present overlay) await loadAuthoring() before it runs.
 import { authoring } from '@/playground/authoring-door.js';
-import { comments, isDescriptionBody, isDirectiveBody, isPaneMarkerBody, isSayBody, tidyOutsideFences } from './slide-directives';
+import { comments, isDescriptionBody, isDirectiveBody, isPaneMarkerBody, isSayBody, tidyOutsideFences } from '../../lib/slide-directives';
 
 // A tooling comment (`markdownlint-capture`, `prettier-ignore`, …) is never a note: the engine's
 // note reader skips it (lib/authoring/notes-core.js `isToolingComment`), and so does this one, from

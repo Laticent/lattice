@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { getClassTokens } from '../../lib/slide-directives';
 import { applyBacking, applyLateRead, compositionOf, headingOf, photoRefOf, slideHasInk, slideNeedsInk } from './card-ink-pick';
 import { photoMatches, sameSlide } from './card-ink-sampler';
-import { getClassTokens } from './slide-directives';
 
 describe('thin spotlight card: when the backing slider should pick an ink', () => {
 	const deck = (fm: string) => `---\ntitle: T\n${fm}---\n\n`;

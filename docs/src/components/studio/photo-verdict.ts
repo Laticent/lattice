@@ -1,9 +1,9 @@
 import { compositionOf, effectiveCard, needsInk } from '../../../../lib/core/card-ink.mjs';
 import { describe, fixLabel, inkScenes, judge, SOLID, strongestScrim, TEXT_FLOOR } from '../../../../lib/core/photo-contrast.mjs';
+import { getClassTokens, setClassTokens } from '../../lib/slide-directives';
 import { headingOf, photoRefOf } from './card-ink-pick';
 import { boxInSection, CARD_CLASS, meanUnderBox, photoMatches, previewDocument, sameSlide } from './card-ink-sampler';
 import { cachedFix, cardOf, estimateMean, hasBodyText, keepFix, photoUrl } from './photo-ink-read';
-import { getClassTokens, setClassTokens } from './slide-directives';
 import { deckImageCardClasses, setImageCard } from './slide-provenance';
 
 // THE PHOTO VERDICT: the one answer the Coach and the editor show for the text on a slide's photo. Both views render

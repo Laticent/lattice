@@ -3,10 +3,10 @@
 import { readDirectiveComment } from '../../../../lib/core/comment-directive.mjs';
 import { CLASS_VOCAB } from '../../../../lib/core/meta-keys.mjs';
 import { PLUGIN_GRAMMAR } from '../../../../lib/plugins/grammar.generated.mjs';
-import { frontMatterBlock, stripFrontMatter } from '../../components/studio/front-matter';
-import { splitSlides } from '../../components/studio/lint';
-import { fenceRanges } from '../../components/studio/slide-directives';
+import { splitSlides } from '../deck-lint';
+import { frontMatterBlock, stripFrontMatter } from '../front-matter';
 import { normalizeSourceText } from '../normalize-source-text';
+import { fenceRanges } from '../slide-directives';
 import { withoutModeledBlocks } from './raw-block';
 
 // The math plugin's own detectors (math.syntax.mjs), through the generated grammar table, never by

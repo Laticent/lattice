@@ -5,9 +5,9 @@ import { PanelDock, PanelHeader, PanelSearch, PanelSheet } from '@/components/ui
 import { PillTabs } from '@/components/ui/pill-tabs';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { type CatalogItem, groupBy, type Lens, makeSearchIndex, rankedHitsFor } from '@/lib/component-search';
-import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { useBreakpoint } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
+import type { SingleSlideOptions } from '@/playground/single-slide-render';
 import { NEW_SLIDE } from './deck-ops';
 import { PooledThumbFace, PreviewPool } from './preview-pool';
 import { componentLooks, type VariantAxis, variantSample } from './slide-variants';

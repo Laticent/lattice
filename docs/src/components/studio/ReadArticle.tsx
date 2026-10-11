@@ -16,7 +16,7 @@
 
 import { ArrowLeft, FileText } from 'lucide-react';
 import * as React from 'react';
-import type { SingleSlideOptions } from '@/lib/single-slide-render';
+import type { SingleSlideOptions } from '@/playground/single-slide-render';
 import { type ArticleToc, projectDeckArticle } from './article-projection';
 import type { ExtraTheme } from './share-export';
 

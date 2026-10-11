@@ -2,10 +2,10 @@ import { Shapes } from 'lucide-react';
 import * as React from 'react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tip } from '@/components/ui/tooltip';
-import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { cn } from '@/lib/utils';
+import type { SingleSlideOptions } from '@/playground/single-slide-render';
+import { getClassTokens } from '../../lib/slide-directives';
 import { PooledThumbFace, PreviewPool } from './preview-pool';
-import { getClassTokens } from './slide-directives';
 import { applyVariant, componentLooks, type VariantAxis, variantActive, variantNoop } from './slide-variants';
 
 // Reshape — recast the CURRENT slide to a different variant look (the edit-mode

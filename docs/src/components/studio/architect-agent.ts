@@ -21,8 +21,8 @@ import { GLOBAL_ONLY_KEYS, LOCAL_KEYS } from '../../../../lib/core/meta-keys.mjs
 import { type AgentAssets, type AssetInfo, cleanCaption, listAssetsView, MAX_VIEWS_PER_TURN } from './agent-assets';
 
 type Edits = typeof import('@/components/studio/ai/architect-edits.js');
-type Knowledge = typeof import('@/components/studio/ai/architect-knowledge.js');
-type FM = typeof import('./front-matter');
+type Knowledge = typeof import('@/lib/architect-knowledge.js');
+type FM = typeof import('../../lib/front-matter');
 export type KernelDeps = Pick<Edits, 'applyEditChecked' | 'diffLines' | 'sliceSlide' | 'slideCount' | 'splitTopLevel'> &
 	Pick<Knowledge, 'AUTHORING_RULES' | 'layoutBlock'> &
 	Pick<FM, 'getFrontMatter' | 'innerFrontMatter' | 'writeFrontMatterLine'>;

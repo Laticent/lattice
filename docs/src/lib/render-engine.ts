@@ -97,7 +97,7 @@ export type RenderMarkdownResult = {
 	flatCss?: string;
 	width?: number;
 	height?: number;
-	stats?: import('@/playground/render-metrics').RenderStats;
+	stats?: import('@/lib/render-metrics').RenderStats;
 };
 
 /**
