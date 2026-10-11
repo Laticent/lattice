@@ -388,8 +388,8 @@ section.mark-ticks::before {
   position: absolute;
   top: 15.33cqi;       /* tick 1 y (196.25 / 12.8) */
   right: 0.625cqi;     /* 8px from right edge */
-  width: 1.4cqi;       /* ~18px — average tick width */
-  height: 0.15cqi;     /* ~1.9px — slightly bumped from 1.5 for crisp PDF */
+  width: 2.4cqi;       /* ~31px (was ~18, lost in dark) */
+  height: 0.22cqi;     /* ~2.8px (was ~1.9) */
   pointer-events: none;
   background: color-mix(in srgb, var(--accent) 28%, transparent);
   box-shadow:
@@ -407,7 +407,7 @@ section.mark-orbit::before {
   content: '';
   position: absolute;
   bottom: 6.3cqi;
-  right: 2.5cqi;
+  right: 6.5cqi;       /* clear of the page number's column (was 2.5) */
   width: 6cqi;
   height: 4.5cqi;
   pointer-events: none;
@@ -453,18 +453,18 @@ section.mark-slashes::before {
  */
 section.mark-seeds {
   --_bg-radial:
-    radial-gradient(ellipse 2.5px 5px at 92.19% 12.22%, color-mix(in srgb, var(--accent) 25%, transparent) 80%, transparent 100%),
-    radial-gradient(ellipse 2px   4px at 95.47% 11.11%, color-mix(in srgb, var(--accent) 21%, transparent) 80%, transparent 100%),
-    radial-gradient(ellipse 2.5px 5px at 98.28% 13.33%, color-mix(in srgb, var(--accent) 24%, transparent) 80%, transparent 100%),
-    radial-gradient(ellipse 2px   4px at  4.06% 12.78%, color-mix(in srgb, var(--accent) 20%, transparent) 80%, transparent 100%),
-    radial-gradient(ellipse 2.5px 5px at  7.19% 11.39%, color-mix(in srgb, var(--accent) 20%, transparent) 80%, transparent 100%),
-    radial-gradient(ellipse 2px   4px at 10.55% 13.47%, color-mix(in srgb, var(--accent) 18%, transparent) 80%, transparent 100%),
-    radial-gradient(ellipse 2px   4px at  4.30% 87.22%, color-mix(in srgb, var(--accent) 21%, transparent) 80%, transparent 100%),
-    radial-gradient(ellipse 2.5px 5px at  7.42% 88.61%, color-mix(in srgb, var(--accent) 24%, transparent) 80%, transparent 100%),
-    radial-gradient(ellipse 2px   4px at  2.97% 89.72%, color-mix(in srgb, var(--accent) 20%, transparent) 80%, transparent 100%),
-    radial-gradient(ellipse 2px   4px at 94.53% 88.06%, color-mix(in srgb, var(--accent) 20%, transparent) 80%, transparent 100%),
-    radial-gradient(ellipse 2.5px 5px at 97.66% 86.67%, color-mix(in srgb, var(--accent) 18%, transparent) 80%, transparent 100%),
-    radial-gradient(ellipse 2px   4px at 91.25% 89.58%, color-mix(in srgb, var(--accent) 18%, transparent) 80%, transparent 100%);
+    radial-gradient(ellipse 4px 8px at 92.19% 12.22%, color-mix(in srgb, var(--accent) 28%, transparent) 80%, transparent 100%),
+    radial-gradient(ellipse 3px 6px at 95.47% 11.11%, color-mix(in srgb, var(--accent) 28%, transparent) 80%, transparent 100%),
+    radial-gradient(ellipse 4px 8px at 98.28% 13.33%, color-mix(in srgb, var(--accent) 28%, transparent) 80%, transparent 100%),
+    radial-gradient(ellipse 3px 6px at  4.06% 12.78%, color-mix(in srgb, var(--accent) 26%, transparent) 80%, transparent 100%),
+    radial-gradient(ellipse 4px 8px at  7.19% 11.39%, color-mix(in srgb, var(--accent) 26%, transparent) 80%, transparent 100%),
+    radial-gradient(ellipse 3px 6px at 10.55% 13.47%, color-mix(in srgb, var(--accent) 26%, transparent) 80%, transparent 100%),
+    radial-gradient(ellipse 3px 6px at  4.30% 87.22%, color-mix(in srgb, var(--accent) 28%, transparent) 80%, transparent 100%),
+    radial-gradient(ellipse 4px 8px at  7.42% 88.61%, color-mix(in srgb, var(--accent) 28%, transparent) 80%, transparent 100%),
+    radial-gradient(ellipse 3px 6px at  2.97% 89.72%, color-mix(in srgb, var(--accent) 26%, transparent) 80%, transparent 100%),
+    radial-gradient(ellipse 3px 6px at 94.53% 88.06%, color-mix(in srgb, var(--accent) 26%, transparent) 80%, transparent 100%),
+    radial-gradient(ellipse 4px 8px at 97.66% 86.67%, color-mix(in srgb, var(--accent) 26%, transparent) 80%, transparent 100%),
+    radial-gradient(ellipse 3px 6px at 91.25% 89.58%, color-mix(in srgb, var(--accent) 26%, transparent) 80%, transparent 100%);
 }
 
 /* mark-pills — 4 horizontal pill shapes, far-right margin.
@@ -499,11 +499,11 @@ section.mark-pills::before {
 section.mark-asterisks::before {
   content: '';
   position: absolute;
-  top: 5.7cqi; right: 1.2cqi;
-  width: 5.9cqi; height: 2.7cqi;
+  top: 5.2cqi; right: 1.2cqi;
+  width: 8cqi; height: 3.65cqi;
   pointer-events: none;
   background: color-mix(in srgb, var(--accent) 28%, transparent);
-  --m: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='1190 73 75 35'><line x1='1206.5' y1='88' x2='1213.5' y2='88' stroke='white' stroke-width='1.5' stroke-opacity='1'/><line x1='1211.8' y1='85' x2='1208.2' y2='91' stroke='white' stroke-width='1.5' stroke-opacity='1'/><line x1='1208.2' y1='85' x2='1211.8' y2='91' stroke='white' stroke-width='1.5' stroke-opacity='1'/><line x1='1238' y1='100' x2='1244' y2='100' stroke='white' stroke-width='1.5' stroke-opacity='0.85'/><line x1='1242.5' y1='97.4' x2='1239.5' y2='102.6' stroke='white' stroke-width='1.5' stroke-opacity='0.85'/><line x1='1239.5' y1='97.4' x2='1242.5' y2='102.6' stroke='white' stroke-width='1.5' stroke-opacity='0.85'/><circle cx='1228' cy='78' r='1.5' fill='white' fill-opacity='0.7'/><circle cx='1258' cy='85' r='1.5' fill='white' fill-opacity='0.7'/><circle cx='1195' cy='105' r='1.5' fill='white' fill-opacity='0.65'/></svg>");
+  --m: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='1190 73 75 35'><line x1='1206.5' y1='88' x2='1213.5' y2='88' stroke='white' stroke-width='2' stroke-opacity='1'/><line x1='1211.8' y1='85' x2='1208.2' y2='91' stroke='white' stroke-width='2' stroke-opacity='1'/><line x1='1208.2' y1='85' x2='1211.8' y2='91' stroke='white' stroke-width='2' stroke-opacity='1'/><line x1='1238' y1='100' x2='1244' y2='100' stroke='white' stroke-width='2' stroke-opacity='0.85'/><line x1='1242.5' y1='97.4' x2='1239.5' y2='102.6' stroke='white' stroke-width='2' stroke-opacity='0.85'/><line x1='1239.5' y1='97.4' x2='1242.5' y2='102.6' stroke='white' stroke-width='2' stroke-opacity='0.85'/><circle cx='1228' cy='78' r='2' fill='white' fill-opacity='0.7'/><circle cx='1258' cy='85' r='2' fill='white' fill-opacity='0.7'/><circle cx='1195' cy='105' r='2' fill='white' fill-opacity='0.65'/></svg>");
   -webkit-mask: var(--m) center / contain no-repeat;
           mask: var(--m) center / contain no-repeat;
 }
@@ -512,10 +512,10 @@ section.mark-asterisks::after {
   content: '';
   position: absolute;
   bottom: 5.8cqi; left: 4.6cqi;
-  width: 6.7cqi; height: 2.5cqi;
+  width: 9cqi; height: 3.4cqi;
   pointer-events: none;
   background: color-mix(in srgb, var(--accent) 28%, transparent);
-  --m: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='59 614 86 32'><line x1='62' y1='628' x2='68' y2='628' stroke='white' stroke-width='1.5' stroke-opacity='1'/><line x1='66.5' y1='625.4' x2='63.5' y2='630.6' stroke='white' stroke-width='1.5' stroke-opacity='1'/><line x1='63.5' y1='625.4' x2='66.5' y2='630.6' stroke='white' stroke-width='1.5' stroke-opacity='1'/><line x1='107.5' y1='640' x2='112.5' y2='640' stroke='white' stroke-width='1.5' stroke-opacity='0.8'/><line x1='111.25' y1='637.8' x2='108.75' y2='642.2' stroke='white' stroke-width='1.5' stroke-opacity='0.8'/><line x1='108.75' y1='637.8' x2='111.25' y2='642.2' stroke='white' stroke-width='1.5' stroke-opacity='0.8'/><circle cx='85' cy='618' r='1.5' fill='white' fill-opacity='0.65'/><circle cx='142' cy='632' r='1.5' fill='white' fill-opacity='0.65'/></svg>");
+  --m: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='59 614 86 32'><line x1='62' y1='628' x2='68' y2='628' stroke='white' stroke-width='2' stroke-opacity='1'/><line x1='66.5' y1='625.4' x2='63.5' y2='630.6' stroke='white' stroke-width='2' stroke-opacity='1'/><line x1='63.5' y1='625.4' x2='66.5' y2='630.6' stroke='white' stroke-width='2' stroke-opacity='1'/><line x1='107.5' y1='640' x2='112.5' y2='640' stroke='white' stroke-width='2' stroke-opacity='0.8'/><line x1='111.25' y1='637.8' x2='108.75' y2='642.2' stroke='white' stroke-width='2' stroke-opacity='0.8'/><line x1='108.75' y1='637.8' x2='111.25' y2='642.2' stroke='white' stroke-width='2' stroke-opacity='0.8'/><circle cx='85' cy='618' r='2' fill='white' fill-opacity='0.65'/><circle cx='142' cy='632' r='2' fill='white' fill-opacity='0.65'/></svg>");
   -webkit-mask: var(--m) center / contain no-repeat;
           mask: var(--m) center / contain no-repeat;
 }
@@ -529,7 +529,7 @@ section.mark-threads::before {
   width: 4.1cqi; height: 2.1cqi;
   pointer-events: none;
   background: color-mix(in srgb, var(--accent) 28%, transparent);
-  --m: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='1228 66 52 27'><line x1='1257' y1='90' x2='1278' y2='69' stroke='white' stroke-width='1' stroke-opacity='1'/><line x1='1244' y1='90' x2='1265' y2='69' stroke='white' stroke-width='1' stroke-opacity='0.85'/><line x1='1231' y1='90' x2='1252' y2='69' stroke='white' stroke-width='1' stroke-opacity='0.7'/></svg>");
+  --m: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='1228 66 52 27'><line x1='1257' y1='90' x2='1278' y2='69' stroke='white' stroke-width='2' stroke-opacity='1'/><line x1='1244' y1='90' x2='1265' y2='69' stroke='white' stroke-width='2' stroke-opacity='0.85'/><line x1='1231' y1='90' x2='1252' y2='69' stroke='white' stroke-width='2' stroke-opacity='0.7'/></svg>");
   -webkit-mask: var(--m) center / contain no-repeat;
           mask: var(--m) center / contain no-repeat;
 }
@@ -539,11 +539,11 @@ section.mark-threads::before {
 section.mark-brackets::before {
   content: '';
   position: absolute;
-  top: 24cqi; right: 0.3cqi;
-  width: 1cqi; height: 10.5cqi;
+  top: 24cqi; right: 0.4cqi;
+  width: 2cqi; height: 10.5cqi;
   pointer-events: none;
   background: color-mix(in srgb, var(--accent) 28%, transparent);
-  --m: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='1265 307 11 134'><path d='M1268,310 L1274,310 L1274,326 L1268,326' fill='none' stroke='white' stroke-width='1.5' stroke-opacity='1'/><path d='M1268,422 L1274,422 L1274,438 L1268,438' fill='none' stroke='white' stroke-width='1.5' stroke-opacity='0.8'/></svg>");
+  --m: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='1254 307 22 134'><path d='M1258,310 L1272,310 L1272,326 L1258,326' fill='none' stroke='white' stroke-width='2.5' stroke-opacity='1'/><path d='M1258,422 L1272,422 L1272,438 L1258,438' fill='none' stroke='white' stroke-width='2.5' stroke-opacity='0.8'/></svg>");
   -webkit-mask: var(--m) center / contain no-repeat;
           mask: var(--m) center / contain no-repeat;
 }

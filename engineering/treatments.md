@@ -132,16 +132,18 @@ Geometric accent shapes placed in the known-empty peripheral slots. Three render
 | Class | Mark | Default home | Mechanism |
 |---|---|---|---|
 | `mark-micro` | 9 micro circles, r 2–4.5 | Top-right header band | Mask |
-| `mark-ticks` | 5 horizontal ticks | Far-right margin | Box-shadow |
+| `mark-ticks` | 5 horizontal ticks (~31×2.8 px) | Far-right margin | Box-shadow |
 | `mark-orbit` | Concentric rings + satellites | Bottom-right corner | Mask |
 | `mark-slashes` | 5 parallel 45° slashes | Top-right corner | Mask |
 | `mark-seeds` | 12 elongated ellipses, 3 per corner | All four corners | Gradient slot |
 | `mark-pills` | 4 horizontal pill shapes | Far-right margin | Box-shadow |
 | `mark-asterisks` | Asterisks + micro dots | Opposing corners | Mask |
-| `mark-threads` | 3 hairline diagonals (stroke 1) | Top-right corner | Mask |
+| `mark-threads` | 3 thin diagonals (stroke 2) | Top-right corner | Mask |
 | `mark-brackets` | 2 bracket marks `]` | Far-right margin | Mask |
 | `mark-grid` | 4×4 dot grid | Top-right corner | Mask |
 | `mark-chevron` | 3 right-pointing chevrons | Bottom-left corner | Mask |
+
+Visibility pass (2026-10-11): brackets, threads, ticks, seeds and asterisks grew in size or stroke, because at 28% a hairline vanishes in dark. The paint stays at the budget; only geometry changed. `mark-orbit` sits 4 cqi further left so it clears the page number. No mark was dropped; keep / change / drop per mark remains the owner's call (`followups.d/2606-p3-mark-treatments-review.md`).
 
 ### Reset
 
