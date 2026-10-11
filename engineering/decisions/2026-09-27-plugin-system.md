@@ -775,6 +775,45 @@ Answered by the owner on #2509 after #2508 merged; written here with the E0 chan
    `off` to the boundary parser (`setBoundaryPluginsOff`). The `highlight` grammars stay registered
    for every installed plugin, on purpose. A host may narrow the default set.
 
+### Owner decisions (settled 2026-10-11, phase E step 1's questions)
+
+Answered by the owner in the session that opened the fence-level code door. Decision 7's
+token-only gate is **superseded** by decision 12 below; decisions 6, 8 and 9 stand.
+
+10. **A fence renderer is handed the fence's text and one id, and nothing it can get another
+    way.** `render({ body, id })`: `body` is the fence's text exactly as authored; `id` is a string
+    unique to this fence in this render (the plugin's name, render prefix, slide, fence number),
+    safe in an `id` attribute, so two fences of one plugin cannot collide. It starts with the
+    plugin's name because the sanitizer keeps an id or class only in the package's own namespace
+    (`<name>` or `<name>-…`, `doorFilterAttr`). Text measurement is the one capability
+    the sandbox already gives every package (`kit.measure`). It is NOT handed theme values, the
+    slide's HTML, a base URL, the fence's info string or deck options. Theme colors reach a plugin
+    as `var(--token)` in the CSS and markup it writes, and the browser resolves them in the right
+    mode and theme, so passing values across would only add surface and go stale. The info string
+    and per-deck options are left out until a plugin needs them: the engine's code block does not
+    carry the info string past its first word, so passing it means a parser hook, and a field is
+    added without a version bump when the need is real (the slide-facts rule,
+    `lib/packages/slide-facts.mjs`).
+11. **A deck's `plugins:` front matter is how a zip plugin is activated, and a fence of a plugin
+    the deck did not declare shows a placeholder and offers Approve.** Approve WRITES the
+    `plugins:` line (decision 9's writer), so the deck states what it needs and the CLI renders it
+    the same way. Consent to the code itself stays pinned to the code's hash and lives only in the
+    browser that took it (§9 decision 3), so a downloaded deck can name a plugin but never carry
+    its own approval. The placeholder is drawn in the house Nacre atmosphere
+    (`docs/src/styles/nacre-loader.css`, the image underpainting in `base.modifiers.css`) with a
+    plugin mark and the plugin's name, so it reads as "a plugin goes here" and not as a missing
+    picture. Palette-blind: every color is a deck token.
+12. **A zip plugin's CSS is scoped, not gated on token use, and its slot comes first.** Every
+    selector is rewritten under the plugin's own root (and the roots of the plugins it declares it
+    styles), so it cannot reach a built-in element; the plugin's CSS sits before the engine's in
+    source order. Plugins may use any declaration, `!important` included, and read every theme
+    token by inheritance. A hex color or an unscoped selector the rewrite had to fix is reported,
+    not refused. **No `@layer`:** measured in Chromium (2026-10-11), a layered plugin rule loses to
+    every engine rule, so a plugin could not restyle its own paragraphs, and a layered `!important`
+    beats the engine's `!important`, the reverse of protection. HARD RULE #26 stays untouched.
+13. **The Studio keeps a zip plugin in the browser's storage** (the asset store gains a plugin
+    kind), never in a deck or a backup.
+
 ## 10. Non-goals
 
 - **No runtime discovery or network loading of code.** The export has to work offline, forever,
@@ -1554,6 +1593,36 @@ Answered by the owner on #2509 after #2508 merged; written here with the E0 chan
   eager bundle does not grow. Pinned by `asset-bundle.test.ts` (with the check removed, the code-free
   case receives `[]`) and `code-door.test.js`, and seen on the PR's docs preview: the Library's toast
   reads "Refused 1: glow — plugin packages cannot be installed yet".
+
+**2026-10-11 — phase E step 1, the fence door: kernel and CLI side built; the Studio's door and the
+placeholder are not.** The owner settled the fence contract, the activation and approval flow,
+the CSS isolation rule and the Studio's storage (§9 decisions 10 to 13; decision 7's token-only
+gate is superseded by 12). What exists now:
+- `lib/packages/code-door-fence.mjs` (the shared kernel). It finds a plugin's fences in the engine's
+  finished HTML (`<pre><code class="language-NAME">`, read with `scanTags`, so a block in a comment
+  or `<style>` is not one and the walk is linear), so the parser and its memo keys are untouched.
+  A renderer is handed `{ body, id }` and nothing else. A fence inside a slide a code package
+  claims whole is the package's, not run. The result goes in `<div data-lattice-plugin="NAME">`,
+  the root decision 12's CSS scoping will key on; a failure keeps the author's code block and adds
+  a note.
+- `code-shape.mjs`: `workerScript(code, { fence: true })` (slide mode is byte-identical, pinned) and
+  `refusePluginCode` (one fence, only `fences`/`styles`/`diagnostics`, exactly one `render.js` in
+  the export form). `trust.js` digests a plugin's `render.js`, approved under `plugin/<name>`.
+- `code-door.js`: `renderWithCodePackages(render, { packages, plugins })` runs both kinds in the
+  one worker under the one budget; `code-door-worker.js` sanitizes a fence's output through the
+  same door as a slide (wrapped in a bare `<section>`, handed an empty one, so no address
+  survives and a result that closes the wrapper is refused). The sanitizer keeps a class or id only
+  in the plugin's own namespace, so the id a renderer is handed starts with the plugin's name.
+- Evidence: `test/unit/cli/code-door-fence.test.js` (kernel through the real engine, the gate,
+  consent) and `test/integration/export/plugin-fence-door.test.js` (the real sandbox: refused
+  unapproved, drawn with a hostile renderer and a network log at 0 requests, a changed byte,
+  a breakout, a throw, a claimed slide). With the sanitizer bypassed for fences, the drawn and
+  breakout cases fail.
+- Not built, and why nothing user-visible changed: no caller passes `plugins` yet, and `gate.js`
+  still refuses a plugin from outside the tree by name. Remaining, in
+  `followups.d/2417-p5-plugin-roadmap-phases-e-to-g.md`: the Studio's door (`door.ts`, `runner.ts`),
+  the placeholder and its Approve strip, `lattice packages trust plugin/<name>`, `codeNameRefusal`
+  for a plugin's name, then steps 2 and 3.
 
 ## References
 

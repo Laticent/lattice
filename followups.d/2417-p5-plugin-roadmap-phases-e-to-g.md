@@ -87,3 +87,23 @@ hex literal or an unscoped selector, or only report it as a component import doe
 door's contract (what a fence renderer is handed, and whether a deck's `plugins:` admission also
 gates the door's consent). Fixed on the way: the Studio's Library import dropped a code-free plugin
 zip with no word; both doors now refuse a plugin by name with one string (`PLUGIN_REFUSAL`).
+
+**Step 1 built 2026-10-11 (kernel and CLI door), not finished.** The owner's answers are §9
+decisions 10 to 13 of the plugin-system note; the build log is its §11. Left in step 1:
+1. **The Studio's door.** `docs/src/lib/code-packages/door.ts` / `door-run.ts` / `runner.ts` run
+   component packages only. They need the same fence path: `captureFences` / `substituteFences`
+   from `lib/packages/code-door-fence.mjs`, `checkedWorkerScript(code, { fence: true })`, a fence
+   job in the frame (`{ body, id }`), the fence output sanitized as the CLI worker's `finishFence`
+   does (wrap in a bare `<section>`, hand an empty one), approvals keyed `plugin/<name>` (today
+   `door.ts` keys on the bare name), and `CodePackagesNotice` listing plugins.
+2. **The placeholder** for a plugin's fence the deck did not declare (decision 11): drawn in the
+   Nacre atmosphere (`docs/src/styles/nacre-loader.css`, `base.modifiers.css` "THE UNDERPAINTING"),
+   a plugin mark from the `--mark-*` / `--shape-*` tokens (HARD RULE #29), palette-blind, with the
+   plugin's name; and the strip whose Approve writes the `plugins:` line (`deck-plugins.mjs`'s
+   writer). Website UI: screenshots at 1440 / 820 / 390.
+3. **`lattice packages trust plugin/<name>`** (the door's refusal message already prints it), and
+   `codeNameRefusal(pkg.name, knownClasses)` for a plugin's name, run by the step 2 gate.
+4. **A design question for step 2:** the door runs only plugins its caller hands it, so the CLI half
+   decides which installed plugins are active (declared in `plugins:`) and which are only offered
+   (the placeholder case). The door takes both lists.
+
