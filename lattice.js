@@ -2031,6 +2031,7 @@ const globalStyle = packAuthorCss(readGlobalStyle(fm));
 // collapses bg left/right to a full-bleed background). See engineSlides().
 const bgImage            = require('./lib/core/bg-image');
 const imageDimensions    = require('./lib/core/image-dimensions');
+const collageStamp       = require('./lib/core/collage-stamp');
 
 // ── P2: the markdown→slide engine (lib/engine) is the emulator's parser ─────
 // Lattice converges on ONE markdown implementation: the owned lib/engine, the
@@ -2182,6 +2183,9 @@ function engineSlides(deckSource = rawMd) {
     // keys the whole layout off a single `[data-img-composition]` attribute.
     s = imageDimensions.stampImageBucket(s);
     s = imageDimensions.stampImageComposition(s);
+    // Collage: pack the photo grid from each photo's header size (the structure step already
+    // ran in the engine render; only the CLI can read files).
+    s = collageStamp.stampCollage(s);
     // The `statement` composition (text on a scrim over a full-bleed photo) is the
     // only one that needs a contrast scrim node; every other composition carries
     // its own contrast (solid card / matte / panel). statement is opt-in, so it's

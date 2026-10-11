@@ -230,6 +230,8 @@ const SINGLETON_TAGS = new Set([
   'definition', // glossary — term definitions
   'states',     // state-chart — state machine states
   'section-break', // divider — section-boundary idiom (was shared with subtopic, merged into divider.light 2026-06-07)
+  'masonry',    // collage — the word authors search for a mixed-shape photo wall (the layout is justified, not staggered)
+  'mood-board', // collage — the art-director name for the same slide
 ]);
 
 // Core token contract every base palette must define directly. These are
@@ -9394,6 +9396,7 @@ const SANCTIONED_DENSITY_EXEMPT = {
   video: 'figural — poster + QR, not prose (heading/caption are universal budgets)',
   scene: 'figural — an Anima poster still (inline svg), not prose (heading/caption are universal budgets)',
   'logo-wall': 'figural — logos',
+  collage: 'figural — photos, not prose (the description paragraph is covered by the universal body budget)',
   // connect — QR cards; fields are credentials/identity values (ssid, email), not prose.
   wifi: 'connect — Wi-Fi credentials, not prose',
   contact: 'connect — vCard identity fields, not prose',
