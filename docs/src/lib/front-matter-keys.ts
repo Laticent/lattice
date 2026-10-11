@@ -9,9 +9,9 @@
 //
 // Its own module so the Studio chat agent (chat-agent.ts) can read the table without
 // importing the editor's completion code; `editor-complete.ts` re-exports it.
-import deckSettings from '../../../../lib/core/deck-settings.js';
-import deckSettingsProse from '../../../../lib/core/deck-settings.prose.js';
-import pluginRegisters from '../../../../lib/plugins/registers.generated.js';
+import deckSettings from '../../../lib/core/deck-settings.js';
+import deckSettingsProse from '../../../lib/core/deck-settings.prose.js';
+import pluginRegisters from '../../../lib/plugins/registers.generated.js';
 
 /** Every row the Studio offers: the table's own rows, then one per plugin-declared register. */
 export const OFFERED_SETTINGS = deckSettingsProse.withProse(deckSettings.withPluginRegisters(pluginRegisters.PLUGIN_REGISTERS)).filter((r) => r.offer !== false && r.kind !== 'retired');

@@ -6,7 +6,9 @@
 module.exports = {
   forbidden: [],
   options: {
-    doNotFollow: { path: ['node_modules', '/dist/', '^docs/src/playground/.*\\.generated\\.'] },
+    // Vendored library copies are recorded as import TARGETS (so an import into a plugin's vendor/
+    // folder counts) but never parsed.
+    doNotFollow: { path: ['node_modules', '/dist/', '/vendor/', '^docs/src/playground/.*\\.generated\\.'] },
     exclude: {
       path: [
         '^(node_modules|dist|\\.scratch|coverage|examples|exemplars|themes)/',
@@ -15,7 +17,6 @@ module.exports = {
         '/e2e/',
         '^docs/src/test/',
         '^test/',
-        '/vendor/',
       ],
     },
     tsPreCompilationDeps: true,

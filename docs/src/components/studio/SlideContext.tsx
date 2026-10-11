@@ -23,6 +23,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Tip } from '@/components/ui/tooltip';
 import { Announce } from '@/lib/announce';
 import { cn } from '@/lib/utils';
+import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from '../../lib/motion-catalog';
 import { canEditClass, getClassTokens, readClassDirective, setClassTokens, setGroupToken, toggleToken } from '../../lib/slide-directives';
 import { connectOpenRouter, generateDescription, useArchitectStatus } from './architect';
 import { autoSelected, type CatalogGroup, type CatalogOption, CatalogSelect, catalogOptions, withAutoHead } from './CatalogSelect';
@@ -36,7 +37,6 @@ import { IMAGE_CARD_DEFAULT_LABEL, IMAGE_CARD_ROWS, imageCardOptionLabel } from 
 import { followBus, useAppliedKey, useFollowRow, useViewKey } from './live/follow-bus';
 import { FOLLOW_GHOST, FollowChip } from './live/follow-ui';
 import { DEFAULT_MARKS, MARKS_FINISHES } from './marks-catalog';
-import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from './motion-catalog';
 import { DEFAULT_STAMP, DEFAULT_TONE, glyphs, imageGlyph, optionGlyph, tagGlyph } from './option-glyphs';
 import { RESET_SLIDE_BUTTON, type SlideBaseline } from './panel-shells';
 import { activeRule, RULES } from './rule-catalog';

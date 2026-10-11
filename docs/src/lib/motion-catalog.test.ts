@@ -3,7 +3,7 @@
 // never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
 import { describe, expect, it } from 'vitest';
 import { MOTION_SPEEDS, MOTION_STYLES } from '@/playground/anima-host-sel';
-import deckSettings from '../../../../lib/core/deck-settings.js';
+import deckSettings from '../../../lib/core/deck-settings.js';
 import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from './motion-catalog';
 
 // Rot-guard: the Studio Style/Speed pickers MUST stay in step with the value sets the host resolves

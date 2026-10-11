@@ -55,7 +55,7 @@ const PARTS = [
   { part: 'lib/motion', layer: 0, match: 'lib/motion/' },
   // A JSON Schema is a contract both sides read (the component, theme, plugin and package
   // formats), and imports nothing: its own part, at the bottom, wherever its folder is.
-  { part: 'lib/schemas', layer: 0, match: (f) => /^lib\/.*\.schema\.json$/.test(f) },
+  { part: 'lib/schemas', layer: 0, match: (f) => /^lib\/(?!plugins\/[^/]+\/).*\.schema\.json$/.test(f) },
   { part: 'lib/core', layer: 1, match: 'lib/core/' },
   { part: 'lib/plugin-kit', layer: 3, match: 'lib/plugin-kit/' },
   { part: 'lib/theme', layer: 2, match: 'lib/theme/' },
@@ -90,7 +90,9 @@ const PARTS = [
   { part: 'site/studio', layer: 14, match: 'docs/src/components/studio/' },
   // The Craft lab is a page-sized tool built on Studio pieces (the code field), so it sits above.
   { part: 'site/craft', layer: 15, match: 'docs/src/components/craft/' },
-  { part: 'site/pages', layer: 16, match: 'docs/src/' },
+  // Pages, layouts, content collections and the site's build plugins; a NEW folder under docs/src/
+  // matches nothing, so it fails until it is placed on a layer here.
+  { part: 'site/pages', layer: 16, match: (f) => /^docs\/src\/(?:pages|layouts|content|plugins)\/|^docs\/src\/[^/]+$/.test(f) },
   { part: 'tools', layer: 20, match: 'tools/' },
 ];
 // site/studio must win over site/components: order by specificity, not by layer.
@@ -104,8 +106,40 @@ function specificity(p) {
  * registry that the parts below read by name (the plugin registries, the pane and coda catalogs,
  * the reserved-class list). That is how a lower layer learns about a higher one without importing
  * it, so imports into and out of a seam are exempt from the layer and loop rules.
+ *
+ * The name alone does not make a seam, or any file called `x.generated.js` would bypass every rule.
+ * A generated JSON file is pure data and imports nothing, so it is one. A generated JS file is one
+ * only when its header names a `tools/` script that exists AND whose source names the file: proof
+ * that a build step writes it. Note what the exemption costs: through the registries the engine is
+ * still WIRED to its plugins at runtime, by design; the gate holds the source-level dependencies.
  */
-const isSeam = (file) => /^lib\/.*\.generated\.[a-z]+$/.test(file);
+const seamCache = new Map();
+function isSeam(file) {
+  if (!/^lib\/.*\.generated\.[a-z]+$/.test(file)) return false;
+  if (file.endsWith('.json')) return true;
+  if (seamCache.has(file)) return seamCache.get(file);
+  let ok = false;
+  try {
+    const head = fs.readFileSync(path.join(ROOT, file), 'utf8').slice(0, 600);
+    const tool = /tools\/[\w./-]+\.(?:c|m)?js/.exec(head)?.[0];
+    if (tool && fs.existsSync(path.join(ROOT, tool))) ok = fs.readFileSync(path.join(ROOT, tool), 'utf8').includes(path.basename(file));
+  } catch {
+    ok = false;
+  }
+  seamCache.set(file, ok);
+  return ok;
+}
+
+/**
+ * A plugin reaching past the kit, admitted on purpose: `plugin -> part` with its reason. Fails on a
+ * stale entry. chart-family is the one today: it is the chart bucket's dispatcher, and its
+ * generated registry names each chart component's kernel, so it cannot leave the repo without the
+ * chart components. It is in-tree by nature; the plugins meant to move to npm are the others.
+ */
+const SANCTIONED_PLUGIN_REACH = {
+  'lib/plugins/chart-family -> lib/components':
+    "the chart bucket's dispatcher: its generated registry (shared/chart-registry.generated.js) names every chart component's kernel, so the plugin is in-tree by nature",
+};
 
 /**
  * Upward imports admitted on purpose. Each entry is `from -> to` (part names) with its reason;
@@ -123,14 +157,82 @@ function partOf(file) {
 
 function cruise() {
   const bin = path.join(ROOT, 'node_modules', '.bin', 'depcruise');
-  const r = spawnSync(bin, ['--config', 'tools/structure.cruise.cjs', '--output-type', 'json', 'lib', 'lattice.js', 'docs/src', 'tools'], {
+  // The cache makes a repeat run about 1.3s instead of about 6.5s (measured on a 4-core sandbox);
+  // dependency-cruiser re-reads any file whose content changed, committed or not.
+  const cache = path.join(ROOT, 'node_modules', '.cache', 'dependency-cruiser-structure');
+  const r = spawnSync(bin, ['--config', 'tools/structure.cruise.cjs', '--cache', cache, '--output-type', 'json', 'lib', 'lattice.js', 'docs/src', 'tools'], {
     cwd: ROOT,
     encoding: 'utf8',
     maxBuffer: 1024 * 1024 * 256,
   });
   if (r.error) throw r.error;
   if (!r.stdout) throw new Error(`dependency-cruiser produced no output:\n${r.stderr}`);
-  return JSON.parse(r.stdout);
+  const graph = JSON.parse(r.stdout);
+  graph.unread = unreadModules(graph);
+  graph.modules.push(...astroModules());
+  return graph;
+}
+
+// A relative or `@/` import specifier in source text: `from '…'`, `import '…'`, `require('…')`,
+// `import('…')`. Comments are stripped first, so a path quoted in prose is not one.
+const SPECIFIER = /(?:\bfrom\s*|\bimport\s*\(?\s*|\brequire\s*\(\s*)['"]((?:\.{1,2}|@)\/[^'"]+)['"]/g;
+const stripComments = (src) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`\\])\/\/[^\n]*/g, '$1').replace(/`[^`]*`/g, '``');
+
+/**
+ * Modules dependency-cruiser listed with no local imports although their source has some. It exits
+ * 0 on a parse error and reports the file with no dependencies, which would hide every edge the
+ * file has, so the gate fails instead of passing a file it could not read.
+ */
+function unreadModules(graph) {
+  const out = [];
+  for (const m of graph.modules) {
+    if (m.coreModule || m.couldNotResolve || /node_modules|\/dist\/|\.json$|\.css$/.test(m.source)) continue;
+    if (m.dependencies.some((d) => !d.coreModule && !/node_modules/.test(d.resolved || ''))) continue;
+    let src;
+    try {
+      src = fs.readFileSync(path.join(ROOT, m.source), 'utf8');
+    } catch {
+      continue;
+    }
+    const specs = [...stripComments(src).matchAll(SPECIFIER)].map((x) => x[1]).filter((spec) => !spec.includes('node_modules'));
+    if (specs.length) out.push(m.source);
+  }
+  return out;
+}
+
+/**
+ * The imports in every `.astro` file's front matter (the `---` block), which dependency-cruiser
+ * does not read: a component or layout in an `.astro` file sits on its folder's layer like any other
+ * file, so its imports are held to the same rules.
+ */
+function astroModules() {
+  const out = [];
+  const walk = (dir) => {
+    for (const e of fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true })) {
+      const rel = `${dir}/${e.name}`;
+      if (e.isDirectory()) walk(rel);
+      else if (e.name.endsWith('.astro')) out.push(rel);
+    }
+  };
+  walk('docs/src');
+  const resolve = (from, spec) => {
+    const base = spec.startsWith('@/') ? path.join('docs/src', spec.slice(2)) : path.join(path.dirname(from), spec);
+    const clean = base.replace(/\?.*$/, '');
+    for (const ext of ['', '.ts', '.tsx', '.js', '.mjs', '.astro', '.json', '/index.ts', '/index.js']) {
+      if (fs.existsSync(path.join(ROOT, clean + ext)) && fs.statSync(path.join(ROOT, clean + ext)).isFile()) return (clean + ext).split(path.sep).join('/');
+    }
+    return null;
+  };
+  return out.map((file) => {
+    const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(fs.readFileSync(path.join(ROOT, file), 'utf8'))?.[1] ?? '';
+    const deps = [];
+    SPECIFIER.lastIndex = 0;
+    for (const m of stripComments(fm).matchAll(SPECIFIER)) {
+      const to = resolve(file, m[1]);
+      if (to && !/\.test\./.test(to)) deps.push({ resolved: to });
+    }
+    return { source: file, dependencies: deps };
+  });
 }
 
 const countLines = (file) => {
@@ -193,7 +295,7 @@ function tarjan(nodes, adj) {
 }
 
 /** The whole analysis, from a dependency-cruiser graph (exported so the unit test can feed one). */
-function analyze(graph, { sanctioned = SANCTIONED_UPWARD } = {}) {
+function analyze(graph, { sanctioned = SANCTIONED_UPWARD, pluginSanctioned = SANCTIONED_PLUGIN_REACH } = {}) {
   const { edges, files } = edgesOf(graph);
   const parts = new Map();
   const get = (p) => parts.get(p.name) || parts.set(p.name, { ...p, files: 0, lines: 0, internal: 0, out: new Map(), inc: new Set() }).get(p.name);
@@ -230,8 +332,14 @@ function analyze(graph, { sanctioned = SANCTIONED_UPWARD } = {}) {
   const usedSanctions = new Set(upward.map(sanctionKey));
   const staleSanctions = Object.keys(sanctioned).filter((k) => !usedSanctions.has(k));
 
-  const pluginOut = edges.filter((e) => e.a.plugin && e.a.name !== e.b.name && e.b.name !== 'lib/plugin-kit' && !isSeam(e.from) && !/\/dist\//.test(e.to));
+  const reachKey = (e) => `${e.a.name} -> ${e.b.name}`;
+  const pluginReach = edges.filter((e) => e.a.plugin && e.a.name !== e.b.name && e.b.name !== 'lib/plugin-kit' && !/\/dist\//.test(e.to));
+  const pluginOut = pluginReach.filter((e) => !Object.hasOwn(pluginSanctioned, reachKey(e)));
+  const usedReach = new Set(pluginReach.map(reachKey));
+  const staleReach = Object.keys(pluginSanctioned).filter((k) => !usedReach.has(k));
   const pluginIn = edges.filter((e) => e.b.plugin && e.a.name !== e.b.name && !isSeam(e.from) && e.a.name !== 'tools');
+
+  const inside = insideParts(edges, files);
 
   const rows = [...parts.values()]
     .filter((p) => p.files > 0)
@@ -256,11 +364,68 @@ function analyze(graph, { sanctioned = SANCTIONED_UPWARD } = {}) {
     rows,
     loops,
     upward: unsanctioned.map((e) => `${e.from} (${e.a.name}, layer ${e.a.layer}) -> ${e.to} (${e.b.name}, layer ${e.b.layer})`),
-    staleSanctions,
+    staleSanctions: [...staleSanctions, ...staleReach.map((k) => `${k} (SANCTIONED_PLUGIN_REACH)`)],
+    unread: graph.unread || [],
+    inside,
     pluginOut: pluginOut.map((e) => `${e.from} -> ${e.to}`),
     pluginIn: pluginIn.map((e) => `${e.from} -> ${e.to}`),
     unmapped: graph.modules.filter((m) => !m.coreModule && !m.couldNotResolve && !/node_modules/.test(m.source) && !partOf(m.source)).map((m) => m.source),
   };
+}
+
+/**
+ * Inside each large part (50+ files): how its files connect. Cross-part cohesion cannot see a folder
+ * of unrelated files, since a low layer imports little outside itself whatever it holds; these two
+ * numbers can. ISLANDS are groups of files with no import between them, and SINGLE-CONSUMER files
+ * are imported by no file in their own part and by exactly one other part: each is a candidate to
+ * move beside its one user rather than sit in a shared layer. Reported, never gated.
+ */
+function insideParts(edges, files) {
+  const byPart = new Map();
+  for (const [file, p] of files) {
+    if (/\/dist\//.test(file) || p.name === 'site/bundles') continue;
+    (byPart.get(p.name) || byPart.set(p.name, []).get(p.name)).push(file);
+  }
+  const out = {};
+  for (const [name, members] of byPart) {
+    if (members.length < 50) continue;
+    const set = new Set(members);
+    const adj = new Map(members.map((f) => [f, new Set()]));
+    const importers = new Map(members.map((f) => [f, { inside: 0, parts: new Set() }]));
+    for (const e of edges) {
+      if (!set.has(e.to)) continue;
+      if (set.has(e.from)) {
+        adj.get(e.from).add(e.to);
+        adj.get(e.to).add(e.from);
+        importers.get(e.to).inside += 1;
+      } else if (e.a.name !== name) importers.get(e.to).parts.add(e.a.name);
+    }
+    const seen = new Set();
+    const sizes = [];
+    for (const f of members) {
+      if (seen.has(f)) continue;
+      let n = 0;
+      const stack = [f];
+      seen.add(f);
+      while (stack.length) {
+        const v = stack.pop();
+        n += 1;
+        for (const w of adj.get(v)) {
+          if (seen.has(w)) continue;
+          seen.add(w);
+          stack.push(w);
+        }
+      }
+      sizes.push(n);
+    }
+    sizes.sort((x, y) => y - x);
+    const singleConsumer = members
+      .filter((f) => importers.get(f).inside === 0 && importers.get(f).parts.size === 1)
+      .map((f) => `${f} <- ${[...importers.get(f).parts][0]}`)
+      .sort();
+    out[name] = { files: members.length, islands: sizes.length, largestIsland: sizes[0], isolated: sizes.filter((n) => n === 1).length, singleConsumer };
+  }
+  return out;
 }
 
 /** Everything --check fails on, as one message per problem; [] when the structure holds. */
@@ -272,6 +437,7 @@ function structureProblems(result) {
   for (const e of result.pluginOut) problems.push(`plugin reaches past the plugin kit: ${e}`);
   for (const e of result.pluginIn) problems.push(`code imports a plugin's folder directly (use the registry or a service): ${e}`);
   for (const f of result.unmapped) problems.push(`file belongs to no part (add it to PARTS in tools/structure.js): ${f}`);
+  for (const f of result.unread) problems.push(`dependency-cruiser read no imports from a file that has some (a parse error hides its edges): ${f}`);
   return problems;
 }
 
@@ -283,7 +449,7 @@ function printTable(result) {
   }
 }
 
-module.exports = { PARTS, SANCTIONED_UPWARD, partOf, isSeam, analyze, structureProblems, cruise };
+module.exports = { PARTS, SANCTIONED_UPWARD, SANCTIONED_PLUGIN_REACH, partOf, isSeam, analyze, structureProblems, cruise, astroModules, unreadModules };
 
 if (require.main === module) {
   const args = new Set(process.argv.slice(2));
@@ -294,12 +460,19 @@ if (require.main === module) {
     const snapshot = {
       note: 'Per-part size and shape, from `node tools/structure.js --bless`. A record, not a gate: build:check fails on loops, upward imports and plugin-boundary breaks only. engineering/decisions/2026-10-11-codebase-structure.md.',
       parts: result.rows,
+      inside: Object.fromEntries(Object.entries(result.inside).map(([k, v]) => [k, { files: v.files, islands: v.islands, largestIsland: v.largestIsland, isolated: v.isolated, singleConsumer: v.singleConsumer.length }])),
     };
     fs.writeFileSync(SNAPSHOT, `${JSON.stringify(snapshot, null, 2)}\n`);
     console.log(`wrote ${path.relative(ROOT, SNAPSHOT)}`);
   } else {
     const problems = structureProblems(result);
-    if (!args.has('--check')) printTable(result);
+    if (!args.has('--check')) {
+      printTable(result);
+      console.log('\ninside the large parts (islands = file groups with no import between them):');
+      for (const [name, x] of Object.entries(result.inside)) {
+        console.log(`  ${name.padEnd(18)} ${x.files} files, ${x.islands} islands (largest ${x.largestIsland}, ${x.isolated} isolated), ${x.singleConsumer.length} single-consumer files`);
+      }
+    }
     if (problems.length) {
       console.error(`\nstructure: ${problems.length} problem(s)\n  ${problems.join('\n  ')}`);
       if (args.has('--check')) process.exit(1);

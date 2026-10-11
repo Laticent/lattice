@@ -467,7 +467,7 @@ describe('every deck-scope directive writes losslessly (#1256)', () => {
 				}
 			}
 		};
-		walk(join(__dirname, '..', '..'));
+		walk(join(__dirname, '..')); // docs/src
 		expect(offenders).toEqual([]);
 	});
 });

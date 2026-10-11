@@ -16,7 +16,7 @@ why now   — the rest of `engineering/decisions/2026-09-27-plugin-system.md` §
             residue is decided (the plugin note §11) and what is open is
             `2509-p5-mermaid-library-copies.md`.
             E: the data layer, zip import and export of plugins in the CLI and the Studio
-               (§4.10); this lifts the `plugin` refusal in `lib/packages/gate.js`.
+               (§4.10); this lifts the `plugin` refusal in `lib/cli/package-gate.js`.
             F: the chart family — DONE (the plugin-system note §11, "Phase F, the slot" and
                "Phase F, the family's code"): the dispatch is `chart-family.dispatch.js` and the
                chart frame is the plugin's `styles` contribution. Kept in
@@ -52,7 +52,7 @@ why now   — the rest of `engineering/decisions/2026-09-27-plugin-system.md` §
             shipped or installed plugin is DISABLED with a diagnostic, never a failed build; every
             export records the non-shipped plugins it used (name + SHA-256).
 where     — `engineering/decisions/2026-09-27-plugin-system.md` §4 and §7; `lib/plugins/`;
-            `lib/packages/gate.js`, `kinds.js`, `render.js`, `cli.js`; the Studio's Library.
+            `lib/cli/package-gate.js`, `kinds.js`, `render.js`, `cli.js`; the Studio's Library.
 done when — each phase lands as its own PR with the ratchet still at 0, and this file is
             split or deleted as each phase is promoted to an issue.
 evidence  — per phase: byte identity or export sign-off (dark and light renders via
