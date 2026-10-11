@@ -24,8 +24,8 @@ test('structure: a photo list becomes flat tiles in written order inside one .co
   const out = k.applyToRenderedHtml(section(FOUR));
   assert.equal((out.match(/class="collage-fit"/g) || []).length, 1);
   assert.deepEqual([...out.matchAll(/alt="(\w)"/g)].map((m) => m[1]), ['a', 'b', 'c', 'd']);
-  assert.ok(out.includes('<li class="collage-tile" data-hero="1"><img'));
-  assert.ok(out.includes('<li class="collage-tile" style="--collage-focal:50% 0%"><img'));
+  assert.ok(out.includes('<li class="collage-tile" data-hero="1" data-label="a"><img'));
+  assert.ok(out.includes('<li class="collage-tile" data-label="b" style="--collage-focal:50% 0%"><img'));
   assert.ok(!/<code>(hero|top|3:2)<\/code>/.test(out), 'a valid hint span is consumed, not drawn as a pill');
   assert.ok(out.includes('data-collage-ratio="1.5000"'));
   // the chrome above the list is untouched
@@ -71,7 +71,7 @@ test('stamp: known sizes pack, one grid-area per tile, tracks as minmax(0, Nfr)'
   assert.ok(out.includes('data-collage="packed"'));
   assert.ok(/--collage-ar:\d+\.\d{4};grid-template-columns:(minmax\(0,\d+\.\d{3}fr\) ?)+;grid-template-rows:/.test(out));
   assert.equal((out.match(/grid-area:\d+\/\d+\/\d+\/\d+/g) || []).length, 4);
-  assert.ok(/data-hero="1" style="grid-area:/.test(out));
+  assert.ok(/data-hero="1" data-label="a" style="grid-area:/.test(out));
   assert.ok(/style="grid-area:[\d/]+;--collage-origin:[\d%]+ [\d%]+;--collage-focal:50% 0%"/.test(out), 'a tile keeps its own focal value after the grid-area');
 });
 
@@ -161,4 +161,148 @@ test('live path and engine path pick the same layout for the same sizes', () => 
   const engineAreas = [...engine.matchAll(/grid-area:([\d/]+)/g)].map((m) => m[1]);
   const liveAreas = [...list.querySelectorAll(':scope > li')].map((li) => /grid-area:([\d/]+)/.exec(li.getAttribute('style'))[1]);
   assert.deepEqual(liveAreas, engineAreas);
+});
+
+// ── a collage never splits across slides ────────────────────────────────────────────────
+const path = require('node:path');
+const fs = require('node:fs');
+const ss = require('../../../lib/core/structural-split');
+const { loadAll } = require('../../../lib/components');
+const { createEngine } = require('../../../lib/engine');
+
+const MANIFESTS = loadAll(path.join(__dirname, '..', '..', '..', 'lib', 'components'));
+const CAPACITY = ss.splitCapacityFrom(MANIFESTS);
+const engine = createEngine();
+
+const photoDeck = (size, cls, n = 6) => `---
+theme: indaco
+${size ? `size: ${size}\n` : ''}---
+
+<!-- _class: ${cls} -->
+
+\`Eyebrow\`
+
+## ${n} photographs.
+
+${Array.from({ length: n }, (_v, i) => `- ![Photo ${i + 1}](photo-${i + 1}.jpg)`).join('\n')}
+`;
+
+const splitRun = (md) => {
+  const out = engine.render(md, 'indaco', { preview: true });
+  return ss.structuralSplit(out.html, { deckSource: md, width: out.width, height: out.height, capacity: CAPACITY });
+};
+
+test('the collage declares no capacity axis (a declared axis that is missing from the DOM still splits)', () => {
+  const m = MANIFESTS.find((x) => x.name === 'collage');
+  assert.ok(m, 'collage manifest loads');
+  assert.equal(m.capacity, undefined, 'no capacity block');
+  assert.equal(m.adapt?.capacity, undefined, 'no adapt.capacity block');
+  assert.equal(CAPACITY.collage, undefined, 'splitCapacityFrom keeps only components that can split');
+});
+
+test('six photos on a portrait, a square and a story deck stay ONE slide', () => {
+  for (const size of ['portrait', 'square', 'story']) {
+    const r = splitRun(photoDeck(size, 'collage'));
+    assert.equal(r.applies, true, `${size}: the split gate is open for this box`);
+    assert.equal(r.changed, 0, `${size}: a collage is not split`);
+    assert.equal(ss.splitTopLevelSections(r.html).length, 1, `${size}: one slide`);
+  }
+});
+
+test('failing arm: the same six-bullet list in a splittable component DOES split on a portrait deck', () => {
+  const r = splitRun(photoDeck('portrait', 'inventory'));
+  assert.ok(r.changed >= 1, 'the control splits, so the collage result above is not a vacuous pass');
+});
+
+test('the collage hides the page number with the doubled-class arms', () => {
+  const css = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'lib', 'components', 'imagery', 'collage', 'collage.styles.css'), 'utf8');
+  assert.match(css, /section\.collage\.collage::after\s*\{\s*content:\s*none;\s*\}/, 'the pagination pseudo is suppressed at doubled-class specificity');
+  assert.match(css, /section\.collage\.collage\s*>\s*\.lat-pagination\s*\{\s*display:\s*none;\s*\}/, 'the page-number element is hidden');
+});
+
+// ── lint rules (lib/authoring/lint-core.js) ─────────────────────────────────────────────
+const lintCore = require('../../../lib/authoring/lint-core');
+
+const VOCAB = { names: new Set(['collage']), modifiers: new Set(['ordered', 'fill', 'above', 'bleed', 'mirror']) };
+const lintCollage = (body) => lintCore.lintTextWith(`---\nmarp: true\ntheme: indaco\n---\n\n<!-- _class: collage -->\n\n## T\n\n${body}\n`, VOCAB);
+const rules = (res) => res.map((f) => f.rule);
+const six = Array.from({ length: 6 }, (_v, i) => `- ![Photo ${i + 1}](p${i + 1}.jpg)`).join('\n');
+
+test('lint: a clean four-to-six photo collage raises nothing from the collage rules', () => {
+  assert.deepEqual(rules(lintCollage(six)).filter((r) => r.startsWith('collage-')), []);
+});
+
+test('lint: collage-count warns below four and above six', () => {
+  assert.ok(rules(lintCollage('- ![A](a.jpg)\n- ![B](b.jpg)')).includes('collage-count'));
+  const seven = `${six}\n- ![Seventh](p7.jpg)`;
+  assert.ok(rules(lintCollage(seven)).includes('collage-count'));
+});
+
+test('lint: collage-alt warns on a photo with no alt text', () => {
+  assert.ok(rules(lintCollage(six.replace('![Photo 1]', '![]'))).includes('collage-alt'));
+});
+
+test('lint: collage-bg warns on background syntax', () => {
+  assert.ok(rules(lintCollage(six.replace('![Photo 1]', '![bg]'))).includes('collage-bg'));
+});
+
+test('lint: collage-hint names an unknown hint word and accepts the real ones', () => {
+  assert.ok(rules(lintCollage(six.replace('(p1.jpg)', '(p1.jpg) `shiny`'))).includes('collage-hint'));
+  assert.ok(rules(lintCollage(six.replace('(p1.jpg)', '(p1.jpg) `hero, top, 3:2`'))).every((r) => r !== 'collage-hint'));
+});
+
+test('lint hint grammar agrees with the transform: the same words are valid in both', () => {
+  const words = ['hero', 'top', 'bottom', 'left', 'right', 'center', '3:2', '16:9', 'hero, top', 'hero, 3:2, left',
+    'shiny', 'top, bottom', '0:2', '2:0', '1:1001', 'hero,', 'hero, hero', '3:2, 4:5', 'Hero'];
+  for (const w of words) {
+    const lintBad = rules(lintCollage(six.replace('(p1.jpg)', `(p1.jpg) \`${w}\``))).includes('collage-hint');
+    assert.equal(lintBad, k.parseHints(w) === null, `\`${w}\`: lint and transform disagree`);
+  }
+});
+
+test('stamp: still packs when `_focus` has added lat-focus / lat-recede to the tile classes', () => {
+  const s = k.applyToRenderedHtml(section(FOUR))
+    .replace('<li class="collage-tile" data-hero="1"', '<li class="collage-tile lat-recede" data-hero="1"')
+    .replace(/<li class="collage-tile" data-label="b"/, '<li class="collage-tile lat-focus" data-label="b"');
+  assert.ok(s.includes('lat-recede') && s.includes('lat-focus'));
+  const out = k.stampSection(s, [0.5625, 0.8, 1.5, 1], k.optionsFromClass('collage'), 'landscape');
+  assert.ok(out.includes('data-collage="packed"'), 'the grid is stamped');
+  assert.equal((out.match(/grid-area:\d+\/\d+\/\d+\/\d+/g) || []).length, 4, 'every tile is placed');
+  assert.ok(out.includes('class="collage-tile lat-recede"') && out.includes('class="collage-tile lat-focus"'), 'the focus classes survive');
+});
+
+test('a tile is named by its alt text, so the Present Guide can land on it', () => {
+  const out = k.applyToRenderedHtml(section(FOUR));
+  assert.deepEqual([...out.matchAll(/<li class="collage-tile"[^>]*data-label="(\w)"/g)].map((m) => m[1]), ['a', 'b', 'c', 'd']);
+  const tricky = k.applyToRenderedHtml(section([`<img src="file:///x.jpg" alt="Tan &amp; &quot;grained&quot; calf" />`, img('b'), img('c'), img('d')]));
+  assert.ok(tricky.includes('data-label="Tan &amp; &quot;grained&quot; calf"'), 'an escaped alt stays escaped in the attribute');
+});
+
+// ── the readers: article projection, narration ──────────────────────────────────────────
+async function renderedSections(md) {
+  const { html } = await engine.render(`---\ntheme: indaco\n---\n\n${md}`);
+  return [...new JSDOM(`<body>${html}</body>`).window.document.querySelectorAll('article > section')];
+}
+const COLLAGE_MD = '<!-- _class: collage -->\n\n`The atelier`\n\n## Hand-lasted.\n\n`Four photographs`\n\nEach pair starts as a last.\n\n- ![Tall derby, apron toe](https://example.com/a.jpg) `hero`\n- ![Black macro](https://example.com/b.jpg)\n- ![Wingtip brogue](https://example.com/c.jpg)\n- ![Suede chelsea](https://example.com/d.jpg)\n';
+
+test('article projection: every photo is re-hosted, in written order, with its alt', async () => {
+  const { projectDeckToProse } = await import('../../../lib/transformers/prose-projection.mjs');
+  const { articleHtml } = projectDeckToProse(await renderedSections(COLLAGE_MD));
+  const imgs = [...articleHtml.matchAll(/<img src="([^"]+)" alt="([^"]*)"/g)].map((m) => m[2]);
+  assert.deepEqual(imgs, ['Tall derby, apron toe', 'Black macro', 'Wingtip brogue', 'Suede chelsea']);
+  assert.ok(articleHtml.indexOf('Each pair starts') < articleHtml.indexOf('<figure'), 'the description precedes the photos');
+  assert.ok(!articleHtml.includes('collage-list'), 'no raw packed grid leaks into the article');
+});
+
+test('narration: the prose is spoken, then each photo by its alt text, one sentence apiece', async () => {
+  const { projectDeckToSpeech } = await import('../../../lib/transformers/prose-projection.mjs');
+  const [said] = projectDeckToSpeech(await renderedSections(COLLAGE_MD));
+  assert.ok(said.includes('Each pair starts as a last.'));
+  assert.ok(said.endsWith('Tall derby, apron toe. Black macro. Wingtip brogue. Suede chelsea.'), said);
+});
+
+test('narration: a collage with no alt text speaks only its prose', async () => {
+  const { projectDeckToSpeech } = await import('../../../lib/transformers/prose-projection.mjs');
+  const [said] = projectDeckToSpeech(await renderedSections(COLLAGE_MD.replace(/!\[[^\]]*\]/g, '![]')));
+  assert.ok(said.includes('Each pair starts as a last.') && !said.includes('Photographs'));
 });

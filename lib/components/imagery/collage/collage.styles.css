@@ -78,6 +78,8 @@ section.collage .collage-list > li::marker {
 	display: none;
 }
 section.collage .collage-list > li > img {
+	/* the tile owns the rounding; the base image radius would round the photo inside it again */
+	border-radius: 0;
 	display: block;
 	width: 100%;
 	height: 100%;
@@ -195,7 +197,7 @@ section.collage:is(.above, [data-orientation="portrait"], [data-orientation="squ
 
 /* bleed: the photos fill the slide, the text rides a solid card */
 section.collage.bleed {
-	--collage-gap-ratio: 0;
+	/* the gap stays at the packer's ratio so every tile keeps its exact shape */
 	--collage-radius: 0;
 }
 section.collage.bleed > .collage-fit {
@@ -214,4 +216,13 @@ section.collage.bleed > .cell-masthead {
 }
 section.collage.bleed > p {
 	display: none;
+}
+/* the header and footer stay readable over the photos: each rides a small solid chip */
+section.collage.bleed > header,
+section.collage.bleed > footer {
+	z-index: 3;
+	background: var(--bg);
+	padding: var(--sp-3xs) var(--sp-xs);
+	width: max-content;
+	max-width: 60%;
 }

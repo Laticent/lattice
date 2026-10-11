@@ -127,6 +127,10 @@ distinct, stable ID.
 | `qr-empty-payload` | error | — | A `qr` payload bullet with no value. |
 | `qr-missing-payload` | error | — | A `qr` slide with no scannable payload bullet. |
 | `qr-duplicate-payload` | error | — | A `qr` slide with more than one payload bullet; it renders only one. |
+| `collage-count` | warning | — | A `collage` with fewer than four or more than six photos; past six the tiles are too small to read and the layout falls back to an even grid. |
+| `collage-alt` | warning | — | A `collage` photo with no alt text, which is the screen-reader label and the label in the enlarged view. |
+| `collage-bg` | warning | — | A `collage` that uses `![bg](…)` background syntax, which belongs to `image`; a collage lists inline photos one per bullet. |
+| `collage-hint` | warning | — | A trailing hint span after a `collage` photo that is not `hero`, one focal word (`top`, `bottom`, `left`, `right`, `center`) and a ratio such as `3:2`; the whole span is ignored and shows as a pill. |
 | `track-directive` | warning | — | A bare `track:` (deck-wide from that slide on) where `_track:` was meant, `_track` on a slide that is not `topic` or on `topic fact`, a track with fewer than two labels (none is drawn), or a track with no current topic. |
 | `track-list` | warning | — | A list on a `topic` slide, which shows as plain content; the track is built from the section's headings. |
 | `focus-spec` | warning | — | A malformed `_focus` directive; it silently does nothing at render. |

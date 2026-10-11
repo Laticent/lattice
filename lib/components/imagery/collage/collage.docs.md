@@ -6,7 +6,7 @@
 
 **Tags** `visual` · `showcase` · `pitch` · `masonry` · `mood-board`
 
-Use when several photographs make the argument together: a product line, a site, a collection. You list the photos; the layout reads each photo's shape and packs them with no cropping, so a tall portrait, a square and a panorama share one frame. Every photo is a rectangle of its own shape with flush edges. The packer picks the order that fits best; add `ordered` to keep the order you wrote. Live surfaces add hover focus and click-to-enlarge; a PDF is a clean static collage.
+Use when several photographs make the argument together: a product line, a site, a collection. You list the photos; the layout reads each photo's shape and packs them with no cropping, so a tall portrait, a square and a panorama share one frame. Every photo is a rectangle of its own shape with flush edges. The packer picks the order that fits best; add `ordered` to keep the order you wrote. Live surfaces add hover focus and click-to-enlarge; a PDF is a clean static collage. Narration reads the description and then names each photo by its alt text, one sentence apiece, and the Present Guide's pointer lands on the photo as it is named. The article view lists every photo in written order.
 
 ## Agent contract
 

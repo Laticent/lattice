@@ -152,3 +152,22 @@ Alt text required. The list keeps `ul` and `li` semantics and written order. The
 5. Export-to-Marp may not carry the grid; the even-grid fallback must be verified and its behavior stated.
 6. Full-resolution first paint can stall WebKit; unproven on this surface.
 7. A trailing code span is claimed by the collage instead of becoming a pill. That is a documented exception to the metadata-pill rule in `base.docs.md`.
+
+## 11. As built (static component), and where it differs from the sections above
+
+Written after the first build. Where this section and an earlier one disagree, this one is current.
+
+- **Gap.** The packer's gutter is a fraction of the stage height (`DEFAULT_GAP`, 0.012), and the CSS reads the same number as `--collage-gap-ratio`. Section 4's "gap token" wording is replaced by this; the two numbers are pinned by a comment in each file.
+- **Frame.** The manifest declares `stage: "canvas"`, so the frame does not wrap the body in a `.cell-stage`. The section's children are the header, the `.cell-masthead` (eyebrow, title, subtitle), the description paragraph, the `.collage-fit`, then the footer. The text-beside layout is a grid on the section itself. A trailing paragraph after the photos still becomes the frame's below-note (it spans both columns); `collage` is in the CSS-only fallback union in `lib/base/base.modifiers.css`.
+- **Projection.** `projection.figure` is `bare`, as `image` declares (the schema requires one for an imagery component). `collage` joins `MEDIA_COMPONENTS`; it is not data.
+- **Split.** The component declares no `capacity` block; `test/unit/components/collage.test.js` runs `structuralSplit` with the real `splitCapacityFrom` on portrait, square and story decks and asserts one slide, with a splittable control that does split.
+- **Lint.** `collage-count`, `collage-alt`, `collage-bg` and `collage-hint` live in `lib/authoring/lint-core.js`. The hint grammar is duplicated there on purpose (lint-core imports nothing from `lib/components`), and a test pins it against `parseHints`.
+- **`_focus`.** `focus.js` adds `lat-focus` / `lat-recede` to tile classes between the structure and stamp steps, so both stamp paths match the class token, not the whole attribute. The demo deck's `_focus: item 3` slide caught this: the CLI stamp had silently skipped it.
+- **Tags.** `masonry` and `mood-board` joined the tag vocabulary and `SINGLETON_TAGS` (each is used by `collage` alone).
+- **Readers (added after the owner asked about documentation, narration and the Guide).** Checked on the real code paths with the demo deck:
+  - *Narration.* The generic speech walk skipped the photo list (an image has no text), so a listener heard a title and a paragraph about pictures they were never told about. `speakCollage` in `lib/transformers/prose-projection.mjs` now speaks the prose and then each photo by its alt text, one sentence apiece. An author can still override a slide with `<!-- say: -->`.
+  - *Guide and gestures.* Each tile carries `data-label` set to its alt text (`collage.transform.js`; the file is listed in `SANCTIONED_MARK_IDENTITY`). A sentence that opens with the alt lets the Present Guide land its pointer on that tile. Measured with `node tools/sweep-guide-gestures.mjs --deck examples/collage.md`: 75 cues, 100% resolve, 34 of them (45.3%) answered by a mark; before the change, 38 cues, 0 by a mark. The manifest declares `gesture: { archetype: "grid" }`.
+  - *Article view.* The media branch re-hosts only the first picture, so a six-photo slide read as one photo. `projectCollage` re-hosts every photo as its own `.lp-figure` in written order, which needs no new CSS in any article host and no change to the exported player's bytes.
+  - *Documentation.* `collage.docs.md` and `collage.gallery.md` are generated from the manifest; the metadata-pill section of `lib/base/base.docs.md` records the trailing-span exception; the four lint rules are in `spec/diagnostics.md`.
+- **Still to build:** the click-to-enlarge lightbox (section 5.4), the player change under export sign-off, and the `followups.d/` entries for stepping, pinch zoom and digit keys.
+- **Not yet verified on the real surface:** hover and focus states on a live surface, the live preview packing (Playground and Studio), and the exported player. The PDF and PNG paths are verified by the demo deck render.

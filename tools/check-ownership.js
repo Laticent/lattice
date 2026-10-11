@@ -5638,6 +5638,10 @@ const SANCTIONED_MARK_IDENTITY = [
   // Twenty rows as of the 2026-09-24 accessibility pass, which gave every chart's marks a name;
   // twenty-four after its second round, which named the marks the rewritten narrations of line,
   // journey, roadmap `horizons` and matrix-grid open their sentences with.
+  // collage names each tile by its photo's alt text, so a narrated sentence that opens with the alt
+  // lands the Present Guide's pointer on that photo (projection: lib/transformers/prose-projection.mjs
+  // `speakCollage`). It declares no value.
+  ['components/imagery/collage/collage.transform.js', true, false],
   ['components/chart/bar/bar.transform.js', true, true],
   ['components/chart/bullet/bullet.transform.js', true, true],
   // The shared category-axis emitter: a category's label names the column or row a data-series
