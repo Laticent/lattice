@@ -1,0 +1,1 @@
+- Live calls get a per-person *Volume* slider in each person's ⋯ menu, from 0 to 200 %, kept for the session. Above 100 % the voice plays through Suono's new `stage.amplify(stream, gain)` gain stage, for calls that play quietly (an iPhone with its microphone on).

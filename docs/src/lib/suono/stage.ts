@@ -639,6 +639,37 @@ export function createStage(opts: StageOptions = {}): Stage {
 				return null;
 			}
 		},
+		amplify(stream, gain) {
+			const ctx = getCtx();
+			if (!ctx || typeof ctx.createMediaStreamSource !== 'function' || typeof ctx.createGain !== 'function') return null;
+			try {
+				if (ctx.state === 'suspended') void ctx.resume?.()?.catch?.(() => {});
+				const source = ctx.createMediaStreamSource(stream);
+				const node = ctx.createGain();
+				const clamp = (g: number) => Math.min(4, Math.max(0, Number.isFinite(g) ? g : 1));
+				node.gain.value = clamp(gain);
+				source.connect(node);
+				node.connect(ctx.destination);
+				let stopped = false;
+				return {
+					setGain(g) {
+						if (!stopped) node.gain.value = clamp(g);
+					},
+					stop() {
+						if (stopped) return;
+						stopped = true;
+						try {
+							source.disconnect();
+							node.disconnect();
+						} catch {
+							/* best-effort */
+						}
+					},
+				};
+			} catch {
+				return null;
+			}
+		},
 		dispose() {
 			stage.stopAll();
 			stopKeepAlive(); // lives outside activeSources → tear it (and its idle timer) down explicitly

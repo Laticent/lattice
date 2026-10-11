@@ -19,6 +19,7 @@ export type { SequenceStage } from './sequence.js';
 export { makeSequence } from './sequence.js';
 export { createStage } from './stage.js';
 export type {
+	Amplifier,
 	BlobLike,
 	Bytes,
 	Clip,

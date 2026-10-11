@@ -436,3 +436,47 @@ describe('createStage — meter (live stream level)', () => {
 		expect(createStage().meter({} as MediaStream)).toBeNull();
 	});
 });
+
+describe('createStage — amplify (live stream with a gain)', () => {
+	function install(withGain = true) {
+		const gain = { value: 1 };
+		const calls = { sourceDisconnect: vi.fn(), gainDisconnect: vi.fn(), sourceTo: [] as unknown[], gainTo: [] as unknown[] };
+		const dest = { dest: true };
+		(window as unknown as { AudioContext: unknown }).AudioContext = class {
+			state = 'running';
+			destination = dest;
+			createMediaStreamSource = () => ({ connect: (n: unknown) => calls.sourceTo.push(n), disconnect: calls.sourceDisconnect });
+			createGain = withGain ? () => ({ gain, connect: (n: unknown) => calls.gainTo.push(n), disconnect: calls.gainDisconnect }) : undefined;
+			resume = () => Promise.resolve();
+		};
+		return { gain, calls, dest };
+	}
+	it('plays the stream through a gain node to the speakers, and the gain can change', () => {
+		const { gain, calls, dest } = install();
+		const a = createStage({ keepAlive: false }).amplify({} as MediaStream, 2);
+		expect(a).not.toBeNull();
+		expect(gain.value).toBe(2);
+		expect(calls.gainTo).toEqual([dest]);
+		a?.setGain(1.5);
+		expect(gain.value).toBe(1.5);
+		a?.setGain(99);
+		expect(gain.value).toBe(4);
+		a?.setGain(Number.NaN);
+		expect(gain.value).toBe(1);
+	});
+	it('stops cleanly and ignores later changes', () => {
+		const { gain, calls } = install();
+		const a = createStage({ keepAlive: false }).amplify({} as MediaStream, 2);
+		a?.stop();
+		a?.stop();
+		expect(calls.sourceDisconnect).toHaveBeenCalledTimes(1);
+		a?.setGain(3);
+		expect(gain.value).toBe(2);
+	});
+	it('returns null where Web Audio or its gain node is missing', () => {
+		install(false);
+		expect(createStage().amplify({} as MediaStream, 2)).toBeNull();
+		(window as unknown as { AudioContext?: unknown }).AudioContext = undefined;
+		expect(createStage().amplify({} as MediaStream, 2)).toBeNull();
+	});
+});

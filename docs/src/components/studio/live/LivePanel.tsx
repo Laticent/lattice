@@ -33,6 +33,35 @@ function whereLabel(p: LivePerson): string {
 	return `Slide ${p.slide + 1}${p.editing ? ' · editing' : ''}`;
 }
 
+/** A person's playback volume, 0–200 %. Past 100 % the call plays through Suono's gain stage, for a
+ *  phone that plays call audio quietly. The slider sits in the menu, so it stops the menu's arrow-key
+ *  navigation from eating its own keys. */
+function VolumeSlider({ p, actions }: { p: LivePerson; actions: LiveActions }) {
+	const pct = Math.round((p.volume ?? 1) * 100);
+	return (
+		<div className="flex flex-col gap-1 px-2 py-1.5 text-[11px] text-muted-foreground" data-live-volume>
+			<label htmlFor={`live-volume-${p.id}`} className="flex items-center justify-between">
+				<span>Volume</span>
+				<span className="tabular-nums" aria-hidden>
+					{pct} %
+				</span>
+			</label>
+			<input
+				id={`live-volume-${p.id}`}
+				type="range"
+				min={0}
+				max={200}
+				step={10}
+				value={pct}
+				aria-valuetext={`${pct} percent`}
+				onChange={(e) => actions.setVolume(p.id, Number(e.target.value) / 100)}
+				onKeyDown={(e) => e.stopPropagation()}
+				className="h-5 w-full cursor-pointer accent-foreground pointer-coarse:h-8"
+			/>
+		</div>
+	);
+}
+
 function PersonRow({ p, view, actions }: { p: LivePerson; view: LiveView; actions: LiveActions }) {
 	const MicGlyph = p.mic === 'muted' ? MicOff : Mic;
 	const canManage = view.isHost && !p.me && p.role !== 'host';
@@ -78,6 +107,7 @@ function PersonRow({ p, view, actions }: { p: LivePerson; view: LiveView; action
 								<span className="font-mono text-[10.5px]">{p.link.detail}</span>
 							</DropdownMenuLabel>
 						)}
+						{p.volume !== undefined && <VolumeSlider p={p} actions={actions} />}
 						{p.quality && qualityLine(p.quality) && (
 							<DropdownMenuLabel className="flex flex-col gap-0.5 py-1 text-[11px] font-normal text-muted-foreground" data-live-quality>
 								<span>Audio: {qualityLine(p.quality)}</span>

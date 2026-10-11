@@ -904,6 +904,18 @@ with 0 of 816 packets lost; the menu said *17 kbit/s · 0.0 % lost · 0 ms jitte
 16 kbit/s*. UNVERIFIED: the same readout on a real phone, and Safari's stats (WebKit may leave
 `jitter` or `packetsLost` out, in which case that part of the line is simply absent).
 
+**Playback volume** (2026-10-11). Each person's ⋯ menu has a *Volume* slider, 0–200 % in 10 %
+steps, kept for the session (not saved; a person who leaves and returns starts at 100 %). Up to
+100 % the hidden `<audio>` element plays the voice (`element.volume`). Above it the element stays
+attached but muted (Chromium feeds a remote stream to Web Audio only while an element plays it) and
+Suono's new `stage.amplify(stream, gain)` plays the stream through a `GainNode` on the owned
+context (Web Audio stays in Suono). At 100 % or below, or where Web Audio is missing, the element
+plays it as before, so the default path is unchanged. Why: an `<audio>` element cannot go above
+1.0, and iOS plays call audio at call volume once the microphone is on. Measured on the real
+surface (`tools/live-session-check.mjs`, two Chromium processes): see the PR for the run. NOT
+measured: the loudness gain on a phone (the gain stage is the only lever the page has; iOS may
+still cap the output) — UNVERIFIED until the owner tries it on the iPhone.
+
 **Panel layout on a phone** (the owner's iPhone test, 2026-10-07). Three findings:
 - *No way to leave the session on a phone.* The session menu (the clock; copy, bring everyone,
   leave or end) lived in the panel's title bar, and the phone sheet renders the panel without

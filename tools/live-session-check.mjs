@@ -47,6 +47,10 @@ const seedFn = (m) => {
   // biome-ignore lint/complexity/useArrowFunction: it is called with `new`, which an arrow cannot be.
   window.RTCPeerConnection = function (...a) { if (window.__rtcBlocked) a[0] = { ...(a[0] ?? {}), iceServers: [], iceTransportPolicy: 'relay' }; const pc = new Native(...a); window.__livePcs.push(pc); return pc; };
   window.RTCPeerConnection.prototype = Native.prototype;
+  // Keep every GainNode the page makes, so the check can see the call's volume stage engage.
+  window.__liveGains = [];
+  const NativeGain = window.AudioContext?.prototype.createGain;
+  if (NativeGain) window.AudioContext.prototype.createGain = function (...a) { const g = NativeGain.apply(this, a); window.__liveGains.push(g); return g; };
 };
 /** The candidate types of every connected pair on `page`, e.g. ["srflx→srflx (udp)"]. */
 const pathsOf = (page) => page.evaluate(async () => {
@@ -191,6 +195,17 @@ await host.locator('button[aria-label="Options for Amina"]').click();
 await host.waitForSelector('[data-live-quality]', { timeout: 15000 }).catch(() => {});
 log(`the host's menu for Amina reads: ${JSON.stringify(await host.locator('[data-live-quality]').allInnerTexts())}`);
 await host.screenshot({ path: `${OUT}call-quality-menu-${mode}.png` });
+// Volume (P3): the slider in the same menu. Past 100 % the element is muted and a gain stage plays the voice.
+const vol = host.locator('[data-live-volume] input[type=range]');
+const player = () => host.evaluate(() => { const el = document.querySelector('audio[data-live-audio]'); return { muted: el.muted, volume: el.volume, paused: el.paused, gains: window.__liveGains.map((g) => g.gain.value) }; });
+log(`volume slider at ${await vol.inputValue()} %, player ${JSON.stringify(await player())}`);
+await vol.focus();
+for (let i = 0; i < 10; i++) await host.keyboard.press('ArrowRight');
+log(`volume slider at ${await vol.inputValue()} %, player ${JSON.stringify(await player())}`);
+await host.screenshot({ path: `${OUT}call-volume-menu-${mode}.png` });
+await vol.focus();
+for (let i = 0; i < 10; i++) await host.keyboard.press('ArrowLeft');
+log(`volume slider back at ${await vol.inputValue()} %, player ${JSON.stringify(await player())}`);
 await host.keyboard.press('Escape');
 log(`audio bitrate, host to guest: ${(((b1 - b0) * 8) / 10 / 1000).toFixed(1)} kbit/s (${(((b1 - b0) / 10) * 3600 / 1e6).toFixed(1)} MB per hour per stream, payload + RTP headers)`);
 log(`before mute, the host shows Amina's mic as: ${await micOf(host, 'Amina')}`);

@@ -1,4 +1,4 @@
-import { createStage, type Meter, type Stage } from '@/lib/suono';
+import { type Amplifier, createStage, type Meter, type Stage } from '@/lib/suono';
 
 // Live audio (S4): the microphone, playback of the others, and who is speaking.
 // See engineering/decisions/2026-10-06-studio-live-collaboration.md §5.8 and roadmap §1.
@@ -26,6 +26,10 @@ type Metered = { meter: Meter; lastLoud: number };
  *  other member). A later per-person High fidelity switch goes higher. */
 export const CALL_BITRATE = 64_000;
 
+/** The most a person's playback can be turned up to: 200 %. An `<audio>` element stops at 100 %, so
+ *  above that the stream plays through Suono's gain stage instead. */
+export const MAX_VOLUME = 2;
+
 export type AudioDevice = { id: string; label: string };
 
 /** iOS / Safari's Audio Session API (absent elsewhere): what the page does with audio. */
@@ -47,6 +51,9 @@ export class LiveAudio {
 	private meters = new Map<string, Metered>();
 	private players = new Map<string, HTMLAudioElement>();
 	private remote = new Map<string, MediaStream>();
+	/** How loud each person is played (1 = as it arrives). Kept for the session, not saved. */
+	private volumes = new Map<string, number>();
+	private amps = new Map<string, Amplifier>();
 	private disposed = false;
 	constructor(private onChange: () => void) {}
 
@@ -92,7 +99,7 @@ export class LiveAudio {
 		}
 		this.meter('self', stream);
 		// Join means hear, too.
-		for (const el of this.players.values()) el.muted = false;
+		for (const peer of this.players.keys()) this.applyVolume(peer);
 		this.onChange();
 		return stream;
 	}
@@ -106,7 +113,18 @@ export class LiveAudio {
 		this.mic = null;
 		this.muted = false;
 		this.unmeter('self');
-		for (const el of this.players.values()) el.muted = true;
+		for (const peer of this.players.keys()) this.applyVolume(peer);
+		this.onChange();
+	}
+
+	/** How loud `peer` is played, 0–MAX_VOLUME (1 is as it arrives). */
+	volume(peer: string): number {
+		return this.volumes.get(peer) ?? 1;
+	}
+
+	setVolume(peer: string, volume: number): void {
+		this.volumes.set(peer, Math.min(MAX_VOLUME, Math.max(0, Number.isFinite(volume) ? volume : 1)));
+		this.applyVolume(peer);
 		this.onChange();
 	}
 
@@ -129,6 +147,7 @@ export class LiveAudio {
 		this.remote.delete(peer);
 		this.unmeter(peer);
 		this.stopPlaying(peer);
+		this.volumes.delete(peer);
 		this.onChange();
 	}
 
@@ -188,11 +207,51 @@ export class LiveAudio {
 			document.body.append(el);
 			this.players.set(peer, el);
 		}
-		if (el.srcObject !== stream) el.srcObject = stream;
+		if (el.srcObject !== stream) {
+			el.srcObject = stream;
+			this.unamplify(peer); // the old stream's route is not this one's
+		}
 		void el.play().catch(() => {});
+		this.applyVolume(peer);
+	}
+
+	/**
+	 * Make the element and the gain stage agree with the call state and `peer`'s volume. Up to 100 %
+	 * the element plays it (`volume`). Above, the element stays attached but muted (Chromium only
+	 * feeds a remote stream to Web Audio while an element plays it) and Suono's gain stage plays it
+	 * at the higher gain. Where Web Audio is missing the element plays at 100 %.
+	 */
+	private applyVolume(peer: string) {
+		const el = this.players.get(peer);
+		const stream = this.remote.get(peer);
+		if (!el) return;
+		const v = this.volume(peer);
+		if (v > 1 && this.inCall && stream) {
+			this.stage ??= createStage({ keepAlive: false });
+			let amp = this.amps.get(peer);
+			if (!amp) {
+				amp = this.stage.amplify(stream, v) ?? undefined;
+				if (amp) this.amps.set(peer, amp);
+			}
+			if (amp) {
+				amp.setGain(v);
+				el.volume = 1;
+				el.muted = true;
+				return;
+			}
+		}
+		this.unamplify(peer);
+		el.volume = Math.min(1, v);
+		el.muted = !this.inCall;
+	}
+
+	private unamplify(peer: string) {
+		this.amps.get(peer)?.stop();
+		this.amps.delete(peer);
 	}
 
 	private stopPlaying(peer: string) {
+		this.unamplify(peer);
 		const el = this.players.get(peer);
 		if (!el) return;
 		el.srcObject = null;

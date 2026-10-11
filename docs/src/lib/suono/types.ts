@@ -143,8 +143,21 @@ export interface Stage {
 	 *  context, without playing it: the stream is only analyzed, never routed to the speakers. Null
 	 *  where Web Audio is missing. Stop it when the stream goes away. */
 	meter(stream: MediaStream): Meter | null;
+	/** Play a LIVE stream through this stage's context with a gain, so a voice can go above the 1.0
+	 *  an `<audio>` element stops at. The caller mutes its own element for the stream, so it is not
+	 *  heard twice (keep the element attached: Chromium feeds a remote stream to Web Audio only
+	 *  while an element plays it). Null where Web Audio is missing. Stop it when the stream goes away. */
+	amplify(stream: MediaStream, gain: number): Amplifier | null;
 	/** Release the context (rare — a stage is meant to outlive many plays). */
 	dispose(): void;
+}
+
+/** A live stream playing through the stage at a gain, from `Stage.amplify`. */
+export interface Amplifier {
+	/** Set the gain: 1 is the stream as it arrives, 2 is twice the amplitude (+6 dB). Clamped to 0–4. */
+	setGain(gain: number): void;
+	/** Disconnect the stream from the speakers. Idempotent. */
+	stop(): void;
 }
 
 /** A live stream's level, from `Stage.meter`. */

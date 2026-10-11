@@ -85,3 +85,76 @@ describe('LiveAudio on iOS (the audio session)', () => {
 		a.dispose();
 	});
 });
+
+// A call can be turned up past the 100 % an <audio> element stops at: above it the element stays
+// attached but muted and Suono's gain stage plays the voice. Level is what a person hears.
+describe('LiveAudio playback volume', () => {
+	function withGainStage() {
+		fakeBrowser();
+		const gains: Array<{ value: number; connected: boolean }> = [];
+		const Base = (window as unknown as { AudioContext: new () => object }).AudioContext;
+		(window as unknown as { AudioContext: unknown }).AudioContext = class extends Base {
+			createGain = () => {
+				const g = { gain: { value: 1 }, connect: () => {}, disconnect: () => {} };
+				const rec = { get value() { return g.gain.value; }, connected: true };
+				g.disconnect = () => { rec.connected = false; };
+				gains.push(rec);
+				return g;
+			};
+		};
+		vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined);
+		return gains;
+	}
+	const voice = { getAudioTracks: () => [{}], getTracks: () => [{}] } as unknown as MediaStream;
+	const playerOf = (peer: string) => document.querySelector(`audio[data-live-audio="${peer}"]`) as HTMLAudioElement;
+
+	it('plays at the element up to 100 %, and through the gain stage above it', async () => {
+		const gains = withGainStage();
+		const a = new LiveAudio(() => {});
+		await a.join();
+		a.addRemote('p1', voice);
+		expect(playerOf('p1').muted).toBe(false);
+		a.setVolume('p1', 0.5);
+		expect(playerOf('p1').volume).toBe(0.5);
+		expect(gains).toHaveLength(0);
+		a.setVolume('p1', 2);
+		expect(gains).toHaveLength(1);
+		expect(gains[0].value).toBe(2);
+		expect(playerOf('p1').muted).toBe(true); // the gain stage plays it, the element only stays attached
+		a.setVolume('p1', 1.5);
+		expect(gains[0].value).toBe(1.5);
+		expect(gains).toHaveLength(1);
+		a.setVolume('p1', 1);
+		expect(gains[0].connected).toBe(false);
+		expect(playerOf('p1').muted).toBe(false);
+		expect(playerOf('p1').volume).toBe(1);
+		a.dispose();
+	});
+
+	it('is silent outside the call whatever the volume, and clamps to 200 %', async () => {
+		const gains = withGainStage();
+		const a = new LiveAudio(() => {});
+		a.addRemote('p1', voice);
+		a.setVolume('p1', 9);
+		expect(a.volume('p1')).toBe(2);
+		expect(gains).toHaveLength(0);
+		expect(playerOf('p1').muted).toBe(true);
+		await a.join(); // joining applies the remembered volume
+		expect(gains).toHaveLength(1);
+		a.leave();
+		expect(gains[0].connected).toBe(false);
+		expect(playerOf('p1').muted).toBe(true);
+		a.dispose();
+	});
+
+	it('forgets a person who leaves', async () => {
+		withGainStage();
+		const a = new LiveAudio(() => {});
+		await a.join();
+		a.addRemote('p1', voice);
+		a.setVolume('p1', 1.8);
+		a.dropRemote('p1');
+		expect(a.volume('p1')).toBe(1);
+		a.dispose();
+	});
+});

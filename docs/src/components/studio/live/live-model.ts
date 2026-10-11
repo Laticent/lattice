@@ -28,6 +28,8 @@ export type LivePerson = {
 	 *  `detail` is the raw candidate pair ("srflx→host (udp)"). Absent until the first read. */
 	link?: { kind: 'local' | 'direct' | 'relay'; detail: string };
 	/** How their call audio is doing, while both of you are on the call. Absent until it can be measured. */
+	/** How loud this browser plays them (1 = as it arrives, up to 2), while you are on the call and hear them. */
+	volume?: number;
 	quality?: { inKbps?: number; lostPct?: number; jitterMs?: number; sendKbps?: number };
 };
 
@@ -99,6 +101,8 @@ export type LiveActions = {
 	toggleMic: () => void;
 	leaveCall: () => void;
 	pickMic: (deviceId: string) => void;
+	/** How loud to play one person, 0–2 (1 = as it arrives). Kept for this session. */
+	setVolume: (id: string, volume: number) => void;
 	end: () => void;
 	leave: () => void;
 	sendChat: (text: string) => void;
