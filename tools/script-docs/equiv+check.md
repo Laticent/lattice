@@ -1,0 +1,4 @@
+---
+group: Test & verify
+---
+Re-run `equiv` and compare vs the committed baseline: decks/slides/preludes/positions must match exactly, and the rate may drift 1.5 points. Verified able to fail by mutation, re-derived after each re-bless (2026-08-25, at the 96.6% baseline): stubbing `positionIsTrustworthy` to `return false` takes it 96.6% -> 9.9%, and stubbing `deckSectionFor` to `undefined` takes it to 74.0%. **`positions` no longer equals `slides`** — it is 1453 of 1461. All 8 of the shortfall are `slide-class-forms.md`, every slide of it: `positionIsTrustworthy` refuses that deck while `sectionsOf(render).length === chunks.length` still holds, so it is measured rather than skipped and its 7 divergences are counted with no supplied position. The old claim that the two counts are equal by construction — and so that the check can only fail fail-closed — assumed those two tests reject the same decks. They do not.
