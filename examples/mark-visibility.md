@@ -35,7 +35,7 @@ header: "Lattice · Marks"
 - Slot
   - Top-right header band.
 - Dark
-  - Reads against the navy ground.
+  - Heavier strokes read in light and dark.
 
 ---
 
@@ -57,7 +57,7 @@ header: "Lattice · Marks"
 # mark-seeds
 
 - Size
-  - Larger specks, all at the 28% ceiling.
+  - Larger specks, at or under the 28% ceiling.
 - Slot
   - The four corners.
 - Mode

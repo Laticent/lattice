@@ -30,13 +30,15 @@
  * they compose freely with any tint. mark-seeds paints 12 stacked radial
  * gradients on a full-slide ::before (no mask, so the PDFKit mask gotcha
  * does not apply). It used to write --_bg-radial, but a dark slide's
- * `section.dark` background-image and a finish's backdrop both hid it.
+ * `section.dark` background-image and a finish's backdrop both hid it. Slides
+ * that already own `section::before` (state stamps, title/closing spectrum)
+ * keep the slot path. Two other marks paint without a mask or a slot:
  *   - mark-ticks / mark-pills → no slot, but paint via ::before +
  *     box-shadow rather than a mask, because their mask SVGs
  *     dropped unreliably in Apple PDFKit even after the orbit-
  *     pattern cropped-bbox refactor
  *
- * Slot reference (gradient classes plus the seeds mark — other marks carry no slot)
+ * Slot reference (gradient classes; seeds uses the slot only on stamp / spectrum slides)
  *   --_bg-radial  tint-corner, tint-vignette, tint-spotlight, tint-duotone
  *   --_bg-linear  tint-edge, tint-horizon, tint-ground, tint-sweep, tint-ambient, tint-frame
  *
@@ -387,8 +389,8 @@ section.mark-ticks::before {
   content: '';
   position: absolute;
   top: 15.33cqi;       /* tick 1 y (196.25 / 12.8) */
-  right: 0.625cqi;     /* 8px from right edge */
-  width: 2.4cqi;       /* ~31px (was ~18, lost in dark) */
+  right: 0.4cqi;       /* 5px from right edge */
+  width: 1.9cqi;       /* ~24px, left edge x 1251 (was ~18, lost in dark) */
   height: 0.22cqi;     /* ~2.8px (was ~1.9) */
   pointer-events: none;
   background: color-mix(in srgb, var(--accent) 28%, transparent);
@@ -442,15 +444,17 @@ section.mark-slashes::before {
  * `section.dark` rule (0,1,1) overwrites the slot's background-image, and a
  * finish's backdrop covers the section background, so seeds painted nothing
  * on dark slides or under a finish. On ::before it now composes with every
- * tint, but it shares the singleton ::before with the other marks, and a
- * divider slide's own ::before bar (design constraint 4). The original SVG
+ * tint, but it shares the singleton ::before with the other marks, and it
+ * yields to the slides that already own ::before (the rule further down).
+ * The original SVG
  * used transform='rotate(...)' on each ellipse for a subtle scatter;
  * radial gradients are axis-aligned so that rotation is dropped here.
  * Imperceptible at this size.
  *
  * Position is expressed in % of slide (1280×720) to match the
  * original SVG cx/cy. Each gradient's inner 80% paints accent at
- * 18–25% (preserving the original fill-opacity 0.65–0.9 grading) and
+ * 26–28% (preserving the original fill-opacity 0.65–0.9 grading, raised
+ * in the 2026-10-11 visibility pass, still inside the 28% budget) and
  * the outer 20% fades to transparent for an antialiased edge.
  */
 section.mark-seeds {
@@ -469,7 +473,12 @@ section.mark-seeds {
     radial-gradient(ellipse 3px 6px at 91.25% 89.58%, color-mix(in srgb, var(--accent) 26%, transparent) 80%, transparent 100%);
 }
 
-section.mark-seeds:not(.divider)::before {
+section.mark-seeds:not(
+  .confidential, .wip, .draft, .tbd, .redacted, .archived, .pinned, .revised,
+  .stamp-tab, .stamp-notch, .stamp-pill, .stamp-bracket, .stamp-seal, .stamp-ribbon, .stamp-flag,
+  .stamp-underline, .stamp-dot, .stamp-mark, .stamp-veil, .stamp-bar, .stamp-pin,
+  .title.spectrum, .closing.spectrum
+)::before {
   content: '';
   position: absolute;
   inset: 0;
@@ -477,9 +486,17 @@ section.mark-seeds:not(.divider)::before {
   background-image: var(--_seeds);
 }
 
-/* A divider slide draws its own bar on ::before (design constraint 4), so seeds keeps
- * the --_bg-radial slot there, exactly as it did before it moved to ::before. */
-section.divider.mark-seeds {
+/* The slides below already own `section::before`: a state stamp (base.variants.css) and the
+ * title / closing spectrum rule (title.styles.css, closing.styles.css). A seeds ::before there
+ * would replace the stamp's label, flood the slide with its color, or pull the 4px rule out of
+ * flow. So seeds keeps its old --_bg-radial slot path on those slides, which paints in light
+ * mode and nothing on a dark slide, exactly as before this change. */
+section.mark-seeds:is(
+  .confidential, .wip, .draft, .tbd, .redacted, .archived, .pinned, .revised,
+  .stamp-tab, .stamp-notch, .stamp-pill, .stamp-bracket, .stamp-seal, .stamp-ribbon, .stamp-flag,
+  .stamp-underline, .stamp-dot, .stamp-mark, .stamp-veil, .stamp-bar, .stamp-pin,
+  .title.spectrum, .closing.spectrum
+) {
   --_bg-radial: var(--_seeds);
 }
 
@@ -555,7 +572,7 @@ section.mark-threads::before {
 section.mark-brackets::before {
   content: '';
   position: absolute;
-  top: 24cqi; right: 0.4cqi;
+  top: 24cqi; right: 0.3cqi;
   width: 2cqi; height: 10.5cqi;
   pointer-events: none;
   background: color-mix(in srgb, var(--accent) 28%, transparent);

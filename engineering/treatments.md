@@ -168,7 +168,7 @@ section:where([class*="tint-"], [class*="mark-"]) {
 | `--_bg-radial` | `tint-corner`, `tint-vignette`, `tint-spotlight`, `tint-duotone` |
 | `--_bg-linear` | `tint-edge`, `tint-horizon`, `tint-ground`, `tint-sweep`, `tint-ambient`, `tint-frame` |
 
-The 10 other marks own no slot — they paint via `::before` (or `::before` + box-shadow stack) and combine freely with any tint.
+Marks own no slot — they paint via `::before` (or `::before` + box-shadow stack) and combine freely with any tint. The one exception: `mark-seeds` keeps the `--_bg-radial` slot on slides that already own `section::before` (state stamps, `title spectrum`, `closing spectrum`), where a second `::before` would replace the stamp or pull the spectrum rule out of flow.
 
 **Valid combinations:**
 
@@ -176,7 +176,7 @@ The 10 other marks own no slot — they paint via `::before` (or `::before` + bo
 <!-- _class: content tint-corner at-tl tint-edge at-right -->            ✓ radial + linear
 <!-- _class: content tint-vignette mark-micro -->                         ✓ tint + any mark
 <!-- _class: content tint-corner at-tl tint-edge at-right mark-orbit -->  ✓ two tints + mark
-<!-- _class: content tint-horizon mark-seeds dark -->                     ✓ linear-tint + mark + dark
+<!-- _class: content tint-horizon mark-seeds -->                          ✓ linear-tint + mark
 ```
 
 **Gradient slot conflict (two radials or two linears):** the class defined later in `lattice.css` wins; the first gradient is silently dropped. Examples:
@@ -204,7 +204,7 @@ Marks use one of three mechanisms depending on geometry:
 The mask is the simplest path but is unreliable in Apple PDFKit / Skia / PDFium: rendered PDFs sometimes drop the mask entirely, leaving the bare `::before` rectangle full of paint instead of the masked shapes. Two mitigations are in play:
 
 - **Cropped `::before` bbox.** Each mask-based mark sizes its `::before` to the shapes' bounding box, not the full slide. If the mask drops, the failure shows only that small box as a tinted patch — visible degradation rather than slide-breaking artifact.
-- **Escape hatches.** `mark-ticks` and `mark-pills` repeat regular shapes that map cleanly to box-shadow copies, so the mask is removed entirely. `mark-seeds` has four-corner geometry with no small bbox, so stacked gradients in `--_bg-radial` replace the mask.
+- **Escape hatches.** `mark-ticks` and `mark-pills` repeat regular shapes that map cleanly to box-shadow copies, so the mask is removed entirely. `mark-seeds` has four-corner geometry with no small bbox, so stacked gradients on a full-slide `::before` replace the mask.
 
 See `engineering/gotchas.md` → "Chromium PDF output of CSS mask-image renders inconsistently across viewers" for the underlying browser/PDF behavior.
 
@@ -222,6 +222,6 @@ See `engineering/gotchas.md` → "Chromium PDF output of CSS mask-image renders 
 
 3. **No hex.** Every color goes through `var(--accent)` + `color-mix()`. Palette swap = treatment color swap automatically.
 
-4. **Divider layout + marks.** The `divider` layout defines its own `::before` bar. Combining `divider` with a mark loses the divider bar (`::before` collision). Use tints (`tint-corner`, `tint-edge`, `tint-spotlight`, etc.) on divider slides instead.
+4. **Divider layout + marks.** The `divider` rail rides the section background, not `::before` (`lib/components/anchor/divider/divider.styles.css`), so a mark's `::before` and the rail coexist. Two marks, or a mark and a state stamp, still share the singleton `::before`: the last rule wins.
 
 5. **Placement-required tints.** `tint-corner` and `tint-edge` paint nothing without an `at-*` modifier. A build-time validator catches the missing modifier.
