@@ -7,7 +7,7 @@ import { Awareness, applyAwarenessUpdate, encodeAwarenessUpdate, removeAwareness
 import * as Y from 'yjs';
 import { type AudioStats, cleanName, createHostKey, createSession, formatFragment, formatLink, fromBase64Url, type HostKey, hostKeyFrom, type LinkPath, linkKind, mintLink, parseFragment, type Session, type SessionState, type Succession, type TokenEntry, toBase64Url, tokenId } from '@/lib/tavola';
 import { trysteroTransport } from '@/lib/tavola/adapters/trystero';
-import { CALL_BITRATE, LiveAudio } from './live-audio';
+import { CALL_BITRATE, HIGH_FIDELITY_BITRATE, LiveAudio } from './live-audio';
 import { LIVE_TURN } from './live-ice';
 import { IDLE_VIEW, type LiveActions, type LiveChatLine, type LiveColor, type LivePerson, type LiveView, type LobbyActions, type LobbyView, liveColor, liveColorLight } from './live-model';
 import { clearJoinIntent, HOST_KEY, hasFreshJoin, type LiveCollab, type LiveDeps, type LiveHost, readSealedJoin, saveName, scrubLiveFragment, storedLiveName, storeSealedJoin, takeFreshJoin } from './live-store';
@@ -383,6 +383,10 @@ export class LiveController {
 	private speakingNow = new Set<string>();
 	private speakTimer: ReturnType<typeof setInterval> | null = null;
 	private micDenied = false;
+	/** A microphone capture is in flight (`joinCall`), the latest request made meanwhile, and whether Leave call was pressed. */
+	private joining = false;
+	private queuedJoin: { deviceId?: string; highFidelity?: boolean } | null = null;
+	private leaveAfterJoin = false;
 	private micDevices: Array<{ id: string; label: string }> = [];
 	/** The tab title before "On air · " was put in front of it. */
 	private plainTitle: string | null = null;
@@ -882,19 +886,33 @@ export class LiveController {
 		this.onAirTitle();
 	}
 
-	/** Capture the microphone (or switch to another one) and send it to every member. */
-	private async joinCall(deviceId?: string) {
+	/**
+	 * Capture the microphone (or switch to another one, or turn High fidelity on or off) and send it
+	 * to every member. One capture at a time: a second request made while the browser is still
+	 * answering the first (a double tap on the switch, or a permission prompt left open) waits and
+	 * runs after it with the latest choice, so the last tap wins; and Leave call during a capture
+	 * leaves once it lands, rather than being undone by it.
+	 */
+	private async joinCall(deviceId?: string, highFidelity?: boolean) {
 		const a = this.audio;
 		const r = this.rt;
 		if (!a || !r) return;
+		if (this.joining) {
+			this.queuedJoin = { deviceId, highFidelity };
+			return;
+		}
+		this.joining = true;
+		this.leaveAfterJoin = false;
 		try {
-			const stream = await a.join(deviceId);
-			if (this.rt !== r) {
+			const stream = await a.join(deviceId, highFidelity);
+			if (this.rt !== r || this.leaveAfterJoin) {
 				a.leave();
+				this.leaveAfterJoin = false;
+				this.queuedJoin = null;
 				return;
 			}
 			this.micDenied = false;
-			r.session.setMedia(stream, { maxBitrate: CALL_BITRATE });
+			r.session.setMedia(stream, { maxBitrate: a.highFidelity ? HIGH_FIDELITY_BITRATE : CALL_BITRATE });
 			this.post({ k: 'mic', on: !a.isMuted });
 			this.micDevices = await a.devices();
 			this.startSpeaking();
@@ -904,13 +922,20 @@ export class LiveController {
 			// Name the reason: a device answer we never saw on a desktop run is diagnosable from a phone screenshot.
 			const why = (e as { name?: string; message?: string })?.name || (e as { message?: string })?.message || 'unknown error';
 			this.host.notify(denied ? 'The browser blocked the microphone. Allow it in the address bar, then try again.' : `Couldn't start the microphone (${why}).`);
+		} finally {
+			this.joining = false;
 		}
 		this.onAirTitle();
 		this.host.rerender();
+		const next = this.queuedJoin;
+		this.queuedJoin = null;
+		if (next && this.rt === r) await this.joinCall(next.deviceId, next.highFidelity);
 	}
 
 	private leaveCall() {
 		const a = this.audio;
+		this.queuedJoin = null;
+		if (this.joining) this.leaveAfterJoin = true;
 		if (!a?.inCall) return;
 		a.leave();
 		this.rt?.session.setMedia(null);
@@ -1472,7 +1497,7 @@ export class LiveController {
 			following: this.following,
 			hostAway: s.hostAway,
 			audio: !!this.audio && r.session.hasMedia && LiveAudio.supported(),
-			call: { inCall: !!this.audio?.inCall, muted: !!this.audio?.isMuted, denied: this.micDenied, devices: this.micDevices, device: this.audio?.device ?? null },
+			call: { inCall: !!this.audio?.inCall, muted: !!this.audio?.isMuted, denied: this.micDenied, devices: this.micDevices, device: this.audio?.device ?? null, highFidelity: !!this.audio?.highFidelity },
 			canChat: s.me?.role !== 'view',
 			typing,
 		};
@@ -1575,6 +1600,8 @@ export class LiveController {
 		toggleMic: () => void this.toggleMic(),
 		leaveCall: () => this.leaveCall(),
 		pickMic: (id) => void this.joinCall(id),
+		// A new capture, because the browser fixes voice processing when the microphone is opened.
+		setHighFidelity: (on) => void this.joinCall(this.audio?.device ?? undefined, on),
 		setVolume: (id, v) => this.audio?.setVolume(id, v),
 		end: () => {
 			this.teardown('end');

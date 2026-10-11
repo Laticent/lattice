@@ -75,6 +75,22 @@ const video = process.argv.includes('--video') ? { recordVideo: { dir: OUT, size
 const hb = await launch();
 const hctx = await hb.newContext({ viewport: { width: 1440, height: 900 }, permissions: ['clipboard-read', 'clipboard-write', 'microphone'], ...video });
 await hctx.addInitScript(seedFn, mode);
+// `--hifi`: the host's microphone is a generated 48 kHz signal (voice-like harmonics, a 9 kHz and a
+// 14 kHz tone, and white noise so Opus has enough to fill a bitrate cap), and every capture's
+// constraints are recorded. The fake device's beep is too quiet to show a send rate or a tone.
+if (process.argv.includes('--hifi')) await hctx.addInitScript(() => {
+  window.__gumCalls = [];
+  navigator.mediaDevices.getUserMedia = async (c) => {
+    window.__gumCalls.push(c.audio);
+    const ctx = new AudioContext({ sampleRate: 48000 });
+    const out = ctx.createMediaStreamDestination();
+    const mix = ctx.createGain(); mix.gain.value = 0.12; mix.connect(out);
+    for (const f of [220, 440, 660, 880, 1320, 2200, 9000, 14000]) { const o = ctx.createOscillator(); o.frequency.value = f; o.connect(mix); o.start(); }
+    const buf = ctx.createBuffer(1, 48000, 48000); for (let i = 0; i < 48000; i++) buf.getChannelData(0)[i] = Math.random() * 2 - 1;
+    const n = ctx.createBufferSource(); n.buffer = buf; n.loop = true; const ng = ctx.createGain(); ng.gain.value = 0.25; n.connect(ng); ng.connect(mix); n.start();
+    return out.stream;
+  };
+});
 const host = await hctx.newPage();
 host.on('pageerror', (e) => log(`host pageerror ${e.message}`));
 await host.goto(BASE, { waitUntil: 'networkidle' });
@@ -207,6 +223,36 @@ await vol.focus();
 for (let i = 0; i < 10; i++) await host.keyboard.press('ArrowLeft');
 log(`volume slider back at ${await vol.inputValue()} %, player ${JSON.stringify(await player())}`);
 await host.keyboard.press('Escape');
+// High fidelity (P4): the host's send rate and what the guest hears of a 14 kHz tone, switch off, on, off.
+if (process.argv.includes('--hifi')) {
+  const sentRate = async (secs) => { const a = await audioBytes(host); await host.waitForTimeout(secs * 1000); return ((await audioBytes(host)) - a) * 8 / secs / 1000; };
+  // dBFS of the strongest bin within 14 kHz +/- 100 Hz, and the mean level of 18-20 kHz, of what the guest hears.
+  const heard = (secs) => guest.evaluate(async (t) => {
+    const el = document.querySelector('audio[data-live-audio]'); const ctx = new AudioContext({ sampleRate: 48000 });
+    const an = ctx.createAnalyser(); an.fftSize = 8192; an.smoothingTimeConstant = 0; ctx.createMediaStreamSource(el.srcObject).connect(an);
+    const bins = new Float32Array(an.frequencyBinCount); const hz = (b) => (b * 48000) / an.fftSize; let tone = -200, floor = 0, n = 0, k = 0;
+    const end = Date.now() + t * 1000;
+    while (Date.now() < end) { an.getFloatFrequencyData(bins); let peak = -200, sum = 0, c = 0; for (let b = 0; b < bins.length; b++) { const f = hz(b); if (f >= 13900 && f <= 14100) peak = Math.max(peak, bins[b]); if (f >= 18000 && f <= 20000) { sum += Math.max(-140, bins[b]); c++; } } tone = Math.max(tone, peak); floor += sum / c; k++; await new Promise((r) => setTimeout(r, 100)); n++; }
+    await ctx.close(); return { toneDb: +tone.toFixed(1), floorDb: +(floor / k).toFixed(1) };
+  }, secs);
+  const openMicMenu = async () => { await panel(host).getByRole('button', { name: 'Microphone', exact: true }).click(); };
+  const setHifi = async (on) => { await openMicMenu(); const item = host.locator('[data-live-high-fidelity]'); if ((await item.getAttribute('aria-checked')) !== String(on)) await item.click(); else await host.keyboard.press('Escape'); await host.waitForFunction((o) => window.__gumCalls.at(-1)?.echoCancellation === !o, on, { timeout: 15000 }); await host.waitForTimeout(3000); };
+  for (const on of [false, true, false]) {
+    if (on || (await host.evaluate(() => window.__gumCalls.length)) > 1) await setHifi(on);
+    const [kbps, h] = await Promise.all([sentRate(8), heard(8)]);
+    log(`high fidelity ${on ? 'ON ' : 'off'}: capture ${JSON.stringify(await host.evaluate(() => { const c = window.__gumCalls.at(-1); return { echoCancellation: c.echoCancellation, noiseSuppression: c.noiseSuppression, autoGainControl: c.autoGainControl }; }))}; host sends ${kbps.toFixed(1)} kbit/s; guest hears the 14 kHz tone at ${h.toneDb} dBFS, 18-20 kHz floor ${h.floorDb} dBFS`);
+    if (on) { await openMicMenu(); await host.screenshot({ path: `${OUT}call-high-fidelity-menu-${mode}.png` }); await host.keyboard.press('Escape'); }
+  }
+  // Two quick taps (on, then off), then Leave call during the second capture: the last tap wins, and Leave is not undone.
+  const tap = async () => { await openMicMenu(); await host.locator('[data-live-high-fidelity]').click(); };
+  await tap(); await tap();
+  await host.waitForTimeout(4000);
+  log(`two quick taps (on, off): last capture echoCancellation=${await host.evaluate(() => window.__gumCalls.at(-1).echoCancellation)}, captures in all ${await host.evaluate(() => window.__gumCalls.length)}`);
+  await tap(); await panel(host).getByRole('button', { name: 'Leave call' }).click();
+  await host.waitForTimeout(4000);
+  log(`tap then Leave call: still on the call = ${await panel(host).getByRole('button', { name: 'Join audio' }).count() === 0}`);
+  await panel(host).getByRole('button', { name: 'Join audio' }).click();
+}
 log(`audio bitrate, host to guest: ${(((b1 - b0) * 8) / 10 / 1000).toFixed(1)} kbit/s (${(((b1 - b0) / 10) * 3600 / 1e6).toFixed(1)} MB per hour per stream, payload + RTP headers)`);
 log(`before mute, the host shows Amina's mic as: ${await micOf(host, 'Amina')}`);
 await panel(guest).getByRole('button', { name: 'Mute', exact: true }).click();

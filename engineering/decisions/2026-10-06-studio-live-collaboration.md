@@ -916,6 +916,39 @@ surface (`tools/live-session-check.mjs`, two Chromium processes): see the PR for
 measured: the loudness gain on a phone (the gain stage is the only lever the page has; iOS may
 still cap the output) — UNVERIFIED until the owner tries it on the iPhone.
 
+**High fidelity** (2026-10-11). The arrow beside Mute now always opens a microphone menu: the
+picker when there is more than one microphone, and **High fidelity (music)** for everyone. It is
+per person, as decided on 2026-10-07: it changes only what *this* browser sends. Turning it on
+re-captures the microphone with echo cancellation, noise suppression and automatic gain off (a
+browser fixes voice processing when it opens the microphone, so a re-capture is the only way) and
+re-sends at 128 kbit/s (`HIGH_FIDELITY_BITRATE`) instead of 64 kbit/s. Mute, the chosen microphone
+and the call all carry over; leaving the call resets it, and a refused capture keeps the old
+setting. The menu says to wear headphones, because without echo cancellation a speaker feeds back.
+**Mono, not stereo.** The follow-up asked for 128 kbit/s stereo. A browser sends stereo Opus only
+when the other side's session description asks for it (`stereo=1` in the Opus fmtp), and Trystero
+0.26 gives us no hook on the offer or answer (it calls `setLocalDescription()` itself;
+`setCodecPreferences` accepts only the codecs the browser lists, none with `stereo=1`). So the
+switch is 128 kbit/s mono; stereo needs our own signaling or a Trystero change, and is not built.
+Measured on the real surface (`node tools/live-session-check.mjs dark --hifi`, two Chromium
+processes over real WebRTC; the host's microphone a generated 48 kHz signal of harmonics, 9 and
+14 kHz tones and white noise, since the fake device's beep is too quiet to show a rate):
+
+| Host's switch | Capture | Host sends | Guest hears the 14 kHz tone | Guest's 18–20 kHz level |
+|---|---|---|---|---|
+| off | processing on | 63.9 kbit/s | −32.4 dBFS | −102.0 dBFS |
+| **on** | processing off | **132.6 kbit/s** | −32.3 dBFS | **−83.0 dBFS** |
+| off again | processing on | 66.7 kbit/s | −32.3 dBFS | −102.7 dBFS |
+
+The rate follows the switch both ways. The 14 kHz tone was already carried at 64 kbit/s, so it does
+not move; what 128 kbit/s adds is the top band (about 20 dB more at 18–20 kHz; the rates include RTP headers). The generated
+signal ignores the processing constraints, so this run shows the bitrate effect and the constraints
+sent (`echoCancellation` false and so on, read from the recorded `getUserMedia` call), not what the
+processing does to a real microphone. One capture runs at a time (`joinCall`): a second tap while the first is still waiting on the
+browser runs after it with the latest choice, and Leave call during a capture leaves once it
+lands (the checker, tier 1, on Opus, found both races; the run above also taps twice quickly and
+taps then leaves). UNVERIFIED: a real microphone with processing off, echo
+between two real devices, and Safari, Firefox and iOS.
+
 **Panel layout on a phone** (the owner's iPhone test, 2026-10-07). Three findings:
 - *No way to leave the session on a phone.* The session menu (the clock; copy, bring everyone,
   leave or end) lived in the panel's title bar, and the phone sheet renders the panel without

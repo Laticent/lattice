@@ -158,3 +158,39 @@ describe('LiveAudio playback volume', () => {
 		a.dispose();
 	});
 });
+
+// High fidelity (music): the browser fixes voice processing when the microphone is opened, so the
+// switch is a new capture with echo cancellation, noise suppression and automatic gain off.
+describe('LiveAudio high fidelity', () => {
+	const constraintsOf = (call: number) => (navigator.mediaDevices.getUserMedia as ReturnType<typeof vi.fn>).mock.calls[call][0].audio;
+
+	it('captures with voice processing on by default, off with the switch, and remembers it for a device change', async () => {
+		fakeBrowser();
+		const a = new LiveAudio(() => {});
+		await a.join();
+		expect(constraintsOf(0)).toMatchObject({ echoCancellation: true, noiseSuppression: true, autoGainControl: true });
+		expect(a.highFidelity).toBe(false);
+		await a.join('mic-1', true);
+		expect(constraintsOf(1)).toMatchObject({ echoCancellation: false, noiseSuppression: false, autoGainControl: false, deviceId: { exact: 'mic-1' } });
+		expect(a.highFidelity).toBe(true);
+		await a.join('mic-2'); // picking another microphone keeps the switch
+		expect(constraintsOf(2)).toMatchObject({ echoCancellation: false });
+		await a.join('mic-2', false);
+		expect(constraintsOf(3)).toMatchObject({ echoCancellation: true });
+		expect(a.highFidelity).toBe(false);
+		a.dispose();
+	});
+
+	it('goes back to voice processing after leaving the call, and keeps the old setting if the capture fails', async () => {
+		fakeBrowser();
+		const a = new LiveAudio(() => {});
+		await a.join(undefined, true);
+		a.leave();
+		expect(a.highFidelity).toBe(false);
+		await a.join();
+		(navigator.mediaDevices.getUserMedia as ReturnType<typeof vi.fn>).mockRejectedValueOnce(Object.assign(new Error('no'), { name: 'NotAllowedError' }));
+		await expect(a.join(undefined, true)).rejects.toThrow();
+		expect(a.highFidelity).toBe(false);
+		a.dispose();
+	});
+});

@@ -45,7 +45,7 @@ export function qualityLine(q: NonNullable<LivePerson['quality']>): string {
 /** `inCall`: the microphone is captured and sent. `denied`: the browser refused the microphone
  *  (the panel says how to allow it). `devices`: the microphones to pick from (labels appear once
  *  permission is given). */
-export type LiveCall = { inCall: boolean; muted: boolean; denied: boolean; devices: Array<{ id: string; label: string }>; device: string | null };
+export type LiveCall = { inCall: boolean; muted: boolean; denied: boolean; devices: Array<{ id: string; label: string }>; device: string | null; highFidelity: boolean };
 
 export type LiveKnock = { id: string; name: string; at: number };
 
@@ -101,6 +101,8 @@ export type LiveActions = {
 	toggleMic: () => void;
 	leaveCall: () => void;
 	pickMic: (deviceId: string) => void;
+	/** Send this browser's audio with voice processing off and a higher rate (music, a demo). */
+	setHighFidelity: (on: boolean) => void;
 	/** How loud to play one person, 0–2 (1 = as it arrives). Kept for this session. */
 	setVolume: (id: string, volume: number) => void;
 	end: () => void;
@@ -143,7 +145,7 @@ export const IDLE_VIEW: LiveView = {
 	hostAway: false,
 	heir: null,
 	audio: false,
-	call: { inCall: false, muted: false, denied: false, devices: [], device: null },
+	call: { inCall: false, muted: false, denied: false, devices: [], device: null, highFidelity: false },
 	canChat: true,
 	typing: [],
 };

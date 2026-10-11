@@ -3,7 +3,7 @@ import * as React from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
@@ -156,12 +156,13 @@ function CallControls({ view, actions }: { view: LiveView; actions: LiveActions 
 					aria-pressed={!c.muted}
 					aria-label={c.muted ? 'Unmute' : 'Mute'}
 					title={c.muted ? 'Unmute' : 'Mute'}
-					className={cn('size-7', TOUCH, c.devices.length > 1 && 'rounded-r-none')}
+					className={cn('size-7', TOUCH, 'rounded-r-none')}
 				>
 					{c.muted ? <MicOff className="size-3.5" /> : <Mic className="size-3.5" />}
 				</Button>
-				{/* The microphone picker rides on the mute button (a thin arrow), only when there is a choice. */}
-				{c.devices.length > 1 && (
+				{/* The microphone menu rides on the mute button (a thin arrow): the picker when there is a
+				    choice of microphones, and always the High fidelity switch. */}
+				{(
 					<DropdownMenu>
 						<DropdownMenuTrigger asChild>
 							<Button size="icon" variant={c.muted ? 'outline' : 'default'} className="-ml-px h-7 w-4 rounded-l-none pointer-coarse:h-10 pointer-coarse:w-6" aria-label="Microphone" title="Microphone">
@@ -169,13 +170,22 @@ function CallControls({ view, actions }: { view: LiveView; actions: LiveActions 
 							</Button>
 						</DropdownMenuTrigger>
 						<DropdownMenuContent align="end" className="w-60">
-							<DropdownMenuLabel className="text-[11px] font-normal text-muted-foreground">Microphone</DropdownMenuLabel>
-							{c.devices.map((d) => (
-								<DropdownMenuItem key={d.id} onSelect={() => actions.pickMic(d.id)}>
-									<Mic className="size-4" /> <span className="truncate">{d.label}</span>
-									{d.id === c.device && <Check className="ml-auto size-4" />}
-								</DropdownMenuItem>
-							))}
+							{c.devices.length > 1 && (
+								<>
+									<DropdownMenuLabel className="text-[11px] font-normal text-muted-foreground">Microphone</DropdownMenuLabel>
+									{c.devices.map((d) => (
+										<DropdownMenuItem key={d.id} onSelect={() => actions.pickMic(d.id)}>
+											<Mic className="size-4" /> <span className="truncate">{d.label}</span>
+											{d.id === c.device && <Check className="ml-auto size-4" />}
+										</DropdownMenuItem>
+									))}
+									<DropdownMenuSeparator />
+								</>
+							)}
+							<DropdownMenuCheckboxItem checked={c.highFidelity} aria-describedby="live-hifi-note" onCheckedChange={(on) => actions.setHighFidelity(on === true)} data-live-high-fidelity>
+								High fidelity (music)
+							</DropdownMenuCheckboxItem>
+							<DropdownMenuLabel id="live-hifi-note" className="pt-0 text-[11px] font-normal leading-snug text-muted-foreground">Sends 128 kbit/s with echo cancellation, noise suppression and automatic gain off. Wear headphones, or the others hear an echo.</DropdownMenuLabel>
 						</DropdownMenuContent>
 					</DropdownMenu>
 				)}

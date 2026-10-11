@@ -23,8 +23,13 @@ type Metered = { meter: Meter; lastLoud: number };
 /** What each person's voice is sent at. The browser default is 32 kbit/s Opus; measured on the
  *  preview (2026-10-07), 96 kbit/s carried a 14 kHz tone 10 dB stronger. 64 kbit/s keeps most of
  *  that detail while a four-person call costs each person ~190 kbit/s of upload (one stream per
- *  other member). A later per-person High fidelity switch goes higher. */
+ *  other member). The per-person High fidelity switch goes higher (HIGH_FIDELITY_BITRATE). */
 export const CALL_BITRATE = 64_000;
+
+/** High fidelity (music, a demo): voice processing off and this rate. Mono: Trystero offers no hook
+ *  to ask the peer for `stereo=1` in the Opus fmtp, and a browser sends stereo only when the other
+ *  side's description asks for it, so stereo is not on offer. */
+export const HIGH_FIDELITY_BITRATE = 128_000;
 
 /** The most a person's playback can be turned up to: 200 %. An `<audio>` element stops at 100 %, so
  *  above that the stream plays through Suono's gain stage instead. */
@@ -47,6 +52,7 @@ export class LiveAudio {
 	private mic: MediaStream | null = null;
 	private deviceId: string | null = null;
 	private muted = false;
+	private hifi = false;
 	private stage: Stage | null = null;
 	private meters = new Map<string, Metered>();
 	private players = new Map<string, HTMLAudioElement>();
@@ -71,9 +77,18 @@ export class LiveAudio {
 	get device(): string | null {
 		return this.deviceId;
 	}
+	/** Whether the microphone is captured with voice processing off (the High fidelity switch). */
+	get highFidelity(): boolean {
+		return this.hifi;
+	}
 
-	/** Capture the microphone (asks for permission the first time). Resolves the stream to send. */
-	async join(deviceId?: string): Promise<MediaStream> {
+	/**
+	 * Capture the microphone (asks for permission the first time). Resolves the stream to send.
+	 * `highFidelity` defaults to what the last capture used; with it on, echo cancellation, noise
+	 * suppression and automatic gain are off, because each reshapes music and a tone as it would
+	 * speech. The caller sends the stream at HIGH_FIDELITY_BITRATE then.
+	 */
+	async join(deviceId?: string, highFidelity = this.hifi): Promise<MediaStream> {
 		if (this.disposed) throw new Error('live audio is closed');
 		// Inside the click: wake the audio context now, before the permission prompt's await.
 		this.stage ??= createStage({ keepAlive: false });
@@ -83,7 +98,7 @@ export class LiveAudio {
 		// 'playback': "Couldn't start the microphone" on a real iPhone, 2026-10-07. (Suono's unlock
 		// leaves 'play-and-record' alone, so read-aloud mid-call keeps it.) Desktop has no audio session.
 		setAudioSession('play-and-record');
-		const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, ...(deviceId ? { deviceId: { exact: deviceId } } : {}) }, video: false });
+		const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: !highFidelity, noiseSuppression: !highFidelity, autoGainControl: !highFidelity, ...(deviceId ? { deviceId: { exact: deviceId } } : {}) }, video: false });
 		// Torn down while the permission prompt was open: stop what we were given and say so.
 		if (this.disposed) {
 			for (const t of stream.getTracks()) t.stop();
@@ -91,6 +106,7 @@ export class LiveAudio {
 		}
 		const old = this.mic;
 		this.mic = stream;
+		this.hifi = highFidelity;
 		this.deviceId = stream.getAudioTracks()[0]?.getSettings().deviceId ?? deviceId ?? null;
 		for (const t of stream.getAudioTracks()) t.enabled = !this.muted;
 		if (old) {
@@ -112,6 +128,7 @@ export class LiveAudio {
 		}
 		this.mic = null;
 		this.muted = false;
+		this.hifi = false;
 		this.unmeter('self');
 		for (const peer of this.players.keys()) this.applyVolume(peer);
 		this.onChange();
