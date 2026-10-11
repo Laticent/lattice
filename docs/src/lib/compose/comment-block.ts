@@ -1,6 +1,6 @@
 import type MarkdownIt from 'markdown-it';
 import type { NodeSpec } from 'prosemirror-model';
-import { isDescriptionBody, isSayBody } from '../../components/studio/slide-directives';
+import { isDescriptionBody, isSayBody } from '../slide-directives';
 import { CLIP_ORIGIN } from './clip-origin';
 
 // An authoring COMMENT, modeled as a real schema node instead of falling through as prose.

@@ -1,8 +1,8 @@
 import { Settings } from 'lucide-react';
 import * as React from 'react';
-import { MODES } from '@/components/studio/mode-catalog';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { MODES } from '@/lib/mode-catalog';
 import { useOverlayBack } from '@/lib/overlay-back';
 import { A11Y_GROUP_LABEL, paletteLabel } from '@/lib/palette-label';
 import { isA11yPalette } from '@/lib/theme-catalog.generated';

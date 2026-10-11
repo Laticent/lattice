@@ -3,8 +3,8 @@ import type * as React from 'react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import type { LensDef } from '@/lib/lente';
 import { cn } from '@/lib/utils';
+import type { PresentLens } from '../../lib/deck-lint';
 import { LensIcon } from './icons';
-import type { PresentLens } from './lint';
 
 export type LensEntry = { key: PresentLens; label: string; desc: string; icon: React.ReactNode };
 

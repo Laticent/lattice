@@ -88,7 +88,9 @@ const PARTS = [
   { part: 'site/playground', layer: 12, match: 'docs/src/playground/' },
   { part: 'site/components', layer: 13, match: 'docs/src/components/' },
   { part: 'site/studio', layer: 14, match: 'docs/src/components/studio/' },
-  { part: 'site/pages', layer: 15, match: 'docs/src/' },
+  // The Craft lab is a page-sized tool built on Studio pieces (the code field), so it sits above.
+  { part: 'site/craft', layer: 15, match: 'docs/src/components/craft/' },
+  { part: 'site/pages', layer: 16, match: 'docs/src/' },
   { part: 'tools', layer: 20, match: 'tools/' },
 ];
 // site/studio must win over site/components: order by specificity, not by layer.

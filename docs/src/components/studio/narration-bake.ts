@@ -37,8 +37,8 @@ import { clipSizes, getClip, putClip, touchClips } from '@/playground/narration-
 import { narrateChart, narrateChartScript } from '@/playground/read-along-core.generated.js';
 import { isGeminiTtsModel } from '@/playground/tts-cost.js';
 import { withoutAutoGlossary } from '../../../../lib/core/glossary-auto.mjs';
-import { stripFrontMatter } from './front-matter';
-import { splitSlides } from './lint';
+import { splitSlides } from '../../lib/deck-lint';
+import { stripFrontMatter } from '../../lib/front-matter';
 import { applyChartNarration, resolveNarration } from './narration-resolve';
 import { type BakeVoice, bakeClipKeys, slideToSpeech, synthBakeClip } from './read-aloud';
 import { getSayLine } from './slide-say';

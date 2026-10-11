@@ -1,6 +1,6 @@
 /**
  * The filmstrip host's half of the stamp contract. See
- * docs/src/lib/single-slide-render.swap-stamp.test.ts for why this file exists at all:
+ * docs/src/playground/single-slide-render.swap-stamp.test.ts for why this file exists at all:
  * before it, deleting the host-side answer in BOTH preview hosts left every suite green.
  *
  * `patchSections` used to ask only whether the slide COUNT had changed, and stamped

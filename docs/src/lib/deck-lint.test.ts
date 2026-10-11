@@ -1,8 +1,8 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
-import { boundaryParser as md } from '../../../../lib/core/boundary-parser.js';
+import { boundaryParser as md } from '../../../lib/core/boundary-parser.js';
+import { presentationIndices, presentationSet, slideClass, slideIndexAt, slideStartOffset, slideTitle, splitSlides, unknownComponents, usedComponents } from './deck-lint';
 import { stripFrontMatter } from './front-matter';
-import { presentationIndices, presentationSet, slideClass, slideIndexAt, slideStartOffset, slideTitle, splitSlides, unknownComponents, usedComponents } from './lint';
 
 const KNOWN = ['title', 'kpi', 'quote', 'cards-grid', 'stats'];
 // Component-name-ish tokens (won't accidentally contain a `-->` or a fence).

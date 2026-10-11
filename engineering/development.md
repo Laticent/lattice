@@ -1334,7 +1334,7 @@ on it. Two ways to earn it:
 The suggestion rides on `didYouMean`, NOT folded into `message`: the message is
 what every surface prints and asserts, and the suggestion belongs on the button
 (`Fix: use “kpi”`), where it says what pressing it will do.
-`docs/src/playground/editor-diagnostics.js` prints the prose `fix` **only** when
+`docs/src/lib/editor-diagnostics.js` prints the prose `fix` **only** when
 there is no button — printing both is what #1658 reported as the tool knowing the
 answer and making you type it anyway.
 

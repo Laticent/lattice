@@ -1,6 +1,6 @@
+import { splitSlides } from '../../lib/deck-lint';
+import { frontMatterBlock, stripFrontMatter } from '../../lib/front-matter';
 import { type DeckOpResult, SLIDE_SEP } from './deck-ops';
-import { frontMatterBlock, stripFrontMatter } from './front-matter';
-import { splitSlides } from './lint';
 
 // Its own module so the Studio's eager bundle does not carry it: the clip notice imports it on
 // demand, the first time a slide clips at a venue (docs/route-budget.json budgets that bundle).

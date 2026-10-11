@@ -27,7 +27,7 @@
 // inside an app, and the two should look like their hosts. Both target the same `lp-*`
 // class contract the shared projection emits, so the markup stays one thing.
 
-import { currentPaletteMode, type SingleSlideOptions } from '@/lib/single-slide-render';
+import { currentPaletteMode, type SingleSlideOptions } from '@/playground/single-slide-render';
 import { scanTags } from '../../../../lib/core/top-level-h2.mjs';
 import { RUNTIME_DRAWN_FENCES } from '../../../../lib/plugins/drawn.generated.mjs';
 import { drawnFenceCount } from '../../../../lib/plugins/drawn-probe.mjs';

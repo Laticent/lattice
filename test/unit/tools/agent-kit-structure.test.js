@@ -327,7 +327,7 @@ test('agent kit structure', { skip }, async (t) => {
 	await t.test('the cross-cutting rules ship in full', async () => {
 		const rules = fs.readFileSync(path.join(KIT, 'authoring', 'rules.md'), 'utf8');
 		const { AUTHORING_RULES } = await import(
-			path.join(ROOT, 'docs', 'src', 'components', 'studio', 'ai', 'architect-knowledge.js')
+			path.join(ROOT, 'docs', 'src', 'lib', 'architect-knowledge.js')
 		);
 		for (const rule of AUTHORING_RULES) {
 			assert.ok(

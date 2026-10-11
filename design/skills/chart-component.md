@@ -239,7 +239,7 @@ mud and value-collapse hide there.
    family.
 
    **SILENT — no gate, no red test, just a capability your chart quietly lacks:**
-   - `docs/src/lib/single-slide-render.ts` — the Studio chart-count chip (a regex
+   - `docs/src/playground/single-slide-render.ts` — the Studio chart-count chip (a regex
      alternation, not an array).
    - `docs/src/playground/chart-interact.js` `CHART_SVG_SEL` — without it the
      Present-mode mark reveal and detail popovers never attach.

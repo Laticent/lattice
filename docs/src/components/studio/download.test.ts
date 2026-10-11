@@ -236,7 +236,7 @@ describe('no surface builds its own download link', () => {
 	it('makes a blob: URL only in download.js and the known non-download sites', () => {
 		// Each of these feeds a Worker or a <link rel=stylesheet>, never a saved file. A new site
 		// that hands its URL to an anchor or window.open belongs in download.js instead.
-		const NOT_DOWNLOADS = ['components/studio/ai/architect-model.js', 'lib/single-slide-render.ts', 'lib/trama/dist/index.cjs', 'lib/trama/dist/index.mjs', 'lib/trama/pipeline.ts'];
+		const NOT_DOWNLOADS = ['components/studio/ai/architect-model.js', 'lib/trama/dist/index.cjs', 'lib/trama/dist/index.mjs', 'lib/trama/pipeline.ts', 'playground/single-slide-render.ts'];
 		expect(owners(/createObjectURL\(/)).toEqual(['components/studio/download.js', ...NOT_DOWNLOADS].sort());
 	});
 });

@@ -97,6 +97,17 @@ const CENSUS = {
 			'TWO sinks in one file, which is exactly the shape `checkPreviewHtmlSinks` cannot pin — ' +
 			'it is file-scoped, so either call could be deleted and the gate would still certify it.',
 	},
+	'docs/src/playground/single-slide-render.ts': {
+		guards: 1,
+		why:
+			'the single-slide preview builder (landing islands, specimens, the Studio editor): ' +
+			'styleElementText(), the ONE funnel every resident <style> passes through — the composed ' +
+			'theme CSS (whose comment header carries a model-populated description) and the author\'s ' +
+			'live component styles, inlined on the fallback path and swapped on the restyle path. ' +
+			'Joined the census when the file moved into docs/src/playground with the other preview ' +
+			'code (engineering/decisions/2026-10-11-codebase-structure.md); one call, so deleting it ' +
+			'leaves both channels raw, which `checkPreviewHtmlSinks` (file-scoped) would not see.',
+	},
 	'docs/src/playground/snapshot-cache.js': {
 		guards: 3,
 		why:

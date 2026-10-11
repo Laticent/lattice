@@ -1,10 +1,10 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { getFrontMatter } from '../../lib/front-matter';
 import { agentLibrary, agentLibraryInventory } from './agent-library';
 import { applyProposedEditsChecked, chatAgentDeps } from './architect';
 import { type AgentComplete, type AgentLibrary, buildAgentSystem, createToolbox, deckBrief, deckForTurn, deckSlides, INLINE_DECK_CHARS, isBlockKey, mdSections, proposalFromDraft, runAgentLoop, slideWords, type ToolCall } from './architect-agent';
 import { finalizeAgent, init as initChatAgent } from './chat-agent';
 import { FRONT_MATTER_KEYS } from './editor-complete';
-import { getFrontMatter } from './front-matter';
 
 beforeAll(() => initChatAgent(chatAgentDeps()));
 

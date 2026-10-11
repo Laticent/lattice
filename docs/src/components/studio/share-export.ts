@@ -12,16 +12,16 @@ import { deriveKatexProviderUrl, ensureKatexProvider } from '@/lib/ensure-katex'
 import { ensureEngine } from '@/lib/load-engine';
 import type { LatticePlaygroundEngine } from '@/lib/playground-global';
 import { renderMarkdown } from '@/lib/render-engine';
-import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { createThemeFetcher } from '@/lib/theme-fetch';
+import type { SingleSlideOptions } from '@/playground/single-slide-render';
 import { glossaryEntries, resolveGlossaryMode, withoutAutoGlossary } from '../../../../lib/core/glossary-auto.mjs';
 import { sanitizeStyleText } from '../../../../lib/core/sanitize-style-text.mjs';
 import { unwrapFlatSheet } from '../../../../lib/export/unwrap-flat-sheet.mjs';
 import { PLUGIN_GRAMMAR } from '../../../../lib/plugins/grammar.generated.mjs';
+import { getFrontMatter, mergeClassTokens, stripFrontMatter, withPrintCanvas, writeFrontMatterLine } from '../../lib/front-matter';
 import { samplesBaseFor } from '../../lib/samples-base';
 import type { StudioComponent } from './component-library';
 import type { StudioFinish } from './finish-library';
-import { getFrontMatter, mergeClassTokens, stripFrontMatter, withPrintCanvas, writeFrontMatterLine } from './front-matter';
 import type { BakeVoice } from './read-aloud';
 import type { SlideComment } from './slide-comments';
 import type { OverflowMarker } from './studio-store';
@@ -1186,7 +1186,7 @@ export async function shareCaptions(
 		import('./narration-projection'),
 		import('@/lib/resolve-narration'),
 		import('./narration-resolve'),
-		import('./lint'),
+		import('../../lib/deck-lint'),
 		import('@/lib/resolve-bookends'),
 	]);
 	const { splitSlides } = lintMod;

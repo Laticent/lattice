@@ -2,7 +2,6 @@ import { ChevronLeft, ChevronRight, Eye, Maximize2, Minimize2, PanelLeftClose, P
 import * as React from 'react';
 import { type ChartDetailHandle, ChartDetailLayer } from '@/components/chart-detail-layer';
 import { PG_SPLIT_KEY, PG_SPLIT_MIN, PG_SPLIT_PANEL_IDS, PG_SPLIT_RAIL } from '@/components/playground/pg-split';
-import { getFrontMatter } from '@/components/studio/front-matter';
 import { Button } from '@/components/ui/button';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import {
@@ -17,6 +16,7 @@ import { useResizableSplit } from '@/components/ui/use-resizable-split';
 import type { CatalogItem, Lens } from '@/lib/component-search';
 import { isTypingTarget, shellKeyAction } from '@/lib/deck-nav';
 import { createFrameScheduler } from '@/lib/frame-scheduler';
+import { getFrontMatter } from '@/lib/front-matter';
 import { notify, notifyAction, notifySticky } from '@/lib/notify';
 import {
 	adjacentComponent,

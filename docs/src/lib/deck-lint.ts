@@ -3,8 +3,8 @@
 // are property-testable without rendering anything.
 
 import { type LensRegistry, lensPairs } from '@/lib/lente';
-import { slideClassDirectives } from '../../../../lib/core/class-directive-scan.mjs';
-import { separatorRanges } from '../../../../lib/core/slide-boundaries.mjs';
+import { slideClassDirectives } from '../../../lib/core/class-directive-scan.mjs';
+import { separatorRanges } from '../../../lib/core/slide-boundaries.mjs';
 import { frontMatterBlock } from './front-matter';
 
 // WHERE A SLIDE BEGINS — asked once, of the one module that knows.

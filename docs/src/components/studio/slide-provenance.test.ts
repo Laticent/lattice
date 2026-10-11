@@ -2,7 +2,7 @@
 // This file touches no DOM. Under the suite default it paid for a jsdom window it
 // never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
 import { describe, expect, it } from 'vitest';
-import { getClassTokens } from './slide-directives';
+import { getClassTokens } from '../../lib/slide-directives';
 import { canvasProvenance, chartFinishProvenance, finishProvenance, modeProvenance, motionPlayProvenance, motionSpeedProvenance, motionStyleProvenance, setCanvas, setChartFinish, setFinish, setMode, setMotionPlay, setMotionSpeed, setMotionStyle, setSpectrum, setStampStyle, setToneStyle, spectrumProvenance, stampStyleProvenance, toneStyleProvenance } from './slide-provenance';
 
 const TONE_STYLES = ['tone-rail', 'tone-edge', 'tone-glow'];

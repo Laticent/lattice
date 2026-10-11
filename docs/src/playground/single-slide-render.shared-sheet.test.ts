@@ -15,13 +15,13 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('./render-engine', () => ({ renderMarkdown: vi.fn() }));
-vi.mock('./theme-fetch', () => ({
+vi.mock('../lib/render-engine', () => ({ renderMarkdown: vi.fn() }));
+vi.mock('../lib/theme-fetch', () => ({
 	createThemeFetcher: () => ({ ensure: async () => {}, ensureBase: async () => {}, ensureKatexFaces: async () => {}, katexFacesActive: () => false, fetch: async () => {} }),
 }));
-vi.mock('../playground/font-embed.js', () => ({ previewFontFaceCss: () => '' }));
+vi.mock('./font-embed.js', () => ({ previewFontFaceCss: () => '' }));
 
-import { renderMarkdown } from './render-engine';
+import { renderMarkdown } from '../lib/render-engine';
 import { __resetLiveRenderersForTest, clearDeckMemo, clearSliceCache, createSingleSlideRenderer } from './single-slide-render';
 
 const base = { themeBase: 'https://x/themes/', runtimeUrl: 'https://x/rt.js' };
@@ -160,7 +160,7 @@ describe('the engine sheet is shared across frames, not inlined per frame (#1538
 		// `single-slide-render.cache-keys.test.ts` exists because a `hashString` collision once
 		// served a stale sheet, and serving the wrong 640KB of CSS is worse than a cache miss.
 		// Two sheets of the SAME LENGTH with a forced identical hash must still get their own url.
-		const mod = await import('../playground/deck-preview.js');
+		const mod = await import('./deck-preview.js');
 		const spy = vi.spyOn(mod, 'hashString');
 		// Not stubbing the hash outright — this module captured the import at load time. Instead
 		// use two sheets of equal length whose difference is late in the string, the shape a

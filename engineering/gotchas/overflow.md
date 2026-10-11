@@ -315,7 +315,7 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
     declaration applied to the `<section>` falls back to the initial containing block
     — the HOST VIEWPORT in a browser. `docs/src/playground/deck-preview.js` (the
     filmstrip: Playground, Studio) gives its iframe the PANE's width and scales
-    each `<section>` inside it, while `docs/src/lib/single-slide-render.ts` (the
+    each `<section>` inside it, while `docs/src/playground/single-slide-render.ts` (the
     Studio, the landing hero, component specimens) pins its iframe to the slide box and
     scales the IFRAME ELEMENT. So `--frame-inset-y` — and `--footer-reserve`, which is
     the section's `padding-bottom` — computed 24px in one surface and 14.4px in the

@@ -141,7 +141,7 @@ describe('buildSrcdoc', () => {
 			// The shared builder. Gated on its `diagrams` knob, which is what its callers set.
 			'playground/deck-preview.js': ['gated'],
 			// The single-slide preview frame — the Studio editor, thumbs, landing previews.
-			'lib/single-slide-render.ts': ['watched'],
+			'playground/single-slide-render.ts': ['watched'],
 			// The Present stage window: a presenter is watching it.
 			'components/studio/present/stage-window.js': ['watched'],
 		};
@@ -496,7 +496,7 @@ describe('deck-preview: every preview-frame builder carries the CSP', () => {
 	const ROOT = path.join(__dirname, '..', '..', '..');
 	const BUILDERS = [
 		'docs/src/playground/deck-preview.js',
-		'docs/src/lib/single-slide-render.ts',
+		'docs/src/playground/single-slide-render.ts',
 		'docs/src/components/studio/present/stage-window.js',
 	];
 	for (const rel of BUILDERS) {

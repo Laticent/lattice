@@ -44,20 +44,20 @@ import {
 import { drawnLibraryPreload } from '../../../lib/plugins/drawn-library.mjs';
 import { drawnFenceCount } from '../../../lib/plugins/drawn-probe.mjs';
 import { PLUGIN_GRAMMAR } from '../../../lib/plugins/grammar.generated.mjs';
-import { applyDebug } from '../playground/debug-overlay.js';
-import { hashString, linkGuardAgent, previewDiagramsAttr } from '../playground/deck-preview.js';
-import { hasFidelityListeners, recordFidelity } from '../playground/fidelity-findings';
-import { DEFAULT_H, DEFAULT_W, singleSlideFrame } from '../playground/frame-css.js';
-import { previewCspMeta } from '../playground/preview-csp.js';
-import { hasRenderListeners, patchOverflow, type RenderStats, recordRenderSample } from '../playground/render-metrics';
-import { installVideoBridge } from '../playground/video-overlay.js';
-import { hasVizScanListeners, recordVizScan, scanBlackFills } from '../playground/viz-findings';
-import { pluginDataMissing } from './ensure-plugin-data';
-import { ensureEngine } from './load-engine';
-import { renderMarkdown } from './render-engine';
-import { samplesBaseFor } from './samples-base';
-import { sanitizeSlideHtml } from './sanitize-slide-html.js';
-import { createThemeFetcher } from './theme-fetch';
+import { pluginDataMissing } from '../lib/ensure-plugin-data';
+import { ensureEngine } from '../lib/load-engine';
+import { renderMarkdown } from '../lib/render-engine';
+import { hasRenderListeners, patchOverflow, type RenderStats, recordRenderSample } from '../lib/render-metrics';
+import { samplesBaseFor } from '../lib/samples-base';
+import { sanitizeSlideHtml } from '../lib/sanitize-slide-html.js';
+import { createThemeFetcher } from '../lib/theme-fetch';
+import { applyDebug } from './debug-overlay.js';
+import { hashString, linkGuardAgent, previewDiagramsAttr } from './deck-preview.js';
+import { hasFidelityListeners, recordFidelity } from './fidelity-findings';
+import { DEFAULT_H, DEFAULT_W, singleSlideFrame } from './frame-css.js';
+import { previewCspMeta } from './preview-csp.js';
+import { installVideoBridge } from './video-overlay.js';
+import { hasVizScanListeners, recordVizScan, scanBlackFills } from './viz-findings';
 
 // The math plugin's own `detect` (math.syntax.mjs `sourceHasMath`), through the generated grammar
 // table, never by importing the plugin's folder (tools/structure.js holds that line).
@@ -107,8 +107,8 @@ function loadRemoteRef(): Promise<RemoteRef> {
 
 // Adaptive image sizes, known before a slide paints: lazily loaded, off the Studio's eager
 // bundle (docs/route-budget.json). See ./image-size-memo.ts.
-let imageMemoLoad: Promise<typeof import('./image-size-memo')> | null = null;
-const loadImageMemo = () => (imageMemoLoad ??= import('./image-size-memo'));
+let imageMemoLoad: Promise<typeof import('../lib/image-size-memo')> | null = null;
+const loadImageMemo = () => (imageMemoLoad ??= import('../lib/image-size-memo'));
 
 export type RenderStatus = {
 	ok: boolean;
@@ -1521,7 +1521,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// `renderedBase`, the deck renders `renderedTotal`, and a split slide shows ONE of its
 				// `paneRun` pages — the one navigation asked for, else the caret's, else the one shown.
 				// The arithmetic lives in ./pane-run, loaded only for a host that hands over a map.
-				const paneMod = opts?.paneCounts ? await import('./pane-run') : null;
+				const paneMod = opts?.paneCounts ? await import('../lib/pane-run') : null;
 				const run = paneMod?.paneRunFor(opts ?? {}, splitPageByHost.get(host));
 				const paneCounts = run?.paneCounts;
 				const paneRun = run?.paneRun ?? 1;
@@ -1791,7 +1791,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 						// A failed fetch (offline, or a deploy that rotated the chunk) keeps the whole slide.
 						// An explicit page from the host's navigation needs no picker at all.
 						const asked = typeof opts.pageIndex === 'number' && Number.isFinite(opts.pageIndex) ? opts.pageIndex : typeof opts.pageIndex === 'number' ? pages.length - 1 : null;
-						const pick = asked === null ? await import('./split-page-pick').then((m) => m.pickSplitPage).catch(() => null) : null;
+						const pick = asked === null ? await import('../lib/split-page-pick').then((m) => m.pickSplitPage).catch(() => null) : null;
 						if (disposed || !host.isConnected) return { ok: false, slides: 0, error: 'renderer disposed' };
 						const k = asked !== null ? Math.max(0, Math.min(asked, pages.length - 1)) : pick ? pick(pages, opts.caretText, current) : 0;
 						const narrowed = asked !== null || pick ? narrowToSlide(r.html, k, pages.length) : null;

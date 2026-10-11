@@ -18,13 +18,13 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('./render-engine', () => ({ renderMarkdown: vi.fn() }));
-vi.mock('./theme-fetch', () => ({
+vi.mock('../lib/render-engine', () => ({ renderMarkdown: vi.fn() }));
+vi.mock('../lib/theme-fetch', () => ({
 	createThemeFetcher: () => ({ ensure: async () => {}, ensureBase: async () => {}, ensureKatexFaces: async () => {}, katexFacesActive: () => false, fetch: async () => {} }),
 }));
-vi.mock('../playground/font-embed.js', () => ({ previewFontFaceCss: () => '' }));
+vi.mock('./font-embed.js', () => ({ previewFontFaceCss: () => '' }));
 
-import { renderMarkdown } from './render-engine';
+import { renderMarkdown } from '../lib/render-engine';
 import { __resetLiveRenderersForTest, clearDeckMemo, clearSliceCache, createSingleSlideRenderer } from './single-slide-render';
 
 const base = { themeBase: 'https://x/themes/', runtimeUrl: 'https://x/rt.js' };

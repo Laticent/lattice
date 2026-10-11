@@ -13,7 +13,7 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   deck on every keystroke costs ~46ms per keypress on a 40-slide deck. Anything a
   slide gets from its NEIGHBORS is therefore missing unless it was handed over:
   the page number and the section index are supplied by the caller
-  (`docs/src/lib/single-slide-render.ts`), and a registry of **deck-derived facts**
+  (`docs/src/playground/single-slide-render.ts`), and a registry of **deck-derived facts**
   (`DECK_DERIVED_FACTS`) forces the whole-deck render for the rest. A symptom like
   this means the registry has a hole, or a supplied position was wrong.
 - **Mitigation:** Turn on **Preview fidelity** (Workspace → General → Diagnostics,
@@ -927,7 +927,7 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   and most on an `image` slide. Measured in WebKit at iPhone size: the heading drew at
   x=102, 563 wide, on the first frame, and at x=205, 294 wide, about 110 ms later.
 - **Cause:** a host that swaps a slide in (`patchSlideBody` in
-  `docs/src/lib/single-slide-render.ts`, and the Playground filmstrip in
+  `docs/src/playground/single-slide-render.ts`, and the Playground filmstrip in
   `docs/src/playground/deck-preview.js`) writes raw engine HTML. The runtime's content
   transforms are what place its text: the Form stamp, masthead-lift's cells, and the
   `image` text column. They ran only on the observer's 150 ms debounce, so the raw slide

@@ -129,7 +129,7 @@ test('the slide hosts that wrap their own box use the shared frame, and nothing 
 		'docs/src/playground/deck-preview.js': /^(?=[\s\S]*slideFrameFilter\('card'\))(?=[\s\S]*"--slide-edge-k")/,
 		'lib/export/player-core.mjs': /slideFrameShadow\('stage'\)[\s\S]*slideFrameShadow\('card'\)[\s\S]*slideFrameShadow\('card'\)/,
 		// The hosts that SCALE a slide hand the engine its scale, so its edge stays a true 1px…
-		'docs/src/lib/single-slide-render.ts': /setProperty\('--slide-edge-k', String\(slideEdgeK\(w\)\)\)/,
+		'docs/src/playground/single-slide-render.ts': /setProperty\('--slide-edge-k', String\(slideEdgeK\(w\)\)\)/,
 		// …and the exporter that captures from a preview frame takes it away again.
 		'docs/src/components/studio/export/deck-export.js': /section\.style\.setProperty\('--slide-edge-k', '0'\)/,
 	};

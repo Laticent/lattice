@@ -1,10 +1,10 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { getClassTokens } from '../../lib/slide-directives';
 import { connectOpenRouter, generateDescription, useArchitectStatus } from './architect';
 import { SlideContextBody } from './SlideContext';
 import { listComments } from './slide-comments';
-import { getClassTokens } from './slide-directives';
 
 // The architect module is a network/model boundary — mock it so the confirm-gate +
 // Connect tests drive state deterministically. `useArchitectStatus` defaults to a

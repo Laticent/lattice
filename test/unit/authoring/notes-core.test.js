@@ -224,7 +224,7 @@ describe('notes-core: isLatticePragma', () => {
     const fs = require('fs');
     const path = require('path');
     const src = fs.readFileSync(
-      path.join(__dirname, '..', '..', '..', 'docs', 'src', 'components', 'studio', 'front-matter.ts'),
+      path.join(__dirname, '..', '..', '..', 'docs', 'src', 'lib', 'front-matter.ts'),
       'utf8',
     );
     const m = src.match(/parseFinishOverride[\s\S]*?blocks\.find\(\(\[k\]\) => k === '([^']+)'\)/);

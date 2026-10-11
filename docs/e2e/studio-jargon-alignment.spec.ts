@@ -11,7 +11,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { fenceRanges } from '../src/components/studio/slide-directives';
+import { fenceRanges } from '../src/lib/slide-directives';
 import { expect, gotoStudio, livePreview, railButtons, setEditorContent, test } from './studio-fixture';
 
 // These specs are ES modules, so `__dirname` does not exist.
@@ -87,7 +87,7 @@ test('jargon deck: every rail selection previews THAT slide', async ({ page }) =
 });
 
 /** The line `revealSlide` scrolls to: a slide's first line of actual CONTENT. Mirrors
- *  `slideEditableOffset` in docs/src/components/studio/lint.ts — skip blank lines and lone directive
+ *  `slideEditableOffset` in docs/src/lib/deck-lint.ts — skip blank lines and lone directive
  *  comments (`<!-- _class: … -->` and siblings), fall back to the slide's first line when a slide is
  *  nothing but directives. Replicated rather than imported so the test states the contract
  *  independently of the module it checks — and unlike `splitSlides` above, this one IS still parity:

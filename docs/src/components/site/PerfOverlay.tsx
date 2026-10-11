@@ -20,8 +20,8 @@
 import * as React from 'react';
 import { DiagnosticPanel, type OverlayClaim, useDiagnosticGate } from '@/components/diagnostics/diagnostic-overlay';
 import { Sep } from '@/components/diagnostics/Sep';
+import { latestRenderSample, onRenderSample, type RenderSample } from '@/lib/render-metrics';
 import { onPerfOverlayEnabledChange, PERF_OVERLAY_AVAILABLE, perfOverlayEnabled, setPerfOverlayEnabled } from '@/playground/perf-overlay-prefs';
-import { latestRenderSample, onRenderSample, type RenderSample } from '@/playground/render-metrics';
 import { type MetricDatum, MetricDetail } from './MetricDetail';
 import { type MetricMeta, RENDER, RUNTIME, rateMetric, VITALS } from './perf-metrics';
 

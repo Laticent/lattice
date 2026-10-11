@@ -7,13 +7,13 @@ import { type Diagnostic, forceLinting, linter, lintGutter } from '@codemirror/l
 import { ChangeSet, Compartment, EditorState, type Extension } from '@codemirror/state';
 import { closeHoverTooltips, EditorView, hasHoverTooltips, keymap, lineNumbers, scrollPastEnd, ViewPlugin } from '@codemirror/view';
 import * as React from 'react';
+import { buildVocabSets, findingsToDiagnostics } from '@/lib/editor-diagnostics.js';
 import { followDeckAdmission } from '@/lib/plugin-admission';
 import type { SparkFitReport } from '@/lib/spark-fit';
-import { buildVocabSets, findingsToDiagnostics } from '@/playground/editor-diagnostics.js';
+import { slideEditableOffset, slideIndexAt } from '../../lib/deck-lint';
 import { type CompletionComponent, type CompletionVocab, type InlineNext, makeStudioCompletion, registerValueLists } from './editor-complete';
 import { editorTheme, studioHighlight } from './editor-theme';
 import { iconPreviewOption } from './icon-preview';
-import { slideEditableOffset, slideIndexAt } from './lint';
 import { tourChromeMargin } from './tour-chrome';
 
 // The shared authoring linter (lib/authoring/lint-core via the browser bundle),

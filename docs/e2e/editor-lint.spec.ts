@@ -84,7 +84,7 @@ test('the Coach surfaces the inline-issue count', async ({ page }) => {
 // `bad-render-target-value` (lib/authoring/lint-core.js) is a DECK-level finding — it
 // reports `slide: 0`, because the keys it judges live in front matter, which belongs to no
 // slide. That number is also the editor's anchor: `findingsToDiagnostics`
-// (docs/src/playground/editor-diagnostics.js) resolves slide 0 to the deck top and then
+// (docs/src/lib/editor-diagnostics.js) resolves slide 0 to the deck top and then
 // searches that chunk for a line matching the finding's `line` STRING. So the underline is
 // placed by a substring match, and every claim about where it lands is really a claim about
 // that needle — which is why the rule refuses to synthesize one and quotes the source line

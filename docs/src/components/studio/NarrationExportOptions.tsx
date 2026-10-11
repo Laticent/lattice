@@ -29,7 +29,7 @@ import * as React from 'react';
 import { Switch } from '@/components/ui/switch';
 import { Announce } from '@/lib/announce';
 import { ttsCostPerMChars } from '@/playground/tts-cost.js';
-import { getFrontMatter } from './front-matter';
+import { getFrontMatter } from '../../lib/front-matter';
 import { formatBytes, formatDuration, formatUsd, type NarrationMeasure, PAYLOAD_MAX_BYTES, PAYLOAD_WARN_BYTES } from './narration-bake';
 import { type BakeVoice, defaultBakeVoice, listTtsCatalog, type OrVoiceModel, onDeviceBakeVoice, previewTtsVoice, voiceAvailability } from './read-aloud';
 import { TtsModelPicker } from './TtsModelPicker';

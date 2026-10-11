@@ -15,8 +15,8 @@ import {
 import { Slider } from '@/components/ui/slider';
 import { Tip } from '@/components/ui/tooltip';
 import { notify } from '@/lib/notify';
-import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { cn } from '@/lib/utils';
+import type { SingleSlideOptions } from '@/playground/single-slide-render';
 import { connectOpenRouter, generateFinish, useArchitectStatus } from './architect';
 import { CodeField } from './CodeField';
 import { downloadText } from './download';

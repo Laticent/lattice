@@ -23,7 +23,7 @@
  *
  * IT NOW RUNS THE CODE THAT SHIPS — and that is a recent change worth understanding before you
  * quote the number. Until it did, this file imported `lib/diagnostics` and `lib/engine` only, while
- * the repair that actually fixes the preview lived in `docs/src/lib/single-slide-render.ts`. Every
+ * the repair that actually fixes the preview lived in `docs/src/playground/single-slide-render.ts`. Every
  * slice was rendered with NO supplied position, so the sweep faithfully reproduced the pre-#1272
  * behavior on all 1201 slides: stubbing `positionIsTrustworthy` to `return false` restored the
  * originally reported bug in full and moved `equiv:check` by **0.0 points**. Two things fixed that,

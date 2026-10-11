@@ -1,10 +1,10 @@
 // A DEFAULT import: it is a CommonJS leaf (docs/src/plugins/vite-cjs-lib-dev.mjs).
 import stateMarks from '../../../../lib/core/state-marks.js';
 import { PLUGIN_GRAMMAR } from '../../../../lib/plugins/grammar.generated.mjs';
-import { frontMatterBlock, stripFrontMatter } from '../../components/studio/front-matter';
-import { splitSlides } from '../../components/studio/lint';
-import { fenceRanges } from '../../components/studio/slide-directives';
+import { splitSlides } from '../deck-lint';
+import { frontMatterBlock, stripFrontMatter } from '../front-matter';
 import { normalizeSourceText } from '../normalize-source-text';
+import { fenceRanges } from '../slide-directives';
 
 // The math plugin's own `detect` (math.syntax.mjs `sourceHasMath`), through the generated grammar
 // table, never by importing the plugin's folder (tools/structure.js holds that line).

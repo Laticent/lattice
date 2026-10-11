@@ -165,7 +165,7 @@ test('a sanitizer is per-instance: two of them do not share config or hooks', ()
 });
 
 test('sanitize is a pure function of its input — the same html sanitizes identically every time', () => {
-	// The preview memo (docs/src/lib/single-slide-render.ts) reuses a sanitized string when the
+	// The preview memo (docs/src/playground/single-slide-render.ts) reuses a sanitized string when the
 	// SAME html comes back, so "same in, same out" is the property it rests on. Interleaved with
 	// other inputs, because a memo hit is only sound if no earlier call can change a later answer.
 	const payload = '<section id="3"><img src=x onerror=alert(1)><svg><path vector-effect="non-scaling-stroke"/></svg></section>';

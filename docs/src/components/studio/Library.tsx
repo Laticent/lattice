@@ -5,9 +5,9 @@ import { PanelDock, PanelEmpty, PanelHeader, PanelSearch, PanelSection, PanelShe
 import { PillTabs } from '@/components/ui/pill-tabs';
 import { Tip } from '@/components/ui/tooltip';
 import { notify } from '@/lib/notify';
-import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { useBreakpoint, useLandscapePhone } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
+import type { SingleSlideOptions } from '@/playground/single-slide-render';
 import { AssetVersionsDialog, type VersionedAsset } from './AssetVersions';
 import { componentZipName, finishZipName, packBundle, packComponent, packFinish, packTheme, themeZipName, unpackBundle } from './asset-bundle';
 import { deleteStudioComponent, listStudioComponents, type StudioComponent } from './component-library';

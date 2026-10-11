@@ -4,7 +4,7 @@
 // that renders the engine without Marp's `<svg><foreignObject>` wrapper — the
 // playground (docs/src/pages/playground.astro), the landing hero
 // (docs/src/pages/index.astro), and the component-page specimens (via the shared
-// docs/src/lib/single-slide-render.ts) — MUST pin the 1280×720 box itself.
+// docs/src/playground/single-slide-render.ts) — MUST pin the 1280×720 box itself.
 //
 // WHY: dist/lattice.css sets `section{container-type:size}`. Size containment
 // refuses to size the box from its contents, so without an explicit

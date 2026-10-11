@@ -1579,7 +1579,7 @@ const RETIRED_TOKEN_NAMES = new Set(TOKEN_CROSSWALK.map((p) => `--${p.old}`));
  * onto the slides, never `color-scheme` — `lib/export/cli-deck-sheet.js` `packAuthorCss`);
  * on the slides the plain half is what lands, as a DIRECT declaration on the
  * section, beating the injected `:root{color-scheme:MODE}` that every
- * `docs/src/lib/single-slide-render.ts` frame carries — the component reference pages, the
+ * `docs/src/playground/single-slide-render.ts` frame carries — the component reference pages, the
  * Studio, the landing previews — by directness rather than by specificity. Measured on a
  * real page: with `:root:root` alone all four a11y palettes followed that injected dark
  * scheme and painted rgb(0,0,0) where their fixed CVD-safe canvas should be white. (NOT the
@@ -5885,7 +5885,7 @@ const DOC_STYLE_SINK_ROOTS = ['docs/src', 'lib/export', 'lattice.js'];
 const SANCTIONED_STYLE_SINK_EXEMPT = [];
 const SANCTIONED_PREVIEW_BUILDERS = [
   { file: 'docs/src/playground/deck-preview.js', why: 'buildSrcdoc + renderDeck (the latter also sanitizes the patchSections innerHTML path); the theme/component CSS bakes into the document <style>.' },
-  { file: 'docs/src/lib/single-slide-render.ts', why: 'srcdoc() — landing islands / specimens / the Studio\'s single-slide preview; themeStyleContent() is the one place theme + author CSS is baked, and the RESTYLE fast path re-swaps it. All three markup sinks (write / patch / restyle) go through sanitizeOnce(), a bounded LRU keyed on the WHOLE input string that skips a repeat DOMPurify pass over bytes already sanitized — the same bargain renderDeck\'s per-section cache makes, and not a widening of what reaches the frame unsanitized.' },
+  { file: 'docs/src/playground/single-slide-render.ts', why: 'srcdoc() — landing islands / specimens / the Studio\'s single-slide preview; themeStyleContent() is the one place theme + author CSS is baked, and the RESTYLE fast path re-swaps it. All three markup sinks (write / patch / restyle) go through sanitizeOnce(), a bounded LRU keyed on the WHOLE input string that skips a repeat DOMPurify pass over bytes already sanitized — the same bargain renderDeck\'s per-section cache makes, and not a widening of what reaches the frame unsanitized.' },
   { file: 'docs/src/components/studio/present/stage-window.js', why: 'buildStageDoc — the Studio\'s Stage window AND rehearsal stage; embeds the deck\'s composed CSS in the stage <style>. Under `standalone` the same document is a top-level window the audience reads, so the stylesheet channel matters there most.' },
 ];
 

@@ -1,4 +1,4 @@
-import { getFrontMatterName, writeFrontMatterLine } from './front-matter';
+import { getFrontMatterName, writeFrontMatterLine } from '../../lib/front-matter';
 
 // THE ROOM A DECK IS SHOWN IN — the `venue:` front-matter register, as the Studio offers it.
 //
