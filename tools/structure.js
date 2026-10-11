@@ -370,9 +370,11 @@ function analyze(graph, { sanctioned = SANCTIONED_UPWARD, pluginSanctioned = SAN
     staleSanctions: [...staleSanctions, ...staleReach.map((k) => `${k} (SANCTIONED_PLUGIN_REACH)`)],
     unread: graph.unread || [],
     // A relative import that resolves to nothing: a file that moved and an importer that did not.
+    // A path into node_modules is a dependency question, not a structure one (and is absent where a
+    // CI job skips that install), so it is not counted.
     unresolved: graph.modules.flatMap((m) =>
       partOf(m.source) && !/\/dist\//.test(m.source)
-        ? m.dependencies.filter((d) => d.couldNotResolve && /^(\.{1,2}|@)\//.test(d.module || '') && !rootRelative(d.module)).map((d) => `${m.source} -> ${d.module}`)
+        ? m.dependencies.filter((d) => d.couldNotResolve && /^(\.{1,2}|@)\//.test(d.module || '') && !d.module.includes('node_modules') && !rootRelative(d.module)).map((d) => `${m.source} -> ${d.module}`)
         : [],
     ),
     inside,
