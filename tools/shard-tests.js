@@ -91,9 +91,13 @@ function main(argv) {
   if (!files.length) throw new Error('no test files matched');
   const weights = fs.existsSync(opt.weights) ? JSON.parse(fs.readFileSync(opt.weights, 'utf8')) : {};
   const shard = parseShard(opt.shard);
+  if (opt.shard && !shard) throw new Error(`SHARD/--shard "${opt.shard}" is not K/N (for example 2/4)`);
   const mine = shard ? plan(files, weights, shard.n)[shard.k - 1] : { load: 0, files: files.sort() };
   const tag = shard ? `shard ${shard.k}/${shard.n}` : 'all files';
   console.log(`[shard-tests] ${tag}: ${mine.files.length} of ${files.length} files, planned ${mine.load.toFixed(0)}s`);
+  // `node --test` with no file arguments discovers every test under the cwd, so an empty
+  // leg (more shards than files) must return here and never reach the spawn below.
+  if (!mine.files.length) { console.log('[shard-tests] nothing to run in this shard'); return 0; }
   if (opt.list) { for (const f of mine.files) console.log(f); return 0; }
   const r = spawnSync(process.execPath, ['--test', ...mine.files], { stdio: 'inherit' });
   return r.status ?? 1;

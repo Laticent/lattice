@@ -66,3 +66,49 @@ describe('shard-tests wiring', () => {
     assert.deepEqual(globs(scripts['test:integration:shard']), pr);
   });
 });
+
+describe('shard-tests CLI guards', () => {
+  const fs = require('node:fs');
+  const os = require('node:os');
+  const path = require('node:path');
+  const { spawnSync } = require('node:child_process');
+  const tool = path.resolve(__dirname, '../../../tools/shard-tests.js');
+  // NODE_TEST_CONTEXT marks a process as a child of an outer `node --test`; inherited, it would make
+  // the inner run report to the parent instead of exiting non-zero on a red test.
+  const cleanEnv = () => { const e = { ...process.env, SHARD: '' }; delete e.NODE_TEST_CONTEXT; return e; };
+  const run = (cwd, args, env = {}) =>
+    spawnSync(process.execPath, [tool, '--weights', 'w.json', ...args], { cwd, encoding: 'utf8', env: { ...cleanEnv(), ...env } });
+  const withDir = (fn) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'shard-cli-'));
+    try {
+      fs.writeFileSync(path.join(dir, 'x.test.js'), "require('node:test')('x', () => {});\n");
+      return fn(dir);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  };
+
+  it('an empty leg runs nothing instead of letting node discover every test under the cwd', () => {
+    withDir((dir) => {
+      const r = run(dir, ['x.test.js'], { SHARD: '2/2' });
+      assert.equal(r.status, 0);
+      assert.match(r.stdout, /nothing to run/);
+      assert.doesNotMatch(r.stdout, /# tests/);
+    });
+  });
+
+  it('a malformed SHARD fails loudly instead of silently running everything', () => {
+    withDir((dir) => {
+      const r = run(dir, ['x.test.js'], { SHARD: 'abc' });
+      assert.equal(r.status, 2);
+      assert.match(r.stderr, /not K\/N/);
+    });
+  });
+
+  it('a red test makes the leg exit non-zero', () => {
+    withDir((dir) => {
+      fs.writeFileSync(path.join(dir, 'bad.test.js'), "require('node:test')('bad', () => { throw new Error('x'); });\n");
+      assert.notEqual(run(dir, ['bad.test.js']).status, 0);
+    });
+  });
+});

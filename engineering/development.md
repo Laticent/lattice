@@ -78,7 +78,7 @@ scaffolders, …). This section calls out only the daily inner-loop:
 | `test:watch` | Re-run the unit suite on file change |
 | `test:<scope>` | Scoped unit subset (`palette`/`mermaid`/`parsing`/`components`/`cli`/`engine`/`layout`/…) |
 | `test:integration` | The FULL integration tier (every suite) — what pre-push runs under `LATTICE_FULL_PUSH=1` |
-| `test:integration:pr` | The PR-blocking slice CI gates on: cross-path wiring (`parity/`) + export pipeline (`export/`) + per-component semantic invariants (`invariants/`). CI runs it as four shards (see *CI* below) |
+| `test:integration:pr` | The PR-blocking slice CI gates on: cross-path wiring (`parity/`) + export pipeline (`export/`) + per-component semantic invariants (`invariants/`). CI runs the same globs as four time-balanced shards via `test:integration:shard` (see *CI* below) |
 | `test:integration:nightly` | The render-regression slice that runs nightly on `main` (`integration-nightly.yml`): gallery/component/exemplar page-counts + mermaid + screenshot |
 | `bench` | tinybench render benchmark — the owned engine over time (`-- --export` adds the rasterize tier, `-- --json` dumps machine-readable) |
 | `lint`, `lint:fix` | Biome check / Biome check --write (never `npx biome`) |
@@ -220,7 +220,7 @@ re-lists them is one people learn to skim. Re-bless with `npm run contrast:playe
 a fix lands. The muted-chrome tier (header/footer/pagination) is WCAG-exempt by palette
 contract and is reported in its own bucket, never as a failure.
 
-`[PR]` suites gate every `code` PR via `test:integration:pr`; `[nightly]` suites
+`[PR]` suites gate every `code` PR via `test:integration:pr` (CI runs the same globs as `test:integration:shard`); `[nightly]` suites
 run on `main` via `integration-nightly.yml` (`test:integration:nightly`). The
 split keeps shared-kernel wiring, the export pipeline, and the computed-style
 correctness gate blocking, and moves the slow fresh-render regression suites off
