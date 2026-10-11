@@ -647,7 +647,7 @@ async function splitTier() {
     console.log('\n=== SPLIT \u00b7 not comparable (no @laticent/fluido in this tree) ===');
     return { summary: [] };
   }
-  const ss = req(join(ROOT, 'lib/core/structural-split.js'));
+  const ss = req(join(ROOT, 'lib/engine/structural-split.js'));
   const { loadAll } = req(join(ROOT, 'lib/components/index.js'));
   const { createEngine } = req(join(ROOT, 'lib/engine/index.js'));
   const capacity = ss.splitCapacityFrom(loadAll(join(ROOT, 'lib/components')));

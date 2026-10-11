@@ -45,7 +45,7 @@ const engine = require('../../../lib/engine');
 const puppeteer = require('puppeteer');
 const { renderWithCodePackages } = require('../../../lib/packages/code-door.js');
 const { pluginDigest, grantTrust } = require('../../../lib/packages/trust.js');
-const { pluginReturnFields, MAX_RETURN_TEXT } = require('../../../lib/packages/code-shape.mjs');
+const { pluginReturnFields, MAX_RETURN_TEXT } = require('../../../lib/core/code-shape.mjs');
 const { launchSandboxBrowser, openPackageSandbox, runPackage } = require('../../../lib/core/code-sandbox.js');
 const { spawnSync } = require('node:child_process');
 const { PLANTED, attempts, markupVectors, stylesheetVectors, canarySource } = require('../../fixtures/npm-plugin-canary.js');
@@ -353,7 +353,7 @@ describe('npm-plugin canary: a hostile plugin reaches nothing', () => {
   });
 
   test('DATA RETURN (decisions 10 to 12): the gate admits only a declared `returns`, and every other data contribution stays shut', { timeout: TIMEOUT }, () => {
-    const { refusePackage } = require('../../../lib/packages/gate.js');
+    const { refusePackage } = require('../../../lib/cli/package-gate.js');
     const zip = (contributes, name = 'data-canary') => ({
       type: 'plugin',
       name,

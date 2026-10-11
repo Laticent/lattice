@@ -9,7 +9,7 @@ const assert = require('node:assert/strict');
 const { withSlideOnlySpotted } = require('../../../lib/core/marp-slide-only');
 const fs = require('node:fs');
 const path = require('node:path');
-const { withRuntimeScripts } = require('../../../lib/core/marp-bundle');
+const { withRuntimeScripts } = require('../../../lib/export/marp-bundle');
 
 test('a plain header and footer comment become their underscore spelling; a paginate comment is not this step\'s', () => {
   // Page numbers are not a slide directive (audit §11s): lib/core/marp-bundle-scope.js drops the comment in the bundle.
@@ -94,7 +94,7 @@ test('every producer of a Marp bundle rewrites the slide-only directives before 
     return /\.(js|mjs|ts|tsx)$/.test(e.name) && !/\.test\.|\.generated\./.test(e.name) ? [p] : [];
   });
   const callers = ['lib', 'tools', 'docs/src'].flatMap((d) => files(path.join(root, d)))
-    .filter((f) => /withRuntimeScriptsReport\(/.test(fs.readFileSync(f, 'utf8')) && !f.endsWith(path.join('lib', 'core', 'marp-bundle.js')))
+    .filter((f) => /withRuntimeScriptsReport\(/.test(fs.readFileSync(f, 'utf8')) && !f.endsWith(path.join('lib', 'export', 'marp-bundle.js')))
     .map((f) => path.relative(root, f).replaceAll('\\', '/')).sort();
   assert.deepEqual(callers, ['docs/src/components/studio/export/deck-export.js', 'tools/export-marp.js'], 'a new producer of a Marp bundle: call withSlideOnlySpotted on its deck, then add it here');
   for (const f of callers) assert.match(fs.readFileSync(path.join(root, f), 'utf8'), /withRuntimeScriptsReport\(\s*(?:\/\/[^\n]*\n\s*)*withSlideOnlySpotted\(/, `${f} must hand withRuntimeScriptsReport a deck withSlideOnlySpotted has rewritten`);

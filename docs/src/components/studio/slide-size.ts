@@ -3,7 +3,7 @@
 // `studio.astro` seed, which injects these values into its inline script). Slides have an
 // author-chosen size — the skeleton must honor it, never assume 16:9.
 //
-// EXACTLY the engine's names (lib/engine/sizes.js `SIZES`), matched exactly, because a name the
+// EXACTLY the engine's names (lib/core/sizes.js `SIZES`), matched exactly, because a name the
 // engine does not register renders at 16:9: `size: 4:3`, `size: STORY` and `size: Square` all
 // render 1280x720. This table used to accept all three (a `4:3` alias and a case-folding lookup),
 // so the preview and Present drew a 4:3, 9:16 or square frame around a 16:9 slide and left an empty

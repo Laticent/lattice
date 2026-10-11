@@ -4,8 +4,8 @@ import { describe, expect, it } from 'vitest';
 import { loadAll } from '../../../lib/components';
 import { appendAutoGlossary, autoGlossarySections } from '../../../lib/core/glossary-auto.mjs';
 import { separatorRanges } from '../../../lib/core/slide-boundaries.mjs';
-import structural from '../../../lib/core/structural-split.js';
 import { createEngine } from '../../../lib/engine';
+import structural from '../../../lib/engine/structural-split.js';
 import { buildDeckIndex } from './deck-outline';
 import { buildRenderedIndex, flatOfPage, pageOfFlat, renderedIndexOf, sectionsPerPart, slideCountOf, stampsOf } from './rendered-index';
 

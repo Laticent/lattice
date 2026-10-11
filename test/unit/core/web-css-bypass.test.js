@@ -14,7 +14,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { JSDOM } = require('jsdom');
 const remoteRef = require('../../../lib/core/remote-ref.js');
-const { galleryRemoteRefs } = require('../../../lib/packages/gallery-gate.js');
+const { galleryRemoteRefs } = require('../../../lib/cli/gallery-gate.js');
 const { webRefBeacons, asHtml } = require('../../fixtures/web-ref-beacons.js');
 
 const { blockWebCss, blockWebImages, verifyWithParser, remoteCssRefs, cssRefSpans, decodeEntities } = remoteRef;

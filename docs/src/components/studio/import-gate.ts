@@ -103,7 +103,7 @@ export async function refuseImportedTheme(css: string, name: string): Promise<Im
 /**
  * Refuse an imported PLUGIN's `styles.css` that reaches off the device, or `null` to allow.
  * Held to the exfil rules and to the one shape the host can scope (lib/packages/plugin-css.mjs), as `refusePlugin` in
- * lib/packages/gate.js holds it in the CLI: the Studio rebuilds the sheet behind the plugin's root for every preview and export.
+ * lib/cli/package-gate.js holds it in the CLI: the Studio rebuilds the sheet behind the plugin's root for every preview and export.
  */
 export async function refuseImportedPluginStyles(css: string, name: string): Promise<ImportRefusal> {
 	if (!css.trim()) return null;

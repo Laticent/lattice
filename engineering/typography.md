@@ -99,7 +99,7 @@ slide's insets add that gutter: the section's inline padding (`base.elements.css
 `--frame-x` (`stage.css`), the edge chrome's `--frame-inset-x` (`base.tokens.css`) and the
 divider's padding. So type, spacing, the content box and the chrome around it are HD's to the
 pixel, centered, and the backgrounds, split panels and full-bleed media run the full width
-(`orientationCss` in `lib/engine/css.js`, `wideFactor` in `lib/engine/sizes.js`, and the runtime's
+(`orientationCss` in `lib/engine/css.js`, `wideFactor` in `lib/core/sizes.js`, and the runtime's
 `patchSectionGeometry` for the live preview, which reads the factor off the section's box only
 when that box has a registered wide canvas's shape, `canvasWideFactor`). The gutter is unset on every other canvas, so the
 `var(--_wide-gutter, 0px)` terms add nothing there. A component that insets from the slide edge on

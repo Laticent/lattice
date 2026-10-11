@@ -2,7 +2,7 @@ import type { Completion, CompletionContext, CompletionResult } from '@codemirro
 import { altFromAssetName } from '@/lib/photo-alt';
 import { PACE_NAMES } from '@/lib/resolve-pace';
 import { classDirectiveCompletion, classTokenResult, deckSplit, slideBodyAfter } from '@/playground/slide-context.js';
-import sizes from '../../../../lib/engine/sizes.js';
+import sizes from '../../../../lib/core/sizes.js';
 import { FRONT_MATTER_KEYS, OFFERED_SETTINGS } from './front-matter-keys';
 import { LOGO_FINISH_AXIS_ORDER, logoFinishWords } from './logo-finish';
 import { MARKS_AXES } from './marks-words';

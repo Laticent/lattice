@@ -94,7 +94,7 @@ const fs   = require('fs');
 const { themeEntries } = require('../lib/theme/files.js');
 const path = require('path');
 const { resolveTokenExpr } = require('../lib/core/resolve-token-expr.js');
-const { contrastRatio, hexToRgb, rgbToHex } = require('../lib/theme/color.js');
+const { contrastRatio, hexToRgb, rgbToHex } = require('../lib/core/color.js');
 const { themeChain } = require('../lib/theme/chain.mjs');
 const { THEME_EDGES } = require('../lib/theme/edges.generated.mjs');
 

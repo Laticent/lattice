@@ -125,7 +125,7 @@ const { venuePickCell } = require('./lib/venue-capacity');
 const { ORIENTATION_TO_FAMILIES, FAMILY_NAMES } = require('../lib/adaptive/families');
 const { themeChain } = require('../lib/theme/chain.mjs');
 const { THEME_EDGES } = require('../lib/theme/edges.generated.mjs');
-const { ensureContrast, hexToOklch, oklabDistance, withLightness } = require('../lib/theme/color.js');
+const { ensureContrast, hexToOklch, oklabDistance, withLightness } = require('../lib/core/color.js');
 const { solveInk, bestEffortInk, feasibleRange, MIN_DIST } = require('../lib/theme/cat-ink.js');
 
 // The capacity to publish, matching what `tools/build-component-docs.js` prints in
@@ -713,7 +713,7 @@ function resolvePalettes() {
       }
       // FAIL LOUD ON A NON-HEX SEED OR CANVAS, naming the theme, the token and the role. The
       // solve is hex-only, and without this the value travels into `hexToOklch` and surfaces as
-      // `not a hex color: color-mix(in oklab, …)` from deep inside lib/theme/color.js — naming
+      // `not a hex color: color-mix(in oklab, …)` from deep inside lib/core/color.js — naming
       // nothing, and taking the WHOLE docs token sheet (and therefore `build:check`) down with it.
       // That is precisely the failure `lib/theme/cat-ink.js` documents as the thing its own
       // null-check exists to prevent, and the status-fill block above already guards the same way

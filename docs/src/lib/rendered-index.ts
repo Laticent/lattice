@@ -11,7 +11,7 @@
 //     tall size makes one slide per pane. The clones are `copy` 1, 2, … of their part. The engine
 //     numbers every clone as a slide of its own (`data-lattice-slide="10"`, `"11"`), so the number
 //     alone cannot say which part a clone belongs to.
-//   · the structural split (lib/core/structural-split.js) cuts one slide into a run of pages at
+//   · the structural split (lib/engine/structural-split.js) cuts one slide into a run of pages at
 //     portrait and square: `data-lattice-slide="7"`, `"7.2"`, `"7.3"`. Those are `run` 1, 2, …
 //   · the engine APPENDS a slide that no part owns (`synthetic`).
 //

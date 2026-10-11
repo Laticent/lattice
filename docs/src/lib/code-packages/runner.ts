@@ -16,10 +16,10 @@
 // The frame's script is the CLI's, byte for byte (FRAME_BOOTSTRAP), so the two doors run a package
 // the same way (HARD RULE #1). What the package returns is sanitized by the caller (door.ts).
 
-import { FRAME_BOOTSTRAP, inlineScript, MAX_OUTPUT_CHARS, sandboxCsp } from '../../../../lib/packages/code-door-core.mjs';
-import { checkedWorkerScript } from '../../../../lib/packages/code-syntax.mjs';
+import { FRAME_BOOTSTRAP, inlineScript, MAX_OUTPUT_CHARS, sandboxCsp } from '../../../../lib/core/code-door-core.mjs';
+import { checkedWorkerScript } from '../../../../lib/core/code-syntax.mjs';
 
-// `facts` is the slide's plain content (lib/packages/slide-facts.mjs), read by the door, never by the package.
+// `facts` is the slide's plain content (lib/core/slide-facts.mjs), read by the door, never by the package.
 export type CodeSlide = { html: string; facts?: unknown; index: number; idPrefix?: string; baseUrl?: string };
 // A plugin's fence renderer is handed the fence's text and one id, and nothing else (plugin-system §9 decision 10).
 export type CodeFence = { body: string; id: string };

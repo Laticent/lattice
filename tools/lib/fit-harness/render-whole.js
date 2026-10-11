@@ -10,7 +10,7 @@
  * call gets the slides back numbered and unsplit; nothing else in the export changes.
  */
 const path = require('node:path');
-const ss = require('../../../lib/core/structural-split');
+const ss = require('../../../lib/engine/structural-split');
 
 ss.structuralSplit = (html) => ({ html: ss.stampSlideNumbers(html, 1), changed: 0, applies: false });
 process.argv.splice(1, 1, path.join(__dirname, '../../../lattice.js'));

@@ -1,5 +1,5 @@
 /**
- * A code package's stable input, `slide.facts` (lib/packages/slide-facts.mjs; contract note §11):
+ * A code package's stable input, `slide.facts` (lib/core/slide-facts.mjs; contract note §11):
  * the shape it promises, the directive list it reads, the token names it hands over, and its text
  * pinned against a real HTML parser on every slide of three galleries. The facts reaching a package
  * through both doors, with a network log, is test/integration/export/code-package-door.test.js and
@@ -11,8 +11,8 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { JSDOM } = require('jsdom');
-const { slideFacts, parseTree, decodeEntities, FACTS_VERSION, FACT_DIRECTIVES, MAX_DEPTH } = require('../../../lib/packages/slide-facts.mjs');
-const { slideInput } = require('../../../lib/packages/code-door-core.mjs');
+const { slideFacts, parseTree, decodeEntities, FACTS_VERSION, FACT_DIRECTIVES, MAX_DEPTH } = require('../../../lib/core/slide-facts.mjs');
+const { slideInput } = require('../../../lib/core/code-door-core.mjs');
 const { splitSections } = require('../../../lib/core/split-sections.mjs');
 const { APPLIED_DIRECTIVES } = require('../../../lib/engine/directives.js');
 const { requiredTokenList } = require('../../../lib/theme/derive.js');

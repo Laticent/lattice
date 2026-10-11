@@ -22,7 +22,7 @@ for (const [name, id] of Object.entries(PHOTOS)) {
 }
 
 const css = readFileSync(join(here, 'looks.css'), 'utf8').replace(/^\/\*[\s\S]*?\*\/\n/, '');
-const { qrSvg } = createRequire(import.meta.url)(join(root, 'lib/engine/qr.js'));
+const { qrSvg } = createRequire(import.meta.url)(join(root, 'lib/components/connect/_qr-card/qr.js'));
 const qr = qrSvg('https://laticent.com/join', { ecLevel: 'M', margin: 4, label: 'QR' });
 
 const img = (p = 'canoe.jpg') => `<img src="${p}" alt="sample">`;

@@ -46,7 +46,7 @@ describe('author text is used as written, never as a replacement pattern', () =>
   });
 
   test('QR code: the label in aria-label and <title>', async () => {
-    const { qrSvg } = require('../../../lib/engine/qr.js');
+    const { qrSvg } = require('../../../lib/components/connect/_qr-card/qr.js');
     await readsAsWritten((t) => qrSvg('https://example.com', { label: t }), { at: 'aria-label and <title>' });
   });
 
@@ -125,7 +125,7 @@ describe('author text is used as written, never as a replacement pattern', () =>
   });
 
   test("a code package's failure note", async () => {
-    const { withFailureNote } = await import('../../../lib/packages/code-door-core.mjs');
+    const { withFailureNote } = await import('../../../lib/core/code-door-core.mjs');
     await readsAsWritten((t) => withFailureNote('<section id="s1"><p>Body</p></section>', 'pkg', t));
   });
 });

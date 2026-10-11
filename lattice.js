@@ -29,10 +29,10 @@
  * for layout-engine development, not deck authoring).
  *
  * Want a copy someone can render with Marp instead? That is a one-way
- * EXPORT, not a render path: `npm run export:marp` (lib/core/marp-bundle.js)
+ * EXPORT, not a render path: `npm run export:marp` (lib/export/marp-bundle.js)
  * produces a self-contained bundle the recipient renders with their own
  * marp-cli. What such a render does and does not reproduce is the ledger in
- * lib/core/marp-fidelity.js.
+ * lib/export/marp-fidelity.js.
  */
 
 const fs            = require('fs');
@@ -511,7 +511,7 @@ if (process.argv[2] === '__complete') {
   process.exit(0);
 }
 
-// `lattice packages …` — the package store (lib/packages/cli.js). Dispatched BEFORE the render
+// `lattice packages …` — the package store (lib/cli/packages.js). Dispatched BEFORE the render
 // argv parsing, which would otherwise read `packages` as a source file and `--type` as an
 // unknown option. The subcommand owns its own --help.
 //
@@ -520,7 +520,7 @@ if (process.argv[2] === '__complete') {
 // which exits on an unknown option. `spawnSync` blocks until the child is done, and we exit
 // with its code before the render path runs. The cost is one Node startup (~40 ms).
 if (process.argv[2] === 'packages') {
-  const r = require('node:child_process').spawnSync(process.execPath, [path.join(PKG_ROOT, 'lib/packages/cli.js'), ...process.argv.slice(3)], { stdio: 'inherit' });
+  const r = require('node:child_process').spawnSync(process.execPath, [path.join(PKG_ROOT, 'lib/cli/packages.js'), ...process.argv.slice(3)], { stdio: 'inherit' });
   if (r.error) console.error(`error: ${r.error.message}`);
   process.exit(r.status ?? 1);
 }
@@ -802,7 +802,7 @@ function stripSharedSource(src, noteBodies, boundary = undefined) {
 const {
   OVERFLOW_MARKER_LEVELS, isKnownOverflowMarker, stripMarkerForLevel,
 } = require('./lib/core/resolve-overflow-marker');
-const { resolveExportOverflowMarker } = require('./lib/core/marp-bundle');
+const { resolveExportOverflowMarker } = require('./lib/export/marp-bundle');
 const { exportSettingsBlock } = require('./lib/core/export-settings');
 const { exportDeckStyleText } = require('./lib/export/export-scaffold');
 const { exportGlobalCss } = require('./lib/export/author-css');
@@ -1065,12 +1065,12 @@ const { cliThemeStore, cliDeckSheet, shippedSheetText, katexFamilies, katexInlin
 const WANT_PRINT = flags.print || (OUT_FORMAT === 'imageset' && IMAGE_SET_OPTS.mode === 'print');
 // `--size NAME` renders the deck on another registered canvas without editing it: the same
 // front-matter rewrite as the print path, so the engine, the split gate and every reader below see
-// one `size:` (lib/engine/sizes.js `withSize`). An unknown name fails at the size check below.
+// one `size:` (lib/core/sizes.js `withSize`). An unknown name fails at the size check below.
 //
 // A 4K deck exports at HD unless `--size 4k` says otherwise (lib/core/export-canvas.js): the pixels are what make a
 // PDF or PowerPoint big, and the author owns that choice.
 const EXPORT_CANVAS = require('./lib/core/export-canvas').exportCanvas({ deckSize: frontMatterValue((mdRaw.match(/^\uFEFF?---\r?\n([\s\S]*?)\r?\n---/) || [])[1] || '', 'size'), requested: flags.size, format: OUT_FORMAT });
-const mdSized = EXPORT_CANVAS.size ? require('./lib/engine/sizes').withSize(mdRaw, EXPORT_CANVAS.size) : mdRaw;
+const mdSized = EXPORT_CANVAS.size ? require('./lib/core/sizes').withSize(mdRaw, EXPORT_CANVAS.size) : mdRaw;
 if (EXPORT_CANVAS.loweredFrom4k && !flags.quiet) {
   const f = require('./lib/core/export-canvas').FOUR_K_FACTOR[OUT_FORMAT];
   console.log(`  Deck size is 4K; exporting at HD (1280x720) to keep the file small. --size 4k keeps 4K, typically ${f}x larger.`);
@@ -1299,7 +1299,7 @@ if (!fs.existsSync(palettePath) && !installedTheme) {
 }
 // The store is a plain folder: a package unzipped into it by hand, or a `--packages` folder,
 // never passed `add`. So the gate `add` runs is run again here, before the CSS is used, and a
-// refused theme fails the render with the reason (lib/packages/gate.js; HARD RULE #22).
+// refused theme fails the render with the reason (lib/cli/package-gate.js; HARD RULE #22).
 // A shipped name wins over an installed one, and a release that ADDS a shipped name hides a
 // package the user installed under it before. That must not be silent: the deck would render
 // a different theme from the one it rendered yesterday (followups.d/2336 item 1).
@@ -1311,7 +1311,7 @@ if (fs.existsSync(palettePath) && !flags.quiet) {
   }
 }
 if (installedTheme) {
-  const refused = require('./lib/packages/gate.js').refusePackage(installedTheme.pkg);
+  const refused = require('./lib/cli/package-gate.js').refusePackage(installedTheme.pkg);
   if (refused) {
     console.error(`error: the installed theme ${paletteName} is refused: ${refused}`);
     console.error(`       (${installedTheme.dir})`);
@@ -1496,13 +1496,13 @@ const SIZE_DIRECTIVE_RE = /^\s*size:\s*["']?([\w:/.-]+)["']?\s*(?:#.*)?$/m;
 // listing the valid names. No directive → hd default, unchanged. Front-matter-
 // scoped so a `size:` in prose / a code block can't trip it.
 //
-// Reads lib/engine/sizes.js, the same table `resolveSize` resolves against, so
+// Reads lib/core/sizes.js, the same table `resolveSize` resolves against, so
 // the CLI cannot accept a name the renderer would not honor or reject one it
 // would. This used to parse `@size` out of the loaded stylesheets — which meant
 // the guard was only as good as whichever sheet happened to carry the table, and
 // it silently disabled ITSELF (`knownSizes.size &&`) when none did. See
 // engineering/decisions/2026-08-16-size-registry-ownership.md.
-const { SIZES, isRegisteredSize } = require('./lib/engine/sizes');
+const { SIZES, isRegisteredSize } = require('./lib/core/sizes');
 const _mdFmMatch  = md.match(FRONT_MATTER_RE);
 const _mdFm       = _mdFmMatch ? _mdFmMatch[0] : '';
 const explicitSize = (_mdFm.match(SIZE_DIRECTIVE_RE) || [])[1];
@@ -1788,7 +1788,7 @@ let DECK_PLUGIN_CSS = '';
 function refuseUnapprovedCode(pkgs) {
   if (!pkgs.length) return;
   const { untrustedCodePackages } = require('./lib/packages/code-door.js');
-  const { printableLine } = require('./lib/packages/gate.js');
+  const { printableLine } = require('./lib/cli/package-gate.js');
   const untrusted = untrustedCodePackages(pkgs);
   if (!untrusted.length) return;
   for (const u of untrusted) {
@@ -1804,7 +1804,7 @@ function refuseUnapprovedCode(pkgs) {
  * when the user has not given it. A plugin the deck does not list, whose fence the deck writes, is named once.
  */
 function withInstalledPlugins(source) {
-  const { refusePackage } = require('./lib/packages/gate.js');
+  const { refusePackage } = require('./lib/cli/package-gate.js');
   const { activePluginNames } = require('./lib/packages/code-door-fence.mjs');
   const { codeDigest, readTrust, trustOf } = require('./lib/packages/trust.js');
   const PLUGIN_NAMES = require('./lib/plugins/registry.generated.js').PLUGINS.map((g) => g.name);
@@ -1832,7 +1832,7 @@ function withInstalledPlugins(source) {
     const written = inlineKindsOf(p.pkg.manifest).filter((k) => source.includes(`\`@${k.name}{`));
     if (written.length) console.error(`warning: the installed plugin ${p.name} draws ${written.map((k) => `\`@${k.name}{…}\``).join(', ')} spans, and this deck does not list it, so they stay code. To draw them, add it to the deck's front matter: plugins: [${p.name}]`);
   }
-  const { pluginReturnFields } = require('./lib/packages/code-shape.mjs');
+  const { pluginReturnFields } = require('./lib/core/code-shape.mjs');
   return [...installed.filter((p) => active.has(p.name)).map((p) => ({ name: p.name, fence: fenceOf(p), kinds: inlineKindsOf(p.pkg.manifest), returns: pluginReturnFields(p.pkg.manifest), code: p.pkg.files[p.pkg.roles['render.js']], css: p.pkg.roles['styles.css'] ? String(p.pkg.files[p.pkg.roles['styles.css']]) : '', layer: trustOf(approvals, 'plugin', p.name, codeDigest(p.pkg))?.layer ?? null })), ...npm];
 }
 
@@ -1847,7 +1847,7 @@ function withNpmPlugins(source, installed, approvals, shippedNames) {
   // A deck that lists no plugin never reads a list: a file someone planted in a parent folder costs it nothing.
   if (!asked.length) return [];
   const { findPluginList, readPluginList, npmPluginEntries, npmPluginPkg } = require('./lib/packages/npm-plugin-loader.js');
-  const { refusePackage, printableLine } = require('./lib/packages/gate.js');
+  const { refusePackage, printableLine } = require('./lib/cli/package-gate.js');
   const deckDir = path.dirname(path.resolve(mdFile));
   const file = findPluginList(deckDir);
   if (!file) return [];
@@ -1870,11 +1870,11 @@ function withNpmPlugins(source, installed, approvals, shippedNames) {
 // `withInstalledComponents`, which is where "used" is decided.
 let REOPENABLE_COMPONENTS = [];
 function withInstalledComponents(source) {
-  const { embedInstalledComponents, classTokens } = require('./lib/packages/render.js');
-  const { refusePackage } = require('./lib/packages/gate.js');
+  const { embedInstalledComponents, classTokens } = require('./lib/cli/package-render.js');
+  const { refusePackage } = require('./lib/cli/package-gate.js');
   const { embeddedComponentNames } = require('./lib/layout/bridge.js');
   const { COMPONENT_NAMES } = require('./lib/core/resolve-component.js');
-  // The store is a plain folder, so every package is gated again here (lib/packages/gate.js):
+  // The store is a plain folder, so every package is gated again here (lib/cli/package-gate.js):
   // a refused component is left out and named, never embedded.
   const installed = [];
   for (const p of packagesHome.listInstalled(PACKAGES_ROOT).filter((x) => x.type === 'component' && x.ok)) {
@@ -1904,7 +1904,7 @@ function withInstalledComponents(source) {
   const { codeDigest, readTrust, trustOf } = require('./lib/packages/trust.js');
   const reservedNames = require('./lib/packages/index.js').createRegistry(require('./lib/packages/packages.generated.json'));
   const approvals = readTrust();
-  const { codeNameRefusal } = require('./lib/packages/code-door-core.mjs');
+  const { codeNameRefusal } = require('./lib/core/code-door-core.mjs');
   const knownClasses = [...require('./lib/packages/reserved-classes.generated.js').names, ...COMPONENT_NAMES];
   const installedCode = installed.filter((p) => p.pkg.code && !shippedComponents.has(p.name)).filter((p) => {
     if (reservedNames.unreservedName('component', p.name) === p.name && !codeNameRefusal(p.name, knownClasses)) return true;
@@ -2117,9 +2117,9 @@ const SPLIT_CAP = (() => {
   // made autosplit a SILENT NO-OP for every npx/npm consumer of the packaged
   // CLI while working in the repo. lib/ ships in the tarball, so the
   // package-root walk lands on the real manifests in both worlds.
-  // The projection itself is shared with the browser bundle (lib/core/structural-split.js
+  // The projection itself is shared with the browser bundle (lib/engine/structural-split.js
   // `splitCapacityFrom`), so the CLI and the live preview read the same map.
-  const map = require('./lib/core/structural-split').splitCapacityFrom(require('./lib/components').loadAll(path.join(PKG_ROOT, 'lib', 'components')));
+  const map = require('./lib/engine/structural-split').splitCapacityFrom(require('./lib/components').loadAll(path.join(PKG_ROOT, 'lib', 'components')));
   // An empty registry with autosplit requested means the manifests were not
   // found — the exact silent failure this resolver fix closes. Never quiet.
   if (!Object.keys(map).length) {
@@ -2146,7 +2146,7 @@ const PAGINATOR_CAROUSEL_NAMES  = CAROUSEL_NAMES.filter((n) => !WIDTH_REDUCING_S
 // drifted — it used to omit 16:9 and silently rendered it as hd), resolve the
 // `size:` directive through the engine's own `resolveSize`, the same lookup the
 // scaffold bakes into `@page`. It reads the engine's size REGISTRY
-// (lib/engine/sizes.js) — the stylesheets are not consulted, so no sheet is passed.
+// (lib/core/sizes.js) — the stylesheets are not consulted, so no sheet is passed.
 // (resolveSize required above, before the plugins' bakes.)
 const deckSizeName   = (fm.match(SIZE_DIRECTIVE_RE) || [])[1] || 'hd';
 const _geom          = resolveSize(deckSizeName);
@@ -2170,13 +2170,13 @@ const slideH         = parseFloat(_geom.height);
 // cannot happen — inline dimensions are not a size value, and the #502 fail-fast rejects an
 // unregistered name before this line runs.)
 //
-// The gate is `splitApplies` (lib/core/structural-split.js), shared with the browser preview so
+// The gate is `splitApplies` (lib/engine/structural-split.js), shared with the browser preview so
 // the two can never disagree about which box splits. It calls the ONE family classifier
 // (lib/adaptive/families.js `familyFor`), the same call the engine's `data-family` stamp makes,
 // and keeps the `Number.isFinite` guard both sibling call sites carry (lib/engine/index.js,
 // lib/engine/css.js orientationFor): `familyFor(NaN)` falls through every band and returns
 // 'strip', the opposite verdict from the 'wide' those two produce for the same degenerate box.
-const AUTOSPLIT_APPLIES = AUTOSPLIT && require('./lib/core/structural-split').splitApplies(slideW, slideH);
+const AUTOSPLIT_APPLIES = AUTOSPLIT && require('./lib/engine/structural-split').splitApplies(slideW, slideH);
 // Orientation scaling/fill and the slide's own 1% (`--_sec-1cqi`) used to be emitted HERE,
 // beside the deck sheet. The engine's flat sheet now carries both for `deckSizeName`
 // (composeCss appends `geometryVarsCss` + `orientationCss` from the same `resolveSize`), so
@@ -3846,7 +3846,7 @@ async function renderBody(browser, g, closeBrowser) {
     // 2026-10-27-fluid-layout-library.md §12).
     // The deck chrome comes from the front matter (`md`), not from a section's
     // `data-header`/`data-footer`, which a per-slide `_footer:` also fills (railRun's header).
-    const ss = require('./lib/core/structural-split');
+    const ss = require('./lib/engine/structural-split');
     const r = ss.structuralSplit(cleanDocHtml, { deckSource: md, width: slideW, height: slideH, capacity: SPLIT_CAP });
     // With no manifests found (SPLIT_CAP empty, already warned above) `structuralSplit` returns
     // before the adornments. The old inline path still ran `railRun`, whose re-berth touches every

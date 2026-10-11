@@ -1,7 +1,7 @@
 import dgram from 'node:dgram';
 import fs from 'node:fs';
 import http from 'node:http';
-import { WORKER_NETWORK } from '../../lib/packages/code-shape.mjs';
+import { WORKER_NETWORK } from '../../lib/core/code-shape.mjs';
 import { ganttZip } from './plugin-fence-fixture';
 import { expect, gotoStudio, livePreview, setEditorContent, shareExport, test, toastText } from './studio-fixture';
 

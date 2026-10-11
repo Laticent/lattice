@@ -20,7 +20,7 @@ const fs = require('fs');
 const path = require('path');
 
 const { simulate } = require('../../../lib/theme/cvd.js');
-const { oklabDistance, contrastRatio, normalizeHex } = require('../../../lib/theme/color.js');
+const { oklabDistance, contrastRatio, normalizeHex } = require('../../../lib/core/color.js');
 
 const THEMES = path.join(__dirname, '../../../themes');
 const FLOOR = 0.15; // "just about distinct" — the audit's collapse threshold

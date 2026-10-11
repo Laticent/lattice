@@ -27,12 +27,12 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { codePackages, bundleCodePackage } = require('../../../lib/packages/code-bundle.js');
 const { launchSandboxBrowser, openPackageSandbox, workerScript, runPackage } = require('../../../lib/core/code-sandbox.js');
-const { WORKER_NETWORK } = require('../../../lib/packages/code-shape.mjs');
+const { WORKER_NETWORK } = require('../../../lib/core/code-shape.mjs');
 const { splitSections } = require('../../../lib/core/split-sections.js');
 const { enterSlideIds, renderIdPrefix } = require('../../../lib/core/render-ids.js');
 const { LAYOUTS } = require('../../../lib/plugins/chart-family/shared/chart-registry.generated.js');
 const engine = require('../../../lib/engine');
-const { slideFacts } = require('../../../lib/packages/slide-facts.mjs');
+const { slideFacts } = require('../../../lib/core/slide-facts.mjs');
 const { openSanitizerPage } = require('../../../lib/packages/code-door-worker.js');
 const { doorFilterAttr, handedOf } = require('../../../lib/core/door-attr.mjs');
 

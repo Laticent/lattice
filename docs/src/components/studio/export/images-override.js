@@ -8,7 +8,7 @@ import exportCanvasCore from '../../../../../lib/core/export-canvas.js';
 import fontPolicyCore from '../../../../../lib/core/font-policy.js';
 import frontMatterKeyCore from '../../../../../lib/core/front-matter-key.js';
 import imagePolicyCore from '../../../../../lib/core/image-policy.js';
-import sizesCore from '../../../../../lib/engine/sizes.js';
+import sizesCore from '../../../../../lib/core/sizes.js';
 
 let override = { mode: 'deck', quality: '' };
 

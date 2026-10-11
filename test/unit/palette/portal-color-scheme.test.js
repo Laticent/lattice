@@ -20,7 +20,7 @@ const {
   paletteCss,
   resolvePalettes,
 } = require('../../../tools/build-docs-portal');
-const { contrastRatio } = require('../../../lib/theme/color.js');
+const { contrastRatio } = require('../../../lib/core/color.js');
 
 describe('portal color-scheme derivation', () => {
   test('isDarkSurface: luminance threshold on hex (3- and 6-digit, case-insensitive)', () => {

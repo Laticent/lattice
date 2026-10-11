@@ -11,7 +11,7 @@ import { Code2, Sparkles } from 'lucide-react';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { approveCodePackage, approvePlugin, type CodePackagesStatus, isPluginApproved, offeredIn, onCodePackagesStatus, type StudioPlugin, unapprovedIn } from '@/lib/code-packages/door';
-import { returnsConsent } from '../../../../lib/packages/code-shape.mjs';
+import { returnsConsent } from '../../../../lib/core/code-shape.mjs';
 import { deckPluginList, writeDeckPlugins } from '../../../../lib/plugins/deck-plugins.mjs';
 
 const isPlugin = (p: { name: string }): p is StudioPlugin => 'fence' in p;

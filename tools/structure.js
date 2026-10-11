@@ -53,6 +53,9 @@ const PARTS = [
   { part: 'lib/exemplars', layer: 0, match: 'lib/exemplars/' },
   { part: 'lib/typography', layer: 0, match: 'lib/typography/' },
   { part: 'lib/motion', layer: 0, match: 'lib/motion/' },
+  // A JSON Schema is a contract both sides read (the component, theme, plugin and package
+  // formats), and imports nothing: its own part, at the bottom, wherever its folder is.
+  { part: 'lib/schemas', layer: 0, match: (f) => /^lib\/.*\.schema\.json$/.test(f) },
   { part: 'lib/core', layer: 1, match: 'lib/core/' },
   { part: 'lib/plugin-kit', layer: 2, match: 'lib/plugin-kit/' },
   { part: 'lib/theme', layer: 2, match: 'lib/theme/' },
@@ -61,6 +64,9 @@ const PARTS = [
   { part: 'lib/components', layer: 3, match: 'lib/components/' },
   { part: 'lib/forms', layer: 3, match: 'lib/forms/' },
   { part: 'lib/layout', layer: 3, match: 'lib/layout/' },
+  // The package FORMAT: how a component, theme, finish or plugin folder is read, written and
+  // stored. The commands that act on packages (add, gate, render) are lib/cli.
+  { part: 'lib/packages', layer: 3, match: 'lib/packages/' },
   { part: 'lib/transformers', layer: 4, match: 'lib/transformers/' },
   { part: 'lib/plugins', layer: 4, match: (f) => /^lib\/plugins\/[^/]+$/.test(f) },
   { part: (f) => `lib/plugins/${f.split('/')[2]}`, layer: 4, plugin: true, match: 'lib/plugins/' },
@@ -70,7 +76,6 @@ const PARTS = [
   { part: 'lib/concepts', layer: 6, match: 'lib/concepts/' },
   { part: 'lib/diagnostics', layer: 6, match: 'lib/diagnostics/' },
   { part: 'lib/export', layer: 6, match: 'lib/export/' },
-  { part: 'lib/packages', layer: 6, match: 'lib/packages/' },
   { part: 'lib/playground', layer: 6, match: 'lib/playground/' },
   { part: 'lib/runtime', layer: 6, match: 'lib/runtime/' },
   { part: 'lattice.js', layer: 7, match: (f) => f === 'lattice.js' },

@@ -8,7 +8,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const { MAX_JSON_VALUES, countJsonValues, parseJsonCapped } = require('../../../lib/packages/json-guard.js');
 const { readPackage } = require('../../../lib/packages/index.js');
-const { refusePackage } = require('../../../lib/packages/gate.js');
+const { refusePackage } = require('../../../lib/cli/package-gate.js');
 
 describe('countJsonValues', () => {
   test('counts objects, arrays and commas outside strings only', () => {

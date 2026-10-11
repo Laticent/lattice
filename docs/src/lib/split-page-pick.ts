@@ -2,7 +2,7 @@
  * Which page of a split run the Studio preview shows: the one the caret is on.
  *
  * At portrait/square a slide with several rows splits into a run — cover, one page per row,
- * closing (lib/core/structural-split.js). The Studio preview frame holds ONE page (#1551), so it
+ * closing (lib/engine/structural-split.js). The Studio preview frame holds ONE page (#1551), so it
  * shows the page holding the line being edited (the owner's pick, "follow the caret").
  *
  * The rule reads TEXT, not structure, so it needs no per-component or per-editor knowledge:

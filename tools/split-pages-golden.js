@@ -29,7 +29,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
-const ss = require('../lib/core/structural-split');
+const ss = require('../lib/engine/structural-split');
 const { loadAll } = require('../lib/components');
 const { createEngine } = require('../lib/engine');
 

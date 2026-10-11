@@ -6,7 +6,7 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const { checkReturnData, renderReturnMarkdown, returnAttr } = require('../../../lib/packages/plugin-returns.mjs');
-const { RETURN_ENVELOPE, splitReturn, pluginReturnFields, returnsRefusal, returnsConsent, pluginConsentText, MAX_RETURN_TEXT, MAX_RETURN_MARKDOWN } = require('../../../lib/packages/code-shape.mjs');
+const { RETURN_ENVELOPE, splitReturn, pluginReturnFields, returnsRefusal, returnsConsent, pluginConsentText, MAX_RETURN_TEXT, MAX_RETURN_MARKDOWN } = require('../../../lib/core/code-shape.mjs');
 const { replaceFences } = require('../../../lib/packages/code-door-fence.mjs');
 
 const manifest = (fields) => ({ contributes: { fences: { g: {} }, returns: { fields } } });

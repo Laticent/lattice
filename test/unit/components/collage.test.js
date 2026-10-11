@@ -174,7 +174,7 @@ test('live path and engine path pick the same layout for the same sizes', () => 
 // ── a collage never splits across slides ────────────────────────────────────────────────
 const path = require('node:path');
 const fs = require('node:fs');
-const ss = require('../../../lib/core/structural-split');
+const ss = require('../../../lib/engine/structural-split');
 const { loadAll } = require('../../../lib/components');
 const { createEngine } = require('../../../lib/engine');
 

@@ -10,7 +10,7 @@
 //   ONE SLOT, IN THE ENGINE. The registry's code-packages slot, right after the charts
 //     (lib/transformers/code-packages.js). A first render captures the slides packages claim, the
 //     packages run in their sandboxes (runner.ts), and a second render puts the output in.
-//   FIRST MATCH, SPLICING, NOTES: the shared kernel (lib/packages/code-door-core.mjs).
+//   FIRST MATCH, SPLICING, NOTES: the shared kernel (lib/core/code-door-core.mjs).
 //   SANITIZED, KEEPING ONLY WHAT IT WAS HANDED: the slide sanitizer with the door's attribute rule
 //     (lib/core/door-attr.mjs `doorFinish`), the same function the CLI's sanitizer page runs.
 //   BOUNDED: 2 s per slide, 30 s and 4 million characters of output per render; a package's frame
@@ -22,17 +22,17 @@
 // running half is door-run.ts, loaded only once a render meets a code package, so a Studio with no
 // code package never downloads the kernel, the sanitizer or the runner.
 
+import { pluginConsentText, pluginReturnFields, returnsRefusal } from '../../../../lib/core/code-shape.mjs';
 import { commentBodies, readDirectiveComment } from '../../../../lib/core/comment-directive.mjs';
 import { CLASS_VOCAB } from '../../../../lib/core/meta-keys.mjs';
 import { ASPECT_RE, planFencePlugins, scopePluginCss } from '../../../../lib/packages/code-door-fence.mjs';
-import { pluginConsentText, pluginReturnFields, returnsRefusal } from '../../../../lib/packages/code-shape.mjs';
 import FENCE_DOOR from '../../../../lib/packages/fence-door.generated.json';
 import { deckPluginList } from '../../../../lib/plugins/deck-plugins.mjs';
 
 /** The `class` slice of the directive vocabulary: `unapprovedIn` asks one key (lib/core/comment-directive.mjs). */
 
 /** A code package the Studio knows: a saved component whose package carries a `transform.js`. */
-// `facts`: the slide-facts version the package's manifest declares (lib/packages/code-shape.mjs factsRefusal).
+// `facts`: the slide-facts version the package's manifest declares (lib/core/code-shape.mjs factsRefusal).
 export type StudioCodePackage = { name: string; code: string; sha256: string; bytes: number; facts?: unknown };
 /**
  * A zip PLUGIN the Studio knows: a saved plugin whose `render.js` owns one fence (plugin-system §9

@@ -58,7 +58,7 @@ const CENSUS = [
   ['lib/core/bg-image-lift.js', M, 'parses each comment with readDirectiveComment (the Marp export\'s lift, moved out of bg-image.js)'],
   ['lib/core/chart-narration.js', M, 'spot class read through commentBodies and readDirectiveComment'],
   ['lib/core/class-directive-scan.mjs', M, 'a view over scanMetaSource'],
-  ['lib/core/marp-bundle-math.js', S, 'inserts escapes at byte offsets inside header and footer values; needs a positional reader'],
+  ['lib/export/marp-bundle-math.js', S, 'inserts escapes at byte offsets inside header and footer values; needs a positional reader'],
   ['lib/core/pane-spec.js', D, 'authored marker regexes move to parsePaneMarker at the step 2 door; the internal-form regexes stay (design §5.4.1)'],
   ['lib/core/panes.js', D, 'the rewrite and forgery guard move into the step 2 door; the carve reads the internal form and stays (design §5.4.1)'],
   ['lib/core/resolve-motion.mjs', S, 'matches motion words in ANY comment, notes included'],
@@ -88,7 +88,7 @@ const CENSUS = [
   ['lib/core/split-panels.js', S, 'strips comments from rendered HTML'],
   ['lib/export/html-player.js', S, 'a rendered-HTML comment tokenizer'],
   ['lib/forms/cell/masthead/masthead.transform.js', S, 'only strips, skips or tokenizes comments'],
-  ['lib/packages/code-door-core.mjs', S, 'only strips, skips or tokenizes comments'],
+  ['lib/core/code-door-core.mjs', S, 'only strips, skips or tokenizes comments'],
   ['lib/plugins/chart-family/chart-family.dispatch.js', S, 'only strips, skips or tokenizes comments'],
 ];
 

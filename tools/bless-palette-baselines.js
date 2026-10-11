@@ -53,7 +53,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { simulate, SIMULATED_TYPES } = require('../lib/theme/cvd.js');
-const { oklabDistance } = require('../lib/theme/color.js');
+const { oklabDistance } = require('../lib/core/color.js');
 const { resolveTokenExpr } = require('../lib/core/resolve-token-expr.js');
 const composed = require('./composed-contrast.js');
 

@@ -146,7 +146,7 @@ describe('meta cannot be switched off', () => {
   });
 
   test('an external (zip) plugin cannot contribute meta', () => {
-    const { PLUGIN_DATA_CONTRIBUTIONS } = require('../../../lib/packages/code-shape.mjs');
+    const { PLUGIN_DATA_CONTRIBUTIONS } = require('../../../lib/core/code-shape.mjs');
     assert.ok(![...PLUGIN_DATA_CONTRIBUTIONS].includes('meta'), 'meta must not be a contribution a zip plugin may declare');
   });
 });

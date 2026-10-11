@@ -28,7 +28,7 @@ const path = require('node:path');
 const { withPluginRegisters, settingValues } = require('../lib/core/deck-settings');
 const { withProse } = require('../lib/core/deck-settings.prose');
 const { buildVocab } = require('../lib/authoring/lint');
-const { SIZES } = require('../lib/engine/sizes');
+const { SIZES } = require('../lib/core/sizes');
 
 const ROOT = path.join(__dirname, '..');
 const OUT = path.join(ROOT, 'dist', 'schemas', 'front-matter.schema.json');
