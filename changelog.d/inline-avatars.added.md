@@ -10,3 +10,6 @@
   with photos and monograms. With the plugin off, that person gets a monogram, never their role.
 - **Inline code that opens with `!{` is now notation.** `!` joins `~` (sparks) and `^` (icons) as a
   record tag. A span that starts with `!` and no brace (`!important`) renders as before.
+- **The website teaches avatars.** A new Avatars guide, with live examples you can edit, and an
+  Avatars cheat sheet sit beside Sparks under Inline elements. "Things you put in a line" now
+  covers four elements.
