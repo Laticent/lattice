@@ -1,6 +1,6 @@
 ---
 title: Things you put in a line
-description: Start here. Three small elements sit inside a line of text anywhere on a slide — a state mark, a pill and a spark. All three are written in inline code, and a backslash keeps any of them as plain code.
+description: Start here. Four small elements sit inside a line of text anywhere on a slide — a state mark, a pill, a spark and an avatar. All four are written in inline code, and a backslash keeps any of them as plain code.
 ---
 
 import CraftLab from '../../../../components/craft/CraftLab.astro';
@@ -17,9 +17,9 @@ export const LAB_ALL = `<!-- _class: checklist -->
 
 Some things on a slide are smaller than a layout and bigger than a word: an answer
 to "is it done?", a label for the team that owns it, a trend over the last eight
-weeks. Lattice has one element for each, and you write all three the same way,
-inside inline code (a pair of backticks), so they work in any layout: a table cell,
-a list item, a `kpi` line or a sentence.
+weeks, a face for the person who owns it. Lattice has one element for each, and you
+write all four the same way, inside inline code (a pair of backticks), so they work
+in any layout: a table cell, a list item, a `kpi` line or a sentence.
 
 <CraftLab
 	label="A mark, a pill and a spark on every row"
@@ -37,9 +37,10 @@ a list item, a `kpi` line or a sentence.
 | **An answer**: yes, no, partly, unknown, not yet, not applicable | A **state mark** | `` `[x]` `` `` `[!]` `` `` `[?]` `` | [Status and labels](/guides/status/) |
 | **A label**: a team, a phase, a version | A **pill** | `` `{STABLE, c2}` `` | [Pills you place](/guides/status/pills/) |
 | **A trend or a share**: eight quarters, 72% of target | A **spark** | `` `~{12 14 17 21}` `` | [Sparks](/guides/inline/sparks/) |
+| **A person**: a drawn face for someone with no photo | An **avatar** | `` `!{Ada Okafor}` `` | [Avatars](/guides/inline/avatars/) |
 
 The opening character tells them apart: square brackets make a mark, braces make a
-pill, and a tilde before the braces makes a spark. Everything after a `:` adjusts
+pill, a tilde before the braces makes a spark, and a `!` before them makes an avatar. Everything after a `:` adjusts
 the element, such as a color (`c4`), a size (`lg`) or a chart type (`bar`).
 
 A layout built around marks, like the `checklist` above, takes its mark at the start
@@ -49,7 +50,7 @@ code.
 ## Keeping one as plain code
 
 Put a backslash first and the element stays as the code you typed, minus the
-backslash: `` `\[x]` ``, `` `\{STABLE}` ``, `` `\~{12 14}` ``. The backslash counts
+backslash: `` `\[x]` ``, `` `\{STABLE}` ``, `` `\~{12 14}` ``, `` `\!{Ada}` ``. The backslash counts
 only when the element would have rendered, so a regular expression like
 `` `\d+` `` is left alone.
 
@@ -58,13 +59,14 @@ doesn't know, also stays code. `lint:deck` warns about it and says why.
 
 ## Writing them in the Studio
 
-The Studio editor completes all three. After a pill's or a spark's `:`, the menu
+The Studio editor completes marks, pills and sparks. After a pill's or a spark's `:`, the menu
 offers only what may come next: a pill's shape, then its color, then its size; a
 spark's type, then its size, then its color. Each word it offers is one the element
-can actually take.
+can actually take. Avatar traits are not completed yet.
 
 ## Next
 
 - [Status and labels](/guides/status/): marks, pills and the words a layout uses for them.
 - [Sparks](/guides/inline/sparks/): the seven chart types, the looks, the frame and sizing.
-- The cheat sheets: [status and labels](/guides/status/cheat-sheet/) and [sparks](/guides/inline/sparks-cheat-sheet/).
+- [Avatars](/guides/inline/avatars/): the name, the twelve traits, the tile, and avatars in a roster.
+- The cheat sheets: [status and labels](/guides/status/cheat-sheet/), [sparks](/guides/inline/sparks-cheat-sheet/) and [avatars](/guides/inline/avatars-cheat-sheet/).

@@ -295,6 +295,10 @@ clean handoff point.
   CSS-themed decks where inline code routinely starts with `:root`,
   `@media`, `#header`, `!important`. A sigil scheme on those chars
   would misfire constantly and there's no clean escape per-occurrence.
+  *Amended 2026-10-09:* `!` is now a Segno record TAG, which is a narrower thing than the
+  sigil ruled out here: it means something only directly before `{` (`!{Ada Okafor}`, the
+  avatars plugin), so `!important` stays code. Measured before it shipped: 30 spans start
+  with `!`, none with `!{`. See `2026-10-09-inline-avatars.md` § 3.
 - **`prefix:value` for the long tail.** Self-documenting in source
   (a code reviewer can tell what `` `kbd:Cmd+P` `` does without a
   cheatsheet), avoids the CSS collision problem because the namespace

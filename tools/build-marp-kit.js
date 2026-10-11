@@ -316,6 +316,7 @@ nothing on our side had ever rendered it. The reference render was made with
 | \`mermaid-v11-min.js\` | Third party. Diagram slides need it. |
 | \`lattice-dagre-min.js\` | Third party. Lays out a state chart that BRANCHES. **Delete it and the chart still draws** — on the reading-order grid a chain uses, each branch drawn as a skip, which looks deliberate rather than broken. It is the one file here whose absence is invisible on the slide. |
 | \`lattice-plugin-icons.js\` | Third party (Tabler Icons). The icon drawings; the runtime loads it the first time a slide writes \`^{name}\`. **Delete it and every icon stays the code you typed.** |
+| \`lattice-plugin-avatars.js\` | Ours. The avatar drawings; the runtime loads it the first time a slide writes \`!{Name}\`. **Delete it and every avatar stays the code you typed, and a team-profile portrait becomes a monogram.** |
 | \`lattice.css\` · \`${THEME}.css\` · \`${THEME}-dark.css\` · \`lattice-runtime.js\` | Unminified counterparts of the four above, for reading or diffing. Neither config references them — delete them freely, or keep them for reference. |
 | \`fonts/\` | The embedded typefaces. **Do not drop these** — without them type falls back to system serif, silently. |
 | \`marp.config.cjs\` | Registers the stylesheets for marp-cli. |

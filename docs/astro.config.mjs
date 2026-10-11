@@ -236,7 +236,7 @@ export default defineConfig({
 					],
 				},
 				{
-					// Elements that sit INSIDE a line of text: state marks, pills and sparks.
+					// Elements that sit INSIDE a line of text: state marks, pills, sparks and avatars.
 					// One group because they are one syntax family (inline code, one dispatcher
 					// in lib/core/inline-code-directives.js, one `\` escape), and a new inline
 					// form lands here rather than in Guides, whose pages cover the whole deck.
@@ -261,6 +261,7 @@ export default defineConfig({
 							],
 						},
 						{ label: 'Sparks', slug: 'guides/inline/sparks' },
+						{ label: 'Avatars', slug: 'guides/inline/avatars' },
 					],
 				},
 				{
@@ -276,6 +277,7 @@ export default defineConfig({
 						{ label: 'CLI', slug: 'reference/cli' },
 						{ label: 'Status and labels cheat sheet', slug: 'guides/status/cheat-sheet' },
 						{ label: 'Sparks cheat sheet', slug: 'guides/inline/sparks-cheat-sheet' },
+						{ label: 'Avatars cheat sheet', slug: 'guides/inline/avatars-cheat-sheet' },
 					],
 				},
 				{

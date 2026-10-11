@@ -139,7 +139,7 @@ describe('Export-to-Marp follows the deck\'s plugin admission — real marp-cli,
   test('--default-plugins=none --disable-plugin=chart-family: the fence stays source, the chart its list', async (t) => {
     if (skip) return t.skip(skip);
     const { page, md } = pages.none;
-    assert.match(md, /"pluginsOff":\["anima","chart-family","function-plot","icons","math","mermaid"\]/);
+    assert.match(md, /"pluginsOff":\["anima","avatars","chart-family","function-plot","icons","math","mermaid"\]/);
     assert.equal(await page.$$eval(':is(pre,marp-pre)[data-lattice-off="mermaid"]', (e) => e.length), 1, 'the mermaid <pre> is marked');
     assert.equal(await page.$$eval('[data-lattice-figure]', (e) => e.length), 0, 'no diagram drawn');
     assert.match(await page.$eval('[data-lattice-off="mermaid"] code', (e) => e.textContent), /flowchart LR/);

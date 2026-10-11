@@ -90,7 +90,7 @@
     "portrait": {
       "selector": "ul > li > ul > li > img",
       "required": false,
-      "description": "The person's photo, nested under their name as `- ![](photo.jpg)`. Leave the alt empty — the name beside it is the accessible label. Omit it entirely and the engine draws a monogram from the initials instead. To try the layout before you have the photos, use Lattice's sample portraits: `![](sample:portrait-ada.svg)` (the full set is in `lib/samples/README.md`)."
+      "description": "The person's photo, nested under their name as `- ![](photo.jpg)`. Leave the alt empty — the name beside it is the accessible label. Omit it entirely and the engine draws a monogram from the initials instead. To try the layout before you have the photos, use Lattice's sample portraits: `![](sample:portrait-ada.svg)` (the full set is in `lib/samples/README.md`), or draw one with the avatars plugin: `` `!{Ada Okafor, hair=coily}` `` on that line is the portrait, its face chosen by the name and the traits written (`lib/plugins/avatars/avatars.docs.md`)."
     },
     "role": {
       "selector": "ul > li > ul > li > code",

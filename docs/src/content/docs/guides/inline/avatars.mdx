@@ -1,0 +1,192 @@
+---
+title: Avatars
+description: A drawn face the size of a word — write a name in `!{…}` inside inline code and Lattice draws a head-and-shoulders portrait. The name picks every trait you leave out, so it is the same face on every render.
+---
+
+import CraftLab from '../../../../components/craft/CraftLab.astro';
+
+export const LAB_ROSTER = `<!-- _class: team-profile -->
+
+## Six names and nothing else: the name chose every face.
+
+- Ada Okafor
+  - \`!{Ada Okafor}\`
+  - \`Executive Sponsor\`
+- Marcus Vale
+  - \`!{Marcus Vale}\`
+  - \`Program Director\`
+- Priya Raman
+  - \`!{Priya Raman}\`
+  - \`Head of Delivery\`
+- Tomas Lindqvist
+  - \`!{Tomas Lindqvist}\`
+  - \`Solutions Architect\`
+- Nia Bello
+  - \`!{Nia Bello}\`
+  - \`Data Lead\`
+- Jonah Reyes
+  - \`!{Jonah Reyes}\`
+  - \`Customer Success\`
+`;
+
+export const LAB_TRAITS = `<!-- _class: team-profile -->
+
+## Pin what makes someone recognizable; the name does the rest.
+
+- Ada Okafor
+  - \`!{Ada Okafor, skin=7, hair=coily, glasses=round, c3}\`
+  - \`Executive Sponsor\`
+- Marcus Vale
+  - \`!{Marcus Vale, gender=man, hair=side, hair-color=gray, beard=full, c1}\`
+  - \`Program Director\`
+- Priya Raman
+  - \`!{Priya Raman, skin=5, hair=long, hair-color=black, c6}\`
+  - \`Head of Delivery\`
+`;
+
+export const LAB_TILE = `<!-- _class: list-tabular -->
+
+## The tile takes the deck's colors; the face keeps its own.
+
+1. Sizes
+   - \`!{Kenji Sato, sm}\` \`!{Kenji Sato}\` \`!{Kenji Sato, lg}\` \`!{Kenji Sato, xl}\`
+2. Shapes
+   - \`!{Sofia Marchetti, lg}\` \`!{Sofia Marchetti, lg, rounded}\` \`!{Sofia Marchetti, lg, square}\` \`!{Sofia Marchetti, lg, bare}\`
+3. Colors and rings
+   - \`!{Nia Bello, lg, c1}\` \`!{Nia Bello, lg, c3}\` \`!{Nia Bello, lg, c5, border=c5}\` \`!{Nia Bello, lg, c7, border=c7}\`
+`;
+
+An **avatar** is a drawn stand-in portrait. You write the person's name in `!{…}` inside
+**single-backtick** inline code, and Lattice draws a head and shoulders on a tinted tile:
+
+```markdown
+Our sponsor `!{Ada Okafor}` Ada clears blockers above the program.
+```
+
+It is for the face you do not have a photo of yet, a fictional persona, or a template
+where faces are the point. When you have the real photo, use the photo.
+
+## The name picks the face
+
+The name is the only thing an avatar needs. **Every trait you do not write is chosen by the
+name**, so `` `!{Ada Okafor}` `` is the same face on every render, on every surface, and in
+every copy of the deck. Case and spacing do not change it.
+
+<CraftLab
+	label="Six names, six faces"
+	kind="none"
+	editMarkdown
+	markdown={LAB_ROSTER}
+	size="short"
+	hint="Change a name by one letter and that face changes; change it back and the old face returns. Nothing is random."
+/>
+
+## Write only the traits you care about
+
+A trait is written by name, `key=value`, because the values overlap: `round` is a face, an
+eye shape and a pair of glasses. Pin the two or three things that make someone
+recognizable, and the name fills in the rest. Pinning one trait never reshuffles the others.
+
+<CraftLab
+	label="Three people, a few traits each"
+	kind="none"
+	editMarkdown
+	markdown={LAB_TRAITS}
+	size="short"
+	hint="Add glasses=square to Priya, or change Marcus's beard=full to beard=goatee."
+/>
+
+| Trait | Values |
+|---|---|
+| `skin` | `1` (lightest) to `8` (deepest) |
+| `hair` | `none` `buzz` `short` `side` `curly` `coily` `bob` `long` `bun` `locs` |
+| `hair-color` | `black` `darkbrown` `brown` `auburn` `red` `blonde` `platinum` `gray` `white` |
+| `face` | `oval` `round` `long` `square` `heart` |
+| `eyes` | `round` `almond` `narrow` `smile` |
+| `eye-color` | `brown` `dark` `hazel` `green` `blue` `gray` |
+| `brows` | `soft` `straight` `arched` `thick` |
+| `nose` | `button` `straight` `wide` `long` |
+| `mouth` | `smile` `grin` `neutral` `smirk` |
+| `beard` | `none` `stubble` `mustache` `goatee` `full` |
+| `glasses` | `none` `round` `square` |
+| `top` | `navy` `slate` `charcoal` `olive` `teal` `plum` `brick` `taupe` `cream` |
+
+Skin, hair, eyes and clothes keep their colors in every theme, as a photograph does. A
+person's skin does not change when the deck switches palette.
+
+### `gender=` is a preset, not a lock
+
+`gender=woman`, `gender=man` or `gender=neutral` (the default) changes which hair, beard and
+brows the name picks from. It never limits what you can write: `` `!{Sam Lee, gender=man, hair=long}` ``
+has long hair, and any trait you write wins over the preset.
+
+## The tile
+
+The tile behind the face belongs to the deck. Its words are bare, with no `key=`:
+
+<CraftLab
+	label="Sizes, shapes, colors and rings"
+	kind="none"
+	editMarkdown
+	markdown={LAB_TILE}
+	size="short"
+	hint="Try c9 to c12, or border=c2 on the plain avatar."
+/>
+
+| Word | What it does | Default |
+|---|---|---|
+| `c1` to `c12` | the tile's color, from the same cycle sparks and charts use | picked by the name from `c1`–`c8` |
+| `sm` `md` `lg` `xl` | the size: `sm` and `md` sit inside a line of text, `lg` and `xl` stand beside it | `md` |
+| `circle` `rounded` `square` | the tile's shape | `circle` |
+| `framed` `bare` | a pale tile behind the person, or the bust alone | `framed` |
+| `border=c1` … `border=c12` | a ring in that color | no ring |
+| `label="…"` | what a screen reader says, when the name is not right | the name |
+
+The tile is a pale tint of its color over white in light and dark mode alike, so dark
+clothes never sink into a dark slide. To style every avatar in a deck at once, set the
+`avatar:` front matter (`avatar: rounded bare`), or a slide's class (`avatar-square`). An
+avatar's own word wins over both.
+
+## In a team-profile roster
+
+Write the avatar on the line where the photo goes, and it becomes the portrait. Avatars mix
+freely with real photos and with monograms for people you describe in neither:
+
+```markdown
+<!-- _class: team-profile -->
+
+- Ada Okafor
+  - `!{Ada Okafor, hair=coily, skin=6}`
+  - `Executive Sponsor`
+- Marcus Vale
+  - ![](marcus.jpg)
+  - `Chief Financial Officer`
+- Hana Suzuki
+  - `Field Engineer`
+```
+
+The portrait is an avatar alone on its line, or beside the role. An avatar anywhere else, in
+a note that mentions someone, stays where you wrote it. The name is right beside the
+portrait, so a screen reader hears it once, not twice.
+
+## What stays as code
+
+A span that opens with `!{` and does not read stays as the code you typed: a value a trait
+does not have (`skin=9`, `hair=mohawk`), a word that is not a tile word, or no name.
+`lint:deck` warns and lists the values the trait does take. A backslash keeps a valid one as
+code on purpose: `` `\!{Ada Okafor}` ``.
+
+In a roster, an avatar that did not draw never becomes the person's role: a broken one stays
+as written, and one whose drawings have not arrived yet shows a monogram.
+
+## Where it renders
+
+Everywhere a deck does: the PDF, HTML and PowerPoint exports from the CLI, the Studio, the
+Playground and an Export-to-Marp bundle. The drawings load only for a deck that writes an
+avatar, so a deck without one pays nothing. The Studio editor does not yet complete trait
+names as you type.
+
+## Next
+
+- The [avatars cheat sheet](/guides/inline/avatars-cheat-sheet/): every trait and word on one page.
+- [Things you put in a line](/guides/inline/): how avatars sit beside marks, pills and sparks.

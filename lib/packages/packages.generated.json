@@ -6,7 +6,7 @@
     "component": 74,
     "finish": 9,
     "motion": 4,
-    "plugin": 6
+    "plugin": 7
   },
   "packages": [
     {
@@ -1313,6 +1313,23 @@
         "fixtures.md",
         "manifest.json",
         "render.js"
+      ],
+      "code": true
+    },
+    {
+      "type": "plugin",
+      "name": "avatars",
+      "path": "lib/plugins/avatars",
+      "roles": [
+        "data.generated.js",
+        "docs.md",
+        "fixtures.md",
+        "inline.js",
+        "manifest.json",
+        "services.js",
+        "styles.css",
+        "syntax.mjs",
+        "vocab.generated.js"
       ],
       "code": true
     },

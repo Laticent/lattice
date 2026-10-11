@@ -82,7 +82,7 @@ export function iconInsertion(before: string, name: string, after = ''): CaretEd
 			depth--;
 		}
 	}
-	if (inCode && open > codeStart && !/[~^]$/.test(before.slice(0, open))) {
+	if (inCode && open > codeStart && !/[~^!]$/.test(before.slice(0, open))) {
 		const inside = before.slice(open + 1);
 		// `{` → nothing; `{S3, ` → nothing; `{S3,` → a space; `{S3` → a comma and a space.
 		const sep = !inside.trim() || /,\s+$/.test(inside) ? '' : /,$/.test(inside) ? ' ' : ', ';
