@@ -18,8 +18,12 @@ test('the style register finds its rule', () => {
   assert.ok(rule, 'register selector not found in base.variants.css');
 });
 
-test('the register excludes an accent slide, with accent\'s own split-frame carve-out', () => {
-  assert.match(rule, /:not\(:where\([^)]*section\.accent:not\(\.split-panel, \.split-compare\)/);
+test('the register excludes an accent slide', () => {
+  assert.match(rule, /:not\(:where\([^)]*section\.accent,/);
+});
+
+test('the register excludes split-panel and split-compare, whose own two-segment bar is the top edge', () => {
+  assert.match(rule, /:not\(:where\(\.split-panel, \.split-compare,/);
 });
 
 test('the register excludes a SEMANTIC tone-edge only, so a bare tone-edge keeps the spectrum', () => {

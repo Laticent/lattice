@@ -248,3 +248,13 @@ suppressed ad hoc in seven places. The `rule` Tile manifest still describes a
 Tile that does not exist. Promoting it to a real Form noun — an edge Cell the
 root Frame owns, with `suppresses` able to name it — is the follow-up this change
 does not attempt.
+
+## Addendum 2026-10-11 — a styled register re-doubled the bar
+
+`section.split-panel { border-top: none }` and the `split-compare` twin sit at (0,1,1). The
+`spectrum: solid|duo|mono` register rule in `lib/base/base.variants.css` sits at (0,3,1), so it won
+and painted its section `border-top` above the frames' own two-segment bar — the exact doubling
+this note removed, back under any styled register. Measured on indaco at x=960, `spectrum: duo`,
+before: 8px duo gradient, then the 8px panel bar (`#006FA8` / `#82C8E5` dark). After: the panel bar
+alone, identical to the rainbow deck. The register rule now excludes `.split-panel` and
+`.split-compare` inside its existing `:where()`, so its specificity stays (0,3,1).
