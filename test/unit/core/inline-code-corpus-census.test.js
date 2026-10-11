@@ -56,6 +56,7 @@ const DEMONSTRATES_THE_GRAMMAR = new Map([
   ['examples/inline-pills.md', 'the demo deck for the pill and mark grammar (HARD RULE #9)'],
   ['examples/inline-sparks.md', 'the demo deck for the `~{…}` spark grammar (HARD RULE #9)'],
   ['examples/segno-phase-2.md', 'the demo deck for Segno phase 2: every record spelling on its slide (HARD RULE #9). Its flowchart `{diamond, c2}` is counted here but renders as a style, not a pill — the census reads spans without their slide, and the flowchart owns its rows (lib/core/resolve-inline-code.js)'],
+  ['examples/avatars.md', 'the demo deck for the avatars plugin: `!{…}` inline and as a team-profile portrait (HARD RULE #9)'],
   ['examples/inline-icons.md', 'the demo deck for the icons plugin: `^{…}` and the pill\'s `icon=` (HARD RULE #9)'],
   ['examples/hub-spoke-icons.md', 'the demo deck for icons on hub-spoke (HARD RULE #9). Its `{icon=…}` records are counted here but render as disc icons, not pills — the census reads spans without their slide, and hub-spoke owns the rows it reads (lib/core/resolve-inline-code.js `ownedRowDepth`); the table slide escapes its examples'],
   ['examples/chart-icons.md', 'the demo deck for icons in flowchart and state-chart nodes (HARD RULE #9). Its `{icon=browser}`-style spans are counted here but render as node styles, not pills — the census reads spans without their slide, and both charts own their rows (lib/core/resolve-inline-code.js); the table slide escapes its examples'],
