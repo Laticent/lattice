@@ -147,4 +147,7 @@ test('a new folder under docs/src belongs to no part until it is placed on a lay
 test('an import that resolves to no file is a problem: a module moved and its importer did not', () => {
   const g = { modules: [{ source: 'lib/plugins/math/x.js', dependencies: [{ module: '../plugin-data.js', resolved: '../plugin-data.js', couldNotResolve: true }] }] };
   assert.match(structureProblems(run(g)).join('\n'), /resolves to no file .*x\.js -> \.\.\/plugin-data\.js/);
+  // A path into node_modules is a dependency question (a CI job may skip that install), not this rule's.
+  const dep = { modules: [{ source: 'tools/v.mjs', dependencies: [{ module: '../docs/node_modules/x/index.mjs', resolved: '', couldNotResolve: true }] }] };
+  assert.deepEqual(run(dep).unresolved, []);
 });
