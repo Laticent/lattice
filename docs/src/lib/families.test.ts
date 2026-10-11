@@ -48,12 +48,14 @@ describe('familyOf', () => {
 		}
 	});
 
-	it('moves exactly four shipped components out of `other`', () => {
+	it('moves exactly five shipped components out of `other`', () => {
 		const moved = loadAll()
 			.filter((m) => familyOf(m.name, bucketOf(m)) !== familyOf(m.name))
 			.map((m) => [m.name, familyOf(m.name, bucketOf(m))])
 			.sort();
 		expect(moved).toEqual([
+			// `collage` is an imagery component, so the bucket fallback puts it with `scene` and `video`.
+			['collage', 'images'],
 			['matrix-grid', 'charts'],
 			['policy-recommendation', 'legal'],
 			['scene', 'images'],
