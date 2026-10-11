@@ -7,7 +7,7 @@
 // The version is pinned exactly: 0.26 changed the action API, so a minor bump is a code change.
 
 import { joinRoom, selfId } from 'trystero/nostr';
-import type { LinkPath, Transport } from '../types.js';
+import type { AudioStats, LinkPath, Transport } from '../types.js';
 
 /** Namespaces every Tavola room on the relays, so it never meets another app's room. */
 export const TAVOLA_APP_ID = 'laticent-tavola-v1';
@@ -50,8 +50,41 @@ export function capBitrate(pc: RTCPeerConnection | undefined, track: MediaStream
 	pc.addEventListener('signalingstatechange', retry);
 }
 
+/** The counters `audioStatsFrom` carries from one read to the next, to turn totals into rates. */
+export type AudioCounters = { at: number; bytesIn: number; bytesOut: number; packetsIn: number; packetsLost: number };
+type Rtp = Record<string, number | string | undefined>;
+
+/**
+ * Turn one `getStats()` read into call-audio numbers. Rates and loss cover the time since `prev`
+ * (the last read of this connection), so a bad minute shows now rather than averaged into a good
+ * hour; with no `prev` loss is the running total and rates are absent. Pure, exported for its test.
+ */
+export function audioStatsFrom(reports: Iterable<Rtp>, prev: AudioCounters | undefined, now: number): { stats: AudioStats; counters: AudioCounters } {
+	let inbound: Rtp | undefined;
+	let outbound: Rtp | undefined;
+	for (const r of reports) {
+		if (r.kind !== 'audio' && r.mediaType !== 'audio') continue;
+		if (r.type === 'inbound-rtp') inbound = r;
+		else if (r.type === 'outbound-rtp') outbound = r;
+	}
+	const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+	const counters: AudioCounters = { at: now, bytesIn: num(inbound?.bytesReceived), bytesOut: num(outbound?.bytesSent), packetsIn: num(inbound?.packetsReceived), packetsLost: num(inbound?.packetsLost) };
+	const stats: AudioStats = {};
+	const secs = prev ? (now - prev.at) / 1000 : 0;
+	if (inbound) {
+		const got = counters.packetsIn - (prev?.packetsIn ?? 0);
+		const lost = Math.max(0, counters.packetsLost - (prev?.packetsLost ?? 0));
+		if (got + lost > 0) stats.lostPct = (lost / (got + lost)) * 100;
+		if (typeof inbound.jitter === 'number') stats.jitterMs = inbound.jitter * 1000;
+		if (secs > 0) stats.inKbps = ((counters.bytesIn - (prev as AudioCounters).bytesIn) * 8) / secs / 1000;
+	}
+	if (outbound && secs > 0) stats.sendKbps = ((counters.bytesOut - (prev as AudioCounters).bytesOut) * 8) / secs / 1000;
+	return { stats, counters };
+}
+
 export function trysteroTransport(room: string, secret: string, opts: TrysteroOptions = {}): Transport {
 	const r = joinRoom({ appId: opts.appId ?? TAVOLA_APP_ID, password: secret, ...(opts.relayUrls ? { relayUrls: opts.relayUrls } : {}), ...(opts.rtcConfig ? { rtcConfig: opts.rtcConfig } : {}), ...(opts.turnConfig?.length ? { turnConfig: opts.turnConfig } : {}) }, room);
+	const counters = new Map<string, AudioCounters>();
 	const wire = r.makeAction<Uint8Array>('tavola');
 	return {
 		selfId,
@@ -83,6 +116,17 @@ export function trysteroTransport(room: string, secret: string, opts: TrysteroOp
 		},
 		onTrack(cb) {
 			r.onPeerTrack = (track, stream, peerId) => cb(track, stream, peerId);
+		},
+		async audioStats() {
+			const out: Record<string, AudioStats> = {};
+			for (const [id, pc] of Object.entries(r.getPeers())) {
+				if (pc.connectionState !== 'connected') continue;
+				const { stats, counters: next } = audioStatsFrom((await pc.getStats()).values() as Iterable<Rtp>, counters.get(id), Date.now());
+				counters.set(id, next);
+				out[id] = stats;
+			}
+			for (const id of counters.keys()) if (!(id in out)) counters.delete(id);
+			return out;
 		},
 		async paths() {
 			const out: Record<string, LinkPath> = {};

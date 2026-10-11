@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { capBitrate } from './trystero';
+import { audioStatsFrom, capBitrate } from './trystero';
 
 // Trystero's addTrack resolves before the offer and answer, and a browser may have no encodings to
 // set until negotiation is done (checker, PR #2594). The cap must land once it settles, not never.
@@ -44,5 +44,29 @@ describe('capBitrate', () => {
 		// A later renegotiation finds the cap in place and leaves it.
 		f.settle();
 		expect(f.set).toEqual([64000]);
+	});
+});
+
+describe('audioStatsFrom', () => {
+	const inbound = (o: Record<string, number>) => ({ type: 'inbound-rtp', kind: 'audio', ...o });
+	const outbound = (o: Record<string, number>) => ({ type: 'outbound-rtp', kind: 'audio', ...o });
+
+	it('reports the running loss and jitter on a first read, with no rate yet', () => {
+		const { stats } = audioStatsFrom([inbound({ bytesReceived: 8000, packetsReceived: 995, packetsLost: 5, jitter: 0.018 })], undefined, 1000);
+		expect(stats.lostPct).toBeCloseTo(0.5, 5);
+		expect(stats.jitterMs).toBeCloseTo(18, 5);
+		expect(stats.inKbps).toBeUndefined();
+	});
+
+	it('turns byte and packet totals into rates over the time since the last read', () => {
+		const first = audioStatsFrom([inbound({ bytesReceived: 0, packetsReceived: 0, packetsLost: 0 }), outbound({ bytesSent: 0 })], undefined, 0);
+		const { stats } = audioStatsFrom([inbound({ bytesReceived: 40_000, packetsReceived: 249, packetsLost: 1, jitter: 0.004 }), outbound({ bytesSent: 40_000 })], first.counters, 5000);
+		expect(stats.inKbps).toBeCloseTo(64, 5);
+		expect(stats.sendKbps).toBeCloseTo(64, 5);
+		expect(stats.lostPct).toBeCloseTo(0.4, 5);
+	});
+
+	it('ignores video, and says nothing when the connection carries no audio', () => {
+		expect(audioStatsFrom([{ type: 'inbound-rtp', kind: 'video', bytesReceived: 9e6 }], undefined, 0).stats).toEqual({});
 	});
 });

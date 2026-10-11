@@ -61,7 +61,7 @@
 import { type Cert, createHostKey, type HostKey, MAX_CHAIN, ROOT_MAX, signCert, signHello, tokenId, verifyChain, verifyHostHello } from './hostkey.js';
 import { randomBytes, toBase64Url } from './link.js';
 import { type Control, cleanName, decodeControl, encodeControl, frame, PROTOCOL_VERSION, TAG_AWARENESS, TAG_CONTROL, TAG_DOC, TAG_POST, type TokenEntry } from './protocol.js';
-import type { Clock, Color, Invite, Knock, LinkPath, MediaOptions, Member, PeerId, Role, SessionState, Stream, Transport } from './types.js';
+import type { AudioStats, Clock, Color, Invite, Knock, LinkPath, MediaOptions, Member, PeerId, Role, SessionState, Stream, Transport } from './types.js';
 
 export type { TokenEntry };
 
@@ -161,6 +161,9 @@ export type Session = {
 	/** The network path to each member this browser is connected to (empty when the transport cannot
 	 *  say). For a "how are we connected" readout, and for the two-network check. */
 	paths(): Promise<Record<PeerId, LinkPath>>;
+	/** How call audio is doing with each member this browser is connected to (empty when the transport
+	 *  cannot say). Rates cover the time since the previous call, so poll it on a steady timer. */
+	audioStats(): Promise<Record<PeerId, AudioStats>>;
 	/** Send `stream`'s tracks to every admitted member, and to each one admitted later; never to a
 	 *  stranger. Null stops sending. A transport without media ignores it. */
 	setMedia(stream: MediaStream | null, opts?: MediaOptions): void;
@@ -1139,6 +1142,10 @@ export function createSession(opts: SessionOptions): Session {
 			syncMedia();
 		},
 		hasMedia: !!t.addTrack && !!t.onTrack,
+		async audioStats() {
+			const all = (await t.audioStats?.().catch(() => ({}) as Record<PeerId, AudioStats>)) ?? {};
+			return Object.fromEntries(Object.entries(all).filter(([id]) => memberOf(id) && id !== t.selfId));
+		},
 		async paths() {
 			const all = (await t.paths?.().catch(() => ({}) as Record<PeerId, LinkPath>)) ?? {};
 			return Object.fromEntries(Object.entries(all).filter(([id]) => memberOf(id) && id !== t.selfId));

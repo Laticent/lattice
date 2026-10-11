@@ -5,7 +5,7 @@ import * as encoding from 'lib0/encoding';
 import { yCollab, yUndoManagerKeymap } from 'y-codemirror.next';
 import { Awareness, applyAwarenessUpdate, encodeAwarenessUpdate, removeAwarenessStates } from 'y-protocols/awareness';
 import * as Y from 'yjs';
-import { cleanName, createHostKey, createSession, formatFragment, formatLink, fromBase64Url, type HostKey, hostKeyFrom, type LinkPath, linkKind, mintLink, parseFragment, type Session, type SessionState, type Succession, type TokenEntry, toBase64Url, tokenId } from '@/lib/tavola';
+import { type AudioStats, cleanName, createHostKey, createSession, formatFragment, formatLink, fromBase64Url, type HostKey, hostKeyFrom, type LinkPath, linkKind, mintLink, parseFragment, type Session, type SessionState, type Succession, type TokenEntry, toBase64Url, tokenId } from '@/lib/tavola';
 import { trysteroTransport } from '@/lib/tavola/adapters/trystero';
 import { CALL_BITRATE, LiveAudio } from './live-audio';
 import { LIVE_TURN } from './live-ice';
@@ -371,6 +371,7 @@ export class LiveController {
 	private sealSeq = 0;
 	/** The network path to each member, re-read every few seconds (the two-network check reads it). */
 	private paths: Record<string, LinkPath> = {};
+	private quality: Record<string, AudioStats> = {};
 	/** Heir: the chat-id owners the host handed over, for when this browser takes over. */
 	private heirSids: Array<[string, string]> = [];
 	/** Host: what was last handed to the heir, so it is sent once per change. */
@@ -725,6 +726,12 @@ export class LiveController {
 				void r.session.paths().then((p) => {
 					if (this.rt === r) this.paths = p;
 				});
+				// Call numbers only while this browser is on the call; the transport keeps no state otherwise to read.
+				if (this.audio?.inCall) {
+					void r.session.audioStats().then((q) => {
+						if (this.rt === r) this.quality = q;
+					});
+				} else this.quality = {};
 			}
 			if (this.rt?.session.getState().stage === 'live') this.host.rerender();
 		}, 1000);
@@ -774,6 +781,7 @@ export class LiveController {
 		} catch {}
 		this.seq = 0;
 		this.paths = {};
+		this.quality = {};
 		this.heirSids = [];
 		this.sentSids = '';
 		this.handbackDue = false;
@@ -1440,7 +1448,7 @@ export class LiveController {
 		const people: LivePerson[] = s.members.map((m) => {
 			const st = byPeer.get(m.id);
 			const me = m.id === s.selfId;
-			return { id: m.id, name: m.name, color: m.color, role: m.role, me, slide: me ? this.deps.activeSlide : (st?.slide ?? null), editing: !!st?.editingAt && this.now - st.editingAt < TYPING_MS && st.editingAt < this.now + 5000, mic: this.micOf(m.id, me), ...(!me && this.paths[m.id] ? { link: { kind: linkKind(this.paths[m.id]), detail: `${this.paths[m.id].local}→${this.paths[m.id].remote} (${this.paths[m.id].protocol})` } } : {}) };
+			return { id: m.id, name: m.name, color: m.color, role: m.role, me, slide: me ? this.deps.activeSlide : (st?.slide ?? null), editing: !!st?.editingAt && this.now - st.editingAt < TYPING_MS && st.editingAt < this.now + 5000, mic: this.micOf(m.id, me), ...(!me && this.audio?.inCall && this.audio.hasStream(m.id) && Object.keys(this.quality[m.id] ?? {}).length ? { quality: this.quality[m.id] } : {}), ...(!me && this.paths[m.id] ? { link: { kind: linkKind(this.paths[m.id]), detail: `${this.paths[m.id].local}→${this.paths[m.id].remote} (${this.paths[m.id].protocol})` } } : {}) };
 		});
 		for (const [k, a] of this.away) {
 			if (!people.some((p) => p.name === a.name && p.color === a.color)) people.push({ id: `away:${k}`, name: a.name, color: a.color, role: a.role === 'host' && s.members.some((m) => m.role === 'host') ? 'edit' : a.role, slide: null, editing: false, mic: 'off', away: true });

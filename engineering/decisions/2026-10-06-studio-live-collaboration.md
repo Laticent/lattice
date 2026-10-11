@@ -890,6 +890,20 @@ What the bitrate does not fix, all on iOS and out of the page's reach:
 - *Choppy* that is network loss needs a measure from the device; the follow-up adds a per-person
   call-quality readout (loss, jitter, bitrate), the way §8.1's connection readout did for paths.
 
+**Call quality readout** (2026-10-11). A person's ⋯ menu now says how their audio is arriving:
+*Audio: 64 kbit/s · 0.4 % lost · 18 ms jitter*, and *You send 64 kbit/s* under it. It shows while
+both of you are on the call and nothing otherwise. The Trystero adapter reads each connection's
+`inbound-rtp` / `outbound-rtp` audio stats (`audioStatsFrom`, `Transport.audioStats`, optional like
+`paths`; `session.audioStats()` filters to admitted members) on the same 5 s tick as the connection
+paths. Rates and loss cover the time since the previous read, so a bad minute shows now rather than
+averaged into a good hour; the first read shows the running loss and no rate. This is what tells
+network loss (loss and jitter climb) from the iOS bug (they stay flat while the sound is bad).
+Measured on the real surface (`tools/live-session-check.mjs`, two Chromium processes over real
+WebRTC, fake microphone): the browser's own `getStats` said the host heard the guest at 16.3 kbit/s
+with 0 of 816 packets lost; the menu said *17 kbit/s · 0.0 % lost · 0 ms jitter, You send
+16 kbit/s*. UNVERIFIED: the same readout on a real phone, and Safari's stats (WebKit may leave
+`jitter` or `packetsLost` out, in which case that part of the line is simply absent).
+
 **Panel layout on a phone** (the owner's iPhone test, 2026-10-07). Three findings:
 - *No way to leave the session on a phone.* The session menu (the clock; copy, bring everyone,
   leave or end) lived in the panel's title bar, and the phone sheet renders the panel without

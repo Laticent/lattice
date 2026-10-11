@@ -175,9 +175,23 @@ const audioBytes = (page) => page.evaluate(async () => {
   for (const pc of window.__livePcs ?? []) for (const st of (await pc.getStats()).values()) if (st.type === 'outbound-rtp' && st.kind === 'audio') sent += st.bytesSent;
   return sent;
 });
+// What the browser itself says it hears: the readout in the person's menu must match this.
+const audioIn = (page) => page.evaluate(async () => {
+  const o = { bytes: 0, got: 0, lost: 0, jitterMs: 0 };
+  for (const pc of window.__livePcs ?? []) for (const st of (await pc.getStats()).values()) if (st.type === 'inbound-rtp' && st.kind === 'audio') { o.bytes += st.bytesReceived; o.got += st.packetsReceived; o.lost += st.packetsLost; o.jitterMs = st.jitter * 1000; }
+  return o;
+});
 const b0 = await audioBytes(host);
+const i0 = await audioIn(host);
 await host.waitForTimeout(10000);
 const b1 = await audioBytes(host);
+const i1 = await audioIn(host);
+log(`getStats, host hearing the guest: ${(((i1.bytes - i0.bytes) * 8) / 10 / 1000).toFixed(1)} kbit/s, ${i1.lost} of ${i1.got + i1.lost} packets lost in all, jitter ${i1.jitterMs.toFixed(1)} ms`);
+await host.locator('button[aria-label="Options for Amina"]').click();
+await host.waitForSelector('[data-live-quality]', { timeout: 15000 }).catch(() => {});
+log(`the host's menu for Amina reads: ${JSON.stringify(await host.locator('[data-live-quality]').allInnerTexts())}`);
+await host.screenshot({ path: `${OUT}call-quality-menu-${mode}.png` });
+await host.keyboard.press('Escape');
 log(`audio bitrate, host to guest: ${(((b1 - b0) * 8) / 10 / 1000).toFixed(1)} kbit/s (${(((b1 - b0) / 10) * 3600 / 1e6).toFixed(1)} MB per hour per stream, payload + RTP headers)`);
 log(`before mute, the host shows Amina's mic as: ${await micOf(host, 'Amina')}`);
 await panel(guest).getByRole('button', { name: 'Mute', exact: true }).click();

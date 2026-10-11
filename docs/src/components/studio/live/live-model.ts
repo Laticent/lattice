@@ -27,7 +27,18 @@ export type LivePerson = {
 	/** How this browser reaches them: one network, direct across networks, or through a relay.
 	 *  `detail` is the raw candidate pair ("srflx→host (udp)"). Absent until the first read. */
 	link?: { kind: 'local' | 'direct' | 'relay'; detail: string };
+	/** How their call audio is doing, while both of you are on the call. Absent until it can be measured. */
+	quality?: { inKbps?: number; lostPct?: number; jitterMs?: number; sendKbps?: number };
 };
+
+/** "64 kbit/s · 0.4 % lost · 18 ms jitter" — what the person's menu says about the call audio they send you. */
+export function qualityLine(q: NonNullable<LivePerson['quality']>): string {
+	const parts: string[] = [];
+	if (q.inKbps !== undefined) parts.push(`${Math.round(q.inKbps)} kbit/s`);
+	if (q.lostPct !== undefined) parts.push(`${q.lostPct < 10 ? q.lostPct.toFixed(1) : Math.round(q.lostPct)} % lost`);
+	if (q.jitterMs !== undefined) parts.push(`${Math.round(q.jitterMs)} ms jitter`);
+	return parts.join(' · ');
+}
 
 /** `inCall`: the microphone is captured and sent. `denied`: the browser refused the microphone
  *  (the panel says how to allow it). `devices`: the microphones to pick from (labels appear once

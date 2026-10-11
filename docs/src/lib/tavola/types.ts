@@ -33,6 +33,8 @@ export interface Transport {
 	 *  it, and hear what peers send. A transport without media (the in-memory one) leaves them out. */
 	addTrack?(track: MediaStreamTrack, stream: MediaStream, to: PeerId, opts?: MediaOptions): void;
 	removeTrack?(track: MediaStreamTrack, to: PeerId): void;
+	/** Optional: how call audio is doing on each open connection, for a "how is the call" readout. */
+	audioStats?(): Promise<Record<PeerId, AudioStats>>;
 	onTrack?(cb: (track: MediaStreamTrack, stream: MediaStream, from: PeerId) => void): void;
 }
 
@@ -42,6 +44,13 @@ export type MediaOptions = {
 	 *  Unset leaves the browser's default (Opus voice: 32 kbit/s in Chromium). */
 	maxBitrate?: number;
 };
+
+/**
+ * How a call's audio is doing on one connection, read from WebRTC stats. `in*` is what this browser
+ * hears from the peer, `sendKbps` what it sends to them. A field is absent until it can be measured
+ * (a rate needs two reads; loss and jitter need inbound audio).
+ */
+export type AudioStats = { inKbps?: number; lostPct?: number; jitterMs?: number; sendKbps?: number };
 
 /**
  * The ICE candidate pair a connection settled on. `host` is a device's own address (the two are on

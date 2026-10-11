@@ -1,0 +1,1 @@
+- Live calls show each person's call quality in their ⋯ menu: the bitrate you hear, the share of packets lost and the jitter (*Audio: 64 kbit/s · 0.4 % lost · 18 ms jitter*), plus what you send them. It reads WebRTC stats every 5 s while both of you are on the call, so a choppy call can be told apart as network loss or as the phone.

@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { CHAT_COMPOSER_FIELD, CHAT_COMPOSER_ROW, CHAT_COMPOSER_TOOLS } from '../panel-shells';
 import { LiveAvatar } from './LiveAvatar';
-import { elapsed, type LiveActions, type LiveChatLine, type LivePerson, type LiveView, liveColor, SLIDE_REF } from './live-model';
+import { elapsed, type LiveActions, type LiveChatLine, type LivePerson, type LiveView, liveColor, qualityLine, SLIDE_REF } from './live-model';
 
 // The Live panel — the collaboration PORTAL, not the workspace (§5.2 of
 // engineering/decisions/2026-10-06-studio-live-collaboration.md). It is narrow on purpose:
@@ -63,7 +63,7 @@ function PersonRow({ p, view, actions }: { p: LivePerson; view: LiveView; action
 							<MoreHorizontal className="size-3.5" />
 						</Button>
 					</DropdownMenuTrigger>
-					<DropdownMenuContent align="end" className="w-48">
+					<DropdownMenuContent align="end" className="w-56">
 						<DropdownMenuItem onSelect={() => actions.follow(following ? null : p.id)}>
 							<Eye className="size-4" /> {following ? 'Stop following' : `Follow ${p.name}`}
 						</DropdownMenuItem>
@@ -76,6 +76,12 @@ function PersonRow({ p, view, actions }: { p: LivePerson; view: LiveView; action
 							<DropdownMenuLabel className="flex flex-col gap-0.5 py-1 text-[11px] font-normal text-muted-foreground" data-live-link-detail>
 								<span>Connection: {LINK_LABEL[p.link.kind].toLowerCase()}</span>
 								<span className="font-mono text-[10.5px]">{p.link.detail}</span>
+							</DropdownMenuLabel>
+						)}
+						{p.quality && qualityLine(p.quality) && (
+							<DropdownMenuLabel className="flex flex-col gap-0.5 py-1 text-[11px] font-normal text-muted-foreground" data-live-quality>
+								<span>Audio: {qualityLine(p.quality)}</span>
+								{p.quality.sendKbps !== undefined && <span>You send {Math.round(p.quality.sendKbps)} kbit/s</span>}
 							</DropdownMenuLabel>
 						)}
 						{canManage && (
