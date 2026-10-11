@@ -9,7 +9,7 @@
 const { test, describe, before } = require('node:test');
 const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
-const { provideData, markDataFailed } = require('../../../lib/plugins/plugin-data.js');
+const { provideData, markDataFailed } = require('../../../lib/plugin-kit/plugin-data.js');
 const k = require('../../../lib/plugins/avatars/avatars.inline.js');
 const tp = require('../../../lib/components/inventory/team-profile/team-profile.transform.js');
 

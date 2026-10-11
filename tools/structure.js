@@ -155,6 +155,9 @@ function partOf(file) {
   return null;
 }
 
+// A `createRequire(<repo root>)` specifier (`./lib/…` in a tool) resolves from the root, not the file.
+const rootRelative = (spec) => spec.startsWith('./') && ['', '.js', '.mjs', '.cjs', '.json'].some((ext) => fs.existsSync(path.join(ROOT, spec + ext)));
+
 function cruise() {
   const bin = path.join(ROOT, 'node_modules', '.bin', 'depcruise');
   // The cache makes a repeat run about 1.3s instead of about 6.5s (measured on a 4-core sandbox);
@@ -366,6 +369,12 @@ function analyze(graph, { sanctioned = SANCTIONED_UPWARD, pluginSanctioned = SAN
     upward: unsanctioned.map((e) => `${e.from} (${e.a.name}, layer ${e.a.layer}) -> ${e.to} (${e.b.name}, layer ${e.b.layer})`),
     staleSanctions: [...staleSanctions, ...staleReach.map((k) => `${k} (SANCTIONED_PLUGIN_REACH)`)],
     unread: graph.unread || [],
+    // A relative import that resolves to nothing: a file that moved and an importer that did not.
+    unresolved: graph.modules.flatMap((m) =>
+      partOf(m.source) && !/\/dist\//.test(m.source)
+        ? m.dependencies.filter((d) => d.couldNotResolve && /^(\.{1,2}|@)\//.test(d.module || '') && !rootRelative(d.module)).map((d) => `${m.source} -> ${d.module}`)
+        : [],
+    ),
     inside,
     pluginOut: pluginOut.map((e) => `${e.from} -> ${e.to}`),
     pluginIn: pluginIn.map((e) => `${e.from} -> ${e.to}`),
@@ -437,6 +446,7 @@ function structureProblems(result) {
   for (const e of result.pluginOut) problems.push(`plugin reaches past the plugin kit: ${e}`);
   for (const e of result.pluginIn) problems.push(`code imports a plugin's folder directly (use the registry or a service): ${e}`);
   for (const f of result.unmapped) problems.push(`file belongs to no part (add it to PARTS in tools/structure.js): ${f}`);
+  for (const u of result.unresolved || []) problems.push(`import resolves to no file (moved or misspelled): ${u}`);
   for (const f of result.unread) problems.push(`dependency-cruiser read no imports from a file that has some (a parse error hides its edges): ${f}`);
   return problems;
 }

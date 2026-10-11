@@ -143,3 +143,8 @@ test('a new folder under docs/src belongs to no part until it is placed on a lay
   assert.equal(partOf('docs/src/pages/index.astro').name, 'site/pages');
   assert.equal(partOf('lib/plugins/math/math.schema.json').name, 'lib/plugins/math');
 });
+
+test('an import that resolves to no file is a problem: a module moved and its importer did not', () => {
+  const g = { modules: [{ source: 'lib/plugins/math/x.js', dependencies: [{ module: '../plugin-data.js', resolved: '../plugin-data.js', couldNotResolve: true }] }] };
+  assert.match(structureProblems(run(g)).join('\n'), /resolves to no file .*x\.js -> \.\.\/plugin-data\.js/);
+});
