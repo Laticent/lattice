@@ -1,7 +1,7 @@
 import dgram from 'node:dgram';
 import http from 'node:http';
 import JSZip from 'jszip';
-import { WORKER_NETWORK } from '../../lib/packages/code-shape.mjs';
+import { WORKER_NETWORK } from '../../lib/core/code-shape.mjs';
 import { expect, gotoStudio, livePreview, setEditorContent, test } from './studio-fixture';
 
 // ── A code package runs in the Studio only after consent, and reaches nothing (contract note §9) ──
@@ -22,7 +22,7 @@ import { expect, gotoStudio, livePreview, setEditorContent, test } from './studi
 //      server, no forged note, and the package ran in a sandboxed frame with an opaque origin.
 //   3. CONTROLS — the page itself reaches both listeners.
 //
-// A second test runs a package written against `slide.facts` ONLY (lib/packages/slide-facts.mjs,
+// A second test runs a package written against `slide.facts` ONLY (lib/core/slide-facts.mjs,
 // the stable input): it never reads `slide.html`, draws a dated list from the facts, and tries to
 // send them out. It draws from the plain text, and the log stays empty.
 
@@ -36,7 +36,7 @@ function tally(slide, kit) {
   try { new WebSocket("${origin.replace('http', 'ws')}/websocket"); } catch (e) {}
   // A literal import() is refused at the import (the gate parses the code; the next test). Built
   // at run time it must find no way to become code: eval, Function, a constructor and a string
-  // timer each throw in the worker (lib/packages/code-shape.mjs, "NO CODE FROM STRINGS").
+  // timer each throw in the worker (lib/core/code-shape.mjs, "NO CODE FROM STRINGS").
   try { (0, eval)('import("${origin}/evalimport").catch(function(){})'); } catch (e) {}
   try { Function('return import("${origin}/fnimport")')().catch(function(){}); } catch (e) {}
   try { (function(){}).constructor('return import("${origin}/ctorimport")')().catch(function(){}); } catch (e) {}
@@ -48,7 +48,7 @@ function tally(slide, kit) {
   try { var pc = new (self.RTCPeerConnection || self.webkitRTCPeerConnection)({ iceServers: [{ urls: "stun:127.0.0.1:${udp}" }] }); pc.createDataChannel("x"); pc.createOffer().then(function (o) { return pc.setLocalDescription(o); }); } catch (e) {}
   try { self.location.href = "${origin}/navigate"; } catch (e) {}
   // The second wall as this engine sees it: each network name still reachable anywhere on the
-  // global's prototype chain (lib/packages/code-shape.mjs WORKER_NETWORK). It must be none.
+  // global's prototype chain (lib/core/code-shape.mjs WORKER_NETWORK). It must be none.
   var reach = [];
   ${JSON.stringify(WORKER_NETWORK)}.forEach(function (k) {
     for (var o = self; o; o = Object.getPrototypeOf(o)) { var d = Object.getOwnPropertyDescriptor(o, k); if (d && (d.get || d.value != null)) { reach.push(k); break; } }
@@ -200,7 +200,7 @@ test(`a code package runs in the Studio only after consent, sandboxed, and reach
 
 // ── A package holding a dynamic import() is refused at the Library import ──
 // `import()` is syntax, so the worker's wall cannot remove it; the gate parses the code and refuses
-// the package (lib/packages/code-syntax.mjs, contract note §10). Driven through the real Library
+// the package (lib/core/code-syntax.mjs, contract note §10). Driven through the real Library
 // import, on all three engines: the toast names the package and why, nothing is saved, the deck that
 // claims it renders as the engine drew it with no code-package notice, no sandbox frame ever opens,
 // and the address inside the import() is never asked for.

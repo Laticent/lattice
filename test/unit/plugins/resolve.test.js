@@ -148,7 +148,7 @@ describe('resolvePlugins — vendored library copies', () => {
     expectError([owner({ vendored: { 'vendor/lib.min.js': 'a'.repeat(64) }, vendorFiles: ['vendor/lib.min.js', 'vendor/helper.js'] })], /plugin "lib" has vendor\/helper\.js, which no copy in its manifest vendors/);
   });
   // `vendor` holds the copies that are not the browser payload (a renderer's library, the bake's),
-  // and a copy may be a whole directory, hashed as a tree (lib/plugins/payload-path.js treeSha).
+  // and a copy may be a whole directory, hashed as a tree (lib/plugin-kit/payload-path.js treeSha).
   const withDir = (exports) => {
     const p = owner(exports);
     p.manifest.vendor = { page: { from: 'npm:cli/dist/', file: 'vendor/cli/', version: '1.0.0', sha256: 'c'.repeat(64) } };

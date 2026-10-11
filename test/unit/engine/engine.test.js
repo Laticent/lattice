@@ -327,7 +327,7 @@ describe('lattice-engine: css emission (P1.1)', () => {
   const SOCIAL = '/* @theme lattice\n * @size hd 1280px 720px\n * @size story 1080px 1920px\n * @size square 1080px 1080px\n * @size 9:16 1080px 1920px */\nsection { color: #111; }';
 
   // parseSizes is the reader for the Marp-facing artifacts, not the render path —
-  // the registry is (lib/engine/sizes.js). It still has to handle every shape the
+  // the registry is (lib/core/sizes.js). It still has to handle every shape the
   // stamp emits, aspect aliases included.
   test('parseSizes reads the social/mobile @size names + aspect aliases', () => {
     const m = parseSizes(SOCIAL);

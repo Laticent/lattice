@@ -156,7 +156,7 @@ describe('who paints', () => {
     assert.equal(paintsLoading({}), false);
   });
 
-  for (const f of ['docs/src/lib/single-slide-render.ts', 'docs/src/playground/deck-render.js', 'docs/src/components/studio/present/stage-window.js']) {
+  for (const f of ['docs/src/playground/single-slide-render.ts', 'docs/src/playground/deck-render.js', 'docs/src/components/studio/present/stage-window.js']) {
     it(`${f} opts in as a live preview`, () => {
       assert.match(read(f), /data-lattice-live-media[ >]/);
     });

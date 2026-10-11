@@ -115,7 +115,7 @@ test('parser memo: a geometry change across a theme re-registration does NOT ser
 	//
 	// The VEHICLE changed on 2026-08-16: geometry used to come from an `@size` the theme itself
 	// declared, so the original fixture re-registered a theme with an edited `@size`. The engine now
-	// owns the registry (lib/engine/sizes.js) and a stylesheet cannot redefine the page box, so the
+	// owns the registry (lib/core/sizes.js) and a stylesheet cannot redefine the page box, so the
 	// geometry change comes through the deck's `size:` directive instead. The invariant under test —
 	// the memo key covers the RESOLVED GEOMETRY, and store churn does not mask a change to it — is
 	// unchanged. See engineering/decisions/2026-08-16-size-registry-ownership.md.

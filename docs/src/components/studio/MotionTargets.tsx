@@ -2,7 +2,7 @@ import { AlertTriangle, Check, CircleSlash, EyeOff } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { activeMotionSpeed, activeMotionStyle } from './motion-catalog';
+import { activeMotionSpeed, activeMotionStyle } from '../../lib/motion-catalog';
 import { type MotionTarget, type Provenance, tally, type Verdict } from './motion-sheet';
 
 // WHAT THIS DECK ACTUALLY ANIMATES — the deck Inspector's Motion tab, below Play/Style/Speed.

@@ -1,5 +1,5 @@
 /**
- * Unit: THE GATE behind the fidelity ledger (lib/core/marp-fidelity.js).
+ * Unit: THE GATE behind the fidelity ledger (lib/export/marp-fidelity.js).
  *
  * This is the test that stops the CLASS of defect #1256 was made of, rather than
  * the four instances of it. Every one of those was the same shape: a structural
@@ -24,8 +24,8 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { LEDGER, allEntries, pluginPackageRows, unmirroredEntries, fidelityNotes } = require('../../../lib/core/marp-fidelity');
-const { readme } = require('../../../lib/core/marp-bundle');
+const { LEDGER, allEntries, pluginPackageRows, unmirroredEntries, fidelityNotes } = require('../../../lib/export/marp-fidelity');
+const { readme } = require('../../../lib/export/marp-bundle');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
@@ -76,7 +76,7 @@ describe('marp fidelity ledger — the classification is complete', () => {
     const classified = new Set(LEDGER.map((e) => e.plugin).filter(Boolean));
     const missing = definedPlugins().filter((p) => !classified.has(p));
     assert.deepEqual(missing, [],
-      'a new markdown-it plugin needs a lib/core/marp-fidelity.js entry saying whether '
+      'a new markdown-it plugin needs a lib/export/marp-fidelity.js entry saying whether '
       + 'an exported deck reproduces it — `baked`, `mirrored`, `unmirrored`, or `moot`');
   });
 
@@ -96,7 +96,7 @@ describe('marp fidelity ledger — the classification is complete', () => {
     assert.ok(manifests.some((m) => m.contributes.fences), 'expected at least one fence plugin (guard against a vacuous pass)');
     const rows = new Set(allEntries().map((e) => e.package).filter(Boolean));
     const missing = manifests.filter((m) => m.contributes.fences && !rows.has(m.name)).map((m) => m.name);
-    assert.deepEqual(missing, [], 'a fence plugin needs a lib/core/marp-fidelity.js `package` row, hand-written or derived');
+    assert.deepEqual(missing, [], 'a fence plugin needs a lib/export/marp-fidelity.js `package` row, hand-written or derived');
     // The shipped fence plugins carry hand rows (their notes were observed or reasoned); a derived
     // row is for a plugin an author just scaffolded, so it must not stand in for one of these.
     for (const shipped of ['function-plot', 'anima', 'math']) {
@@ -150,11 +150,11 @@ describe('marp fidelity ledger — coverage claims name symbols that exist', () 
   });
 
   // The exporter, or the shared bundle kernel both producers call (`withRuntimeScriptsReport`).
-  const KERNEL_SRC = read('lib/core/marp-bundle.js');
+  const KERNEL_SRC = read('lib/export/marp-bundle.js');
   test('every `baked` entry names a symbol the exporter or the bundle kernel calls (spelling only)', () => {
     for (const e of allEntries().filter((x) => x.coverage === 'baked')) {
       assert.ok(EXPORTER_SRC.includes(`${e.via}(`) || KERNEL_SRC.includes(`${e.via}(`),
-        `${e.plugin || e.topic || e.package} claims to be baked by ${e.via}, which neither tools/export-marp.js nor lib/core/marp-bundle.js calls`);
+        `${e.plugin || e.topic || e.package} claims to be baked by ${e.via}, which neither tools/export-marp.js nor lib/export/marp-bundle.js calls`);
     }
   });
 
@@ -180,7 +180,7 @@ describe('marp fidelity ledger — the registry keeps its DOM adapters', () => {
       .map((t) => t.name);
     assert.deepEqual(missing, [],
       'a transformer with no DOM adapter does not run on a Marp render — give it one, '
-      + 'or add a lib/core/marp-fidelity.js row naming the gap');
+      + 'or add a lib/export/marp-fidelity.js row naming the gap');
     assert.ok(TRANSFORMERS.length >= 17, `expected the registry; found ${TRANSFORMERS.length}`);
   });
 });

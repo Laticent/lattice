@@ -1,5 +1,5 @@
-import { frontMatterBlock, stripFrontMatter } from './front-matter';
-import { splitSlides } from './lint';
+import { splitSlides } from '../../lib/deck-lint';
+import { frontMatterBlock, stripFrontMatter } from '../../lib/front-matter';
 
 // Structural slide editing on the deck SOURCE — add / delete / duplicate / move.
 // Pure string transforms: split the body into slides (front-matter held aside so

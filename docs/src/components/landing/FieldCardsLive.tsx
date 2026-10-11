@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { seedPlaygroundSource } from '@/lib/landing-handoff';
-import { createSingleSlideRenderer } from '@/lib/single-slide-render';
+import { createSingleSlideRenderer } from '@/playground/single-slide-render';
 
 // Invisible controller island for the "speaks your field" section. The cards
 // themselves are static (server-rendered in <FieldCards>); this fills each

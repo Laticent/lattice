@@ -8,13 +8,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tip } from '@/components/ui/tooltip';
 import { Announce } from '@/lib/announce';
 import { notify } from '@/lib/notify';
-import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { useBreakpoint } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
 // The REAL layout gate — the deterministic core the engine uses for components
 // (lib/layout/*, bundled). The Component tab's Name/Save/Export now live in this
 // shared header, so Fabricate owns the gate run that the body renders.
 import { BUCKETS, CSS_ONLY_SUBSTANCES, FORMS, FUNCTIONS, gateCss, NAME_RE, scaffoldFiles, skeletonInvokes, validateManifest } from '@/playground/layout-core.generated.js';
+import type { SingleSlideOptions } from '@/playground/single-slide-render';
 // The REAL theme engine — same maths as the Node tooling + the WCAG gate
 // (lib/theme/*, bundled browser-safe). deriveTheme → the full no-safe-default
 // contract (~100 tokens, contrast-repaired — the exact count is

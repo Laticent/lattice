@@ -1,0 +1,303 @@
+// Pure, DOM-free helpers shared by the shell and its tests — so the splitting and
+// the "unknown component" detection (the engine of the inline-validation badge)
+// are property-testable without rendering anything.
+
+import { type LensRegistry, lensPairs } from '@/lib/lente';
+import { slideClassDirectives } from '../../../lib/core/class-directive-scan.mjs';
+import { separatorRanges } from '../../../lib/core/slide-boundaries.mjs';
+import { frontMatterBlock } from './front-matter';
+
+// WHERE A SLIDE BEGINS — asked once, of the one module that knows.
+//
+// This used to scan for `\r?\n-{3,}\r?\n` and mask fenced ranges itself. It found the
+// separators the ENGINE finds only when they were written as a bare `---`: `***`, `___`,
+// `- - -`, `--- ` with a trailing space, `----` and a `---` indented one to three spaces
+// are all thematic breaks to markdown-it and were invisible here, while `Interlude` over
+// `---` is a HEADING to the engine and was counted as a separator here. So the rail, the
+// editor↔preview sync and the supplied page number were all counting a slide list the
+// renderer does not have.
+//
+// `lib/core/slide-boundaries.mjs` reproduces the engine's own `hr` set from source text —
+// fences, `$$` math, HTML blocks, blockquotes, lists, tables and setext underlines
+// included — and every locator below reads it, so they cannot disagree with each other or
+// with the render.
+//
+// FRONT MATTER IS EXCLUDED BY SLICING, not by filtering the results. Its closing `---` is
+// a thematic break to any scanner that sees it and its opening `---` makes the first key a
+// setext heading, so the block is cut off before the scan and the ranges are shifted back
+// into full-document coordinates.
+function separatorPositions(src: string): Array<{ index: number; length: number }> {
+	const text = String(src ?? '');
+	const fmLen = frontMatterBlock(text).length;
+	return separatorRanges(text.slice(fmLen), fmLen).ranges;
+}
+
+/** Split deck source into trimmed, non-empty slide chunks on `---` fences (fence-aware). */
+export function splitSlides(src: string): string[] {
+	const text = String(src ?? '');
+	const seps = separatorPositions(text);
+	const chunks: string[] = [];
+	let pos = 0;
+	for (const s of seps) {
+		chunks.push(text.slice(pos, s.index));
+		pos = s.index + s.length;
+	}
+	chunks.push(text.slice(pos));
+	return chunks.map((s) => s.trim()).filter(Boolean);
+}
+
+// WHICH `_class` GOVERNS A SLIDE — asked of the ONE module that already knows.
+//
+// This used to be a regex here, and it was wrong twice in opposite directions. Unanchored,
+// it matched a `_class:` comment anywhere on any line, so a stray character after the `-->`
+// left the rail naming a component the engine ignores. Anchoring it to column 0 then lost
+// every CONTAINER-PREFIXED directive — and `lib/core/class-directive-scan.mjs` had already
+// learned that exact lesson and written it down: markdown-it opens the `html_block` INSIDE
+// the container, so `- <!-- … -->`, `> <!-- … -->` and `1. <!-- … -->` all render the class.
+// Re-verified against `render()` on 2026-09-05: all three emit `kpi form`, as does a running
+// global `<!-- class: kpi -->`, while a TAB-indented directive is an indented code block and
+// emits `content form`.
+//
+// So this delegates (HARD RULE #1, #15). The kernel resolves spot directives, running
+// globals, container prefixes, fences and the engine's own line geometry — none of which a
+// regex here can carry without becoming a fifth copy of a parser that already exists.
+
+/** The COMPONENT of a `_class` payload — its first token, tolerating trailing modifiers
+ *  (`kpi dark scale-xl` → `kpi`). A pane layout (`columns ratio-60-40`, `rows`) names no component:
+ *  its panes do (lib/core/pane-spec.js `classLayout`). */
+function componentOf(payload: string): string {
+	const first = String(payload ?? '').trim().split(/\s+/)[0] ?? '';
+	return first === 'columns' || first === 'rows' ? '' : first;
+}
+
+/**
+ * The `_class` component names used in the source, in document order.
+ *
+ * ONE ENTRY PER DIRECTIVE LINE, not per slide. The kernel answers "what governs this
+ * chunk?", so a running global resolves onto every slide below it — and counting that once
+ * per slide would multiply a single typo into an issue count of five. Deduping on the
+ * winning directive's own line collapses it back to the literal directives an author wrote,
+ * which is what this function has always returned and what `issues` counts.
+ */
+export function usedComponents(src: string): string[] {
+	const seen = new Set<number>();
+	const out: string[] = [];
+	for (const d of slideClassDirectives(String(src ?? ''))) {
+		if (!d?.payload || seen.has(d.line)) continue;
+		seen.add(d.line);
+		const name = componentOf(d.payload);
+		if (name) out.push(name);
+	}
+	return out;
+}
+
+/** Component names used in the source that are NOT in the known set. */
+export function unknownComponents(src: string, known: Iterable<string>): string[] {
+	const set = new Set(known);
+	return usedComponents(src).filter((n) => !set.has(n));
+}
+
+/** The component label for a single slide — the class the ENGINE would apply to it, or
+ *  `text` for a bare-Markdown slide. Drives the slide-navigator chips.
+ *
+ *  THE LAST directive, not the first, because that is what the engine applies — measured:
+ *  `<!-- _class: big-number -->` … `<!-- _class: stats -->` on one slide renders `stats
+ *  form`. Not an exotic input: it is exactly what deleting a `---` to merge two slides
+ *  leaves behind, after which the rail used to name the slide that had just been absorbed.
+ *  The kernel resolves it; this only picks the component out of the payload. */
+export function slideClass(slideSrc: string): string {
+	const src = String(slideSrc ?? '');
+	const found = slideClassDirectives(src).filter((d) => d?.payload);
+	// A panes slide (lib/core/pane-spec.js) is two components, neither of them the slide's: its
+	// `_class` names a `columns` / `rows` layout, or it carries two pane markers.
+	const panes = (src.match(/^<!--\s*_?pane:[^<>\n]*-->$/gm) || []).length >= 2;
+	if (found.length) {
+		const payload = found[found.length - 1].payload;
+		if (/(?:^|\s)(?:columns|rows)(?:\s|$)/.test(payload)) return 'panes';
+		return componentOf(payload) || (panes ? 'panes' : 'text');
+	}
+	return panes ? 'panes' : 'text';
+}
+
+const HEADING_RE = /^[ \t]{0,3}#{1,6}[ \t]+(.+?)[ \t]*#*[ \t]*$/m;
+/** The slide's human title — its first Markdown ATX heading, stripped of inline
+ *  emphasis/code/link syntax — for a READER-facing navigator (the Read stop, where
+ *  a component-class label like `big-number` is jargon the newcomer can't read).
+ *  Empty string when the slide has no heading; the caller falls back to "Slide N". */
+export function slideTitle(slideSrc: string): string {
+	const m = HEADING_RE.exec(String(slideSrc ?? ''));
+	if (!m) return '';
+	return m[1]
+		.replace(/\[([^\]]+)\]\([^)]*\)/g, '$1') // [text](url) → text
+		.replace(/[*_`~]/g, '') // emphasis / code / strike marks
+		.trim();
+}
+
+/**
+ * The slides `splitSlides` returns, located as ranges in the FULL document (front matter included) —
+ * the ONE derivation `slideIndexAt` and `slideStartOffset` both read, so the caret→rail and
+ * rail→editor directions cannot disagree with each other or with the rail.
+ *
+ * WHY THIS EXISTS. Both functions used to count `---` separators over the whole document, which
+ * disagrees with `splitSlides` in two ways, and both showed up as the editor framing a DIFFERENT
+ * slide than the one selected in the preview:
+ *
+ *   1. FRONT MATTER. Its closing `---` is preceded and followed by a newline, so it matched the
+ *      separator pattern and was counted as separator #0 — while the rail counts slides in the
+ *      STRIPPED body. Every deck with front matter (i.e. every real deck) was off by one:
+ *      `revealSlide(3)` framed slide 2, and a caret in slide 0 reported slide 1.
+ *      `examples/gallery-jargon.md` reproduces it exactly.
+ *   2. EMPTY CHUNKS. `splitSlides` drops them (`.trim()` then `.filter(Boolean)`); a raw separator
+ *      count does not, so two consecutive separators shifted every later slide by one more.
+ *
+ * The old fuzz test could not catch either: it built decks as `bodies.join('\n---\n')` from non-empty
+ * bodies — no front matter, no empties — and the two functions were self-consistent on exactly that
+ * shape. The round-trip property was true and the pair was still wrong on every real deck.
+ *
+ * Ranges carry BOTH edges deliberately. `from` is the raw chunk start (immediately after the
+ * separator), so a caret anywhere in a slide — including the blank line above its first line — maps
+ * to that slide, which is what the cursor→rail direction needs and matches the previous behavior.
+ * `start` skips leading whitespace, so revealing a slide frames its TEXT rather than the blank line.
+ */
+function slideRanges(src: string): Array<{ from: number; start: number; end: number }> {
+	const text = String(src ?? '');
+	// The front-matter block is not a slide, and its terminator is not a separator. `frontMatterBlock`
+	// consumes the delimiters plus any blank lines after them, so `fmLen` is the first body character
+	// and every separator inside the block sits below it.
+	const fmLen = frontMatterBlock(text).length;
+	const out: Array<{ from: number; start: number; end: number }> = [];
+	const push = (from: number, end: number) => {
+		const raw = text.slice(from, end);
+		if (!raw.trim()) return; // matches splitSlides' drop-empties
+		out.push({ from, start: from + (raw.length - raw.trimStart().length), end });
+	};
+	let pos = fmLen;
+	// No `s.index < fmLen` guard: `separatorPositions` scans the body ALONE and shifts its
+	// answers back, so a separator inside the front matter is not reported rather than
+	// reported-and-skipped. A filter that can never match is the same defect as a test that
+	// cannot fail — it reads like a guard and guards nothing.
+	for (const s of separatorPositions(text)) {
+		push(pos, s.index);
+		pos = s.index + s.length;
+	}
+	push(pos, text.length);
+	return out;
+}
+
+/** Zero-based index of the slide containing character offset `pos`. Pairs with splitSlides() to sync
+ *  editor cursor ↔ preview — see slideRanges for why this is not a separator count. */
+export function slideIndexAt(src: string, pos: number): number {
+	const at = Math.max(0, pos);
+	const ranges = slideRanges(src);
+	// The LAST slide that starts at or before `pos`. A position inside the front matter (or before the
+	// first slide) has no such slide and clamps to 0, so the rail always names a real slide.
+	let idx = 0;
+	for (let i = 0; i < ranges.length; i++) if (ranges[i].from <= at) idx = i;
+	return idx;
+}
+
+/** Character offset where slide `index` begins — the first character of its text.
+ *  The inverse of slideIndexAt, for scrolling the editor to a slide. */
+export function slideStartOffset(src: string, index: number): number {
+	if (index <= 0) {
+		const first = slideRanges(src)[0];
+		// Slide 0 starts after the front matter, NOT at offset 0 — revealing it used to frame the YAML
+		// block instead of the title slide.
+		return first ? first.start : 0;
+	}
+	const ranges = slideRanges(src);
+	const r = ranges[Math.min(index, ranges.length - 1)];
+	return r ? r.start : 0;
+}
+
+/**
+ * Where the caret should land when you jump to a slide: the start of its first
+ * line of actual CONTENT.
+ *
+ * A slide's first lines are usually machinery — the `<!-- _class: … -->` directive
+ * and its siblings (`<!-- _footer: … -->`, `<!-- _key … -->`), plus blank lines.
+ * Parking the caret at the raw slide start therefore drops you into a comment you
+ * did not come to edit, and a first keystroke there corrupts the directive
+ * (#1288/#1291). This walks past directive comments and blank lines to the first
+ * line that carries something to write on.
+ *
+ * Falls back to the slide start when a slide is nothing BUT directives — there is
+ * no better place to be, and the caret must still be inside the right slide.
+ */
+export function slideEditableOffset(src: string, index: number): number {
+	const start = slideStartOffset(src, index);
+	const ranges = slideRanges(src);
+	const r = ranges[Math.min(Math.max(index, 0), ranges.length - 1)];
+	const end = r ? r.end : src.length;
+	let at = start;
+	while (at < end) {
+		const nl = src.indexOf('\n', at);
+		const lineEnd = nl === -1 || nl > end ? end : nl;
+		const line = src.slice(at, lineEnd).trim();
+		// A directive comment opens AND closes on its own line; a multi-line HTML
+		// comment is authored content (a speaker note), so it is a landing spot.
+		//
+		// The body is "any run that does not itself contain `-->`", NOT `[^>]*`: a
+		// directive may legitimately carry inline HTML (`<!-- _footer: <sup>1</sup> -->`),
+		// and a `>`-excluding body stops matching at the first tag — so the line read as
+		// content and the caret parked inside the directive after all, which is the exact
+		// failure this function exists to prevent. The negative lookahead also keeps
+		// `<!-- _class: kpi --> trailing text` correctly OUT of the directive set: that
+		// line does carry content, so it IS a valid landing spot.
+		const isDirective = /^<!--(?:(?!-->).)*-->$/.test(line);
+		if (line && !isDirective) return at;
+		if (nl === -1) break;
+		at = nl + 1;
+	}
+	return start;
+}
+
+/** A reader-lens id. Any string so a deck-defined `lenses:` registry (projected by @laticent/lente)
+ *  can name its own lenses. `full` is always the identity; every other id is a registry (tag-driven,
+ *  author-approved) lens. The old author-blind `exec`/`onepager` heuristics are RETIRED. */
+export type PresentLens = string;
+
+/** The slides to present under a reader lens, EACH PAIRED with its original 0-based deck index (the
+ *  author's slide order) — so a filtered/reordered lens still maps every shown slide back to the number
+ *  the author wrote, which the front-matter `say:` map is keyed on. Pure; always non-empty for a
+ *  non-empty deck under `full` (falls back to the full deck for an unknown lens rather than nothing).
+ *
+ *  Projection source: when `registry` defines `lens`, the deterministic, tag-driven @laticent/lente
+ *  read path (`lensPairs`) owns it. `full` (or an unknown lens with no registry entry) is the whole deck. */
+export function presentationPairs(slides: string[], lens: PresentLens, registry?: LensRegistry): Array<{ slide: string; index: number }> {
+	const all = (Array.isArray(slides) ? slides : [])
+		.map((slide, index) => ({ slide, index })) // index = ORIGINAL author position (survives the lens filter)
+		.filter((p) => typeof p.slide === 'string');
+	if (lens === 'full' || all.length === 0) return all;
+	// Registry (tag-driven) lens → the library projects it deterministically from approved tags.
+	// HONEST projection: an empty lens returns an EMPTY set, NOT the whole deck — a fail-OPEN fallback
+	// to `all` would show a scoped reader everything the author kept out of that view, on the one
+	// path where nobody vetted the result. (Not a confidentiality claim: client-side projection hides,
+	// it does not withhold — design §6.3 as corrected 2026-07-18.) The
+	// reader path (PresentOverlay) gates through lensEligibility and renders an explicit "unavailable"
+	// state; the author preview shows the real (possibly empty) membership.
+	if (registry?.lenses.some((l) => l.id === lens && l.id !== 'full')) {
+		return lensPairs(slides, registry, lens);
+	}
+	return all; // unknown lens with no registry entry → safe fallback to the whole deck
+}
+
+/** The slides to present under a reader lens (plan §17: "meet the reader where
+ *  they are"). Pure; always non-empty when given a non-empty deck (falls back to the
+ *  full deck rather than nothing). */
+export function presentationSet(slides: string[], lens: PresentLens, registry?: LensRegistry): string[] {
+	return presentationPairs(slides, lens, registry).map((p) => p.slide);
+}
+
+/** The ORIGINAL 0-based deck index of each slide in `presentationSet(slides, lens)`,
+ *  positionally aligned: `presentationIndices(...)[i]` is the author slide index of the
+ *  i-th presented slide. So a number-keyed front-matter say: entry resolves under ANY lens —
+ *  `fmSayMap.get(presentationIndices(slides, lens)[i] + 1)` — not just `full`. */
+export function presentationIndices(slides: string[], lens: PresentLens, registry?: LensRegistry): number[] {
+	return presentationPairs(slides, lens, registry).map((p) => p.index);
+}
+
+// NOTE: the toy `scoreDeck` heuristic (a 3-check 0–10 score) was DELETED here — the
+// Studio Coach now renders the engine's REAL scorecard (`scorecard.scoreDeck` over
+// lint + review findings) via coach/coach-core.ts, so there is one deck assessment,
+// not two that drift (HARD RULE #1; succession doc §2.1).

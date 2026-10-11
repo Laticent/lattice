@@ -231,7 +231,7 @@ at pre-commit, so a next-morning catch on `main` is cheap to revert. Rationale:
 **`marp-kit-render` is the one suite that reaches outside the repo.** It renders
 BOTH Marp hand-off artifacts — `dist/marp-kit` and a freshly exported
 Export-to-Marp bundle — through real marp-cli, fetched on demand with `npx` at
-the version range `lib/core/marp-bundle.js` exports. marp-cli is deliberately not
+the version range `lib/export/marp-bundle.js` exports. marp-cli is deliberately not
 a dependency (HARD RULE #1: Marp is an export target, not a render path), and it
 runs with `npm_config_ignore_scripts=true` since it executes registry content on
 the merge path, and `CHROME_NO_SANDBOX=1` because marp-cli turns the Chromium
@@ -1334,7 +1334,7 @@ on it. Two ways to earn it:
 The suggestion rides on `didYouMean`, NOT folded into `message`: the message is
 what every surface prints and asserts, and the suggestion belongs on the button
 (`Fix: use “kpi”`), where it says what pressing it will do.
-`docs/src/playground/editor-diagnostics.js` prints the prose `fix` **only** when
+`docs/src/lib/editor-diagnostics.js` prints the prose `fix` **only** when
 there is no button — printing both is what #1658 reported as the tool knowing the
 answer and making you type it anyway.
 

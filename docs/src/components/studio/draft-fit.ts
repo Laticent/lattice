@@ -3,7 +3,7 @@
 // Its own module, imported on demand by StudioShell's `checkDraft`, so the render path is
 // never startup JavaScript. See engineering/decisions/2026-10-05-studio-chat-agent.md.
 
-import type { SingleSlideOptions } from '@/lib/single-slide-render';
+import type { SingleSlideOptions } from '@/playground/single-slide-render';
 import { measureDeckFit } from './export/deck-export.js';
 import { buildDeckRender, type ExtraTheme } from './share-export';
 

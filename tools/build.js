@@ -77,6 +77,11 @@ const GUARD = { label: 'ownership guard', script: 'check-ownership.js' };
 const PREFLIGHT = [
   { label: 'font-embedding parity', script: 'check-fonts.js' },
   { label: 'lint coverage', script: 'check-lint-coverage.js' },
+  // The codebase's parts stay layered: no part loop, no upward import, plugin boundary intact
+  // (tools/structure.js; engineering/decisions/2026-10-11-codebase-structure.md). Shells out to
+  // dependency-cruiser, so it lives here rather than in the ownership guard. `checkOnly`: it runs
+  // in build:check (pre-push and CI) and not in a plain build, which generates nothing it gates.
+  { label: 'structure (part loops, layers, plugin boundary)', script: 'check-structure.js', checkOnly: true },
 ];
 
 const STEPS = [
@@ -462,7 +467,7 @@ async function main(argv) {
   }
 
   // Read-only preflight gates (font parity, …) — fail before generating.
-  for (const gate of onlyUncommitted ? [] : PREFLIGHT) {
+  for (const gate of onlyUncommitted ? [] : PREFLIGHT.filter((g) => check || !g.checkOnly)) {
     process.stdout.write(`▸ ${gate.label}\n`);
     if (!runStep(gate, false)) {
       process.stderr.write(`\nbuild aborted: ${gate.label} failed.\n`);

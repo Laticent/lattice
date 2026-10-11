@@ -2,7 +2,7 @@
 // This file touches no DOM. Under the suite default it paid for a jsdom window it
 // never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
 import { describe, expect, it } from 'vitest';
-import { getClassTokens, setClassTokens } from './slide-directives';
+import { getClassTokens, setClassTokens } from '../../lib/slide-directives';
 import { applyVariant, componentLooks, humanizeVariant, variantActive, variantNoop, variantSample } from './slide-variants';
 
 // Variants as class-token surgery (2026-07-18-slide-variants-in-gallery.md). The token

@@ -27,10 +27,10 @@
 
 import type { ChartAnimaStyle } from '@/lib/chart-anima';
 import { type DeckMotion, MOTION_SPEEDS, MOTION_STYLES, type MotionSpeed, parseDeckMotion, speedToDurationMs } from '@/playground/anima-host-sel';
+import { splitSlides } from '../../lib/deck-lint';
+import { frontMatterBlock, getFrontMatter, stripFrontMatter } from '../../lib/front-matter';
+import { getClassTokens, setGroupToken } from '../../lib/slide-directives';
 import { SLIDE_SEP } from './deck-ops';
-import { frontMatterBlock, getFrontMatter, stripFrontMatter } from './front-matter';
-import { splitSlides } from './lint';
-import { getClassTokens, setGroupToken } from './slide-directives';
 
 /** The three axes, as the slide-token groups `setGroupToken` needs to swap one member for another. */
 export const PLAY_TOKENS = ['motion-on', 'motion-off'] as const;

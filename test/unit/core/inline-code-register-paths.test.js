@@ -145,7 +145,7 @@ test('the RUNTIME honors inline-code: literal on the BAKED path, engine nowhere 
   // BAKED, not fetched, and the distinction is the whole design. Every path that carries a
   // deck today has the front matter here synchronously: the engine reads the source, the
   // Studio renders through the engine first, and an export BAKES its front matter into the
-  // document (lib/core/marp-bundle.js). This arm is that third one — the runtime as the
+  // document (lib/export/marp-bundle.js). This arm is that third one — the runtime as the
   // only implementation, reading a baked block.
   const off = counts(await renderRuntimeBaked(deck(['inline-code: literal']), marpShaped()));
   const on = counts(await renderRuntimeBaked(deck([]), marpShaped()));

@@ -22,11 +22,11 @@ treat this map as nearly complete rather than a census.
 
 ## 1. Color science and perception
 
-No color library. The kernel is `lib/theme/color.js` and `lib/theme/cvd.js`.
+No color library. The kernel is `lib/core/color.js` and `lib/theme/cvd.js`.
 
 | Idea | Where | What is worth knowing |
 |---|---|---|
-| sRGB transfer curve, WCAG 2 relative luminance and contrast ratio | `lib/theme/color.js` (`srgbChannelToLinear`, `contrastRatio`) | Rec. 709 weights. The forward curve uses the WCAG threshold 0.03928, the inverse the IEC 0.0031308; the gap is invisible at 8 bits. |
+| sRGB transfer curve, WCAG 2 relative luminance and contrast ratio | `lib/core/color.js` (`srgbChannelToLinear`, `contrastRatio`) | Rec. 709 weights. The forward curve uses the WCAG threshold 0.03928, the inverse the IEC 0.0031308; the gap is invisible at 8 bits. |
 | OKLab and OKLCH (Ottosson 2020) | `color.js` (`hexToOklab`, `oklabToLinearRgb`, `oklabDistance`) | Both directions through the cone-response (LMS) matrix. Hue, chroma and lightness edits all happen here. |
 | Gamut mapping | `color.js` (`oklchToHex`) | Bisects chroma 24 times at fixed lightness and hue, the CSS Color 4 idea. |
 | Contrast repair | `color.js` (`ensureContrast`) | Walks OKLCH lightness only, so a repaired color keeps its hue. |
@@ -48,7 +48,7 @@ No color library. The kernel is `lib/theme/color.js` and `lib/theme/cvd.js`.
 | CSS lexing | `lib/core/css-comments.mjs` (`eachCssRun`), `lib/core/css-scan.js` | One state machine for comments, strings and `url(` per CSS Syntax; escape decoding with position mapping feeds the exfiltration scanners. |
 | The compile pipeline | `lib/engine/slides.js`, `lib/engine/directives.js`, `lib/transformers/registry.js` | markdown-it core rules, then ordered HTML passes. Directive scoping: spot replaces global, global carries forward. |
 | Topological order for plugins | `lib/plugins/resolve.js` | Kahn's algorithm, ties broken by name for determinism, cycles reported with their path. |
-| TeX display-equation reflow | `lib/core/tex-linebreak.js`, `lib/plugins/math/math.render.js` | A nesting-depth scan finds the binary operators safe to break at (a binary `+`, not a unary sign), then descends once into the group that dominates the long side; the header explains why depth-0 alone is a regression. `math.render.js` re-typesets with KaTeX and falls back on error. |
+| TeX display-equation reflow | `lib/plugins/math/shared/tex-linebreak.js`, `lib/plugins/math/math.render.js` | A nesting-depth scan finds the binary operators safe to break at (a binary `+`, not a unary sign), then descends once into the group that dominates the long side; the header explains why depth-0 alone is a regression. `math.render.js` re-typesets with KaTeX and falls back on error. |
 | Parser memo | `lib/engine/index.js` | Single entry, keyed on the full input set, guarded by a byte comparison over every committed deck. |
 | Untrusted transform rules | `lib/core/transform-dsl/` | A closed operation set, one forward pass, budgets, idempotence. Prototype, not wired in. |
 | Edit distance | `lib/authoring/lint-core.js`, `docs/src/lib/intent-search.ts` | Bounded Levenshtein with early exit, for "did you mean" and typo repair. |
@@ -58,7 +58,7 @@ No color library. The kernel is `lib/theme/color.js` and `lib/theme/cvd.js`.
 | Idea | Where | What is worth knowing |
 |---|---|---|
 | The HTML RAWTEXT trap | `lib/core/sanitize-style-text.mjs` | `</style` ends a style element even inside a CSS comment; the guard writes `<\/style`. Fuzzed with 300,000 cases against an independent oracle (the decision note's probe); the unit suite runs 200,000. `css-tree` turns the escape back into a live terminator, which is why every CSS re-wrap guards again (HARD RULE #22). |
-| Layered sandbox for package code | `lib/packages/code-door-core.mjs`, `code-shape.mjs`, `code-syntax.mjs`, `lib/core/os-sandbox.js` | Opaque-origin iframe, CSP allowing one script by hash, a worker with `eval` and `Function` stubbed out, network names removed, frozen inputs, an acorn parse for dynamic `import()`, and a measured seccomp check on Linux. |
+| Layered sandbox for package code | `lib/core/code-door-core.mjs`, `code-shape.mjs`, `code-syntax.mjs`, `lib/core/os-sandbox.js` | Opaque-origin iframe, CSP allowing one script by hash, a worker with `eval` and `Function` stubbed out, network names removed, frozen inputs, an acorn parse for dynamic `import()`, and a measured seccomp check on Linux. |
 | Consent pinned to content | `lib/packages/trust.js` | Trust is the SHA-256 of `transform.js`, stored where no package can write it. |
 | SHA-256 from scratch | `docs/src/lib/lente/hash.ts`, `docs/src/lib/lente/project.ts` | Checked against NIST vectors; Lente hashes an injective encoding because an earlier one let two decks share a digest. |
 | Peer-to-peer editing | `docs/src/lib/tavola/`, `docs/src/components/studio/live/` | ECDSA P-256 host identity, AES-GCM with a non-extractable key, Yjs (a conflict-free replicated data type) over WebRTC, and an anchor-based rebase that refuses rather than guesses. |
@@ -153,7 +153,7 @@ Transformers.js (embeddings) loads from a CDN at runtime
 Each of these is a choice, not a gap; read the linked reason before adding one.
 
 - **No shrink-to-fit by binary search.** The Fit Spine's order is collapse, shed, split,
-  never scale (`lib/core/tex-linebreak.js` header restates it). Two bounded exceptions
+  never scale (`lib/plugins/math/shared/tex-linebreak.js` header restates it). Two bounded exceptions
   exist: the word cloud's stepped 0.9× retries, and reflowed display equations, which
   `lib/components/math/math/math.styles.css` argues are not the forbidden shrink.
 - **No Knuth–Plass line breaking or hyphenation dictionaries.** Line breaking is the

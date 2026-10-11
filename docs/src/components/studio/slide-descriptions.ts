@@ -12,7 +12,7 @@
 // same fence-aware `comments()` scan, same surgical rewrite, one classifier
 // (`isDescriptionBody`). See engineering/decisions/2026-07-04-accessible-descriptions.md.
 
-import { comments, isDescriptionBody, tidyOutsideFences } from './slide-directives';
+import { comments, isDescriptionBody, tidyOutsideFences } from '../../lib/slide-directives';
 
 /** The slide's accessibility description (the first `describe:` comment, prefix
  *  stripped), or ''. */

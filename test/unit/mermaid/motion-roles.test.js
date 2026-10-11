@@ -153,7 +153,12 @@ describe('tagMermaidMotion — wired into every path that produces a diagram', (
     assert.equal((src.match(/target\.innerHTML = (?:cachedSvg|svg);\n\s*tagDiagramMotion\(target\);/g) || []).length, 2);
   });
   it('the CLI player capture tags the baked copy', () => {
+    // The bake publishes the tagger on its state, and the capture runs every published tagger on
+    // each baked copy, naming no plugin (lib/plugins/host-bake.js, THE MOTION TAGGER).
+    const bake = fs.readFileSync(path.join(root, 'lib/plugins/mermaid/mermaid.bake.js'), 'utf8');
+    assert.match(bake, /state\.motionTagger = tagMermaidMotion;/);
     const src = fs.readFileSync(path.join(root, 'lattice.js'), 'utf8');
-    assert.match(src, /window\.__tagMermaidMotion\(flat\);/);
+    assert.match(src, /\.map\(\(c\) => c\.state\.motionTagger\)/);
+    assert.match(src, /for \(const tag of window\.__motionTaggers\) \{\n\s*try \{ tag\(flat\); \}/);
   });
 });

@@ -393,7 +393,7 @@ section.form > .cell-footer > .lat-split-rail { flex: 0 0 auto; }
  * paginated frame, so the condition can be the thing it actually cares about.
  *
  * Asking for the ELEMENT also makes this FAIL-SAFE. A render path that does not run
- * the Tile — the export-to-Marp bundle (lib/core/marp-bundle.js), where Marp draws
+ * the Tile — the export-to-Marp bundle (lib/export/marp-bundle.js), where Marp draws
  * its own pseudo — matches neither arm, keeps the pseudo, and still shows a number.
  * The old form could not have that property: `.cell-footer` is emitted by a
  * transform too, so a path without it silently lost the number instead.

@@ -1,8 +1,8 @@
 import { X } from 'lucide-react';
 import * as React from 'react';
 import { Frozen, useEverTrue } from '@/components/ui/keep-mounted';
-import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { cn } from '@/lib/utils';
+import type { SingleSlideOptions } from '@/playground/single-slide-render';
 import { SLIDE_SEP } from './deck-ops';
 import { PooledThumbFace, PreviewPool } from './preview-pool';
 import { hasDrawnFence } from './slide-thumb';

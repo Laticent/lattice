@@ -12,7 +12,7 @@ import DeckPreview from '@/components/DeckPreview';
 // `slides.length`, deliberately NOT from the deck's hand-written `meta:
 // '7 slides'` string, which can rot independently of the deck.
 //
-// Wraps the shared <DeckPreview> bridge (→ src/lib/single-slide-render.ts) and
+// Wraps the shared <DeckPreview> bridge (→ src/playground/single-slide-render.ts) and
 // adds no frame builder of its own — so HARD RULE #22 is satisfied by the
 // already-sanctioned sink, with no SANCTIONED_PREVIEW_BUILDERS entry to add.
 //

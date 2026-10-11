@@ -16,7 +16,7 @@
  * (docs/src/styles/lattice-tokens.generated.css) and the bridge's own
  * constants (parsed out of tailwind.css, so there is one source of truth), and
  * fails the build if any pair regresses below its WCAG floor. Reuses the exact
- * WCAG + OKLab math in lib/theme/color.js (HARD RULE 15 — don't reinvent).
+ * WCAG + OKLab math in lib/core/color.js (HARD RULE 15 — don't reinvent).
  *
  * Usage: `node tools/check-shadcn-bridge-contrast.js`  (exit 1 on any FAIL)
  *
@@ -27,7 +27,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
-const { contrastRatio, mix, hexToOklab } = require('../lib/theme/color.js');
+const { contrastRatio, mix, hexToOklab } = require('../lib/core/color.js');
 
 const ROOT = path.join(__dirname, '..');
 const TOKENS = path.join(ROOT, 'docs/src/styles/lattice-tokens.generated.css');

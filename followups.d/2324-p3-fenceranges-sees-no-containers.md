@@ -19,7 +19,7 @@ why now   — the 2324-p1 fix bounds a closer at the opener's column plus three,
             (2) a blockquote fence (`> ```` … `> ````) is invisible: the regex takes no
             `>` prefix, so its body is not masked. Math inside it over-locks (safe); a
             `_class` comment inside it would hoist.
-where     — docs/src/components/studio/slide-directives.ts `fenceRanges`. The engine's
+where     — docs/src/lib/slide-directives.ts `fenceRanges`. The engine's
             own splitters (lib/core/split-slides.js, lib/authoring/slide-split.js) share
             the container-blind shape, so a shared, container-aware scanner is the
             honest fix (HARD RULE #1), not a Compose-only patch.

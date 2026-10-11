@@ -25,10 +25,10 @@ import { Compartment, EditorState, StateEffect } from '@codemirror/state';
 import { EditorView, highlightActiveLine, highlightActiveLineGutter, keymap, lineNumbers } from '@codemirror/view';
 import { tags as t } from '@lezer/highlight';
 import { editorChrome, editorChromeCoarse } from '../lib/editor-chrome.js';
+import { buildVocabSets, deckPluginsOffFor, findingsToDiagnostics } from '../lib/editor-diagnostics.js';
 import { lintTheme, lintThemeCoarse, tooltipShell } from '../lib/lint-theme.js';
 import { latticeAutocomplete } from './complete.js';
 import { readFrontMatter } from './deck-config.js';
-import { buildVocabSets, deckPluginsOffFor, findingsToDiagnostics } from './editor-diagnostics.js';
 import { MERMAID_KEYWORDS } from './grammar-vocab.js';
 import { typeaheadContext } from './slide-context.js';
 

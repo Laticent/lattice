@@ -31,14 +31,14 @@ import * as React from 'react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { messageForFailure } from '@/lib/chunk-load';
 import { notify } from '@/lib/notify';
-import type { SingleSlideOptions } from '@/lib/single-slide-render';
 // Engine helpers (shared kernel, HARD RULE #1): the paper decision + slide placement
 // + single-slide srcdoc + rendered-HTML splitter all live in the playground engine.
 import { notesCore } from '@/playground/authoring-core.generated.js';
 import { buildSrcdoc, handoutRegions, nUpCells, resolvePrintSheet, splitSections } from '@/playground/deck-preview.js';
+import type { SingleSlideOptions } from '@/playground/single-slide-render';
+import { splitSlides } from '../../lib/deck-lint';
+import { frontMatterBlock, stripFrontMatter, withPrintCanvas } from '../../lib/front-matter';
 import { downloadBlob, downloadUrl, isIOSLike, namedFileUrl } from './download';
-import { frontMatterBlock, stripFrontMatter, withPrintCanvas } from './front-matter';
-import { splitSlides } from './lint';
 import { PooledThumbFace, PreviewPool } from './preview-pool';
 import { buildDeckRender, type DeckRender, type ExtraTheme } from './share-export';
 import { hasDrawnFence } from './slide-thumb';

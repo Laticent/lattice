@@ -21,7 +21,7 @@ where     — the engine compiles the alias into its own internal `lat-pane:` / 
             like the syntax (lib/core/panes.js `normalizePaneSyntax`), so retiring it is the
             `parseMarker` legacy branch and the `PANES_RE` arm there, plus the text readers that
             accept it (lib/core/pane-spec.js `scanPanes`, lib/core/bake-splits.js,
-            docs/src/components/studio/slide-directives.ts, pane-pages.ts). The carve never reads it.
+            docs/src/lib/slide-directives.ts, pane-pages.ts). The carve never reads it.
 done when — a release has carried the `pane-syntax` warning; then the alias either goes or stays with
             a documented reason in the design note §9.
 verify    — `npm run followups` no longer lists this file.

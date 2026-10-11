@@ -127,7 +127,7 @@ export function createEngineBridge(
 			const theme = resolveThemeName(deckPalette, deckMode, PGref.hasTheme(deckPalette + '-dark'));
 			const out = await renderMarkdown(PGref, source, theme, { baseUrl: samplesBase, samplesUrl: samplesBase });
 			const geom = { w: out.width || 1280, h: out.height || 720 };
-			// Split on STRUCTURE, the way the PDF export does (lib/core/structural-split.js). The
+			// Split on STRUCTURE, the way the PDF export does (lib/engine/structural-split.js). The
 			// render is one section per authored slide; at portrait/square the export cuts each
 			// multi-member slide into cover → one element per page → closing, and without this the
 			// preview showed the whole slide squeezed onto one tall page instead. The PREVIEW opts in

@@ -368,7 +368,7 @@ fix lands once, not per surface (see
 - **`docs/src/lib/theme-fetch.ts`** — `createThemeFetcher(themeBase)`: fetch +
   cache theme CSS, register via `PG.addThemes`. The one theme-fetch path all
   bridges use.
-- **Single-slide** — `docs/src/lib/single-slide-render.ts` (one rendered
+- **Single-slide** — `docs/src/playground/single-slide-render.ts` (one rendered
   `<section>` in a scaled `srcdoc` iframe) wrapped by the React
   `docs/src/components/DeckPreview.tsx`. Backs the landing islands, the 53
   component specimen pages, **and every Studio preview** — the editor preview,
@@ -385,7 +385,7 @@ fix lands once, not per surface (see
   `_focusSteps` or `split: headings` deck expands one authored slide into several,
   and picking by index there would paint the WRONG slide — in which case the
   shown slide is re-rendered alone and honestly numbered 1 of 1. See
-  `docs/src/lib/single-slide-render.alignment.test.ts` and the "A live preview
+  `docs/src/playground/single-slide-render.alignment.test.ts` and the "A live preview
   prints 1 as the page number" entry in `engineering/gotchas.md`.
 - **Multi-slide filmstrip** — `docs/src/playground/deck-preview.js` (patch-vs-
   rewrite, FIT/SYNC agents, content-visibility). Backs the playground and the
@@ -416,6 +416,22 @@ auto-generated CSS doesn't cover that selector; we cover it explicitly
 in the DIAGRAM OVERRIDES section, and we also set `cScaleLabel0..11` so
 even uncovered text elements fall back to a tested-contrast dark ink
 rather than Mermaid's auto-derived white-on-pale.
+
+## Parts and layers
+
+The tree is a stack of parts, each on a layer, and a part imports only parts on its own layer or
+below: leaves and the workspace libraries (0), `lib/core` (1), contracts over core (2), the catalog,
+the package format and the plugin kit (3), adapters and plugins (4), `lib/engine` (5), what uses the
+engine (6), `lattice.js` (7), the docs site (9–16), `tools/` (20). Generated files under `lib/` are
+seams: a build step writes them from above, and the layers below read them by name. A plugin
+imports only its own folder and `lib/plugin-kit/`, and nothing else imports a plugin's folder;
+chart-family, the chart bucket's dispatcher, is the one plugin excepted by name.
+
+`tools/structure.js` holds the map (`PARTS`) and reports each part's size, coupling and cohesion;
+`build:check` fails on a part loop, an upward import or a plugin-boundary break
+(`tools/check-structure.js`). A new top-level folder goes into `PARTS` on its layer. The layers,
+what moved to make them hold, and what is still worth splitting:
+`engineering/decisions/2026-10-11-codebase-structure.md`.
 
 ## File layout, from the renderer's point of view
 

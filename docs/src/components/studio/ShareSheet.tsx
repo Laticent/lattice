@@ -4,15 +4,15 @@ import { PanelBody, PanelHeader, PanelSection, PanelSheet } from '@/components/u
 import { chunkLoadMessage, isChunkLoadError } from '@/lib/chunk-load';
 import { deckColorMode } from '@/lib/deck-theme';
 import { notify } from '@/lib/notify';
-import type { SingleSlideOptions } from '@/lib/single-slide-render';
+import type { SingleSlideOptions } from '@/playground/single-slide-render';
+import { splitSlides } from '../../lib/deck-lint';
+import { mergeClassTokens, stripFrontMatter } from '../../lib/front-matter';
 import { deckFilename } from './decks';
 import { dismissPendingSave, iosNeedsShareSheet } from './download';
 import { ExportOptionsPanel } from './ExportOptionsPanel';
 import { buildCommentAnnotations, type ExportOptions } from './export-options';
-import { mergeClassTokens, stripFrontMatter } from './front-matter';
 import { ImageSetOptionsPanel } from './ImageSetOptionsPanel';
 import { SHEET_EXIT_MS } from './lazy-panel';
-import { splitSlides } from './lint';
 import { MarpOptionsPanel } from './MarpOptionsPanel';
 import { PrintOptionsPanel } from './PrintOptionsPanel';
 import { type DeckPackages, embeddableLattice, type ImageSetOptions, shareCaptions, shareHtmlPlayer, shareImageSet, shareLattice, shareMarkdown, shareMarp, shareOffice, sharePdf, sharePptx, sharePrintSource } from './share-export';

@@ -22,7 +22,7 @@ export interface LatticePlaygroundEngine {
 		 *  so a single-slide render numbers itself truthfully without a whole-deck parse.
 		 *  Omitted on every full-deck and export path, where numbering is already right. */
 		opts?: { baseUrl?: string; samplesUrl?: string; stats?: boolean; page?: { offset: number; total?: number; deckSection?: { index: number; total: number } }; styles?: 'scoped' | 'flat'; pluginDefaults?: string[] },
-	) => { html: string; css: string; flatCss?: string; width?: number; height?: number; stats?: import('@/playground/render-metrics').RenderStats };
+	) => { html: string; css: string; flatCss?: string; width?: number; height?: number; stats?: import('@/lib/render-metrics').RenderStats };
 	/** Narrow the default plugin set every later render loads from; `null` restores every shipped
 	 *  plugin (lib/playground/index.js). The Studio ships on the default set. */
 	setPluginDefaults?: (names: string[] | null) => void;
@@ -51,7 +51,7 @@ export interface LatticePlaygroundEngine {
 	 *  cannot take HTML — the Compose editor's ProseMirror `code_block`. Optional,
 	 *  because an engine bundle older than this feature does not carry it. */
 	highlightSpans?: (code: string, lang: string) => Array<{ from: number; to: number; cls: string }>;
-	/** The structural auto-split the CLI export runs (lib/core/structural-split.js), applied to a
+	/** The structural auto-split the CLI export runs (lib/engine/structural-split.js), applied to a
 	 *  `render()` result so a portrait/square deck paginates live the way its PDF does. A no-op
 	 *  at landscape. `changed` counts the authored slides that split. Optional, because an engine
 	 *  bundle older than this feature does not carry it. */

@@ -8,7 +8,7 @@ import RestyleShowcase, { type RestyleData } from './RestyleShowcase';
 // render. The island holds one renderer per mount (a React.useRef instance), so
 // a module-level stub matches that lifetime.
 const renderInto = vi.fn(() => Promise.resolve({ ok: true, slides: 1, error: null }));
-vi.mock('@/lib/single-slide-render', () => ({
+vi.mock('@/playground/single-slide-render', () => ({
 	createSingleSlideRenderer: () => ({
 		ready: () => true,
 		whenReady: () => Promise.resolve(),

@@ -1149,7 +1149,7 @@ says which edge it now owns with `--_edge-t` / `-r` / `-b` / `-l` in the same ru
 base.modifiers.css, "The slide's EDGE".
 
 **What sits behind the slide in a preview is the APP.** The frame's own `html, body` is
-`transparent` (`docs/src/lib/single-slide-render.ts`), and so is `iframe.live`
+`transparent` (`docs/src/playground/single-slide-render.ts`), and so is `iframe.live`
 (`docs/src/styles/landing.css`): an opaque fill there would make every slide a rectangle to
 the frame's filter. A slide's own canvas is always opaque — every theme's `--bg`,
 `--scheme-dark-bg`, `--brand-canvas` and `--surface-inverse` is a solid color, and

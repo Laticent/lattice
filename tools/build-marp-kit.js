@@ -14,7 +14,7 @@
  *   node tools/build-marp-kit.js            # write dist/marp-kit/
  *   node tools/build-marp-kit.js --check    # exit 1 if the committed kit is stale
  *
- * WHY IT SHARES THE EXPORT'S ASSET LIST. `lib/core/marp-bundle.js` already knows
+ * WHY IT SHARES THE EXPORT'S ASSET LIST. `lib/export/marp-bundle.js` already knows
  * which files a Marp render needs — it learned the hard way (#1256 shipped a
  * bundle with no fonts, so every title slide fell back to system serif). This
  * builder IMPORTS that module's `STATIC_ASSETS` and its `fontAssetsFor()` walker
@@ -58,7 +58,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { STATIC_ASSETS, fontAssetsFor, MARP_CLI_RANGE } = require('../lib/core/marp-bundle.js');
+const { STATIC_ASSETS, fontAssetsFor, MARP_CLI_RANGE } = require('../lib/export/marp-bundle.js');
 
 const ROOT = path.join(__dirname, '..');
 const OUT_DIR = path.join(ROOT, 'dist', 'marp-kit');

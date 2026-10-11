@@ -1,13 +1,13 @@
 /**
  * The Export-to-Marp bundle carries its math typeset, never as TeX
- * (lib/core/marp-bundle-math.js; engineering/decisions/2026-08-17-theme-css-is-a-preview-sink.md § 15).
+ * (lib/export/marp-bundle-math.js; engineering/decisions/2026-08-17-theme-css-is-a-preview-sink.md § 15).
  * The real-marp-cli arm is test/integration/export/marp-bundle-author-script.test.js.
  */
 
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const MarkdownIt = require('markdown-it');
-const { bakeMath, canonicalKatexHtml, KATEX_ALLOWLIST, _internal: { encode, styleOk, blankFor } } = require('../../../lib/core/marp-bundle-math');
+const { bakeMath, canonicalKatexHtml, KATEX_ALLOWLIST, _internal: { encode, styleOk, blankFor } } = require('../../../lib/export/marp-bundle-math');
 const { renderers } = require('../../../lib/plugins/math/math.render.js');
 
 // What a MathJax-on Marp would read: commonmark with raw HTML, and no `$` left unescaped in text.

@@ -15,7 +15,7 @@ import {
 import { useOverlayBack } from '@/lib/overlay-back';
 import { cycleModePref, setPalette } from '@/lib/site-chrome';
 import { useIsPhone } from '@/lib/use-breakpoint';
-import type { LessonMeta } from '../studio/lessons/catalog';
+import type { LessonMeta } from '../../lib/lesson-catalog';
 
 export type NavLink = { label: string; href: string; desc?: string; current?: boolean; badge?: string };
 
@@ -233,7 +233,7 @@ export function CommandMenu({
 	const wantLessons = studioHref != null && query.trim() !== '';
 	React.useEffect(() => {
 		if (!wantLessons || lessons.length) return;
-		import('../studio/lessons/catalog').then((m) => setLessons(m.LESSONS)).catch(() => {});
+		import('../../lib/lesson-catalog').then((m) => setLessons(m.LESSONS)).catch(() => {});
 	}, [wantLessons, lessons.length]);
 	const lessonRows = studioHref ? matchLessons(lessons, query) : [];
 	const walkQ = query.trim().toLowerCase();

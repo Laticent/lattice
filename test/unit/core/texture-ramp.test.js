@@ -28,7 +28,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { hexToOklch } = require('../../../lib/theme/color.js');
+const { hexToOklch } = require('../../../lib/core/color.js');
 const {
   LIGHT_ARM_DELTA, DARK_ARM_DELTA, INK_L_MIN, INK_L_MAX,
   meanLightness, dominantHue, deriveTextureInk, textureSetFrom, inkContrastRange,

@@ -2215,7 +2215,7 @@ describe('check-ownership', () => {
       // first cut) dragged the hue up to 14.9 degrees on chromatic-heading palettes;
       // holding hue is the whole reason the values are generated instead of mixed.
       const { solveInk } = require('../../../tools/derive-cat-ink.js');
-      const { hexToOklch, contrastRatio } = require('../../../lib/theme/color.js');
+      const { hexToOklch, contrastRatio } = require('../../../lib/core/color.js');
       const mark = '#478400'; // atelier cat-4, the worst measured slot
       const ink = solveInk(mark, '#f2efe6', '#e5e0d2');
       const hueOf = (h) => hexToOklch(h).h;

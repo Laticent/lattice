@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
-import { stripFrontMatter } from '../src/components/studio/front-matter';
-import { splitSlides, usedComponents } from '../src/components/studio/lint';
+import { splitSlides, usedComponents } from '../src/lib/deck-lint';
+import { stripFrontMatter } from '../src/lib/front-matter';
 import { expect, gotoStudio, persistedSource, railButtons, test, waitForStudioPaint } from './studio-fixture';
 
 /**

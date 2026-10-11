@@ -787,7 +787,7 @@ function rulesDoc(authoringRules) {
     '',
     '---',
     '',
-    'Source: `docs/src/components/studio/ai/architect-knowledge.js` (`AUTHORING_RULES`).',
+    'Source: `docs/src/lib/architect-knowledge.js` (`AUTHORING_RULES`).',
     '',
   ].join('\n');
 }
@@ -942,7 +942,7 @@ async function buildPrimer() {
     pathToFileURL(path.join(ROOT, 'docs', 'src', 'lib', 'studio-catalog.mjs')).href
   );
   const { buildLatticePrimer, AUTHORING_RULES } = await import(
-    pathToFileURL(path.join(ROOT, 'docs', 'src', 'components', 'studio', 'ai', 'architect-knowledge.js')).href
+    pathToFileURL(path.join(ROOT, 'docs', 'src', 'lib', 'architect-knowledge.js')).href
   );
   const catalog = buildStudioCatalog(ROOT);
   if (!catalog.length) {
@@ -1972,11 +1972,11 @@ function exampleDecks() {
  * footnote.
  */
 // DERIVED, not re-listed. This used to be a hand-copy of `RUNTIME_SCRIPTS` in
-// lib/core/marp-bundle.js, and it drifted the moment that list changed: dagre was
+// lib/export/marp-bundle.js, and it drifted the moment that list changed: dagre was
 // split out of the runtime bundle, the marp path gained a third tag, and this copy
 // silently kept emitting two — HARD RULE #1, in the small. Reading the one source
 // means a fourth engine lands here for free, and a rename cannot desynchronise them.
-const { RUNTIME_SCRIPTS, RUNTIME_SCRIPT_SRCS, MARP_CLI_RANGE } = require('../lib/core/marp-bundle.js');
+const { RUNTIME_SCRIPTS, RUNTIME_SCRIPT_SRCS, MARP_CLI_RANGE } = require('../lib/export/marp-bundle.js');
 const RUNTIME_TAGS = RUNTIME_SCRIPTS.trim().split('\n');
 
 /**

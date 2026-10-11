@@ -1,8 +1,8 @@
 import { FileCode2, ShieldCheck, TriangleAlert } from 'lucide-react';
 import type * as React from 'react';
 import DeckPreview from '@/components/DeckPreview';
-import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { cn } from '@/lib/utils';
+import type { SingleSlideOptions } from '@/playground/single-slide-render';
 import { CodeField } from './CodeField';
 
 // A starter that PASSES the gate out of the box — palette-blind (every color a

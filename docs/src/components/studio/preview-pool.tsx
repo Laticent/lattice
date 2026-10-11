@@ -1,8 +1,8 @@
 import * as React from 'react';
 import DeckPreview from '@/components/DeckPreview';
-import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { slideFrameStyle } from '@/lib/slide-frame';
 import { cn } from '@/lib/utils';
+import type { SingleSlideOptions } from '@/playground/single-slide-render';
 import { hasDrawnFence } from './slide-thumb';
 
 // ── A POOL OF PREVIEW FRAMES THAT ARE NEVER DESTROYED (#1538) ───────────────────────

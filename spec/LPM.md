@@ -153,14 +153,14 @@ plugin that draws a fence from its code block is not admitted, renames its `lang
 name rather than by tag, because an attribute selector matches a name exactly: no tokenizer
 disagreement can smuggle one through. On the default set (b) never fires, and (a) changes no
 tracked deck. **An Export-to-Marp bundle** is rendered by Marp, not the engine, so its producer
-(`withRuntimeScripts`, lib/core/marp-bundle.js) applies the same (a) and (b) to the deck's SOURCE
+(`withRuntimeScripts`, lib/export/marp-bundle.js) applies the same (a) and (b) to the deck's SOURCE
 (`refuseAuthorMarkupInSource`): it parses the deck as Marp does (markdown-it, `html: true`) and
 renames on the lines of every raw-HTML token, leaving code fences their bytes; and it refuses the
 front matter and every HTML comment whole, after undoing YAML's double-quoted escapes, because
 Marpit decodes those as YAML and renders `header:` and `footer:`. The bundled runtime marks a
 left-off plugin's fences by the substring its pass reads them by (`code[class*="language-<fence>"]`,
 lib/plugins/mark-off.mjs), so a `language-<fence>-source` block is marked too. **An Export-to-Marp bundle** is rendered by Marp, not the engine, so its producer
-(`withRuntimeScripts`, lib/core/marp-bundle.js) applies the same (a) and (b) to the deck's SOURCE:
+(`withRuntimeScripts`, lib/export/marp-bundle.js) applies the same (a) and (b) to the deck's SOURCE:
 it parses the deck as Marp does (markdown-it, `html: true`) and renames on the lines of every
 raw-HTML token, leaving code fences their bytes (`refuseAuthorMarkupInSource`); and the bundled
 runtime marks a left-off plugin's fences by the substring its pass reads them by
@@ -185,7 +185,7 @@ is marked too.
 | Field | Value |
 |---|---|
 | `payload` | `{ <key>: { from: "npm:<package>/<path>.js", vendored?, global, when: "used" } }` — at most one file in api 1: the library the plugin's browser half waits for, loaded only for a deck that uses the plugin. REQUIRES `hydrate` (a pass asks the host for it — `ensureLibrary`, §6). `vendored: { file: "vendor/<name>.js", version, sha256 }` means the plugin OWNS a committed copy in its `vendor/` folder (in-tree only): every surface — browser pages, the CLI bake, exported bundles — reads that copy, so no user fetches the library and no install changes what ships; `from` is then only the source it is refreshed from, and the host fails a copy that does not match its `sha256`, and any file in `vendor/` that no copy names (the source gates skip that folder, so it holds only declared copies) |
-| `vendor` | `{ <key>: { from, file, version, sha256 } }` — IN-TREE ONLY: every OTHER third-party library the plugin owns a copy of, the ones no browser surface loads as the payload: a renderer's library (the math plugin's KaTeX, with its stylesheet and fonts) or the bake's (Mermaid's ZenUML and mermaid-cli's render page). Held to the same rules as `payload.vendored`: every surface reads the copy (`vendorPath`, lib/plugins/payload-path.js), `package.json` pins `from`'s package at exactly `version`, and the build fails a copy that does not match `sha256`. A copy is one file, a whole directory (`from` and `file` end in `/`), or one directory's files of one extension (`from` ends in `/*.<ext>`, `file` in `/`); a directory's `sha256` hashes one `<path> <sha256>` line per file, sorted. Each source package's `LICENSE` is a `vendor` copy too (`from` ends in `/LICENSE`), so the notice an MIT library requires travels with every copy we ship |
+| `vendor` | `{ <key>: { from, file, version, sha256 } }` — IN-TREE ONLY: every OTHER third-party library the plugin owns a copy of, the ones no browser surface loads as the payload: a renderer's library (the math plugin's KaTeX, with its stylesheet and fonts) or the bake's (Mermaid's ZenUML and mermaid-cli's render page). Held to the same rules as `payload.vendored`: every surface reads the copy (`vendorPath`, lib/plugin-kit/payload-path.js), `package.json` pins `from`'s package at exactly `version`, and the build fails a copy that does not match `sha256`. A copy is one file, a whole directory (`from` and `file` end in `/`), or one directory's files of one extension (`from` ends in `/*.<ext>`, `file` in `/`); a directory's `sha256` hashes one `<path> <sha256>` line per file, sorted. Each source package's `LICENSE` is a `vendor` copy too (`from` ends in `/LICENSE`), so the notice an MIT library requires travels with every copy we ship |
 | `tokens` | every design token `styles.css` reads — exactly the set of its `var(--…)` reads |
 | `render.parity` | `equivalent` (every surface emits the same result) or `progressive` (a static surface emits a placeholder a browser completes) |
 | `render.degradesTo` | what the host shows when a renderer throws or returns a non-string: `source`, `code-block` or `hidden` |
@@ -444,7 +444,7 @@ lattice packages new plugin <name>
 writes a folder with a manifest, a fence renderer, a stylesheet, docs and fixtures. Run
 `npm run build` to regenerate the registry; the scaffold then passes `npm run build:check`,
 `npm run test:plugins` and the full `npm test` unedited — its Marp-export row is derived from its
-manifest (`lib/core/marp-fidelity.js`). The name must be free: not a plugin, a plugin fence, a
+manifest (`lib/export/marp-fidelity.js`). The name must be free: not a plugin, a plugin fence, a
 highlight.js language or alias, and at most 64 characters.
 
 ## 12. Changes

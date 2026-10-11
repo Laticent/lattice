@@ -1,7 +1,7 @@
 import { normalizeSourceText } from '@/lib/normalize-source-text';
+import { splitSlides } from '../../lib/deck-lint';
+import { frontMatterBlock, frontMatterKeySpan, frontMatterValue, getFrontMatter, stripFrontMatter } from '../../lib/front-matter';
 import { DECKS, deckSource, type StudioDeck } from './decks';
-import { frontMatterBlock, frontMatterKeySpan, frontMatterValue, getFrontMatter, stripFrontMatter } from './front-matter';
-import { splitSlides } from './lint';
 import { clearComments } from './slide-comments';
 import { DEFAULT_LANGUAGE, detectLanguage } from './studio-language';
 

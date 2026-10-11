@@ -14,12 +14,12 @@
 //
 // On the shipped default set `pluginAdmission` answers null, nothing is off, and this does nothing.
 
+import { deckPluginsOffFor } from '@/lib/editor-diagnostics.js';
 // The lint bundle's own copy, imported statically: authoring-core is already in the Studio's eager
 // chunk (pane-pages.ts, architect.ts), so this adds no route bytes, and no reader of that copy can
 // parse before it has been switched (checker: an adopt-on-load registry left the readers that load
 // it before the editor's lint on the default grammar).
 import { setBoundaryPluginsOff as setLintBoundaryPluginsOff } from '@/playground/authoring-core.generated.js';
-import { deckPluginsOffFor } from '@/playground/editor-diagnostics.js';
 import { setBoundaryPluginsOff } from '../../../lib/core/boundary-parser.mjs';
 import { PLUGIN_NAMES } from '../../../lib/plugins/blocks.generated.mjs';
 

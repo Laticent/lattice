@@ -302,6 +302,8 @@ const SCRIPT_META = {
   'quality':                  ['Lint & audit', 'Codebase quality assessment: coupling, boundaries, cycles, change coupling, complexity, duplication, dead code — see engineering/quality-assessment.md.'],
   'quality:bless':            ['Lint & audit', 'Write the committed quality-assessment baseline (test/quality/baseline.json) from a fresh run — the ratchet a quality-improving PR updates.'],
   'quality:check':            ['Lint & audit', 'Re-run the quality assessment and compare vs the committed baseline; flags any metric that got worse. On-demand, not a blocking CI gate.'],
+  'structure':                ['Lint & audit', 'The codebase\'s parts and layers: per-part size, coupling (Ca, Ce, instability) and cohesion, plus part loops, upward imports and plugin-boundary breaks (`tools/structure.js`; `--check` runs in build:check).'],
+  'structure:bless':          ['Lint & audit', 'Rewrite the per-part size-and-shape snapshot, `test/quality/structure.json` (a record, not a gate).'],
 
   // Scaffold
   'new:theme':                ['Scaffold', 'Scaffold a new palette from the indaco template.'],

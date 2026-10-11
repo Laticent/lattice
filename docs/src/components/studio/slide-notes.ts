@@ -14,7 +14,7 @@
 // by routing through `comments()` + `isDirectiveBody()`.
 
 import { notesCore } from '@/playground/authoring-core.generated.js';
-import { comments, isDescriptionBody, isDirectiveBody, isPaneMarkerBody, isSayBody, tidyOutsideFences } from './slide-directives';
+import { comments, isDescriptionBody, isDirectiveBody, isPaneMarkerBody, isSayBody, tidyOutsideFences } from '../../lib/slide-directives';
 
 // A tooling comment (`markdownlint-capture`, `prettier-ignore`, …) is never a note: the engine's
 // note reader skips it (lib/authoring/notes-core.js `isToolingComment`), and so does this one, from

@@ -32,7 +32,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { JSDOM } = require('jsdom');
-const { diagramScopeKey } = require('../../../lib/core/diagram-scope');
+const { diagramScopeKey } = require('../../../lib/plugins/mermaid/shared/diagram-scope');
 
 const REPO = path.join(__dirname, '..', '..', '..');
 const RUNTIME_SRC = fs.readFileSync(path.join(REPO, 'lib', 'plugins', 'mermaid', 'mermaid.hydrate.js'), 'utf8');

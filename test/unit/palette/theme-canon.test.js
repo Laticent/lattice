@@ -18,7 +18,7 @@ const path = require('node:path');
 
 const { THEME_CANON, ASK_SYSTEM } = require('../../../lib/theme/ai.js');
 const { CATEGORICAL_COUNT, requiredTokenList } = require('../../../lib/theme/derive.js');
-const { AA_LARGE } = require('../../../lib/theme/color.js');
+const { AA_LARGE } = require('../../../lib/core/color.js');
 
 describe('theme-canon (facts-from-source)', () => {
   test('states the live token-contract size (sourced from requiredTokenList)', () => {

@@ -20,7 +20,7 @@
 // Rot-guard: deck-preset.test.ts.
 
 import frontMatterKey from '../../../../lib/core/front-matter-key.js';
-import { frontMatterKeySpan, getFrontMatterName, writeFrontMatterLine } from './front-matter';
+import { frontMatterKeySpan, getFrontMatterName, writeFrontMatterLine } from '../../lib/front-matter';
 
 type PresetTable = Record<string, { label: string; desc: string; values: Record<string, string> }>;
 const ENGINE = frontMatterKey as unknown as {

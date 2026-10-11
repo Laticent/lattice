@@ -21,9 +21,9 @@ describe('checkPluginMigration', () => {
     tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-ratchet-'));
     fs.cpSync(path.join(ROOT, 'lib/plugins'), path.join(tmp, 'lib/plugins'), { recursive: true });
     fs.cpSync(path.join(ROOT, 'lib/integrations/markdown-it'), path.join(tmp, 'lib/integrations/markdown-it'), { recursive: true });
-    // math.render.js reaches lib/core/tex-linebreak.js; the copy needs it to load the registry.
+    // math.render.js reaches lib/plugins/math/shared/tex-linebreak.js; the copy needs it to load the registry.
     fs.mkdirSync(path.join(tmp, 'lib/core'), { recursive: true });
-    fs.copyFileSync(path.join(ROOT, 'lib/core/tex-linebreak.js'), path.join(tmp, 'lib/core/tex-linebreak.js'));
+    fs.copyFileSync(path.join(ROOT, 'lib/plugins/math/shared/tex-linebreak.js'), path.join(tmp, 'lib/plugins/math/shared/tex-linebreak.js'));
   });
   after(() => fs.rmSync(tmp, { recursive: true, force: true }));
 

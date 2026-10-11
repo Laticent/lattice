@@ -1,5 +1,5 @@
 /**
- * Unit: the shared Export-to-Marp bundle spec (lib/core/marp-bundle.js).
+ * Unit: the shared Export-to-Marp bundle spec (lib/export/marp-bundle.js).
  *
  * This pure module is the SINGLE source of truth for the bundle's generated
  * files + static-asset manifest, shared by the CLI (tools/export-marp.js) and
@@ -33,7 +33,7 @@ function requireGeneratedConfig(src) {
 const {
   STATIC_ASSETS, AGENT_ASSETS, RUNTIME_SCRIPTS, RUNTIME_SCRIPT_SRCS, MARP_CONFIG_CJS, withRuntimeScripts,
   safeName, packageJson, vscodeSettings, readme, agentsMd, fontAssetsFor, marpScopableCss,
-} = require('../../../lib/core/marp-bundle');
+} = require('../../../lib/export/marp-bundle');
 
 describe('marp-bundle spec', () => {
   test('STATIC_ASSETS ships the minified stylesheet/runtime/mermaid; NO engine', () => {
@@ -152,7 +152,7 @@ describe('marp-bundle spec', () => {
   // marp-core defaults to html:false, which ESCAPES raw HTML, so a deck's own <div class=…> came out
   // as text. `html: true` fixed that and passed the deck's script with it; the config now carries an
   // ALLOWLIST and an engine plugin that lets only the bundle's own trailing blocks through
-  // (lib/core/marp-bundle-html.js, test/unit/core/marp-bundle-html.test.js).
+  // (lib/export/marp-bundle-html.js, test/unit/core/marp-bundle-html.test.js).
   test('marp.config.cjs sets html to an allowlist with no <script>, and installs the engine plugin', () => {
     assert.doesNotMatch(MARP_CONFIG_CJS, /html:\s*true/);
     const cfg = requireGeneratedConfig(MARP_CONFIG_CJS);
@@ -211,7 +211,7 @@ describe('marp-bundle spec', () => {
     assert.match(r, /markdown\.marp\.themes/);
     assert.match(r, /npm run pdf/);
     // By hand: the config, never `--html`, which would replace the config's allowlist.
-    assert.match(r, /--config-file marp\.config\.cjs \\\n  --allow-local-files/);
+    assert.match(r, /--config-file marp\.config\.cjs \\\n {2}--allow-local-files/);
     assert.doesNotMatch(r, /--html --allow/);
     assert.match(r, /markdown\.marp\.enableHtml/);
     // Honest about the one route whose fidelity we cannot confirm. Deliberately
@@ -377,7 +377,7 @@ describe('marp-bundle spec', () => {
  * and nothing in the emitted deck looks like an input the author should write.
  */
 describe('marp bundle — the overflow-marker export setting', () => {
-  const { resolveExportOverflowMarker } = require('../../../lib/core/marp-bundle');
+  const { resolveExportOverflowMarker } = require('../../../lib/export/marp-bundle');
   const {
     EXPORT_SETTINGS_TYPE, readExportSettings,
   } = require('../../../lib/core/export-settings');
@@ -565,7 +565,7 @@ describe('marp bundle — the overflow-marker export setting', () => {
 });
 
 describe('marp-bundle — asset references (mapImageRefs, withSampleAssets)', () => {
-  const { mapImageRefs, mapFrontMatterLogo, sampleAssetNames, withSampleAssets } = require('../../../lib/core/marp-bundle');
+  const { mapImageRefs, mapFrontMatterLogo, sampleAssetNames, withSampleAssets } = require('../../../lib/export/marp-bundle');
   const DECK = '---\ntheme: indaco\nlogo: "sample:logo-acme-mark.svg"\n---\n\n'
     + '![bg right](sample:photo-wide.svg)\n![Ada](sample:portrait-ada.svg "Ada")\n'
     + '![x](https://x.test/a.png)\n![y](sample:../etc/passwd)\n![z](sample:photo-wide.svg)\n';
@@ -605,7 +605,7 @@ describe('marp-bundle — asset references (mapImageRefs, withSampleAssets)', ()
 // lifted into the theme as CSS, measured: the runtime did not load). Driven through markdown-it with a
 // stand-in sanitizer; the integration test renders the real thing.
 describe('marp-bundle trailer guard', () => {
-  const { configSource } = require('../../../lib/core/marp-bundle-html');
+  const { configSource } = require('../../../lib/export/marp-bundle-html');
   const vm = require('node:vm');
   const ctx = {};
   vm.runInNewContext(`${configSource(RUNTIME_SCRIPT_SRCS)}\nthis.engine = engine;`, ctx);

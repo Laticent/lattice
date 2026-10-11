@@ -1,15 +1,15 @@
 import * as React from 'react';
 import { type ChartDetailHandle, ChartDetailLayer } from '@/components/chart-detail-layer';
-import { getFrontMatter } from '@/components/studio/front-matter';
 import { createFrameScheduler } from '@/lib/frame-scheduler';
+import { getFrontMatter } from '@/lib/front-matter';
+import { type SlideFrameLift, slideFrameStyle } from '@/lib/slide-frame';
+import { cn } from '@/lib/utils';
+import { ANIMA_HOST_SEL, type DeckMotion, hasAnimatableChart, parseDeckMotion, prehideEligibleCharts, resolveMotion, revealPrehiddenCharts, watchDiagramDrawn } from '@/playground/anima-host-sel';
 import {
 	createSingleSlideRenderer,
 	type SingleSlideOptions,
 	type SingleSlideRenderer,
-} from '@/lib/single-slide-render';
-import { type SlideFrameLift, slideFrameStyle } from '@/lib/slide-frame';
-import { cn } from '@/lib/utils';
-import { ANIMA_HOST_SEL, type DeckMotion, hasAnimatableChart, parseDeckMotion, prehideEligibleCharts, resolveMotion, revealPrehiddenCharts, watchDiagramDrawn } from '@/playground/anima-host-sel';
+} from '@/playground/single-slide-render';
 // The Nacre loader's CSS. Imported here beside the loader markup it styles (below). NOTE: this
 // does NOT gate payload by consumer — Vite co-locates it into a shared chunk (resolve-narration,
 // in single-slide-render's graph) that every DeckPreview host pulls, so Astro inlines the ~1.5KB

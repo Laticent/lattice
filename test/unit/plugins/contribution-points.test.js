@@ -3,7 +3,7 @@
  * (engineering/decisions/2026-09-29-inline-icons.md § 6a): `inline` (an inline-code kind in the
  * host's dispatch table), `services` (a function other code asks the host for), `registers` (a
  * front-matter axis register declared as data) and `data` (data a plugin's kernels read only
- * through lib/plugins/plugin-data.js). Each failure arm is proven on SYNTHETIC plugins, as
+ * through lib/plugin-kit/plugin-data.js). Each failure arm is proven on SYNTHETIC plugins, as
  * resolve.test.js proves the older points; the in-tree wiring is pinned at the end.
  */
 const { test, describe } = require('node:test');
@@ -113,7 +113,7 @@ describe('the register factory builds a plugin register as it builds spark:', ()
 
 describe('services and plugin data at run time', () => {
   test('a service is handed out by name, and withheld when its plugin is off', () => {
-    const { service } = require('../../../lib/plugins/services');
+    const { service } = require('../../../lib/core/plugin-services');
     assert.equal(typeof service('icons', 'drawHtml'), 'function');
     assert.equal(service('icons', 'drawHtml', new Set(['icons'])), null);
     assert.equal(service('icons', 'nope'), null);
@@ -122,7 +122,7 @@ describe('services and plugin data at run time', () => {
   });
   test('plugin data loads lazily, prefers a page global, and does not cache a miss', () => {
     // A fresh module instance, so this test owns its registry.
-    const id = require.resolve('../../../lib/plugins/plugin-data');
+    const id = require.resolve('../../../lib/plugin-kit/plugin-data');
     delete require.cache[id];
     const { provideData, pluginData } = require(id);
     let loads = 0;

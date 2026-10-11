@@ -1,0 +1,223 @@
+// Inline validation glue — turn the shared lint-core's findings into CodeMirror
+// diagnostics (the wavy underlines + hover tooltips the editor's `linter()` paints).
+//
+// This is the bridge between the deterministic authoring linter (the SAME pure
+// lib/authoring/lint-core.js the Node CLI and the Architect panel run) and the
+// editor surface: the Architect renders the findings as a side-panel list; the
+// editor renders the SAME findings inline, anchored to the offending line. Both
+// are views of one stream — the rule logic lives in lint-core, never here.
+//
+// Kept dependency-free (it takes a CodeMirror `Text` doc and plain finding
+// objects, returns plain diagnostic objects) so it unit-tests without a DOM and
+// without the authoring-core bundle.
+
+// THE PLUGINS A DECK LEAVES OFF, from a host's admission (`LatticePlayground.pluginAdmission`, the
+// plugins a whole deck loads under the host's defaults; null on the shipped default set) and every
+// installed plugin's name. Sorted, so a caller can key a cache on it. The one copy: the Studio's
+// readers (docs/src/lib/plugin-admission.ts) and the Playground editor's lint both call it.
+/**
+ * @param {string} deck
+ * @param {((deck: string) => string[] | null) | undefined} admission
+ * @param {readonly string[]} names
+ * @returns {string[]}
+ */
+export function deckPluginsOffFor(deck, admission, names) {
+	const active = typeof admission === 'function' ? admission(deck) : null;
+	return active ? names.filter((n) => !active.includes(n)).sort() : [];
+}
+
+// 1-based source line where each REAL slide begins, indexed by the HUMAN slide
+// number (front matter skipped) — so `starts[slide]` maps a finding to its line,
+// matching lint-core / review-core's numbering. `starts[0]` = 1 (deck top) for
+// deck-level findings (slide 0). This is the SINGLE copy: the Architect imports
+// it from here so the panel's "Reveal" and the editor's underline land on the
+// same line.
+// KNOWN EDGE (pre-existing, low-frequency): a malformed front-matter CLOSE fence
+// with trailing whitespace (`--- `) is tolerated by lint-core's `fmChunks` regex
+// but NOT by its `source.split(/^---$/m)`, so a finding on slide 1 can be numbered
+// `slide: 0`; here that anchors the underline to the deck top rather than the real
+// line. The root cause is lint-core's slide numbering, not this mapper — left as
+// is rather than reshaping the shared kernel for a rare malformed fence.
+export function chunkStartLines(src) {
+	const text = String(src || '');
+	const lines = text.split('\n');
+	let i = 0;
+	if (/^---\r?\n/.test(text) && lines[0].trim() === '---') {
+		i = 1;
+		while (i < lines.length && lines[i].trim() !== '---') i++;
+		i++; // step past the closing front-matter delimiter
+	}
+	const starts = [1, i + 1]; // [deck top, slide 1]
+	for (; i < lines.length; i++) {
+		if (lines[i] === '---') starts.push(i + 2);
+	}
+	return starts;
+}
+
+// Rehydrate the build-time lint vocabulary (serialized as arrays for the JSON
+// handoff) into the Sets/shape lint-core's `lintTextWith(source, vocab)` expects.
+// The SAME builder feeds the editor's inline linter and the Architect panel, so a
+// `_class` is judged known/unknown identically in both places. Pure data; no
+// model call validates a name.
+/**
+ * @typedef {Object} VocabSets
+ * @property {Set<string>} names
+ * @property {Set<string>} modifiers
+ * @property {Record<string, { valid: Set<string>; names: string[] }>} [mapRegions]
+ * @property {string[]} [finishNames] — the builder forwards EVERY `*Names` register list
+ *   (`fitNames`, `cardsNames`, …); only the ones a caller reads by name are declared
+ * @property {string[]} [modeNames]
+ * @property {string[]} [splitNames]
+ * @property {Record<string, { axis: string; hard: number }>} [capacity]
+ */
+
+/** @returns {VocabSets} */
+export function buildVocabSets(vocab) {
+	const v = vocab || {};
+	/** @type {VocabSets} */
+	const sets = {
+		names: new Set(v.names || []),
+		modifiers: new Set(v.modifiers || []),
+	};
+	// Map region/group vocabulary — { us, world }, each { valid, names }.
+	if (v.mapRegions) {
+		sets.mapRegions = {};
+		for (const [which, mv] of Object.entries(v.mapRegions)) {
+			sets.mapRegions[which] = { valid: new Set(mv.valid || []), names: mv.names || [] };
+		}
+	}
+	// EVERY register value list (`finishNames`, `fitNames`, `cardsNames`, the spectrum
+	// family, …), by suffix rather than by name: each gates one `findUnknown*` rule in
+	// lint-core (`if (vocab.fitNames) …`), so a list this builder drops turns that rule
+	// off in the Studio while `lint:deck` still fires it. A hand-kept six of these once
+	// left fifteen rules dead in the editor and the Coach while the editor COMPLETED their
+	// values. Forwarding by suffix means a new register's list reaches the browser linter
+	// the day `buildVocab` exports it.
+	for (const [key, list] of Object.entries(v)) {
+		if (key.endsWith('Names') && Array.isArray(list)) /** @type {Record<string, unknown>} */ (sets)[key] = list;
+	}
+	if (v.capacity) sets.capacity = v.capacity; // per-layout content-capacity contract
+	// No `sizes` handoff: lint-core imports the engine's size registry directly
+	// (lib/core/sizes.js is pure and fs-free), so the browser linter derives the
+	// deck's adaptive family from the renderer's own table rather than from a
+	// snapshot passed across the boundary.
+	if (v.exclusiveAxes) sets.exclusiveAxes = v.exclusiveAxes; // conflicting-variants axes
+	return sets;
+}
+
+function clamp(n, lo, hi) {
+	return Math.max(lo, Math.min(hi, n));
+}
+
+// Map lint-core findings onto a CodeMirror document as Diagnostic objects.
+//   doc      — a CodeMirror `Text` (the live document)
+//   findings — lint-core findings: { slide, rule, severity, line?, span?, col?, message, fix?, autofixable? }
+//   opts.onFix(view, finding) — wired by the editor for autofixable findings; it
+//              runs lint-core's applyFix and writes the result back. Omitted
+//              (e.g. in tests) → no quick-fix action is attached.
+//
+// Anchoring: a finding carries a 1-based human `slide` and (usually) the offending
+// source `line` text. We resolve the slide's line range from `chunkStartLines`,
+// then find the line whose text matches `finding.line` within that slide; absent a
+// line match (deck-level findings, or a line that has since changed) we fall back
+// to the slide's first line. The underline spans the trimmed content (so leading
+// indentation isn't underlined), and the tooltip carries the message + fix.
+/**
+ * @typedef {Object} EditorDiagnostic
+ * @property {number} from
+ * @property {number} to
+ * @property {string} severity
+ * @property {string} message
+ * @property {string} source
+ * @property {Array<{ name: string; apply: (view: unknown, from: number, to: number) => void }>} [actions]
+ */
+
+/** @returns {EditorDiagnostic[]} */
+export function findingsToDiagnostics(doc, findings, opts = {}) {
+	const onFix = opts.onFix;
+	const starts = chunkStartLines(doc.toString());
+	const total = doc.lines;
+	/** @type {EditorDiagnostic[]} */
+	const out = [];
+	for (const f of findings || []) {
+		if (!f) continue;
+		const slide = f.slide || 0;
+		const startLine = clamp(starts[slide] || 1, 1, total);
+		const nextStart = starts[slide + 1] || total + 1;
+		let lineNo = startLine;
+		// A finding on the second slide of a heading-split chunk says where that slide starts
+		// (`chunkLine`), so the search starts there and cannot land on the same text above it.
+		const searchFrom = clamp(startLine + (f.chunkLine || 0), startLine, Math.max(startLine, nextStart - 1));
+		if (f.line) {
+			const raw = String(f.line);
+			const needle = raw.trim();
+			// Three tiers, strongest first.
+			//   VERBATIM — the finding quoted the line with its own indentation, so an
+			//     indented line can be told from a top-level one that trims to the same
+			//     characters. `nested-render-target-key` reports `  fluid: true` on a deck
+			//     that also carries a top-level `fluid: true`; on the trimmed match alone the
+			//     squiggle landed on the innocent top-level line, saying it was indented.
+			//     Most rules trim their `line`, so for them this tier simply never hits.
+			//   EXACT — the trimmed match, anywhere in the slide.
+			//   LOOSE — a substring, so a superset line like `- foobar` doesn't win over the
+			//     exact `- foo` later in the slide.
+			let verbatim = 0;
+			let exact = 0;
+			let loose = 0;
+			for (let n = searchFrom; n < nextStart && n <= total; n++) {
+				const text = doc.line(n).text;
+				if (text === raw) {
+					verbatim = n;
+					break;
+				}
+				if (!exact && text.trim() === needle) exact = n;
+				if (!loose && needle && text.includes(needle)) loose = n;
+			}
+			if (verbatim || exact || loose) lineNo = verbatim || exact || loose;
+		}
+		lineNo = clamp(lineNo, 1, total);
+		const line = doc.line(lineNo);
+		const trimmed = line.text.trim();
+		const lead = trimmed ? line.text.length - line.text.trimStart().length : 0;
+		let from = line.from + lead;
+		let to = line.to;
+		// A finding may name the exact SPAN it is about (`pill-shape-crowded` names the one
+		// pill), so the squiggle sits under that text rather than the whole line: on a
+		// sentence carrying three pills, a line-wide underline says "something here" and
+		// leaves the author to guess which. Falls back to the line when the span is absent
+		// or not on the matched line, so a stale or approximate span never misplaces it.
+		if (f.span) {
+			const span = String(f.span);
+			// The finding's own column wins when the span really is there, so two identical
+			// pills on one line get one underline EACH instead of two stacked on the first.
+			const at =
+				Number.isInteger(f.col) && line.text.slice(f.col, f.col + span.length) === span
+					? f.col
+					: line.text.indexOf(span);
+			if (at >= 0) {
+				from = line.from + at;
+				to = from + span.length;
+			}
+		}
+		if (to <= from) to = Math.min(doc.length, from + 1); // a visible range on a blank/short line
+		const severity = f.severity === 'error' ? 'error' : f.severity === 'warning' ? 'warning' : 'info';
+		const canApply = !!(f.autofixable && onFix);
+		// PROSE OR A BUTTON, NOT BOTH. The `fix` string is guidance for a human to follow
+		// by hand; when the kernel can apply the fix itself, printing "Fix: set it to one
+		// of: …" underneath a button that already does it reads as the tool knowing the
+		// answer and making you type it anyway, which is half of what #1658 reports.
+		const message = f.fix && !canApply ? `${f.message}\n\nFix: ${f.fix}` : f.message;
+		const d = { from, to, severity, message, source: f.rule };
+		if (canApply) {
+			// Name the button after what pressing it DOES. "Quick fix" on every finding
+			// tells you a fix exists; `Fix: use “kpi”` tells you what you are about to get,
+			// which is what makes it safe to press without reading the message first.
+			const name = f.didYouMean ? `Fix: use “${f.didYouMean}”` : 'Quick fix';
+			d.actions = [{ name, apply: (view) => onFix(view, f) }];
+		}
+		out.push(d);
+	}
+	// CodeMirror requires diagnostics ordered by position.
+	out.sort((a, b) => a.from - b.from || a.to - b.to);
+	return out;
+}

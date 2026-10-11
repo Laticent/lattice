@@ -136,7 +136,7 @@ let _covered = null;
 function sweepCovered() {
   if (_covered) return _covered;
   let katex;
-  try { katex = require('../lib/plugins/payload-path.js').vendorPath('math', 'katex-css'); } catch (_e) { /* none */ }
+  try { katex = require('../lib/plugin-kit/payload-path.js').vendorPath('math', 'katex-css'); } catch (_e) { /* none */ }
   _covered = coveredFamilies(ROOT, katex);
   return _covered;
 }

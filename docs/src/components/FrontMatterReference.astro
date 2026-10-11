@@ -11,7 +11,8 @@
  */
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
-import { FRONT_MATTER_KEYS, registerValueLists } from './studio/editor-complete';
+import { FRONT_MATTER_KEYS } from '../lib/front-matter-keys';
+import { registerValueLists } from '../lib/front-matter-values';
 import { FRONT_MATTER_DOCS, GROUPS } from '../lib/front-matter-docs';
 import { PACE_NAMES } from '../lib/resolve-pace';
 

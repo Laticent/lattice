@@ -41,7 +41,7 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const { simulate, SIMULATED_TYPES, ACHROMATOPSIA } = require('../../../lib/theme/cvd.js');
-const { oklabDistance } = require('../../../lib/theme/color.js');
+const { oklabDistance } = require('../../../lib/core/color.js');
 const { resolveTokenExpr } = require('../../../lib/core/resolve-token-expr.js');
 const { mergedVars, listAllThemes } = require('../../../tools/composed-contrast.js');
 

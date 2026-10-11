@@ -6,7 +6,7 @@
  * `vendor.<key>` for the rest: version + SHA-256), and the browser pages, the CLI export and bake, the
  * Marp kit and the Export-to-Marp bundle all read it. `node_modules` is only the source
  * `npm run vendor:plugins` refreshes a copy from when WE upgrade, so no user downloads a library and no
- * install changes what ships (lib/plugins/payload-path.js).
+ * install changes what ships (lib/plugin-kit/payload-path.js).
  *
  * What is pinned here: the copies the manifests record are the ones on disk (the resolver checks that
  * too, at build); each source package is pinned exactly in package.json and installed at that build, so
@@ -20,7 +20,7 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
-const { payloadOf, payloadPath, vendorPath, copiesOf, copySha } = require('../../../lib/plugins/payload-path.js');
+const { payloadOf, payloadPath, vendorPath, copiesOf, copySha } = require('../../../lib/plugin-kit/payload-path.js');
 const read = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8');
 const pkgOf = (from) => {
   const spec = from.replace(/^npm:/, '');
@@ -78,8 +78,8 @@ test('each source is pinned exactly, installed at the build the copy came from, 
 });
 
 test('every surface reads the plugin\'s copy', () => {
-  // The Marp kit and the Export-to-Marp bundle (lib/core/marp-bundle.js STATIC_ASSETS; the kit derives from it).
-  const { STATIC_ASSETS } = require('../../../lib/core/marp-bundle.js');
+  // The Marp kit and the Export-to-Marp bundle (lib/export/marp-bundle.js STATIC_ASSETS; the kit derives from it).
+  const { STATIC_ASSETS } = require('../../../lib/export/marp-bundle.js');
   assert.equal(STATIC_ASSETS.find((a) => a.to === 'mermaid-v11-min.js')?.from, 'lib/plugins/mermaid/vendor/mermaid.min.js');
   // The CLI bake: Mermaid, ZenUML and mermaid-cli's render page.
   const { resolveBundles } = require('../../../lib/plugins/mermaid/shared/render-worker.js');
@@ -92,7 +92,7 @@ test('every surface reads the plugin\'s copy', () => {
   assert.equal(require('../../../lib/plugins/hydrate-script.js').payloadPath({ name: 'function-plot', payload: {} }), payloadPath('function-plot'));
   // KaTeX: the engine's renderer, the docs provider bundle, the stylesheet and fonts every export reads.
   assert.match(read('lib/plugins/math/math.render.js'), /katex = require\('\.\/vendor\/katex\/katex\.min\.js'\);/);
-  assert.match(read('lib/playground/katex-provider.js'), /import katex from '\.\.\/plugins\/math\/vendor\/katex\/katex\.min\.js';/);
+  assert.match(read('lib/plugins/math/shared/katex-provider.js'), /import katex from '\.\.\/vendor\/katex\/katex\.min\.js';/);
   assert.match(read('tools/build-css.js'), /const KATEX_CSS = vendorPath\('math', 'katex-css'\);/);
   assert.match(read('lattice.js'), /vendorPath\('math', 'katex-css'\)/);
   assert.match(read('lib/export/html-player.js'), /vendorPath\('math', 'katex-css'\)/);
@@ -115,7 +115,7 @@ test('every surface reads the plugin\'s copy', () => {
       .filter((line) => !line.includes('npm:'))
       .map((line) => line.split(':')[0])
       .filter((f) => !f.includes('/vendor/') && f !== 'lib/core/remote-ref.js' && !f.endsWith('.md'));
-    assert.deepEqual(hits, [], `${hits.join(', ')} reads a vendored library from node_modules; read the plugin's copy (lib/plugins/payload-path.js)`);
+    assert.deepEqual(hits, [], `${hits.join(', ')} reads a vendored library from node_modules; read the plugin's copy (lib/plugin-kit/payload-path.js)`);
   }
 });
 
@@ -126,7 +126,7 @@ test('a bundle that inlines the reader still finds every copy (the installed CLI
   // without their library — while every source-entry test passed (tier 1 checker). Bundle it one
   // directory deep, exactly as dist/ is, and require it from there.
   const out = path.join(ROOT, '.scratch', 'payload-path.bundle.js'); // one level deep, as dist/ is
-  require('esbuild').buildSync({ entryPoints: [path.join(ROOT, 'lib', 'plugins', 'payload-path.js')], bundle: true, platform: 'node', format: 'cjs', outfile: out, logLevel: 'silent' });
+  require('esbuild').buildSync({ entryPoints: [path.join(ROOT, 'lib', 'plugin-kit', 'payload-path.js')], bundle: true, platform: 'node', format: 'cjs', outfile: out, logLevel: 'silent' });
   const bundled = require(out);
   for (const { plugin, key, entry } of COPIES) {
     const abs = payloadOf(plugin)?.vendored?.file === entry.file ? bundled.payloadPath(plugin) : bundled.vendorPath(plugin, key);

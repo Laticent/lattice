@@ -485,7 +485,7 @@ never turn "passed in headless" into "works on iOS."
   deck's proof slides (`sequenceProofPanels`, `lib/core/split-panels.js`). The Studio's previews render
   the whole deck and display one section precisely so deck-derived facts resolve (#1265), but that
   costs a whole-deck parse, so it is gated by `needsDeckContext`
-  (`docs/src/lib/single-slide-render.ts`). The gate's first cut listed pagination, running-global
+  (`docs/src/playground/single-slide-render.ts`). The gate's first cut listed pagination, running-global
   directives, dividers and `glossary: auto` — **not** proof runs. So a proof deck that paginates got
   the deck render (and correct hues) as a side effect, and one that didn't fell back to the lone
   slice, where every proof slide is "the first one".
@@ -527,7 +527,7 @@ never turn "passed in headless" into "works on iOS."
   `<span class="lat-pagination">` both just read what the engine stamped.
 - **Fix:** hand the engine the whole deck and DISPLAY one section — `DeckPreview`'s
   `slideIndex` / `renderInto`'s `opts.slideIndex`, which narrows a whole-deck render to the
-  one shown slide (`keepOnlySection` in `docs/src/lib/single-slide-render.ts`). The kept
+  one shown slide (`keepOnlySection` in `docs/src/playground/single-slide-render.ts`). The kept
   section carries the ordinal, the total, and its positional `id`, all computed against the
   real deck. The srcdoc still holds a single section, so the frame's CSS parse + runtime
   execution is unchanged — but note the engine parse is now the dominant cost on the PATCH path
@@ -553,7 +553,7 @@ never turn "passed in headless" into "works on iOS."
   `slideCount` and `slideMarkdown` alongside `slideIndex`: narrowing happens only when the
   engine's section count agrees, and otherwise the shown slide is re-rendered alone and
   honestly numbered 1 of 1. **Right slide always; true number only when provably true.**
-  Locked by `docs/src/lib/single-slide-render.alignment.test.ts`, which drives the real engine
+  Locked by `docs/src/playground/single-slide-render.alignment.test.ts`, which drives the real engine
   and the real splitter over the real example decks — a mocked engine cannot express a 1→N
   expansion, which is exactly the failure mode.
 - **Triggered by:** any new preview surface that slices a slide out of a deck before

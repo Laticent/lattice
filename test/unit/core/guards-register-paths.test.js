@@ -96,7 +96,7 @@ test('the kernel agrees with what the engine stamped — one answer, not two', (
  *
  * Boots the REAL `dist/lattice-runtime.js` over marp-core-shaped markup with the
  * front matter BAKED into the document, which is the shape an export carries
- * (`lib/core/marp-bundle.js`) and the path where the runtime is the only
+ * (`lib/export/marp-bundle.js`) and the path where the runtime is the only
  * implementation present.
  */
 

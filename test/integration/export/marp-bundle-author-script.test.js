@@ -25,7 +25,7 @@ const fs = require('node:fs');
 const { spawnSync } = require('node:child_process');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
-const { MARP_CLI_RANGE } = require(path.join(ROOT, 'lib', 'core', 'marp-bundle.js'));
+const { MARP_CLI_RANGE } = require(path.join(ROOT, 'lib', 'export', 'marp-bundle.js'));
 const EXPORT_CLI = path.join(ROOT, 'tools', 'export-marp.js');
 const OUT = path.join(ROOT, '.scratch', 'marp-bundle-author-script');
 const TIMEOUT = 300000;

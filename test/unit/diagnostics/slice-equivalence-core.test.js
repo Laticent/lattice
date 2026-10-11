@@ -80,7 +80,7 @@ test('synthesizePrelude at slide 0 is empty — nothing precedes it', () => {
 });
 
 // ── The supplied deck position ───────────────────────────────────────────────
-// These three moved here from docs/src/lib/single-slide-render.ts, where they had NO direct unit
+// These three moved here from docs/src/playground/single-slide-render.ts, where they had NO direct unit
 // coverage at all — they were exercised only through a browser render path and three Playwright
 // specs. They are the shipped repair for the "1 of 1" bug, and the headless sweep now calls the
 // same copy, so a change here moves `npm run equiv` as well as the Studio.

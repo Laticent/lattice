@@ -14,7 +14,7 @@
 import type { Scene } from '@/lib/anima';
 // The JSON value cap (lib/packages/json-guard.js). A static import is fine here: this module is
 // only ever loaded on demand (asset-bundle.ts, share-export.ts), never on the Studio's eager path.
-import { refuseCode } from '../../../../lib/packages/code-shape.mjs';
+import { refuseCode } from '../../../../lib/core/code-shape.mjs';
 import jsonGuard from '../../../../lib/packages/json-guard.js';
 // The plugin refusal, one string shared with `lattice packages add` (a CommonJS leaf, read as a default import).
 import pluginRefusal from '../../../../lib/packages/plugin-refusal.js';
@@ -153,7 +153,7 @@ export type ReadPackage = {
 	roles: Record<string, string>;
 	code: boolean;
 	/** For a package carrying code: why it is not the one shape a door can run, or null when it
-	 *  is (lib/packages/code-shape.mjs `refuseCode`, the same check `lattice packages add` runs). */
+	 *  is (lib/core/code-shape.mjs `refuseCode`, the same check `lattice packages add` runs). */
 	codeRefusal: string | null;
 	notes: string[];
 };
@@ -189,12 +189,12 @@ const TYPES: readonly string[] = ['theme', 'component', 'finish', 'motion'];
 /**
  * Why a code package is refused: its shape first (`refuseCode`, light, in the eager bundle), then its
  * syntax (`codeSyntaxRefusal`, a dynamic `import()`), whose parser loads only when a zip holds code.
- * The same two checks `lattice packages add` runs (lib/packages/gate.js).
+ * The same two checks `lattice packages add` runs (lib/cli/package-gate.js).
  */
 async function codeRefusal(pkg: Parameters<typeof refuseCode>[0], code: string | undefined): Promise<string | null> {
 	const shape = refuseCode(pkg);
 	if (shape) return shape;
-	const { codeSyntaxRefusal } = await import('../../../../lib/packages/code-syntax.mjs');
+	const { codeSyntaxRefusal } = await import('../../../../lib/core/code-syntax.mjs');
 	return codeSyntaxRefusal(String(code ?? ''));
 }
 
@@ -236,7 +236,7 @@ export async function readPackagesFromZip(zip: Zip, read: (path: string) => Prom
 			continue;
 		}
 		// A plugin is refused by name before its files are judged, as `lattice packages add` refuses
-		// it (lib/packages/gate.js). The spine reads one fine, and no caller below has a plugin
+		// it (lib/cli/package-gate.js). The spine reads one fine, and no caller below has a plugin
 		// branch, so without this a code-free plugin vanished from the import with no word.
 		if (norm.pkg.type === 'plugin') {
 			refused.push({ name: norm.pkg.name, why: PLUGIN_REFUSAL });

@@ -25,11 +25,11 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const fs     = require('fs');
 const path   = require('path');
-// The WCAG sRGB luminance + contrast predicate lives in lib/theme/color.js so
+// The WCAG sRGB luminance + contrast predicate lives in lib/core/color.js so
 // the Theme Studio's live meter and contrast-aware derivation reuse THIS gate's
 // exact maths instead of a drifting copy. (Same functions, extracted; the
 // formula comment above documents what they compute.)
-const { contrastRatio } = require('../../../lib/theme/color.js');
+const { contrastRatio } = require('../../../lib/core/color.js');
 
 describe('contrast', () => {
   // ── Palette parser with light/dark mode awareness ───────────────────────
@@ -95,7 +95,7 @@ describe('contrast', () => {
 
   // ── WCAG sRGB luminance + contrast ratio ────────────────────────────────
   // hexToRgb / relativeLuminance / contrastRatio now come from
-  // lib/theme/color.js (imported at the top) — the single source the Theme
+  // lib/core/color.js (imported at the top) — the single source the Theme
   // Studio shares. The values they produce are unchanged.
 
   // ── Pair definitions ────────────────────────────────────────────────────

@@ -49,7 +49,7 @@ backstop behind it: a gap nobody logs is a gap nobody knows about. Corrected
 
 | Transform | Symptom on a Marp-rendered surface | Added |
 |---|---|---|
-| whatever `lib/core/marp-fidelity.js` lists as `unmirrored` | The constructs a Marp render genuinely does not reproduce. (Math is no longer one: the export typesets it with KaTeX, `lib/core/marp-bundle-math.js`.) Each is built while the deck is PARSED — earlier than any Marp tool lets a plugin in — so a browser runtime cannot cover for it. **This row deliberately names no list.** It carried one for a day and was wrong within a day: it said five-plus-math while the ledger shipped seven (the imagery `![bg]` gap was found after the row was written), and then imagery was CLOSED by baking the lift, taking it back to six. The ledger is the list: `lib/core/marp-fidelity.js` is the ledger, `test/unit/core/marp-fidelity.test.js` fails when a new markdown-it plugin is added without a coverage verdict, and the generated bundle README prints the gaps from the same rows — so what a recipient is told cannot drift from what the repo knows. | 2026-07-29 |
+| whatever `lib/export/marp-fidelity.js` lists as `unmirrored` | The constructs a Marp render genuinely does not reproduce. (Math is no longer one: the export typesets it with KaTeX, `lib/export/marp-bundle-math.js`.) Each is built while the deck is PARSED — earlier than any Marp tool lets a plugin in — so a browser runtime cannot cover for it. **This row deliberately names no list.** It carried one for a day and was wrong within a day: it said five-plus-math while the ledger shipped seven (the imagery `![bg]` gap was found after the row was written), and then imagery was CLOSED by baking the lift, taking it back to six. The ledger is the list: `lib/export/marp-fidelity.js` is the ledger, `test/unit/core/marp-fidelity.test.js` fails when a new markdown-it plugin is added without a coverage verdict, and the generated bundle README prints the gaps from the same rows — so what a recipient is told cannot drift from what the repo knows. | 2026-07-29 |
 
 **Deck-wide front-matter registers: row retired 2026-07-29.** `color-mode:` / `class:` /
 `logo:` / `meta:` (and the whole finish / mode / claim / spectrum family) used to be
@@ -84,7 +84,7 @@ means "no gap logged for the runtime route", never "the preview is complete.
 
 - **Symptom:** In an untrusted folder, a bundle's fractions and superscripts collapse onto one line,
   and a square root or stretchy arrow prints as escaped `<svg…` text.
-- **Cause:** The bundle's math is typeset at export (KaTeX markup, `lib/core/marp-bundle-math.js`),
+- **Cause:** The bundle's math is typeset at export (KaTeX markup, `lib/export/marp-bundle-math.js`),
   and its `.vscode/settings.json` turns the extension's own math off. `enableHtml` is a restricted
   setting and `mathTypesetting` is not, so in Restricted Mode the math stays off while the HTML
   filter strips each equation's `style` and its `<svg>`.
@@ -217,7 +217,7 @@ CI-contract decision, not one to take on the way past.
   (`lib/engine/index.js`), so nothing on our own render path ever showed it.
 - **Mitigation:** marp-cli needs raw HTML on. An Export-to-Marp bundle's
   `marp.config.cjs` turns it on as an allowlist plus an engine that passes the
-  runtime tags (`lib/core/marp-bundle-html.js`), so render a bundle with its
+  runtime tags (`lib/export/marp-bundle-html.js`), so render a bundle with its
   config and never `--html`, which replaces the list with "everything". The Marp
   kit's config sets `html: true`, and a bare deck needs `--html`. marp-vscode
   needs `markdown.marp.enableHtml: true` (the generated

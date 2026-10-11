@@ -6,16 +6,16 @@ import Fuse from 'fuse.js';
 import * as React from 'react';
 import { applyEdit, applyEditChecked, diffLines, EDIT_PROTOCOL, numberSlides, parseEdits, sliceSlide, slideCount, splitTopLevel } from '@/components/studio/ai/architect-edits.js';
 import { requestSlideFix } from '@/components/studio/ai/architect-fix.js';
-import { AUTHORING_RULES, buildLatticePrimer, layoutBlock } from '@/components/studio/ai/architect-knowledge.js';
 import { cosineRank } from '@/components/studio/ai/architect-retrieval.js';
 import { buildCanonContext } from '@/components/studio/ai/presentation-canon.js';
 import { buildRefinePrompt, cleanRewrite, REFINE_ACTIONS } from '@/components/studio/ai/refine.js';
 import { adjustSpend, budgetStatus, readBudgetCap, readBudgetFloor, readBudgetMode, readCachingEnabled, readDedupEnabled, readSpend, recordSpend } from '@/components/studio/ai/spend.js';
+import { AUTHORING_RULES, buildLatticePrimer, layoutBlock } from '@/lib/architect-knowledge.js';
 import { deckCanon, deckProfiles } from '@/playground/authoring-core.generated.js';
+import { getFrontMatter, innerFrontMatter, writeFrontMatterLine } from '../../lib/front-matter';
 import type { AgentRawEdit, DeckCheck, ToolCall } from './architect-agent';
 import { FINISHES } from './finish-catalog';
 import { EDGE_TYPES, MARK_TYPES, PLACEMENTS, TEXTURE_TYPES, WASH_TYPES } from './finish-generate';
-import { getFrontMatter, innerFrontMatter, writeFrontMatterLine } from './front-matter';
 import { BUILTIN_PALETTES } from './palettes';
 import { type ContentPart, type GroundMsg, groundMessages, type MsgContent, type ReferenceDoc, refDocsTokens } from './reference-doc';
 import { deckOutputLang, languageDirective } from './studio-language';
@@ -1290,7 +1290,7 @@ export type ChatGrounding = {
 	/** What a real render of a draft needs — the agent's fit check (draft-fit.ts). Plain data,
 	 *  not a callback: the render path is imported by the LAZY chat agent, never by the shell,
 	 *  whose preload map would otherwise list every chunk the export renderer needs. */
-	fitRender?: { options: import('@/lib/single-slide-render').SingleSlideOptions; palette: string; mode: 'light' | 'dark'; extra?: import('./share-export').ExtraTheme; extraCss?: string };
+	fitRender?: { options: import('@/playground/single-slide-render').SingleSlideOptions; palette: string; mode: 'light' | 'dark'; extra?: import('./share-export').ExtraTheme; extraCss?: string };
 };
 
 /**

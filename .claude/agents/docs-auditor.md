@@ -48,7 +48,7 @@ Derive these dynamically every run; never trust a number you remember.
   `dist/lattice-runtime.js` — the vscode Marp preview + published-HTML
   runtime); see `engineering/workflow.md` "Two-renderer rule". Marp/marp-cli
   is not a render path — the one remaining Marp surface is the one-way
-  export bundle (`lib/core/marp-bundle.js`).
+  export bundle (`lib/export/marp-bundle.js`).
 - **Chart / diagram / math engines** — `lib/components/chart/_chart-family/`,
   the `diagram` component + `engineering/mermaid.md` contract, `math`.
 - **Test & regression reality** — actual counts from the suite and the

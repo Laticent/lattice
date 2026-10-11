@@ -1,5 +1,5 @@
 /**
- * `lattice packages new plugin <name>` (lib/packages/new-plugin.js, lib/packages/cli.js): the
+ * `lattice packages new plugin <name>` (lib/packages/new-plugin.js, lib/cli/packages.js): the
  * scaffold passes the RESOLVER beside every shipped plugin, its own fixtures hold against its own
  * renderer, and the command refuses a name that would collide. The end-to-end proof — scaffold
  * into a clean checkout, `npm run build`, `npm run build:check`, `npm run test:plugins` — is a
@@ -16,7 +16,7 @@ const MarkdownIt = require('markdown-it');
 const { scaffoldPlugin, nameRefusal } = require('../../../lib/packages/new-plugin');
 const { resolvePlugins } = require('../../../lib/plugins/resolve');
 const { PLUGINS } = require('../../../lib/plugins/host');
-const { main } = require('../../../lib/packages/cli');
+const { main } = require('../../../lib/cli/packages');
 
 // A name no real plugin takes, so an author's own scaffold (the docs use `sparkline`) never collides.
 const NAME = 'zz-scaffold-probe';

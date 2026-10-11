@@ -5,6 +5,12 @@ thing that doesn't break a test today but quietly taxes every change from
 here on. Run it, read it, triage what it finds; it never blocks a merge by
 itself.
 
+**Part-level structure is gated separately.** Loops between parts, upward imports and the plugin
+boundary are checked on every `build:check` by `tools/structure.js` (`npm run structure` for the
+per-part table), across `lib/`, the docs site and `tools/`. This page's dependency-cruiser rules
+read `lib/` and `tools/` file by file and gate nothing.
+`engineering/decisions/2026-10-11-codebase-structure.md`.
+
 ## The seven dimensions, and what measures them
 
 | # | Dimension | Tool |

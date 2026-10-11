@@ -33,8 +33,8 @@ const {
   diagramScopeKey,
   diagramCacheKey,
   groupDiagramsBySlide,
-} = require('../../../lib/core/diagram-scope');
-const { renderDiagrams } = require('../../../lib/core/render-diagrams');
+} = require('../../../lib/plugins/mermaid/shared/diagram-scope');
+const { renderDiagrams } = require('../../../lib/plugins/mermaid/shared/render-diagrams');
 
 const REPO = path.join(__dirname, '..', '..', '..');
 const RUNTIME_PATH = path.join(REPO, 'lib', 'plugins', 'mermaid', 'mermaid.hydrate.js');

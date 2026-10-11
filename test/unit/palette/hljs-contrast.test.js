@@ -189,7 +189,7 @@ describe('--hljs-* contrast against --code-bg', () => {
     // different defect from the one the lift fixed — `.hljs-operator` and
     // `.hljs-comment` co-occur in SQL and Java, `.hljs-punctuation` in JSON.
     // Judged against the repo's own collapse floor rather than a new number.
-    const { oklabDistance } = require('../../../lib/theme/color.js');
+    const { oklabDistance } = require('../../../lib/core/color.js');
     const FLOOR_DE = 0.010;
     const collapsed = [];
     for (const f of themeEntries(THEMES).sort()) {

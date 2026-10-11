@@ -21,8 +21,8 @@ Grouped tour:
   `overflow-probe.js`.
 - **Images:** `image-aspect.js`, `image-dimensions.js`, `bg-image.js`,
   `accessibility-textures.js`.
-- **Export-to-Marp:** `marp-bundle.js` — the one remaining Marp surface,
-  a one-way export target.
+- **Export-to-Marp** moved to `lib/export/marp-bundle.js` (the one remaining Marp surface, a
+  one-way export target), above the engine it exports from.
 - **`transform-dsl/`** — the declarative component-transform DSL and its
   safety gate (`schema.js`); treat `interpret.js` as untrusted-input
   surface.

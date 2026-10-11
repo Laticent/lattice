@@ -15,7 +15,7 @@
 // slide's narration, so a second one supersedes — read/write the LAST `say:`
 // comment. See engineering/decisions/2026-07-11-manifest-speech-contract.md §16.
 
-import { comments, isSayBody, tidyOutsideFences } from './slide-directives';
+import { comments, isSayBody, tidyOutsideFences } from '../../lib/slide-directives';
 
 /** The slide's say line (the LAST `say:` comment, prefix stripped), or ''.
  *  Last-wins: a say line is an override of the whole slide's narration, so a later one

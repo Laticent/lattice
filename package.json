@@ -105,6 +105,8 @@
     "quality": "node tools/quality-assessment.js",
     "quality:bless": "node tools/quality-assessment.js --bless",
     "quality:check": "node tools/quality-assessment.js --check",
+    "structure": "node tools/structure.js",
+    "structure:bless": "node tools/structure.js --bless",
     "snippets:build": "node tools/build-snippets.js",
     "snippets:check": "node tools/build-snippets.js --check",
     "css:build": "node tools/build-css.js",
