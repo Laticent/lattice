@@ -23,6 +23,7 @@ export type {
 	BlobLike,
 	Bytes,
 	Clip,
+	GainStream,
 	Meter,
 	Onset,
 	PlayHandle,

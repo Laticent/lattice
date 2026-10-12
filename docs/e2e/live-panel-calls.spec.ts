@@ -8,7 +8,7 @@
 // can do in the panel. Fixtures: docs/e2e/live-panel-harness/.
 
 import { expect, test } from '@playwright/test';
-import { assertFocusTrapped, axeFindings, calls, closeMenu, type Harness, live, micMenu, onCall, open as openPage, optionsFor, startHarness, volumeFor } from './live-panel-harness/serve';
+import { assertFocusTrapped, axeFindings, calls, closeMenu, type Harness, live, onCall, open as openPage, optionsFor, startHarness, volumeFor, yourAudio } from './live-panel-harness/serve';
 
 let harness: Harness;
 test.beforeAll(async () => {
@@ -101,39 +101,117 @@ test('@crosswidth @webkit-phone the volume follows the model, with a spoken valu
 test('@crosswidth @webkit-phone High fidelity is a labeled switch that reports its change and explains itself', async ({ page }) => {
 	await open(page);
 	await onCall(page);
-	await micMenu(page).click();
-	const item = page.locator('[data-live-high-fidelity]');
-	await expect(item).toHaveAttribute('aria-checked', 'false');
-	await expect(item).toHaveAccessibleName(/High fidelity \(music\)/);
+	await yourAudio(page).click();
+	const sw = page.locator('[data-live-high-fidelity]');
+	await expect(sw).toHaveRole('switch');
+	await expect(sw).toHaveAttribute('aria-checked', 'false');
+	await expect(sw).toHaveAccessibleName(/High fidelity \(music\)/);
 	await expect(page.locator('#live-hifi-note')).toContainText('128 kbit/s');
 	await expect(page.locator('#live-hifi-note')).toContainText('Wear headphones');
-	await expect(item).toHaveAttribute('aria-describedby', 'live-hifi-note');
-	// A person must SEE the state, in both states: a drawn switch (track and thumb), not a mark that only appears when on.
-	const sw = item.locator('[data-live-switch]');
+	await expect(sw).toHaveAttribute('aria-describedby', 'live-hifi-note');
+	// A person must SEE the state, in both states: a drawn track and thumb, not a mark that appears only when on.
 	await expect(sw).toBeVisible();
 	await expect(sw).toHaveAttribute('data-state', 'unchecked');
 	expect(await sw.boundingBox()).toMatchObject({ width: 38, height: 22 });
-	await item.click();
+	await sw.click();
 	expect((await calls(page)).filter((c) => c[0] === 'setHighFidelity')).toEqual([['setHighFidelity', true]]);
 	// The model, not the click, owns the state: it shows on only once the controller says so.
 	await live(page, (l) => l.call({ highFidelity: true }));
-	// The menu stays open, so the person watches the switch flip rather than reopening the menu to find out.
-	await expect(page.locator('[role=menu]')).toBeVisible();
-	await expect(page.locator('[data-live-high-fidelity]')).toHaveAttribute('aria-checked', 'true');
-	await expect(page.locator('[data-live-high-fidelity] [data-live-switch]')).toHaveAttribute('data-state', 'checked');
-	await page.locator('[data-live-high-fidelity]').click();
+	await expect(page.locator('[data-live-your-audio]')).toBeVisible(); // the popover stays open: you watch it flip
+	await expect(sw).toHaveAttribute('aria-checked', 'true');
+	await expect(sw).toHaveAttribute('data-state', 'checked');
+	await sw.click();
 	expect((await calls(page)).filter((c) => c[0] === 'setHighFidelity').pop()).toEqual(['setHighFidelity', false]);
 });
 
-test('@crosswidth @webkit-phone the microphone menu lists the microphones only when there is a choice', async ({ page }) => {
+test('@crosswidth @webkit-phone Your audio is on your row before you join, and says what needs a live microphone', async ({ page }) => {
+	await open(page);
+	await expect(yourAudio(page)).toBeVisible();
+	await yourAudio(page).click();
+	await expect(page.locator('[data-live-meter-note]')).toHaveText('Join audio to see your microphone move.');
+	await expect(page.locator('[data-live-high-fidelity]')).toBeDisabled();
+	await expect(page.locator('#live-hifi-note')).toContainText('Join audio first');
+	// The level is set ahead of the call and remembered.
+	await page.locator('[data-live-mic-level] input[type=range]').focus();
+	await page.keyboard.press('ArrowRight');
+	expect((await calls(page)).filter((c) => c[0] === 'setMicLevel')).toEqual([['setMicLevel', 1.1]]);
+	await page.getByRole('button', { name: 'Join audio', exact: true }).last().click();
+	expect((await calls(page)).filter((c) => c[0] === 'toggleMic')).toHaveLength(1);
+});
+
+test('@crosswidth @webkit-phone the mic meter follows what you send, and a muted microphone shows nothing', async ({ page }) => {
 	await open(page);
 	await onCall(page);
-	await micMenu(page).click();
-	await expect(page.getByRole('menuitem', { name: /Built-in microphone/ })).toHaveCount(0); // one microphone: no picker
+	await live(page, (l) => l.level(0.04));
+	await yourAudio(page).click();
+	const meter = page.locator('[data-live-meter]');
+	await expect(meter).toHaveRole('meter');
+	await expect(meter).toHaveAccessibleName('Microphone level');
+	await expect(page.locator('[data-live-meter-note]')).toHaveText('Say something: the bar should move.');
+	await expect.poll(async () => Number(await meter.getAttribute('aria-valuenow'))).toBeGreaterThan(20);
+	const quiet = Number(await meter.getAttribute('aria-valuenow'));
+	await live(page, (l) => l.level(0.4));
+	await expect.poll(async () => Number(await meter.getAttribute('aria-valuenow'))).toBeGreaterThan(quiet);
+	await live(page, (l) => l.level(0));
+	await expect.poll(async () => Number(await meter.getAttribute('aria-valuenow'))).toBe(0);
+	// Muted: the bar stops reading and says so.
+	await live(page, (l) => l.call({ muted: true }));
+	await live(page, (l) => l.level(0.4));
+	await expect(page.locator('[data-live-meter-note]')).toHaveText('You are muted.');
+	await expect.poll(async () => Number(await meter.getAttribute('aria-valuenow'))).toBe(0);
+});
+
+test('@crosswidth @webkit-phone mic level runs 0–200 % in 10 % steps, follows the model, and says when it cannot act', async ({ page }) => {
+	await open(page);
+	await onCall(page);
+	await live(page, (l) => l.call({ micLevel: 1.5 }));
+	await yourAudio(page).click();
+	const slider = page.locator('[data-live-mic-level] input[type=range]');
+	await expect(slider).toHaveAttribute('max', '200');
+	await expect(slider).toHaveAttribute('step', '10');
+	await expect(slider).toHaveValue('150');
+	await expect(slider).toHaveAccessibleName(/mic level/i);
+	await expect(slider).toHaveAttribute('aria-valuetext', '150 percent');
+	await slider.focus();
+	await page.keyboard.press('Home');
+	await page.keyboard.press('End');
+	expect((await calls(page)).filter((c) => c[0] === 'setMicLevel').map((c) => c[1])).toEqual([0, 2]);
+	// A browser without Web Audio cannot shape the send: the control is there, disabled, and says why.
+	await live(page, (l) => l.call({ canShapeMic: false }));
+	await expect(slider).toBeDisabled();
+	await expect(page.locator('[data-live-mic-level]')).toContainText("This browser can't change your level.");
+});
+
+test('@crosswidth @webkit-phone a stalled send is shown on your row and explained, and a microphone is not offered before you join', async ({ page }) => {
+	await open(page);
+	// Before you join, with two microphones known (left over from an earlier call): no list, because picking one would JOIN.
+	await live(page, (l) => l.call({ devices: [{ id: 'm1', label: 'Built-in microphone' }, { id: 'm2', label: 'USB microphone' }] }));
+	await yourAudio(page).click();
+	await expect(page.getByRole('radiogroup', { name: 'Microphone' })).toHaveCount(0);
+	await expect(page.locator('[data-live-mic-hint]')).toHaveText('Join audio to choose a microphone.');
+	await page.keyboard.press('Escape');
+	// On the call, the audio context is suspended (a phone call): others hear silence, and you are told.
+	await onCall(page);
+	await expect(yourAudio(page)).toHaveAttribute('data-stalled', 'false');
+	await live(page, (l) => l.call({ stalled: true }));
+	const trigger = page.getByRole('button', { name: /Your audio: your microphone has stopped sending/ });
+	await expect(trigger).toBeVisible();
+	await trigger.click();
+	await expect(page.locator('[data-live-stalled]')).toContainText('Your microphone has stopped sending');
+	await expect(page.locator('[data-live-stalled]')).toHaveRole('alert');
+});
+
+test('@crosswidth @webkit-phone the microphone list appears only when there is a choice, as a radio group', async ({ page }) => {
+	await open(page);
+	await onCall(page);
+	await yourAudio(page).click();
+	await expect(page.getByRole('radiogroup', { name: 'Microphone' })).toHaveCount(0); // one microphone: no picker
 	await page.keyboard.press('Escape');
 	await live(page, (l) => l.call({ devices: [{ id: 'm1', label: 'Built-in microphone' }, { id: 'm2', label: 'USB microphone' }] }));
-	await micMenu(page).click();
-	await page.getByRole('menuitem', { name: /USB microphone/ }).click();
+	await yourAudio(page).click();
+	const group = page.getByRole('radiogroup', { name: 'Microphone' });
+	await expect(group.getByRole('radio', { name: 'Built-in microphone' })).toBeChecked();
+	await group.getByRole('radio', { name: 'USB microphone' }).click();
 	expect((await calls(page)).filter((c) => c[0] === 'pickMic')).toEqual([['pickMic', 'm2']]);
 });
 
@@ -156,15 +234,21 @@ test('@a11y @webkit-phone the person menu and the volume popover have no axe fin
 	}
 });
 
-test('@a11y @webkit-phone the microphone menu, with its High fidelity switch, has no axe findings in both color modes', async ({ page }) => {
+test('@a11y @webkit-phone the Your audio popover has no axe findings, before and during a call, in both color modes', async ({ page }) => {
 	await open(page);
-	await onCall(page);
 	for (const mode of ['dark', 'light']) {
 		await page.evaluate((m) => document.documentElement.setAttribute('data-mode', m), mode);
-		await micMenu(page).click();
-		expect(await axeFindings(page, { menuOpen: true }), `axe findings in the microphone menu (${mode})`).toEqual([]);
-		expect(await assertFocusTrapped(page), 'focus escaped the open menu').toEqual([]);
-		await closeMenu(page);
-		await page.mouse.move(0, 0);
+		for (const inCall of [false, true]) {
+			if (inCall) {
+				await onCall(page);
+				await live(page, (l) => l.call({ devices: [{ id: 'm1', label: 'Built-in microphone' }, { id: 'm2', label: 'USB microphone' }] }));
+			}
+			await yourAudio(page).click();
+			await expect(page.locator('[data-live-your-audio]')).toBeVisible();
+			await page.mouse.move(0, 0); // resting state, as everywhere here
+			expect(await axeFindings(page), `axe findings in Your audio (${mode}, ${inCall ? 'on the call' : 'before joining'})`).toEqual([]);
+			await page.keyboard.press('Escape');
+		}
+		await live(page, (l) => l.set({}));
 	}
 });

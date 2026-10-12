@@ -17,8 +17,10 @@ const record =
 		calls.push([name, ...args]);
 		return name === 'copyLink' ? Promise.resolve(true) : undefined;
 	};
-const NAMES = ['start', 'copyLink', 'setLinkRole', 'setAutoAdmit', 'admit', 'deny', 'remove', 'setRole', 'follow', 'bringEveryone', 'toggleMic', 'leaveCall', 'pickMic', 'setVolume', 'setHighFidelity', 'end', 'leave', 'sendChat', 'chatTyping', 'goToSlide'] as const;
-const actions = Object.fromEntries(NAMES.map((n) => [n, record(n)])) as unknown as LiveActions;
+const NAMES = ['start', 'copyLink', 'setLinkRole', 'setAutoAdmit', 'admit', 'deny', 'remove', 'setRole', 'follow', 'bringEveryone', 'toggleMic', 'leaveCall', 'pickMic', 'setVolume', 'setHighFidelity', 'setMicLevel', 'end', 'leave', 'sendChat', 'chatTyping', 'goToSlide'] as const;
+/** What the mic meter reads: set from the spec with `window.__live.level(n)`. */
+let inputLevel = 0;
+const actions = { ...Object.fromEntries(NAMES.map((n) => [n, record(n)])), inputLevel: () => inputLevel } as unknown as LiveActions;
 
 const me: LivePerson = { id: 'me', name: 'Sharmarke', color: 1, role: 'host', me: true, slide: 0, editing: false, mic: 'off' };
 const amina: LivePerson = { id: 'p2', name: 'Amina', color: 2, role: 'edit', slide: 0, editing: false, mic: 'off', link: { kind: 'direct', detail: 'srflx→host (udp)' } };
@@ -55,6 +57,10 @@ function Harness() {
 		call(patch: Partial<LiveView['call']>) {
 			view = { ...view, call: { ...view.call, ...patch } };
 			tick();
+		},
+		/** The level of what you are sending, 0–1, as the meter reads it. */
+		level(n: number) {
+			inputLevel = n;
 		},
 		calls: () => calls.slice(),
 		clear: () => calls.splice(0, calls.length),

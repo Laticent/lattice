@@ -1,4 +1,4 @@
-import { type Amplifier, createStage, type Meter, type Stage } from '@/lib/suono';
+import { type Amplifier, createStage, type GainStream, type Meter, type Stage } from '@/lib/suono';
 
 // Live audio (S4): the microphone, playback of the others, and who is speaking.
 // See engineering/decisions/2026-10-06-studio-live-collaboration.md §5.8 and roadmap §1.
@@ -35,6 +35,9 @@ export const HIGH_FIDELITY_BITRATE = 128_000;
  *  above that the stream plays through Suono's gain stage instead. */
 export const MAX_VOLUME = 2;
 
+/** The most the microphone can be turned up to: 200 %. Past 100 % a loud voice can clip; the meter shows it. */
+export const MAX_MIC_LEVEL = 2;
+
 export type AudioDevice = { id: string; label: string };
 
 /** iOS / Safari's Audio Session API (absent elsewhere): what the page does with audio. */
@@ -48,8 +51,14 @@ function setAudioSession(type: 'play-and-record' | 'auto') {
 }
 
 export class LiveAudio {
-	/** This browser's microphone, once captured. */
+	/** What this browser SENDS: the captured microphone, shaped through a gain when Web Audio is there. */
 	private mic: MediaStream | null = null;
+	/** The microphone as captured, which is what is stopped when the call ends. */
+	private raw: MediaStream | null = null;
+	private shaped: GainStream | null = null;
+	/** How loud this browser sends (1 = as captured). Kept across re-captures and calls, not saved. */
+	private level = 1;
+	private lastHeal = Number.NEGATIVE_INFINITY;
 	private deviceId: string | null = null;
 	private muted = false;
 	private hifi = false;
@@ -70,6 +79,10 @@ export class LiveAudio {
 
 	get inCall(): boolean {
 		return this.mic !== null;
+	}
+	/** How loud this browser sends, 0–MAX_MIC_LEVEL (1 is as captured). */
+	get micLevel(): number {
+		return this.level;
 	}
 	get isMuted(): boolean {
 		return this.muted;
@@ -104,29 +117,42 @@ export class LiveAudio {
 			for (const t of stream.getTracks()) t.stop();
 			throw new Error('live audio is closed');
 		}
-		const old = this.mic;
-		this.mic = stream;
+		const oldRaw = this.raw;
+		const oldShaped = this.shaped;
+		// Shape the capture through a gain so the level can be set live, and send THAT. Without Web Audio
+		// the original goes out as it always did, and the level control says it cannot act.
+		const shaped = this.stage.gainStream(stream, this.level);
+		const sent = shaped?.stream ?? stream;
+		this.raw = stream;
+		this.shaped = shaped;
+		this.mic = sent;
 		this.hifi = highFidelity;
 		this.deviceId = stream.getAudioTracks()[0]?.getSettings().deviceId ?? deviceId ?? null;
+		for (const t of sent.getAudioTracks()) t.enabled = !this.muted;
 		for (const t of stream.getAudioTracks()) t.enabled = !this.muted;
-		if (old) {
-			for (const t of old.getTracks()) t.stop();
+		if (oldRaw) {
+			for (const t of oldRaw.getTracks()) t.stop();
+			oldShaped?.stop();
 			this.unmeter('self');
 		}
-		this.meter('self', stream);
+		// The meter reads what is SENT, so turning the level up or down shows in it.
+		this.meter('self', sent);
 		// Join means hear, too.
 		for (const peer of this.players.keys()) this.applyVolume(peer);
 		this.onChange();
-		return stream;
+		return sent;
 	}
 
 	/** Leave the call: stop the microphone and every playback. */
 	leave(): void {
 		if (this.mic) {
-			for (const t of this.mic.getTracks()) t.stop();
+			for (const t of this.raw?.getTracks() ?? this.mic.getTracks()) t.stop();
+			this.shaped?.stop();
 			setAudioSession('auto');
 		}
 		this.mic = null;
+		this.raw = null;
+		this.shaped = null;
 		this.muted = false;
 		this.hifi = false;
 		this.unmeter('self');
@@ -145,9 +171,52 @@ export class LiveAudio {
 		this.onChange();
 	}
 
-	setMuted(muted: boolean): void {
+	/** Set how loud this browser sends. Remembered for the next call; takes effect at once on a live one. */
+	setMicLevel(level: number): void {
+		this.level = Math.min(MAX_MIC_LEVEL, Math.max(0, Number.isFinite(level) ? level : 1));
+		this.shaped?.setGain(this.level);
+		this.onChange();
+	}
+
+	/**
+	 * Whether the SENT audio has stopped flowing: the shaped microphone only renders while the audio context
+	 * runs, and a phone call or a Siri prompt on an iPhone suspends it, so every listener would hear silence
+	 * while the page still said "on the call". False when nothing is shaped (the raw capture does not depend
+	 * on the context) or the context runs.
+	 */
+	get stalled(): boolean {
+		return this.shaped !== null && this.stage?.audioState() !== 'running';
+	}
+
+	/** Try to get a stalled send going again (a resume is allowed once the interruption is over, or in a gesture).
+	 *  Returns whether it is stalled after the attempt. Throttled, so a timer can call it freely. */
+	heal(now = performance.now()): boolean {
+		if (!this.stalled) return false;
+		if (now - this.lastHeal > 1000) {
+			this.lastHeal = Number.isFinite(now) ? now : performance.now();
+			this.stage?.unlock();
+			this.stage?.resume();
+		}
+		return this.stalled;
+	}
+
+	/** Whether the level can be changed on a live call (Web Audio is there to shape the send). */
+	get canShapeMic(): boolean {
+		return this.shaped !== null;
+	}
+
+	/** The level of what this browser is sending now, 0–1 (0 off the call). Read on a timer by the meter. */
+	inputLevel(): number {
+		return this.meters.get('self')?.meter.level() ?? 0;
+	}
+
+		setMuted(muted: boolean): void {
 		this.muted = muted;
+		// The sent track, AND the raw capture: Firefox turns its microphone light off only when every capture track is disabled.
 		for (const t of this.mic?.getAudioTracks() ?? []) t.enabled = !muted;
+		for (const t of this.raw?.getAudioTracks() ?? []) t.enabled = !muted;
+		// Unmuting is a tap, the one moment a suspended context is surely allowed to resume.
+		if (!muted) this.heal(Number.POSITIVE_INFINITY);
 		this.onChange();
 	}
 

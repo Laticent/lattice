@@ -387,6 +387,8 @@ export class LiveController {
 	private joining = false;
 	private queuedJoin: { deviceId?: string; highFidelity?: boolean } | null = null;
 	private leaveAfterJoin = false;
+	/** Whether the call's send is stalled, as the panel last drew it (a redraw only when it changes). */
+	private stalledShown = false;
 	private micDevices: Array<{ id: string; label: string }> = [];
 	/** The tab title before "On air · " was put in front of it. */
 	private plainTitle: string | null = null;
@@ -938,6 +940,8 @@ export class LiveController {
 		if (this.joining) this.leaveAfterJoin = true;
 		if (!a?.inCall) return;
 		a.leave();
+		this.micDevices = [];
+		this.stalledShown = false;
 		this.rt?.session.setMedia(null);
 		this.post({ k: 'mic', on: false });
 		this.onAirTitle();
@@ -948,6 +952,12 @@ export class LiveController {
 	private startSpeaking() {
 		if (this.speakTimer) return;
 		this.speakTimer = setInterval(() => {
+			// A suspended audio context silences what we send: try to bring it back, and tell the panel while it is down.
+			const stalled = this.audio?.heal() ?? false;
+			if (stalled !== this.stalledShown) {
+				this.stalledShown = stalled;
+				this.host.rerender();
+			}
 			const now = this.audio?.speaking() ?? new Set<string>();
 			if (now.size === this.speakingNow.size && [...now].every((x) => this.speakingNow.has(x))) return;
 			this.speakingNow = now;
@@ -1497,7 +1507,7 @@ export class LiveController {
 			following: this.following,
 			hostAway: s.hostAway,
 			audio: !!this.audio && r.session.hasMedia && LiveAudio.supported(),
-			call: { inCall: !!this.audio?.inCall, muted: !!this.audio?.isMuted, denied: this.micDenied, devices: this.micDevices, device: this.audio?.device ?? null, highFidelity: !!this.audio?.highFidelity },
+			call: { inCall: !!this.audio?.inCall, muted: !!this.audio?.isMuted, denied: this.micDenied, devices: this.micDevices, device: this.audio?.device ?? null, highFidelity: !!this.audio?.highFidelity, micLevel: this.audio?.micLevel ?? 1, canShapeMic: !!this.audio?.canShapeMic, stalled: this.stalledShown },
 			canChat: s.me?.role !== 'view',
 			typing,
 		};
@@ -1599,10 +1609,18 @@ export class LiveController {
 		},
 		toggleMic: () => void this.toggleMic(),
 		leaveCall: () => this.leaveCall(),
-		pickMic: (id) => void this.joinCall(id),
+		// Only on a live call: picking a microphone off the call would JOIN it and open the microphone.
+		pickMic: (id) => {
+			if (this.audio?.inCall) void this.joinCall(id);
+		},
 		// A new capture, because the browser fixes voice processing when the microphone is opened.
-		setHighFidelity: (on) => void this.joinCall(this.audio?.device ?? undefined, on),
+		setHighFidelity: (on) => {
+			// Only on a live call: toggling it off the call would JOIN it, which nobody asked for.
+			if (this.audio?.inCall) void this.joinCall(this.audio.device ?? undefined, on);
+		},
 		setVolume: (id, v) => this.audio?.setVolume(id, v),
+		setMicLevel: (v) => this.audio?.setMicLevel(v),
+		inputLevel: () => this.audio?.inputLevel() ?? 0,
 		end: () => {
 			this.teardown('end');
 			this.host.notify('Live session ended. The deck stays as it is.');

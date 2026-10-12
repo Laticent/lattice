@@ -106,6 +106,8 @@ export function useLiveSession(deps: LiveDeps & ShellCallbacks) {
 		leaveCall: NOOP,
 		pickMic: NOOP,
 		setHighFidelity: NOOP,
+		setMicLevel: NOOP,
+		inputLevel: () => 0,
 		setVolume: NOOP,
 		end: NOOP,
 		leave: NOOP,

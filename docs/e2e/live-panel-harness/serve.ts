@@ -69,6 +69,7 @@ export type Live = {
 	call(patch: Record<string, unknown>): void;
 	calls(): unknown[][];
 	clear(): void;
+	level(n: number): void;
 };
 /** Run `fn` in the page against `window.__live` (the function is serialized, so it closes over nothing). */
 export const live = <T>(page: Page, fn: (l: Live, a?: unknown) => T, arg?: unknown) =>
@@ -84,7 +85,7 @@ export async function onCall(page: Page, extra: Record<string, unknown> = {}) {
 	await live(
 		page,
 		(l, x) => {
-			l.set({ call: { inCall: true, muted: false, denied: false, devices: [{ id: 'm1', label: 'Built-in microphone' }], device: 'm1', highFidelity: false } });
+			l.set({ call: { inCall: true, muted: false, denied: false, devices: [{ id: 'm1', label: 'Built-in microphone' }], device: 'm1', highFidelity: false, micLevel: 1, canShapeMic: true, stalled: false } });
 			l.person('me', { mic: 'on' });
 			l.person('p2', { mic: 'on', volume: 1, quality: { inKbps: 64.2, lostPct: 0.4, jitterMs: 18.3, sendKbps: 63.8 }, ...(x as object) });
 		},
@@ -94,7 +95,8 @@ export async function onCall(page: Page, extra: Record<string, unknown> = {}) {
 export const optionsFor = (page: Page, name: string) => page.getByRole('button', { name: `Options for ${name}` });
 /** The always-present volume button on another person's row (opens their audio popover). */
 export const volumeFor = (page: Page, name: string) => page.getByRole('button', { name: `Volume for ${name}` });
-export const micMenu = (page: Page) => page.getByRole('button', { name: 'Microphone', exact: true });
+/** The arrow beside Join / Mute: opens the Your audio popover. */
+export const yourAudio = (page: Page) => page.getByRole('button', { name: 'Your audio', exact: true });
 
 /**
  * axe's WCAG A/AA findings on the page now, as "rule: target" strings.

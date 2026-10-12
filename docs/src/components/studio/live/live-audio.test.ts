@@ -194,3 +194,137 @@ describe('LiveAudio high fidelity', () => {
 		a.dispose();
 	});
 });
+
+// Mic level: the microphone is captured, then shaped through a gain, and the SHAPED stream is what is
+// sent, so a person can turn their own outgoing sound up or down live. The meter reads what is sent.
+describe('LiveAudio mic level', () => {
+	const ctxs: Array<{ state: string; resumed: number }> = [];
+	function withShaping() {
+		ctxs.length = 0;
+		fakeBrowser();
+		const nodes: Array<{ value: number; stopped: boolean; track: { enabled: boolean; stop: () => void } }> = [];
+		const Base = (window as unknown as { AudioContext: new () => object }).AudioContext;
+		(window as unknown as { AudioContext: unknown }).AudioContext = class extends Base {
+			state = 'running';
+			resumed = 0;
+			constructor() {
+				super();
+				ctxs.push(this as unknown as { state: string; resumed: number });
+			}
+			resume = () => {
+				this.resumed++;
+				return Promise.resolve();
+			};
+			createGain = () => ({ gain: { value: 1 }, connect: () => {}, disconnect: () => {} });
+			createMediaStreamDestination = () => {
+				const rec = { value: 1, stopped: false, track: { enabled: true, stop: () => { rec.stopped = true; } } };
+				nodes.push(rec);
+				return { stream: { getTracks: () => [rec.track], getAudioTracks: () => [rec.track] } };
+			};
+		};
+		return nodes;
+	}
+
+	it('sends the shaped stream, not the raw capture, and carries mute on the shaped track', async () => {
+		const nodes = withShaping();
+		const a = new LiveAudio(() => {});
+		const sent = await a.join();
+		expect(nodes).toHaveLength(1);
+		expect(sent.getAudioTracks()[0]).toBe(nodes[0].track);
+		expect(a.canShapeMic).toBe(true);
+		a.setMuted(true);
+		expect(nodes[0].track.enabled).toBe(false);
+		a.setMuted(false);
+		expect(nodes[0].track.enabled).toBe(true);
+		a.dispose();
+	});
+
+	it('clamps the level to 0–200 %, and keeps it across a re-capture and a new call', async () => {
+		withShaping();
+		const a = new LiveAudio(() => {});
+		expect(a.micLevel).toBe(1);
+		a.setMicLevel(1.5);
+		await a.join();
+		a.setMicLevel(9);
+		expect(a.micLevel).toBe(2);
+		a.setMicLevel(Number.NaN);
+		expect(a.micLevel).toBe(1);
+		a.setMicLevel(0.4);
+		await a.join('mic-1', true); // a re-capture: the level is not reset
+		expect(a.micLevel).toBe(0.4);
+		a.leave();
+		expect(a.micLevel).toBe(0.4);
+		a.dispose();
+	});
+
+	it('ends the raw capture and the shaping when the call ends', async () => {
+		const nodes = withShaping();
+		const a = new LiveAudio(() => {});
+		await a.join();
+		a.leave();
+		expect(track.stop).toHaveBeenCalled();
+		expect(nodes[0].stopped).toBe(true);
+		expect(a.canShapeMic).toBe(false);
+		expect(a.inputLevel()).toBe(0);
+		a.dispose();
+	});
+
+	it('sends the original, and says it cannot shape, where Web Audio cannot', async () => {
+		fakeBrowser(); // its AudioContext has no gain destination
+		const a = new LiveAudio(() => {});
+		const sent = await a.join();
+		expect(sent).toBe(stream);
+		expect(a.canShapeMic).toBe(false);
+		a.setMicLevel(1.5); // remembered, harmless
+		expect(a.micLevel).toBe(1.5);
+		a.dispose();
+	});
+
+	it('says when the send has stalled (the context was suspended, e.g. by a phone call) and brings it back', async () => {
+		withShaping();
+		const a = new LiveAudio(() => {});
+		await a.join();
+		expect(a.stalled).toBe(false);
+		const ctx = ctxs.at(-1) as { state: string; resumed: number };
+		ctx.state = 'interrupted'; // iOS: a phone call or Siri
+		expect(a.stalled).toBe(true);
+		const before = ctx.resumed;
+		expect(a.heal(10_000)).toBe(true); // tried, still down
+		expect(ctx.resumed).toBeGreaterThan(before);
+		const after = ctx.resumed;
+		a.heal(10_100); // throttled: not again within a second
+		expect(ctx.resumed).toBe(after);
+		ctx.state = 'running';
+		expect(a.heal(12_000)).toBe(false);
+		a.dispose();
+	});
+
+	it('tries to resume on unmute (a tap), and never reports a stall for an unshaped send', async () => {
+		withShaping();
+		const a = new LiveAudio(() => {});
+		await a.join();
+		const ctx = ctxs.at(-1) as { state: string; resumed: number };
+		a.setMuted(true);
+		ctx.state = 'suspended';
+		const before = ctx.resumed;
+		a.setMuted(false);
+		expect(ctx.resumed).toBeGreaterThan(before);
+		a.dispose();
+		fakeBrowser(); // no Web Audio gain destination: the raw capture goes out, and does not depend on the context
+		const b = new LiveAudio(() => {});
+		await b.join();
+		expect(b.stalled).toBe(false);
+		b.dispose();
+	});
+
+	it('mutes the raw capture too (Firefox turns its microphone light off only when every capture track is disabled)', async () => {
+		withShaping();
+		const a = new LiveAudio(() => {});
+		await a.join();
+		a.setMuted(true);
+		expect(track.enabled).toBe(false);
+		a.setMuted(false);
+		expect(track.enabled).toBe(true);
+		a.dispose();
+	});
+});

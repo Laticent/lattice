@@ -20,6 +20,9 @@ the stream to the speakers. The Studio's Live calls use it for the speaking ring
 `stage.amplify(stream, gain)` is the other direction: it plays a live stream through the context at a
 gain (0–4, so a quiet voice can go past the `<audio>` element's 1.0) and returns `{ setGain(g), stop() }`.
 The caller mutes its own element for that stream so it is not heard twice.
+`stage.gainStream(stream, gain)` is the send side: it routes a live stream through a gain and returns a NEW
+stream (`{ stream, setGain(g), stop() }`), so a call can turn its own microphone up or down before it is
+sent. Null where Web Audio is missing; the caller then sends the original.
 
 ## Install
 

@@ -480,3 +480,68 @@ describe('createStage — amplify (live stream with a gain)', () => {
 		expect(createStage().amplify({} as MediaStream, 2)).toBeNull();
 	});
 });
+
+describe('createStage — gainStream (a live stream shaped before it is sent)', () => {
+	function install(withDest = true) {
+		const gain = { value: 1 };
+		const stopped: boolean[] = [];
+		const track = { stop: () => stopped.push(true) };
+		const out = { getTracks: () => [track] } as unknown as MediaStream;
+		const calls = { sourceTo: [] as unknown[], gainTo: [] as unknown[], sourceDisconnect: vi.fn() };
+		const dest = { stream: out };
+		(window as unknown as { AudioContext: unknown }).AudioContext = class {
+			state = 'running';
+			destination = {};
+			createMediaStreamSource = () => ({ connect: (n: unknown) => calls.sourceTo.push(n), disconnect: calls.sourceDisconnect });
+			createGain = () => ({ gain, connect: (n: unknown) => calls.gainTo.push(n), disconnect: () => {} });
+			createMediaStreamDestination = withDest ? () => dest : undefined;
+			resume = () => Promise.resolve();
+		};
+		return { gain, stopped, out, dest, calls };
+	}
+	it('routes the stream through a gain into a NEW stream, which is what the caller sends', () => {
+		const { gain, out, dest, calls } = install();
+		const g = createStage({ keepAlive: false }).gainStream({} as MediaStream, 1.5);
+		expect(g?.stream).toBe(out);
+		expect(gain.value).toBe(1.5);
+		expect(calls.gainTo).toEqual([dest]); // the gain feeds the stream destination, never the speakers
+		g?.setGain(9);
+		expect(gain.value).toBe(4);
+		g?.setGain(Number.NaN);
+		expect(gain.value).toBe(1);
+	});
+	it('stops cleanly: disconnects, ends the shaped track, ignores later changes', () => {
+		const { gain, stopped, calls } = install();
+		const g = createStage({ keepAlive: false }).gainStream({} as MediaStream, 2);
+		g?.stop();
+		g?.stop();
+		expect(calls.sourceDisconnect).toHaveBeenCalledTimes(1);
+		expect(stopped).toEqual([true]);
+		g?.setGain(3);
+		expect(gain.value).toBe(2);
+	});
+	it('returns null where Web Audio or a stream destination is missing', () => {
+		install(false);
+		expect(createStage().gainStream({} as MediaStream, 1)).toBeNull();
+		(window as unknown as { AudioContext?: unknown }).AudioContext = undefined;
+		expect(createStage().gainStream({} as MediaStream, 1)).toBeNull();
+	});
+});
+
+describe('createStage — audioState', () => {
+	it('reports the owned context state, and null before there is one or without Web Audio', () => {
+		(window as unknown as { AudioContext: unknown }).AudioContext = class {
+			state = 'suspended';
+			destination = {};
+			createMediaStreamSource = () => ({ connect: () => {}, disconnect: () => {} });
+			createAnalyser = () => ({ fftSize: 0, getFloatTimeDomainData: () => {} });
+			resume = () => Promise.resolve();
+		};
+		const stage = createStage({ keepAlive: false });
+		expect(stage.audioState()).toBeNull(); // the context is made on first use
+		stage.meter({} as MediaStream);
+		expect(stage.audioState()).toBe('suspended');
+		(window as unknown as { AudioContext?: unknown }).AudioContext = undefined;
+		expect(createStage().audioState()).toBeNull();
+	});
+});

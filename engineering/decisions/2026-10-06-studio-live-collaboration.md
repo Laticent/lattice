@@ -1030,6 +1030,30 @@ hold. The owner's word for this was "deterministic".
   level (outgoing loudness, which also addresses a quiet call at the sender), master volume plus the
   output device, and changing your name and what you share.
 
+**Built on #2633 (2026-10-12), in this order.** Microphone first. **Your audio** is a popover from the
+arrow beside Join audio or Mute, and it is on your row before you join too (the parts that need a live
+microphone say so). It holds: a **live level meter** of what you send (a bar from `inputLevel()`,
+`role="meter"`, red past 90 % so a clipping voice shows); the **microphone list** (a radio group when
+there is more than one); **Mic level**, 0–200 % in 10 % steps; and **High fidelity** as a real `Switch`.
+Mic level is Suono's new `stage.gainStream(stream, gain)`: the capture is routed through a gain into a
+new stream, and that stream is what the call sends, so the level changes what every listener hears.
+Mute turns off the sent track, so it still needs no renegotiation; a re-capture (a new microphone, High
+fidelity) keeps the level; a browser without Web Audio sends the capture as it always did and the slider
+says it cannot act. Measured on a real two-browser call (`tools/live-session-check.mjs dark --hifi`,
+a synthetic microphone): at 50 % the guest hears 0.26× the power (a halved amplitude is 0.25×); the
+100 % reading repeats (0.604, then 0.618). At 200 % this test signal saturates (it is already at 0.6 of
+full scale, so doubling it clips at 1.0 and the meter reads 100, red); a quieter source would show the
+full 4×. The checker (tier 1, Opus) found two real defects, both fixed with tests: after Leave call the
+microphone list was still offered and picking one rejoined the call and opened the microphone (the list
+now shows only on a call, and `pickMic` is guarded the way High fidelity is); and the shaped send only
+renders while the audio context runs, so an iPhone phone call or Siri prompt would silence every
+listener while the page still said "on the call" (the controller now resumes the context on a timer and
+on unmute, and while it is down the arrow gets a red ring and Your audio says so). A smaller one: mute
+now also disables the raw capture track, so Firefox's microphone light goes off. UNVERIFIED: the level
+on a real microphone and an iPhone, and the shaped send on WebKit/iOS (it was measured crossing a real
+peer connection on Chromium only). Hearing (master volume and output device) and name / what you share
+are built next, in that order.
+
 **Sequence.** The per-person popover ships with #2633 (it is that PR's Volume decision). The "Me"
 controls are a separate PR after #2633 merges, because they build on its call controls and one
 feature is one PR. Mic level changes what every listener receives, so it gets a tier-1 independent

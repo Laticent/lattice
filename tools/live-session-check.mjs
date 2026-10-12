@@ -235,14 +235,34 @@ if (process.argv.includes('--hifi')) {
     while (Date.now() < end) { an.getFloatFrequencyData(bins); let peak = -200, sum = 0, c = 0; for (let b = 0; b < bins.length; b++) { const f = hz(b); if (f >= 13900 && f <= 14100) peak = Math.max(peak, bins[b]); if (f >= 18000 && f <= 20000) { sum += Math.max(-140, bins[b]); c++; } } tone = Math.max(tone, peak); floor += sum / c; k++; await new Promise((r) => setTimeout(r, 100)); n++; }
     await ctx.close(); return { toneDb: +tone.toFixed(1), floorDb: +(floor / k).toFixed(1) };
   }, secs);
-  const openMicMenu = async () => { await panel(host).getByRole('button', { name: 'Microphone', exact: true }).click(); };
+  // The popover stays open after a tap and animates out on close, so these ENSURE a settled state rather than toggling.
+  const audioOpen = '[data-live-your-audio][data-state=open]';
+  const openMicMenu = async () => { if ((await host.locator(audioOpen).count()) === 0) { await host.waitForSelector('[data-live-your-audio]', { state: 'detached' }).catch(() => {}); await panel(host).getByRole('button', { name: 'Your audio', exact: true }).click(); } await host.waitForSelector(audioOpen); await host.waitForTimeout(300); };
+  const closeMicMenu = async () => { await host.keyboard.press('Escape'); await host.waitForSelector('[data-live-your-audio]', { state: 'detached' }); };
   const setHifi = async (on) => { await openMicMenu(); const item = host.locator('[data-live-high-fidelity]'); if ((await item.getAttribute('aria-checked')) !== String(on)) await item.click(); else await host.keyboard.press('Escape'); await host.waitForFunction((o) => window.__gumCalls.at(-1)?.echoCancellation === !o, on, { timeout: 15000 }); await host.waitForTimeout(3000); };
   for (const on of [false, true, false]) {
     if (on || (await host.evaluate(() => window.__gumCalls.length)) > 1) await setHifi(on);
     const [kbps, h] = await Promise.all([sentRate(8), heard(8)]);
     log(`high fidelity ${on ? 'ON ' : 'off'}: capture ${JSON.stringify(await host.evaluate(() => { const c = window.__gumCalls.at(-1); return { echoCancellation: c.echoCancellation, noiseSuppression: c.noiseSuppression, autoGainControl: c.autoGainControl }; }))}; host sends ${kbps.toFixed(1)} kbit/s; guest hears the 14 kHz tone at ${h.toneDb} dBFS, 18-20 kHz floor ${h.floorDb} dBFS`);
-    if (on) { await openMicMenu(); await host.screenshot({ path: `${OUT}call-high-fidelity-menu-${mode}.png` }); await host.keyboard.press('Escape'); }
+    if (on) { await openMicMenu(); await host.screenshot({ path: `${OUT}call-high-fidelity-menu-${mode}.png` }); await closeMicMenu(); }
   }
+  // Mic level: what the GUEST hears must follow the host's slider (it changes what everyone receives).
+  // Average power of the inbound audio over a window, from the browser's own counters.
+  const power = (secs) => guest.evaluate(async (t) => {
+    const read = async () => { let e = 0, d = 0; for (const pc of window.__livePcs ?? []) for (const st of (await pc.getStats()).values()) if (st.type === 'inbound-rtp' && st.kind === 'audio') { e += st.totalAudioEnergy; d += st.totalSamplesDuration; } return { e, d }; };
+    const a = await read(); await new Promise((r) => setTimeout(r, t * 1000)); const b = await read();
+    return (b.e - a.e) / Math.max(1e-9, b.d - a.d);
+  }, secs);
+  await openMicMenu();
+  const levelSlider = host.locator('[data-live-mic-level] input[type=range]');
+  const setLevelPct = async (pct) => { await levelSlider.focus(); await host.keyboard.press('Home'); for (let i = 0; i < pct / 10; i++) await host.keyboard.press('ArrowRight'); await host.waitForTimeout(2500); };
+  const meterNow = () => host.locator('[data-live-meter]').getAttribute('aria-valuenow');
+  const readings = {};
+  for (const pct of [100, 200, 50, 100]) { await setLevelPct(pct); readings[pct] = readings[pct] ?? []; const w = await power(6); readings[pct].push(w); log(`mic level ${pct} %: guest hears average power ${w.toExponential(2)}; host meter reads ${await meterNow()}`); }
+  const r2 = readings[200][0] / readings[100][0]; const r05 = readings[50][0] / readings[100][0];
+  log(`mic level, what the guest hears vs 100 %: 50 % = ${r05.toFixed(2)}x power (a halved amplitude is 0.25x). 200 % reads ${r2.toFixed(2)}x because this synthetic signal is already at ${readings[100][0].toFixed(2)} of full scale, so doubling it clips at 1.0 (the host meter turns red); a quieter source would show the full 4x.`);
+  await host.screenshot({ path: `${OUT}call-your-audio-${mode}.png` });
+  await closeMicMenu();
   // Two quick taps (on, then off), then Leave call during the second capture: the last tap wins, and Leave is not undone.
   const tap = async () => { await openMicMenu(); await host.locator('[data-live-high-fidelity]').click(); };
   await tap(); await tap();

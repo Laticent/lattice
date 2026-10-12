@@ -135,6 +135,10 @@ export interface Stage {
 	suspend(): void;
 	/** Resume a context suspended by `suspend()`. */
 	resume(): void;
+	/** The owned context's state (`running`, `suspended`, `interrupted` on iOS, `closed`), or null before it exists
+	 *  or where Web Audio is missing. A caller whose audio only flows while the context runs (a call's shaped
+	 *  microphone) watches this. */
+	audioState(): string | null;
 	/** Build a sequence scheduler bound to this stage. */
 	sequence<T>(opts: SequenceOptions<T>): Sequence;
 	/** Stop EVERY currently-playing clip (all overlapping plays, not just the latest). */
@@ -148,6 +152,11 @@ export interface Stage {
 	 *  heard twice (keep the element attached: Chromium feeds a remote stream to Web Audio only
 	 *  while an element plays it). Null where Web Audio is missing. Stop it when the stream goes away. */
 	amplify(stream: MediaStream, gain: number): Amplifier | null;
+	/** Shape a LIVE stream before it is SENT: route it through a gain and hand back a new stream with the
+	 *  gained audio (a call's microphone, turned up or down). The caller sends `.stream` and stops the
+	 *  original's tracks itself; `.stop()` disconnects the shaping. Null where Web Audio is missing, so
+	 *  the caller sends the original unshaped. */
+	gainStream(stream: MediaStream, gain: number): GainStream | null;
 	/** Release the context (rare — a stage is meant to outlive many plays). */
 	dispose(): void;
 }
@@ -157,6 +166,16 @@ export interface Amplifier {
 	/** Set the gain: 1 is the stream as it arrives, 2 is twice the amplitude (+6 dB). Clamped to 0–4. */
 	setGain(gain: number): void;
 	/** Disconnect the stream from the speakers. Idempotent. */
+	stop(): void;
+}
+
+/** A live stream shaped through a gain, from `Stage.gainStream`. */
+export interface GainStream {
+	/** The shaped stream: one audio track carrying the gained signal. Enable and disable its track to mute. */
+	readonly stream: MediaStream;
+	/** Set the gain: 1 is the stream as captured, 2 is twice the amplitude (+6 dB). Clamped to 0–4. */
+	setGain(gain: number): void;
+	/** Disconnect the shaping and end the shaped track. Idempotent. */
 	stop(): void;
 }
 
