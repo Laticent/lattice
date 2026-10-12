@@ -159,7 +159,7 @@ test('the exported player takes its drag slop from the shared number', async () 
 let kernel;
 test.before(async () => {
   const t = await import('../../../lib/core/present-transport.mjs');
-  kernel = { keyAction: t.keyAction, swipeAction: t.swipeAction, createZoomGesture: t.createZoomGesture, zoomStep: t.zoomStep };
+  kernel = { keyAction: t.keyAction, swipeAction: t.swipeAction, digitAction: t.digitAction, createWheelGate: t.createWheelGate, createZoomGesture: t.createZoomGesture, zoomStep: t.zoomStep };
 });
 
 const SET = ['https://a.test/1.jpg', 'https://a.test/2.jpg', 'https://a.test/3.jpg', 'https://a.test/4.jpg'].map((src, i) => ({ src, alt: `Photo ${i + 1}` }));
@@ -443,4 +443,118 @@ test('zoom: a resize re-clamps the pan, and the pill is a corner control that ha
   key('+');
   win.dispatchEvent(new win.Event('resize'));
   assert.ok(scaleOf(root) > 1, 'a resize leaves the zoom in place');
+});
+
+// ── wheel stepping (#2641 P2) and digit jumps (#2635 P3) ───────────────────────────────────────
+const wheel = (win, root, init) => {
+  const e = new win.WheelEvent('wheel', { bubbles: true, cancelable: true, ...init });
+  root.dispatchEvent(e);
+  return e;
+};
+
+test('wheel: a decisive plain flick steps, the gate\'s cooldown holds a burst to one step, and it cannot scroll behind', () => {
+  const { root, win, h } = stepper();
+  const clock = { t: 10000 };
+  win.performance.now = () => clock.t;
+  const first = wheel(win, root, { deltaY: 120 });
+  assert.equal(h.index(), 1, 'a downward flick is next');
+  assert.equal(first.defaultPrevented, true);
+  wheel(win, root, { deltaY: 120 });
+  wheel(win, root, { deltaY: 300 });
+  assert.equal(h.index(), 1, 'the rest of the burst, inside the cooldown, does not skip photos');
+  clock.t += 500;
+  wheel(win, root, { deltaY: -120 });
+  assert.equal(h.index(), 0, 'after the cooldown an upward flick is previous');
+  clock.t += 500;
+  wheel(win, root, { deltaX: 90, deltaY: 5 });
+  assert.equal(h.index(), 1, 'a horizontal trackpad flick steps too (dominant axis)');
+});
+
+test('wheel: a small scroll does not step, and a line-mode wheel is measured in pixels', () => {
+  const { root, win, h } = stepper();
+  win.performance.now = () => 20000;
+  wheel(win, root, { deltaY: 10 });
+  assert.equal(h.index(), 0, 'under the gate threshold is a reflexive scroll, not a flick');
+  wheel(win, root, { deltaY: 3, deltaMode: 1 });
+  assert.equal(h.index(), 1, 'three lines is 48 px, past the threshold');
+});
+
+test('wheel: ctrl or cmd + wheel zooms and never steps, even in a burst', () => {
+  const { root, win, h } = stepper();
+  win.performance.now = () => 30000;
+  wheel(win, root, { deltaY: -400, ctrlKey: true });
+  wheel(win, root, { deltaY: 400, metaKey: true });
+  wheel(win, root, { deltaY: 400, ctrlKey: true });
+  assert.equal(h.index(), 0, 'a trackpad pinch (ctrl + wheel) never steps');
+});
+
+test('wheel: a zoomed photo keeps the wheel; without the gate a plain wheel is only blocked', () => {
+  const z = stepper();
+  z.win.performance.now = () => 40000;
+  wheel(z.win, z.root, { deltaY: -400, ctrlKey: true });
+  wheel(z.win, z.root, { deltaY: 200 });
+  assert.equal(z.h.index(), 0, 'stepping would drop the zoom the reader chose');
+  const bare = stepper({ kernel: { keyAction: kernel.keyAction } });
+  const e = wheel(bare.win, bare.root, { deltaY: 200 });
+  assert.equal(bare.h.index(), 0);
+  assert.equal(e.defaultPrevented, true);
+});
+
+test('wheel: each open gets its own gate, so one lightbox\'s cooldown never mutes the next', () => {
+  const a = stepper();
+  a.win.performance.now = () => 50000;
+  wheel(a.win, a.root, { deltaY: 200 });
+  assert.equal(a.h.index(), 1);
+  a.h.closeNow();
+  const b = open(a.doc, { items: SET, reducedMotion: true, kernel });
+  wheel(a.win, a.doc.querySelector('.collage-lightbox'), { deltaY: 200 });
+  assert.equal(b.index(), 1, 'the second lightbox steps at the same instant');
+});
+
+test('digits: 1 to 6 jump to that photo, past the set is ignored, and 0 and 7 to 9 are not jumps', () => {
+  const { key, h } = stepper();
+  key('3');
+  assert.equal(h.index(), 2);
+  key('1');
+  assert.equal(h.index(), 0);
+  key('4');
+  assert.equal(h.index(), 3);
+  key('5');
+  key('6');
+  assert.equal(h.index(), 3, 'a four-photo set ignores 5 and 6 instead of clamping');
+  for (const k of ['7', '8', '9']) key(k);
+  assert.equal(h.index(), 3);
+  key('0');
+  assert.equal(h.index(), 3, '0 stays the zoom reset');
+});
+
+test('digits: a modified digit is the browser\'s, and a single photo or no kernel ignores them', () => {
+  const { key, h } = stepper();
+  key('3', { ctrlKey: true });
+  key('3', { metaKey: true });
+  key('3', { altKey: true });
+  assert.equal(h.index(), 0, 'Ctrl/Cmd/Alt + digit switches tabs, not photos');
+  const bare = stepper({ kernel: { keyAction: kernel.keyAction } });
+  bare.key('3');
+  assert.equal(bare.h.index(), 0, 'without the kernel there is no digit verb');
+});
+
+test('digits: no collision with the deck - open swallows them, closed leaves them to the deck', async () => {
+  const { doc, win } = page();
+  const seen = [];
+  win.addEventListener('keydown', (e) => seen.push(e.key));
+  const h = open(doc, { items: SET, reducedMotion: true, kernel });
+  doc.dispatchEvent(new win.KeyboardEvent('keydown', { key: '2', bubbles: true, cancelable: true }));
+  assert.deepEqual(seen, [], 'while open the deck never hears the digit');
+  assert.equal(h.index(), 1);
+  h.closeNow();
+  doc.dispatchEvent(new win.KeyboardEvent('keydown', { key: '2', bubbles: true, cancelable: true }));
+  assert.deepEqual(seen, ['2'], 'once closed the lightbox is gone and the digit is the deck\'s again');
+});
+
+test('the opener reads the digit and wheel rules from the kernel, with no private copy', () => {
+  const src = open.toString();
+  assert.ok(/K\.digitAction/.test(src) && /K\.createWheelGate/.test(src));
+  assert.ok(!/\[1-6\]/.test(src), 'the 1 to 6 range lives in the kernel');
+  assert.ok(!/Math\.abs\(e\.delta/.test(src), 'the flick threshold lives in the kernel');
 });
