@@ -171,12 +171,18 @@ SVG of 1,200 default faces (400 names × 3 gender presets) is byte-identical bef
   hair: only the back layer of a bun, an afro or curls (their volume rises above it). A first draw gave it a
   rear strap and the fringe-hiding rule of a forward cap; the owner pointed out that baseball caps are fitted
   and that a backwards one leaves the hairline showing, and both were wrong. The hair trait stays resolved and stamped on `data-traits`; only its drawing is skipped.
-- **A covering is fitted to the face.** Every covering except the hijab is drawn once against an oval head,
-  then stretched per face shape by `fit` in `traits.json`: across by `sx` about the centerline, and from the
-  head's top to the brow line by `sy` about `anchor` (38). A round head (top y 30) gets a flatter dome
-  (`sy` 0.86) and a long one (top y 26) a taller one (1.1). The kernel writes the `matrix(…)` as a
-  `transform` attribute on each covering shape, so the data stays one drawing, not five. The owner saw the
-  unfitted version and called it janky: the same dome floated off a round head and sat tight on a long one.
+- **A covering sits snug: it is fitted to the head and the hair under it.** Every covering except the hijab
+  is drawn once, then `fit` in `traits.json` sizes it to the higher of the face's top and the hair's crown
+  and the wider of the face and the hair, plus a 1-unit margin: `sy` stretches it from `anchor` (the brow
+  line, y 38) up to that top, `sx` across about the centerline. The table holds each drawing's measured top
+  and half-width (read off its bounding box), each face shape's, and each hairstyle's crown (the hair drawings
+  do not change with the face, so the crown is absolute; the volume styles use the height they press down to
+  under a covering). The kernel writes the `matrix(…)` as a `transform` on each covering shape, so the data
+  stays one drawing, not one per face. Two rounds of the owner's review shaped this. First a fixed dome on
+  five face shapes looked janky (floating off a round head, tight on a long one). Then the fit was by face
+  alone, and every hat still rode 5 to 10 units above the skull (the drawings' tops sit at y 17 to 19 against a
+  skull top of 28), and a round head showed hair above the hat. A bare head gets a low hat; a head with short
+  hair a taller one.
 - **Earrings are keyed by face shape**, because the ears sit at a different x on each. The generator accepts
   one list for every face or one per face; the shipped drawings are per face, derived from each face's ear
   ellipses. A hijab covers the ears, so `hides-earrings` in `traits.json` skips the earring layer for it (the cheek

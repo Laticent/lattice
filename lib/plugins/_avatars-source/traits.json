@@ -103,20 +103,40 @@
     "skullcap": { "*": ["front"], "bun": ["back", "front"], "coily": ["back", "front"], "curly": ["back", "front"] },
     "beanie": { "*": ["front"], "bun": ["back", "front"], "coily": ["back", "front"], "curly": ["back", "front"] },
     "kufi": { "*": ["front"], "bun": ["back", "front"], "coily": ["back", "front"], "curly": ["back", "front"] },
-    "backcap": { "*": [], "bun": ["back"], "coily": ["back"], "curly": ["back"] },
+    "backcap": { "*": [], "bun": ["back"], "coily": ["back"], "curly": ["back", "front"] },
     "cap":    { "*": ["front"], "bun": ["back", "front"], "coily": ["back", "front"], "curly": ["back", "front"] }
   },
   "hides-earrings": ["hijab"],
   "fit": {
-    "$comment": "Head coverings are drawn against an oval head. A face shape changes the fit: each covering (except the hijab, which wraps the whole head) is stretched across the width by `sx` (about the face's centerline) and from the head's top down to the brow line by `sy` (about `anchor`), so a round head gets a flatter dome and a long head a taller one. sy = (anchor - face top) / (anchor - oval top); sx = face width / oval width.",
+    "$comment": "Head coverings are drawn once, then fitted to the head they sit on (the hijab wraps the whole head and is not fitted). A covering is sized to the higher of the face's top and the hair's crown, and the wider of the face and the hair, plus a small margin, so it sits snug: sy stretches it from `anchor` (the brow line) up to its target top, sx across about the centerline. `hats` holds each drawing's measured top and half-width, `faces` each face shape's, and `hair` each hairstyle's crown height and half-width (the hair drawings do not change with the face, so these are absolute; the volume styles are the height they press down to under a covering). target top = min(face top, hair top) - margin.top; target half-width = max(face half, hair half) + margin.side.",
     "anchor": 38,
-    "headwear": ["turban", "skullcap", "beanie", "kufi", "cap", "backcap"],
+    "margin": { "top": 1, "side": 1 },
+    "hats": {
+      "turban":   { "top": 21.2, "half": 21.4 },
+      "skullcap": { "top": 17.4, "half": 19.1 },
+      "beanie":   { "top": 17,   "half": 20.1 },
+      "kufi":     { "top": 18.8, "half": 17.6 },
+      "cap":      { "top": 17.9, "half": 19 },
+      "backcap":  { "top": 17.3, "half": 19.3 }
+    },
     "faces": {
-      "oval":   { "sx": 1,    "sy": 1 },
-      "round":  { "sx": 1.05, "sy": 0.86 },
-      "long":   { "sx": 0.95, "sy": 1.1 },
-      "square": { "sx": 1,    "sy": 1.03 },
-      "heart":  { "sx": 1,    "sy": 1.03 }
+      "oval":   { "top": 28,   "half": 16 },
+      "round":  { "top": 30,   "half": 17 },
+      "long":   { "top": 26,   "half": 15 },
+      "square": { "top": 27.5, "half": 16 },
+      "heart":  { "top": 27.5, "half": 16 }
+    },
+    "hair": {
+      "none":  null,
+      "buzz":  { "top": 26.6, "half": 15.6 },
+      "short": { "top": 23.4, "half": 17.8 },
+      "side":  { "top": 23,   "half": 17.8 },
+      "curly": { "top": 22,   "half": 19 },
+      "coily": { "top": 21,   "half": 20 },
+      "bob":   { "top": 23,   "half": 19.5 },
+      "long":  { "top": 26,   "half": 16 },
+      "bun":   { "top": 22.5, "half": 17.4 },
+      "locs":  { "top": 23.5, "half": 18 }
     }
   },
   "deep": {

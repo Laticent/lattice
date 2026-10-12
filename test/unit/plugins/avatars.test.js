@@ -329,13 +329,26 @@ describe('avatars — earrings, head coverings and clothing', () => {
     assert.equal(r.stdout, 'null');
   });
 
-  test('a covering is fitted to the head: the face shape stretches it, the oval is the reference', () => {
-    const transformOf = (face, h) => (svg(`headwear=${h}, face=${face}, hair=none`).match(/transform="([^"]*)"/) || [])[1];
-    assert.equal(transformOf('oval', 'cap'), undefined, 'the oval head is the drawing as is');
-    assert.match(transformOf('round', 'cap'), /^matrix\(1\.05 0 0 0\.86 /, 'a round head: wider, flatter');
-    assert.match(transformOf('long', 'cap'), /^matrix\(0\.95 0 0 1\.1 /, 'a long head: narrower, taller');
-    for (const h of ['turban', 'skullcap', 'beanie', 'kufi', 'backcap']) assert.ok(transformOf('round', h), `${h} is fitted`);
-    assert.equal(transformOf('round', 'hijab'), undefined, 'a hijab wraps the whole head and is not fitted');
+  test('a covering is fitted to the head and the hair under it, and sits snug', () => {
+    const scale = (face, hair, h) => {
+      const m = (svg(`headwear=${h}, face=${face}, hair=${hair}`).match(/transform="matrix\(([^ ]+) 0 0 ([^ ]+) /) || []);
+      return m[1] ? { sx: +m[1], sy: +m[2] } : null;
+    };
+    const fit = data.fit;
+    for (const h of ['turban', 'skullcap', 'beanie', 'kufi', 'cap', 'backcap']) {
+      // The fitted dome's top lands just above the head (or the hair), whatever the face or hair.
+      for (const face of V.face) for (const hair of V.hair) {
+        const m = scale(face, hair, h);
+        assert.ok(m, `${h} on ${face}/${hair} is fitted`);
+        const hairTop = fit.hair[hair] ? fit.hair[hair].top : Infinity;
+        const target = Math.min(fit.faces[face].top, hairTop) - fit.margin.top;
+        const top = fit.anchor - (fit.anchor - fit.hats[h].top) * m.sy;
+        assert.ok(Math.abs(top - target) < 0.6, `${h} ${face}/${hair}: top ${top.toFixed(2)} vs ${target}`);
+      }
+    }
+    assert.notDeepEqual(scale('round', 'none', 'cap'), scale('long', 'none', 'cap'), 'the face shape changes the fit');
+    assert.notDeepEqual(scale('oval', 'none', 'cap'), scale('oval', 'short', 'cap'), 'the hair under it changes the fit');
+    assert.equal(scale('round', 'none', 'hijab'), null, 'a hijab wraps the whole head and is not fitted');
     assert.equal(svg('face=round, hair=short').includes('transform='), false, 'no covering, nothing fitted');
   });
 });
