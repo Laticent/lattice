@@ -2,7 +2,7 @@
 origin: 2577
 priority: P3
 recorded: 2026-10-12
-area: export
+area: engine
 severity: low
 swimlane: engineering/pipeline.md
 ---
