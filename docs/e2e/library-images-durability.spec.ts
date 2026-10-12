@@ -71,7 +71,8 @@ async function closeLibrary(page: Page) {
 	const gear = page.getByRole('button', { name: 'Workspace settings', exact: true }).first();
 	for (let i = 0; i < 3 && !(await gear.isVisible().catch(() => false)); i++) {
 		await page.keyboard.press('Escape');
-		await page.waitForTimeout(400);
+		// Wait on the signal itself, bounded: the control behind the sheet becoming reachable.
+		await gear.waitFor({ state: 'visible', timeout: 1500 }).catch(() => {});
 	}
 	await expect(gear).toBeVisible();
 }
