@@ -109,10 +109,34 @@ recognizable, and the name fills in the rest. Pinning one trait never reshuffles
 | `mouth` | `smile` `grin` `neutral` `smirk` |
 | `beard` | `none` `stubble` `mustache` `goatee` `full` |
 | `glasses` | `none` `round` `square` |
+| `earrings` | `none` `stud` `hoop` `drop` |
+| `headwear` | `none` `hijab` `turban` `skullcap` `beanie` `kufi` `cap` `backcap` |
+| `headwear-color` | `navy` `slate` `charcoal` `olive` `teal` `plum` `brick` `taupe` `cream` |
 | `top` | `navy` `slate` `charcoal` `olive` `teal` `plum` `brick` `taupe` `cream` |
+| `clothing` | `crew` `vneck` `collar` `turtleneck` `hoodie` `blazer` |
 
 Skin, hair, eyes and clothes keep their colors in every theme, as a photograph does. A
 person's skin does not change when the deck switches palette.
+
+### Earrings, head coverings and clothing
+
+These are opt-in. A name that does not write them gets no earrings, no head covering and a
+crew-neck top, so a face you already drew does not change.
+
+```markdown
+`!{Amina Yusuf, headwear=hijab, headwear-color=plum}`
+`!{Rohan Mehta, headwear=turban, headwear-color=olive}`
+`!{Omar Haddad, headwear=skullcap, headwear-color=cream}`
+`!{Kwame Mensah, headwear=kufi, headwear-color=brick}`
+`!{Jonah Reyes, headwear=backcap, clothing=hoodie}`
+`!{Sam Lee, headwear=cap, clothing=hoodie}`
+`!{Ada Okafor, earrings=hoop, clothing=blazer}`
+```
+
+A hijab and a turban hide all hair; a skull cap, beanie, kufi or cap hides the fringe and anything that would rise above it (a bun, an afro,
+curls). A `backcap` is a fitted baseball cap worn backwards: it sits back on the crown, so your hair
+stays visible in front of it. The hair you wrote stays on the face under the covering, so removing the
+covering brings it back. A hijab covers the ears, so it hides earrings; a bob covers the lobe, so only the edge of an earring shows.
 
 ### `gender=` is a preset, not a lock
 

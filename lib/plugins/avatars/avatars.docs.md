@@ -52,10 +52,43 @@ pair of glasses.
 | `mouth` | `smile` `grin` `neutral` `smirk` |
 | `beard` | `none` `stubble` `mustache` `goatee` `full` |
 | `glasses` | `none` `round` `square` |
+| `earrings` | `none` `stud` `hoop` `drop` |
+| `headwear` | `none` `hijab` `turban` `skullcap` `beanie` `kufi` `cap` `backcap` |
+| `headwear-color` | `navy` `slate` `charcoal` `olive` `teal` `plum` `brick` `taupe` `cream` |
 | `top` | `navy` `slate` `charcoal` `olive` `teal` `plum` `brick` `taupe` `cream` |
+| `clothing` | `crew` `vneck` `collar` `turtleneck` `hoodie` `blazer` |
 
 **Skin, hair, eyes and clothes keep their colors in every theme**, the way a photograph does. A
 person's skin does not change when the deck switches palette.
+
+### Dress, earrings and head coverings
+
+These three are **opt-in**: a name that does not write them gets no earrings, no head covering and a
+crew-neck top, so every face drawn before they existed is unchanged.
+
+```markdown
+`!{Amina Yusuf, headwear=hijab, headwear-color=plum}`
+`!{Rohan Mehta, headwear=turban, headwear-color=olive}`
+`!{Omar Haddad, headwear=skullcap, headwear-color=cream}`
+`!{Kwame Mensah, headwear=kufi, headwear-color=brick}`
+`!{Jonah Reyes, headwear=backcap, clothing=hoodie}`
+`!{Sam Lee, headwear=cap, clothing=hoodie}`
+`!{Ada Okafor, earrings=hoop, clothing=blazer}`
+```
+
+- **A head covering takes its own color** (`headwear-color`, the same nine as `top`), and the traits
+  it covers stay on the render in `data-traits`: `hair=long headwear=hijab` is a face with long
+  hair under a hijab.
+- **Which hair it hides.** A hijab and a turban hide all hair. A `skullcap` (a smooth
+  close-fitting dome), a `beanie` (knit, with a ribbed cuff), a `kufi` (a flat-topped brimless cap with an
+  embroidered band), a `cap` (a baseball cap, bill forward) hide the fringe, and the volume that would rise above them: a bun, an afro
+  or curls. Long hair and locs still fall below them. A `turban` is wound cloth with a knot at the front. A `backcap` is a fitted baseball cap worn
+  backwards: it sits back on the crown with its panel seams showing, so the hairline and fringe stay in
+  front of it, and only a bun, an afro or curls that would rise above it are hidden.
+- **Earrings** sit on the ears of every face shape. A hijab covers the ears, so it hides them. Hair in front of the ear (`bob`) covers the lobe, and only
+  the edge of an earring shows.
+- **`clothing`** is the cut of the top: `crew` (the default), `vneck`, `collar` (a white-collared
+  shirt), `turtleneck`, `hoodie` and `blazer`. `top` is still its color.
 
 ## `gender=` — a preset, not a lock
 
