@@ -99,7 +99,7 @@ function PersonAudio({ p, view, actions }: { p: LivePerson; view: LiveView; acti
 					<Glyph className="size-3.5" />
 				</Button>
 			</PopoverTrigger>
-			<PopoverContent align="end" className="w-60 p-3" data-live-person-audio>
+			<LivePopoverContent align="end" className="w-60 p-3" data-live-person-audio>
 				<div className="mb-1 text-[12px] font-semibold text-foreground">{p.name}</div>
 				{live ? (
 					<>
@@ -121,7 +121,7 @@ function PersonAudio({ p, view, actions }: { p: LivePerson; view: LiveView; acti
 						)}
 					</div>
 				)}
-			</PopoverContent>
+			</LivePopoverContent>
 		</Popover>
 	);
 }
@@ -227,7 +227,7 @@ function YourSettings({ view, actions }: { view: LiveView; actions: LiveActions 
 					<MoreHorizontal className="size-3.5" />
 				</Button>
 			</PopoverTrigger>
-			<PopoverContent align="end" className="max-h-[min(75vh,var(--radix-popover-content-available-height))] w-72 overflow-y-auto p-3" data-live-your-settings>
+			<LivePopoverContent align="end" className="max-h-[min(75vh,var(--radix-popover-content-available-height))] w-72 overflow-y-auto p-3" data-live-your-settings>
 				<div className="mb-2 text-[12px] font-semibold text-foreground">Your settings</div>
 				{me && (
 					<div className="mb-3">
@@ -240,7 +240,7 @@ function YourSettings({ view, actions }: { view: LiveView; actions: LiveActions 
 					<ShareRow id="live-share-slide" label="Show my slide" note="Others see which slide you are on, and can jump to it." checked={sh.slide} onChange={(on) => actions.setShare({ slide: on })} />
 					<ShareRow id="live-share-typing" label="Show when I'm typing" note="Others see when you type in the editor and in the chat." checked={sh.typing} onChange={(on) => actions.setShare({ typing: on })} />
 				</div>
-			</PopoverContent>
+			</LivePopoverContent>
 		</Popover>
 	);
 }
@@ -364,7 +364,7 @@ function YourAudio({ view, actions }: { view: LiveView; actions: LiveActions }) 
 					<ChevronDown className="size-3" />
 				</Button>
 			</PopoverTrigger>
-			<PopoverContent align="end" className="max-h-[min(75vh,var(--radix-popover-content-available-height))] w-72 overflow-y-auto p-3" data-live-your-audio>
+			<LivePopoverContent align="end" className="max-h-[min(75vh,var(--radix-popover-content-available-height))] w-72 overflow-y-auto p-3" data-live-your-audio>
 				<div className="mb-2 text-[12px] font-semibold text-foreground">Your audio</div>
 				<div className="flex flex-col gap-3">
 					<div className="flex flex-col gap-1">
@@ -439,7 +439,7 @@ function YourAudio({ view, actions }: { view: LiveView; actions: LiveActions }) 
 						)}
 					</div>
 				</div>
-			</PopoverContent>
+			</LivePopoverContent>
 		</Popover>
 	);
 }
@@ -755,6 +755,15 @@ function InviteRow({ view, actions, full }: { view: LiveView; actions: LiveActio
 	);
 }
 
+/** The panel's own root element. The popovers portal INTO it (not `<body>`): on a phone the panel lives in a modal
+ *  Sheet, whose scroll lock blocks touch scrolling in anything outside the Sheet, so a popover taller than its
+ *  room showed but would not scroll (owner's iPhone, 2026-10-12). */
+const LiveRoot = React.createContext<HTMLElement | null>(null);
+const useLiveRoot = () => React.useContext(LiveRoot);
+function LivePopoverContent(props: React.ComponentProps<typeof PopoverContent>) {
+	return <PopoverContent container={useLiveRoot()} {...props} />;
+}
+
 export function LivePanel({ view, actions, title, now, defaultName = '', headerSlot }: { view: LiveView; actions: LiveActions; title?: string; now: number; defaultName?: string; headerSlot?: HTMLElement | null }) {
 	const chatEnd = React.useRef<HTMLLIElement>(null);
 	const chatCount = view.chat.length;
@@ -763,8 +772,10 @@ export function LivePanel({ view, actions, title, now, defaultName = '', headerS
 	}, [chatCount]);
 	const live = view.status === 'live';
 	const full = view.people.length >= view.cap;
+	const [root, setRoot] = React.useState<HTMLElement | null>(null);
 	return (
-		<div className="group/live @container/live flex min-h-0 flex-1 flex-col" data-live-panel>
+		<LiveRoot.Provider value={root}>
+		<div ref={setRoot} className="group/live @container/live flex min-h-0 flex-1 flex-col" data-live-panel>
 			{title && (
 				<div className="flex items-center gap-2 border-b border-border px-3.5 py-2 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
 					<span>{title}</span>
@@ -849,5 +860,6 @@ export function LivePanel({ view, actions, title, now, defaultName = '', headerS
 				</>
 			)}
 		</div>
+		</LiveRoot.Provider>
 	);
 }

@@ -6,6 +6,7 @@ import * as React from 'react';
 import { createRoot } from 'react-dom/client';
 import { LivePanel } from '@/components/studio/live/LivePanel';
 import { IDLE_VIEW, type LiveActions, type LivePerson, type LiveView } from '@/components/studio/live/live-model';
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
 import '@/styles/lattice-tokens.generated.css';
 import './harness.css';
 
@@ -65,10 +66,19 @@ function Harness() {
 		calls: () => calls.slice(),
 		clear: () => calls.splice(0, calls.length),
 	};
-	return (
-		<div style={{ width: width ? `${width}px` : 'min(100vw, 340px)', height: '100vh', display: 'flex', background: 'var(--bg)' }}>
-			<LivePanel view={view} actions={actions} title="Live" now={Date.now()} />
-		</div>
-	);
+	const panel = <LivePanel view={view} actions={actions} title="Live" now={Date.now()} />;
+	// ?modal=1: the panel inside the real modal Sheet it lives in on a phone (its scroll lock is what a popover in
+	// <body> runs into). Same Sheet the Studio drawer uses.
+	if (params.get('modal') === '1')
+		return (
+			<Sheet open modal>
+				<SheetContent side="bottom" className="flex h-[100dvh] flex-col p-0" data-live-modal-sheet>
+					<SheetTitle className="sr-only">Live</SheetTitle>
+					<SheetDescription className="sr-only">The Live panel inside a modal sheet</SheetDescription>
+					{panel}
+				</SheetContent>
+			</Sheet>
+		);
+	return <div style={{ width: width ? `${width}px` : 'min(100vw, 340px)', height: '100vh', display: 'flex', background: 'var(--bg)' }}>{panel}</div>;
 }
 createRoot(document.getElementById('root') as HTMLElement).render(<Harness />);

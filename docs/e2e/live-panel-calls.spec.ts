@@ -235,6 +235,29 @@ test('@crosswidth @webkit-phone Hearing: one volume for everyone, and a speaker 
 	expect((await calls(page)).filter((c) => c[0] === 'pickOutput')).toEqual([['pickOutput', 'usb-1']]);
 });
 
+test('@crosswidth @webkit-phone inside the modal sheet a phone uses, a tall popover still scrolls (owner iPhone, 2026-10-12)', async ({ page }) => {
+	// The Sheet's scroll lock blocks scrolling in anything outside its content: a popover in <body> showed, then would not move.
+	await open(page, '?modal=1');
+	await expect(page.locator('[data-live-modal-sheet]')).toBeVisible();
+	await page.setViewportSize({ width: 390, height: 520 }); // short enough that Your audio overflows
+	await onCall(page);
+	await yourAudio(page).click();
+	const pop = page.locator('[data-live-your-audio]');
+	await expect(pop).toBeVisible();
+	expect(await page.locator('[data-live-modal-sheet] [data-live-your-audio]').count(), 'the popover must live inside the sheet').toBe(1);
+	const overflows = await pop.evaluate((el) => el.scrollHeight > el.clientHeight + 4);
+	expect(overflows, 'the fixture must be tall enough to need scrolling').toBe(true);
+	const box = (await pop.boundingBox()) as { x: number; y: number; width: number; height: number };
+	// Mobile WebKit has no mouse wheel in Playwright, so there the placement above is the whole check and real
+	// touch scrolling is the owner's iPhone run (UNVERIFIED here). Everywhere else a wheel hits the same lock.
+	if (test.info().project.name === 'webkit-phone') return;
+	await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+	await page.mouse.wheel(0, 400);
+	await expect.poll(() => pop.evaluate((el) => el.scrollTop), { message: 'the popover did not scroll' }).toBeGreaterThan(50);
+	// The last thing in it (the speaker note) is reachable.
+	await expect(page.getByText(/speaker/i).last()).toBeInViewport();
+});
+
 test('@crosswidth @webkit-phone Your settings holds your name: Save is off until it changes, and Enter saves', async ({ page }) => {
 	await open(page);
 	await yourSettings(page).click();
