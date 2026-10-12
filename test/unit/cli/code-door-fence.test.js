@@ -189,13 +189,24 @@ describe('through the real engine: capture, then substitute', () => {
     }
   });
 
-  test('a raw <section class="video"> nested in a slide denies that slide too (the video pass scans every <li> in its section)', () => {
-    const src = '---\ntheme: indaco\n---\n\n## A\n\n<section class="video">\n\n```gantt\nSECRET\n```\n\n</section>\n';
-    const cap = captureFences(fences, { ...slides, rebuilt: rebuiltBy });
-    const html = render(src, cap);
-    assert.equal(cap.claims.length, 0, 'no claim');
-    assert.equal(cap.shadowed.length, 1, 'and the door says why');
-    assert.match(html, /language-gantt/, 'the block is still code');
+  test('ANY raw <section> nested in a slide denies it: every way of writing class=video, and ones that are not video, fail closed', () => {
+    const tags = ['<section class="video">', "<section class='video'>", '<SECTION CLASS=video>', '<section class=video>', '<section class=video id=x>', '<section title="a>b" class="video">', '<section data-class="x" class="video">', '<section class="&#118;ideo">', '<section\nclass = "video"\n>', '<section>'];
+    for (const tag of tags) {
+      const src = `---\ntheme: indaco\n---\n\n## A\n\n${tag}\n\n\`\`\`gantt\nSECRET\n\`\`\`\n\n</section>\n`;
+      const cap = captureFences(fences, { ...slides, rebuilt: rebuiltBy });
+      const html = render(src, cap);
+      assert.equal(cap.claims.length, 0, `${JSON.stringify(tag)}: no claim`);
+      assert.equal(cap.shadowed.length, 1, `${JSON.stringify(tag)}: and the door says why`);
+      assert.match(html, /language-gantt/, `${JSON.stringify(tag)}: the block is still code`);
+    }
+  });
+
+  test('selector parsing: commas inside (…) and […] and attribute dots do not split or add classes', () => {
+    // The registry holds none of these shapes today; the parser must still read them right the day one is registered.
+    const { parseAlternatives } = require('../../../lib/transformers/rebuilt-classes');
+    assert.deepEqual(parseAlternatives('section.video:not(.a, .b)'), [['video']]);
+    assert.deepEqual(parseAlternatives('section.video[data-x="a.b"]'), [['video']]);
+    assert.deepEqual(parseAlternatives('[data-x="a,b"], section.wifi'), [['wifi']]);
   });
 
   test('an ordinary slide, a layout class and a modifier that no pass rebuilds still get their fences drawn', () => {

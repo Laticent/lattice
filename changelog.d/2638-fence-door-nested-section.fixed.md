@@ -1,1 +1,1 @@
-- The plugin fence door (not yet reachable from any caller) now also declines a slide that holds a raw nested `<section class="video">` (or any other rebuilt-from-text class), and refuses a malformed plugin entry with a warning instead of throwing.
+- The plugin fence door (not yet reachable from any caller) now declines a slide that holds any raw nested `<section>` (the video pass reads every list item inside one), reads selectors with commas, `:not(…)` and attribute tests correctly, and refuses a malformed plugin entry with a warning instead of throwing.
