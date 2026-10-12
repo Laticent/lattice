@@ -95,6 +95,8 @@ export async function onCall(page: Page, extra: Record<string, unknown> = {}) {
 export const optionsFor = (page: Page, name: string) => page.getByRole('button', { name: `Options for ${name}` });
 /** The always-present volume button on another person's row (opens their audio popover). */
 export const volumeFor = (page: Page, name: string) => page.getByRole('button', { name: `Volume for ${name}` });
+/** The ⋯ on your own row: opens Your settings. */
+export const yourSettings = (page: Page) => page.getByRole('button', { name: 'Your settings', exact: true });
 /** The arrow beside Join / Mute: opens the Your audio popover. */
 export const yourAudio = (page: Page) => page.getByRole('button', { name: 'Your audio', exact: true });
 

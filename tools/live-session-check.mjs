@@ -234,6 +234,20 @@ log(`speaker picker: ${await host.locator('[data-live-output-list], [data-live-o
 await host.screenshot({ path: `${OUT}call-hearing-${mode}.png` });
 await host.keyboard.press('Escape');
 await host.waitForSelector('[data-live-your-audio]', { state: 'detached' });
+// What you share: the host withholds their slide, and the GUEST's view of the host must change (then change back).
+const hostRowOnGuest = () => guest.evaluate(() => [...document.querySelectorAll('[data-live-panel] li')].find((li) => li.textContent?.includes('Sharmarke') && !li.textContent.includes('You ·'))?.textContent ?? 'not found');
+log(`guest sees the host as: ${JSON.stringify(await hostRowOnGuest())}`);
+await panel(host).getByRole('button', { name: 'Your settings', exact: true }).click();
+await host.waitForSelector('[data-live-your-settings]');
+await host.locator('#live-share-slide').click();
+await guest.waitForFunction(() => [...document.querySelectorAll('[data-live-panel] li')].some((li) => li.textContent?.includes('Sharmarke') && li.textContent.includes('Slide hidden')), null, { timeout: 15000 });
+log(`host turned "Show my slide" off; guest sees the host as: ${JSON.stringify(await hostRowOnGuest())}`);
+await host.screenshot({ path: `${OUT}call-your-settings-${mode}.png` });
+await host.locator('#live-share-slide').click();
+await guest.waitForFunction(() => [...document.querySelectorAll('[data-live-panel] li')].some((li) => li.textContent?.includes('Sharmarke') && !li.textContent.includes('Slide hidden') && /Slide \d/.test(li.textContent)), null, { timeout: 15000 });
+log(`host turned it back on; guest sees the host as: ${JSON.stringify(await hostRowOnGuest())}`);
+await host.keyboard.press('Escape');
+await host.waitForSelector('[data-live-your-settings]', { state: 'detached' });
 // High fidelity (P4): the host's send rate and what the guest hears of a 14 kHz tone, switch off, on, off.
 if (process.argv.includes('--hifi')) {
   const sentRate = async (secs) => { const a = await audioBytes(host); await host.waitForTimeout(secs * 1000); return ((await audioBytes(host)) - a) * 8 / secs / 1000; };

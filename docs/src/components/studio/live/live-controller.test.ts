@@ -552,3 +552,62 @@ describe('succession in the Studio (2026-10-07)', () => {
 		c.dispose();
 	});
 });
+
+describe('what you share (2026-10-12)', () => {
+	// biome-ignore lint/suspicious/noExplicitAny: tests reach the private runtime's awareness.
+	const awOf = (c: Ctl) => (c as any).rt.aw as { getLocalState(): Record<string, unknown> | null; setLocalStateField(f: string, v: unknown): void };
+	const seen = (viewer: Ctl, name: string) => viewer.view().people.find((p) => p.name === name);
+
+	it('your slide is shown by default, withheld on request, and shown again on request', async () => {
+		const { h } = await hostSession();
+		const { g: a } = await guestOf(h, 'Amina');
+		h.update({ ...deps('host-deck'), activeSlide: 3 });
+		await until(() => seen(a, 'Sharmarke')?.slide === 3, h, a);
+		h.actions.setShare({ slide: false });
+		await until(() => seen(a, 'Sharmarke')?.slideHidden === true, h, a);
+		expect(seen(a, 'Sharmarke')?.slide).toBeNull(); // not the old slide, not a guess
+		h.update({ ...deps('host-deck'), activeSlide: 5 }); // moving while hidden shares nothing
+		await settle(h, a);
+		expect(seen(a, 'Sharmarke')?.slide).toBeNull();
+		h.actions.setShare({ slide: true });
+		await until(() => seen(a, 'Sharmarke')?.slide === 5, h, a);
+		expect(seen(a, 'Sharmarke')?.slideHidden).toBeUndefined();
+	});
+
+	it('a cursor and a typing mark you have turned off never reach the awareness state; turned on again, they can', async () => {
+		const { h } = await hostSession();
+		const cursor = { anchor: { type: null, tname: 'source', item: null, assoc: 0 }, head: { type: null, tname: 'source', item: null, assoc: 0 } };
+		h.actions.setShare({ cursor: false, typing: false });
+		awOf(h).setLocalStateField('cursor', cursor);
+		awOf(h).setLocalStateField('editingAt', Date.now());
+		expect(awOf(h).getLocalState()).not.toHaveProperty('cursor');
+		expect(awOf(h).getLocalState()).not.toHaveProperty('editingAt');
+		h.actions.setShare({ cursor: true, typing: true });
+		awOf(h).setLocalStateField('cursor', cursor);
+		awOf(h).setLocalStateField('editingAt', 12345);
+		expect(awOf(h).getLocalState()).toHaveProperty('cursor');
+		expect(awOf(h).getLocalState()).toHaveProperty('editingAt', 12345);
+	});
+
+	it('turning typing off clears a mark already sent, and the chat typing line stops', async () => {
+		const { h } = await hostSession();
+		const { g: a } = await guestOf(h, 'Amina');
+		awOf(a).setLocalStateField('editingAt', Date.now());
+		expect(awOf(a).getLocalState()).toHaveProperty('editingAt');
+		a.actions.setShare({ typing: false });
+		expect(awOf(a).getLocalState()).not.toHaveProperty('editingAt'); // withdrawn at once, not just stopped
+		a.actions.chatTyping();
+		await settle(h, a);
+		expect(h.view().typing).toEqual([]); // the host never hears that Amina is typing
+		a.actions.setShare({ typing: true });
+		a.actions.chatTyping();
+		await until(() => h.view().typing.includes('Amina'), h, a);
+	});
+
+	it('what you share is in your view, all on to begin with', async () => {
+		const { h } = await hostSession();
+		expect(h.view().share).toEqual({ cursor: true, slide: true, typing: true });
+		h.actions.setShare({ slide: false });
+		expect(h.view().share).toEqual({ cursor: true, slide: false, typing: true });
+	});
+});

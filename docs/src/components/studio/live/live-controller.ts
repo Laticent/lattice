@@ -9,7 +9,7 @@ import { type AudioStats, cleanName, createHostKey, createSession, formatFragmen
 import { trysteroTransport } from '@/lib/tavola/adapters/trystero';
 import { CALL_BITRATE, HIGH_FIDELITY_BITRATE, LiveAudio } from './live-audio';
 import { LIVE_TURN } from './live-ice';
-import { IDLE_VIEW, type LiveActions, type LiveChatLine, type LiveColor, type LivePerson, type LiveView, type LobbyActions, type LobbyView, liveColor, liveColorLight } from './live-model';
+import { IDLE_VIEW, type LiveActions, type LiveChatLine, type LiveColor, type LivePerson, type LiveShare, type LiveView, type LobbyActions, type LobbyView, liveColor, liveColorLight } from './live-model';
 import { clearJoinIntent, HOST_KEY, hasFreshJoin, type LiveCollab, type LiveDeps, type LiveHost, readSealedJoin, saveName, scrubLiveFragment, storedLiveName, storeSealedJoin, takeFreshJoin } from './live-store';
 import { deleteHostPrivateKey, getHostPrivateKey, putHostPrivateKey, seal, unseal } from './secret-box';
 
@@ -173,7 +173,7 @@ function holdHostLock(room: string): Promise<(() => void) | null> {
 			.catch(() => resolve(() => {}));
 	});
 }
-type AwState = { peer?: string; user?: { name: string; color: string; colorLight: string }; slide?: number; editingAt?: number; summon?: { slide: number; n: number }; cursor?: { anchor: unknown; head: unknown } };
+type AwState = { peer?: string; user?: { name: string; color: string; colorLight: string }; slide?: number; slideHidden?: boolean; editingAt?: number; summon?: { slide: number; n: number }; cursor?: { anchor: unknown; head: unknown } };
 
 type Runtime = {
 	session: Session;
@@ -301,6 +301,7 @@ export function sanitizeAwareness(update: Uint8Array, from: string, ownerOf: (cl
 			const clean: AwState = { peer: from, user: { name: member.name, color: liveColor(member.color), colorLight: liveColorLight(member.color) } };
 			const st = state as Record<string, unknown>;
 			if (Number.isInteger(st.slide) && (st.slide as number) >= 0) clean.slide = st.slide as number;
+			if (st.slideHidden === true) clean.slideHidden = true;
 			if (typeof st.editingAt === 'number') clean.editingAt = st.editingAt;
 			const sm = st.summon as { slide?: unknown; n?: unknown } | undefined;
 			if (member.role === 'host' && sm && Number.isInteger(sm.slide) && Number.isInteger(sm.n)) clean.summon = { slide: sm.slide as number, n: sm.n as number };
@@ -389,6 +390,8 @@ export class LiveController {
 	private leaveAfterJoin = false;
 	/** Whether the call's send is stalled, as the panel last drew it (a redraw only when it changes). */
 	private stalledShown = false;
+	/** What this person lets the others see of them. Theirs to withhold; kept for this tab, not saved. */
+	private share: LiveShare = { cursor: true, slide: true, typing: true };
 	private outDevices: Array<{ id: string; label: string }> = [];
 	private micDevices: Array<{ id: string; label: string }> = [];
 	/** The tab title before "On air · " was put in front of it. */
@@ -501,6 +504,16 @@ export class LiveController {
 		if (args.host?.doc) Y.applyUpdate(doc, fromB64(args.host.doc));
 		else if (args.host) ytext.insert(0, d.source);
 		const aw = new Awareness(doc);
+		// What this person shares is theirs to withhold, and presence leaves this browser at exactly one place:
+		// `setLocalStateField`. A field they have turned off never reaches the awareness state, so it never
+		// reaches anyone (the receiving side rebuilds each state from a whitelist, so it cannot be forged either).
+		const setField = aw.setLocalStateField.bind(aw);
+		aw.setLocalStateField = (field: string, value: unknown) => {
+			if (field === 'cursor' && !this.share.cursor) return;
+			if (field === 'editingAt' && !this.share.typing) return;
+			if (field === 'slide' && !this.share.slide) return;
+			setField(field, value);
+		};
 		const REMOTE = Symbol('tavola-remote');
 		const owner = new Map<number, string>();
 		let rt: Runtime | null = null;
@@ -967,6 +980,23 @@ export class LiveController {
 		}, 150);
 	}
 
+	/** Make the presence this tab is already sending match what the person now shares. */
+	private applyShare() {
+		const r = this.rt;
+		if (!r) return;
+		const st = { ...(r.aw.getLocalState() as Record<string, unknown> | null) };
+		if (!this.share.cursor) delete st.cursor;
+		if (!this.share.typing) delete st.editingAt;
+		if (this.share.slide) {
+			delete st.slideHidden;
+			st.slide = this.deps.activeSlide;
+		} else {
+			delete st.slide;
+			st.slideHidden = true;
+		}
+		r.aw.setLocalState(st);
+	}
+
 	private endCall() {
 		if (this.speakTimer) clearInterval(this.speakTimer);
 		this.speakTimer = null;
@@ -1145,7 +1175,7 @@ export class LiveController {
 		}
 		if (!r || !s) return;
 		// Presence: my slide.
-		if (s.me && (r.aw.getLocalState() as AwState | null)?.slide !== deps.activeSlide) r.aw.setLocalStateField('slide', deps.activeSlide);
+		if (s.me && this.share.slide && (r.aw.getLocalState() as AwState | null)?.slide !== deps.activeSlide) r.aw.setLocalStateField('slide', deps.activeSlide);
 		if (s.me) {
 			const local = r.aw.getLocalState() as AwState | null;
 			if (local?.user?.name !== s.me.name || local?.user?.color !== liveColor(s.me.color)) r.aw.setLocalStateField('user', { name: s.me.name, color: liveColor(s.me.color), colorLight: liveColorLight(s.me.color) });
@@ -1486,7 +1516,7 @@ export class LiveController {
 		const people: LivePerson[] = s.members.map((m) => {
 			const st = byPeer.get(m.id);
 			const me = m.id === s.selfId;
-			return { id: m.id, name: m.name, color: m.color, role: m.role, me, slide: me ? this.deps.activeSlide : (st?.slide ?? null), editing: !!st?.editingAt && this.now - st.editingAt < TYPING_MS && st.editingAt < this.now + 5000, mic: this.micOf(m.id, me), ...(!me && this.audio?.inCall && this.audio.hasStream(m.id) ? { volume: this.audio.volume(m.id) } : {}), ...(!me && this.audio?.inCall && this.audio.hasStream(m.id) && Object.keys(this.quality[m.id] ?? {}).length ? { quality: this.quality[m.id] } : {}), ...(!me && this.paths[m.id] ? { link: { kind: linkKind(this.paths[m.id]), detail: `${this.paths[m.id].local}→${this.paths[m.id].remote} (${this.paths[m.id].protocol})` } } : {}) };
+			return { id: m.id, name: m.name, color: m.color, role: m.role, me, slide: me ? this.deps.activeSlide : (st?.slide ?? null), ...(!me && st?.slideHidden ? { slideHidden: true } : {}), editing: !!st?.editingAt && this.now - st.editingAt < TYPING_MS && st.editingAt < this.now + 5000, mic: this.micOf(m.id, me), ...(!me && this.audio?.inCall && this.audio.hasStream(m.id) ? { volume: this.audio.volume(m.id) } : {}), ...(!me && this.audio?.inCall && this.audio.hasStream(m.id) && Object.keys(this.quality[m.id] ?? {}).length ? { quality: this.quality[m.id] } : {}), ...(!me && this.paths[m.id] ? { link: { kind: linkKind(this.paths[m.id]), detail: `${this.paths[m.id].local}→${this.paths[m.id].remote} (${this.paths[m.id].protocol})` } } : {}) };
 		});
 		for (const [k, a] of this.away) {
 			if (!people.some((p) => p.name === a.name && p.color === a.color)) people.push({ id: `away:${k}`, name: a.name, color: a.color, role: a.role === 'host' && s.members.some((m) => m.role === 'host') ? 'edit' : a.role, slide: null, editing: false, mic: 'off', away: true });
@@ -1510,6 +1540,7 @@ export class LiveController {
 			following: this.following,
 			hostAway: s.hostAway,
 			audio: !!this.audio && r.session.hasMedia && LiveAudio.supported(),
+			share: this.share,
 			call: { inCall: !!this.audio?.inCall, muted: !!this.audio?.isMuted, denied: this.micDenied, devices: this.micDevices, device: this.audio?.device ?? null, highFidelity: !!this.audio?.highFidelity, micLevel: this.audio?.micLevel ?? 1, canShapeMic: !!this.audio?.canShapeMic, stalled: this.stalledShown, masterVolume: this.audio?.masterVolume ?? 1, outputs: this.outDevices, output: this.audio?.output || null, canPickOutput: LiveAudio.canPickOutput() },
 			canChat: s.me?.role !== 'view',
 			typing,
@@ -1624,6 +1655,11 @@ export class LiveController {
 		setVolume: (id, v) => this.audio?.setVolume(id, v),
 		setMicLevel: (v) => this.audio?.setMicLevel(v),
 		setMasterVolume: (v) => this.audio?.setMasterVolume(v),
+		setShare: (patch) => {
+			this.share = { ...this.share, ...patch };
+			this.applyShare();
+			this.host.rerender();
+		},
 		pickOutput: (id) => void this.audio?.setOutput(id).then(() => this.host.rerender()),
 		inputLevel: () => this.audio?.inputLevel() ?? 0,
 		end: () => {
@@ -1655,7 +1691,7 @@ export class LiveController {
 		},
 		chatTyping: () => {
 			const t = Date.now();
-			if (t - this.lastTypingPost < TYPING_POST_MS || this.rt?.session.getState().me?.role === 'view') return;
+			if (!this.share.typing || t - this.lastTypingPost < TYPING_POST_MS || this.rt?.session.getState().me?.role === 'view') return;
 			this.lastTypingPost = t;
 			this.post({ k: 'typing' });
 		},

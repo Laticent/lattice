@@ -31,6 +31,7 @@ const LINK_ICON = { local: Wifi, direct: ArrowLeftRight, relay: Server } as cons
 
 function whereLabel(p: LivePerson): string {
 	if (p.away) return 'Reconnecting…';
+	if (p.slideHidden) return 'Slide hidden';
 	if (p.slide === null) return 'Arriving…';
 	return `Slide ${p.slide + 1}${p.editing ? ' · editing' : ''}`;
 }
@@ -124,6 +125,47 @@ function PersonAudio({ p, view, actions }: { p: LivePerson; view: LiveView; acti
 	);
 }
 
+/** One thing you can choose to show the others: a label, what it means, and a switch. */
+function ShareRow({ id, label, note, checked, onChange }: { id: string; label: string; note: string; checked: boolean; onChange: (on: boolean) => void }) {
+	return (
+		<div className="flex flex-col gap-0.5">
+			<div className="flex items-center justify-between gap-3 text-[12px] text-foreground">
+				<label htmlFor={id}>{label}</label>
+				<Switch id={id} checked={checked} onCheckedChange={onChange} aria-describedby={`${id}-note`} />
+			</div>
+			<span id={`${id}-note`} className="text-[11px] leading-snug text-muted-foreground">
+				{note}
+			</span>
+		</div>
+	);
+}
+
+/**
+ * The ⋯ on your own row, like everyone else's: your settings that are not about audio (the "Me" scope, note
+ * §12.3). What the others see of you is yours to choose, and it is on your row always, alone in a session too.
+ */
+function YourSettings({ view, actions }: { view: LiveView; actions: LiveActions }) {
+	const sh = view.share;
+	return (
+		<Popover>
+			<PopoverTrigger asChild>
+				<Button variant="ghost" size="icon" className={cn('size-6 shrink-0', TOUCH)} aria-label="Your settings" title="Your settings" data-live-your-settings-button>
+					<MoreHorizontal className="size-3.5" />
+				</Button>
+			</PopoverTrigger>
+			<PopoverContent align="end" className="max-h-[min(75vh,var(--radix-popover-content-available-height))] w-72 overflow-y-auto p-3" data-live-your-settings>
+				<div className="mb-2 text-[12px] font-semibold text-foreground">Your settings</div>
+				<div className="flex flex-col gap-3" data-live-share>
+					<div className="font-mono text-[10px] font-bold uppercase tracking-widest text-muted-foreground">What others see</div>
+					<ShareRow id="live-share-cursor" label="Show my cursor" note="Others see where you are in the editor." checked={sh.cursor} onChange={(on) => actions.setShare({ cursor: on })} />
+					<ShareRow id="live-share-slide" label="Show my slide" note="Others see which slide you are on, and can jump to it." checked={sh.slide} onChange={(on) => actions.setShare({ slide: on })} />
+					<ShareRow id="live-share-typing" label="Show when I'm typing" note="Others see when you type in the editor and in the chat." checked={sh.typing} onChange={(on) => actions.setShare({ typing: on })} />
+				</div>
+			</PopoverContent>
+		</Popover>
+	);
+}
+
 function PersonRow({ p, view, actions }: { p: LivePerson; view: LiveView; actions: LiveActions }) {
 	const MicGlyph = p.mic === 'muted' ? MicOff : Mic;
 	const canManage = view.isHost && !p.me && p.role !== 'host';
@@ -146,6 +188,7 @@ function PersonRow({ p, view, actions }: { p: LivePerson; view: LiveView; action
 				</div>
 			</div>
 			{view.audio && p.me && <CallControls view={view} actions={actions} />}
+			{p.me && <YourSettings view={view} actions={actions} />}
 			{view.audio && !p.me && p.mic !== 'off' && <MicGlyph className={cn('size-3.5 shrink-0', p.mic === 'muted' ? 'text-muted-foreground/60' : 'text-foreground')} aria-label={p.mic === 'muted' ? 'Muted' : 'Mic on'} />}
 			{view.audio && !p.me && !p.away && <PersonAudio p={p} view={view} actions={actions} />}
 			{!p.me && !p.away && (

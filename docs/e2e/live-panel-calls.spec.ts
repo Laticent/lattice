@@ -8,7 +8,7 @@
 // can do in the panel. Fixtures: docs/e2e/live-panel-harness/.
 
 import { expect, test } from '@playwright/test';
-import { assertFocusTrapped, axeFindings, calls, closeMenu, type Harness, live, onCall, open as openPage, optionsFor, startHarness, volumeFor, yourAudio } from './live-panel-harness/serve';
+import { assertFocusTrapped, axeFindings, calls, closeMenu, type Harness, live, onCall, open as openPage, optionsFor, startHarness, volumeFor, yourAudio, yourSettings } from './live-panel-harness/serve';
 
 let harness: Harness;
 test.beforeAll(async () => {
@@ -235,6 +235,37 @@ test('@crosswidth @webkit-phone Hearing: one volume for everyone, and a speaker 
 	expect((await calls(page)).filter((c) => c[0] === 'pickOutput')).toEqual([['pickOutput', 'usb-1']]);
 });
 
+test('@crosswidth @webkit-phone Your settings is on your row, always, and what others see is yours to choose', async ({ page }) => {
+	await open(page);
+	// On your row before any call, and with the call: nothing waits for a state.
+	await expect(yourSettings(page)).toBeVisible();
+	await yourSettings(page).click();
+	for (const [id, label] of [['live-share-cursor', 'Show my cursor'], ['live-share-slide', 'Show my slide'], ['live-share-typing', "Show when I'm typing"]]) {
+		const sw = page.locator(`#${id}`);
+		await expect(sw).toHaveRole('switch');
+		await expect(sw).toHaveAccessibleName(label);
+		await expect(sw).toHaveAttribute('aria-checked', 'true'); // all on to begin with
+		expect(await sw.boundingBox()).toMatchObject({ width: 38, height: 22 });
+		await expect(sw).toHaveAttribute('aria-describedby', `${id}-note`);
+	}
+	await page.locator('#live-share-slide').click();
+	await page.locator('#live-share-typing').click();
+	expect((await calls(page)).filter((c) => c[0] === 'setShare')).toEqual([['setShare', { slide: false }], ['setShare', { typing: false }]]);
+	// The model owns the state; it flips when the controller says so, and the popover stays open.
+	await live(page, (l) => l.set({ share: { cursor: true, slide: false, typing: false } }));
+	await expect(page.locator('#live-share-slide')).toHaveAttribute('aria-checked', 'false');
+	await expect(page.locator('#live-share-cursor')).toHaveAttribute('aria-checked', 'true');
+	await expect(page.locator('[data-live-your-settings]')).toBeVisible();
+});
+
+test('@crosswidth @webkit-phone someone who withholds their slide shows as "Slide hidden", not "Arriving"', async ({ page }) => {
+	await open(page);
+	await expect(page.locator('li', { hasText: 'Amina' })).toContainText('Slide 1');
+	await live(page, (l) => l.person('p2', { slide: null, slideHidden: true }));
+	await expect(page.locator('li', { hasText: 'Amina' })).toContainText('Slide hidden');
+	await expect(page.locator('li', { hasText: 'Amina' })).not.toContainText('Arriving');
+});
+
 test('@crosswidth @webkit-phone the microphone list appears only when there is a choice, as a radio group', async ({ page }) => {
 	await open(page);
 	await onCall(page);
@@ -277,6 +308,11 @@ test('@a11y @webkit-phone the Your audio popover has no axe findings, before and
 				await onCall(page);
 				await live(page, (l) => l.call({ devices: [{ id: 'm1', label: 'Built-in microphone' }, { id: 'm2', label: 'USB microphone' }], outputs: [{ id: 'default', label: 'Default speaker' }, { id: 'usb-1', label: 'USB speaker' }] }));
 			}
+			await yourSettings(page).click();
+			await expect(page.locator('[data-live-your-settings]')).toBeVisible();
+			await page.mouse.move(0, 0);
+			expect(await axeFindings(page), `axe findings in Your settings (${mode})`).toEqual([]);
+			await page.keyboard.press('Escape');
 			await yourAudio(page).click();
 			await expect(page.locator('[data-live-your-audio]')).toBeVisible();
 			await page.mouse.move(0, 0); // resting state, as everywhere here

@@ -1068,6 +1068,16 @@ speaker in a popover taller than the screen under the trigger. UNVERIFIED: choos
 on a real device (headless Chromium lists one fake speaker), and iOS, which has no picker. Name and what
 you share are built last.
 
+**What you share, built (2026-10-12).** A **⋯ on your own row** opens **Your settings** with three
+switches: **Show my cursor**, **Show my slide**, **Show when I'm typing**. `LiveController` wraps the
+awareness object's `setLocalStateField`, so a withheld field is never written (cursor, `editingAt`,
+slide), and `applyShare` removes what was already published when you flip a switch. When the slide is
+withheld the awareness carries `slideHidden: true` and the others' rows read "Slide hidden" rather than a
+stale slide number; the receiver whitelist keeps only that boolean. Chat typing dots honor "typing" too.
+Defaults are all on. The switches are real `Switch` controls with labels, in a popover (not a menu,
+because a switch inside `role="menu"` has the same `aria-required-children` problem the slider had).
+Name change after joining is the last item and is a protocol change, so it is its own step.
+
 **Sequence.** The per-person popover ships with #2633 (it is that PR's Volume decision). The "Me"
 controls are a separate PR after #2633 merges, because they build on its call controls and one
 feature is one PR. Mic level changes what every listener receives, so it gets a tier-1 independent
