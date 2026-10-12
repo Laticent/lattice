@@ -191,6 +191,26 @@ describe('collage lightbox in the exported player, real Chromium', () => {
     await page.close();
   });
 
+  // ── wheel stepping (#2641 P2): a plain flick steps the PHOTO and leaves the deck where it is ──
+  test('a plain wheel flick steps the photo once per flick and does not turn the slide behind it', async () => {
+    const page = await openPlayer(true);
+    await openFirst(page);
+    const slide = () => index(page);
+    const count = () => page.evaluate(() => document.querySelectorAll('.collage-lightbox p')[1].textContent);
+    const before = await slide();
+    assert.match(await count(), /^1 \/ /);
+    await page.mouse.move(400, 300);
+    await page.mouse.wheel({ deltaY: 120 });
+    await page.mouse.wheel({ deltaY: 120 });
+    await sleep(150);
+    assert.match(await count(), /^2 \/ /, 'a burst is one step');
+    assert.equal(await slide(), before, 'the deck behind did not turn');
+    await page.keyboard.press('3');
+    assert.match(await count(), /^3 \/ /, 'a digit jumps');
+    assert.equal(await slide(), before, 'and the deck did not hear it');
+    await page.close();
+  });
+
   // ── zoom (#2641 P6): the shared kernel's pinch, wheel and keys, in the real export ─────────
   const scaleOf = (page) =>
     page.evaluate(() => new DOMMatrixReadOnly(getComputedStyle(document.querySelector('.collage-lightbox img')).transform).a);

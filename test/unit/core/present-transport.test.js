@@ -309,3 +309,15 @@ test('reset ALWAYS announces, even when already at fit', () => {
 	z.reset();
 	assert.deepEqual(seen, [1, 2, 1], 'and a real reset announces exactly once');
 });
+
+// ── digitAction — the collage lightbox's jump verb (#2635) ───────────────────────────────────
+test('digitAction: 1 to 6 name the photo, past the count or outside the range is null', () => {
+	const { digitAction } = K;
+	assert.equal(digitAction('1', 6), 0);
+	assert.equal(digitAction('6', 6), 5);
+	assert.equal(digitAction('3', 3), 2);
+	assert.equal(digitAction('4', 3), null, 'past the count is null, not a clamp');
+	for (const k of ['0', '7', '9', '10', '', 'a', ' ', 'ArrowRight']) assert.equal(digitAction(k, 9), null, `${JSON.stringify(k)} is not a jump`);
+	assert.equal(digitAction(undefined, 6), null);
+	assert.equal(digitAction(3, 6), null, 'a number is not a key');
+});
