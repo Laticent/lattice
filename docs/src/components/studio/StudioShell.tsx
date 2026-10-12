@@ -46,6 +46,7 @@ import { applyReadAloudDebugParam } from '@/playground/readaloud-overlay-prefs';
 import { onToursEnabledChange, toursEnabled } from '@/playground/tour-prefs.js';
 import { sourceHasMath } from '../../../../lib/plugins/math/math.syntax.mjs';
 import { attachPreviewZoom, type PreviewZoomHandle } from '../../lib/preview-zoom';
+import { tapCollageAt } from '../../playground/collage-host.js';
 import { tapVideoAt } from '../../playground/video-overlay.js';
 import { AcronymEditor } from './AcronymEditor';
 import { applyDeckEdit, estimateUsd, type Finding, REFINE_ACTIONS, type RefineActionId, refineSelection, requestFindingFix, resumePendingAuth, useArchitectStatus } from './architect';
@@ -3683,7 +3684,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// into the scaled frame. Only a poster is claimed; every other tap is left alone.
 		const onTap = (e: MouseEvent) => {
 			const frame = previewBoxRef.current?.querySelector<HTMLIFrameElement>('iframe.live');
-			if (frame && tapVideoAt(frame, e.clientX, e.clientY)) e.preventDefault();
+			if (frame && (tapVideoAt(frame, e.clientX, e.clientY) || tapCollageAt(frame, e.clientX, e.clientY))) e.preventDefault();
 		};
 		holder.addEventListener('click', onTap);
 		previewTapOffRef.current = () => holder.removeEventListener('click', onTap);
