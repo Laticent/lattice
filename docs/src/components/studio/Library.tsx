@@ -170,7 +170,7 @@ function LibraryFrame({ docked, open, onOpenChange, dropProps, children }: { doc
 	);
 }
 
-export function Library({ open, onOpenChange, docked, options, activePalette, activeFinish, initialFilter, activeDeckId = null, onApplyTheme, onApplyFinish, onInsert, onEditTheme, onEditComponent, onEditFinish, onEditMotion, onChanged }: {
+export function Library({ open, onOpenChange, docked, options, activePalette, activeFinish, initialFilter, activeDeckId = null, activeDeckSource, onApplyTheme, onApplyFinish, onInsert, onEditTheme, onEditComponent, onEditFinish, onEditMotion, onChanged }: {
 	open: boolean;
 	onOpenChange: (o: boolean) => void;
 	/** Desktop-Craft: render as a docked left column (plain div, no Sheet portal),
@@ -182,6 +182,8 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	initialFilter?: Filter;
 	/** The deck open in the Studio. Decides which deck-scoped images the Images tab shows and what "This deck" means on add. */
 	activeDeckId?: string | null;
+	/** The open deck's CURRENT markdown. The "used in N decks" count reads it live, so it follows what is typed beside the panel; every other deck is read from storage when the panel loads. */
+	activeDeckSource?: string;
 	onApplyTheme: (name: string) => void;
 	onApplyFinish: (name: string) => void;
 	onInsert: (skeleton: string, name: string) => void;
@@ -213,7 +215,8 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	// Where the NEXT add goes. Defaults to the shared shelf: the Library is shared assets,
 	// and a deck-only image is the deliberate choice.
 	const [addScope, setAddScope] = React.useState<'library' | 'deck'>('library');
-	const [mediaUse, setMediaUse] = React.useState<Record<string, number>>({});
+	// Every OTHER deck's markdown, read when the panel loads. The open deck's is the live prop below.
+	const [otherSources, setOtherSources] = React.useState<string[]>([]);
 	const [filter, setFilter] = React.useState<Filter>('all');
 	const [query, setQuery] = React.useState('');
 	const [sel, setSel] = React.useState<Set<string>>(new Set());
@@ -229,6 +232,9 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	const docFileRef = React.useRef<HTMLInputElement>(null);
 	const mediaFileRef = React.useRef<HTMLInputElement>(null);
 
+	// `reload` is a stable callback, so it reads the open deck through a ref rather than closing over a stale id.
+	const activeDeckIdRef = React.useRef(activeDeckId);
+	activeDeckIdRef.current = activeDeckId;
 	const reload = React.useCallback(() => {
 		// The shipped motion library rides beside the user's shelf, not in it: it is read-only,
 		// never selected, shared or deleted, and it does not count toward `total`.
@@ -240,12 +246,12 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 			setDocs(d);
 			setScenes(m);
 			setMedia(md);
-			// How many decks name each asset. Read from the decks' sources, so the count can't drift from what a deck says.
+			// How many decks name each asset is read from the decks' sources, so the count can't drift
+			// from what a deck says. The open deck is excluded here: its source is live (below).
 			try {
-				const sources = loadDeckList().map((dk) => loadSource(dk.id) ?? '');
-				setMediaUse(Object.fromEntries(md.map((a) => [a.name, decksUsing(a.name, sources)])));
+				setOtherSources(loadDeckList().filter((dk) => dk.id !== activeDeckIdRef.current).map((dk) => loadSource(dk.id) ?? ''));
 			} catch {
-				setMediaUse({});
+				setOtherSources([]);
 			}
 			// Version counts, and the orphan net, in the same pass.
 			//
@@ -296,6 +302,12 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	const vFinishes = filter === 'all' || filter === 'finish' ? finishes.filter((f) => !q || f.label.toLowerCase().includes(q) || f.name.includes(q)) : [];
 	const vScenes = filter === 'all' || filter === 'motion' ? scenes.filter((m) => !q || m.label.toLowerCase().includes(q) || m.name.includes(q)) : [];
 	const shownMedia = visibleMedia(media, activeDeckId);
+	// Deferred, so typing in the editor never waits on a count of N assets over M decks.
+	const liveSource = React.useDeferredValue(activeDeckSource);
+	const mediaUse = React.useMemo(() => {
+		const sources = liveSource === undefined ? otherSources : [...otherSources, liveSource];
+		return Object.fromEntries(media.map((a) => [a.name, decksUsing(a.name, sources)]));
+	}, [media, otherSources, liveSource]);
 	const vMedia = filter === 'all' || filter === 'media' ? shownMedia.filter((a) => !q || a.name.includes(q) || a.sourceName.toLowerCase().includes(q)) : [];
 	const vDocs = filter === 'all' || filter === 'refdoc' ? docs.filter((d) => !q || d.name.toLowerCase().includes(q)) : [];
 	// The shipped scenes show on the Motion tab only. "All" is the user's own shelf, and four
@@ -466,6 +478,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 				}
 			}
 			reload();
+			if (n) onChanged(); // the open deck's previews learn of the new photo
 			if (n) notify(`Added ${n} image${n === 1 ? '' : 's'}${scope === LIBRARY_SCOPE ? ' to all decks' : ' to this deck'}.`);
 			if (failed.length) notify(failed.slice(0, 2).join(' ') + (failed.length > 2 ? ` (+${failed.length - 2} more)` : ''));
 		} finally {
@@ -477,11 +490,12 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 		const used = mediaUse[a.name] || 0;
 		deleteMedia(a.id).then(() => {
 			reload();
+			onChanged();
 			notify(used > 0 ? `Deleted ${a.name}. ${used} deck${used === 1 ? '' : 's'} still name it and will show a placeholder.` : `Deleted ${a.name}.`);
 		});
 	}
 	function moveMedia(a: MediaRecord, scope: string) {
-		setMediaScope(a.id, scope).then(() => { reload(); notify(scope === LIBRARY_SCOPE ? `${a.name} is now in all decks.` : `${a.name} now belongs to this deck.`); });
+		setMediaScope(a.id, scope).then(() => { reload(); onChanged(); notify(scope === LIBRARY_SCOPE ? `${a.name} is now in all decks.` : `${a.name} now belongs to this deck.`); });
 	}
 
 	async function shareTheme(t: StudioTheme) {

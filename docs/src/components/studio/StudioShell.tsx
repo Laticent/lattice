@@ -1270,6 +1270,19 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		return () => { live = false; };
 	}, [localComponents]);
 	const onCodeApproved = React.useCallback(() => setCodeStamp(codePackagesStamp()), []);
+	// LIBRARY PHOTOS (`asset:<name>`): the registry holds a name → object-URL map for the shared
+	// assets plus this deck's own (media-urls.ts). Its stamp joins the preview's extra CSS, which
+	// every preview and export cache keys on, so adding, deleting or re-scoping a photo re-renders
+	// the slides that showed the old state. Loaded only once a deck, or the Library, needs it.
+	const [assetStampText, setAssetStampText] = React.useState('');
+	const assetsTouched = React.useRef(false);
+	const refreshAssets = React.useCallback(() => {
+		assetsTouched.current = true;
+		import('./media-urls').then(async (m) => {
+			await m.refreshAssetUrls();
+			setAssetStampText(m.assetStamp());
+		}).catch(() => {});
+	}, []);
 	// Saved (Fabricated) FINISHES from the same shared library (kind:'finish') — a
 	// finish designed + saved in the Finish faculty lands here, becomes pickable in
 	// the Inspector Finish menu, and renders in the deck preview (its CSS injected +
@@ -2246,9 +2259,23 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// The preview's extraCss = local-component CSS + (when active) the saved finish's
 	// rule. Combined so a deck can use both at once.
 	const previewExtraCss = React.useMemo(
-		() => [usedLocalCss, finishExtraCss, codeStamp].filter(Boolean).join('\n\n') || undefined,
-		[usedLocalCss, finishExtraCss, codeStamp],
+		() => [usedLocalCss, finishExtraCss, codeStamp, assetStampText].filter(Boolean).join('\n\n') || undefined,
+		[usedLocalCss, finishExtraCss, codeStamp, assetStampText],
 	);
+	// Point the registry at the open deck (its own photos join the shared ones) and take its stamp.
+	// Skipped entirely until a deck names a photo or the Library has been used, so a deck without
+	// one never reads the shelf.
+	const deckUsesAssets = React.useMemo(() => /\basset:[a-z0-9]/i.test(source), [source]);
+	React.useEffect(() => {
+		if (!deckUsesAssets && !assetsTouched.current) return;
+		assetsTouched.current = true;
+		let live = true;
+		import('./media-urls').then(async (m) => {
+			await m.setActiveAssetDeck(deck.id);
+			if (live) setAssetStampText(m.assetStamp());
+		}).catch(() => {});
+		return () => { live = false; };
+	}, [deck.id, deckUsesAssets]);
 	// The class tokens a saved finish stamps onto every section (the engine never
 	// learned the custom name, so we add the class ourselves). Applied ONLY to the
 	// RENDER/ARTIFACT paths (preview, Present, PDF/PPTX/Print) — never the editable
@@ -6572,7 +6599,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 									)}
 									{libraryOpen && (
 										<PanelLoader panel={libraryPanel} shell={(body) => <LibraryShell docked open onOpenChange={setLibraryOpen}>{body}</LibraryShell>}>
-											{(Library) => <Library docked open onOpenChange={setLibraryOpen} options={options} activePalette={palette} activeFinish={finish} initialFilter={libInitialFilter} activeDeckId={deck.id} onApplyTheme={applyPalette} onApplyFinish={(name) => { const token = `finish-${name}`; setFinish(token); notify(`Applied ${token}.`); }} onInsert={(skeleton) => applyDeckOp(addSlideAfter(source, activeFullIndex, skeleton))} onEditTheme={editTheme} onEditComponent={editComponent} onEditFinish={editFinish} onEditMotion={editMotion} onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); refreshScenes(); }} />}
+											{(Library) => <Library docked open onOpenChange={setLibraryOpen} options={options} activePalette={palette} activeFinish={finish} initialFilter={libInitialFilter} activeDeckId={deck.id} activeDeckSource={source} onApplyTheme={applyPalette} onApplyFinish={(name) => { const token = `finish-${name}`; setFinish(token); notify(`Applied ${token}.`); }} onInsert={(skeleton) => applyDeckOp(addSlideAfter(source, activeFullIndex, skeleton))} onEditTheme={editTheme} onEditComponent={editComponent} onEditFinish={editFinish} onEditMotion={editMotion} onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); refreshScenes(); refreshAssets(); }} />}
 										</PanelLoader>
 									)}
 								</ResizablePanel>
@@ -6763,13 +6790,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 							activeFinish={finish}
 							initialFilter={libInitialFilter}
 							activeDeckId={deck.id}
+							activeDeckSource={source}
 							onApplyTheme={applyPalette}
 							onApplyFinish={(name) => { const token = `finish-${name}`; setFinish(token); notify(`Applied ${token}.`); }}
 							onInsert={(skeleton) => applyDeckOp(addSlideAfter(source, activeFullIndex, skeleton))}
 							onEditTheme={editTheme}
 							onEditComponent={editComponent}
 							onEditFinish={editFinish}
-							onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); }}
+							onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); refreshAssets(); }}
 						/>
 					)}
 				</PanelLoader>

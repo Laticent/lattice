@@ -35,6 +35,10 @@ export type RenderMarkdownOpts = {
 	baseUrl?: string;
 	/** Where `sample:<name>` images resolve — the staged lib/samples/ (./samples-base.ts). */
 	samplesUrl?: string;
+	/** Where `asset:<name>` Library photos resolve: name → URL (a `blob:` object URL in the Studio).
+	 *  Left unset, `renderMarkdown` fills it from the Studio's live map when the source names an
+	 *  `asset:` reference, and passes nothing otherwise. */
+	assetUrls?: Record<string, string>;
 	stats?: boolean;
 	/** Caller-supplied DECK POSITION for a document holding only part of the deck:
 	 *  `offset` slides precede it, the deck holds `total`. Lets a preview render the
@@ -111,5 +115,19 @@ export async function renderMarkdown(
 	// render runs twice around the registry's code-packages slot, and each package runs sandboxed
 	// after the user approved it (code-packages/door.ts). One chokepoint, so every Studio surface
 	// and every export runs them the same way.
-	return renderWithCodePackages<RenderMarkdownResult>(PG, rendered, theme, opts);
+	// LIBRARY PHOTOS (`asset:<name>`): the map comes from the Studio's registry, loaded only when
+	// the source names one — a deck without a Library photo never imports it, so this chokepoint
+	// adds nothing to the landing page or the Playground. A caller that passes its own `assetUrls`
+	// (a test, a host with another source) keeps it. Grammar: lib/core/remote-ref.js `assetName`.
+	let withAssets = opts;
+	if (!opts?.assetUrls && /\basset:[a-z0-9]/i.test(rendered)) {
+		try {
+			const { ensureAssetUrls } = await import('@/components/studio/media-urls');
+			withAssets = { ...opts, assetUrls: await ensureAssetUrls() };
+		} catch {
+			// The registry (or IndexedDB) is unavailable: render without a map, and the reference
+			// passes through untouched exactly as it does in the CLI.
+		}
+	}
+	return renderWithCodePackages<RenderMarkdownResult>(PG, rendered, theme, withAssets);
 }

@@ -77,6 +77,27 @@ What the map holds depends on the host:
 A reference the map cannot satisfy (asset deleted, deck opened on another browser) renders the
 existing missing-image placeholder and the export still completes.
 
+**What slice 2 found (2026-10-12, real Chromium).** Two things the plan did not predict:
+
+1. **The HTML sanitizer strips `blob:`.** DOMPurify's default URL policy refuses it, so the engine
+   resolved `asset:hero` to a `blob:` URL and the sanitizer then deleted the `src`, leaving a
+   pictureless `<img>`. Fixed in `lib/core/sanitize-slide-html.mjs`, as one shape and nothing wider:
+   a `blob:` URL is kept only as the `src` of `<img>`, `<video>`, `<audio>` or `<source>`, only
+   when its origin is the window's own and its path is a UUID. An `href` to a blob stays refused
+   (an anchor navigates, and a blob can be a page), as does another origin, a guessable path and
+   any value a `filterAttr` caller vetoed or rewrote. Pinned in
+   `test/unit/core/sanitize-slide-html.test.js`. This is HARD RULE #22 territory, so it stays
+   one narrow allowance with its reasons beside it.
+2. **The preview needs a re-render when the shelf changes.** The preview caches key on the extra
+   CSS, so the registry (`docs/src/components/studio/media-urls.ts`) contributes a stamp that
+   changes only when the name → URL map does. Adding, deleting or re-scoping a photo then re-renders
+   the slides that named it. A deck with no `asset:` reference never loads the registry: the
+   injection in `docs/src/lib/render-engine.ts` tests the source first and imports on demand.
+
+A missing asset resolves to the existing drawn missing-image stand-in (`WEB_IMAGE_PLACEHOLDER`),
+so a deleted photo leaves the slide readable. A deck rendered with no map at all (the CLI, a
+gallery) keeps the reference as written.
+
 ### 3. Intake
 
 Both `<input>` elements gain `accept="image/*,video/*"` on the media tab. On Android and iOS that
