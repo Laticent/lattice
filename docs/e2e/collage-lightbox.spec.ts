@@ -275,52 +275,58 @@ test('@smoke @crosswidth the open photo steps with the arrow keys and the two bu
 	await expect(slideTitle(page)).toHaveText('First slide');
 });
 
-test('@smoke @crosswidth a plain mouse-wheel flick steps the open photo once per flick; a pinch (ctrl + wheel) never steps', async ({ page }) => {
-	await openStudioDeck(page);
-	const at = await photoAt(page, 0);
-	await page.mouse.click(at.x, at.y);
-	await expect(lightbox(page)).toBeVisible({ timeout: 15_000 });
-	await expect(counter(page)).toHaveText('1 / 4');
-	await glideDone(page);
-	await page.mouse.move(at.x, at.y);
+// Each runs twice: untagged for the Chromium projects, and as a @gecko @webkit-tablet twin for the
+// two other engines, which only run tests carrying their tag (the desktop project skips any title
+// that names @webkit without @crosswidth), per playwright.config.ts. A wheel and a key are engine
+// behavior: Blink's answer does not predict Gecko's or WebKit's.
+for (const tag of ['', ' @gecko @webkit-tablet']) {
+	test(`${tag ? '' : '@smoke @crosswidth '}a plain mouse-wheel flick steps the open photo once per flick; a pinch (ctrl + wheel) never steps${tag}`, async ({ page }) => {
+		await openStudioDeck(page);
+		const at = await photoAt(page, 0);
+		await page.mouse.click(at.x, at.y);
+		await expect(lightbox(page)).toBeVisible({ timeout: 15_000 });
+		await expect(counter(page)).toHaveText('1 / 4');
+		await glideDone(page);
+		await page.mouse.move(at.x, at.y);
 
-	// One flick is a burst of wheel events; the deck's cooldown turns it into one step.
-	await page.mouse.wheel(0, 120);
-	await page.mouse.wheel(0, 120);
-	await page.mouse.wheel(0, 300);
-	await expect(counter(page)).toHaveText('2 / 4');
-	// Once the cooldown has passed, up is previous. Retry the flick until it lands: the retry IS the
-	// cooldown under test, not a sleep.
-	await expect(async () => {
-		await page.mouse.wheel(0, -120);
-		await expect(counter(page)).toHaveText('1 / 4', { timeout: 300 });
-	}).toPass({ timeout: 10_000 });
-	// A pinch is ctrl + wheel: it zooms (the signal) and never steps. The cooldown is over by now.
-	await page.keyboard.down('Control');
-	await page.mouse.wheel(0, -400);
-	await page.keyboard.up('Control');
-	await expect.poll(async () => (await imgScale(page)).scale, { timeout: 5000 }).toBeGreaterThan(1.5);
-	await expect(counter(page)).toHaveText('1 / 4');
-	// The wheel did not turn the deck behind it.
-	await expect(slideTitle(page)).toHaveText('First slide');
-});
+		// One flick is a burst of wheel events; the deck's cooldown turns it into one step.
+		await page.mouse.wheel(0, 120);
+		await page.mouse.wheel(0, 120);
+		await page.mouse.wheel(0, 300);
+		await expect(counter(page)).toHaveText('2 / 4');
+		// Once the cooldown has passed, up is previous. Retry the flick until it lands: the retry IS the
+		// cooldown under test, not a sleep.
+		await expect(async () => {
+			await page.mouse.wheel(0, -120);
+			await expect(counter(page)).toHaveText('1 / 4', { timeout: 300 });
+		}).toPass({ timeout: 10_000 });
+		// A pinch is ctrl + wheel: it zooms (the signal) and never steps. The cooldown is over by now.
+		await page.keyboard.down('Control');
+		await page.mouse.wheel(0, -400);
+		await page.keyboard.up('Control');
+		await expect.poll(async () => (await imgScale(page)).scale, { timeout: 5000 }).toBeGreaterThan(1.5);
+		await expect(counter(page)).toHaveText('1 / 4');
+		// The wheel did not turn the deck behind it.
+		await expect(slideTitle(page)).toHaveText('First slide');
+	});
 
-test('@smoke the digit keys 1 to 6 jump to that photo while it is open, and a digit past the set does nothing', async ({ page }) => {
-	await openStudioDeck(page);
-	const at = await photoAt(page, 0);
-	await page.mouse.click(at.x, at.y);
-	await expect(lightbox(page)).toBeVisible({ timeout: 15_000 });
-	await glideDone(page);
-	await page.keyboard.press('3');
-	await expect(caption(page)).toHaveText(ALTS[2]);
-	await page.keyboard.press('1');
-	await expect(caption(page)).toHaveText(ALTS[0]);
-	await page.keyboard.press('4');
-	await expect(counter(page)).toHaveText('4 / 4');
-	await page.keyboard.press('6');
-	await expect(counter(page), 'a four-photo set ignores 6').toHaveText('4 / 4');
-	await expect(slideTitle(page)).toHaveText('First slide');
-});
+	test(`${tag ? '' : '@smoke '}the digit keys 1 to 6 jump to that photo while it is open, and a digit past the set does nothing${tag}`, async ({ page }) => {
+		await openStudioDeck(page);
+		const at = await photoAt(page, 0);
+		await page.mouse.click(at.x, at.y);
+		await expect(lightbox(page)).toBeVisible({ timeout: 15_000 });
+		await glideDone(page);
+		await page.keyboard.press('3');
+		await expect(caption(page)).toHaveText(ALTS[2]);
+		await page.keyboard.press('1');
+		await expect(caption(page)).toHaveText(ALTS[0]);
+		await page.keyboard.press('4');
+		await expect(counter(page)).toHaveText('4 / 4');
+		await page.keyboard.press('6');
+		await expect(counter(page), 'a four-photo set ignores 6').toHaveText('4 / 4');
+		await expect(slideTitle(page)).toHaveText('First slide');
+	});
+}
 
 /** One finger from (x, y) to (x + dx, y + dy), through the browser's own input pipeline. */
 async function swipe(page: Page, at: { x: number; y: number }, dx: number, dy: number) {
