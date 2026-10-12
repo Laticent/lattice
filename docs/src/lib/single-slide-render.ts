@@ -44,6 +44,7 @@ import {
 import { drawnLibraryPreload } from '../../../lib/plugins/drawn-library.mjs';
 import { drawnFenceCount } from '../../../lib/plugins/drawn-probe.mjs';
 import { sourceHasMath } from '../../../lib/plugins/math/math.syntax.mjs';
+import { installCollageBridge } from '../playground/collage-host.js';
 import { applyDebug } from '../playground/debug-overlay.js';
 import { hashString, linkGuardAgent, previewDiagramsAttr } from '../playground/deck-preview.js';
 import { hasFidelityListeners, recordFidelity } from '../playground/fidelity-findings';
@@ -2207,6 +2208,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// Parent-hosted video playback: tap a video poster in a Studio preview
 					// to play the clip in a centered lightbox (the link guard bridges to it).
 					installVideoBridge(fr.contentWindow);
+					installCollageBridge(fr.contentWindow);
 					// The frame is live: measure the deck's other photos through it, so the next slide
 					// the reader turns to is stamped final before it paints.
 					prefetchImages(fr);
