@@ -239,12 +239,14 @@ test('the description is a plain paragraph under the header rule: no hairline ab
   assert.equal(beside[1], 'start', 'the description sits straight under the header');
 });
 
-test('bleed takes the whole slide: no header or footer, a stretched grid, a translucent title card', () => {
+test('bleed takes the whole slide: no header or footer, a stretched grid, a translucent card holding the title and the description', () => {
   const css = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'lib', 'components', 'imagery', 'collage', 'collage.styles.css'), 'utf8');
   assert.match(css, /section\.collage\.bleed > header,\s*section\.collage\.bleed > footer\s*\{\s*display:\s*none;\s*\}/, 'the header and footer are off');
   assert.match(css, /section\.collage\.bleed \.collage-list\s*\{\s*--collage-h:\s*100cqh;\s*--collage-w:\s*100cqw;\s*\}/, 'the grid is stretched to the slide, not kept at its own shape');
-  assert.match(css, /section\.collage\.bleed > \.cell-masthead\s*\{[^}]*background:\s*color-mix\(in srgb, var\(--bg\) \d+%, transparent\)/, 'the title card is translucent');
-  assert.match(css, /section\.collage\.bleed > \.cell-masthead\s*\{[^}]*position:\s*absolute;\s*top:\s*0;\s*left:\s*var\(--frame-x\);/, 'the title card is pinned to the top edge at the frame inset');
+  assert.match(css, /section\.collage\.bleed > \.cell-masthead,\s*section\.collage\.bleed > p\s*\{[^}]*background:\s*color-mix\(in srgb, var\(--bg\) \d+%, transparent\)/, 'the card is translucent');
+  assert.match(css, /section\.collage\.bleed\s*\{\s*display:\s*grid;\s*grid-template-columns:\s*fit-content\(50%\);[^}]*padding:\s*0 0 0 var\(--frame-x\);/, 'the text is a one-column grid pinned to the top edge at the frame inset');
+  assert.doesNotMatch(css, /section\.collage\.bleed > p\s*\{\s*display:\s*none;/, 'the description is shown on bleed, not hidden');
+  assert.match(css, /section\.collage\.bleed\.bleed\.bleed > \.cell-masthead \+ p\s*\{[^}]*grid-row:\s*2;/, 'the description is the second row of the same card');
   const { STAGE_ASPECT } = require('../../../lib/core/collage-pack');
   assert.equal(STAGE_ASPECT.landscape.bleed, 16 / 9, 'the bleed estimate is the slide itself, so no bands are left');
 });

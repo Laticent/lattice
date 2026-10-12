@@ -130,6 +130,8 @@ Use `above` when the description is short and the photos are mostly landscape.
 
 `The title rides a translucent card`
 
+The description sits in the same card, under the header rule, so the photos behind it stay in view.
+
 - ![Tall portrait](sample:photo-tall.jpg)
 - ![Wide landscape](sample:photo-wide.jpg)
 - ![Square](sample:photo-square.jpg)
