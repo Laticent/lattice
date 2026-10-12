@@ -17,6 +17,7 @@ import {
 	type NewMedia,
 	saveMedia,
 	setMediaScope,
+	sniffImageMime,
 	visibleMedia,
 } from './media-store';
 
@@ -146,7 +147,8 @@ describe('scope', () => {
 
 describe('decksUsing', () => {
 	it('counts decks that reference asset:<name>, matching whole names only', () => {
-		const decks = ['![](asset:team-photo)', '![bg](asset:team-photo-2)', 'no refs', '![](ASSET:Team-Photo)', 'asset:team-photo'];
+		const decks = ['![](asset:team-photo)', '![bg](asset:team-photo-2)', 'no refs', '![](ASSET:Team-Photo)', 'asset:team-photo', '![](asset:team-photo.jpg)'];
+		// `asset:team-photo.jpg` is not the photo `team-photo` (the engine draws the stand-in for it), so it is not a use.
 		expect(decksUsing('team-photo', decks)).toBe(3);
 		expect(decksUsing('team', decks)).toBe(0);
 	});
@@ -209,5 +211,23 @@ describe('an engine that will not store a Blob', () => {
 		const put = refuse('blob');
 		await expect(saveMedia(png(), 2)).rejects.toThrow(/already another saved image/);
 		expect(put).not.toHaveBeenCalled();
+	});
+});
+
+describe('sniffImageMime', () => {
+	const b = (...n: number[]) => new Uint8Array(n);
+	const str = (s: string) => [...s].map((c) => c.charCodeAt(0));
+	it('reads the type from the leading bytes, not from a name', () => {
+		expect(sniffImageMime(b(0xff, 0xd8, 0xff, 0xe1))).toBe('image/jpeg');
+		expect(sniffImageMime(b(0x89, ...str('PNG'), 13, 10, 26, 10))).toBe('image/png');
+		expect(sniffImageMime(b(...str('GIF89a')))).toBe('image/gif');
+		expect(sniffImageMime(b(...str('RIFF'), 1, 0, 0, 0, ...str('WEBP')))).toBe('image/webp');
+		expect(sniffImageMime(b(0, 0, 0, 24, ...str('ftypavif')))).toBe('image/avif');
+	});
+	it('answers null for HEIC, SVG, zeros and nothing', () => {
+		expect(sniffImageMime(b(0, 0, 0, 24, ...str('ftypheic')))).toBeNull();
+		expect(sniffImageMime(b(...str('<svg xmlns')))).toBeNull();
+		expect(sniffImageMime(new Uint8Array(32))).toBeNull();
+		expect(sniffImageMime(new Uint8Array(0))).toBeNull();
 	});
 });

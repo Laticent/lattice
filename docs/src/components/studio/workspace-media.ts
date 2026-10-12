@@ -13,10 +13,14 @@
 //
 // ONE RULE ABOVE THE REST: a restore never deletes or overwrites a photo that is already on this
 // device. Names are camera-roll names (`img-0042`), so two devices routinely hold DIFFERENT photos
-// under one name. An identical photo is skipped; a different one comes back under a new name, and the
-// decks the restore itself wrote are rewritten to match, the way a deck that diverged comes back as a
-// copy "beside, never over" (studio-store.ts `importStudioState`).
-import { isMediaName, LIBRARY_SCOPE, listMedia, MAX_MEDIA_FILE_BYTES, saveMedia, uniqueName } from './media-store';
+// under one name. When the backup's name is already taken here, the same bytes mean the same photo and
+// it is reused (so restoring one backup twice adds nothing), and shared with all decks if it was kept
+// to one deck the backup's decks cannot see. A different photo under a taken name comes back under a
+// new name chosen against every name on the device AND every name in the backup. A name nobody holds
+// is stored as it is. The decks
+// the restore itself wrote are rewritten once, from one name map, to match (studio-store.ts
+// `importStudioState` does the same "beside, never over" for a deck that diverged).
+import { isMediaName, LIBRARY_SCOPE, listMedia, MAX_MEDIA_FILE_BYTES, saveMedia, setMediaScope, sniffImageMime, uniqueName } from './media-store';
 import { declaredInflatedBytes, jsonGuard, readBudget, readBytesBudget } from './zip-limits';
 
 export const MEDIA_INDEX = 'media.json';
@@ -25,6 +29,8 @@ export const MEDIA_INDEX = 'media.json';
 export const MAX_MEDIA_RESTORE_BYTES = 1024 * 1024 * 1024;
 /** Most rows `media.json` may hold. Each is an IndexedDB write. */
 export const MAX_MEDIA_ROWS = 5_000;
+/** Most refusals a restore lists by name; the rest are counted. */
+const MAX_REFUSALS_LISTED = 25;
 /** Most `media.json` may inflate to: a row is a few hundred bytes. */
 const MAX_INDEX_BYTES = 16 * 1024 * 1024;
 
@@ -85,13 +91,15 @@ export async function packMedia(zip: Zip): Promise<{ rows: number; bytes: number
 
 const int = (v: unknown, max: number): number => (typeof v === 'number' && Number.isFinite(v) ? Math.min(max, Math.max(0, Math.floor(v))) : 0);
 
-/** Do two byte strings match? Sizes first, so the common "different photo" case never compares bytes. */
-async function sameBytes(existing: Blob, incoming: Uint8Array): Promise<boolean> {
-	if (existing.size !== incoming.length) return false;
-	const a = new Uint8Array(await existing.arrayBuffer());
-	for (let i = 0; i < a.length; i++) if (a[i] !== incoming[i]) return false;
-	return true;
+/** SHA-256 of some bytes, as hex. Compared instead of the bytes themselves so a restore keeps a short
+ *  fingerprint per photo, not a second copy of a thousand photos in memory. */
+async function digest(data: Blob | Uint8Array): Promise<string> {
+	const buf = data instanceof Blob ? await data.arrayBuffer() : (data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer);
+	return [...new Uint8Array(await crypto.subtle.digest('SHA-256', buf))].map((x) => x.toString(16).padStart(2, '0')).join('');
 }
+
+/** A photo on the shelf, as the restore tracks it: the blob only for what was already here. */
+type Held = { id: string; name: string; scope: string; size: number; blob?: Blob; hash?: string };
 
 /** A photo that came back under a different name than the backup gave it, and which backup scope it was in. */
 export type MediaRename = { from: string; to: string; scope: string };
@@ -109,14 +117,14 @@ export type RestoreContext = {
  * photo already here is skipped, a different one under the same name returns under a new name and the
  * rename is reported so the caller can rewrite the decks it just wrote.
  */
-export async function restoreMedia(zip: Zip, now: number, ctx: RestoreContext): Promise<{ restored: number; refused: Refusal[]; renames: MediaRename[] }> {
+export async function restoreMedia(zip: Zip, now: number, ctx: RestoreContext): Promise<{ restored: number; shared: number; refused: Refusal[]; renames: MediaRename[] }> {
 	const refused: Refusal[] = [];
 	const renames: MediaRename[] = [];
 	const index = zip.file(MEDIA_INDEX);
-	if (!index) return { restored: 0, refused, renames };
+	if (!index) return { restored: 0, shared: 0, refused, renames };
 	const skipAll = (why: string) => {
 		refused.push({ name: 'photos', why });
-		return { restored: 0, refused, renames };
+		return { restored: 0, shared: 0, refused, renames };
 	};
 	if (declaredInflatedBytes(index) > MAX_INDEX_BYTES) return skipAll('the index is over what a restore reads');
 	let rows: unknown;
@@ -133,10 +141,21 @@ export async function restoreMedia(zip: Zip, now: number, ctx: RestoreContext): 
 	const overFile = `over the ${Math.floor(MAX_MEDIA_FILE_BYTES / 1_048_576)} MB one photo may be`;
 	// The shelf is read ONCE and kept current by hand: a restore of N photos is N saves, not N full reads.
 	const shelf = await listMedia();
-	const byName = new Map(shelf.map((m) => [m.name, m]));
-	const taken = new Set(byName.keys());
+	const bySize = new Map<number, Held[]>();
+	const hold = (h: Held) => {
+		const list = bySize.get(h.size) ?? [];
+		list.push(h);
+		bySize.set(h.size, list);
+	};
+	for (const m of shelf) hold({ id: m.id, name: m.name, scope: m.scope, size: m.blob.size, blob: m.blob });
+	const local = new Set(shelf.map((m) => m.name));
+	// Every name a new photo must not take: what is on the device, and every name the BACKUP uses, so a
+	// photo renamed to dodge a local clash cannot land on a name a later row of the same backup owns.
+	const reserved = new Set(local);
+	for (const raw of rows as Partial<MediaRow>[]) if (typeof raw?.name === 'string' && isMediaName(raw.name)) reserved.add(raw.name);
 	let totalRead = 0;
 	let restored = 0;
+	let shared = 0;
 	let exhausted = false;
 
 	for (const raw of rows as Partial<MediaRow>[]) {
@@ -170,8 +189,9 @@ export async function restoreMedia(zip: Zip, now: number, ctx: RestoreContext): 
 			skip('the deck it belonged to is not in this backup');
 			continue;
 		}
-		// A photo kept to a deck that came back as a copy goes with the copy.
-		const scope = backupScope === LIBRARY_SCOPE ? LIBRARY_SCOPE : (ctx.copies[backupScope] ?? backupScope);
+		// A photo kept to a deck that came back as a copy goes with the copy. `hasOwn`: a deck id is text
+		// from the backup, and `__proto__` or `constructor` must not read off the object's prototype.
+		const scope = backupScope === LIBRARY_SCOPE ? LIBRARY_SCOPE : Object.hasOwn(ctx.copies, backupScope) ? ctx.copies[backupScope] : backupScope;
 		const entry = zip.file(`media/${raw.file}`);
 		if (!entry) {
 			skip('its file is missing from the backup');
@@ -208,14 +228,43 @@ export async function restoreMedia(zip: Zip, now: number, ctx: RestoreContext): 
 			skip(overTotal);
 			continue;
 		}
+		// A backup is a file from anyone, and the zip's own type label is only a label: a row that says PNG
+		// over 49 MB of zeros, or over a JPEG with its GPS, is not stored under that name.
+		if (sniffImageMime(bytes) !== mime) {
+			skip(`its bytes are not ${mime.replace('image/', '').toUpperCase()} image data`);
+			continue;
+		}
 
+		// A name nobody holds is stored as it is, even when the same bytes sit under another name: the decks
+		// that name it may be ones this restore does not rewrite, so it must exist under its own name.
+		// A name that IS held decides it: identical bytes mean the same photo (reuse it), otherwise this is a
+		// different photo that needs a new name, unless a photo with these bytes already came back under one.
 		let name = raw.name;
-		const existing = byName.get(name);
-		if (existing) {
-			// The same photo already here: nothing to do, and nothing to touch.
-			if (await sameBytes(existing.blob, bytes)) continue;
-			// A different photo under the same name: keep both. The incoming one comes back under a new name.
-			name = uniqueName(name, taken);
+		if (local.has(name)) {
+			const candidates = bySize.get(bytes.length) ?? [];
+			let match: Held | undefined;
+			if (candidates.length) {
+				const mine = await digest(bytes);
+				for (const c of candidates) c.hash ??= c.blob ? await digest(c.blob) : undefined;
+				const same = candidates.filter((c) => c.hash === mine);
+				match = same.find((c) => c.name === raw.name) ?? same[0];
+			}
+			if (match) {
+				// Reused as is. If it is kept to one deck that this backup's decks cannot see, share it with all
+				// decks: widening visibility never deletes anything, and the alternative is a restored deck that
+				// names a photo it cannot see.
+				if (match.scope !== LIBRARY_SCOPE && match.scope !== scope) {
+					const moved = await setMediaScope(match.id, LIBRARY_SCOPE).catch(() => null);
+					if (moved) {
+						match.scope = LIBRARY_SCOPE;
+						shared++;
+					}
+				}
+				if (match.name !== raw.name) renames.push({ from: raw.name, to: match.name, scope: backupScope });
+				continue;
+			}
+			// A different photo under a taken name: keep both. The incoming one comes back under a new name.
+			name = uniqueName(name, reserved);
 			renames.push({ from: raw.name, to: name, scope: backupScope });
 		}
 		try {
@@ -234,8 +283,9 @@ export async function restoreMedia(zip: Zip, now: number, ctx: RestoreContext): 
 				},
 				int(raw.addedAt, Number.MAX_SAFE_INTEGER) || now,
 			);
-			byName.set(name, saved);
-			taken.add(name);
+			hold({ id: saved.id, name, scope, size: bytes.length, hash: await digest(bytes) });
+			local.add(name);
+			reserved.add(name);
 			restored++;
 		} catch (e) {
 			// A rename that did not land is not a rename.
@@ -243,11 +293,23 @@ export async function restoreMedia(zip: Zip, now: number, ctx: RestoreContext): 
 			skip(String((e as Error)?.message || 'it could not be saved').replace(/^Can't add — /, '').slice(0, 120));
 		}
 	}
-	return { restored, refused, renames };
+	// A backup of thousands of bad rows must not become a toast of thousands of lines.
+	if (refused.length > MAX_REFUSALS_LISTED) {
+		const more = refused.length - MAX_REFUSALS_LISTED;
+		refused.length = MAX_REFUSALS_LISTED;
+		refused.push({ name: 'photos', why: `${more} more were refused for the same kinds of reasons` });
+	}
+	return { restored, shared, refused, renames };
 }
 
-/** `asset:from` → `asset:to` wherever a deck writes the whole name, leaving `asset:from-2` and the like. */
-export function renameAssetRefs(source: string, from: string, to: string): string {
-	const esc = from.replace(/[-_]/g, (c) => `\\${c}`);
-	return source.replace(new RegExp(`\\basset:${esc}(?![A-Za-z0-9_-])`, 'gi'), `asset:${to}`);
+/** Rename `asset:<name>` references in one pass. `map` is the whole from → to set at once, so a rename
+ *  can never be renamed again (`hero → hero-2` followed by `hero-2 → hero-2-2` would send a deck to the
+ *  wrong photo). Matches whole names only and leaves `asset:hero-2` alone when renaming `hero`. */
+export function renameAssetRefs(source: string, from: string | ReadonlyMap<string, string>, to?: string): string {
+	const map = typeof from === 'string' ? new Map([[from.toLowerCase(), to as string]]) : new Map([...from].map(([k, v]) => [k.toLowerCase(), v]));
+	if (!map.size) return source;
+	return source.replace(/\basset:([A-Za-z0-9][A-Za-z0-9_-]*)(?![A-Za-z0-9_-])/gi, (whole, name: string) => {
+		const next = map.get(name.toLowerCase());
+		return next === undefined ? whole : `asset:${next}`;
+	});
 }

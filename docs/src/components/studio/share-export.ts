@@ -115,8 +115,11 @@ async function assetOpts(source: string): Promise<{ assetUrls?: Record<string, s
 	try {
 		const { dataUrlsFor } = await import('./media-urls');
 		return { assetUrls: await dataUrlsFor(source) };
-	} catch {
-		return {}; // no shelf: the reference stays as written, as in the CLI
+	} catch (e) {
+		// An EMPTY map, not none: with none the Studio's render hook would fill in the preview's `blob:` URLs,
+		// which die with the tab. With an empty map every photo is drawn as the missing-image stand-in.
+		console.warn('lattice: could not read the Library photos for an export', e);
+		return { assetUrls: {} };
 	}
 }
 

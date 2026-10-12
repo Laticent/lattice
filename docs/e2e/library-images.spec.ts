@@ -15,7 +15,7 @@ import { CHROME, expect, gotoStudio, test } from './studio-fixture';
 /** Build a 4000×3000 JPEG in the page, then splice in an APP1 Exif segment holding
  *  Orientation=6 and a GPS IFD — the shape a phone held upright writes. Returns file bytes
  *  through a DataTransfer onto the Images tab's hidden input, exactly what the OS picker does. */
-async function pickPhoto(page: Page, files: { name: string; width: number; height: number; exif?: boolean; type?: string }[]): Promise<boolean[]> {
+async function pickPhoto(page: Page, files: { name: string; width: number; height: number; exif?: boolean; type?: string; claimType?: string }[]): Promise<boolean[]> {
 	return page.evaluate(async (specs) => {
 		const made: File[] = [];
 		for (const s of specs) {
@@ -50,7 +50,8 @@ async function pickPhoto(page: Page, files: { name: string; width: number; heigh
 				out.set(bytes.subarray(2), 2 + app1.length);
 				bytes = out;
 			}
-			made.push(new File([bytes as BlobPart], s.name, { type }));
+			// `claimType` is the type the BROWSER would report for the file name (a JPEG renamed .png claims image/png).
+			made.push(new File([bytes as BlobPart], s.name, { type: s.claimType ?? type }));
 		}
 		// Report whether each INPUT carried the Exif marker, so "the output has none" is not vacuous.
 		const hadExif: boolean[] = [];
@@ -109,7 +110,7 @@ async function openLibraryImages(page: Page, width: number) {
 // these into the visual baselines. The same shape `library-card-fit.spec.ts` uses.
 const WIDTHS = [1440, 820, 390];
 // The desktop-width variant also runs on real WebKit and Firefox in the nightly (studio-e2e-nightly.yml):
-// decode, canvas re-encode, EXIF rotation and IndexedDB storing a photo are engine behaviour, and the
+// decode, canvas re-encode, EXIF rotation and IndexedDB storing a photo are engine behavior, and the
 // two most likely to differ from Chromium are exactly the two that cannot be reached from a unit test.
 // The narrower widths are layout checks and stay on Chromium.
 const OTHER_ENGINES = (w: number) => (w === 1440 ? ' @webkit-tablet @gecko' : '');
@@ -173,6 +174,25 @@ for (const vw of WIDTHS) {
 		await expect(page.getByText(/Added 2 images/)).toBeVisible();
 		rows = await storedMedia(page);
 		expect(rows.map((r) => r.name)).toEqual(['img-0042', 'img-0042-1', 'rotated-gps-photo']);
+
+		// Two files that really are called IMG_0042.jpg (a camera roll and a download): neither replaces the
+		// first photo, and the notice says which name each took, so a deck that still shows the old one is no mystery.
+		await pickPhoto(page, [
+			{ name: 'IMG_0042.jpg', width: 800, height: 600 },
+			{ name: 'IMG_0042.jpg', width: 800, height: 600 },
+		]);
+		await expect(page.getByText(/“img-0042” was taken, so IMG_0042\.jpg is “img-0042-2”/)).toBeVisible();
+		rows = await storedMedia(page);
+		expect(rows.map((r) => r.name)).toEqual(['img-0042', 'img-0042-1', 'img-0042-2', 'img-0042-3', 'rotated-gps-photo']);
+
+		// A JPEG with GPS whose file name says .png: the browser reports image/png, and a type-by-extension
+		// importer would store it untouched and ship the GPS in every export. The bytes decide.
+		const spoofed = await pickPhoto(page, [{ name: 'Spoof.png', width: 800, height: 600, exif: true, claimType: 'image/png' }]);
+		expect(spoofed, 'positive control: the input carried Exif').toEqual([true]);
+		await expect(page.locator('[data-media-card="spoof"]')).toBeVisible();
+		const spoof = (await storedMedia(page)).find((r) => r.name === 'spoof');
+		expect(spoof, 'stored as the JPEG it is, re-encoded').toMatchObject({ mime: 'image/jpeg', original: false });
+		expect(spoof?.hasExif, 'the stored bytes carry no EXIF').toBe(false);
 		await page.screenshot({ path: testInfo.outputPath(`images-tab-${width}.png`) });
 	});
 

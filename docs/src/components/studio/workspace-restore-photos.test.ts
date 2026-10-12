@@ -37,12 +37,12 @@ vi.hoisted(() => {
 
 import { deleteAsset, listAssets } from './library/asset-store.js';
 import { LIBRARY_SCOPE, listMedia, type NewMedia, saveMedia } from './media-store';
-import { exportStudioState, importStudioState, loadDeckList, loadSource, saveSource } from './studio-store';
+import { exportStudioState, importStudioState, loadCheckpoints, loadDeckList, loadSource, saveCheckpoint, saveSource } from './studio-store';
 import { packWorkspace, restoreWorkspace } from './workspace-backup';
 
 const T0 = 1_750_000_000_000;
-const X = new Uint8Array([137, 80, 78, 71, 1, 1, 1, 1]); // device A's photo
-const Y = new Uint8Array([137, 80, 78, 71, 2, 2, 2, 2]); // device B's, different, same name
+const X = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 1, 1, 1, 1]); // device A's photo
+const Y = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 2, 2, 2, 2]); // device B's, different, same name
 const photo = (name: string, bytes: Uint8Array, scope = LIBRARY_SCOPE): NewMedia => ({
 	kind: 'image', name, scope, blob: new Blob([bytes as BlobPart], { type: 'image/png' }), mime: 'image/png', bytes: bytes.length, width: 4, height: 4, sourceName: `${name}.png`, original: true,
 });
@@ -119,6 +119,57 @@ describe('a shared photo whose name another device already uses for a different 
 		const s = await restoreWorkspace(blob, T0 + 1);
 		expect(s.mediaRenamed).toBe(0);
 		expect((await listMedia()).map((m) => m.name)).toEqual(['img-0042']);
+	});
+});
+
+describe('renames that would chain, and saved versions', () => {
+	it('each restored deck and its saved versions name the right photo when the backup holds hero AND hero-2', async () => {
+		const Z = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 3, 3, 3, 3]);
+		const blob = await backupFromA(async () => {
+			putDeck('deck-aaa', 'A', '# A\n\n![x](asset:hero)\n');
+			putDeck('deck-bbb', 'B', '# B\n\n![x](asset:hero-2)\n');
+			saveCheckpoint('deck-aaa', '# A\n\n![x](asset:hero)\n', 'v1', T0);
+			await saveMedia(photo('hero-2', Z), 1);
+			await saveMedia(photo('hero', X), 2); // newer, so the backup lists it first
+		});
+		await saveMedia(photo('hero', Y), 1); // a different photo already holds the name here
+
+		await restoreWorkspace(blob, T0 + 1);
+		const names = Object.fromEntries((await listMedia()).map((m) => [m.name, m]));
+		expect(Object.keys(names).sort()).toEqual(['hero', 'hero-2', 'hero-3']);
+		expect(await bytesOf('hero')).toEqual(Y);
+		expect(await bytesOf('hero-2')).toEqual(Z);
+		expect(await bytesOf('hero-3')).toEqual(X);
+		expect(loadSource('deck-aaa')).toBe('# A\n\n![x](asset:hero-3)\n'); // not hero-2-2, and not B's photo
+		expect(loadSource('deck-bbb')).toBe('# B\n\n![x](asset:hero-2)\n');
+		expect(loadCheckpoints('deck-aaa')[0].source).toBe('# A\n\n![x](asset:hero-3)\n');
+	});
+
+	it('restoring the same backup twice leaves one copy of the photo, and the second copy of the deck names it', async () => {
+		const blob = await backupFromA(async () => {
+			putDeck('deck-aaa', 'Plan', '# Plan\n\n![x](asset:img-0042)\n');
+			await saveMedia(photo('img-0042', X), 1);
+		});
+		await saveMedia(photo('img-0042', Y), 1);
+		await restoreWorkspace(blob, T0 + 1);
+		await restoreWorkspace(blob, T0 + 2);
+		expect((await listMedia()).map((m) => m.name).sort()).toEqual(['img-0042', 'img-0042-2']);
+	});
+
+	it('restoring your own backup over a deck you edited: the copy still sees the photo kept to the original deck', async () => {
+		const blob = await backupFromA(async () => {
+			putDeck('deck-aaa', 'Plan', '# Plan v1\n\n![p](asset:priv)\n');
+			await saveMedia(photo('priv', X, 'deck-aaa'), 1);
+		});
+		// The same device a moment later: the deck was edited, and the photo is still here, kept to that deck.
+		putDeck('deck-aaa', 'Plan', '# Plan v2\n\n![p](asset:priv)\n');
+		await saveMedia(photo('priv', X, 'deck-aaa'), 1);
+		const s = await restoreWorkspace(blob, T0 + 1);
+		expect(s.restoredCopies).toBe(1);
+		const copyId = Object.values(s.copies)[0];
+		const [priv] = await listMedia();
+		// Visible to the copy: shared with all decks, or kept to the copy itself.
+		expect([LIBRARY_SCOPE, copyId]).toContain(priv.scope);
 	});
 });
 

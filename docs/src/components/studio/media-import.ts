@@ -5,7 +5,7 @@
 // canvas, encode) and is exercised against a real browser, not jsdom — jsdom has no image
 // decoder, so a test there would only confirm a stub (HARD RULE #23).
 
-import { MAX_MEDIA_FILE_BYTES, type MediaKind, mediaNameFromFile, type NewMedia, uniqueName } from './media-store';
+import { MAX_MEDIA_FILE_BYTES, type MediaKind, mediaNameFromFile, type NewMedia, sniffImageMime, uniqueName } from './media-store';
 
 /** The long edge a stored photo is capped to. A slide shows at most ~1920 px wide, so pixels
  *  past this cost storage quota and buy nothing a viewer can see. */
@@ -155,7 +155,10 @@ export async function importImage(file: File, scope: string): Promise<NewMedia> 
 	// Refused before anything decodes it: a restore reads at most this much per photo, so a photo the
 	// Library took above it would be one a backup could never bring back.
 	if (file.size > MAX_MEDIA_FILE_BYTES) throw new MediaImportError(`${file.name} is ${Math.round(file.size / 1_048_576)} MB; a photo may be at most ${Math.floor(MAX_MEDIA_FILE_BYTES / 1_048_576)} MB.`);
-	const mime = mimeOf(file);
+	// The bytes decide what a file is, not its extension: a JPEG named `.png` carries the phone's GPS and
+	// would otherwise skip the re-encode that removes it.
+	const sniffed = sniffImageMime(new Uint8Array(await file.slice(0, 16).arrayBuffer()));
+	const mime = sniffed ?? mimeOf(file);
 	if (mime === 'image/svg+xml') {
 		const { blob, width, height } = await rasterizeSvg(file);
 		return { kind: 'image', name: mediaNameFromFile(file.name, 'image'), scope, blob, mime: blob.type || 'image/png', bytes: blob.size, width, height, sourceName: file.name, original: false };
@@ -164,7 +167,8 @@ export async function importImage(file: File, scope: string): Promise<NewMedia> 
 	try {
 		const plan = planImage(mime, bitmap.width, bitmap.height);
 		if (!plan.reencode) {
-			return { kind: 'image', name: mediaNameFromFile(file.name, 'image'), scope, blob: file, mime, bytes: file.size, width: plan.width, height: plan.height, sourceName: file.name, original: true };
+			// Wrapped so the stored type is the one decided here, not the file's (possibly empty or wrong) own.
+			return { kind: 'image', name: mediaNameFromFile(file.name, 'image'), scope, blob: new Blob([file], { type: mime }), mime, bytes: file.size, width: plan.width, height: plan.height, sourceName: file.name, original: true };
 		}
 		const canvas = document.createElement('canvas');
 		canvas.width = plan.width;

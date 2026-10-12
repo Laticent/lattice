@@ -14,7 +14,7 @@ import { listMedia, type MediaRecord, visibleMedia } from './media-store';
 
 const urlById = new Map<string, string>();
 // The visible assets' bytes by name, kept beside the URLs so an export can read them as `data:` URIs.
-const blobByName = new Map<string, { id: string; blob: Blob }>();
+const blobByName = new Map<string, { id: string; blob: Blob; mime: string }>();
 const dataUriById = new Map<string, Promise<string>>();
 let current: Record<string, string> = {};
 let activeDeckId: string | null = null;
@@ -50,7 +50,7 @@ export async function refreshAssetUrls(): Promise<void> {
 	blobByName.clear();
 	for (const m of visibleMedia(all, activeDeckId)) {
 		next[m.name] = urlFor(m);
-		blobByName.set(m.name, { id: m.id, blob: m.blob });
+		blobByName.set(m.name, { id: m.id, blob: m.blob, mime: m.mime });
 	}
 	if (signature(next) !== signature(current)) {
 		current = next;
@@ -96,18 +96,22 @@ export function sourceUsesAssets(source: string): boolean {
 
 /** A Blob as a `data:` URI. Reads the bytes and encodes in chunks, so it runs the same in a
  *  browser and in Node, and a multi-megabyte photo does not blow the argument limit of `btoa`. */
-async function blobToDataUri(blob: Blob): Promise<string> {
+async function blobToDataUri(blob: Blob, mime: string): Promise<string> {
 	const bytes = new Uint8Array(await blob.arrayBuffer());
 	let bin = '';
 	for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-	return `data:${blob.type || 'application/octet-stream'};base64,${btoa(bin)}`;
+	// The record's own type, not the Blob's: a Blob that lost its type would otherwise ship as a mystery download.
+	return `data:${mime || blob.type || 'application/octet-stream'};base64,${btoa(bin)}`;
 }
 
-/** The names a source writes as `asset:<name>`, lowercased and de-duplicated. Same grammar as
- *  lib/core/remote-ref.js `assetName`. */
+/** The names a source writes as `asset:<name>`, lowercased and de-duplicated. The kernel
+ *  (lib/core/remote-ref.js `assetName`) accepts a whole reference only when it is a plain name, so
+ *  `asset:team-photo.jpg` is NOT the photo `team-photo`: it renders the stand-in. This reads the whole
+ *  token, dots included, so such a reference is reported as the missing photo it is rather than
+ *  counted as a use of `team-photo`. A trailing dot is sentence punctuation, not part of the name. */
 export function assetNamesIn(source: string): string[] {
 	const out = new Set<string>();
-	for (const m of source.matchAll(/\basset:([a-z0-9][a-z0-9_-]*)/gi)) out.add(m[1].toLowerCase());
+	for (const m of source.matchAll(/\basset:([a-z0-9][a-z0-9._-]*)/gi)) out.add(m[1].replace(/\.+$/, '').toLowerCase());
 	return [...out];
 }
 
@@ -126,8 +130,11 @@ export async function dataUrlsFor(source: string): Promise<Record<string, string
 		if (!rec) continue;
 		let p = dataUriById.get(rec.id);
 		if (!p) {
-			p = blobToDataUri(rec.blob);
+			p = blobToDataUri(rec.blob, rec.mime);
 			dataUriById.set(rec.id, p);
+			// A read that failed (a photo deleted mid-export, a decode out of memory) must not be remembered:
+			// the next export would fail the same way for the rest of the session.
+			p.catch(() => dataUriById.delete(rec.id));
 		}
 		out[name] = await p;
 	}

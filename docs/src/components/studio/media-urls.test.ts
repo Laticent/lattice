@@ -141,16 +141,35 @@ describe('dataUrlsFor — what an export renders with', () => {
 
 	it('encodes a multi-megabyte photo without overflowing the call stack', async () => {
 		const big = new Uint8Array(3 * 1024 * 1024).map((_, i) => i % 251);
-		await saveMedia(make({ name: 'big', blob: new Blob([big], { type: 'image/jpeg' }) }), 1);
+		await saveMedia(make({ name: 'big', mime: 'image/jpeg', blob: new Blob([big], { type: 'image/jpeg' }) }), 1);
 		const uri = (await dataUrlsFor('![a](asset:big)')).big;
 		expect(uri.startsWith('data:image/jpeg;base64,')).toBe(true);
 		expect(Buffer.from(uri.split(',')[1], 'base64').equals(Buffer.from(big))).toBe(true);
 	});
 
-	it('encodes each photo once per session', async () => {
+	it('encodes each photo once per session — counted at the byte read, not by comparing two equal strings', async () => {
 		await saveMedia(photo('hero'), 1);
-		const a = await dataUrlsFor('![a](asset:hero)');
-		const b = await dataUrlsFor('![a](asset:hero)');
-		expect(b.hero).toBe(a.hero);
+		const read = vi.spyOn(Blob.prototype, 'arrayBuffer');
+		await dataUrlsFor('![a](asset:hero)');
+		const afterFirst = read.mock.calls.length;
+		expect(afterFirst).toBeGreaterThan(0);
+		await dataUrlsFor('![a](asset:hero)');
+		expect(read.mock.calls.length).toBe(afterFirst);
+		read.mockRestore();
+	});
+
+	it('a failed read is not remembered: the next export tries again instead of failing for the whole session', async () => {
+		await saveMedia(photo('hero'), 1);
+		const read = vi.spyOn(Blob.prototype, 'arrayBuffer').mockRejectedValueOnce(new Error('NotReadableError'));
+		await expect(dataUrlsFor('![a](asset:hero)')).rejects.toThrow('NotReadableError');
+		read.mockRestore();
+		expect((await dataUrlsFor('![a](asset:hero)')).hero).toMatch(/^data:image\/png;base64,/);
+	});
+
+	it('names a reference with an extension as the missing photo it is, not as a use of the photo it resembles', async () => {
+		await saveMedia(photo('team-photo'), 1);
+		expect(assetNamesIn('![](asset:team-photo.jpg) and asset:team-photo.')).toEqual(['team-photo.jpg', 'team-photo']);
+		expect(await missingAssetNames('![](asset:team-photo.jpg)')).toEqual(['team-photo.jpg']);
+		expect(await dataUrlsFor('![](asset:team-photo.jpg)')).toEqual({});
 	});
 });

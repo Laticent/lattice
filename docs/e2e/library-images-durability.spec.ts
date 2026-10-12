@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import type { Page } from '@playwright/test';
 import JSZip from 'jszip';
-import { CHROME, expect, gotoStudio, openSection, test, toastText } from './studio-fixture';
+import { CHROME, expect, gotoStudio, openSection, setEditorContent, test, toastText } from './studio-fixture';
 
 // A Library photo has to SURVIVE: a backup carries it, a restore puts it back where it was, the storage
 // line counts it, and deleting a deck takes its private photos with it
@@ -14,7 +14,7 @@ import { CHROME, expect, gotoStudio, openSection, test, toastText } from './stud
 // and adds the 390px `mobile` project, where the Workspace sheet opens its sections from a menu.
 test.describe.configure({ timeout: 300_000 });
 
-/** A WxH PNG of the given colour, or of random noise (incompressible, so its size is real). */
+/** A WxH PNG of the given color, or of random noise (incompressible, so its size is real). */
 async function addPhoto(page: Page, name: string, o: { w?: number; h?: number; noise?: boolean } = {}) {
 	await page.evaluate(
 		async ({ fileName, w, h, noise }) => {
@@ -127,6 +127,15 @@ test('a backup carries the photos and a restore puts them back where they were @
 	const deckScope = before.find((r) => r.name === 'keep-deck')?.scope as string;
 	expect(deckScope, 'a deck-only photo is scoped to a deck id').not.toBe('library');
 	await closeLibrary(page);
+	// The deck NAMES both photos, so the restore is judged on the slide, not only on the shelf.
+	// The editor is behind a tab on a phone; the slide-level check runs where it is on screen (the engines are the point).
+	const wide = (page.viewportSize()?.width ?? 0) >= 1100;
+	if (wide) await setEditorContent(page, '# Restored\n\n![shared pic](asset:keep-shared)\n\n![deck pic](asset:keep-deck)\n');
+	const slidePic = (alt: string) => page.locator('[aria-label="Live deck preview"] iframe.live').contentFrame().locator(`img[alt="${alt}"]`).first();
+	if (wide) {
+		await expect(slidePic('shared pic')).toHaveAttribute('src', /^blob:/, { timeout: 30_000 });
+		await expect(slidePic('deck pic')).toHaveAttribute('src', /^blob:/, { timeout: 30_000 });
+	}
 
 	// Back up. The file itself is the oracle, not the toast.
 	await openWorkspaceData(page);
@@ -142,6 +151,8 @@ test('a backup carries the photos and a restore puts them back where they were @
 	await closeWorkspace(page);
 
 	// Lose them: delete both through the Library's own two-tap delete.
+	// The deck names both, so each delete also asks "N deck uses it. Delete anyway?": accept it.
+	page.on('dialog', (d) => void d.accept());
 	await openLibraryImages(page);
 	for (const name of ['keep-deck', 'keep-shared']) {
 		const card = page.locator(`[data-media-card="${name}"]`);
@@ -163,6 +174,12 @@ test('a backup carries the photos and a restore puts them back where they were @
 	expect(after.find((r) => r.name === 'keep-shared')?.scope).toBe('library');
 	expect(after.find((r) => r.name === 'keep-deck')?.scope, 'the deck-only photo came back to the same deck').toBe(deckScope);
 	expect(after.map((r) => r.bytes)).toEqual(before.map((r) => r.bytes));
+	// And on the slide: the same deck, after the reload, paints the shared photo instead of the stand-in.
+	if (wide) {
+		await expect(slidePic('shared pic')).toHaveAttribute('src', /^blob:/, { timeout: 60_000 });
+		await expect(slidePic('deck pic'), 'the deck-only photo is visible to its own deck after the restore').toHaveAttribute('src', /^blob:/, { timeout: 60_000 });
+		await expect.poll(async () => slidePic('shared pic').evaluate((el: HTMLImageElement) => (el.complete ? el.naturalWidth : -1)), { timeout: 30_000 }).toBeGreaterThan(0);
+	}
 });
 
 test('the storage line counts a photo by its bytes, not as nothing @crosswidth @webkit-tablet @gecko', async ({ page }) => {

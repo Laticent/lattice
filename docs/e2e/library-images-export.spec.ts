@@ -35,7 +35,7 @@ async function addPhoto(page: Page, name: string) {
 
 /** The share of a picture's pixels that are the probe's green, decoded by the browser itself. A slide
  *  picture exists in every PDF and PowerPoint export whether or not the photo made it onto the
- *  slide, so "an image is present" proves nothing; the photo's own colour on the page does. */
+ *  slide, so "an image is present" proves nothing; the photo's own color on the page does. */
 async function greenShare(page: Page, png: Buffer): Promise<number> {
 	return page.evaluate(async (b64) => {
 		const bin = atob(b64);
@@ -104,8 +104,10 @@ test('@smoke the PDF export draws the photo on the page, and does not report a m
 	const path = await download(page, 'pdf');
 	const doc = await PDFDocument.load(new Uint8Array(readFileSync(path)), { updateMetadata: false });
 	expect(doc.getPageCount()).toBe(1);
+	// Anchor first: "no warning" passes on a page with no toast at all, so wait for the export's own toast.
+	await expect(page.locator('[data-sonner-toast]').filter({ hasText: /PDF ready/ }).first()).toBeVisible({ timeout: 60_000 });
 	await expect(page.locator('[data-sonner-toast]')).not.toContainText(/could not load every image/i);
-	// Rasterize page 1 with poppler and look for the photo's colour: the page, not the file's plumbing.
+	// Rasterize page 1 with poppler and look for the photo's color: the page, not the file's plumbing.
 	const dir = mkdtempSync(join(tmpdir(), 'lib-img-pdf-'));
 	execFileSync('pdftoppm', ['-png', '-r', '48', '-f', '1', '-l', '1', path, join(dir, 'p')]);
 	const png = readFileSync(execFileSync('sh', ['-c', `ls ${dir}/p*.png | head -1`]).toString().trim());
@@ -125,4 +127,32 @@ test('@smoke the PowerPoint export carries the photo, and does not report a miss
 	let best = 0;
 	for (const name of media) best = Math.max(best, await greenShare(page, Buffer.from(await (zip.file(name) as JSZip.JSZipObject).async('uint8array'))));
 	expect(best, 'some picture in the deck shows the photo').toBeGreaterThan(0.02);
+});
+
+// The positive control for everything above: a deck whose photo is GONE must say so, and must ship the drawn
+// stand-in rather than a dead link. Without it "no warning" in the tests above could mean "never warns".
+test('@smoke a photo deleted before export is named in the toast and drawn as the stand-in, never a dead link @webkit-tablet @gecko', async ({ page }) => {
+	await gotoStudio(page);
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await page.getByRole('button', { name: CHROME.library }).click();
+	await page.getByRole('tab', { name: 'Images' }).click();
+	await addPhoto(page, 'Soon Gone.png');
+	await expect(page.locator('[data-media-card="soon-gone"]')).toBeVisible();
+	await setEditorContent(page, '# Gone\n\n![A green probe](asset:soon-gone)\n');
+	await expect(page.locator('[aria-label="Live deck preview"] iframe.live').contentFrame().locator('img[alt="A green probe"]').first()).toHaveAttribute('src', /^blob:/, { timeout: 30_000 });
+	// The deck uses it, so the delete asks once more.
+	page.on('dialog', (d) => void d.accept());
+	const card = page.locator('[data-media-card="soon-gone"]');
+	await card.getByRole('button', { name: 'Delete soon-gone' }).click();
+	await card.getByRole('button', { name: /Confirm delete soon-gone/ }).click();
+	await expect(card).toHaveCount(0);
+	await page.getByRole('button', { name: 'Share', exact: true }).click();
+	await expect(page.getByRole('dialog')).toBeVisible();
+	const path = await download(page, 'webpage');
+	await expect(page.locator('[data-sonner-toast]').filter({ hasText: /“soon-gone” is not in this browser's Library/ }).first()).toBeVisible({ timeout: 30_000 });
+	const html = readFileSync(path, 'utf8');
+	const tag = [...html.matchAll(/<img\b[^>]*>/g)].map((m) => m[0]).find((t) => /alt="A green probe"/.test(t));
+	expect(tag, 'an <img> for the missing photo').toBeTruthy();
+	expect(/\ssrc="([^"]*)"/.exec(tag as string)?.[1] ?? '', 'the stand-in, drawn').toMatch(/^data:image\/svg\+xml/);
+	expect(html, 'no dead object URL').not.toMatch(/blob:https?:/);
 });

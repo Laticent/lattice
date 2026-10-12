@@ -72,6 +72,19 @@ export function mediaNameFromFile(fileName: string, kind: MediaKind): string {
 	return NAME_OK.test(slug) ? slug : kind;
 }
 
+/** What the leading bytes say a file is, for the five types the Library stores. Null for anything else
+ *  (HEIC and SVG included: the importer handles those by the type the browser reports). A file's own
+ *  `type` comes from its extension, so a JPEG renamed `.png` claims to be a PNG; the bytes do not lie. */
+export function sniffImageMime(b: Uint8Array): string | null {
+	const at = (i: number, s: string) => s.split('').every((ch, k) => b[i + k] === ch.charCodeAt(0));
+	if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return 'image/jpeg';
+	if (b[0] === 0x89 && at(1, 'PNG') && b[4] === 0x0d && b[5] === 0x0a && b[6] === 0x1a && b[7] === 0x0a) return 'image/png';
+	if (at(0, 'GIF87a') || at(0, 'GIF89a')) return 'image/gif';
+	if (at(0, 'RIFF') && at(8, 'WEBP')) return 'image/webp';
+	if (at(4, 'ftyp') && (at(8, 'avif') || at(8, 'avis'))) return 'image/avif';
+	return null;
+}
+
 function newId(): string {
 	return `m_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -236,6 +249,6 @@ export async function deleteDeckMedia(deckId: string): Promise<number> {
 /** How many decks' sources reference `asset:<name>`. Pure, so the delete warning and the
  *  tests share it. `sources` is every deck's markdown. */
 export function decksUsing(name: string, sources: string[]): number {
-	const ref = new RegExp(`\\basset:${name.replace(/[-_]/g, (c) => `\\${c}`)}(?![A-Za-z0-9_-])`, 'i');
+	const ref = new RegExp(`\\basset:${name.replace(/[-_]/g, (c) => `\\${c}`)}(?![A-Za-z0-9_-]|\\.[A-Za-z0-9])`, 'i');
 	return sources.filter((s) => ref.test(s)).length;
 }

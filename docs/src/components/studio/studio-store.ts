@@ -613,6 +613,20 @@ export function saveCheckpoint(deckId: string, source: string, label: string, ts
 	return next;
 }
 
+/** Rewrite every checkpoint's source of one deck through `fn`, leaving ids, times and labels alone. For a
+ *  restore that renamed a photo: a checkpoint that still named the old name would bring back the wrong picture. */
+export function mapCheckpointSources(deckId: string, fn: (source: string) => string): void {
+	const list = loadCheckpoints(deckId);
+	let changed = false;
+	const next = list.map((c) => {
+		const source = fn(c.source);
+		if (source === c.source) return c;
+		changed = true;
+		return { ...c, source };
+	});
+	if (changed) write(SNAP_PREFIX + deckId, next);
+}
+
 // ── Architect chat history (per deck) ──────────────────────────────────────
 export const CHAT_PREFIX = 'lattice-studio-chat-'; // + deckId → ChatMessage[] (exported for the storage-overlay drift test)
 const CHAT_CAP = 60;

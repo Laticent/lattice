@@ -30,7 +30,7 @@ import type { ImportRefusal } from './import-gate';
 import { LIBRARY_SCOPE } from './media-store';
 import { listRefDocs, type RefDocRecord, recordToDoc, saveRefDoc } from './reference-doc-store';
 import { listStoredScenes, putUnreadableScene, type StudioScene, saveStudioScene, type UnreadableScene, unreadableSceneShelf } from './scene-library';
-import { exportStudioState, type ImportSummary, importStudioState, loadSource, requestSourceFlush, resolvedSources, type StudioExport, saveSource, titleFromSource } from './studio-store';
+import { exportStudioState, type ImportSummary, importStudioState, loadSource, mapCheckpointSources, requestSourceFlush, resolvedSources, type StudioExport, saveSource, titleFromSource } from './studio-store';
 import { listStudioThemes, saveStudioTheme } from './theme-library';
 import { MAX_MEDIA_RESTORE_BYTES, MAX_MEDIA_ROWS, packMedia, renameAssetRefs, restoreMedia } from './workspace-media';
 import { declaredInflatedBytes, jsonGuard, MAX_INFLATED_BYTES, MAX_ZIP_BYTES, MAX_ZIP_ENTRIES, readBudget, readBytesBudget } from './zip-limits';
@@ -475,16 +475,24 @@ export async function restoreWorkspace(file: Blob, now: number): Promise<Restore
 	summary.media = photos.restored;
 	summary.mediaRenamed = photos.renames.length;
 	summary.refused.push(...photos.refused);
-	for (const r of photos.renames) {
-		// A shared photo is named by any deck the restore wrote; a deck's own photo, by that deck only.
-		const owner = r.scope === LIBRARY_SCOPE ? null : (summary.copies[r.scope] ?? r.scope);
-		for (const id of summary.written) {
+	// One name map per deck, applied in ONE pass, so a rename is never renamed again. A shared photo is
+	// named by any deck the restore wrote; a deck's own photo, by that deck only. `hasOwn`: the deck id is
+	// text from the backup.
+	for (const id of summary.written) {
+		const map = new Map<string, string>();
+		for (const r of photos.renames) {
+			const owner = r.scope === LIBRARY_SCOPE ? null : Object.hasOwn(summary.copies, r.scope) ? summary.copies[r.scope] : r.scope;
 			if (owner && id !== owner) continue;
-			const src = loadSource(id);
-			if (src == null) continue;
-			const next = renameAssetRefs(src, r.from, r.to);
+			map.set(r.from, r.to);
+		}
+		if (!map.size) continue;
+		const src = loadSource(id);
+		if (src != null) {
+			const next = renameAssetRefs(src, map);
 			if (next !== src) saveSource(id, next);
 		}
+		// Its saved versions too: restoring one must not bring back a name that now means another photo.
+		mapCheckpointSources(id, (c) => renameAssetRefs(c, map));
 	}
 	return summary;
 }

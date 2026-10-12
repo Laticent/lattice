@@ -479,12 +479,15 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 		const taken = new Set((await listMedia()).map((a) => a.name));
 		let n = 0;
 		const failed: string[] = [];
+		const renamed: string[] = [];
 		try {
 			for (const file of picked) {
 				try {
 					if (!classifyMedia(file)) throw new MediaImportError(`${file.name} isn't an image.`);
 					const rec = await importImage(file, scope);
+					const wanted = rec.name;
 					rec.name = uniqueName(rec.name, taken);
+					if (rec.name !== wanted) renamed.push(`“${wanted}” was taken, so ${file.name} is “${rec.name}”`);
 					await saveMedia(rec, Date.now());
 					taken.add(rec.name);
 					n++;
@@ -498,7 +501,12 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 			}
 			reload();
 			if (n) onChanged(); // the open deck's previews learn of the new photo
+			// Browsers may evict a site's storage under pressure (Safari after a week unused); ask to keep it. A refusal changes nothing.
+			if (n) void navigator.storage?.persist?.().catch(() => {});
 			if (n) notify(`Added ${n} image${n === 1 ? '' : 's'}${scope === LIBRARY_SCOPE ? ' to all decks' : ' to this deck'}.`);
+			// A name that was already a photo is never replaced: say which name the new one took, so a deck that
+			// still shows the old picture is not a mystery.
+			if (renamed.length) notify(`${renamed.slice(0, 2).join('; ')}${renamed.length > 2 ? ` (+${renamed.length - 2} more)` : ''}. Rename or delete the old one to reuse the name.`);
 			if (failed.length) notify(failed.slice(0, 2).join(' ') + (failed.length > 2 ? ` (+${failed.length - 2} more)` : ''));
 		} finally {
 			setBusy(null);

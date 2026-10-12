@@ -1284,6 +1284,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			setAssetStampText(m.assetStamp());
 		}).catch(() => {});
 	}, []);
+	// A photo added or deleted in ANOTHER tab changes the shelf under this one, and IndexedDB tells no one. Coming
+	// back to this tab re-reads it (only once the registry has loaded; a deck with no photos never pays).
+	React.useEffect(() => {
+		const back = () => { if (document.visibilityState !== 'hidden' && assetsTouched.current) refreshAssets(); };
+		window.addEventListener('focus', back);
+		document.addEventListener('visibilitychange', back);
+		return () => { window.removeEventListener('focus', back); document.removeEventListener('visibilitychange', back); };
+	}, [refreshAssets]);
 	// Saved (Fabricated) FINISHES from the same shared library (kind:'finish') — a
 	// finish designed + saved in the Finish faculty lands here, becomes pickable in
 	// the Inspector Finish menu, and renders in the deck preview (its CSS injected +

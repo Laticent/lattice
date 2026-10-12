@@ -1,9 +1,11 @@
 ---
-status: proposed
+status: in-progress
 summary: Photos and videos in the Library — one `asset:<name>` namespace, a scope flag (library or one deck), a name-to-URL map the host hands the engine, and the intake, export, backup and storage rules that follow.
 ---
 
 # Library media assets — photos and videos, shared or per deck (2026-10-12)
+
+**Where this stands:** images (slices 1 to 4) are built in #2640; video (slice 5) and the open questions below are still proposals.
 
 **Owner rulings (2026-10-12):** one `asset:<name>` namespace with a `scope` flag rather than two
 prefixes; images and video in the same line of work; one Images tab with a "This deck / All
@@ -112,7 +114,10 @@ shows its file dialog and a drag-and-drop onto the Library accepts the same type
   is 3 to 6 MB and a slide shows at most 1920 px wide, so the cap costs nothing a viewer can see.
   PNG and WebP are re-encoded only when over the cap, in their own format, so transparency and
   lossless screenshots survive. GIF (may be animated) and AVIF are stored as given, so they keep any metadata they carry; a small
-  PNG or WebP likewise (rare, and not where location lives). SVG is never stored: an SVG opened as a
+  PNG or WebP likewise. That is a real gap, not a rare one: editors such as Lightroom can write GPS into
+  AVIF and WebP, and nobody has measured how often. A file's bytes (not its extension) decide whether it
+  is a JPEG, so a renamed JPEG is still scrubbed (`sniffImageMime`); a followup tracks scrubbing the
+  rest. SVG is never stored: an SVG opened as a
   blob document runs its script on the site's origin, so the importer draws it to a PNG and keeps
   only the pixels.
 - **HEIC** (iPhone's native format): iOS Safari converts to JPEG when `accept` names `image/*`
@@ -133,7 +138,7 @@ against the real app yet, and slice 1 measures them before they harden.
 |---|---|---|
 | Per image after downscale | no cap needed (about 0.3 to 1.5 MB) | the downscale is the cap |
 | Per video | 50 MB, refused with a message above that | phone clips run 10 to 30 MB a minute at 1080p |
-| Workspace media | warn at 80% of `navigator.storage.estimate()` | the browser evicts silently under pressure; the warning is the only defense |
+| Workspace media | warn at 80% of `navigator.storage.estimate()` (**not built**; a followup). What IS built: the first photo added asks the browser to keep storage (`navigator.storage.persist()`), and a full disk is named plainly | the browser evicts silently under pressure; Safari after about a week unused |
 | HTML export video embed | embed at or under 25 MB total, otherwise poster plus a visible note | a self-contained HTML file is mailed around; 200 MB of it is a defect |
 | PDF, PNG, PPTX | video renders as its poster frame | those formats carry pixels, not playback |
 
@@ -146,8 +151,11 @@ against the real app yet, and slice 1 measures them before they harden.
   never listed.
 - **Moving.** "Make shared" and "Keep to this deck" flip `scope` in place. The name does not
   change, so no deck markdown is rewritten.
-- **Name clash.** Adding a name that exists in either scope is refused with the store's existing
-  `Can't save — "x" is already another saved image. Rename that one first.`
+- **Name clash.** The store refuses to overwrite: a second save under a held name in either scope is
+  refused (`Can't add — "x" is already another saved image. Rename that one first.`). The Images tab
+  adds a file whose name is taken under the next free name (`logo` → `logo-2`) and SAYS so in a
+  notice, so a deck that still shows the old picture is not a mystery. (The first draft of this note
+  said "refused"; the notice is the built behavior, because a refusal would drop a whole camera-roll batch.)
 - **Deleting a deck** deletes its deck-scoped assets in the same step, after the confirm that
   names how many.
 - **Deleting a library asset** that decks reference warns first with the count of decks that
@@ -162,10 +170,10 @@ mention its photos. What each one does, as built and checked on the real Studio 
 | Leaves as | Does | Checked on |
 |---|---|---|
 | Webpage (`.html`) | The photo is embedded as a `data:` URI; no `blob:` or `asset:` is left. | Chromium, WebKit, Firefox: the embedded bytes decode to the photo's own pixels |
-| PDF | The photo is on the page. | Chromium, WebKit, Firefox: poppler rasterizes page 1 and the photo's colour is on it |
+| PDF | The photo is on the page. | Chromium, WebKit, Firefox: poppler rasterizes page 1 and the photo's color is on it |
 | PowerPoint | The photo is in the slide picture. | Chromium, Firefox. **WebKit drops every picture in this lane today, a repo sample image included** (`followups.d/2640-p2-webkit-pptx-drops-images.md`) |
-| Image set, print | Same render as PDF and PowerPoint. | Not driven separately |
-| Markdown, Marp, `.lattice` | The reference stays as written; the photo is not in the file. | A recipient sees the missing-image stand-in. Carrying photos in these three is open (below) |
+| Image set, print | Same render as PDF and PowerPoint (`buildDeckRender` takes the same `data:` map). | UNVERIFIED on its own: the e2e drives PDF, PowerPoint and webpage, not the image-set download |
+| Markdown, Marp, `.lattice` | The reference stays as written; the photo is not in the file. | A recipient who opens the deck elsewhere gets the unresolved reference (Marp draws a broken image, Lattice the stand-in). The Share sheet does not warn on these three; carrying photos in them is open (below) |
 | Workspace backup | `media/` holds the bytes, `media.json` indexes them (§9). A restore puts them back to the same deck. | Chromium, WebKit, Firefox: back up, delete both photos, restore, bytes and scopes equal |
 
 **Why exports use `data:` and not the preview's `blob:`.** A saved file cannot hold a `blob:` URL, and
@@ -188,7 +196,15 @@ checked before anything inflates, all photo bytes share one running budget (1 Gi
 5,000 rows, a row's `file` must be exactly `<name>.<ext>` for an image type the Library stores, its `mime`
 must agree with the extension, and every number it claims is clamped. A refused photo is named in the
 restore toast and never costs the decks. A photo kept to a deck returns only if that deck did. A photo
-whose name is already on the shelf is replaced, and if the replacement fails the original is put back.
+whose name is already taken here is reused when the bytes are identical (under the same name or one it
+already came back under), so restoring one backup twice adds nothing; a name nobody holds is stored under
+its own name even when the same bytes sit under another, because a deck the restore does not rewrite may
+name it (an e2e caught the first version collapsing two identical photos into one); if it was kept to one deck the backup's decks cannot see, it is shared with all decks
+(widening visibility deletes nothing). A different photo under a taken name comes back under a new name
+chosen against every name on the device AND every name in the backup, and each restored deck and each of
+its checkpoints is rewritten once, from one name map, so a rename is never renamed again. Nothing on the
+device is ever replaced. Each photo's leading bytes must match its claimed type (JPEG, PNG, GIF, WebP,
+AVIF), so a row that says PNG over zeros or over a JPEG is refused. At most 25 refusals are listed by name.
 
 ### 10. Browsers that refuse to store a Blob
 

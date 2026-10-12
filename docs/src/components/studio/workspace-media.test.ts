@@ -13,6 +13,8 @@ async function emptyShelf() {
 	for (const a of await listAssets()) await deleteAsset(a.id);
 }
 const PNG = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 1, 2, 3, 4, 5]);
+// RIFF....WEBP: the leading bytes a real WebP has, which a restore now checks.
+const WEBP = new Uint8Array([0x52, 0x49, 0x46, 0x46, 1, 0, 0, 0, 0x57, 0x45, 0x42, 0x50, 1, 2]);
 const OTHER = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 9, 9, 9, 9, 9]);
 const photo = (over: Partial<NewMedia> = {}, bytes: Uint8Array = PNG): NewMedia => ({
 	kind: 'image', name: 'hero', scope: LIBRARY_SCOPE, blob: new Blob([bytes as BlobPart], { type: 'image/png' }), mime: 'image/png',
@@ -35,7 +37,7 @@ beforeEach(emptyShelf);
 describe('a round trip', () => {
 	it('puts back the same bytes, names, scopes and dates', async () => {
 		await saveMedia(photo({ name: 'shared' }), 111);
-		await saveMedia(photo({ name: 'mine', scope: 'deck-a', blob: new Blob([new Uint8Array([9, 9, 9])], { type: 'image/webp' }), mime: 'image/webp', original: false }), 222);
+		await saveMedia(photo({ name: 'mine', scope: 'deck-a', blob: new Blob([WEBP], { type: 'image/webp' }), mime: 'image/webp', original: false }), 222);
 		const z = new JSZip();
 		expect(await packMedia(z)).toMatchObject({ rows: 2, skipped: 0 });
 		const packed = await JSZip.loadAsync(await z.generateAsync({ type: 'uint8array' }));
@@ -43,18 +45,18 @@ describe('a round trip', () => {
 
 		await emptyShelf();
 		const out = await restoreMedia(packed, 999, ctx(['deck-a']));
-		expect(out).toEqual({ restored: 2, refused: [], renames: [] });
+		expect(out).toEqual({ restored: 2, shared: 0, refused: [], renames: [] });
 		const back = (await listMedia()).sort((a, b) => a.name.localeCompare(b.name));
 		expect(back.map((m) => [m.name, m.scope, m.mime, m.original, m.addedAt])).toEqual([['mine', 'deck-a', 'image/webp', false, 222], ['shared', LIBRARY_SCOPE, 'image/png', true, 111]]);
 		expect(await bytesOf(back[1])).toEqual(PNG);
-		expect(await bytesOf(back[0])).toEqual(new Uint8Array([9, 9, 9]));
+		expect(await bytesOf(back[0])).toEqual(WEBP);
 	});
 
 	it('writes nothing for an empty shelf, and restoring a backup with no photos is a no-op', async () => {
 		const z = new JSZip();
 		expect(await packMedia(z)).toEqual({ rows: 0, bytes: 0, skipped: 0 });
 		expect(Object.keys(z.files)).toEqual([]);
-		expect(await restoreMedia(z as never, 1, ctx())).toEqual({ restored: 0, refused: [], renames: [] });
+		expect(await restoreMedia(z as never, 1, ctx())).toEqual({ restored: 0, shared: 0, refused: [], renames: [] });
 	});
 
 	it('counts a photo in a type a backup does not carry, instead of dropping it in silence', async () => {
@@ -69,7 +71,7 @@ describe('a restore never deletes or overwrites a photo already on the device', 
 	it('an IDENTICAL photo under the same name is left exactly as it is', async () => {
 		const mine = await saveMedia(photo(), 1);
 		const out = await restoreMedia(await craft([row()]), 9, ctx());
-		expect(out).toEqual({ restored: 0, refused: [], renames: [] });
+		expect(out).toEqual({ restored: 0, shared: 0, refused: [], renames: [] });
 		const all = await listMedia();
 		expect(all).toHaveLength(1);
 		expect(all[0].id).toBe(mine.id);
@@ -109,6 +111,116 @@ describe('a restore never deletes or overwrites a photo already on the device', 
 		await saveMedia(photo({ name: 'hero-2' }, OTHER), 2);
 		const out = await restoreMedia(await craft([row()]), 9, ctx());
 		expect(out.renames[0].to).toBe('hero-3');
+	});
+});
+
+describe('names that chain, and photos that are already here', () => {
+	it('renames never chain: a backup with hero AND hero-2 against a different local hero keeps both pictures straight', async () => {
+		// The backup lists `hero` first (it was added later), so a naive restore sent it to hero-2 and then hero-2 to hero-2-2.
+		await saveMedia(photo({}, OTHER), 1);
+		const out = await restoreMedia(
+			await craft([row(), row({ name: 'hero-2', file: 'hero-2.png' })], { 'hero.png': PNG, 'hero-2.png': new Uint8Array([...PNG.slice(0, 8), 7, 7, 7, 7, 7]) }),
+			9,
+			ctx(),
+		);
+		expect(out.restored).toBe(2);
+		expect(out.renames).toEqual([{ from: 'hero', to: 'hero-3', scope: LIBRARY_SCOPE }]);
+		expect((await listMedia()).map((m) => m.name).sort()).toEqual(['hero', 'hero-2', 'hero-3']);
+		const map = new Map(out.renames.map((r) => [r.from, r.to]));
+		expect(renameAssetRefs('![a](asset:hero) ![b](asset:hero-2)', map)).toBe('![a](asset:hero-3) ![b](asset:hero-2)');
+	});
+
+	it('restoring the SAME backup twice adds nothing the second time', async () => {
+		await saveMedia(photo({}, OTHER), 1);
+		const zip = await craft([row()]);
+		const first = await restoreMedia(zip, 9, ctx());
+		const second = await restoreMedia(zip, 9, ctx());
+		expect(first.restored).toBe(1);
+		expect(second.restored).toBe(0);
+		// The second run finds the photo it stored the first time, under its new name, and points the decks at it.
+		expect(second.renames).toEqual([{ from: 'hero', to: 'hero-2', scope: LIBRARY_SCOPE }]);
+		expect((await listMedia()).map((m) => m.name).sort()).toEqual(['hero', 'hero-2']);
+	});
+
+	it('a taken name with different bytes reuses an identical photo that already came back under another name', async () => {
+		await saveMedia(photo({ name: 'logo' }, PNG), 1);
+		await saveMedia(photo({ name: 'hero' }, OTHER), 2);
+		const out = await restoreMedia(await craft([row()]), 9, ctx());
+		expect(out.restored).toBe(0);
+		expect(out.renames).toEqual([{ from: 'hero', to: 'logo', scope: LIBRARY_SCOPE }]);
+		expect(await listMedia()).toHaveLength(2);
+	});
+
+	it('a FREE name is stored under its own name even when the same bytes sit under another one, because decks that name it may not be rewritten', async () => {
+		await saveMedia(photo({ name: 'logo' }, PNG), 1);
+		const out = await restoreMedia(await craft([row()]), 9, ctx());
+		expect(out.restored).toBe(1);
+		expect(out.renames).toEqual([]);
+		expect((await listMedia()).map((m) => m.name).sort()).toEqual(['hero', 'logo']);
+	});
+
+	it('two photos with identical bytes under different names both come back (the e2e that caught the collapse)', async () => {
+		const out = await restoreMedia(
+			await craft([row({ name: 'keep-deck', file: 'keep-deck.png', scope: 'deck-x' }), row({ name: 'keep-shared', file: 'keep-shared.png' })], { 'keep-deck.png': PNG, 'keep-shared.png': PNG }),
+			9,
+			ctx(['deck-x']),
+		);
+		expect(out.restored).toBe(2);
+		expect(out.renames).toEqual([]);
+		expect((await listMedia()).map((m) => `${m.name}@${m.scope}`).sort()).toEqual(['keep-deck@deck-x', 'keep-shared@library']);
+	});
+
+	it('an identical photo kept to ONE deck is shared when the backup shared it, so a restored deck can still see it', async () => {
+		const mine = await saveMedia(photo({ scope: 'deck-local' }, PNG), 1);
+		const out = await restoreMedia(await craft([row({ scope: LIBRARY_SCOPE })]), 9, ctx());
+		expect(out.restored).toBe(0);
+		expect(out.shared).toBe(1);
+		const [back] = await listMedia();
+		expect(back.id).toBe(mine.id);
+		expect(back.scope).toBe(LIBRARY_SCOPE);
+		expect(await bytesOf(back)).toEqual(PNG);
+	});
+
+	it('the self-restore case: a deck came back as a copy, and the identical photo kept to the original deck becomes visible to the copy', async () => {
+		await saveMedia(photo({ name: 'priv', scope: 'deck-aaa' }, PNG), 1);
+		const out = await restoreMedia(await craft([row({ name: 'priv', file: 'priv.png', scope: 'deck-aaa' })], { 'priv.png': PNG }), 9, ctx(['deck-aaa'], { 'deck-aaa': 'deck-aaa-r0' }));
+		expect(out.shared).toBe(1);
+		const [back] = await listMedia();
+		expect(back.scope).toBe(LIBRARY_SCOPE);
+	});
+});
+
+describe('a backup is a file from anyone: what the bytes say', () => {
+	it('a row that says PNG over bytes that are not an image is refused, however well the zip compresses them', async () => {
+		const zeros = new Uint8Array(200_000);
+		const out = await restoreMedia(await craft([row()], { 'hero.png': zeros }), 9, ctx());
+		expect(out.restored).toBe(0);
+		expect(out.refused).toEqual([{ name: 'photo hero', why: 'its bytes are not PNG image data' }]);
+		expect(await listMedia()).toHaveLength(0);
+	});
+
+	it('a JPEG (with whatever it carries) labeled PNG is refused, not stored under the wrong name', async () => {
+		const jpeg = new Uint8Array([0xff, 0xd8, 0xff, 0xe1, 0, 8, 1, 2, 3, 4]);
+		const out = await restoreMedia(await craft([row()], { 'hero.png': jpeg }), 9, ctx());
+		expect(out.restored).toBe(0);
+		expect(out.refused).toHaveLength(1);
+	});
+
+	it('a deck id that is an Object.prototype key is an ordinary id, not a way to corrupt the saved scope', async () => {
+		for (const id of ['__proto__', 'constructor', 'toString']) {
+			await emptyShelf();
+			const out = await restoreMedia(await craft([row({ scope: id })]), 9, ctx([id]));
+			expect(out.refused, id).toEqual([]);
+			const [back] = await listMedia();
+			expect(back.scope, id).toBe(id);
+		}
+	});
+
+	it('five thousand bad rows are a short list and a count, not a five-hundred-kilobyte toast', async () => {
+		const rows = Array.from({ length: 300 }, (_, i) => row({ name: `p${i}`, file: `p${i}.png` }));
+		const out = await restoreMedia(await craft(rows, {}), 9, ctx());
+		expect(out.refused.length).toBeLessThanOrEqual(26);
+		expect(out.refused.at(-1)?.why).toMatch(/^\d+ more were refused/);
 	});
 });
 
@@ -227,6 +339,11 @@ describe('hostile rows', () => {
 });
 
 describe('renameAssetRefs', () => {
+	it('applies a whole from → to map in ONE pass, so a rename is never renamed again', () => {
+		const map = new Map([['hero', 'hero-2'], ['hero-2', 'hero-2-2']]);
+		expect(renameAssetRefs('![a](asset:hero) ![b](asset:hero-2) ![c](asset:hero-3)', map)).toBe('![a](asset:hero-2) ![b](asset:hero-2-2) ![c](asset:hero-3)');
+	});
+
 	it('rewrites the whole name wherever a deck writes it, and only that name', () => {
 		const src = '![a](asset:img-0042)\n![bg](ASSET:Img-0042)\n![c](asset:img-0042-2)\n![d](asset:img-0043)\n`asset:img-0042x`';
 		expect(renameAssetRefs(src, 'img-0042', 'img-0042-3')).toBe('![a](asset:img-0042-3)\n![bg](asset:img-0042-3)\n![c](asset:img-0042-2)\n![d](asset:img-0043)\n`asset:img-0042x`');
