@@ -228,6 +228,27 @@ test('the collage hides the page number with the doubled-class arms', () => {
   assert.match(css, /section\.collage\.collage\s*>\s*\.lat-pagination\s*\{\s*display:\s*none;\s*\}/, 'the page-number element is hidden');
 });
 
+test('the description is a plain paragraph under the header rule: no hairline above it, no bottom-aligned gap', () => {
+  const css = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'lib', 'components', 'imagery', 'collage', 'collage.styles.css'), 'utf8');
+  // The shared below-note rule (base.modifiers.css) hairlines any paragraph that follows a block, so the
+  // paragraph that follows the masthead needs an override that out-ranks it.
+  assert.match(css, /section\.collage\.collage\.collage\s*>\s*\.cell-masthead\s*\+\s*p::before\s*\{\s*content:\s*none;\s*\}/, 'the second hairline is suppressed');
+  // `align-self: end` pushed it to the bottom of its grid row and left a gap under the header rule.
+  const beside = css.match(/> p \{\s*grid-column: 1;\s*grid-row: 2;\s*align-self: (\w+);/);
+  assert.ok(beside, 'the beside-layout paragraph rule is present');
+  assert.equal(beside[1], 'start', 'the description sits straight under the header');
+});
+
+test('bleed takes the whole slide: no header or footer, a stretched grid, a translucent title card', () => {
+  const css = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'lib', 'components', 'imagery', 'collage', 'collage.styles.css'), 'utf8');
+  assert.match(css, /section\.collage\.bleed > header,\s*section\.collage\.bleed > footer\s*\{\s*display:\s*none;\s*\}/, 'the header and footer are off');
+  assert.match(css, /section\.collage\.bleed \.collage-list\s*\{\s*--collage-h:\s*100cqh;\s*--collage-w:\s*100cqw;\s*\}/, 'the grid is stretched to the slide, not kept at its own shape');
+  assert.match(css, /section\.collage\.bleed > \.cell-masthead\s*\{[^}]*background:\s*color-mix\(in srgb, var\(--bg\) \d+%, transparent\)/, 'the title card is translucent');
+  assert.match(css, /section\.collage\.bleed > \.cell-masthead\s*\{[^}]*position:\s*absolute;\s*top:\s*0;\s*left:\s*var\(--frame-x\);/, 'the title card is pinned to the top edge at the frame inset');
+  const { STAGE_ASPECT } = require('../../../lib/core/collage-pack');
+  assert.equal(STAGE_ASPECT.landscape.bleed, 16 / 9, 'the bleed estimate is the slide itself, so no bands are left');
+});
+
 // ── lint rules (lib/authoring/lint-core.js) ─────────────────────────────────────────────
 const lintCore = require('../../../lib/authoring/lint-core');
 

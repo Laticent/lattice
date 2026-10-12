@@ -170,7 +170,7 @@ section.collage:not(.above):not(.bleed):not([data-orientation="portrait"]):not([
 section.collage:not(.above):not(.bleed):not([data-orientation="portrait"]):not([data-orientation="square"]) > p {
 	grid-column: 1;
 	grid-row: 2;
-	align-self: end;
+	align-self: start;
 }
 section.collage:not(.above):not(.bleed):not([data-orientation="portrait"]):not([data-orientation="square"]) > .collage-fit {
 	grid-column: 2;
@@ -192,6 +192,19 @@ section.collage.mirror:not(.above):not(.bleed):not([data-orientation="portrait"]
 	grid-column: 1;
 }
 
+/* The description is a plain paragraph straight under the header: the masthead's own rule (the
+ * `rule:` register styles it) is the only line, so there is no second hairline above the
+ * paragraph and no gap beneath the rule. The shared below-note rule (base.modifiers.css) draws
+ * a hairline on any paragraph that follows a block; the coda after the photos keeps it, and
+ * this paragraph, which follows the masthead, does not. The tripled class beats that rule's
+ * specificity without an `!important`. */
+section.collage.collage.collage > .cell-masthead + p {
+	padding-top: var(--sp-xs);
+}
+section.collage.collage.collage > .cell-masthead + p::before {
+	content: none;
+}
+
 /* above, and the stacked fallback for portrait and square decks: the frame's own column flow
  * (masthead, description) with the photos filling what is left */
 section.collage:is(.above, [data-orientation="portrait"], [data-orientation="square"]) {
@@ -204,7 +217,10 @@ section.collage:is(.above, [data-orientation="portrait"], [data-orientation="squ
 	flex: 0 0 auto;
 }
 
-/* bleed: the photos fill the slide, the text rides a solid card */
+/* bleed: the photos fill the whole slide, edge to edge. The header, footer and page number step
+ * aside (nothing is drawn over the photos but the title card), and the grid is stretched to the
+ * slide instead of keeping its own shape, so there are no bands above or below it. The packer
+ * solved the layout for the slide's own aspect, so the stretch crops a few percent at most. */
 section.collage.bleed {
 	/* the gap stays at the packer's ratio so every tile keeps its exact shape */
 	--collage-radius: 0;
@@ -214,24 +230,28 @@ section.collage.bleed > .collage-fit {
 	inset: 0;
 	width: 100%;
 	height: 100%;
+	z-index: 0;
 }
+section.collage.bleed .collage-list {
+	--collage-h: 100cqh;
+	--collage-w: 100cqw;
+}
+section.collage.bleed > header,
+section.collage.bleed > footer {
+	display: none;
+}
+/* the title card rides over the photos; it is translucent so the photo behind still shows */
 section.collage.bleed > .cell-masthead {
-	position: relative;
+	/* pinned to the top edge at the frame's own left inset, so the photos keep the rest of the slide */
+	position: absolute;
+	top: 0;
+	left: var(--frame-x);
 	z-index: 2;
-	background: var(--bg);
+	background: color-mix(in srgb, var(--bg) 84%, transparent);
 	padding: var(--sp-md) var(--sp-lg);
 	width: max-content;
 	max-width: 60%;
 }
 section.collage.bleed > p {
 	display: none;
-}
-/* the header and footer stay readable over the photos: each rides a small solid chip */
-section.collage.bleed > header,
-section.collage.bleed > footer {
-	z-index: 3;
-	background: var(--bg);
-	padding: var(--sp-3xs) var(--sp-xs);
-	width: max-content;
-	max-width: 60%;
 }

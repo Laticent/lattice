@@ -128,7 +128,7 @@ Use `above` when the description is short and the photos are mostly landscape.
 
 ## The photos run edge to edge.
 
-`The text rides a solid card`
+`The title rides a translucent card`
 
 - ![Tall portrait](sample:photo-tall.jpg)
 - ![Wide landscape](sample:photo-wide.jpg)

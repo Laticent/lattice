@@ -865,6 +865,31 @@ test('a scene deck injects the Anima bundle under the SAME sha256 CSP; a scene-l
 	assert.doesNotMatch(plain, /__latticeAnima/, 'a scene-less export must not ship the ~58 KB backends');
 });
 
+test('a collage deck inlines the lightbox under the SAME sha256 CSP, stays ASCII; a deck without one is untouched', async () => {
+	// The collage lightbox rides in the ONE hashed <script>, gated on the grid's own marker on a
+	// real <ul> tag, so a collage-less export stays byte-identical (the golden's rule).
+	const tile = '<li class="collage-tile" data-label="A \u2014 photo"><img src="data:image/png;base64,iVBORw0KGgo=" alt="A photo"></li>';
+	const collageDoc = docHtml.replace(
+		'<p>Intro paragraph.</p>',
+		`<p>Intro paragraph.</p><ul class="collage-list" data-collage="packed" data-collage-n="1">${tile}</ul>`,
+	);
+	assert.notEqual(collageDoc, docHtml, 'the fixture must actually carry the collage');
+	const { html } = await buildPlayerHtml({ docHtml: collageDoc, source, now: 0 });
+	const body = html.match(/<script>([\s\S]*?)<\/script>/i)[1];
+	assert.match(body, /var openCollageLightbox=function/, 'the opener must be inlined for a collage deck');
+	assert.match(body, /useDialog:true/, 'the player hosts it in a native <dialog>');
+	const cspHash = (html.match(/script-src 'sha256-([^']+)'/) || [])[1];
+	assert.equal(crypto.createHash('sha256').update(body, 'utf8').digest('base64'), cspHash, 'the hash must cover the script WITH the lightbox');
+	assert.equal([...body].filter((c) => c.codePointAt(0) > 0x7f).length, 0, 'the script stays pure ASCII');
+	// Byte-identity gate, and the code-fence case: a deck that only DOCUMENTS the attribute has the
+	// tag's `<` escaped, so it must not ship an opener it will never use.
+	const { html: plain } = await buildPlayerHtml({ docHtml, source, now: 0 });
+	assert.doesNotMatch(plain, /openCollageLightbox/, 'a collage-less export must not carry the lightbox');
+	const fenced = docHtml.replace('<p>Intro paragraph.</p>', '<pre><code>&lt;ul class="collage-list" data-collage="packed"&gt;</code></pre>');
+	const { html: documented } = await buildPlayerHtml({ docHtml: fenced, source, now: 0 });
+	assert.doesNotMatch(documented, /openCollageLightbox/, 'a fenced mention must not trip the gate');
+});
+
 test('the CSP-hashed script is pure ASCII (WebKit hashes non-ASCII differently → blocks it)', async () => {
 	// iOS WebKit (Safari + every iOS webview) computes the sha256 CSP hash over a different
 	// byte encoding than Chromium/Node for non-ASCII, so a glyph or em-dash in the script
