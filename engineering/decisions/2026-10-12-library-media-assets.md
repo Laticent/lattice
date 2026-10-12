@@ -84,10 +84,14 @@ opens the native picker with Photo Library, Take Photo or Video, and Choose File
 shows its file dialog and a drag-and-drop onto the Library accepts the same types
 (`library-drop.test.ts` is the existing harness).
 
-- **Photos are downscaled on import** to a 2560 px long edge, re-encoded as JPEG (WebP when the
-  source has alpha), and the record is marked `original: false`. A 12-megapixel phone photo is
-  3 to 6 MB; a slide shows at most 1920 px wide, so the extra pixels cost quota and buy nothing a
-  viewer can see. SVG, GIF and PNG under the cap are stored as given.
+- **Photos are re-encoded on import.** JPEG and HEIC always go through a canvas: capped to a
+  2560 px long edge, written as JPEG at quality 0.88, record marked `original: false`. The
+  re-encode is what removes the phone's GPS and EXIF from the stored bytes, and it bakes the EXIF
+  rotation into the pixels so a portrait photo is not stored sideways. A 12-megapixel phone photo
+  is 3 to 6 MB and a slide shows at most 1920 px wide, so the cap costs nothing a viewer can see.
+  PNG and WebP are re-encoded only when over the cap, in their own format, so transparency and
+  lossless screenshots survive. GIF (may be animated), SVG and AVIF are stored as given. A small
+  PNG keeps whatever `eXIf` chunk it carries, which is rare and not where location lives.
 - **HEIC** (iPhone's native format): iOS Safari converts to JPEG when `accept` names `image/*`
   and `image/heic` is not requested. Other browsers that hand back raw HEIC get a clear
   "this browser can't read HEIC; export as JPEG" refusal, not a silent broken picture.

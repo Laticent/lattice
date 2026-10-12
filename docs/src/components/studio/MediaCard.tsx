@@ -38,11 +38,14 @@ export function MediaCard({ m, activeDeckId, usedIn, armed, confirmLabel, onArm,
 	const canFlip = shared ? activeDeckId !== null : m.scope === activeDeckId;
 	return (
 		<div className="relative overflow-hidden rounded-xl border border-border bg-card" data-media-card={m.name}>
-			<div className="grid h-[88px] w-full place-items-center overflow-hidden bg-[var(--bg-alt)]">
+			{/* The image is ABSOLUTE inside a fixed box. As a `h-full` grid item it was sized by its own
+			    row, not by the 88px: a 1920×2560 photo painted 351px tall, `object-cover` had nothing to
+			    crop to, and `overflow-hidden` showed only the top strip (measured in Chromium). */}
+			<div className="relative h-[88px] w-full overflow-hidden bg-[var(--bg-alt)]">
 				{url ? (
-					<img src={url} alt="" className="h-full w-full object-cover" loading="lazy" draggable={false} />
+					<img src={url} alt="" className="absolute inset-0 h-full w-full object-cover" loading="lazy" draggable={false} />
 				) : (
-					<ImageIcon className="size-6 text-muted-foreground" aria-hidden />
+					<ImageIcon className="absolute left-1/2 top-1/2 size-6 -translate-x-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden />
 				)}
 			</div>
 			<div className="p-2.5">
@@ -53,7 +56,7 @@ export function MediaCard({ m, activeDeckId, usedIn, armed, confirmLabel, onArm,
 				</div>
 				<div className="mt-1 truncate font-mono text-[10.5px] text-muted-foreground">
 					{m.width}×{m.height} · {formatBytes(m.bytes)}
-					{m.original ? '' : ' · resized'}
+					{m.original ? '' : ' · optimized'}
 					{usedIn > 0 ? ` · used in ${usedIn} deck${usedIn === 1 ? '' : 's'}` : ''}
 				</div>
 				<div className="mt-2.5 flex items-center gap-1.5">
