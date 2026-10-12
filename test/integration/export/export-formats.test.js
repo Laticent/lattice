@@ -764,7 +764,8 @@ describe('export-formats', () => {
   test('a JPEG stored rotated (EXIF Orientation 6) stays in the photo, where it is upright', { timeout: TIMEOUT }, () => {
     const dir = tmpDir();
     // The same sample twice: once as shipped (Orientation 6), once with its Exif segment removed.
-    // Only the rotated copy may stay in the photo; the plain one is embedded at its own bytes.
+    // Only the rotated copy may stay in the photo; the plain one is embedded at its own bytes. One image
+    // per slide, so neither can be refused for sharing a line with the other.
     const rotated = fs.readFileSync(path.join(ROOT, 'lib/samples/photo-tall-rotated.jpg'));
     fs.writeFileSync(path.join(dir, 'rotated.jpg'), rotated);
     const sof = rotated.indexOf(Buffer.from([0xff, 0xc0]));
@@ -775,8 +776,11 @@ describe('export-formats', () => {
     const src = path.join(dir, 'rotated.md');
     fs.writeFileSync(src, [
       '---', 'html: true', 'paginate: false', '---', '',
-      '## Rotated and plain', '',
-      '<img src="rotated.jpg" style="width:200px;height:300px"> <img src="plain.jpg" style="width:200px;height:300px">', '',
+      '## Rotated', '',
+      '<img src="rotated.jpg" style="width:200px;height:300px">', '',
+      '---', '',
+      '## Plain', '',
+      '<img src="plain.jpg" style="width:200px;height:300px">', '',
     ].join('\n'));
     const out = path.join(dir, 'rotated.pdf');
     const report = path.join(dir, 'report.json');
@@ -785,8 +789,8 @@ describe('export-formats', () => {
     });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
     const rep = JSON.parse(fs.readFileSync(report, 'utf8'));
-    assert.equal(rep.refusedImages.rotated, 1, 'the rotated copy stays in the photo');
-    assert.equal(rep.images, 1, 'the plain copy is embedded natively');
+    assert.equal(rep.refusedImages.rotated, 1, `the rotated copy stays in the photo: ${JSON.stringify(rep)}`);
+    assert.equal(rep.images, 1, `the plain copy is embedded natively: ${JSON.stringify(rep)}`);
   });
 
   test('--chrome-pdf prints with Chrome: the finish stays vector drawing, nothing is photographed', { timeout: TIMEOUT }, () => {
