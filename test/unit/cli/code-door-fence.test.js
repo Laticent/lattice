@@ -348,6 +348,12 @@ describe('the gate for a plugin’s one script', () => {
     assert.equal(refusePluginCode(plugin({}, { render: { parity: 'equivalent', degradesTo: 'source', exec: {} } })), null, 'an empty exec runs nothing');
   });
 
+  test('refuses a renderer holding a lone surrogate: two files could share a consent digest in a browser', () => {
+    const bad = `// \ud800\n${code}`;
+    assert.match(refusePluginCode(plugin({ files: { 'gantt-plugin.render.js': bad } })), /lone UTF-16 surrogate/);
+    assert.equal(refusePluginCode(plugin({ files: { 'gantt-plugin.render.js': `// \ud83d\ude00\n${code}` } })), null, 'a paired surrogate (an emoji) is fine');
+  });
+
   test('refuses a fence name the schema does not allow, NUL and markup included', () => {
     for (const bad of ['a\u0000x', 'Gantt <b>', 'Gantt', '1gantt', 'a b', '']) {
       assert.match(refusePluginCode(plugin({}, { contributes: { fences: { [bad]: {} } } })) ?? '', /fence name|declares/, JSON.stringify(bad));

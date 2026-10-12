@@ -15,7 +15,8 @@ import { expect, gotoStudio, livePreview, setEditorContent, shareExport, test, t
 // nested worker, WebRTC to a UDP port and a navigation, and the markup it returns names a local server
 // six ways. A REAL loopback HTTP + WebSocket server and a UDP socket count what reaches them.
 //
-//   1. NOT LISTED   the deck does not name the plugin → nothing runs, no frame opens, the log is empty.
+//   1. NOT LISTED   the deck does not name the plugin → a placeholder stands in the block and the strip offers
+//                   it; nothing runs, no frame opens, the log is empty.
 //   2. UNAPPROVED   listed, never approved → the block stays code with a note, the notice offers the
 //                   code, no frame opens, the log is empty.
 //   3. APPROVED     the fence draws inside the plugin's root; the foreign class, the handler and every
@@ -94,12 +95,14 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 			const preview = livePreview(page);
 			const notice = page.locator('[data-slot="code-packages"]');
 
-			// 1. NOT LISTED: installed, not named by the deck. It is a code block, and nothing runs.
+			// 1. NOT LISTED: installed, not named by the deck. A drawn placeholder stands in the block, the strip
+			//    offers it, and nothing runs.
 			await setEditorContent(page, UNLISTED);
-			await expect(preview.locator('code.language-gantt')).toHaveCount(1, { timeout: 30_000 });
+			await expect(preview.locator('[data-lattice-plugin-off="gantt-plugin"]')).toHaveCount(1, { timeout: 30_000 });
+			await expect(preview.locator('code.language-gantt')).toHaveCount(0);
 			await expect(preview.locator('[data-lattice-plugin]')).toHaveCount(0);
 			await expect(page.locator('iframe[data-lattice-code-sandbox]')).toHaveCount(0);
-			await expect(notice).toHaveCount(0);
+			await expect(notice).toHaveAttribute('data-state', 'offered');
 
 			// 2. UNAPPROVED: listed, never approved.
 			await setEditorContent(page, LISTED);

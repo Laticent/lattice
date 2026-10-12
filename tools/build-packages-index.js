@@ -250,8 +250,15 @@ function renderFenceDoor() {
       for (const a of decl.aliases || []) shipped.add(a.name);
     }
   }
+  // Every highlight.js language and alias: a plugin fence of that name would take over every code block in it.
+  const hljs = require('highlight.js');
+  const languages = new Set();
+  for (const lang of hljs.listLanguages()) {
+    languages.add(lang);
+    for (const alias of hljs.getLanguage(lang)?.aliases || []) languages.add(alias);
+  }
   const rebuilt = rebuiltAlternatives().map((a) => ({ pass: a.pass, classes: [...a.classes] }));
-  return `${JSON.stringify({ generated: 'tools/build-packages-index.js — DO NOT EDIT', rebuilt, shippedFences: [...shipped].sort() }, null, 2)}\n`;
+  return `${JSON.stringify({ generated: 'tools/build-packages-index.js — DO NOT EDIT', rebuilt, shippedFences: [...shipped].sort(), highlightLanguages: [...languages].sort() }, null, 2)}\n`;
 }
 
 const OUTPUTS = [

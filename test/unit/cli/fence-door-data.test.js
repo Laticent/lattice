@@ -43,6 +43,27 @@ describe('the generated fence-door data', () => {
   });
 });
 
+describe('highlight languages and activation', () => {
+  test('the generated language list is highlight.js’s own, aliases included', () => {
+    const hljs = require('highlight.js');
+    const live = new Set();
+    for (const l of hljs.listLanguages()) {
+      live.add(l);
+      for (const a of hljs.getLanguage(l)?.aliases || []) live.add(a);
+    }
+    assert.deepEqual(DATA.highlightLanguages, [...live].sort());
+    assert.ok(DATA.highlightLanguages.includes('python') && DATA.highlightLanguages.includes('js'));
+  });
+
+  test('activePluginNames: only the plugins the deck’s plugins: line names, in any YAML spelling', async () => {
+    const { activePluginNames } = await load();
+    const installed = ['a-plug', 'b-plug', 'c-plug'];
+    assert.deepEqual([...activePluginNames('---\nplugins: [a-plug, c-plug]\n---\n', installed)], ['a-plug', 'c-plug']);
+    assert.deepEqual([...activePluginNames('---\nplugins:\n  - b-plug\n---\n', installed)], ['b-plug']);
+    assert.deepEqual([...activePluginNames('no front matter', installed)], []);
+  });
+});
+
 describe('planFencePlugins: which plugins a door runs', () => {
   const host = { shipped: ['math', 'mermaid'] };
 
@@ -85,5 +106,29 @@ describe('fenceCaptureNotes', () => {
     assert.match(notes[1], /slide 2 is rebuilt by the shipped `video` pass/);
     assert.match(notes[2], /slide 3 holds a raw <section>/);
     assert.match(notes[3], /3 plugin blocks past the 400/);
+  });
+});
+
+describe('fencePlaceholder: what stands where a plugin the deck did not list would draw', () => {
+  test('names the plugin, carries none of the author’s text, and escapes the name', async () => {
+    const { fencePlaceholder } = await load();
+    const html = fencePlaceholder('gantt-plugin');
+    assert.match(html, /^<div data-lattice-plugin-off="gantt-plugin" role="note">/);
+    assert.match(html, /<strong>gantt-plugin<\/strong>/);
+    assert.match(html, /not listed in this deck's plugins:/);
+    const hostile = fencePlaceholder('x"><script>alert(1)</script>');
+    assert.doesNotMatch(hostile, /<script/);
+    assert.ok(!fencePlaceholder('a\u001b[2Jb').includes('\u001b'), 'a control character is not printed');
+  });
+
+  test('the engine’s stylesheet draws it from tokens and the shape table only (HARD RULES #3, #20, #29)', () => {
+    const css = fs.readFileSync(path.join(__dirname, '../../../lib/base/base.modifiers.css'), 'utf8');
+    const start = css.indexOf("A PLUGIN'S FENCE THE DECK DID NOT LIST");
+    const block = css.slice(start, css.indexOf('Marp Core converts unicode emoji', start));
+    assert.ok(start > 0 && block.length > 500, 'the placeholder rule is in the stylesheet');
+    assert.doesNotMatch(block, /#[0-9a-fA-F]{3,8}\b/, 'no hex literal');
+    assert.doesNotMatch(block, /(^|[\s;{])margin[a-z-]*\s*:/, 'no margin');
+    assert.match(block, /var\(--shape-spark\)/, 'the mark is the shape table’s');
+    assert.doesNotMatch(block, /animation|@keyframes/, 'it is still: an export capture must not move');
   });
 });

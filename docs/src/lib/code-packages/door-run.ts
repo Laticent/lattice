@@ -8,7 +8,7 @@ import DOMPurify from 'dompurify';
 import { doorFinish, doorFinishFence } from '../../../../lib/core/door-attr.mjs';
 import { createSlideSanitizer } from '../../../../lib/core/sanitize-slide-html.mjs';
 import { captureHook, claimKey, engineClaimsOf, SLIDE_MS, slideInput, spliced, substituteHook, withFailureNote } from '../../../../lib/packages/code-door-core.mjs';
-import { captureFences, fenceCaptureNotes, fenceInput, fenceKey, fenceMarkup, fenceNamespace, planFencePlugins, rebuiltFromAlternatives, substituteFences, withFenceNote } from '../../../../lib/packages/code-door-fence.mjs';
+import { activePluginNames, captureFences, fenceCaptureNotes, fenceInput, fenceKey, fenceMarkup, fenceNamespace, fenceOutputNote, fencePlaceholder, planFencePlugins, rebuiltFromAlternatives, substituteFences, withFenceNote } from '../../../../lib/packages/code-door-fence.mjs';
 import FENCE_DOOR from '../../../../lib/packages/fence-door.generated.json';
 import SHIPPED from '../../../../lib/packages/packages.generated.json';
 import { deckPluginList } from '../../../../lib/plugins/deck-plugins.mjs';
@@ -42,6 +42,7 @@ const ENGINE_CLAIMS: readonly string[] = engineClaimsOf(SHIPPED);
 // and pinned to the CLI door's live reads by test/unit/cli/fence-door-data.test.js.
 const REBUILT = rebuiltFromAlternatives(FENCE_DOOR.rebuilt);
 const SHIPPED_FENCES: readonly string[] = FENCE_DOOR.shippedFences;
+const HIGHLIGHT_LANGUAGES = new Set<string>(FENCE_DOOR.highlightLanguages);
 const RENDER_BUDGET_MS = 30_000;
 /**
  * The most package output ONE render sanitizes, across every slide. The sanitizer runs on the
@@ -52,6 +53,8 @@ const RENDER_OUTPUT_MAX = 4_000_000;
 const MEMO_MAX = 400;
 
 const memo = new Map<string, string>();
+/** The RAW length of each remembered fence result, so a remembered result counts against the cap as a fresh one did. */
+const rawLength = new Map<string, number>();
 /** Code that failed to load, by digest, with why: not retried on every render. */
 const unloadable = new Map<string, string>();
 
@@ -102,8 +105,18 @@ function doorSanitizer() {
 	return sanitizeWith;
 }
 
+/** The most characters the memo holds in all: 400 entries of a few megabytes each would be a tab's worth of memory. */
+const MEMO_CHARS_MAX = 24_000_000;
+let memoChars = 0;
 function remember(key: string, section: string) {
-	if (memo.size >= MEMO_MAX) memo.delete(memo.keys().next().value as string);
+	const drop = (k: string) => {
+		memoChars -= memo.get(k)?.length ?? 0;
+		memo.delete(k);
+		rawLength.delete(k);
+	};
+	if (memo.has(key)) drop(key);
+	while (memo.size && (memo.size >= MEMO_MAX || memoChars + section.length > MEMO_CHARS_MAX)) drop(memo.keys().next().value as string);
+	memoChars += section.length;
 	memo.set(key, section);
 }
 
@@ -119,18 +132,21 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 	// THE PLUGINS' FENCES. Which plugins run, and a note for each that does not, are the CLI door's rules
 	// (planFencePlugins): a fence name two plugins claim, a shipped plugin's, a name whose prefix overlaps another's.
 	const installed = new Map(studioPlugins());
-	const plan = planFencePlugins([...installed.values()].map((p) => ({ name: p.name, fence: p.fence })), { shipped: SHIPPED_FENCES });
+	const plan = planFencePlugins([...installed.values()].map((p) => ({ name: p.name, fence: p.fence })), { shipped: SHIPPED_FENCES, isLanguage: (n: string) => HIGHLIGHT_LANGUAGES.has(n) });
 	const offered = new Map(plan.run.map((p) => [p.name, installed.get(p.name) as StudioPlugin]));
 	const fences = new Map([...offered.values()].map((p) => [p.fence, p.name]));
 	const pluginDigestOf = new Map([...offered.values()].map((p) => [p.name, p.sha256]));
 	// `plugins:` in the deck's front matter is what ACTIVATES a plugin (decision 11); the rest are offered.
-	const declared = new Set(fences.size ? deckPluginList(source) : []);
+	const declared = fences.size ? activePluginNames(source, installed.keys()) : new Set<string>();
 	const cap = captureHook(names, { baseUrl, engineClaims: ENGINE_CLAIMS }) as { hook: Hook; claims: Claim[] };
 	const capFences = captureFences(fences, { names, engineClaims: ENGINE_CLAIMS, rebuilt: REBUILT });
 	// Every installed plugin's name goes to the engine, refused or not, so a deck that lists one is not told no plugin has that name.
 	const externalPlugins = [...installed.keys()];
 	const first = PG.render(source, theme, { ...engineOpts, codePackages: cap.hook, ...(externalPlugins.length ? { externalPlugins } : {}), ...(fences.size ? { codeFences: capFences } : {}) }) as R;
-	const notes = fences.size ? [...plan.notes, ...fenceCaptureNotes(capFences, fences)] : [];
+	// Notes about plugins the deck lists (a refused plugin says why, even when no plugin runs); not about every installed one.
+	const listedNames = installed.size ? new Set(deckPluginList(source)) : new Set<string>();
+	const planNotes = plan.notes.filter((n: string) => [...listedNames].some((name) => n.includes(` ${name} `) || n.includes(`plugin ${name}`) || n.includes(`plugins ${name}`) || n.includes(` and ${name} `)));
+	const notes = [...planNotes, ...(fences.size ? fenceCaptureNotes(capFences, fences) : [])];
 	if (!cap.claims.length && !capFences.claims.length) {
 		if (reporting) report({ unapproved: [], failed: [], ...(notes.length ? { notes } : {}) });
 		return first;
@@ -138,9 +154,12 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 	const started = Date.now();
 	const frames = new Map<string, Promise<PackageFrame>>();
 	let total = 0;
+	// The plugins' fences spend a pool of their own, in claim order, like the CLI door's: slide packages cannot starve them.
+	let fenceTotal = 0;
 	const sections = new Map<string, string>();
 	const unapproved = new Map<string, StudioCodePackage | StudioPlugin>();
 	const failed: CodePackagesStatus['failed'] = [];
+	const unlisted = new Set<string>();
 	for (const c of cap.claims) {
 		const p = pkgs.get(c.pkg);
 		if (!p) continue;
@@ -204,8 +223,9 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 		const key = fenceKey(c, p.sha256);
 		if (sections.has(key)) continue;
 		if (!declared.has(p.name)) {
-			// Not in the deck's `plugins:`: nothing runs, and the block says so.
-			sections.set(key, withFenceNote(c.block, c.pkg, `this deck does not list ${p.name} under plugins:`));
+			// Not in the deck's `plugins:`: nothing runs, and a drawn placeholder stands where the block is.
+			sections.set(key, fencePlaceholder(p.name));
+			unlisted.add(p.name);
 			continue;
 		}
 		if (!isPluginApproved(p)) {
@@ -215,21 +235,31 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 		}
 		const known = memo.get(key);
 		if (known) {
-			total += known.length;
-			sections.set(key, total > RENDER_OUTPUT_MAX ? withFenceNote(c.block, c.pkg, `the render's code packages returned more than ${RENDER_OUTPUT_MAX.toLocaleString('en-US')} characters in all`) : known);
+			fenceTotal += rawLength.get(key) ?? known.length;
+			sections.set(key, fenceTotal > RENDER_OUTPUT_MAX ? withFenceNote(c.block, c.pkg, fenceOutputNote(RENDER_OUTPUT_MAX)) : known);
 			continue;
 		}
 		let why: string | null = null;
 		let out = '';
+		let rawLen = 0;
 		if (Date.now() - started > RENDER_BUDGET_MS) why = `the render's ${RENDER_BUDGET_MS / 1000} s budget for code packages ran out`;
 		else {
 			try {
 				const raw = await (await frameFor(p, frames, true)).runFence(fenceInput(c), SLIDE_MS);
-				total += raw.length;
-				if (total > RENDER_OUTPUT_MAX) throw new Error(`the render's code packages returned more than ${RENDER_OUTPUT_MAX.toLocaleString('en-US')} characters in all`);
+				fenceTotal += raw.length;
+				rawLen = raw.length;
+				if (fenceTotal > RENDER_OUTPUT_MAX) throw new Error(fenceOutputNote(RENDER_OUTPUT_MAX));
 				const done = (doorFinishFence as DoorFinishFence)(document, doorSanitizer(), raw, fenceNamespace(p.name));
 				if ('error' in done) why = done.error;
-				else out = fenceMarkup(c.pkg, done.html);
+				else {
+					out = fenceMarkup(c.pkg, done.html);
+					// Serialization expands text (a non-breaking space is six characters): the cap counts what is spliced in too.
+					if (out.length > raw.length) {
+						fenceTotal += out.length - raw.length;
+						rawLen = out.length;
+						if (fenceTotal > RENDER_OUTPUT_MAX) throw new Error(fenceOutputNote(RENDER_OUTPUT_MAX));
+					}
+				}
 			} catch (e) {
 				why = e instanceof Error ? e.message : String(e);
 			}
@@ -241,11 +271,12 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 			if (!/budget|was stopped|did not finish|not loaded|in all/.test(why)) remember(key, noted);
 		} else {
 			remember(key, out);
+			rawLength.set(key, rawLen);
 			sections.set(key, out);
 		}
 	}
 	for (const f of frames.values()) f.then((fr) => fr.close()).catch(() => {});
-	if (reporting) report({ unapproved: [...unapproved.values()], failed, ...(notes.length ? { notes } : {}) });
+	if (reporting) report({ unapproved: [...unapproved.values()], failed, ...(unlisted.size ? { offered: [...unlisted].map((n) => offered.get(n) as StudioPlugin) } : {}), ...(notes.length ? { notes } : {}) });
 	return PG.render(source, theme, {
 		...engineOpts,
 		codePackages: substituteHook(names, sections, digestOf, { baseUrl, engineClaims: ENGINE_CLAIMS }),

@@ -22,7 +22,9 @@
 // running half is door-run.ts, loaded only once a render meets a code package, so a Studio with no
 // code package never downloads the kernel, the sanitizer or the runner.
 
+import { planFencePlugins } from '../../../../lib/packages/code-door-fence.mjs';
 import { pluginConsentText } from '../../../../lib/packages/code-shape.mjs';
+import FENCE_DOOR from '../../../../lib/packages/fence-door.generated.json';
 import { deckPluginList } from '../../../../lib/plugins/deck-plugins.mjs';
 
 /** A code package the Studio knows: a saved component whose package carries a `transform.js`. */
@@ -37,7 +39,7 @@ export type StudioCodePackage = { name: string; code: string; sha256: string; by
  */
 export type StudioPlugin = { kind: 'plugin'; name: string; fence: string; code: string; sha256: string; bytes: number };
 /** What the notice above the preview shows: the code this deck uses that is not approved. `notes` are the door's own warnings (a slide it left alone, and why). */
-export type CodePackagesStatus = { unapproved: (StudioCodePackage | StudioPlugin)[]; failed: { name: string; slide: number; why: string }[]; notes?: string[] };
+export type CodePackagesStatus = { unapproved: (StudioCodePackage | StudioPlugin)[]; failed: { name: string; slide: number; why: string }[]; /** Installed plugins whose fence the deck writes but whose name its `plugins:` list does not (a placeholder stands there). */ offered?: StudioPlugin[]; notes?: string[] };
 
 const APPROVALS_KEY = 'lattice-code-package-approvals';
 
@@ -162,6 +164,12 @@ export function studioPlugins(): ReadonlyMap<string, StudioPlugin> {
 	return plugins;
 }
 
+/** The installed plugins the door will run at all: the rules both doors share (a refused plugin is never offered or approvable). */
+function runnablePlugins(): StudioPlugin[] {
+	const ok = new Set(planFencePlugins([...plugins.values()].map((p) => ({ name: p.name, fence: p.fence })), { shipped: FENCE_DOOR.shippedFences, isLanguage: (n: string) => FENCE_DOOR.highlightLanguages.includes(n) }).run.map((p: { name: string }) => p.name));
+	return [...plugins.values()].filter((p) => ok.has(p.name));
+}
+
 /** Does `source` hold a fenced block whose info string starts with `fence`? A superset (a quoted fence counts); the render's own claims are exact. */
 const writesFence = (source: string, fence: string) => new RegExp(`^[ \\t]*(?:\`{3,}|~{3,})[ \\t]*${fence.replace(/[^a-z0-9-]/g, '')}(?![\\w-])`, 'm').test(source);
 
@@ -172,7 +180,7 @@ const writesFence = (source: string, fence: string) => new RegExp(`^[ \\t]*(?:\`
  */
 export function unapprovedIn(source: string): (StudioCodePackage | StudioPlugin)[] {
 	// A plugin counts once the deck lists it AND writes its fence: that is when the preview needs the code.
-	const pluginsWanted: StudioPlugin[] = plugins.size ? [...plugins.values()].filter((p) => !isPluginApproved(p) && deckPluginList(source).includes(p.name) && writesFence(source, p.fence)) : [];
+	const pluginsWanted: StudioPlugin[] = plugins.size ? runnablePlugins().filter((p) => !isPluginApproved(p) && deckPluginList(source).includes(p.name) && writesFence(source, p.fence)) : [];
 	if (!packages.size) return pluginsWanted;
 	const tokens = new Set<string>();
 	const add = (raw: string) => {
@@ -188,6 +196,17 @@ export function unapprovedIn(source: string): (StudioCodePackage | StudioPlugin)
 	// slide whose note pointed at a notice that never came).
 	for (const m of text.matchAll(/<!--\s*(?:_?class|pane)\s*:\s*([^>]*?)\s*-->/g)) add(m[1]);
 	return [...[...packages.values()].filter((p) => tokens.has(p.name) && !isApproved(p)), ...pluginsWanted];
+}
+
+/**
+ * The installed plugins whose fence a deck WRITES but whose name its `plugins:` list does not carry: each
+ * stands as a placeholder in the preview, and the strip offers to approve it (decision 11). Read from the
+ * source, so the strip describes the whole deck and not only the slide on screen.
+ */
+export function offeredIn(source: string): StudioPlugin[] {
+	if (!plugins.size) return [];
+	const listed = deckPluginList(source);
+	return runnablePlugins().filter((p) => !listed.includes(p.name) && writesFence(source, p.fence));
 }
 
 /** Hear what the last render found: unapproved packages the deck uses, and slides that failed. */

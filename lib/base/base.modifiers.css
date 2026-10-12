@@ -481,6 +481,68 @@ section [data-lattice-painting="done"]::after {
   }
 }
 
+/* A PLUGIN'S FENCE THE DECK DID NOT LIST (plugin-system §9 decision 11; lib/packages/code-door-fence.mjs
+ * `fencePlaceholder`). The Studio holds a zip plugin that owns this fence, and the deck's `plugins:` line
+ * does not name it, so nothing ran: a placeholder stands where the block is, drawn in the house Nacre
+ * atmosphere (the underpainting above, held still: an export capture must not move) so it reads as "a
+ * plugin goes here" and not as a missing picture. Every paint is a deck token, so it follows the theme
+ * and the mode; the mark is the `--shape-spark` mask in the element's own ink, never a typed glyph. */
+section div[data-lattice-plugin-off] {
+  --lp-a: var(--accent);
+  --lp-b: color-mix(in oklab, var(--accent) 70%, var(--text-heading));
+  --lp-c: color-mix(in oklab, var(--accent) 60%, var(--bg-alt, var(--bg)));
+  display:flex;
+  align-items:center;
+  gap:0.9em;
+  box-sizing:border-box;
+  min-height:4.2em;
+  padding:0.9em 1.2em;
+  position:relative;
+  overflow:hidden;
+  isolation:isolate;
+  border:1px solid var(--border);
+  border-radius:0.6em;
+  color:var(--text-body);
+  font-family:var(--font-label);
+  font-size:var(--fs-meta);
+  line-height:1.25;
+  background-color:var(--bg-alt, var(--bg));
+  background-image:
+    radial-gradient(60% 140% at 12% 20%, color-mix(in oklab, var(--lp-a) 34%, transparent), transparent 70%),
+    radial-gradient(55% 150% at 58% 110%, color-mix(in oklab, var(--lp-b) 30%, transparent), transparent 70%),
+    radial-gradient(50% 140% at 100% 10%, color-mix(in oklab, var(--lp-c) 36%, transparent), transparent 72%),
+    repeating-linear-gradient(90deg, color-mix(in srgb, var(--text-muted) 7%, transparent) 0 1px, transparent 1px 5px);
+}
+@supports (color: oklch(from red l c h)) {
+  section div[data-lattice-plugin-off] {
+    --lp-b: oklch(from var(--accent) l c calc(h + 34));
+    --lp-c: oklch(from var(--accent) l c calc(h - 28));
+  }
+}
+section div[data-lattice-plugin-off] .lattice-plugin-mark {
+  flex:none;
+  width:1.9em;
+  height:1.9em;
+  background-color:var(--accent);
+  -webkit-mask:var(--shape-spark) center / contain no-repeat;
+          mask:var(--shape-spark) center / contain no-repeat;
+}
+section div[data-lattice-plugin-off] .lattice-plugin-words {
+  display:flex;
+  flex-direction:column;
+  gap:0.15em;
+  min-width:0;
+}
+section div[data-lattice-plugin-off] .lattice-plugin-words strong {
+  color:var(--text-heading);
+  font-size:var(--fs-body);
+  font-weight:600;
+  overflow-wrap:anywhere;
+}
+section div[data-lattice-plugin-off] .lattice-plugin-words span {
+  color:var(--text-muted);
+}
+
 /* Marp Core converts unicode emoji in source markdown to twemoji <img class="emoji">.
    They must render inline at text size and not pick up the block image styling
    above; otherwise a stray "Hello 👋 there" puts the wave on its own line.

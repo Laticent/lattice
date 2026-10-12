@@ -1718,8 +1718,33 @@ the real Studio preview and in Share → PDF. What was built:
   `source`, `track`, an `<img>` with no `src` and an SVG `<image>` with no `href`, in both doors; a
   `data:` image stays. The parity fixture checks it.
 - **Not built here:** the plugin's `styles.css` is stored but not delivered (decision 12's scoped CSS
-  belongs to step 2's style sink), and the placeholder for an unlisted fence is the plain code block
-  with a note until the next entry.
+  belongs to step 2's style sink), and the placeholder for an unlisted fence is in the next entry.
+
+**2026-10-12 — phase E, the placeholder and Approve strip; the trio's findings on the Studio door.**
+- **The placeholder** (decision 11). A plugin the deck does not list, whose fence the deck writes, draws
+  `div[data-lattice-plugin-off]` (`fencePlaceholder`, `code-door-fence.mjs`) where the block was: the
+  plugin's name and one line, painted by `lib/base/base.modifiers.css` in the underpainting's Nacre
+  tones held still (an export capture must not move), every paint a deck token, the mark the
+  `--shape-spark` mask (HARD RULES #3, #20, #29). It carries none of the author's text. The strip above
+  the preview (`CodePackagesNotice`, `data-state="offered"`) offers **Approve**, which in one click writes
+  the `plugins:` line (`writeDeckPlugins`) and records consent for the code's bytes. The preview, the
+  placeholder and the strip are seen at 1440, 820 and 390 in `docs/e2e/plugin-fence-ui.spec.ts`.
+  No demo deck (HARD RULE #9): the state exists only while a browser holds a plugin, which no CLI render can.
+- **The trio ran on the Studio door** (red team, inversion, checker; all read the commit, none edited it).
+  Fixed, each with a test: a plugin whose fence is a highlight.js language (`python`, `js`) was accepted and
+  took every such block, because `isLanguage` reached no caller (now `highlightLanguages` in
+  `fence-door.generated.json`, passed by both doors and the import); two plugins in one zip that conflict
+  were both saved and silently never ran (import checks the saved set plus its siblings; a refused plugin
+  is no longer offered or approvable, and a listed refused plugin says why); two different renderers could
+  share a consent digest through a lone surrogate (refused by `refusePluginCode`); the dead-media drop missed
+  `src=""` and `#`; `name=` on a fence's `<img>` shadowed a window global the runtime reads (dropped); the
+  Studio's cap counted raw output on a fresh run and sanitized output on a remembered one, and serialization
+  grows text up to 6x (a fresh run now counts what is spliced in, a remembered result counts the same, the
+  memo is bounded in characters, and fences spend a pool of their own so slide packages cannot starve them);
+  activation (`activePluginNames`) moved into the kernel for the CLI caller to use. Not changed, on purpose:
+  a side render (the web-image scan, the gallery gate) runs a listed, approved plugin like any other
+  render; an approval stays in the browser after its plugin is deleted, pinned to bytes (re-importing the
+  same bytes is approved, as decision 14 designs).
 
 ## References
 

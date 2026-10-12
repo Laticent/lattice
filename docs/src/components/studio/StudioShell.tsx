@@ -5393,7 +5393,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			<WebImagesNotice summary={webSummary} allowed={webAllowed} onLoad={allowWebOrigins} onBlock={blockWebOrigins} />
 			{codeStamp && (
 				<React.Suspense fallback={null}>
-					<CodePackagesNotice source={source} stamp={codeStamp} onApproved={onCodeApproved} />
+					<CodePackagesNotice source={source} stamp={codeStamp} onApproved={onCodeApproved} onWrite={settingsWrite} />
 				</React.Suspense>
 			)}
 			{/* Swipe (touch) and wheel (mouse or trackpad, either axis) change slides

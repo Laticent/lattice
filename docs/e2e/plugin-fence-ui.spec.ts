@@ -77,3 +77,60 @@ for (const [label, width, height] of [
 		await expect(page.locator('[data-plugin-installed]')).toHaveCount(0);
 	});
 }
+
+// ── The placeholder and its Approve strip (plugin-system §9 decision 11) ──
+for (const [label, width, height] of [
+	['desktop', 1440, 900],
+	['tablet', 820, 1180],
+	['mobile', 390, 844],
+] as const) {
+	test(`a plugin the deck did not list shows a placeholder, and Approve lists it and draws the fence, at ${label} (${width}px)`, async ({ page }) => {
+		const shot = async (name: string) => {
+			if (!EVIDENCE) return;
+			fs.mkdirSync(EVIDENCE, { recursive: true });
+			await page.screenshot({ path: path.join(EVIDENCE, `plugin-${name}-${width}.png`) });
+		};
+		await gotoStudio(page);
+		const docked = page.getByRole('button', { name: 'Open Library' });
+		await ((await docked.count()) ? docked : page.getByRole('button', { name: 'Library', exact: true })).click();
+		await page.locator('input[type="file"][accept=".zip"]').setInputFiles({ name: 'gantt-plugin.zip', mimeType: 'application/zip', buffer: await ganttZip(BARS_RENDERER) });
+		await expect(page.locator('[data-sonner-toast]').first()).toContainText('1 plugin(s)');
+		await page.keyboard.press('Escape');
+		await setEditorContent(page, DECK.replace('---\nplugins: [gantt-plugin]\n---\n\n', ''));
+		await expect.poll(() => persistedSource(page)).toContain('## Plan');
+		await page.setViewportSize({ width, height });
+
+		const preview = livePreview(page);
+		const notice = page.locator('[data-slot="code-packages"]');
+		const placeholder = preview.locator('[data-lattice-plugin-off="gantt-plugin"]');
+		await expect(placeholder).toHaveCount(1, { timeout: 30_000 });
+		await expect(placeholder).toContainText('gantt-plugin');
+		await expect(placeholder).not.toContainText('Design 2');
+		await expect(notice).toHaveAttribute('data-state', 'offered');
+		await expect(notice).toContainText('can draw the ```gantt block in this deck.');
+		const box = await notice.boundingBox();
+		expect(box && box.x >= 0 && box.x + box.width <= width + 1, 'the strip fits the width').toBe(true);
+		// The placeholder fits its slide, and is drawn in the deck's own colors (not a missing-picture gray).
+		const fit = await placeholder.evaluate((el) => {
+			const r = el.getBoundingClientRect();
+			const s = el.closest('section')?.getBoundingClientRect();
+			const cs = getComputedStyle(el);
+			const mark = el.querySelector('.lattice-plugin-mark');
+			return { inside: !!s && r.left >= s.left - 1 && r.right <= s.right + 1 && r.top >= s.top - 1 && r.bottom <= s.bottom + 1, width: r.width, bg: cs.backgroundImage.includes('gradient'), markMask: mark ? getComputedStyle(mark).maskImage || getComputedStyle(mark).webkitMaskImage : '' };
+		});
+		expect(fit.inside, 'the placeholder sits inside its slide').toBe(true);
+		expect(fit.bg, 'the Nacre underpainting is drawn').toBe(true);
+		expect(fit.markMask, 'the mark is the shape table’s mask, not a typed glyph').toContain('url(');
+		await shot('placeholder');
+		await notice.getByRole('button', { name: 'What it is' }).click();
+		await shot('placeholder-open');
+
+		// Approve: ONE yes writes the deck's `plugins:` line and records consent for these bytes.
+		await notice.getByRole('button', { name: 'Approve the plugin gantt-plugin' }).click();
+		await expect.poll(() => persistedSource(page)).toContain('plugins: [gantt-plugin]');
+		await expect(preview.locator('[data-lattice-plugin="gantt-plugin"] svg rect')).toHaveCount(3, { timeout: 30_000 });
+		await expect(placeholder).toHaveCount(0);
+		await expect(notice).toHaveCount(0);
+		await shot('approved');
+	});
+}

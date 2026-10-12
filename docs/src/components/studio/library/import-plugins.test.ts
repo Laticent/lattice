@@ -52,6 +52,14 @@ describe('importing zip plugins', () => {
 		expect(t.refused[1].why).toMatch(/overlaps gantt-plugin/);
 	});
 
+	it('two plugins in ONE zip that conflict: the first is saved, the second is refused with the reason', async () => {
+		const t = await importParsedBundle(bundle([plugin('aa', 'gantt'), plugin('bb', 'gantt'), plugin('foo', 'x1'), plugin('foo-bar', 'x2'), plugin('pyp', 'python')]));
+		expect(t.plugins).toBe(2);
+		expect(t.refused.map((r) => r.name)).toEqual(['bb', 'foo-bar', 'pyp']);
+		expect(t.refused[0].why).toMatch(/both declare the fence `gantt`/);
+		expect(t.refused[2].why).toMatch(/code language the engine highlights/);
+	});
+
 	it('removing a plugin removes it', async () => {
 		await importParsedBundle(bundle([plugin('gantt-plugin', 'gantt')]));
 		const [p] = await listStudioPlugins();

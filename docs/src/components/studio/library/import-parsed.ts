@@ -176,13 +176,17 @@ export async function importParsedBundle(parsed: ParsedBundle, opts: { keepMine?
 				t.refused.push({ name: pl.name, why: `"${pl.name}" is the name of a plugin that ships with Lattice, and a shipped plugin is never replaced` });
 				continue;
 			}
+			// The saved set AND the siblings this zip already added: two plugins in one zip can conflict with each other.
 			const others = mine.filter((m) => m.name !== pl.name).map((m) => ({ name: m.name, fence: m.fence }));
-			const plan = planFencePlugins([...others, { name: pl.name, fence: pl.fence }], { shipped: fenceDoor.shippedFences });
+			const plan = planFencePlugins([...others, { name: pl.name, fence: pl.fence }], { shipped: fenceDoor.shippedFences, isLanguage: (n: string) => fenceDoor.highlightLanguages.includes(n) });
 			if (!plan.run.some((r: { name: string }) => r.name === pl.name)) {
 				t.refused.push({ name: pl.name, why: plan.notes.filter((n: string) => n.includes(pl.name) || n.includes(`\`${pl.fence}\``)).map((n: string) => n.replace(/^warning: /, '')).join('; ') || 'the door would not run it' });
 				continue;
 			}
-			await saveStudioPlugin(pl, history);
+			const saved = await saveStudioPlugin(pl, history);
+			const at = mine.findIndex((m) => m.name === pl.name);
+			if (at >= 0) mine[at] = saved;
+			else mine.push(saved);
 			t.plugins++;
 		}
 	}
