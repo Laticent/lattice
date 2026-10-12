@@ -124,6 +124,13 @@ concurrency:
 # 37865229530 put that one job's test step at 25.4 min against ~10 min for every
 # other tier; the integration job's own comment has the per-leg measurement and the
 # balance. Re-sample the legs, not the sum, before moving the cap again.
+#
+# RE-SAMPLED 2026-10-12 (five green merge-queue runs after #2629; test step per leg,
+# slowest leg / mean): 1.08x, 1.12x, 1.24x, 1.20x, 1.08x (mean 1.14x). The slow leg moved
+# between runs (shard 4, 1, 2, 2, 2), so there is no file-balance signal to re-bless on; the
+# 1.24x run also had a slow `npm ci` and build on that leg's runner. The slowest whole job in
+# the five runs took 9:34, so the 25m cap is 2.6x that, inside the ~3x norm above. The owner
+# kept the weights and the cap (2026-10-12).
 
 jobs:
   # ── Change classifier ──────────────────────────────────────────────────
