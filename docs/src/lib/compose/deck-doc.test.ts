@@ -164,3 +164,15 @@ describe('edit-local emit — untouched slides re-emit their bytes verbatim', ()
 		expect(doc.child(1).attrs.locked).toBe(true); // math in a cell → safe degradation to lock
 	});
 });
+
+describe('inline code in the editor', () => {
+	it('opts out of spellcheck — notation is not prose, so a pill or spark must not get a red squiggle', () => {
+		const mark = deckSchema.marks.code.create();
+		expect(deckSchema.marks.code.spec.toDOM?.(mark, true)).toEqual(['code', { spellcheck: 'false' }]);
+	});
+
+	it('still parses and emits inline code unchanged', () => {
+		const src = '<!-- _class: content -->\n\n## Status\n\nShipped `{SHIPPED, c2}` today.\n';
+		expect(norm(rt(src))).toBe(norm(src));
+	});
+});
