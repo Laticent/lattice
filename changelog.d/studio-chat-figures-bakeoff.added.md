@@ -1,0 +1,1 @@
+- **Engineering:** `tools/chat-figures-bakeoff.mjs` and an isolated harness page (`/proto/chat-figures/`) measure what it costs to draw a mermaid, math, plot or slide figure in a chat bubble under four strategies; the result and decision are in `engineering/decisions/2026-10-12-chat-figures-bakeoff.md`.
