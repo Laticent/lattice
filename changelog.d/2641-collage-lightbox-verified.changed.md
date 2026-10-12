@@ -1,0 +1,1 @@
+- The `collage` lightbox is now covered by a real-browser suite: the Studio preview (click, Escape, click-away, and a tap on a phone-width and WebKit touch profile) and the exported player (axe over a collage slide and the open lightbox, plus Escape, click-away and Space). No product code changed; the suite found nothing to fix.

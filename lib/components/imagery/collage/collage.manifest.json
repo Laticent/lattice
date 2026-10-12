@@ -25,7 +25,7 @@
     "mood-board"
   ],
   "description": "Four to six photos of any shape packed edge to edge into a mood board, with the usual eyebrow, title, subtitle and description beside them.",
-  "purpose": "Use when several photographs make the argument together: a product line, a site, a collection. You list the photos; the layout reads each photo's shape and packs them with no cropping, so a tall portrait, a square and a panorama share one frame. Every photo is a rectangle of its own shape with flush edges. The packer picks the order that fits best; add `ordered` to keep the order you wrote. Live surfaces add hover focus, and a click or tap (Enter or Space on a focused photo) enlarges a photo with its alt text as the caption; Escape, a click away or the close button puts it back. The exported HTML player enlarges photos too; a PDF is a clean static collage. Narration reads the description and then names each photo by its alt text, one sentence apiece, and the Present Guide's pointer lands on the photo as it is named. The article view lists every photo in written order.",
+  "purpose": "Use when several photographs make the argument together: a product line, a site, a collection. You list the photos; the layout reads each photo's shape and packs them with no cropping, so a tall portrait, a square and a panorama share one frame. Every photo is a rectangle of its own shape with flush edges. The packer picks the order that fits best; add `ordered` to keep the order you wrote. Live surfaces add hover focus, and a click or tap (Enter or Space on a focused photo) enlarges a photo with its alt text as the caption; Arrow keys, Home, End, a swipe or the two arrow buttons step to the other photos, and a pinch, ctrl and wheel, or the plus and minus keys zoom the open photo; Escape, a click away or the close button puts it back. The exported HTML player enlarges photos too; a PDF is a clean static collage. Narration reads the description and then names each photo by its alt text, one sentence apiece, and the Present Guide's pointer lands on the photo as it is named. The article view lists every photo in written order.",
   "variants": [
     "ordered",
     "fill",
@@ -122,7 +122,7 @@
     },
     "bleed": {
       "label": "bleed",
-      "summary": "The collage runs edge to edge.",
+      "summary": "The collage runs edge to edge. Each photo loses a share of its edges to fill the slide: about 4% on average, up to a sixth for an awkward mix.",
       "sample": "<!-- _class: collage bleed -->\n\n`The atelier`\n\n## Hand-lasted, one pair at a time.\n\n`Five photographs from the autumn bench`\n\nEach pair starts as a last carved to one foot. Leather is cut by hand and finished over fourteen weeks.\n\n- ![Tall portrait](sample:photo-tall.svg) `hero`\n- ![Wide landscape](sample:photo-wide.svg)\n- ![Square](sample:photo-square.svg)\n- ![Panorama](sample:photo-pano.svg)\n- ![Narrow column](sample:photo-column.svg)\n"
     },
     "mirror": {

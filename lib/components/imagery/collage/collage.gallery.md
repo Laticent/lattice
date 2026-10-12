@@ -96,7 +96,7 @@ Each pair starts as a last carved to one foot. Leather is cut by hand and finish
 ---
 
 <!-- _class: collage bleed -->
-<!-- _footer: "bleed · collage bleed — The collage runs edge to edge." -->
+<!-- _footer: "bleed · collage bleed — The collage runs edge to edge. Each photo loses a share of its edges to fill the slide: about 4% on average, up to a sixth for an awkward mix." -->
 
 `The atelier`
 

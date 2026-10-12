@@ -403,3 +403,69 @@ test('lint: collage-tail, collage-hero-dup, and `*` bullets count', () => {
   assert.deepEqual(rules(lintCollage(starred)).filter((r) => r.startsWith('collage-')), [], 'six `*` bullets are a valid collage');
   assert.ok(rules(lintCollage('* ![A](a.jpg)\n* ![B](b.jpg)')).includes('collage-count'), 'two `*` bullets are counted');
 });
+
+// ── bleed packs for the slide's real aspect (#2641 P4) ───────────────────────────────────
+// A bleed grid is stretched to the slide, so whatever the layout leaves empty becomes crop at each
+// photo's edges. The table's 16:9 / 1:1 / 9:16 is wrong for a 4:3, 4:5 or phone-height canvas.
+const DEMO_ASPECTS = [1600 / 2400, 3200 / 2000, 1, 3200 / 1200]; // the demo deck's tall, wide, square, pano
+const bleedPlan = (orientation, slideAspect) =>
+  k.planStamp(DEMO_ASPECTS, [null, null, null, null], [false, false, false, false], k.optionsFromClass('collage bleed'), orientation, slideAspect);
+
+test('bleed: a measured slide aspect steers the packer; the table is the fallback', () => {
+  const { stageAspectEstimate } = require('../../../lib/core/collage-pack');
+  assert.equal(stageAspectEstimate({ orientation: 'landscape', composition: 'bleed' }), 16 / 9);
+  assert.equal(stageAspectEstimate({ orientation: 'landscape', composition: 'bleed', slideAspect: 4 / 3 }), 4 / 3);
+  assert.equal(stageAspectEstimate({ orientation: 'landscape', composition: 'beside', slideAspect: 4 / 3 }), 1.41, 'only a bleed collage fills the slide');
+  for (const bad of [0, -1, NaN, Infinity, 0.1, 9, undefined, '1.5']) {
+    assert.equal(stageAspectEstimate({ orientation: 'landscape', composition: 'bleed', slideAspect: bad }), 16 / 9, `${bad} is a bad measurement, not a canvas`);
+  }
+});
+
+test('bleed on a 4:3 deck crops far less when it packs for 4:3 than for the 16:9 default', () => {
+  // `result.empty` is the share of the stage the layout leaves empty, which a bleed stretch turns into crop.
+  const guessed = bleedPlan('landscape', undefined).result;
+  const real = bleedPlan('landscape', 4 / 3).result;
+  const cropFor = (r, slide) => 1 - Math.min(r.ar / slide, slide / r.ar);
+  assert.ok(cropFor(guessed, 4 / 3) > 0.25, `packed for 16:9, a 4:3 slide crops ${(100 * cropFor(guessed, 4 / 3)).toFixed(1)}%`);
+  assert.ok(cropFor(real, 4 / 3) < 0.06, `packed for 4:3 it crops ${(100 * cropFor(real, 4 / 3)).toFixed(1)}%`);
+  assert.ok(Math.abs(real.empty - cropFor(real, 4 / 3)) < 1e-9, '`empty` IS the bleed crop');
+});
+
+test('bleed with no slide aspect, and a collage that is not bleed, are unchanged', () => {
+  const none = bleedPlan('landscape', undefined);
+  const sixteenNine = bleedPlan('landscape', 16 / 9);
+  assert.equal(none.listStyle, sixteenNine.listStyle, 'the table default for landscape IS 16:9');
+  const plain = (a) => k.planStamp(DEMO_ASPECTS, [null, null, null, null], [false, false, false, false], k.optionsFromClass('collage'), 'landscape', a);
+  assert.equal(plain(4 / 3).listStyle, plain(undefined).listStyle, 'a beside collage ignores the slide aspect');
+});
+
+test('stampSection and stampCollage pass the slide aspect through', () => {
+  const s = k.applyToRenderedHtml(section([img('a'), img('b'), img('c'), img('d')], 'collage bleed'));
+  const guessed = k.stampSection(s, DEMO_ASPECTS, k.optionsFromClass('collage bleed'), 'landscape');
+  const real = k.stampSection(s, DEMO_ASPECTS, k.optionsFromClass('collage bleed'), 'landscape', 4 / 3);
+  assert.notEqual(guessed, real, 'the 4:3 slide gets its own grid');
+  const { stampCollage } = require('../../../lib/core/collage-stamp');
+  assert.ok(typeof stampCollage === 'function' && stampCollage.length === 3, 'the CLI stamp takes the slide aspect as its third argument');
+});
+
+test('bleed pays more for empty space than a plain collage does, and a plain collage is unchanged', () => {
+  const { packCollage } = require('../../../lib/core/collage-pack');
+  let seed = 11;
+  const rnd = () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 2 ** 32;
+  const menu = [0.5625, 0.667, 0.75, 1, 1.333, 1.5, 1.778, 2, 2.667];
+  let plain = 0;
+  let bleed = 0;
+  let floor = 1;
+  const N = 120;
+  for (let i = 0; i < N; i++) {
+    const set = Array.from({ length: 4 + Math.floor(rnd() * 3) }, () => menu[Math.floor(rnd() * menu.length)]);
+    plain += packCollage(set, { stageAspect: 16 / 9 }).empty;
+    const b = packCollage(set, { stageAspect: 16 / 9, bleed: true });
+    bleed += b.empty;
+    floor = Math.min(floor, b.ratio);
+  }
+  assert.ok(bleed / N < 0.6 * (plain / N), `mean crop ${(100 * bleed / N).toFixed(1)}% vs ${(100 * plain / N).toFixed(1)}% plain`);
+  assert.ok(floor > 0.04, 'the cut is not bought with a sliver of a photo');
+  const same = packCollage(DEMO_ASPECTS, { stageAspect: 16 / 9 });
+  assert.deepEqual(packCollage(DEMO_ASPECTS, { stageAspect: 16 / 9, bleed: false }), same, 'bleed:false is the old scoring');
+});
