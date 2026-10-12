@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { audioStatsFrom, capBitrate } from './trystero';
+import { audioStatsFrom, capBitrate, RECOVER_AFTER_MS, restartsIce } from './trystero';
 
 // Trystero's addTrack resolves before the offer and answer, and a browser may have no encodings to
 // set until negotiation is done (checker, PR #2594). The cap must land once it settles, not never.
@@ -68,5 +68,15 @@ describe('audioStatsFrom', () => {
 
 	it('ignores video, and says nothing when the connection carries no audio', () => {
 		expect(audioStatsFrom([{ type: 'inbound-rtp', kind: 'video', bytesReceived: 9e6 }], undefined, 0).stats).toEqual({});
+	});
+});
+
+describe('restartsIce (who offers an ICE restart)', () => {
+	it('exactly one of two peers restarts, whichever way round they are asked', () => {
+		for (const [a, b] of [['aaa', 'bbb'], ['zzz', 'aaa'], ['Q1', 'q1']]) expect(restartsIce(a, b) !== restartsIce(b, a)).toBe(true);
+	});
+	it('nobody restarts a connection to itself, and the blip allowance stays under Trystero\'s 5 s close', () => {
+		expect(restartsIce('same', 'same')).toBe(false);
+		expect(RECOVER_AFTER_MS).toBeLessThan(5000);
 	});
 });

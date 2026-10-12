@@ -36,7 +36,12 @@ export interface Transport {
 	/** Optional: how call audio is doing on each open connection, for a "how is the call" readout. */
 	audioStats?(): Promise<Record<PeerId, AudioStats>>;
 	onTrack?(cb: (track: MediaStreamTrack, stream: MediaStream, from: PeerId) => void): void;
+	/** Optional: what the connections did, oldest first (a bounded log), for a "copy the connection log" readout. */
+	timeline?(): LinkEvent[];
 }
+
+/** One thing a connection did: `at` is ms since the transport started, `peer` a short id. */
+export type LinkEvent = { at: number; peer: string; what: string };
 
 /** How a transport sends this browser's media. */
 export type MediaOptions = {

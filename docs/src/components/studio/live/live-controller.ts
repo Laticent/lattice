@@ -5,7 +5,7 @@ import * as encoding from 'lib0/encoding';
 import { yCollab, yUndoManagerKeymap } from 'y-codemirror.next';
 import { Awareness, applyAwarenessUpdate, encodeAwarenessUpdate, removeAwarenessStates } from 'y-protocols/awareness';
 import * as Y from 'yjs';
-import { type AudioStats, cleanName, createHostKey, createSession, formatFragment, formatLink, fromBase64Url, type HostKey, hostKeyFrom, type LinkPath, linkKind, mintLink, parseFragment, type Session, type SessionState, type Succession, type TokenEntry, toBase64Url, tokenId } from '@/lib/tavola';
+import { type AudioStats, cleanName, createHostKey, createSession, formatFragment, formatLink, fromBase64Url, type HostKey, hostKeyFrom, type LinkEvent, type LinkPath, linkKind, mintLink, parseFragment, type Session, type SessionState, type Succession, type TokenEntry, toBase64Url, tokenId } from '@/lib/tavola';
 import { trysteroTransport } from '@/lib/tavola/adapters/trystero';
 import { CALL_BITRATE, HIGH_FIDELITY_BITRATE, LiveAudio } from './live-audio';
 import { LIVE_TURN } from './live-ice';
@@ -32,6 +32,15 @@ import { deleteHostPrivateKey, getHostPrivateKey, putHostPrivateKey, seal, unsea
 /** localStorage: room → { deckId, token }, so a guest's linked copy and rejoin token survive a
  *  reload. The token is a credential, so it is stored SEALED (secret-box.ts). */
 const LINKS_KEY = 'lattice-live-links';
+/** localStorage: whether faster recovery of dropped connections is on (experimental; absent = off). */
+const RECOVER_KEY = 'lattice-live-recover';
+const readRecover = (): boolean => {
+	try {
+		return localStorage.getItem(RECOVER_KEY) === '1';
+	} catch {
+		return false;
+	}
+};
 const TYPING_MS = 2500;
 const CHAT_MAX = 1000;
 /** Lines a browser keeps, and the host hands a newcomer. */
@@ -394,6 +403,9 @@ export class LiveController {
 	/** The host name the lobby invite last carried, so a rename reaches the lobby too. */
 	private invitedAs: string | undefined;
 	private share: LiveShare = { cursor: true, slide: true, typing: true };
+	/** Faster recovery of dropped connections (experimental): kept in this browser, off until chosen. */
+	private recover = readRecover();
+	private timeline: () => LinkEvent[] = () => [];
 	private outDevices: Array<{ id: string; label: string }> = [];
 	private micDevices: Array<{ id: string; label: string }> = [];
 	/** The tab title before "On air · " was put in front of it. */
@@ -567,6 +579,8 @@ export class LiveController {
 		const key = args.key ?? null;
 		const audio = new LiveAudio(() => this.host.rerender());
 		this.audio = audio;
+		const transport = trysteroTransport(args.room, args.secret, { turnConfig: LIVE_TURN, recover: () => this.recover });
+		this.timeline = () => transport.timeline?.() ?? [];
 		const session = createSession({
 			media: { add: (stream, from) => {
 				audio.addRemote(from, stream);
@@ -575,7 +589,7 @@ export class LiveController {
 				// takeover neither side sees the other as a newcomer (checker, 2026-10-07).
 				if (audio.inCall) this.post({ k: 'mic', on: !audio.isMuted }, from);
 			}, drop: (from) => audio.dropRemote(from) },
-			transport: trysteroTransport(args.room, args.secret, { turnConfig: LIVE_TURN }),
+			transport: transport,
 			doc: docStream,
 			awareness: awStream,
 			...(args.host && key ? { host: { name: args.host.name, key, tokens: args.host.tokens, ...(args.host.succession ? { succession: args.host.succession } : {}), ...(args.host.selfToken ? { selfToken: args.host.selfToken } : {}), invite: { title: d.deckTitle, hostName: args.host.name, slides: d.slideCount, theme: d.theme } } } : { hostFingerprint: args.hostFingerprint }),
@@ -1544,6 +1558,7 @@ export class LiveController {
 			hostAway: s.hostAway,
 			audio: !!this.audio && r.session.hasMedia && LiveAudio.supported(),
 			share: this.share,
+			connection: { recover: this.recover },
 			call: { inCall: !!this.audio?.inCall, muted: !!this.audio?.isMuted, denied: this.micDenied, devices: this.micDevices, device: this.audio?.device ?? null, highFidelity: !!this.audio?.highFidelity, micLevel: this.audio?.micLevel ?? 1, canShapeMic: !!this.audio?.canShapeMic, stalled: this.stalledShown, masterVolume: this.audio?.masterVolume ?? 1, outputs: this.outDevices, output: this.audio?.output || null, canPickOutput: LiveAudio.canPickOutput() },
 			canChat: s.me?.role !== 'view',
 			typing,
@@ -1557,6 +1572,22 @@ export class LiveController {
 		const stage = this.badLink ? 'bad-link' : s ? map[s.stage] : 'connecting';
 		if (!stage) return null;
 		return { stage, title: s?.invite?.title ?? null, hostName: s?.invite?.hostName ?? null, slides: s?.invite?.slides ?? null, theme: s?.invite?.theme ?? null, name: this.lobbyName };
+	}
+
+	/** The connection timeline as text, for a bug report: what this browser is, the switch, each event, the paths. */
+	private async copyLog(): Promise<boolean> {
+		const lines = [`Lattice Live connection log · ${new Date().toISOString()}`, `browser: ${navigator.userAgent}`, `recover (experimental): ${this.recover ? 'on' : 'off'}`, `online: ${navigator.onLine} · visible: ${document.visibilityState}`];
+		const paths: Record<string, LinkPath> = (await this.rt?.session.paths().catch(() => ({}))) ?? {};
+		for (const [id, p] of Object.entries(paths)) lines.push(`path ${id.slice(0, 6)}: ${p.local}→${p.remote} (${p.protocol})`);
+		for (const e of this.timeline()) lines.push(`${(e.at / 1000).toFixed(1).padStart(7)}s  ${e.peer.padEnd(6)}  ${e.what}`);
+		if (!navigator.clipboard) return false;
+		return navigator.clipboard.writeText(lines.join('\n')).then(
+			() => {
+				this.host.notify('Connection log copied.');
+				return true;
+			},
+			() => false,
+		);
 	}
 
 	/** Resolves whether the link reached the clipboard, so a button can show "Copied" only when it did. */
@@ -1659,6 +1690,14 @@ export class LiveController {
 		setVolume: (id, v) => this.audio?.setVolume(id, v),
 		setMicLevel: (v) => this.audio?.setMicLevel(v),
 		setMasterVolume: (v) => this.audio?.setMasterVolume(v),
+		setRecover: (on) => {
+			this.recover = on;
+			try {
+				localStorage.setItem(RECOVER_KEY, on ? '1' : '0');
+			} catch {}
+			this.host.rerender();
+		},
+		copyLog: () => this.copyLog(),
 		setShare: (patch) => {
 			this.share = { ...this.share, ...patch };
 			this.applyShare();

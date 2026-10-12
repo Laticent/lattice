@@ -1091,6 +1091,31 @@ could wipe what you were still typing, so the field only follows the roster whil
 on the real two-browser call: the guest renamed "Amina" to "Amina Okafor", the host's roster showed it, and
 the guest renamed back.
 
+**Connection resilience, first cut (2026-10-12).** The owner ran a phone (host, and the hotspot) and a tablet on
+that hotspot and reported a slow or stuck first connect, drops that came back, and audio gaps after a reconnect.
+What the code does today, read from Trystero 0.26: a connection that stays `disconnected` for 5 s is closed
+(`disconnectedCloseDelayMs`), Trystero never calls its own ICE restart, and Tavola then treats the peer as left
+and re-admits it by token once the relays rediscover it; the call's audio comes back only after that whole chain
+(measured on loopback with both links closed: the link re-forms in about 2 s and audio flows about 6 s after the
+close, so a real network, with relay announce intervals and STUN, is slower). Built, **off by default**: **Your
+settings → Connection → Recover dropped connections faster** (`TrysteroOptions.recover`). When on, a link that stays
+`disconnected` for 1 s, a browser `online` event, or a tab coming back to the foreground restarts that link's ICE
+(`RTCPeerConnection.restartIce`, which Trystero's own `negotiationneeded` handler signals), and only the side with the
+smaller id offers, so two sides never offer at once (`restartsIce`). An `online` event restarts even a link that
+still reads `connected`, since a changed network can leave a dead address under a healthy-looking link. Always on:
+**Copy connection log** in the same section, a bounded timeline (link up, every state change, restarts, browser
+online/offline, tab visible) plus the path each link took, for the next real-network run. Measured on a real
+two-browser call (Chromium, loopback): with the switch on, an `online` event on both sides made the smaller-id side
+restart and the other defer, the connected link count stayed 1, and the guest's received audio kept growing
+(414,833 to 464,260 bytes over 6 s). UNVERIFIED: a real network change (a hotspot reconnecting, wifi to cellular), iOS
+backgrounding, and whether the restart is faster than the 5 s close in practice; that is the owner's A/B run with the
+switch and the log. Not done: the slow first connect (no data yet), and the 20 s handoff grace when the phone is the host.
+Found while verifying, and fixed here: the popover scroll fix had portaled the popover INTO the panel, and on the
+real Studio a tap on a switch near the panel's edge reached react-resizable-panels' document handler, which focuses
+the resize handle, and that focus change closed the popover. The popover now goes into the modal dialog only when the
+panel sits in one (the phone's Sheet, where the scroll lock is) and stays in `<body>` otherwise. The Name field is not
+focused on open (it would open the phone keyboard each time).
+
 **Sequence.** The per-person popover ships with #2633 (it is that PR's Volume decision). The "Me"
 controls are a separate PR after #2633 merges, because they build on its call controls and one
 feature is one PR. Mic level changes what every listener receives, so it gets a tier-1 independent

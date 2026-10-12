@@ -141,6 +141,32 @@ function ShareRow({ id, label, note, checked, onChange }: { id: string; label: s
 	);
 }
 
+/** Copies the connection timeline for a bug report, and says whether it reached the clipboard. */
+function CopyLog({ onCopy }: { onCopy: () => Promise<boolean> }) {
+	const [state, setState] = React.useState<'idle' | 'copied' | 'failed'>('idle');
+	return (
+		<div className="flex flex-col gap-1">
+			<Button
+				type="button"
+				variant="secondary"
+				size="sm"
+				className={cn('h-8 self-start', TOUCH)}
+				onClick={() => {
+					void onCopy().then((ok) => {
+						setState(ok ? 'copied' : 'failed');
+						window.setTimeout(() => setState('idle'), 3000);
+					});
+				}}
+			>
+				{state === 'copied' ? 'Copied' : 'Copy connection log'}
+			</Button>
+			<span className="text-[11px] leading-snug text-muted-foreground" role="status">
+				{state === 'failed' ? 'Could not copy. Allow clipboard access and try again.' : 'State changes, restarts and the path each link took. Paste it into a bug report.'}
+			</span>
+		</div>
+	);
+}
+
 /**
  * Your name, changed on Save (Enter): one change is one roster update for everyone, so not per keystroke. The
  * host decides (it cleans the name, refuses one another person already has, and ignores a second change inside
@@ -227,7 +253,8 @@ function YourSettings({ view, actions }: { view: LiveView; actions: LiveActions 
 					<MoreHorizontal className="size-3.5" />
 				</Button>
 			</PopoverTrigger>
-			<LivePopoverContent align="end" className="max-h-[min(75vh,var(--radix-popover-content-available-height))] w-72 overflow-y-auto p-3" data-live-your-settings>
+			{/* No autofocus: the first field is the Name input, and focusing it opens the keyboard on a phone every time this opens. */}
+			<LivePopoverContent align="end" onOpenAutoFocus={(e) => e.preventDefault()} className="max-h-[min(75vh,var(--radix-popover-content-available-height))] w-72 overflow-y-auto p-3" data-live-your-settings>
 				<div className="mb-2 text-[12px] font-semibold text-foreground">Your settings</div>
 				{me && (
 					<div className="mb-3">
@@ -239,6 +266,17 @@ function YourSettings({ view, actions }: { view: LiveView; actions: LiveActions 
 					<ShareRow id="live-share-cursor" label="Show my cursor" note="Others see where you are in the editor." checked={sh.cursor} onChange={(on) => actions.setShare({ cursor: on })} />
 					<ShareRow id="live-share-slide" label="Show my slide" note="Others see which slide you are on, and can jump to it." checked={sh.slide} onChange={(on) => actions.setShare({ slide: on })} />
 					<ShareRow id="live-share-typing" label="Show when I'm typing" note="Others see when you type in the editor and in the chat." checked={sh.typing} onChange={(on) => actions.setShare({ typing: on })} />
+				</div>
+				<div className="mt-3 flex flex-col gap-3 border-t border-border pt-3" data-live-connection>
+					<div className="font-mono text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Connection</div>
+					<ShareRow
+						id="live-recover"
+						label="Recover dropped connections faster"
+						note="Experimental. When the link drops, restart it right away instead of waiting for it to time out. Try it on a weak network; turn it off if calls get worse."
+						checked={view.connection.recover}
+						onChange={(on) => actions.setRecover(on)}
+					/>
+					<CopyLog onCopy={actions.copyLog} />
 				</div>
 			</LivePopoverContent>
 		</Popover>
@@ -755,13 +793,16 @@ function InviteRow({ view, actions, full }: { view: LiveView; actions: LiveActio
 	);
 }
 
-/** The panel's own root element. The popovers portal INTO it (not `<body>`): on a phone the panel lives in a modal
- *  Sheet, whose scroll lock blocks touch scrolling in anything outside the Sheet, so a popover taller than its
- *  room showed but would not scroll (owner's iPhone, 2026-10-12). */
+/** The panel's own root element, so a popover can find the modal it sits in. On a phone the panel lives in a modal
+ *  Sheet, whose scroll lock blocks touch scrolling in anything outside the Sheet: a popover taller than its room
+ *  showed but would not scroll (owner's iPhone, 2026-10-12). So a popover goes INTO that dialog. Anywhere else it stays
+ *  in `<body>`: inside the panel itself, a tap on a switch near the panel's edge reached react-resizable-panels' document
+ *  handler, which focuses the resize handle, and that focus change dismissed the popover (found on the real Studio). */
 const LiveRoot = React.createContext<HTMLElement | null>(null);
 const useLiveRoot = () => React.useContext(LiveRoot);
 function LivePopoverContent(props: React.ComponentProps<typeof PopoverContent>) {
-	return <PopoverContent container={useLiveRoot()} {...props} />;
+	const dialog = useLiveRoot()?.closest<HTMLElement>('[role="dialog"]') ?? null;
+	return <PopoverContent container={dialog} {...props} />;
 }
 
 export function LivePanel({ view, actions, title, now, defaultName = '', headerSlot }: { view: LiveView; actions: LiveActions; title?: string; now: number; defaultName?: string; headerSlot?: HTMLElement | null }) {

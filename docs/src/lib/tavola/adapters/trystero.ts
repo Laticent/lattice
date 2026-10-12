@@ -7,7 +7,7 @@
 // The version is pinned exactly: 0.26 changed the action API, so a minor bump is a code change.
 
 import { joinRoom, selfId } from 'trystero/nostr';
-import type { AudioStats, LinkPath, Transport } from '../types.js';
+import type { AudioStats, LinkEvent, LinkPath, Transport } from '../types.js';
 
 /** Namespaces every Tavola room on the relays, so it never meets another app's room. */
 export const TAVOLA_APP_ID = 'laticent-tavola-v1';
@@ -20,7 +20,22 @@ export type TrysteroOptions = {
 	/** TURN servers, added after Trystero's public STUN servers (an `rtcConfig.iceServers` would
 	 *  replace those instead). Empty by default: the Studio's slot is `live-ice.ts`. */
 	turnConfig?: Array<{ urls: string | string[]; username?: string; credential?: string }>;
+	/** Asked each time a connection could be recovered: restart its ICE when it goes `disconnected`, when the
+	 *  browser comes back online, and when the tab returns to the foreground, instead of waiting for Trystero
+	 *  to close it (it does after 5 s `disconnected`) and rediscover the peer over the relays. Off unless this
+	 *  returns true. Experimental: first tried on a phone hotspot (2026-10-12). */
+	recover?: () => boolean;
 };
+
+/** How long a connection may stay `disconnected` before this asks it to restart (a blip heals itself first). */
+export const RECOVER_AFTER_MS = 1000;
+const TIMELINE_MAX = 300;
+
+/**
+ * Who restarts a connection's ICE: the side with the smaller id, so two sides never offer at once. Either side's
+ * restart renegotiates both sides' candidates. Pure, exported for its test.
+ */
+export const restartsIce = (selfId: string, peerId: string): boolean => selfId < peerId;
 
 /** Cap the bitrate `track` is sent at on `pc` (best-effort: a browser that refuses keeps its default). */
 /**
@@ -86,6 +101,67 @@ export function trysteroTransport(room: string, secret: string, opts: TrysteroOp
 	const r = joinRoom({ appId: opts.appId ?? TAVOLA_APP_ID, password: secret, ...(opts.relayUrls ? { relayUrls: opts.relayUrls } : {}), ...(opts.rtcConfig ? { rtcConfig: opts.rtcConfig } : {}), ...(opts.turnConfig?.length ? { turnConfig: opts.turnConfig } : {}) }, room);
 	const counters = new Map<string, AudioCounters>();
 	const wire = r.makeAction<Uint8Array>('tavola');
+	const started = Date.now();
+	const events: LinkEvent[] = [];
+	const note = (peer: string, what: string) => {
+		events.push({ at: Date.now() - started, peer: peer.slice(0, 6), what });
+		if (events.length > TIMELINE_MAX) events.shift();
+	};
+	const watched = new Set<string>();
+	const timers = new Map<string, ReturnType<typeof setTimeout>>();
+	/** Ask one connection to restart its ICE, if recovery is on and this side is the one that offers. A
+	 *  connection that reads `connected` is left alone unless `healthyToo` (the network itself changed). */
+	const kick = (id: string, why: string, healthyToo = false) => {
+		const pc = r.getPeers()[id] as RTCPeerConnection | undefined;
+		if (!pc || pc.connectionState === 'closed' || (!healthyToo && pc.connectionState === 'connected') || typeof pc.restartIce !== 'function') return;
+		if (!opts.recover?.()) return note(id, `${why}: recovery off`);
+		if (!restartsIce(selfId, id)) return note(id, `${why}: the other side restarts`);
+		note(id, `${why}: restart ICE`);
+		pc.restartIce();
+	};
+	const watch = (id: string) => {
+		const pc = r.getPeers()[id] as RTCPeerConnection | undefined;
+		if (!pc || watched.has(id)) return;
+		watched.add(id);
+		note(id, `link up (${pc.connectionState}, ice ${pc.iceConnectionState})`);
+		let last = '';
+		const onState = () => {
+			const s = `${pc.connectionState}/${pc.iceConnectionState}`;
+			if (s === last) return;
+			last = s;
+			note(id, `state ${s}`);
+			const t = timers.get(id);
+			if (t) clearTimeout(t);
+			if (pc.connectionState === 'disconnected' || pc.iceConnectionState === 'disconnected') {
+				timers.set(id, setTimeout(() => kick(id, `still disconnected after ${RECOVER_AFTER_MS} ms`), RECOVER_AFTER_MS));
+			} else if (pc.connectionState === 'closed' || pc.connectionState === 'failed') {
+				watched.delete(id);
+			}
+		};
+		pc.addEventListener('connectionstatechange', onState);
+		pc.addEventListener('iceconnectionstatechange', onState);
+	};
+	const kickAll = (why: string, healthyToo = false) => {
+		for (const id of Object.keys(r.getPeers())) kick(id, why, healthyToo);
+	};
+	// The network changed (a hotspot reconnecting, wifi to cellular), or the tab came back from the background.
+	const onOnline = () => {
+		note('-', 'browser online');
+		// The network changed under every link: even one that still reads `connected` may hold a dead address.
+		setTimeout(() => kickAll('online', true), 500);
+		setTimeout(() => kickAll('online (retry)'), 3500);
+	};
+	const onVisible = () => {
+		if (document.visibilityState !== 'visible') return;
+		note('-', 'tab visible');
+		kickAll('tab visible');
+	};
+	const onOffline = () => note('-', 'browser offline');
+	if (typeof window !== 'undefined') {
+		window.addEventListener('online', onOnline);
+		window.addEventListener('offline', onOffline);
+		document.addEventListener('visibilitychange', onVisible);
+	}
 	return {
 		selfId,
 		send(data, to) {
@@ -95,12 +171,30 @@ export function trysteroTransport(room: string, secret: string, opts: TrysteroOp
 			wire.onMessage = (data, ctx) => cb(data instanceof Uint8Array ? data : new Uint8Array(data as unknown as ArrayBuffer), ctx.peerId);
 		},
 		onPeerJoin(cb) {
-			r.onPeerJoin = cb;
+			r.onPeerJoin = (id) => {
+				note(id, 'joined');
+				watch(id);
+				cb(id);
+			};
 		},
 		onPeerLeave(cb) {
-			r.onPeerLeave = cb;
+			r.onPeerLeave = (id) => {
+				note(id, 'left');
+				watched.delete(id);
+				const t = timers.get(id);
+				if (t) clearTimeout(t);
+				cb(id);
+			};
 		},
+		timeline: () => events.slice(),
 		leave() {
+			if (typeof window !== 'undefined') {
+				window.removeEventListener('online', onOnline);
+				window.removeEventListener('offline', onOffline);
+				document.removeEventListener('visibilitychange', onVisible);
+			}
+			for (const t of timers.values()) clearTimeout(t);
+			timers.clear();
 			return r.leave();
 		},
 		addTrack(track, stream, to, opts) {

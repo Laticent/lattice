@@ -104,7 +104,7 @@ log(`host live; link ${link.replace(/(#live=[^.]+)\.[^.]+\./, '$1.<secret>.')}`)
 await host.screenshot({ path: `${OUT}real-host-start-${mode}.png` });
 
 const gb = await launch();
-const gctx = await gb.newContext({ viewport: { width: 1440, height: 900 }, permissions: ['microphone'], ...video });
+const gctx = await gb.newContext({ viewport: { width: 1440, height: 900 }, permissions: ['microphone', 'clipboard-read', 'clipboard-write'], ...video });
 await gctx.addInitScript(seedFn, mode);
 const guest = await gctx.newPage();
 guest.on('pageerror', (e) => log(`guest pageerror ${e.message}`));
@@ -264,6 +264,24 @@ await host.waitForFunction(() => ![...document.querySelectorAll('[data-live-pane
 log('guest renamed back to "Amina"; the host no longer shows "Amina Okafor"');
 await guest.keyboard.press('Escape');
 await guest.waitForSelector('[data-live-your-settings]', { state: 'detached' });
+// Recovery (experimental switch): a network change on both sides while the call runs. With the switch ON the side with
+// the smaller id restarts ICE and the call must keep flowing on the SAME connections; the copied log says who did what.
+const inBytes = (pg) => pg.evaluate(async () => { let n = 0; for (const pc of window.__livePcs ?? []) { if (pc.connectionState !== 'connected') continue; for (const st of (await pc.getStats()).values()) if (st.type === 'inbound-rtp' && st.kind === 'audio') n += st.bytesReceived; } return n; });
+const liveCount = (pg) => pg.evaluate(() => (window.__livePcs ?? []).filter((pc) => pc.connectionState === 'connected').length);
+for (const pg of [host, guest]) {
+  await panel(pg).getByRole('button', { name: 'Your settings', exact: true }).click();
+  await pg.waitForSelector('[data-live-your-settings]');
+  await pg.locator('#live-recover').click();
+  await pg.keyboard.press('Escape');
+  await pg.waitForSelector('[data-live-your-settings]', { state: 'detached' });
+}
+const rb0 = await inBytes(guest); const rc0 = await liveCount(guest);
+for (const pg of [host, guest]) await pg.evaluate(() => window.dispatchEvent(new Event('online')));
+await guest.waitForTimeout(6000);
+const rb1 = await inBytes(guest);
+log(`network-change recovery: connected links ${rc0} -> ${await liveCount(guest)}; guest audio in ${rb0} -> ${rb1} bytes (${rb1 > rb0 + 2000 ? 'still flowing' : 'STALLED'})`);
+const copyLogOf = async (pg) => { await panel(pg).getByRole('button', { name: 'Your settings', exact: true }).click(); await pg.waitForSelector('[data-live-your-settings]'); await pg.getByRole('button', { name: 'Copy connection log' }).click(); const t = await pg.evaluate(() => navigator.clipboard.readText()); await pg.keyboard.press('Escape'); await pg.waitForSelector('[data-live-your-settings]', { state: 'detached' }); return t; };
+for (const [who, pg] of [['host', host], ['guest', guest]]) log(`${who}'s connection log (recovery lines): ${JSON.stringify((await copyLogOf(pg)).split('\n').filter((l) => /online|restart|recover/i.test(l)).map((l) => l.trim()))}`);
 // High fidelity (P4): the host's send rate and what the guest hears of a 14 kHz tone, switch off, on, off.
 if (process.argv.includes('--hifi')) {
   const sentRate = async (secs) => { const a = await audioBytes(host); await host.waitForTimeout(secs * 1000); return ((await audioBytes(host)) - a) * 8 / secs / 1000; };

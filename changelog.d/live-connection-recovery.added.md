@@ -1,0 +1,1 @@
+- Live: **Your settings → Connection** adds an experimental switch, **Recover dropped connections faster** (off by default), that restarts a link when it drops, when the network changes, or when the tab returns to the foreground, and a **Copy connection log** button that copies a timeline of what each link did, for bug reports.
