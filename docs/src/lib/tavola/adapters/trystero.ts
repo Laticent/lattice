@@ -46,6 +46,52 @@ export function describeCandidate(c: Record<string, string | number | boolean | 
 	return `${c.candidateType ?? '?'}/${c.protocol ?? '?'} ${shown}`;
 }
 
+/** What kind of candidate an ICE candidate line is: `host` (and `mdns` when its address is a hidden .local name), `srflx`, `relay` or `prflx`. Pure, exported for its test. */
+export function candidateKind(line: string): string {
+	const typ = /\btyp (\w+)/.exec(line)?.[1] ?? '?';
+	return typ === 'host' && /\.local\b/.test(line) ? 'mdns' : typ;
+}
+
+/**
+ * Record every RTCPeerConnection made while a transport is open, from creation: the connections that NEVER open are
+ * exactly the ones the peer-join log cannot see ("Nobody answered"). Per connection it notes each ICE state change, how
+ * many candidates of each kind it gathered, and any STUN/TURN error. Logging only: it hands the browser the real
+ * connection object. Returns the function that puts the original constructor back.
+ */
+function spyPeerConnections(note: (peer: string, what: string) => void): () => void {
+	const Native = typeof window !== 'undefined' ? window.RTCPeerConnection : undefined;
+	if (!Native) return () => {};
+	let n = 0;
+	// biome-ignore lint/complexity/useArrowFunction: it is called with `new`, which an arrow cannot be.
+	const Spy = function (this: unknown, ...args: ConstructorParameters<typeof RTCPeerConnection>) {
+		const pc = new Native(...args);
+		const label = `pc${++n}`;
+		const gathered: Record<string, number> = {};
+		const t0 = Date.now();
+		note(label, 'created');
+		pc.addEventListener('icecandidate', (e) => {
+			if (!e.candidate) return;
+			const k = candidateKind(e.candidate.candidate);
+			gathered[k] = (gathered[k] ?? 0) + 1;
+		});
+		pc.addEventListener('icegatheringstatechange', () => {
+			if (pc.iceGatheringState === 'complete') note(label, `gathered ${Object.entries(gathered).map(([k, v]) => `${k}×${v}`).join(' ') || 'nothing'} in ${Date.now() - t0} ms`);
+		});
+		pc.addEventListener('icecandidateerror', (e) => {
+			const ev = e as RTCPeerConnectionIceErrorEvent;
+			note(label, `ICE server error ${ev.errorCode} ${String(ev.url ?? '').slice(0, 40)} ${String(ev.errorText ?? '').slice(0, 60)}`.trim());
+		});
+		pc.addEventListener('iceconnectionstatechange', () => note(label, `ice ${pc.iceConnectionState} after ${Date.now() - t0} ms`));
+		return pc;
+	} as unknown as typeof RTCPeerConnection;
+	Spy.prototype = Native.prototype;
+	Object.setPrototypeOf(Spy, Native);
+	window.RTCPeerConnection = Spy;
+	return () => {
+		if (window.RTCPeerConnection === Spy) window.RTCPeerConnection = Native;
+	};
+}
+
 export const restartsIce = (selfId: string, peerId: string): boolean => selfId < peerId;
 
 /** Cap the bitrate `track` is sent at on `pc` (best-effort: a browser that refuses keeps its default). */
@@ -134,6 +180,7 @@ export function trysteroTransport(room: string, secret: string, opts: TrysteroOp
 		}
 	};
 	const sampler = typeof setInterval === 'function' ? setInterval(() => void sample(), SAMPLE_EVERY_MS) : null;
+	const unspy = spyPeerConnections(note);
 	const watched = new Set<string>();
 	const timers = new Map<string, ReturnType<typeof setTimeout>>();
 	/** Ask one connection to restart its ICE, if recovery is on and this side is the one that offers. A
@@ -235,6 +282,7 @@ export function trysteroTransport(room: string, secret: string, opts: TrysteroOp
 			for (const t of timers.values()) clearTimeout(t);
 			timers.clear();
 			if (sampler) clearInterval(sampler);
+			unspy();
 			return r.leave();
 		},
 		addTrack(track, stream, to, opts) {

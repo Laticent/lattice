@@ -406,6 +406,38 @@ export class LiveController {
 	/** Faster recovery of dropped connections (experimental): kept in this browser, off until chosen. */
 	private recover = readRecover();
 	private timeline: () => LinkEvent[] = () => [];
+	/** The screen wake lock held while a session is live: a phone that locks its screen suspends the page, and a host
+	 *  that is suspended is gone from the room (the guest sees "Nobody answered"). */
+	private wake: WakeLockSentinel | null = null;
+	private wakeWanted = false;
+	private wakeBound = false;
+	private keepAwake(on: boolean) {
+		this.wakeWanted = on;
+		if (!on) {
+			void this.wake?.release().catch(() => {});
+			this.wake = null;
+			return;
+		}
+		if (typeof navigator === 'undefined' || !navigator.wakeLock) return;
+		if (!this.wakeBound) {
+			this.wakeBound = true;
+			// A hidden page loses its lock; take it again when the page is back.
+			document.addEventListener('visibilitychange', () => {
+				if (document.visibilityState === 'visible' && this.wakeWanted) this.keepAwake(true);
+			});
+		}
+		if (this.wake) return;
+		navigator.wakeLock
+			.request('screen')
+			.then((lock) => {
+				if (!this.wakeWanted) return void lock.release().catch(() => {});
+				this.wake = lock;
+				lock.addEventListener('release', () => {
+					if (this.wake === lock) this.wake = null;
+				});
+			})
+			.catch(() => {});
+	}
 	private pairs: () => Promise<string[]> = () => Promise.resolve([]);
 	private outDevices: Array<{ id: string; label: string }> = [];
 	private micDevices: Array<{ id: string; label: string }> = [];
@@ -619,6 +651,7 @@ export class LiveController {
 		r.disposers.push(
 			session.subscribe(() => {
 				const s = session.getState();
+				this.keepAwake(s.stage === 'live');
 				const before = new Map(prev.members.map((m) => [m.id, m]));
 				if (prev.stage === 'live' && s.stage === 'live') {
 					for (const m of s.members) {
@@ -846,6 +879,7 @@ export class LiveController {
 	}
 
 	dispose(): void {
+		this.keepAwake(false);
 		const r = this.rt;
 		if (!r) return;
 		// An unload does not wait for WebCrypto, so write the save NOW from the last sealed blob (the
@@ -1578,7 +1612,7 @@ export class LiveController {
 
 	/** The connection timeline as text, for a bug report: what this browser is, the switch, each event, the paths. */
 	private async copyLog(): Promise<boolean> {
-		const lines = [`Lattice Live connection log · ${new Date().toISOString()}`, `browser: ${navigator.userAgent}`, `role: ${this.rt?.session.getState().isHost ? 'host' : 'guest'}`, `recover (experimental): ${this.recover ? 'on' : 'off'}`, `online: ${navigator.onLine} · visible: ${document.visibilityState}`];
+		const lines = [`Lattice Live connection log · ${new Date().toISOString()}`, `browser: ${navigator.userAgent}`, `role: ${this.rt?.session.getState().isHost ? 'host' : 'guest'}`, `screen wake lock: ${this.wake ? 'held' : typeof navigator !== 'undefined' && navigator.wakeLock ? 'not held' : 'unsupported'}`, `recover (experimental): ${this.recover ? 'on' : 'off'}`, `online: ${navigator.onLine} · visible: ${document.visibilityState}`];
 		const paths: Record<string, LinkPath> = (await this.rt?.session.paths().catch(() => ({}))) ?? {};
 		for (const [id, p] of Object.entries(paths)) lines.push(`path ${id.slice(0, 6)}: ${p.local}→${p.remote} (${p.protocol})`);
 		const pairs = await this.pairs();

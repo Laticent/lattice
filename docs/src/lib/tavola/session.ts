@@ -174,7 +174,7 @@ export type Session = {
 };
 
 export const DEFAULT_CAP = 4;
-const DEFAULT_LOBBY_TIMEOUT = 12_000;
+const DEFAULT_LOBBY_TIMEOUT = 25_000;
 /** A member re-measures the session clock this often (and three times, quickly, on joining). */
 export const CLOCK_RESYNC_MS = 30_000;
 /** Bytes. A deck plus its history is far below this; anything larger is dropped unread. */

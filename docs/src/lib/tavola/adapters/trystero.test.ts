@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { audioStatsFrom, capBitrate, describeCandidate, RECOVER_AFTER_MS, restartsIce } from './trystero';
+import { audioStatsFrom, candidateKind, capBitrate, describeCandidate, RECOVER_AFTER_MS, restartsIce } from './trystero';
 
 // Trystero's addTrack resolves before the offer and answer, and a browser may have no encodings to
 // set until negotiation is done (checker, PR #2594). The cap must land once it settles, not never.
@@ -88,5 +88,15 @@ describe('describeCandidate (a candidate as log text)', () => {
 		expect(describeCandidate({ candidateType: 'srflx', protocol: 'udp', address: '2001:db8::1' })).toBe('srflx/udp ipv6');
 		expect(describeCandidate({ candidateType: 'srflx', protocol: 'udp' })).toBe('srflx/udp hidden');
 		expect(describeCandidate(undefined)).toBe('?');
+	});
+});
+
+describe('candidateKind (what an ICE candidate line is)', () => {
+	it('tells host, mDNS-hidden host, server-reflexive and relay apart', () => {
+		expect(candidateKind('candidate:1 1 udp 2113937151 192.168.1.5 55555 typ host generation 0')).toBe('host');
+		expect(candidateKind('candidate:2 1 udp 2113937151 a1b2c3d4-e5f6.local 55555 typ host generation 0')).toBe('mdns');
+		expect(candidateKind('candidate:3 1 udp 1677729535 203.0.113.9 41000 typ srflx raddr 0.0.0.0 rport 0')).toBe('srflx');
+		expect(candidateKind('candidate:4 1 udp 33562623 198.51.100.7 3478 typ relay raddr 0.0.0.0 rport 0')).toBe('relay');
+		expect(candidateKind('garbage')).toBe('?');
 	});
 });

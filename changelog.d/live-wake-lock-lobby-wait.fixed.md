@@ -1,0 +1,1 @@
+- Live: a session now keeps the screen awake while it is live, because a locked phone suspends the page and drops out of the room, and a guest waits 25 seconds (was 12) for the host before "Nobody answered", since a slow network can need longer to connect.
