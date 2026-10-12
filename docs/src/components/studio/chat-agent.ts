@@ -13,9 +13,11 @@
 // over its soft budget; importing them DYNAMICALLY instead made the bundler re-split shared
 // chunks and cost more. So everything the startup code already holds is passed in through
 // `init(deps)` by `architect.ts`, and only this feature's own modules are imported.
+import { assetManifest, THUMB_TOKENS } from './agent-assets';
+import { agentAssets } from './agent-assets-browser';
 import { agentLibrary } from './agent-library';
 import type { ArchitectModel, ChatGrounding, ChatOptions, ChatResult, ChatTurn, ORPrice, ProposedEdit } from './architect';
-import { AGENT_TOOLS, type AgentComplete, type AgentComponent, type AgentRawEdit, bindKernel, buildAgentSystem, createToolbox, type DeckCheck, deckBrief, deckForTurn, describeEdit, type KernelDeps, runAgentLoop, type ToolCall } from './architect-agent';
+import { AGENT_TOOLS, type AgentComplete, type AgentComponent, type AgentRawEdit, ASSET_TOOLS, bindKernel, buildAgentSystem, createToolbox, type DeckCheck, deckBrief, deckForTurn, describeEdit, type KernelDeps, runAgentLoop, type ToolCall } from './architect-agent';
 import { FRONT_MATTER_KEYS } from './front-matter-keys';
 import type { ContentPart, MsgContent, ReferenceDoc } from './reference-doc';
 
@@ -90,16 +92,42 @@ function agentBudget(grounding?: ChatGrounding): { slideWordBudget: number; prof
 }
 
 /** The agent's two system halves — exported so the cost readout prices the same prompt. */
-export function agentSystemParts(source: string, grounding?: ChatGrounding, factGuard = ''): { staticPrefix: string; dynamicTail: string } {
+export function agentSystemParts(source: string, grounding?: ChatGrounding, factGuard = '', assetsBlock = ''): { staticPrefix: string; dynamicTail: string } {
 	const budget = agentBudget(grounding);
 	const brief = deckBrief(source, { ...budget, findings: grounding?.findings, diagrams: grounding?.diagrams });
-	return { staticPrefix: agentSystem(grounding?.catalog ?? []), dynamicTail: `\n\n${brief}${factGuard}` };
+	// The Library manifest changes whenever a photo is added or captioned, so it rides in the
+	// tail with the deck brief, never in the cached prefix.
+	return { staticPrefix: agentSystem(grounding?.catalog ?? []), dynamicTail: `\n\n${brief}${assetsBlock ? `\n\n${assetsBlock}` : ''}${factGuard}` };
+}
+
+/** Can the selected OpenRouter model read images? From the model catalog, which the picker has
+ *  already fetched; unknown reads as no, so the agent never promises a look it cannot take. */
+async function modelSeesImages(model: ArchitectModel): Promise<boolean> {
+	try {
+		const id = model.openRouterModel();
+		return !!(await model.listOpenRouterModels()).find((m) => m.id === id)?.vision;
+	} catch {
+		return false;
+	}
+}
+
+/** A message's text for the budget gate. A picture counts as a fixed charge, not as the base64
+ *  that carries it (one thumbnail is ~40K characters and ~800 tokens). */
+function budgetText(m: { content?: unknown; tool_calls?: unknown }): { text: string; images: number } {
+	let images = 0;
+	const c = m.content;
+	const parts = Array.isArray(c) ? c : [];
+	images = parts.filter((p) => (p as { type?: string })?.type === 'image_url').length;
+	const text = typeof c === 'string' ? c : Array.isArray(c) ? parts.map((p) => ((p as { type?: string })?.type === 'image_url' ? '[image]' : JSON.stringify(p))).join('') : JSON.stringify(c ?? '');
+	return { text: text + (m.tool_calls ? JSON.stringify(m.tool_calls) : ''), images };
 }
 
 export async function chatAgent(model: ArchitectModel, history: ChatTurn[], source: string, docs: ReferenceDoc[] | undefined, opts: ChatOptions | undefined): Promise<ChatResult | null> {
 	const grounding = opts?.grounding;
 	const last = history[history.length - 1];
-	const { staticPrefix, dynamicTail } = agentSystemParts(source, grounding, opts?.constrainFacts ? FACT_GUARD : '');
+	// The Library is read once per turn. A failed read is an empty Library, never a failed turn.
+	const library = await agentAssets.list().catch(() => []);
+	const { staticPrefix, dynamicTail } = agentSystemParts(source, grounding, opts?.constrainFacts ? FACT_GUARD : '', assetManifest(library));
 	const systemContent = [
 		{ type: 'text', text: staticPrefix },
 		{ type: 'text', text: dynamicTail },
@@ -120,6 +148,8 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 		library: agentLibrary,
 		check: withFit(grounding),
 		slideWordBudget: agentBudget(grounding).slideWordBudget,
+		assets: library.length ? agentAssets : undefined,
+		canSee: () => modelSeesImages(model),
 	});
 	const systemTokens = estTokens(staticPrefix) + estTokens(dynamicTail);
 	const docTokens = refDocsTokens(docs);
@@ -139,15 +169,14 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 	const complete: AgentComplete = async (msgs, { tools, onToken }) => {
 		// The budget gate prices EVERY round, not just the first: a tool round re-sends the
 		// whole conversation so far, and a hard-stop cap has to hold across all of them.
-		const convo = msgs
-			.slice(1)
-			.map((m) => (typeof m.content === 'string' ? m.content : JSON.stringify(m.content ?? '')) + (m.tool_calls ? JSON.stringify(m.tool_calls) : ''))
-			.join('\n');
+		const priced = msgs.slice(1).map(budgetText);
+		const convo = priced.map((p) => p.text).join('\n');
+		const pictureTokens = priced.reduce((n, p) => n + p.images, 0) * THUMB_TOKENS;
 		if (streamed.trim()) done.push(streamed);
 		streamed = '';
 		genId = null;
 		roundPrompt = convo;
-		const blk = cloudBudgetBlock(model, convo, systemTokens + docTokens, CHAT_MAX_TOKENS);
+		const blk = cloudBudgetBlock(model, convo, systemTokens + docTokens + pictureTokens, CHAT_MAX_TOKENS);
 		if (blk) {
 			blockedNote = blk;
 			const e = new Error(blk);
@@ -164,7 +193,7 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 			cacheTtl: '1h',
 			cacheTail: true,
 			maxTokens: CHAT_MAX_TOKENS,
-			tools: AGENT_TOOLS,
+			tools: library.length ? [...AGENT_TOOLS, ...ASSET_TOOLS] : AGENT_TOOLS,
 			toolChoice: tools ? 'auto' : 'none',
 			onToolCalls: (c) => {
 				calls = c;
@@ -340,6 +369,9 @@ const TOOL_ACTIVITY: Record<string, string> = {
 	edit_slides: 'Editing the draft…',
 	set_front_matter: 'Setting front matter…',
 	check_deck: 'Checking the deck…',
+	list_assets: 'Searching the Library…',
+	view_asset: 'Looking at photos…',
+	caption_asset: 'Saving photo captions…',
 };
 
 /** Fold an agent turn into the ChatResult the panel already renders: the prose, and the

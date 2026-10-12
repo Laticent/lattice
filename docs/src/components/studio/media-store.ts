@@ -14,6 +14,7 @@
 // transaction does not). A clash is REFUSED, never resolved by overwriting.
 import { ASSET_STORE, openDB, reqAsPromise } from '@/components/studio/library/asset-db.js';
 import { deleteAsset } from '@/components/studio/library/asset-store.js';
+import { cleanCaption } from './agent-assets';
 
 export type MediaKind = 'image' | 'video';
 /** `'library'` — every deck — or the id of the one deck that owns the asset. */
@@ -38,6 +39,11 @@ export type MediaRecord = {
 	sourceName: string;
 	/** False once the importer downscaled a photo; the stored pixels are not the camera's. */
 	original: boolean;
+	/** A one-line description of what the picture shows, written by the chat the first time it
+	 *  looked at the photo (agent-assets.ts). Tied to this record's bytes: replacing a photo is
+	 *  delete-and-add, which makes a new record and so drops the caption. Optional and never
+	 *  required by anything but the chat. */
+	caption?: string;
 	addedAt: number;
 };
 
@@ -210,6 +216,29 @@ export async function setMediaScope(id: string, scope: MediaScope): Promise<Medi
 			// The raw row keeps whichever of `blob` or `data` it was stored with; only the copy handed back is made readable.
 			store.put({ ...row, scope });
 			out = readable({ ...row, scope });
+		};
+	});
+}
+
+/** Store a caption on one image. Resolves the updated record, or null when it no longer exists
+ *  or is not an image. An empty caption clears it. */
+export async function setMediaCaption(id: string, caption: string): Promise<MediaRecord | null> {
+	const db = await openDB();
+	const clean = cleanCaption(caption);
+	return new Promise<MediaRecord | null>((resolve, reject) => {
+		const t = db.transaction(ASSET_STORE, 'readwrite');
+		const store = t.objectStore(ASSET_STORE);
+		let out: MediaRecord | null = null;
+		t.oncomplete = () => resolve(out);
+		t.onabort = t.onerror = () => reject(t.error || new Error('setMediaCaption: the change failed'));
+		const get = store.get(id);
+		get.onsuccess = () => {
+			const row = get.result as (MediaRecord & { data?: ArrayBuffer }) | undefined;
+			if (!row || row.kind !== 'image') return;
+			const { caption: _old, ...rest } = row;
+			const next = clean ? { ...rest, caption: clean } : rest;
+			store.put(next);
+			out = readable(next as MediaRecord & { data?: ArrayBuffer });
 		};
 	});
 }
