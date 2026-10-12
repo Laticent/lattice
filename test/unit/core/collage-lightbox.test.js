@@ -128,3 +128,27 @@ test('the core closes over nothing at module scope, so .toString() inlining hold
   const { doc } = page();
   assert.ok(rebuilt(doc, { src: PNG, reducedMotion: true }));
 });
+
+// ── tap versus drag (lib/core/collage-tap.mjs, shared by the Studio and the exported player) ──
+test('collageDragged: travel past 8 px (|dx| + |dy|) is a drag; less, or no press, is a tap', async () => {
+  const { collageDragged, COLLAGE_TAP_SLOP } = await import('../../../lib/core/collage-tap.mjs');
+  assert.equal(COLLAGE_TAP_SLOP, 8);
+  const down = { x: 100, y: 100 };
+  assert.equal(collageDragged(down, 100, 100), false, 'a still click is a tap');
+  assert.equal(collageDragged(down, 104, 104), false, 'exactly 8 px is a tap');
+  assert.equal(collageDragged(down, 105, 104), true, '9 px is a drag');
+  assert.equal(collageDragged(down, 40, 100), true, 'a drag to the left');
+  assert.equal(collageDragged(down, 100, 160), true, 'a drag downward');
+  assert.equal(collageDragged(null, 500, 500), false, 'no recorded press: never a drag');
+  assert.equal(collageDragged(undefined, 0, 0), false);
+});
+
+test('the exported player takes its drag slop from the shared number', async () => {
+  const { buildPlayerHtml } = require('../../../lib/export/html-player.js');
+  const { COLLAGE_TAP_SLOP } = await import('../../../lib/core/collage-tap.mjs');
+  const png = 'data:image/png;base64,iVBORw0KGgo=';
+  const docHtml = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>D</title></head><body>
+<section data-lattice-slide="1" id="1" class="collage"><h1>A</h1><ul class="collage-list" data-collage="packed"><li class="collage-tile"><img src="${png}" alt="x"></li></ul></section></body></html>`;
+  const { html } = await buildPlayerHtml({ docHtml, source: '---\ntheme: indaco\n---\n\n# A\n', now: 0 });
+  assert.ok(html.includes(`Math.abs(e.clientY-down.y)>${COLLAGE_TAP_SLOP})return;`), 'the player compares against the shared slop');
+});

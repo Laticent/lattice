@@ -175,3 +175,26 @@ test('@parity @webkit-phone a tap on a photo in the Studio preview opens it; a t
 		await expect(lightbox(page)).toHaveCount(0, { timeout: 600 });
 	}).toPass({ timeout: 10_000 });
 });
+
+// A mouse drag ends in a `click` too. On a `bleed` slide the tiles cover the slide, so without the
+// tap slop (`collageDragged`, lib/core/collage-tap.mjs) a drag that ends on a photo opens it.
+test('@smoke @crosswidth a mouse drag that ends on a photo does not open it; a plain click does', async ({ page }, info) => {
+	test.skip(Boolean(info.project.use.hasTouch), 'a touch device has no mouse drag');
+	await openStudioDeck(page);
+	const at = await photoAt(page, 1);
+	// Press on the photo, travel 40 px, release: the browser still fires `click`, on the holder.
+	await page.mouse.move(at.x, at.y);
+	await page.mouse.down();
+	await page.mouse.move(at.x + 20, at.y + 10, { steps: 4 });
+	await page.mouse.move(at.x + 40, at.y + 20, { steps: 4 });
+	await page.mouse.up();
+	await expect(slideTitle(page)).toHaveText('First slide');
+	await expect(lightbox(page)).toHaveCount(0);
+	// ANTI-VACUITY: the same press-and-release without travel opens it, so "nothing opened" above
+	// means the drag was refused, not that the photo was unreachable.
+	await page.mouse.move(at.x, at.y);
+	await page.mouse.down();
+	await page.mouse.move(at.x + 3, at.y + 2);
+	await page.mouse.up();
+	await expect(lightbox(page)).toBeVisible({ timeout: 15_000 });
+});

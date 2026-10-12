@@ -44,6 +44,7 @@ import { type Breakpoint, hasFinePointer, readBreakpoint, readLandscapePhone, us
 import { cn } from '@/lib/utils';
 import { applyReadAloudDebugParam } from '@/playground/readaloud-overlay-prefs';
 import { onToursEnabledChange, toursEnabled } from '@/playground/tour-prefs.js';
+import { collageDragged } from '../../../../lib/core/collage-tap.mjs';
 import { sourceHasMath } from '../../../../lib/plugins/math/math.syntax.mjs';
 import { attachPreviewZoom, type PreviewZoomHandle } from '../../lib/preview-zoom';
 import { tapCollageAt } from '../../playground/collage-host.js';
@@ -3682,12 +3683,27 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// dead on desktop and iOS alike (followup 2358-p2). The holder catches the click the
 		// browser synthesizes from a tap — a swipe or a pinch synthesizes none — and hit-tests it
 		// into the scaled frame. Only a poster is claimed; every other tap is left alone.
+		//
+		// A MOUSE DRAG ENDS IN A CLICK TOO. On a `bleed` collage the tiles cover the slide, so a drag
+		// that ends on a photo would open it. The press point is kept and a click that travelled past
+		// the tap slop is left alone, the way the exported player already does (#2641).
+		let pressAt: { x: number; y: number } | null = null;
+		const onPress = (e: PointerEvent) => {
+			pressAt = { x: e.clientX, y: e.clientY };
+		};
 		const onTap = (e: MouseEvent) => {
 			const frame = previewBoxRef.current?.querySelector<HTMLIFrameElement>('iframe.live');
-			if (frame && (tapVideoAt(frame, e.clientX, e.clientY) || tapCollageAt(frame, e.clientX, e.clientY))) e.preventDefault();
+			if (!frame) return;
+			const dragged = collageDragged(pressAt, e.clientX, e.clientY);
+			pressAt = null; // a click with no press of its own (a script's) is never a drag
+			if (tapVideoAt(frame, e.clientX, e.clientY) || (!dragged && tapCollageAt(frame, e.clientX, e.clientY))) e.preventDefault();
 		};
+		holder.addEventListener('pointerdown', onPress, true);
 		holder.addEventListener('click', onTap);
-		previewTapOffRef.current = () => holder.removeEventListener('click', onTap);
+		previewTapOffRef.current = () => {
+			holder.removeEventListener('pointerdown', onPress, true);
+			holder.removeEventListener('click', onTap);
+		};
 		// ZOOM owns the preview's whole input stream — swipe and wheel navigation
 		// included. A NATIVE-listener controller rather than the React
 		// `onTouchStart`/`onWheel` handlers it replaces, for two reasons that both bite
