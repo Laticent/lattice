@@ -232,6 +232,17 @@ describe('admission on the render paths', () => {
     assert.deepEqual(lint(vocab), ['gantt-plugin', 'mermiad']);
   });
 
+  it('attributes after a zip plugin’s fence name are reported once, only for fences the host holds as data', () => {
+    const core = require('../../../lib/authoring/lint-core.js');
+    const src = '---\nplugins: [gantt-plugin]\n---\n\n## P\n\n```gantt title="Q3" {a=1}\nA 1\n```\n\n```gantt\nB 2\n```\n\n```js title="x"\nlet a;\n```\n';
+    const vocab = { names: new Set(), modifiers: new Set(), externalPlugins: ['gantt-plugin'], externalFences: ['gantt'] };
+    const hits = core.lintTextWith(src, vocab).filter((f) => f.rule === 'plugin-fence-attributes');
+    assert.equal(hits.length, 1, 'only the fence with words after its name');
+    assert.equal(hits[0].classToken, 'gantt');
+    assert.match(hits[0].message, /title="Q3"/);
+    assert.deepEqual(core.lintTextWith(src, { names: new Set(), modifiers: new Set() }).filter((f) => f.rule === 'plugin-fence-attributes'), [], 'a host with no such plugin says nothing');
+  });
+
   it('the CLI bake runs only for an admitted plugin', () => {
     const ran = [];
     const bakers = [{ name: 'mermaid', load: () => ({ bake: (s) => { ran.push('mermaid'); return s; } }) }];

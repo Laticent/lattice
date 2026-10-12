@@ -191,6 +191,7 @@ distinct, stable ID.
 |---|---|---|---|
 | `unknown-finish` | warning | ✓ | A front-matter `finish:` value that isn't a known register — the deck ignores it and draws no backdrop. |
 | `unknown-plugin` | warning | ✓ | A name in the front-matter `plugins:` import list that no plugin has — the list only adds, so the deck would silently load nothing for it. |
+| `plugin-fence-attributes` | warning | — | Words after a zip plugin's fence name (```` ```gantt title="Q3" ````). A plugin's fence is handed its text only, so they are ignored today and may take on a meaning later. |
 | `unknown-mode` | warning | ✓ | A `mode:` value the engine does not know; the deck uses `boardroom`. |
 | `unknown-preset` | warning | ✓ | A `preset:` name the engine does not know; no preset applies. |
 | `unknown-fit` | warning | — | A `fit:` value the engine does not know; the deck uses `heal`. |

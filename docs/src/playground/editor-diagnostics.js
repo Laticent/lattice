@@ -76,11 +76,19 @@ export function chunkStartLines(src) {
 // makes, by reference: the editor builds its vocabulary once, and a plugin imported later must still be known.
 /** @type {string[]} */
 const EXTERNAL_PLUGINS = [];
+/** @type {string[]} the fence names those plugins own */
+const EXTERNAL_FENCES = [];
 
-/** Tell the linter which plugins the host holds that are not in the shipped registry. @param {Iterable<string>} names */
-export function setExternalPlugins(names) {
+/**
+ * Tell the linter which plugins the host holds that are not in the shipped registry, and the fences they own.
+ * @param {Iterable<string>} names
+ * @param {Iterable<string>} [fences]
+ */
+export function setExternalPlugins(names, fences = []) {
 	EXTERNAL_PLUGINS.length = 0;
 	EXTERNAL_PLUGINS.push(...names);
+	EXTERNAL_FENCES.length = 0;
+	EXTERNAL_FENCES.push(...fences);
 }
 
 /** @returns {VocabSets} */
@@ -91,6 +99,7 @@ export function buildVocabSets(vocab) {
 		names: new Set(v.names || []),
 		modifiers: new Set(v.modifiers || []),
 		externalPlugins: EXTERNAL_PLUGINS,
+		externalFences: EXTERNAL_FENCES,
 	};
 	// Map region/group vocabulary — { us, world }, each { valid, names }.
 	if (v.mapRegions) {

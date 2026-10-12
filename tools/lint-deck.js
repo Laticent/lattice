@@ -145,6 +145,16 @@ async function main(argv) {
 
   // Build the catalog vocabulary once, reuse across all files.
   const vocab = buildVocab();
+  // The zip plugins installed here (their names and fences): a deck that lists one is not wrong, and attributes
+  // after one's fence name are ignored today. Read from the package store, as a render reads it.
+  try {
+    const home = require('../lib/packages/home.js');
+    const plugins = home.listInstalled(home.packagesRoot()).filter((p) => p.type === 'plugin' && p.ok && p.pkg?.manifest?.contributes?.fences);
+    vocab.externalPlugins = plugins.map((p) => p.name);
+    vocab.externalFences = plugins.flatMap((p) => Object.keys(p.pkg.manifest.contributes.fences));
+  } catch {
+    /* no store: no external plugins */
+  }
   // Advisory review pass (brevity / density / verbose chrome) — on by default for
   // explicit file args, OFF under --all (the gallery sweep deliberately stress-
   // tests density, so its suggestions are noise there) and skippable with

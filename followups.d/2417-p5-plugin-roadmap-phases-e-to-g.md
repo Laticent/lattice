@@ -123,3 +123,21 @@ owner's answers are §9 decisions 10 to 14 of the plugin-system note; the build 
    to define later.
 6. **Known limits to keep in §4.10 / §4.11 as written:** no links, remote images or fonts in output
    (`data:` only); a Marp export ships the raw code block.
+
+**Built 2026-10-12 (the PR on branch `claude/plugin-phase-e-code-door`):** step 1 items 1 to 3 and 5, and the
+gate half of item 4: the Studio's door (with the trio's findings fixed), the placeholder and Approve strip,
+`lattice packages add` / `trust plugin/<name>` / render, the plugin gate (`refusePlugin`), subfolder
+reporting, and the `lint:deck` warning. See the plugin note's §11. **Still open, for phase E's step 2 and 3:**
+1. **A plugin's `styles.css` is stored and never delivered.** Decision 12: every selector rewritten under
+   `[data-lattice-plugin="<name>"]` (and the roots of the plugins it declares it styles), before the engine's
+   CSS in source order, no `@layer`, through #22's style sink (`lib/layout/bridge.js` `componentBlock` is the
+   route to copy; `checkDocumentStyleSinks` and `checkCssTreeRewrapSinks` will each need a decision). Needs a
+   `targets` field in `plugin.schema.json`. This is its own PR with the adversarial trio: a stylesheet is a
+   document channel.
+2. **Export provenance** (name + SHA-256 of each non-shipped plugin an export used) in
+   `lib/core/reopenable.js`, which records none today.
+3. **The Studio's Library cards for plugins, `plugin-admission.ts`, and `asset-store.js`'s id prefix** (a
+   plugin record's id starts `a`; harmless, untidy). The Plugins tab is the only place a zip plugin shows.
+4. **The Studio's export of a plugin zip** (`package-zip.ts` has a reader and no writer): a user cannot
+   hand a plugin they imported to someone else from the Studio.
+5. **Marp export** ships the raw code block for a plugin fence, as for a code package.

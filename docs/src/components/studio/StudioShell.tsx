@@ -1279,7 +1279,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	}, [localComponents]);
 	React.useEffect(() => {
 		// The editor's lint and the engine both know these names, so a deck that lists one is not called wrong.
-		setExternalPlugins(localPlugins.map((p) => p.name));
+		setExternalPlugins(localPlugins.map((p) => p.name), localPlugins.map((p) => p.fence));
 		let live = true;
 		setPlugins(localPlugins.map((p) => ({ name: p.name, fence: p.fence, code: p.code }))).then(
 			() => { if (live) setCodeStamp(codePackagesStamp()); },

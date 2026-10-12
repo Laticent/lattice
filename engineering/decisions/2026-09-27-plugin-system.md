@@ -1746,6 +1746,25 @@ the real Studio preview and in Share → PDF. What was built:
   render; an approval stays in the browser after its plugin is deleted, pinned to bytes (re-importing the
   same bytes is approved, as decision 14 designs).
 
+**2026-10-12 — phase E, the CLI half of the door: install, trust, render, lint.** A zip plugin now runs
+through `node lattice.js`, end to end (`test/integration/export/plugin-cli.test.js`, real Chromium):
+- `lib/packages/gate.js` `refusePlugin` replaces the by-name refusal (`PLUGIN_REFUSAL`, deleted): the
+  shape gate `refusePluginCode`, the syntax gate on the script as a fence renderer, `codeNameRefusal`
+  on the name, and a fence that is a shipped plugin's or a highlight.js language or alias (the same
+  `fence-door.generated.json` lists the Studio reads). `lattice packages add` installs it under
+  `plugin/<name>`, unapproved, and `lattice packages trust plugin/<name>` approves it (the digest shown is
+  the one the Studio shows for the same bytes, `759dc27d…` on the test plugin). A folder or zip below the
+  top level is reported ("left out 1 item(s) below the top level (shared/)"), never dropped.
+- `lattice.js` `withInstalledPlugins`: of the installed plugins, the ones the deck's `plugins:` line names
+  (`activePluginNames`, the kernel rule the Studio uses) go to `renderWithCodePackages`; the door refuses
+  an unapproved one with its digest and the trust command, before anything runs. An installed plugin the
+  deck writes a fence for but does not list is named once, with the line to add. A plugin sharing a shipped
+  plugin's name is refused and named.
+- `lint:deck` reads the package store: a listed zip plugin is not `unknown-plugin`, and the new
+  `plugin-fence-attributes` warning says the words after a plugin fence's name (```` ```gantt title="Q3" ````)
+  are ignored today (decision 10), so the field stays free to define. The Studio's editor passes the same
+  vocabulary (`externalFences`).
+
 ## References
 
 - [`2026-06-14-plugin-extension-system.md`](2026-06-14-plugin-extension-system.md) — LPM.
