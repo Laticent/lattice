@@ -1292,6 +1292,18 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		document.addEventListener('visibilitychange', back);
 		return () => { window.removeEventListener('focus', back); document.removeEventListener('visibilitychange', back); };
 	}, [refreshAssets]);
+	// The Library photos the editor completes `asset:` against. Read when you type an image reference: the registry (and the
+	// shelf) load on that first use, scoped to the OPEN deck so its own photos are offered beside the shared ones.
+	const deckIdRef = React.useRef(deck.id);
+	deckIdRef.current = deck.id;
+	const completionAssets = React.useCallback(
+		() =>
+			import('./media-urls').then(async (m) => {
+				await m.setActiveAssetDeck(deckIdRef.current);
+				return m.assetChoices();
+			}),
+		[],
+	);
 	// Saved (Fabricated) FINISHES from the same shared library (kind:'finish') — a
 	// finish designed + saved in the Finish faculty lands here, becomes pickable in
 	// the Inspector Finish menu, and renders in the deck preview (its CSS injected +
@@ -5345,7 +5357,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				</React.Suspense>
 			) : (
 				<React.Suspense fallback={<EditorSkeleton />}>
-					<Editor ref={editorRef} value={source} onChange={live.collab ? onLiveEditorChange : setSourceFromEditor} collab={live.collab} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} completionVocab={completionVocab} lintVocab={lintVocab} extraComponentNames={localNames} onCursorSlide={onEditorCursorSlide} onCursorText={onCursorText} onSelectionChange={setHasSelection} onLintCounts={setLintCounts} measuredSparks={measuredSparks} carryKey={deck.id} className="flex-1" />
+					<Editor ref={editorRef} value={source} onChange={live.collab ? onLiveEditorChange : setSourceFromEditor} collab={live.collab} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionAssets={completionAssets} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} completionVocab={completionVocab} lintVocab={lintVocab} extraComponentNames={localNames} onCursorSlide={onEditorCursorSlide} onCursorText={onCursorText} onSelectionChange={setHasSelection} onLintCounts={setLintCounts} measuredSparks={measuredSparks} carryKey={deck.id} className="flex-1" />
 				</React.Suspense>
 			)}
 		</section>

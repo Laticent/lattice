@@ -10,7 +10,7 @@ import * as React from 'react';
 import { followDeckAdmission } from '@/lib/plugin-admission';
 import type { SparkFitReport } from '@/lib/spark-fit';
 import { buildVocabSets, findingsToDiagnostics } from '@/playground/editor-diagnostics.js';
-import { type CompletionComponent, type CompletionVocab, type InlineNext, makeStudioCompletion, registerValueLists } from './editor-complete';
+import { type AssetChoice, type CompletionComponent, type CompletionVocab, type InlineNext, makeAssetCompletion, makeStudioCompletion, registerValueLists } from './editor-complete';
 import { editorTheme, studioHighlight } from './editor-theme';
 import { iconPreviewOption } from './icon-preview';
 import { slideEditableOffset, slideIndexAt } from './lint';
@@ -282,6 +282,9 @@ export const Editor = React.forwardRef<EditorHandle, {
 	knownComponents?: string[];
 	/** The component catalog, for autocomplete (name/bucket/description). */
 	completionComponents?: CompletionComponent[];
+	/** Reads the Library photos the open deck may name, for `asset:` completion. Called on the first image
+	 *  reference typed, never at start-up. */
+	completionAssets?: () => Promise<AssetChoice[]>;
 	/** `finish:` front-matter VALUE vocabulary — built-in presets (bare) + saved
 	 *  finishes (prefixed `finish-<slug>`). Drives both the value completion AND the
 	 *  inline `unknown-finish` lint (a valid value is exactly what's offered). */
@@ -341,7 +344,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 	 *  binding must be rebuilt (a role change makes it read-only). */
 	collab?: { extension: Extension; key: string; readOnly: boolean; seed: () => string } | null;
 	className?: string;
-}>(function Editor({ value, onChange, knownComponents = [], completionComponents = [], completionFinishValues = [], completionFinishClasses = [], completionPalettes = [], completionVocab = null, lintVocab, extraComponentNames, onCursorSlide, onCursorText, onSelectionChange, onUserEdit, onLintCounts, measuredSparks = null, carryKey, collab = null, className }, ref) {
+}>(function Editor({ value, onChange, knownComponents = [], completionComponents = [], completionAssets, completionFinishValues = [], completionFinishClasses = [], completionPalettes = [], completionVocab = null, lintVocab, extraComponentNames, onCursorSlide, onCursorText, onSelectionChange, onUserEdit, onLintCounts, measuredSparks = null, carryKey, collab = null, className }, ref) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
 	const collabRef = React.useRef(collab);
@@ -431,6 +434,9 @@ export const Editor = React.forwardRef<EditorHandle, {
 	// change; finish/vocab changes flow through the reconfigure effects below, so a
 	// freshly-saved finish stops being flagged / starts completing immediately.
 	const acComp = React.useRef(new Compartment());
+	// Read at completion time, so a new callback never rebuilds the editor.
+	const assetsRef = React.useRef(completionAssets);
+	assetsRef.current = completionAssets;
 	const lintComp = React.useRef(new Compartment());
 	// What may come next in a spark or pill, from the lint core once it has loaded (read at
 	// completion time, so the menu works the moment the core arrives, without a reconfigure).
@@ -439,7 +445,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 	const measuredRef = React.useRef(measuredSparks);
 	measuredRef.current = measuredSparks;
 	const buildAutocomplete = () =>
-		autocompletion({ override: [makeStudioCompletion(completionComponents, completionFinishValues, completionFinishClasses, { modifiers: completionModifiers, palettes: completionPalettes, registers: completionRegisters, vocab: completionVocab, inlineNext })], activateOnTyping: true, icons: false, maxRenderedOptions: 300, addToOptions: [iconPreviewOption] });
+		autocompletion({ override: [makeStudioCompletion(completionComponents, completionFinishValues, completionFinishClasses, { modifiers: completionModifiers, palettes: completionPalettes, registers: completionRegisters, vocab: completionVocab, inlineNext }), makeAssetCompletion(() => assetsRef.current?.() ?? [])], activateOnTyping: true, icons: false, maxRenderedOptions: 300, addToOptions: [iconPreviewOption] });
 	const buildLint = () =>
 		useRealLint && vocabSets
 			? linter(async (view): Promise<Diagnostic[]> => {

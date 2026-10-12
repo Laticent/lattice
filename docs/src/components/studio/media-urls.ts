@@ -10,6 +10,7 @@
 // WHAT THE MAP HOLDS is the assets the open deck may see: every shared asset plus that deck's
 // own. Another deck's asset is deliberately absent, so a reference to it renders the missing-image
 // stand-in rather than quietly working.
+import type { AssetChoice } from './editor-complete';
 import { listMedia, type MediaRecord, visibleMedia } from './media-store';
 
 const urlById = new Map<string, string>();
@@ -17,6 +18,8 @@ const urlById = new Map<string, string>();
 const blobByName = new Map<string, { id: string; blob: Blob; mime: string }>();
 const dataUriById = new Map<string, Promise<string>>();
 let current: Record<string, string> = {};
+// What the editor offers when you type an image reference: the visible photos, newest first.
+let choices: AssetChoice[] = [];
 let activeDeckId: string | null = null;
 let rev = 0;
 let loaded: Promise<void> | null = null;
@@ -48,7 +51,9 @@ export async function refreshAssetUrls(): Promise<void> {
 	}
 	const next: Record<string, string> = {};
 	blobByName.clear();
-	for (const m of visibleMedia(all, activeDeckId)) {
+	const seen = visibleMedia(all, activeDeckId);
+	choices = seen.map((m) => ({ name: m.name, scope: m.scope, width: m.width, height: m.height, sourceName: m.sourceName }));
+	for (const m of seen) {
 		next[m.name] = urlFor(m);
 		blobByName.set(m.name, { id: m.id, blob: m.blob, mime: m.mime });
 	}
@@ -80,6 +85,11 @@ export async function ensureAssetUrls(): Promise<Record<string, string>> {
  *  so adding, deleting or re-scoping an image re-renders the slides that showed the old state. */
 export function assetStamp(): string {
 	return rev > 0 ? `/* lattice assets: ${rev} */` : '';
+}
+
+/** The photos the open deck may name, for the editor's completion. Read after `ensureAssetUrls`. */
+export function assetChoices(): AssetChoice[] {
+	return choices;
 }
 
 /** Hear about map changes. Returns the unsubscribe. */
@@ -155,6 +165,7 @@ export function resetAssetUrlsForTests(): void {
 	blobByName.clear();
 	dataUriById.clear();
 	current = {};
+	choices = [];
 	activeDeckId = null;
 	rev = 0;
 	loaded = null;

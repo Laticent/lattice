@@ -100,6 +100,23 @@ A missing asset resolves to the existing drawn missing-image stand-in (`WEB_IMAG
 so a deleted photo leaves the slide readable. A deck rendered with no map at all (the CLI, a
 gallery) keeps the reference as written.
 
+### 2b. Editor completion
+
+The editor completes Library photos (`makeAssetCompletion`, `editor-complete.ts`), as a second CodeMirror
+source beside the component and front-matter completion (the two never apply to the same spot):
+
+- Inside the `(…)` of any markdown image, `asset:<name>` for each photo the open deck can see, with
+  `width×height` and "this deck" for a deck-kept photo. A typed `https:`, `sample:` or relative path is left
+  alone.
+- On a `collage` slide, a bare list item offers the whole line `![Alt](asset:name)` with the alt text
+  selected (a name like `img-0042` is a poor alt). It opens once a letter is typed or on Ctrl-Space, so an
+  Enter on an empty bullet stays a newline.
+- The shelf is read on the first such keystroke (`StudioShell.completionAssets`, scoped to the open deck),
+  never at editor start-up, so the editor's initial bundle does not grow.
+
+Not done: video components (slice 5), a photo picker menu in the editor toolbar, and thumbnails inside
+the completion list.
+
 ### 3. Intake
 
 Both `<input>` elements gain `accept="image/*,video/*"` on the media tab. On Android and iOS that
