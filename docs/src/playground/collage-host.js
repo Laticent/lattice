@@ -16,10 +16,9 @@
 // What crosses the boundary is the photo's image source and its alt text. The source is checked
 // against an allowlist again inside the core, and the alt text is set with `textContent` there
 // (HARD RULE #22; this file is on the runtime-markup census with that justification).
-import { openCollageLightbox } from '../../../lib/core/collage-lightbox.mjs';
 import { frameGeom, innerRectToParent } from './frame-geom.js';
 
-let current = null; // the one open lightbox handle; a second open replaces it
+let current = null; // the one open lightbox handle (or a pending-open ticket); a second open replaces it
 
 /** The tile's `<img>` and what the lightbox needs from it, or null if the tile holds no photo. */
 function readTile(tile) {
@@ -48,18 +47,33 @@ export function openCollageTile(frame, tile) {
 			const r = innerRectToParent(t.img.getBoundingClientRect(), geom);
 			return r.width && r.height ? { left: r.left, top: r.top, width: r.width, height: r.height } : null;
 		};
-		current?.close();
-		const handle = openCollageLightbox(document, {
-			src: t.src,
-			alt: t.alt,
-			from: measure(),
-			getFrom: measure,
-			onClose: () => {
-				if (current === handle) current = null;
-			},
-		});
-		current = handle;
-		return Boolean(handle);
+		// Measured now, at the click, so the glide starts from where the tile is.
+		const from = measure();
+		current?.close?.();
+		current = null;
+		// The opener loads on first use, so the lightbox is not in every route's startup JS: a
+		// reader who never enlarges a photo never downloads it. Returns true at once so the frame's
+		// guard cancels the click; the lightbox follows when the chunk arrives.
+		const ticket = {};
+		current = ticket;
+		import('../../../lib/core/collage-lightbox.mjs')
+			.then(({ openCollageLightbox }) => {
+				if (current !== ticket) return; // a newer open, or a close, got there first
+				const handle = openCollageLightbox(document, {
+					src: t.src,
+					alt: t.alt,
+					from,
+					getFrom: measure,
+					onClose: () => {
+						if (current === handle) current = null;
+					},
+				});
+				current = handle;
+			})
+			.catch(() => {
+				if (current === ticket) current = null;
+			});
+		return true;
 	} catch (_e) {
 		return false;
 	}
@@ -114,7 +128,7 @@ export function createCollageOverlay({ getFrame }) {
 			installCollageBridge(getFrame()?.contentWindow);
 		},
 		destroy() {
-			current?.close();
+			current?.close?.();
 			current = null;
 			const w = getFrame()?.contentWindow;
 			if (w) {
