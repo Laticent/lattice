@@ -51,9 +51,9 @@ describe('collage lightbox in the exported player, real Chromium', () => {
     if (dir) fs.rmSync(dir, { recursive: true, force: true });
   });
 
-  async function openPlayer() {
+  async function openPlayer(hasTouch = false) {
     const page = await browser.newPage();
-    await page.setViewport({ width: 1280, height: 720 });
+    await page.setViewport({ width: 1280, height: 720, hasTouch });
     await page.goto(`file://${html}`, { waitUntil: 'networkidle0' });
     await sleep(1200);
     await page.keyboard.press('ArrowRight'); // slide 2 is the first collage
@@ -119,6 +119,75 @@ describe('collage lightbox in the exported player, real Chromium', () => {
     await sleep(500);
     assert.equal(await isOpen(), false, 'Space does not reopen the photo');
     assert.equal(await index(page), before + 1, 'Space advances the deck');
+    await page.close();
+  });
+
+  // ── stepping (#2641 P5): the same keys, buttons and swipe as every other host ──────────────
+  const capOf = (page) => page.evaluate(() => document.querySelector('.collage-lightbox p')?.textContent);
+  const countOf = (page) => page.evaluate(() => document.querySelectorAll('.collage-lightbox p')[1]?.textContent);
+
+  async function openFirst(page) {
+    const pt = await page.evaluate(() => {
+      const r = document.querySelectorAll('.lp-active .collage-tile > img')[0].getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    });
+    await page.mouse.click(pt.x, pt.y);
+    await sleep(700);
+    assert.ok(await page.evaluate(() => !!document.querySelector('dialog.collage-lightbox[open]')), 'precondition: the lightbox is open');
+  }
+
+  test('the open photo steps with the arrow keys and the buttons, and the deck behind does not move', async () => {
+    const page = await openPlayer();
+    const before = await index(page);
+    await openFirst(page);
+    const n = await page.evaluate(() => document.querySelectorAll('.lp-active .collage-tile').length);
+    assert.ok(n >= 4);
+    assert.equal(await countOf(page), `1 / ${n}`);
+    const first = await capOf(page);
+    await page.keyboard.press('ArrowRight');
+    await sleep(200);
+    assert.equal(await countOf(page), `2 / ${n}`);
+    assert.notEqual(await capOf(page), first, 'the caption follows the photo');
+    await page.click('[aria-label="Next photo"]');
+    await sleep(200);
+    assert.equal(await countOf(page), `3 / ${n}`);
+    await page.keyboard.press('End');
+    assert.equal(await countOf(page), `${n} / ${n}`);
+    await page.keyboard.press('ArrowRight');
+    assert.equal(await countOf(page), `1 / ${n}`, 'next from the last wraps');
+    await page.keyboard.press('ArrowLeft');
+    await page.click('[aria-label="Previous photo"]');
+    assert.equal(await countOf(page), `${n - 1} / ${n}`);
+    assert.equal(await index(page), before, 'no step key reached the deck');
+    await page.close();
+  });
+
+  test('a one-finger swipe on the open photo steps; a vertical move and a pinch do not', async () => {
+    const page = await openPlayer(true);
+    await openFirst(page);
+    const n = await page.evaluate(() => document.querySelectorAll('.lp-active .collage-tile').length);
+    const cdp = await page.createCDPSession();
+    const pt = (x, y) => ({ x, y, radiusX: 4, radiusY: 4, force: 1 });
+    const touch = async (type, pts) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts });
+    const drag = async (x0, y0, x1, y1) => {
+      await touch('touchStart', [pt(x0, y0)]);
+      for (let i = 1; i <= 6; i++) await touch('touchMove', [pt(x0 + ((x1 - x0) * i) / 6, y0 + ((y1 - y0) * i) / 6)]);
+      await touch('touchEnd', []);
+      await sleep(150);
+    };
+    await drag(800, 360, 400, 366); // left: next
+    assert.equal(await countOf(page), `2 / ${n}`);
+    await drag(400, 360, 800, 354); // right: back
+    assert.equal(await countOf(page), `1 / ${n}`);
+    await drag(640, 500, 644, 200); // vertical: nothing
+    assert.equal(await countOf(page), `1 / ${n}`);
+    // a pinch out: two fingers apart by 300 px is a pinch, never a swipe
+    await touch('touchStart', [pt(540, 360), pt(740, 360)]);
+    for (let i = 1; i <= 6; i++) await touch('touchMove', [pt(540 - 25 * i, 360), pt(740 + 25 * i, 360)]);
+    await touch('touchEnd', []);
+    await sleep(150);
+    assert.equal(await countOf(page), `1 / ${n}`, 'a pinch does not step');
+    await cdp.detach();
     await page.close();
   });
 });

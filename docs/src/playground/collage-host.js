@@ -13,7 +13,7 @@
 //   - a host whose slide box is `pointer-events-none` hit-tests the tap itself with `tapCollageAt`
 //     (the Studio), the way `tapVideoAt` does for a video poster.
 //
-// What crosses the boundary is the photo's image source and its alt text. The source is checked
+// What crosses the boundary is each photo's image source and alt text. Every source is checked
 // against an allowlist again inside the core, and the alt text is set with `textContent` there
 // (HARD RULE #22; this file and the core are on the runtime-markup census, which is what keeps
 // it markup-free: both write only text, attributes and an image source).
@@ -43,29 +43,41 @@ export function openCollageTile(frame, tile, viaKeyboard = false) {
 	try {
 		const t = readTile(tile);
 		if (!t || !t.src) return false;
-		const measure = () => {
+		// The tile's photo rect in the PARENT's viewport, for the glide out and back.
+		const measureOf = (el, img) => () => {
 			const geom = frameGeom(frame);
-			if (!geom || !tile.isConnected) return null;
-			const r = innerRectToParent(t.img.getBoundingClientRect(), geom);
+			if (!geom || !el.isConnected) return null;
+			const r = innerRectToParent(img.getBoundingClientRect(), geom);
 			return r.width && r.height ? { left: r.left, top: r.top, width: r.width, height: r.height } : null;
 		};
-		// Measured now, at the click, so the glide starts from where the tile is.
-		const from = measure();
+		// Every photo of this collage in written order, so the lightbox can step through them. Each
+		// carries its own re-measure; only the opened one needs a rect now.
+		const list = tile.closest?.('[data-collage]') || tile.parentElement;
+		const items = [];
+		let index = 0;
+		for (const el of list ? list.querySelectorAll('.collage-tile') : [tile]) {
+			const r = readTile(el);
+			if (!r || !r.src) continue;
+			const getFrom = measureOf(el, r.img);
+			if (el === tile) index = items.length;
+			// Measured now, at the click, so the glide starts from where the tile is.
+			items.push({ src: r.src, alt: r.alt, from: el === tile ? getFrom() : null, getFrom });
+		}
 		current?.closeNow?.();
 		current = null;
 		// The opener loads on first use, so the lightbox is not in every route's startup JS: a
 		// reader who never enlarges a photo never downloads it. Returns true at once so the frame's
-		// guard cancels the click; the lightbox follows when the chunk arrives.
+		// guard cancels the click; the lightbox follows when the chunk arrives. The input rules (swipe
+		// and key) are the shared transport kernel's, handed in because the opener cannot import.
 		const ticket = {};
 		current = ticket;
-		import('../../../lib/core/collage-lightbox.mjs')
-			.then(({ openCollageLightbox }) => {
+		Promise.all([import('../../../lib/core/collage-lightbox.mjs'), import('../../../lib/core/present-transport.mjs')])
+			.then(([{ openCollageLightbox }, { keyAction, swipeAction }]) => {
 				if (current !== ticket) return; // a newer open, or a close, got there first
 				const handle = openCollageLightbox(document, {
-					src: t.src,
-					alt: t.alt,
-					from,
-					getFrom: measure,
+					items,
+					index,
+					kernel: { keyAction, swipeAction },
 					restoreFocus: viaKeyboard,
 					onClose: () => {
 						if (current === handle) current = null;

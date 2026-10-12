@@ -64,3 +64,40 @@ test('a click that ends a drag does not open a photo', async () => {
   img.dispatchEvent(new w.MouseEvent('click', { bubbles: true, cancelable: true, button: 0, clientX: 120, clientY: 4 }));
   assert.equal(d.querySelector('.collage-lightbox'), null, 'a 120 px drag is a swipe, not a tap');
 });
+
+test('an open photo steps to the collage\'s next photo with ArrowRight and back with ArrowLeft, and the deck does not move', async () => {
+  const { w, d, idx, key, errs } = await player();
+  const img = d.querySelectorAll('.collage-tile img')[0];
+  img.dispatchEvent(new w.MouseEvent('click', { bubbles: true, cancelable: true, button: 0 }));
+  const lb = d.querySelector('.collage-lightbox');
+  assert.ok(lb, 'the lightbox opened');
+  const before = idx();
+  assert.equal(lb.querySelectorAll('p')[0].textContent, 'one');
+  assert.match(lb.querySelectorAll('p')[1].textContent, /^1 \/ 2$/);
+  d.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true }));
+  assert.equal(lb.querySelectorAll('p')[0].textContent, 'two', 'ArrowRight stepped to the second photo');
+  assert.match(lb.querySelectorAll('p')[1].textContent, /^2 \/ 2$/);
+  d.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true, cancelable: true }));
+  assert.equal(lb.querySelectorAll('p')[0].textContent, 'one');
+  assert.equal(idx(), before, 'the deck behind did not move');
+  assert.deepEqual(errs, []);
+  key('Escape');
+});
+
+test('the player carries the arrow buttons and the shared swipe rule once the deck has a collage', async () => {
+  const { w, d } = await player();
+  d.querySelectorAll('.collage-tile img')[1].dispatchEvent(new w.MouseEvent('click', { bubbles: true, cancelable: true, button: 0 }));
+  const lb = d.querySelector('.collage-lightbox');
+  assert.equal(lb.querySelector('p').textContent, 'two', 'it opens at the photo that was clicked');
+  assert.ok(lb.querySelector('[aria-label="Next photo"]') && lb.querySelector('[aria-label="Previous photo"]'));
+  const touch = (type, pts, changed = pts) => {
+    const e = new w.Event(type, { bubbles: true, cancelable: true });
+    const mk = (l) => l.map(([clientX, clientY]) => ({ clientX, clientY }));
+    Object.defineProperty(e, 'touches', { value: mk(pts) });
+    Object.defineProperty(e, 'changedTouches', { value: mk(changed) });
+    return e;
+  };
+  lb.dispatchEvent(touch('touchstart', [[300, 200]]));
+  lb.dispatchEvent(touch('touchend', [], [[120, 204]]));
+  assert.equal(lb.querySelector('p').textContent, 'one', 'a left swipe wrapped to the first photo');
+});

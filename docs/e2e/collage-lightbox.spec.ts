@@ -116,6 +116,8 @@ const clickAway = (page: Page, at: { x: number; y: number }) =>
 		await page.mouse.click(at.x, at.y);
 		await expect(lightbox(page)).toHaveCount(0, { timeout: 600 });
 	}).toPass({ timeout: 10_000 });
+const caption = (page: Page) => lightbox(page).locator('p').first();
+const counter = (page: Page) => lightbox(page).locator('p').nth(1);
 const slideTitle = (page: Page) => livePreview(page).locator('.lattice h2').first();
 
 test('@smoke @crosswidth a click on a photo in the Studio preview opens it; Escape and a click-away close it', async ({ page }, info) => {
@@ -128,7 +130,7 @@ test('@smoke @crosswidth a click on a photo in the Studio preview opens it; Esca
 	await page.mouse.click(at.x, at.y);
 	await expect(lightbox(page)).toBeVisible({ timeout: 15_000 });
 	await expect(lightbox(page).locator('img')).toHaveAttribute('src', /photo-wide\.jpg/);
-	await expect(lightbox(page).locator('p')).toHaveText('Wide landscape');
+	await expect(caption(page)).toHaveText('Wide landscape');
 	await expect(slideTitle(page)).toHaveText('First slide'); // the click opened the photo and did not turn the slide
 	await glideDone(page);
 	await shot('2-open');
@@ -234,4 +236,70 @@ ${grid}
 	expect(m.crops).toHaveLength(4);
 	// Packed for 16:9 these were 0.33; packed for 4:3 the demo set crops 4.4%.
 	for (const c of m.crops) expect(c).toBeLessThan(0.08);
+});
+
+// ── stepping (#2641 P5) ──────────────────────────────────────────────────────────────────
+// The open photo steps through the collage's other photos in written order. The rules (which key,
+// how far a swipe must go) are the transport kernel's; the Studio hands them to the opener.
+const ALTS = photos.map(([alt]) => alt);
+
+test('@smoke @crosswidth the open photo steps with the arrow keys and the two buttons', async ({ page }) => {
+	await openStudioDeck(page);
+	const at = await photoAt(page, 0);
+	await page.mouse.click(at.x, at.y);
+	await expect(lightbox(page)).toBeVisible({ timeout: 15_000 });
+	await expect(caption(page)).toHaveText(ALTS[0]);
+	await expect(counter(page)).toHaveText('1 / 4');
+	await glideDone(page);
+
+	await page.keyboard.press('ArrowRight');
+	await expect(caption(page)).toHaveText(ALTS[1]);
+	await expect(lightbox(page).locator('img')).toHaveAttribute('src', /photo-wide\.jpg/);
+	await expect(counter(page)).toHaveText('2 / 4');
+	await page.getByRole('button', { name: 'Next photo' }).click();
+	await expect(caption(page)).toHaveText(ALTS[2]);
+	await page.keyboard.press('ArrowLeft');
+	await page.getByRole('button', { name: 'Previous photo' }).click();
+	await expect(caption(page)).toHaveText(ALTS[0]);
+	await page.keyboard.press('End');
+	await expect(caption(page)).toHaveText(ALTS[3]);
+	await page.keyboard.press('ArrowRight');
+	await expect(caption(page), 'next from the last wraps to the first').toHaveText(ALTS[0]);
+	await page.keyboard.press('Home');
+	await expect(counter(page)).toHaveText('1 / 4');
+
+	// The keys went to the photo, not the deck behind it.
+	await expect(slideTitle(page)).toHaveText('First slide');
+	await page.keyboard.press('Escape');
+	await expect(lightbox(page)).toHaveCount(0);
+	await expect(slideTitle(page)).toHaveText('First slide');
+});
+
+/** One finger from (x, y) to (x + dx, y + dy), through the browser's own input pipeline. */
+async function swipe(page: Page, at: { x: number; y: number }, dx: number, dy: number) {
+	const cdp = await page.context().newCDPSession(page);
+	const pt = (x: number, y: number) => ({ x, y, radiusX: 4, radiusY: 4, force: 1 });
+	await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [pt(at.x, at.y)] });
+	for (let i = 1; i <= 6; i++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [pt(at.x + (dx * i) / 6, at.y + (dy * i) / 6)] });
+	await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+	await cdp.detach();
+}
+
+test('@parity a swipe on the open photo steps to the next or previous one', async ({ page }, info) => {
+	test.skip(!info.project.use.hasTouch, 'this project models a device with no touchscreen');
+	test.skip(info.project.name.startsWith('webkit'), 'WebKit exposes no CDP touch pipeline; its tap is covered above and its swipe is UNVERIFIED');
+	await openStudioDeck(page);
+	const at = await photoAt(page, 0);
+	await page.touchscreen.tap(at.x, at.y);
+	await expect(lightbox(page)).toBeVisible({ timeout: 15_000 });
+	await glideDone(page);
+	const vp = page.viewportSize() ?? { width: 390, height: 844 };
+	const mid = { x: vp.width * 0.6, y: vp.height * 0.5 };
+	await swipe(page, mid, -vp.width * 0.4, 6); // a left swipe turns to the next photo
+	await expect(caption(page)).toHaveText(ALTS[1]);
+	await swipe(page, { x: vp.width * 0.3, y: vp.height * 0.5 }, vp.width * 0.4, 6); // right: back
+	await expect(caption(page)).toHaveText(ALTS[0]);
+	await swipe(page, mid, 4, -vp.height * 0.3); // a vertical move is not a swipe
+	await expect(caption(page)).toHaveText(ALTS[0]);
+	await expect(slideTitle(page)).toHaveText('First slide');
 });
