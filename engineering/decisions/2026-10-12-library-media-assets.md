@@ -130,14 +130,23 @@ shows its file dialog and a drag-and-drop onto the Library accepts the same type
   rotation into the pixels so a portrait photo is not stored sideways. A 12-megapixel phone photo
   is 3 to 6 MB and a slide shows at most 1920 px wide, so the cap costs nothing a viewer can see.
   PNG and WebP are re-encoded only when over the cap, in their own format, so transparency and
-  lossless screenshots survive. GIF is kept with its pixels, transparency and animation untouched, and PNG and WebP likewise;
-  `media-scrub.ts` cuts their metadata blocks out of the bytes without re-encoding (PNG `eXIf`, `tEXt`,
-  `zTXt`, `iTXt`; WebP `EXIF` and `XMP ` plus the `VP8X` flags; GIF comment and non-loop application
-  extensions, which is where XMP lives). A file a scrubber cannot parse is re-encoded through a canvas
-  instead, never stored with a block nobody could read. AVIF is re-encoded to JPEG: its metadata sits in
-  an ISO container a byte scrub does not parse here, and an AVIF with transparency loses it (rare for
-  photos). A file's bytes (not its extension) decide its type (`sniffImageMime`), so a renamed JPEG is
-  still re-encoded. Verified in real Chromium, WebKit and Firefox with a marker in each metadata block.
+  lossless screenshots survive. GIF is kept with its pixels, transparency and animation untouched, and PNG and WebP
+  likewise; `media-scrub.ts` rewrites their bytes keeping only a LIST OF BLOCKS THE PICTURE NEEDS and dropping
+  everything else, so a block it has never heard of (a C2PA `caBX` manifest, a `tIME` stamp, a vendor chunk,
+  metadata nested inside a WebP animation frame) cannot ride through. A drop-list was tried first and a red team
+  got GPS past it in a dozen blocks. PNG keeps IHDR, PLTE, IDAT, IEND, tRNS, gAMA, cHRM, sRGB, iCCP, sBIT, pHYs,
+  bKGD, hIST, cICP and the animation chunks; WebP keeps VP8, VP8L, VP8X, ALPH, ANIM, ANMF (filtered inside) and
+  ICCP; GIF keeps frames, frame timing, the colour profile and the loop count, and nothing else. A picture's
+  ROTATION is the one thing kept from EXIF: browsers differ on whether they apply a PNG's or WebP's rotation tag
+  (measured: Chrome applies a PNG's, ignores a WebP's), so an orientation-only EXIF block replaces the original,
+  with no location, date or camera. A file a scrubber cannot parse is re-encoded through a canvas (capped, as PNG),
+  never stored with a block nobody could read. AVIF is re-encoded to JPEG: its metadata sits in an ISO container a
+  byte scrub does not parse here, and an AVIF with transparency loses it (rare for photos). A file's bytes (not
+  its extension) decide its type (`sniffImageMime`), so a renamed JPEG is still re-encoded. A **restore** gives a
+  backup's photos the same cleaning (`scrubJpeg` for JPEG, where the importer's canvas is not available), because
+  a backup is a file from anyone. Verified in real Chromium, WebKit and Firefox for PNG and GIF with a marker in
+  each block; WebP and the animated formats were checked against Pillow-generated files by the independent
+  checker (frames and pixels identical, no metadata left) and by unit tests, not in a real browser.
   SVG is never stored: an SVG opened as a
   blob document runs its script on the site's origin, so the importer draws it to a PNG and keeps
   only the pixels.
@@ -173,7 +182,7 @@ against the real app yet, and slice 1 measures them before they harden.
 - **Moving.** "Make shared" and "Keep to this deck" flip `scope` in place. The name does not
   change, so no deck markdown is rewritten.
 - **Name clash.** The store refuses to overwrite: a second save under a held name in either scope is
-  refused (`Can't add — "x" is already another saved image. Rename that one first.`). The Images tab
+  refused (`Can't add — "x" is already another saved image. Delete it first to reuse the name.`). The Images tab
   adds a file whose name is taken under the next free name (`logo` → `logo-2`) and SAYS so in a
   notice, so a deck that still shows the old picture is not a mystery. (The first draft of this note
   said "refused"; the notice is the built behavior, because a refusal would drop a whole camera-roll batch.)
@@ -194,7 +203,7 @@ mention its photos. What each one does, as built and checked on the real Studio 
 | PDF | The photo is on the page. | Chromium, WebKit, Firefox: poppler rasterizes page 1 and the photo's color is on it |
 | PowerPoint | The photo is in the slide picture. | Chromium, Firefox. **WebKit drops every picture in this lane today, a repo sample image included** (`followups.d/2640-p2-webkit-pptx-drops-images.md`) |
 | Image set, print | Same render as PDF and PowerPoint (`buildDeckRender` takes the same `data:` map). | UNVERIFIED on its own: the e2e drives PDF, PowerPoint and webpage, not the image-set download |
-| Markdown, Marp, `.lattice` | The reference stays as written; the photo is not in the file. | A recipient who opens the deck elsewhere gets the unresolved reference (Marp draws a broken image, Lattice the stand-in). The Share sheet does not warn on these three; carrying photos in them is open (below) |
+| Markdown, Marp, `.lattice` | The reference stays as written; the photo is not in the file. | A recipient who opens the deck elsewhere gets the unresolved reference (Marp draws a broken image, Lattice the stand-in). The Share sheet now says which photos are not inside the file; carrying them is open (below) |
 | Workspace backup | `media/` holds the bytes, `media.json` indexes them (§9). A restore puts them back to the same deck. | Chromium, WebKit, Firefox: back up, delete both photos, restore, bytes and scopes equal |
 
 **Why exports use `data:` and not the preview's `blob:`.** A saved file cannot hold a `blob:` URL, and
@@ -237,6 +246,16 @@ is told the browser would not store the photo and to try a normal window. A name
 The first version of this had no fallback and, on WebKit, added nothing.
 
 ## Options not taken
+
+- **Capturing metadata (capture date, caption) on the record.** An earlier draft of this note (§7) read the
+  date, caption and location before the re-encode, kept them on the record and stripped them only from exported
+  bytes. It was dropped when the importer settled on "re-encode and discard", and nothing recorded the reversal.
+  What ships keeps nothing, so a photo's capture date is gone for good after import. Reviving it means reading
+  EXIF before the canvas pass (#2627's `exifOrientation` walk is prior art) into a `meta` field. Left to the owner.
+- **Naming a photo by a fingerprint of its bytes** (`asset:team-offsite-7f3a9c`). A reference would then show
+  exactly those bytes or the stand-in, never a different photo that happens to share a camera file name, and
+  restore would put photos back by fingerprint instead of renaming. It is cheap now and a migration later, since
+  decks and backups that write bare names harden. Not decided; put to the owner with the stored-scope question.
 
 - **Data URLs in the deck markdown.** No store change, and it works anywhere. It makes the deck
   unreadable, bloats every autosave into localStorage's 5 to 10 MB quota, and wrecks the

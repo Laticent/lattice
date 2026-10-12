@@ -20,6 +20,8 @@
 // is stored as it is. The decks
 // the restore itself wrote are rewritten once, from one name map, to match (studio-store.ts
 // `importStudioState` does the same "beside, never over" for a deck that diverged).
+
+import { scrubberFor } from './media-scrub';
 import { isMediaName, LIBRARY_SCOPE, listMedia, MAX_MEDIA_FILE_BYTES, saveMedia, setMediaScope, sniffImageMime, uniqueName } from './media-store';
 import { declaredInflatedBytes, jsonGuard, readBudget, readBytesBudget } from './zip-limits';
 
@@ -42,9 +44,8 @@ const EXT: Record<string, string> = {
 	'image/png': 'png',
 	'image/webp': 'webp',
 	'image/gif': 'gif',
-	'image/avif': 'avif',
 };
-const FILE_OK = /^[a-z0-9][a-z0-9_-]*\.(jpg|png|webp|gif|avif)$/;
+const FILE_OK = /^[a-z0-9][a-z0-9_-]*\.(jpg|png|webp|gif)$/;
 
 type Zip = { file: (path: string, data?: unknown) => object | null };
 type Refusal = { name: string; why: string };
@@ -234,6 +235,16 @@ export async function restoreMedia(zip: Zip, now: number, ctx: RestoreContext): 
 			skip(`its bytes are not ${mime.replace('image/', '').toUpperCase()} image data`);
 			continue;
 		}
+		// And the bytes get the same cleaning the importer gives a new photo: a backup from another person's
+		// workspace must not bring their photo's location into the decks this person sends out. A file the
+		// scrubber cannot read is refused rather than stored with a block nobody could inspect.
+		const scrub = scrubberFor(mime);
+		const cleaned = scrub ? scrub(bytes) : null;
+		if (!cleaned) {
+			skip('its image data could not be read');
+			continue;
+		}
+		bytes = cleaned as Uint8Array<ArrayBuffer>;
 
 		// A name nobody holds is stored as it is, even when the same bytes sit under another name: the decks
 		// that name it may be ones this restore does not rewrite, so it must exist under its own name.
@@ -244,10 +255,17 @@ export async function restoreMedia(zip: Zip, now: number, ctx: RestoreContext): 
 			const candidates = bySize.get(bytes.length) ?? [];
 			let match: Held | undefined;
 			if (candidates.length) {
-				const mine = await digest(bytes);
-				for (const c of candidates) c.hash ??= c.blob ? await digest(c.blob) : undefined;
-				const same = candidates.filter((c) => c.hash === mine);
-				match = same.find((c) => c.name === raw.name) ?? same[0];
+				// A photo that cannot be read back (a lost backing file) or a browser with no `crypto.subtle` (an
+				// insecure origin) means "not provably the same": the incoming one is stored under a new name, never
+				// matched, and never an error that would leave the decks written and the photos not.
+				try {
+					const mine = await digest(bytes);
+					for (const c of candidates) c.hash ??= c.blob ? await digest(c.blob) : undefined;
+					const same = candidates.filter((c) => c.hash === mine);
+					match = same.find((c) => c.name === raw.name) ?? same[0];
+				} catch {
+					match = undefined;
+				}
 			}
 			if (match) {
 				// Reused as is. If it is kept to one deck that this backup's decks cannot see, share it with all
@@ -283,7 +301,7 @@ export async function restoreMedia(zip: Zip, now: number, ctx: RestoreContext): 
 				},
 				int(raw.addedAt, Number.MAX_SAFE_INTEGER) || now,
 			);
-			hold({ id: saved.id, name, scope, size: bytes.length, hash: await digest(bytes) });
+			hold({ id: saved.id, name, scope, size: bytes.length, hash: await digest(bytes).catch(() => undefined) });
 			local.add(name);
 			reserved.add(name);
 			restored++;

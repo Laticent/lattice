@@ -158,12 +158,30 @@ describe('dataUrlsFor — what an export renders with', () => {
 		read.mockRestore();
 	});
 
-	it('a failed read is not remembered: the next export tries again instead of failing for the whole session', async () => {
-		await saveMedia(photo('hero'), 1);
-		const read = vi.spyOn(Blob.prototype, 'arrayBuffer').mockRejectedValueOnce(new Error('NotReadableError'));
-		await expect(dataUrlsFor('![a](asset:hero)')).rejects.toThrow('NotReadableError');
+	it('one photo that cannot be read costs that photo, not the export: the others are still embedded and the Share sheet can name it', async () => {
+		await saveMedia(photo('ok-one'), 1);
+		await saveMedia(photo('bad-one'), 2);
+		const real = Blob.prototype.arrayBuffer;
+		const read = vi.spyOn(Blob.prototype, 'arrayBuffer').mockImplementationOnce(function (this: Blob) {
+			return Promise.reject(new DOMException('NotReadableError', 'NotReadableError'));
+		});
+		const map = await dataUrlsFor('![a](asset:ok-one) ![b](asset:bad-one)');
 		read.mockRestore();
-		expect((await dataUrlsFor('![a](asset:hero)')).hero).toMatch(/^data:image\/png;base64,/);
+		void real;
+		expect(Object.keys(map)).toHaveLength(1);
+		expect(await missingAssetNames('![a](asset:ok-one) ![b](asset:bad-one)')).toHaveLength(1);
+		// And it is not remembered: the next export reads it again.
+		const again = await dataUrlsFor('![a](asset:ok-one) ![b](asset:bad-one)');
+		expect(Object.keys(again).sort()).toEqual(['bad-one', 'ok-one']);
+		expect(await missingAssetNames('![a](asset:ok-one) ![b](asset:bad-one)')).toEqual([]);
+	});
+
+	it('a photo added AFTER the first load is found by the next export, not reported missing', async () => {
+		await saveMedia(photo('first'), 1);
+		await ensureAssetUrls();
+		await saveMedia(photo('late'), 2); // as if added in another tab
+		expect(await missingAssetNames('![a](asset:late)')).toEqual([]);
+		expect(Object.keys(await dataUrlsFor('![a](asset:late)'))).toEqual(['late']);
 	});
 
 	it('names a reference with an extension as the missing photo it is, not as a use of the photo it resembles', async () => {

@@ -4,18 +4,19 @@
 // Library never stores, a different photo that already holds the name, a lying zip header.
 import 'fake-indexeddb/auto';
 import JSZip from 'jszip';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { deleteAsset, listAssets } from './library/asset-store.js';
 import { LIBRARY_SCOPE, listMedia, MAX_MEDIA_FILE_BYTES, type NewMedia, saveMedia } from './media-store';
+import { jpeg, jpegSegment, png, pngChunk, webp } from './test-images';
 import { MAX_MEDIA_ROWS, MEDIA_INDEX, packMedia, renameAssetRefs, restoreMedia } from './workspace-media';
 
 async function emptyShelf() {
 	for (const a of await listAssets()) await deleteAsset(a.id);
 }
-const PNG = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 1, 2, 3, 4, 5]);
-// RIFF....WEBP: the leading bytes a real WebP has, which a restore now checks.
-const WEBP = new Uint8Array([0x52, 0x49, 0x46, 0x46, 1, 0, 0, 0, 0x57, 0x45, 0x42, 0x50, 1, 2]);
-const OTHER = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 9, 9, 9, 9, 9]);
+const PNG = png(1);
+// A structurally valid WebP: a restore parses what it stores.
+const WEBP = webp(1);
+const OTHER = png(9);
 const photo = (over: Partial<NewMedia> = {}, bytes: Uint8Array = PNG): NewMedia => ({
 	kind: 'image', name: 'hero', scope: LIBRARY_SCOPE, blob: new Blob([bytes as BlobPart], { type: 'image/png' }), mime: 'image/png',
 	bytes: bytes.length, width: 640, height: 360, sourceName: 'Hero.png', original: true, ...over,
@@ -37,7 +38,7 @@ beforeEach(emptyShelf);
 describe('a round trip', () => {
 	it('puts back the same bytes, names, scopes and dates', async () => {
 		await saveMedia(photo({ name: 'shared' }), 111);
-		await saveMedia(photo({ name: 'mine', scope: 'deck-a', blob: new Blob([WEBP], { type: 'image/webp' }), mime: 'image/webp', original: false }), 222);
+		await saveMedia(photo({ name: 'mine', scope: 'deck-a', blob: new Blob([WEBP as BlobPart], { type: 'image/webp' }), mime: 'image/webp', original: false }), 222);
 		const z = new JSZip();
 		expect(await packMedia(z)).toMatchObject({ rows: 2, skipped: 0 });
 		const packed = await JSZip.loadAsync(await z.generateAsync({ type: 'uint8array' }));
@@ -119,7 +120,7 @@ describe('names that chain, and photos that are already here', () => {
 		// The backup lists `hero` first (it was added later), so a naive restore sent it to hero-2 and then hero-2 to hero-2-2.
 		await saveMedia(photo({}, OTHER), 1);
 		const out = await restoreMedia(
-			await craft([row(), row({ name: 'hero-2', file: 'hero-2.png' })], { 'hero.png': PNG, 'hero-2.png': new Uint8Array([...PNG.slice(0, 8), 7, 7, 7, 7, 7]) }),
+			await craft([row(), row({ name: 'hero-2', file: 'hero-2.png' })], { 'hero.png': PNG, 'hero-2.png': png(7) }),
 			9,
 			ctx(),
 		);
@@ -200,8 +201,8 @@ describe('a backup is a file from anyone: what the bytes say', () => {
 	});
 
 	it('a JPEG (with whatever it carries) labeled PNG is refused, not stored under the wrong name', async () => {
-		const jpeg = new Uint8Array([0xff, 0xd8, 0xff, 0xe1, 0, 8, 1, 2, 3, 4]);
-		const out = await restoreMedia(await craft([row()], { 'hero.png': jpeg }), 9, ctx());
+		const jpegBytes = jpeg(1);
+		const out = await restoreMedia(await craft([row()], { 'hero.png': jpegBytes }), 9, ctx());
 		expect(out.restored).toBe(0);
 		expect(out.refused).toHaveLength(1);
 	});
@@ -221,6 +222,56 @@ describe('a backup is a file from anyone: what the bytes say', () => {
 		const out = await restoreMedia(await craft(rows, {}), 9, ctx());
 		expect(out.refused.length).toBeLessThanOrEqual(26);
 		expect(out.refused.at(-1)?.why).toMatch(/^\d+ more were refused/);
+	});
+});
+
+describe('a backup is a file from anyone: cleaning and failure', () => {
+	const GPS = 'GPSLatitude=51.5';
+	const ascii = (t: string) => [...t].map((c) => c.charCodeAt(0));
+	const readBack = async () => new TextDecoder('latin1').decode(new Uint8Array(await (await listMedia())[0].blob.arrayBuffer()));
+
+	it('a JPEG carrying EXIF is stored with the EXIF cut out, as the importer would have stored it', async () => {
+		const dirty = jpeg(1, [jpegSegment(0xe1, ascii(`Exif\0\0${GPS}`))]);
+		const out = await restoreMedia(await craft([row({ mime: 'image/jpeg', file: 'hero.jpg' })], { 'hero.jpg': dirty }), 9, ctx());
+		expect(out.restored).toBe(1);
+		expect(await readBack()).not.toContain(GPS);
+	});
+
+	it('a PNG with a text chunk and a C2PA chunk comes back without them', async () => {
+		const dirty = png(1, [pngChunk('tEXt', ascii(`k\0${GPS}`)), pngChunk('caBX', ascii(GPS))]);
+		await restoreMedia(await craft([row()], { 'hero.png': dirty }), 9, ctx());
+		expect(await readBack()).not.toContain(GPS);
+	});
+
+	it('an image whose data cannot be read is refused, not stored with blocks nobody could inspect', async () => {
+		const cut = png(1).subarray(0, 40);
+		const out = await restoreMedia(await craft([row()], { 'hero.png': cut }), 9, ctx());
+		expect(out.restored).toBe(0);
+		expect(out.refused).toEqual([{ name: 'photo hero', why: 'its image data could not be read' }]);
+	});
+
+	it('an AVIF row is refused: the Library re-encodes AVIF to JPEG and no longer stores one', async () => {
+		const out = await restoreMedia(await craft([row({ mime: 'image/avif', file: 'hero.avif' })], { 'hero.avif': new Uint8Array(40) }), 9, ctx());
+		expect(out.restored).toBe(0);
+		expect(out.refused[0].why).toBe('its file is not one Lattice writes');
+	});
+
+	it('a local photo that cannot be read back is not a crash: the incoming one is stored under a new name', async () => {
+		await saveMedia(photo({}, OTHER), 1);
+		const real = Blob.prototype.arrayBuffer;
+		let calls = 0;
+		const spy = vi.spyOn(Blob.prototype, 'arrayBuffer').mockImplementation(function (this: Blob) {
+			// The local photo's read (the hash comparison) fails once; every other read is real.
+			if (calls++ === 0) return Promise.reject(new DOMException('backing store lost', 'NotReadableError'));
+			return real.call(this);
+		});
+		// Same size as the local one, so the comparison is attempted.
+		const sameSize = png(9);
+		const out = await restoreMedia(await craft([row()], { 'hero.png': sameSize.length === OTHER.length ? sameSize : png(8) }), 9, ctx());
+		spy.mockRestore();
+		expect(out.refused).toEqual([]);
+		expect(out.restored + out.renames.length).toBeGreaterThan(0);
+		expect((await listMedia()).length).toBeGreaterThanOrEqual(2);
 	});
 });
 

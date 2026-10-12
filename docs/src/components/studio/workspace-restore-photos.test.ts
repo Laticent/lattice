@@ -38,11 +38,12 @@ vi.hoisted(() => {
 import { deleteAsset, listAssets } from './library/asset-store.js';
 import { LIBRARY_SCOPE, listMedia, type NewMedia, saveMedia } from './media-store';
 import { exportStudioState, importStudioState, loadCheckpoints, loadDeckList, loadSource, saveCheckpoint, saveSource } from './studio-store';
+import { png } from './test-images';
 import { packWorkspace, restoreWorkspace } from './workspace-backup';
 
 const T0 = 1_750_000_000_000;
-const X = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 1, 1, 1, 1]); // device A's photo
-const Y = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 2, 2, 2, 2]); // device B's, different, same name
+const X = png(1); // device A's photo
+const Y = png(2); // device B's, different, same name
 const photo = (name: string, bytes: Uint8Array, scope = LIBRARY_SCOPE): NewMedia => ({
 	kind: 'image', name, scope, blob: new Blob([bytes as BlobPart], { type: 'image/png' }), mime: 'image/png', bytes: bytes.length, width: 4, height: 4, sourceName: `${name}.png`, original: true,
 });
@@ -124,7 +125,7 @@ describe('a shared photo whose name another device already uses for a different 
 
 describe('renames that would chain, and saved versions', () => {
 	it('each restored deck and its saved versions name the right photo when the backup holds hero AND hero-2', async () => {
-		const Z = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 3, 3, 3, 3]);
+		const Z = png(3);
 		const blob = await backupFromA(async () => {
 			putDeck('deck-aaa', 'A', '# A\n\n![x](asset:hero)\n');
 			putDeck('deck-bbb', 'B', '# B\n\n![x](asset:hero-2)\n');

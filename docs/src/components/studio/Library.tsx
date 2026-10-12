@@ -506,7 +506,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 			if (n) notify(`Added ${n} image${n === 1 ? '' : 's'}${scope === LIBRARY_SCOPE ? ' to all decks' : ' to this deck'}.`);
 			// A name that was already a photo is never replaced: say which name the new one took, so a deck that
 			// still shows the old picture is not a mystery.
-			if (renamed.length) notify(`${renamed.slice(0, 2).join('; ')}${renamed.length > 2 ? ` (+${renamed.length - 2} more)` : ''}. Rename or delete the old one to reuse the name.`);
+			if (renamed.length) notify(`${renamed.slice(0, 2).join('; ')}${renamed.length > 2 ? ` (+${renamed.length - 2} more)` : ''}. Delete the old one first to reuse the name.`);
 			if (failed.length) notify(failed.slice(0, 2).join(' ') + (failed.length > 2 ? ` (+${failed.length - 2} more)` : ''));
 		} finally {
 			setBusy(null);

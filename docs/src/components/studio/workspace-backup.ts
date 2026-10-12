@@ -471,7 +471,14 @@ export async function restoreWorkspace(file: Blob, now: number): Promise<Restore
 	// Photos last. A deck-scoped one returns only for a deck the BACKUP holds, and follows a deck that came
 	// back as a copy. Nothing already on this device is deleted or overwritten: a different photo under
 	// the same name comes back under a new name, and the decks THIS restore wrote are rewritten to name it.
-	const photos = await restoreMedia(zip, now, { backupDeckIds: new Set((state.index ?? []).map((e) => e.id)), copies: summary.copies });
+	// Never throws into the caller: the decks are already written, and a photo lane that failed must be named, not
+	// turn a restore that worked into one that reports failure.
+	const photos = await restoreMedia(zip, now, { backupDeckIds: new Set((state.index ?? []).map((e) => e.id)), copies: summary.copies }).catch((e: unknown) => ({
+		restored: 0,
+		shared: 0,
+		refused: [{ name: 'photos', why: `could not be restored (${String((e as Error)?.message || 'unknown error').slice(0, 80)})` }],
+		renames: [],
+	}));
 	summary.media = photos.restored;
 	summary.mediaRenamed = photos.renames.length;
 	summary.refused.push(...photos.refused);

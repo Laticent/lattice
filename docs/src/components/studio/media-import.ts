@@ -175,22 +175,24 @@ export async function importImage(file: File, scope: string): Promise<NewMedia> 
 		if (!plan.reencode && cleaned) {
 			return { kind: 'image', name: mediaNameFromFile(file.name, 'image'), scope, blob: new Blob([cleaned as BlobPart], { type: mime }), mime, bytes: cleaned.length, width: plan.width, height: plan.height, sourceName: file.name, original: true };
 		}
-		// A kept type the scrubber could not parse falls through to a canvas re-encode: never stored with a
-		// metadata block nobody could read.
+		// A kept type the scrubber could not parse (or that carries a rotation tag) falls through to a canvas
+		// re-encode, capped like any other photo and stored as PNG: never stored with a block nobody could read.
+		const out = plan.reencode ? plan : planImage('image/x-unreadable', bitmap.width, bitmap.height);
 		const canvas = document.createElement('canvas');
-		canvas.width = plan.width;
-		canvas.height = plan.height;
+		canvas.width = out.width;
+		canvas.height = out.height;
 		const ctx = canvas.getContext('2d');
 		if (!ctx) throw new MediaImportError('The browser could not prepare that image.');
 		// JPEG has no alpha: paint white first so a transparent source does not turn black.
-		if (plan.mime === 'image/jpeg') {
+		if (out.mime === 'image/jpeg') {
 			ctx.fillStyle = '#fff';
-			ctx.fillRect(0, 0, plan.width, plan.height);
+			ctx.fillRect(0, 0, out.width, out.height);
 		}
-		ctx.drawImage(bitmap, 0, 0, plan.width, plan.height);
-		const blob = await toBlob(canvas, plan.mime);
+		ctx.drawImage(bitmap, 0, 0, out.width, out.height);
+		const blob = await toBlob(canvas, out.mime);
+		if (blob.size > MAX_MEDIA_FILE_BYTES) throw new MediaImportError(`${file.name} is still ${Math.round(blob.size / 1_048_576)} MB after it was converted; a photo may be at most ${Math.floor(MAX_MEDIA_FILE_BYTES / 1_048_576)} MB.`);
 		// The type the browser actually wrote: an engine without a WebP encoder answers a WebP request with a PNG.
-		return { kind: 'image', name: mediaNameFromFile(file.name, 'image'), scope, blob, mime: blob.type || plan.mime, bytes: blob.size, width: plan.width, height: plan.height, sourceName: file.name, original: false };
+		return { kind: 'image', name: mediaNameFromFile(file.name, 'image'), scope, blob, mime: blob.type || out.mime, bytes: blob.size, width: out.width, height: out.height, sourceName: file.name, original: false };
 	} finally {
 		bitmap.close();
 	}

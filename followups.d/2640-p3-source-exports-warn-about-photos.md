@@ -8,11 +8,13 @@ swimlane: engineering/decisions/2026-10-12-library-media-assets.md
 source: https://github.com/Laticent/lattice/pull/2640
 ---
 
-# `.lattice`, Markdown and Marp exports ship `asset:x` without the picture and without a warning
+# `.lattice`, Markdown and Marp exports do not carry the Library photos a deck names
 
-why now   — The inversion review of PR #2640: a presenter who sends a `.lattice` to a co-presenter gets stand-ins
-            in the meeting, and the Share sheet says "ready." The same applies to the PDF's "re-openable in
-            Lattice" embed. The design note lists carrying photos in these formats as an open question.
-where     — `docs/src/components/studio/ShareSheet.tsx` `SOURCE_EXPORTS`; `share-export.ts` `shareLattice`.
-done when — A `.lattice` export of a deck that names a photo either contains the photo or the toast says which
-            photos it does not carry; an e2e asserts it.
+why now   — The Share sheet now says which photos are not inside these files (PR #2640), but the file still ships
+            `asset:x` without the picture, so a co-presenter who opens a `.lattice` elsewhere sees stand-ins. The
+            same holds for live collaboration, which the design note does not cover. Carrying the bytes needs a safe
+            read side (the sanitizer and size rules of backup restore).
+where     — `docs/src/components/studio/share-export.ts` `shareLattice`; the live-collaboration channel under
+            `docs/src/components/studio/live/`.
+done when — A `.lattice` export of a deck that names a photo contains the photo (or the recipient's Studio asks to
+            fetch it), and an e2e opens the exported file in a fresh browser profile and sees the picture.

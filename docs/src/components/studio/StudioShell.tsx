@@ -1300,6 +1300,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		() =>
 			import('./media-urls').then(async (m) => {
 				await m.setActiveAssetDeck(deckIdRef.current);
+				// Re-read the shelf each time the menu opens (one IndexedDB read): a photo added in another tab is offered at once.
+				await m.refreshAssetUrls();
 				return m.assetChoices();
 			}),
 		[],

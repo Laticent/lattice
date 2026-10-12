@@ -142,7 +142,6 @@ function inFrontMatter(doc: string, pos: number): boolean {
 	return pos <= close;
 }
 
-/** What may come next in a spark or pill — lint-core's `inlineCodeCompletions()` shape. */
 /** A Library photo the editor can offer: the part of a record completion needs, no bytes. */
 export type AssetChoice = { name: string; scope: string; width: number; height: number; sourceName: string };
 
@@ -163,6 +162,7 @@ export function inCollageSlide(lineText: (n: number) => string, lineNumber: numb
 	return false;
 }
 
+/** What may come next in a spark or pill — lint-core's `inlineCodeCompletions()` shape. */
 export type InlineNext = { next: string; words: { label: string; axis: string; info: string }[] };
 
 /** Starter sparks, offered once `` `~ `` is typed. */
@@ -411,18 +411,19 @@ export function makeAssetCompletion(loadAssets: () => Promise<AssetChoice[]> | A
 		// 00. A Library photo: inside the `(…)` of any markdown image (`![alt](`, `![bg](`, a collage's list item),
 		// offer `asset:<name>` for each photo this deck can see. A reference already written as a URL
 		// (`https:`, `sample:`) is left alone: the typed prefix must be a prefix of `asset:`, or `asset:` plus a name.
-			const ref = /!\[[^\]\n]*\]\(([^)\s]*)$/.exec(before);
-			if (ref && ('asset:'.startsWith(ref[1].toLowerCase()) || /^asset:/i.test(ref[1]))) {
-				const from = context.pos - ref[1].length;
-				return Promise.resolve(loadAssets()).then((list) => (list.length ? { from, options: list.map((a) => photoOption(a, 'ref')), validFor: /^[\w:.-]*$/ } : null)).catch(() => null);
-			}
-			// A bare list item on a collage slide is a photo: offer each whole line. Only once something is typed (or on
-			// Ctrl-Space), so an Enter on an empty bullet stays a newline.
-			const item = /^[ \t]*[-*][ \t]+([\w-]*)$/.exec(before);
-			if (item && (item[1] || context.explicit) && inCollageSlide((n) => context.state.doc.line(n).text, line.number)) {
-				const from = context.pos - item[1].length;
-				return Promise.resolve(loadAssets()).then((list) => (list.length ? { from, options: list.map((a) => photoOption(a, 'line')), validFor: /^[\w-]*$/ } : null)).catch(() => null);
-			}
+		// Only the end of the line is read: a 250 KB line of `![a](` repeats would otherwise cost seconds per keystroke.
+		const ref = /!\[[^\]\n]*\]\(([^)\s]*)$/.exec(before.slice(-300));
+		if (ref && ('asset:'.startsWith(ref[1].toLowerCase()) || /^asset:/i.test(ref[1]))) {
+			const from = context.pos - ref[1].length;
+			return Promise.resolve(loadAssets()).then((list) => (list.length ? { from, options: list.map((a) => photoOption(a, 'ref')), validFor: /^[\w:.-]*$/ } : null)).catch(() => null);
+		}
+		// A bare list item on a collage slide is a photo: offer each whole line. Only once something is typed (or on
+		// Ctrl-Space), so an Enter on an empty bullet stays a newline.
+		const item = /^[ \t]*[-*][ \t]+([\w-]*)$/.exec(before);
+		if (item && (item[1] || context.explicit) && inCollageSlide((n) => context.state.doc.line(n).text, line.number)) {
+			const from = context.pos - item[1].length;
+			return Promise.resolve(loadAssets()).then((list) => (list.length ? { from, options: list.map((a) => photoOption(a, 'line')), validFor: /^[\w-]*$/ } : null)).catch(() => null);
+		}
 		return null;
 	};
 }

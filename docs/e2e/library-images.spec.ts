@@ -274,16 +274,32 @@ test('@smoke a PNG with an eXIf GPS chunk and a GIF with comment and XMP blocks 
 		const xmp = [0x21, 0xff, 11, ...enc('XMP DataXMP'), mark.length, ...enc(mark), 0];
 		const image = [0x2c, 0, 0, 0, 0, 1, 0, 1, 0, 0, 2, 2, 0x44, 1, 0, 0x3b];
 		const dirtyGif = new Uint8Array([...head, ...comment, ...xmp, ...image]);
+		// A 64x48 PNG whose eXIf says Orientation = 6 (and carries the marker): some browsers show it 48x64.
+		const tiff = [0x4d, 0x4d, 0, 0x2a, 0, 0, 0, 8, 0, 1, 0x01, 0x12, 0, 3, 0, 0, 0, 1, 0, 6, 0, 0, 0, 0, 0, 0, ...enc(mark)];
+		const rchunk = [...be32(tiff.length), ...enc('eXIf'), ...tiff, ...be32(crc([...enc('eXIf'), ...tiff]))];
+		const rotatedPng = new Uint8Array([...png.subarray(0, ihdrEnd), ...rchunk, ...png.subarray(ihdrEnd)]);
+		const shown = async (blob: Blob) => {
+			const url = URL.createObjectURL(blob);
+			const img = new Image();
+			img.src = url;
+			await img.decode();
+			const d = [img.naturalWidth, img.naturalHeight];
+			URL.revokeObjectURL(url);
+			return d;
+		};
+		(window as unknown as { __rotatedShown: number[] }).__rotatedShown = await shown(new Blob([rotatedPng], { type: 'image/png' }));
 		const dt = new DataTransfer();
+		dt.items.add(new File([rotatedPng as BlobPart], 'Rotated PNG.png', { type: 'image/png' }));
 		dt.items.add(new File([dirtyPng as BlobPart], 'Marked PNG.png', { type: 'image/png' }));
 		dt.items.add(new File([dirtyGif as BlobPart], 'Marked GIF.gif', { type: 'image/gif' }));
 		const has = (b: Uint8Array) => new TextDecoder('latin1').decode(b).includes(mark);
 		const input = document.querySelector('input[type="file"][accept*="image"]') as HTMLInputElement;
 		input.files = dt.files;
 		input.dispatchEvent(new Event('change', { bubbles: true }));
-		return { pngHadMark: has(dirtyPng), gifHadMark: has(dirtyGif) };
+		return { pngHadMark: has(dirtyPng), gifHadMark: has(dirtyGif), pngLength: dirtyPng.length, gifLength: dirtyGif.length };
 	}, MARK);
-	expect(before, 'positive control: both inputs carried the marker').toEqual({ pngHadMark: true, gifHadMark: true });
+	expect([before.pngHadMark, before.gifHadMark], 'positive control: both inputs carried the marker').toEqual([true, true]);
+	await expect(page.locator('[data-media-card="rotated-png"]')).toBeVisible({ timeout: 30_000 });
 	await expect(page.locator('[data-media-card="marked-png"]')).toBeVisible({ timeout: 30_000 });
 	await expect(page.locator('[data-media-card="marked-gif"]')).toBeVisible({ timeout: 30_000 });
 	const after = await page.evaluate(async (mark) => {
@@ -292,24 +308,39 @@ test('@smoke a PNG with an eXIf GPS chunk and a GIF with comment and XMP blocks 
 			r.onsuccess = () => res(r.result);
 			r.onerror = () => rej(r.error);
 		});
-		const rows: { name: string; mime: string; blob?: Blob; data?: ArrayBuffer }[] = await new Promise((res) => {
+		const rows: { name: string; mime: string; original: boolean; blob?: Blob; data?: ArrayBuffer }[] = await new Promise((res) => {
 			const r = db.transaction('assets').objectStore('assets').index('kind').getAll('image');
 			r.onsuccess = () => res(r.result);
 		});
-		const out: Record<string, { mime: string; marked: boolean; decodes: boolean }> = {};
+		const out: Record<string, { mime: string; marked: boolean; decodes: boolean; original: boolean; bytes: number; shown: number[] }> = {};
 		for (const row of rows) {
 			const blob = row.blob ?? new Blob([row.data as ArrayBuffer], { type: row.mime });
 			const bytes = new Uint8Array(await blob.arrayBuffer());
 			let decodes = true;
+			let shown: number[] = [];
 			try {
 				(await createImageBitmap(blob)).close();
+				const url = URL.createObjectURL(blob);
+				const img = new Image();
+				img.src = url;
+				await img.decode();
+				shown = [img.naturalWidth, img.naturalHeight];
+				URL.revokeObjectURL(url);
 			} catch {
 				decodes = false;
 			}
-			out[row.name] = { mime: row.mime, marked: new TextDecoder('latin1').decode(bytes).includes(mark), decodes };
+			out[row.name] = { mime: row.mime, marked: new TextDecoder('latin1').decode(bytes).includes(mark), decodes, original: row.original, bytes: bytes.length, shown };
 		}
 		return out;
 	}, MARK);
-	expect(after['marked-png']).toEqual({ mime: 'image/png', marked: false, decodes: true });
-	expect(after['marked-gif']).toEqual({ mime: 'image/gif', marked: false, decodes: true });
+	// `original: true` and a smaller file than the input prove the BYTE scrubber ran, not a canvas re-encode
+	// (which would also drop the marker, and would mark the record resized).
+	expect(after['marked-png']).toMatchObject({ mime: 'image/png', marked: false, decodes: true, original: true });
+	expect(after['marked-gif']).toMatchObject({ mime: 'image/gif', marked: false, decodes: true, original: true });
+	// The rotation survives the scrub as an orientation-only chunk, so the browser shows the stored picture at the
+	// same size it showed the original (a dropped tag would turn 48x64 into 64x48 in a browser that applies it).
+	expect(after['rotated-png']).toMatchObject({ marked: false, decodes: true, original: true });
+	expect(after['rotated-png'].shown, 'displayed size, before vs after').toEqual(await page.evaluate(() => (window as unknown as { __rotatedShown: number[] }).__rotatedShown));
+	expect(after['marked-png'].bytes).toBeLessThan(before.pngLength);
+	expect(after['marked-gif'].bytes).toBeLessThan(before.gifLength);
 });

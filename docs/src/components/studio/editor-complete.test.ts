@@ -586,6 +586,13 @@ describe('makeAssetCompletion — Library photos', () => {
 		expect(await run('<!-- _class: collage -->\n\n---\n\n## Other slide\n\n- te')).toBeNull();
 	});
 
+	it('a huge line costs a bounded amount per keystroke', async () => {
+		const doc = `${'![a]('.repeat(40_000)} `;
+		const t = performance.now();
+		await run(doc);
+		expect(performance.now() - t).toBeLessThan(250);
+	});
+
 	it('an empty bullet opens no menu until Ctrl-Space, so Enter stays a newline', async () => {
 		const doc = '<!-- _class: collage -->\n\n- ';
 		expect(await run(doc, false)).toBeNull();

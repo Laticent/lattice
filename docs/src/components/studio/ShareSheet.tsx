@@ -26,8 +26,10 @@ import { type WebpageExportChoice, WebpageOptionsPanel } from './WebpageOptionsP
 // paths download/print the Markdown; the artifact paths run the engine export
 // pipeline (image PDF/PPTX, vector Print, the Marp ZIP) — see share-export.ts.
 
-// Exports that carry the deck's text, not its pictures, so a missing Library photo changes nothing in them.
-const SOURCE_EXPORTS = new Set(['lattice', 'md', 'marp', 'printsrc', 'captions']);
+// Exports that never name a photo's picture and have nothing to note about one.
+const NO_PHOTO_NOTE = new Set(['printsrc', 'captions']);
+// Source exports: the deck's text travels, the Library's photos do not.
+const SOURCE_WITH_PHOTOS = new Set(['lattice', 'md', 'marp']);
 
 export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, finishClass, finishExtraCss, localComponents, deckPackages, options, palette, mode, extraTheme, extraCss, onPresent, onCollaborate, initialView = 'menu' }: { open: boolean; onOpenChange: (v: boolean) => void; deckTitle: string; source: string; deckId?: string; finishClass?: string; finishExtraCss?: string; localComponents?: ReadonlyArray<{ name: string; css: string }>; deckPackages?: DeckPackages; options: SingleSlideOptions; palette: string; mode: 'light' | 'dark'; extraTheme?: { name: string; css: string }; extraCss?: string; onPresent: () => void; onCollaborate?: () => void; initialView?: 'menu' | 'pdf' }) {
 	const close = () => onOpenChange(false);
@@ -150,13 +152,20 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 				// On iOS every browser gets a "<file> is ready · Save" toast from download.js
 				// instead of a download, so a plain "ready." beside it is a second toast saying the
 				// same thing (the owner's iPhone showed both). A degradation still speaks.
-				// A photo the deck names that this browser no longer holds is drawn as the missing-image
-				// stand-in; say so, so the stand-in in the file is never a surprise. Source exports keep
-				// the reference text and ship no picture, so they have nothing to report.
-				// The registry loads only when the deck names a photo; every other export never pays for it.
-				if (!degraded && !SOURCE_EXPORTS.has(key) && /\basset:[a-z0-9]/i.test(source)) {
-					const gone = await import('./media-urls').then((m) => m.missingAssetNames(source)).catch(() => []);
-					if (gone.length) degraded = `${gone.length === 1 ? `the photo “${gone[0]}” is` : `${gone.length} photos (${gone.slice(0, 3).join(', ')}${gone.length > 3 ? ', …' : ''}) are`} not in this browser's Library, so ${gone.length === 1 ? 'it shows' : 'they show'} as a missing-image stand-in`;
+				// A photo the deck names that this browser cannot show (deleted, in another deck, or unreadable just now)
+				// is drawn as the missing-image stand-in; say so, so the stand-in in the file is never a surprise.
+				// A source export (.lattice, Markdown, Marp) keeps the reference text and carries no picture at all,
+				// so it says that instead. The registry loads only when the deck names a photo.
+				if (!degraded && !NO_PHOTO_NOTE.has(key) && /\basset:[a-z0-9]/i.test(source)) {
+					const names = (list: string[]) => `${list.slice(0, 3).map((n) => `“${n}”`).join(', ')}${list.length > 3 ? `, and ${list.length - 3} more` : ''}`;
+					const m = await import('./media-urls').catch(() => null);
+					if (m && SOURCE_WITH_PHOTOS.has(key)) {
+						const used = m.assetNamesIn(source);
+						degraded = `the ${used.length === 1 ? 'photo' : 'photos'} it names (${names(used)}) ${used.length === 1 ? 'is' : 'are'} not inside this file; they live in this browser's Library, so anyone who opens it elsewhere sees stand-ins`;
+					} else if (m) {
+						const gone = await m.missingAssetNames(source).catch(() => []);
+						if (gone.length) degraded = `${gone.length === 1 ? 'the photo' : 'photos'} ${names(gone)} could not be shown (not in this browser's Library, or could not be read), so ${gone.length === 1 ? 'it appears' : 'they appear'} as a missing-image stand-in`;
+					}
 				}
 				if (degraded) notify(`${label} ready — but ${degraded}.`, { duration: DEGRADED_TOAST_MS });
 				else if (!iosNeedsShareSheet()) notify(`${label} ready.`);

@@ -151,7 +151,7 @@ async function putMedia(input: NewMedia, id: string, addedAt: number, asBuffer: 
 				}
 				const clash = found.find((a) => a.name === input.name);
 				if (clash) {
-					refusal = new Error(`${MEDIA_REFUSAL_PREFIX} “${input.name}” is already another saved ${clash.kind}. Rename that one first.`);
+					refusal = new Error(`${MEDIA_REFUSAL_PREFIX} “${input.name}” is already another saved ${clash.kind}. Delete it first to reuse the name.`);
 					t.abort();
 					return;
 				}

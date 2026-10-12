@@ -120,7 +120,9 @@ test('@smoke the PDF export draws the photo on the page, and does not report a m
 test('@smoke the PowerPoint export carries the photo, and does not report a missing image @gecko', async ({ page }) => {
 	await setUp(page);
 	const path = await download(page, 'pptx');
-	await expect(page.locator('[data-sonner-toast]')).not.toContainText(/could not load every image/i);
+	// The message carries the toast text, so a failure names which image the capture could not load.
+	const toasts = (await page.locator('[data-sonner-toast]').allInnerTexts()).join(' | ');
+	expect(toasts, 'the PowerPoint toast').not.toMatch(/could not load every image/i);
 	const zip = await JSZip.loadAsync(readFileSync(path));
 	const media = Object.keys(zip.files).filter((n) => /^ppt\/media\/.+\.png$/i.test(n));
 	expect(media.length, `ppt/media holds pictures (found: ${Object.keys(zip.files).filter((n) => n.includes('media')).join(', ') || 'nothing'})`).toBeGreaterThan(0);
@@ -149,10 +151,18 @@ test('@smoke a photo deleted before export is named in the toast and drawn as th
 	await page.getByRole('button', { name: 'Share', exact: true }).click();
 	await expect(page.getByRole('dialog')).toBeVisible();
 	const path = await download(page, 'webpage');
-	await expect(page.locator('[data-sonner-toast]').filter({ hasText: /“soon-gone” is not in this browser's Library/ }).first()).toBeVisible({ timeout: 30_000 });
+	await expect(page.locator('[data-sonner-toast]').filter({ hasText: /“soon-gone” could not be shown/ }).first()).toBeVisible({ timeout: 30_000 });
 	const html = readFileSync(path, 'utf8');
 	const tag = [...html.matchAll(/<img\b[^>]*>/g)].map((m) => m[0]).find((t) => /alt="A green probe"/.test(t));
 	expect(tag, 'an <img> for the missing photo').toBeTruthy();
 	expect(/\ssrc="([^"]*)"/.exec(tag as string)?.[1] ?? '', 'the stand-in, drawn').toMatch(/^data:image\/svg\+xml/);
 	expect(html, 'no dead object URL').not.toMatch(/blob:https?:/);
+});
+
+// A source export carries the deck's text and none of the Library's pictures. It must say so, because the
+// file looks complete and the recipient sees stand-ins.
+test('@smoke a Markdown export of a deck that names a photo says the photo is not inside the file @webkit-tablet @gecko', async ({ page }) => {
+	await setUp(page);
+	await download(page, 'markdown');
+	await expect(page.locator('[data-sonner-toast]').filter({ hasText: /“export-probe”\) is not inside this file|“export-probe”.*not inside this file/ }).first()).toBeVisible({ timeout: 30_000 });
 });

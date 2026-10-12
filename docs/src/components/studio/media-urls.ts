@@ -17,6 +17,8 @@ const urlById = new Map<string, string>();
 // The visible assets' bytes by name, kept beside the URLs so an export can read them as `data:` URIs.
 const blobByName = new Map<string, { id: string; blob: Blob; mime: string }>();
 const dataUriById = new Map<string, Promise<string>>();
+// Photos whose bytes could not be read for the last export, so the Share sheet can name them.
+const failedIds = new Set<string>();
 let current: Record<string, string> = {};
 // What the editor offers when you type an image reference: the visible photos, newest first.
 let choices: AssetChoice[] = [];
@@ -133,7 +135,8 @@ export function assetNamesIn(source: string): string[] {
  * not hold is left out, so the engine draws the missing-image stand-in for it.
  */
 export async function dataUrlsFor(source: string): Promise<Record<string, string>> {
-	await ensureAssetUrls();
+	// One read of the shelf per export, so a photo added in another tab a moment ago is not reported as missing.
+	await refreshAssetUrls();
 	const out: Record<string, string> = {};
 	for (const name of assetNamesIn(source)) {
 		const rec = blobByName.get(name);
@@ -146,7 +149,14 @@ export async function dataUrlsFor(source: string): Promise<Record<string, string
 			// the next export would fail the same way for the rest of the session.
 			p.catch(() => dataUriById.delete(rec.id));
 		}
-		out[name] = await p;
+		// ONE photo that cannot be read costs that photo, not the whole export: it is left out of the map (the
+		// engine draws the stand-in for it), and named to the Share sheet.
+		try {
+			out[name] = await p;
+			failedIds.delete(rec.id);
+		} catch {
+			failedIds.add(rec.id);
+		}
 	}
 	return out;
 }
@@ -154,8 +164,11 @@ export async function dataUrlsFor(source: string): Promise<Record<string, string
 /** The names `source` writes that the open deck cannot see (deleted, or another deck's). An export
  *  says so, so a stand-in in the file is never a surprise. */
 export async function missingAssetNames(source: string): Promise<string[]> {
-	await ensureAssetUrls();
-	return assetNamesIn(source).filter((n) => !blobByName.has(n));
+	await refreshAssetUrls();
+	return assetNamesIn(source).filter((n) => {
+		const rec = blobByName.get(n);
+		return !rec || failedIds.has(rec.id);
+	});
 }
 
 /** Test seam: forget everything. */
@@ -164,6 +177,7 @@ export function resetAssetUrlsForTests(): void {
 	urlById.clear();
 	blobByName.clear();
 	dataUriById.clear();
+	failedIds.clear();
 	current = {};
 	choices = [];
 	activeDeckId = null;
