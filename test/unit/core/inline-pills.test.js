@@ -132,7 +132,8 @@ describe('inline-pills — the parser stays allocation-free on the literal path'
     // for the 99.75% of spans that are ordinary code. Measured separately at ~78ns/span
     // cold over the repo's real distribution; see the kernel docblock for the method.
     const src = require('node:fs').readFileSync(require.resolve('../../../lib/core/inline-pills.js'), 'utf8');
-    const body = /function read\(text, off\) \{([\s\S]*?)\n\}/.exec(src)[1];
+    // The decision lives in `accepted`, which `read` and `accepts` both call.
+    const body = /function accepted\(text, off\) \{([\s\S]*?)\n\}/.exec(src)[1];
     const rejectLine = body.split('\n').find((l) => l.includes('charCodeAt'));
     assert.ok(rejectLine, 'the O(1) first-char reject is gone');
     assert.match(rejectLine, /return null/, 'the reject must return, not fall through');
@@ -141,7 +142,7 @@ describe('inline-pills — the parser stays allocation-free on the literal path'
       body.indexOf('charCodeAt') < body.indexOf('isDirective('),
       'the first-char reject must precede the directive check and the read',
     );
-    assert.doesNotMatch(body, /\/[^/\s]+\/[gimsuy]*\.(test|exec)|\.match\(/, 'read must stay regex-free');
+    assert.doesNotMatch(body, /\/[^/\s]+\/[gimsuy]*\.(test|exec)|\.match\(/, 'the pill decision must stay regex-free');
   });
 });
 

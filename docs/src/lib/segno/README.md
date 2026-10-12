@@ -293,26 +293,51 @@ bracket lists in Lattice's shipped decks (`npm run parser:bakeoff:segno`; best o
 | quadrant axes, typed numbers and ranges | 721 ns | 1.02 µs | 1.4x |
 
 **Against the dispatcher Lattice ships.** The table above times the arm's own copy of the
-dispatcher. Lattice renders with `lib/core/inline-code-directives.js`, which asks each kind in
-turn (state mark, pill, spark, then the icons plugin's row), so the arm now times that too. Run
-2026-10-07 on Node 22 in a cloud sandbox, so the absolute figures are about half what a laptop
-gives:
+dispatcher. Lattice renders with `lib/core/inline-code-directives.js`, so the arm times that too:
+the escape, then `dispatches` ("does any kind render this?"). That is the decision, not the render;
+the markdown-it path then calls `renderHtml`, which builds the result. Run 2026-10-13 on Node 22 in
+a cloud sandbox, so the absolute figures are about half what a laptop gives:
 
 | job | kernel (retired) | arm's dispatcher | shipped | shipped/kernel |
 |---|---|---|---|---|
-| inline dispatch, every span both read alike | 35 ns | 72 ns | 181 ns | 5.2x |
-| &nbsp;&nbsp;ordinary code (code to both) | 31 ns | 67 ns | 136 ns | 4.4x |
-| &nbsp;&nbsp;state marks `[x]` | 62 ns | 39 ns | 91 ns | 1.5x |
-| &nbsp;&nbsp;pills `{BETA, tag, c4}` | 217 ns | 802 ns | 734 ns | 3.4x |
-| Segno syntax the kernel reads as code (386 spans) | — | 1.15 µs | 3.54 µs | — |
+| inline dispatch, every span both read alike | 32 ns | 69 ns | 53 ns | 1.6x |
+| &nbsp;&nbsp;ordinary code (code to both) | 29 ns | 55 ns | 37 ns | 1.3x |
+| &nbsp;&nbsp;state marks `[x]` | 56 ns | 37 ns | 86 ns | 1.5x |
+| &nbsp;&nbsp;pills `{BETA, tag, c4}` | 232 ns | 1.04 µs | 942 ns | 4.1x |
+| Segno syntax the kernel reads as code (482 spans) | — | 1.60 µs | 3.02 µs | — |
 
-The shipped dispatcher misses the design note's 1.5x target. Ordinary code costs it about twice
-what it costs the arm's copy, because every row runs its own check where the arm parses once.
-That gap is a followup (`followups.d/2593-p1-inline-dispatch-asks-every-row.md`). The last row
-covers spans that the decks already write in Segno's notation (`{icon=mail}`, chart points).
-The retired kernel reads them as plain code, so they have no kernel figure. The shipped column
-times what the engine asks per span, the escape and then "does any kind render this?". It does
-not include building the HTML.
+Ordinary code is 99% of spans and costs 1.3x the kernel, inside the 1.5x target. The every-span
+ratio reads 1.4x to 1.65x between runs in this sandbox (five runs of near-final code: 1.41, 1.46,
+1.49, 1.52 and 1.64), so it sits on the line, not under it. What holds it there is the 35 pills
+(and 18 other directives) of 4,742 spans: Segno parses a pill where the kernel matched a pattern,
+and the arm's own copy is slower still (1.04 µs). Closing that is a faster Segno parse, not a
+faster dispatcher; the design note accepts pills above the bar (§ The engine). Before this change
+the same run read 174 ns for every span and 149 ns for ordinary code (5.2x the kernel), because
+every kind ran its own check on every span.
+
+What moved it:
+
+- **A first-character table.** Ordinary code (a letter, `-`, `/`) is asked of no kind. Two
+  cheaper-looking shapes lost: a `row.lead` test inside the loop cost 103 ns (the rows are
+  different object shapes, so the property load went megamorphic), and indexing the table with
+  `NaN` cost 8 ns a span.
+- **Indexed loops.** A `for…of` over the list cost 12 ns a span for the iterator alone.
+- **A flag, not a second function.** `resolve(text, off, probe)` and `diagnose(text, off, explain)`
+  let a kind answer yes or no without building its fields or its reason. The backslash escape used
+  to build the reason: a mistyped icon name (`\^{databse}`) ran an edit-distance search over the
+  whole set, 173 µs, to decide whether to strip a backslash; it now takes about 1.6 µs.
+- **One parse per span.** `dispatches` then `diagnose` on a broken pill or spark parsed the same
+  text two or three times; each reader keeps its last result.
+
+The bakeoff column does not show where most of the real gain is. The markdown-it path calls the
+escape, then `renderHtml`, then `offPlugin`, and with one plugin switched off every ordinary span
+used to be filtered through every kind twice. Per ordinary span on that path (escape, `renderHtml`,
+`offPlugin`, same machine): 112 ns to 18 ns with every plugin on, 1,426 ns to 58 ns with the icons
+plugin off. Over the whole corpus with icons off, 3,227 ns to 870 ns.
+
+The last bakeoff row covers spans that the decks already write in Segno's notation (`{icon=mail}`,
+chart points, sparks, avatars). The retired kernel reads them as plain code, so they have no kernel
+figure.
 
 Two things to know when reading it. The kernel's axis figure returns strings, which each chart
 then re-reads; Segno's returns typed numbers and ranges, so the axis row undercounts today's cost.

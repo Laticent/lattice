@@ -402,7 +402,10 @@ span in the tracked corpus (`test/unit/core/inline-code-table.test.js`).
 The plugin host gained FOUR points, not three. The note's three (§ 6a):
 
 - **`inline`** — `{ "icon": { "sigil": "^" } }` and `<name>.inline.js` exporting
-  `{ resolve, html, element, diagnose }` per kind. The resolver refuses a sigil that is not a Segno
+  `{ resolve, html, element, diagnose }` per kind. `resolve` takes a trailing `probe` and `diagnose` a trailing
+  `explain` flag (2026-10-13): a kind may return `true` instead of its fields or its reason when the
+  caller only wants to know, and one that ignores them is still right. Keep every refusing rule in the
+  step both paths share, so a probe cannot disagree with a render. The resolver refuses a sigil that is not a Segno
   tag, the spark's `~`, or another plugin's, and a kind with no `detect`.
 - **`services`** — a list of names and `<name>.services.js`; callers use
   `lib/plugins/services.js` `service(plugin, name, off)` and get null with the plugin off.
