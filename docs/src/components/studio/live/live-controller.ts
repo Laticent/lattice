@@ -406,6 +406,7 @@ export class LiveController {
 	/** Faster recovery of dropped connections (experimental): kept in this browser, off until chosen. */
 	private recover = readRecover();
 	private timeline: () => LinkEvent[] = () => [];
+	private pairs: () => Promise<string[]> = () => Promise.resolve([]);
 	private outDevices: Array<{ id: string; label: string }> = [];
 	private micDevices: Array<{ id: string; label: string }> = [];
 	/** The tab title before "On air · " was put in front of it. */
@@ -581,6 +582,7 @@ export class LiveController {
 		this.audio = audio;
 		const transport = trysteroTransport(args.room, args.secret, { turnConfig: LIVE_TURN, recover: () => this.recover });
 		this.timeline = () => transport.timeline?.() ?? [];
+		this.pairs = () => transport.pairs?.().catch(() => []) ?? Promise.resolve([]);
 		const session = createSession({
 			media: { add: (stream, from) => {
 				audio.addRemote(from, stream);
@@ -1576,9 +1578,11 @@ export class LiveController {
 
 	/** The connection timeline as text, for a bug report: what this browser is, the switch, each event, the paths. */
 	private async copyLog(): Promise<boolean> {
-		const lines = [`Lattice Live connection log · ${new Date().toISOString()}`, `browser: ${navigator.userAgent}`, `recover (experimental): ${this.recover ? 'on' : 'off'}`, `online: ${navigator.onLine} · visible: ${document.visibilityState}`];
+		const lines = [`Lattice Live connection log · ${new Date().toISOString()}`, `browser: ${navigator.userAgent}`, `role: ${this.rt?.session.getState().isHost ? 'host' : 'guest'}`, `recover (experimental): ${this.recover ? 'on' : 'off'}`, `online: ${navigator.onLine} · visible: ${document.visibilityState}`];
 		const paths: Record<string, LinkPath> = (await this.rt?.session.paths().catch(() => ({}))) ?? {};
 		for (const [id, p] of Object.entries(paths)) lines.push(`path ${id.slice(0, 6)}: ${p.local}→${p.remote} (${p.protocol})`);
+		const pairs = await this.pairs();
+		if (pairs.length) lines.push('candidate pairs (every connection check each link tried):', ...pairs.map((p) => `  ${p}`));
 		for (const e of this.timeline()) lines.push(`${(e.at / 1000).toFixed(1).padStart(7)}s  ${e.peer.padEnd(6)}  ${e.what}`);
 		if (!navigator.clipboard) return false;
 		return navigator.clipboard.writeText(lines.join('\n')).then(

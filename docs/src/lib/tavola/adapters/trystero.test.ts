@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { audioStatsFrom, capBitrate, RECOVER_AFTER_MS, restartsIce } from './trystero';
+import { audioStatsFrom, capBitrate, describeCandidate, RECOVER_AFTER_MS, restartsIce } from './trystero';
 
 // Trystero's addTrack resolves before the offer and answer, and a browser may have no encodings to
 // set until negotiation is done (checker, PR #2594). The cap must land once it settles, not never.
@@ -78,5 +78,15 @@ describe('restartsIce (who offers an ICE restart)', () => {
 	it('nobody restarts a connection to itself, and the blip allowance stays under Trystero\'s 5 s close', () => {
 		expect(restartsIce('same', 'same')).toBe(false);
 		expect(RECOVER_AFTER_MS).toBeLessThan(5000);
+	});
+});
+
+describe('describeCandidate (a candidate as log text)', () => {
+	it('hides the last octet of an address, names mDNS and IPv6, and says when the browser hides it', () => {
+		expect(describeCandidate({ candidateType: 'host', protocol: 'udp', address: '192.168.1.42' })).toBe('host/udp 192.168.1.x');
+		expect(describeCandidate({ candidateType: 'host', protocol: 'udp', address: 'a1b2-c3d4.local' })).toBe('host/udp mdns');
+		expect(describeCandidate({ candidateType: 'srflx', protocol: 'udp', address: '2001:db8::1' })).toBe('srflx/udp ipv6');
+		expect(describeCandidate({ candidateType: 'srflx', protocol: 'udp' })).toBe('srflx/udp hidden');
+		expect(describeCandidate(undefined)).toBe('?');
 	});
 });

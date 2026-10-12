@@ -35,6 +35,17 @@ const TIMELINE_MAX = 300;
  * Who restarts a connection's ICE: the side with the smaller id, so two sides never offer at once. Either side's
  * restart renegotiates both sides' candidates. Pure, exported for its test.
  */
+/** How often a connected link's round-trip time is sampled into the timeline. */
+export const SAMPLE_EVERY_MS = 10_000;
+
+/** One candidate as text: its type, protocol and an address with the last octet hidden (`hidden` when the browser hides it, `mdns` for a .local name). Pure, exported for its test. */
+export function describeCandidate(c: Record<string, string | number | boolean | undefined> | undefined): string {
+	if (!c) return '?';
+	const addr = String(c.address ?? c.ip ?? '');
+	const shown = !addr ? 'hidden' : addr.endsWith('.local') ? 'mdns' : addr.includes(':') ? 'ipv6' : addr.replace(/\.\d+$/, '.x');
+	return `${c.candidateType ?? '?'}/${c.protocol ?? '?'} ${shown}`;
+}
+
 export const restartsIce = (selfId: string, peerId: string): boolean => selfId < peerId;
 
 /** Cap the bitrate `track` is sent at on `pc` (best-effort: a browser that refuses keeps its default). */
@@ -107,6 +118,22 @@ export function trysteroTransport(room: string, secret: string, opts: TrysteroOp
 		events.push({ at: Date.now() - started, peer: peer.slice(0, 6), what });
 		if (events.length > TIMELINE_MAX) events.shift();
 	};
+	/** Sample each connected link's round-trip time, so a slow stretch shows in the log as numbers. */
+	const sample = async () => {
+		for (const [id, pc] of Object.entries(r.getPeers())) {
+			if (pc.connectionState !== 'connected') continue;
+			try {
+				const stats = [...(await pc.getStats()).values()] as Array<Record<string, string | number | boolean | undefined>>;
+				const pair = stats.find((s) => s.type === 'candidate-pair' && s.state === 'succeeded' && s.nominated);
+				if (!pair) continue;
+				const rtt = typeof pair.currentRoundTripTime === 'number' ? `${Math.round(pair.currentRoundTripTime * 1000)} ms` : '?';
+				const loc = stats.find((s) => s.id === pair.localCandidateId);
+				const rem = stats.find((s) => s.id === pair.remoteCandidateId);
+				note(id, `sample rtt ${rtt} · ${loc?.candidateType ?? '?'}→${rem?.candidateType ?? '?'}`);
+			} catch {}
+		}
+	};
+	const sampler = typeof setInterval === 'function' ? setInterval(() => void sample(), SAMPLE_EVERY_MS) : null;
 	const watched = new Set<string>();
 	const timers = new Map<string, ReturnType<typeof setTimeout>>();
 	/** Ask one connection to restart its ICE, if recovery is on and this side is the one that offers. A
@@ -187,6 +214,18 @@ export function trysteroTransport(room: string, secret: string, opts: TrysteroOp
 			};
 		},
 		timeline: () => events.slice(),
+		async pairs() {
+			const out: string[] = [];
+			for (const [id, pc] of Object.entries(r.getPeers())) {
+				const stats = [...(await pc.getStats()).values()] as Array<Record<string, string | number | boolean | undefined>>;
+				const byId = new Map(stats.map((s) => [String(s.id), s]));
+				for (const p of stats.filter((s) => s.type === 'candidate-pair')) {
+					const rtt = typeof p.currentRoundTripTime === 'number' ? ` rtt ${Math.round(p.currentRoundTripTime * 1000)} ms` : '';
+					out.push(`${id.slice(0, 6)}  ${String(p.state).padEnd(11)}${p.nominated ? ' nominated' : '          '}  ${describeCandidate(byId.get(String(p.localCandidateId)))} → ${describeCandidate(byId.get(String(p.remoteCandidateId)))}${rtt}`);
+				}
+			}
+			return out;
+		},
 		leave() {
 			if (typeof window !== 'undefined') {
 				window.removeEventListener('online', onOnline);
@@ -195,6 +234,7 @@ export function trysteroTransport(room: string, secret: string, opts: TrysteroOp
 			}
 			for (const t of timers.values()) clearTimeout(t);
 			timers.clear();
+			if (sampler) clearInterval(sampler);
 			return r.leave();
 		},
 		addTrack(track, stream, to, opts) {

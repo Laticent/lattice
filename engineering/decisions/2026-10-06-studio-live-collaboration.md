@@ -1109,7 +1109,7 @@ two-browser call (Chromium, loopback): with the switch on, an `online` event on 
 restart and the other defer, the connected link count stayed 1, and the guest's received audio kept growing
 (414,833 to 464,260 bytes over 6 s). UNVERIFIED: a real network change (a hotspot reconnecting, wifi to cellular), iOS
 backgrounding, and whether the restart is faster than the 5 s close in practice; that is the owner's A/B run with the
-switch and the log. Not done: the slow first connect (no data yet), and the 20 s handoff grace when the phone is the host.
+switch and the log. The owner's first logs (iPhone host, then wifi to wifi) showed `srflx→srflx (udp)` on a shared network, clean links, and jank only wifi-to-wifi, never cellular-to-wifi: on one LAN the connection went out through the router's public side and back instead of directly, so the log now also lists every candidate pair with its state and samples each link's round-trip time every 10 s (`pairs()`, `SAMPLE_EVERY_MS`), and names the role. Not done: the slow first connect (no data yet), and the 20 s handoff grace when the phone is the host.
 Found while verifying, and fixed here: the popover scroll fix had portaled the popover INTO the panel, and on the
 real Studio a tap on a switch near the panel's edge reached react-resizable-panels' document handler, which focuses
 the resize handle, and that focus change closed the popover. The popover now goes into the modal dialog only when the

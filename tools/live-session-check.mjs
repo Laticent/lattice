@@ -281,7 +281,7 @@ await guest.waitForTimeout(6000);
 const rb1 = await inBytes(guest);
 log(`network-change recovery: connected links ${rc0} -> ${await liveCount(guest)}; guest audio in ${rb0} -> ${rb1} bytes (${rb1 > rb0 + 2000 ? 'still flowing' : 'STALLED'})`);
 const copyLogOf = async (pg) => { await panel(pg).getByRole('button', { name: 'Your settings', exact: true }).click(); await pg.waitForSelector('[data-live-your-settings]'); await pg.getByRole('button', { name: 'Copy connection log' }).click(); const t = await pg.evaluate(() => navigator.clipboard.readText()); await pg.keyboard.press('Escape'); await pg.waitForSelector('[data-live-your-settings]', { state: 'detached' }); return t; };
-for (const [who, pg] of [['host', host], ['guest', guest]]) log(`${who}'s connection log (recovery lines): ${JSON.stringify((await copyLogOf(pg)).split('\n').filter((l) => /online|restart|recover/i.test(l)).map((l) => l.trim()))}`);
+for (const [who, pg] of [['host', host], ['guest', guest]]) log(`${who}'s connection log (recovery lines): ${JSON.stringify((await copyLogOf(pg)).split('\n').filter((l) => /online|restart|recover|role:|candidate pairs|^\s+\S+\s+(succeeded|failed|waiting|in-progress|frozen)|sample rtt/i.test(l)).map((l) => l.trim()))}`);
 // High fidelity (P4): the host's send rate and what the guest hears of a 14 kHz tone, switch off, on, off.
 if (process.argv.includes('--hifi')) {
   const sentRate = async (secs) => { const a = await audioBytes(host); await host.waitForTimeout(secs * 1000); return ((await audioBytes(host)) - a) * 8 / secs / 1000; };

@@ -38,6 +38,8 @@ export interface Transport {
 	onTrack?(cb: (track: MediaStreamTrack, stream: MediaStream, from: PeerId) => void): void;
 	/** Optional: what the connections did, oldest first (a bounded log), for a "copy the connection log" readout. */
 	timeline?(): LinkEvent[];
+	/** Optional: every candidate pair each connection tried, as text lines (state, nominated, candidate types), for the same log. */
+	pairs?(): Promise<string[]>;
 }
 
 /** One thing a connection did: `at` is ms since the transport started, `peer` a short id. */
