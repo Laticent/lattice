@@ -45,6 +45,9 @@ Studio's Live panel. It knows **peers and bytes**; the app knows **screens**. It
   a member's stream (`add`) and its end (`drop`), and a stream from a peer that is not admitted yet
   is held until it is. It rides the same connections as the document (`Transport.addTrack` /
   `onTrack`, optional; the Trystero adapter implements them);
+- **rename** — `session.rename(name)`: a member asks the host (`rename`), which cleans the name, refuses one
+  another member already has (any case), allows one change a second per member, updates the roster and the
+  member's rejoin token, and broadcasts. The host renames itself directly.
 - **client binding** — each member knocks with its awareness `client` id and the host binds it in
   the roster (refusing one another member already holds), so an app can drop presence a member
   sends for anyone else.

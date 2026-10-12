@@ -17,7 +17,7 @@ const record =
 		calls.push([name, ...args]);
 		return name === 'copyLink' ? Promise.resolve(true) : undefined;
 	};
-const NAMES = ['start', 'copyLink', 'setLinkRole', 'setAutoAdmit', 'admit', 'deny', 'remove', 'setRole', 'follow', 'bringEveryone', 'toggleMic', 'leaveCall', 'pickMic', 'setVolume', 'setHighFidelity', 'setMicLevel', 'setMasterVolume', 'pickOutput', 'setShare', 'end', 'leave', 'sendChat', 'chatTyping', 'goToSlide'] as const;
+const NAMES = ['start', 'copyLink', 'setLinkRole', 'setAutoAdmit', 'admit', 'deny', 'remove', 'setRole', 'follow', 'bringEveryone', 'toggleMic', 'leaveCall', 'pickMic', 'setVolume', 'setHighFidelity', 'setMicLevel', 'setMasterVolume', 'pickOutput', 'setShare', 'rename', 'end', 'leave', 'sendChat', 'chatTyping', 'goToSlide'] as const;
 /** What the mic meter reads: set from the spec with `window.__live.level(n)`. */
 let inputLevel = 0;
 const actions = { ...Object.fromEntries(NAMES.map((n) => [n, record(n)])), inputLevel: () => inputLevel } as unknown as LiveActions;

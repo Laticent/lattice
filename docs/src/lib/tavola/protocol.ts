@@ -25,6 +25,8 @@ export type Control =
 	/** guest → host: let me in. `token` re-admits a member who dropped; `client` is the awareness
 	 *  client id this browser will speak for (the host binds it in the roster). */
 	| { t: 'knock'; name: string; token?: string; client?: number }
+	/** member → host: show me under this name from now on. The host cleans it and answers with a roster. */
+	| { t: 'rename'; name: string }
 	/** host → guest: you are in, and here is who else is. */
 	| { t: 'admit'; role: Exclude<Role, 'host'>; color: Color; token: string; members: Member[] }
 	/** host → guest: no. */
@@ -95,6 +97,8 @@ export function decodeControl(payload: Uint8Array): Control | null {
 			return typeof m.v === 'number' && isInvite(m.invite) && typeof m.key === 'string' && typeof m.sig === 'string' && isChain(m.chain) ? { t: 'hello', v: m.v, invite: cleanInvite(m.invite), key: m.key, chain: m.chain, sig: m.sig } : null;
 		case 'knock':
 			return typeof m.name === 'string' && (m.token === undefined || typeof m.token === 'string') ? { t: 'knock', name: cleanName(m.name), token: m.token as string | undefined, ...(isClient(m.client) ? { client: m.client } : {}) } : null;
+		case 'rename':
+			return typeof m.name === 'string' ? { t: 'rename', name: cleanName(m.name) } : null;
 		case 'admit':
 			return (m.role === 'edit' || m.role === 'view') && isColor(m.color) && typeof m.token === 'string' && Array.isArray(m.members) && m.members.every(isMember) ? { t: 'admit', role: m.role, color: m.color, token: m.token, members: m.members as Member[] } : null;
 		case 'deny':

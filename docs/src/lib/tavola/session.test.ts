@@ -365,6 +365,78 @@ describe('management', () => {
 		expect(again.text.toString()).toBe('# Q3 Board Review\n');
 	});
 
+	it('a member renames itself: the host cleans the name, the roster and the token follow, and a reconnect keeps it', async () => {
+		const net = createMemoryNetwork();
+		const h = host(net);
+		const a = await joined(net, h, 'Amina');
+		const token = a.s.getState().token as string;
+		a.s.rename('  Amina\u202e   Okafor  ');
+		await settle(net);
+		expect(h.s.getState().members.map((m) => m.name)).toEqual(['Sharmarke', 'Amina Okafor']);
+		expect(a.s.getState().me?.name).toBe('Amina Okafor');
+		net.drop(a.t.selfId);
+		await settle(net);
+		const again = guest(net, { token });
+		await settle(net);
+		expect(again.s.getState().me?.name).toBe('Amina Okafor');
+	});
+
+	it('a second rename inside a second is ignored (one rename is one roster broadcast), and an empty name never blanks anyone', async () => {
+		const net = createMemoryNetwork();
+		const h = host(net);
+		const a = await joined(net, h, 'Amina');
+		a.s.rename('First');
+		await settle(net);
+		a.s.rename('Second');
+		await settle(net);
+		expect(h.s.getState().members.map((m) => m.name)).toEqual(['Sharmarke', 'First']);
+		a.s.rename('   ');
+		await settle(net);
+		expect(h.s.getState().members.map((m) => m.name)).toEqual(['Sharmarke', 'First']);
+	});
+
+	it('the host renames itself with no rate limit, and everyone sees it', async () => {
+		const net = createMemoryNetwork();
+		const h = host(net);
+		const a = await joined(net, h, 'Amina');
+		h.s.rename('Sharmarke A.');
+		h.s.rename('Sharmarke Aden');
+		await settle(net);
+		expect(h.s.getState().me?.name).toBe('Sharmarke Aden');
+		expect(a.s.getState().members.find((m) => m.role === 'host')?.name).toBe('Sharmarke Aden');
+	});
+
+	it('a member cannot take another member\'s name, the host\'s included, in any case', async () => {
+		const net = createMemoryNetwork();
+		const h = host(net);
+		const a = await joined(net, h, 'Amina');
+		const c = await joined(net, h, 'Chen');
+		a.s.rename('sharmarke');
+		c.s.rename('AMINA');
+		await settle(net);
+		expect(h.s.getState().members.map((m) => m.name)).toEqual(['Sharmarke', 'Amina', 'Chen']);
+		h.s.rename('Chen');
+		await settle(net);
+		expect(h.s.getState().me?.name).toBe('Sharmarke');
+	});
+
+	it('a rename sent by a peer that is not a member is ignored by the host (raw message, past the public guard)', async () => {
+		const net = createMemoryNetwork();
+		const h = host(net);
+		const a = await joined(net, h, 'Amina');
+		const stranger = guest(net, {});
+		await settle(net);
+		const send = (from: { t: Transport }, name: string) => from.t.send(encodeControl({ t: 'rename', name }), h.t.selfId);
+		send(stranger, 'Intruder');
+		await settle(net);
+		expect(h.s.getState().members.map((m) => m.name)).toEqual(['Sharmarke', 'Amina']);
+		h.s.remove(a.t.selfId);
+		await settle(net);
+		send(a, 'Ghost');
+		await settle(net);
+		expect(h.s.getState().members.map((m) => m.name)).toEqual(['Sharmarke']);
+	});
+
 	it('end() moves every member to `ended`', async () => {
 		const net = createMemoryNetwork();
 		const h = host(net);

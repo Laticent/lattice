@@ -9,6 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import { cleanName } from '@/lib/tavola';
 import { cn } from '@/lib/utils';
 import { CHAT_COMPOSER_FIELD, CHAT_COMPOSER_ROW, CHAT_COMPOSER_TOOLS } from '../panel-shells';
 import { LiveAvatar } from './LiveAvatar';
@@ -141,11 +142,84 @@ function ShareRow({ id, label, note, checked, onChange }: { id: string; label: s
 }
 
 /**
+ * Your name, changed on Save (Enter): one change is one roster update for everyone, so not per keystroke. The
+ * host decides (it cleans the name, refuses one another person already has, and ignores a second change inside
+ * a second), so when the roster has not shown the new name after a moment the field says so instead of
+ * leaving a Save that seems to have worked.
+ */
+function NameField({ name, onSave }: { name: string; onSave: (name: string) => void }) {
+	const [draft, setDraft] = React.useState(name);
+	const [refused, setRefused] = React.useState(false);
+	const focused = React.useRef(false);
+	const asked = React.useRef<string | null>(null);
+	const clean = cleanName(draft);
+	// The roster is the truth: follow it, but never wipe what the person is typing right now.
+	React.useEffect(() => {
+		if (!focused.current) setDraft(name);
+		if (asked.current !== null && name === asked.current) {
+			asked.current = null;
+			setRefused(false);
+		}
+	}, [name]);
+	const dirty = draft.trim() !== '' && clean !== name;
+	return (
+		<form
+			className="flex flex-col gap-1"
+			data-live-name
+			onSubmit={(e) => {
+				e.preventDefault();
+				if (!dirty) return;
+				const want = clean;
+				asked.current = want;
+				setRefused(false);
+				onSave(want);
+				window.setTimeout(() => {
+					if (asked.current === want) setRefused(true);
+				}, 2500);
+			}}
+		>
+			<label htmlFor="live-your-name" className="text-[12px] text-foreground">
+				Your name
+			</label>
+			<div className="flex gap-2">
+				<Input
+					id="live-your-name"
+					value={draft}
+					maxLength={40}
+					autoComplete="off"
+					aria-describedby={refused ? 'live-your-name-note' : undefined}
+					onFocus={() => {
+						focused.current = true;
+					}}
+					onBlur={() => {
+						focused.current = false;
+					}}
+					onChange={(e) => {
+						setDraft(e.target.value);
+						setRefused(false);
+					}}
+					className="h-8 flex-1 text-[12px]"
+				/>
+				<Button type="submit" size="sm" variant="secondary" disabled={!dirty} className={cn('h-8 shrink-0', TOUCH)}>
+					Save
+				</Button>
+			</div>
+			{refused && (
+				<span id="live-your-name-note" role="status" className="text-[11px] leading-snug text-muted-foreground">
+					The name did not change. Someone here may already have it, or you changed it twice within a second. Try another.
+				</span>
+			)}
+		</form>
+	);
+}
+
+/**
  * The ⋯ on your own row, like everyone else's: your settings that are not about audio (the "Me" scope, note
  * §12.3). What the others see of you is yours to choose, and it is on your row always, alone in a session too.
  */
 function YourSettings({ view, actions }: { view: LiveView; actions: LiveActions }) {
 	const sh = view.share;
+	const me = view.people.find((p) => p.me);
 	return (
 		<Popover>
 			<PopoverTrigger asChild>
@@ -155,6 +229,11 @@ function YourSettings({ view, actions }: { view: LiveView; actions: LiveActions 
 			</PopoverTrigger>
 			<PopoverContent align="end" className="max-h-[min(75vh,var(--radix-popover-content-available-height))] w-72 overflow-y-auto p-3" data-live-your-settings>
 				<div className="mb-2 text-[12px] font-semibold text-foreground">Your settings</div>
+				{me && (
+					<div className="mb-3">
+						<NameField name={me.name} onSave={actions.rename} />
+					</div>
+				)}
 				<div className="flex flex-col gap-3" data-live-share>
 					<div className="font-mono text-[10px] font-bold uppercase tracking-widest text-muted-foreground">What others see</div>
 					<ShareRow id="live-share-cursor" label="Show my cursor" note="Others see where you are in the editor." checked={sh.cursor} onChange={(on) => actions.setShare({ cursor: on })} />

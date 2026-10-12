@@ -127,6 +127,8 @@ export type LiveActions = {
 	setMicLevel: (level: number) => void;
 	/** Choose what the others see of you: your cursor, your slide, when you are typing. Kept for this tab. */
 	setShare: (patch: Partial<LiveShare>) => void;
+	/** Change the name others see (the host cleans it and may ignore a rapid second change). */
+	rename: (name: string) => void;
 	/** One volume for everyone you hear, 0–2. */
 	setMasterVolume: (volume: number) => void;
 	/** Play call audio through this speaker (where the browser allows it). */

@@ -248,6 +248,22 @@ await guest.waitForFunction(() => [...document.querySelectorAll('[data-live-pane
 log(`host turned it back on; guest sees the host as: ${JSON.stringify(await hostRowOnGuest())}`);
 await host.keyboard.press('Escape');
 await host.waitForSelector('[data-live-your-settings]', { state: 'detached' });
+// Name: the GUEST renames themselves after joining, and the HOST's roster must show the new name.
+await panel(guest).getByRole('button', { name: 'Your settings', exact: true }).click();
+await guest.waitForSelector('[data-live-your-settings]');
+const oldName = await guest.locator('#live-your-name').inputValue();
+await guest.locator('#live-your-name').fill('Amina Okafor');
+await guest.locator('#live-your-name').press('Enter');
+await host.waitForFunction(() => [...document.querySelectorAll('[data-live-panel] li')].some((li) => li.textContent?.includes('Amina Okafor')), null, { timeout: 15000 });
+log(`guest renamed "${oldName}" -> "Amina Okafor"; host's roster now: ${JSON.stringify(await host.evaluate(() => [...document.querySelectorAll('[data-live-panel] li')].map((li) => li.textContent?.slice(0, 40))))}`);
+// And back (a second rename inside a second is ignored by design, so wait it out): later steps look her up as "Amina".
+await guest.waitForTimeout(1200);
+await guest.locator('#live-your-name').fill('Amina');
+await guest.locator('#live-your-name').press('Enter');
+await host.waitForFunction(() => ![...document.querySelectorAll('[data-live-panel] li')].some((li) => li.textContent?.includes('Amina Okafor')), null, { timeout: 15000 });
+log('guest renamed back to "Amina"; the host no longer shows "Amina Okafor"');
+await guest.keyboard.press('Escape');
+await guest.waitForSelector('[data-live-your-settings]', { state: 'detached' });
 // High fidelity (P4): the host's send rate and what the guest hears of a 14 kHz tone, switch off, on, off.
 if (process.argv.includes('--hifi')) {
   const sentRate = async (secs) => { const a = await audioBytes(host); await host.waitForTimeout(secs * 1000); return ((await audioBytes(host)) - a) * 8 / secs / 1000; };

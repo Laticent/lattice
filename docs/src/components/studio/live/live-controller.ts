@@ -391,6 +391,8 @@ export class LiveController {
 	/** Whether the call's send is stalled, as the panel last drew it (a redraw only when it changes). */
 	private stalledShown = false;
 	/** What this person lets the others see of them. Theirs to withhold; kept for this tab, not saved. */
+	/** The host name the lobby invite last carried, so a rename reaches the lobby too. */
+	private invitedAs: string | undefined;
 	private share: LiveShare = { cursor: true, slide: true, typing: true };
 	private outDevices: Array<{ id: string; label: string }> = [];
 	private micDevices: Array<{ id: string; label: string }> = [];
@@ -1186,7 +1188,8 @@ export class LiveController {
 			else if (this.following) this.following = null;
 		}
 		// The host keeps the lobby invite current.
-		if (s.isHost && (prev.deckTitle !== deps.deckTitle || prev.slideCount !== deps.slideCount || prev.theme !== deps.theme)) {
+		if (s.isHost && (prev.deckTitle !== deps.deckTitle || prev.slideCount !== deps.slideCount || prev.theme !== deps.theme || this.invitedAs !== s.me?.name)) {
+			this.invitedAs = s.me?.name;
 			r.session.setInvite({ title: deps.deckTitle, hostName: s.me?.name ?? '', slides: deps.slideCount, theme: deps.theme });
 		}
 	}
@@ -1628,6 +1631,7 @@ export class LiveController {
 			r.session.remove(id);
 		},
 		setRole: (id, role) => this.rt?.session.setRole(id, role),
+		rename: (name) => this.rt?.session.rename(name),
 		follow: (id) => {
 			this.following = id;
 			this.onAwareness();

@@ -1076,7 +1076,20 @@ withheld the awareness carries `slideHidden: true` and the others' rows read "Sl
 stale slide number; the receiver whitelist keeps only that boolean. Chat typing dots honor "typing" too.
 Defaults are all on. The switches are real `Switch` controls with labels, in a popover (not a menu,
 because a switch inside `role="menu"` has the same `aria-required-children` problem the slider had).
-Name change after joining is the last item and is a protocol change, so it is its own step.
+
+**Name, built (2026-10-12).** Your settings opens with a **Your name** field (Save, or Enter). Tavola gains
+`session.rename(name)` and a `rename` control message, member to host. The host (`hostApplyRename`) cleans
+the name, **refuses one another member already has, in any letter case**, allows one change a second per
+member, updates the roster **and** the member's rejoin token (so a reconnect keeps it), and broadcasts the
+roster; the heir's copy follows because the broadcast refreshes it. An older host drops an unknown message
+without a disconnect (`decodeControl` returns null). The host's rename also updates the lobby invite, so a
+newcomer sees the new name. The independent checker (tier 1: this changes who people appear to be) found two
+real defects, both fixed with tests: a member could rename to the host's exact name and the chat grouped their
+line under the host's header, and a host rename never reached the lobby invite. It also found that a refused
+rename looked successful, so the field now says "The name did not change" after 2.5 s, and that a roster echo
+could wipe what you were still typing, so the field only follows the roster while it is not focused. Measured
+on the real two-browser call: the guest renamed "Amina" to "Amina Okafor", the host's roster showed it, and
+the guest renamed back.
 
 **Sequence.** The per-person popover ships with #2633 (it is that PR's Volume decision). The "Me"
 controls are a separate PR after #2633 merges, because they build on its call controls and one

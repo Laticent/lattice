@@ -235,6 +235,33 @@ test('@crosswidth @webkit-phone Hearing: one volume for everyone, and a speaker 
 	expect((await calls(page)).filter((c) => c[0] === 'pickOutput')).toEqual([['pickOutput', 'usb-1']]);
 });
 
+test('@crosswidth @webkit-phone Your settings holds your name: Save is off until it changes, and Enter saves', async ({ page }) => {
+	await open(page);
+	await yourSettings(page).click();
+	const field = page.getByRole('textbox', { name: 'Your name' });
+	const save = page.getByRole('button', { name: 'Save', exact: true });
+	const current = await field.inputValue();
+	expect(current.length).toBeGreaterThan(0);
+	await expect(save).toBeDisabled();
+	await field.fill('   ');
+	await expect(save).toBeDisabled(); // an empty name is never saved
+	await field.fill('Sharmarke Aden');
+	await expect(save).toBeEnabled();
+	await field.press('Enter');
+	expect((await calls(page)).filter((c) => c[0] === 'rename')).toEqual([['rename', 'Sharmarke Aden']]);
+	// The fixture's roster never shows the new name (as when the host refuses it): the field says so, once.
+	await expect(page.locator('#live-your-name-note')).toBeVisible({ timeout: 6000 });
+	await field.fill('Another');
+	await expect(page.locator('#live-your-name-note')).toHaveCount(0); // typing again clears it
+	// A roster update to YOUR name does not wipe what you are typing, and it does once you leave the field.
+	await live(page, (l) => l.person('me', { name: 'Renamed By Roster' }));
+	await expect(field).toHaveValue('Another');
+	await page.getByText('Your settings', { exact: true }).click(); // leaves the field
+	await live(page, (l) => l.person('me', { name: 'Roster Again' }));
+	await expect(field).toHaveValue('Roster Again');
+	expect((await save.boundingBox())?.height).toBeGreaterThanOrEqual(24);
+});
+
 test('@crosswidth @webkit-phone Your settings is on your row, always, and what others see is yours to choose', async ({ page }) => {
 	await open(page);
 	// On your row before any call, and with the call: nothing waits for a state.
