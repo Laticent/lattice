@@ -5,11 +5,14 @@
 // the Playground's first load (docs/route-budget.json).
 
 import DOMPurify from 'dompurify';
-import { doorFinish } from '../../../../lib/core/door-attr.mjs';
+import { doorFinish, doorFinishFence } from '../../../../lib/core/door-attr.mjs';
 import { createSlideSanitizer } from '../../../../lib/core/sanitize-slide-html.mjs';
 import { captureHook, claimKey, engineClaimsOf, SLIDE_MS, slideInput, spliced, substituteHook, withFailureNote } from '../../../../lib/packages/code-door-core.mjs';
+import { captureFences, fenceCaptureNotes, fenceInput, fenceKey, fenceMarkup, fenceNamespace, planFencePlugins, rebuiltFromAlternatives, substituteFences, withFenceNote } from '../../../../lib/packages/code-door-fence.mjs';
+import FENCE_DOOR from '../../../../lib/packages/fence-door.generated.json';
 import SHIPPED from '../../../../lib/packages/packages.generated.json';
-import { type CodePackagesStatus, codePackages, isApproved, type Renderer, report, type StudioCodePackage } from './door';
+import { deckPluginList } from '../../../../lib/plugins/deck-plugins.mjs';
+import { type CodePackagesStatus, codePackages, isApproved, isPluginApproved, type Renderer, report, type StudioCodePackage, type StudioPlugin, studioPlugins } from './door';
 import { openPackageFrame, type PackageFrame } from './runner';
 
 // The palette token names every theme defines, handed to a package in its slide's facts. The theme
@@ -29,10 +32,16 @@ const contractTokens = () =>
 	));
 
 type DoorFinish = (doc: Document, sanitize: (html: string, filter: unknown) => string, html: string, handed: string, pkg: string) => { html: string; classes: string[] } | { error: string };
+type DoorFinishFence = (doc: Document, sanitize: (html: string, filter: unknown) => string, html: string, pkg: string) => { html: string } | { error: string };
 type Claim = { i: number; pkg: string; index: number; html: string; idPrefix: string; baseUrl: string };
 type Hook = (html: string, ctx: { slideIndex: (i: number) => number; idPrefix: string }) => string;
 
 const ENGINE_CLAIMS: readonly string[] = engineClaimsOf(SHIPPED);
+// The slides a shipped pass rebuilds from their text (a plugin's output there would be read as an
+// address), and the fence names a shipped plugin owns: generated from the registry and the manifests,
+// and pinned to the CLI door's live reads by test/unit/cli/fence-door-data.test.js.
+const REBUILT = rebuiltFromAlternatives(FENCE_DOOR.rebuilt);
+const SHIPPED_FENCES: readonly string[] = FENCE_DOOR.shippedFences;
 const RENDER_BUDGET_MS = 30_000;
 /**
  * The most package output ONE render sanitizes, across every slide. The sanitizer runs on the
@@ -52,7 +61,7 @@ const unloadable = new Map<string, string>();
  * deck's slides through its own module state (the red team); a render's worker sees one deck. A
  * spent frame (a timeout) is replaced within the render.
  */
-async function frameFor(p: StudioCodePackage, frames: Map<string, Promise<PackageFrame>>): Promise<PackageFrame> {
+async function frameFor(p: { code: string; sha256: string }, frames: Map<string, Promise<PackageFrame>>, fence = false): Promise<PackageFrame> {
 	const broken = unloadable.get(p.sha256);
 	if (broken) throw new Error(broken);
 	const open = frames.get(p.sha256);
@@ -65,7 +74,7 @@ async function frameFor(p: StudioCodePackage, frames: Map<string, Promise<Packag
 		});
 		if (fr && !fr.closed) return fr;
 	}
-	const next = openPackageFrame(p.code);
+	const next = openPackageFrame(p.code, { fence });
 	frames.set(p.sha256, next);
 	next.catch((e: Error) => {
 		// Code that throws or does not parse at load will not load on the next keystroke either:
@@ -98,7 +107,7 @@ function remember(key: string, section: string) {
 	memo.set(key, section);
 }
 
-/** The door past its no-package fast path: two renders around the code-packages slot. */
+/** The door past its no-package fast path: two renders around the code-packages slot and the plugin-fence slot. */
 export async function runWithCodePackages<R extends { html: string }>(PG: Renderer, source: string, theme: string, engineOpts: Record<string, unknown> | undefined, reporting: boolean): Promise<R> {
 	const packages = codePackages();
 	// A snapshot: the Library can change the set while this render awaits a sandbox.
@@ -107,17 +116,30 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 	// Keys carry the code's DIGEST, not the code (400 keys of a 235 KB package held 94 MB; the checker).
 	const digestOf = new Map([...pkgs.values()].map((p) => [p.name, p.sha256]));
 	const baseUrl = typeof engineOpts?.baseUrl === 'string' ? engineOpts.baseUrl : '';
+	// THE PLUGINS' FENCES. Which plugins run, and a note for each that does not, are the CLI door's rules
+	// (planFencePlugins): a fence name two plugins claim, a shipped plugin's, a name whose prefix overlaps another's.
+	const installed = new Map(studioPlugins());
+	const plan = planFencePlugins([...installed.values()].map((p) => ({ name: p.name, fence: p.fence })), { shipped: SHIPPED_FENCES });
+	const offered = new Map(plan.run.map((p) => [p.name, installed.get(p.name) as StudioPlugin]));
+	const fences = new Map([...offered.values()].map((p) => [p.fence, p.name]));
+	const pluginDigestOf = new Map([...offered.values()].map((p) => [p.name, p.sha256]));
+	// `plugins:` in the deck's front matter is what ACTIVATES a plugin (decision 11); the rest are offered.
+	const declared = new Set(fences.size ? deckPluginList(source) : []);
 	const cap = captureHook(names, { baseUrl, engineClaims: ENGINE_CLAIMS }) as { hook: Hook; claims: Claim[] };
-	const first = PG.render(source, theme, { ...engineOpts, codePackages: cap.hook }) as R;
-	if (!cap.claims.length) {
-		if (reporting) report({ unapproved: [], failed: [] });
+	const capFences = captureFences(fences, { names, engineClaims: ENGINE_CLAIMS, rebuilt: REBUILT });
+	// Every installed plugin's name goes to the engine, refused or not, so a deck that lists one is not told no plugin has that name.
+	const externalPlugins = [...installed.keys()];
+	const first = PG.render(source, theme, { ...engineOpts, codePackages: cap.hook, ...(externalPlugins.length ? { externalPlugins } : {}), ...(fences.size ? { codeFences: capFences } : {}) }) as R;
+	const notes = fences.size ? [...plan.notes, ...fenceCaptureNotes(capFences, fences)] : [];
+	if (!cap.claims.length && !capFences.claims.length) {
+		if (reporting) report({ unapproved: [], failed: [], ...(notes.length ? { notes } : {}) });
 		return first;
 	}
 	const started = Date.now();
 	const frames = new Map<string, Promise<PackageFrame>>();
 	let total = 0;
 	const sections = new Map<string, string>();
-	const unapproved = new Map<string, StudioCodePackage>();
+	const unapproved = new Map<string, StudioCodePackage | StudioPlugin>();
 	const failed: CodePackagesStatus['failed'] = [];
 	for (const c of cap.claims) {
 		const p = pkgs.get(c.pkg);
@@ -175,7 +197,59 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 			sections.set(key, out);
 		}
 	}
+	// The plugins' fences, in claim order: the output cap, like the CLI door's, is spent down in that order.
+	for (const c of capFences.claims) {
+		const p = offered.get(c.pkg);
+		if (!p) continue;
+		const key = fenceKey(c, p.sha256);
+		if (sections.has(key)) continue;
+		if (!declared.has(p.name)) {
+			// Not in the deck's `plugins:`: nothing runs, and the block says so.
+			sections.set(key, withFenceNote(c.block, c.pkg, `this deck does not list ${p.name} under plugins:`));
+			continue;
+		}
+		if (!isPluginApproved(p)) {
+			unapproved.set(`plugin/${p.name}`, p);
+			sections.set(key, withFenceNote(c.block, c.pkg, 'its code has not been approved in this browser'));
+			continue;
+		}
+		const known = memo.get(key);
+		if (known) {
+			total += known.length;
+			sections.set(key, total > RENDER_OUTPUT_MAX ? withFenceNote(c.block, c.pkg, `the render's code packages returned more than ${RENDER_OUTPUT_MAX.toLocaleString('en-US')} characters in all`) : known);
+			continue;
+		}
+		let why: string | null = null;
+		let out = '';
+		if (Date.now() - started > RENDER_BUDGET_MS) why = `the render's ${RENDER_BUDGET_MS / 1000} s budget for code packages ran out`;
+		else {
+			try {
+				const raw = await (await frameFor(p, frames, true)).runFence(fenceInput(c), SLIDE_MS);
+				total += raw.length;
+				if (total > RENDER_OUTPUT_MAX) throw new Error(`the render's code packages returned more than ${RENDER_OUTPUT_MAX.toLocaleString('en-US')} characters in all`);
+				const done = (doorFinishFence as DoorFinishFence)(document, doorSanitizer(), raw, fenceNamespace(p.name));
+				if ('error' in done) why = done.error;
+				else out = fenceMarkup(c.pkg, done.html);
+			} catch (e) {
+				why = e instanceof Error ? e.message : String(e);
+			}
+		}
+		if (why) {
+			failed.push({ name: c.pkg, slide: c.slide + 1, why });
+			const noted = withFenceNote(c.block, c.pkg, why);
+			sections.set(key, noted);
+			if (!/budget|was stopped|did not finish|not loaded|in all/.test(why)) remember(key, noted);
+		} else {
+			remember(key, out);
+			sections.set(key, out);
+		}
+	}
 	for (const f of frames.values()) f.then((fr) => fr.close()).catch(() => {});
-	if (reporting) report({ unapproved: [...unapproved.values()], failed });
-	return PG.render(source, theme, { ...engineOpts, codePackages: substituteHook(names, sections, digestOf, { baseUrl, engineClaims: ENGINE_CLAIMS }) }) as R;
+	if (reporting) report({ unapproved: [...unapproved.values()], failed, ...(notes.length ? { notes } : {}) });
+	return PG.render(source, theme, {
+		...engineOpts,
+		codePackages: substituteHook(names, sections, digestOf, { baseUrl, engineClaims: ENGINE_CLAIMS }),
+		...(externalPlugins.length ? { externalPlugins } : {}),
+		...(fences.size ? { codeFences: substituteFences(fences, sections, pluginDigestOf, { names, engineClaims: ENGINE_CLAIMS, rebuilt: REBUILT }) } : {}),
+	}) as R;
 }

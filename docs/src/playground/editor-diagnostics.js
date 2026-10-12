@@ -63,6 +63,7 @@ export function chunkStartLines(src) {
  * @typedef {Object} VocabSets
  * @property {Set<string>} names
  * @property {Set<string>} modifiers
+ * @property {string[]} [externalPlugins] — zip plugins the host holds; a deck that lists one is not told it is unknown
  * @property {Record<string, { valid: Set<string>; names: string[] }>} [mapRegions]
  * @property {string[]} [finishNames] — the builder forwards EVERY `*Names` register list
  *   (`fitNames`, `cardsNames`, …); only the ones a caller reads by name are declared
@@ -71,6 +72,17 @@ export function chunkStartLines(src) {
  * @property {Record<string, { axis: string; hard: number }>} [capacity]
  */
 
+// The names of the zip plugins the Studio holds (plugin-library.ts), shared by every vocabulary this builder
+// makes, by reference: the editor builds its vocabulary once, and a plugin imported later must still be known.
+/** @type {string[]} */
+const EXTERNAL_PLUGINS = [];
+
+/** Tell the linter which plugins the host holds that are not in the shipped registry. @param {Iterable<string>} names */
+export function setExternalPlugins(names) {
+	EXTERNAL_PLUGINS.length = 0;
+	EXTERNAL_PLUGINS.push(...names);
+}
+
 /** @returns {VocabSets} */
 export function buildVocabSets(vocab) {
 	const v = vocab || {};
@@ -78,6 +90,7 @@ export function buildVocabSets(vocab) {
 	const sets = {
 		names: new Set(v.names || []),
 		modifiers: new Set(v.modifiers || []),
+		externalPlugins: EXTERNAL_PLUGINS,
 	};
 	// Map region/group vocabulary — { us, world }, each { valid, names }.
 	if (v.mapRegions) {

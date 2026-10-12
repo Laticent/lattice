@@ -14,7 +14,7 @@
 import type { Scene } from '@/lib/anima';
 // The JSON value cap (lib/packages/json-guard.js). A static import is fine here: this module is
 // only ever loaded on demand (asset-bundle.ts, share-export.ts), never on the Studio's eager path.
-import { refuseCode } from '../../../../lib/packages/code-shape.mjs';
+import { refuseCode, refusePluginCode } from '../../../../lib/packages/code-shape.mjs';
 import jsonGuard from '../../../../lib/packages/json-guard.js';
 // The plugin refusal, one string shared with `lattice packages add` (a CommonJS leaf, read as a default import).
 import pluginRefusal from '../../../../lib/packages/plugin-refusal.js';
@@ -25,9 +25,9 @@ import type { PackageCarry } from './library/package-carry';
 import type { StudioScene } from './scene-library';
 import type { StudioTheme } from './theme-library';
 
-const { PLUGIN_REFUSAL } = pluginRefusal;
+const { PLUGIN_PROJECT_REFUSAL } = pluginRefusal;
 
-export type PackageType = 'theme' | 'component' | 'finish' | 'motion';
+export type PackageType = 'theme' | 'component' | 'finish' | 'motion' | 'plugin';
 /** One package as files: file name (`<name>.<role>`) → text. */
 export type PackageFiles = { type: PackageType; name: string; files: Record<string, string> };
 
@@ -199,12 +199,23 @@ async function codeRefusal(pkg: Parameters<typeof refuseCode>[0], code: string |
 }
 
 /**
+ * Why a PLUGIN package is refused: the shape gate `lattice packages add` runs (code-shape.mjs
+ * `refusePluginCode`) and the syntax gate on its one script, as a fence renderer.
+ */
+async function pluginRefusal_(pkg: Parameters<typeof refusePluginCode>[0]): Promise<string | null> {
+	const shape = refusePluginCode(pkg);
+	if (shape) return shape;
+	const { codeSyntaxRefusal } = await import('../../../../lib/packages/code-syntax.mjs');
+	return codeSyntaxRefusal(String(pkg.files[pkg.roles['render.js']] ?? ''), { fence: true });
+}
+
+/**
  * Every package folder in a zip: a directory holding a `*.manifest.json`, with an optional
  * leading `<type>/` segment. Files outside any such folder (a README, a showcase PDF) are
  * not package files and are skipped. `read` returns an entry's text and charges the caller's
  * size budget.
  */
-export async function readPackagesFromZip(zip: Zip, read: (path: string) => Promise<string | undefined>): Promise<{ packages: ReadPackage[]; refused: { name: string; why: string }[] }> {
+export async function readPackagesFromZip(zip: Zip, read: (path: string) => Promise<string | undefined>, { plugins = false }: { plugins?: boolean } = {}): Promise<{ packages: ReadPackage[]; refused: { name: string; why: string }[] }> {
 	const spine = await loadSpine();
 	const paths = Object.keys(zip.files).filter((p) => !zip.files[p].dir);
 	// A folder holding a manifest — or the zip's ROOT, when someone zipped the files instead
@@ -235,11 +246,32 @@ export async function readPackagesFromZip(zip: Zip, read: (path: string) => Prom
 			refused.push({ name: folder ?? 'the zip', why: norm.errors.join('; ') });
 			continue;
 		}
-		// A plugin is refused by name before its files are judged, as `lattice packages add` refuses
-		// it (lib/packages/gate.js). The spine reads one fine, and no caller below has a plugin
-		// branch, so without this a code-free plugin vanished from the import with no word.
+		// A plugin arrives as data (plugin-system §4.10), and only through the Library's own import
+		// (`plugins: true`): a `.lattice` project or a backup that carried one would bring code the
+		// user never chose, so those say where to import it instead (decision 13).
 		if (norm.pkg.type === 'plugin') {
-			refused.push({ name: norm.pkg.name, why: PLUGIN_REFUSAL });
+			if (!plugins) {
+				refused.push({ name: norm.pkg.name, why: PLUGIN_PROJECT_REFUSAL });
+				continue;
+			}
+			const why = await pluginRefusal_(norm.pkg);
+			if (why) {
+				refused.push({ name: norm.pkg.name, why });
+				continue;
+			}
+			const proles: Record<string, string> = {};
+			for (const [role, file] of Object.entries(norm.pkg.roles as Record<string, string>)) proles[role] = String(written[file] ?? '');
+			// A folder inside the plugin is not read (top-level files only), and the importer says so.
+			const nested = paths.filter((x) => x.startsWith(prefix) && x.slice(prefix.length).includes('/'));
+			packages.push({
+				type: 'plugin',
+				name: norm.pkg.name,
+				manifest: jsonGuard.parseJsonCapped(proles['manifest.json'], TOO_MANY) as Record<string, unknown>,
+				roles: proles,
+				code: true,
+				codeRefusal: null,
+				notes: [...r.renames, ...(r.pkg.dropped ?? []).map((f: string) => `left out ${f}`), ...(nested.length ? [`left out ${nested.length} file(s) in subfolders (${nested.slice(0, 3).map((x) => x.slice(prefix.length)).join(', ')}${nested.length > 3 ? ', …' : ''}); a plugin zip carries top-level files only`] : [])],
+			});
 			continue;
 		}
 		const roles: Record<string, string> = {};

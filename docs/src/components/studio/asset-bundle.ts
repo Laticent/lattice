@@ -64,10 +64,12 @@ export type AssetManifest = { format: typeof ASSET_FORMAT; kind: 'theme' | 'comp
 export type ParsedTheme = { name: string; label: string; essentials: Record<string, string> | null; css: string; overrides?: Record<string, unknown>; rampStrategy?: string; pkg?: PackageCarry };
 export type ParsedComponent = { name: string; bucket: string | null; css: string; skeleton: string; manifest?: Record<string, unknown>; pkg?: PackageCarry };
 export type ParsedFinish = { name: string; label: string; css: string; recipe: FinishRecipe; pkg?: PackageCarry };
+/** A zip plugin, ready to save: its one fence, its renderer's text and its CSS (kept; delivered by a later step). */
+export type ParsedPlugin = { name: string; fence: string; code: string; css: string; title: string; description: string };
 export type ParsedScene = { name: string; label: string; description?: string; spec: Scene; poster?: string; art?: string; pkg?: PackageCarry };
 /** `notes`: what the reader changed or left out (a renamed file, a dropped README).
  *  `refused`: packages it would not import, each with the reason. */
-export type ParsedBundle = { themes: ParsedTheme[]; components: ParsedComponent[]; finishes: ParsedFinish[]; scenes: ParsedScene[]; notes: string[]; refused: { name: string; why: string }[] };
+export type ParsedBundle = { themes: ParsedTheme[]; components: ParsedComponent[]; finishes: ParsedFinish[]; scenes: ParsedScene[]; /** Zip plugins; read only when the caller asked for them (`unpackBundle`'s `plugins`), and absent otherwise. */ plugins?: ParsedPlugin[]; notes: string[]; refused: { name: string; why: string }[] };
 
 export const themeZipName = (t: { name: string }) => `${t.name}.lattice-theme.zip`;
 export const componentZipName = (c: { name: string }) => `${c.name}.lattice-component.zip`;
@@ -285,7 +287,7 @@ export async function packBundle(themes: { theme: StudioTheme; showcase?: Blob |
  * Read a `.zip` back into themes + components + finishes + scenes ready to save — a package
  * zip, or an old `lattice-asset/1` one.
  */
-export async function unpackBundle(file: Blob): Promise<ParsedBundle> {
+export async function unpackBundle(file: Blob, { plugins = false }: { plugins?: boolean } = {}): Promise<ParsedBundle> {
 	// Size caps first (`zip-limits.ts`): an asset zip is a file from anyone.
 	if (file.size > MAX_ZIP_BYTES) throw new Error(TOO_LARGE);
 	const { default: JSZip } = await import('jszip');
@@ -294,22 +296,22 @@ export async function unpackBundle(file: Blob): Promise<ParsedBundle> {
 	// Every read below is charged against one running budget (`zip-limits.ts`).
 	const charge = readBudget(TOO_LARGE);
 	const read = async (path: string | undefined): Promise<string | undefined> => (path ? charge(zip.file(path)) : undefined);
-	if ((await packageZip()).isPackageZip(zip)) return unpackPackages(zip, read);
+	if ((await packageZip()).isPackageZip(zip)) return unpackPackages(zip, read, { plugins });
 	return unpackLegacy(zip, read);
 }
 
 /** A package zip: every `<name>/` folder through the spine, then into the Library's shapes.
  *  Exported for the `.lattice` reader, whose `packages/` folders are the same thing. */
 // biome-ignore lint/suspicious/noExplicitAny: JSZip is dynamically imported.
-export async function unpackPackages(zip: any, read: (path: string | undefined) => Promise<string | undefined>): Promise<ParsedBundle> {
+export async function unpackPackages(zip: any, read: (path: string | undefined) => Promise<string | undefined>, { plugins = false }: { plugins?: boolean } = {}): Promise<ParsedBundle> {
 	const { parseJsonCapped } = await jsonGuard();
 	// The declared size of every entry a package folder holds; loose files beside the folders
 	// (a README, a showcase PDF) are never read and don't count.
 	const inFolders = Object.keys(zip.files).filter((p) => !zip.files[p].dir && p.includes('/') && !p.startsWith('showcases/'));
 	assertZipWithinLimits(zip, TOO_LARGE, inFolders);
 	const { readPackagesFromZip, themeFromPackage, componentFromPackage, finishFromPackage, motionFromPackage } = await packageZip();
-	const { packages, refused } = await readPackagesFromZip(zip, (p) => read(p));
-	const out: ParsedBundle = { themes: [], components: [], finishes: [], scenes: [], notes: [], refused: [...refused] };
+	const { packages, refused } = await readPackagesFromZip(zip, (p) => read(p), { plugins });
+	const out: ParsedBundle = { themes: [], components: [], finishes: [], scenes: [], ...(plugins ? { plugins: [] } : {}), notes: [], refused: [...refused] };
 	for (const p of packages) {
 		if (p.notes.length) out.notes.push(`${p.name}: ${p.notes.join('; ')}`);
 		// §3.5: a package carrying JavaScript imports only in the one shape a door can run (the
@@ -320,7 +322,12 @@ export async function unpackPackages(zip: any, read: (path: string | undefined) 
 			out.refused.push({ name: p.name, why: p.codeRefusal });
 			continue;
 		}
-		if (p.type === 'theme') out.themes.push(themeFromPackage(p));
+		if (p.type === 'plugin') {
+			const code = p.roles['render.js'];
+			const fence = Object.keys(((p.manifest.contributes ?? {}) as { fences?: Record<string, unknown> }).fences ?? {})[0];
+			if (typeof code !== 'string' || !fence) out.refused.push({ name: p.name, why: 'it carries no renderer for its fence' });
+			else out.plugins?.push({ name: p.name, fence, code, css: p.roles['styles.css'] ?? '', title: typeof p.manifest.title === 'string' ? p.manifest.title : p.name, description: typeof p.manifest.description === 'string' ? p.manifest.description : '' });
+		} else if (p.type === 'theme') out.themes.push(themeFromPackage(p));
 		else if (p.type === 'component') {
 			const c = componentFromPackage(p);
 			// LINE ENDINGS: the gallery (the Studio's skeleton) is spliced into a deck's source.

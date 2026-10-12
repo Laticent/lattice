@@ -339,6 +339,15 @@ describe('the gate for a plugin’s one script', () => {
     assert.deepEqual([...PLUGIN_DATA_CONTRIBUTIONS], ['fences', 'styles', 'diagnostics']);
   });
 
+  test('refuses render.exec (hydrate "pass", a bake), payload and vendor by rule, not by prose', () => {
+    assert.match(refusePluginCode(plugin({}, { render: { parity: 'equivalent', degradesTo: 'source', exec: { hydrate: 'pass' } } })), /render\.exec/);
+    assert.match(refusePluginCode(plugin({}, { render: { parity: 'equivalent', degradesTo: 'source', exec: { bake: 'subprocess' } } })), /render\.exec/);
+    assert.match(refusePluginCode(plugin({}, { payload: { vendored: 'x' } })), /declares payload/);
+    assert.match(refusePluginCode(plugin({}, { vendor: [] })), /declares vendor/);
+    assert.equal(refusePluginCode(plugin({}, { render: { parity: 'equivalent', degradesTo: 'source' } })), null, 'a render block with no exec is fine');
+    assert.equal(refusePluginCode(plugin({}, { render: { parity: 'equivalent', degradesTo: 'source', exec: {} } })), null, 'an empty exec runs nothing');
+  });
+
   test('refuses a fence name the schema does not allow, NUL and markup included', () => {
     for (const bad of ['a\u0000x', 'Gantt <b>', 'Gantt', '1gantt', 'a b', '']) {
       assert.match(refusePluginCode(plugin({}, { contributes: { fences: { [bad]: {} } } })) ?? '', /fence name|declares/, JSON.stringify(bad));

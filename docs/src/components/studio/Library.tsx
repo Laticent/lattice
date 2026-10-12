@@ -482,6 +482,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 		let nComps = 0;
 		let nFinishes = 0;
 		let nScenes = 0;
+		let nPlugins = 0;
 		// PER ITEM, not per bundle. The whole three-loop import used to sit in one `try`,
 		// so one bad asset skipped every asset after it — and `reload()`/`onChanged()` sat
 		// inside that `try` too, so the shelf was not even refreshed for the ones that HAD
@@ -500,11 +501,12 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 				// `.lattice` project carries (library/import-parsed.ts): the same CSS gates, the
 				// same reserved-name renames, the same refusals.
 				const { importParsedBundle } = await import('./library/import-parsed');
-				const t = await importParsedBundle(await unpackBundle(f));
+				const t = await importParsedBundle(await unpackBundle(f, { plugins: true }));
 				nThemes += t.themes;
 				nComps += t.components;
 				nFinishes += t.finishes;
 				nScenes += t.scenes;
+				nPlugins += t.plugins;
 				refused.push(...t.refused);
 				renamed.push(...t.renamed);
 				notes.push(...t.notes);
@@ -521,7 +523,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 			// a stale shelf is how a partial import reads as "nothing happened".
 			reload();
 			onChanged();
-			const got = nThemes + nComps + nFinishes + nScenes;
+			const got = nThemes + nComps + nFinishes + nScenes + nPlugins;
 			// ONE message for the whole import. The refusals used to go out in a loop —
 			// one toast each — so a bundle carrying four bad scenes raised five pills in
 			// a single tick and buried its own success line. The outcome is a headline
@@ -532,7 +534,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 			const renamedLine = renamed.length ? `Renamed because a shipped item uses the name: ${renamed.join(', ')}.` : null;
 			const notesLine = notes.length ? `Adjusted on import: ${notes.join('; ')}.` : null;
 			const detail = [refusals.length ? refusedDetail(refusals) : null, renamedLine, notesLine].filter(Boolean).join('\n') || undefined;
-			const tally = `Imported ${nThemes} theme(s) + ${nComps} component(s)${nFinishes ? ` + ${nFinishes} finish(es)` : ''}${nScenes ? ` + ${nScenes} motion(s)` : ''}.`;
+			const tally = `Imported ${nThemes} theme(s) + ${nComps} component(s)${nFinishes ? ` + ${nFinishes} finish(es)` : ''}${nScenes ? ` + ${nScenes} motion(s)` : ''}${nPlugins ? ` + ${nPlugins} plugin(s) (see Deck settings → Plugins)` : ''}.`;
 			if (failure) {
 				// A throw can still leave items on the shelf, so the tally and the refusals
 				// go UNDER the reason rather than replacing it.

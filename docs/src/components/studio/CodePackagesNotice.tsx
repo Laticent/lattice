@@ -10,13 +10,15 @@
 import { Code2 } from 'lucide-react';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
-import { approveCodePackage, type CodePackagesStatus, onCodePackagesStatus, unapprovedIn } from '@/lib/code-packages/door';
+import { approveCodePackage, approvePlugin, type CodePackagesStatus, onCodePackagesStatus, type StudioPlugin, unapprovedIn } from '@/lib/code-packages/door';
+
+const isPlugin = (p: { name: string }): p is StudioPlugin => 'fence' in p;
 
 /**
  * `source` is the deck; `stamp` is the code-package state (door.ts `codePackagesStamp`), which
  * changes when a package or an approval does, so the strip re-reads which packages wait on one.
  */
-export function CodePackagesNotice({ source, stamp, onApproved }: { source: string; stamp: string; onApproved: () => void }) {
+export function CodePackagesNotice({ source, stamp, onApproved, onWrite }: { source: string; stamp: string; onApproved: () => void; onWrite?: (label: string, updater: (s: string) => string) => void }) {
 	const [rendered, setRendered] = React.useState<CodePackagesStatus>({ unapproved: [], failed: [] });
 	const [open, setOpen] = React.useState(false);
 	React.useEffect(() => onCodePackagesStatus(setRendered), []);
@@ -24,18 +26,20 @@ export function CodePackagesNotice({ source, stamp, onApproved }: { source: stri
 	const fromSource = React.useMemo(() => unapprovedIn(source), [source, stamp]);
 	// A package the preview's render found claiming a slide counts too, so a spelling the source scan
 	// misses still gets a way to approve it rather than a note pointing nowhere (the checker).
-	const unapproved = React.useMemo(() => [...new Map([...fromSource, ...rendered.unapproved].map((p) => [p.name, p])).values()], [fromSource, rendered.unapproved]);
-	const status = { unapproved, failed: rendered.failed };
+	// Keyed by kind and name: a component and a plugin may share a name, and each needs its own yes.
+	const unapproved = React.useMemo(() => [...new Map([...fromSource, ...rendered.unapproved].map((p) => [`${isPlugin(p) ? 'plugin' : 'component'}/${p.name}`, p])).values()], [fromSource, rendered.unapproved]);
+	const status = { unapproved, failed: rendered.failed, notes: rendered.notes ?? [] };
 	const row = 'flex items-center gap-2 border-b border-border px-3.5 py-1.5 text-[12px]';
 	if (status.unapproved.length) {
 		const p = status.unapproved[0];
 		const more = status.unapproved.length - 1;
+		const plugin = isPlugin(p);
 		const what = `“${p.name}”${more ? ` and ${more} more` : ''}`;
 		return (
 			<div role="status" data-slot="code-packages" data-state="unapproved" className={`${row} flex-wrap bg-[var(--accent-soft)] text-[var(--text-heading)]`}>
 				<Code2 className="size-3.5 shrink-0 text-[var(--accent)]" aria-hidden />
 				<span className="min-w-0 flex-1">
-					<span className="font-semibold">This deck uses code from the component {what}, which has not run.</span>{' '}
+					<span className="font-semibold">This deck uses code from the {plugin ? 'plugin' : 'component'} {what}, which has not run.</span>{' '}
 					<button type="button" className="underline underline-offset-2" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
 						{open ? 'Hide details' : 'What it is'}
 					</button>
@@ -46,7 +50,8 @@ export function CodePackagesNotice({ source, stamp, onApproved }: { source: stri
 					className="shrink-0"
 					aria-label={`Run the code of ${p.name}`}
 					onClick={() => {
-						approveCodePackage(p);
+						if (isPlugin(p)) approvePlugin(p);
+						else approveCodePackage(p);
 						onApproved();
 					}}
 				>
@@ -54,7 +59,7 @@ export function CodePackagesNotice({ source, stamp, onApproved }: { source: stri
 				</Button>
 				{open && (
 					<p data-slot="code-packages-detail" className="basis-full pb-1 text-muted-foreground">
-						{p.name}.transform.js, {p.bytes.toLocaleString('en-US')} bytes, sha256 <code className="break-all">{p.sha256}</code>. It runs in a sandbox with no network and no access to this page or your saved work, and it sees only the slide it draws; what it draws is cleaned like any slide and keeps no web address the slide did not already have. Run code only from someone you trust: a flaw in the browser could let it out. Changed code asks again.
+						{p.name}.{plugin ? 'render.js (the ```' + p.fence + ' fence)' : 'transform.js'}, {p.bytes.toLocaleString('en-US')} bytes, sha256 <code className="break-all">{p.sha256}</code>. It runs in a sandbox with no network and no access to this page or your saved work, and it sees only {plugin ? 'the text of the block it draws' : 'the slide it draws'}; what it draws is cleaned like any slide and keeps no web address the slide did not already have. Run code only from someone you trust: a flaw in the browser could let it out. Changed code asks again.
 					</p>
 				)}
 			</div>
@@ -69,6 +74,15 @@ export function CodePackagesNotice({ source, stamp, onApproved }: { source: stri
 					The code of “{f.name}” did not draw slide {f.slide}
 					{status.failed.length > 1 ? ` and ${status.failed.length - 1} more` : ''}: {f.why}
 				</span>
+			</div>
+		);
+	}
+	if (status.notes.length) {
+		// A block the door left as code, and why (a slide a shipped pass rebuilds, a block too long, past the allowance).
+		return (
+			<div role="status" data-slot="code-packages" data-state="notes" className={`${row} text-muted-foreground`}>
+				<Code2 className="size-3.5 shrink-0" aria-hidden />
+				<span className="min-w-0 flex-1 truncate">{status.notes[0].replace(/^warning: /, '')}{status.notes.length > 1 ? ` (and ${status.notes.length - 1} more)` : ''}</span>
 			</div>
 		);
 	}

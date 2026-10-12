@@ -231,8 +231,32 @@ function writeExportFlip(current) {
   return `${current.slice(0, bodyStart)}\n${engineFlipCss(FINISH_SURFACES)}\n${current.slice(end)}`;
 }
 
+// What the plugin-fence door needs that the Studio cannot derive at runtime without the whole
+// registry: which slide classes a shipped pass rebuilds from their text, and the fence names the
+// shipped plugins own. The CLI door reads both LIVE (lib/transformers/rebuilt-classes.js,
+// lib/plugins/host.js); the Studio's door reads this file; test/unit/cli/fence-door-data.test.js
+// pins the two to each other, so neither can drift (HARD RULE #1).
+const FENCE_DOOR_OUT = path.join(ROOT, 'lib', 'packages', 'fence-door.generated.json');
+
+function renderFenceDoor() {
+  const { rebuiltAlternatives } = require('../lib/transformers/rebuilt-classes.js');
+  const shipped = new Set();
+  for (const dir of fs.readdirSync(path.join(ROOT, 'lib', 'plugins'), { withFileTypes: true })) {
+    if (!dir.isDirectory()) continue;
+    const file = path.join(ROOT, 'lib', 'plugins', dir.name, `${dir.name}.manifest.json`);
+    if (!fs.existsSync(file)) continue;
+    for (const [fence, decl] of Object.entries(JSON.parse(fs.readFileSync(file, 'utf8')).contributes?.fences || {})) {
+      shipped.add(fence);
+      for (const a of decl.aliases || []) shipped.add(a.name);
+    }
+  }
+  const rebuilt = rebuiltAlternatives().map((a) => ({ pass: a.pass, classes: [...a.classes] }));
+  return `${JSON.stringify({ generated: 'tools/build-packages-index.js — DO NOT EDIT', rebuilt, shippedFences: [...shipped].sort() }, null, 2)}\n`;
+}
+
 const OUTPUTS = [
   [OUT, render],
+  [FENCE_DOOR_OUT, renderFenceDoor],
   [FINISHES_OUT, renderFinishes],
   [MOTION_OUT, renderMotion],
   [FINISH_CSS_OUT, renderFinishCss],
@@ -269,4 +293,4 @@ function main(argv) {
 
 if (require.main === module) process.exit(main(process.argv.slice(2)));
 
-module.exports = { inComment, render, renderFinishes, renderMotion, MOTION_OUT, renderFinishCss, renderReservedClasses, OUT, FINISHES_OUT, FINISH_CSS_OUT, RESERVED_CLASSES_OUT };
+module.exports = { FENCE_DOOR_OUT, renderFenceDoor, inComment, render, renderFinishes, renderMotion, MOTION_OUT, renderFinishCss, renderReservedClasses, OUT, FINISHES_OUT, FINISH_CSS_OUT, RESERVED_CLASSES_OUT };

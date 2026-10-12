@@ -216,6 +216,22 @@ describe('admission on the render paths', () => {
     assert.deepEqual(r.diagnostics.map((d) => [d.id, d.plugin]), [['plugin/unknown-plugin', 'mermiad']]);
   });
 
+  it('a listed name the HOST holds as data (a zip plugin) is not unknown: admission reports it as external, the engine says nothing, the lint stays quiet', () => {
+    const deck = `---\nplugins: [gantt-plugin, mermiad]\n---\n${MATH}`;
+    const a = admitPlugins(deck, { external: ['gantt-plugin'] });
+    assert.deepEqual(a.external, ['gantt-plugin']);
+    assert.deepEqual(a.unknown, [{ name: 'mermiad', malformed: false }], 'a typo is still unknown');
+    assert.deepEqual(names(a), names(admitPlugins(deck)), 'an external name loads nothing in the grammar');
+    const r = createEngine().render(deck, 'indaco', { externalPlugins: ['gantt-plugin'] });
+    assert.deepEqual(r.diagnostics.map((d) => [d.id, d.plugin]), [['plugin/unknown-plugin', 'mermiad']]);
+    assert.deepEqual(createEngine().render(deck).diagnostics.map((d) => d.plugin), ['gantt-plugin', 'mermiad'], 'without the host naming it, it is unknown, as before');
+    const core = require('../../../lib/authoring/lint-core.js');
+    const vocab = { names: new Set(), modifiers: new Set() };
+    const lint = (v) => core.lintTextWith(deck, v).filter((f) => f.rule === 'unknown-plugin').map((f) => f.classToken);
+    assert.deepEqual(lint({ ...vocab, externalPlugins: ['gantt-plugin'] }), ['mermiad']);
+    assert.deepEqual(lint(vocab), ['gantt-plugin', 'mermiad']);
+  });
+
   it('the CLI bake runs only for an admitted plugin', () => {
     const ran = [];
     const bakers = [{ name: 'mermaid', load: () => ({ bake: (s) => { ran.push('mermaid'); return s; } }) }];

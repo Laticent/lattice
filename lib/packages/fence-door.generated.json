@@ -1,0 +1,243 @@
+{
+  "generated": "tools/build-packages-index.js — DO NOT EDIT",
+  "rebuilt": [
+    {
+      "pass": "chart-family",
+      "classes": [
+        "bar"
+      ]
+    },
+    {
+      "pass": "chart-family",
+      "classes": [
+        "bullet"
+      ]
+    },
+    {
+      "pass": "chart-family",
+      "classes": [
+        "flowchart"
+      ]
+    },
+    {
+      "pass": "chart-family",
+      "classes": [
+        "funnel"
+      ]
+    },
+    {
+      "pass": "chart-family",
+      "classes": [
+        "gantt"
+      ]
+    },
+    {
+      "pass": "chart-family",
+      "classes": [
+        "hub-spoke"
+      ]
+    },
+    {
+      "pass": "chart-family",
+      "classes": [
+        "journey"
+      ]
+    },
+    {
+      "pass": "chart-family",
+      "classes": [
+        "heatmap"
+      ]
+    },
+    {
+      "pass": "chart-family",
+      "classes": [
+        "kanban"
+      ]
+    },
+    {
+      "pass": "chart-family",
+      "classes": [
+        "line"
+      ]
+    },
+    {
+      "pass": "chart-family",
+      "classes": [
+        "map"
+      ]
+    },
+    {
+      "pass": "chart-family",
+      "classes": [
+        "matrix-grid"
+      ]
+    },
+    {
+      "pass": "chart-family",
+      "classes": [
+        "piechart"
+      ]
+    },
+    {
+      "pass": "chart-family",
+      "classes": [
+        "progress"
+      ]
+    },
+    {
+      "pass": "chart-family",
+      "classes": [
+        "radar"
+      ]
+    },
+    {
+      "pass": "chart-family",
+      "classes": [
+        "quadrant"
+      ]
+    },
+    {
+      "pass": "chart-family",
+      "classes": [
+        "roadmap"
+      ]
+    },
+    {
+      "pass": "chart-family",
+      "classes": [
+        "scatter"
+      ]
+    },
+    {
+      "pass": "chart-family",
+      "classes": [
+        "slope"
+      ]
+    },
+    {
+      "pass": "chart-family",
+      "classes": [
+        "stacked-bar"
+      ]
+    },
+    {
+      "pass": "chart-family",
+      "classes": [
+        "state-chart"
+      ]
+    },
+    {
+      "pass": "chart-family",
+      "classes": [
+        "timeline-list"
+      ]
+    },
+    {
+      "pass": "chart-family",
+      "classes": [
+        "waterfall"
+      ]
+    },
+    {
+      "pass": "chart-family",
+      "classes": [
+        "word-cloud"
+      ]
+    },
+    {
+      "pass": "premise",
+      "classes": [
+        "premise"
+      ]
+    },
+    {
+      "pass": "topic-track",
+      "classes": [
+        "topic"
+      ]
+    },
+    {
+      "pass": "contact",
+      "classes": [
+        "contact"
+      ]
+    },
+    {
+      "pass": "wifi",
+      "classes": [
+        "wifi"
+      ]
+    },
+    {
+      "pass": "video",
+      "classes": [
+        "video"
+      ]
+    },
+    {
+      "pass": "logo-marks",
+      "classes": [
+        "logo-wall"
+      ]
+    },
+    {
+      "pass": "team-profile",
+      "classes": [
+        "team-profile"
+      ]
+    },
+    {
+      "pass": "collage",
+      "classes": [
+        "collage"
+      ]
+    },
+    {
+      "pass": "compare-code",
+      "classes": [
+        "compare-code"
+      ]
+    },
+    {
+      "pass": "qr-general",
+      "classes": [
+        "closing",
+        "qr"
+      ]
+    },
+    {
+      "pass": "qr-general",
+      "classes": [
+        "divider",
+        "qr"
+      ]
+    },
+    {
+      "pass": "qr-general",
+      "classes": [
+        "split-panel",
+        "qr"
+      ]
+    },
+    {
+      "pass": "scene",
+      "classes": [
+        "scene"
+      ]
+    },
+    {
+      "pass": "label-set-key",
+      "classes": [
+        "obligation-matrix"
+      ]
+    }
+  ],
+  "shippedFences": [
+    "anima",
+    "functionplot",
+    "latticeplot",
+    "math",
+    "mermaid"
+  ]
+}

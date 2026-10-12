@@ -1669,6 +1669,58 @@ decision 7's token-only gate is superseded by 12). What exists now:
   `followups.d/2417-p5-plugin-roadmap-phases-e-to-g.md`: the Studio's door, the placeholder and its
   Approve strip, `lattice packages trust plugin/<name>`, then steps 2 and 3.
 
+**2026-10-12 — phase E, the Studio's door (followup step 1, item 1).** A plugin's fence now draws in
+the real Studio preview and in Share → PDF. What was built:
+- **One set of rules for both doors.** The CLI door's rules moved into the kernel
+  (`lib/packages/code-door-fence.mjs`) and both doors call them: `planFencePlugins` (a fence name two
+  plugins claim, a shipped plugin's fence, a malformed name, a highlight language, a name that is a
+  hyphen-prefix of another's), `fenceCaptureNotes` (a long block, a slide a shipped pass rebuilds, a
+  raw `<section>`, the 400-fence allowance), `FENCE_OUTPUT_MAX` and `rebuiltFromAlternatives`. The
+  Studio's door (`docs/src/lib/code-packages/door-run.ts`) calls the same `captureFences` /
+  `substituteFences`, `doorFinishFence`, `fenceId` namespace and `pluginDigest` text as the CLI's.
+  `test/fixtures/fence-door-parity.mjs` is one deck, one plugin and one list of checks that BOTH doors
+  run (`plugin-fence-door.test.js` through a real Chromium, `door.fence.test.ts` through the real
+  engine and sanitizer), so a rule one door learns and the other does not fails one of them.
+- **Data the Studio cannot derive without the registry is generated.**
+  `lib/packages/fence-door.generated.json` (built by `tools/build-packages-index.js`) holds the
+  `{ pass, classes }` list `rebuilt-classes.js` derives from the registry, and the fence names the
+  shipped plugins own. `test/unit/cli/fence-door-data.test.js` pins it to the live reads, class set by
+  class set, so a pass added tomorrow breaks the test until the file is rebuilt (and `build:check`
+  fails on a stale file).
+- **Consent in the browser** is under `plugin/<name>` in the same storage key as component approvals,
+  against `pluginDigest(code, fence)` (SHA-256 over the same text `trust.js` hashes, checked equal in
+  `door.fence.test.ts`). The Studio holds the renderer as text, so a file with a leading BOM or an
+  invalid byte has a different digest here than the CLI's, which hashes the file's bytes: an approval
+  never crosses between them, either way.
+- **Activation is the deck's `plugins:` line** (decision 11), read from the source being rendered
+  (a pane's one-slide render carries the front matter). A plugin the deck does not list runs nothing
+  and opens no frame; a listed one runs only once approved. The notice above the preview offers the
+  approval (`CodePackagesNotice`: "This deck uses code from the plugin …"), and shows the door's own
+  notes ("slide 3 is rebuilt by the shipped `video` pass…") instead of leaving a block as code silently.
+- **Output cap.** The CLI caps the sanitized output of one render at 8,000,000 characters
+  (`FENCE_OUTPUT_MAX`); the Studio counts the RAW output against the 4,000,000 it already held slides
+  to, because its sanitizer runs on the page's main thread (a render of twelve 3.9-million-character
+  slides froze it for ten seconds, before). Both spend the cap in claim order. The number differs on
+  purpose; the rule does not.
+- **Where a zip plugin lives** (decision 13): `docs/src/components/studio/plugin-library.ts`, the
+  asset store's `plugin` kind. The Library's own import reads one (`unpackBundle(file, { plugins: true })`)
+  and nothing else does: a plugin inside a `.lattice` project or a backup is refused by name
+  (`PLUGIN_PROJECT_REFUSAL`), a workspace backup never lists the kind (pinned by `import-plugins.test.ts`),
+  and "Delete everything" sweeps it with every other kind. The Library's import runs the shape gate
+  (`refusePluginCode`, which now also refuses `render.exec` and `payload` / `vendor` BY RULE, the
+  2026-10-04 acceptance criterion) and the syntax gate, then the door's name rules against the saved
+  set. A subfolder in a plugin zip is reported ("left out 1 file(s) in subfolders"), never dropped.
+  The Plugins tab lists each installed plugin (listed, approved, Remove).
+- **A finding from driving the real surface.** Share → PDF failed on a plugin that returned an empty
+  `<video>`, and shipped "without at least one image" for an `<img>` with no source: the sanitizer
+  takes the address out, and the Studio's PDF writer draws each slide into an image. A fence renderer
+  is handed no address, so such an element is a dead box. `doorFinishFence` now drops `video`, `audio`,
+  `source`, `track`, an `<img>` with no `src` and an SVG `<image>` with no `href`, in both doors; a
+  `data:` image stays. The parity fixture checks it.
+- **Not built here:** the plugin's `styles.css` is stored but not delivered (decision 12's scoped CSS
+  belongs to step 2's style sink), and the placeholder for an unlisted fence is the plain code block
+  with a note until the next entry.
+
 ## References
 
 - [`2026-06-14-plugin-extension-system.md`](2026-06-14-plugin-extension-system.md) — LPM.
