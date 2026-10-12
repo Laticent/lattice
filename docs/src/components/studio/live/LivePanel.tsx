@@ -33,6 +33,21 @@ function whereLabel(p: LivePerson): string {
 	return `Slide ${p.slide + 1}${p.editing ? ' · editing' : ''}`;
 }
 
+/**
+ * The visible state of a menu switch. The menu item stays a `menuitemcheckbox` (a real `Switch` inside
+ * a menu item would nest one control in another, and a bare control in a `role="menu"` fails axe), so
+ * this draws the SAME track and thumb as the app's `Switch` (`components/ui/switch.tsx`), decoratively:
+ * the item says on or off to assistive tech, and this says it to everyone else, in both states. A check
+ * mark that shows only when on (what shipped first) read as nothing at all when off.
+ */
+function MenuSwitch({ on }: { on: boolean }) {
+	return (
+		<span aria-hidden data-live-switch data-state={on ? 'checked' : 'unchecked'} className="inline-flex h-[22px] w-[38px] shrink-0 items-center rounded-full bg-border transition-colors data-[state=checked]:bg-primary">
+			<span className={cn('block size-[18px] rounded-full bg-white shadow transition-transform', on ? 'translate-x-[18px]' : 'translate-x-[2px]')} />
+		</span>
+	);
+}
+
 /** A person's playback volume, 0–200 %. Past 100 % the call plays through Suono's gain stage, for a
  *  phone that plays call audio quietly. The slider sits in the menu, so it stops the menu's arrow-key
  *  navigation from eating its own keys. */
@@ -182,8 +197,17 @@ function CallControls({ view, actions }: { view: LiveView; actions: LiveActions 
 									<DropdownMenuSeparator />
 								</>
 							)}
-							<DropdownMenuCheckboxItem checked={c.highFidelity} aria-describedby="live-hifi-note" onCheckedChange={(on) => actions.setHighFidelity(on === true)} data-live-high-fidelity>
-								High fidelity (music)
+							<DropdownMenuCheckboxItem
+								checked={c.highFidelity}
+								aria-describedby="live-hifi-note"
+								onCheckedChange={(on) => actions.setHighFidelity(on === true)}
+								// Stay open: the switch flips once the new capture lands, and the person should see it do so.
+								onSelect={(e) => e.preventDefault()}
+								data-live-high-fidelity
+								className="gap-3 py-2 pr-2 pl-2 pointer-coarse:min-h-10 [&>span:first-child]:hidden"
+							>
+								<span className="flex-1">High fidelity (music)</span>
+								<MenuSwitch on={c.highFidelity} />
 							</DropdownMenuCheckboxItem>
 							<DropdownMenuLabel id="live-hifi-note" className="pt-0 text-[11px] font-normal leading-snug text-muted-foreground">Sends 128 kbit/s with echo cancellation, noise suppression and automatic gain off. Wear headphones, or the others hear an echo.</DropdownMenuLabel>
 						</DropdownMenuContent>

@@ -924,6 +924,11 @@ browser fixes voice processing when it opens the microphone, so a re-capture is 
 re-sends at 128 kbit/s (`HIGH_FIDELITY_BITRATE`) instead of 64 kbit/s. Mute, the chosen microphone
 and the call all carry over; leaving the call resets it, and a refused capture keeps the old
 setting. The menu says to wear headphones, because without echo cancellation a speaker feeds back.
+The switch is drawn as a toggle (the same track and thumb as *Let people in automatically*), in both
+states. It first shipped as a check mark that appeared only when on, and on the owner's iPhone
+(2026-10-12) the off state showed nothing at all, so there was no way to see which state it was in.
+The item stays a `menuitemcheckbox` (valid inside a menu); the toggle is its visible face, and the
+menu stays open when you tap it so you watch it flip.
 **Mono, not stereo.** The follow-up asked for 128 kbit/s stereo. A browser sends stereo Opus only
 when the other side's session description asks for it (`stereo=1` in the Opus fmtp), and Trystero
 0.26 gives us no hook on the offer or answer (it calls `setLocalDescription()` itself;

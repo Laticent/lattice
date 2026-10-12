@@ -86,12 +86,19 @@ test('@crosswidth @webkit-phone High fidelity is a labeled switch that reports i
 	await expect(page.locator('#live-hifi-note')).toContainText('128 kbit/s');
 	await expect(page.locator('#live-hifi-note')).toContainText('Wear headphones');
 	await expect(item).toHaveAttribute('aria-describedby', 'live-hifi-note');
+	// A person must SEE the state, in both states: a drawn switch (track and thumb), not a mark that only appears when on.
+	const sw = item.locator('[data-live-switch]');
+	await expect(sw).toBeVisible();
+	await expect(sw).toHaveAttribute('data-state', 'unchecked');
+	expect(await sw.boundingBox()).toMatchObject({ width: 38, height: 22 });
 	await item.click();
 	expect((await calls(page)).filter((c) => c[0] === 'setHighFidelity')).toEqual([['setHighFidelity', true]]);
 	// The model, not the click, owns the state: it shows on only once the controller says so.
 	await live(page, (l) => l.call({ highFidelity: true }));
-	await micMenu(page).click();
+	// The menu stays open, so the person watches the switch flip rather than reopening the menu to find out.
+	await expect(page.locator('[role=menu]')).toBeVisible();
 	await expect(page.locator('[data-live-high-fidelity]')).toHaveAttribute('aria-checked', 'true');
+	await expect(page.locator('[data-live-high-fidelity] [data-live-switch]')).toHaveAttribute('data-state', 'checked');
 	await page.locator('[data-live-high-fidelity]').click();
 	expect((await calls(page)).filter((c) => c[0] === 'setHighFidelity').pop()).toEqual(['setHighFidelity', false]);
 });
@@ -108,7 +115,7 @@ test('@crosswidth @webkit-phone the microphone menu lists the microphones only w
 	expect((await calls(page)).filter((c) => c[0] === 'pickMic')).toEqual([['pickMic', 'm2']]);
 });
 
-test('@a11y @webkit-phone the call menus have no axe findings, in both color modes', async ({ page }) => {
+test('@a11y @webkit-phone the person menu has no axe findings (known: the Volume slider inside role=menu), in both color modes', async ({ page }) => {
 	// KNOWN DEFECT, expected to fail: the Volume slider sits directly inside the person menu's role="menu",
 	// and axe reports `aria-required-children` ("children which are not allowed: input"). A `group` wrapper
 	// does not satisfy it. The owner decides between a popover for Volume and a documented exception (#2633).
@@ -124,10 +131,18 @@ test('@a11y @webkit-phone the call menus have no axe findings, in both color mod
 		expect(await assertFocusTrapped(page), 'focus escaped the open menu').toEqual([]);
 		await closeMenu(page);
 		await page.mouse.move(0, 0); // resting state: a hovered row has its own, lower contrast (a recorded follow-up)
+	}
+});
+
+test('@a11y @webkit-phone the microphone menu, with its High fidelity switch, has no axe findings in both color modes', async ({ page }) => {
+	await open(page);
+	await onCall(page);
+	for (const mode of ['dark', 'light']) {
+		await page.evaluate((m) => document.documentElement.setAttribute('data-mode', m), mode);
 		await micMenu(page).click();
 		expect(await axeFindings(page, { menuOpen: true }), `axe findings in the microphone menu (${mode})`).toEqual([]);
 		expect(await assertFocusTrapped(page), 'focus escaped the open menu').toEqual([]);
 		await closeMenu(page);
-		await page.mouse.move(0, 0); // resting state: a hovered row has its own, lower contrast (a recorded follow-up)
+		await page.mouse.move(0, 0);
 	}
 });
