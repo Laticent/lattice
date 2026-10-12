@@ -5927,6 +5927,12 @@ const SANCTIONED_PREVIEW_BUILDERS = [
 // new adapter is a new provenance to write down here (2026-09-27-trama-graph-chart-library.md).
 const RUNTIME_MARKUP_EXTRA_FILES = [
   'docs/src/lib/trama/pipeline.ts',
+  // The collage lightbox copies a photo's source and alt text into the parent document, or into the
+  // exported player. Both files write text, attributes and an image source only, and the core
+  // allowlists the source (http, https, blob, data:image/). Listed so a later `innerHTML` is caught
+  // (spec 2026-10-11-collage-component.md §5.4a).
+  'docs/src/playground/collage-host.js',
+  'lib/core/collage-lightbox.mjs',
 ];
 const SANCTIONED_RUNTIME_MARKUP_SINKS = [
   {

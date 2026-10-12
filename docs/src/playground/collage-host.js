@@ -15,7 +15,8 @@
 //
 // What crosses the boundary is the photo's image source and its alt text. The source is checked
 // against an allowlist again inside the core, and the alt text is set with `textContent` there
-// (HARD RULE #22; this file is on the runtime-markup census with that justification).
+// (HARD RULE #22; this file and the core are on the runtime-markup census, which is what keeps
+// it markup-free: both write only text, attributes and an image source).
 import { frameGeom, innerRectToParent } from './frame-geom.js';
 
 let current = null; // the one open lightbox handle (or a pending-open ticket); a second open replaces it
@@ -35,9 +36,10 @@ function readTile(tile) {
  * Open the lightbox for `tile`, a `.collage-tile` inside `frame`'s document.
  * @param {HTMLIFrameElement|null} frame
  * @param {Element} tile
+ * @param {boolean} [viaKeyboard=false] opened by Enter or Space on a focused photo, so focus returns to it on close
  * @returns {boolean} true when a lightbox opened
  */
-export function openCollageTile(frame, tile) {
+export function openCollageTile(frame, tile, viaKeyboard = false) {
 	try {
 		const t = readTile(tile);
 		if (!t || !t.src) return false;
@@ -49,7 +51,7 @@ export function openCollageTile(frame, tile) {
 		};
 		// Measured now, at the click, so the glide starts from where the tile is.
 		const from = measure();
-		current?.close?.();
+		current?.closeNow?.();
 		current = null;
 		// The opener loads on first use, so the lightbox is not in every route's startup JS: a
 		// reader who never enlarges a photo never downloads it. Returns true at once so the frame's
@@ -64,6 +66,7 @@ export function openCollageTile(frame, tile) {
 					alt: t.alt,
 					from,
 					getFrom: measure,
+					restoreFocus: viaKeyboard,
 					onClose: () => {
 						if (current === handle) current = null;
 					},
@@ -110,10 +113,43 @@ export function tapCollageAt(frame, clientX, clientY) {
 export function installCollageBridge(win) {
 	if (!win) return;
 	try {
-		win.__collageOpen = (tile) => openCollageTile(win.frameElement || null, tile);
+		win.__collageOpen = (tile, viaKeyboard) => openCollageTile(win.frameElement || null, tile, Boolean(viaKeyboard));
+		stampPhotos(win);
 	} catch (_e) {
 		/* a cross-origin or torn-down window takes no hook */
 	}
+}
+
+/**
+ * Make each collage photo reachable by keyboard: the `<img>` inside a tile gets `tabindex`,
+ * `role="button"` and an "Enlarge" label. The photo is the button, not the `<li>`, so the list keeps
+ * its list semantics. It is stamped HERE, on the live frame that has the opener, and not by the
+ * frame's own script, because the print and capture frames serialize `outerHTML` into exports and
+ * would carry a button that does nothing. A MutationObserver re-stamps after a re-render.
+ * @param {Window} win
+ */
+function stampPhotos(win) {
+	const doc = win.document;
+	const stamp = () => {
+		for (const img of doc.querySelectorAll('.collage-tile > img:not([tabindex])')) {
+			const alt = img.getAttribute('alt');
+			img.setAttribute('tabindex', '0');
+			img.setAttribute('role', 'button');
+			img.setAttribute('aria-label', alt ? `Enlarge: ${alt}` : 'Enlarge photo');
+		}
+	};
+	stamp();
+	if (win.__collageObserver || !win.MutationObserver) return;
+	let pending = false;
+	win.__collageObserver = new win.MutationObserver(() => {
+		if (pending) return;
+		pending = true;
+		(win.requestAnimationFrame || win.setTimeout)(() => {
+			pending = false;
+			stamp();
+		});
+	});
+	win.__collageObserver.observe(doc.documentElement, { childList: true, subtree: true });
 }
 
 /**
@@ -128,11 +164,13 @@ export function createCollageOverlay({ getFrame }) {
 			installCollageBridge(getFrame()?.contentWindow);
 		},
 		destroy() {
-			current?.close?.();
+			current?.closeNow?.();
 			current = null;
 			const w = getFrame()?.contentWindow;
 			if (w) {
 				try {
+					w.__collageObserver?.disconnect();
+					w.__collageObserver = null;
 					delete w.__collageOpen;
 				} catch (_e) {
 					w.__collageOpen = undefined;

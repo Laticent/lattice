@@ -95,6 +95,12 @@ section.collage .collage-list > li > img {
 	object-fit: cover;
 	object-position: var(--collage-focal, 50% 50%);
 }
+/* the photo is the keyboard button (the host stamps `tabindex`); its ring is drawn inside the tile,
+ * because the tile clips anything outside its box */
+section.collage .collage-list > li > img:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: -4px;
+}
 /* a hint span that did not parse stays a pill; keep it out of the photo */
 section.collage .collage-list > li > code {
 	display: none;
@@ -222,7 +228,8 @@ section.collage:is(.above, [data-orientation="portrait"], [data-orientation="squ
  * slide instead of keeping its own shape, so there are no bands above or below it. The packer
  * solved the layout for the slide's own aspect, so the stretch crops a few percent at most. */
 section.collage.bleed {
-	/* the gap stays at the packer's ratio so every tile keeps its exact shape */
+	/* the gap stays at the packer's ratio; the tiles are stretched to the slide, so a deck whose shape
+	 * differs from the packer's estimate crops a little at the edges of each photo */
 	--collage-radius: 0;
 }
 section.collage.bleed > .collage-fit {

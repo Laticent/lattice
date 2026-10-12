@@ -87,6 +87,29 @@ test('while open it consumes Space and arrows so the deck behind does not advanc
   }
 });
 
+test('while open NO key reaches the deck behind it (Home, End, n, digits)', () => {
+  const { doc, win } = page();
+  const seen = [];
+  win.addEventListener('keydown', (e) => seen.push(e.key));
+  open(doc, { src: PNG, alt: 'x', reducedMotion: true });
+  for (const key of ['Home', 'End', 'n', 'N', '3', 'f', ' ', 'ArrowRight']) {
+    doc.dispatchEvent(new win.KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+  }
+  assert.deepEqual(seen, [], 'a window-level listener (the deck transport) saw nothing');
+});
+
+test('closeNow tears down at once and restores scroll, so a second open cannot stack locks', () => {
+  const { doc } = page();
+  doc.documentElement.style.overflow = 'auto';
+  const a = open(doc, { src: PNG, alt: 'a', reducedMotion: true });
+  a.closeNow();
+  assert.equal(doc.querySelector('.collage-lightbox'), null);
+  assert.equal(doc.documentElement.style.overflow, 'auto');
+  const b = open(doc, { src: PNG, alt: 'b', reducedMotion: true });
+  b.closeNow();
+  assert.equal(doc.documentElement.style.overflow, 'auto', 'the page is scrollable again');
+});
+
 test('closing twice is safe and onClose still fires once', async () => {
   const { doc } = page();
   let closed = 0;

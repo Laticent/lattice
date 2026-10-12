@@ -923,7 +923,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				chartDetailRef.current?.rebind();
 				// Re-install the parent-hosted video playback bridge on the (possibly new) frame.
 				videoOverlayRef.current?.rebind();
-		collageOverlayRef.current?.rebind();
+				collageOverlayRef.current?.rebind();
 				// Re-hydrate Anima scenes on the (possibly new) frame document.
 				animaScenesRef.current?.rebind();
 				// Re-apply the debug overlay: a section PATCH keeps the doc live but swaps
