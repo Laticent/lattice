@@ -81,7 +81,8 @@ async function storedMedia(page: Page): Promise<Stored[]> {
 		});
 		const out: Stored[] = [];
 		for (const a of rows.filter((x) => x.kind === 'image')) {
-			const buf = new Uint8Array(await (a.blob as Blob).arrayBuffer());
+			// A row holds its bytes as a Blob, or as an ArrayBuffer where the engine refuses to store a Blob.
+			const buf = a.blob ? new Uint8Array(await (a.blob as Blob).arrayBuffer()) : new Uint8Array(a.data as ArrayBuffer);
 			// "Exif\0\0" anywhere in the first 64 KB — an APP1 segment sits at the very start.
 			const head = new TextDecoder('latin1').decode(buf.subarray(0, 65536));
 			out.push({ name: a.name as string, scope: a.scope as string, width: a.width as number, height: a.height as number, bytes: a.bytes as number, original: a.original as boolean, mime: a.mime as string, hasExif: head.includes('Exif\u0000\u0000') });
@@ -107,11 +108,16 @@ async function openLibraryImages(page: Page, width: number) {
 // `tablet` and `mobile` projects only take tests tagged for them, and a tag would also pull
 // these into the visual baselines. The same shape `library-card-fit.spec.ts` uses.
 const WIDTHS = [1440, 820, 390];
+// The desktop-width variant also runs on real WebKit and Firefox in the nightly (studio-e2e-nightly.yml):
+// decode, canvas re-encode, EXIF rotation and IndexedDB storing a photo are engine behaviour, and the
+// two most likely to differ from Chromium are exactly the two that cannot be reached from a unit test.
+// The narrower widths are layout checks and stay on Chromium.
+const OTHER_ENGINES = (w: number) => (w === 1440 ? ' @webkit-tablet @gecko' : '');
 for (const vw of WIDTHS) {
 	test.describe(`at ${vw}px`, () => {
 		test.use({ viewport: { width: vw, height: vw === 1440 ? 900 : 1000 } });
 
-	test('@smoke Images tab: a phone JPEG lands upright, capped and free of EXIF; a batch keeps distinct names', async ({ page }, testInfo) => {
+	test(`@smoke Images tab: a phone JPEG lands upright, capped and free of EXIF; a batch keeps distinct names${OTHER_ENGINES(vw)}`, async ({ page }, testInfo) => {
 		test.slow();
 		await gotoStudio(page);
 		const width = page.viewportSize()?.width ?? 1440;
@@ -142,11 +148,12 @@ for (const vw of WIDTHS) {
 				r.onsuccess = () => res(r.result);
 				r.onerror = () => rej(r.error);
 			});
-			const rec: { blob: Blob } = await new Promise((res) => {
+			const rec: { blob?: Blob; data?: ArrayBuffer; mime: string } = await new Promise((res) => {
 				const r = db.transaction('assets').objectStore('assets').index('kind').getAll('image');
 				r.onsuccess = () => res(r.result[0]);
 			});
-			const bmp = await createImageBitmap(rec.blob, { imageOrientation: 'none' });
+			// Stored as a Blob, or as an ArrayBuffer where the engine refuses to store a Blob.
+			const bmp = await createImageBitmap(rec.blob ?? new Blob([rec.data as ArrayBuffer], { type: rec.mime }), { imageOrientation: 'none' });
 			const c = document.createElement('canvas');
 			c.width = bmp.width;
 			c.height = bmp.height;
@@ -169,7 +176,7 @@ for (const vw of WIDTHS) {
 		await page.screenshot({ path: testInfo.outputPath(`images-tab-${width}.png`) });
 	});
 
-	test('@smoke Images tab: an image moves between all decks and this deck without a rename; the action row fits', async ({ page }, testInfo) => {
+	test(`@smoke Images tab: an image moves between all decks and this deck without a rename; the action row fits${OTHER_ENGINES(vw)}`, async ({ page }, testInfo) => {
 		test.slow();
 		await gotoStudio(page);
 		const width = page.viewportSize()?.width ?? 1440;

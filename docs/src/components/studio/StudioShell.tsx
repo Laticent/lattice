@@ -2612,6 +2612,17 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	function removeDeck(id: string) {
 		if (id === deck.id && !live.mayLeaveDeck()) return;
 		deleteDeckStore(id);
+		// The deck's own photos go with it: a photo kept to one deck has nowhere else to be used, and
+		// leaving it would strand bytes in the quota behind a deck that no longer exists.
+		import('./media-store')
+			.then((m) => m.deleteDeckMedia(id))
+			.then((n) => {
+				if (n > 0) {
+					notify(`Deleted ${n} photo${n === 1 ? '' : 's'} that belonged only to that deck.`);
+					refreshAssets();
+				}
+			})
+			.catch(() => {});
 		const list = loadDeckList();
 		setDecks(list);
 		if (id === deck.id) {

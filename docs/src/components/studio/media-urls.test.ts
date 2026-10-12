@@ -5,7 +5,7 @@ import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { deleteAsset, listAssets } from './library/asset-store.js';
 import { LIBRARY_SCOPE, type NewMedia, saveMedia, setMediaScope } from './media-store';
-import { assetStamp, ensureAssetUrls, onAssetUrlsChanged, refreshAssetUrls, resetAssetUrlsForTests, setActiveAssetDeck, sourceUsesAssets } from './media-urls';
+import { assetNamesIn, assetStamp, dataUrlsFor, ensureAssetUrls, missingAssetNames, onAssetUrlsChanged, refreshAssetUrls, resetAssetUrlsForTests, setActiveAssetDeck, sourceUsesAssets } from './media-urls';
 
 const make = (over: Partial<NewMedia> = {}): NewMedia => ({
 	kind: 'image', name: 'hero', scope: LIBRARY_SCOPE, blob: new Blob(['x'], { type: 'image/png' }),
@@ -98,5 +98,59 @@ describe('sourceUsesAssets', () => {
 		expect(sourceUsesAssets('![bg](ASSET:Team-Photo)')).toBe(true);
 		expect(sourceUsesAssets('![a](sample:photo-wide.jpg) and a word: asset')).toBe(false);
 		expect(sourceUsesAssets('')).toBe(false);
+	});
+});
+
+describe('assetNamesIn', () => {
+	it('lists the distinct names a source writes, lowercased, in any position', () => {
+		expect(assetNamesIn('![a](asset:Hero)\n![bg](asset:hero)\n- ![b](asset:team-photo)\n`asset:code` and asset: and asset:_x')).toEqual(['hero', 'team-photo', 'code']);
+		expect(assetNamesIn('no photos here, only sample:photo-wide.jpg')).toEqual([]);
+	});
+});
+
+describe('dataUrlsFor — what an export renders with', () => {
+	const bytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 0, 1, 2, 255]);
+	const photo = (name: string, scope = LIBRARY_SCOPE) => make({ name, scope, blob: new Blob([bytes], { type: 'image/png' }) });
+
+	it('encodes exactly the photos the source names, as data: URIs of their own bytes', async () => {
+		await saveMedia(photo('hero'), 1);
+		await saveMedia(photo('unused'), 2);
+		const map = await dataUrlsFor('![a](asset:hero)');
+		expect(Object.keys(map)).toEqual(['hero']);
+		expect(map.hero).toBe(`data:image/png;base64,${Buffer.from(bytes).toString('base64')}`);
+	});
+
+	it('never produces a blob: URL, which dies with the tab', async () => {
+		await saveMedia(photo('hero'), 1);
+		expect(Object.values(await dataUrlsFor('![a](asset:hero)')).join('')).not.toMatch(/blob:/);
+	});
+
+	it('leaves out a name the shelf does not hold, so the engine draws the stand-in', async () => {
+		await saveMedia(photo('hero'), 1);
+		expect(await dataUrlsFor('![a](asset:hero) ![b](asset:gone)')).toHaveProperty('hero');
+		expect(await dataUrlsFor('![b](asset:gone)')).toEqual({});
+		expect(await missingAssetNames('![a](asset:hero) ![b](asset:gone)')).toEqual(['gone']);
+	});
+
+	it('does not offer another deck’s private photo', async () => {
+		await saveMedia(photo('theirs', 'deck-b'), 1);
+		await setActiveAssetDeck('deck-a');
+		expect(await dataUrlsFor('![a](asset:theirs)')).toEqual({});
+		expect(await missingAssetNames('![a](asset:theirs)')).toEqual(['theirs']);
+	});
+
+	it('encodes a multi-megabyte photo without overflowing the call stack', async () => {
+		const big = new Uint8Array(3 * 1024 * 1024).map((_, i) => i % 251);
+		await saveMedia(make({ name: 'big', blob: new Blob([big], { type: 'image/jpeg' }) }), 1);
+		const uri = (await dataUrlsFor('![a](asset:big)')).big;
+		expect(uri.startsWith('data:image/jpeg;base64,')).toBe(true);
+		expect(Buffer.from(uri.split(',')[1], 'base64').equals(Buffer.from(big))).toBe(true);
+	});
+
+	it('encodes each photo once per session', async () => {
+		await saveMedia(photo('hero'), 1);
+		const a = await dataUrlsFor('![a](asset:hero)');
+		const b = await dataUrlsFor('![a](asset:hero)');
+		expect(b.hero).toBe(a.hero);
 	});
 });

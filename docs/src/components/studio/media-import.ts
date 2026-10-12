@@ -4,7 +4,8 @@
 // The PLAN functions are pure and unit-tested. `importImage` is the browser half (decode,
 // canvas, encode) and is exercised against a real browser, not jsdom — jsdom has no image
 // decoder, so a test there would only confirm a stub (HARD RULE #23).
-import { isMediaName, type MediaKind, mediaNameFromFile, type NewMedia } from './media-store';
+
+import { isMediaName, MAX_MEDIA_FILE_BYTES, type MediaKind, mediaNameFromFile, type NewMedia } from './media-store';
 
 /** The long edge a stored photo is capped to. A slide shows at most ~1920 px wide, so pixels
  *  past this cost storage quota and buy nothing a viewer can see. */
@@ -107,6 +108,9 @@ function toBlob(canvas: HTMLCanvasElement, mime: string): Promise<Blob> {
 /** Decode, plan, and (when the plan says so) re-encode. Returns a record ready for
  *  `saveMedia`, minus the name — the caller resolves a clash before it saves. */
 export async function importImage(file: File, scope: string): Promise<NewMedia> {
+	// Refused before anything decodes it: a restore reads at most this much per photo, so a photo the
+	// Library took above it would be one a backup could never bring back.
+	if (file.size > MAX_MEDIA_FILE_BYTES) throw new MediaImportError(`${file.name} is ${Math.round(file.size / 1_048_576)} MB; a photo may be at most ${Math.floor(MAX_MEDIA_FILE_BYTES / 1_048_576)} MB.`);
 	const mime = mimeOf(file);
 	if (mime === 'image/svg+xml') {
 		const { width, height } = await intrinsicSize(file);

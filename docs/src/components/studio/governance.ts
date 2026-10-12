@@ -105,7 +105,15 @@ export async function loadGovernanceStats(): Promise<GovernanceStats> {
 	]);
 	let libraryBytes = 0;
 	try {
-		for (const a of assets) libraryBytes += JSON.stringify(a).length;
+		for (const a of assets) {
+			// A photo's bytes are its Blob, which JSON.stringify writes as `{}`: sized by JSON a 2 MB photo
+			// counted as nothing, in the one panel that exists to show what is using storage.
+			const blob = (a as { blob?: unknown }).blob;
+			const data = (a as { data?: unknown }).data;
+			if (blob instanceof Blob) libraryBytes += blob.size + JSON.stringify({ ...a, blob: undefined }).length;
+			else if (data instanceof ArrayBuffer) libraryBytes += data.byteLength + JSON.stringify({ ...a, data: undefined }).length;
+			else libraryBytes += JSON.stringify(a).length;
+		}
 	} catch {
 		/* best-effort size — never blocks the stat line */
 	}

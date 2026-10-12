@@ -13,6 +13,9 @@
 import { listMedia, type MediaRecord, visibleMedia } from './media-store';
 
 const urlById = new Map<string, string>();
+// The visible assets' bytes by name, kept beside the URLs so an export can read them as `data:` URIs.
+const blobByName = new Map<string, { id: string; blob: Blob }>();
+const dataUriById = new Map<string, Promise<string>>();
 let current: Record<string, string> = {};
 let activeDeckId: string | null = null;
 let rev = 0;
@@ -40,10 +43,15 @@ export async function refreshAssetUrls(): Promise<void> {
 		if (!live.has(id)) {
 			URL.revokeObjectURL(u);
 			urlById.delete(id);
+			dataUriById.delete(id);
 		}
 	}
 	const next: Record<string, string> = {};
-	for (const m of visibleMedia(all, activeDeckId)) next[m.name] = urlFor(m);
+	blobByName.clear();
+	for (const m of visibleMedia(all, activeDeckId)) {
+		next[m.name] = urlFor(m);
+		blobByName.set(m.name, { id: m.id, blob: m.blob });
+	}
 	if (signature(next) !== signature(current)) {
 		current = next;
 		rev++;
@@ -86,10 +94,59 @@ export function sourceUsesAssets(source: string): boolean {
 	return /\basset:[a-z0-9]/i.test(source);
 }
 
+/** A Blob as a `data:` URI. Reads the bytes and encodes in chunks, so it runs the same in a
+ *  browser and in Node, and a multi-megabyte photo does not blow the argument limit of `btoa`. */
+async function blobToDataUri(blob: Blob): Promise<string> {
+	const bytes = new Uint8Array(await blob.arrayBuffer());
+	let bin = '';
+	for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+	return `data:${blob.type || 'application/octet-stream'};base64,${btoa(bin)}`;
+}
+
+/** The names a source writes as `asset:<name>`, lowercased and de-duplicated. Same grammar as
+ *  lib/core/remote-ref.js `assetName`. */
+export function assetNamesIn(source: string): string[] {
+	const out = new Set<string>();
+	for (const m of source.matchAll(/\basset:([a-z0-9][a-z0-9_-]*)/gi)) out.add(m[1].toLowerCase());
+	return [...out];
+}
+
+/**
+ * The name → `data:` URI map an EXPORT renders with, for the photos `source` names and the open deck
+ * may see. A `blob:` URL cannot be used here: it dies with the tab, so a saved file would ship a dead
+ * link, and a capture frame (the PDF, PNG and PowerPoint cameras) is not allowed to fetch one. Only
+ * the photos the deck names are read, and each is encoded once per session. A name the shelf does
+ * not hold is left out, so the engine draws the missing-image stand-in for it.
+ */
+export async function dataUrlsFor(source: string): Promise<Record<string, string>> {
+	await ensureAssetUrls();
+	const out: Record<string, string> = {};
+	for (const name of assetNamesIn(source)) {
+		const rec = blobByName.get(name);
+		if (!rec) continue;
+		let p = dataUriById.get(rec.id);
+		if (!p) {
+			p = blobToDataUri(rec.blob);
+			dataUriById.set(rec.id, p);
+		}
+		out[name] = await p;
+	}
+	return out;
+}
+
+/** The names `source` writes that the open deck cannot see (deleted, or another deck's). An export
+ *  says so, so a stand-in in the file is never a surprise. */
+export async function missingAssetNames(source: string): Promise<string[]> {
+	await ensureAssetUrls();
+	return assetNamesIn(source).filter((n) => !blobByName.has(n));
+}
+
 /** Test seam: forget everything. */
 export function resetAssetUrlsForTests(): void {
 	for (const u of urlById.values()) URL.revokeObjectURL(u);
 	urlById.clear();
+	blobByName.clear();
+	dataUriById.clear();
 	current = {};
 	activeDeckId = null;
 	rev = 0;

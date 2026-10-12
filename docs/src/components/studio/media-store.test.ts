@@ -3,7 +3,8 @@
 // asset, across both kinds and both scopes — lives in a transaction, and a mock would agree
 // with whatever the module happens to do (the reason asset-id-pinning.test.ts gives).
 import 'fake-indexeddb/auto';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { openDB, reqAsPromise } from './library/asset-db.js';
 import { deleteAsset, listAssets } from './library/asset-store.js';
 import {
 	decksUsing,
@@ -148,5 +149,65 @@ describe('decksUsing', () => {
 		const decks = ['![](asset:team-photo)', '![bg](asset:team-photo-2)', 'no refs', '![](ASSET:Team-Photo)', 'asset:team-photo'];
 		expect(decksUsing('team-photo', decks)).toBe(3);
 		expect(decksUsing('team', decks)).toBe(0);
+	});
+});
+
+// Safari in a private window refuses to store a Blob: "UnknownError: Error preparing Blob/File data to
+// be stored in object store" (reproduced on real WebKit, where an ArrayBuffer and a string store fine).
+// These patch `put` to behave that way, so the fallback is tested against the engine's own refusal.
+describe('an engine that will not store a Blob', () => {
+	const bytes = new Uint8Array([137, 80, 78, 71, 1, 2, 3, 4, 5, 6]);
+	const refuse = (what: 'blob' | 'blob-and-buffer') => {
+		const orig = IDBObjectStore.prototype.put;
+		return vi.spyOn(IDBObjectStore.prototype, 'put').mockImplementation(function (this: IDBObjectStore, value: unknown, key?: IDBValidKey) {
+			const v = value as { blob?: unknown; data?: unknown };
+			if (v?.blob || (what === 'blob-and-buffer' && v?.data)) throw new DOMException('Error preparing Blob/File data to be stored in object store', 'UnknownError');
+			return orig.call(this, value, key);
+		});
+	};
+	afterEach(() => vi.restoreAllMocks());
+	beforeEach(emptyShelf);
+
+	const png = (name = 'hero') => base({ name, blob: new Blob([bytes], { type: 'image/png' }), mime: 'image/png', bytes: bytes.length });
+
+	it('stores the bytes as an ArrayBuffer instead, and reads them back as the same Blob', async () => {
+		refuse('blob');
+		const saved = await saveMedia(png(), 5);
+		expect(saved.name).toBe('hero');
+		const [back] = await listMedia();
+		expect(back.blob).toBeInstanceOf(Blob);
+		expect(back.blob.type).toBe('image/png');
+		expect(new Uint8Array(await back.blob.arrayBuffer())).toEqual(bytes);
+		// What is on disk is the buffer, not a Blob the engine would have refused.
+		const db = await openDB();
+		const [raw] = (await reqAsPromise(db.transaction('assets').objectStore('assets').index('kind').getAll('image'))) as Record<string, unknown>[];
+		expect(raw.blob).toBeUndefined();
+		expect(raw.data).toBeInstanceOf(ArrayBuffer);
+	});
+
+	it('flipping scope keeps the bytes of a buffer-stored photo', async () => {
+		refuse('blob');
+		const rec = await saveMedia(png(), 1);
+		const moved = await setMediaScope(rec.id, 'deck-a');
+		expect(moved?.scope).toBe('deck-a');
+		expect(new Uint8Array(await (moved?.blob as Blob).arrayBuffer())).toEqual(bytes);
+		const [back] = await listMedia();
+		expect(back.scope).toBe('deck-a');
+		expect(new Uint8Array(await back.blob.arrayBuffer())).toEqual(bytes);
+	});
+
+	it('says plainly why when the engine will store neither, and leaves the shelf alone', async () => {
+		refuse('blob-and-buffer');
+		await expect(saveMedia(png(), 1)).rejects.toThrow(/would not store the photo.*private window/s);
+		await expect(saveMedia(png(), 1)).rejects.toThrow(MEDIA_REFUSAL_PREFIX);
+		vi.restoreAllMocks();
+		expect(await listMedia()).toHaveLength(0);
+	});
+
+	it('does NOT retry a name clash: that is the author’s to fix, in the author’s words', async () => {
+		await saveMedia(png(), 1);
+		const put = refuse('blob');
+		await expect(saveMedia(png(), 2)).rejects.toThrow(/already another saved image/);
+		expect(put).not.toHaveBeenCalled();
 	});
 });

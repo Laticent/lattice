@@ -154,73 +154,48 @@ against the real app yet, and slice 1 measures them before they harden.
 
 ### 6. Portability
 
-`asset:foo` means nothing outside your browser, so every way a deck leaves the browser must carry
-or mention its assets:
+`asset:foo` means nothing outside your browser, so every way a deck leaves the browser must carry or
+mention its photos. What each one does, as built and checked on the real Studio (2026-10-12):
 
-- **Workspace backup** gets a `media/` folder of binary zip entries plus a `media.json` index.
-  The bytes do **not** go through `refdocs.json`: that lane parses JSON under a count cap, and
-  base64 video would blow it. Media has its own declared-size and running-budget caps in
-  `zip-limits.ts`, and per the backup's rule for side lanes a media failure is skipped and named,
-  never a reason to lose the decks.
-- **Single-deck share or export zip** includes only the assets that deck references.
-- **Pasted-deck markdown** that names an asset the workspace lacks renders the placeholder and
-  the editor's lint warns by name.
+| Leaves as | Does | Checked on |
+|---|---|---|
+| Webpage (`.html`) | The photo is embedded as a `data:` URI; no `blob:` or `asset:` is left. | Chromium, WebKit, Firefox: the embedded bytes decode to the photo's own pixels |
+| PDF | The photo is on the page. | Chromium, WebKit, Firefox: poppler rasterizes page 1 and the photo's colour is on it |
+| PowerPoint | The photo is in the slide picture. | Chromium, Firefox. **WebKit drops every picture in this lane today, a repo sample image included** (`followups.d/2640-p2-webkit-pptx-drops-images.md`) |
+| Image set, print | Same render as PDF and PowerPoint. | Not driven separately |
+| Markdown, Marp, `.lattice` | The reference stays as written; the photo is not in the file. | A recipient sees the missing-image stand-in. Carrying photos in these three is open (below) |
+| Workspace backup | `media/` holds the bytes, `media.json` indexes them (§9). A restore puts them back to the same deck. | Chromium, WebKit, Firefox: back up, delete both photos, restore, bytes and scopes equal |
 
-### 7. Metadata
+**Why exports use `data:` and not the preview's `blob:`.** A saved file cannot hold a `blob:` URL, and
+the PDF, PNG and PowerPoint cameras render in a frame that may not fetch one: before this was fixed the
+webpage export shipped `blob:http://localhost:4321/…` and the PDF reported "could not load every
+image" (both measured). So every export renders with a name → `data:` map built for just the photos the
+deck names (`docs/src/components/studio/media-urls.ts` `dataUrlsFor`), through one helper
+(`assetOpts` in `share-export.ts`) at each of the four export render sites.
 
-Import reads the file's embedded metadata and stores it on the record as `meta`.
+**Correction.** An earlier draft of this note, and the PR text, said a workspace restore sweeps the
+Library. It does not: a restore upserts and clears nothing. The sweep is the Workspace "Library assets"
+**Clear** action, which deletes photos on purpose, and its row now says so. The real gap was the other
+way: a backup carried no photos.
 
-**Prior art (#2627, merged 2026-10-12).** `lib/core/image-dimensions.js` now has
-`exifOrientation`, which reads one tag (IFD0 Orientation) from a JPEG's APP1 segment so the
-build-time aspect matches what a browser paints. It is the only EXIF reader in the repo, it is
-build-time only, and it uses Node's `Buffer`, so the browser importer cannot call it as is. This
-work does not replace it and does not conflict with it: the importer bakes the orientation into
-the stored pixels (§3), so a stored photo always reads as Orientation 1 and the build-time
-reader applies no swap. The two meet only if someone feeds a never-imported rotated JPEG to a
-deck, which #2627 already handles. The importer's reader should share #2627's segment walk
-(extracted to a `Uint8Array` kernel both can call, HARD RULE #1) rather than add a second JPEG
-parser. An earlier draft of this section said nothing in the repo read EXIF; that check ran on a
-branch cut before #2627 landed.
+### 9. Backup and restore
 
-**What is read.**
+`workspace-media.ts`. A backup is a file from anyone, so a restore reads it as untrusted: sizes are
+checked before anything inflates, all photo bytes share one running budget (1 GiB), one photo is at most
+50 MB (the same cap the importer applies, so a photo the Library took is one a restore will take), at most
+5,000 rows, a row's `file` must be exactly `<name>.<ext>` for an image type the Library stores, its `mime`
+must agree with the extension, and every number it claims is clamped. A refused photo is named in the
+restore toast and never costs the decks. A photo kept to a deck returns only if that deck did. A photo
+whose name is already on the shelf is replaced, and if the replacement fails the original is put back.
 
-| Source | Fields kept |
-|---|---|
-| Photo EXIF, XMP, IPTC | capture date, camera make and model, lens, exposure (f-stop, shutter, ISO, focal length), orientation, GPS (lat, lon, altitude), title, caption, creator, copyright, keywords |
-| Video (MP4 and MOV atoms) | creation date, duration, frame size, frame rate, codecs, rotation, GPS (the `©xyz` atom iPhone and most Android cameras write) |
-| Every file | original filename, MIME type, byte size, last-modified time |
+### 10. Browsers that refuse to store a Blob
 
-**Order matters: read metadata before the downscale.** Re-encoding through a canvas (§3) drops
-all EXIF and applies no rotation. The importer reads the original bytes first, bakes the EXIF
-orientation into the pixels so a portrait phone photo does not land sideways, then re-encodes. Skip
-that order and every phone photo loses its date and location silently.
-
-**Reader.** A browser `<video>` element exposes only duration and size, so video needs an MP4 box
-reader. Candidates are `exifr` for photos (modular, tree-shakes to a few KB for the fields above)
-and a small in-repo atom parser or `mp4box.js` for video. HARD RULE #15 asks for a check of
-`capabilities.md` first; that check found nothing to reuse. Slice 1 picks the reader by measured
-bundle cost and lazy-loads it, so the Studio's first paint pays nothing.
-
-**Privacy: GPS never leaves the workspace by default.** A location tag on a team photo is
-information the author may not have meant to publish. The record keeps GPS (it is useful for
-search and for the author), but:
-
-- every export, share zip and backup of a **single deck** strips GPS from the embedded copy;
-- the workspace backup, which is the author's own full copy, keeps it;
-- the Library card shows a "has location" marker, and a per-asset action removes it for good.
-
-The stripping happens on the bytes: the image is already re-encoded on import (so photos carry no
-EXIF), and videos are stored as given, so a video export that keeps the original bytes needs the
-atom removed or the poster used instead. The video-export route is an open question below.
-
-**Where it shows.** The Images tab gains a details view per asset (date, camera, size, duration),
-search by filename, caption and keywords, and sort by capture date. A caption or title from the
-file seeds the asset's alt text when the author has not written one, which helps accessibility
-exports. Dates and numbers format through the user's locale.
-
-**What it is not.** No face, object or scene analysis, no reverse geocoding (a network call that
-would send coordinates to a third party), and no editing of the embedded EXIF. Those are separate
-asks.
+Safari in a private window answers `UnknownError: Error preparing Blob/File data to be stored in object
+store` (reproduced on real WebKit, where an `ArrayBuffer` and a string store fine). `saveMedia` tries the
+Blob first, because IndexedDB hands it back file-backed and a shelf of photos is not held in memory, and
+on that refusal retries as an `ArrayBuffer` (`data`), rebuilding the Blob on read. If both fail the person
+is told the browser would not store the photo and to try a normal window. A name clash is never retried.
+The first version of this had no fallback and, on WebKit, added nothing.
 
 ## Options not taken
 
@@ -269,9 +244,11 @@ commit builds and tests against `main` alone.
 2. Whether an uploaded video should be playable in the **Studio presenter** (it can: a `blob:`
    URL feeds a `<video>`), or poster-only everywhere except the HTML export. This doc assumes
    playable in the presenter.
-3. Whether a video export that keeps the original bytes should strip the GPS atom (a small
+3. Whether Markdown, Marp and `.lattice` exports should carry the photos a deck names (a Marp bundle
+   already copies `sample:` art; `.lattice` would need a safe read side). They keep the reference only.
+4. Whether a video export that keeps the original bytes should strip the GPS atom (a small
    rewrite of the file's header boxes, no re-encode) or fall back to the poster frame whenever
    location is present. The atom rewrite is cheap but is a byte change to a user's video.
-4. Whether camera capture ("Take Photo") warrants its own button, or `accept="image/*"` is
+5. Whether camera capture ("Take Photo") warrants its own button, or `accept="image/*"` is
    enough. On iOS it is enough; on some Android browsers the picker hides the camera unless
    `capture` is set. Slice 1 checks.

@@ -31,7 +31,7 @@ async function addPng(page: Page, name: string, size: { w: number; h: number; co
 	);
 }
 
-test('@smoke a Library photo paints in the live preview, and deleting it falls back to the stand-in', async ({ page }, testInfo) => {
+test('@smoke a Library photo paints in the live preview, and deleting it falls back to the stand-in @webkit-tablet @gecko', async ({ page }, testInfo) => {
 	test.slow();
 	await gotoStudio(page);
 	await page.setViewportSize({ width: 1440, height: 900 });
@@ -70,7 +70,7 @@ test('@smoke a Library photo paints in the live preview, and deleting it falls b
 	await page.screenshot({ path: testInfo.outputPath('asset-deleted.png') });
 });
 
-test('@smoke a deck-only photo renders in its own deck, and flipping it to shared keeps it rendering', async ({ page }) => {
+test('@smoke a deck-only photo renders in its own deck, and flipping it to shared keeps it rendering @webkit-tablet @gecko', async ({ page }) => {
 	test.slow();
 	await gotoStudio(page);
 	await page.setViewportSize({ width: 1440, height: 900 });
@@ -96,7 +96,7 @@ test('@smoke a deck-only photo renders in its own deck, and flipping it to share
 // The collage reads each photo's SHAPE to pack them edge to edge. Library photos are blob: URLs the
 // build-time reader cannot open, so the live preview has to learn the shape another way; this
 // proves the tiles paint and fill the frame, not just that the references resolved.
-test('@smoke a collage of Library photos paints every tile and fills its frame', async ({ page }, testInfo) => {
+test('@smoke a collage of Library photos paints every tile and fills its frame @webkit-tablet @gecko', async ({ page }, testInfo) => {
 	test.slow();
 	await gotoStudio(page);
 	await page.setViewportSize({ width: 1440, height: 900 });
@@ -125,7 +125,7 @@ test('@smoke a collage of Library photos paints every tile and fills its frame',
 
 // The presenter is a second surface: its own frame, its own sanitizer pass. It has to load the same
 // object URL the preview did, or a deck that looked right while editing shows a hole on stage.
-test('@smoke a Library photo paints in the Present overlay', async ({ page }, testInfo) => {
+test('@smoke a Library photo paints in the Present overlay @webkit-tablet @gecko', async ({ page }, testInfo) => {
 	test.slow();
 	await gotoStudio(page);
 	await page.setViewportSize({ width: 1440, height: 900 });

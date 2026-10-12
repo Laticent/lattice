@@ -456,15 +456,19 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	// resized or re-encoded when the plan says so, named from its file name, and saved to the
 	// chosen scope. A batch names its files against what is on the shelf AND against each other,
 	// so IMG_0042 and IMG_0042 (1) land as img-0042 and img-0042-1 instead of refusing each other.
-	async function addMediaFiles(files: FileList | null) {
-		if (!files?.length) return;
+	async function addMediaFiles(files: FileList | File[] | null) {
+		// COPY THE FILES OUT FIRST, before any await. A FileList is live: in WebKit it is already empty by
+		// the time the `await` below returns (measured on real WebKit, where the first version added
+		// nothing and said nothing), and the drop path hands over a DataTransfer's list that dies with it.
+		const picked = Array.from(files ?? []);
+		if (!picked.length) return;
 		const scope = addScope === 'deck' && activeDeckId ? activeDeckId : LIBRARY_SCOPE;
 		setBusy('Adding…');
 		const taken = new Set((await listMedia()).map((a) => a.name));
 		let n = 0;
 		const failed: string[] = [];
 		try {
-			for (const file of Array.from(files)) {
+			for (const file of picked) {
 				try {
 					if (!classifyMedia(file)) throw new MediaImportError(`${file.name} isn't an image.`);
 					const rec = await importImage(file, scope);
@@ -473,6 +477,9 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 					taken.add(rec.name);
 					n++;
 				} catch (e) {
+					// The person is told below; the cause goes to the console for whoever has to debug a browser
+					// that refuses (a private window, a full quota, an engine that cannot store a Blob).
+					console.warn('lattice: could not add an image', file.name, e);
 					const msg = String((e as Error)?.message ?? '');
 					failed.push(e instanceof MediaImportError || msg.startsWith(MEDIA_REFUSAL_PREFIX) ? msg : `${file.name}: could not be added.`);
 				}
@@ -650,7 +657,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 		};
 		if (zips.length) await importFiles(asList(zips));
 		if (docs.length) await addDocFiles(asList(docs));
-		if (images.length) await addMediaFiles(asList(images));
+		if (images.length) await addMediaFiles(images);
 		if (rejected.length) notify(rejectedMessage(rejected.map((f) => f.name)));
 	}
 	// A counter, not a boolean: `dragleave` fires every time the pointer crosses into a

@@ -19,6 +19,9 @@ export type MediaKind = 'image' | 'video';
 /** `'library'` — every deck — or the id of the one deck that owns the asset. */
 export type MediaScope = string;
 export const LIBRARY_SCOPE: MediaScope = 'library';
+/** The most one photo may be, on import and on restore. The two must agree, or a photo the Library
+ *  accepted would be one a backup could never bring back (workspace-media.ts). */
+export const MAX_MEDIA_FILE_BYTES = 50 * 1024 * 1024;
 
 export type MediaRecord = {
 	id: string;
@@ -82,6 +85,32 @@ export async function saveMedia(input: NewMedia, addedAt: number): Promise<Media
 	if (!isMediaName(input.name)) {
 		throw new Error(`${MEDIA_REFUSAL_PREFIX} “${input.name}” isn't a usable asset name. Use lowercase letters, digits, - and _.`);
 	}
+	const id = newId();
+	try {
+		return await putMedia(input, id, addedAt, false);
+	} catch (first) {
+		// A refusal of ours (a name clash) is the author's to fix: never retried, never reworded.
+		if (isRefusal(first)) throw first;
+		// Some engines refuse to store a Blob at all: Safari in a private window answers
+		// "UnknownError: Error preparing Blob/File data to be stored in object store" (reproduced on real
+		// WebKit), while an ArrayBuffer stores fine. So the bytes go in as an ArrayBuffer and are rebuilt
+		// into a Blob on the way out. A Blob stays the first choice: IndexedDB hands it back file-backed, so
+		// a shelf of photos is not held in memory, and an ArrayBuffer is.
+		try {
+			return await putMedia(input, id, addedAt, true);
+		} catch (second) {
+			if (isRefusal(second)) throw second;
+			throw new Error(`${MEDIA_REFUSAL_PREFIX} this browser would not store the photo. A private window often cannot; open Lattice in a normal window and try again.`);
+		}
+	}
+}
+
+const isRefusal = (e: unknown): boolean => e instanceof Error && e.message.startsWith(MEDIA_REFUSAL_PREFIX);
+
+/** One attempt: the name check and the write share one readwrite transaction. `asBuffer` stores the
+ *  bytes as an ArrayBuffer (`data`) instead of a Blob. */
+async function putMedia(input: NewMedia, id: string, addedAt: number, asBuffer: boolean): Promise<MediaRecord> {
+	const data = asBuffer ? await input.blob.arrayBuffer() : null;
 	const db = await openDB();
 	return new Promise<MediaRecord>((resolve, reject) => {
 		const t = db.transaction(ASSET_STORE, 'readwrite');
@@ -108,12 +137,24 @@ export async function saveMedia(input: NewMedia, addedAt: number): Promise<Media
 					t.abort();
 					return;
 				}
-				stored = { ...input, id: newId(), addedAt };
-				store.put(stored);
+				stored = { ...input, id, addedAt };
+				if (asBuffer) {
+					const { blob: _blob, ...rest } = stored;
+					store.put({ ...rest, data });
+				} else {
+					store.put(stored);
+				}
 			};
 		};
 		read(0);
 	});
+}
+
+/** A record as the app uses it: a `blob`, whichever way the bytes were stored. */
+function readable(row: MediaRecord & { data?: ArrayBuffer }): MediaRecord {
+	if (row.blob || !row.data) return row;
+	const { data, ...rest } = row;
+	return { ...rest, blob: new Blob([data], { type: row.mime }) } as MediaRecord;
 }
 
 /** Every saved image and video, newest first. IndexedDB unavailable → an empty shelf. */
@@ -122,7 +163,7 @@ export async function listMedia(): Promise<MediaRecord[]> {
 		const db = await openDB();
 		const store = db.transaction(ASSET_STORE, 'readonly').objectStore(ASSET_STORE);
 		const rows = await Promise.all(KINDS.map((k) => reqAsPromise(store.index('kind').getAll(k)) as Promise<MediaRecord[]>));
-		return rows.flat().sort((a, b) => b.addedAt - a.addedAt);
+		return rows.flat().map(readable).sort((a, b) => b.addedAt - a.addedAt);
 	} catch {
 		return [];
 	}
@@ -148,8 +189,9 @@ export async function setMediaScope(id: string, scope: MediaScope): Promise<Medi
 		get.onsuccess = () => {
 			const row = get.result as MediaRecord | undefined;
 			if (!row || !KINDS.includes(row.kind)) return;
-			out = { ...row, scope };
-			store.put(out);
+			// The raw row keeps whichever of `blob` or `data` it was stored with; only the copy handed back is made readable.
+			store.put({ ...row, scope });
+			out = readable({ ...row, scope });
 		};
 	});
 }

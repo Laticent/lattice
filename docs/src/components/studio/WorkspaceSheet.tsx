@@ -467,9 +467,10 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 			const s = await restoreWorkspace(file, Date.now());
 			const decks = s.added + s.restoredCopies;
 			const assets = s.themes + s.components + s.finishes + s.scenes;
+			const photos = s.media;
 			// A library package the backup held but could not be read back is NAMED, never
 			// dropped in silence — the reload below would otherwise hide that it was ever there.
-			const done = `Workspace restored — ${decks} deck${decks === 1 ? '' : 's'}${assets ? ` + ${assets} library asset${assets === 1 ? '' : 's'}` : ''} in.`;
+			const done = `Workspace restored — ${decks} deck${decks === 1 ? '' : 's'}${assets ? ` + ${assets} library asset${assets === 1 ? '' : 's'}` : ''}${photos ? ` + ${photos} photo${photos === 1 ? '' : 's'}` : ''} in.`;
 			// The restore touches decks, settings, and the Library across several
 			// stores; a reload is the one honest way to re-derive every view of them.
 			// Always reload at once, while this modal still covers the editor: a tab left live over the
@@ -1308,7 +1309,7 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 								<GovRow
 									icon={<FileBox className="size-4" />}
 									title="Library assets"
-									description="Saved themes, components, finishes, and reference docs."
+									description="Saved themes, components, finishes, reference docs, and photos. Clearing this deletes your photos too."
 									stat={gov ? `${gov.library.count} asset${gov.library.count === 1 ? '' : 's'}${gov.library.bytes ? ` · ${fmtBytes(gov.library.bytes)}` : ''}` : undefined}
 									armed={govArmed === 'library'}
 									busy={govBusy === 'library'}
