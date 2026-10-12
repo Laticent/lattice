@@ -1049,6 +1049,23 @@ self-check that plants defects and requires them to be caught. Run one width wit
 `npx playwright test axe-site --project=mobile`. Rationale and the still-open list:
 `engineering/decisions/2026-08-19-website-accessibility-gate.md`.
 
+**The Live panel against fixtures** (`e2e/live-panel.spec.ts`, harness in `e2e/live-panel-harness/`).
+The Studio mounts `LivePanel` only inside a live session, which needs a relay and a second browser.
+The panel is pure over `LiveView` + `LiveActions` (`live-model.ts`), so the harness mounts the REAL
+component with a fixture view and records every action it calls; the spec bundles it with the site's
+own Tailwind plugin and the palette tokens at test time (never committed, HARD RULE #2), so what it
+renders is what the Studio renders. It covers what a person sees and can do in the panel, at 1440
+and 390 px: the call row (join, mute, leave), the leave and end confirmations (they act once), the
+person menu staying on screen, the narrowest docked column, and an axe scan of the panel and the
+person menu in both color modes. Run it with `npx playwright test e2e/live-panel.spec.ts` from
+`docs/`; it needs no relay and no WebRTC, and runs in seconds. The transport (knock, admit, edit
+sync, regency, real calls) is covered by `tools/live-session-check.mjs` today, on demand, and later
+by two-browser specs against a local relay (nightly only). Two things the axe helper does on
+purpose, both measured: a scan with a Radix menu open drops only `aria-hidden-focus` (the menu marks
+the page behind it `aria-hidden` and traps focus, and `assertFocusTrapped` proves the trap in the
+same test), and the scan reads the resting state with the pointer moved away, because a hovered row
+has its own lower contrast, which is a recorded follow-up (filed in followups.d/ with this PR).
+
 **Note the distinct-tool boundary.** `tools/check-shadcn-bridge-contrast.js` grades the token
 MATH of the shadcn bridge and `tools/contrast-audit.js` grades the theme token pairs; neither can
 see which CSS rule wins. The 1:1 nav label that motivated the `@a11y` gate passed both. Token
