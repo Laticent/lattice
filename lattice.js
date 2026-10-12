@@ -2185,7 +2185,7 @@ function engineSlides(deckSource = rawMd) {
     s = imageDimensions.stampImageComposition(s);
     // Collage: pack the photo grid from each photo's header size (the structure step already
     // ran in the engine render; only the CLI can read files).
-    s = collageStamp.stampCollage(s, deckBaseUrl);
+    s = collageStamp.stampCollage(s, deckBaseUrl, parseFloat(_geom.width) / parseFloat(_geom.height));
     // The `statement` composition (text on a scrim over a full-bleed photo) is the
     // only one that needs a contrast scrim node; every other composition carries
     // its own contrast (solid card / matte / panel). statement is opt-in, so it's

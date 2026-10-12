@@ -73,12 +73,12 @@ function photoPoint(page: Page, index: number) {
 	}, index);
 }
 
-async function openStudioDeck(page: Page) {
+async function openStudioDeck(page: Page, source: string = deck) {
 	// Type at desktop width, where the editor is on screen, then resize to the project's own box.
 	const target = page.viewportSize() ?? { width: 1440, height: 900 };
 	await page.setViewportSize({ width: 1440, height: 900 });
 	await gotoStudio(page);
-	await setEditorContent(page, deck);
+	await setEditorContent(page, source);
 	// The preview follows the caret, which typing left at the end of the deck: move it to slide 1.
 	await page.keyboard.press('Control+Home');
 	await expect(slideTitle(page)).toHaveText('First slide', { timeout: 15_000 });
@@ -197,4 +197,41 @@ test('@smoke @crosswidth a mouse drag that ends on a photo does not open it; a p
 	await page.mouse.move(at.x + 3, at.y + 2);
 	await page.mouse.up();
 	await expect(lightbox(page)).toBeVisible({ timeout: 15_000 });
+});
+
+// ── bleed packs for the deck's own shape (#2641 P4) ──────────────────────────────────────
+// A bleed grid is stretched to the slide, so what the layout leaves empty is cropped off each photo.
+// The packer used to assume 16:9, so a 4:3 deck cropped about a third of every photo. The live path
+// now measures the section and packs for its real aspect, as the CLI does from the deck's size.
+test('@smoke the live preview packs a bleed collage for the deck\'s own 4:3 shape', async ({ page }) => {
+	const fourThree = `---
+marp: true
+size: standard
+---
+
+<!-- _class: collage bleed -->
+
+## First slide
+
+${grid}
+`;
+	await openStudioDeck(page, fourThree);
+	await expect(livePreview(page).locator('ul[data-collage="packed"]')).toHaveCount(1, { timeout: 30_000 });
+	const m = await page.evaluate(() => {
+		const doc = (document.querySelector('iframe.live') as HTMLIFrameElement).contentDocument as Document;
+		const sec = doc.querySelector('section.collage') as HTMLElement;
+		const crops = [...sec.querySelectorAll('.collage-tile')].map((t) => {
+			const i = t.querySelector('img') as HTMLImageElement;
+			const r = t.getBoundingClientRect();
+			const a = i.naturalWidth / i.naturalHeight;
+			const b = r.width / r.height;
+			return 1 - Math.min(a / b, b / a);
+		});
+		return { slide: sec.offsetWidth / sec.offsetHeight, crops };
+	});
+	// ANTI-VACUITY: this really is a 4:3 canvas with four measured photos.
+	expect(m.slide).toBeCloseTo(4 / 3, 2);
+	expect(m.crops).toHaveLength(4);
+	// Packed for 16:9 these were 0.33; packed for 4:3 the demo set crops 4.4%.
+	for (const c of m.crops) expect(c).toBeLessThan(0.08);
 });
