@@ -72,7 +72,23 @@ function isFenceClose(line: string, open: { marker: string; len: number }): bool
 }
 
 const isHeading = (l: string) => /^#{1,6}\s+/.test(l);
-const isItem = (l: string) => /^\s*[-*]\s+/.test(l) || /^\s*\d+\.\s+/.test(l);
+// A horizontal rule is three or more of one marker. Tested BEFORE list items: `* * *` and
+// `- - -` look like an item to `isItem`.
+const isRule = (l: string) => /^\s{0,3}([-*_])(\s*\1){2,}\s*$/.test(l);
+const isItem = (l: string) => !isRule(l) && (/^\s*[-*]\s+/.test(l) || /^\s*\d+[.)]\s+/.test(l));
+// Prose is escaped BEFORE it is parsed, so a quote marker arrives as `&gt;`.
+const isQuote = (l: string) => /^\s{0,3}&gt;/.test(l);
+// A table separator row: `| --- | :-: |`. At least one `-` per cell, cells split by pipes.
+const isTableSep = (l: string) => /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/.test(l);
+const splitRow = (l: string): string[] => {
+	// An escaped pipe stays inside its cell; swap it for a sentinel while splitting.
+	const t = l.trim().replace(/\\\|/g, '\uE000').replace(/^\|/, '').replace(/\|$/, '');
+	return t.split('|').map((c) => c.trim().split('\uE000').join('|'));
+};
+const isTableStart = (lines: string[], i: number) => i + 1 < lines.length && lines[i].includes('|') && isTableSep(lines[i + 1]) && splitRow(lines[i]).length === splitRow(lines[i + 1]).length;
+// Anything that begins a block of its own ends a paragraph.
+const startsBlock = (lines: string[], i: number) => isHeading(lines[i]) || isItem(lines[i]) || isRule(lines[i]) || isQuote(lines[i]) || !!fenceOpen(lines[i]) || isTableStart(lines, i);
+const indentOf = (l: string) => (/^\s*/.exec(l)?.[0] ?? '').replace(/\t/g, '    ').length;
 
 // The language token surfaced as a code-block label. Derived from the info-string
 // AFTER escaping (never from raw model source — R7), first word only.
@@ -81,54 +97,130 @@ function langLabel(info: string): string {
 }
 
 // Render a run of prose (no fences) to safe HTML: escape everything, then layer
-// headings / lists / paragraphs / inline spans on the escaped text.
+// headings / lists / tables / quotes / paragraphs / inline spans on the escaped text.
 export function renderProse(md: string): string {
-	const lines = escapeHtml(md).split('\n');
+	return renderBlocks(escapeHtml(md).split('\n'));
+}
+
+type ListItem = { indent: number; tag: 'ul' | 'ol'; num: number; paras: string[][] };
+type OpenList = { indent: number; tag: 'ul' | 'ol'; start: number; lis: string[] };
+
+// Render the items of ONE list block, nested by indent. A `<li>` stays open until its list
+// closes so a deeper list can be appended to it.
+function renderList(items: ListItem[]): string {
+	const stack: OpenList[] = [];
+	let out = '';
+	const liHtml = (it: ListItem) => it.paras.map((p, k) => (k === 0 ? p.map(inline).join('<br>') : `<div class="cm-md-li-p">${p.map(inline).join('<br>')}</div>`)).join('');
+	const close = () => {
+		const l = stack.pop() as OpenList;
+		const start = l.tag === 'ol' && l.start !== 1 ? ` start="${l.start}"` : '';
+		const html = `<${l.tag} class="cm-md-list"${start}>${l.lis.map((x) => `<li>${x}</li>`).join('')}</${l.tag}>`;
+		if (stack.length) stack[stack.length - 1].lis[stack[stack.length - 1].lis.length - 1] += html;
+		else out += html;
+	};
+	for (const it of items) {
+		while (stack.length && it.indent < stack[stack.length - 1].indent) close();
+		const top = stack[stack.length - 1];
+		if (top && it.indent === top.indent && it.tag !== top.tag) close();
+		const cur = stack[stack.length - 1];
+		if (!cur || it.indent > cur.indent) stack.push({ indent: it.indent, tag: it.tag, start: it.num, lis: [liHtml(it)] });
+		else cur.lis.push(liHtml(it));
+	}
+	while (stack.length) close();
+	return out;
+}
+
+// Already-escaped lines in, HTML out. Recursive only for a quote's body.
+function renderBlocks(lines: string[]): string {
 	const out: string[] = [];
 	let i = 0;
-	let listTag: string | null = null;
-	let items: string[] = [];
-	const flush = () => {
-		if (listTag) {
-			out.push(`<${listTag} class="cm-md-list">${items.map((t) => `<li>${inline(t)}</li>`).join('')}</${listTag}>`);
-			listTag = null;
-			items = [];
-		}
-	};
 	while (i < lines.length) {
 		const line = lines[i];
+		if (line.trim() === '') {
+			i++;
+			continue;
+		}
 		const h = line.match(/^(#{1,6})\s+(.*)$/);
 		if (h) {
-			flush();
 			out.push(`<div class="cm-md-h cm-md-h${h[1].length}">${inline(h[2])}</div>`);
 			i++;
 			continue;
 		}
-		const ul = line.match(/^\s*[-*]\s+(.*)$/);
-		const ol = line.match(/^\s*\d+\.\s+(.*)$/);
-		if (ul || ol) {
-			const tag = ul ? 'ul' : 'ol';
-			if (listTag && listTag !== tag) flush();
-			listTag = tag;
-			items.push(ul ? ul[1] : (ol as RegExpMatchArray)[1]);
+		if (isRule(line)) {
+			out.push('<hr class="cm-md-hr">');
 			i++;
 			continue;
 		}
-		if (line.trim() === '') {
-			flush();
-			i++;
+		if (isQuote(line)) {
+			const body: string[] = [];
+			while (i < lines.length && isQuote(lines[i])) {
+				body.push(lines[i].replace(/^\s{0,3}&gt;\s?/, ''));
+				i++;
+			}
+			out.push(`<blockquote class="cm-md-quote">${renderBlocks(body)}</blockquote>`);
 			continue;
 		}
-		flush();
+		if (isTableStart(lines, i)) {
+			const head = splitRow(lines[i]);
+			const align = splitRow(lines[i + 1]).map((c) => (c.startsWith(':') && c.endsWith(':') ? 'c' : c.endsWith(':') ? 'r' : ''));
+			i += 2;
+			const rows: string[][] = [];
+			while (i < lines.length && lines[i].trim() !== '' && lines[i].includes('|') && !startsBlock(lines, i)) {
+				rows.push(splitRow(lines[i]));
+				i++;
+			}
+			const cell = (tag: 'th' | 'td', text: string, k: number) => `<${tag}${align[k] ? ` class="cm-al-${align[k]}"` : ''}>${inline(text ?? '')}</${tag}>`;
+			out.push(
+				`<div class="cm-md-table-wrap"><table class="cm-md-table"><thead><tr>${head.map((c, k) => cell('th', c, k)).join('')}</tr></thead>` +
+					`<tbody>${rows.map((r) => `<tr>${head.map((_, k) => cell('td', r[k] ?? '', k)).join('')}</tr>`).join('')}</tbody></table></div>`,
+			);
+			continue;
+		}
+		if (isItem(line)) {
+			// ONE list per run of items. A blank line does not end a list when another item (or an
+			// indented continuation) follows it: models separate loose items with blank lines, and
+			// closing the list there restarted every numbered item at 1.
+			const items: ListItem[] = [];
+			while (i < lines.length) {
+				const l = lines[i];
+				const m = /^(\s*)([-*]|(\d+)[.)])\s+(.*)$/.exec(l);
+				if (m && !isRule(l)) {
+					items.push({ indent: indentOf(m[1]), tag: m[3] !== undefined ? 'ol' : 'ul', num: m[3] !== undefined ? Number(m[3]) : 1, paras: [[m[4]]] });
+					i++;
+					continue;
+				}
+				if (l.trim() === '') {
+					let j = i;
+					while (j < lines.length && lines[j].trim() === '') j++;
+					if (j < lines.length && isItem(lines[j])) {
+						i = j;
+						continue;
+					}
+					// An indented line after a blank is a new paragraph INSIDE the last item.
+					if (j < lines.length && indentOf(lines[j]) >= 2 && !startsBlock(lines, j)) {
+						items[items.length - 1].paras.push([lines[j].trim()]);
+						i = j + 1;
+						continue;
+					}
+					break;
+				}
+				if (startsBlock(lines, i)) break;
+				// A lazy continuation line of the current item's paragraph.
+				const last = items[items.length - 1];
+				last.paras[last.paras.length - 1].push(l.trim());
+				i++;
+			}
+			out.push(renderList(items));
+			continue;
+		}
 		const para = [line];
 		i++;
-		while (i < lines.length && lines[i].trim() !== '' && !isHeading(lines[i]) && !isItem(lines[i]) && !fenceOpen(lines[i])) {
+		while (i < lines.length && lines[i].trim() !== '' && !startsBlock(lines, i)) {
 			para.push(lines[i]);
 			i++;
 		}
 		out.push(`<p>${para.map(inline).join('<br>')}</p>`);
 	}
-	flush();
 	return out.join('');
 }
 
