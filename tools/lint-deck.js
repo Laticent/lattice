@@ -149,9 +149,12 @@ async function main(argv) {
   // after one's fence name are ignored today. Read from the package store, as a render reads it.
   try {
     const home = require('../lib/packages/home.js');
-    const plugins = home.listInstalled(home.packagesRoot()).filter((p) => p.type === 'plugin' && p.ok && p.pkg?.manifest?.contributes?.fences);
+    // The plugins a render would USE: the same gate and shipped-name rule as lattice.js withInstalledPlugins.
+    const { refusePackage } = require('../lib/packages/gate.js');
+    const shipped = require('../lib/plugins/registry.generated.js').PLUGINS.map((g) => g.name);
+    const plugins = home.listInstalled(home.packagesRoot()).filter((p) => p.type === 'plugin' && p.ok && !shipped.includes(p.name) && !refusePackage(p.pkg, { forRender: true }));
     vocab.externalPlugins = plugins.map((p) => p.name);
-    vocab.externalFences = plugins.flatMap((p) => Object.keys(p.pkg.manifest.contributes.fences));
+    vocab.externalFenceOf = Object.fromEntries(plugins.map((p) => [p.name, Object.keys(p.pkg.manifest.contributes.fences)[0]]));
   } catch {
     /* no store: no external plugins */
   }

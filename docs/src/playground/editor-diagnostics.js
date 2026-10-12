@@ -76,19 +76,23 @@ export function chunkStartLines(src) {
 // makes, by reference: the editor builds its vocabulary once, and a plugin imported later must still be known.
 /** @type {string[]} */
 const EXTERNAL_PLUGINS = [];
-/** @type {string[]} the fence names those plugins own */
-const EXTERNAL_FENCES = [];
+/** @type {Record<string, string>} plugin name -> the fence it owns */
+const EXTERNAL_FENCE_OF = {};
 
 /**
- * Tell the linter which plugins the host holds that are not in the shipped registry, and the fences they own.
+ * Tell the linter which plugins the host holds that are not in the shipped registry, and the fence each owns.
  * @param {Iterable<string>} names
- * @param {Iterable<string>} [fences]
+ * @param {Iterable<string>} [fences]  parallel to `names`
  */
 export function setExternalPlugins(names, fences = []) {
+	const list = [...names];
+	const owned = [...fences];
 	EXTERNAL_PLUGINS.length = 0;
-	EXTERNAL_PLUGINS.push(...names);
-	EXTERNAL_FENCES.length = 0;
-	EXTERNAL_FENCES.push(...fences);
+	EXTERNAL_PLUGINS.push(...list);
+	for (const k of Object.keys(EXTERNAL_FENCE_OF)) delete EXTERNAL_FENCE_OF[k];
+	list.forEach((n, i) => {
+		if (owned[i]) EXTERNAL_FENCE_OF[n] = owned[i];
+	});
 }
 
 /** @returns {VocabSets} */
@@ -99,7 +103,7 @@ export function buildVocabSets(vocab) {
 		names: new Set(v.names || []),
 		modifiers: new Set(v.modifiers || []),
 		externalPlugins: EXTERNAL_PLUGINS,
-		externalFences: EXTERNAL_FENCES,
+		externalFenceOf: EXTERNAL_FENCE_OF,
 	};
 	// Map region/group vocabulary — { us, world }, each { valid, names }.
 	if (v.mapRegions) {
