@@ -258,3 +258,20 @@ this note removed, back under any styled register. Measured on indaco at x=960, 
 before: 8px duo gradient, then the 8px panel bar (`#006FA8` / `#82C8E5` dark). After: the panel bar
 alone, identical to the rainbow deck. The register rule now excludes `.split-panel` and
 `.split-compare` inside its existing `:where()`, so its specificity stays (0,3,1).
+
+## Addendum 2026-10-12 — a semantic `tone-edge` doubled the bar
+
+Same shape as the register case above, from a different rule. The semantic `tone-edge` rule in
+`lib/base/base.variants.css` (0,2,1) paints a 4px section `border-top`, which beats the frames'
+`border-top: none` (0,1,1). Measured on indaco at 2560x1440, `split-panel tone-pass tone-edge`, x=1600,
+rows 2 and 8: tone bar `#1C5000`, then the ribbon `#129FC1` below it (dark: `#A0FF7F`, then `#129FC1`);
+`split-compare tone-warn tone-edge` the same with `#8A5D00` / `#EDB85C`. The control without
+`tone-edge` shows the ribbon alone. Pre-existing and identical in every spectrum register.
+
+The fix follows `accent`: the tone color recolors the supporting-zone ribbon (`--_ribbon` on
+`split-panel`, the `.compare-right` background on `split-compare`) and the frame drops the border.
+The featured panel keeps its `--panel-mark` edge, as under `accent`. After, the same pixels read the
+tone color alone at row 2 and the panel background from row 8 on, in light and dark. The rules sit in
+`base.variants.css` beside `tone-edge` because the variant-declaration gate reads a `.tone-edge`
+chained onto a component root as an undeclared variant; they win on specificity, not file order, so
+they also beat the components' `spectrum-off` clear.

@@ -33,3 +33,17 @@ test('the register excludes a SEMANTIC tone-edge only, so a bare tone-edge keeps
 test('the exclusion is wrapped in :where() so the register keeps its specificity', () => {
   assert.match(rule, /:not\(:where\(/);
 });
+
+// A semantic tone-edge on a split frame: the tone bar replaces the ribbon rather than stacking on it.
+const toneEdge = (sel) => CSS.match(new RegExp(`${sel}[^{}]*\\{[^}]*\\}`, 'g')) ?? [];
+
+test('a semantic tone-edge on a split frame drops the section border its own rule paints', () => {
+  const block = CSS.match(/section\.split-panel:is\([^{]*\.tone-edge,\s*section\.split-compare:is\([^{]*\.tone-edge\s*\{[^}]*\}/)?.[0] ?? '';
+  assert.match(block, /border-top:\s*none/);
+  assert.match(block, /--_bar-t:\s*0px/);
+});
+
+test('a semantic tone-edge recolors each split frame\'s ribbon with --tone-color', () => {
+  assert.ok(toneEdge('section\\.split-panel:is').some((r) => /--_ribbon:\s*linear-gradient\(var\(--tone-color\)/.test(r)));
+  assert.ok(toneEdge('section\\.split-compare:is').some((r) => /\.compare-right\s*\{[^}]*linear-gradient\(var\(--tone-color\)/.test(r)));
+});
