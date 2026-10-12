@@ -81,9 +81,10 @@ crew-neck top, so every face drawn before they existed is unchanged.
   hair under a hijab.
 - **Which hair it hides.** A hijab and a turban hide all hair. A `skullcap` (a smooth
   close-fitting dome), a `beanie` (knit, with a ribbed cuff), a `kufi` (a flat-topped brimless cap with an
-  embroidered band), a `cap` (a baseball cap, bill forward) and a `backcap` (the same cap worn backwards,
-  with its rear strap showing) hide the fringe, and the volume that would rise above them: a bun, an afro
-  or curls. Long hair and locs still fall below them. A `turban` is wound cloth with a knot at the front.
+  embroidered band), a `cap` (a baseball cap, bill forward) hide the fringe, and the volume that would rise above them: a bun, an afro
+  or curls. Long hair and locs still fall below them. A `turban` is wound cloth with a knot at the front. A `backcap` is a fitted baseball cap worn
+  backwards: it sits back on the crown with its panel seams showing, so the hairline and fringe stay in
+  front of it, and only a bun, an afro or curls that would rise above it are hidden.
 - **Earrings** sit on the ears of every face shape. A hijab covers the ears, so it hides them. Hair in front of the ear (`bob`) covers the lobe, and only
   the edge of an earring shows.
 - **`clothing`** is the cut of the top: `crew` (the default), `vneck`, `collar` (a white-collared

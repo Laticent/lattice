@@ -164,10 +164,13 @@ SVG of 1,200 default faces (400 names × 3 gender presets) is byte-identical bef
   (the forehead band and the cheek panels of a hijab, a turban's wrap, a cap's dome and bill), drawn above
   front hair. `body` becomes `clothing.crew`; the neck and its chin shadow ship with every style.
 - **Which hair a covering hides is data, not code**: `coverage` in `traits.json`, per covering and
-  hairstyle. A hijab and a turban hide all hair. A skull cap, beanie, kufi, cap and backcap hide the front layer, and also the back layer for a
+  hairstyle. A hijab and a turban hide all hair. A skull cap, beanie, kufi and cap hide the front layer, and also the back layer for a
   bun, an afro and curls, whose volume would otherwise rise above the dome (seen on the contact sheet: curls
   puffed out above the cap until `curly` joined the rule). Long hair and locs keep their `mid` layer and still
-  fall below a cap. The hair trait stays resolved and stamped on `data-traits`; only its drawing is skipped.
+  fall below a cap. A `backcap` is a fitted cap worn backwards, so it sits back on the crown and hides no front
+  hair: only the back layer of a bun, an afro or curls (their volume rises above it). A first draw gave it a
+  rear strap and the fringe-hiding rule of a forward cap; the owner pointed out that baseball caps are fitted
+  and that a backwards one leaves the hairline showing, and both were wrong. The hair trait stays resolved and stamped on `data-traits`; only its drawing is skipped.
 - **Earrings are keyed by face shape**, because the ears sit at a different x on each. The generator accepts
   one list for every face or one per face; the shipped drawings are per face, derived from each face's ear
   ellipses. A hijab covers the ears, so `hides-earrings` in `traits.json` skips the earring layer for it (the cheek

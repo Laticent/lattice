@@ -103,7 +103,7 @@
     "skullcap": { "*": ["front"], "bun": ["back", "front"], "coily": ["back", "front"], "curly": ["back", "front"] },
     "beanie": { "*": ["front"], "bun": ["back", "front"], "coily": ["back", "front"], "curly": ["back", "front"] },
     "kufi": { "*": ["front"], "bun": ["back", "front"], "coily": ["back", "front"], "curly": ["back", "front"] },
-    "backcap": { "*": ["front"], "bun": ["back", "front"], "coily": ["back", "front"], "curly": ["back", "front"] },
+    "backcap": { "*": [], "bun": ["back"], "coily": ["back"], "curly": ["back"] },
     "cap":    { "*": ["front"], "bun": ["back", "front"], "coily": ["back", "front"], "curly": ["back", "front"] }
   },
   "hides-earrings": ["hijab"],

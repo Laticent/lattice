@@ -280,11 +280,14 @@ describe('avatars — earrings, head coverings and clothing', () => {
     assert.ok(count('hair=short, headwear=skullcap') < count('hair=short'), 'a skull cap hides the short fringe');
     assert.ok(count('hair=long, headwear=skullcap') > 0, 'long hair still falls below a skull cap');
     assert.equal(count('hair=coily, headwear=skullcap'), 0, 'a skull cap hides an afro, which would rise above it');
-    for (const h of ['beanie', 'kufi', 'backcap']) {
+    for (const h of ['beanie', 'kufi']) {
       assert.ok(count(`hair=short, headwear=${h}`) < count('hair=short'), `${h} hides the short fringe`);
       assert.ok(count(`hair=long, headwear=${h}`) > 0, `long hair still falls below a ${h}`);
       assert.equal(count(`hair=bun, headwear=${h}, gender=man`), 0, `${h} hides a bun`);
     }
+    // A fitted cap worn backwards sits back on the crown: the fringe and hairline stay in front of it.
+    assert.equal(count('hair=short, headwear=backcap'), count('hair=short'), 'a backwards cap leaves the fringe');
+    assert.ok(count('hair=bun, headwear=backcap, gender=man') < count('hair=bun, gender=man'), 'a backwards cap hides the bun that would rise above it');
     assert.equal(count('hair=bun, headwear=cap, gender=man'), 0, 'a cap hides a bun, which would rise above it');
   });
 
