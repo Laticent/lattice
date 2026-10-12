@@ -4,10 +4,11 @@
 // no extra option, no new module loaded (docs/src/components/studio/media-urls.ts).
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { studioRenderOptsHook } from '@/components/studio/asset-render-hook';
 import { deleteAsset, listAssets } from '@/components/studio/library/asset-store.js';
 import { LIBRARY_SCOPE, saveMedia } from '@/components/studio/media-store';
 import { resetAssetUrlsForTests } from '@/components/studio/media-urls';
-import { renderMarkdown } from './render-engine';
+import { renderMarkdown, setRenderOptsHook } from './render-engine';
 
 vi.mock('./ensure-katex', () => ({ deriveKatexProviderUrl: vi.fn(), ensureKatexProvider: vi.fn() }));
 
@@ -21,7 +22,30 @@ beforeEach(async () => {
 	for (const a of await listAssets()) await deleteAsset(a.id);
 });
 
+describe('renderMarkdown — a surface without the Studio hook (home, Playground)', () => {
+	it('never adds assetUrls and never reads the shelf, even for a source that names a photo', async () => {
+		setRenderOptsHook(null);
+		const { PG, render } = PGWith();
+		await renderMarkdown(PG, '![a](asset:hero)', 'indaco', { baseUrl: 'https://x.test/' });
+		expect(render.mock.calls[0][2]).toEqual({ baseUrl: 'https://x.test/' });
+	});
+
+	it('a hook that throws never fails the render', async () => {
+		setRenderOptsHook(async () => {
+			throw new Error('boom');
+		});
+		const { PG, render } = PGWith();
+		await expect(renderMarkdown(PG, '# hi', 'indaco', { baseUrl: 'https://x.test/' })).resolves.toBeDefined();
+		expect(render.mock.calls[0][2]).toEqual({ baseUrl: 'https://x.test/' });
+	});
+});
+
 describe('renderMarkdown — Library photos', () => {
+	beforeEach(() => {
+		// The tests above cleared the hook; the Studio registers it once at import.
+		setRenderOptsHook(studioRenderOptsHook);
+	});
+
 	it('adds nothing for a deck that names no photo', async () => {
 		const { PG, render } = PGWith();
 		await renderMarkdown(PG, '# hi\n\n![a](sample:photo-wide.jpg)', 'indaco', { baseUrl: 'https://x.test/' });

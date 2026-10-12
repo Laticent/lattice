@@ -36,8 +36,8 @@ export type RenderMarkdownOpts = {
 	/** Where `sample:<name>` images resolve — the staged lib/samples/ (./samples-base.ts). */
 	samplesUrl?: string;
 	/** Where `asset:<name>` Library photos resolve: name → URL (a `blob:` object URL in the Studio).
-	 *  Left unset, `renderMarkdown` fills it from the Studio's live map when the source names an
-	 *  `asset:` reference, and passes nothing otherwise. */
+	 *  Left unset, the Studio's render-options hook fills it when the source names an `asset:`
+	 *  reference (components/studio/asset-render-hook.ts); every other surface passes nothing. */
 	assetUrls?: Record<string, string>;
 	stats?: boolean;
 	/** Caller-supplied DECK POSITION for a document holding only part of the deck:
@@ -63,6 +63,17 @@ export type RenderMarkdownOpts = {
 	 *  rendered alone passes the whole deck's admission (`PG.pluginAdmission`): it is deck-wide. */
 	pluginDefaults?: string[];
 };
+/**
+ * A host's chance to add options to a render, given the source about to be rendered. The Studio
+ * registers one (components/studio/asset-render-hook.ts) to hand the engine its Library-photo map.
+ * It lives behind a hook, not in this file, because this module is on the home page's and the
+ * Playground's startup path and neither has a Library: the code for it ships only to the Studio.
+ */
+export type RenderOptsHook = (source: string, opts: RenderMarkdownOpts | undefined) => Promise<RenderMarkdownOpts | undefined>;
+let optsHook: RenderOptsHook | null = null;
+export function setRenderOptsHook(hook: RenderOptsHook | null): void {
+	optsHook = hook;
+}
 export type RenderMarkdownResult = { html: string; css: string; flatCss?: string; width?: number; height?: number; stats?: import('@/playground/render-metrics').RenderStats };
 
 /**
@@ -115,19 +126,15 @@ export async function renderMarkdown(
 	// render runs twice around the registry's code-packages slot, and each package runs sandboxed
 	// after the user approved it (code-packages/door.ts). One chokepoint, so every Studio surface
 	// and every export runs them the same way.
-	// LIBRARY PHOTOS (`asset:<name>`): the map comes from the Studio's registry, loaded only when
-	// the source names one — a deck without a Library photo never imports it, so this chokepoint
-	// adds nothing to the landing page or the Playground. A caller that passes its own `assetUrls`
-	// (a test, a host with another source) keeps it. Grammar: lib/core/remote-ref.js `assetName`.
-	let withAssets = opts;
-	if (!opts?.assetUrls && /\basset:[a-z0-9]/i.test(rendered)) {
+	// A host's added options (the Studio's Library-photo map). A deck that needs none gets `opts`
+	// back untouched. A hook that throws must never fail a render, so it falls back to `opts`.
+	let withHook = opts;
+	if (optsHook) {
 		try {
-			const { ensureAssetUrls } = await import('@/components/studio/media-urls');
-			withAssets = { ...opts, assetUrls: await ensureAssetUrls() };
+			withHook = await optsHook(rendered, opts);
 		} catch {
-			// The registry (or IndexedDB) is unavailable: render without a map, and the reference
-			// passes through untouched exactly as it does in the CLI.
+			withHook = opts;
 		}
 	}
-	return renderWithCodePackages<RenderMarkdownResult>(PG, rendered, theme, withAssets);
+	return renderWithCodePackages<RenderMarkdownResult>(PG, rendered, theme, withHook);
 }
