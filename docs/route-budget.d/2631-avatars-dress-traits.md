@@ -1,3 +1,3 @@
-studio: +296
-The avatars vocabulary the kernel always loads grew from 2.3KB to about 2.8KB raw: four new traits (earrings, headwear, headwear-color, clothing) and their option names, including eight head coverings, plus their one-entry default pools. The kernel needs the names to read and lint a span the same in the Studio's editor as in the engine.
-Given back first: the drawings (13KB to about 30KB raw) stay out of every route; they load through plugin-data only for a deck that writes `!{`.
+studio: +479
+The avatars kernel is always loaded so a span reads and lints the same in the Studio's editor as in the engine. It grew from the vocabulary of four new traits (earrings, headwear, headwear-color, clothing), including eight head coverings and their one-entry default pools, and from the small function that fits a head covering to the face and hair under it.
+Given back first: the drawings and the fit measurements (13KB to about 32KB raw) stay out of every route; they load through plugin-data only for a deck that writes `!{`.
