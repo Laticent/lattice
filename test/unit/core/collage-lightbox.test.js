@@ -345,3 +345,102 @@ test('the core still closes over nothing at module scope with the kernel passed 
   doc.dispatchEvent(new doc.defaultView.KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true }));
   assert.equal(h.index(), 1);
 });
+const scaleOf = (root) => {
+  const t = root.querySelector('img').style.transform;
+  const m = /scale\(([\d.]+)\)/.exec(t);
+  return m ? Number(m[1]) : 1;
+};
+const pillOf = (root) => root.querySelector('button:last-of-type');
+
+test('zoom: ctrl + wheel (a trackpad pinch) zooms about the cursor and shows the percentage pill', () => {
+  const { root, win } = stepper();
+  assert.equal(scaleOf(root), 1);
+  root.dispatchEvent(new win.WheelEvent('wheel', { deltaY: -400, ctrlKey: true, bubbles: true, cancelable: true }));
+  assert.ok(scaleOf(root) > 1.5, `zoomed in: ${scaleOf(root)}`);
+  const pill = pillOf(root);
+  assert.notEqual(pill.style.display, 'none');
+  assert.match(pill.textContent, /^\d+%$/);
+  assert.match(pill.getAttribute('aria-label'), /Reset zoom to fit/);
+  const plain = new win.WheelEvent('wheel', { deltaY: -400, bubbles: true, cancelable: true });
+  const before = scaleOf(root);
+  root.dispatchEvent(plain);
+  assert.equal(plain.defaultPrevented, true, 'a plain wheel does not scroll what is behind');
+  assert.equal(scaleOf(root), before, 'a plain wheel does not zoom');
+});
+
+test('zoom: + and - step it, 0 and the pill return to fit, and it never goes past the bounds', () => {
+  const { root, key, doc } = stepper();
+  key('+');
+  key('=');
+  assert.ok(scaleOf(root) > 1.5);
+  key('-');
+  key('-');
+  key('-');
+  assert.equal(scaleOf(root), 1, 'zoom out stops at fit');
+  assert.equal(pillOf(root).style.display, 'none');
+  for (let i = 0; i < 30; i++) key('+');
+  assert.ok(scaleOf(root) <= 5 + 1e-9, `capped at 500%: ${scaleOf(root)}`);
+  key('0');
+  assert.equal(scaleOf(root), 1);
+  key('+');
+  pillOf(root).click();
+  assert.equal(scaleOf(root), 1, 'the pill resets');
+  assert.ok(doc.querySelector('.collage-lightbox'), 'the pill does not close it');
+});
+
+test('zoom: stepping to another photo, and closing, return to fit first', async () => {
+  const { root, key, h } = stepper();
+  key('+');
+  assert.ok(scaleOf(root) > 1);
+  key('ArrowRight');
+  assert.equal(scaleOf(root), 1, 'a new photo opens at fit');
+  key('+');
+  h.close();
+  assert.equal(scaleOf(root), 1, 'a close starts from fit');
+  await new Promise((r) => setTimeout(r, 30));
+});
+
+test('zoom: a double click toggles between fit and zoomed', () => {
+  const { root, win } = stepper();
+  const img = root.querySelector('img');
+  img.dispatchEvent(new win.MouseEvent('dblclick', { bubbles: true, cancelable: true, clientX: 10, clientY: 10 }));
+  assert.ok(scaleOf(root) > 2);
+  img.dispatchEvent(new win.MouseEvent('dblclick', { bubbles: true, cancelable: true }));
+  assert.equal(scaleOf(root), 1);
+});
+
+test('zoom: a pinch (two fingers apart) zooms and does not step; one finger then pans, not swipes', () => {
+  const { root, win, h } = stepper();
+  root.dispatchEvent(touch(win, 'touchstart', [[100, 200], [140, 200]]));
+  root.dispatchEvent(touch(win, 'touchmove', [[60, 200], [180, 200]]));
+  root.dispatchEvent(touch(win, 'touchend', [], [[60, 200], [180, 200]]));
+  assert.ok(scaleOf(root) > 1.5, `pinched: ${scaleOf(root)}`);
+  assert.equal(h.index(), 0);
+  // zoomed in: a one-finger horizontal move pans and must not turn to the next photo
+  root.dispatchEvent(touch(win, 'touchstart', [[200, 200]]));
+  root.dispatchEvent(touch(win, 'touchmove', [[40, 205]]));
+  root.dispatchEvent(touch(win, 'touchend', [], [[40, 205]]));
+  assert.equal(h.index(), 0, 'a pan while zoomed is not a swipe');
+});
+
+
+test('zoom has no private copy: the opener carries no pinch or pan math of its own', () => {
+  // The gesture machine is `createZoomGesture` in lib/core/present-transport.mjs, handed in as
+  // `kernel`. A distance between two fingers (Math.hypot) or a clamp of the scale here would be a second copy.
+  const src = open.toString();
+  assert.ok(!/Math\.hypot|Math\.exp/.test(src), 'no pinch distance or zoom-rate math in the opener');
+  assert.ok(/K\.createZoomGesture/.test(src) && /K\.zoomStep/.test(src), 'it reads both from the kernel');
+});
+
+test('zoom: a resize re-clamps the pan, and the pill is a corner control that hands focus back when it hides', () => {
+  const { root, win, key, doc } = stepper();
+  key('+');
+  const pill = root.querySelector('button:last-of-type');
+  assert.match(pill.style.cssText, /top:\s*12px/, 'the pill sits in the corner, off the counter');
+  pill.focus();
+  pill.click();
+  assert.equal(doc.activeElement.getAttribute('aria-label'), 'Close photo', 'focus moves to Close before the pill hides');
+  key('+');
+  win.dispatchEvent(new win.Event('resize'));
+  assert.ok(scaleOf(root) > 1, 'a resize leaves the zoom in place');
+});

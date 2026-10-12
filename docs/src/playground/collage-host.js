@@ -67,17 +67,17 @@ export function openCollageTile(frame, tile, viaKeyboard = false) {
 		current = null;
 		// The opener loads on first use, so the lightbox is not in every route's startup JS: a
 		// reader who never enlarges a photo never downloads it. Returns true at once so the frame's
-		// guard cancels the click; the lightbox follows when the chunk arrives. The input rules (swipe
-		// and key) are the shared transport kernel's, handed in because the opener cannot import.
+		// guard cancels the click; the lightbox follows when the chunk arrives. The input rules (swipe,
+		// key and zoom) are the shared transport kernel's, handed in because the opener cannot import.
 		const ticket = {};
 		current = ticket;
 		Promise.all([import('../../../lib/core/collage-lightbox.mjs'), import('../../../lib/core/present-transport.mjs')])
-			.then(([{ openCollageLightbox }, { keyAction, swipeAction }]) => {
+			.then(([{ openCollageLightbox }, { keyAction, swipeAction, createZoomGesture, zoomStep }]) => {
 				if (current !== ticket) return; // a newer open, or a close, got there first
 				const handle = openCollageLightbox(document, {
 					items,
 					index,
-					kernel: { keyAction, swipeAction },
+					kernel: { keyAction, swipeAction, createZoomGesture, zoomStep },
 					restoreFocus: viaKeyboard,
 					onClose: () => {
 						if (current === handle) current = null;

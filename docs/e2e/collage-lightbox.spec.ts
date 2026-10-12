@@ -303,3 +303,131 @@ test('@parity a swipe on the open photo steps to the next or previous one', asyn
 	await expect(caption(page)).toHaveText(ALTS[0]);
 	await expect(slideTitle(page)).toHaveText('First slide');
 });
+
+// ── zoom (#2641 P6) ──────────────────────────────────────────────────────────────────────
+// The zoom machine is the shared kernel's (`createZoomGesture`, lib/core/present-transport.mjs); the
+// opener only feeds it points and paints what it returns. These arms drive the real inputs: a
+// trackpad pinch (ctrl + wheel), the keys, a mouse drag, and a two-finger pinch through the
+// browser's own touch pipeline.
+const imgScale = (page: Page) =>
+	page.evaluate(() => {
+		const el = document.querySelector('.collage-lightbox img') as HTMLElement;
+		const m = new DOMMatrixReadOnly(getComputedStyle(el).transform);
+		return { scale: m.a, x: m.e, y: m.f };
+	});
+const zoomPill = (page: Page) => lightbox(page).getByRole('button', { name: /Reset zoom to fit/ });
+
+async function openWide(page: Page) {
+	await openStudioDeck(page);
+	const at = await photoAt(page, 1);
+	await page.mouse.click(at.x, at.y);
+	await expect(lightbox(page)).toBeVisible({ timeout: 15_000 });
+	await glideDone(page);
+}
+
+test('@smoke @crosswidth a trackpad pinch (ctrl + wheel) and the + - 0 keys zoom the open photo; the pill returns it to fit', async ({ page }) => {
+	await openWide(page);
+	expect((await imgScale(page)).scale).toBe(1);
+	await expect(zoomPill(page)).toHaveCount(0);
+	const box = (await lightbox(page).locator('img').boundingBox()) as { x: number; y: number; width: number; height: number };
+	await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+	await page.keyboard.down('Control');
+	await page.mouse.wheel(0, -400);
+	await page.keyboard.up('Control');
+	await expect.poll(async () => (await imgScale(page)).scale, { timeout: 5000 }).toBeGreaterThan(1.5);
+	await expect(zoomPill(page)).toBeVisible();
+	await expect(zoomPill(page)).toHaveText(/^\d+%$/);
+	// A plain wheel neither zooms nor scrolls what is behind.
+	const held = (await imgScale(page)).scale;
+	await page.mouse.wheel(0, 300);
+	expect((await imgScale(page)).scale).toBeCloseTo(held, 5);
+	await page.screenshot({ path: test.info().outputPath(`zoomed-${test.info().project.name}.png`) });
+	await zoomPill(page).click();
+	await expect.poll(async () => (await imgScale(page)).scale).toBe(1);
+	await expect(zoomPill(page)).toHaveCount(0);
+
+	await page.keyboard.press('+');
+	await page.keyboard.press('+');
+	await expect.poll(async () => (await imgScale(page)).scale).toBeGreaterThan(1.4);
+	await page.keyboard.press('-');
+	await page.keyboard.press('-');
+	await page.keyboard.press('-');
+	await expect.poll(async () => (await imgScale(page)).scale).toBe(1);
+	await page.keyboard.press('+');
+	await page.keyboard.press('0');
+	await expect.poll(async () => (await imgScale(page)).scale).toBe(1);
+	// Zoom never leaks to the next photo, and a zoomed photo still closes on Escape.
+	await page.keyboard.press('+');
+	await page.keyboard.press('ArrowRight');
+	await expect(caption(page)).toHaveText(ALTS[2]);
+	expect((await imgScale(page)).scale).toBe(1);
+	await page.keyboard.press('+');
+	await page.keyboard.press('Escape');
+	await expect(lightbox(page)).toHaveCount(0);
+});
+
+test('@smoke a mouse drag pans a zoomed photo, and stays inside the photo\'s own edges', async ({ page }, info) => {
+	test.skip(Boolean(info.project.use.hasTouch), 'a touch device has no mouse drag');
+	await openWide(page);
+	await page.keyboard.press('+');
+	await page.keyboard.press('+');
+	await page.keyboard.press('+');
+	await expect.poll(async () => (await imgScale(page)).scale).toBeGreaterThan(1.9);
+	const box = (await lightbox(page).locator('img').boundingBox()) as { x: number; y: number; width: number; height: number };
+	const cx = box.x + box.width / 2;
+	const cy = box.y + box.height / 2;
+	const before = await imgScale(page);
+	await page.mouse.move(cx, cy);
+	await page.mouse.down();
+	await page.mouse.move(cx - 60, cy - 30, { steps: 5 });
+	await page.mouse.up();
+	const after = await imgScale(page);
+	expect(after.scale).toBeCloseTo(before.scale, 5);
+	expect(after.x).toBeLessThan(before.x - 20);
+	expect(after.y).toBeLessThan(before.y - 10);
+	// A pan is bounded: dragging far the other way stops at the photo's own edge (x = 0 at the left).
+	await page.mouse.move(cx, cy);
+	await page.mouse.down();
+	await page.mouse.move(cx + 4000, cy + 4000, { steps: 8 });
+	await page.mouse.up();
+	const edge = await imgScale(page);
+	expect(edge.x).toBeLessThanOrEqual(0.0001);
+	expect(edge.y).toBeLessThanOrEqual(0.0001);
+	await expect(lightbox(page)).toBeVisible();
+});
+
+test('@parity a two-finger pinch zooms the open photo and does not step; one finger then pans, not swipes', async ({ page }, info) => {
+	test.skip(!info.project.use.hasTouch, 'this project models a device with no touchscreen');
+	test.skip(info.project.name.startsWith('webkit'), 'WebKit exposes no CDP touch pipeline: the pinch there is UNVERIFIED');
+	await openStudioDeck(page);
+	const at = await photoAt(page, 1);
+	await page.touchscreen.tap(at.x, at.y);
+	await expect(lightbox(page)).toBeVisible({ timeout: 15_000 });
+	await glideDone(page);
+	const box = (await lightbox(page).locator('img').boundingBox()) as { x: number; y: number; width: number; height: number };
+	const cx = box.x + box.width / 2;
+	const cy = box.y + box.height / 2;
+	const cdp = await page.context().newCDPSession(page);
+	const pt = (x: number, y: number) => ({ x, y, radiusX: 10, radiusY: 10, force: 1 });
+	const half0 = Math.min(30, box.width / 8);
+	await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [pt(cx - half0, cy), pt(cx + half0, cy)] });
+	for (let i = 1; i <= 8; i++) {
+		const half = half0 + ((box.width / 3 - half0) * i) / 8;
+		await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [pt(cx - half, cy), pt(cx + half, cy)] });
+	}
+	await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+	await expect.poll(async () => (await imgScale(page)).scale, { timeout: 5000 }).toBeGreaterThan(1.5);
+	await expect(zoomPill(page)).toBeVisible();
+	await expect(caption(page), 'a pinch is not a swipe').toHaveText(ALTS[1]);
+	const zoomed = await imgScale(page);
+	// One finger, zoomed in: a horizontal drag pans and must not turn to the next photo.
+	await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [pt(cx, cy)] });
+	for (let i = 1; i <= 6; i++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [pt(cx - (i * box.width) / 10, cy)] });
+	await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+	await expect(caption(page), 'a pan while zoomed is not a swipe').toHaveText(ALTS[1]);
+	expect((await imgScale(page)).x).toBeLessThan(zoomed.x - 10);
+	await page.screenshot({ path: info.outputPath(`pinch-${info.project.name}.png`) });
+	await zoomPill(page).tap();
+	await expect.poll(async () => (await imgScale(page)).scale).toBe(1);
+	await cdp.detach();
+});

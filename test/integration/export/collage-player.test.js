@@ -190,4 +190,53 @@ describe('collage lightbox in the exported player, real Chromium', () => {
     await cdp.detach();
     await page.close();
   });
+
+  // ── zoom (#2641 P6): the shared kernel's pinch, wheel and keys, in the real export ─────────
+  const scaleOf = (page) =>
+    page.evaluate(() => new DOMMatrixReadOnly(getComputedStyle(document.querySelector('.collage-lightbox img')).transform).a);
+
+  test('a pinch, ctrl + wheel and the + - 0 keys zoom the open photo; a pinch does not step; the pill resets', async () => {
+    const page = await openPlayer(true);
+    await openFirst(page);
+    const n = await page.evaluate(() => document.querySelectorAll('.lp-active .collage-tile').length);
+    assert.equal(await scaleOf(page), 1);
+    await page.keyboard.press('+');
+    await page.keyboard.press('+');
+    assert.ok((await scaleOf(page)) > 1.4, 'the + key zooms');
+    await page.keyboard.press('0');
+    assert.equal(await scaleOf(page), 1, '0 returns to fit');
+    // a trackpad pinch arrives as ctrl + wheel
+    const box = await page.evaluate(() => {
+      const r = document.querySelector('.collage-lightbox img').getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    });
+    await page.mouse.move(box.x, box.y);
+    await page.keyboard.down('Control');
+    await page.mouse.wheel({ deltaY: -400 });
+    await page.keyboard.up('Control');
+    await sleep(150);
+    assert.ok((await scaleOf(page)) > 1.5, 'ctrl + wheel zooms');
+    await page.click('[aria-label^="Reset zoom to fit"]');
+    assert.equal(await scaleOf(page), 1, 'the pill resets');
+    // two fingers apart: a pinch, not a swipe
+    const cdp = await page.createCDPSession();
+    const pt = (x, y) => ({ x, y, radiusX: 8, radiusY: 8, force: 1 });
+    const touch = (type, pts) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts });
+    await touch('touchStart', [pt(box.x - 30, box.y), pt(box.x + 30, box.y)]);
+    for (let i = 1; i <= 8; i++) await touch('touchMove', [pt(box.x - 30 - 25 * i, box.y), pt(box.x + 30 + 25 * i, box.y)]);
+    await touch('touchEnd', []);
+    await sleep(200);
+    assert.ok((await scaleOf(page)) > 1.5, 'a pinch zooms');
+    assert.equal(await countOf(page), `1 / ${n}`, 'a pinch does not step');
+    // one finger while zoomed pans and does not swipe
+    await touch('touchStart', [pt(box.x, box.y)]);
+    for (let i = 1; i <= 6; i++) await touch('touchMove', [pt(box.x - 40 * i, box.y)]);
+    await touch('touchEnd', []);
+    await sleep(150);
+    assert.equal(await countOf(page), `1 / ${n}`, 'a pan is not a swipe');
+    await page.keyboard.press('ArrowRight');
+    assert.equal(await scaleOf(page), 1, 'a new photo opens at fit');
+    await cdp.detach();
+    await page.close();
+  });
 });
