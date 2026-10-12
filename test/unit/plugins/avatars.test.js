@@ -328,4 +328,14 @@ describe('avatars — earrings, head coverings and clothing', () => {
     assert.equal(r.status, 0, r.stderr);
     assert.equal(r.stdout, 'null');
   });
+
+  test('a covering is fitted to the head: the face shape stretches it, the oval is the reference', () => {
+    const transformOf = (face, h) => (svg(`headwear=${h}, face=${face}, hair=none`).match(/transform="([^"]*)"/) || [])[1];
+    assert.equal(transformOf('oval', 'cap'), undefined, 'the oval head is the drawing as is');
+    assert.match(transformOf('round', 'cap'), /^matrix\(1\.05 0 0 0\.86 /, 'a round head: wider, flatter');
+    assert.match(transformOf('long', 'cap'), /^matrix\(0\.95 0 0 1\.1 /, 'a long head: narrower, taller');
+    for (const h of ['turban', 'skullcap', 'beanie', 'kufi', 'backcap']) assert.ok(transformOf('round', h), `${h} is fitted`);
+    assert.equal(transformOf('round', 'hijab'), undefined, 'a hijab wraps the whole head and is not fitted');
+    assert.equal(svg('face=round, hair=short').includes('transform='), false, 'no covering, nothing fitted');
+  });
 });

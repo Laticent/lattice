@@ -107,6 +107,18 @@
     "cap":    { "*": ["front"], "bun": ["back", "front"], "coily": ["back", "front"], "curly": ["back", "front"] }
   },
   "hides-earrings": ["hijab"],
+  "fit": {
+    "$comment": "Head coverings are drawn against an oval head. A face shape changes the fit: each covering (except the hijab, which wraps the whole head) is stretched across the width by `sx` (about the face's centerline) and from the head's top down to the brow line by `sy` (about `anchor`), so a round head gets a flatter dome and a long head a taller one. sy = (anchor - face top) / (anchor - oval top); sx = face width / oval width.",
+    "anchor": 38,
+    "headwear": ["turban", "skullcap", "beanie", "kufi", "cap", "backcap"],
+    "faces": {
+      "oval":   { "sx": 1,    "sy": 1 },
+      "round":  { "sx": 1.05, "sy": 0.86 },
+      "long":   { "sx": 0.95, "sy": 1.1 },
+      "square": { "sx": 1,    "sy": 1.03 },
+      "heart":  { "sx": 1,    "sy": 1.03 }
+    }
+  },
   "deep": {
     "$comment": "For the deeper skin tones, a default hair color comes from these pools instead, so a name never defaults to blonde or red where it would be rare. A color the author writes always wins.",
     "skin": ["5", "6", "7", "8"],

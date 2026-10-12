@@ -171,6 +171,12 @@ SVG of 1,200 default faces (400 names × 3 gender presets) is byte-identical bef
   hair: only the back layer of a bun, an afro or curls (their volume rises above it). A first draw gave it a
   rear strap and the fringe-hiding rule of a forward cap; the owner pointed out that baseball caps are fitted
   and that a backwards one leaves the hairline showing, and both were wrong. The hair trait stays resolved and stamped on `data-traits`; only its drawing is skipped.
+- **A covering is fitted to the face.** Every covering except the hijab is drawn once against an oval head,
+  then stretched per face shape by `fit` in `traits.json`: across by `sx` about the centerline, and from the
+  head's top to the brow line by `sy` about `anchor` (38). A round head (top y 30) gets a flatter dome
+  (`sy` 0.86) and a long one (top y 26) a taller one (1.1). The kernel writes the `matrix(…)` as a
+  `transform` attribute on each covering shape, so the data stays one drawing, not five. The owner saw the
+  unfitted version and called it janky: the same dome floated off a round head and sat tight on a long one.
 - **Earrings are keyed by face shape**, because the ears sit at a different x on each. The generator accepts
   one list for every face or one per face; the shipped drawings are per face, derived from each face's ear
   ellipses. A hijab covers the ears, so `hides-earrings` in `traits.json` skips the earring layer for it (the cheek
