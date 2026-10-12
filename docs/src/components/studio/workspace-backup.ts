@@ -27,11 +27,12 @@ import { applyImportRenames } from './asset-rename';
 import { listStudioComponents, saveStudioComponent, toMeta } from './component-library';
 import { listStudioFinishes, saveStudioFinish } from './finish-library';
 import type { ImportRefusal } from './import-gate';
+import { LIBRARY_SCOPE } from './media-store';
 import { listRefDocs, type RefDocRecord, recordToDoc, saveRefDoc } from './reference-doc-store';
 import { listStoredScenes, putUnreadableScene, type StudioScene, saveStudioScene, type UnreadableScene, unreadableSceneShelf } from './scene-library';
-import { exportStudioState, type ImportSummary, importStudioState, loadDeckList, requestSourceFlush, resolvedSources, type StudioExport, titleFromSource } from './studio-store';
+import { exportStudioState, type ImportSummary, importStudioState, loadSource, requestSourceFlush, resolvedSources, type StudioExport, saveSource, titleFromSource } from './studio-store';
 import { listStudioThemes, saveStudioTheme } from './theme-library';
-import { MAX_MEDIA_RESTORE_BYTES, MAX_MEDIA_ROWS, packMedia, restoreMedia } from './workspace-media';
+import { MAX_MEDIA_RESTORE_BYTES, MAX_MEDIA_ROWS, packMedia, renameAssetRefs, restoreMedia } from './workspace-media';
 import { declaredInflatedBytes, jsonGuard, MAX_INFLATED_BYTES, MAX_ZIP_BYTES, MAX_ZIP_ENTRIES, readBudget, readBytesBudget } from './zip-limits';
 
 export const WORKSPACE_FORMAT = 'lattice-workspace/1';
@@ -51,7 +52,7 @@ export type WorkspaceManifest = {
 };
 
 /** `refused`: library packages the backup held that could not be read back, each with the reason. */
-export type RestoreSummary = ImportSummary & { themes: number; components: number; finishes: number; scenes: number; unreadableScenes: number; refdocs: number; media: number; refused: { name: string; why: string }[] };
+export type RestoreSummary = ImportSummary & { themes: number; components: number; finishes: number; scenes: number; unreadableScenes: number; refdocs: number; media: number; mediaRenamed: number; refused: { name: string; why: string }[] };
 
 // biome-ignore lint/suspicious/noExplicitAny: JSZip is dynamically imported.
 async function jszip(): Promise<any> {
@@ -71,6 +72,9 @@ export type PackReport = {
 	/** Photos written to `media/`, and their bytes. */
 	mediaRows?: number;
 	mediaBytes?: number;
+	/** Photos the Library holds in a type a backup does not carry. Always 0 for photos added by this
+	 *  version, which stores only types it can write; non-zero means one from before. */
+	mediaSkipped?: number;
 	/** UTF-8 bytes of the `refdocs.json` written. */
 	refdocsBytes: number;
 	/** Rows in it, one per reference doc. */
@@ -163,10 +167,11 @@ export async function packWorkspace(now: number, report?: PackReport): Promise<B
 
 	// Photos: `media/` holds the bytes and `media.json` indexes them (workspace-media.ts). A shelf that
 	// cannot be read yields none, like a browser with no IndexedDB, and never aborts the backup.
-	const media = await packMedia(zip).catch(() => ({ rows: 0, bytes: 0 }));
+	const media = await packMedia(zip).catch(() => ({ rows: 0, bytes: 0, skipped: 0 }));
 	if (report) {
 		report.mediaRows = media.rows;
 		report.mediaBytes = media.bytes;
+		report.mediaSkipped = media.skipped;
 	}
 
 	const manifest: WorkspaceManifest = {
@@ -265,6 +270,7 @@ export function backupRestoreGaps(report: PackReport): string[] {
 	if ((report.stateBytes ?? 0) > MAX_INFLATED_BYTES) gaps.push(`your decks, chats and settings (${mb(report.stateBytes ?? 0)}) are over the ${limit(MAX_INFLATED_BYTES)} a restore reads, so this backup will not restore at all`);
 	if (report.refdocsBytes > MAX_REFDOCS_BYTES) gaps.push(`your reference docs (${mb(report.refdocsBytes)}) are over the ${limit(MAX_REFDOCS_BYTES)} a restore reads, so they will not come back from it`);
 	else if ((report.refdocRows ?? 0) > MAX_BACKUP_ROWS) gaps.push(`you have more than ${MAX_BACKUP_ROWS.toLocaleString('en-US')} reference docs, more than a restore reads, so they will not come back from it`);
+	if ((report.mediaSkipped ?? 0) > 0) gaps.push(`${report.mediaSkipped} of your photos are in a type a backup does not carry, so they are not in this file`);
 	if ((report.mediaBytes ?? 0) > MAX_MEDIA_RESTORE_BYTES) gaps.push(`your photos (${mb(report.mediaBytes ?? 0)}) are over the ${limit(MAX_MEDIA_RESTORE_BYTES)} a restore reads, so some will not come back from it`);
 	else if ((report.mediaRows ?? 0) > MAX_MEDIA_ROWS) gaps.push(`you have more than ${MAX_MEDIA_ROWS.toLocaleString('en-US')} photos, more than a restore reads, so they will not come back from it`);
 	return gaps;
@@ -401,7 +407,7 @@ export async function restoreWorkspace(file: Blob, now: number): Promise<Restore
 		if (renames.length) state.sources = Object.fromEntries(Object.entries(state.sources).map(([id, src]) => [id, applyImportRenames(src, renames)]));
 	}
 
-	const summary: RestoreSummary = { ...importStudioState(state, now), themes: 0, components: 0, finishes: 0, scenes: 0, unreadableScenes: 0, refdocs: 0, media: 0, refused };
+	const summary: RestoreSummary = { ...importStudioState(state, now), themes: 0, components: 0, finishes: 0, scenes: 0, unreadableScenes: 0, refdocs: 0, media: 0, mediaRenamed: 0, refused };
 
 	if (parsed) {
 		for (const t of themes) {
@@ -462,9 +468,23 @@ export async function restoreWorkspace(file: Blob, now: number): Promise<Restore
 		summary.refdocs++;
 	}
 
-	// Photos last: a deck-scoped one returns only to a deck this restore brought in.
-	const photos = await restoreMedia(zip, now, new Set(loadDeckList().map((d) => d.id)));
+	// Photos last. A deck-scoped one returns only for a deck the BACKUP holds, and follows a deck that came
+	// back as a copy. Nothing already on this device is deleted or overwritten: a different photo under
+	// the same name comes back under a new name, and the decks THIS restore wrote are rewritten to name it.
+	const photos = await restoreMedia(zip, now, { backupDeckIds: new Set((state.index ?? []).map((e) => e.id)), copies: summary.copies });
 	summary.media = photos.restored;
+	summary.mediaRenamed = photos.renames.length;
 	summary.refused.push(...photos.refused);
+	for (const r of photos.renames) {
+		// A shared photo is named by any deck the restore wrote; a deck's own photo, by that deck only.
+		const owner = r.scope === LIBRARY_SCOPE ? null : (summary.copies[r.scope] ?? r.scope);
+		for (const id of summary.written) {
+			if (owner && id !== owner) continue;
+			const src = loadSource(id);
+			if (src == null) continue;
+			const next = renameAssetRefs(src, r.from, r.to);
+			if (next !== src) saveSource(id, next);
+		}
+	}
 	return summary;
 }

@@ -202,6 +202,21 @@ test('deleting a deck takes the photos kept to that deck, and only those @crossw
 	await deckSwitcher(page).click();
 	const row = page.getByRole('menuitem').filter({ hasText: /Untitled deck/ }).first();
 	await row.hover();
+	// The deck owns a photo, so deleting it asks first. Dismissing keeps the deck and the photo.
+	const asked: string[] = [];
+	let answer = false;
+	page.on('dialog', (d) => {
+		asked.push(d.message());
+		void (answer ? d.accept() : d.dismiss());
+	});
+	await row.getByRole('button', { name: /^Delete Untitled deck/ }).click();
+	await expect.poll(() => asked.length, { timeout: 15_000 }).toBe(1);
+	expect(asked[0]).toMatch(/1 photo kept to it.*can't be undone/);
+	expect((await shelf(page)).map((r) => r.name)).toEqual(['goes-with-deck', 'shared-stays']);
+	// Now confirm.
+	answer = true;
+	if (!(await row.isVisible().catch(() => false))) await deckSwitcher(page).click();
+	await row.hover();
 	await row.getByRole('button', { name: /^Delete Untitled deck/ }).click();
 	await expect(page.locator('[data-sonner-toast]').filter({ hasText: /photo/ }).first()).toContainText('belonged only to that deck', { timeout: 15_000 });
 	await expect.poll(async () => (await shelf(page)).map((r) => r.name), { timeout: 15_000 }).toEqual(['shared-stays']);

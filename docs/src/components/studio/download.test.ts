@@ -235,9 +235,9 @@ describe('no surface builds its own download link', () => {
 
 	it('makes a blob: URL only in download.js and the known non-download sites', () => {
 		// Each of these feeds a Worker, a <link rel=stylesheet> or an <img src> picture (MediaCard's thumbnail,
-		// revoked on unmount; media-urls.ts's name → URL map for `asset:` photos, revoked on delete), never a saved file. A new site
+		// revoked on unmount; media-import.ts's decode URL for an <img> that rasterizes an SVG, revoked after the draw; media-urls.ts's name → URL map for `asset:` photos, revoked on delete), never a saved file. A new site
 		// that hands its URL to an anchor or window.open belongs in download.js instead.
-		const NOT_DOWNLOADS = ['components/studio/MediaCard.tsx', 'components/studio/ai/architect-model.js', 'components/studio/media-urls.ts', 'lib/single-slide-render.ts', 'lib/trama/dist/index.cjs', 'lib/trama/dist/index.mjs', 'lib/trama/pipeline.ts'];
+		const NOT_DOWNLOADS = ['components/studio/MediaCard.tsx', 'components/studio/ai/architect-model.js', 'components/studio/media-import.ts', 'components/studio/media-urls.ts', 'lib/single-slide-render.ts', 'lib/trama/dist/index.cjs', 'lib/trama/dist/index.mjs', 'lib/trama/pipeline.ts'];
 		expect(owners(/createObjectURL\(/)).toEqual(['components/studio/download.js', ...NOT_DOWNLOADS].sort());
 	});
 });

@@ -5,7 +5,7 @@
 // canvas, encode) and is exercised against a real browser, not jsdom — jsdom has no image
 // decoder, so a test there would only confirm a stub (HARD RULE #23).
 
-import { isMediaName, MAX_MEDIA_FILE_BYTES, type MediaKind, mediaNameFromFile, type NewMedia } from './media-store';
+import { MAX_MEDIA_FILE_BYTES, type MediaKind, mediaNameFromFile, type NewMedia, uniqueName } from './media-store';
 
 /** The long edge a stored photo is capped to. A slide shows at most ~1920 px wide, so pixels
  *  past this cost storage quota and buy nothing a viewer can see. */
@@ -46,15 +46,29 @@ export type ImagePlan = {
 	downscaled: boolean;
 };
 
+/** Types a camera or editor writes with location in them, always re-encoded to JPEG. `image/jpg` and
+ *  `image/pjpeg` are the spellings some pickers report; leaving them out kept GPS in every export. */
+const JPEG_LIKE = new Set(['image/jpeg', 'image/jpg', 'image/pjpeg', 'image/heic', 'image/heif']);
+/** Types stored exactly as given (PNG and WebP only when under the cap). Anything else is re-encoded to
+ *  PNG, so the Library only ever holds a type a backup can carry and every browser can draw. */
+const KEEP_AS_IS = new Set(['image/png', 'image/webp', 'image/gif', 'image/avif']);
+/** A vector's raster size: crisp at slide size, never past the cap. */
+const SVG_TARGET_EDGE = 2048;
+
 /**
  * Decide what to do with a decoded image. Policy:
- *   - JPEG and HEIC/HEIF are ALWAYS re-encoded to JPEG, capped to MAX_IMAGE_EDGE. That is
+ *   - JPEG-like and HEIC/HEIF are ALWAYS re-encoded to JPEG, capped to MAX_IMAGE_EDGE. That is
  *     where a phone's GPS lives, and a canvas re-encode is what removes it from the bytes
  *     every export would otherwise embed.
  *   - PNG and WebP are re-encoded only when over the cap (they are screenshots and logos;
  *     a lossy pass would hurt, and they rarely carry location). They stay in their format,
  *     so transparency survives.
- *   - GIF (may be animated), SVG (vector) and AVIF are stored as given.
+ *   - GIF (may be animated) and AVIF are stored as given. Like PNG and WebP they keep any metadata
+ *     they carry: only the JPEG-like types are scrubbed.
+ *   - EVERYTHING ELSE (BMP, TIFF, ICO, an unknown `image/*`) is re-encoded to PNG, so a type the
+ *     Library does not store never reaches a backup that would have to drop it.
+ *   - SVG is rasterized to PNG by `importImage`, never stored: an SVG opened as a document (a
+ *     right-click "Open image in new tab" on a `blob:` URL) runs its script on the site's origin.
  * `width`/`height` are the DISPLAY size: the decoder has already applied EXIF rotation.
  */
 export function planImage(mime: string, width: number, height: number): ImagePlan {
@@ -62,13 +76,10 @@ export function planImage(mime: string, width: number, height: number): ImagePla
 	const scale = long > MAX_IMAGE_EDGE ? MAX_IMAGE_EDGE / long : 1;
 	const w = Math.max(1, Math.round(width * scale));
 	const h = Math.max(1, Math.round(height * scale));
-	if (mime === 'image/jpeg' || mime === 'image/heic' || mime === 'image/heif') {
-		return { reencode: true, width: w, height: h, mime: 'image/jpeg', downscaled: true };
-	}
-	if ((mime === 'image/png' || mime === 'image/webp') && scale < 1) {
-		return { reencode: true, width: w, height: h, mime, downscaled: true };
-	}
-	return { reencode: false, width, height, mime, downscaled: false };
+	if (JPEG_LIKE.has(mime)) return { reencode: true, width: w, height: h, mime: 'image/jpeg', downscaled: true };
+	if ((mime === 'image/png' || mime === 'image/webp') && scale < 1) return { reencode: true, width: w, height: h, mime, downscaled: true };
+	if (KEEP_AS_IS.has(mime)) return { reencode: false, width, height, mime, downscaled: false };
+	return { reencode: true, width: w, height: h, mime: 'image/png', downscaled: true };
 }
 
 /** Thrown for a file the importer cannot use; the message is shown to the person as is. */
@@ -83,7 +94,7 @@ async function decode(file: File): Promise<ImageBitmap> {
 		throw new MediaImportError(
 			heic
 				? `This browser can't read ${file.name} (HEIC). Export it as JPEG, or add it from Safari.`
-				: `${file.name} isn't an image this browser can open.`,
+				: `${file.name} couldn't be read. It may be a type this browser can't open, or too large for it to decode.`,
 		);
 	}
 }
@@ -105,6 +116,39 @@ function toBlob(canvas: HTMLCanvasElement, mime: string): Promise<Blob> {
 	});
 }
 
+/**
+ * Draw an SVG to a PNG through an `<img>`, which never runs a script or loads another resource, and keep
+ * only the pixels. The stored file is then a picture and nothing else.
+ */
+async function rasterizeSvg(file: File): Promise<{ blob: Blob; width: number; height: number }> {
+	const url = URL.createObjectURL(file);
+	try {
+		const img = new Image();
+		img.src = url;
+		try {
+			await img.decode();
+		} catch {
+			throw new MediaImportError(`${file.name} isn't an SVG this browser can draw.`);
+		}
+		let w = img.naturalWidth;
+		let h = img.naturalHeight;
+		// An SVG with no size of its own reports 0 in some engines: read its viewBox, else assume a square.
+		if (!w || !h) ({ width: w, height: h } = await intrinsicSize(file));
+		const k = SVG_TARGET_EDGE / Math.max(w, h);
+		const width = Math.max(1, Math.min(MAX_IMAGE_EDGE, Math.round(w * k)));
+		const height = Math.max(1, Math.min(MAX_IMAGE_EDGE, Math.round(h * k)));
+		const canvas = document.createElement('canvas');
+		canvas.width = width;
+		canvas.height = height;
+		const ctx = canvas.getContext('2d');
+		if (!ctx) throw new MediaImportError('The browser could not prepare that image.');
+		ctx.drawImage(img, 0, 0, width, height);
+		return { blob: await toBlob(canvas, 'image/png'), width, height };
+	} finally {
+		URL.revokeObjectURL(url);
+	}
+}
+
 /** Decode, plan, and (when the plan says so) re-encode. Returns a record ready for
  *  `saveMedia`, minus the name — the caller resolves a clash before it saves. */
 export async function importImage(file: File, scope: string): Promise<NewMedia> {
@@ -113,8 +157,8 @@ export async function importImage(file: File, scope: string): Promise<NewMedia> 
 	if (file.size > MAX_MEDIA_FILE_BYTES) throw new MediaImportError(`${file.name} is ${Math.round(file.size / 1_048_576)} MB; a photo may be at most ${Math.floor(MAX_MEDIA_FILE_BYTES / 1_048_576)} MB.`);
 	const mime = mimeOf(file);
 	if (mime === 'image/svg+xml') {
-		const { width, height } = await intrinsicSize(file);
-		return { kind: 'image', name: mediaNameFromFile(file.name, 'image'), scope, blob: file, mime, bytes: file.size, width, height, sourceName: file.name, original: true };
+		const { blob, width, height } = await rasterizeSvg(file);
+		return { kind: 'image', name: mediaNameFromFile(file.name, 'image'), scope, blob, mime: blob.type || 'image/png', bytes: blob.size, width, height, sourceName: file.name, original: false };
 	}
 	const bitmap = await decode(file);
 	try {
@@ -134,19 +178,11 @@ export async function importImage(file: File, scope: string): Promise<NewMedia> 
 		}
 		ctx.drawImage(bitmap, 0, 0, plan.width, plan.height);
 		const blob = await toBlob(canvas, plan.mime);
-		return { kind: 'image', name: mediaNameFromFile(file.name, 'image'), scope, blob, mime: plan.mime, bytes: blob.size, width: plan.width, height: plan.height, sourceName: file.name, original: false };
+		// The type the browser actually wrote: an engine without a WebP encoder answers a WebP request with a PNG.
+		return { kind: 'image', name: mediaNameFromFile(file.name, 'image'), scope, blob, mime: blob.type || plan.mime, bytes: blob.size, width: plan.width, height: plan.height, sourceName: file.name, original: false };
 	} finally {
 		bitmap.close();
 	}
 }
 
-/** `hero` → `hero-2`, `hero-3`… the first name not in `taken`. Used when a batch of camera-roll
- *  files (`IMG_0042`, `IMG_0042 (1)`) would otherwise refuse each other. */
-export function uniqueName(name: string, taken: Set<string>): string {
-	if (!taken.has(name)) return name;
-	for (let n = 2; n < 1000; n++) {
-		const candidate = `${name.slice(0, 44)}-${n}`;
-		if (!taken.has(candidate) && isMediaName(candidate)) return candidate;
-	}
-	return `${name.slice(0, 40)}-${Date.now().toString(36)}`;
-}
+export { uniqueName };

@@ -24,7 +24,7 @@ import { architectSpend, connectOpenRouter, disconnectOpenRouter, setBudget, set
 import { packBundle } from './asset-bundle';
 import { DeleteBtn } from './delete-btn';
 import { iosNeedsShareSheet } from './download';
-import { clearDownloadedModels, clearEverything, clearLibraryAssets, clearNarrationAudio, clearSiteCache, fmtBytes, type GovernanceStats, loadGovernanceStats } from './governance';
+import { clearDecksAndTheirPhotos, clearDownloadedModels, clearEverything, clearLibraryAssets, clearNarrationAudio, clearSiteCache, fmtBytes, type GovernanceStats, loadGovernanceStats } from './governance';
 import { LensIcon } from './icons';
 import { CAN_INSTALL_EVENT, type InstallState, installState, promptInstall } from './install-app';
 import { LanguageSelect } from './LanguageSelect';
@@ -34,7 +34,6 @@ import { WORKSPACE_DEFAULT_TAB, WORKSPACE_HEADER, WORKSPACE_TABS, WorkspaceAiSec
 import { listStoredScenes } from './scene-library';
 import { languageFor } from './studio-language';
 import {
-	clearAllDecks,
 	type HandleStyle,
 	lastBackupAt,
 	loadInstructions,
@@ -470,7 +469,7 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 			const photos = s.media;
 			// A library package the backup held but could not be read back is NAMED, never
 			// dropped in silence — the reload below would otherwise hide that it was ever there.
-			const done = `Workspace restored — ${decks} deck${decks === 1 ? '' : 's'}${assets ? ` + ${assets} library asset${assets === 1 ? '' : 's'}` : ''}${photos ? ` + ${photos} photo${photos === 1 ? '' : 's'}` : ''} in.`;
+			const done = `Workspace restored — ${decks} deck${decks === 1 ? '' : 's'}${assets ? ` + ${assets} library asset${assets === 1 ? '' : 's'}` : ''}${photos ? ` + ${photos} photo${photos === 1 ? '' : 's'}` : ''} in${s.mediaRenamed ? `. ${s.mediaRenamed} photo${s.mediaRenamed === 1 ? '' : 's'} came back under a new name because a different photo already had it` : ''}.`;
 			// The restore touches decks, settings, and the Library across several
 			// stores; a reload is the one honest way to re-derive every view of them.
 			// Always reload at once, while this modal still covers the editor: a tab left live over the
@@ -1298,12 +1297,12 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 								<GovRow
 									icon={<FolderTree className="size-4" />}
 									title="Decks"
-									description="Every deck in your switcher — edited source, checkpoints, and chat threads. Resets to the built-in starter decks."
+									description="Every deck in your switcher — edited source, checkpoints, and chat threads, and the photos kept to a single deck. Resets to the built-in starter decks."
 									stat={gov ? `${gov.decks.count} deck${gov.decks.count === 1 ? '' : 's'}${gov.decks.bytes ? ` · ${fmtBytes(gov.decks.bytes)}` : ''}` : undefined}
 									armed={govArmed === 'decks'}
 									busy={govBusy === 'decks'}
 									onArm={() => setGovArmed('decks')}
-									onConfirm={() => clearCategory('decks', clearAllDecks, 'Decks cleared — back to the starter set.')}
+									onConfirm={() => clearCategory('decks', clearDecksAndTheirPhotos, 'Decks cleared — back to the starter set.')}
 									onCancel={() => setGovArmed(null)}
 								/>
 								<GovRow

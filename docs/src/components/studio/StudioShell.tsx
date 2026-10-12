@@ -2611,11 +2611,22 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	};
 	function removeDeck(id: string) {
 		if (id === deck.id && !live.mayLeaveDeck()) return;
-		deleteDeckStore(id);
-		// The deck's own photos go with it: a photo kept to one deck has nowhere else to be used, and
-		// leaving it would strand bytes in the quota behind a deck that no longer exists.
+		// A deck's own photos go with it: a photo kept to one deck has nowhere else to be used, and leaving it
+		// would strand bytes in the quota behind a deck that no longer exists. They cannot be undeleted, so
+		// when a deck owns any, ask first and say how many. A deck with none is deleted as before.
 		import('./media-store')
-			.then((m) => m.deleteDeckMedia(id))
+			.then(async (m) => ({ m, own: (await m.listMedia()).filter((x) => x.scope === id).length }))
+			.catch(() => null)
+			.then((found) => {
+				const own = found?.own ?? 0;
+				if (own > 0 && !window.confirm(`This deck has ${own} photo${own === 1 ? '' : 's'} kept to it. Deleting the deck deletes ${own === 1 ? 'that photo' : 'those photos'} too, and that can't be undone. Delete the deck?`)) return;
+				finishRemoveDeck(id, found?.m ?? null);
+			});
+	}
+	function finishRemoveDeck(id: string, media: typeof import('./media-store') | null) {
+		deleteDeckStore(id);
+		media
+			?.deleteDeckMedia(id)
 			.then((n) => {
 				if (n > 0) {
 					notify(`Deleted ${n} photo${n === 1 ? '' : 's'} that belonged only to that deck.`);

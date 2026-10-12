@@ -133,6 +133,18 @@ export async function loadGovernanceStats(): Promise<GovernanceStats> {
 	return { decks: deckWithCrash, library, models, siteCache, narration, totalBytes: deckWithCrash.bytes + library.bytes + models.bytes + siteCache.bytes + narration.bytes };
 }
 
+/** "Clear decks": the decks go, and so do the photos kept to a single deck, which would otherwise be
+ *  invisible and unreachable but still hold the quota. Photos shared with every deck stay. */
+export async function clearDecksAndTheirPhotos(): Promise<void> {
+	clearAllDecks();
+	try {
+		const { deleteDeckScopedMedia } = await import('./media-store');
+		await deleteDeckScopedMedia();
+	} catch {
+		/* the shelf could not be read: the decks are cleared, and the Library row will still list the photos */
+	}
+}
+
 export async function clearLibraryAssets(): Promise<void> {
 	const all = await listAssets();
 	await Promise.all(all.map((a: { id: string }) => deleteAsset(a.id)));

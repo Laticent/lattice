@@ -70,9 +70,9 @@ What the map holds depends on the host:
 | Host | URL for `asset:x` |
 |---|---|
 | Studio preview, presenter | `URL.createObjectURL(blob)`, revoked when the deck closes or the asset changes |
-| Studio export (PDF, PNG, PPTX capture) | the same object URL; the capture frame already counts `blob:` as embeddable |
-| HTML player export | embedded as a `data:` URL, under the video cap in §4 |
-| CLI | not supported; a CLI deck uses a relative path. `asset:` there is an authoring error, and `lint:deck` says so |
+| Studio export (webpage, PDF, PowerPoint, image set) | a `data:` URI built from the photo's bytes (`dataUrlsFor`, `media-urls.ts`). A `blob:` URL dies with the tab, so a saved file would ship a dead link, and a capture frame may not fetch one. The Share sheet adds a note when a named photo is not in this browser's Library |
+| Markdown, Marp, `.lattice` exports | the reference text only; the bytes do not travel (they ride in a workspace backup, §9) |
+| CLI | not supported; the reference passes through untouched. A CLI deck uses a relative path. (No `lint:deck` rule yet.) |
 
 A reference the map cannot satisfy (asset deleted, deck opened on another browser) renders the
 existing missing-image placeholder and the export still completes.
@@ -111,8 +111,10 @@ shows its file dialog and a drag-and-drop onto the Library accepts the same type
   rotation into the pixels so a portrait photo is not stored sideways. A 12-megapixel phone photo
   is 3 to 6 MB and a slide shows at most 1920 px wide, so the cap costs nothing a viewer can see.
   PNG and WebP are re-encoded only when over the cap, in their own format, so transparency and
-  lossless screenshots survive. GIF (may be animated), SVG and AVIF are stored as given. A small
-  PNG keeps whatever `eXIf` chunk it carries, which is rare and not where location lives.
+  lossless screenshots survive. GIF (may be animated) and AVIF are stored as given, so they keep any metadata they carry; a small
+  PNG or WebP likewise (rare, and not where location lives). SVG is never stored: an SVG opened as a
+  blob document runs its script on the site's origin, so the importer draws it to a PNG and keeps
+  only the pixels.
 - **HEIC** (iPhone's native format): iOS Safari converts to JPEG when `accept` names `image/*`
   and `image/heic` is not requested. Other browsers that hand back raw HEIC get a clear
   "this browser can't read HEIC; export as JPEG" refusal, not a silent broken picture.

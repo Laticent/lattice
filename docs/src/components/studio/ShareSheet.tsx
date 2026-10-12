@@ -14,6 +14,7 @@ import { ImageSetOptionsPanel } from './ImageSetOptionsPanel';
 import { SHEET_EXIT_MS } from './lazy-panel';
 import { splitSlides } from './lint';
 import { MarpOptionsPanel } from './MarpOptionsPanel';
+import { missingAssetNames, sourceUsesAssets } from './media-urls';
 import { PrintOptionsPanel } from './PrintOptionsPanel';
 import { type DeckPackages, embeddableLattice, type ImageSetOptions, shareCaptions, shareHtmlPlayer, shareImageSet, shareLattice, shareMarkdown, shareMarp, shareOffice, sharePdf, sharePptx, sharePrintSource } from './share-export';
 import { SHARE_HEADER, SHARE_MENU, ShareRow, type ShareRowId } from './share-menu';
@@ -25,6 +26,9 @@ import { type WebpageExportChoice, WebpageOptionsPanel } from './WebpageOptionsP
 // the rendered ARTIFACT vs hand off the SOURCE. Every row is REAL now: the source
 // paths download/print the Markdown; the artifact paths run the engine export
 // pipeline (image PDF/PPTX, vector Print, the Marp ZIP) — see share-export.ts.
+
+// Exports that carry the deck's text, not its pictures, so a missing Library photo changes nothing in them.
+const SOURCE_EXPORTS = new Set(['lattice', 'md', 'marp', 'printsrc', 'captions']);
 
 export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, finishClass, finishExtraCss, localComponents, deckPackages, options, palette, mode, extraTheme, extraCss, onPresent, onCollaborate, initialView = 'menu' }: { open: boolean; onOpenChange: (v: boolean) => void; deckTitle: string; source: string; deckId?: string; finishClass?: string; finishExtraCss?: string; localComponents?: ReadonlyArray<{ name: string; css: string }>; deckPackages?: DeckPackages; options: SingleSlideOptions; palette: string; mode: 'light' | 'dark'; extraTheme?: { name: string; css: string }; extraCss?: string; onPresent: () => void; onCollaborate?: () => void; initialView?: 'menu' | 'pdf' }) {
 	const close = () => onOpenChange(false);
@@ -147,6 +151,13 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 				// On iOS every browser gets a "<file> is ready · Save" toast from download.js
 				// instead of a download, so a plain "ready." beside it is a second toast saying the
 				// same thing (the owner's iPhone showed both). A degradation still speaks.
+				// A photo the deck names that this browser no longer holds is drawn as the missing-image
+				// stand-in; say so, so the stand-in in the file is never a surprise. Source exports keep
+				// the reference text and ship no picture, so they have nothing to report.
+				if (!degraded && !SOURCE_EXPORTS.has(key) && sourceUsesAssets(source)) {
+					const gone = await missingAssetNames(source).catch(() => []);
+					if (gone.length) degraded = `${gone.length === 1 ? `the photo “${gone[0]}” is` : `${gone.length} photos (${gone.slice(0, 3).join(', ')}${gone.length > 3 ? ', …' : ''}) are`} not in this browser's Library, so ${gone.length === 1 ? 'it shows' : 'they show'} as a missing-image stand-in`;
+				}
 				if (degraded) notify(`${label} ready — but ${degraded}.`, { duration: DEGRADED_TOAST_MS });
 				else if (!iosNeedsShareSheet()) notify(`${label} ready.`);
 			} catch (e) {
@@ -162,7 +173,7 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 				setProgress(null);
 			}
 		},
-		[busy],
+		[busy, source],
 	);
 
 	const name = deckFilename(deckTitle).replace(/\.md$/, '');

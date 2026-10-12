@@ -32,9 +32,10 @@ describe('asset: — grammar and resolver', () => {
     assert.equal(bg.resolveAssetUrl('asset:gone', undefined, undefined, {}), remoteRef.WEB_IMAGE_PLACEHOLDER);
   });
 
-  test('a malformed reference never resolves and counts as remote', () => {
+  test('a malformed reference never resolves and counts as remote; with a map it is the stand-in, without one it is untouched', () => {
     for (const bad of ['asset:../secret', 'asset:a/b', 'asset://evil.test/x', 'asset:a.b', 'asset:', 'asset:-lead', 'asset:a b']) {
-      assert.equal(bg.resolveAssetUrl(bad, 'file:///deck/', undefined, URLS), bad, bad);
+      assert.equal(bg.resolveAssetUrl(bad, 'file:///deck/', undefined, URLS), remoteRef.WEB_IMAGE_PLACEHOLDER, bad);
+      assert.equal(bg.resolveAssetUrl(bad, 'file:///deck/', undefined, undefined), bad, bad);
       assert.equal(remoteRef.isRemoteUrl(bad), true, bad);
     }
   });
@@ -50,7 +51,7 @@ describe('asset: — grammar and resolver', () => {
     assert.equal(bg.resolveAssetUrl('asset:hero', undefined, undefined, map), remoteRef.WEB_IMAGE_PLACEHOLDER);
     assert.equal(bg.resolveAssetUrl('asset:hero', undefined, undefined, { hero: 42 }), remoteRef.WEB_IMAGE_PLACEHOLDER);
     // `__proto__` cannot even reach the map: a name may not start with `_`, so it is malformed.
-    assert.equal(bg.resolveAssetUrl('asset:__proto__', undefined, undefined, {}), 'asset:__proto__');
+    assert.equal(bg.resolveAssetUrl('asset:__proto__', undefined, undefined, {}), remoteRef.WEB_IMAGE_PLACEHOLDER);
     assert.equal(remoteRef.isRemoteUrl('asset:__proto__'), true);
     assert.equal(bg.resolveAssetUrl('asset:constructor', undefined, undefined, {}), remoteRef.WEB_IMAGE_PLACEHOLDER);
   });

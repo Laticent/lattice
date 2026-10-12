@@ -235,6 +235,22 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	// `reload` is a stable callback, so it reads the open deck through a ref rather than closing over a stale id.
 	const activeDeckIdRef = React.useRef(activeDeckId);
 	activeDeckIdRef.current = activeDeckId;
+	// How many decks name each photo is read from the decks' sources, so the count cannot drift from what a
+	// deck says. The OPEN deck is excluded here: its source is live (`activeDeckSource`, below).
+	const readOtherSources = React.useCallback(() => {
+		try {
+			setOtherSources(loadDeckList().filter((dk) => dk.id !== activeDeckIdRef.current).map((dk) => loadSource(dk.id) ?? ''));
+		} catch {
+			setOtherSources([]);
+		}
+	}, []);
+	// The docked Library stays open while the person switches decks: the new deck is then the live one and
+	// the old deck a stored one, so the split is re-read, or the new deck is counted twice and the old dropped.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `activeDeckId` is the trigger; the callback reads it through a ref.
+	React.useEffect(() => {
+		readOtherSources();
+	}, [activeDeckId, readOtherSources]);
+
 	const reload = React.useCallback(() => {
 		// The shipped motion library rides beside the user's shelf, not in it: it is read-only,
 		// never selected, shared or deleted, and it does not count toward `total`.
@@ -246,13 +262,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 			setDocs(d);
 			setScenes(m);
 			setMedia(md);
-			// How many decks name each asset is read from the decks' sources, so the count can't drift
-			// from what a deck says. The open deck is excluded here: its source is live (below).
-			try {
-				setOtherSources(loadDeckList().filter((dk) => dk.id !== activeDeckIdRef.current).map((dk) => loadSource(dk.id) ?? ''));
-			} catch {
-				setOtherSources([]);
-			}
+			readOtherSources();
 			// Version counts, and the orphan net, in the same pass.
 			//
 			// `listAssets()` — the RAW store, every kind, one read — and deliberately not the
@@ -283,7 +293,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 				})
 				.catch(() => setVersionCounts({}));
 		});
-	}, []);
+	}, [readOtherSources]);
 	// Load (and refresh) whenever the drawer opens; honor a requested initial tab
 	// (the picker's "Manage in Library" link opens straight to Files).
 	React.useEffect(() => {
@@ -304,6 +314,8 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	const shownMedia = visibleMedia(media, activeDeckId);
 	// Deferred, so typing in the editor never waits on a count of N assets over M decks.
 	const liveSource = React.useDeferredValue(activeDeckSource);
+	// Decks OTHER than the open one that name each photo: what keeps a shared photo from being kept to one deck.
+	const usedElsewhere = React.useMemo(() => Object.fromEntries(media.map((a) => [a.name, decksUsing(a.name, otherSources)])), [media, otherSources]);
 	const mediaUse = React.useMemo(() => {
 		const sources = liveSource === undefined ? otherSources : [...otherSources, liveSource];
 		return Object.fromEntries(media.map((a) => [a.name, decksUsing(a.name, sources)]));
@@ -495,14 +507,24 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	}
 	function removeMedia(a: MediaRecord) {
 		const used = mediaUse[a.name] || 0;
-		deleteMedia(a.id).then(() => {
-			reload();
-			onChanged();
-			notify(used > 0 ? `Deleted ${a.name}. ${used} deck${used === 1 ? '' : 's'} still name it and will show a placeholder.` : `Deleted ${a.name}.`);
-		});
+		// A photo a deck names is not deleted on a stray double tap: say what it will cost first.
+		if (used > 0 && !window.confirm(`${used} deck${used === 1 ? '' : 's'} use “${a.name}”. Delete it anyway? ${used === 1 ? 'That deck' : 'Those decks'} will show a placeholder.`)) return;
+		deleteMedia(a.id)
+			.then(() => {
+				reload();
+				onChanged();
+				notify(`Deleted ${a.name}.`);
+			})
+			.catch(() => notify(`Could not delete ${a.name}. Try again.`));
 	}
 	function moveMedia(a: MediaRecord, scope: string) {
-		setMediaScope(a.id, scope).then(() => { reload(); onChanged(); notify(scope === LIBRARY_SCOPE ? `${a.name} is now in all decks.` : `${a.name} now belongs to this deck.`); });
+		setMediaScope(a.id, scope)
+			.then(() => {
+				reload();
+				onChanged();
+				notify(scope === LIBRARY_SCOPE ? `${a.name} is now in all decks.` : `${a.name} now belongs to this deck.`);
+			})
+			.catch(() => notify(`Could not move ${a.name}. Try again.`));
 	}
 
 	async function shareTheme(t: StudioTheme) {
@@ -938,7 +960,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 								);
 							})}
 							{vMedia.map((a) => (
-								<MediaCard key={`media:${a.id}`} m={a} activeDeckId={activeDeckId} usedIn={mediaUse[a.name] || 0} armed={armed === `media:${a.id}`} confirmLabel={confirmLabel} onArm={() => setArmed(`media:${a.id}`)} onCancel={() => setArmed(null)} onDelete={() => { setArmed(null); removeMedia(a); }} onScope={(s) => moveMedia(a, s)} />
+								<MediaCard key={`media:${a.id}`} m={a} activeDeckId={activeDeckId} usedIn={mediaUse[a.name] || 0} usedElsewhere={usedElsewhere[a.name] || 0} armed={armed === `media:${a.id}`} confirmLabel={confirmLabel} onArm={() => setArmed(`media:${a.id}`)} onCancel={() => setArmed(null)} onDelete={() => { setArmed(null); removeMedia(a); }} onScope={(s) => moveMedia(a, s)} />
 							))}
 							{vDocs.map((d) => (
 								// Reference doc — manage-only card (no select/share; docs aren't lattice assets).

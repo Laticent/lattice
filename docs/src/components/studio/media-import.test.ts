@@ -45,8 +45,16 @@ describe('planImage', () => {
 	it('downscales an oversized PNG in its own format so transparency survives', () => {
 		expect(planImage('image/png', 6000, 3000)).toMatchObject({ reencode: true, mime: 'image/png', width: MAX_IMAGE_EDGE, height: 1280 });
 	});
-	it('stores GIF, SVG and AVIF as given', () => {
-		for (const m of ['image/gif', 'image/svg+xml', 'image/avif']) expect(planImage(m, 9000, 9000).reencode).toBe(false);
+	it('stores GIF and AVIF as given', () => {
+		for (const m of ['image/gif', 'image/avif']) expect(planImage(m, 9000, 9000).reencode).toBe(false);
+	});
+	it('re-encodes the spellings of JPEG that pickers report, so GPS never survives in `image/jpg`', () => {
+		for (const m of ['image/jpg', 'image/pjpeg']) expect(planImage(m, 800, 600)).toMatchObject({ reencode: true, mime: 'image/jpeg' });
+	});
+	it('turns any type the Library does not store into a PNG, so a backup never has to drop one', () => {
+		for (const m of ['image/bmp', 'image/tiff', 'image/x-icon', 'image/vnd.microsoft.icon', 'image/x-whatever', 'image/svg+xml']) {
+			expect(planImage(m, 400, 300), m).toMatchObject({ reencode: true, mime: 'image/png' });
+		}
 	});
 	it('never produces a zero-size image from an extreme aspect', () => {
 		const p = planImage('image/png', 20000, 3);

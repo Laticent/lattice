@@ -91,6 +91,9 @@ export async function saveMedia(input: NewMedia, addedAt: number): Promise<Media
 	} catch (first) {
 		// A refusal of ours (a name clash) is the author's to fix: never retried, never reworded.
 		if (isRefusal(first)) throw first;
+		// A full disk is not a Blob problem, and a second attempt would only copy the bytes into memory
+		// and fail the same way. Say what is true.
+		if (isQuota(first)) throw new Error(`${MEDIA_REFUSAL_PREFIX} this browser has no room left to store photos. Delete some photos or other saved items and try again.`);
 		// Some engines refuse to store a Blob at all: Safari in a private window answers
 		// "UnknownError: Error preparing Blob/File data to be stored in object store" (reproduced on real
 		// WebKit), while an ArrayBuffer stores fine. So the bytes go in as an ArrayBuffer and are rebuilt
@@ -100,12 +103,14 @@ export async function saveMedia(input: NewMedia, addedAt: number): Promise<Media
 			return await putMedia(input, id, addedAt, true);
 		} catch (second) {
 			if (isRefusal(second)) throw second;
+			if (isQuota(second)) throw new Error(`${MEDIA_REFUSAL_PREFIX} this browser has no room left to store photos. Delete some photos or other saved items and try again.`);
 			throw new Error(`${MEDIA_REFUSAL_PREFIX} this browser would not store the photo. A private window often cannot; open Lattice in a normal window and try again.`);
 		}
 	}
 }
 
 const isRefusal = (e: unknown): boolean => e instanceof Error && e.message.startsWith(MEDIA_REFUSAL_PREFIX);
+const isQuota = (e: unknown): boolean => (e as { name?: string } | null)?.name === 'QuotaExceededError';
 
 /** One attempt: the name check and the write share one readwrite transaction. `asBuffer` stores the
  *  bytes as an ArrayBuffer (`data`) instead of a Blob. */
@@ -199,6 +204,26 @@ export async function setMediaScope(id: string, scope: MediaScope): Promise<Medi
 /** Remove one asset. */
 export async function deleteMedia(id: string): Promise<void> {
 	await deleteAsset(id);
+}
+
+/** `hero` → `hero-2`, `hero-3`… the first name not in `taken`. For a batch whose file names would
+ *  otherwise refuse each other, and for a restore that must not overwrite a different photo. */
+export function uniqueName(name: string, taken: ReadonlySet<string>): string {
+	if (!taken.has(name)) return name;
+	for (let n = 2; n < 1000; n++) {
+		const candidate = `${name.slice(0, 44)}-${n}`;
+		if (!taken.has(candidate) && isMediaName(candidate)) return candidate;
+	}
+	return `${name.slice(0, 40)}-${Date.now().toString(36)}`;
+}
+
+/** Delete every photo kept to ONE deck, whichever deck: "Clear decks" removes the decks, and a photo
+ *  kept to a deck that no longer exists is invisible and unreachable but still holds the quota.
+ *  Shared photos stay. Resolves how many went. */
+export async function deleteDeckScopedMedia(): Promise<number> {
+	const mine = (await listMedia()).filter((m) => m.scope !== LIBRARY_SCOPE);
+	for (const m of mine) await deleteMedia(m.id);
+	return mine.length;
 }
 
 /** Delete every asset a deck owns (the deck is being deleted). Resolves how many went. */
