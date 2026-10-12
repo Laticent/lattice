@@ -108,7 +108,7 @@ describe('what a renderer is handed', () => {
 
   test('the root element is the door’s, naming the plugin, and the name is escaped', () => {
     assert.equal(fenceMarkup('gantt-plugin', '<b>x</b>'), '<div data-lattice-plugin="gantt-plugin"><b>x</b></div>');
-    assert.doesNotMatch(fenceMarkup('a"><script>', ''), /<script>/);
+    assert.doesNotMatch(fenceMarkup('a"><script>', ''), /<script/i);
   });
 
   test('a failure keeps the code block and says why, on one escaped line', () => {

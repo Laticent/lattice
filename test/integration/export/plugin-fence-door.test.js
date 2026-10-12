@@ -120,7 +120,7 @@ describe('the fence door through the real sandbox', () => {
     const root = /<div data-lattice-plugin="gantt-plugin">([\s\S]*?)<\/div>\s*<\/div>/.exec(html)?.[0] ?? '';
     assert.match(root, /<ul class="gantt-plugin-rows" id="gantt-plugin-[0-9a-f]{8}-0">/, 'its own class and id stay, the foreign class goes');
     assert.match(root, /<li>Design 1 &lt; 2<\/li><li>Build 3<\/li>/, 'it was handed the fence’s text as written');
-    assert.doesNotMatch(html, /foreign-class|onclick|alert\(|<script|127\.0\.0\.1|not-mine/, 'a stranger’s class, handler, script, address and id are gone');
+    assert.doesNotMatch(html, /foreign-class|onclick|alert\(|<script|127\.0\.0\.1|not-mine/i, 'a stranger’s class, handler, script, address and id are gone');
     assert.match(html, /language-js/, 'a fence of another language is still code');
     assert.doesNotMatch(html, /language-gantt/, 'the gantt block was replaced');
     await settle();
@@ -142,7 +142,7 @@ describe('the fence door through the real sandbox', () => {
     const html = r.rendered.html;
     assert.match(html, /language-gantt/, 'the code block is kept');
     assert.match(html, /data-package-error="gantt-plugin"[^>]*>The plugin “gantt-plugin” did not draw this block: the renderer returned markup that closes its own container/);
-    assert.doesNotMatch(html, /alert\(3\)|<script/);
+    assert.doesNotMatch(html, /alert\(3\)|<script/i);
     assert.ok(r.lines.warn.some((l) => /did not draw 1 block \(on slide 1\)/.test(l)), r.lines.warn.join('\n'));
   });
 
