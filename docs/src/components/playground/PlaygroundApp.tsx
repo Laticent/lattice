@@ -52,6 +52,7 @@ import {
 import { createEngineBridge, type EngineBridge, type PreviewState } from '@/lib/playground-engine';
 import { parseDeckMotion } from '@/playground/anima-host-sel';
 import { createAnimaScenes } from '@/playground/anima-scenes.ts';
+import { createCollageOverlay } from '@/playground/collage-host.js';
 import { applyDebug } from '@/playground/debug-overlay.js';
 import { getDebugOverride, onDebugOverrideChange } from '@/playground/debug-prefs.js';
 import { readFrontMatter } from '@/playground/deck-config.js';
@@ -485,6 +486,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	// `ChartDetailLayer` (below in the tree); this ref drives its rebind() after each paint.
 	const chartDetailRef = React.useRef<ChartDetailHandle | null>(null);
 	const videoOverlayRef = React.useRef<{ rebind: () => void; destroy: () => void } | null>(null);
+	const collageOverlayRef = React.useRef<{ rebind: () => void; destroy: () => void } | null>(null);
 	// Parent-hosted Anima scene hydration — brings a `scene` slide's poster to life on the
 	// live preview (Stage 6). Created on mount, re-bound after each render (a srcdoc rewrite
 	// replaces the iframe doc). Export untouched (poster still).
@@ -648,6 +650,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		applyDebug(frameRef.current, { force: forceRef.current });
 		chartDetailRef.current?.rebind();
 		videoOverlayRef.current?.rebind();
+		collageOverlayRef.current?.rebind();
 		animaScenesRef.current?.rebind();
 	}, []);
 	/** Mount the slides around section `index` before scrolling to it, so the reader lands on a
@@ -692,6 +695,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		if (frameRef.current) window.LatticeDeckPreview?.attachVirtual?.(frameRef.current, () => previewStateRef.current, onVirtualChange);
 		applyDebug(frameRef.current, { force: forceRef.current });
 		videoOverlayRef.current?.rebind();
+		collageOverlayRef.current?.rebind();
 		animaScenesRef.current?.rebind();
 		// Close the expand-during-srcdoc-load race: an expand that fired before the
 		// fresh document defined __latticeFit would silently no-op; the loaded doc
@@ -919,6 +923,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				chartDetailRef.current?.rebind();
 				// Re-install the parent-hosted video playback bridge on the (possibly new) frame.
 				videoOverlayRef.current?.rebind();
+				collageOverlayRef.current?.rebind();
 				// Re-hydrate Anima scenes on the (possibly new) frame document.
 				animaScenesRef.current?.rebind();
 				// Re-apply the debug overlay: a section PATCH keeps the doc live but swaps
@@ -1164,6 +1169,9 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		// (never an iframe inside the slide — #22 + the iOS scaled-iframe traps).
 		const vo = createVideoOverlay({ getFrame: () => frameRef.current ?? frame });
 		videoOverlayRef.current = vo;
+		// Parent-hosted collage lightbox: a click on a collage tile enlarges the photo over the preview.
+		const co = createCollageOverlay({ getFrame: () => frameRef.current ?? frame });
+		collageOverlayRef.current = co;
 		// Parent-hosted Anima scene hydration (Stage 6): mount the backend + run the loop
 		// over the scene poster in the live preview.
 		// Pass the deck-level `motion:` default (read live from the editor) so a class-less chart
@@ -1189,6 +1197,8 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		return () => {
 			vo.destroy();
 			videoOverlayRef.current = null;
+			co.destroy();
+			collageOverlayRef.current = null;
 			as.destroy();
 			animaScenesRef.current = null;
 		};

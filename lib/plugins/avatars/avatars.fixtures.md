@@ -34,6 +34,19 @@ Our sponsor `!{Ada Okafor}` clears blockers.
 - renders `glasses=round`
 - detect true
 
+## a head covering, earrings and clothing reach the render
+
+```markdown
+`!{Amina Yusuf, headwear=hijab, headwear-color=plum, earrings=drop, clothing=blazer}`
+```
+
+- renders `headwear=hijab`
+- renders `headwear-color=plum`
+- renders `earrings=drop`
+- renders `clothing=blazer`
+- renders `fill="#5E4660"`
+- detect true
+
 ## a value a trait does not take stays literal
 
 ```markdown

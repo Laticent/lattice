@@ -10,6 +10,9 @@ swimlane: engineering/development.md
 # CI's integration (node 22) job runs at its 25-minute cap, and a capped run reads green
 
 ```text
+update    — 2026-10-11: the legs ran 9:43 / 5:42 / 7:05 / 3:51 (test step, run 38125793642; 1.49x mean).
+            `tools/shard-tests.js` now deals files by committed per-file seconds (modelled 1.00x). STILL OPEN:
+            confirm the spread on real runs (>=5, target slowest leg <=1.2x mean) and re-derive the 25 min cap.
 status    — the owner picked the split (2026-10-09): branch `claude/ci-shard-integration` runs
             the slice as four `--test-shard` legs, 25 min cap each. The merge queue already
             fails a `cancelled` tier; the PR run still passes one, with the reason in ci.yml's

@@ -1,0 +1,4 @@
+---
+group: Test & verify
+---
+Whether Segno can tokenize whole CSS, HTML and Markdown files: grammars written with greedy() and until() (tools/parser-bakeoff/languages-grammars.mjs) read every tracked file of each type, and the arm reports coverage, per-file agreement with postcss, parse5 and markdown-it on one structure each (blocks; start tags and comments; headings, fences and code spans), MB/s beside those parsers (not like for like: they also build trees), MB/s beside their tokenizer layers alone (postcss's and css-tree's tokenizers, parse5's Tokenizer, markdown-it's block pass: the like-for-like race), and twelve hostile shapes at 5k and 50k repetitions. Missing comparison parsers are skipped; --json for machine output. On-demand, not a gate. See decision 21 of engineering/decisions/2026-09-28-segno-unified-inline-notation.md.

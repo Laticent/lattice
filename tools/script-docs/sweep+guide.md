@@ -1,0 +1,4 @@
+---
+group: Test & verify
+---
+Measure what the Guide gesture vocabulary actually does to the committed corpus: render every deck, read its real read-along cues, and run the SHIPPING classifier (`guideCueIn`) over them. Reports the gesture distribution, the match rate, the `_focus:` escalation rate and how often the stroke's own resting place had to fall back to the whitespace search. Also PER COMPONENT — resolve rate and handle mix for each of the 70, misses attributed, so "which component cannot present itself" is answerable; the corpus rate hides it, because a deck mixes components. The thresholds in `chooseGesture` were set from this output (HARD RULE #19 discipline applied to a design constant). On-demand — ~182 full deck renders, `--reuse` to re-measure without re-rendering, `--deck <file>` (repeatable) to measure named decks only, `--misses` to print every cue that hid and every one answered by the whole chart.

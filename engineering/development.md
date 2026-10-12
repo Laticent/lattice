@@ -78,7 +78,7 @@ scaffolders, …). This section calls out only the daily inner-loop:
 | `test:watch` | Re-run the unit suite on file change |
 | `test:<scope>` | Scoped unit subset (`palette`/`mermaid`/`parsing`/`components`/`cli`/`engine`/`layout`/…) |
 | `test:integration` | The FULL integration tier (every suite) — what pre-push runs under `LATTICE_FULL_PUSH=1` |
-| `test:integration:pr` | The PR-blocking slice CI gates on: cross-path wiring (`parity/`) + export pipeline (`export/`) + per-component semantic invariants (`invariants/`). CI runs it as four shards (see *CI* below) |
+| `test:integration:pr` | The PR-blocking slice CI gates on: cross-path wiring (`parity/`) + export pipeline (`export/`) + per-component semantic invariants (`invariants/`). CI runs the same globs as four time-balanced shards via `test:integration:shard` (see *CI* below) |
 | `test:integration:nightly` | The render-regression slice that runs nightly on `main` (`integration-nightly.yml`): gallery/component/exemplar page-counts + mermaid + screenshot |
 | `bench` | tinybench render benchmark — the owned engine over time (`-- --export` adds the rasterize tier, `-- --json` dumps machine-readable) |
 | `lint`, `lint:fix` | Biome check / Biome check --write (never `npx biome`) |
@@ -220,7 +220,7 @@ re-lists them is one people learn to skim. Re-bless with `npm run contrast:playe
 a fix lands. The muted-chrome tier (header/footer/pagination) is WCAG-exempt by palette
 contract and is reported in its own bucket, never as a failure.
 
-`[PR]` suites gate every `code` PR via `test:integration:pr`; `[nightly]` suites
+`[PR]` suites gate every `code` PR via `test:integration:pr` (CI runs the same globs as `test:integration:shard`); `[nightly]` suites
 run on `main` via `integration-nightly.yml` (`test:integration:nightly`). The
 split keeps shared-kernel wiring, the export pipeline, and the computed-style
 correctness gate blocking, and moves the slow fresh-render regression suites off
@@ -397,13 +397,18 @@ integration tests, not unit tests.
   The only tier that renders, so the only one that downloads Chromium —
   **cached** via `actions/cache` on `~/.cache/puppeteer` (keyed on the
   lockfile). Installs `poppler-utils` (for `pdfinfo`), runs
-  `npm run test:integration:pr` with `NODE_OPTIONS=--test-shard=K/4`, so each
-  leg runs every fourth file. Node splits by file COUNT, not by time, so a leg
-  finishes no sooner than its slowest file; that is why the palette sweep is one
-  file per deck (`test/integration/invariants/palette-sweep.suite.js`). Run one leg
-  locally with `NODE_OPTIONS=--test-shard=2/4 npm run test:integration:pr`
-  (`npm run test:integration:pr -- --test-shard=2/4` does NOT shard: node reads
-  the trailing flag as one more file pattern). The `ci` gate still sees one
+  `npm run test:integration:shard` with `SHARD=K/4`. `tools/shard-tests.js` deals the
+  slice's files out slowest-first into the lightest leg, from per-file seconds committed
+  in `test/integration/shard-weights.json` (node's own `--test-shard` splits by file
+  COUNT, which gave legs of 9:43 / 5:42 / 7:05 / 3:51, the slowest 1.49x the mean). A
+  leg still finishes no sooner than its slowest file (export-formats and html-player,
+  about 5.5 min each), which is why the palette sweep is one file per deck
+  (`test/integration/invariants/palette-sweep.suite.js`). Run one leg locally with
+  `SHARD=2/4 npm run test:integration:shard`; unset, it runs every file. A new test gets
+  the median weight until the weights are re-blessed: time each file alone, write
+  `file<TAB>seconds` lines, then `node tools/shard-tests.js --weights
+  test/integration/shard-weights.json --bless TIMES.tsv`. Re-bless when the legs drift
+  past ~1.2x of their mean. The `ci` gate still sees one
   `needs.integration.result` for all four legs, and any red leg makes it `failure`.
 - **`player-webkit`** — re-runs `test/integration/export/player-no-js.test.js` (the
   exported player with JavaScript off) in Playwright's WebKit, because iOS Quick Look
@@ -1043,6 +1048,23 @@ filed as `incomplete`, not as a violation. Budget zero, two adjudicated exceptio
 self-check that plants defects and requires them to be caught. Run one width with
 `npx playwright test axe-site --project=mobile`. Rationale and the still-open list:
 `engineering/decisions/2026-08-19-website-accessibility-gate.md`.
+
+**The Live panel against fixtures** (`e2e/live-panel.spec.ts`, harness in `e2e/live-panel-harness/`).
+The Studio mounts `LivePanel` only inside a live session, which needs a relay and a second browser.
+The panel is pure over `LiveView` + `LiveActions` (`live-model.ts`), so the harness mounts the REAL
+component with a fixture view and records every action it calls; the spec bundles it with the site's
+own Tailwind plugin and the palette tokens at test time (never committed, HARD RULE #2), so what it
+renders is what the Studio renders. It covers what a person sees and can do in the panel, at 1440
+and 390 px, and on real WebKit at iPhone 15 Pro size (`@webkit-phone`): the call row (join, mute, leave), the leave and end confirmations (they act once), the
+person menu staying on screen, the narrowest docked column, and an axe scan of the panel and the
+person menu in both color modes. Run it with `npx playwright test e2e/live-panel.spec.ts` from
+`docs/`; it needs no relay and no WebRTC, and runs in seconds. The transport (knock, admit, edit
+sync, regency, real calls) is covered by `tools/live-session-check.mjs` today, on demand, and later
+by two-browser specs against a local relay (nightly only). Two things the axe helper does on
+purpose, both measured: a scan with a Radix menu open drops only `aria-hidden-focus` (the menu marks
+the page behind it `aria-hidden` and traps focus, and `assertFocusTrapped` proves the trap in the
+same test), and the scan reads the resting state with the pointer moved away, because a hovered row
+has its own lower contrast, which is a recorded follow-up (filed in followups.d/ with this PR).
 
 **Note the distinct-tool boundary.** `tools/check-shadcn-bridge-contrast.js` grades the token
 MATH of the shadcn bridge and `tools/contrast-audit.js` grades the theme token pairs; neither can

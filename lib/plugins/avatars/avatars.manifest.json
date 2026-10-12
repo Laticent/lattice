@@ -5,7 +5,7 @@
   "name": "avatars",
   "api": 1,
   "title": "Avatars",
-  "description": "Drawn stand-in portraits, written in inline code: `!{Ada Okafor}` draws a head-and-shoulders avatar whose every unwritten trait is chosen by the name, so it is the same face on every render, and `!{Ada Okafor, hair=coily, glasses=round, c3, lg}` sets the traits an author cares about. Twelve traits (skin, hair, hair color, face, eyes, eye color, brows, nose, mouth, beard, glasses, top), a `gender=` preset of defaults, and a tile in the deck's chart colors with an `avatar:` register for its shape and frame. In a team-profile roster an avatar is the portrait. The drawings load only for a deck that writes an avatar.",
+  "description": "Drawn stand-in portraits, written in inline code: `!{Ada Okafor}` draws a head-and-shoulders avatar whose every unwritten trait is chosen by the name, so it is the same face on every render, and `!{Ada Okafor, hair=coily, glasses=round, c3, lg}` sets the traits an author cares about. Sixteen traits (skin, hair, hair color, face, eyes, eye color, brows, nose, mouth, beard, glasses, earrings, head covering and its color, top, clothing), a `gender=` preset of defaults, and a tile in the deck's chart colors with an `avatar:` register for its shape and frame. In a team-profile roster an avatar is the portrait. The drawings load only for a deck that writes an avatar.",
   "contributes": {
     "inline": {
       "avatar": {

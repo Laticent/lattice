@@ -229,6 +229,18 @@ pinner. Two modes:
   per weight.
   Charts, diagrams, equations, `::before`/`::after` text, rotated text and
   ellipsized lines stay in the picture.
+  **Fidelity needs the deck's fonts at the reader.** Lines are broken where the
+  browser broke them (no wrap), and each word is placed from the browser's
+  measure, so the file matches the slide only when the reader draws the same face.
+  LibreOffice does not use a `.pptx`'s embedded fonts: with Outfit missing it falls
+  back to Inter, every line runs wider, and a picture set mid-sentence (an
+  inline icon, spark or avatar, which stays a picture at the x the browser
+  measured) sits off its words. With Outfit installed, the same file keeps every
+  picture beside its words (measured on a deck with `^{bucket}` and `!{Ada}` spans,
+  2026-10-11). Not a writer defect, so no writer change. Real PowerPoint was not
+  checked; it should read the embedded fonts. If font-less readers matter later, the
+  options are splitting each line at its pictures, or leaving such a paragraph in the
+  picture whole.
 
 Calco writes the zip itself, so no `soffice` is needed to export — LibreOffice is
 only the reader. Rounded corners square on both, as on the PPTX: the page sets no

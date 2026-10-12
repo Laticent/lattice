@@ -1,0 +1,1 @@
+- Under `spectrum: solid|duo|mono`, `split-panel` and `split-compare` no longer get a second top bar. The register painted its full-width section border above the frame's own two-segment edge, so the bar read doubled (measured on indaco: 8px duo gradient over the 8px panel bar, in light and dark). The frames now draw their own edge alone, as they do in a rainbow deck.

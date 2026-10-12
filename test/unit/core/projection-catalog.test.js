@@ -85,6 +85,13 @@ const FLOW_ADDED_SINCE = ['matrix-grid'];
  */
 const PLACEHOLDER_ADDED_SINCE = ['flowchart'];
 
+/**
+ * `bare` figures declared since the literals were retired. `collage` (imagery): a packed photo
+ * grid. `figure: "bare"` like `image` — it re-hosts as a plain <figure> and rides no chart
+ * spectrum — so it joins MEDIA_COMPONENTS. It is not data, so DATA_LAYOUTS does not move.
+ */
+const BARE_ADDED_SINCE = ['collage'];
+
 const sorted = (a) => [...a].sort();
 
 test('the projected catalog', async (t) => {
@@ -102,7 +109,7 @@ test('the projected catalog', async (t) => {
 
 	await t.test('the eight unchanged sets are exactly what the literals held', () => {
 		assert.deepEqual(sorted(c.SVG_CHART_LAYOUTS), plus(WAS.CHART_TOKEN_COMPONENTS));
-		assert.deepEqual(sorted(c.MEDIA_COMPONENTS), plus(WAS.MEDIA_COMPONENTS, [...ADDED_SINCE, ...PLACEHOLDER_ADDED_SINCE]));
+		assert.deepEqual(sorted(c.MEDIA_COMPONENTS), plus(WAS.MEDIA_COMPONENTS, [...ADDED_SINCE, ...PLACEHOLDER_ADDED_SINCE, ...BARE_ADDED_SINCE]));
 		assert.deepEqual(sorted(c.FLOW_CHART_COMPONENTS), plus(WAS.FLOW_CHART_COMPONENTS, FLOW_ADDED_SINCE));
 		assert.deepEqual(sorted(c.SPATIAL_BOUNDED_COMPONENTS), WAS.SPATIAL_BOUNDED_COMPONENTS);
 		assert.deepEqual(sorted(c.SPATIAL_PLACEHOLDER_COMPONENTS), plus(WAS.SPATIAL_PLACEHOLDER_COMPONENTS, PLACEHOLDER_ADDED_SINCE));

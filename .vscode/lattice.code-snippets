@@ -191,6 +191,27 @@
     ],
     "description": "Single fenced code block as the slide's centerpiece."
   },
+  "lattice: collage": {
+    "prefix": "lattice-collage",
+    "body": [
+      "<!-- _class: collage -->",
+      "",
+      "`The atelier`",
+      "",
+      "## Hand-lasted, one pair at a time.",
+      "",
+      "`Five photographs from the autumn bench`",
+      "",
+      "Each pair starts as a last carved to one foot. Leather is cut by hand and finished over fourteen weeks.",
+      "",
+      "- ![Tall portrait](sample:photo-tall.svg) `hero`",
+      "- ![Wide landscape](sample:photo-wide.svg)",
+      "- ![Square](sample:photo-square.svg)",
+      "- ![Panorama](sample:photo-pano.svg)",
+      "- ![Narrow column](sample:photo-column.svg)"
+    ],
+    "description": "Four to six photos of any shape packed edge to edge into a mood board, with the usual eyebrow, title, subtitle and description beside them."
+  },
   "lattice: columns": {
     "prefix": "lattice-columns",
     "body": [

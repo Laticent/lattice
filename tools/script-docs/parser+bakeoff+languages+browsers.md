@@ -1,0 +1,4 @@
+---
+group: Test & verify
+---
+The languages arm's CSS, HTML and Markdown grammars in three browser engines: builds Segno from the working tree and from --base <ref> (default origin/main), generates the three parsers from each with the same grammars, checks that both agree on every tracked file, and times both in Playwright's chromium, firefox and webkit, rounds alternating, best of nine samples of 100 ms or more. Prints MB/s base and head per language per engine with browser versions. A browser that is not installed is skipped (only Chromium is in the base image). --page <out.html> writes the same race as one self-contained page (both parser sets and a corpus inlined, under 16 MB) for a browser this sandbox cannot drive, such as real Safari; --drive <page> runs that page in the three Playwright engines for a same-corpus comparison. --json for machine output. On-demand, not a gate.

@@ -185,6 +185,17 @@
       "perPage": 12,
       "relationship": null
     },
+    "collage": {
+      "treatment": "atomic",
+      "axis": null,
+      "declaredIn": null,
+      "enrolled": false,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": null,
+      "perPage": null,
+      "relationship": null
+    },
     "columns": {
       "treatment": "host",
       "axis": null,

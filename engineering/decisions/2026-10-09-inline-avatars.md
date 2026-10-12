@@ -53,8 +53,8 @@ The owner settled four in one round (2026-10-09):
    starts with `!important`: a tag means something only directly before `{`, so that span is untouched.
 3. **`gender=` is a preset of defaults, never a lock.** It changes which pools hair, beard and brows are
    drawn from. Every trait an author writes wins, so any combination is expressible.
-4. **v1 is the core set.** Twelve traits and the team-profile integration. Earrings, head coverings,
-   clothing style, age cues, freckles and expression are a second PR (§ 10).
+4. **v1 is the core set.** Twelve traits and the team-profile integration. Earrings, head coverings and
+   clothing style followed as v2 (§ 11); age cues, freckles and expression are still open (§ 10).
 
 ## 4. The notation
 
@@ -90,8 +90,8 @@ Two sources in `lib/plugins/_avatars-source/`, one generator (`tools/build-avata
 
 | file | holds | loaded |
 |---|---|---|
-| `avatars.vocab.generated.js` (2 KB) | trait names and options, presets, pools | always: the kernel requires it, so a span reads and lints the same everywhere |
-| `avatars.data.generated.js` (13 KB) | the drawings and the colors | through `plugin-data.js`, only for a deck that writes `!{` |
+| `avatars.vocab.generated.js` (2.7 KB) | trait names and options, presets, pools | always: the kernel requires it, so a span reads and lints the same everywhere |
+| `avatars.data.generated.js` (26 KB) | the drawings and the colors | through `plugin-data.js`, only for a deck that writes `!{` |
 
 The generator validates every node: one of six shape elements, geometry plus a short list of numeric and
 keyword presentation attributes, and a PAINT that is a role (`$skin`, `$hair`, `$eye`, …) or `none`. No
@@ -101,8 +101,8 @@ resolves a role to one. Every option must have a drawing and every drawing an op
 ## 7. The drawing and the tile
 
 A 100-unit bust in the sample portraits' style, cropped to `14 14 72 72` so the face fills the tile. Layers
-paint in a fixed order: back hair, body, mid hair (long hair over the shoulders), face and ears, nose,
-beard, mouth, eyes, brows, front hair, glasses. Eyes have whites and a lid line: without them a dark iris
+paint in a fixed order: back hair, clothing, mid hair (long hair over the shoulders), head covering (back),
+face and ears, earrings, nose, beard, mouth, eyes, brows, front hair, head covering (front), glasses. Eyes have whites and a lid line: without them a dark iris
 vanished on skin tones 7 and 8 (caught on the rendered contact sheet).
 
 **The face is identity; the tile is the deck's.** Skin, hair, eyes and clothes are fixed colors, like a
@@ -147,9 +147,49 @@ the section is re-serialized and a serializer may leave a raw `>` inside an attr
 the trait correlation in § 5 and the dropped notes above; each is pinned in
 `test/unit/plugins/avatars.test.js` against the input that reproduced it.
 
-## 10. Not in v1
+## 10. Still not drawn
 
-Earrings, head coverings (hijab, turban, cap), clothing style, age cues, freckles, expression and hair
-type as a trait separate from style. Each is a new key in `traits.json` and a part set in `parts.json`;
-the generator's checks and the layer order already cover them. Head coverings need a layer above front
-hair and a rule for which hairstyles they hide.
+Age cues, freckles, expression, and hair type as a trait separate from style. Each is a new key in
+`traits.json` and a part set in `parts.json`; the generator's checks and the layer order already cover them.
+
+## 11. v2: earrings, head coverings, clothing
+
+Four traits, all **opt-in** so that no face drawn in v1 changes: `earrings` (`none` `stud` `hoop` `drop`),
+`headwear` (`none` `hijab` `turban` `skullcap` `beanie` `kufi` `cap` `backcap`), `headwear-color` (the nine `top` colors) and `clothing` (`crew`
+`vneck` `collar` `turtleneck` `hoodie` `blazer`). `earrings`, `headwear` and `clothing` each have a one-entry
+pool (`none`, `none`, `crew`), so a name that writes none of them draws exactly what v1 drew. Measured: the
+SVG of 1,200 default faces (400 names × 3 gender presets) is byte-identical before and after.
+
+- **Two new layers.** A covering has a back layer (the hijab's drape, behind the face) and a front layer
+  (the forehead band and the cheek panels of a hijab, a turban's wrap, a cap's dome and bill), drawn above
+  front hair. `body` becomes `clothing.crew`; the neck and its chin shadow ship with every style.
+- **Which hair a covering hides is data, not code**: `coverage` in `traits.json`, per covering and
+  hairstyle. A hijab and a turban hide all hair. A skull cap, beanie, kufi and cap hide the front layer, and also the back layer for a
+  bun, an afro and curls, whose volume would otherwise rise above the dome (seen on the contact sheet: curls
+  puffed out above the cap until `curly` joined the rule). Long hair and locs keep their `mid` layer and still
+  fall below a cap. A `backcap` is a fitted cap worn backwards, so it sits back on the crown and hides no front
+  hair: only the back layer of a bun, an afro or curls (their volume rises above it). A first draw gave it a
+  rear strap and the fringe-hiding rule of a forward cap; the owner pointed out that baseball caps are fitted
+  and that a backwards one leaves the hairline showing, and both were wrong. The hair trait stays resolved and stamped on `data-traits`; only its drawing is skipped.
+- **A covering sits snug: it is fitted to the head and the hair under it.** Every covering except the hijab
+  is drawn once, then `fit` in `traits.json` sizes it to the higher of the face's top and the hair's crown
+  and the wider of the face and the hair, plus a 1-unit margin: `sy` stretches it from `anchor` (the brow
+  line, y 38) up to that top, `sx` across about the centerline. The table holds each drawing's measured top
+  and half-width (read off its bounding box), each face shape's, and each hairstyle's crown (the hair drawings
+  do not change with the face, so the crown is absolute; the volume styles use the height they press down to
+  under a covering). The kernel writes the `matrix(…)` as a `transform` on each covering shape, so the data
+  stays one drawing, not one per face. Two rounds of the owner's review shaped this. First a fixed dome on
+  five face shapes looked janky (floating off a round head, tight on a long one). Then the fit was by face
+  alone, and every hat still rode 5 to 10 units above the skull (the drawings' tops sit at y 17 to 19 against a
+  skull top of 28), and a round head showed hair above the hat. A bare head gets a low hat; a head with short
+  hair a taller one.
+- **Earrings are keyed by face shape**, because the ears sit at a different x on each. The generator accepts
+  one list for every face or one per face; the shipped drawings are per face, derived from each face's ear
+  ellipses. A hijab covers the ears, so `hides-earrings` in `traits.json` skips the earring layer for it (the cheek
+  panels alone left gold slivers at the cloth edge, found by the checker). Behind a bob the earring still
+  shows at the hair's edge; that is left as drawn.
+- **Two new paint roles**: `$cover` (the covering, resolved from `headwear-color` through the `top` palette,
+  so no hex is duplicated) and `$metal` (one fixed gold for every earring).
+- **Cost.** The drawings file grows from 13 KB to 26 KB raw, loaded only for a deck that writes `!{`; the
+  always-loaded vocabulary grows from 2.3 KB to 2.7 KB raw.
+

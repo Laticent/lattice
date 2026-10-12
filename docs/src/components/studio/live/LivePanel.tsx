@@ -165,7 +165,7 @@ function CallControls({ view, actions }: { view: LiveView; actions: LiveActions 
 				{(
 					<DropdownMenu>
 						<DropdownMenuTrigger asChild>
-							<Button size="icon" variant={c.muted ? 'outline' : 'default'} className="-ml-px h-7 w-4 rounded-l-none pointer-coarse:h-10 pointer-coarse:w-6" aria-label="Microphone" title="Microphone">
+							<Button size="icon" variant={c.muted ? 'outline' : 'default'} className="-ml-px h-7 w-6 rounded-l-none pointer-coarse:h-10 pointer-coarse:w-6" aria-label="Microphone" title="Microphone">
 								<ChevronDown className="size-3" />
 							</Button>
 						</DropdownMenuTrigger>

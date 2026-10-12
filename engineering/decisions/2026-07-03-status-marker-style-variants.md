@@ -195,6 +195,15 @@ section **background** (a left gradient strip), which frees `::before` for the s
 box-shadow can't carry the rainbow gradient, so background (not box-shadow) is the right
 layer — this also sidesteps any interaction with the tone rail's box-shadow composition.
 
+**Under a `spectrum: solid|duo|mono` register (2026-10-11).** The slide's own bar wins. The
+register rule painted at (0,3,1) over `accent` and `tone-edge` (0,2,1), so a styled-spectrum
+deck silently turned both off while a default-rainbow deck honored them. The register now
+excludes `accent` (minus the split frames, which `accent` itself skips) and a semantic
+`tone-edge`, in `:where()` so its specificity is unchanged. A bare `tone-edge` with no tone keeps
+the deck's style. Reason: `tone-edge` is status, which a gradient cannot carry, and `accent` is
+an explicit per-slide choice; the spectrum stays the default on every other slide.
+Test: `test/unit/css/spectrum-register-yields-to-slide-bar.test.js`.
+
 ## 8. Do-not-regress
 
 - The tone rail stays box-shadow + backdrop-inset over finishes (2026-07-03).

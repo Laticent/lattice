@@ -230,6 +230,8 @@ const SINGLETON_TAGS = new Set([
   'definition', // glossary — term definitions
   'states',     // state-chart — state machine states
   'section-break', // divider — section-boundary idiom (was shared with subtopic, merged into divider.light 2026-06-07)
+  'masonry',    // collage — the word authors search for a mixed-shape photo wall (the layout is justified, not staggered)
+  'mood-board', // collage — the art-director name for the same slide
 ]);
 
 // Core token contract every base palette must define directly. These are
@@ -5636,6 +5638,10 @@ const SANCTIONED_MARK_IDENTITY = [
   // Twenty rows as of the 2026-09-24 accessibility pass, which gave every chart's marks a name;
   // twenty-four after its second round, which named the marks the rewritten narrations of line,
   // journey, roadmap `horizons` and matrix-grid open their sentences with.
+  // collage names each tile by its photo's alt text, so a narrated sentence that opens with the alt
+  // lands the Present Guide's pointer on that photo (projection: lib/transformers/prose-projection.mjs
+  // `speakCollage`). It declares no value.
+  ['components/imagery/collage/collage.transform.js', true, false],
   ['components/chart/bar/bar.transform.js', true, true],
   ['components/chart/bullet/bullet.transform.js', true, true],
   // The shared category-axis emitter: a category's label names the column or row a data-series
@@ -5921,6 +5927,12 @@ const SANCTIONED_PREVIEW_BUILDERS = [
 // new adapter is a new provenance to write down here (2026-09-27-trama-graph-chart-library.md).
 const RUNTIME_MARKUP_EXTRA_FILES = [
   'docs/src/lib/trama/pipeline.ts',
+  // The collage lightbox copies a photo's source and alt text into the parent document, or into the
+  // exported player. Both files write text, attributes and an image source only, and the core
+  // allowlists the source (http, https, blob, data:image/). Listed so a later `innerHTML` is caught
+  // (spec 2026-10-11-collage-component.md §5.4a).
+  'docs/src/playground/collage-host.js',
+  'lib/core/collage-lightbox.mjs',
 ];
 const SANCTIONED_RUNTIME_MARKUP_SINKS = [
   {
@@ -7260,6 +7272,13 @@ const SANCTIONED_EOL_BOUNDARIES = [
  * question ("is this a boundary?") instead of a blanket exemption. Stale entries fail.
  */
 const SANCTIONED_EOL_NON_BOUNDARIES = [
+  {
+    file: 'tools/build-capabilities.js',
+    why: 'reads REPO-COMMITTED `tools/script-docs/*.md` description files, not author text. '
+       + '`.gitattributes` guarantees LF in the working tree, so the BOM/CR fold is tolerance '
+       + 'for a locally CRLF-saved file; nothing downstream of it decides a palette or a slide '
+       + 'count. Same shape as the decisions and gotchas indexes below.',
+  },
   {
     file: 'tools/build-decisions-index.js',
     why: 'reads REPO-COMMITTED notes, not author text. `.gitattributes` (`* text=auto eol=lf`, '
@@ -9394,6 +9413,7 @@ const SANCTIONED_DENSITY_EXEMPT = {
   video: 'figural — poster + QR, not prose (heading/caption are universal budgets)',
   scene: 'figural — an Anima poster still (inline svg), not prose (heading/caption are universal budgets)',
   'logo-wall': 'figural — logos',
+  collage: 'figural — photos, not prose (the description paragraph is covered by the universal body budget)',
   // connect — QR cards; fields are credentials/identity values (ssid, email), not prose.
   wifi: 'connect — Wi-Fi credentials, not prose',
   contact: 'connect — vCard identity fields, not prose',

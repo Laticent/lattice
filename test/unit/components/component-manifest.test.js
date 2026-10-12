@@ -601,6 +601,7 @@ describe('component-manifest', () => {
         // idiom
         'dashboard', 'scorecard', 'two-by-two', 'swimlane', 'stoplight', 'pull-quote',
         'flowchart', 'changelog', 'donut', 'spider', 'org-chart', 'hero-number', 'tag-cloud',
+        'masonry', 'mood-board',
         // occasion
         'board-deck', 'pitch', 'planning', 'strategy', 'compliance', 'contract', 'regulation',
         'onboarding', 'retrospective', 'workflow', 'agile', 'okr', 'kickoff',

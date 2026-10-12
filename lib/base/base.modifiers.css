@@ -1425,7 +1425,7 @@ section .below-note.is-annotation > p::before {
 
 section:is(
   .actors, .agenda, .authority-chain, .big-number, .cards-grid, .cards-stack, .checklist,
-  .citation-card, .code, .columns, .compare-code, .compare-prose, .table, .content, .cycle,
+  .citation-card, .code, .collage, .columns, .compare-code, .compare-prose, .table, .content, .cycle,
   .decision, .diagram, .glossary, .inventory, .kpi, .list, .list-steps,
   .list-tabular, .logo-wall, .matrix-2x2, .obligation-matrix, .policy-recommendation,
   .premise, .pricing, .q-and-a, .redline, .regulatory-update, .rows, .scene, .statute-stack,
@@ -1446,7 +1446,7 @@ section:is(
 
 section:is(
   .actors, .agenda, .authority-chain, .big-number, .cards-grid, .cards-stack, .checklist,
-  .citation-card, .code, .columns, .compare-code, .compare-prose, .table, .content, .cycle,
+  .citation-card, .code, .collage, .columns, .compare-code, .compare-prose, .table, .content, .cycle,
   .decision, .diagram, .glossary, .inventory, .kpi, .list, .list-steps,
   .list-tabular, .logo-wall, .matrix-2x2, .obligation-matrix, .policy-recommendation,
   .premise, .pricing, .q-and-a, .redline, .regulatory-update, .rows, .scene, .statute-stack,
@@ -1481,7 +1481,7 @@ section:is(
  * gradient hairline, label size, and the drawn spark. */
 section:is(
   .actors, .agenda, .authority-chain, .big-number, .cards-grid, .cards-stack, .checklist,
-  .citation-card, .code, .columns, .compare-code, .compare-prose, .table, .content, .cycle,
+  .citation-card, .code, .collage, .columns, .compare-code, .compare-prose, .table, .content, .cycle,
   .decision, .diagram, .glossary, .inventory, .kpi, .list, .list-steps,
   .list-tabular, .logo-wall, .matrix-2x2, .obligation-matrix, .policy-recommendation,
   .premise, .pricing, .q-and-a, .redline, .regulatory-update, .rows, .scene, .statute-stack,
@@ -1496,7 +1496,7 @@ section:is(
 
 section:is(
   .actors, .agenda, .authority-chain, .big-number, .cards-grid, .cards-stack, .checklist,
-  .citation-card, .code, .columns, .compare-code, .compare-prose, .table, .content, .cycle,
+  .citation-card, .code, .collage, .columns, .compare-code, .compare-prose, .table, .content, .cycle,
   .decision, .diagram, .glossary, .inventory, .kpi, .list, .list-steps,
   .list-tabular, .logo-wall, .matrix-2x2, .obligation-matrix, .policy-recommendation,
   .premise, .pricing, .q-and-a, .redline, .regulatory-update, .rows, .scene, .statute-stack,

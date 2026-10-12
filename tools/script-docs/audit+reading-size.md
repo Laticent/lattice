@@ -1,0 +1,4 @@
+---
+group: Lint & audit
+---
+What size is each component's READING text at each venue? Renders every component's sample, bare and under each declared variant, at laptop / huddle / conference / hall, and sums the visible characters by computed font-size, leaving out the title, eyebrow, subtitle, header and footer, Key Insight and below-note codas, screen-reader-only labels and SVG text. Prints component × venue → pt and the role it lands on, sorted into reading rows, named exceptions and hero text (bigger on purpose); lists any second non-chrome size carrying >10% of a reading slide; then the distinct reading sizes per venue, which holds one value when every reading row reads at --fs-body. `--json` for the raw rows, `--only=a,b`, `--venues=`. An audit, not a gate (exit 0). Record: engineering/decisions/2026-09-29-one-reading-size-per-venue.md.

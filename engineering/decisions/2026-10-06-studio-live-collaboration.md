@@ -943,7 +943,15 @@ The rate follows the switch both ways. The 14 kHz tone was already carried at 64
 not move; what 128 kbit/s adds is the top band (about 20 dB more at 18–20 kHz; the rates include RTP headers). The generated
 signal ignores the processing constraints, so this run shows the bitrate effect and the constraints
 sent (`echoCancellation` false and so on, read from the recorded `getUserMedia` call), not what the
-processing does to a real microphone. One capture runs at a time (`joinCall`): a second tap while the first is still waiting on the
+processing does to a real microphone. The Playwright specs for these controls (`docs/e2e/live-panel-calls.spec.ts`, on the harness from
+#2639) found two accessibility defects in this work, and one is fixed: the always-visible arrow
+beside Mute was 16 px wide, under WCAG 2.2's 24 px minimum target, so it is now 24 px; the Volume
+slider sits directly inside the person menu's `role="menu"`, which axe reports as
+`aria-required-children`, and a `group` wrapper does not satisfy it. That one is the owner's call
+(a popover for Volume, or a documented exception) and its test is marked `test.fail` until then, so
+the nightly stays green while it holds and goes red when it is fixed.
+
+One capture runs at a time (`joinCall`): a second tap while the first is still waiting on the
 browser runs after it with the latest choice, and Leave call during a capture leaves once it
 lands (the checker, tier 1, on Opus, found both races; the run above also taps twice quickly and
 taps then leaves). UNVERIFIED: a real microphone with processing off, echo

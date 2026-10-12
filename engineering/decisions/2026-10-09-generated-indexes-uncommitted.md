@@ -112,9 +112,12 @@ and changing it would buy nothing.
 
 The same shape exists elsewhere, and each is a follow-up rather than part of this change:
 
-- **`SCRIPT_META` in `tools/build-capabilities.js`** is a hand-edited map of every npm script's
-  description, and every PR that adds a script edits it. It was in 9 of the same 50 commits.
-  The description could live next to the script, for example as one file per script.
+- **`SCRIPT_META` in `tools/build-capabilities.js`: done 2026-10-11.** It was a hand-edited map of
+  every npm script's description, and every PR that added a script edited it (9 of the same 50
+  commits). Each description is now its own file, `tools/script-docs/<script>.md` (`:` written
+  `+`), so adding a script touches `package.json` plus one new file. `--check` also fails on a
+  file with no script, an unknown group and an empty description. The last one found a script
+  (`parity:transforms`) whose unknown group had silently dropped it from the catalog.
 - **The 42 committed `lib/**/*.generated.*` registries** (plugin registry, chart registry,
   package index and others). The owner deferred these until the desktop app lands
   (`followups.d/2554-p3-uncommit-generated-js-after-desktop-app.md`). Under this contract the
