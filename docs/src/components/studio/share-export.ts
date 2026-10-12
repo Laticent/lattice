@@ -106,6 +106,24 @@ async function ensureTheme(options: SingleSlideOptions, palette: string, mode: '
 }
 
 /**
+ * The render option that lets an EXPORT show the deck's Library photos: a name → `data:` URI map for
+ * the photos `source` names. Empty for a deck that names none, which never loads the registry. A
+ * `blob:` URL from the live preview is not usable in a file or a capture frame (media-urls.ts).
+ */
+async function assetOpts(source: string): Promise<{ assetUrls?: Record<string, string> }> {
+	if (!/\basset:[a-z0-9]/i.test(source)) return {};
+	try {
+		const { dataUrlsFor } = await import('./media-urls');
+		return { assetUrls: await dataUrlsFor(source) };
+	} catch (e) {
+		// An EMPTY map, not none: with none the Studio's render hook would fill in the preview's `blob:` URLs,
+		// which die with the tab. With an empty map every photo is drawn as the missing-image stand-in.
+		console.warn('lattice: could not read the Library photos for an export', e);
+		return { assetUrls: {} };
+	}
+}
+
+/**
  * Render the FULL deck through the engine and assemble the `render` object the
  * image exporters need. This is the single piece of glue Share adds on top of
  * the shared exporters.
@@ -121,7 +139,7 @@ export async function buildDeckRender(
 ): Promise<DeckRender> {
 	const PG = await ensureReady(options);
 	const theme = await ensureTheme(options, palette, mode, extra, source);
-	const out = await renderMarkdown(PG, source, theme, { samplesUrl: samplesBaseFor(options.themeBase), ...(styles === 'flat' ? { styles } : {}) });
+	const out = await renderMarkdown(PG, source, theme, { samplesUrl: samplesBaseFor(options.themeBase), ...(await assetOpts(source)), ...(styles === 'flat' ? { styles } : {}) });
 	const { previewFontFaceCss } = await loadDeckRenderFonts();
 	return {
 		html: out.html,
@@ -403,7 +421,7 @@ export async function shareHtmlPlayer(
 	// `styles: 'flat'`: the player is a document that shows slide content outside a slide, so it
 	// asks for the flat mode and ships `out.flatCss`. `out.css` stays the scoped preview shape
 	// for the diagram bake's capture frame below.
-	let out = await renderMarkdown(PG, source, theme, { styles: 'flat', samplesUrl: samplesBaseFor(options.themeBase) });
+	let out = await renderMarkdown(PG, source, theme, { styles: 'flat', samplesUrl: samplesBaseFor(options.themeBase), ...(await assetOpts(source)) });
 
 	onStatus?.('Embedding fonts…');
 	const [fontMod, deckMod, coreMod, sanitizeMod, authoringMod] = await Promise.all([
@@ -503,7 +521,7 @@ export async function shareHtmlPlayer(
 			// The same embed + placeholder passes, so the candidate compares like-for-like with
 			// `recordSections`. The cache means it fetches nothing the first pass already did, and
 			// the notes cut changes no picture, so the first pass's report stands for it.
-			(src) => renderMarkdown(PG, src, theme, { styles: 'flat', samplesUrl: samplesBaseFor(options.themeBase) }).then(async (r) => ({ ...r, html: remoteRef.blockWebImages((await withMedia(r.html)).html, []).html })),
+			async (src) => renderMarkdown(PG, src, theme, { styles: 'flat', samplesUrl: samplesBaseFor(options.themeBase), ...(await assetOpts(src)) }).then(async (r) => ({ ...r, html: remoteRef.blockWebImages((await withMedia(r.html)).html, []).html })),
 		);
 		envelopeSource = cut.source;
 		fidelityWarning = cut.warning;
@@ -1173,7 +1191,7 @@ export async function shareCaptions(
 	onStatus?.('Rendering the deck…');
 	const PG = await ensureReady(options);
 	const theme = await ensureTheme(options, palette, mode, extra, source);
-	const out = await renderMarkdown(PG, source, theme, { samplesUrl: samplesBaseFor(options.themeBase) });
+	const out = await renderMarkdown(PG, source, theme, { samplesUrl: samplesBaseFor(options.themeBase), ...(await assetOpts(source)) });
 
 	onStatus?.('Reading notes + projecting slides…');
 	const [authoringMod, readAlongCore, projectionMod, resolveNarrationMod, narrationResolve, lintMod, bookendsMod] = await Promise.all([

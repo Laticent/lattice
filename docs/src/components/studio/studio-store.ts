@@ -613,6 +613,20 @@ export function saveCheckpoint(deckId: string, source: string, label: string, ts
 	return next;
 }
 
+/** Rewrite every checkpoint's source of one deck through `fn`, leaving ids, times and labels alone. For a
+ *  restore that renamed a photo: a checkpoint that still named the old name would bring back the wrong picture. */
+export function mapCheckpointSources(deckId: string, fn: (source: string) => string): void {
+	const list = loadCheckpoints(deckId);
+	let changed = false;
+	const next = list.map((c) => {
+		const source = fn(c.source);
+		if (source === c.source) return c;
+		changed = true;
+		return { ...c, source };
+	});
+	if (changed) write(SNAP_PREFIX + deckId, next);
+}
+
 // ── Architect chat history (per deck) ──────────────────────────────────────
 export const CHAT_PREFIX = 'lattice-studio-chat-'; // + deckId → ChatMessage[] (exported for the storage-overlay drift test)
 const CHAT_CAP = 60;
@@ -987,7 +1001,16 @@ export function exportStudioState(): StudioExport {
 	return { index, sources, checkpoints, chats, settings: loadSettings(), instructions: loadInstructions(), onDeviceInstructions: loadOnDeviceInstructions() };
 }
 
-export type ImportSummary = { added: number; restoredCopies: number; skipped: number };
+export type ImportSummary = {
+	added: number;
+	restoredCopies: number;
+	skipped: number;
+	/** Every deck id this import WROTE (added as-is, restored in place, or a new copy). A deck it
+	 *  skipped because the same source was already here is not in it. */
+	written: string[];
+	/** Backup deck id → the new id its copy was stored under, for a deck that diverged. */
+	copies: Record<string, string>;
+};
 
 /**
  * Merge a backup into the current workspace (never destructive):
@@ -1000,7 +1023,7 @@ export type ImportSummary = { added: number; restoredCopies: number; skipped: nu
  * values either way). `ts` is passed in so the store stays free of Date.now.
  */
 export function importStudioState(data: StudioExport, ts: number): ImportSummary {
-	const summary: ImportSummary = { added: 0, restoredCopies: 0, skipped: 0 };
+	const summary: ImportSummary = { added: 0, restoredCopies: 0, skipped: 0, written: [], copies: {} };
 	const index = loadIndex();
 	const have = new Map(index.map((e) => [e.id, e]));
 	let n = 0;
@@ -1021,6 +1044,7 @@ export function importStudioState(data: StudioExport, ts: number): ImportSummary
 			if (data.checkpoints[entry.id]?.length) write(SNAP_PREFIX + entry.id, data.checkpoints[entry.id].slice(0, SNAP_CAP));
 			if (data.chats[entry.id]?.length) saveChat(entry.id, data.chats[entry.id]);
 			summary.added++;
+			summary.written.push(entry.id);
 			continue;
 		}
 		const currentSrc = loadSource(entry.id);
@@ -1048,6 +1072,7 @@ export function importStudioState(data: StudioExport, ts: number): ImportSummary
 			if (data.checkpoints[entry.id]?.length && !loadCheckpoints(entry.id).length) write(SNAP_PREFIX + entry.id, data.checkpoints[entry.id].slice(0, SNAP_CAP));
 			if (data.chats[entry.id]?.length && !loadChat(entry.id).length) saveChat(entry.id, data.chats[entry.id]);
 			summary.added++;
+			summary.written.push(entry.id);
 			continue;
 		}
 		// Truly diverged (both sides carry edits) — restore beside, never over. The source is
@@ -1065,6 +1090,8 @@ export function importStudioState(data: StudioExport, ts: number): ImportSummary
 		if (data.checkpoints[entry.id]?.length) write(SNAP_PREFIX + newId, data.checkpoints[entry.id].slice(0, SNAP_CAP));
 		if (data.chats[entry.id]?.length) saveChat(newId, data.chats[entry.id]);
 		summary.restoredCopies++;
+		summary.written.push(newId);
+		summary.copies[entry.id] = newId;
 	}
 	saveIndex(index);
 	// CONSENT IS NOT RESTORABLE. Every other field in `settings` is a preference

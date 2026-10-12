@@ -142,6 +142,26 @@ function inFrontMatter(doc: string, pos: number): boolean {
 	return pos <= close;
 }
 
+/** A Library photo the editor can offer: the part of a record completion needs, no bytes. */
+export type AssetChoice = { name: string; scope: string; width: number; height: number; sourceName: string };
+
+/** `team-photo` → `Team photo`: a starting alt text the author is expected to replace (it is selected on insert). */
+export function altFromAssetName(name: string): string {
+	const words = name.replace(/[-_]+/g, ' ').trim();
+	return words ? words[0].toUpperCase() + words.slice(1) : 'Photo';
+}
+
+/** Is the slide the cursor line sits on a `collage`? Reads upward to the slide's `---` (or the top) for
+ *  its `_class:` directive. A collage's body is a list of photos, so a bare list item there is a photo. */
+export function inCollageSlide(lineText: (n: number) => string, lineNumber: number): boolean {
+	for (let n = lineNumber - 1; n >= 1; n--) {
+		const t = lineText(n);
+		if (/^---\s*$/.test(t)) return false;
+		if (/<!--\s*_class:[^>]*\bcollage\b/.test(t)) return true;
+	}
+	return false;
+}
+
 /** What may come next in a spark or pill — lint-core's `inlineCodeCompletions()` shape. */
 export type InlineNext = { next: string; words: { label: string; axis: string; info: string }[] };
 
@@ -355,6 +375,55 @@ export function makeStudioCompletion(
 			};
 		}
 
+		return null;
+	};
+}
+
+/**
+ * A CompletionSource for Library photos, run beside `makeStudioCompletion` (CodeMirror merges the sources, and
+ * the two never apply to the same spot). `loadAssets` reads the shelf on demand, so the editor pays nothing
+ * until the first image reference is typed.
+ *   - Inside the `(…)` of any markdown image (`![alt](`, `![bg](`, a collage's list item): `asset:<name>` for
+ *     each photo this deck can see. A reference already written as a URL (`https:`, `sample:`) is left alone.
+ *   - On a collage slide, a bare list item is a photo: each whole `![Alt](asset:name)` line, alt text selected.
+ */
+export function makeAssetCompletion(loadAssets: () => Promise<AssetChoice[]> | AssetChoice[]) {
+	const photoOption = (a: AssetChoice, kind: 'ref' | 'line'): Completion => {
+		const detail = `${a.width}×${a.height}${a.scope === 'library' ? '' : ' · this deck'}`;
+		if (kind === 'ref') return { label: `asset:${a.name}`, type: 'constant', detail, info: a.sourceName };
+		return {
+			label: a.name,
+			type: 'constant',
+			detail: `photo · ${detail}`,
+			info: a.sourceName,
+			// A whole collage line, with the alt text selected: it is the screen-reader label and the caption of the
+			// enlarged view, and a name like `img-0042` is a poor one.
+			apply: (view, _c, from, to) => {
+				const alt = altFromAssetName(a.name);
+				view.dispatch({ changes: { from, to, insert: `![${alt}](asset:${a.name})` }, selection: { anchor: from + 2, head: from + 2 + alt.length } });
+			},
+		};
+	};
+
+	return function assetComplete(context: CompletionContext): Promise<CompletionResult | null> | null {
+		const line = context.state.doc.lineAt(context.pos);
+		const before = line.text.slice(0, context.pos - line.from);
+		// 00. A Library photo: inside the `(…)` of any markdown image (`![alt](`, `![bg](`, a collage's list item),
+		// offer `asset:<name>` for each photo this deck can see. A reference already written as a URL
+		// (`https:`, `sample:`) is left alone: the typed prefix must be a prefix of `asset:`, or `asset:` plus a name.
+		// Only the end of the line is read: a 250 KB line of `![a](` repeats would otherwise cost seconds per keystroke.
+		const ref = /!\[[^\]\n]*\]\(([^)\s]*)$/.exec(before.slice(-300));
+		if (ref && ('asset:'.startsWith(ref[1].toLowerCase()) || /^asset:/i.test(ref[1]))) {
+			const from = context.pos - ref[1].length;
+			return Promise.resolve(loadAssets()).then((list) => (list.length ? { from, options: list.map((a) => photoOption(a, 'ref')), validFor: /^[\w:.-]*$/ } : null)).catch(() => null);
+		}
+		// A bare list item on a collage slide is a photo: offer each whole line. Only once something is typed (or on
+		// Ctrl-Space), so an Enter on an empty bullet stays a newline.
+		const item = /^[ \t]*[-*][ \t]+([\w-]*)$/.exec(before);
+		if (item && (item[1] || context.explicit) && inCollageSlide((n) => context.state.doc.line(n).text, line.number)) {
+			const from = context.pos - item[1].length;
+			return Promise.resolve(loadAssets()).then((list) => (list.length ? { from, options: list.map((a) => photoOption(a, 'line')), validFor: /^[\w-]*$/ } : null)).catch(() => null);
+		}
 		return null;
 	};
 }

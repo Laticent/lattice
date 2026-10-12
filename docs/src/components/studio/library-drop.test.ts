@@ -16,6 +16,13 @@ import { REF_DOC_ACCEPT } from './reference-doc';
 const file = (name: string) => new File(['x'], name);
 
 describe('classifyDropped', () => {
+	it('sends images — including HEIC with no MIME type, as iOS reports it — to the media ingest', () => {
+		const heic = new File(['x'], 'IMG_0042.HEIC');
+		const { images, rejected } = classifyDropped([file('photo.png'), file('shot.JPG'), heic]);
+		expect(images.map((f) => f.name)).toEqual(['photo.png', 'shot.JPG', 'IMG_0042.HEIC']);
+		expect(rejected).toEqual([]);
+	});
+
 	it('sends a .zip to the bundle import and a reference file to the doc store', () => {
 		const { zips, docs, rejected } = classifyDropped([file('lattice-assets.zip'), file('notes.md')]);
 		expect(zips.map((f) => f.name)).toEqual(['lattice-assets.zip']);
@@ -38,10 +45,11 @@ describe('classifyDropped', () => {
 	});
 
 	it('rejects what neither ingest takes, and an extensionless file', () => {
-		const { zips, docs, rejected } = classifyDropped([file('photo.png'), file('Makefile')]);
+		const { zips, docs, images, rejected } = classifyDropped([file('deck.pptx'), file('Makefile')]);
 		expect(zips).toEqual([]);
 		expect(docs).toEqual([]);
-		expect(rejected.map((f) => f.name)).toEqual(['photo.png', 'Makefile']);
+		expect(images).toEqual([]);
+		expect(rejected.map((f) => f.name)).toEqual(['deck.pptx', 'Makefile']);
 	});
 
 	it('reads the extension from the END of the name, not the first dot', () => {
@@ -53,24 +61,25 @@ describe('classifyDropped', () => {
 	});
 
 	it('splits a mixed drop instead of taking the first kind and dropping the rest', () => {
-		const { zips, docs, rejected } = classifyDropped([file('a.zip'), file('b.md'), file('c.png'), file('d.zip')]);
+		const { zips, docs, images, rejected } = classifyDropped([file('a.zip'), file('b.md'), file('c.png'), file('d.zip'), file('e.pptx')]);
 		expect(zips).toHaveLength(2);
 		expect(docs).toHaveLength(1);
+		expect(images).toHaveLength(1);
 		expect(rejected).toHaveLength(1);
 	});
 });
 
 describe('rejectedMessage', () => {
 	it('names what was refused', () => {
-		expect(rejectedMessage(['photo.png'])).toContain('photo.png');
-		expect(rejectedMessage(['photo.png'])).toContain(REF_DOC_ACCEPT);
+		expect(rejectedMessage(['deck.pptx'])).toContain('deck.pptx');
+		expect(rejectedMessage(['deck.pptx'])).toContain(REF_DOC_ACCEPT);
 	});
 
 	it('caps the list at three so a folder drop is not a wall of text', () => {
-		const msg = rejectedMessage(['a.png', 'b.png', 'c.png', 'd.png', 'e.png']);
-		expect(msg).toContain('a.png, b.png, c.png');
+		const msg = rejectedMessage(['a.pptx', 'b.pptx', 'c.pptx', 'd.pptx', 'e.pptx']);
+		expect(msg).toContain('a.pptx, b.pptx, c.pptx');
 		expect(msg).toContain('and 2 more');
-		expect(msg).not.toContain('d.png');
+		expect(msg).not.toContain('d.pptx');
 	});
 });
 

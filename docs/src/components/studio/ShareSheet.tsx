@@ -26,6 +26,11 @@ import { type WebpageExportChoice, WebpageOptionsPanel } from './WebpageOptionsP
 // paths download/print the Markdown; the artifact paths run the engine export
 // pipeline (image PDF/PPTX, vector Print, the Marp ZIP) — see share-export.ts.
 
+// Exports that never name a photo's picture and have nothing to note about one.
+const NO_PHOTO_NOTE = new Set(['printsrc', 'captions']);
+// Source exports: the deck's text travels, the Library's photos do not.
+const SOURCE_WITH_PHOTOS = new Set(['lattice', 'md', 'marp']);
+
 export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, finishClass, finishExtraCss, localComponents, deckPackages, options, palette, mode, extraTheme, extraCss, onPresent, onCollaborate, initialView = 'menu' }: { open: boolean; onOpenChange: (v: boolean) => void; deckTitle: string; source: string; deckId?: string; finishClass?: string; finishExtraCss?: string; localComponents?: ReadonlyArray<{ name: string; css: string }>; deckPackages?: DeckPackages; options: SingleSlideOptions; palette: string; mode: 'light' | 'dark'; extraTheme?: { name: string; css: string }; extraCss?: string; onPresent: () => void; onCollaborate?: () => void; initialView?: 'menu' | 'pdf' }) {
 	const close = () => onOpenChange(false);
 	// The sheet has a format MENU plus a pre-export OPTIONS step per format that has
@@ -147,6 +152,25 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 				// On iOS every browser gets a "<file> is ready · Save" toast from download.js
 				// instead of a download, so a plain "ready." beside it is a second toast saying the
 				// same thing (the owner's iPhone showed both). A degradation still speaks.
+				// A photo the deck names that this browser cannot show (deleted, in another deck, or unreadable just now)
+				// is drawn as the missing-image stand-in; say so, so the stand-in in the file is never a surprise.
+				// A source export (.lattice, Markdown, Marp) keeps the reference text and carries no picture at all,
+				// so it says that instead. The registry loads only when the deck names a photo.
+				if (!degraded && !NO_PHOTO_NOTE.has(key) && /\basset:[a-z0-9]/i.test(source)) {
+					const names = (list: string[]) => `${list.slice(0, 3).map((n) => `“${n}”`).join(', ')}${list.length > 3 ? `, and ${list.length - 3} more` : ''}`;
+					const m = await import('./media-urls').catch(() => null);
+					if (m && SOURCE_WITH_PHOTOS.has(key)) {
+						const used = m.assetNamesIn(source);
+						degraded = `the ${used.length === 1 ? 'photo' : 'photos'} it names (${names(used)}) ${used.length === 1 ? 'is' : 'are'} not inside this file; ${used.length === 1 ? 'it lives' : 'they live'} in this browser's Library, so anyone who opens it elsewhere sees ${used.length === 1 ? 'a stand-in' : 'stand-ins'}`;
+					} else if (!m) {
+						degraded = "its photos could not be checked against this browser's Library, so any that are missing appear as stand-ins";
+					} else {
+						const gone = await m.missingAssetNames(source).catch(() => null);
+						// A shelf that cannot be read means EVERY photo in the file may be a stand-in: say so rather than say nothing.
+						if (!gone) degraded = "this browser's Library could not be read, so the photos appear as stand-ins";
+						else if (gone.length) degraded = `${gone.length === 1 ? 'the photo' : 'photos'} ${names(gone)} could not be shown (not in this browser's Library, or could not be read), so ${gone.length === 1 ? 'it appears' : 'they appear'} as a missing-image stand-in`;
+					}
+				}
 				if (degraded) notify(`${label} ready — but ${degraded}.`, { duration: DEGRADED_TOAST_MS });
 				else if (!iosNeedsShareSheet()) notify(`${label} ready.`);
 			} catch (e) {
@@ -162,7 +186,7 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 				setProgress(null);
 			}
 		},
-		[busy],
+		[busy, source],
 	);
 
 	const name = deckFilename(deckTitle).replace(/\.md$/, '');

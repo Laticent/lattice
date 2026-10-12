@@ -105,7 +105,15 @@ export async function loadGovernanceStats(): Promise<GovernanceStats> {
 	]);
 	let libraryBytes = 0;
 	try {
-		for (const a of assets) libraryBytes += JSON.stringify(a).length;
+		for (const a of assets) {
+			// A photo's bytes are its Blob, which JSON.stringify writes as `{}`: sized by JSON a 2 MB photo
+			// counted as nothing, in the one panel that exists to show what is using storage.
+			const blob = (a as { blob?: unknown }).blob;
+			const data = (a as { data?: unknown }).data;
+			if (blob instanceof Blob) libraryBytes += blob.size + JSON.stringify({ ...a, blob: undefined }).length;
+			else if (data instanceof ArrayBuffer) libraryBytes += data.byteLength + JSON.stringify({ ...a, data: undefined }).length;
+			else libraryBytes += JSON.stringify(a).length;
+		}
 	} catch {
 		/* best-effort size — never blocks the stat line */
 	}
@@ -123,6 +131,18 @@ export async function loadGovernanceStats(): Promise<GovernanceStats> {
 	const models = { count: modelNames.length, bytes: modelBytes };
 	const siteCache = { count: siteCacheNames.length, bytes: siteCacheBytesTotal };
 	return { decks: deckWithCrash, library, models, siteCache, narration, totalBytes: deckWithCrash.bytes + library.bytes + models.bytes + siteCache.bytes + narration.bytes };
+}
+
+/** "Clear decks": the decks go, and so do the photos kept to a single deck, which would otherwise be
+ *  invisible and unreachable but still hold the quota. Photos shared with every deck stay. */
+export async function clearDecksAndTheirPhotos(): Promise<void> {
+	clearAllDecks();
+	try {
+		const { deleteDeckScopedMedia } = await import('./media-store');
+		await deleteDeckScopedMedia();
+	} catch {
+		/* the shelf could not be read: the decks are cleared, and the Library row will still list the photos */
+	}
 }
 
 export async function clearLibraryAssets(): Promise<void> {

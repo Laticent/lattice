@@ -27,10 +27,12 @@ import { applyImportRenames } from './asset-rename';
 import { listStudioComponents, saveStudioComponent, toMeta } from './component-library';
 import { listStudioFinishes, saveStudioFinish } from './finish-library';
 import type { ImportRefusal } from './import-gate';
+import { LIBRARY_SCOPE } from './media-store';
 import { listRefDocs, type RefDocRecord, recordToDoc, saveRefDoc } from './reference-doc-store';
 import { listStoredScenes, putUnreadableScene, type StudioScene, saveStudioScene, type UnreadableScene, unreadableSceneShelf } from './scene-library';
-import { exportStudioState, type ImportSummary, importStudioState, requestSourceFlush, resolvedSources, type StudioExport, titleFromSource } from './studio-store';
+import { exportStudioState, type ImportSummary, importStudioState, loadSource, mapCheckpointSources, requestSourceFlush, resolvedSources, type StudioExport, saveSource, titleFromSource } from './studio-store';
 import { listStudioThemes, saveStudioTheme } from './theme-library';
+import { MAX_MEDIA_RESTORE_BYTES, MAX_MEDIA_ROWS, packMedia, renameAssetRefs, restoreMedia } from './workspace-media';
 import { declaredInflatedBytes, jsonGuard, MAX_INFLATED_BYTES, MAX_ZIP_BYTES, MAX_ZIP_ENTRIES, readBudget, readBytesBudget } from './zip-limits';
 
 export const WORKSPACE_FORMAT = 'lattice-workspace/1';
@@ -43,14 +45,14 @@ export type WorkspaceManifest = {
 	exportedAt: string; // ISO — provenance for the human opening the zip
 	// `refdocs` is absent from pre-refdoc backups — read with ?? 0.
 	// `scenes` is absent from pre-scene backups — read with ?? 0.
-	counts: { decks: number; themes: number; components: number; finishes: number; scenes?: number; unreadableScenes?: number; refdocs?: number };
+	counts: { decks: number; themes: number; components: number; finishes: number; scenes?: number; unreadableScenes?: number; refdocs?: number; media?: number };
 	/** Set only when the scene shelf could not be READ. Distinguishes "no scenes" from "we could
 	 *  not see the scenes", which the old `catch { return [] }` collapsed into a silent `0`. */
 	scenesUnavailable?: true;
 };
 
 /** `refused`: library packages the backup held that could not be read back, each with the reason. */
-export type RestoreSummary = ImportSummary & { themes: number; components: number; finishes: number; scenes: number; unreadableScenes: number; refdocs: number; refused: { name: string; why: string }[] };
+export type RestoreSummary = ImportSummary & { themes: number; components: number; finishes: number; scenes: number; unreadableScenes: number; refdocs: number; media: number; mediaRenamed: number; refused: { name: string; why: string }[] };
 
 // biome-ignore lint/suspicious/noExplicitAny: JSZip is dynamically imported.
 async function jszip(): Promise<any> {
@@ -67,6 +69,12 @@ const fileSlug = (title: string, id: string) =>
  */
 /** What `packWorkspace` measured while writing, for the caller's message. */
 export type PackReport = {
+	/** Photos written to `media/`, and their bytes. */
+	mediaRows?: number;
+	mediaBytes?: number;
+	/** Photos the Library holds in a type a backup does not carry. Always 0 for photos added by this
+	 *  version, which stores only types it can write; non-zero means one from before. */
+	mediaSkipped?: number;
 	/** UTF-8 bytes of the `refdocs.json` written. */
 	refdocsBytes: number;
 	/** Rows in it, one per reference doc. */
@@ -157,10 +165,19 @@ export async function packWorkspace(now: number, report?: PackReport): Promise<B
 		}
 	}
 
+	// Photos: `media/` holds the bytes and `media.json` indexes them (workspace-media.ts). A shelf that
+	// cannot be read yields none, like a browser with no IndexedDB, and never aborts the backup.
+	const media = await packMedia(zip).catch(() => ({ rows: 0, bytes: 0, skipped: 0 }));
+	if (report) {
+		report.mediaRows = media.rows;
+		report.mediaBytes = media.bytes;
+		report.mediaSkipped = media.skipped;
+	}
+
 	const manifest: WorkspaceManifest = {
 		format: WORKSPACE_FORMAT,
 		exportedAt: new Date(now).toISOString(),
-		counts: { decks: state.index.length, themes: themes.length, components: components.length, finishes: finishes.length, scenes: scenes.length, unreadableScenes: unreadableScenes.length, refdocs: refdocs.length },
+		counts: { decks: state.index.length, themes: themes.length, components: components.length, finishes: finishes.length, scenes: scenes.length, unreadableScenes: unreadableScenes.length, refdocs: refdocs.length, media: media.rows },
 		...(scenesUnavailable ? { scenesUnavailable: true as const } : {}),
 	};
 	const manifestJson = JSON.stringify(manifest, null, 2);
@@ -168,7 +185,7 @@ export async function packWorkspace(now: number, report?: PackReport): Promise<B
 	if (report) report.stateBytes = (report.stateBytes ?? 0) + utf8Length(manifestJson);
 	zip.file(
 		'README.md',
-		`# Lattice workspace backup\n\nExported ${manifest.exportedAt}. ${manifest.counts.decks} deck(s), ${manifest.counts.themes} theme(s), ${manifest.counts.components} component(s), ${manifest.counts.finishes} finish(es), ${scenes.length} scene(s), ${refdocs.length} reference doc(s).\n\n- \`decks/*.md\` — your decks, readable anywhere.\n- \`workspace.json\` + \`library.zip\` + \`refdocs.json\` — the full workspace; restore via Studio → Workspace → General → Restore backup.\n${unreadableScenes.length ? `- \`library-unreadable-scenes.json\` — ${unreadableScenes.length} saved scene(s) this version could not read. They are kept here exactly as stored, and a restore puts them back untouched. Nothing was discarded.\n` : ''}${scenesUnavailable ? `\n**Scenes are not in this backup.** The scene shelf could not be read when this file was written, so this backup makes no claim about your saved scenes — it does not mean you have none. Take another backup once the Studio opens normally.\n` : ''}\nYour OpenRouter connection is deliberately NOT in this file — reconnect with one click after a restore.\n`,
+		`# Lattice workspace backup\n\nExported ${manifest.exportedAt}. ${manifest.counts.decks} deck(s), ${manifest.counts.themes} theme(s), ${manifest.counts.components} component(s), ${manifest.counts.finishes} finish(es), ${scenes.length} scene(s), ${refdocs.length} reference doc(s), ${media.rows} photo(s).\n\n- \`decks/*.md\` — your decks, readable anywhere.\n- \`media/\` + \`media.json\` — your Library photos (a deck names one as \`asset:<name>\`).\n- \`workspace.json\` + \`library.zip\` + \`refdocs.json\` — the full workspace; restore via Studio → Workspace → General → Restore backup.\n${unreadableScenes.length ? `- \`library-unreadable-scenes.json\` — ${unreadableScenes.length} saved scene(s) this version could not read. They are kept here exactly as stored, and a restore puts them back untouched. Nothing was discarded.\n` : ''}${scenesUnavailable ? `\n**Scenes are not in this backup.** The scene shelf could not be read when this file was written, so this backup makes no claim about your saved scenes — it does not mean you have none. Take another backup once the Studio opens normally.\n` : ''}\nYour OpenRouter connection is deliberately NOT in this file — reconnect with one click after a restore.\n`,
 	);
 	return zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
 }
@@ -253,6 +270,9 @@ export function backupRestoreGaps(report: PackReport): string[] {
 	if ((report.stateBytes ?? 0) > MAX_INFLATED_BYTES) gaps.push(`your decks, chats and settings (${mb(report.stateBytes ?? 0)}) are over the ${limit(MAX_INFLATED_BYTES)} a restore reads, so this backup will not restore at all`);
 	if (report.refdocsBytes > MAX_REFDOCS_BYTES) gaps.push(`your reference docs (${mb(report.refdocsBytes)}) are over the ${limit(MAX_REFDOCS_BYTES)} a restore reads, so they will not come back from it`);
 	else if ((report.refdocRows ?? 0) > MAX_BACKUP_ROWS) gaps.push(`you have more than ${MAX_BACKUP_ROWS.toLocaleString('en-US')} reference docs, more than a restore reads, so they will not come back from it`);
+	if ((report.mediaSkipped ?? 0) > 0) gaps.push(`${report.mediaSkipped} of your photos are in a type a backup does not carry, so they are not in this file`);
+	if ((report.mediaBytes ?? 0) > MAX_MEDIA_RESTORE_BYTES) gaps.push(`your photos (${mb(report.mediaBytes ?? 0)}) are over the ${limit(MAX_MEDIA_RESTORE_BYTES)} a restore reads, so some will not come back from it`);
+	else if ((report.mediaRows ?? 0) > MAX_MEDIA_ROWS) gaps.push(`you have more than ${MAX_MEDIA_ROWS.toLocaleString('en-US')} photos, more than a restore reads, so they will not come back from it`);
 	return gaps;
 }
 
@@ -387,7 +407,7 @@ export async function restoreWorkspace(file: Blob, now: number): Promise<Restore
 		if (renames.length) state.sources = Object.fromEntries(Object.entries(state.sources).map(([id, src]) => [id, applyImportRenames(src, renames)]));
 	}
 
-	const summary: RestoreSummary = { ...importStudioState(state, now), themes: 0, components: 0, finishes: 0, scenes: 0, unreadableScenes: 0, refdocs: 0, refused };
+	const summary: RestoreSummary = { ...importStudioState(state, now), themes: 0, components: 0, finishes: 0, scenes: 0, unreadableScenes: 0, refdocs: 0, media: 0, mediaRenamed: 0, refused };
 
 	if (parsed) {
 		for (const t of themes) {
@@ -446,6 +466,40 @@ export async function restoreWorkspace(file: Blob, now: number): Promise<Restore
 		// saveRefDoc upserts by name — the same path Library import uses.
 		await saveRefDoc(recordToDoc(rec), rec.addedAt ?? now);
 		summary.refdocs++;
+	}
+
+	// Photos last. A deck-scoped one returns only for a deck the BACKUP holds, and follows a deck that came
+	// back as a copy. Nothing already on this device is deleted or overwritten: a different photo under
+	// the same name comes back under a new name, and the decks THIS restore wrote are rewritten to name it.
+	// Never throws into the caller: the decks are already written, and a photo lane that failed must be named, not
+	// turn a restore that worked into one that reports failure.
+	const photos = await restoreMedia(zip, now, { backupDeckIds: new Set((state.index ?? []).map((e) => e.id)), copies: summary.copies }).catch((e: unknown) => ({
+		restored: 0,
+		shared: 0,
+		refused: [{ name: 'photos', why: `could not be restored (${String((e as Error)?.message || 'unknown error').slice(0, 80)})` }],
+		renames: [],
+	}));
+	summary.media = photos.restored;
+	summary.mediaRenamed = photos.renames.length;
+	summary.refused.push(...photos.refused);
+	// One name map per deck, applied in ONE pass, so a rename is never renamed again. A shared photo is
+	// named by any deck the restore wrote; a deck's own photo, by that deck only. `hasOwn`: the deck id is
+	// text from the backup.
+	for (const id of summary.written) {
+		const map = new Map<string, string>();
+		for (const r of photos.renames) {
+			const owner = r.scope === LIBRARY_SCOPE ? null : Object.hasOwn(summary.copies, r.scope) ? summary.copies[r.scope] : r.scope;
+			if (owner && id !== owner) continue;
+			map.set(r.from, r.to);
+		}
+		if (!map.size) continue;
+		const src = loadSource(id);
+		if (src != null) {
+			const next = renameAssetRefs(src, map);
+			if (next !== src) saveSource(id, next);
+		}
+		// Its saved versions too: restoring one must not bring back a name that now means another photo.
+		mapCheckpointSources(id, (c) => renameAssetRefs(c, map));
 	}
 	return summary;
 }

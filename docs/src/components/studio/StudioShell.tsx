@@ -2,6 +2,7 @@ import {
 	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, FileBox, FileDown, FileSliders, FileText, Focus, Gauge, History, Layers, ListChecks, Menu as MenuIcon, Monitor, MonitorPlay, Moon, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Save, Settings2, Settings as SettingsCog, Shapes, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Upload, UsersRound, Volume2, Wand2, X, 
 } from 'lucide-react';
 import * as React from 'react';
+import './asset-render-hook';
 import DeckPreview from '@/components/DeckPreview';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { FeedbackSheet } from '@/components/site/FeedbackSheet';
@@ -1270,6 +1271,41 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		return () => { live = false; };
 	}, [localComponents]);
 	const onCodeApproved = React.useCallback(() => setCodeStamp(codePackagesStamp()), []);
+	// LIBRARY PHOTOS (`asset:<name>`): the registry holds a name → object-URL map for the shared
+	// assets plus this deck's own (media-urls.ts). Its stamp joins the preview's extra CSS, which
+	// every preview and export cache keys on, so adding, deleting or re-scoping a photo re-renders
+	// the slides that showed the old state. Loaded only once a deck, or the Library, needs it.
+	const [assetStampText, setAssetStampText] = React.useState('');
+	const assetsTouched = React.useRef(false);
+	const refreshAssets = React.useCallback(() => {
+		assetsTouched.current = true;
+		import('./media-urls').then(async (m) => {
+			await m.refreshAssetUrls();
+			setAssetStampText(m.assetStamp());
+		}).catch(() => {});
+	}, []);
+	// A photo added or deleted in ANOTHER tab changes the shelf under this one, and IndexedDB tells no one. Coming
+	// back to this tab re-reads it (only once the registry has loaded; a deck with no photos never pays).
+	React.useEffect(() => {
+		const back = () => { if (document.visibilityState !== 'hidden' && assetsTouched.current) refreshAssets(); };
+		window.addEventListener('focus', back);
+		document.addEventListener('visibilitychange', back);
+		return () => { window.removeEventListener('focus', back); document.removeEventListener('visibilitychange', back); };
+	}, [refreshAssets]);
+	// The Library photos the editor completes `asset:` against. Read when you type an image reference: the registry (and the
+	// shelf) load on that first use, scoped to the OPEN deck so its own photos are offered beside the shared ones.
+	const deckIdRef = React.useRef(deck.id);
+	deckIdRef.current = deck.id;
+	const completionAssets = React.useCallback(
+		() =>
+			import('./media-urls').then(async (m) => {
+				await m.setActiveAssetDeck(deckIdRef.current);
+				// Re-read the shelf each time the menu opens (one IndexedDB read): a photo added in another tab is offered at once.
+				await m.refreshAssetUrls();
+				return m.assetChoices();
+			}),
+		[],
+	);
 	// Saved (Fabricated) FINISHES from the same shared library (kind:'finish') — a
 	// finish designed + saved in the Finish faculty lands here, becomes pickable in
 	// the Inspector Finish menu, and renders in the deck preview (its CSS injected +
@@ -2246,9 +2282,23 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// The preview's extraCss = local-component CSS + (when active) the saved finish's
 	// rule. Combined so a deck can use both at once.
 	const previewExtraCss = React.useMemo(
-		() => [usedLocalCss, finishExtraCss, codeStamp].filter(Boolean).join('\n\n') || undefined,
-		[usedLocalCss, finishExtraCss, codeStamp],
+		() => [usedLocalCss, finishExtraCss, codeStamp, assetStampText].filter(Boolean).join('\n\n') || undefined,
+		[usedLocalCss, finishExtraCss, codeStamp, assetStampText],
 	);
+	// Point the registry at the open deck (its own photos join the shared ones) and take its stamp.
+	// Skipped entirely until a deck names a photo or the Library has been used, so a deck without
+	// one never reads the shelf.
+	const deckUsesAssets = React.useMemo(() => /\basset:[a-z0-9]/i.test(source), [source]);
+	React.useEffect(() => {
+		if (!deckUsesAssets && !assetsTouched.current) return;
+		assetsTouched.current = true;
+		let live = true;
+		import('./media-urls').then(async (m) => {
+			await m.setActiveAssetDeck(deck.id);
+			if (live) setAssetStampText(m.assetStamp());
+		}).catch(() => {});
+		return () => { live = false; };
+	}, [deck.id, deckUsesAssets]);
 	// The class tokens a saved finish stamps onto every section (the engine never
 	// learned the custom name, so we add the class ourselves). Applied ONLY to the
 	// RENDER/ARTIFACT paths (preview, Present, PDF/PPTX/Print) — never the editable
@@ -2583,7 +2633,29 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	};
 	function removeDeck(id: string) {
 		if (id === deck.id && !live.mayLeaveDeck()) return;
+		// A deck's own photos go with it: a photo kept to one deck has nowhere else to be used, and leaving it
+		// would strand bytes in the quota behind a deck that no longer exists. They cannot be undeleted, so
+		// when a deck owns any, ask first and say how many. A deck with none is deleted as before.
+		import('./media-store')
+			.then(async (m) => ({ m, own: (await m.listMedia()).filter((x) => x.scope === id).length }))
+			.catch(() => null)
+			.then((found) => {
+				const own = found?.own ?? 0;
+				if (own > 0 && !window.confirm(`This deck has ${own} photo${own === 1 ? '' : 's'} kept to it. Deleting the deck deletes ${own === 1 ? 'that photo' : 'those photos'} too, and that can't be undone. Delete the deck?`)) return;
+				finishRemoveDeck(id, found?.m ?? null);
+			});
+	}
+	function finishRemoveDeck(id: string, media: typeof import('./media-store') | null) {
 		deleteDeckStore(id);
+		media
+			?.deleteDeckMedia(id)
+			.then((n) => {
+				if (n > 0) {
+					notify(`Deleted ${n} photo${n === 1 ? '' : 's'} that belonged only to that deck.`);
+					refreshAssets();
+				}
+			})
+			.catch(() => {});
 		const list = loadDeckList();
 		setDecks(list);
 		if (id === deck.id) {
@@ -5287,7 +5359,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				</React.Suspense>
 			) : (
 				<React.Suspense fallback={<EditorSkeleton />}>
-					<Editor ref={editorRef} value={source} onChange={live.collab ? onLiveEditorChange : setSourceFromEditor} collab={live.collab} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} completionVocab={completionVocab} lintVocab={lintVocab} extraComponentNames={localNames} onCursorSlide={onEditorCursorSlide} onCursorText={onCursorText} onSelectionChange={setHasSelection} onLintCounts={setLintCounts} measuredSparks={measuredSparks} carryKey={deck.id} className="flex-1" />
+					<Editor ref={editorRef} value={source} onChange={live.collab ? onLiveEditorChange : setSourceFromEditor} collab={live.collab} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionAssets={completionAssets} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} completionVocab={completionVocab} lintVocab={lintVocab} extraComponentNames={localNames} onCursorSlide={onEditorCursorSlide} onCursorText={onCursorText} onSelectionChange={setHasSelection} onLintCounts={setLintCounts} measuredSparks={measuredSparks} carryKey={deck.id} className="flex-1" />
 				</React.Suspense>
 			)}
 		</section>
@@ -6572,7 +6644,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 									)}
 									{libraryOpen && (
 										<PanelLoader panel={libraryPanel} shell={(body) => <LibraryShell docked open onOpenChange={setLibraryOpen}>{body}</LibraryShell>}>
-											{(Library) => <Library docked open onOpenChange={setLibraryOpen} options={options} activePalette={palette} activeFinish={finish} initialFilter={libInitialFilter} onApplyTheme={applyPalette} onApplyFinish={(name) => { const token = `finish-${name}`; setFinish(token); notify(`Applied ${token}.`); }} onInsert={(skeleton) => applyDeckOp(addSlideAfter(source, activeFullIndex, skeleton))} onEditTheme={editTheme} onEditComponent={editComponent} onEditFinish={editFinish} onEditMotion={editMotion} onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); refreshScenes(); }} />}
+											{(Library) => <Library docked open onOpenChange={setLibraryOpen} options={options} activePalette={palette} activeFinish={finish} initialFilter={libInitialFilter} activeDeckId={deck.id} activeDeckSource={source} onApplyTheme={applyPalette} onApplyFinish={(name) => { const token = `finish-${name}`; setFinish(token); notify(`Applied ${token}.`); }} onInsert={(skeleton) => applyDeckOp(addSlideAfter(source, activeFullIndex, skeleton))} onEditTheme={editTheme} onEditComponent={editComponent} onEditFinish={editFinish} onEditMotion={editMotion} onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); refreshScenes(); refreshAssets(); }} />}
 										</PanelLoader>
 									)}
 								</ResizablePanel>
@@ -6762,13 +6834,15 @@ export default function StudioShell({ options, components: seedComponents = [], 
 							activePalette={palette}
 							activeFinish={finish}
 							initialFilter={libInitialFilter}
+							activeDeckId={deck.id}
+							activeDeckSource={source}
 							onApplyTheme={applyPalette}
 							onApplyFinish={(name) => { const token = `finish-${name}`; setFinish(token); notify(`Applied ${token}.`); }}
 							onInsert={(skeleton) => applyDeckOp(addSlideAfter(source, activeFullIndex, skeleton))}
 							onEditTheme={editTheme}
 							onEditComponent={editComponent}
 							onEditFinish={editFinish}
-							onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); }}
+							onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); refreshAssets(); }}
 						/>
 					)}
 				</PanelLoader>

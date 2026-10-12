@@ -9,7 +9,7 @@ import { EditorState } from '@codemirror/state';
 import { describe, expect, it } from 'vitest';
 // The engine's lint vocabulary (CommonJS) — the value lists the editor completes against.
 import { buildVocab } from '../../../../lib/authoring/lint.js';
-import { FRONT_MATTER_KEYS, inlineCodeCompletion, makeStudioCompletion, registerValueLists, VOCAB_VALUE_FIELDS } from './editor-complete';
+import { altFromAssetName, FRONT_MATTER_KEYS, inCollageSlide, inlineCodeCompletion, makeAssetCompletion, makeStudioCompletion, registerValueLists, VOCAB_VALUE_FIELDS } from './editor-complete';
 
 const COMPS = [
 	{ name: 'kpi', bucket: 'inventory', description: 'Key metrics' },
@@ -540,5 +540,87 @@ describe('inlineCodeCompletion — TeX stays quiet', () => {
 	const core = req('../../../../lib/authoring/lint-core.js');
 	it('`^{2` (a superscript) opens no icon menu: a name starts with a letter', () => {
 		expect(inlineCodeCompletion('`^{2', (s: string) => core.inlineCodeCompletions(s))).toBeNull();
+	});
+});
+
+describe('makeAssetCompletion — Library photos', () => {
+	const PHOTOS = [
+		{ name: 'team-photo', scope: 'library', width: 1920, height: 1080, sourceName: 'Team Photo.jpg' },
+		{ name: 'my-chart', scope: 'deck-a', width: 800, height: 600, sourceName: 'chart.png' },
+	];
+	const photos = makeAssetCompletion(() => PHOTOS);
+	const run = async (doc: string, explicit = true) => photos(new CompletionContext(EditorState.create({ doc }), doc.length, explicit));
+
+	it('offers asset:<name> inside the parentheses of any image, with size and scope', async () => {
+		for (const doc of ['![alt](', '![bg](', '![bg right](', '- ![Tall](', '![alt](as', '![alt](asset:te']) {
+			const r = await run(doc);
+			expect(r?.options.map((o) => o.label), doc).toEqual(['asset:team-photo', 'asset:my-chart']);
+		}
+		const r = await run('![alt](');
+		expect(r?.options[0].detail).toBe('1920×1080');
+		expect(r?.options[1].detail).toBe('800×600 · this deck');
+	});
+
+	it('replaces what is typed, so `as` becomes the whole reference', async () => {
+		const r = await run('![alt](as');
+		expect(r?.from).toBe('![alt]('.length);
+	});
+
+	it('leaves a URL or sample: reference alone', async () => {
+		for (const doc of ['![alt](https://x.test/a.png', '![alt](sample:photo', '![alt](./local.png', 'plain text ](asset:']) expect(await run(doc), doc).toBeNull();
+	});
+
+	it('offers nothing when there are no photos, and never throws when the shelf cannot be read', async () => {
+		const none = makeAssetCompletion(() => []);
+		expect(await none(new CompletionContext(EditorState.create({ doc: '![a](' }), 5, true))).toBeNull();
+		const broken = makeAssetCompletion(() => Promise.reject(new Error('no shelf')));
+		expect(await broken(new CompletionContext(EditorState.create({ doc: '![a](' }), 5, true))).toBeNull();
+	});
+
+	it('on a collage slide a bare list item offers whole photo lines, and elsewhere it does not', async () => {
+		const collage = '<!-- _class: collage -->\n\n## Site walk\n\n- te';
+		const r = await run(collage);
+		expect(r?.options.map((o) => o.label)).toEqual(['team-photo', 'my-chart']);
+		expect(r?.from).toBe(collage.length - 2);
+		expect(await run('<!-- _class: kpi -->\n\n- te')).toBeNull();
+		expect(await run('<!-- _class: collage -->\n\n---\n\n## Other slide\n\n- te')).toBeNull();
+	});
+
+	it('a huge line costs a bounded amount per keystroke', async () => {
+		const doc = `${'![a]('.repeat(40_000)} `;
+		const t = performance.now();
+		await run(doc);
+		expect(performance.now() - t).toBeLessThan(250);
+	});
+
+	it('an empty bullet opens no menu until Ctrl-Space, so Enter stays a newline', async () => {
+		const doc = '<!-- _class: collage -->\n\n- ';
+		expect(await run(doc, false)).toBeNull();
+		expect((await run(doc, true))?.options).toHaveLength(2);
+	});
+
+	it('the whole-line option inserts the image with its alt text selected', async () => {
+		const doc = '<!-- _class: collage -->\n\n- te';
+		const r = await run(doc);
+		const opt = r?.options[0];
+		let tr: { changes: { from: number; to: number; insert: string }; selection: { anchor: number; head: number } } | undefined;
+		(opt?.apply as (v: unknown, c: unknown, from: number, to: number) => void)({ dispatch: (t: typeof tr) => (tr = t) }, opt, r?.from as number, doc.length);
+		expect(tr?.changes.insert).toBe('![Team photo](asset:team-photo)');
+		const text = tr?.changes.insert as string;
+		expect(text.slice((tr?.selection.anchor as number) - (r?.from as number), (tr?.selection.head as number) - (r?.from as number))).toBe('Team photo');
+	});
+});
+
+describe('altFromAssetName / inCollageSlide', () => {
+	it('humanizes a name as a starting alt text', () => {
+		expect(altFromAssetName('img-0042')).toBe('Img 0042');
+		expect(altFromAssetName('team_photo')).toBe('Team photo');
+		expect(altFromAssetName('---')).toBe('Photo');
+	});
+	it('finds the slide’s own _class and stops at the slide break', () => {
+		const lines = ['---', 'theme: x', '---', '<!-- _class: collage -->', '', '- a', '---', '- b'];
+		const at = (n: number) => inCollageSlide((i) => lines[i - 1], n);
+		expect(at(6)).toBe(true);
+		expect(at(8)).toBe(false);
 	});
 });

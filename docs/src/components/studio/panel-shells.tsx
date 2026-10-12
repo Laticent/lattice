@@ -150,20 +150,21 @@ export function WorkspaceShell({ open, onOpenChange, children }: { open: boolean
 
 // ── Library ──────────────────────────────────────────────────────────────────
 
-export type LibraryFilter = 'all' | 'theme' | 'component' | 'finish' | 'motion' | 'refdoc';
+export type LibraryFilter = 'all' | 'theme' | 'component' | 'finish' | 'motion' | 'media' | 'refdoc';
 export const LIBRARY_FILTERS: Array<{ value: LibraryFilter; label: string }> = [
 	{ value: 'all', label: 'All' },
 	{ value: 'theme', label: 'Themes' },
 	{ value: 'component', label: 'Components' },
 	{ value: 'finish', label: 'Finishes' },
 	{ value: 'motion', label: 'Motions' },
+	{ value: 'media', label: 'Images' },
 	{ value: 'refdoc', label: 'Files' },
 ];
 export const LIBRARY_HEADER = {
 	icon: <FileBox />,
 	title: 'Library',
-	srDescription: 'Saved themes, components, finishes, and files — search, filter, apply, or drop a file in.',
-	searchPlaceholder: 'Search themes, components, finishes & files…',
+	srDescription: 'Saved themes, components, finishes, images, and files — search, filter, apply, or drop a file in.',
+	searchPlaceholder: 'Search themes, components, finishes, images & files…',
 } as const;
 
 export function LibraryShell({ docked, open, onOpenChange, children }: { docked?: boolean; open: boolean; onOpenChange: (v: boolean) => void; children?: React.ReactNode }) {

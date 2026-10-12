@@ -44,7 +44,7 @@ export const NO_WEB_IMAGES: WebImageSummary = Object.freeze({ count: 0, origins:
 export async function deckWebImages(source: string): Promise<WebImageSummary> {
 	if (!mayReferenceWebImage(source)) return NO_WEB_IMAGES;
 	try {
-		const { html } = await renderMarkdown(await engine(), source, SCAN_THEME);
+		const { html } = await renderMarkdown(await engine(), source, SCAN_THEME, { assetUrls: {} });
 		// Distinct addresses, not references: a logo repeated on twenty slides is one image.
 		const seen = new Map<string, string>();
 		for (const b of remoteRef.blockWebImages(html, []).blocked as { url: string; origin: string }[]) if (!seen.has(b.url)) seen.set(b.url, b.origin);
