@@ -383,7 +383,7 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
       writeCachedCatalog(catalogCache);
       return catalogCache;
     },
-    async complete({ messages, json, onToken, signal, onUsage, onGenerationId, onFinishReason, maxTokens, plugins, cacheTtl, tools, toolChoice, onToolCalls, cacheTail }) {
+    async complete({ messages, json, onToken, signal, onUsage, onGenerationId, onFinishReason, maxTokens, plugins, cacheTtl, tools, toolChoice, onToolCalls, onToolStart, cacheTail }) {
       const key = readLS(OR_KEY_LS);
       if (!key) throw new Error('OpenRouter not connected');
       // usage:{include:true} guarantees the authoritative per-request `usage.cost`
@@ -479,6 +479,7 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
       // Streamed tool calls arrive as fragments keyed by `index`: the first carries the id
       // and name, the rest append to `function.arguments` (a JSON string, split anywhere).
       const calls = [];
+      const startedCalls = new Set();
       // An error OpenRouter sends INSIDE a 200 stream (the provider dropped mid-reply). Its
       // HTTP status was already 200, so nothing above saw it; read, it used to end the turn as
       // an empty reply and run any half-streamed tool call on cut-off arguments.
@@ -512,7 +513,13 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
               const i = Number.isInteger(d.index) ? d.index : d.id || !calls.length ? calls.length : calls.length - 1;
               const c = (calls[i] ||= { id: '', type: 'function', function: { name: '', arguments: '' } });
               if (d.id) c.id = d.id;
-              if (d.function?.name) c.function.name += d.function.name;
+              if (d.function?.name) {
+                c.function.name += d.function.name;
+                // A call's NAME arrives in its first fragments, long before its arguments finish —
+                // a whole slide inside `edit_slides` streams for seconds with no prose. Tell the
+                // caller once per call so the panel can say what is being drafted meanwhile.
+                if (onToolStart && !startedCalls.has(i)) { startedCalls.add(i); try { onToolStart(c.function.name); } catch {} }
+              }
               if (d.function?.arguments) c.function.arguments += d.function.arguments;
             }
             const fr = obj.choices?.[0]?.finish_reason || obj.choices?.[0]?.native_finish_reason;

@@ -10,7 +10,9 @@ import { cn } from '@/lib/utils';
 import { applyProposedEditsChecked, type ChatGrounding, type ChatTurn, chatComplete, type DiffRow, useArchitectStatus } from './architect';
 import { ChatCodeBlock } from './ChatCodeBlock';
 import { ChatCost } from './ChatCost';
+import { ChatLiveStatus } from './ChatLiveStatus';
 import { type ChatSegment, renderMessageSegments, renderMessageSegmentsStreaming } from './chat-markdown';
+import { THINKING } from './chat-status';
 import { DiffCard } from './diff-card';
 import { getFrontMatter } from './front-matter';
 import { CHAT_COMPOSER_FIELD, CHAT_COMPOSER_ROW, CHAT_COMPOSER_TOOLS, ChatEmptyCard } from './panel-shells';
@@ -31,7 +33,7 @@ import { type ChatMessage, type ChatProposal, loadChat, loadChatDraft, saveChat,
 // DOMPurify profile matched to EXACTLY the tags chat-markdown emits (headings are
 // <div>, not h1–h4). Defense-in-depth: the renderer already escapes first, but the
 // bubble is a same-origin sink, so we sanitize the prose HTML before it enters the DOM.
-const CHAT_SANITIZE = { ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'code', 'pre', 'a', 'ul', 'ol', 'li', 'div', 'span'], ALLOWED_ATTR: ['href', 'target', 'rel', 'class'], ALLOW_DATA_ATTR: false };
+const CHAT_SANITIZE = { ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'code', 'pre', 'a', 'ul', 'ol', 'li', 'div', 'span', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'blockquote', 'hr'], ALLOWED_ATTR: ['href', 'target', 'rel', 'class', 'start'], ALLOW_DATA_ATTR: false };
 const sanitizeChat = (html: string): string => DOMPurify.sanitize(html, CHAT_SANITIZE) as unknown as string;
 
 function AssistantBody({ text, streaming }: { text: string; streaming: boolean }) {
@@ -247,6 +249,10 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 		setStreaming({ deck: sendDeckId, text: '' });
 		const onToken = (tok: string) => {
 			bufferRef.current += tok;
+			// Prose arrived, so the last tool's label is finished news. Synchronous on purpose:
+			// the next round's label is set by a later call, and clearing from the rAF below
+			// would run AFTER it and wipe it.
+			if (tok) setLiveActivity(null);
 			if (!rafRef.current)
 				rafRef.current = requestAnimationFrame(() => {
 					rafRef.current = 0;
@@ -442,19 +448,13 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 						<div className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
 							<Sparkles className="size-3 animate-pulse text-[var(--accent)]" /> Architect
 						</div>
-						{liveActivity && <div className="text-[10.5px] text-muted-foreground" role="status">{liveActivity}</div>}
-						{live === '' ? (
-							<div className="flex gap-1 py-1" role="status" aria-label="Thinking">
-								<span className="size-1.5 animate-bounce rounded-full bg-[var(--accent)] [animation-delay:-0.2s]" />
-								<span className="size-1.5 animate-bounce rounded-full bg-[var(--accent)] [animation-delay:-0.1s]" />
-								<span className="size-1.5 animate-bounce rounded-full bg-[var(--accent)]" />
-							</div>
-						) : (
+						{live !== '' && (
 							<div className="text-[12.5px] leading-relaxed text-foreground">
 								<AssistantBody text={live} streaming={true} />
-								<span className="ml-0.5 inline-block h-[1.1em] w-[2px] animate-pulse bg-[var(--accent)] align-text-bottom" aria-hidden />
 							</div>
 						)}
+						{/* Under the text, where the eye already is, and present for the WHOLE turn. */}
+						<ChatLiveStatus label={liveActivity ?? (live === '' ? THINKING : 'Writing…')} progress={`${liveActivity ?? ''}|${live.length}`} />
 					</div>
 				)}
 				{shownNotice && (

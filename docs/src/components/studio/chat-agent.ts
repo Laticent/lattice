@@ -16,6 +16,7 @@
 import { agentLibrary } from './agent-library';
 import type { ArchitectModel, ChatGrounding, ChatOptions, ChatResult, ChatTurn, ORPrice, ProposedEdit } from './architect';
 import { AGENT_TOOLS, type AgentComplete, type AgentComponent, type AgentRawEdit, bindKernel, buildAgentSystem, createToolbox, type DeckCheck, deckBrief, deckForTurn, describeEdit, type KernelDeps, runAgentLoop, type ToolCall } from './architect-agent';
+import { THINKING } from './chat-status';
 import { FRONT_MATTER_KEYS } from './front-matter-keys';
 import type { ContentPart, MsgContent, ReferenceDoc } from './reference-doc';
 
@@ -157,6 +158,10 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 		let calls: ToolCall[] = [];
 		let finish: string | null = null;
 		roundOpen = true;
+		// Every round opens by saying so. The panel clears the last tool's label when prose
+		// arrives, so without this the gap between "tool finished" and "first token of the next
+		// round" — the longest silent stretch of an edit turn — showed nothing at all.
+		opts?.onActivity?.(THINKING);
 		const text = await model.complete({
 			messages: msgs as { role: string; content: MsgContent }[],
 			plugins: ground.plugins,
@@ -169,6 +174,9 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 			onToolCalls: (c) => {
 				calls = c;
 			},
+			// A call's name lands long before its arguments do (a whole slide streams inside
+			// `edit_slides` with no prose), so say what is being drafted while it arrives.
+			onToolStart: (name: string) => opts?.onActivity?.(TOOL_DRAFTING[name] ?? TOOL_ACTIVITY[name] ?? THINKING),
 			onToken: (t: string) => {
 				streamed += t;
 				onToken(t);
@@ -330,6 +338,12 @@ const CACHE_WRITE_RATE = 1.25;
 const CACHE_WRITE_1H_RATE = 2;
 /** What a cached prompt-prefix read costs, as a fraction of base input (architect.ts). */
 const CACHE_READ_RATE = 0.1;
+
+/** What the transcript says while a tool call is still ARRIVING — only the edit tools differ
+ *  from the running label, because their arguments are the slow part. */
+const TOOL_DRAFTING: Record<string, string> = {
+	edit_slides: 'Drafting the edit…',
+};
 
 /** What the transcript says while a tool runs. */
 const TOOL_ACTIVITY: Record<string, string> = {
