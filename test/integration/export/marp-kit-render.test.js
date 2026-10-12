@@ -69,6 +69,7 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const fs = require('node:fs');
 const { spawnSync, execFileSync } = require('node:child_process');
+const { npxSync } = require('../../helpers/npx-lock');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const { MARP_CLI_RANGE } = require(path.join(ROOT, 'lib', 'core', 'marp-bundle.js'));
@@ -176,7 +177,7 @@ function marpEnv() {
  * marp-cli does not read.
  */
 function runMarp(args, cwd, timeout = TIMEOUT) {
-	return spawnSync('npx', ['-y', MARP_PKG, ...args], {
+	return npxSync(['-y', MARP_PKG, ...args], {
 		cwd,
 		encoding: 'utf8',
 		env: marpEnv(),

@@ -2128,7 +2128,7 @@ function engineSlides(deckSource = rawMd) {
   let rendered;
   if (DECK_CODE_PACKAGES.length) {
     const { renderWithCodePackages } = require('./lib/packages/code-door.js');
-    const r = renderWithCodePackages((hook) => engine.render(deckMd, paletteName, { codePackages: hook, samplesUrl }), {
+    const r = renderWithCodePackages((hook, more) => engine.render(deckMd, paletteName, { codePackages: hook, ...more, samplesUrl }), {
       packages: DECK_CODE_PACKAGES,
       executablePath: CHROME_EXEC,
       warn: (l) => console.error(l),

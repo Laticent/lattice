@@ -23,6 +23,7 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const fs = require('node:fs');
 const { spawnSync } = require('node:child_process');
+const { npxSync } = require('../../helpers/npx-lock');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const { MARP_CLI_RANGE } = require(path.join(ROOT, 'lib', 'core', 'marp-bundle.js'));
@@ -75,7 +76,7 @@ function marp(args, cwd, timeout = TIMEOUT) {
   if (!env.CHROME_PATH) {
     try { env.CHROME_PATH = require('puppeteer').executablePath(); } catch { /* marp-cli finds its own */ }
   }
-  return spawnSync('npx', ['-y', `@marp-team/marp-cli@${MARP_CLI_RANGE}`, '--no-stdin', ...args], { cwd, encoding: 'utf8', env, timeout });
+  return npxSync(['-y', `@marp-team/marp-cli@${MARP_CLI_RANGE}`, '--no-stdin', ...args], { cwd, encoding: 'utf8', env, timeout });
 }
 
 // The markup a deck can leave open on its last slide that swallows the bundle's trailing lines: an

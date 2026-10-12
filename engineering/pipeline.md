@@ -341,6 +341,14 @@ back to Chrome, and says so (on stderr, even with `--quiet`), when the bundle is
 writer fails. The reasons and the
 measurements are in `engineering/decisions/2026-09-27-studio-export-one-engine.md`.
 
+**SVG text takes its fill per character.** `read-slide.mjs` reads each character's fill from
+the element that holds its text node, and splits a run where the fill changes. It does not use
+the `<text>`'s own fill: Mermaid paints a sequence participant's name on the `<tspan>`
+(`text.actor > tspan`) and gives the `<text>` the box's fill, so the `<text>` fill drew every
+name in its box's color. `test/integration/export/pdf-svg-text-owner-fill.test.js` renders the
+real PDF and counts ink inside each box. After editing `read-slide.mjs`, run
+`node tools/build-pdf-compose.js`: the CLI runs the built `dist/` bundle, not the source.
+
 ## 4a. CLI PDF output is byte-reproducible
 
 Rendering the same deck twice **on the same machine** writes the same bytes, with one measured

@@ -87,3 +87,39 @@ hex literal or an unscoped selector, or only report it as a component import doe
 door's contract (what a fence renderer is handed, and whether a deck's `plugins:` admission also
 gates the door's consent). Fixed on the way: the Studio's Library import dropped a code-free plugin
 zip with no word; both doors now refuse a plugin by name with one string (`PLUGIN_REFUSAL`).
+
+**Step 1 built 2026-10-11 (kernel and CLI door, hardened by the adversarial trio), not finished.** The
+owner's answers are §9 decisions 10 to 14 of the plugin-system note; the build log is its §11. Left in step 1:
+1. **The Studio's door.** It must carry every rule the CLI door learned from the checker on the
+   hardening: skip slides a shipped pass rebuilds (`lib/transformers/rebuilt-classes.js`, derived from
+   the registry; the Studio's engine bundle has the registry, so derive the same list there and pin
+   it with a test), the render-wide 400-fence allowance (`budget`), the host-side output cap applied
+   in claim order, the `lp-<name>` id and class namespace and the prefix-overlap refusal
+   (`pluginNameConflicts`), the fence-name pattern (`FENCE_NAME_RE`), and `pluginDigest` over BYTES. `docs/src/lib/code-packages/door.ts` / `door-run.ts` / `runner.ts` run
+   component packages only. They need the fence path, and it has rules the CLI door already learned
+   the hard way: pass `render(..., { codeFences: { names, run } })` built by `captureFences` /
+   `substituteFences` (`lib/packages/code-door-fence.mjs`; the engine's LAST slot, and `names` turns
+   highlighting off for those fences); load the renderer with `checkedWorkerScript(code, { fence: true })`
+   and post `{ body, id }`; sanitize with `doorFinishFence` from `lib/core/door-attr.mjs`, not a copy;
+   key results by DIGEST (`pluginDigest` rules: `pluginConsentText(code, fence)`, hashed with
+   `crypto.subtle`), approvals under `plugin/<name>` (today `door.ts` keys approvals on the bare
+   name), the 400-fence cap and `MAX_FENCE_CHARS`; refuse a fence name two plugins claim; and run
+   both doors on one fixture in one test, so they cannot drift (HARD RULE #1). Add `CodePackagesNotice`
+   support for plugins, and a fence-in-`docs/src/lib/single-slide-render` case.
+2. **The placeholder** for a plugin's fence the deck did not declare (decision 11): drawn in the
+   Nacre atmosphere (`docs/src/styles/nacre-loader.css`, `base.modifiers.css` "THE UNDERPAINTING"),
+   a plugin mark from the `--mark-*` / `--shape-*` tokens (HARD RULE #29), palette-blind, with the
+   plugin's name; and the strip whose Approve writes the `plugins:` line (`deck-plugins.mjs`'s
+   writer). Website UI: screenshots at 1440 / 820 / 390. The web-image placeholder
+   (`lib/core/remote-ref.js` `blockWebImages`) is the precedent for markup the engine styles.
+3. **`lattice packages trust plugin/<name>`** (the door's refusal message already prints it).
+4. **Step 2's gate** must run `refusePluginCode`, `codeSyntaxRefusal(code, { fence: true })`,
+   `codeNameRefusal(pkg.name, knownClasses)`, and refuse a fence name that is a shipped plugin's or a
+   highlight.js language or alias (`lib/packages/new-plugin.js:36` does it for the scaffolder only).
+   The door takes the active list; the CLI half decides which installed plugins are active
+   (declared in `plugins:`) and which are only offered (the placeholder case).
+5. **A `lint:deck` warning** that attributes after a plugin fence's name are ignored today
+   (`lib/core/lint-core.js`; `scanFences` already reads the full info string), so the field stays free
+   to define later.
+6. **Known limits to keep in §4.10 / §4.11 as written:** no links, remote images or fonts in output
+   (`data:` only); a Marp export ships the raw code block.

@@ -775,6 +775,76 @@ Answered by the owner on #2509 after #2508 merged; written here with the E0 chan
    `off` to the boundary parser (`setBoundaryPluginsOff`). The `highlight` grammars stay registered
    for every installed plugin, on purpose. A host may narrow the default set.
 
+### Owner decisions (settled 2026-10-11, phase E step 1's questions)
+
+Answered by the owner in the session that opened the fence-level code door. Decision 7's
+token-only gate is **superseded** by decision 12 below; decisions 6, 8 and 9 stand.
+
+10. **A fence renderer is handed the fence's text and one id, and nothing it can get another
+    way.** `render({ body, id })`: `body` is the fence's text exactly as authored; `id` is a string
+    unique to this fence in this render, safe in an `id` attribute, so two fences of one plugin
+    cannot collide. It is the plugin's namespace, the render prefix, a short hash of the fence's text
+    and how many fences with that text came before it (one counter per render, shared by the deck
+    and every pane). It names the fence's content and not its place, so inserting a slide does not
+    change any id and the Studio's remembered results still hold. It starts with `lp-<name>`,
+    the plugin's own namespace, because the sanitizer keeps an id or class only in the package's own
+    namespace (`doorFilterAttr`). The namespace carries the `lp-` prefix because a bare `<name>` let a
+    plugin called `cell` keep the engine's `cell-stage`; and the door refuses a plugin whose name is a
+    hyphen-prefix of another's (`a`, `a-b`), whose namespaces would overlap. Text measurement is the one capability the sandbox already
+    gives every package (`kit.measure`). It is NOT handed theme values, the slide's HTML, a base
+    URL, the fence's info string or deck options. Theme colors reach a plugin as `var(--token)` in
+    the CSS and markup it writes, and the browser resolves them in the right mode and theme, so
+    passing values across would only add surface and go stale. The info string and per-deck options
+    are left out until a plugin needs them (`lib/core/fence-languages.js` `scanFences` already reads
+    full info strings, so a field is a small change when the need is real), and a field is added
+    without a version bump (the slide-facts rule, `lib/packages/slide-facts.mjs`). **A known
+    limit:** attributes written after the fence name (```` ```gantt title="Q3" ````) are ignored
+    today, and a deck that carries them will change meaning the day the field is defined; a
+    `lint:deck` warning for that is in the followup.
+11. **A deck's `plugins:` front matter is how a zip plugin is activated, and a fence of a plugin
+    the deck did not declare shows a placeholder and offers Approve.** Approve WRITES the
+    `plugins:` line (decision 9's writer), so the deck states what it needs and the CLI renders it
+    the same way. Consent to the code itself stays pinned to the code's hash and lives only in the
+    browser that took it (§9 decision 3), so a downloaded deck can name a plugin but never carry
+    its own approval. The placeholder is drawn in the house Nacre atmosphere
+    (`docs/src/styles/nacre-loader.css`, the image underpainting in `base.modifiers.css`) with a
+    plugin mark and the plugin's name, so it reads as "a plugin goes here" and not as a missing
+    picture. Palette-blind: every color is a deck token.
+12. **A zip plugin's CSS is scoped, not gated on token use, and its slot comes first.** Every
+    selector is rewritten under the plugin's own root (and the roots of the plugins it declares it
+    styles), so it cannot reach a built-in element; the plugin's CSS sits before the engine's in
+    source order. Plugins may use any declaration, `!important` included, and read every theme
+    token by inheritance. A hex color or an unscoped selector the rewrite had to fix is reported,
+    not refused. **No `@layer`:** measured in Chromium (2026-10-11), a layered plugin rule loses to
+    every engine rule, so a plugin could not restyle its own paragraphs, and a layered `!important`
+    beats the engine's `!important`, the reverse of protection. HARD RULE #26 stays untouched.
+13. **The Studio keeps a zip plugin in the browser's storage** (the asset store gains a plugin
+    kind), never in a deck or a backup.
+14. **Consent is pinned to the renderer AND the fence it owns, and the door hashes the code
+    itself.** The digest is the SHA-256 of `lattice-plugin-fence:<fence length>:<fence>\0<render.js>`
+    (`pluginConsentText`, `trust.js pluginDigest`), with the file's bytes hashed as they are, never
+    decoded (decoding drops a leading BOM and maps an invalid byte to U+FFFD, so two files could
+    share a digest). The fence's length leads, and the name must match `^[a-z][a-z0-9-]*$`, so no two
+    (fence, code) pairs split into the same text (before, `("C", "a\0x")` and `("x\0C", "a")` hashed alike). The fence name is in it because the manifest
+    alone says which fence a renderer is handed: editing the manifest's `fences` key would
+    otherwise point an approved renderer at another plugin's fence with no new consent, and
+    widening what the digest covers after approvals exist would invalidate every one of them.
+    `renderWithCodePackages` computes every digest from the code it was handed, never from a hash
+    the caller states (a stated hash let approved code's digest run different code). `styles.css`
+    is not pinned: it is data, and scoped (decision 12).
+15. **The door does not draw on a slide a shipped pass rebuilds from its text.** `video` turns a
+    bullet into a poster and a link, `contact` and `wifi` into QR cards, `qr` into a QR from a
+    link, and each runs twice: in the engine's HTML pass and again in the runtime's DOM pass
+    (`applyAllToDom`, `lib/runtime/index.js`, in `--fluid` exports and the live previews) over the
+    finished page, plugin output included. A plugin that returned `<li>https://evil.example/…</li>`
+    on a `video` slide had the address written into a poster. The door's last registry slot stops
+    the HTML pass and cannot stop the DOM pass, so the door does not draw there: the fence stays
+    the code block it is and the render says why. The list is read off the registry's own
+    `selector`s (`lib/transformers/rebuilt-classes.js`), so a pass added later denies its slides the
+    day it is registered; a short `GENERIC` list (`form`, `image`, `split-panel`…) names the class
+    sets that only frame a slide. A fence on a chart slide is therefore not drawn either (the engine
+    draws those).
+
 ## 10. Non-goals
 
 - **No runtime discovery or network loading of code.** The export has to work offline, forever,
@@ -1554,6 +1624,50 @@ Answered by the owner on #2509 after #2508 merged; written here with the E0 chan
   eager bundle does not grow. Pinned by `asset-bundle.test.ts` (with the check removed, the code-free
   case receives `[]`) and `code-door.test.js`, and seen on the PR's docs preview: the Library's toast
   reads "Refused 1: glow — plugin packages cannot be installed yet".
+
+**2026-10-11 — phase E step 1, the fence door: kernel and CLI side built, hardened by the adversarial
+trio; the Studio's door and the placeholder are not.** The owner settled the fence contract, the
+activation and approval flow, the CSS isolation rule and the Studio's storage (§9 decisions 10 to 14;
+decision 7's token-only gate is superseded by 12). What exists now:
+- `lib/packages/code-door-fence.mjs` (the shared kernel). It finds a plugin's fences in the engine's
+  finished HTML (`<pre><code class="language-NAME">`, read with `scanTags`, so a block in a comment
+  or `<style>` is not one and the walk is linear), so the parser and its memo keys are untouched. A
+  renderer is handed `{ body, id }` and nothing else. A fence inside a slide a code package claims
+  whole is the package's, not run. The result goes in `<div data-lattice-plugin="NAME">`, the root
+  decision 12's CSS scoping will key on; a failure keeps the author's code block and adds a note.
+- **The door runs in its own LAST registry slot** (`lib/transformers/code-fences.js`, fed by
+  `render(…, { codeFences: { names, run } })`), not beside the code packages, so no later HTML pass
+  reads a plugin's output. That is HALF the answer, and the first version of this entry said it was
+  all of it: the checker on the hardening ran `video.applyToDom` over a slide whose only content was a
+  plugin's `<li>https://…</li>` and got a poster link. The runtime's DOM pass is the other half, so
+  the door also refuses to draw on a slide a shipped pass rebuilds (decision 15). The slot's `names`
+  also make the engine's highlighter leave those fences plain: a grammar that knew the name (`tex`,
+  `sql`, `r`) had been deciding, per body and per surface, whether the plugin drew it.
+- `code-shape.mjs`: `workerScript(code, { fence: true })` (slide mode is byte-identical, pinned by a
+  digest taken from the commit before), `refusePluginCode`, `pluginConsentText`. `trust.js` approves
+  under `plugin/<name>` against `pluginDigest` (decision 14). `door-attr.mjs` `doorFinishFence`
+  is the one sanitizing step both doors call: wrap in a bare `<section>`, hand an empty one, unwrap,
+  and refuse a nested `<section>`, a `<template>` (its content hides from `querySelector`) or an
+  empty result.
+- `code-door.js`: `renderWithCodePackages(render, { packages, plugins })`, where `render(hook, more)`
+  passes `more` on as render options. It hashes the code itself, keys every result by digest, refuses
+  a fence name two plugins both claim (neither runs, and it says so), claims at most 400 fences per
+  pass, and caps the sanitized output of one render. A deck of 8,000 fences with a 300 KB renderer
+  took 89 s and 7.6 GB before; it takes 2.2 s and 130 MB, with 400 drawn and 7,600 left as code.
+- Evidence: `test/unit/cli/code-door-fence.test.js` (39: kernel through the real engine, panes,
+  inserted slides, a `video` slide, the highlight case, the gate, consent) and
+  `test/integration/export/plugin-fence-door.test.js` (12 in the real sandbox, with a network log at 0
+  requests). Mutations that fail a test: the fence slot moved early, the highlight override removed,
+  the id counter made per call, the sanitizer bypassed for fences.
+- **Known limits, on purpose.** Output carries no links, remote images or fonts (a map plugin that
+  wants tiles has to put them in `data:` images, which is safe and heavy). The Marp bundle never
+  calls the door, so a Marp export ships the raw code block, as it does for code packages. Info
+  strings are ignored (decision 10). A plugin's name must still pass `codeNameRefusal` and its fence
+  name must not be a name Lattice or highlight.js owns: step 2's gate does both.
+- Not built, and why nothing user-visible changed: no caller passes `plugins` yet, and `gate.js`
+  still refuses a plugin from outside the tree by name. Remaining, in
+  `followups.d/2417-p5-plugin-roadmap-phases-e-to-g.md`: the Studio's door, the placeholder and its
+  Approve strip, `lattice packages trust plugin/<name>`, then steps 2 and 3.
 
 ## References
 
