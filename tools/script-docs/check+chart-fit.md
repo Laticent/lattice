@@ -1,0 +1,4 @@
+---
+group: Lint & audit
+---
+Stage-FIT gate: renders test/fixtures/chart-fit.md through the CLI, loads the sidecar in headless Chromium, and fails when a chart paints outside its `.cell-stage` box. The stage is `overflow: clip`, so an overflowing chart is silently CUT rather than visibly broken — no other gate asks this (scaling, responsiveness and scoped-paint all check the chart in isolation). Born from two clips in one branch plus 12 pre-existing ones found in a 36-case sweep. Also carries the INSET assertion (#1598): the opposite question — is the body's box needlessly too SMALL because it re-derives the frame inset the stage already owns — measured on the same renders, so it costs nothing extra. `--report` prints per-slide numbers; exits 2 with no Chromium (a setup failure, never a silent pass).

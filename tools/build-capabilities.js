@@ -12,14 +12,14 @@
  * gated. This gives tools/scripts/frameworks the same treatment.
  *
  * Sources of truth that can't drift:
- *   - package.json `scripts`  → every command (described in SCRIPT_META here)
+ *   - package.json `scripts`  → every command (described one file each in tools/script-docs/)
  *   - tools/*.{js,mjs,sh,py}  → every tool (description read from its header)
  *   - FRAMEWORKS (curated)    → the semantic "what we build on" a name omits
  *
- * Mandatory-description gate: a script with no SCRIPT_META entry, or a tool
+ * Mandatory-description gate: a script with no tools/script-docs/ file, or a tool
  * whose header has no description line, renders a visible **TODO** — and makes
  * --check fail. So a new capability cannot land uncataloged: either describe it
- * here / in the tool header, or the gate blocks the push.
+ * in tools/script-docs/ / in the tool header, or the gate blocks the push.
  *
  * NOT COMMITTED. The output lives in dist/engineering/ and is rebuilt by `npm install`
  * (prepare), the SessionStart hook and `npm run build`. A committed copy was
@@ -64,272 +64,50 @@ const FRAMEWORKS = [
 ];
 
 // ── npm scripts (mandatory descriptions) ─────────────────────────────────
-// group → ordered. desc is one line. A package.json script with no entry here
-// renders a TODO and fails --check (the capture forcing-function).
-const SCRIPT_META = {
-  // Build & bundle
-  'build':                    ['Build & bundle', 'Regenerate every generated artifact in dependency order, behind the ownership gate.'],
-  'build:check':              ['Build & bundle', 'Freshness gate for the COMMITTED generated artifacts: regenerate in memory and diff, skipping the bundles that are built-not-committed (CI/pre-push).'],
-  'build:uncommitted':        ['Build & bundle', 'Generate ONLY the built-not-committed artifacts (dist/, the docs-site bundles). The cold-tree bootstrap: the ownership guard reads dist/ CSS, so it cannot run before this. Skips the guard for that reason.'],
-  'prepack':                  ['Build & bundle', 'npm lifecycle: build before packing, so the published tarball carries dist/ even though git does not.'],
-  'build:check:all':          ['Build & bundle', 'The same gate without the scope: every artifact, including the built-not-committed bundles. Needs dist/ present, so run it after npm run build.'],
-  'css:build':                ['Build & bundle', 'Bundle dist/lattice.css (+ -min) — the palette-blind engine stylesheet.'],
-  'css:check':                ['Build & bundle', 'Freshness gate for dist/lattice.css.'],
-  'default:build':            ['Build & bundle', 'Build dist/lattice-default.css — the flattened zero-config drop-in (engine + cuoio).'],
-  'default:check':            ['Build & bundle', 'Freshness gate for the default bundle.'],
-  'runtime:build':            ['Build & bundle', 'Build dist/lattice-runtime.js — browser runtime transforms (vscode preview / web export).'],
-  'runtime:check':            ['Build & bundle', 'Freshness gate for the runtime bundle.'],
-  'vendor:plugins':           ['Build & bundle', 'Refresh each plugin\'s vendored library copy (lib/plugins/<name>/vendor/) from node_modules and rewrite its manifest record (version, sha256); --check verifies copy, record and installed build agree.'],
-  'runtime:watch':            ['Build & bundle', 'Rebuild the runtime bundle on change.'],
-  'cli:build':           ['Build & bundle', 'Build dist/lattice.js — the bundled owned-engine CLI (package bin).'],
-  'cli:check':           ['Build & bundle', 'Freshness gate for the CLI bundle (dist/lattice.js).'],
-  'playground:build':         ['Build & bundle', 'Build docs/public/playground/lattice-playground.js — the in-browser engine bundle.'],
-  'playground:check':         ['Build & bundle', 'Freshness gate for the playground bundle.'],
-  'playground:watch':         ['Build & bundle', 'Rebuild the playground bundle on change.'],
-  'katex-provider:build':     ['Build & bundle', 'Build docs/public/playground/lattice-katex.js — the on-demand KaTeX bundle split out of the playground bundle.'],
-  'hljs:build':               ['Build & bundle', 'Build docs/public/playground/hljs/ — the 156 highlight.js grammars the preview bundle\'s 36-language `common` build omits, one small file each (median 1.9 KB) plus an alias manifest, fetched per deck so the Playground colors every language the CLI export does.'],
-  'parity:transforms':        ['Quality & audit', 'Compare each registry transformer\'s string implementation against its DOM twin over every gallery deck, classifying each difference as identical / equivalent-re-serialization / genuinely different. The evidence gate for deleting the string twins — it already caught a parser that silently lowercased SVG element names.'],
-  'katex-provider:check':     ['Build & bundle', 'Freshness gate for the katex-provider bundle.'],
-  'katex-provider:watch':     ['Build & bundle', 'Rebuild the katex-provider bundle on change.'],
-  'theme-core:build':         ['Build & bundle', 'Bundle the pure Theme Studio core for the browser (docs site).'],
-  'theme-core:check':         ['Build & bundle', 'Freshness gate for the theme-core bundle.'],
-  'layout-core:build':        ['Build & bundle', 'Bundle the pure Layout Studio core for the browser (docs site).'],
-  'layout-core:check':        ['Build & bundle', 'Freshness gate for the layout-core bundle.'],
-  'authoring-core:build':     ['Build & bundle', 'Bundle the pure authoring engines (lint/review/scorecard) for the browser.'],
-  'authoring-core:check':     ['Build & bundle', 'Freshness gate for the authoring-core bundle.'],
-  'exemplar-core:build':      ['Build & bundle', 'Bundle the pure exemplar tier-filter for the browser (Drafting picker length chooser).'],
-  'exemplar-core:check':      ['Build & bundle', 'Freshness gate for the exemplar-core bundle.'],
-  'standalone-core:build':    ['Build & bundle', 'Bundle the standalone chart-SVG export core for the browser (docs site).'],
-  'standalone-core:check':    ['Build & bundle', 'Freshness gate for the standalone-core bundle.'],
-  'image-set-core:build':     ['Build & bundle', 'Bundle the shared image-set contract (lib/export/image-set.js) for the browser — the Studio Share sheet\'s "Images" (image-set ZIP) export.'],
-  'image-set-core:check':     ['Build & bundle', 'Freshness gate for the image-set-core bundle.'],
-  'snippets:build':           ['Build & bundle', 'Generate .vscode/lattice.code-snippets from component manifests.'],
-  'snippets:check':           ['Build & bundle', 'Freshness gate for the VS Code snippets.'],
-  'dist-readme:build':        ['Build & bundle', 'Generate dist/README.md — the distribution-folder index.'],
-  'dist-readme:check':        ['Build & bundle', 'Freshness gate for dist/README.md.'],
-  'marp-kit:build':           ['Build & bundle', 'Build dist/marp-kit — the copy-and-go Marp folder (CSS, runtime, fonts, Mermaid, configs, Sample-Deck.md). No export needed.'],
-  'capabilities:build':       ['Build & bundle', 'Generate dist/engineering/capabilities.md (not committed) — the index of every script, tool, and framework.'],
-  'capabilities:check':       ['Build & bundle', 'Gate for the capability index SOURCES: fails on any undescribed script/tool or an over-budget row.'],
-  'docs:components':          ['Build & bundle', 'Generate per-component docs.md + gallery.md siblings from each manifest.'],
-  'docs:components:check':    ['Build & bundle', 'Freshness gate for the per-component docs.'],
-  'docs:portal':              ['Build & bundle', 'Aggregate manifests into dist/docs/components.{md,json} + grammar.json (the LFM per-component grammar) — the canonical component catalog.'],
-  'docs:portal:check':        ['Build & bundle', 'Freshness gate for the component catalog (md/json) + LFM grammar.json.'],
-  'docs:forms':               ['Build & bundle', 'Aggregate the Form manifests (lib/forms/{frame,tile,cell}) into dist/docs/forms.json — the machine catalog of the Frame + Cell + Tile composition model.'],
-  'docs:forms:check':         ['Build & bundle', 'Freshness gate for the Form catalog (dist/docs/forms.json).'],
-  'docs:concepts':            ['Build & bundle', 'Project the concept ontology (lib/concepts) into dist/docs/concepts.json — the machine catalog of the four axes, the Frame/Cell/Tile nouns, the Component join, and the typed relationships between them; counts derive live from the component + form catalogs.'],
-  'docs:concepts:check':      ['Build & bundle', 'Freshness + drift gate for the concept catalog (dist/docs/concepts.json) — fails if the ontology references a vocabulary the live catalogs no longer ship.'],
-  'docs:landing-tokens':      ['Build & bundle', 'Emit per-palette CSS token blocks for the docs landing page.'],
-  'docs:landing-tokens:check':['Build & bundle', 'Freshness gate for the landing-page token blocks.'],
-  'docs:spec':                ['Build & bundle', 'Generate the docs-site Specification pages (LFM 1.0 + Diagnostic Protocol) from the canonical spec/*.md.'],
-  'docs:spec:check':          ['Build & bundle', 'Freshness gate for the generated docs-site spec pages (stale vs spec/).'],
-  'a11y-textures:build':      ['Build & bundle', 'Bundle the categorical/chart texture-<defs> kernel (lib/core/accessibility-textures.js) into the docs Playground ESM module.'],
-  'a11y-textures:check':      ['Build & bundle', 'Freshness gate for the bundled a11y-textures Playground module.'],
-  'axis-dom-catalog:build':   ['Build & bundle', 'Generate lib/runtime/axis-dom-catalog.generated.js — component name to density.axis/domSelector, scanned from every manifest, bundled into lattice-runtime.js so the Fix-Me overlay drill-down can find a component\'s rendered collection without shipping the whole manifest catalog to the browser.'],
-  'axis-dom-catalog:check':   ['Build & bundle', 'Freshness gate for the generated axis-DOM catalog.'],
-  'guide-handles:build':      ['Build & bundle', 'Generate docs/src/components/studio/guide-handles.generated.ts — the rendered part each component declares and the token that names it, scanned from every manifest\'s `handles` block, so the Present Guide can point at a handle instead of the whole card without holding the component catalog.'],
-  'guide-handles:check':      ['Build & bundle', 'Freshness gate for the generated Guide handle catalog.'],
-  'projection-catalog:build': ['Build & bundle', 'Generate lib/core/projection-catalog.generated.mjs — each component\'s `projection` block (how its rendered visual re-hosts off the slide \\| svg, flow, spatial, placeholder, bare or none \\| plus whether its substance is data), projected into the sets the prose projection, image-set export, Studio single-chart export, tools/export-chart-svg.js and the authoring scorecard read. Replaces nine hand-maintained rosters across five files, four of which held the same twelve names and none of which went red on omission. Emitted as ESM so CJS and the docs bundles can both reach it.'],
-  'projection-catalog:check': ['Build & bundle', 'Freshness gate for the generated projection catalog.'],
-  'stage-catalog:build':      ['Build & bundle', 'Generate lib/forms/cell/masthead/stage-catalog.generated.js — the single stage-cell classification (component name → flow | canvas | sovereign), composed from each manifest\'s `stage` field + the sovereign frames\' exemptFromChrome, bundled into lattice-runtime.js so the masthead kernel derives its .cell-stage wrap decision without shipping the manifest catalog to the browser (stage-cell classification, step A).'],
-  'stage-catalog:check':      ['Build & bundle', 'Freshness gate for the generated stage-cell catalog.'],
-  'theme-catalog:build':      ['Build & bundle', 'Generate docs/src/lib/theme-catalog.generated.ts — the palette picker\'s groups (tier/order) and swatches, baked from themes/*.manifest.json so the docs bundle gets the one scope declaration without fs-loading 32 manifests at runtime. Replaces two hand-kept lists a test had to reconcile.'],
-  'theme-catalog:check':      ['Build & bundle', 'Freshness gate for the generated Studio palette catalog.'],
-  'player-core:build':        ['Build & bundle', 'Bundle the pure HTML-player assembly core (lib/export/player-core.mjs) for the browser — the Studio "Download as webpage" export.'],
-  'player-core:check':        ['Build & bundle', 'Freshness gate for the player-core Playground bundle.'],
-  'player-prune:build':       ['Build & bundle', 'Bundle the CSS/font PRUNE kernel (lib/export/player-prune.js + css-tree) for the browser — the Studio webpage export prunes to the used selectors/faces.'],
-  'player-prune:check':       ['Build & bundle', 'Freshness gate for the player-prune Playground bundle.'],
-  'anima-player:build':       ['Build & bundle', 'Bundle the chart-motion (Anima) player as an injectable string constant (it cannot `import`) for the standalone HTML player — the CLI `--player` path via lib/export/player-core.mjs and the Studio share-export. It HYDRATES an already-built scene spec; the scene itself is built by chartToScene in docs/src/lib/chart-anima.ts, which the docs-site preview runs from source through Vite rather than from this bundle.'],
-  'anima-player:check':       ['Build & bundle', 'Freshness gate for the anima-player bundle.'],
-  'guide-player:build':       ['Build & bundle', "Bundle Present's Guide (the resolver, the per-sentence conductor and Vetrina's hand) as an injectable string constant for narrated HTML exports whose deck declares `delivery:` — lib/export/guide-player-bundle.generated.mjs, inlined by lib/export/player-core.mjs. Reads the libraries' sources, not their dists."],
-  'guide-player:check':       ['Build & bundle', 'Freshness gate for the guide-player bundle.'],
-  'speech-projection:build':  ['Build & bundle', 'Bundle the caption SPEECH PROJECTION (dompurify + lib/core/sanitize-slide-html.mjs + lib/transformers/prose-projection.mjs) as an injectable IIFE string, for the CLI export to evaluate inside the Chromium it already has open. Replaces three jsdom windows per `--captions` run; jsdom is a devDependency, so that path threw in a published install.'],
-  'speech-projection:check':  ['Build & bundle', 'Freshness gate for the speech-projection bundle.'],
-  'read-along-core:build':    ['Build & bundle', 'Bundle the read-along captions producer (lib/core/read-along-build.js + read-along-vtt.js) for the browser — the Studio Share sheet\'s "Captions (.vtt)" export.'],
-  'read-along-core:check':    ['Build & bundle', 'Freshness gate for the read-along-core Playground bundle.'],
-  'cadenza-lib:build':        ['Build & bundle', 'Build the Cadenza library dist/ (ESM + CJS + .d.ts, esbuild + tsc) so import/require(\'@laticent/cadenza\') resolves — the workspace package that retires the caption hand-mirrors.'],
-  'cadenza-lib:check':        ['Build & bundle', 'Freshness gate for the Cadenza library dist/ (stale vs docs/src/lib/cadenza/*.ts).'],
-  'calco-lib:build':          ['Build & bundle', 'Build the Calco office-export library dist/ (ESM + CJS + .d.ts, esbuild + tsc) so require(\'@laticent/calco\') resolves for the CLI and the tests.'],
-  'calco-lib:check':          ['Build & bundle', 'Freshness gate for the Calco library dist/ (stale vs docs/src/lib/calco/*.ts).'],
-  'trama-lib:build':          ['Build & bundle', 'Build the Trama graph-chart library dist/ (ESM + CJS + .d.ts, esbuild + tsc) so require(\'@laticent/trama\') resolves for the runtime, the CLI and the tests.'],
-  'trama-lib:check':          ['Build & bundle', 'Freshness gate for the Trama library dist/ (stale vs docs/src/lib/trama/*.ts).'],
-  'vetrina-lib:build':        ['Build & bundle', 'Build the Vetrina library dist/ (two ESM + two CJS entries + .d.ts, esbuild + tsc; react external) — the publishable workspace package for the walkthrough engine.'],
-  'vetrina-lib:check':        ['Build & bundle', 'Freshness gate for the Vetrina library dist/ (stale vs docs/src/lib/vetrina/*.ts).'],
-  'lente-lib:build':          ['Build & bundle', 'Build the Lente library dist/ (ESM + CJS + .d.ts, esbuild + tsc) so import/require(\'@laticent/lente\') and npm publish resolve — the fourth spin-off sibling\'s consumable artifact.'],
-  'segno-lib:build':          ['Build & bundle', 'Build the Segno grammar-engine dist/ (ESM + CJS + .d.ts, esbuild + tsc) so import/require(\'@laticent/segno\') resolves — same recipe as the Lente, Cadenza and Vetrina siblings.'],
-  'segno-lib:check':          ['Build & bundle', 'Freshness gate for the Segno library dist/ (stale vs docs/src/lib/segno/*.ts).'],
-  'lente-lib:check':          ['Build & bundle', 'Freshness gate for the Lente library dist/ (stale vs docs/src/lib/lente/*.ts).'],
-  'engine-hash:build':       ['Build & bundle', 'Regenerate docs/src/lib/cadenza/engine-hash.ts — ENGINE_HASH, the timing engine\'s content hash every LTT carries as inputs.engine. Deliberately not part of `npm run build`: a unit test fails when the committed value is stale.'],
-  'ltt-lib:build':            ['Build & bundle', 'Build the LTT format package dist/ (ESM + CJS + .d.ts, esbuild + tsc) so require(\'@laticent/ltt\') resolves from root CJS and an npm publish — the Lattice Timing Track types, validator and encodings.'],
-  'ltt-lib:check':            ['Build & bundle', 'Freshness gate for the LTT library dist/ (stale vs docs/src/lib/ltt/*.ts).'],
-  'ltt-schema:build':         ['Build & bundle', 'Generate docs/src/lib/ltt/ltt.schema.json (JSON Schema 2020-12) FROM docs/src/lib/ltt/types.ts with the TypeScript parser — guardrail G1: the types are the one source of the LTT schema.'],
-  'ltt-schema:check':         ['Build & bundle', 'Freshness gate for the generated LTT JSON Schema; build:check runs it, so a type change without a regenerated schema cannot merge.'],
-  'suono-lib:build':          ['Build & bundle', 'Build the Suono library dist/ (ESM + CJS + .d.ts, esbuild + tsc) so import/require(\'@laticent/suono\') and npm publish resolve — the audio engine\'s consumable artifact.'],
-  'tavola-lib:build':         ['Build & bundle', 'Build the Tavola library dist/ (ESM + CJS for the core and the Trystero adapter, + .d.ts) on the shared tools/lib/build-workspace-lib.js, so @laticent/tavola publishes JavaScript rather than raw TypeScript.'],
-  'suono-lib:check':          ['Build & bundle', 'Freshness gate for the Suono library dist/ (stale vs docs/src/lib/suono/*.ts).'],
-  'split:treatments':         ['Build & bundle', 'Render §0c\'s split-treatment table (which of the 11 treatments each component gets) into the split decision note from TREATMENTS in lib/core/split-facts.js — the prose used to be a second, unchecked copy of that map.'],
-  'split:treatments:check':   ['Build & bundle', 'Freshness gate for §0c\'s generated split-treatment table (stale vs lib/core/split-facts.js).'],
-  'oracle:bless':             ['Test & verify', 'Write the committed split oracle (test/oracle/split-oracle.json) from the manifests — the standing golden of each component\'s derived split facts (§8 rule 5). Refuses to mint an entry for a newly-enrolled component with no verification record (rule 11).'],
-  'oracle:check':             ['Test & verify', 'Verify the committed split oracle against freshly recomputed manifest facts; exit 1 on drift.'],
-  'decisions:index':          ['Build & bundle', 'Generate dist/engineering/decisions.md (not committed) from each note\'s YAML front-matter. Warns on, and skips, a malformed note.'],
-  'decisions:index:check':    ['Build & bundle', 'Gate for the decision notes: every note has valid front-matter and no index row over ROW_CAP (285 characters).'],
-  'gotchas:index':            ['Build & bundle', 'Generate dist/engineering/gotchas.md (not committed) from the entry headings of every engineering/gotchas/<topic>.md file.'],
-  'gotchas:index:check':      ['Build & bundle', 'Gate for the gotcha topic files: each parses, has no duplicate heading, and no index row over ROW_CAP (280 characters).'],
+// One file per script in tools/script-docs/, so adding a script touches package.json plus
+// one NEW file and never a map every script-adding PR edits (it was in 9 of 50 commits).
+// The file name is the script name with ':' written as '+' (':' is not a legal file name
+// character everywhere the desktop app will build). `group` is one of GROUP_ORDER_SCRIPTS
+// below, with no trailing comment. Format:
+//   ---
+//   group: Build & bundle
+//   ---
+//   One-line description.
+// A package.json script with no file renders a TODO and fails --check; so does a file with
+// no script (a rename or removal left it behind), an unknown group or an empty description.
+const SCRIPT_DOCS_DIR = path.join(TOOLS_DIR, 'script-docs');
+const scriptFileName  = (name) => `${name.replace(/:/g, '+')}.md`;
 
-  // Galleries & preview (rendered PDFs)
-  'build:galleries':          ['Galleries & preview', 'Rebuild per-component gallery PDFs (light + dark).'],
-  'build:galleries:check':    ['Galleries & preview', 'On-demand: flags per-component gallery PDFs whose render inputs changed but were not rebuilt. Not wired to CI or a hook — golden-diff is the CI gate.'],
-  'build:bucket-galleries':   ['Galleries & preview', 'Rebuild per-bucket survey gallery PDFs (light + dark).'],
-  'build:bucket-galleries:check':['Galleries & preview', 'On-demand: flags bucket survey PDFs whose render inputs changed but were not rebuilt. Not wired to CI or a hook — golden-diff is the CI gate.'],
-  'build:showcase-galleries': ['Galleries & preview', 'Rebuild the consolidated cross-bucket showcase decks (data-viz = chart + math) from the live manifest set, light + dark.'],
-  'build:showcase-galleries:check':['Galleries & preview', 'Freshness gate for the consolidated showcase decks: the deck against the live manifests, AND the committed PDFs against the render inputs (engine CSS, chart transforms, the palettes, the emulator) via tools/lib/render-inputs.js. One git status, no Chromium. `--dry-run` on the build tool reports the same verdict without rendering.'],
-  'build:gallery-jargon':     ['Galleries & preview', 'Rebuild the jargon showcase gallery PDF.'],
-  'build:exemplar-pdfs':      ['Galleries & preview', 'Bulk-regenerate committed PDFs for the worked exemplar decks (on-demand, like bless; not in build). `-- --only <stem>` for one.'],
-  'preview':                  ['Galleries & preview', 'Fast visual-iteration loop: scope-detect from git diff, rebuild affected, pixel-diff vs last commit.'],
-  'preview:watch':            ['Galleries & preview', 'Run the preview loop on change.'],
-  'preview:component':         ['Galleries & preview', 'Faithfully render ONE local / AI-generated component to a PNG (lattice.css + the component CSS, full frame) for pixel review.'],
+/** Parse one script-docs file. Returns { group, desc } or { error }. */
+function parseScriptDoc(text) {
+  const m = /^---\n([\s\S]*?)\n---\n([\s\S]*)$/.exec(text.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n'));
+  if (!m) return { error: 'no front-matter (expected a --- block with "group:")' };
+  const group = /^group:\s*(.+?)\s*$/m.exec(m[1])?.[1];
+  if (!group) return { error: 'front-matter has no "group:" line' };
+  const desc = m[2].split('\n').map((l) => l.trim()).filter(Boolean).join(' ');
+  if (!desc) return { error: 'no description under the front-matter' };
+  return { group, desc };
+}
 
-  // Test & verify
-  'test':                     ['Test & verify', 'Full unit suite (node:test). The inner loop.'],
-  'test:watch':               ['Test & verify', 'Re-run the unit suite on file change.'],
-  'test:tap':                 ['Test & verify', 'The unit suite as a TAP stream, for anything that parses test output rather than reading the exit code. `npm test` reports as dots (557x cheaper to capture); reach for this when you need per-test records.'],
-  'test:all':                 ['Test & verify', 'Unit + integration umbrella.'],
-  'test:coverage':            ['Test & verify', 'c8 coverage over the unit suite (→ .scratch/coverage/).'],
-  'test:coverage:all':        ['Test & verify', 'c8 coverage over unit + integration.'],
-  'test:palette':             ['Test & verify', 'Unit scope: palette, resolution, contrast.'],
-  'test:mermaid':             ['Test & verify', 'Unit scope: mermaid var-map.'],
-  'test:parsing':             ['Test & verify', 'Unit scope: source-parse, splitter, slot-label-lift, marp plugins.'],
-  'test:components':          ['Test & verify', 'Unit scope: component manifests + per-component logic.'],
-  'test:cli':                 ['Test & verify', 'Unit scope: the CLI.'],
-  'test:playground':          ['Test & verify', 'Unit scope: the playground bundle/core.'],
-  'test:engine':              ['Test & verify', 'Unit scope: lattice-engine internals.'],
-  'test:plugins':             ['Test & verify', 'Unit scope: the plugin host — resolver, install order, and every plugin\'s conformance fixtures.'],
-  'test:spec':                ['Test & verify', 'Unit scope: the shared spec test cases (spec/conformance/), run against the reference implementation with a failing arm.'],
-  'test:layout':              ['Test & verify', 'Unit scope: the layout system.'],
-  'test:transformers':        ['Test & verify', 'Unit scope: transformer registry/adapters.'],
-  'test:calco':               ['Test & verify', 'Unit scope: calco, the office-export library behind .odp and editable .pptx (reader, ODP + PPTX writers, font metrics, serialization).'],
-  'test:trama':               ['Test & verify', 'Unit scope: trama, the graph-chart library the flowchart, the state chart and hub-spoke are built on (graph kernel, radial kernel, pipeline, serialization).'],
-  'test:adaptive':            ['Test & verify', 'Unit scope: the box-family adaptivity model (lib/adaptive) and the manifest adapt contract.'],
-  'test:concepts':            ['Test & verify', 'Unit scope: the concept ontology (lib/concepts) and its drift gate against the live catalogs.'],
-  'test:exemplars':           ['Test & verify', 'Unit scope: the exemplar decks and the exemplar-core bundle.'],
-  'test:forms':               ['Test & verify', 'Unit scope: the Form model — frames, cells, and the composition contract (lib/forms).'],
-  'test:transform-dsl':       ['Test & verify', 'Unit scope: the declarative component-transform DSL and its safety validator (lib/core/transform-dsl).'],
-  'test:authoring':           ['Test & verify', 'Unit scope: authoring helpers (speaker notes, …).'],
-  'test:core':                ['Test & verify', 'Unit scope: lib/core/* (token resolver, splits, marp bundle, …).'],
-  'test:css':                 ['Test & verify', 'Unit scope: the BUILT CSS bundle — selector validity in real Chromium, split ordinal continuity.'],
-  'test:docs':                ['Test & verify', "Unit scope: the docs site's supply-chain posture — bars a CDN host under docs/src and pins the vendored Mermaid/KaTeX copies as staged."],
-  'test:export':              ['Test & verify', 'Unit scope: the owned export writers (PPTX, …).'],
-  'test:release':             ['Test & verify', 'Unit scope: the release tooling.'],
-  'test:theme':               ['Test & verify', 'Unit scope: lib/theme/chain.mjs — the theme chain and the one content-addressed `@import` scan (the caller-supplied `--css` layout sheet).'],
-  'test:tokens':              ['Test & verify', 'Unit scope: the universal token system.'],
-  'test:runtime':             ['Test & verify', 'Unit scope: lib/runtime/* — the pure decisions behind the in-page runtime (fluid-view policy, the diagram queue, per-slide mermaid bands, the axis DOM catalog).'],
-  'test:diagnostics':         ['Test & verify', 'Unit scope: lib/diagnostics/* — the pure core shared by the headless preview-fidelity sweep (`npm run equiv`) and the Studio overlay.'],
-  'test:tools':               ['Test & verify', 'Unit scope: author tools (export-marp, …).'],
-  'test:integration':         ['Test & verify', 'The FULL integration tier (every suite — PR slice + nightly slice). What pre-push runs under LATTICE_FULL_PUSH=1.'],
-  'test:integration:pr':      ['Test & verify', 'PR-blocking integration slice (the required CI gate): cross-path wiring (parity) + export pipeline + per-component semantic invariants.'],
-  'test:integration:nightly': ['Test & verify', 'Nightly render-regression slice (runs on main via integration-nightly.yml): gallery/component/exemplar page-counts + mermaid + screenshot.'],
-  'test:integration:galleries':['Test & verify', 'Integration scope: gallery render + page-count regression.'],
-  'test:integration:parity': ['Test & verify', 'Integration scope: resolver↔DOM color parity, deck-class/finish/logo front-matter, chart-family.'],
-  'test:integration:mermaid':['Test & verify', 'Integration scope: mermaid smoke render.'],
-  'test:integration:screenshot':['Test & verify', 'Integration scope: the screenshot harness.'],
-  'test:integration:exemplars':['Test & verify', 'Integration scope: the 45 worked exemplars render + committed-PDF freshness (page-count gate).'],
-  'torture':                  ['Test & verify', 'Reusable memory/leak torture profiler (`tools/perf-torture/`): hammer a built site with repeated per-action cycles; verdict per metric (RISING via Mann-Kendall + idle-calibrated Sen slope); `--snapshot`/`--retainers` walk the heap to name the pinning GC root. `-- --scenario studio --cycle …`. On-demand diagnostic; see its README + the Scenario typedef to torture another app.'],
-  'bench':                    ['Test & verify', 'tinybench render benchmark — the owned engine over time (on-demand; not in `npm test`). `-- --export` / `-- --json`.'],
-  'bench:bless':              ['Test & verify', 'Write the committed perf baseline (test/benchmark/baseline.json) from a fresh bench run — the ratchet a perf PR updates (HARD RULE #19).'],
-  'dom:bakeoff':              ['Test & verify', "Correctness bake-off for the Node HTML parser — can a candidate do the jobs jsdom does here? Probes SVG camelCase survival, serialization against jsdom byte for byte, the selectors this repo actually writes, the transformer mutation surface, script execution, CSSOM, parser corners, and whether DOMPurify sanitizes when hosted on it (HARD RULE #22). Only jsdom is a dependency; the rest of the field is opt-in via `npm i --no-save happy-dom linkedom node-html-parser cheerio`. On-demand. See engineering/decisions/2026-09-20-dom-library-bakeoff.md."],
-  'dom:bakeoff:chromium':     ['Test & verify', 'Third arm of the DOM bake-off — measures the Chromium the CLI export ALREADY launches as a DOM provider, since lattice.js builds jsdom windows while a puppeteer page is open in the same process. Prints the CDP round-trip floor beside the per-input cost, because that floor is what makes this option lose on a slide and win on a deck. Structurally limited to paths that already run inside the page: withDom is synchronous and CDP is not. Needs CHROME_PATH. On-demand.'],
-  'dom:bakeoff:speed':        ['Test & verify', 'Throughput arm of the DOM bake-off — cold module load plus parse/serialize/mutate over real engine output at three sizes (median slide, heaviest slide, whole deck), each cell in its own process. Read it beside `dom:bakeoff`: on its own it argues for whichever parser is fastest, which is the reading that nearly shipped one that lowercases SVG element names. On-demand.'],
-  'parser:bakeoff':           ['Test & verify', "Correctness bake-off for grammar libraries against the hand-written chart and inline-code kernels: the axis bracket list, the flowchart row, the gantt time span, the chart value pill and the inline-code dispatcher, each re-implemented in Peggy, Chevrotain, Ohm, Nearley, Parsimmon and Lezer and held to deep-equal parity with the shipped kernel over every inline-code span in the decks plus a seeded 20k-input fuzz per target. The incumbent runs as its own control row. Chevrotain is already in the tree (mermaid → langium); the rest is opt-in via `npm i --no-save peggy@5 nearley@2 moo ohm-js@17 parsimmon @lezer/generator @lezer/lr`. On-demand. See engineering/decisions/2026-09-28-parser-library-bakeoff.md."],
-  'parser:bakeoff:speed':     ['Test & verify', 'Speed arm of the parser bake-off — per-input throughput on the real corpus (all spans, and the accepted subset), a 2k/8k/32k-character scaling ladder on the pathological shapes that bit earlier regexes (growth ratio 4 = linear, 16 = quadratic), cold import including grammar build, and the browser cost (runtime + shipped grammars, minified + gzip). Each cell runs in its own process under a deadline. Read it beside `parser:bakeoff`. On-demand.'],
-  'parser:bakeoff:flow': ['Test & verify', "Whether a Segno grammar can read flowchart rows (`Storefront -SEV1-> Payments`), against `splitRow` in lib/core/flowchart-grammar.js on every flowchart and state-chart row in the corpus plus a 200k-row fuzz: the strict row grammar (refused, and why), a committing one (compiles, and the rows it misreads), and the row grammar built on `attempt()` (tools/parser-bakeoff/flow-row-grammar.mjs) in both runtimes, with per-row time and a 2k/8k/32k hostile ladder against the kernel. The same grammar's corpus parity and a 20k-row slice of the fuzz run on every PR (test/unit/tools/flow-row-grammar.test.js). --json for machine output. On-demand, not a gate. See § Flowchart rows need a bounded attempt in engineering/decisions/2026-09-28-segno-unified-inline-notation.md."],
-  'parser:bakeoff:list-text': ['Test & verify', 'Time each list-text reader: the frozen regular expression (tools/segno-legacy/list-text.js) against the shipped kernel that walks the generated Segno parser, over the deck/docs corpus and the seeded fuzz from tools/parser-bakeoff/list-text.mjs. Each side runs in its own process so neither inherits the other\'s JIT state; best of seven rounds, in nanoseconds per input. `--side legacy|shipped` prints one side as JSON. On-demand, not a gate.'],
-  'parser:bakeoff:languages': ['Test & verify', "Whether Segno can tokenize whole CSS, HTML and Markdown files: grammars written with greedy() and until() (tools/parser-bakeoff/languages-grammars.mjs) read every tracked file of each type, and the arm reports coverage, per-file agreement with postcss, parse5 and markdown-it on one structure each (blocks; start tags and comments; headings, fences and code spans), MB/s beside those parsers (not like for like: they also build trees), MB/s beside their tokenizer layers alone (postcss's and css-tree's tokenizers, parse5's Tokenizer, markdown-it's block pass: the like-for-like race), and twelve hostile shapes at 5k and 50k repetitions. Missing comparison parsers are skipped; --json for machine output. On-demand, not a gate. See decision 21 of engineering/decisions/2026-09-28-segno-unified-inline-notation.md."],
-  'parser:bakeoff:languages:browsers': ['Test & verify', "The languages arm's CSS, HTML and Markdown grammars in three browser engines: builds Segno from the working tree and from --base <ref> (default origin/main), generates the three parsers from each with the same grammars, checks that both agree on every tracked file, and times both in Playwright's chromium, firefox and webkit, rounds alternating, best of nine samples of 100 ms or more. Prints MB/s base and head per language per engine with browser versions. A browser that is not installed is skipped (only Chromium is in the base image). --page <out.html> writes the same race as one self-contained page (both parser sets and a corpus inlined, under 16 MB) for a browser this sandbox cannot drive, such as real Safari; --drive <page> runs that page in the three Playwright engines for a same-corpus comparison. --json for machine output. On-demand, not a gate."],
-  'parser:bakeoff:segno':     ['Test & verify', "Segno's acceptance arm, run from source: times its inline dispatcher (split into ordinary code, state marks and pills) and its bracket-list reader against today's kernels on the real corpus, with stage rows (grammar, tree to values, bind) and the error path. Bracket lists are compared on the same job (split into parts) and on the axis job for the lists that are axes, never by binding every list as an axis. Best of seven long rounds; then the hostile-input ladder. Design target 1.5x. On-demand, not a gate."],
-  'parser:bakeoff:versus':    ['Test & verify', "Segno head to head with Lattice's hand-written kernels and the six bake-off libraries (Peggy, Chevrotain, Ohm, Nearley, Parsimmon, Lezer) on identical inputs, one process per candidate: ns per input on every bracket list and every inline span, and a hostile-input ladder at 2k/8k/32k characters. Repetitions sized per candidate; missing libraries skipped. Prints paste-ready Markdown or --json; SEGNO_LIB compares an older Segno. The table the bake-off note and the /segno page quote. On-demand, not a gate."],
-  'bench:check':              ['Test & verify', 'Re-run the bench and compare vs the committed baseline; flags a regression only beyond the variance band (max of tolerancePct and combined RME). On-demand, not a blocking CI gate.'],
-  'test:perf':                ['Test & verify', 'node:test SCALING guards in test/benchmark/ — they assert a complexity RATIO (4x the input costs ~4x the time, not ~16x), never a wall clock, so they mean the same thing on any machine. On-demand, not in `npm test` and not a blocking CI gate: a wall-clock arm in a suite node --test runs in parallel is a flake generator. Reach for it after touching a scanner or a hot-path regex.'],
-  'overflow:check':           ['Test & verify', 'Render every shipped deck (examples + component galleries + the baseline deck) and ratchet the per-deck CLIPPED pages against test/integration/overflow-baseline.json. Catches an engine change that quietly over-subscribes the corpus — nothing else measures fit corpus-wide. On-demand (185 real renders), not a blocking CI gate.'],
-  'css:values':               ['Test & verify', 'Ask the RENDERING engine whether every CSS value we ship is actually in its property\'s grammar — CSS.supports() in the same Chromium the PDF/HTML paths use. Catches the declaration a browser DROPS at parse time, which no other gate can see: it is valid SYNTAX so checkCssSyntax passes, and a dropped override usually moves no pixels so no golden drifts. Budget 0 + a SANCTIONED allowlist for deliberate cross-engine pairs (stale entries fail too). On-demand, not in build:check — that gate is contractually render-free.'],
-  'overflow:bless':           ['Test & verify', 'Re-record the overflow ratchet from the current tree. Lower the floor when you fix slides; raise it only with the PR that justifies the new number.'],
-  'geometry:check':           ['Test & verify', 'Assert a slide measures identically on every surface — real CLI render, real Chromium at four window sizes, sections optionally transform-scaled the way a preview pane scales them. Catches a bare cq* on the section itself or a getBoundingClientRect() that ignores the host transform.'],
-  'regress':                  ['Test & verify', 'Visual regression gate (LOCAL spot-check): render every committed deck fresh and pixel-diff it against its golden PDF; fails on unblessed drift. Covers BOTH scopes — the 75 gallery goldens under lib/ (light+dark) and the 185 single-artifact deck goldens under examples/, exemplars/, design/, themes/ and the CI baseline deck (#1379). `--scope galleries|decks|all` (default all), `--only <gallery-stem|deck/path>`, `--bless`.'],
-  'bless':                    ['Test & verify', 'Re-render the gallery goldens (the regression gate baseline) and overwrite them; commit the refreshed PDFs. `-- --only <name>` for one.'],
-
-  // Lint & audit
-  'lint':                     ['Lint & audit', 'Biome over the JS tree (read-only). NEVER `npx biome`.'],
-  'lint:fix':                 ['Lint & audit', 'Biome check --write (includes import sorting + unsafe fixes).'],
-  'lint:coverage':            ['Lint & audit', 'Gate what Biome ACTUALLY checks: coverage baseline + scanned-vs-checked + a teeth probe per directory. Also a build:check preflight.'],
-  'lint:coverage:bless':      ['Lint & audit', 'Re-record the lint-coverage baseline after a deliberate exclusion. The diff is the record.'],
-  'lint:deck':                ['Lint & audit', 'Author-facing footgun checks on one deck (card-style title, ordered-list bold, unknown _class).'],
-  'lint:deck:all':            ['Lint & audit', 'Repo-wide strict deck lint (always-on CI gate).'],
-  'export:marp':              ['Build & bundle', 'Export a deck as a portable, Marp-native bundle: splits baked to ---, themes, assets, marp-cli config, a README, and (by default) an AI-agent kit (AGENTS.md + component catalog). `<deck.md> <out-dir-or-zip> [palette] [--no-agent]`.'],
-  'check:ownership':          ['Lint & audit', 'Collision/ownership guard: hard-fails on accidental duplicate selectors/transformers/names.'],
-  'check:responsive':         ['Lint & audit', 'Static lint: no fixed-px layout in chart CSS (responsive contract).'],
-  'palette:bless':            ['Lint & audit', 'Rewrite the two frozen palette baselines from a live measurement — KNOWN_SUB_THRESHOLD in tools/composed-contrast.js and CVD_FROZEN in test/unit/palette/cvd-trio-floor.test.js. RATCHET-ONLY: an entry may move up, never down by any margin, and a key the audit no longer produces is dropped. Taking a number down stays a manual, argued edit; a table it cannot parse exactly is refused rather than half-read. `--dry-run` prints the delta and writes nothing.'],
-  'check:render':             ['Lint & audit', 'Chart paint guard across delivery modes: renders the chart gallery through the real composeCss() in headless Chromium (indaco/cuoio/concrete × light/dark). Fails on any NEW opaque-black SVG paint on the scoped preview path (the #956 class), and on any paint a chart LOSES when shown outside its slide: flat (Read · Article, the #2344 class) or baked (a stylesheet-free SVG). Ratchets against test/viz-render/black-baseline.json; a copy-loss entry carries a `why`.'],
-  'check:jank':               ['Lint & audit', 'Jank sweep: does a component\'s layout STAY PUT as its content grows? Renders one slide per content step through the CLI (the deck built from the component\'s own manifest skeleton, so the documented chrome is in it, plus any per-slide directive only its sample carries, such as `topic`\'s `_track`), measures the real geometry in Chromium, and reports the three failures every fit gate is blind to — anchor DRIFT (a mark that wanders as the heading wraps), silent COLLISION (an absolutely positioned box and a flex-centered one reach each other and NEITHER overflows, so no ⚠ OVERFLOW line, no ring, no clipped tag) and CROWDING (ink into the section\'s padding, inside the frame, untagged). Everything else in the repo asks does it FIT; this asks does it STAY PUT. `--anchor \'h2::after\'` names what must hold still; `--max-growth PX` also fails a mark that changes SIZE (DRIFT deliberately ignores edge-pinned growth); `--axis heading|count|words`; `--style` injects CSS so a fix can be proved by sweeping with it neutralized; `--json`. On-demand, not a CI gate (a Chromium sweep in the merge train is a flake generator); exits 2 with no Chromium, never a silent pass. engineering/jank.md.'],
-  'check:render:bless':       ['Lint & audit', 'Rewrite test/viz-render/black-baseline.json (scoped black paints and flat/baked copy losses) after an intentional change. A new copy-loss entry gets a TODO `why` that the gate rejects until it is replaced; justify the delta in the PR.'],
-  'check:render-nature':      ['Lint & audit', 'Truth gate for the manifest `render` field: renders every visualization component\'s own gallery through the export path (CLI HTML sidecar, mermaid baked) in headless Chromium, derives whether the picture is actually drawn in SVG / HTML / both, and fails when a declaration disagrees. `--report` prints the derived table, `--json` the raw counts. Skips loudly with no Chromium.'],
-  'check:family-tiers':       ['Lint & audit', 'Adaptive-family BEHAVIOR gate: renders one deck per family (wide/square/tall/strip) through the CLI and asserts each component actually reflows the way it intends — reading the COMPUTED style of a property only that family\'s rule can produce, plus the `data-family` stamp. Replaces the retired check-adaptive-families, which compared two CLASSIFIERS and so could only catch them disagreeing, never catch a whole tier being INERT — the square tier was dead for that gate\'s entire life (#1218). Asserting behavior catches a lost stamp, a bad selector, or a cascade change alike. Skips loudly with no Chromium.'],
-  'audit:reading-size': ['Lint & audit', 'What size is each component\'s READING text at each venue? Renders every component\'s sample, bare and under each declared variant, at laptop / huddle / conference / hall, and sums the visible characters by computed font-size, leaving out the title, eyebrow, subtitle, header and footer, Key Insight and below-note codas, screen-reader-only labels and SVG text. Prints component × venue → pt and the role it lands on, sorted into reading rows, named exceptions and hero text (bigger on purpose); lists any second non-chrome size carrying >10% of a reading slide; then the distinct reading sizes per venue, which holds one value when every reading row reads at --fs-body. `--json` for the raw rows, `--only=a,b`, `--venues=`. An audit, not a gate (exit 0). Record: engineering/decisions/2026-09-29-one-reading-size-per-venue.md.'],
-  'check:modifier-effects': ['Lint & audit', 'Does each `_class:` modifier actually CHANGE the slide on the components the editor offers it on? Renders every component\'s sample and stress sample bare and once per modifier acting on a probed surface (heading, eyebrow, table, card row, card lift, card rail; chart motion by its host selector), re-probes each declared variant for the card surfaces, and fingerprints every element\'s computed style and box. Two identical control slides must match or the run fails. Compares against lib/core/modifier-effects.generated.json, which the editor\'s completion reads as the source for those surfaces. On-demand (about two minutes), not a CI gate.'],
-  'check:modifier-effects:bless': ['Lint & audit', 'Rewrite lib/core/modifier-effects.generated.json from a fresh run of `check:modifier-effects`. `--only=<name>` re-measures one component in seconds. Read the drift before blessing: a surface disappearing hides its modifiers from the editor.'],
-  'check:family-conformance': ['Lint & audit', 'Does every family-reflowing component\'s `[data-family]` tier actually FIRE, per (component x @size)? The tier probe above asserts that for THREE hand-picked components and the overflow oracle records only whether a slide CLIPS, so 30 of 33 components had no assertion that their family CSS does anything. This derives it: render one sweep per @size, then for each rule naming the component, remove the `data-family` stamp FROM THAT SAME RENDER and re-read the properties that rule declares — same element, same viewport, rule on vs rule off. Verdicts: fires / no-effect / no-baseline (not switchable off, so the pass is blind) / inert (the #1218 defect) / unexercised (the sweep slide does not carry what the rule targets). Frozen in test/oracle/family-conformance.json, compared EXACTLY in both directions. An on-demand diagnostic, not a CI gate.'],
-  'check:family-conformance:bless': ['Lint & audit', 'Rewrite `test/oracle/family-conformance.json` from a fresh run of `check:family-conformance`. Read the drift before blessing: `fires -> inert` is a tier that stopped firing, and `-> unexercised` may mean the sweep changed which gallery slide it picks rather than anything about the component. Refuses to write when the rule read looks broken (fewer than 100 family-scoped rules found), because this pass has failed by reading ZERO once already and a record of all-`n/a` would be green forever while asserting nothing.'],
-  'contrast:palette-native':  ['Lint & audit', 'The REFEREE for `contrast:palette` — it re-renders all 32 palettes FOR REAL (the same `runEmulator` path as the integration tier, no swap, no simulation) and answers the two questions the fast sweep cannot ask about itself: does the sweep still AGREE with a native render, and what about the runs the sweep structurally DROPS. The sweep re-themes one render in place, which is what makes a per-PR 32-palette matrix affordable — and that speed rests on a TEXTUAL assumption about the export shell. An earlier version got the equivalent assumption wrong, inverted the cascade for 30 of 126 tokens, and reported confident per-palette numbers wrong in both directions; a human reading the diff caught it, and a reviewer is not a gate. Mermaid bakes its own stylesheet into the SVG, so no swap can move it and the sweep drops those runs — a native render scores them, recovering the coverage rather than merely disclosing it. ~11-13s per palette (~6-7 min for the matrix) against the sweep\'s ~70s, so: nightly, auditing the per-PR gate.'],
-  'contrast:player':          ['Lint & audit','Nightly WCAG sweep of the REAL exported `--player`, in BOTH scheme states, with every text run\'s backdrop sampled from a screenshot taken with the glyphs made transparent (so a gradient, an image, a translucent overlay and a z-ordered rail all resolve because they are simply there). Reuses `tools/check-slide-contrast.js`\'s PROBE, so the two cannot disagree about a ratio. It answers the question the two static tools structurally cannot: `contrast-audit` and `composed-contrast` read the SOURCE and are ~0.3s for the whole repo, but anything the export PIPELINE does to correct CSS — a `light-dark()` pair collapsed to one arm, a selector re-meant by the minifier and then dropped by the prune — reads as a PASS to them (#1645, #1642). Compares against `test/oracle/player-contrast.json` and fails ONLY on a finding that is new or has got worse by more than 0.05; the corpus\'s known sub-AA runs are tracked in #1745, not re-listed nightly. ~24s per deck, so it runs on the nightly runner, never per-PR — the pipeline half is gated per-PR by the real-surface test in test/integration/export/html-player.test.js, which needs one deck.'],
-  'contrast:player:bless':    ['Lint & audit', 'Rewrite `test/oracle/player-contrast.json` from a fresh `contrast:player` sweep. Read the drift before blessing: rows the sweep reports as FIXED are why the baseline is stale and are the intended reason to re-bless, while a row that vanished because a deck failed to export is not. An absent baseline makes `contrast:player` exit 2 with an instruction rather than reporting the whole corpus as new.'],
-  'check:chart-fit':          ['Lint & audit', 'Stage-FIT gate: renders test/fixtures/chart-fit.md through the CLI, loads the sidecar in headless Chromium, and fails when a chart paints outside its `.cell-stage` box. The stage is `overflow: clip`, so an overflowing chart is silently CUT rather than visibly broken — no other gate asks this (scaling, responsiveness and scoped-paint all check the chart in isolation). Born from two clips in one branch plus 12 pre-existing ones found in a 36-case sweep. Also carries the INSET assertion (#1598): the opposite question — is the body\'s box needlessly too SMALL because it re-derives the frame inset the stage already owns — measured on the same renders, so it costs nothing extra. `--report` prints per-slide numbers; exits 2 with no Chromium (a setup failure, never a silent pass).'],
-  'fonts:check':              ['Lint & audit', 'Font parity gate: the canonical face manifest (lib/fonts/text-faces.js), assets/fonts/, and the web-export supply must agree, with no Google-Fonts CDN URL — the library self-hosts its type (zero network).'],
-  'fonts:emoji':              ['Build & bundle', 'Vendor Noto Color Emoji into dist/fonts/ for the opt-in full-offline tier (~25 MB, excluded from the npm tarball). Run once while online; needs network.'],
-  'fonts:measure':            ['Lint & audit', 'Re-measure GLYPH_UPPER (the per-glyph advance table behind uppercase tracked chart labels) and hub-spoke\'s mixed-case hand table (HAND_ADVANCE) against the shipped woff2s in real Chromium, at the labels\' own CSS. On-demand, never writes: the remediation path when checkFontMetricsPin reports font drift. `--strings` also re-derives the unit suite\'s MEASURED array.'],
-  'scorecard':                ['Lint & audit', 'Token-parity + palette-quality score for every theme.'],
-  'scorecard:check':          ['Lint & audit', 'Gate: fail if any theme scorecard regresses.'],
-  'intent:fit':               ['Test & verify', 'The FIT benchmark for the component recommender — the manifest grading itself. Turns every component\'s authored `whenToUse` (190) and `antiPatterns` (190) into held-out test cases: a whenToUse body IS a described task whose component should rank first, and an antiPattern that backticks a better component is a REDIRECT case where the warned-against one must stay behind (the project\'s first precision test — the deck-harvested corpora could only measure recall). Leave-one-out per case, since those notes are both the evidence and the questions. Reports `selection` (a task a recommender can answer) separately from `authoring` (how to write the markup), because only the first is answerable. On-demand; see engineering/decisions/2026-08-09-on-device-intent-routing.md.'],
-  'intent:pick-eval':         ['Test & verify', 'Measure how much retrieval signal components.pick.md carries against the full components.json, over the FIT corpus. Local ranker, no model spend.'],
-  'intent:pick-agents':       ['Test & verify', 'Re-runs the pick-surface bake-off with real agents, so its numbers are harness-written not hand-transcribed (#1734, run in #1897). Spawns N Opus agents per condition, each in a temp dir holding ONLY its surface (components.pick.md vs components.json). The pin is the sandbox PLUS the deliberate absence of a `Read` grant: `--allowed-tools Read` is a whole-tool allow rule overriding the working-directory refusal — measured, an agent given it read a repo file outside its sandbox with `permission_denials` EMPTY. Without it, containment allows the in-sandbox read and refuses the rest, recording the attempted path. Writes each agent\'s RAW return, a per-call `tool_calls` ledger and the usage/cost accounting, then scores strict (`expect`) and defensible (`expect ∪ ok`) against committed ground truth, reporting strict-only misses separately so a defensible-but-wrong pick cannot hide. Distinct from `intent:pick-eval`, a LOCAL LEXICAL RANKER over pick rows that spawns nothing. SPENDS Claude tokens (not our OpenRouter key, so HARD RULE #24\'s gate has nothing to catch, and it stays out of test/** anyway): opt-in via LATTICE_ALLOW_AGENT_SPEND=1; `--dry-run` and `--score-only` are free. For surface COST quote model_usage[opus].cacheCreationInputTokens — newly-cached prefix, billed once, insensitive to read count; that is what the decision note reports. `model_tokens` and `context_tokens` both re-count the cached prefix per turn.'],
-  'intent:tune':              ['Test & verify', 'Coordinate-descend the recommender\'s facet weights against the DEV half of the fit benchmark, over cached feature vectors so the search is free. DEV ONLY — the chosen weights go into tools/intent-bakeoff/fit-search.ts and the TEST split is reported once, afterwards, by `intent:fit`. Its verdict on the facet layer was to zero `whenToUse`, `antiPatterns` and the function cues outright; that negative result is documented in fit-search.ts\'s header.'],
-  'intent:judge':             ['Test & verify', 'Measure whether an LLM judges component fit better than BM25, on the SAME held-out fit benchmark (`intent:fit`) so the answer is comparable to everything already measured. Shape under test is retrieve-then-judge: BM25 narrows 61 components to K, the model re-ranks only those while reading their authored `whenToUse`/`antiPatterns`/`capacity` — so recall@K is the judge\'s ceiling and is reported first. SPENDS OUR OpenRouter key (HARD RULE #24): opt-in via OPENROUTER_ALLOW_SPEND=1, prints the planned spend and exits without it, `--limit 1` to validate, token usage printed every run. Exists because the DETERMINISTIC facet scorer was refuted on this benchmark (tools/intent-bakeoff/fit-search.ts) — the authored notes may be the right prompt context even though they are useless as term-frequency features.'],
-  'intent:bakeoff':           ['Test & verify', 'Bake-off for the component intent ranker (docs/src/lib/intent-search.ts, HARD RULE #1 shared search core): four query corpora — slide headings and slide prose harvested from every committed deck via its `_class` directive, plus authored intent and adversarial phrasings — scored top1/top3/top5/MRR against the shipped substring+Fuse baseline. It BUNDLES the shipped module with esbuild rather than copying it, so it cannot drift from what users get. `-- --dev` shows the tuning split and its misses (the only split tuning may read). The wink-nlp candidates #1440 proposed are optional peers: `npm i --no-save wink-nlp wink-eng-lite-web-model wink-naive-bayes-text-classifier wink-bm25-text-search` reproduces the rejection. On-demand, not a CI gate; see engineering/decisions/2026-08-09-on-device-intent-routing.md.'],
-  'equiv':                    ['Test & verify', 'Slice/deck equivalence sweep — for every slide of every committed deck, does rendering it ALONE match rendering it inside the deck? The headless half of the preview-fidelity diagnostic; the author-facing half is the Studio\'s "Preview fidelity" overlay. It RUNS THE SHIPPED REPAIR: each slice is handed the deck position `supplyablePosition` would give it (lib/diagnostics/slice-equivalence-core.mjs, the same copy the Studio\'s slice route calls), so breaking that path collapses the rate instead of moving it 0.0 points. It prints its supplied-position count, prelude count, neutralizer set and skipped decks every run so the number stays legible. On-demand rather than a CI gate — its subject is a diagnostic prototype and a corpus edit moves it.'],
-  'equiv:bless':              ['Test & verify', 'Write the committed slice/deck equivalence baseline (test/benchmark/slice-equivalence.json) from a fresh `equiv` run.'],
-  'equiv:check':              ['Test & verify', 'Re-run `equiv` and compare vs the committed baseline: decks/slides/preludes/positions must match exactly, and the rate may drift 1.5 points. Verified able to fail by mutation, re-derived after each re-bless (2026-08-25, at the 96.6% baseline): stubbing `positionIsTrustworthy` to `return false` takes it 96.6% -> 9.9%, and stubbing `deckSectionFor` to `undefined` takes it to 74.0%. **`positions` no longer equals `slides`** — it is 1453 of 1461. All 8 of the shortfall are `slide-class-forms.md`, every slide of it: `positionIsTrustworthy` refuses that deck while `sectionsOf(render).length === chunks.length` still holds, so it is measured rather than skipped and its 7 divergences are counted with no supplied position. The old claim that the two counts are equal by construction — and so that the check can only fail fail-closed — assumed those two tests reject the same decks. They do not.'],
-  'mutate:stage-window':      ['Test & verify', 'The same battery, aimed at the Stage window — 12 mutations over the loss classifier (which teardowns are announced, and as what) and the overlay control bar\'s markup cells. Its own surface shipped EIGHT vacuous gates (`2026-08-24-stage-console-split.md` §12), so a cell here is not trusted until a mutation has killed it. Fails on a survivor AND on a mutation that did not apply. On-demand.'],
-  'mutate:segno':             ['Test & verify', 'Break what Segno promises, one defect at a time: 77 mutations over the LL(1) proof, the code generator, character sets, the notation reader, binding, the value readers and the spelling check, each run against Segno\'s whole suite (SEGNO_MUTATE=1 skips only the generated-file freshness check, so codegen mutants must die by behavior). Equivalent mutations are left out with a note. Fails on a survivor AND on a mutation that did not apply. On-demand (about fifteen minutes; a run that hangs past its deadline counts as caught).'],
-  'mutate:guide':             ['Test & verify','Break what each Guide-gesture test NAMES and confirm it goes red — a committed 42-mutation battery over the Vetrina gesture library and the Guide classifier, each mutation asserted to have applied before its spec runs. "Verified by a test" has been a false claim seven times in this feature area; this is the operational form of the lesson. On-demand.'],
-  'sweep:guide':              ['Test & verify', 'Measure what the Guide gesture vocabulary actually does to the committed corpus: render every deck, read its real read-along cues, and run the SHIPPING classifier (`guideCueIn`) over them. Reports the gesture distribution, the match rate, the `_focus:` escalation rate and how often the stroke\'s own resting place had to fall back to the whitespace search. Also PER COMPONENT — resolve rate and handle mix for each of the 70, misses attributed, so "which component cannot present itself" is answerable; the corpus rate hides it, because a deck mixes components. The thresholds in `chooseGesture` were set from this output (HARD RULE #19 discipline applied to a design constant). On-demand — ~182 full deck renders, `--reuse` to re-measure without re-rendering, `--deck <file>` (repeatable) to measure named decks only, `--misses` to print every cue that hid and every one answered by the whole chart.'],
-  'score:variance':           ['Lint & audit', 'Decompose which scorecard categories actually move a deck\'s Craft/Style grade, attribute each category\'s variance to the rules feeding it (by ablation), and report what a draft model is really perturbing. On-demand, not a gate. --json / --committed / --weighted / --depths=. See engineering/decisions/2026-08-30-craft-weight-variance-proxy-bias.md.'],
-  'quality':                  ['Lint & audit', 'Codebase quality assessment: coupling, boundaries, cycles, change coupling, complexity, duplication, dead code — see engineering/quality-assessment.md.'],
-  'quality:bless':            ['Lint & audit', 'Write the committed quality-assessment baseline (test/quality/baseline.json) from a fresh run — the ratchet a quality-improving PR updates.'],
-  'quality:check':            ['Lint & audit', 'Re-run the quality assessment and compare vs the committed baseline; flags any metric that got worse. On-demand, not a blocking CI gate.'],
-
-  // Scaffold
-  'new:theme':                ['Scaffold', 'Scaffold a new palette from the indaco template.'],
-  'new:slide':                ['Scaffold', 'Scaffold a slide skeleton.'],
-  'new:component':            ['Scaffold', 'Scaffold a new component (layout) with its manifest + CSS + transform stubs.'],
-
-  // Release
-  'release':                  ['Release', 'Deterministic, changelog-driven release orchestrator (manually triggered). Prints the phase menu — pass --prepare or --publish.'],
-  'release:dry':              ['Release', 'Release dry-run — derive the bump and preview without publishing.'],
-  'release:prepare':          ['Release', 'Release phase 1 — cut the release commit (bump, changelog roll, dist rebuild) on a branch, for a PR through the merge queue. No tag, no push.'],
-  'release:publish':          ['Release', 'Release phase 2 — on the merged main commit: tag it, rebuild the zip, rederive the notes, push the tag.'],
-  'release:zip':              ['Release', 'Assemble the curated GitHub release zip.'],
-  'backlog':                  ['Project queue', 'List the whole queue — open issues (backlog.d/) and followups (followups.d/) — grouped by area, sorted by severity; filter with --area / --min / --issues / --followups.'],
-  'followups':                ['Meta', 'List followups.d/ — every pending item with no issue, one line each, by area and severity (contract: followups.d/README.md).'],
-  'changelog:bump':           ['Release', 'Roll CHANGELOG.md ## Unreleased → a versioned section (semver from the entries).'],
-
-  // Project queue
-  'audit:hygiene':            ['Project queue', 'Audit the open issue QUEUE ITSELF — labels no .github/labels.json entry declares (a retired dimension nobody swept, a typo\'d namespace, a non-taxonomy `type:` the intake gate accepts), cards missing a required axis, duplicate LEADS by stemmed title overlap, and cards holding an outsized share of all comments (a standing alarm that has become a dashboard). Sibling of audit:queue: that one asks whether a card can be PULLED, this one whether the board is telling the truth. The dupe arm is a lead generator with measured ~14% precision and a known un-tunable false positive — read every row, rank carries no truth (input: `gh issue list` JSON; see .claude/skills/queue-triage/SKILL.md for the judgment half).'],
-  'queue:precheck':           ['Project queue', 'Before the merge ask: fetch main and predict whether the merge queue takes this branch as it is — merges in memory the way GitHub does (no .gitattributes merge drivers, so the merge=union on the decision index does not hide a conflict) — exit 0 clean (behind is fine, do not rebase), 1 conflict, 3 could not check. HARD RULE #16.'],
-  'audit:queue':              ['Project queue', 'Audit open issues against the Definition of Ready and replay the intake gate over them — the numbers behind the intake bar (input: `gh issue list` JSON).'],
-  'sync:backlog':             ['Project queue', 'Regenerate backlog.d/ — the one-way mirror of the open GitHub issue queue, one file per issue (input: `gh issue list` JSON).'],
-  'sync:labels':              ['Project queue', 'Apply the .github/labels.json taxonomy to the repo labels via the gh CLI (labels-as-code; needs gh auth).'],
-
-  // Meta / housekeeping
-  'clean:scratch':            ['Meta', 'Delete .scratch/ entries older than 14 days.'],
-  'prepare':                  ['Meta', 'npm lifecycle: wire the lefthook git hooks, then generate the built-not-committed artifacts — this is what makes a fresh clone and a git-URL install work.'],
-  'prepublishOnly':           ['Meta', 'npm lifecycle: guard run before publish.'],
-};
+/** Read the folder. Returns { meta: {script: [group, desc]}, problems: [string] }. */
+function loadScriptMeta(scriptNames, groups, dir = SCRIPT_DOCS_DIR) {
+  const meta = {};
+  const problems = [];
+  const files = fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => f.endsWith('.md')) : [];
+  const known = new Map(scriptNames.map((n) => [scriptFileName(n), n]));
+  for (const f of files.sort()) {
+    const name = known.get(f);
+    if (!name) { problems.push(`tools/script-docs/${f}: no package.json script has this name — delete it, or fix the file name (':' is written '+')`); continue; }
+    let text;
+    try { text = fs.readFileSync(path.join(dir, f), 'utf8'); }
+    catch (err) { problems.push(`tools/script-docs/${f}: unreadable (${err.code || err.message})`); continue; }
+    const parsed = parseScriptDoc(text);
+    if (parsed.error) { problems.push(`tools/script-docs/${f}: ${parsed.error}`); continue; }
+    if (!groups.includes(parsed.group)) { problems.push(`tools/script-docs/${f}: unknown group "${parsed.group}" (one of: ${groups.join(', ')})`); continue; }
+    meta[name] = [parsed.group, parsed.desc];
+  }
+  return { meta, problems };
+}
 
 // ── tools/ groups (descriptions come from each file's header) ────────────
 const TOOL_GROUP = {
@@ -376,7 +154,7 @@ const TOOL_DESC_OVERRIDE = {
 const GROUP_ORDER_SCRIPTS = ['Build & bundle', 'Galleries & preview', 'Test & verify', 'Lint & audit', 'Scaffold', 'Release', 'Project queue', 'Meta'];
 const GROUP_ORDER_TOOLS   = ['Build / generate', 'Check / gate', 'Lint / audit', 'Render / visual', 'Release', 'Scaffold', 'Project queue', 'Misc'];
 
-const TODO_SCRIPT = (n) => `**TODO: describe \`${n}\` in tools/build-capabilities.js (SCRIPT_META).**`;
+const TODO_SCRIPT = (n) => `**TODO: describe \`${n}\` in tools/script-docs/${scriptFileName(n)}.**`;
 const TODO_TOOL   = (n) => `**TODO: add a one-line header description to tools/${n}.**`;
 
 /** Pull the first descriptive line out of a tool file's header comment. */
@@ -458,9 +236,9 @@ function rowCostProblems(rows) {
     const name = row.match(/^\| `([^`]+)`/)?.[1] || row.slice(0, 40);
     problems.push(
       `${name}: its catalog row is ${row.length} characters, over the ${ROW_CAP} ratchet — ` +
-        'the widest row that exists today. Rows are edited in `SCRIPT_META` (npm scripts) ' +
-        "or the tool file's own header comment (tools/), both in tools/build-capabilities.js's " +
-        'sources. Before you shorten one, check that no word only findable in this row goes ' +
+        'the widest row that exists today. Rows are edited in `tools/script-docs/<script>.md` (npm scripts) ' +
+        "or the tool file's own header comment (tools/)." +
+        ' Before you shorten one, check that no word only findable in this row goes ' +
         'with it: this index is read by grep, and a row nobody can find is worse than a long one.',
     );
   }
@@ -475,6 +253,8 @@ function render() {
   const scripts = require(path.join(ROOT, 'package.json')).scripts || {};
   const missing = [];
   const catalogRows = [];
+  const { meta: SCRIPT_META, problems: docProblems } = loadScriptMeta(Object.keys(scripts), GROUP_ORDER_SCRIPTS);
+  missing.push(...docProblems);
 
   // Frameworks
   const fwRows = FRAMEWORKS.map(([n, what, how]) => `| **${n}** | ${what} | ${how} |`);
@@ -532,8 +312,8 @@ can't drift) and is gated by \`capabilities:check\` (so a new **script or tool**
 can't land uncataloged). The live source lists never lie either: \`npm run\`
 prints every script, \`ls tools/\` every tool.
 
-To add: a new npm script → describe it in \`SCRIPT_META\` in
-\`tools/build-capabilities.js\`; a new \`tools/\` file → give it a one-line
+To add: a new npm script → describe it in a new file,
+\`tools/script-docs/<script>.md\` (\`:\` is written \`+\`); a new \`tools/\` file → give it a one-line
 header description. Either way, \`npm run capabilities:check\` tells you whether
 you did; skipping it fails the gate. This file is rebuilt, never committed. The **Frameworks** list below is
 the one curated-by-hand section — it is NOT gated, so when you add a library or
@@ -559,7 +339,7 @@ function main() {
   if (check) {
     if (!missing.length && !rowProblems.length) process.exit(0);
     if (missing.length) {
-      console.error('✗ undescribed capabilities — each must be documented (SCRIPT_META in tools/build-capabilities.js, or the tool\'s header):');
+      console.error('✗ undescribed capabilities — each must be documented (a tools/script-docs/ file, or the tool\'s header):');
       for (const m of missing) console.error(`    - ${m}`);
     }
     if (rowProblems.length) {
@@ -583,4 +363,4 @@ function main() {
 // same shape tools/build-decisions-index.js uses for `rowCostProblems`.
 if (require.main === module) main();
 
-module.exports = { rowCostProblems, ROW_CAP };
+module.exports = { rowCostProblems, ROW_CAP, loadScriptMeta, parseScriptDoc, scriptFileName };

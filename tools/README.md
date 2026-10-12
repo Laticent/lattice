@@ -14,5 +14,5 @@ project queue (`sync-*.js`). `tools/lib/` holds shared helpers.
 
 Conventions for a new tool: give the file a one-line header description
 (the capabilities gate fails a TODO otherwise), register any npm script in
-`SCRIPT_META` in `tools/build-capabilities.js`, and re-run
+a new `tools/script-docs/<script>.md` (`:` is written `+`; see the generator's header), and re-run
 `npm run capabilities:build`.

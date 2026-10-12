@@ -7261,6 +7261,13 @@ const SANCTIONED_EOL_BOUNDARIES = [
  */
 const SANCTIONED_EOL_NON_BOUNDARIES = [
   {
+    file: 'tools/build-capabilities.js',
+    why: 'reads REPO-COMMITTED `tools/script-docs/*.md` description files, not author text. '
+       + '`.gitattributes` guarantees LF in the working tree, so the BOM/CR fold is tolerance '
+       + 'for a locally CRLF-saved file; nothing downstream of it decides a palette or a slide '
+       + 'count. Same shape as the decisions and gotchas indexes below.',
+  },
+  {
     file: 'tools/build-decisions-index.js',
     why: 'reads REPO-COMMITTED notes, not author text. `.gitattributes` (`* text=auto eol=lf`, '
        + 'the first boundary in the list above) already guarantees LF in the working tree on '

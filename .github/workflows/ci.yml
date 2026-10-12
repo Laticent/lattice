@@ -412,17 +412,20 @@ jobs:
   # on one 4-vCPU runner (merge_group run 37865229530), and every other tier was done
   # by ~10 min, so it alone set the length of every CI run, twice per PR (once on the
   # PR, once in the queue). Each leg runs every fourth file: `node --test
-  # --test-shard=K/N` takes the file list `test:integration:pr` globs, in its own
-  # order, and keeps the files whose index is K-1 mod N. That is by FILE COUNT, not by
-  # time, so a leg can never finish before its slowest file does; the palette sweep
-  # is split one file per deck for that reason (palette-sweep.suite.js).
+  # --test-shard=K/N` keeps the files whose index is K-1 mod N. That is by FILE COUNT,
+  # not time: the first real runs took 9:43 / 5:42 / 7:05 / 3:51 (slowest leg 1.49x the
+  # mean). `tools/shard-tests.js` replaced it on 2026-10-11: it deals the files out
+  # slowest-first into the lightest leg, using per-file seconds committed in
+  # `test/integration/shard-weights.json`. Modelled on the weights, the four legs
+  # plan to 1032s each (max/mean 1.00; the old split models at 1.49). A leg still
+  # cannot finish before its slowest file does (export-formats and html-player,
+  # about 330-340s alone), so the palette sweep stays one file per deck.
   #
-  # The flag rides in NODE_OPTIONS rather than on the command line because
-  # `npm run test:integration:pr -- --test-shard=K/N` does NOT work: node treats an
-  # option after the globs as one more pattern and runs every file. NODE_OPTIONS keeps
-  # the glob list in one place (package.json) and the script unsharded locally. It
-  # reaches every child node process too; a plain `node script.js` ignores the flag,
-  # and no file in the slice starts its own `node --test`.
+  # The shard rides in the SHARD env var; unset, the script runs every file, so
+  # `npm run test:integration:shard` is the unsharded run locally. A file with no
+  # weight gets the median, so a new test is placed roughly until the next re-bless
+  # (`tools/shard-tests.js --bless`, see engineering/development.md). The glob list
+  # lives in package.json, in step with `test:integration:pr`.
   #
   # The aggregate `ci` gate still reads ONE `needs.integration.result` for all four
   # legs: `success` only when every leg succeeded, `failure` when any failed, and
@@ -442,10 +445,10 @@ jobs:
     # 1.75x slow-runner factor the re-sample found makes the worst leg ~16 min of
     # tests plus ~2 min of install and build, so 25 is ~1.4x that and ~2.3x a normal
     # leg. Re-derive it from real runs once the matrix has a week of history.
-    # NOT BALANCED: legs 1 and 3 each draw three of the slowest files (export-formats,
-    # strip-notes-no-fingerprint, axe / the gallery palette sweep, frame identity, the
-    # clipped pill), and leg 4 draws none of those, so the critical path is leg 1, not a
-    # quarter of the suite.
+    # BALANCED BY WEIGHT since 2026-10-11 (tools/shard-tests.js). Before that, legs 1
+    # and 3 drew three of the slowest files each and leg 4 none, so the critical path was
+    # leg 1. Re-check the spread from real runs: the legs should land within ~1.2x of
+    # their mean. If they drift, re-bless the weights.
     timeout-minutes: 25
     strategy:
       fail-fast: false
@@ -486,8 +489,8 @@ jobs:
         env:
           # `strategy.job-total` rather than a literal 4, so resizing the matrix
           # cannot leave a file in no leg or in two.
-          NODE_OPTIONS: --test-shard=${{ matrix.shard }}/${{ strategy.job-total }}
-        run: npm run test:integration:pr
+          SHARD: ${{ matrix.shard }}/${{ strategy.job-total }}
+        run: npm run test:integration:shard
       - name: Upload Marp renders on failure
         # The marp-kit render gate exists because every defect it guards was
         # VISIBLE ON THE FIRST PAGE OF A PDF. A red run that leaves nothing to look

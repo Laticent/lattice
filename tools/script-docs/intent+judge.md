@@ -1,0 +1,4 @@
+---
+group: Test & verify
+---
+Measure whether an LLM judges component fit better than BM25, on the SAME held-out fit benchmark (`intent:fit`) so the answer is comparable to everything already measured. Shape under test is retrieve-then-judge: BM25 narrows 61 components to K, the model re-ranks only those while reading their authored `whenToUse`/`antiPatterns`/`capacity` — so recall@K is the judge's ceiling and is reported first. SPENDS OUR OpenRouter key (HARD RULE #24): opt-in via OPENROUTER_ALLOW_SPEND=1, prints the planned spend and exits without it, `--limit 1` to validate, token usage printed every run. Exists because the DETERMINISTIC facet scorer was refuted on this benchmark (tools/intent-bakeoff/fit-search.ts) — the authored notes may be the right prompt context even though they are useless as term-frequency features.
