@@ -8,9 +8,9 @@
 // timestamp, a vendor chunk) cannot ride through. The cost is that a future format chunk is lost until it
 // is added here; a missing chunk costs fidelity at worst, a missing drop-list entry costs a privacy leak.
 //
-// Each scrubber returns the cleaned bytes, or null when the file does not parse as its format or carries
-// something a byte scrub should not decide (a rotation tag): the caller then re-encodes through a canvas,
-// which is slower and lossier but never ships a block it could not read.
+// Each scrubber returns the cleaned bytes, or null when the file does not parse as its format or is cut short:
+// the importer then re-encodes through a canvas, which is slower and lossier but never ships a block it could
+// not read, and a restore refuses the photo.
 
 const u32be = (b: Uint8Array, i: number) => ((b[i] << 24) | (b[i + 1] << 16) | (b[i + 2] << 8) | b[i + 3]) >>> 0;
 const u32le = (b: Uint8Array, i: number) => (b[i] | (b[i + 1] << 8) | (b[i + 2] << 16) | (b[i + 3] << 24)) >>> 0;
@@ -154,9 +154,13 @@ function webpChunks(b: Uint8Array, from: number, to: number, keep: Set<string>, 
 /** WebP: copy the keep-listed chunks, filter inside animation frames, clear the EXIF/XMP flags in `VP8X`, rewrite the RIFF size. */
 export function scrubWebp(b: Uint8Array): Uint8Array | null {
 	if (b.length < 20 || tag(b, 0) !== 'RIFF' || tag(b, 8) !== 'WEBP') return null;
-	const riffEnd = Math.min(b.length, 8 + u32le(b, 4));
+	const declared = 8 + u32le(b, 4);
+	// A file shorter than its own header says is cut short (one byte of slack: an unpadded odd last chunk).
+	if (declared > b.length + 1) return null;
+	const riffEnd = Math.min(b.length, declared);
 	const parts = webpChunks(b, 12, riffEnd, WEBP_KEEP, false);
-	if (!parts || !parts.length) return null;
+	// And a WebP with no picture in it is not one.
+	if (!parts || !parts.some((p) => ['VP8 ', 'VP8L', 'ANMF'].includes(tag(p, 0)))) return null;
 	// The VP8X EXIF flag stays on only when an orientation-only EXIF chunk was kept.
 	if (parts.some((p) => tag(p, 0) === 'EXIF')) {
 		const x = parts.find((p) => tag(p, 0) === 'VP8X');
@@ -191,8 +195,8 @@ export function scrubGif(b: Uint8Array): Uint8Array | null {
 		if (kind === 0x21) {
 			const label = b[i + 1];
 			const end = skipSubBlocks(i + 2);
-			if (end > b.length + 1) return null;
-			const stop = Math.min(end, b.length);
+			if (end > b.length) return null;
+			const stop = end;
 			if (label === 0xf9) parts.push(b.subarray(i, stop)); // graphic control: frame delay, disposal, transparency
 			else if (label === 0xff && b[i + 2] === 11) {
 				const id = String.fromCharCode(...b.subarray(i + 3, i + 14));
@@ -212,8 +216,8 @@ export function scrubGif(b: Uint8Array): Uint8Array | null {
 			const flags = b[i + 9];
 			let j = i + 10 + (flags & 0x80 ? 3 * 2 ** ((flags & 7) + 1) : 0) + 1; // + LZW minimum code size
 			j = skipSubBlocks(j);
-			if (j > b.length + 1) return null;
-			parts.push(b.subarray(i, Math.min(j, b.length)));
+			if (j > b.length) return null; // the frame's data must end in its own terminator
+			parts.push(b.subarray(i, j));
 			frames++;
 			i = j;
 			continue;
@@ -225,33 +229,60 @@ export function scrubGif(b: Uint8Array): Uint8Array | null {
 	return concat(parts);
 }
 
-// JPEG segments a picture needs: everything except application segments (EXIF, XMP, IPTC, Photoshop) and
-// comments, keeping the JFIF header (APP0) and the ICC colour profile (APP2).
-/** JPEG: drop every APPn segment except APP0 and APP2, and comments, before the scan. Used on a restore, where
- *  the importer's canvas re-encode is not available; a photo this Library stored is already clean, so this only
- *  matters for a backup made by something else. */
+/** JPEG: walk every segment through to the end-of-image marker, keeping JFIF (APP0), an ICC colour profile (APP2
+ *  that really is one) and the picture's own segments, and dropping EXIF, XMP, IPTC, Photoshop, MPF, vendor
+ *  segments and comments. A picture's rotation survives as an orientation-only EXIF block. Everything AFTER the
+ *  end-of-image marker is dropped too: cameras append a second image, a motion-photo video or a gain map there,
+ *  and each can carry its own location. Used on a restore, where the importer's canvas re-encode is not available.
+ *  Null when the file is not a JPEG or is cut short before its end marker. */
 export function scrubJpeg(b: Uint8Array): Uint8Array | null {
 	if (b.length < 4 || b[0] !== 0xff || b[1] !== 0xd8) return null;
 	const parts: Uint8Array[] = [b.subarray(0, 2)];
 	let i = 2;
-	while (i + 4 <= b.length) {
+	const isIcc = (at: number, len: number) => len >= 14 && tag(b, at + 4).slice(0, 4) === 'ICC_' && String.fromCharCode(...b.subarray(at + 4, at + 15)) === 'ICC_PROFILE';
+	while (i + 2 <= b.length) {
 		if (b[i] !== 0xff) return null;
 		const marker = b[i + 1];
 		if (marker === 0xff) {
 			i++;
 			continue;
 		}
-		if (marker === 0xda) {
-			// Start of scan: the rest is entropy-coded data up to the end of the file.
-			parts.push(b.subarray(i));
+		if (marker === 0xd9) {
+			parts.push(b.subarray(i, i + 2));
 			return concat(parts);
 		}
-		if (marker === 0xd9) return null;
+		if (marker === 0x00 || (marker >= 0xd0 && marker <= 0xd8) || marker === 0x01) {
+			parts.push(b.subarray(i, i + 2)); // standalone markers carry no length
+			i += 2;
+			continue;
+		}
+		if (i + 4 > b.length) return null;
 		const len = (b[i + 2] << 8) | b[i + 3];
 		if (len < 2 || i + 2 + len > b.length) return null;
-		const keep = !((marker >= 0xe1 && marker <= 0xef && marker !== 0xe2) || marker === 0xfe);
-		if (keep) parts.push(b.subarray(i, i + 2 + len));
+		const seg = b.subarray(i, i + 2 + len);
+		let keep = true;
+		if (marker === 0xe1) {
+			// EXIF keeps only its rotation; XMP and the rest of APP1 go.
+			keep = false;
+			if (len >= 16 && tag(b, i + 4) === 'Exif') {
+				const o = tiffOrientation(b.subarray(i + 10, i + 2 + len));
+				if (o !== 1) {
+					const tiff = orientationOnlyTiff(o);
+					const body = new Uint8Array([0x45, 0x78, 0x69, 0x66, 0, 0, ...tiff]);
+					parts.push(new Uint8Array([0xff, 0xe1, (body.length + 2) >> 8, (body.length + 2) & 255, ...body]));
+				}
+			}
+		} else if (marker === 0xe2) keep = isIcc(i, len);
+		else if ((marker >= 0xe3 && marker <= 0xef) || marker === 0xfe) keep = false;
+		if (keep) parts.push(seg);
 		i += 2 + len;
+		if (marker === 0xda) {
+			// Entropy-coded scan data runs to the next real marker (an FF followed by anything but 00 or a restart).
+			const start = i;
+			while (i + 1 < b.length && !(b[i] === 0xff && b[i + 1] !== 0x00 && !(b[i + 1] >= 0xd0 && b[i + 1] <= 0xd7))) i++;
+			if (i + 1 >= b.length) return null;
+			parts.push(b.subarray(start, i));
+		}
 	}
 	return null;
 }

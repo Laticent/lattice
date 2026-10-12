@@ -175,7 +175,7 @@ export async function importImage(file: File, scope: string): Promise<NewMedia> 
 		if (!plan.reencode && cleaned) {
 			return { kind: 'image', name: mediaNameFromFile(file.name, 'image'), scope, blob: new Blob([cleaned as BlobPart], { type: mime }), mime, bytes: cleaned.length, width: plan.width, height: plan.height, sourceName: file.name, original: true };
 		}
-		// A kept type the scrubber could not parse (or that carries a rotation tag) falls through to a canvas
+		// A kept type the scrubber could not parse falls through to a canvas
 		// re-encode, capped like any other photo and stored as PNG: never stored with a block nobody could read.
 		const out = plan.reencode ? plan : planImage('image/x-unreadable', bitmap.width, bitmap.height);
 		const canvas = document.createElement('canvas');

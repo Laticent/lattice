@@ -148,6 +148,63 @@ describe('scrubJpeg', () => {
 	});
 });
 
+describe('scrubJpeg — the rest of the file', () => {
+	it('drops everything after the end-of-image marker (a second image, a motion-photo video) and every MPF/vendor APP segment', () => {
+		const trailer = [...jpeg(5, [jpegSegment(0xe1, ascii(`Exif\0\0${GPS}`))])]; // a whole second JPEG, with its own EXIF
+		const dirty = new Uint8Array([...jpeg(1, [jpegSegment(0xe2, ascii('MPF\0abc')), jpegSegment(0xeb, ascii(GPS))]), ...trailer, ...ascii('ftypmp42')]);
+		expect(has(dirty, GPS)).toBe(true);
+		const clean = scrubJpeg(dirty) as Uint8Array;
+		expect(has(clean, GPS) || has(clean, 'MPF') || has(clean, 'ftyp')).toBe(false);
+		expect(clean.at(-1)).toBe(0xd9);
+		expect(scrubJpeg(clean)).toEqual(clean);
+	});
+	it('drops an APPn or comment segment placed BETWEEN the scans of a progressive file', () => {
+		const seg = (m: number, d: number[]) => jpegSegment(m, d);
+		const sos = seg(0xda, [1, 1, 0, 0, 63, 0]);
+		const file = new Uint8Array([0xff, 0xd8, ...seg(0xe0, ascii('JFIF\0\x01\x01\0\0\x01\0\x01\0\0')), ...sos, 7, 8, 9, ...seg(0xe1, ascii(`Exif\0\0${GPS}`)), ...sos, 4, 5, 6, 0xff, 0xd9]);
+		expect(has(file, GPS)).toBe(true);
+		const clean = scrubJpeg(file) as Uint8Array;
+		expect(has(clean, GPS)).toBe(false);
+		expect(clean.at(-1)).toBe(0xd9);
+	});
+	it('keeps a picture’s rotation as an orientation-only EXIF block, and nothing else from it', () => {
+		const clean = scrubJpeg(jpeg(1, [jpegSegment(0xe1, [...ascii('Exif\0\0'), ...tiff(6)])])) as Uint8Array;
+		expect(has(clean, GPS)).toBe(false);
+		const at = new TextDecoder('latin1').decode(clean).indexOf('Exif');
+		expect(tiffOrientation(clean.subarray(at + 6, at + 6 + 26))).toBe(6);
+	});
+	it('keeps an ICC profile and drops an APP2 that is not one', () => {
+		const clean = scrubJpeg(jpeg(1, [jpegSegment(0xe2, ascii('ICC_PROFILE\0abc')), jpegSegment(0xe2, ascii('MPF\0abcdefghij'))])) as Uint8Array;
+		expect(has(clean, 'ICC_PROFILE')).toBe(true);
+		expect(has(clean, 'MPF')).toBe(false);
+	});
+	it('answers null for a JPEG cut anywhere before its end marker', () => {
+		const j = jpeg(1);
+		for (let n = 4; n < j.length; n++) expect(scrubJpeg(j.subarray(0, n)), `${n} bytes`).toBeNull();
+	});
+});
+
+describe('cut-short files are refused, not stored as pictures that cannot decode', () => {
+	it('a WebP cut at any point is null unless it still holds a whole picture', () => {
+		const w = webp(1, [webpChunk('EXIF', ascii(GPS))]);
+		for (let n = 12; n < w.length - 1; n++) {
+			const out = scrubWebp(w.subarray(0, n));
+			// Either refused, or (cut only inside the dropped EXIF chunk) a complete picture with the right RIFF size.
+			if (out) expect(new DataView(out.buffer, out.byteOffset).getUint32(4, true), `${n} bytes`).toBe(out.length - 8);
+		}
+		expect(scrubWebp(w.subarray(0, 30)), 'only the VP8X header: no picture').toBeNull();
+	});
+	it('a WebP with no image chunk is null', () => {
+		const body = [...ascii('WEBP'), ...webpChunk('VP8X', [0, 0, 0, 0, 0, 0, 0, 0, 0, 0])];
+		expect(scrubWebp(new Uint8Array([...ascii('RIFF'), ...le32(body.length), ...body]))).toBeNull();
+	});
+	it('a GIF whose frame data stops before its terminator is null', () => {
+		const g = gif([]);
+		expect(scrubGif(g.subarray(0, g.length - 2))).toBeNull(); // cut inside the frame's data sub-blocks
+		expect(scrubGif(g.subarray(0, g.length - 1)), 'only the trailer missing is fine').not.toBeNull();
+	});
+});
+
 describe('scrubberFor', () => {
 	it('has one for the four stored types and none for the rest', () => {
 		for (const m of ['image/png', 'image/webp', 'image/gif', 'image/jpeg']) expect(scrubberFor(m), m).toBeTypeOf('function');

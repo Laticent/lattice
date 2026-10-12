@@ -161,10 +161,14 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 					const m = await import('./media-urls').catch(() => null);
 					if (m && SOURCE_WITH_PHOTOS.has(key)) {
 						const used = m.assetNamesIn(source);
-						degraded = `the ${used.length === 1 ? 'photo' : 'photos'} it names (${names(used)}) ${used.length === 1 ? 'is' : 'are'} not inside this file; they live in this browser's Library, so anyone who opens it elsewhere sees stand-ins`;
-					} else if (m) {
-						const gone = await m.missingAssetNames(source).catch(() => []);
-						if (gone.length) degraded = `${gone.length === 1 ? 'the photo' : 'photos'} ${names(gone)} could not be shown (not in this browser's Library, or could not be read), so ${gone.length === 1 ? 'it appears' : 'they appear'} as a missing-image stand-in`;
+						degraded = `the ${used.length === 1 ? 'photo' : 'photos'} it names (${names(used)}) ${used.length === 1 ? 'is' : 'are'} not inside this file; ${used.length === 1 ? 'it lives' : 'they live'} in this browser's Library, so anyone who opens it elsewhere sees ${used.length === 1 ? 'a stand-in' : 'stand-ins'}`;
+					} else if (!m) {
+						degraded = "its photos could not be checked against this browser's Library, so any that are missing appear as stand-ins";
+					} else {
+						const gone = await m.missingAssetNames(source).catch(() => null);
+						// A shelf that cannot be read means EVERY photo in the file may be a stand-in: say so rather than say nothing.
+						if (!gone) degraded = "this browser's Library could not be read, so the photos appear as stand-ins";
+						else if (gone.length) degraded = `${gone.length === 1 ? 'the photo' : 'photos'} ${names(gone)} could not be shown (not in this browser's Library, or could not be read), so ${gone.length === 1 ? 'it appears' : 'they appear'} as a missing-image stand-in`;
 					}
 				}
 				if (degraded) notify(`${label} ready — but ${degraded}.`, { duration: DEGRADED_TOAST_MS });

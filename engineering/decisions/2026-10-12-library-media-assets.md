@@ -143,8 +143,11 @@ shows its file dialog and a drag-and-drop onto the Library accepts the same type
   never stored with a block nobody could read. AVIF is re-encoded to JPEG: its metadata sits in an ISO container a
   byte scrub does not parse here, and an AVIF with transparency loses it (rare for photos). A file's bytes (not
   its extension) decide its type (`sniffImageMime`), so a renamed JPEG is still re-encoded. A **restore** gives a
-  backup's photos the same cleaning (`scrubJpeg` for JPEG, where the importer's canvas is not available), because
-  a backup is a file from anyone. Verified in real Chromium, WebKit and Firefox for PNG and GIF with a marker in
+  backup's photos the same cleaning (`scrubJpeg` for JPEG, where the importer's canvas is not available: it keeps JFIF, an ICC profile and an
+  orientation-only EXIF block, drops every other APPn segment and comments, including between progressive
+  scans, and drops everything after the end-of-image marker, where cameras append a second image or a
+  motion-photo video), because a backup is a file from anyone. A file cut short (a JPEG with no end marker,
+  a WebP with no picture, a GIF frame without its terminator) is refused, not stored. Verified in real Chromium, WebKit and Firefox for PNG and GIF with a marker in
   each block; WebP and the animated formats were checked against Pillow-generated files by the independent
   checker (frames and pixels identical, no metadata left) and by unit tests, not in a real browser.
   SVG is never stored: an SVG opened as a
