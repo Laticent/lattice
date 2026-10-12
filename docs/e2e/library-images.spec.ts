@@ -232,3 +232,84 @@ for (const vw of WIDTHS) {
 	});
 	});
 }
+
+// PNG, WebP and GIF are kept as given, but their metadata blocks are cut out (media-scrub.ts). A byte
+// scrub must leave a picture the browser still decodes, so this drives the real importer and then asks the
+// real decoder, on every engine.
+test('@smoke a PNG with an eXIf GPS chunk and a GIF with comment and XMP blocks lose them and still decode @webkit-tablet @gecko', async ({ page }) => {
+	test.slow();
+	await gotoStudio(page);
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await openLibraryImages(page, 1440);
+	const MARK = 'GPSLatitude=51.5';
+	const before = await page.evaluate(async (mark) => {
+		const enc = (s: string) => [...s].map((c) => c.charCodeAt(0));
+		const be32 = (n: number) => [(n >>> 24) & 255, (n >>> 16) & 255, (n >>> 8) & 255, n & 255];
+		const crcTable = Array.from({ length: 256 }, (_, n) => {
+			let c = n;
+			for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+			return c >>> 0;
+		});
+		const crc = (bytes: number[]) => {
+			let c = 0xffffffff;
+			for (const b of bytes) c = crcTable[(c ^ b) & 255] ^ (c >>> 8);
+			return (c ^ 0xffffffff) >>> 0;
+		};
+		// A real PNG from a canvas, then an eXIf chunk (with a valid CRC) spliced in right after IHDR.
+		const cv = document.createElement('canvas');
+		cv.width = 64;
+		cv.height = 48;
+		const g = cv.getContext('2d') as CanvasRenderingContext2D;
+		g.fillStyle = '#c03030';
+		g.fillRect(0, 0, 64, 48);
+		const pngBlob: Blob = await new Promise((r) => cv.toBlob((b) => r(b as Blob), 'image/png'));
+		const png = new Uint8Array(await pngBlob.arrayBuffer());
+		const body = enc(`Exif\\0\\0${mark}`);
+		const chunk = [...be32(body.length), ...enc('eXIf'), ...body, ...be32(crc([...enc('eXIf'), ...body]))];
+		const ihdrEnd = 8 + 12 + 13;
+		const dirtyPng = new Uint8Array([...png.subarray(0, ihdrEnd), ...chunk, ...png.subarray(ihdrEnd)]);
+		// The standard 1x1 GIF, with a comment and an XMP application extension before its image.
+		const head = [...enc('GIF89a'), 1, 0, 1, 0, 0x80, 0, 0, 255, 255, 255, 0, 0, 0];
+		const comment = [0x21, 0xfe, mark.length, ...enc(mark), 0];
+		const xmp = [0x21, 0xff, 11, ...enc('XMP DataXMP'), mark.length, ...enc(mark), 0];
+		const image = [0x2c, 0, 0, 0, 0, 1, 0, 1, 0, 0, 2, 2, 0x44, 1, 0, 0x3b];
+		const dirtyGif = new Uint8Array([...head, ...comment, ...xmp, ...image]);
+		const dt = new DataTransfer();
+		dt.items.add(new File([dirtyPng as BlobPart], 'Marked PNG.png', { type: 'image/png' }));
+		dt.items.add(new File([dirtyGif as BlobPart], 'Marked GIF.gif', { type: 'image/gif' }));
+		const has = (b: Uint8Array) => new TextDecoder('latin1').decode(b).includes(mark);
+		const input = document.querySelector('input[type="file"][accept*="image"]') as HTMLInputElement;
+		input.files = dt.files;
+		input.dispatchEvent(new Event('change', { bubbles: true }));
+		return { pngHadMark: has(dirtyPng), gifHadMark: has(dirtyGif) };
+	}, MARK);
+	expect(before, 'positive control: both inputs carried the marker').toEqual({ pngHadMark: true, gifHadMark: true });
+	await expect(page.locator('[data-media-card="marked-png"]')).toBeVisible({ timeout: 30_000 });
+	await expect(page.locator('[data-media-card="marked-gif"]')).toBeVisible({ timeout: 30_000 });
+	const after = await page.evaluate(async (mark) => {
+		const db: IDBDatabase = await new Promise((res, rej) => {
+			const r = indexedDB.open('lattice-workbench');
+			r.onsuccess = () => res(r.result);
+			r.onerror = () => rej(r.error);
+		});
+		const rows: { name: string; mime: string; blob?: Blob; data?: ArrayBuffer }[] = await new Promise((res) => {
+			const r = db.transaction('assets').objectStore('assets').index('kind').getAll('image');
+			r.onsuccess = () => res(r.result);
+		});
+		const out: Record<string, { mime: string; marked: boolean; decodes: boolean }> = {};
+		for (const row of rows) {
+			const blob = row.blob ?? new Blob([row.data as ArrayBuffer], { type: row.mime });
+			const bytes = new Uint8Array(await blob.arrayBuffer());
+			let decodes = true;
+			try {
+				(await createImageBitmap(blob)).close();
+			} catch {
+				decodes = false;
+			}
+			out[row.name] = { mime: row.mime, marked: new TextDecoder('latin1').decode(bytes).includes(mark), decodes };
+		}
+		return out;
+	}, MARK);
+	expect(after['marked-png']).toEqual({ mime: 'image/png', marked: false, decodes: true });
+	expect(after['marked-gif']).toEqual({ mime: 'image/gif', marked: false, decodes: true });
+});

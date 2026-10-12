@@ -45,8 +45,9 @@ describe('planImage', () => {
 	it('downscales an oversized PNG in its own format so transparency survives', () => {
 		expect(planImage('image/png', 6000, 3000)).toMatchObject({ reencode: true, mime: 'image/png', width: MAX_IMAGE_EDGE, height: 1280 });
 	});
-	it('stores GIF and AVIF as given', () => {
-		for (const m of ['image/gif', 'image/avif']) expect(planImage(m, 9000, 9000).reencode).toBe(false);
+	it('keeps GIF as given (its metadata is cut out by the scrubber), and re-encodes AVIF like a JPEG', () => {
+		expect(planImage('image/gif', 9000, 9000).reencode).toBe(false);
+		expect(planImage('image/avif', 800, 600)).toMatchObject({ reencode: true, mime: 'image/jpeg' });
 	});
 	it('re-encodes the spellings of JPEG that pickers report, so GPS never survives in `image/jpg`', () => {
 		for (const m of ['image/jpg', 'image/pjpeg']) expect(planImage(m, 800, 600)).toMatchObject({ reencode: true, mime: 'image/jpeg' });

@@ -130,11 +130,15 @@ shows its file dialog and a drag-and-drop onto the Library accepts the same type
   rotation into the pixels so a portrait photo is not stored sideways. A 12-megapixel phone photo
   is 3 to 6 MB and a slide shows at most 1920 px wide, so the cap costs nothing a viewer can see.
   PNG and WebP are re-encoded only when over the cap, in their own format, so transparency and
-  lossless screenshots survive. GIF (may be animated) and AVIF are stored as given, so they keep any metadata they carry; a small
-  PNG or WebP likewise. That is a real gap, not a rare one: editors such as Lightroom can write GPS into
-  AVIF and WebP, and nobody has measured how often. A file's bytes (not its extension) decide whether it
-  is a JPEG, so a renamed JPEG is still scrubbed (`sniffImageMime`); a followup tracks scrubbing the
-  rest. SVG is never stored: an SVG opened as a
+  lossless screenshots survive. GIF is kept with its pixels, transparency and animation untouched, and PNG and WebP likewise;
+  `media-scrub.ts` cuts their metadata blocks out of the bytes without re-encoding (PNG `eXIf`, `tEXt`,
+  `zTXt`, `iTXt`; WebP `EXIF` and `XMP ` plus the `VP8X` flags; GIF comment and non-loop application
+  extensions, which is where XMP lives). A file a scrubber cannot parse is re-encoded through a canvas
+  instead, never stored with a block nobody could read. AVIF is re-encoded to JPEG: its metadata sits in
+  an ISO container a byte scrub does not parse here, and an AVIF with transparency loses it (rare for
+  photos). A file's bytes (not its extension) decide its type (`sniffImageMime`), so a renamed JPEG is
+  still re-encoded. Verified in real Chromium, WebKit and Firefox with a marker in each metadata block.
+  SVG is never stored: an SVG opened as a
   blob document runs its script on the site's origin, so the importer draws it to a PNG and keeps
   only the pixels.
 - **HEIC** (iPhone's native format): iOS Safari converts to JPEG when `accept` names `image/*`

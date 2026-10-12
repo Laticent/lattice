@@ -5,6 +5,7 @@
 // canvas, encode) and is exercised against a real browser, not jsdom — jsdom has no image
 // decoder, so a test there would only confirm a stub (HARD RULE #23).
 
+import { scrubberFor } from './media-scrub';
 import { MAX_MEDIA_FILE_BYTES, type MediaKind, mediaNameFromFile, type NewMedia, sniffImageMime, uniqueName } from './media-store';
 
 /** The long edge a stored photo is capped to. A slide shows at most ~1920 px wide, so pixels
@@ -48,10 +49,10 @@ export type ImagePlan = {
 
 /** Types a camera or editor writes with location in them, always re-encoded to JPEG. `image/jpg` and
  *  `image/pjpeg` are the spellings some pickers report; leaving them out kept GPS in every export. */
-const JPEG_LIKE = new Set(['image/jpeg', 'image/jpg', 'image/pjpeg', 'image/heic', 'image/heif']);
+const JPEG_LIKE = new Set(['image/jpeg', 'image/jpg', 'image/pjpeg', 'image/heic', 'image/heif', 'image/avif']);
 /** Types stored exactly as given (PNG and WebP only when under the cap). Anything else is re-encoded to
  *  PNG, so the Library only ever holds a type a backup can carry and every browser can draw. */
-const KEEP_AS_IS = new Set(['image/png', 'image/webp', 'image/gif', 'image/avif']);
+const KEEP_AS_IS = new Set(['image/png', 'image/webp', 'image/gif']);
 /** A vector's raster size: crisp at slide size, never past the cap. */
 const SVG_TARGET_EDGE = 2048;
 
@@ -63,8 +64,11 @@ const SVG_TARGET_EDGE = 2048;
  *   - PNG and WebP are re-encoded only when over the cap (they are screenshots and logos;
  *     a lossy pass would hurt, and they rarely carry location). They stay in their format,
  *     so transparency survives.
- *   - GIF (may be animated) and AVIF are stored as given. Like PNG and WebP they keep any metadata
- *     they carry: only the JPEG-like types are scrubbed.
+ *   - AVIF is re-encoded to JPEG like the rest: its metadata sits in a container a byte scrub does not
+ *     parse here, and a canvas re-encode removes it. (An AVIF with transparency loses it; rare for photos.)
+ *   - PNG, WebP and GIF that are kept are stored with their pixels untouched and their metadata blocks
+ *     (EXIF, XMP, text, comments) cut out by `media-scrub.ts`, so animation and transparency survive and
+ *     location does not.
  *   - EVERYTHING ELSE (BMP, TIFF, ICO, an unknown `image/*`) is re-encoded to PNG, so a type the
  *     Library does not store never reaches a backup that would have to drop it.
  *   - SVG is rasterized to PNG by `importImage`, never stored: an SVG opened as a document (a
@@ -166,10 +170,13 @@ export async function importImage(file: File, scope: string): Promise<NewMedia> 
 	const bitmap = await decode(file);
 	try {
 		const plan = planImage(mime, bitmap.width, bitmap.height);
-		if (!plan.reencode) {
-			// Wrapped so the stored type is the one decided here, not the file's (possibly empty or wrong) own.
-			return { kind: 'image', name: mediaNameFromFile(file.name, 'image'), scope, blob: new Blob([file], { type: mime }), mime, bytes: file.size, width: plan.width, height: plan.height, sourceName: file.name, original: true };
+		const scrub = !plan.reencode ? scrubberFor(mime) : undefined;
+		const cleaned = scrub ? scrub(new Uint8Array(await file.arrayBuffer())) : null;
+		if (!plan.reencode && cleaned) {
+			return { kind: 'image', name: mediaNameFromFile(file.name, 'image'), scope, blob: new Blob([cleaned as BlobPart], { type: mime }), mime, bytes: cleaned.length, width: plan.width, height: plan.height, sourceName: file.name, original: true };
 		}
+		// A kept type the scrubber could not parse falls through to a canvas re-encode: never stored with a
+		// metadata block nobody could read.
 		const canvas = document.createElement('canvas');
 		canvas.width = plan.width;
 		canvas.height = plan.height;
