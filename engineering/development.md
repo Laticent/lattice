@@ -1055,7 +1055,7 @@ The panel is pure over `LiveView` + `LiveActions` (`live-model.ts`), so the harn
 component with a fixture view and records every action it calls; the spec bundles it with the site's
 own Tailwind plugin and the palette tokens at test time (never committed, HARD RULE #2), so what it
 renders is what the Studio renders. It covers what a person sees and can do in the panel, at 1440
-and 390 px: the call row (join, mute, leave), the leave and end confirmations (they act once), the
+and 390 px, and on real WebKit at iPhone 15 Pro size (`@webkit-phone`): the call row (join, mute, leave), the leave and end confirmations (they act once), the
 person menu staying on screen, the narrowest docked column, and an axe scan of the panel and the
 person menu in both color modes. Run it with `npx playwright test e2e/live-panel.spec.ts` from
 `docs/`; it needs no relay and no WebRTC, and runs in seconds. The transport (knock, admit, edit

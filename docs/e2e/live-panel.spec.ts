@@ -19,7 +19,7 @@ test.afterAll(async () => {
 });
 const open = (page: import('@playwright/test').Page, query = '') => openPage(page, harness.baseURL, query);
 
-test('@crosswidth your own row carries the call: join, mute, leave', async ({ page }) => {
+test('@crosswidth @webkit-phone your own row carries the call: join, mute, leave', async ({ page }) => {
 	await open(page);
 	await expect(page.getByRole('button', { name: 'Microphone', exact: true })).toHaveCount(0); // not on the call
 	await page.getByRole('button', { name: 'Join audio' }).click();
@@ -29,7 +29,7 @@ test('@crosswidth your own row carries the call: join, mute, leave', async ({ pa
 	expect((await calls(page)).map((c) => c[0])).toEqual(['toggleMic', 'toggleMic', 'leaveCall']);
 });
 
-test('@crosswidth leaving or ending the session asks first, and acts once', async ({ page }) => {
+test('@crosswidth @webkit-phone leaving or ending the session asks first, and acts once', async ({ page }) => {
 	await open(page);
 	await page.getByRole('button', { name: 'Session options' }).click();
 	await page.getByRole('menuitem', { name: /End session for everyone/ }).click();
@@ -44,7 +44,7 @@ test('@crosswidth leaving or ending the session asks first, and acts once', asyn
 	await expect(page.getByRole('dialog')).toContainText('Leave the session?');
 });
 
-test('@crosswidth the person menu stays inside the screen and the page never scrolls sideways', async ({ page }) => {
+test('@crosswidth @webkit-phone the person menu stays inside the screen and the page never scrolls sideways', async ({ page }) => {
 	await open(page);
 	await onCall(page);
 	await optionsFor(page, 'Amina').click();
@@ -58,7 +58,7 @@ test('@crosswidth the person menu stays inside the screen and the page never scr
 	expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
-test('@crosswidth in the docked column at its narrowest, the invite shortens and nothing overflows', async ({ page }) => {
+test('@crosswidth @webkit-phone in the docked column at its narrowest, the invite shortens and nothing overflows', async ({ page }) => {
 	await open(page, '?w=272');
 	await expect(page.getByRole('button', { name: 'Copy invite link' })).toContainText('Copy');
 	expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
@@ -68,7 +68,7 @@ test('@crosswidth in the docked column at its narrowest, the invite shortens and
 	expect(r.x + r.width).toBeLessThanOrEqual(272);
 });
 
-test('@a11y the panel and a person\'s menu have no axe findings, in both color modes', async ({ page }) => {
+test('@a11y @webkit-phone the panel and a person\'s menu have no axe findings, in both color modes', async ({ page }) => {
 	await open(page);
 	await onCall(page);
 	for (const mode of ['dark', 'light']) {
