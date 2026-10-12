@@ -223,6 +223,17 @@ await vol.focus();
 for (let i = 0; i < 10; i++) await host.keyboard.press('ArrowLeft');
 log(`volume slider back at ${await vol.inputValue()} %, player ${JSON.stringify(await player())}`);
 await host.keyboard.press('Escape');
+await host.waitForSelector('[data-live-person-audio]', { state: 'detached' });
+// Hearing: one volume for everyone, multiplied into each person's (here Amina at 100 %).
+await panel(host).getByRole('button', { name: 'Your audio', exact: true }).click();
+await host.waitForSelector('[data-live-master]');
+const master = host.locator('[data-live-master] input[type=range]');
+const setMaster = async (pct) => { await master.focus(); await host.keyboard.press('Home'); for (let i = 0; i < pct / 10; i++) await host.keyboard.press('ArrowRight'); await host.waitForTimeout(400); };
+for (const pct of [200, 50, 100]) { await setMaster(pct); log(`everyone at ${pct} %, player ${JSON.stringify(await player())}`); }
+log(`speaker picker: ${await host.locator('[data-live-output-list], [data-live-output-note]').first().innerText()}`);
+await host.screenshot({ path: `${OUT}call-hearing-${mode}.png` });
+await host.keyboard.press('Escape');
+await host.waitForSelector('[data-live-your-audio]', { state: 'detached' });
 // High fidelity (P4): the host's send rate and what the guest hears of a 14 kHz tone, switch off, on, off.
 if (process.argv.includes('--hifi')) {
   const sentRate = async (secs) => { const a = await audioBytes(host); await host.waitForTimeout(secs * 1000); return ((await audioBytes(host)) - a) * 8 / secs / 1000; };

@@ -85,7 +85,7 @@ export async function onCall(page: Page, extra: Record<string, unknown> = {}) {
 	await live(
 		page,
 		(l, x) => {
-			l.set({ call: { inCall: true, muted: false, denied: false, devices: [{ id: 'm1', label: 'Built-in microphone' }], device: 'm1', highFidelity: false, micLevel: 1, canShapeMic: true, stalled: false } });
+			l.set({ call: { inCall: true, muted: false, denied: false, devices: [{ id: 'm1', label: 'Built-in microphone' }], device: 'm1', highFidelity: false, micLevel: 1, canShapeMic: true, stalled: false, masterVolume: 1, outputs: [], output: null, canPickOutput: true } });
 			l.person('me', { mic: 'on' });
 			l.person('p2', { mic: 'on', volume: 1, quality: { inKbps: 64.2, lostPct: 0.4, jitterMs: 18.3, sendKbps: 63.8 }, ...(x as object) });
 		},

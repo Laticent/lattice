@@ -328,3 +328,67 @@ describe('LiveAudio mic level', () => {
 		a.dispose();
 	});
 });
+
+// Hearing: one master volume multiplied into each person's, and the output device where the browser allows it.
+describe('LiveAudio hearing', () => {
+	function withGain() {
+		fakeBrowser();
+		const gains: Array<{ value: number }> = [];
+		const Base = (window as unknown as { AudioContext: new () => object }).AudioContext;
+		const sinks: string[] = [];
+		(window as unknown as { AudioContext: unknown }).AudioContext = class extends Base {
+			createGain = () => {
+				const g = { gain: { value: 1 }, connect: () => {}, disconnect: () => {} };
+				gains.push(g.gain);
+				return g;
+			};
+			setSinkId = async (id: string) => {
+				sinks.push(id);
+			};
+		};
+		vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined);
+		return { gains, sinks };
+	}
+	const voice = { getAudioTracks: () => [{}], getTracks: () => [{}] } as unknown as MediaStream;
+	const playerOf = (peer: string) => document.querySelector(`audio[data-live-audio="${peer}"]` as string) as HTMLAudioElement;
+
+	it('multiplies the master volume into each person\'s, through the element up to 100 % and the gain stage above', async () => {
+		const { gains } = withGain();
+		const a = new LiveAudio(() => {});
+		await a.join();
+		a.addRemote('p1', voice);
+		a.setMasterVolume(0.5);
+		expect(playerOf('p1').volume).toBe(0.5);
+		a.setVolume('p1', 1.6); // 0.5 x 1.6 = 0.8: still the element
+		expect(playerOf('p1').volume).toBeCloseTo(0.8);
+		expect(gains).toHaveLength(0);
+		a.setMasterVolume(2); // 2 x 1.6 = 3.2: the gain stage
+		expect(gains).toHaveLength(1);
+		expect(gains[0].value).toBeCloseTo(3.2);
+		expect(playerOf('p1').muted).toBe(true);
+		a.setMasterVolume(99);
+		expect(a.masterVolume).toBe(2);
+		a.setMasterVolume(Number.NaN);
+		expect(a.masterVolume).toBe(1);
+		a.dispose();
+	});
+
+	it('points every player, later ones, and the gain stage at the chosen speaker', async () => {
+		const { sinks } = withGain();
+		const setSinkId = vi.fn(async () => {});
+		(HTMLMediaElement.prototype as unknown as { setSinkId: unknown }).setSinkId = setSinkId;
+		expect(LiveAudio.canPickOutput()).toBe(true);
+		const a = new LiveAudio(() => {});
+		await a.join();
+		a.addRemote('p1', voice);
+		await a.setOutput('usb-1');
+		expect(a.output).toBe('usb-1');
+		expect(setSinkId).toHaveBeenCalledWith('usb-1');
+		expect(sinks).toContain('usb-1');
+		a.addRemote('p2', voice); // a later player follows the choice at once
+		expect(setSinkId).toHaveBeenCalledTimes(2);
+		a.dispose();
+		(HTMLMediaElement.prototype as unknown as { setSinkId?: unknown }).setSinkId = undefined;
+		expect(LiveAudio.canPickOutput()).toBe(false);
+	});
+});

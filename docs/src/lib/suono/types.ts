@@ -139,6 +139,10 @@ export interface Stage {
 	 *  or where Web Audio is missing. A caller whose audio only flows while the context runs (a call's shaped
 	 *  microphone) watches this. */
 	audioState(): string | null;
+	/** Whether the owned context can be pointed at a chosen output device (`AudioContext.setSinkId`, Chromium). */
+	canSetSink(): boolean;
+	/** Point the owned context at an output device (`''` is the system default). Resolves whether it took. */
+	setSink(deviceId: string): Promise<boolean>;
 	/** Build a sequence scheduler bound to this stage. */
 	sequence<T>(opts: SequenceOptions<T>): Sequence;
 	/** Stop EVERY currently-playing clip (all overlapping plays, not just the latest). */

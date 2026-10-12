@@ -242,7 +242,7 @@ function YourAudio({ view, actions }: { view: LiveView; actions: LiveActions }) 
 					<ChevronDown className="size-3" />
 				</Button>
 			</PopoverTrigger>
-			<PopoverContent align="end" className="w-72 p-3" data-live-your-audio>
+			<PopoverContent align="end" className="max-h-[min(75vh,var(--radix-popover-content-available-height))] w-72 overflow-y-auto p-3" data-live-your-audio>
 				<div className="mb-2 text-[12px] font-semibold text-foreground">Your audio</div>
 				<div className="flex flex-col gap-3">
 					<div className="flex flex-col gap-1">
@@ -293,6 +293,28 @@ function YourAudio({ view, actions }: { view: LiveView; actions: LiveActions }) 
 						<span id="live-hifi-note" className="text-[11px] leading-snug text-muted-foreground">
 							{c.inCall ? 'Sends 128 kbit/s with echo cancellation, noise suppression and automatic gain off. Wear headphones, or the others hear an echo.' : 'Join audio first. Then this sends 128 kbit/s with voice processing off, for music; wear headphones.'}
 						</span>
+					</div>
+					<div className="flex flex-col gap-1" data-live-hearing>
+						<div className="font-mono text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Hearing</div>
+						<LevelSlider id="live-master-volume" label="Everyone" value={c.masterVolume} onChange={actions.setMasterVolume} attr="data-live-master" hint="One volume for everyone you hear. Each person's own volume is on their row." />
+						{!c.canPickOutput ? (
+							<span className="text-[11px] leading-snug text-muted-foreground" data-live-output-note>
+								Your browser plays through the system output; it has no speaker picker.
+							</span>
+						) : c.outputs.length < 2 ? (
+							<span className="text-[11px] leading-snug text-muted-foreground" data-live-output-note>
+								{c.inCall ? 'Only one speaker found.' : 'Join audio to list your speakers.'}
+							</span>
+						) : (
+							<RadioGroup value={c.output ?? c.outputs[0]?.id ?? ''} onValueChange={actions.pickOutput} aria-label="Speaker" className="flex flex-col items-stretch gap-0.5" data-live-output-list>
+								{c.outputs.map((d) => (
+									<label key={d.id} htmlFor={`live-out-${d.id}`} className="flex min-h-8 cursor-pointer items-center gap-2 rounded-sm px-2 py-1 text-[12px] has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring pointer-coarse:min-h-10">
+										<RadioGroupItem id={`live-out-${d.id}`} value={d.id} className="size-3.5 shrink-0 rounded-full border border-foreground data-[state=checked]:bg-foreground" />
+										<span className="min-w-0 flex-1 truncate">{d.label}</span>
+									</label>
+								))}
+							</RadioGroup>
+						)}
 					</div>
 				</div>
 			</PopoverContent>

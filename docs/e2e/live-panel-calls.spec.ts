@@ -201,6 +201,40 @@ test('@crosswidth @webkit-phone a stalled send is shown on your row and explaine
 	await expect(page.locator('[data-live-stalled]')).toHaveRole('alert');
 });
 
+test('@crosswidth @webkit-phone Hearing: one volume for everyone, and a speaker picker only where the browser can pick', async ({ page }) => {
+	await open(page);
+	await onCall(page);
+	await yourAudio(page).click();
+	const master = page.locator('[data-live-master] input[type=range]');
+	await expect(master).toHaveValue('100');
+	await expect(master).toHaveAccessibleName(/everyone/i);
+	await master.focus();
+	await page.keyboard.press('End');
+	await page.keyboard.press('Home');
+	expect((await calls(page)).filter((c) => c[0] === 'setMasterVolume').map((c) => c[1])).toEqual([2, 0]);
+	// One speaker (or none known yet): no list, and it says why, in both states.
+	await expect(page.locator('[data-live-output-note]')).toHaveText('Only one speaker found.');
+	await page.keyboard.press('Escape');
+	// Before you join: whether the browser CAN pick a speaker does not depend on the call.
+	await live(page, (l) => l.set({ call: { inCall: false, muted: false, denied: false, devices: [], device: null, highFidelity: false, micLevel: 1, canShapeMic: false, stalled: false, masterVolume: 1, outputs: [], output: null, canPickOutput: true } }));
+	await yourAudio(page).click();
+	await expect(page.locator('[data-live-output-note]')).toHaveText('Join audio to list your speakers.');
+	await page.keyboard.press('Escape');
+	// A browser that cannot pick (Safari): the section is there and says so.
+	await live(page, (l) => l.call({ canPickOutput: false }));
+	await yourAudio(page).click();
+	await expect(page.locator('[data-live-output-note]')).toContainText('no speaker picker');
+	await page.keyboard.press('Escape');
+	// Two speakers: a radio group, and picking one reports it.
+	await onCall(page);
+	await live(page, (l) => l.call({ canPickOutput: true, outputs: [{ id: 'default', label: 'Default speaker' }, { id: 'usb-1', label: 'USB speaker' }], output: null }));
+	await yourAudio(page).click();
+	const group = page.getByRole('radiogroup', { name: 'Speaker' });
+	await expect(group.getByRole('radio', { name: 'Default speaker' })).toBeChecked();
+	await group.getByRole('radio', { name: 'USB speaker' }).click();
+	expect((await calls(page)).filter((c) => c[0] === 'pickOutput')).toEqual([['pickOutput', 'usb-1']]);
+});
+
 test('@crosswidth @webkit-phone the microphone list appears only when there is a choice, as a radio group', async ({ page }) => {
 	await open(page);
 	await onCall(page);
@@ -241,7 +275,7 @@ test('@a11y @webkit-phone the Your audio popover has no axe findings, before and
 		for (const inCall of [false, true]) {
 			if (inCall) {
 				await onCall(page);
-				await live(page, (l) => l.call({ devices: [{ id: 'm1', label: 'Built-in microphone' }, { id: 'm2', label: 'USB microphone' }] }));
+				await live(page, (l) => l.call({ devices: [{ id: 'm1', label: 'Built-in microphone' }, { id: 'm2', label: 'USB microphone' }], outputs: [{ id: 'default', label: 'Default speaker' }, { id: 'usb-1', label: 'USB speaker' }] }));
 			}
 			await yourAudio(page).click();
 			await expect(page.locator('[data-live-your-audio]')).toBeVisible();

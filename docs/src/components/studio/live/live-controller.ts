@@ -389,6 +389,7 @@ export class LiveController {
 	private leaveAfterJoin = false;
 	/** Whether the call's send is stalled, as the panel last drew it (a redraw only when it changes). */
 	private stalledShown = false;
+	private outDevices: Array<{ id: string; label: string }> = [];
 	private micDevices: Array<{ id: string; label: string }> = [];
 	/** The tab title before "On air · " was put in front of it. */
 	private plainTitle: string | null = null;
@@ -917,6 +918,7 @@ export class LiveController {
 			r.session.setMedia(stream, { maxBitrate: a.highFidelity ? HIGH_FIDELITY_BITRATE : CALL_BITRATE });
 			this.post({ k: 'mic', on: !a.isMuted });
 			this.micDevices = await a.devices();
+			this.outDevices = await a.outputs();
 			this.startSpeaking();
 		} catch (e) {
 			const denied = (e as { name?: string })?.name === 'NotAllowedError' || (e as { name?: string })?.name === 'SecurityError';
@@ -974,6 +976,7 @@ export class LiveController {
 		this.speakingNow.clear();
 		this.micDenied = false;
 		this.micDevices = [];
+		this.outDevices = [];
 		this.onAirTitle();
 	}
 
@@ -1507,7 +1510,7 @@ export class LiveController {
 			following: this.following,
 			hostAway: s.hostAway,
 			audio: !!this.audio && r.session.hasMedia && LiveAudio.supported(),
-			call: { inCall: !!this.audio?.inCall, muted: !!this.audio?.isMuted, denied: this.micDenied, devices: this.micDevices, device: this.audio?.device ?? null, highFidelity: !!this.audio?.highFidelity, micLevel: this.audio?.micLevel ?? 1, canShapeMic: !!this.audio?.canShapeMic, stalled: this.stalledShown },
+			call: { inCall: !!this.audio?.inCall, muted: !!this.audio?.isMuted, denied: this.micDenied, devices: this.micDevices, device: this.audio?.device ?? null, highFidelity: !!this.audio?.highFidelity, micLevel: this.audio?.micLevel ?? 1, canShapeMic: !!this.audio?.canShapeMic, stalled: this.stalledShown, masterVolume: this.audio?.masterVolume ?? 1, outputs: this.outDevices, output: this.audio?.output || null, canPickOutput: LiveAudio.canPickOutput() },
 			canChat: s.me?.role !== 'view',
 			typing,
 		};
@@ -1620,6 +1623,8 @@ export class LiveController {
 		},
 		setVolume: (id, v) => this.audio?.setVolume(id, v),
 		setMicLevel: (v) => this.audio?.setMicLevel(v),
+		setMasterVolume: (v) => this.audio?.setMasterVolume(v),
+		pickOutput: (id) => void this.audio?.setOutput(id).then(() => this.host.rerender()),
 		inputLevel: () => this.audio?.inputLevel() ?? 0,
 		end: () => {
 			this.teardown('end');

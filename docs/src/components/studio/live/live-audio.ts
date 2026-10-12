@@ -68,6 +68,10 @@ export class LiveAudio {
 	private remote = new Map<string, MediaStream>();
 	/** How loud each person is played (1 = as it arrives). Kept for the session, not saved. */
 	private volumes = new Map<string, number>();
+	/** One volume for everyone, 0–MAX_VOLUME, multiplied into each person's. */
+	private master = 1;
+	/** The chosen output device ('' = the system default). */
+	private sinkId = '';
 	private amps = new Map<string, Amplifier>();
 	private disposed = false;
 	constructor(private onChange: () => void) {}
@@ -158,6 +162,47 @@ export class LiveAudio {
 		this.unmeter('self');
 		for (const peer of this.players.keys()) this.applyVolume(peer);
 		this.onChange();
+	}
+
+	/** One volume for everyone, 0–MAX_VOLUME (1 is as it arrives). */
+	get masterVolume(): number {
+		return this.master;
+	}
+
+	setMasterVolume(volume: number): void {
+		this.master = Math.min(MAX_VOLUME, Math.max(0, Number.isFinite(volume) ? volume : 1));
+		for (const peer of this.players.keys()) this.applyVolume(peer);
+		this.onChange();
+	}
+
+	/** Whether this browser can send call audio to a chosen speaker (not Safari: it has no `setSinkId`). */
+	static canPickOutput(): boolean {
+		return typeof HTMLMediaElement !== 'undefined' && typeof (HTMLMediaElement.prototype as unknown as { setSinkId?: unknown }).setSinkId === 'function';
+	}
+
+	get output(): string {
+		return this.sinkId;
+	}
+
+	/** Play call audio through this output device ('' = the system default). Applies to every player now and to later ones. */
+	async setOutput(deviceId: string): Promise<void> {
+		this.sinkId = deviceId;
+		const tasks: Array<Promise<unknown>> = [];
+		for (const el of this.players.values()) tasks.push(this.sink(el));
+		// The amplified path plays through the stage's own context, which follows the same device.
+		if (this.stage) tasks.push(this.stage.setSink(deviceId));
+		await Promise.allSettled(tasks);
+		this.onChange();
+	}
+
+	async outputs(): Promise<AudioDevice[]> {
+		const all = await navigator.mediaDevices.enumerateDevices().catch(() => [] as MediaDeviceInfo[]);
+		return all.filter((d) => d.kind === 'audiooutput' && d.deviceId).map((d, i) => ({ id: d.deviceId, label: d.label || `Speaker ${i + 1}` }));
+	}
+
+	private sink(el: HTMLAudioElement): Promise<unknown> {
+		const f = (el as unknown as { setSinkId?: (id: string) => Promise<void> }).setSinkId;
+		return typeof f === 'function' ? f.call(el, this.sinkId).catch(() => {}) : Promise.resolve();
 	}
 
 	/** How loud `peer` is played, 0–MAX_VOLUME (1 is as it arrives). */
@@ -289,6 +334,7 @@ export class LiveAudio {
 			el.autoplay = true;
 			el.muted = !this.inCall;
 			el.setAttribute('data-live-audio', peer);
+			if (this.sinkId) void this.sink(el);
 			el.hidden = true;
 			document.body.append(el);
 			this.players.set(peer, el);
@@ -311,7 +357,7 @@ export class LiveAudio {
 		const el = this.players.get(peer);
 		const stream = this.remote.get(peer);
 		if (!el) return;
-		const v = this.volume(peer);
+		const v = this.volume(peer) * this.master;
 		if (v > 1 && this.inCall && stream) {
 			this.stage ??= createStage({ keepAlive: false });
 			let amp = this.amps.get(peer);

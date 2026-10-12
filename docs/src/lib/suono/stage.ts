@@ -580,6 +580,20 @@ export function createStage(opts: StageOptions = {}): Stage {
 		audioState() {
 			return audioCtx?.state ?? null;
 		},
+		canSetSink() {
+			const c = getCtx() as unknown as { setSinkId?: unknown } | null;
+			return !!c && typeof c.setSinkId === 'function';
+		},
+		async setSink(deviceId) {
+			const c = getCtx() as unknown as { setSinkId?: (id: string) => Promise<void> } | null;
+			if (!c || typeof c.setSinkId !== 'function') return false;
+			try {
+				await c.setSinkId(deviceId);
+				return true;
+			} catch {
+				return false;
+			}
+		},
 		resume() {
 			try {
 				audioCtx?.resume?.().catch(() => {});

@@ -545,3 +545,29 @@ describe('createStage — audioState', () => {
 		expect(createStage().audioState()).toBeNull();
 	});
 });
+
+describe('createStage — output device', () => {
+	it('points the owned context at an output device where the browser allows it, and says no where it does not', async () => {
+		const set = vi.fn(async () => {});
+		(window as unknown as { AudioContext: unknown }).AudioContext = class {
+			state = 'running';
+			destination = {};
+			setSinkId = set;
+			resume = () => Promise.resolve();
+		};
+		const stage = createStage({ keepAlive: false });
+		expect(stage.canSetSink()).toBe(true);
+		expect(await stage.setSink('usb-1')).toBe(true);
+		expect(set).toHaveBeenCalledWith('usb-1');
+		set.mockRejectedValueOnce(new Error('gone'));
+		expect(await stage.setSink('missing')).toBe(false);
+		(window as unknown as { AudioContext: unknown }).AudioContext = class {
+			state = 'running';
+			destination = {};
+			resume = () => Promise.resolve();
+		};
+		const safari = createStage({ keepAlive: false });
+		expect(safari.canSetSink()).toBe(false);
+		expect(await safari.setSink('x')).toBe(false);
+	});
+});

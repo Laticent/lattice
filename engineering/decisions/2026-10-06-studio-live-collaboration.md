@@ -1051,8 +1051,22 @@ listener while the page still said "on the call" (the controller now resumes the
 on unmute, and while it is down the arrow gets a red ring and Your audio says so). A smaller one: mute
 now also disables the raw capture track, so Firefox's microphone light goes off. UNVERIFIED: the level
 on a real microphone and an iPhone, and the shaped send on WebKit/iOS (it was measured crossing a real
-peer connection on Chromium only). Hearing (master volume and output device) and name / what you share
-are built next, in that order.
+peer connection on Chromium only).
+
+**Hearing, built next (2026-10-12).** The same popover has a **Hearing** section: **Everyone**, one volume
+(0–200 %) multiplied into each person's own, and the **speaker**. The multiplication is in
+`LiveAudio.applyVolume`: up to 100 % the element plays it, above that Suono's gain stage does (the
+combined gain can reach 4×, the stage's clamp). The speaker picker uses `setSinkId` on each player and on
+the stage's own context for the amplified path (`stage.setSink`), and it follows the choice for players
+made later. Safari has no `setSinkId`, so there the section says "Your browser plays through the system
+output; it has no speaker picker" instead of hiding. Before you join the speaker list is empty (labels
+need microphone permission) and says "Join audio to list your speakers". Measured on a real two-browser
+call: Everyone at 200 % mutes the element and puts a gain of 2 in the path; at 50 % the element plays at
+0.5; back at 100 % it is 1. The popover caps its height to the room Radix reports
+(`--radix-popover-content-available-height`), found when iPhone-size WebKit could not reach the last
+speaker in a popover taller than the screen under the trigger. UNVERIFIED: choosing a different speaker
+on a real device (headless Chromium lists one fake speaker), and iOS, which has no picker. Name and what
+you share are built last.
 
 **Sequence.** The per-person popover ships with #2633 (it is that PR's Volume decision). The "Me"
 controls are a separate PR after #2633 merges, because they build on its call controls and one
