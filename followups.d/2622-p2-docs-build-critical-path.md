@@ -9,6 +9,11 @@ swimlane: engineering/development.md
 
 # Cut docs-build, now the CI critical path after the integration shard
 
+> **Status 2026-10-12:** the owner picked option D below (shallow fetch in `changes`). It is built on
+> `claude/ci-speed-after-shard-andbcb` but UNVERIFIED on a real queue run, which no PR run exercises.
+> Close this item only after the first merged queue run shows the `changes` checkout under ~10 s and
+> the player filter still right. Option B stays available if docs-build is still last after that.
+
 ```text
   P2 · [no ticket] After the integration job was sharded (#2623) a CI run takes about 12 min and
        `docs-build` finishes after the slowest integration leg.
