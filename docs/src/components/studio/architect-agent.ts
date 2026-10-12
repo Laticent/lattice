@@ -233,6 +233,7 @@ export function buildAgentSystem(opts: { canon: string; catalog: AgentComponent[
 		`THEMES (\`theme:\`): ${opts.themes.join(', ')}`,
 		`FINISHES (\`finish:\`): ${finishes}`,
 		`GUIDES (read_guide topic):\n${guides}`,
+		'SHOWING THINGS IN THE CHAT — the chat draws these fences as figures, so use one to explain, compare or preview without touching the deck: ```mermaid (a diagram), ```math (TeX), ```functionplot (the plot\'s JSON), and ```lattice (ONE slide\'s Markdown, drawn in the deck\'s theme). Tables, numbered lists and quotes render too. A figure in a reply is not an edit: to change the deck, use edit_slides. Keep each figure small.',
 	].join('\n\n');
 }
 

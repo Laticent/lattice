@@ -10,12 +10,15 @@ import { cn } from '@/lib/utils';
 import { applyProposedEditsChecked, type ChatGrounding, type ChatTurn, chatComplete, type DiffRow, useArchitectStatus } from './architect';
 import { ChatCodeBlock } from './ChatCodeBlock';
 import { ChatCost } from './ChatCost';
+import { ChatFigure, ChatFigureContext, type ChatFigureRender } from './ChatFigure';
 import { ChatLiveStatus } from './ChatLiveStatus';
+import { isFigureLang } from './chat-figures';
 import { type ChatSegment, renderMessageSegments, renderMessageSegmentsStreaming } from './chat-markdown';
 import { THINKING } from './chat-status';
 import { DiffCard } from './diff-card';
-import { getFrontMatter } from './front-matter';
+import { frontMatterBlock, getFrontMatter } from './front-matter';
 import { CHAT_COMPOSER_FIELD, CHAT_COMPOSER_ROW, CHAT_COMPOSER_TOOLS, ChatEmptyCard } from './panel-shells';
+import { PreviewPool } from './preview-pool';
 import { useReferenceDoc } from './reference-doc-ui';
 import { type ChatMessage, type ChatProposal, loadChat, loadChatDraft, saveChat, saveChatDraft } from './studio-store';
 
@@ -43,7 +46,7 @@ function AssistantBody({ text, streaming }: { text: string; streaming: boolean }
 			{segs.map((s, i) =>
 				s.type === 'code' ? (
 					// biome-ignore lint/suspicious/noArrayIndexKey: append-only segment list for one render.
-					<ChatCodeBlock key={i} code={s.code} lang={s.lang} />
+					isFigureLang(s.lang) ? <ChatFigure key={i} code={s.code} lang={s.lang} /> : <ChatCodeBlock key={i} code={s.code} lang={s.lang} />
 				) : (
 					// biome-ignore lint/suspicious/noArrayIndexKey: append-only segment list for one render.
 					// biome-ignore lint/security/noDangerouslySetInnerHtml: prose is escape-first rendered by renderProse then DOMPurify-sanitized with the chat tag profile — the single sanitized sink; code never takes this path.
@@ -181,6 +184,13 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 	const scrollRef = React.useRef<HTMLDivElement>(null);
 	const refDoc = useReferenceDoc(onManageDocs);
 	const status = useArchitectStatus(pulse);
+
+	// What a figure in a reply needs to draw as the open deck would: the render context the shell
+	// already hands the chat for its fit check, plus the deck's own front-matter block. Keyed on the
+	// front-matter STRING, not the source, so typing in the deck does not re-point a figure.
+	const fm = frontMatterBlock(source);
+	const fitRender = grounding?.fitRender;
+	const figureRender = React.useMemo<ChatFigureRender | null>(() => (fitRender ? { options: fitRender.options, palette: fitRender.palette, mode: fitRender.mode, extra: fitRender.extra, extraCss: fitRender.extraCss, frontMatter: fm } : null), [fitRender, fm]);
 
 	const deckIdRef = React.useRef(deckId);
 	deckIdRef.current = deckId;
@@ -415,7 +425,11 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 			) : costSlot ? (
 				createPortal(costReadout, costSlot)
 			) : null}
-			<div ref={scrollRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-3">
+			<div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
+				{/* ONE POOL FOR THE TRANSCRIPT. Figures in replies are tiles in it, so a long conversation
+				    holds a handful of live frames however many figures it has (the bake-off decision). */}
+				<ChatFigureContext.Provider value={figureRender}>
+				<PreviewPool className="space-y-3" baseSlots={4}>
 				{empty && <ChatEmptyCard aiReady={aiReady} />}
 				{messages.map((m, i) =>
 					m.role === 'user' ? (
@@ -463,6 +477,8 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 						<span>{shownNotice.text}</span>
 					</div>
 				)}
+				</PreviewPool>
+				</ChatFigureContext.Provider>
 			</div>
 
 			<div className="flex flex-col gap-1.5 border-t border-border p-2.5">

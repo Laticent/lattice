@@ -1,16 +1,5 @@
-import { CHROME, expect, gotoStudio, openChat, test } from './studio-fixture';
+import { expect, gotoStudio, openChatAtWidth, test } from './studio-fixture';
 
-// Chat's launcher moves with the tier: a rail button on desktop and in the phone's bottom
-// bar, a menu row between them.
-async function openChatAt(page: import('@playwright/test').Page, w: number) {
-	if (w >= 700 && w < 1100) {
-		await page.getByRole('button', { name: CHROME.searchOverflow, exact: true }).first().click();
-		await page.getByRole('menuitem', { name: /^Chat/ }).click();
-	} else {
-		await page.getByRole('button', { name: CHROME.chat, exact: true }).first().click();
-	}
-	await expect(page.getByRole('textbox', { name: 'Message the Architect' })).toBeVisible();
-}
 
 // THE STUDIO CHAT, ON THE REAL SURFACE: status line, Markdown, model chip.
 //
@@ -77,7 +66,7 @@ for (const [w, h] of [
 	});
 
 	await gotoStudio(page);
-	await openChatAt(page, w);
+	await openChatAtWidth(page, w);
 	await page.getByRole('textbox', { name: 'Message the Architect' }).fill('evaluate and score the deck');
 	await page.getByRole('button', { name: 'Send', exact: true }).click();
 

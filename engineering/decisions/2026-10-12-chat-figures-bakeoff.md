@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: shipped
 summary: Chat replies that carry a mermaid, math or function-plot fence, or a whole Lattice slide, should draw it in the bubble. Four ways to draw one were built against the same figures and measured in real Chromium: one iframe per figure, a re-pointed pool of iframes, a bake to inline SVG, and a bake to an image. The pool wins on every cost that grows with the transcript (+95 to +159 MB at 40 figures against +325 to +641 MB for one iframe each), and baking loses on time (about 1 s per figure, 25 to 45 s for 40) without saving memory. WebKit, where the pool matters most, is not measured here.
 companion:
   - ./2026-09-13-gallery-preview-memory.md
@@ -134,13 +134,36 @@ time and memory. A per-bubble `DeckPreview` is rejected on memory.
 Plugin admission follows the deck: the chat renders through the engine using the open deck's front
 matter, so a plugin the author turned off for the deck stays off in the chat.
 
-### Not decided here
+## 7b. What shipped (2026-10-12)
 
-- **Which fences and which slides count as a figure.** Proposed: the language fences the engine
-  already draws (`mermaid`, `math`, `functionplot`, and its `latticeplot` alias), plus a fence tagged
-  `lattice` or `markdown` whose body is a slide. `anima` is excluded (its surfaces say `pdf: none`
-  and a still of an animation is wrong).
-- **Slide frame or bare figure** (§6.4).
+- **`ChatFigure`** draws a fence as a tile in the transcript's own `PreviewPool`
+  (`docs/src/components/studio/ChatFigure.tsx`, `chat-figures.ts`). Fences that become figures:
+  `mermaid`, `math`, `functionplot` (and its `latticeplot` alias), and `lattice`, whose body is one
+  slide's Markdown. `anima` is excluded: a still of an animation is wrong. A figure over 8,000
+  characters, or with no render context, stays a code block, and every figure has a **Source** toggle.
+- **The pool takes a floor from its caller.** `PreviewPool` gained `baseSlots` (default
+  `BASE_SLOTS`, 10, so every existing grid is unchanged). The chat passes 4: the cap still grows to
+  cover everything on screen, so the floor is what an off-screen figure may hold.
+  In the real Studio that is a bound by the **visible** count, not a constant: a docked column at
+  1440 px shows about seven short figures at once and held nine frames; the phone showed three.
+- **Each figure is a one-slide deck in the open deck's front matter**, so it takes the deck's theme,
+  mode and plugin admission. The render context is the one the shell already hands the chat for its
+  fit check (`grounding.fitRender`), so the shell did not change.
+- **The agent is told** (`buildAgentSystem`) that these fences draw in the chat and are not edits.
+- **Verified** in real Chromium by `docs/e2e/chat-figures.spec.ts` at 390, 820 and 1440 px: fourteen
+  fences became fourteen figures, the diagram, the equation and the slide drew, no figure printed as
+  source, no sideways scroll, and the frame count stayed below one per figure.
+
+### Known limits
+
+- **A bare `math` fence sits left of an empty legend column.** The `math` layout is a hero equation
+  plus a legend, and a chat equation has no legend. It reads, and it is not centered. A model that
+  wants a legend writes a `lattice` fence holding a full `math` slide. A centered, legend-free
+  equation figure is a layout decision, not a measurement, and is left open.
+- **A figure flashes when its reply commits.** The streaming bubble unmounts and the committed
+  message mounts a new tile, so the pool re-points the frame once. Not measured.
+- **Not drawn: `anima`, video, and anything the engine admits only per deck.** A figure follows the
+  open deck's plugin choices by construction.
 
 ## 8. What this does NOT show
 

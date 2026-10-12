@@ -838,6 +838,18 @@ export async function openArchitect(page: Page): Promise<void> {
 	await expect(page.getByText('Deck read')).toBeVisible();
 }
 
+/** Open the Chat panel at ANY studio width. Its launcher moves with the tier: a rail button on
+ *  desktop and in the phone's bottom bar, a row in the ⋯ menu between them. */
+export async function openChatAtWidth(page: Page, width: number): Promise<void> {
+	if (width >= 700 && width < 1100) {
+		await page.getByRole('button', { name: CHROME.searchOverflow, exact: true }).first().click();
+		await page.getByRole('menuitem', { name: /^Chat/ }).click();
+	} else {
+		await page.getByRole('button', { name: CHROME.chat, exact: true }).first().click();
+	}
+	await expect(page.getByRole('textbox', { name: 'Message the Architect' })).toBeVisible();
+}
+
 /** Open the Chat panel — a separate launcher peer of the Coach. */
 export async function openChat(page: Page): Promise<void> {
 	await page.getByRole('button', { name: CHROME.chat }).click();
