@@ -65,7 +65,7 @@ export function CodePackagesNotice({ source, stamp, onApproved, onWrite }: { sou
 				</Button>
 				{open && (
 					<p data-slot="code-packages-detail" className="basis-full pb-1 text-muted-foreground">
-						{p.name}.{plugin ? 'render.js (the ```' + p.fence + ' fence)' : 'transform.js'}, {p.bytes.toLocaleString('en-US')} bytes, sha256 <code className="break-all">{p.sha256}</code>. It runs in a sandbox with no network and no access to this page or your saved work, and it sees only {plugin ? 'the text of the block it draws' : 'the slide it draws'}; what it draws is cleaned like any slide and keeps no web address the slide did not already have. Run code only from someone you trust: a flaw in the browser could let it out. Changed code asks again.
+						{p.name}.{plugin ? 'render.js (the ```' + p.fence + ' fence)' : 'transform.js'}, {p.bytes.toLocaleString('en-US')} bytes, sha256 <code className="break-all">{p.sha256}</code>. It runs in a sandbox with no network and no access to this page or your saved work, and it sees only {plugin ? 'the text of the block it draws' : 'the slide it draws'}; what it draws is cleaned like any slide and keeps no web address the slide did not already have. Run code only from someone you trust: a flaw in the browser could let it out. Changed code asks again. The approval stays in this browser even if you undo the line.
 					</p>
 				)}
 			</div>
@@ -79,7 +79,7 @@ export function CodePackagesNotice({ source, stamp, onApproved, onWrite }: { sou
 				<Sparkles className="size-3.5 shrink-0 text-[var(--accent)]" aria-hidden />
 				<span className="min-w-0 flex-1">
 					<span className="font-semibold">
-						The plugin “{p.name}”{more ? ` and ${more} more` : ''} can draw the {`\`\`\`${p.fence}`} block in this deck.
+						The plugin “{p.name}” can draw the {`\`\`\`${p.fence}`} block in this deck.{more ? ` ${more} more plugin${more > 1 ? 's are' : ' is'} offered after it.` : ''}
 					</span>{' '}
 					<button type="button" className="underline underline-offset-2" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
 						{open ? 'Hide details' : 'What it is'}

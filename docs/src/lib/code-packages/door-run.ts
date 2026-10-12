@@ -145,7 +145,7 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 	const first = PG.render(source, theme, { ...engineOpts, codePackages: cap.hook, ...(externalPlugins.length ? { externalPlugins } : {}), ...(fences.size ? { codeFences: capFences } : {}) }) as R;
 	// Notes about plugins the deck lists (a refused plugin says why, even when no plugin runs); not about every installed one.
 	const listedNames = installed.size ? new Set(deckPluginList(source)) : new Set<string>();
-	const planNotes = plan.notes.filter((n: string) => [...listedNames].some((name) => n.includes(` ${name} `) || n.includes(`plugin ${name}`) || n.includes(`plugins ${name}`) || n.includes(` and ${name} `)));
+	const planNotes = plan.notes.filter((n: string) => [...listedNames].some((name) => new RegExp(`(^|[^a-z0-9-])${name.replace(/[^a-z0-9-]/g, '')}([^a-z0-9-]|$)`).test(n)));
 	const notes = [...planNotes, ...(fences.size ? fenceCaptureNotes(capFences, fences) : [])];
 	if (!cap.claims.length && !capFences.claims.length) {
 		if (reporting) report({ unapproved: [], failed: [], ...(notes.length ? { notes } : {}) });

@@ -217,6 +217,31 @@ describe('rules the inversion lens found untested', () => {
 	});
 });
 
+describe('rules whose removal no test used to notice', () => {
+	const many = (n: number) => `---\ntheme: indaco\nplugins: [gantt-plugin]\n---\n\n## Many\n\n${Array.from({ length: n }, (_, i) => `\`\`\`gantt\nrow ${i}\n\`\`\`\n`).join('\n')}`;
+
+	it('a remembered fence counts its RAW length, as a fresh one did (a result that shrinks in the sanitizer does not escape the cap on the second render)', async () => {
+		await approve();
+		// 1.5M raw each, but the sanitizer keeps only a sliver: raw is what the cap counts, fresh or remembered.
+		renderer = () => `<script>${'x'.repeat(1_500_000)}</script><p>k</p>`;
+		const first = await draw(many(4));
+		const second = await draw(many(4));
+		const drawn = (h: string) => (h.match(/data-lattice-plugin="gantt-plugin"/g) || []).length;
+		expect(drawn(first)).toBe(2);
+		expect(drawn(second)).toBe(drawn(first));
+	});
+
+	it('the memo is bounded in characters, not only in entries', async () => {
+		await approve();
+		renderer = (f) => `<p>${f.body.slice(0, 8).replace(/\W/g, '')}${'m'.repeat(3_000_000)}</p>`;
+		for (let k = 0; k < 12; k++) await draw(`---\ntheme: indaco\nplugins: [gantt-plugin]\n---\n\n## M${k}\n\n\`\`\`gantt\nunique-${k}\n\`\`\`\n`);
+		const before = opened.length;
+		// The first fence was evicted long ago (12 x 3M > the 24M bound): drawing it again runs the renderer again.
+		await draw(`---\ntheme: indaco\nplugins: [gantt-plugin]\n---\n\n## M0\n\n\`\`\`gantt\nunique-0\n\`\`\`\n`);
+		expect(opened.length).toBeGreaterThan(before);
+	});
+});
+
 describe('a refused plugin', () => {
 	it('is never offered or approvable, and a listed one says why even though nothing runs', async () => {
 		await setPlugins([{ name: 'py-plugin', fence: 'python', code }]);

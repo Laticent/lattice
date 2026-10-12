@@ -403,6 +403,18 @@ describe('the worker for a fence renderer', () => {
   });
 });
 
+describe('the CLI door refuses a plugin whose fence is a code language', () => {
+  test('a `python` plugin is not run and the door says why', () => {
+    const { renderWithCodePackages } = require('../../../lib/packages/code-door.js');
+    const warn = [];
+    const e = engine.createEngine();
+    const md = '---\ntheme: indaco\n---\n\n## P\n\n```python\nprint(1)\n```\n';
+    const r = renderWithCodePackages((hook, more) => e.render(md, 'indaco', { codePackages: hook, ...more }), { packages: [], plugins: [{ name: 'py-plugin', fence: 'python', code: 'function render(){return "<p>x</p>"}\nexport { render as default };' }], warn: (l) => warn.push(l) });
+    assert.ok(warn.some((l) => /plugin py-plugin is not run: `python` is a code language the engine highlights/.test(l)), warn.join('\n'));
+    assert.match(r.rendered.html, /hljs/, 'the block is still highlighted');
+  });
+});
+
 describe('consent under plugin/<name>', () => {
   const pkg = (fence = 'gantt', code = 'export { x as default };') => ({ roles: { 'render.js': 'r.js' }, manifest: { contributes: { fences: { [fence]: {} } } }, files: { 'r.js': code } });
 
