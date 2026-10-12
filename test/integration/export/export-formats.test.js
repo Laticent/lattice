@@ -761,6 +761,34 @@ describe('export-formats', () => {
     assert.ok(rows.some((row) => /^\s*2\s.*\bimage\s+2560\s+1440\b/.test(row)), `slide 2's photo is 2x:\n${rows.join('\n')}`);
   });
 
+  test('a JPEG stored rotated (EXIF Orientation 6) stays in the photo, where it is upright', { timeout: TIMEOUT }, () => {
+    const dir = tmpDir();
+    // The same sample twice: once as shipped (Orientation 6), once with its Exif segment removed.
+    // Only the rotated copy may stay in the photo; the plain one is embedded at its own bytes.
+    const rotated = fs.readFileSync(path.join(ROOT, 'lib/samples/photo-tall-rotated.jpg'));
+    fs.writeFileSync(path.join(dir, 'rotated.jpg'), rotated);
+    const sof = rotated.indexOf(Buffer.from([0xff, 0xc0]));
+    const app1 = rotated.indexOf(Buffer.from([0xff, 0xe1]));
+    assert.ok(app1 > 0 && app1 < sof, 'fixture: the sample has an Exif segment ahead of its frame header');
+    const app1End = app1 + 2 + rotated.readUInt16BE(app1 + 2);
+    fs.writeFileSync(path.join(dir, 'plain.jpg'), Buffer.concat([rotated.subarray(0, app1), rotated.subarray(app1End)]));
+    const src = path.join(dir, 'rotated.md');
+    fs.writeFileSync(src, [
+      '---', 'html: true', 'paginate: false', '---', '',
+      '## Rotated and plain', '',
+      '<img src="rotated.jpg" style="width:200px;height:300px"> <img src="plain.jpg" style="width:200px;height:300px">', '',
+    ].join('\n'));
+    const out = path.join(dir, 'rotated.pdf');
+    const report = path.join(dir, 'report.json');
+    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env, LATTICE_PDF_REPORT: report }, timeout: TIMEOUT,
+    });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    const rep = JSON.parse(fs.readFileSync(report, 'utf8'));
+    assert.equal(rep.refusedImages.rotated, 1, 'the rotated copy stays in the photo');
+    assert.equal(rep.images, 1, 'the plain copy is embedded natively');
+  });
+
   test('--chrome-pdf prints with Chrome: the finish stays vector drawing, nothing is photographed', { timeout: TIMEOUT }, () => {
     const dir = tmpDir();
     const out = path.join(dir, 'deck.pdf');

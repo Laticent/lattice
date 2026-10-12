@@ -51,6 +51,23 @@ The first photo is marked `hero`. A focal word such as `top` keeps that part of 
 
 ---
 
+<!-- _class: collage -->
+
+`EXIF rotation`
+
+## A sideways phone photo still packs tall.
+
+`The packer reads the rotation tag`
+
+The first photo is stored as landscape pixels with EXIF Orientation 6. The packer turns it upright when it measures, so it keeps a tall tile.
+
+- ![Portrait photo stored rotated](sample:photo-tall-rotated.jpg)
+- ![Wide landscape](sample:photo-wide.jpg)
+- ![Square](sample:photo-square.jpg)
+- ![Panorama](sample:photo-pano.jpg)
+
+---
+
 <!-- _class: collage ordered -->
 
 `ordered`

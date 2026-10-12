@@ -22,7 +22,7 @@ ordinary relative paths.
 
 | Prefix | What it is |
 |---|---|
-| `photo-` | Stand-in photographs, one per shape: `wide`, `tall`, `pano`, `square`, `column`. Each shape comes as an SVG; `wide`, `tall`, `pano` and `square` also come as a JPEG, for testing the raster path. |
+| `photo-` | Stand-in photographs, one per shape: `wide`, `tall`, `pano`, `square`, `column`. Each shape comes as an SVG; `wide`, `tall`, `pano` and `square` also come as a JPEG, for testing the raster path. `photo-tall-rotated.jpg` is the tall photo stored as landscape pixels with EXIF Orientation 6, for testing that a rotated JPEG measures upright. |
 | `portrait-` | Team portraits for `team-profile`. |
 | `logo-` | Brand marks for `logo-wall`. `logo-acme-mark.svg` is the deck-logo placeholder. |
 | `video-poster.svg` | The poster still for `video`. |
