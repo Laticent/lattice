@@ -189,6 +189,15 @@ describe('through the real engine: capture, then substitute', () => {
     }
   });
 
+  test('a raw <section class="video"> nested in a slide denies that slide too (the video pass scans every <li> in its section)', () => {
+    const src = '---\ntheme: indaco\n---\n\n## A\n\n<section class="video">\n\n```gantt\nSECRET\n```\n\n</section>\n';
+    const cap = captureFences(fences, { ...slides, rebuilt: rebuiltBy });
+    const html = render(src, cap);
+    assert.equal(cap.claims.length, 0, 'no claim');
+    assert.equal(cap.shadowed.length, 1, 'and the door says why');
+    assert.match(html, /language-gantt/, 'the block is still code');
+  });
+
   test('an ordinary slide, a layout class and a modifier that no pass rebuilds still get their fences drawn', () => {
     for (const classes of ['content', 'closing', 'split-panel', 'dark', 'content dark']) {
       const src = `---\ntheme: indaco\n---\n\n<!-- _class: ${classes} -->\n\n## Slide\n\n\`\`\`gantt\nx\n\`\`\`\n`;

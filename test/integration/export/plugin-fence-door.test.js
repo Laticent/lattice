@@ -127,6 +127,17 @@ describe('the fence door through the real sandbox', () => {
     assert.deepEqual(hits, [], `the renderer tried the network four ways and reached the server ${hits.length} times: ${hits.join(' ')}`);
   });
 
+  test('MALFORMED: a plugin entry with no name, fence or code is refused with a line, not a throw', { timeout: TIMEOUT }, () => {
+    const e = engine.createEngine();
+    const warn = [];
+    for (const bad of [null, { name: 5, fence: 'gantt', code: 'x' }, { name: 'a', fence: 'gantt' }, { name: 'a', code: 'x' }]) {
+      const r = renderWithCodePackages((hook, more) => e.render(DECK, 'indaco', { codePackages: hook, ...more }), { packages: [], plugins: [bad], warn: (l) => warn.push(l) });
+      assert.ok(r.rendered, 'the deck still renders');
+      assert.doesNotMatch(r.rendered.html, /data-lattice-plugin/);
+    }
+    assert.equal(warn.length, 4, warn.join('\n'));
+  });
+
   test('CHANGED: one byte of code after approval is refused again', { timeout: TIMEOUT }, () => {
     const code = hostile(H, P);
     approve(plugin(code));
