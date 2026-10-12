@@ -8,7 +8,7 @@
 // can do in the panel. Fixtures: docs/e2e/live-panel-harness/.
 
 import { expect, test } from '@playwright/test';
-import { assertFocusTrapped, axeFindings, calls, closeMenu, type Harness, live, micMenu, onCall, open as openPage, optionsFor, startHarness } from './live-panel-harness/serve';
+import { assertFocusTrapped, axeFindings, calls, closeMenu, type Harness, live, micMenu, onCall, open as openPage, optionsFor, startHarness, volumeFor } from './live-panel-harness/serve';
 
 let harness: Harness;
 test.beforeAll(async () => {
@@ -19,28 +19,50 @@ test.afterAll(async () => {
 });
 const open = (page: import('@playwright/test').Page, query = '') => openPage(page, harness.baseURL, query);
 
+test('@crosswidth @webkit-phone the volume button is on every other row in every state, and says what is possible', async ({ page }) => {
+	await open(page);
+	// You are not on the call: the button is still there, and says what to do.
+	await expect(volumeFor(page, 'Amina')).toBeVisible();
+	await expect(volumeFor(page, 'Amina')).toHaveAttribute('data-live-available', 'false');
+	await volumeFor(page, 'Amina').click();
+	await expect(page.locator('[data-live-audio-unavailable]')).toContainText('Join the call to hear and adjust people.');
+	await expect(page.locator('[data-live-volume]')).toHaveCount(0);
+	await page.getByRole('button', { name: 'Join audio', exact: true }).last().click();
+	expect((await calls(page)).filter((c) => c[0] === 'toggleMic')).toHaveLength(1);
+	await page.keyboard.press('Escape');
+	// You are on the call, they are not.
+	await live(page, (l) => l.set({ call: { inCall: true, muted: false, denied: false, devices: [], device: null, highFidelity: false } }));
+	await volumeFor(page, 'Amina').click();
+	await expect(page.locator('[data-live-audio-unavailable]')).toContainText("Amina isn't on the call yet.");
+	await page.keyboard.press('Escape');
+	// Both on the call: the slider. Never on your own row.
+	await onCall(page);
+	await expect(volumeFor(page, 'Amina')).toHaveAttribute('data-live-available', 'true');
+	await expect(volumeFor(page, 'Sharmarke')).toHaveCount(0);
+});
+
 test('@crosswidth @webkit-phone the quality line shows on a call, with what you send, and nowhere else', async ({ page }) => {
 	await open(page);
-	await optionsFor(page, 'Amina').click();
-	await expect(page.locator('[data-live-quality]')).toHaveCount(0); // not on a call
-	await expect(page.locator('[data-live-volume]')).toHaveCount(0);
-	await page.keyboard.press('Escape');
 	await onCall(page);
-	await optionsFor(page, 'Amina').click();
+	await volumeFor(page, 'Amina').click();
 	await expect(page.locator('[data-live-quality]')).toContainText('Audio: 64 kbit/s · 0.4 % lost · 18 ms jitter');
 	await expect(page.locator('[data-live-quality]')).toContainText('You send 64 kbit/s');
 	await page.keyboard.press('Escape');
 	// Loss is shown as a whole number from 10 %, to one decimal below it.
 	await live(page, (l) => l.person('p2', { quality: { inKbps: 30, lostPct: 12.4, jitterMs: 90 } }));
-	await optionsFor(page, 'Amina').click();
+	await volumeFor(page, 'Amina').click();
 	await expect(page.locator('[data-live-quality]')).toContainText('Audio: 30 kbit/s · 12 % lost · 90 ms jitter');
 	await expect(page.locator('[data-live-quality]')).not.toContainText('You send');
+	// It is not in the person's menu any more: that menu holds actions only.
+	await page.keyboard.press('Escape');
+	await optionsFor(page, 'Amina').click();
+	await expect(page.locator('[role=menu] [data-live-quality], [role=menu] [data-live-volume]')).toHaveCount(0);
 });
 
 test('@crosswidth @webkit-phone the quality line is absent when nothing was measured, the volume slider stays', async ({ page }) => {
 	await open(page);
 	await onCall(page, { quality: undefined });
-	await optionsFor(page, 'Amina').click();
+	await volumeFor(page, 'Amina').click();
 	await expect(page.locator('[data-live-quality]')).toHaveCount(0);
 	await expect(page.locator('[data-live-volume]')).toBeVisible();
 });
@@ -48,7 +70,7 @@ test('@crosswidth @webkit-phone the quality line is absent when nothing was meas
 test('@crosswidth @webkit-phone the volume slider runs 0–200 % in 10 % steps and reports what it sets', async ({ page }) => {
 	await open(page);
 	await onCall(page);
-	await optionsFor(page, 'Amina').click();
+	await volumeFor(page, 'Amina').click();
 	const slider = page.locator('[data-live-volume] input[type=range]');
 	await expect(slider).toHaveAttribute('min', '0');
 	await expect(slider).toHaveAttribute('max', '200');
@@ -62,14 +84,14 @@ test('@crosswidth @webkit-phone the volume slider runs 0–200 % in 10 % steps a
 	const sets = (await calls(page)).filter((c) => c[0] === 'setVolume');
 	expect(sets.map((c) => c[1])).toEqual(['p2', 'p2', 'p2']);
 	expect(sets.map((c) => Math.round((c[2] as number) * 100))).toEqual([110, 200, 0]);
-	// The slider is the only thing that took the arrow keys: the menu is still open.
+	// The slider took the arrow keys, and the popover is still open.
 	await expect(slider).toBeVisible();
 });
 
 test('@crosswidth @webkit-phone the volume follows the model, with a spoken value', async ({ page }) => {
 	await open(page);
 	await onCall(page, { volume: 1.5 });
-	await optionsFor(page, 'Amina').click();
+	await volumeFor(page, 'Amina').click();
 	const slider = page.locator('[data-live-volume] input[type=range]');
 	await expect(slider).toHaveValue('150');
 	await expect(slider).toHaveAttribute('aria-valuetext', '150 percent');
@@ -115,22 +137,22 @@ test('@crosswidth @webkit-phone the microphone menu lists the microphones only w
 	expect((await calls(page)).filter((c) => c[0] === 'pickMic')).toEqual([['pickMic', 'm2']]);
 });
 
-test('@a11y @webkit-phone the person menu has no axe findings (known: the Volume slider inside role=menu), in both color modes', async ({ page }) => {
-	// KNOWN DEFECT, expected to fail: the Volume slider sits directly inside the person menu's role="menu",
-	// and axe reports `aria-required-children` ("children which are not allowed: input"). A `group` wrapper
-	// does not satisfy it. The owner decides between a popover for Volume and a documented exception (#2633).
-	// `test.fail` keeps the nightly green while it holds and turns it RED the moment it is fixed, so this
-	// line cannot outlive the defect. Remove it with the fix.
-	test.fail(true, 'aria-required-children: the Volume slider is inside role=menu (#2633)');
+test('@a11y @webkit-phone the person menu and the volume popover have no axe findings, in both color modes', async ({ page }) => {
 	await open(page);
 	await onCall(page);
 	for (const mode of ['dark', 'light']) {
 		await page.evaluate((m) => document.documentElement.setAttribute('data-mode', m), mode);
 		await optionsFor(page, 'Amina').click();
-		expect(await axeFindings(page, { menuOpen: true }), `axe findings in a person's menu with the readout and volume (${mode})`).toEqual([]);
+		expect(await axeFindings(page, { menuOpen: true }), `axe findings in a person's menu (${mode})`).toEqual([]);
 		expect(await assertFocusTrapped(page), 'focus escaped the open menu').toEqual([]);
 		await closeMenu(page);
 		await page.mouse.move(0, 0); // resting state: a hovered row has its own, lower contrast (a recorded follow-up)
+		await volumeFor(page, 'Amina').click();
+		await expect(page.locator('[data-live-person-audio]')).toBeVisible();
+		await page.mouse.move(0, 0); // resting state, as everywhere here
+		expect(await axeFindings(page), `axe findings in the volume popover (${mode})`).toEqual([]);
+		await page.keyboard.press('Escape');
+		await page.mouse.move(0, 0);
 	}
 });
 

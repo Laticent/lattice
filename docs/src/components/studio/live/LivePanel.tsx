@@ -1,10 +1,11 @@
-import { ArrowLeftRight, ArrowUp, Check, ChevronDown, Copy, Crown, Eye, Headphones, Link2, LogOut, Mic, MicOff, MoreHorizontal, Pencil, PhoneOff, Server, UserMinus, UsersRound, Wifi, X } from 'lucide-react';
+import { ArrowLeftRight, ArrowUp, Check, ChevronDown, Copy, Crown, Eye, Headphones, Link2, LogOut, Mic, MicOff, MoreHorizontal, Pencil, PhoneOff, Server, UserMinus, UsersRound, Volume2, VolumeX, Wifi, X } from 'lucide-react';
 import * as React from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
@@ -77,6 +78,50 @@ function VolumeSlider({ p, actions }: { p: LivePerson; actions: LiveActions }) {
 	);
 }
 
+/**
+ * How loud you hear one person, and how their audio is arriving. ALWAYS on their row while calls are
+ * available (a control that appears only in some states reads as missing: on the owner's iPhone, alone
+ * in a session, there was nothing to find). What is inside says what is possible right now: the slider
+ * when you are both on the call, otherwise why not. A popover rather than a menu item, because a slider
+ * is not a menu item (axe `aria-required-children`), and a popover holds one properly.
+ */
+function PersonAudio({ p, view, actions }: { p: LivePerson; view: LiveView; actions: LiveActions }) {
+	const live = p.volume !== undefined;
+	const Glyph = live && (p.volume ?? 1) === 0 ? VolumeX : Volume2;
+	return (
+		<Popover>
+			<PopoverTrigger asChild>
+				<Button variant="ghost" size="icon" className={cn('size-6 shrink-0', TOUCH, !live && 'text-muted-foreground/60')} aria-label={`Volume for ${p.name}`} data-live-volume-button data-live-available={live}>
+					<Glyph className="size-3.5" />
+				</Button>
+			</PopoverTrigger>
+			<PopoverContent align="end" className="w-60 p-3" data-live-person-audio>
+				<div className="mb-1 text-[12px] font-semibold text-foreground">{p.name}</div>
+				{live ? (
+					<>
+						<VolumeSlider p={p} actions={actions} />
+						{p.quality && qualityLine(p.quality) && (
+							<div className="mt-2 flex flex-col gap-0.5 text-[11px] text-muted-foreground" data-live-quality>
+								<span>Audio: {qualityLine(p.quality)}</span>
+								{p.quality.sendKbps !== undefined && <span>You send {Math.round(p.quality.sendKbps)} kbit/s</span>}
+							</div>
+						)}
+					</>
+				) : (
+					<div className="flex flex-col gap-2 text-[11.5px] leading-snug text-muted-foreground" data-live-audio-unavailable>
+						<span>{!view.call.inCall ? 'Join the call to hear and adjust people.' : `${p.name} isn't on the call yet.`}</span>
+						{!view.call.inCall && (
+							<Button size="sm" onClick={actions.toggleMic} className="self-start">
+								Join audio
+							</Button>
+						)}
+					</div>
+				)}
+			</PopoverContent>
+		</Popover>
+	);
+}
+
 function PersonRow({ p, view, actions }: { p: LivePerson; view: LiveView; actions: LiveActions }) {
 	const MicGlyph = p.mic === 'muted' ? MicOff : Mic;
 	const canManage = view.isHost && !p.me && p.role !== 'host';
@@ -100,6 +145,7 @@ function PersonRow({ p, view, actions }: { p: LivePerson; view: LiveView; action
 			</div>
 			{view.audio && p.me && <CallControls view={view} actions={actions} />}
 			{view.audio && !p.me && p.mic !== 'off' && <MicGlyph className={cn('size-3.5 shrink-0', p.mic === 'muted' ? 'text-muted-foreground/60' : 'text-foreground')} aria-label={p.mic === 'muted' ? 'Muted' : 'Mic on'} />}
+			{view.audio && !p.me && !p.away && <PersonAudio p={p} view={view} actions={actions} />}
 			{!p.me && !p.away && (
 				<DropdownMenu>
 					<DropdownMenuTrigger asChild>
@@ -120,13 +166,6 @@ function PersonRow({ p, view, actions }: { p: LivePerson; view: LiveView; action
 							<DropdownMenuLabel className="flex flex-col gap-0.5 py-1 text-[11px] font-normal text-muted-foreground" data-live-link-detail>
 								<span>Connection: {LINK_LABEL[p.link.kind].toLowerCase()}</span>
 								<span className="font-mono text-[10.5px]">{p.link.detail}</span>
-							</DropdownMenuLabel>
-						)}
-						{p.volume !== undefined && <VolumeSlider p={p} actions={actions} />}
-						{p.quality && qualityLine(p.quality) && (
-							<DropdownMenuLabel className="flex flex-col gap-0.5 py-1 text-[11px] font-normal text-muted-foreground" data-live-quality>
-								<span>Audio: {qualityLine(p.quality)}</span>
-								{p.quality.sendKbps !== undefined && <span>You send {Math.round(p.quality.sendKbps)} kbit/s</span>}
 							</DropdownMenuLabel>
 						)}
 						{canManage && (

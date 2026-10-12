@@ -993,6 +993,48 @@ join click, a permission prompt answered after the session closed leaks nothing,
 on the call shows no mic at all (*Muted* is only for someone on the call, which also stopped the
 row from truncating names).
 
+### 12.3 Who controls what: Me, Them, Session (2026-10-12)
+
+**Why.** The owner, testing on an iPhone, found the call controls scattered ("things are all over
+the place") and could not find the Volume slider when alone in a session. Both are one fault: a
+person's own controls had no single home, and a control that exists only in some states reads as
+missing. Today a person's own settings are split across the row's Mute and Leave, the thin arrow
+beside Mute, the lobby (the name, set once, no way to change it after joining) and the header menu;
+how loud you hear others lived two taps deep in *their* menu; and nothing showed whether your own
+microphone was working.
+
+**The model: three scopes, and every control has exactly one home.**
+- **Me**: what I send and my devices. Microphone (device, a live level meter, mic level, voice
+  mode: Clean voice or High fidelity), what I hear (a master volume, the output device where the
+  browser allows it; Safari has no output picker), my name, and what I share about myself (my cursor
+  and my slide).
+- **Them**: per person. How loud I hear them and how their audio is arriving (their popover), and
+  the actions on them (follow, go to their slide, and for the host their role and removal), which
+  stay in their ⋯ menu.
+- **Session**: the invite link, auto-admit, bring everyone, leave or end. The header menu.
+
+**The rule: deterministic placement.** A control is always where it lives, in every state. Where it
+cannot act yet it stays visible and says why ("Join the call to hear and adjust people", "Amina
+isn't on the call yet") instead of disappearing. Nothing appears only when two other conditions
+hold. The owner's word for this was "deterministic".
+
+**Settled (owner, 2026-10-12).**
+- Your own controls: a **Your audio** popover from the arrow beside Mute (meter, microphone, mic
+  level, voice mode, hearing), and a **⋯ on your own row** (name, what you share, sounds), matching
+  how other people's rows work.
+- Other people's audio: a **volume button on every other person's row**, always present, opening a
+  popover with the slider and the quality line. This replaces §12.2's placement of the readout and
+  the Volume slider in the ⋯ menu, which fixes the axe `aria-required-children` finding (a slider is
+  not a menu item; a popover holds one properly). Their ⋯ menu keeps only actions.
+- The four "Me" items to build, in this order: the live mic meter (so you can test alone), mic
+  level (outgoing loudness, which also addresses a quiet call at the sender), master volume plus the
+  output device, and changing your name and what you share.
+
+**Sequence.** The per-person popover ships with #2633 (it is that PR's Volume decision). The "Me"
+controls are a separate PR after #2633 merges, because they build on its call controls and one
+feature is one PR. Mic level changes what every listener receives, so it gets a tier-1 independent
+check and a measurement of the send level before and after on the real two-browser call.
+
 ## 13. Implementation reference — what it is built from, and why
 
 The road ahead (voice and video, a server path, firewalls, screen share, the open decisions) is

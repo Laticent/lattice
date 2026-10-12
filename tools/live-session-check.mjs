@@ -207,18 +207,18 @@ await host.waitForTimeout(10000);
 const b1 = await audioBytes(host);
 const i1 = await audioIn(host);
 log(`getStats, host hearing the guest: ${(((i1.bytes - i0.bytes) * 8) / 10 / 1000).toFixed(1)} kbit/s, ${i1.lost} of ${i1.got + i1.lost} packets lost in all, jitter ${i1.jitterMs.toFixed(1)} ms`);
-await host.locator('button[aria-label="Options for Amina"]').click();
+await host.getByRole('button', { name: 'Volume for Amina' }).click();
 await host.waitForSelector('[data-live-quality]', { timeout: 15000 }).catch(() => {});
-log(`the host's menu for Amina reads: ${JSON.stringify(await host.locator('[data-live-quality]').allInnerTexts())}`);
-await host.screenshot({ path: `${OUT}call-quality-menu-${mode}.png` });
-// Volume (P3): the slider in the same menu. Past 100 % the element is muted and a gain stage plays the voice.
+log(`the host's audio popover for Amina reads: ${JSON.stringify(await host.locator('[data-live-quality]').allInnerTexts())}`);
+await host.screenshot({ path: `${OUT}call-quality-popover-${mode}.png` });
+// Volume (P3): the slider in the same popover. Past 100 % the element is muted and a gain stage plays the voice.
 const vol = host.locator('[data-live-volume] input[type=range]');
 const player = () => host.evaluate(() => { const el = document.querySelector('audio[data-live-audio]'); return { muted: el.muted, volume: el.volume, paused: el.paused, gains: window.__liveGains.map((g) => g.gain.value) }; });
 log(`volume slider at ${await vol.inputValue()} %, player ${JSON.stringify(await player())}`);
 await vol.focus();
 for (let i = 0; i < 10; i++) await host.keyboard.press('ArrowRight');
 log(`volume slider at ${await vol.inputValue()} %, player ${JSON.stringify(await player())}`);
-await host.screenshot({ path: `${OUT}call-volume-menu-${mode}.png` });
+await host.screenshot({ path: `${OUT}call-volume-popover-${mode}.png` });
 await vol.focus();
 for (let i = 0; i < 10; i++) await host.keyboard.press('ArrowLeft');
 log(`volume slider back at ${await vol.inputValue()} %, player ${JSON.stringify(await player())}`);
