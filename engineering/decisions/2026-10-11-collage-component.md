@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: shipped
 summary: >
   A new `collage` imagery component packs 4 to 6 mixed-aspect photos edge to edge from their real
   aspect ratios, with free-order packing by default, an `ordered` variant, trailing-code photo
