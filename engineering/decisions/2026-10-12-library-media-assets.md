@@ -143,9 +143,19 @@ or mention its assets:
 
 ### 7. Metadata
 
-Import reads the file's embedded metadata and stores it on the record as `meta`. Nothing in the
-repo reads EXIF or video atoms today (checked `capabilities.md` and `package.json`, 2026-10-12),
-so this adds a reader.
+Import reads the file's embedded metadata and stores it on the record as `meta`.
+
+**Prior art (#2627, merged 2026-10-12).** `lib/core/image-dimensions.js` now has
+`exifOrientation`, which reads one tag (IFD0 Orientation) from a JPEG's APP1 segment so the
+build-time aspect matches what a browser paints. It is the only EXIF reader in the repo, it is
+build-time only, and it uses Node's `Buffer`, so the browser importer cannot call it as is. This
+work does not replace it and does not conflict with it: the importer bakes the orientation into
+the stored pixels (§3), so a stored photo always reads as Orientation 1 and the build-time
+reader applies no swap. The two meet only if someone feeds a never-imported rotated JPEG to a
+deck, which #2627 already handles. The importer's reader should share #2627's segment walk
+(extracted to a `Uint8Array` kernel both can call, HARD RULE #1) rather than add a second JPEG
+parser. An earlier draft of this section said nothing in the repo read EXIF; that check ran on a
+branch cut before #2627 landed.
 
 **What is read.**
 
