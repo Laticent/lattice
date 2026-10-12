@@ -132,6 +132,21 @@ section:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-edge {
   border-top: calc(var(--_sec-1cqi, 1cqi) * 0.3125) solid var(--tone-color); /* section-OWN cqi: route through --_sec-1cqi (preview self-reference) */
   border-image-source: none; /* the longhand, not `border-image: none`: lightningcss empties that (engineering/gotchas/css.md) */
 }
+/* On a split frame the bar is not a section border: each panel paints its own segment (a ribbon
+   background on the supporting zone, a mark on the featured one), and `border-top: none` on the
+   frame (split-panel / split-compare .styles.css) is (0,1,1), so the rule above would stack a
+   second bar over the ribbon. Where `accent` recolors the supporting-zone ribbon, a semantic
+   `tone-edge` does the same: it drops the border and carries --tone-color on the ribbon, at
+   (0,3,1) / (0,4,1) so it also beats those components' `spectrum-off` / `spectrum-edge-*` clears,
+   as `tone-edge` does on every other layout. Lives here, not in the component files, because the
+   variant-declaration gate reads a `.tone-edge` chained onto a component root as an undeclared
+   variant. 2026-08-18-split-frame-edge-ownership.md */
+section.split-panel:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-edge,
+section.split-compare:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-edge {
+  border-top: none; --_edge-t: 0; --_bar-t: 0px;
+}
+section.split-panel:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-edge { --_ribbon: linear-gradient(var(--tone-color), var(--tone-color)); }
+section.split-compare:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-edge .compare-right { background-image: linear-gradient(var(--tone-color), var(--tone-color)); }
 
 /* ── SPECTRUM registers ── the accent-gradient controls, two orthogonal keys.
    The rainbow accent is one token (`--spectrum` / `--spectrum-vertical`, defined per theme)
