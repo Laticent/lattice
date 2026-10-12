@@ -101,6 +101,14 @@ section.tone-pass { --tone-color: var(--pass); }
 section.tone-warn { --tone-color: var(--warn); }
 section.tone-fail { --tone-color: var(--fail); }
 section.tone-skip { --tone-color: var(--muted-mark); }
+/* An auto-split page swaps the layout class for the split role's, so the semantic tone rides as
+   `data-split-mods` (lib/core/split-envelope.js) while `tone-edge` rides as a class. Without a
+   `--tone-color` here the `tone-edge` rule below never matched and a `size: story` split page kept the
+   deck's rainbow bar. Scoped to `.tone-edge`: the tone-less rail style keeps its split-page behavior. */
+section.tone-edge[data-split-mods~="tone-pass"] { --tone-color: var(--pass); }
+section.tone-edge[data-split-mods~="tone-warn"] { --tone-color: var(--warn); }
+section.tone-edge[data-split-mods~="tone-fail"] { --tone-color: var(--fail); }
+section.tone-edge[data-split-mods~="tone-skip"] { --tone-color: var(--muted-mark); }
 /* The tone STYLE axis (orthogonal to the semantic tone above) sets the box-shadow
    SHAPE, so `tone-fail tone-edge` composes. Default (no style) = the left rail; a
    `tone-<style>` token overrides --tone-rail's value. All box-shadow so it never
@@ -124,7 +132,8 @@ section:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-glow { --tone-ra
    spectrum untouched; where the spectrum is absent (dark/divider slides set
    border-top:none) it is a clean no-op. See
    engineering/decisions/2026-07-03-status-marker-style-variants.md §spectrum. */
-section:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-edge {
+section:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-edge,
+section.tone-edge:is([data-split-mods~="tone-pass"], [data-split-mods~="tone-warn"], [data-split-mods~="tone-fail"], [data-split-mods~="tone-skip"]) {
   --tone-rail: 0 0 transparent;   /* no box-shadow band — the recolored border carries the tone */
   --_edge-t: 0;                   /* the tone bar is the top edge, even under `spectrum: off` */
   --_bar-t: calc(0.3125 * var(--_sec-1cqi, 1cqi));

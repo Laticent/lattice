@@ -275,3 +275,18 @@ tone color alone at row 2 and the panel background from row 8 on, in light and d
 `base.variants.css` beside `tone-edge` because the variant-declaration gate reads a `.tone-edge`
 chained onto a component root as an undeclared variant; they win on specificity, not file order, so
 they also beat the components' `spectrum-off` clear.
+
+## Addendum 2026-10-12 — auto-split pages ignored a semantic `tone-edge`
+
+The page the rule above fixed in landscape stayed unfixed on a `size: story` deck. The auto-split swaps the
+layout class for the split role's (`lib/core/split-envelope.js` `roleOpenTag`), so `tone-fail` rides as
+`data-split-mods="tone-fail"` while `tone-edge` rides as a class. Nothing set `--tone-color` there, and the
+`tone-edge` rule in `base.variants.css` is keyed on a `.tone-*` class, so it never matched and every page kept the
+spectrum bar. Measured on indaco at 2160x3840, `split-panel tone-fail tone-edge`, x=300 and x=1800, rows 2 and 10:
+`#005586` then `#44AB62` before; after, row 2 reads the tone color on all three pages (`#550014` light,
+`#E9798C` dark).
+
+The fix defines `--tone-color` from `data-split-mods` on a `.tone-edge` section and widens the `tone-edge` selector
+to match the same attribute. Both stay at (0,2,1). The split pages carry the `split-panel-split` class, not
+`split-panel`, so the frame's own ribbon does not apply and the border is the one bar. A split page without
+`tone-edge` is untouched.
