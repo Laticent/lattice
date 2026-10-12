@@ -130,7 +130,7 @@ Each pair starts as a last carved to one foot. Leather is cut by hand and finish
 
 ### `bleed` — bleed
 
-The collage runs edge to edge. Each photo loses a share of its edges to fill the slide: about a tenth on average, up to a quarter for an awkward mix.
+The collage runs edge to edge. Each photo loses a share of its edges to fill the slide: about 4% on average, up to a sixth for an awkward mix.
 
 ```markdown
 <!-- _class: collage bleed -->

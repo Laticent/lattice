@@ -122,7 +122,7 @@
     },
     "bleed": {
       "label": "bleed",
-      "summary": "The collage runs edge to edge. Each photo loses a share of its edges to fill the slide: about a tenth on average, up to a quarter for an awkward mix.",
+      "summary": "The collage runs edge to edge. Each photo loses a share of its edges to fill the slide: about 4% on average, up to a sixth for an awkward mix.",
       "sample": "<!-- _class: collage bleed -->\n\n`The atelier`\n\n## Hand-lasted, one pair at a time.\n\n`Five photographs from the autumn bench`\n\nEach pair starts as a last carved to one foot. Leather is cut by hand and finished over fourteen weeks.\n\n- ![Tall portrait](sample:photo-tall.svg) `hero`\n- ![Wide landscape](sample:photo-wide.svg)\n- ![Square](sample:photo-square.svg)\n- ![Panorama](sample:photo-pano.svg)\n- ![Narrow column](sample:photo-column.svg)\n"
     },
     "mirror": {

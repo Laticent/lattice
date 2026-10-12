@@ -447,3 +447,25 @@ test('stampSection and stampCollage pass the slide aspect through', () => {
   const { stampCollage } = require('../../../lib/core/collage-stamp');
   assert.ok(typeof stampCollage === 'function' && stampCollage.length === 3, 'the CLI stamp takes the slide aspect as its third argument');
 });
+
+test('bleed pays more for empty space than a plain collage does, and a plain collage is unchanged', () => {
+  const { packCollage } = require('../../../lib/core/collage-pack');
+  let seed = 11;
+  const rnd = () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 2 ** 32;
+  const menu = [0.5625, 0.667, 0.75, 1, 1.333, 1.5, 1.778, 2, 2.667];
+  let plain = 0;
+  let bleed = 0;
+  let floor = 1;
+  const N = 120;
+  for (let i = 0; i < N; i++) {
+    const set = Array.from({ length: 4 + Math.floor(rnd() * 3) }, () => menu[Math.floor(rnd() * menu.length)]);
+    plain += packCollage(set, { stageAspect: 16 / 9 }).empty;
+    const b = packCollage(set, { stageAspect: 16 / 9, bleed: true });
+    bleed += b.empty;
+    floor = Math.min(floor, b.ratio);
+  }
+  assert.ok(bleed / N < 0.6 * (plain / N), `mean crop ${(100 * bleed / N).toFixed(1)}% vs ${(100 * plain / N).toFixed(1)}% plain`);
+  assert.ok(floor > 0.04, 'the cut is not bought with a sliver of a photo');
+  const same = packCollage(DEMO_ASPECTS, { stageAspect: 16 / 9 });
+  assert.deepEqual(packCollage(DEMO_ASPECTS, { stageAspect: 16 / 9, bleed: false }), same, 'bleed:false is the old scoring');
+});

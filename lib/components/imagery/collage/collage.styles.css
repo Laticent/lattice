@@ -227,8 +227,8 @@ section.collage:is(.above, [data-orientation="portrait"], [data-orientation="squ
  * aside (nothing is drawn over the photos but the title card), and the grid is stretched to the
  * slide instead of keeping its own shape, so there are no bands above or below it. The packer
  * solved the layout for the slide's own aspect, but a layout rarely matches it exactly, so the stretch
- * crops each photo by the layout's `empty` share: about 9% on average and up to a quarter for an awkward
- * set (measured in engineering/decisions/2026-10-11-collage-component.md §11). */
+ * crops each photo by the layout's `empty` share, which the packer's bleed weights keep to about 4% on
+ * average and a sixth for an awkward set (measured in engineering/decisions/2026-10-11-collage-component.md §11). */
 section.collage.bleed {
 	/* the gap stays at the packer's ratio; the tiles are stretched to the slide. The packer is given the
 	 * slide's real aspect (the CLI from the deck's size, the live path from the section's box) */
