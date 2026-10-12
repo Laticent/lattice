@@ -141,6 +141,52 @@ or mention its assets:
 - **Pasted-deck markdown** that names an asset the workspace lacks renders the placeholder and
   the editor's lint warns by name.
 
+### 7. Metadata
+
+Import reads the file's embedded metadata and stores it on the record as `meta`. Nothing in the
+repo reads EXIF or video atoms today (checked `capabilities.md` and `package.json`, 2026-10-12),
+so this adds a reader.
+
+**What is read.**
+
+| Source | Fields kept |
+|---|---|
+| Photo EXIF, XMP, IPTC | capture date, camera make and model, lens, exposure (f-stop, shutter, ISO, focal length), orientation, GPS (lat, lon, altitude), title, caption, creator, copyright, keywords |
+| Video (MP4 and MOV atoms) | creation date, duration, frame size, frame rate, codecs, rotation, GPS (the `©xyz` atom iPhone and most Android cameras write) |
+| Every file | original filename, MIME type, byte size, last-modified time |
+
+**Order matters: read metadata before the downscale.** Re-encoding through a canvas (§3) drops
+all EXIF and applies no rotation. The importer reads the original bytes first, bakes the EXIF
+orientation into the pixels so a portrait phone photo does not land sideways, then re-encodes. Skip
+that order and every phone photo loses its date and location silently.
+
+**Reader.** A browser `<video>` element exposes only duration and size, so video needs an MP4 box
+reader. Candidates are `exifr` for photos (modular, tree-shakes to a few KB for the fields above)
+and a small in-repo atom parser or `mp4box.js` for video. HARD RULE #15 asks for a check of
+`capabilities.md` first; that check found nothing to reuse. Slice 1 picks the reader by measured
+bundle cost and lazy-loads it, so the Studio's first paint pays nothing.
+
+**Privacy: GPS never leaves the workspace by default.** A location tag on a team photo is
+information the author may not have meant to publish. The record keeps GPS (it is useful for
+search and for the author), but:
+
+- every export, share zip and backup of a **single deck** strips GPS from the embedded copy;
+- the workspace backup, which is the author's own full copy, keeps it;
+- the Library card shows a "has location" marker, and a per-asset action removes it for good.
+
+The stripping happens on the bytes: the image is already re-encoded on import (so photos carry no
+EXIF), and videos are stored as given, so a video export that keeps the original bytes needs the
+atom removed or the poster used instead. The video-export route is an open question below.
+
+**Where it shows.** The Images tab gains a details view per asset (date, camera, size, duration),
+search by filename, caption and keywords, and sort by capture date. A caption or title from the
+file seeds the asset's alt text when the author has not written one, which helps accessibility
+exports. Dates and numbers format through the user's locale.
+
+**What it is not.** No face, object or scene analysis, no reverse geocoding (a network call that
+would send coordinates to a third party), and no editing of the embedded EXIF. Those are separate
+asks.
+
 ## Options not taken
 
 - **Data URLs in the deck markdown.** No store change, and it works anywhere. It makes the deck
@@ -188,6 +234,9 @@ commit builds and tests against `main` alone.
 2. Whether an uploaded video should be playable in the **Studio presenter** (it can: a `blob:`
    URL feeds a `<video>`), or poster-only everywhere except the HTML export. This doc assumes
    playable in the presenter.
-3. Whether camera capture ("Take Photo") warrants its own button, or `accept="image/*"` is
+3. Whether a video export that keeps the original bytes should strip the GPS atom (a small
+   rewrite of the file's header boxes, no re-encode) or fall back to the poster frame whenever
+   location is present. The atom rewrite is cheap but is a byte change to a user's video.
+4. Whether camera capture ("Take Photo") warrants its own button, or `accept="image/*"` is
    enough. On iOS it is enough; on some Android browsers the picker hides the camera unless
    `capture` is set. Slice 1 checks.
