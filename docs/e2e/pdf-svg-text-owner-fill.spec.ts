@@ -17,7 +17,12 @@ import { expect, gotoStudio, railButtons, setEditorContent, test } from './studi
 // and count the pixels inside it that are not that fill. A name has hundreds; an empty box has none.
 // Light and dark, because the ink flips with the mode. The chart slide keeps its labels as text.
 //
-// FALSIFIABLE: with the reader taking the `<text>`'s own fill, every box counts 0 and both modes fail.
+// FALSIFIABLE: with the reader taking the `<text>`'s own fill, every box counts 0 and both modes fail
+// (shown on Chromium by rebuilding the Studio with the pre-fix reader, 2026-10-12).
+//
+// THREE ENGINES. The Studio runs the reader in the user's own browser, and an engine can answer a
+// character's position or computed fill differently, so the spec carries `@gecko` and
+// `@webkit-tablet` and runs on Chromium, Firefox and WebKit. All three passed on 2026-10-12.
 test.describe.configure({ timeout: 300_000 });
 
 const SEQUENCE = ['sequenceDiagram', '  participant App', '  participant SDK', '  participant Log', '  App->>SDK: score(signal)', '  SDK-->>App: score', '  App->>Log: record'].join('\n');
@@ -96,7 +101,7 @@ function inkIn(r: Raster, b: { x0: number; x1: number; y0: number; y1: number },
 	return ink;
 }
 
-test('Share → PDF draws a sequence diagram’s participant names as ink, in light and dark', async ({ page }) => {
+test('Share → PDF draws a sequence diagram’s participant names as ink, in light and dark @gecko @webkit-tablet', async ({ page }) => {
 	const warnings: string[] = [];
 	page.on('console', (m) => {
 		if (/shared PDF writer failed/.test(m.text())) warnings.push(m.text());
