@@ -282,11 +282,17 @@ The page the rule above fixed in landscape stayed unfixed on a `size: story` dec
 layout class for the split role's (`lib/core/split-envelope.js` `roleOpenTag`), so `tone-fail` rides as
 `data-split-mods="tone-fail"` while `tone-edge` rides as a class. Nothing set `--tone-color` there, and the
 `tone-edge` rule in `base.variants.css` is keyed on a `.tone-*` class, so it never matched and every page kept the
-spectrum bar. Measured on indaco at 2160x3840, `split-panel tone-fail tone-edge`, x=300 and x=1800, rows 2 and 10:
+spectrum bar. Measured on indaco at 2160x3840, `split-panel tone-fail tone-edge`, x=300 and x=1800, row 2:
 `#005586` then `#44AB62` before; after, row 2 reads the tone color on all three pages (`#550014` light,
-`#E9798C` dark).
+`#E9798C` dark). The bar is 6px, so row 10 is the page fill, not the bar.
 
 The fix defines `--tone-color` from `data-split-mods` on a `.tone-edge` section and widens the `tone-edge` selector
 to match the same attribute. Both stay at (0,2,1). The split pages carry the `split-panel-split` class, not
 `split-panel`, so the frame's own ribbon does not apply and the border is the one bar. A split page without
 `tone-edge` is untouched.
+
+The selector reaches every auto-split page whose layout class was swapped, not only `split-panel`: the
+`cards-grid` and `checklist` covers, every `decision` page and the `split-compare` cover and closing now draw the
+tone bar too. Before, a run disagreed with itself: native body pages drew it and the cover did not. Still open:
+a split page with a semantic tone and no `tone-edge` drops the rail and glow styles entirely, for the same reason
+(`followups.d/2645-p3-tone-rail-glow-dropped-on-split-pages.md`).
