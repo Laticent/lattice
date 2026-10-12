@@ -57,3 +57,16 @@ re-derive with `grep -rn "themes.*\.css\|themePath\|themeEntries" lib tools docs
   (B) the same, uncommitted and built like the indexes (also needs the desktop-app question settled — the same
   one that parks `followups.d/2554-p3-uncommit-generated-js-after-desktop-app.md`); (C) leave as is. Recommended:
   measure first; take A only if the collision count justifies the ~25-site change.
+
+## Collision rate measured 2026-10-12 (full history, last 300 non-merge commits)
+
+- 2 of 300 commits touch `themes/*/*.css`: `f091f2d1` (a command name in a one-line comment, 6 files) and
+  `c5c2a02de` (moved themes into folders). Neither edits a palette's marks.
+- 7 of 300 commits touch `tools/derive-cat-ink.js` or `tools/derive-chart-cat-ink.js`; 1 of those also touches
+  a theme CSS file (`c5c2a02de`, the move).
+- So a palette edit colliding with a re-derive has not happened in 300 commits. Two caveats: 136 of the 300
+  commits touch `themes/` at all (tokens, docs, tests), so the surface is busy, just not these files; and an
+  earlier read of the shallow checkout (50 commits) counted a whole-tree "add" at the shallow boundary as a
+  theme edit, which is why this section replaced it.
+- Reproduce: `git log --no-merges -300 --format=%h -- 'themes/*/*.css' | wc -l`.
+- Recommendation: option C (leave as is). The ~25-site change buys nothing the history shows.

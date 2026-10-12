@@ -44,3 +44,23 @@ done when — the owner picks one of: raise the cap; split the slice across two 
 evidence  — the table above, and the same table re-measured after the change.
 verify    — a CI-contract change: the owner's call (CLAUDE.md second filter, row 2).
 ```
+
+## Re-measured 2026-10-12 — five real queue runs after #2629 (shard spread)
+
+Test-step time per leg (`Integration tests (PR slice, one shard)`), mm:ss; spread = slowest / mean.
+
+| run         | shard 1 | shard 2 | shard 3 | shard 4 | spread | slowest job (setup incl.) |
+| 38254870711 | 6:22    | 7:07    | 6:19    | 6:33    | 1.08x  | 9:00 |
+| 38272823518 | 6:15    | 6:44    | 5:51    | 5:07    | 1.12x  | 8:58 |
+| 38273528557 | 5:08    | 6:49    | 5:03    | 7:40    | 1.24x  | 9:34 |
+| 38284063058 | 6:34    | 5:06    | 3:49    | 6:29    | 1.20x  | 8:15 |
+| 38294389459 | 5:35    | 5:44    | 4:14    | 5:44    | 1.08x  | 7:27 |
+
+- Four of five runs are at or under 1.2x; the mean is 1.14x. Run 38273528557 is 1.24x: shard 4's `npm ci` and
+  build were also slower there (0:30 + 0:44 vs 0:21 + 0:27 in shard 1 of the same run), so part of it is
+  runner speed, not file balance. The balance itself is sound; the done-when ("<=1.2x on >=5 runs") is met in
+  4 of 5, not 5 of 5. Re-bless is not indicated: the slow leg changes from run to run (shard 4, 1, 2, 2, 2).
+- Slowest whole job in the five runs is 9:34. The 25-minute cap is 2.6x that. The method note in `ci.yml`
+  sets caps near 3x, so 25 min is inside the house range; lowering it to 20 min (2.1x) is possible but is
+  the owner's call and buys nothing today.
+- Note the weights file does not model the setup steps (about 2.5 min of every job).
