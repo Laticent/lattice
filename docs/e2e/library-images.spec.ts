@@ -79,14 +79,14 @@ async function storedMedia(page: Page): Promise<Stored[]> {
 			const r = db.transaction('assets').objectStore('assets').getAll();
 			r.onsuccess = () => res(r.result as Record<string, unknown>[]);
 		});
-		const out = [];
+		const out: Stored[] = [];
 		for (const a of rows.filter((x) => x.kind === 'image')) {
 			const buf = new Uint8Array(await (a.blob as Blob).arrayBuffer());
 			// "Exif\0\0" anywhere in the first 64 KB — an APP1 segment sits at the very start.
 			const head = new TextDecoder('latin1').decode(buf.subarray(0, 65536));
-			out.push({ name: a.name, scope: a.scope, width: a.width, height: a.height, bytes: a.bytes, original: a.original, mime: a.mime, hasExif: head.includes('Exif\u0000\u0000') } as never);
+			out.push({ name: a.name as string, scope: a.scope as string, width: a.width as number, height: a.height as number, bytes: a.bytes as number, original: a.original as boolean, mime: a.mime as string, hasExif: head.includes('Exif\u0000\u0000') });
 		}
-		return (out as Stored[]).sort((p, q) => p.name.localeCompare(q.name));
+		return out.sort((p, q) => p.name.localeCompare(q.name));
 	});
 }
 
