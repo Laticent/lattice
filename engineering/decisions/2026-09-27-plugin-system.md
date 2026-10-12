@@ -783,12 +783,14 @@ token-only gate is **superseded** by decision 12 below; decisions 6, 8 and 9 sta
 10. **A fence renderer is handed the fence's text and one id, and nothing it can get another
     way.** `render({ body, id })`: `body` is the fence's text exactly as authored; `id` is a string
     unique to this fence in this render, safe in an `id` attribute, so two fences of one plugin
-    cannot collide. It is the plugin's name, the render prefix, a short hash of the fence's text
+    cannot collide. It is the plugin's namespace, the render prefix, a short hash of the fence's text
     and how many fences with that text came before it (one counter per render, shared by the deck
     and every pane). It names the fence's content and not its place, so inserting a slide does not
-    change any id and the Studio's remembered results still hold. It starts with the plugin's name
-    because the sanitizer keeps an id or class only in the package's own namespace (`<name>` or
-    `<name>-…`, `doorFilterAttr`). Text measurement is the one capability the sandbox already
+    change any id and the Studio's remembered results still hold. It starts with `lp-<name>`,
+    the plugin's own namespace, because the sanitizer keeps an id or class only in the package's own
+    namespace (`doorFilterAttr`). The namespace carries the `lp-` prefix because a bare `<name>` let a
+    plugin called `cell` keep the engine's `cell-stage`; and the door refuses a plugin whose name is a
+    hyphen-prefix of another's (`a`, `a-b`), whose namespaces would overlap. Text measurement is the one capability the sandbox already
     gives every package (`kit.measure`). It is NOT handed theme values, the slide's HTML, a base
     URL, the fence's info string or deck options. Theme colors reach a plugin as `var(--token)` in
     the CSS and markup it writes, and the browser resolves them in the right mode and theme, so
@@ -819,14 +821,29 @@ token-only gate is **superseded** by decision 12 below; decisions 6, 8 and 9 sta
 13. **The Studio keeps a zip plugin in the browser's storage** (the asset store gains a plugin
     kind), never in a deck or a backup.
 14. **Consent is pinned to the renderer AND the fence it owns, and the door hashes the code
-    itself.** The digest is the SHA-256 of `lattice-plugin-fence:<fence>\0<render.js>`
-    (`pluginConsentText`, `trust.js pluginDigest`). The fence name is in it because the manifest
+    itself.** The digest is the SHA-256 of `lattice-plugin-fence:<fence length>:<fence>\0<render.js>`
+    (`pluginConsentText`, `trust.js pluginDigest`), with the file's bytes hashed as they are, never
+    decoded (decoding drops a leading BOM and maps an invalid byte to U+FFFD, so two files could
+    share a digest). The fence's length leads, and the name must match `^[a-z][a-z0-9-]*$`, so no two
+    (fence, code) pairs split into the same text (before, `("C", "a\0x")` and `("x\0C", "a")` hashed alike). The fence name is in it because the manifest
     alone says which fence a renderer is handed: editing the manifest's `fences` key would
     otherwise point an approved renderer at another plugin's fence with no new consent, and
     widening what the digest covers after approvals exist would invalidate every one of them.
     `renderWithCodePackages` computes every digest from the code it was handed, never from a hash
     the caller states (a stated hash let approved code's digest run different code). `styles.css`
     is not pinned: it is data, and scoped (decision 12).
+15. **The door does not draw on a slide a shipped pass rebuilds from its text.** `video` turns a
+    bullet into a poster and a link, `contact` and `wifi` into QR cards, `qr` into a QR from a
+    link, and each runs twice: in the engine's HTML pass and again in the runtime's DOM pass
+    (`applyAllToDom`, `lib/runtime/index.js`, in `--fluid` exports and the live previews) over the
+    finished page, plugin output included. A plugin that returned `<li>https://evil.example/…</li>`
+    on a `video` slide had the address written into a poster. The door's last registry slot stops
+    the HTML pass and cannot stop the DOM pass, so the door does not draw there: the fence stays
+    the code block it is and the render says why. The list is read off the registry's own
+    `selector`s (`lib/transformers/rebuilt-classes.js`), so a pass added later denies its slides the
+    day it is registered; a short `GENERIC` list (`form`, `image`, `split-panel`…) names the class
+    sets that only frame a slide. A fence on a chart slide is therefore not drawn either (the engine
+    draws those).
 
 ## 10. Non-goals
 
@@ -1619,17 +1636,19 @@ decision 7's token-only gate is superseded by 12). What exists now:
   whole is the package's, not run. The result goes in `<div data-lattice-plugin="NAME">`, the root
   decision 12's CSS scoping will key on; a failure keeps the author's code block and adds a note.
 - **The door runs in its own LAST registry slot** (`lib/transformers/code-fences.js`, fed by
-  `render(…, { codeFences: { names, run } })`), not beside the code packages. The red team put a
-  `<li>https://evil.example/…</li>` in a plugin's output on a `video` slide and the `video` pass,
-  which runs after the early slot, wrote it into a poster `background-image`. With nothing after the
-  door there is no pass to do that, and no list of address-building passes to keep current. The same
-  option's `names` make the engine's highlighter leave those fences plain: a grammar that knew the
-  name (`tex`, `sql`, `r`) had been deciding, per body and per surface, whether the plugin drew it.
+  `render(…, { codeFences: { names, run } })`), not beside the code packages, so no later HTML pass
+  reads a plugin's output. That is HALF the answer, and the first version of this entry said it was
+  all of it: the checker on the hardening ran `video.applyToDom` over a slide whose only content was a
+  plugin's `<li>https://…</li>` and got a poster link. The runtime's DOM pass is the other half, so
+  the door also refuses to draw on a slide a shipped pass rebuilds (decision 15). The slot's `names`
+  also make the engine's highlighter leave those fences plain: a grammar that knew the name (`tex`,
+  `sql`, `r`) had been deciding, per body and per surface, whether the plugin drew it.
 - `code-shape.mjs`: `workerScript(code, { fence: true })` (slide mode is byte-identical, pinned by a
   digest taken from the commit before), `refusePluginCode`, `pluginConsentText`. `trust.js` approves
   under `plugin/<name>` against `pluginDigest` (decision 14). `door-attr.mjs` `doorFinishFence`
   is the one sanitizing step both doors call: wrap in a bare `<section>`, hand an empty one, unwrap,
-  and refuse a nested `<section>` or an empty result.
+  and refuse a nested `<section>`, a `<template>` (its content hides from `querySelector`) or an
+  empty result.
 - `code-door.js`: `renderWithCodePackages(render, { packages, plugins })`, where `render(hook, more)`
   passes `more` on as render options. It hashes the code itself, keys every result by digest, refuses
   a fence name two plugins both claim (neither runs, and it says so), claims at most 400 fences per

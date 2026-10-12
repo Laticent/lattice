@@ -10,8 +10,9 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { fenceBlocks, claimedFences, fenceInput, fenceKey, fenceMarkup, fenceId, replaceFences, withFenceNote, captureFences, substituteFences, decodeFenceBody, MAX_FENCE_CHARS, MAX_FENCES_PER_PASS } = require('../../../lib/packages/code-door-fence.mjs');
-const { refusePluginCode, workerScript, PLUGIN_DATA_CONTRIBUTIONS, pluginConsentText } = require('../../../lib/packages/code-shape.mjs');
+const { fenceBlocks, claimedFences, fenceInput, fenceKey, fenceMarkup, fenceId, fenceNamespace, pluginNameConflicts, replaceFences, withFenceNote, captureFences, substituteFences, decodeFenceBody, MAX_FENCE_CHARS, MAX_FENCES_PER_PASS } = require('../../../lib/packages/code-door-fence.mjs');
+const { rebuiltAlternatives, rebuiltBy, GENERIC } = require('../../../lib/transformers/rebuilt-classes.js');
+const { refusePluginCode, workerScript, PLUGIN_DATA_CONTRIBUTIONS, pluginConsentText, FENCE_NAME_RE } = require('../../../lib/packages/code-shape.mjs');
 const { ENGINE_CLAIMS, untrustedCodePackages } = require('../../../lib/packages/code-door.js');
 const { codeDigest, pluginDigest, isTrusted, grantTrust } = require('../../../lib/packages/trust.js');
 const crypto = require('node:crypto');
@@ -77,25 +78,26 @@ describe('finding a fence in the engine’s HTML', () => {
 });
 
 describe('what a renderer is handed', () => {
-  const claim = { pkg: 'gantt-plugin', fence: 'gantt', id: 'gantt-plugin-0123abcd-0', body: 'a\nb', slide: 0, block: '<pre>…</pre>', start: 1, end: 2, i: 0 };
+  const claim = { pkg: 'gantt-plugin', fence: 'gantt', id: 'lp-gantt-plugin-0123abcd-0', body: 'a\nb', slide: 0, block: '<pre>…</pre>', start: 1, end: 2, i: 0 };
 
   test('the fence’s text and one id, and nothing else', () => {
-    assert.deepEqual(fenceInput(claim), { body: 'a\nb', id: 'gantt-plugin-0123abcd-0' });
+    assert.deepEqual(fenceInput(claim), { body: 'a\nb', id: 'lp-gantt-plugin-0123abcd-0' });
   });
 
-  test('an id starts with the plugin’s name, names the fence’s TEXT and not its place, and counts repeats', () => {
+  test('an id starts with the plugin’s `lp-` namespace, names the fence’s TEXT and not its place, and counts repeats', () => {
     const seen = new Map();
     const a = fenceId('gantt-plugin', '', 'rows', seen);
     const b = fenceId('gantt-plugin', '', 'rows', seen);
     const c = fenceId('gantt-plugin', '', 'other', seen);
-    assert.match(a, /^gantt-plugin-[0-9a-f]{8}-0$/);
+    assert.match(a, /^lp-gantt-plugin-[0-9a-f]{8}-0$/);
+    assert.equal(fenceNamespace('gantt-plugin'), 'lp-gantt-plugin');
     assert.equal(b, a.replace(/-0$/, '-1'), 'the same text again is the next one');
     assert.notEqual(c.slice(0, -2), a.slice(0, -2), 'other text, other name');
     assert.equal(fenceId('gantt-plugin', '', 'rows', new Map()), a, 'a fresh render gives the same id, wherever the fence sits');
   });
 
   test('an id holds only id-safe characters whatever the render prefix is', () => {
-    assert.match(fenceId('gantt-plugin', 'lat r1"<>', 'x', new Map()), /^gantt-plugin-[A-Za-z0-9_-]+$/);
+    assert.match(fenceId('gantt-plugin', 'lat r1"<>', 'x', new Map()), /^lp-gantt-plugin-[A-Za-z0-9_-]+$/);
   });
 
   test('a fence’s key changes with the plugin, its code’s digest, its id and its text', () => {
@@ -174,16 +176,43 @@ describe('through the real engine: capture, then substitute', () => {
     assert.equal(cap.claims.length, 2, 'with it, both blocks are the plugin’s');
   });
 
-  test('a fence on a slide a LATER pass rebuilds is still drawn, and the pass never reads its output', () => {
-    // The `video` pass turns a bullet into a poster address; the door runs after it (code-fences.js).
-    const src = '---\ntheme: indaco\n---\n\n<!-- _class: video -->\n\n## Clip\n\n- https://www.youtube.com/watch?v=dQw4w9WgXcQ\n\n```gantt\nx\n```\n';
-    const cap = captureFences(fences, slides);
-    render(src, cap);
-    const evil = '<ul><li>https://evil.example/leak?d=BODY <code>poster</code></li></ul>';
-    const results = new Map(cap.claims.map((c) => [fenceKey(c, 'SHA'), fenceMarkup(c.pkg, evil)]));
-    const html = render(src, substituteFences(fences, results, new Map([['gantt-plugin', 'SHA']]), slides));
-    assert.match(html, /data-lattice-plugin="gantt-plugin"/, 'the fence on a video slide was claimed and drawn');
-    assert.doesNotMatch(html.replace(/<div data-lattice-plugin[\s\S]*?<\/div>/, ''), /evil\.example/, 'no pass after the door turned the output into an address');
+  test('a fence on a slide a shipped pass rebuilds from its text is NOT claimed: it stays code, and the door says why', () => {
+    // `video` turns a bullet into a poster and a link, in the engine's pass AND in the runtime's DOM pass over
+    // the finished page; the door's last slot cannot stop the second, so the door does not draw there.
+    for (const [classes, pass] of [['video', 'video'], ['contact', 'contact'], ['wifi', 'wifi'], ['closing qr', 'qr-general'], ['team-profile', 'team-profile']]) {
+      const src = `---\ntheme: indaco\n---\n\n<!-- _class: ${classes} -->\n\n## Slide\n\n- https://www.youtube.com/watch?v=dQw4w9WgXcQ\n\n\`\`\`gantt\nx\n\`\`\`\n`;
+      const cap = captureFences(fences, { ...slides, rebuilt: rebuiltBy });
+      const html = render(src, cap);
+      assert.equal(cap.claims.length, 0, `${classes}: no claim`);
+      assert.deepEqual(cap.shadowed.map((x) => [x.slide, x.pass]), [[0, pass]], `${classes}: named the pass`);
+      assert.match(html, /language-gantt/, `${classes}: the block is still code`);
+    }
+  });
+
+  test('an ordinary slide, a layout class and a modifier that no pass rebuilds still get their fences drawn', () => {
+    for (const classes of ['content', 'closing', 'split-panel', 'dark', 'content dark']) {
+      const src = `---\ntheme: indaco\n---\n\n<!-- _class: ${classes} -->\n\n## Slide\n\n\`\`\`gantt\nx\n\`\`\`\n`;
+      const cap = captureFences(fences, { ...slides, rebuilt: rebuiltBy });
+      render(src, cap);
+      assert.equal(cap.claims.length, 1, `${classes}: claimed`);
+      assert.equal(cap.shadowed.length, 0, classes);
+    }
+  });
+
+  test('the rebuilt-slide list is read off the registry: a pass added tomorrow denies its slides today', () => {
+    const alt = rebuiltAlternatives();
+    for (const c of ['video', 'contact', 'wifi', 'team-profile', 'bar', 'logo-wall', 'scene']) assert.ok(alt.some((a) => a.classes.includes(c)), `${c} is denied`);
+    assert.ok(alt.some((a) => a.pass === 'qr-general' && a.classes.join('.') === 'closing.qr'), 'a compound selector denies only the compound');
+    assert.equal(rebuiltBy(['closing']), null);
+    assert.equal(rebuiltBy(['closing', 'qr']), 'qr-general');
+    for (const g of GENERIC) assert.equal(rebuiltBy(g.split(' ')), null, `generic ${g} denies nothing`);
+    // Every registry transformer that names a class is in the list, unless it is one of the generic ones.
+    const { TRANSFORMERS } = require('../../../lib/transformers/registry.js');
+    for (const t of TRANSFORMERS) {
+      const named = String(t.selector || '').split(',').some((s) => /\.[A-Za-z]/.test(s.trim().split(/\s/)[0].replace(/:not\([^)]*\)/g, '')));
+      if (!named) continue;
+      assert.ok(alt.some((a) => a.pass === t.name) || ['masthead-lift', 'image-adaptive', 'image-scrim', 'split-panels'].includes(t.name), `${t.name} names a slide class and is neither denied nor generic`);
+    }
   });
 
   test('two panes of one slide, each with a fence, get two ids; the same text twice gets two', () => {
@@ -235,6 +264,20 @@ describe('a deck that asks for too much', () => {
     assert.equal(new Set(r.claims.map((c) => c.id)).size, MAX_FENCES_PER_PASS, 'every claim has its own id');
   });
 
+  test('the allowance is spent down across every call of ONE render: a deck of pane slides cannot claim thousands', () => {
+    const calls = Array.from({ length: 8 }, (_, k) => many(150).replace('<section>', `<section data-call="${k}">`));
+    const cap = captureFences(fences, { names: [], engineClaims: [] });
+    for (const html of calls) cap.run(html, { slideIndex: (n) => n, idPrefix: '' });
+    assert.equal(cap.claims.length, MAX_FENCES_PER_PASS, '8 calls of 150 fences claim 400, not 1,200');
+    assert.equal(cap.tooMany, 8 * 150 - MAX_FENCES_PER_PASS);
+    // The second render makes the same calls and gets the same allowance, so the same fences.
+    const results = new Map(cap.claims.map((c) => [fenceKey(c, 'SHA'), fenceMarkup(c.pkg, '<i/>')]));
+    const sub = substituteFences(fences, results, new Map([['gantt-plugin', 'SHA']]), { names: [], engineClaims: [] });
+    const drawn = calls.map((html) => sub.run(html, { slideIndex: (n) => n, idPrefix: '' }).split('data-lattice-plugin').length - 1);
+    assert.equal(drawn.reduce((a, b) => a + b, 0), MAX_FENCES_PER_PASS);
+    assert.deepEqual(drawn, [150, 150, 100, 0, 0, 0, 0, 0]);
+  });
+
   test('claiming and splicing thousands of fences in one slide is linear, not quadratic', () => {
     const html = many(20000);
     const t0 = Date.now();
@@ -274,6 +317,18 @@ describe('the gate for a plugin’s one script', () => {
     const why = refusePluginCode(plugin({}, { contributes: { fences: { gantt: {} }, syntax: {}, hydrate: {}, bake: {} } }));
     assert.match(why, /syntax, hydrate, bake/);
     assert.deepEqual([...PLUGIN_DATA_CONTRIBUTIONS], ['fences', 'styles', 'diagnostics']);
+  });
+
+  test('refuses a fence name the schema does not allow, NUL and markup included', () => {
+    for (const bad of ['a\u0000x', 'Gantt <b>', 'Gantt', '1gantt', 'a b', '']) {
+      assert.match(refusePluginCode(plugin({}, { contributes: { fences: { [bad]: {} } } })) ?? '', /fence name|declares/, JSON.stringify(bad));
+    }
+    assert.ok(FENCE_NAME_RE.test('gantt') && FENCE_NAME_RE.test('org-chart2') && !FENCE_NAME_RE.test('a\u0000x'));
+  });
+
+  test('two plugin names where one is a hyphen-prefix of the other overlap in id and class space', () => {
+    assert.deepEqual(pluginNameConflicts(['a', 'a-b', 'c']), [['a', 'a-b']]);
+    assert.deepEqual(pluginNameConflicts(['ab', 'a']), [], 'a plain prefix is not an overlap: only `a-…` is');
   });
 
   test('refuses no fence and two fences: the renderer has no way to be told which it was handed', () => {
@@ -321,7 +376,10 @@ describe('consent under plugin/<name>', () => {
     assert.equal(codeDigest(pkg()), pluginDigest('export { x as default };', 'gantt'));
     assert.notEqual(codeDigest(pkg('gantt')), codeDigest(pkg('map')), 'editing the manifest’s fence alone asks again');
     assert.notEqual(codeDigest(pkg('gantt', 'a')), codeDigest(pkg('gantt', 'b')));
-    assert.equal(pluginConsentText('c', 'f'), 'lattice-plugin-fence:f\u0000c');
+    assert.equal(pluginConsentText('c', 'f'), 'lattice-plugin-fence:1:f\u0000c');
+    assert.notEqual(pluginDigest('C', 'a\u0000x'), pluginDigest('x\u0000C', 'a'), 'a NUL in the fence cannot move the split between fence and code');
+    assert.notEqual(pluginDigest(Buffer.from('\uFEFFcode'), 'g'), pluginDigest('code', 'g'), 'bytes are hashed as they are: a leading BOM is part of the file');
+    assert.notEqual(pluginDigest(Buffer.from([0x63, 0xff]), 'g'), pluginDigest(Buffer.from([0x63, 0xfe]), 'g'), 'two files with different invalid bytes do not share a digest');
     assert.notEqual(codeDigest({ roles: { 'transform.js': 't.js' }, files: { 't.js': 'same' } }), codeDigest(pkg('gantt', 'same')), 'a component and a plugin with the same text do not share a digest');
   });
 

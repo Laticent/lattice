@@ -90,7 +90,12 @@ zip with no word; both doors now refuse a plugin by name with one string (`PLUGI
 
 **Step 1 built 2026-10-11 (kernel and CLI door, hardened by the adversarial trio), not finished.** The
 owner's answers are §9 decisions 10 to 14 of the plugin-system note; the build log is its §11. Left in step 1:
-1. **The Studio's door.** `docs/src/lib/code-packages/door.ts` / `door-run.ts` / `runner.ts` run
+1. **The Studio's door.** It must carry every rule the CLI door learned from the checker on the
+   hardening: skip slides a shipped pass rebuilds (`lib/transformers/rebuilt-classes.js`, derived from
+   the registry; the Studio's engine bundle has the registry, so derive the same list there and pin
+   it with a test), the render-wide 400-fence allowance (`budget`), the host-side output cap applied
+   in claim order, the `lp-<name>` id and class namespace and the prefix-overlap refusal
+   (`pluginNameConflicts`), the fence-name pattern (`FENCE_NAME_RE`), and `pluginDigest` over BYTES. `docs/src/lib/code-packages/door.ts` / `door-run.ts` / `runner.ts` run
    component packages only. They need the fence path, and it has rules the CLI door already learned
    the hard way: pass `render(..., { codeFences: { names, run } })` built by `captureFences` /
    `substituteFences` (`lib/packages/code-door-fence.mjs`; the engine's LAST slot, and `names` turns
