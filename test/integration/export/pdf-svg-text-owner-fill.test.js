@@ -27,8 +27,13 @@ const ROOT = path.join(__dirname, '..', '..', '..');
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lat-svg-owner-fill-'));
 after(() => fs.rmSync(tmp, { recursive: true, force: true }));
 
+const BUNDLE = path.join(ROOT, 'dist', 'lattice-pdf-compose-min.js');
+
 /** Render a fixture through the writer and return the page as { w, h, px } (RGB bytes). */
 function raster(fixture) {
+  // Without the bundle the CLI quietly prints with Chrome instead (`--quiet` hides the notice), and
+  // Chrome draws the names right: the test would pass with the bug present.
+  assert.ok(fs.existsSync(BUNDLE), 'dist/lattice-pdf-compose-min.js is missing: run `npm run build`, or this test would pass on Chrome\'s own print');
   const pdf = path.join(tmp, `${path.basename(fixture, '.md')}.pdf`);
   const r = spawnSync(process.execPath, [path.join(ROOT, 'lattice.js'), path.join(ROOT, 'test', 'fixtures', fixture), pdf, '--quiet'], { cwd: ROOT, encoding: 'utf8' });
   assert.equal(r.status, 0, r.stderr);
