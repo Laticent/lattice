@@ -2648,7 +2648,7 @@
         [
           "path",
           {
-            "d": "M31 36C30.6 25 39 18.8 50 18.8S69.4 25 69 36C62 33.4 56 32.8 50 32.8S38 33.4 31 36z",
+            "d": "M31 34.5C30.6 24 39 18.8 50 18.8S69.4 24 69 34.5C62 36.4 56 36.8 50 36.8S38 36.4 31 34.5z",
             "fill": "$cover"
           }
         ],
@@ -2674,7 +2674,7 @@
         [
           "path",
           {
-            "d": "M50 19.8V32.8",
+            "d": "M50 19.8V31",
             "fill": "none",
             "stroke": "$shade",
             "stroke-opacity": "0.18",
@@ -2685,61 +2685,55 @@
         [
           "path",
           {
-            "d": "M31.2 35.2C38 32.8 44 32.2 50 32.2S62 32.8 68.8 35.2",
-            "fill": "none",
-            "stroke": "$shade",
-            "stroke-opacity": "0.28",
-            "stroke-width": "0.8",
-            "stroke-linecap": "round"
-          }
-        ],
-        [
-          "path",
-          {
-            "d": "M41 32.4C44 30 56 30 59 32.4L58.2 34.2C55 32.6 45 32.6 41.8 34.2z",
+            "d": "M31.1 33C38 34.8 44 35.2 50 35.2S62 34.8 68.9 33L69 34.5C62 36.4 56 36.8 50 36.8S38 36.4 31 34.5z",
             "fill": "$shade",
-            "fill-opacity": "0.4"
+            "fill-opacity": "0.22"
           }
         ],
         [
           "path",
           {
-            "d": "M43 31.6C46 30.6 54 30.6 57 31.6",
-            "fill": "none",
-            "stroke": "$white",
-            "stroke-opacity": "0.6",
-            "stroke-width": "1",
-            "stroke-linecap": "round"
+            "d": "M42 35.4C42.4 31.4 57.6 31.4 58 35.4C55 35.1 45 35.1 42 35.4z",
+            "fill": "$shade",
+            "fill-opacity": "0.55"
+          }
+        ],
+        [
+          "path",
+          {
+            "d": "M40.8 34.4C45 34.8 55 34.8 59.2 34.4L59.2 36.4C55 36.8 45 36.8 40.8 36.4z",
+            "fill": "$white",
+            "fill-opacity": "0.78"
           }
         ],
         [
           "circle",
           {
-            "cx": "47.2",
-            "cy": "31.3",
+            "cx": "46.6",
+            "cy": "35.7",
             "r": "0.5",
-            "fill": "$white",
-            "fill-opacity": "0.75"
+            "fill": "$shade",
+            "fill-opacity": "0.55"
           }
         ],
         [
           "circle",
           {
             "cx": "50",
-            "cy": "31.1",
+            "cy": "35.8",
             "r": "0.5",
-            "fill": "$white",
-            "fill-opacity": "0.75"
+            "fill": "$shade",
+            "fill-opacity": "0.55"
           }
         ],
         [
           "circle",
           {
-            "cx": "52.8",
-            "cy": "31.3",
+            "cx": "53.4",
+            "cy": "35.7",
             "r": "0.5",
-            "fill": "$white",
-            "fill-opacity": "0.75"
+            "fill": "$shade",
+            "fill-opacity": "0.55"
           }
         ]
       ]
