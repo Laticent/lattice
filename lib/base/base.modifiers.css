@@ -540,7 +540,8 @@ section div[data-lattice-plugin-off] .lattice-plugin-words strong {
   overflow-wrap:anywhere;
 }
 section div[data-lattice-plugin-off] .lattice-plugin-words span {
-  color:var(--text-muted);
+  /* Body ink, not muted: the Nacre tones sit behind it, and the muted ink read at 2:1 on a dark deck. */
+  color:var(--text-body);
 }
 
 /* Marp Core converts unicode emoji in source markdown to twemoji <img class="emoji">.
