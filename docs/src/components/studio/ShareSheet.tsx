@@ -14,7 +14,6 @@ import { ImageSetOptionsPanel } from './ImageSetOptionsPanel';
 import { SHEET_EXIT_MS } from './lazy-panel';
 import { splitSlides } from './lint';
 import { MarpOptionsPanel } from './MarpOptionsPanel';
-import { missingAssetNames, sourceUsesAssets } from './media-urls';
 import { PrintOptionsPanel } from './PrintOptionsPanel';
 import { type DeckPackages, embeddableLattice, type ImageSetOptions, shareCaptions, shareHtmlPlayer, shareImageSet, shareLattice, shareMarkdown, shareMarp, shareOffice, sharePdf, sharePptx, sharePrintSource } from './share-export';
 import { SHARE_HEADER, SHARE_MENU, ShareRow, type ShareRowId } from './share-menu';
@@ -154,8 +153,9 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 				// A photo the deck names that this browser no longer holds is drawn as the missing-image
 				// stand-in; say so, so the stand-in in the file is never a surprise. Source exports keep
 				// the reference text and ship no picture, so they have nothing to report.
-				if (!degraded && !SOURCE_EXPORTS.has(key) && sourceUsesAssets(source)) {
-					const gone = await missingAssetNames(source).catch(() => []);
+				// The registry loads only when the deck names a photo; every other export never pays for it.
+				if (!degraded && !SOURCE_EXPORTS.has(key) && /\basset:[a-z0-9]/i.test(source)) {
+					const gone = await import('./media-urls').then((m) => m.missingAssetNames(source)).catch(() => []);
 					if (gone.length) degraded = `${gone.length === 1 ? `the photo “${gone[0]}” is` : `${gone.length} photos (${gone.slice(0, 3).join(', ')}${gone.length > 3 ? ', …' : ''}) are`} not in this browser's Library, so ${gone.length === 1 ? 'it shows' : 'they show'} as a missing-image stand-in`;
 				}
 				if (degraded) notify(`${label} ready — but ${degraded}.`, { duration: DEGRADED_TOAST_MS });
