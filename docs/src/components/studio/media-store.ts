@@ -96,6 +96,9 @@ export function sniffImageMime(b: Uint8Array): string | null {
 	return null;
 }
 
+/** Does this MIME type name an ISO box file (MP4 or QuickTime), the kind `video-scrub.ts` can clean? WebM is not one. */
+export const isIsoVideo = (mime: string): boolean => mime === 'video/mp4' || mime === 'video/quicktime';
+
 /** The most a stored poster may be, in characters: a 160 px JPEG is a few KB. */
 export const MAX_POSTER_CHARS = 120_000;
 /** Is this a poster Lattice may put in an `<img src>`: a plain JPEG data URL of a sane size, and nothing else (no

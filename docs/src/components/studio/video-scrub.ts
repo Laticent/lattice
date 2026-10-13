@@ -180,6 +180,3 @@ export async function scrubVideoBytes(bytes: Uint8Array): Promise<Uint8Array | n
 	const patches = await planVideoScrub(async (o, n) => bytes.subarray(o, o + n), bytes.length);
 	return patches ? applyPatchesToBytes(bytes, patches) : null;
 }
-
-/** Does this MIME type name a clip this module can scrub? WebM (Matroska) is not an ISO box file. */
-export const isIsoVideo = (mime: string): boolean => mime === 'video/mp4' || mime === 'video/quicktime';

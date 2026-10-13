@@ -6,8 +6,7 @@
 // decoder, so a test there would only confirm a stub (HARD RULE #23).
 
 import { scrubberFor } from './media-scrub';
-import { MAX_MEDIA_FILE_BYTES, type MediaKind, mediaNameFromFile, type NewMedia, sniffImageMime, sniffVideoMime, uniqueName } from './media-store';
-import { isIsoVideo, scrubVideoBlob } from './video-scrub';
+import { isIsoVideo, MAX_MEDIA_FILE_BYTES, type MediaKind, mediaNameFromFile, type NewMedia, sniffImageMime, sniffVideoMime, uniqueName } from './media-store';
 
 /** The long edge a stored photo is capped to. A slide shows at most ~1920 px wide, so pixels
  *  past this cost storage quota and buy nothing a viewer can see. */
@@ -381,7 +380,8 @@ export async function importVideo(file: File, scope: string): Promise<NewMedia> 
 	// Cleaned BEFORE it is probed or stored: nothing downstream ever holds the clip with its location in it.
 	let source: Blob = file;
 	if (isIsoVideo(mime)) {
-		const cleaned = await scrubVideoBlob(file).catch(() => null);
+		// Loaded when a clip is added, not at start: the scrubber is only ever needed here, so it stays out of the Studio's startup bundle.
+		const cleaned = await import('./video-scrub').then((m) => m.scrubVideoBlob(file)).catch(() => null);
 		if (!cleaned) throw new MediaImportError(`${file.name} couldn't be checked for location data, so it was not added. Export it again from your camera app and try again.`);
 		source = cleaned;
 	}
