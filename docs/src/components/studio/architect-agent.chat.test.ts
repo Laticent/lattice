@@ -1,7 +1,7 @@
 // chatComplete on the cloud tier, end to end through the real wiring (prompt, loop, tools,
 // fold, finalize) with a scripted backend standing in for OpenRouter. No network.
 import { afterEach, describe, expect, it } from 'vitest';
-import { architectModel, chatComplete } from './architect';
+import { architectModel, chatComplete, requestFindingFix } from './architect';
 
 type Opts = { messages: { role: string }[]; tools?: unknown[]; toolChoice?: string; onToolCalls?: (c: unknown[]) => void; onToolStart?: (n: string) => void; onToken?: (t: string) => void };
 type Hooks = { __setBackend: (b: unknown) => void };
@@ -308,4 +308,31 @@ describe('chatComplete — photos', () => {
 	// NOT covered here: that a photo's base64 stays out of the budget gate. This harness's model wrapper
 	// never prices a call, so the gate cannot block in it and a test of that would pass without the fix
 	// (checked by reverting it). The flattening itself is pinned in chat-photo-parts.test.ts.
+});
+
+describe('requestFindingFix — the cache marker follows the vendor', () => {
+	const finding = { slide: 2, rule: 'wall-of-text', severity: 'warning', message: 'Too many words on this slide.' };
+	const marked = (messages: { content: unknown }[]) => JSON.stringify(messages).includes('cache_control');
+	afterEach(() => localStorage.removeItem('lattice-db-or-model'));
+
+	// A Google marker made Gemini cost more on every model measured (or-cache.js), and the switch that could turn it off is
+	// disabled for Google, so the Coach's Fix must not send one either.
+	for (const [modelId, expected] of [
+		['anthropic/claude-sonnet-5.5', true],
+		['~anthropic/claude-sonnet-latest', true],
+		['google/gemini-2.5-flash', false],
+		['openai/gpt-5', false],
+	] as const) {
+		it(`${expected ? 'marks' : 'does not mark'} the static system part for ${modelId}`, async () => {
+			localStorage.setItem('lattice-db-or-model', modelId);
+			let seen: { content: unknown }[] = [];
+			await withBackend(async (o) => {
+				seen = (o as unknown as { messages: { content: unknown }[] }).messages;
+				return '';
+			});
+			await requestFindingFix(DECK, finding, []);
+			expect(seen.length).toBeGreaterThan(0);
+			expect(marked(seen)).toBe(expected);
+		});
+	}
 });

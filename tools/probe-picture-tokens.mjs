@@ -18,12 +18,16 @@
  *       Spends real credits on OUR key: one tiny call plus two picture calls per model. The whole
  *       catalog (~210 models) cost $1.41 on 2026-10-13, so the default --cap of 1.5 leaves little room: raise it as the catalog grows. Without OPENROUTER_ALLOW_SPEND=1 it prints
  *       the planned call count and exits. Validate with --limit 3 first. --cap stops the run (default 1.5).
- *   node tools/probe-picture-tokens.mjs --from rows.json
- *       No spend: rebuild the data file from a saved probe (`--out` of an earlier run).
+ *   ... --write [--date YYYY-MM-DD] [--allow-lost]
+ *       Rewrite picture-tokens.data.json from this run. Refused on a partial run (--model, --limit, a --cap stop), and when it
+ *       would drop a model the current table lists unless --allow-lost. Rows are saved first (--out, or a temp file).
+ *   node tools/probe-picture-tokens.mjs --from rows.json [--date YYYY-MM-DD] [--allow-lost]
+ *       No spend: rebuild the data file from a saved probe (the rows file of an earlier run).
  * The key is read only from the environment and never printed. (HARD RULE #24, workflow.md §OpenRouter budget.)
  */
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -164,14 +168,17 @@ async function probe(args) {
 			const none = await call(id, null);
 			const a = await call(id, pics[512]);
 			const b = await call(id, pics[1568]);
-			const d = (x) => (Number.isFinite(x) && Number.isFinite(none) ? x - none : x);
+			// No baseline means no difference: a picture's own count would read as a (wildly inflated) per-picture cost.
+			const d = (x) => (Number.isFinite(none) ? (Number.isFinite(x) ? x - none : x) : 'ERR no-baseline');
 			rows.push({ id, none, t512: d(a), t1568: d(b) });
 		}
 	};
 	await Promise.all(Array.from({ length: 6 }, worker));
 	console.log(`probe-picture-tokens: ${rows.length}/${models.length} models, cost $${total.toFixed(4)}`);
-	const out = flag('--out');
-	if (out) fs.writeFileSync(out, JSON.stringify(rows, null, 1));
+	// Rows are always saved: they cost real money, and a refused --write must not throw them away.
+	const out = flag('--out') ?? path.join(os.tmpdir(), `picture-tokens-rows-${Date.now()}.json`);
+	fs.writeFileSync(out, JSON.stringify(rows, null, 1));
+	console.log(`probe-picture-tokens: rows saved to ${out} (rebuild the table from them with --from ${out})`);
 	if (args.includes('--write') && !complete()) {
 		console.error('probe-picture-tokens: refusing --write on a partial run (--model, --limit, the --cap stop, or a model not reached). A partial table drops exceptions and sends their models back to the default. Rows were saved to --out if you gave one; rerun the whole catalog.');
 		process.exit(1);

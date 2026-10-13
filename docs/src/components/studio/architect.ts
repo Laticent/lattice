@@ -8,6 +8,7 @@ import { applyEdit, applyEditChecked, diffLines, EDIT_PROTOCOL, numberSlides, pa
 import { requestSlideFix } from '@/components/studio/ai/architect-fix.js';
 import { AUTHORING_RULES, buildLatticePrimer, layoutBlock } from '@/components/studio/ai/architect-knowledge.js';
 import { cosineRank } from '@/components/studio/ai/architect-retrieval.js';
+import { orSupportsCache } from '@/components/studio/ai/or-cache.js';
 import { buildCanonContext } from '@/components/studio/ai/presentation-canon.js';
 import { buildRefinePrompt, cleanRewrite, REFINE_ACTIONS } from '@/components/studio/ai/refine.js';
 import { adjustSpend, budgetStatus, readBudgetCap, readBudgetFloor, readBudgetMode, readCachingEnabled, readDedupEnabled, readSpend, recordSpend } from '@/components/studio/ai/spend.js';
@@ -1231,7 +1232,7 @@ export async function requestFindingFix(source: string, finding: Finding, catalo
 	try {
 		const res = await requestSlideFix({
 			model: voicedModel(model, generation, deckOutputLang(source)),
-			gate: { cache: () => generation === 'openrouter' && readCachingEnabled(), onUsage: (u: Usage) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0)) },
+			gate: { cache: () => generation === 'openrouter' && readCachingEnabled() && orSupportsCache(model.openRouterModel?.() ?? ''), onUsage: (u: Usage) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0)) },
 			source,
 			finding,
 			catalog,

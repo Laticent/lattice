@@ -68,4 +68,37 @@ describe('the chat agent’s budget gate prices an attached photo by model', () 
 		expect(plain.complete).toHaveBeenCalledTimes(1);
 		expect(alias.complete).not.toHaveBeenCalled();
 	});
+
+	it('loads the model catalog first when the price is not known, so a hard-stop cap applies to the first turn', async () => {
+		// A fresh browser profile: the price comes from the catalog, and nothing has loaded it yet.
+		let loaded = false;
+		const complete = vi.fn(async () => 'Done.');
+		const model = {
+			openRouterModel: () => 'anthropic/claude-sonnet-5.5',
+			openRouterModelPrice: () => (loaded ? PRICE : null),
+			listOpenRouterModels: async () => {
+				loaded = true;
+				return [{ id: 'anthropic/claude-sonnet-5.5', vision: true }];
+			},
+			complete,
+		} as unknown as ArchitectModel;
+		setBudget(0.01, 'stop');
+		expect(await chatAgent(model, [{ role: 'user', content: 'Hello' }], '# A deck', undefined, { grounding: { catalog: [], findings: [] } })).toMatchObject({ status: 'blocked', reply: expect.stringMatching(/exceed your \$0\.01 cap/) });
+		expect(complete).not.toHaveBeenCalled();
+	});
+
+	it('does not wait forever on a catalog that never loads, and lets the turn through as before', async () => {
+		vi.useFakeTimers();
+		try {
+			const complete = vi.fn(async () => 'Done.');
+			const model = { openRouterModel: () => 'anthropic/claude-sonnet-5.5', openRouterModelPrice: () => null, listOpenRouterModels: () => new Promise(() => {}), complete } as unknown as ArchitectModel;
+			setBudget(0.01, 'stop');
+			const turnP = chatAgent(model, [{ role: 'user', content: 'Hello' }], '# A deck', undefined, { grounding: { catalog: [], findings: [] } });
+			await vi.advanceTimersByTimeAsync(4100);
+			await turnP;
+			expect(complete).toHaveBeenCalledTimes(1);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
 });

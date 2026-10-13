@@ -3,6 +3,7 @@ import { ArrowUp, Check, Lock, RotateCcw, Sparkles, Square, TriangleAlert, Unloc
 import * as React from 'react';
 import { createPortal } from 'react-dom';
 import { sliceSlide } from '@/components/studio/ai/architect-edits.js';
+import { orSupportsCache } from '@/components/studio/ai/or-cache.js';
 import { readCachingEnabled } from '@/components/studio/ai/spend.js';
 import { Textarea } from '@/components/ui/textarea';
 import { notify } from '@/lib/notify';
@@ -255,7 +256,8 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 
 	// After the first turn of a thread the cached prefix is a READ, not a write — the cost
 	// readout weights it accordingly. Chat state, so it is resolved here and handed down.
-	const primed = status.generation === 'openrouter' && readCachingEnabled() && messages.length > 0;
+	// A vendor that caches on its own (OpenAI, Google, DeepSeek, x-ai) is primed whatever the switch says; the switch only governs Anthropic's breakpoint.
+	const primed = status.generation === 'openrouter' && (readCachingEnabled() || !orSupportsCache(status.modelId ?? '')) && messages.length > 0;
 	// The money readout lives in the PANEL HEADER now (ChatCost), not in a strip of its
 	// own between the transcript and the composer — that row cost a whole line of a narrow
 	// panel to show two short numbers. ChatCost reads the spend gauge itself and refreshes

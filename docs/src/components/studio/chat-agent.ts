@@ -128,6 +128,10 @@ function budgetText(m: { content?: unknown; tool_calls?: unknown }): { text: str
 export async function chatAgent(model: ArchitectModel, history: ChatTurn[], source: string, docs: ReferenceDoc[] | undefined, opts: ChatOptions | undefined): Promise<ChatResult | null> {
 	const grounding = opts?.grounding;
 	const last = history[history.length - 1];
+	// The price the budget gate compares against comes from the model catalog, which loads on demand (the Workspace model tab, an
+	// alias lookup). With no price the gate has nothing to compare and lets the turn through, so on a fresh browser profile the first
+	// turn ran past a hard-stop cap. Load it now, bounded so a stalled fetch cannot hold the turn; a failed load is the old behavior.
+	if (!model.openRouterModelPrice?.()) await Promise.race([Promise.resolve(model.listOpenRouterModels?.()).catch(() => undefined), new Promise((r) => setTimeout(r, 4000))]);
 	// The Library is read once per turn. A failed read is an empty Library, never a failed turn.
 	// One instance per turn: it reads the shelf (every photo's bytes) once and serves list, thumbnails and
 	// captions from that read, instead of one full read per call.

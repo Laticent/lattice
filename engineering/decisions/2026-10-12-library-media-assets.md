@@ -459,3 +459,23 @@ implicit-cache discount; marked ones pay for an explicit cache and do not. The b
 (`or-cache.js`, pinned in `or-cache.test.ts`). The gate prices a round uncached, which is now also right for Google; before,
 a marked Gemini round billed up to 1.8x what the gate assumed. Anthropic was checked the other way on `claude-haiku-5.5`: a
 marked first call costs 1.25x ($0.003156 against $0.002526) and a repeat 0.1x ($0.000258), as designed.
+
+**Everything that follows from Google not taking markers.** The Coach's per-finding Fix sent its own marker (`architect-fix.js`
+`buildFixMessages`) whenever the switch was on, whatever the vendor; it now follows `orSupportsCache`. The Workspace "Reuse the
+cached prompt" switch is disabled for a model that caches on its own, with the reason in its copy (OpenAI, Google, DeepSeek, x-ai).
+The cost readout treats such a model as primed after the first turn whatever the stored switch says, because the switch only
+governs Anthropic's breakpoint (`ArchitectChat.tsx`). The readout's cache rates (2x write, 0.1x read) are still Anthropic's for every
+vendor; they overstate a cold Google or OpenAI turn and are untouched here.
+
+**The price must be known before the first turn.** The budget gate compares an estimate against the cap, and the estimate needs the
+model's price from the catalog, which loads on demand. On a fresh browser profile nothing had loaded it, so the first chat turn
+skipped the gate and ran past a hard-stop cap. `chatAgent` now loads the catalog first when the price is unknown, waiting at most
+4 seconds. Verified on the real Studio (final build, fresh profile, the real key, a $0.0001 stop-mode cap, `~anthropic/claude-haiku-latest`):
+no request left the page and the chat said "Estimated ~$0.01 — that would exceed your $0.00 cap"; the same setup before the change sent it.
+
+**Real Studio, final build, one turn each (2026-10-13).** A Library photo, the agent calling `view_asset` then `caption_asset`.
+`google/gemini-2.5-flash-lite`: no request carried `cache_control`, prompt tokens read 7,554 / 8,949 / 8,989 (not doubled), three
+rounds cost $0.00076 + $0.00091 + $0.00016 = $0.0018; the first live turn, with markers, cost $0.0048 for the same work.
+`~anthropic/claude-haiku-latest`: every request carried `cache_control`, the alias resolved, rounds two and three read 12,168 and
+12,605 prompt tokens from cache. Not driven on a real Studio: the Coach's Fix (pinned by `architect-agent.chat.test.ts` against the real wiring),
+an attached photo through the chat's attach control, and any WebKit or phone surface.

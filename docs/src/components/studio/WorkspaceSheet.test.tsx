@@ -505,6 +505,16 @@ describe('WorkspaceSheet — settings rehomed from the retired Drawing Board pan
 		expect(localStorage.getItem('lattice-db-or-cache')).toBe('off');
 	});
 
+	// Only Anthropic takes a cache breakpoint; OpenAI, Google, DeepSeek and x-ai cache on their own, so the switch does nothing there.
+	for (const modelId of ['google/gemini-2.5-flash', 'openai/gpt-5', '~google/gemini-flash-latest']) {
+		it(`prompt caching: disabled, with its reason, on ${modelId}`, () => {
+			statusSpy.mockReturnValue({ ...connectedStatus, modelId });
+			const { sheet } = openSheet();
+			expect(sheet.getByRole('switch', { name: 'Reuse the cached prompt' })).toBeDisabled();
+			expect(sheet.getByText(/caches on its own, so the setting has no effect on it/)).toBeInTheDocument();
+		});
+	}
+
 	it('guided tours: reflects the stored value and writes it back', async () => {
 		localStorage.setItem('lattice-tour-enabled', 'off');
 		const { user, sheet } = openSheet();
