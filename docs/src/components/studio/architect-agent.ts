@@ -17,7 +17,7 @@
 // import from here lists their chunks — and every chunk THEY need, i.e. the whole Studio —
 // in the eager importer's preload map, ~2KB gz on a route over its soft budget (route
 // budget, studio eagerJsGz). `architect.ts` already holds all three and passes them in.
-import { type AgentAssets, type AssetInfo, listAssetsView, MAX_VIEWS_PER_TURN } from './agent-assets';
+import { type AgentAssets, type AssetInfo, cleanCaption, listAssetsView, MAX_VIEWS_PER_TURN } from './agent-assets';
 
 type Edits = typeof import('@/components/studio/ai/architect-edits.js');
 type Knowledge = typeof import('@/components/studio/ai/architect-knowledge.js');
@@ -235,6 +235,7 @@ export function buildAgentSystem(opts: { canon: string; catalog: AgentComponent[
 		`THEMES (\`theme:\`): ${opts.themes.join(', ')}`,
 		`FINISHES (\`finish:\`): ${finishes}`,
 		`GUIDES (read_guide topic):\n${guides}`,
+		'SHOWING THINGS IN THE CHAT — the chat draws these fences as figures, so use one to explain, compare or preview without touching the deck: ```mermaid (a diagram), ```math (TeX), ```functionplot (the plot\'s JSON), and ```lattice (ONE slide\'s Markdown, drawn in the deck\'s theme). Tables, numbered lists and quotes render too. A figure in a reply is not an edit: to change the deck, use edit_slides. Keep each figure small.',
 	].join('\n\n');
 }
 
@@ -526,8 +527,11 @@ export function createToolbox(opts: {
 			const a = all.find((x) => x.name === name);
 			if (!a) out.push(unknownAsset(name, all));
 			else if (!looked.has(name)) out.push(`${name}: not saved — you have not been shown this photo yet. Call view_asset, wait for the pictures, then caption it in your next call.`);
+			// Judged AFTER cleaning: a caption of only invisible characters is empty once cleaned, and an empty
+			// caption would clear the one the photo already has.
+			else if (!cleanCaption((c as { caption?: unknown }).caption)) out.push(`${name}: not saved — send the caption as a non-empty string of visible text.`);
 			else {
-				const stored = await opts.assets.setCaption(name, String((c as { caption?: unknown }).caption ?? '')).catch(() => null);
+				const stored = await opts.assets.setCaption(name, (c as { caption: string }).caption).catch(() => null);
 				if (stored === null) out.push(`${name}: could not be saved.`);
 				else {
 					// The stored (cleaned) text, so this turn's list shows what the next turn will read.

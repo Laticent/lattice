@@ -1,0 +1,2 @@
+studio: +20
+The chat's photo captions now go through a backup and a restore. CI measured +6 bytes gz of eager Studio JavaScript against main on the final code; the declared figure leaves room for gzip spread between builds. The growth is the wider caption cleaner (`cleanCaption` in `agent-assets.ts`, which `workspace-media.ts` and `media-store.ts` import) and the backup row's caption field. The chat code itself stays in the lazy chat-agent chunk.

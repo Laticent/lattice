@@ -644,9 +644,22 @@ export type ChatProposal = {
 	diff: { type: string; text: string }[];
 };
 
+/** A photo attached to a user turn — a REFERENCE to a Library asset, never the bytes. The picture
+ *  lives in the media store (`asset:<name>`); the thread keeps only the name and its size, so a
+ *  conversation stays a few kilobytes however many photos it has seen. */
+export type ChatPhoto = { name: string; width: number; height: number };
+
+/** A short video attached to a user turn: what the thread keeps of it. */
+export type ChatVideo = { name: string; durationMs: number; /** A small JPEG data URL of the first frame. */ poster: string };
+
 export type ChatMessage = {
 	role: 'user' | 'assistant';
 	content: string;
+	/** User turn only: the photos attached to it. */
+	photos?: ChatPhoto[];
+	/** User turn only: the video attached to it — a poster and a length, never the bytes (the clip goes
+	 *  to the model on the turn it is sent and is not stored). */
+	videos?: ChatVideo[];
 	/** Assistant turn only: the edits it proposes (reviewable per-slide diffs). */
 	proposed?: ChatProposal[];
 	/** Whether that proposal has been applied. Only ever set when at least one edit

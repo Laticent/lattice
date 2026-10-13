@@ -61,11 +61,13 @@ type MediaRow = {
 	height: number;
 	sourceName: string;
 	original: boolean;
+	/** The chat's one-line description of the photo, when it has looked at it. Optional: a backup from
+	 *  before captions existed has none, and a photo nobody looked at has none. */
+	caption?: string;
 	addedAt: number;
 	file: string;
 	// Added after the first backups shipped. A reader treats a missing field as empty (the Avro rule), and a
 	// reader that does not know one ignores it, so a backup crosses builds in both directions.
-	caption?: string;
 	credit?: string;
 	taken?: string;
 	aliases?: string[];

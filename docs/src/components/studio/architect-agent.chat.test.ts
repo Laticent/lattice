@@ -3,7 +3,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { architectModel, chatComplete } from './architect';
 
-type Opts = { messages: { role: string }[]; tools?: unknown[]; toolChoice?: string; onToolCalls?: (c: unknown[]) => void; onToken?: (t: string) => void };
+type Opts = { messages: { role: string }[]; tools?: unknown[]; toolChoice?: string; onToolCalls?: (c: unknown[]) => void; onToolStart?: (n: string) => void; onToken?: (t: string) => void };
 type Hooks = { __setBackend: (b: unknown) => void };
 
 const DECK = '---\ntheme: indaco\n---\n\n<!-- _class: title -->\n# Q3 review\n\n---\n\n<!-- _class: content -->\n## Next\n\n- Hire two';
@@ -66,6 +66,26 @@ describe('chatComplete — the cloud agent', () => {
 		expect(out.status).toBe('ok');
 		// A status from OpenRouter names its cause; a network failure still reads as a drop.
 		if (out.status === 'ok') expect(out.reply).toMatch(/stopped partway\. OpenRouter or the model's provider had an error/);
+	});
+});
+
+describe('chatComplete — activity labels (the status line is never blank)', () => {
+	it('opens every round with Thinking and names a tool call while its arguments still stream', async () => {
+		const labels: string[] = [];
+		let n = 0;
+		await withBackend(async (o) => {
+			n++;
+			if (n === 1) {
+				o.onToolStart?.('edit_slides');
+				o.onToolCalls?.([{ id: 't1', type: 'function', function: { name: 'set_front_matter', arguments: '{"key":"finish","value":"atrium"}' } }]);
+				return '';
+			}
+			o.onToken?.('Done.');
+			return 'Done.';
+		});
+		await chatComplete([{ role: 'user', content: 'Give it the atrium finish' }], DECK, undefined, { onActivity: (l) => labels.push(l) });
+		// Round 1 opens, the call starts arriving, the tool runs; round 2 opens again.
+		expect(labels).toEqual(['Thinking…', 'Drafting the edit…', 'Setting front matter…', 'Thinking…']);
 	});
 });
 
@@ -238,4 +258,54 @@ describe('checker pass: failures name their cause', () => {
 			m.openRouterModelPrice = orig.price;
 		}
 	});
+});
+
+describe('the transport reports a tool call the moment its name arrives', () => {
+	it('fires onToolStart once per call, before the arguments finish, and leaves the call clean', async () => {
+		const { createArchitectModel } = await import('./ai/architect-model.js');
+		localStorage.setItem('lattice-db-or-key', 'test-key');
+		const frames = [
+			{ id: 'g1', choices: [{ delta: { tool_calls: [{ index: 0, id: 'c1', function: { name: 'edit_', arguments: '' } }] } }] },
+			{ choices: [{ delta: { tool_calls: [{ index: 0, function: { name: 'slides', arguments: '{"slide":2,' } }] } }] },
+			{ choices: [{ delta: { tool_calls: [{ index: 0, function: { arguments: '"markdown":"x"}' } }] } }] },
+			{ choices: [{ finish_reason: 'tool_calls', delta: {} }] },
+		];
+		const body = `${frames.map((f) => `data: ${JSON.stringify(f)}\n\n`).join('')}data: [DONE]\n\n`;
+		const realFetch = globalThis.fetch;
+		globalThis.fetch = (async () => new Response(body, { status: 200, headers: { 'content-type': 'text/event-stream' } })) as unknown as typeof fetch;
+		try {
+			const m = createArchitectModel({ getSettings: () => ({}) });
+			const started: string[] = [];
+			let calls: unknown[] = [];
+			await m.complete({ messages: [{ role: 'user', content: 'hi' }], onToken: () => {}, tools: [{ type: 'function', function: { name: 'edit_slides', parameters: {} } }], onToolStart: (n: string) => started.push(n), onToolCalls: (c: unknown[]) => (calls = c) });
+			// Once, with the name as first seen — the second fragment extends it, never re-announces.
+			expect(started).toEqual(['edit_']);
+			// The marker lives outside the call: what is sent back to the API is exactly the call.
+			expect(calls).toEqual([{ id: 'c1', type: 'function', function: { name: 'edit_slides', arguments: '{"slide":2,"markdown":"x"}' } }]);
+		} finally {
+			globalThis.fetch = realFetch;
+			localStorage.removeItem('lattice-db-or-key');
+		}
+	});
+});
+
+describe('chatComplete — photos', () => {
+	it('sends this turn\'s photos as image parts on the last user message, with a note naming the assets', async () => {
+		let seen: { role: string; content: unknown }[] = [];
+		await withBackend(async (o) => {
+			seen = (o as unknown as { messages: { role: string; content: unknown }[] }).messages;
+			o.onToken?.('I can see it.');
+			return 'I can see it.';
+		});
+		const out = await chatComplete([{ role: 'user', content: 'what is this' }], DECK, undefined, { photos: [{ name: 'team-offsite', dataUrl: 'data:image/jpeg;base64,AAAA' }] });
+		expect(out.status).toBe('ok');
+		const last = seen.filter((m) => m.role === 'user').at(-1)?.content as { type: string; text?: string; image_url?: { url: string } }[];
+		expect(Array.isArray(last)).toBe(true);
+		expect(last.find((p) => p.type === 'image_url')?.image_url?.url).toBe('data:image/jpeg;base64,AAAA');
+		expect(last.find((p) => p.type === 'text')?.text).toContain('asset:team-offsite');
+	});
+
+	// NOT covered here: that a photo's base64 stays out of the budget gate. This harness's model wrapper
+	// never prices a call, so the gate cannot block in it and a test of that would pass without the fix
+	// (checked by reverting it). The flattening itself is pinned in chat-photo-parts.test.ts.
 });

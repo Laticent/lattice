@@ -1669,6 +1669,121 @@ decision 7's token-only gate is superseded by 12). What exists now:
   `followups.d/2417-p5-plugin-roadmap-phases-e-to-g.md`: the Studio's door, the placeholder and its
   Approve strip, `lattice packages trust plugin/<name>`, then steps 2 and 3.
 
+**2026-10-12 — phase E, the Studio's door (followup step 1, item 1).** A plugin's fence now draws in
+the real Studio preview and in Share → PDF. What was built:
+- **One set of rules for both doors.** The CLI door's rules moved into the kernel
+  (`lib/packages/code-door-fence.mjs`) and both doors call them: `planFencePlugins` (a fence name two
+  plugins claim, a shipped plugin's fence, a malformed name, a highlight language, a name that is a
+  hyphen-prefix of another's), `fenceCaptureNotes` (a long block, a slide a shipped pass rebuilds, a
+  raw `<section>`, the 400-fence allowance), `FENCE_OUTPUT_MAX` and `rebuiltFromAlternatives`. The
+  Studio's door (`docs/src/lib/code-packages/door-run.ts`) calls the same `captureFences` /
+  `substituteFences`, `doorFinishFence`, `fenceId` namespace and `pluginDigest` text as the CLI's.
+  `test/fixtures/fence-door-parity.mjs` is one deck, one plugin and one list of checks that BOTH doors
+  run (`plugin-fence-door.test.js` through a real Chromium, `door.fence.test.ts` through the real
+  engine and sanitizer), so a rule one door learns and the other does not fails one of them.
+- **Data the Studio cannot derive without the registry is generated.**
+  `lib/packages/fence-door.generated.json` (built by `tools/build-packages-index.js`) holds the
+  `{ pass, classes }` list `rebuilt-classes.js` derives from the registry, and the fence names the
+  shipped plugins own. `test/unit/cli/fence-door-data.test.js` pins it to the live reads, class set by
+  class set, so a pass added tomorrow breaks the test until the file is rebuilt (and `build:check`
+  fails on a stale file).
+- **Consent in the browser** is under `plugin/<name>` in the same storage key as component approvals,
+  against `pluginDigest(code, fence)` (SHA-256 over the same text `trust.js` hashes, checked equal in
+  `door.fence.test.ts`). The Studio holds the renderer as text, so a file with a leading BOM or an
+  invalid byte has a different digest here than the CLI's, which hashes the file's bytes: an approval
+  never crosses between them, either way.
+- **Activation is the deck's `plugins:` line** (decision 11), read from the source being rendered
+  (a pane's one-slide render carries the front matter). A plugin the deck does not list runs nothing
+  and opens no frame; a listed one runs only once approved. The notice above the preview offers the
+  approval (`CodePackagesNotice`: "This deck uses code from the plugin …"), and shows the door's own
+  notes ("slide 3 is rebuilt by the shipped `video` pass…") instead of leaving a block as code silently.
+- **Output cap.** The CLI caps the sanitized output of one render at 8,000,000 characters
+  (`FENCE_OUTPUT_MAX`); the Studio counts the RAW output against the 4,000,000 it already held slides
+  to, because its sanitizer runs on the page's main thread (a render of twelve 3.9-million-character
+  slides froze it for ten seconds, before). Both spend the cap in claim order. The number differs on
+  purpose; the rule does not.
+- **Where a zip plugin lives** (decision 13): `docs/src/components/studio/plugin-library.ts`, the
+  asset store's `plugin` kind. The Library's own import reads one (`unpackBundle(file, { plugins: true })`)
+  and nothing else does: a plugin inside a `.lattice` project or a backup is refused by name
+  (`PLUGIN_PROJECT_REFUSAL`), a workspace backup never lists the kind (pinned by `import-plugins.test.ts`),
+  and "Delete everything" sweeps it with every other kind. The Library's import runs the shape gate
+  (`refusePluginCode`, which now also refuses `render.exec` and `payload` / `vendor` BY RULE, the
+  2026-10-04 acceptance criterion) and the syntax gate, then the door's name rules against the saved
+  set. A subfolder in a plugin zip is reported ("left out 1 file(s) in subfolders"), never dropped.
+  The Plugins tab lists each installed plugin (listed, approved, Remove).
+- **A finding from driving the real surface.** Share → PDF failed on a plugin that returned an empty
+  `<video>`, and shipped "without at least one image" for an `<img>` with no source: the sanitizer
+  takes the address out, and the Studio's PDF writer draws each slide into an image. A fence renderer
+  is handed no address, so such an element is a dead box. `doorFinishFence` now drops `video`, `audio`,
+  `source`, `track`, an `<img>` with no `src` and an SVG `<image>` with no `href`, in both doors; a
+  `data:` image stays. The parity fixture checks it.
+- **Not built here:** the plugin's `styles.css` is stored but not delivered (decision 12's scoped CSS
+  belongs to step 2's style sink), and the placeholder for an unlisted fence is in the next entry.
+
+**2026-10-12 — phase E, the placeholder and Approve strip; the trio's findings on the Studio door.**
+- **The placeholder** (decision 11). A plugin the deck does not list, whose fence the deck writes, draws
+  `div[data-lattice-plugin-off]` (`fencePlaceholder`, `code-door-fence.mjs`) where the block was: the
+  plugin's name and one line, painted by `lib/base/base.modifiers.css` in the underpainting's Nacre
+  tones held still (an export capture must not move), every paint a deck token, the mark the
+  `--shape-spark` mask (HARD RULES #3, #20, #29). It carries none of the author's text. The strip above
+  the preview (`CodePackagesNotice`, `data-state="offered"`) offers **Approve**, which in one click writes
+  the `plugins:` line (`writeDeckPlugins`) and records consent for the code's bytes. The preview, the
+  placeholder and the strip are seen at 1440, 820 and 390 in `docs/e2e/plugin-fence-ui.spec.ts`.
+  No demo deck (HARD RULE #9): the state exists only while a browser holds a plugin, which no CLI render can.
+- **The trio ran on the Studio door** (red team, inversion, checker; all read the commit, none edited it).
+  Fixed: a plugin whose fence is a highlight.js language (`python`, `js`) was accepted and
+  took every such block, because `isLanguage` reached no caller (now `highlightLanguages` in
+  `fence-door.generated.json`, passed by both doors and the import); two plugins in one zip that conflict
+  were both saved and silently never ran (import checks the saved set plus its siblings; a refused plugin
+  is no longer offered or approvable, and a listed refused plugin says why); two different renderers could
+  share a consent digest through a lone surrogate (refused by `refusePluginCode`); the dead-media drop missed
+  `src=""` and `#`; `name=` on a fence's `<img>` shadowed a window global the runtime reads (dropped); the
+  Studio's cap counted raw output on a fresh run and sanitized output on a remembered one, and serialization
+  grows text up to 6x (a fresh run now counts what is spliced in, a remembered result counts the same, the
+  memo is bounded in characters, and fences spend a pool of their own so slide packages cannot starve them; that last one is by construction and no test pins it);
+  activation (`activePluginNames`) moved into the kernel for the CLI caller to use. Not changed, on purpose:
+  a side render (the web-image scan, the gallery gate) runs a listed, approved plugin like any other
+  render; an approval stays in the browser after its plugin is deleted, pinned to bytes (re-importing the
+  same bytes is approved, as decision 14 designs).
+
+**2026-10-12 — phase E, the CLI half of the door: install, trust, render, lint.** A zip plugin now runs
+through `node lattice.js`, end to end (`test/integration/export/plugin-cli.test.js`, real Chromium):
+- `lib/packages/gate.js` `refusePlugin` replaces the by-name refusal (`PLUGIN_REFUSAL`, deleted): the
+  shape gate `refusePluginCode`, the syntax gate on the script as a fence renderer, `codeNameRefusal`
+  on the name, and a fence that is a shipped plugin's or a highlight.js language or alias (the same
+  `fence-door.generated.json` lists the Studio reads). `lattice packages add` installs it under
+  `plugin/<name>`, unapproved, and `lattice packages trust plugin/<name>` approves it (the digest shown is
+  the one the Studio shows for the same bytes, `759dc27d…` on the test plugin). A folder or zip below the
+  top level is reported ("left out 1 item(s) below the top level (shared/)"), never dropped.
+- `lattice.js` `withInstalledPlugins`: of the installed plugins, the ones the deck's `plugins:` line names
+  (`activePluginNames`, the kernel rule the Studio uses) go to `renderWithCodePackages`; the door refuses
+  an unapproved one with its digest and the trust command, before anything runs. An installed plugin the
+  deck writes a fence for but does not list is named once, with the line to add. A plugin sharing a shipped
+  plugin's name is refused and named.
+- `lint:deck` reads the package store: a listed zip plugin is not `unknown-plugin`, and the new
+  `plugin-fence-attributes` warning says the words after a plugin fence's name (```` ```gantt title="Q3" ````)
+  are ignored today (decision 10), so the field stays free to define. The Studio's editor passes the same
+  vocabulary (`externalFences`).
+
+**2026-10-13 — the placeholder takes space the way the plugin says, in geometry the engine already has.** The first
+placeholder was sized in `em` of the smallest content size and read as a thin chip. A second cut guessed a ratio
+(full width at every ratio, then a square-root rule) and was wrong on real shapes: an avatar became a bar across the
+slide. The engine already knows how its own figures take space: a Mermaid diagram or chart fills the stage
+(`section.diagram > .cell-stage > .mermaid`: `flex: 1; width: 100%; height: 100%`), an image takes the content width
+at a ratio, an avatar is a square in a token scale (`--avatar-size`: 1.1, 1.45, 2.4, 4em). So the manifest says
+WHICH, as data (`contributes.fences.<fence>.placeholder` in `plugin.schema.json`, additive; the code may not run
+before approval, so it cannot be asked): `placement: "stage"` fills the stage; `"figure"` (the default) takes the
+content width at `aspect` (`W/H`, default `16/9`, the web-image placeholder's) with its height at most `30cqi`, the
+slide's own container unit, so a 16:9 figure fits the stage and a wide one still fills the row; `"chip"` is a mark-only
+square in `size` `sm|md|lg|xl` (the avatar scale; name in its title and accessible name). For a figure, the
+proportions of the plugin's last DRAWN output (`aspectOfOutput`: the first `<svg>`'s `viewBox` or `width`/`height`,
+reduced, 1 to 999), remembered in this browser by the code's digest (`lattice-plugin-aspects`, bounded at 200, never
+in a deck or a backup), override the declared `aspect`. `placeholderHint` reduces every value at import and again where the markup is made, so an attribute or a style never holds anything but a known placement, a `W/H` ratio or a size.
+Seen in the real Studio with five plugins (two chips, a wide and a default figure, a stage). A `stage` placeholder
+shows only on a slide the door draws on: a `diagram` slide is rebuilt by a shipped pass, so a fence there stays code.
+A `chip` is still a block (a fence is block syntax); inline syntax such as `!{Ada Okafor}` is a parser rule and not a
+zip plugin's to contribute.
+
 ## References
 
 - [`2026-06-14-plugin-extension-system.md`](2026-06-14-plugin-extension-system.md) — LPM.

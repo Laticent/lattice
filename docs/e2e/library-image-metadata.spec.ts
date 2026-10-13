@@ -58,6 +58,21 @@ async function openLibraryImages(page: Page, width: number) {
 /** Wait for the dialog's open animation to end, so a screenshot shows the settled state. */
 const settled = (d: ReturnType<Page['locator']>) => d.evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished.catch(() => {}))).then(() => undefined));
 
+/** Wait until a deck's text has reached storage: the shell saves the open deck on a short debounce. */
+async function savedDeckWith(page: Page, text: string) {
+	await expect
+		.poll(() =>
+			page.evaluate((needle) => {
+				for (let i = 0; i < localStorage.length; i++) {
+					const k = localStorage.key(i) as string;
+					if (k.startsWith('lattice-studio-src-') && (localStorage.getItem(k) ?? '').includes(needle)) return true;
+				}
+				return false;
+			}, text),
+		{ message: `a deck holding "${text}" is saved`, timeout: 15_000 })
+		.toBe(true);
+}
+
 for (const vw of [1440, 820, 390]) {
 	test.describe(`at ${vw}px`, () => {
 		test.use({ viewport: { width: vw, height: vw === 1440 ? 900 : 1000 } });
@@ -337,8 +352,8 @@ test('@smoke "Use new name" also rewrites a deck that is not open, and says how 
 	await expect(page.locator('[data-media-card="shared-probe"]')).toBeVisible();
 	await setEditorContent(page, '# Deck A\n\n![A probe](asset:shared-probe)\n');
 	await expect(livePreview(page).locator('img[alt="A probe"]').first()).toBeVisible({ timeout: 30_000 });
-	// The shell saves the source on a short debounce; give it time to land before the second deck opens.
-	await page.waitForTimeout(1500);
+	// The shell saves the source on a short debounce; wait for it to land before the second deck opens.
+	await savedDeckWith(page, 'Deck A');
 
 	// A second deck, which becomes the open one. Deck A is then a stored deck.
 	await page.locator('header').getByRole('button', { name: /slides?$|Untitled deck|Markdown for the boardroom/ }).first().click();
@@ -347,7 +362,7 @@ test('@smoke "Use new name" also rewrites a deck that is not open, and says how 
 	if (await craft.isVisible().catch(() => false)) await craft.click();
 	await setEditorContent(page, '# Deck B\n\n![B probe](asset:shared-probe)\n');
 	await expect(livePreview(page).locator('img[alt="B probe"]').first()).toBeVisible({ timeout: 30_000 });
-	await page.waitForTimeout(1500);
+	await savedDeckWith(page, 'Deck B');
 
 	// The docked Library may already be open from the first deck: the toolbar button toggles it, so only press it when closed.
 	const imagesTab = page.getByRole('tab', { name: 'Images' });
@@ -384,4 +399,114 @@ test('@smoke "Use new name" also rewrites a deck that is not open, and says how 
 			{ message: 'both decks, the open one and the stored one, name the photo by its new name', timeout: 15_000 },
 		)
 		.toBe(true);
+});
+
+// ── Suggest: the connected model drafts a description ──────────────────────────────────────────────────────
+// OpenRouter is MOCKED (HARD RULE #24): no test spends the owner's budget. What this proves on the real Studio is the
+// wiring: the real thumbnail goes out as an image part, the reply lands in the editable field and is NOT saved until Save,
+// and a missing connection or a model that cannot read images gets a plain line, not a silent button.
+const MOCK_MODEL = '~anthropic/claude-sonnet-latest';
+
+async function mockOpenRouter(page: Page, opts: { key: boolean; vision: boolean; reply?: string }): Promise<{ bodies: { messages: { role: string; content: unknown }[] }[] }> {
+	await page.addInitScript((withKey) => {
+		try {
+			if (withKey) localStorage.setItem('lattice-db-or-key', 'sk-e2e-mock-not-a-real-key');
+			localStorage.setItem('lattice-db-dedup', 'off');
+		} catch {
+			/* storage unavailable: the spec fails loudly on the missing control */
+		}
+	}, opts.key);
+	const seen: { bodies: { messages: { role: string; content: unknown }[] }[] } = { bodies: [] };
+	await page.route('https://openrouter.ai/**', async (route) => {
+		const url = route.request().url();
+		if (url.includes('/chat/completions')) {
+			const body = route.request().postDataJSON() as { stream?: boolean; messages: { role: string; content: unknown }[] };
+			seen.bodies.push(body);
+			const usage = { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20, cost: 0 };
+			const text = opts.reply ?? 'a team on a roof';
+			if (body.stream) {
+				const frames = [
+					{ id: 'gen-1', choices: [{ index: 0, delta: { content: text } }] },
+					{ id: 'gen-1', choices: [{ index: 0, delta: {}, finish_reason: 'stop' }], usage },
+				];
+				await route.fulfill({ status: 200, contentType: 'text/event-stream', body: `${frames.map((f) => `data: ${JSON.stringify(f)}\n\n`).join('')}data: [DONE]\n\n` });
+			} else {
+				await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 'gen-1', choices: [{ index: 0, message: { role: 'assistant', content: text }, finish_reason: 'stop' }], usage }) });
+			}
+		} else if (url.endsWith('/models') || url.includes('/models?')) {
+			const model = { id: MOCK_MODEL, name: 'Mock model', pricing: { prompt: '0.000003', completion: '0.000015' }, context_length: 200000, architecture: { input_modalities: opts.vision ? ['text', 'image'] : ['text'] } };
+			await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [model] }) });
+		} else {
+			await route.fulfill({ status: 200, contentType: 'application/json', body: '{"data":{}}' });
+		}
+	});
+	return seen;
+}
+
+async function openPhotoDialog(page: Page, name: string): Promise<ReturnType<Page['locator']>> {
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await openLibraryImages(page, 1440);
+	await addPhoto(page, `${name}.png`);
+	await expect(page.locator(`[data-media-card="${name}"]`)).toBeVisible();
+	await page.locator(`[data-media-card="${name}"]`).getByRole('button', { name: `Details for ${name}` }).click();
+	const dialog = page.locator(`[data-media-detail="${name}"]`);
+	await expect(dialog).toBeVisible();
+	return dialog;
+}
+
+test('@smoke Suggest drafts a description from the real thumbnail; it is not saved until Save', async ({ page }) => {
+	test.slow();
+	const seen = await mockOpenRouter(page, { key: true, vision: true, reply: '"A team standing on a roof at sunset."' });
+	await gotoStudio(page);
+	const dialog = await openPhotoDialog(page, 'suggest-me');
+	await dialog.getByRole('button', { name: 'Suggest' }).click();
+	await expect(dialog.getByLabel('Description')).toHaveValue('A team standing on a roof at sunset.', { timeout: 30_000 });
+
+	// What went to the model: an image part carrying a small JPEG thumbnail, and the no-guessing contract.
+	expect(seen.bodies).toHaveLength(1);
+	const [sys, user] = seen.bodies[0].messages;
+	// The system message may arrive as cache-wrapped text parts, so read its text whichever shape it has.
+	expect(JSON.stringify(sys.content)).toMatch(/Never guess names, places, brands/);
+	const parts = user.content as { type: string; image_url?: { url: string } }[];
+	const img = parts.find((p) => p.type === 'image_url')?.image_url?.url ?? '';
+	expect(img.startsWith('data:image/jpeg;base64,')).toBe(true);
+	expect(img.length, 'a thumbnail, not the stored photo').toBeLessThan(200_000);
+
+	// A draft only: the record holds no description until Save.
+	const before = await page.evaluate(async () => {
+		const db: IDBDatabase = await new Promise((res, rej) => {
+			const r = indexedDB.open('lattice-workbench');
+			r.onsuccess = () => res(r.result);
+			r.onerror = () => rej(r.error);
+		});
+		const rows: { kind: string; caption?: string }[] = await new Promise((res) => {
+			const r = db.transaction('assets').objectStore('assets').getAll();
+			r.onsuccess = () => res(r.result as never);
+		});
+		return rows.find((x) => x.kind === 'image')?.caption;
+	});
+	expect(before).toBeUndefined();
+	await dialog.getByRole('button', { name: 'Save' }).click();
+	await expect(dialog).toBeHidden();
+	expect((await mediaRows(page))[0].caption).toBe('A team standing on a roof at sunset.');
+});
+
+test('@smoke Suggest says plainly when the model cannot read images, and when no model is connected', async ({ page }) => {
+	test.slow();
+	await mockOpenRouter(page, { key: true, vision: false });
+	await gotoStudio(page);
+	const dialog = await openPhotoDialog(page, 'no-vision');
+	await dialog.getByRole('button', { name: 'Suggest' }).click();
+	await expect(dialog.getByText(/can't read images/)).toBeVisible({ timeout: 30_000 });
+	await expect(dialog.getByLabel('Description')).toHaveValue('');
+});
+
+test('@smoke Suggest with no model connected points to Setup and sends nothing', async ({ page }) => {
+	test.slow();
+	const seen = await mockOpenRouter(page, { key: false, vision: true });
+	await gotoStudio(page);
+	const dialog = await openPhotoDialog(page, 'no-key');
+	await dialog.getByRole('button', { name: 'Suggest' }).click();
+	await expect(dialog.getByText(/Connect your OpenRouter account in Setup/)).toBeVisible({ timeout: 30_000 });
+	expect(seen.bodies, 'no photo left the browser').toHaveLength(0);
 });

@@ -25,7 +25,7 @@ import { Switch } from '@/components/ui/switch';
 import { Tip, Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { type SplitSide, useResizableSplit } from '@/components/ui/use-resizable-split';
 import { messageForFailure } from '@/lib/chunk-load';
-import { codePackagesStamp, setCodePackages } from '@/lib/code-packages/entry';
+import { codePackagesStamp, setCodePackages, setPlugins } from '@/lib/code-packages/entry';
 import { type CrashReport, collectCrashReports, breadcrumb as crashCrumb, noteError as noteCrashError, OPEN_CRASH_REPORT_EVENT, setCrashContext } from '@/lib/crash-sentinel';
 import { shellKeyAction, zoomKeyAction } from '@/lib/deck-nav';
 import { pinnedMode, resolveDeckTheme } from '@/lib/deck-theme';
@@ -43,6 +43,7 @@ import { slideFrameShadow } from '@/lib/slide-frame';
 import type { SparkFitReport } from '@/lib/spark-fit';
 import { type Breakpoint, hasFinePointer, readBreakpoint, readLandscapePhone, useBreakpoint, useLandscapePhone } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
+import { setExternalPlugins } from '@/playground/editor-diagnostics.js';
 import { applyReadAloudDebugParam } from '@/playground/readaloud-overlay-prefs';
 import { onToursEnabledChange, toursEnabled } from '@/playground/tour-prefs.js';
 import { collageDragged } from '../../../../lib/core/collage-tap.mjs';
@@ -105,6 +106,7 @@ import { readTargets, setSlideMotionOff } from './motion-sheet';
 import { PresetPicker } from './PresetPicker';
 import { mayHavePaneSlides } from './pane-probe';
 import { ChatShell, LensesShell, LibraryShell, ShareShell, type SlideBaseline, SlideSettingsShell, WorkspaceShell } from './panel-shells';
+import { deleteStudioPlugin, listStudioPlugins, type StudioPluginRecord } from './plugin-library';
 import { PreviewPool } from './preview-pool';
 import { PREVIEW_CHROME, PREVIEW_RECT_KEY, STUDIO_SPLIT_KEY, STUDIO_SPLIT_PANEL_IDS } from './preview-rect';
 import { ReshapePicker } from './ReshapePicker';
@@ -1244,6 +1246,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// authored + saved in the Fabricate Component Studio. They become insertable AND
 	// render styled (their CSS is injected where the deck uses them).
 	const [localComponents, setLocalComponents] = React.useState<StudioComponent[]>([]);
+	// Zip plugins (plugin-library.ts): kept in this browser only, run by the same door once approved.
+	const [localPlugins, setLocalPlugins] = React.useState<StudioPluginRecord[]>([]);
 	const refreshComponents = React.useCallback(() => {
 		// Keep a STABLE reference when nothing actually changed. The store resolves
 		// async to a fresh array each call (often an empty one when IndexedDB is
@@ -1253,6 +1257,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		listStudioComponents()
 			.then((list) => setLocalComponents((prev) => (same(prev, list) ? prev : list)))
 			.catch(() => setLocalComponents((prev) => (prev.length ? [] : prev)));
+		// The zip plugins share the Library's refresh: every place that changes the shelf calls this.
+		listStudioPlugins()
+			.then((list) => setLocalPlugins((prev) => (prev.length === list.length && prev.every((p, i) => p.id === list[i].id && p.code === list[i].code && p.fence === list[i].fence) ? prev : list)))
+			.catch(() => setLocalPlugins((prev) => (prev.length ? [] : prev)));
 	}, []);
 	React.useEffect(() => { refreshComponents(); }, [refreshComponents]);
 	// CODE PACKAGES: every saved component carrying a transform is one the renders may run, each only
@@ -1271,6 +1279,17 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		);
 		return () => { live = false; };
 	}, [localComponents]);
+	React.useEffect(() => {
+		// The editor's lint and the engine both know these names, so a deck that lists one is not called wrong.
+		setExternalPlugins(localPlugins.map((p) => p.name), localPlugins.map((p) => p.fence));
+		let live = true;
+		setPlugins(localPlugins.map((p) => ({ name: p.name, fence: p.fence, code: p.code, ...(p.placeholder ? { placeholder: p.placeholder } : {}) }))).then(
+			() => { if (live) setCodeStamp(codePackagesStamp()); },
+			(e) => console.warn('lattice: the plugin door did not load', e),
+		);
+		return () => { live = false; };
+	}, [localPlugins]);
+	const removePlugin = React.useCallback((id: string) => { deleteStudioPlugin(id).then(() => refreshComponents()); }, [refreshComponents]);
 	const onCodeApproved = React.useCallback(() => setCodeStamp(codePackagesStamp()), []);
 	// LIBRARY PHOTOS (`asset:<name>`): the registry holds a name → object-URL map for the shared
 	// assets plus this deck's own (media-urls.ts). Its stamp joins the preview's extra CSS, which
@@ -5068,7 +5087,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			<div>
 				<TabNote>What this deck can render beyond Markdown, and why each is on. Every shipped plugin is on by default; listing one writes it into the deck's <code>plugins:</code> line, so the deck names what it needs wherever it is opened. A list only adds — it never turns a plugin off.</TabNote>
 				<React.Suspense fallback={null}>
-					<PluginsSettings source={source} onWrite={settingsWrite} />
+					<PluginsSettings source={source} onWrite={settingsWrite} installed={localPlugins} stamp={codeStamp} onRemove={removePlugin} />
 				</React.Suspense>
 			</div>
 			),
@@ -5491,7 +5510,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			<WebImagesNotice summary={webSummary} allowed={webAllowed} onLoad={allowWebOrigins} onBlock={blockWebOrigins} />
 			{codeStamp && (
 				<React.Suspense fallback={null}>
-					<CodePackagesNotice source={source} stamp={codeStamp} onApproved={onCodeApproved} />
+					<CodePackagesNotice source={source} stamp={codeStamp} onApproved={onCodeApproved} onWrite={settingsWrite} />
 				</React.Suspense>
 			)}
 			{/* Swipe (touch) and wheel (mouse or trackpad, either axis) change slides

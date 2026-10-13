@@ -25,6 +25,10 @@ Studio's Live panel. It knows **peers and bytes**; the app knows **screens**. It
   connection settled on (`host` / `srflx` / `prflx` / `relay`), when the transport can say
   (`Transport.paths`, optional; the Trystero adapter reads WebRTC stats). `linkKind()` turns a
   pair into *same network*, *direct* or *relay*;
+- **call audio stats** — `session.audioStats()` reports, for each member, what the call audio is
+  doing on that connection: bitrate heard and sent, loss and jitter (`AudioStats`; `Transport.audioStats`,
+  optional; the Trystero adapter reads `inbound-rtp` / `outbound-rtp`). Rates and loss cover the time
+  since the previous call, so poll on a steady timer;
 - **succession, as a regency** — when the host's link stays down for `HANDOFF_GRACE_MS` (20 s),
   the HEIR hosts until the host is back: the first member, in admission order, who may edit. The
   host never hands its key on; it certifies the heir's own key with a range of terms and a ceiling
@@ -41,6 +45,9 @@ Studio's Live panel. It knows **peers and bytes**; the app knows **screens**. It
   a member's stream (`add`) and its end (`drop`), and a stream from a peer that is not admitted yet
   is held until it is. It rides the same connections as the document (`Transport.addTrack` /
   `onTrack`, optional; the Trystero adapter implements them);
+- **rename** — `session.rename(name)`: a member asks the host (`rename`), which cleans the name, refuses one
+  another member already has (any case), allows one change a second per member, updates the roster and the
+  member's rejoin token, and broadcasts. The host renames itself directly.
 - **client binding** — each member knocks with its awareness `client` id and the host binds it in
   the roster (refusing one another member already holds), so an app can drop presence a member
   sends for anyone else.

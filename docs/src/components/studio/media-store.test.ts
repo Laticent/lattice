@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { openDB, reqAsPromise } from './library/asset-db.js';
 import { deleteAsset, listAssets } from './library/asset-store.js';
 import {
+	cleanLine,
 	decksUsing,
 	decksUsingRecord,
 	deleteDeckMedia,
@@ -383,5 +384,22 @@ describe('updateMediaDetails', () => {
 		const rec = await saveMedia(base({ name: 'hero' }), 1);
 		const out = await updateMediaDetails(rec.id, { credit: 'Ada' });
 		expect([out?.name, out?.aliases, out?.credit]).toEqual(['hero', undefined, 'Ada']);
+	});
+});
+
+describe('cleanLine', () => {
+	it('keeps what a person typed: quotes, the middle dot, accents and an emoji with its look', () => {
+		expect(cleanLine('The "roof" · Zürich \u2764\uFE0F', 140)).toBe('The "roof" · Zürich \u2764\uFE0F');
+	});
+
+	it('removes control, bidirectional and hidden characters', () => {
+		expect(cleanLine(`a\r\nb\u202E\u200Bc\u3164d\u2800e${String.fromCodePoint(0xe0041)}f${String.fromCodePoint(0xe0100)}g\uFE01h`, 140)).toBe('a bcdefgh');
+	});
+
+	it('cuts by whole characters, so an emoji at the limit is kept or dropped whole', () => {
+		const out = cleanLine(`${'a'.repeat(139)}\u{1F600}x`, 140);
+		expect(Array.from(out)).toHaveLength(140);
+		expect(out.endsWith('\u{1F600}')).toBe(true);
+		expect(cleanLine('\u{1F600}\u{1F600}', 1)).toBe('\u{1F600}');
 	});
 });

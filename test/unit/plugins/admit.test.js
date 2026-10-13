@@ -216,6 +216,35 @@ describe('admission on the render paths', () => {
     assert.deepEqual(r.diagnostics.map((d) => [d.id, d.plugin]), [['plugin/unknown-plugin', 'mermiad']]);
   });
 
+  it('a listed name the HOST holds as data (a zip plugin) is not unknown: admission reports it as external, the engine says nothing, the lint stays quiet', () => {
+    const deck = `---\nplugins: [gantt-plugin, mermiad]\n---\n${MATH}`;
+    const a = admitPlugins(deck, { external: ['gantt-plugin'] });
+    assert.deepEqual(a.external, ['gantt-plugin']);
+    assert.deepEqual(a.unknown, [{ name: 'mermiad', malformed: false }], 'a typo is still unknown');
+    assert.deepEqual(names(a), names(admitPlugins(deck)), 'an external name loads nothing in the grammar');
+    const r = createEngine().render(deck, 'indaco', { externalPlugins: ['gantt-plugin'] });
+    assert.deepEqual(r.diagnostics.map((d) => [d.id, d.plugin]), [['plugin/unknown-plugin', 'mermiad']]);
+    assert.deepEqual(createEngine().render(deck).diagnostics.map((d) => d.plugin), ['gantt-plugin', 'mermiad'], 'without the host naming it, it is unknown, as before');
+    const core = require('../../../lib/authoring/lint-core.js');
+    const vocab = { names: new Set(), modifiers: new Set() };
+    const lint = (v) => core.lintTextWith(deck, v).filter((f) => f.rule === 'unknown-plugin').map((f) => f.classToken);
+    assert.deepEqual(lint({ ...vocab, externalPlugins: ['gantt-plugin'] }), ['mermiad']);
+    assert.deepEqual(lint(vocab), ['gantt-plugin', 'mermiad']);
+  });
+
+  it('attributes after a zip plugin’s fence name are reported once, only for fences the host holds as data', () => {
+    const core = require('../../../lib/authoring/lint-core.js');
+    const src = '---\nplugins: [gantt-plugin]\n---\n\n## P\n\n```gantt title="Q3" {a=1}\nA 1\n```\n\n```gantt\nB 2\n```\n\n```js title="x"\nlet a;\n```\n';
+    const vocab = { names: new Set(), modifiers: new Set(), externalPlugins: ['gantt-plugin'], externalFenceOf: { 'gantt-plugin': 'gantt' } };
+    const hits = core.lintTextWith(src, vocab).filter((f) => f.rule === 'plugin-fence-attributes');
+    assert.equal(hits.length, 1, 'only the fence with words after its name');
+    assert.equal(hits[0].classToken, 'gantt');
+    assert.match(hits[0].message, /title="Q3"/);
+    assert.deepEqual(core.lintTextWith(src, { names: new Set(), modifiers: new Set() }).filter((f) => f.rule === 'plugin-fence-attributes'), [], 'a host with no such plugin says nothing');
+    const unlisted = src.replace('plugins: [gantt-plugin]\n', '');
+    assert.deepEqual(core.lintTextWith(unlisted, vocab).filter((f) => f.rule === 'plugin-fence-attributes'), [], 'an installed plugin the deck does not list draws nothing, so its attributes are not "ignored"');
+  });
+
   it('the CLI bake runs only for an admitted plugin', () => {
     const ran = [];
     const bakers = [{ name: 'mermaid', load: () => ({ bake: (s) => { ran.push('mermaid'); return s; } }) }];

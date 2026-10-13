@@ -9,6 +9,7 @@ import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { useBreakpoint, useLandscapePhone } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
 import { AssetVersionsDialog, type VersionedAsset } from './AssetVersions';
+import { agentAssets } from './agent-assets-browser';
 import { componentZipName, finishZipName, packBundle, packComponent, packFinish, packTheme, themeZipName, unpackBundle } from './asset-bundle';
 import { decksUsingOutsideCode, renameAssetRefsOutsideCode } from './asset-refs';
 import { deleteStudioComponent, listStudioComponents, type StudioComponent } from './component-library';
@@ -576,6 +577,27 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 			return 'Could not update the decks. Nothing was lost; try again.';
 		}
 	}
+	/** A draft description for one photo, from the connected model. The model and the budget live in the Architect
+	 *  bridge, loaded only now: a Library that never asks for a suggestion never pays for it. */
+	async function suggestDescription(a: MediaRecord): Promise<{ text: string } | { note: string }> {
+		const thumb = await agentAssets.thumbnail(a.name);
+		if (!thumb) return { note: "This photo couldn't be read to describe it." };
+		const { suggestPhotoDescription } = await import('./architect');
+		const { deckOutputLang } = await import('./studio-language');
+		const r = await suggestPhotoDescription(thumb, activeDeckSource ? deckOutputLang(activeDeckSource) : undefined);
+		switch (r.status) {
+			case 'ok':
+				return { text: r.text };
+			case 'offline':
+				return { note: 'Connect your OpenRouter account in Setup to suggest descriptions. Until then you can type one.' };
+			case 'novision':
+				return { note: "The model you picked can't read images. Choose one that can in Setup, or type a description." };
+			case 'blocked':
+				return { note: r.note };
+			default:
+				return { note: 'No suggestion came back. Try again, or type one.' };
+		}
+	}
 	function moveMedia(a: MediaRecord, scope: string) {
 		setMediaScope(a.id, scope)
 			.then(() => {
@@ -652,6 +674,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 		let nComps = 0;
 		let nFinishes = 0;
 		let nScenes = 0;
+		let nPlugins = 0;
 		// PER ITEM, not per bundle. The whole three-loop import used to sit in one `try`,
 		// so one bad asset skipped every asset after it — and `reload()`/`onChanged()` sat
 		// inside that `try` too, so the shelf was not even refreshed for the ones that HAD
@@ -670,11 +693,12 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 				// `.lattice` project carries (library/import-parsed.ts): the same CSS gates, the
 				// same reserved-name renames, the same refusals.
 				const { importParsedBundle } = await import('./library/import-parsed');
-				const t = await importParsedBundle(await unpackBundle(f));
+				const t = await importParsedBundle(await unpackBundle(f, { plugins: true }));
 				nThemes += t.themes;
 				nComps += t.components;
 				nFinishes += t.finishes;
 				nScenes += t.scenes;
+				nPlugins += t.plugins;
 				refused.push(...t.refused);
 				renamed.push(...t.renamed);
 				notes.push(...t.notes);
@@ -691,7 +715,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 			// a stale shelf is how a partial import reads as "nothing happened".
 			reload();
 			onChanged();
-			const got = nThemes + nComps + nFinishes + nScenes;
+			const got = nThemes + nComps + nFinishes + nScenes + nPlugins;
 			// ONE message for the whole import. The refusals used to go out in a loop —
 			// one toast each — so a bundle carrying four bad scenes raised five pills in
 			// a single tick and buried its own success line. The outcome is a headline
@@ -702,7 +726,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 			const renamedLine = renamed.length ? `Renamed because a shipped item uses the name: ${renamed.join(', ')}.` : null;
 			const notesLine = notes.length ? `Adjusted on import: ${notes.join('; ')}.` : null;
 			const detail = [refusals.length ? refusedDetail(refusals) : null, renamedLine, notesLine].filter(Boolean).join('\n') || undefined;
-			const tally = `Imported ${nThemes} theme(s) + ${nComps} component(s)${nFinishes ? ` + ${nFinishes} finish(es)` : ''}${nScenes ? ` + ${nScenes} motion(s)` : ''}.`;
+			const tally = `Imported ${nThemes} theme(s) + ${nComps} component(s)${nFinishes ? ` + ${nFinishes} finish(es)` : ''}${nScenes ? ` + ${nScenes} motion(s)` : ''}${nPlugins ? ` + ${nPlugins} plugin(s) (see Deck settings → Plugins)` : ''}.`;
 			if (failure) {
 				// A throw can still leave items on the shelf, so the tally and the refusals
 				// go UNDER the reason rather than replacing it.
@@ -1127,6 +1151,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 				onSave={(c) => changeMedia(() => updateMediaDetails(detail?.id as string, c))}
 				onRemoveAlias={(al) => changeMedia(() => removeMediaAlias(detail?.id as string, al))}
 				onUseNewName={(al) => adoptNewName(detail as MediaRecord, al)}
+				onSuggest={() => suggestDescription(detail as MediaRecord)}
 			/>
 			<AssetVersionsDialog
 				asset={historyFor}

@@ -23,7 +23,7 @@ Use when the slide IS the equation. `$$…$$` renders as a centered display bloc
 
 ### Variant decision rule
 
-- **default (no modifier).** Same as `feature` (the bare layout defaults to it) — a single hero equation with a "where:" legend.
+- **default (no modifier).** Same as `feature` (the bare layout defaults to it) — a single hero equation with a "where:" legend. With no legend (no list beside the equation) the equation takes the whole stage, centered, with no divider; the universal alignment modifiers move it (`align-left`/`align-center`/`align-right` sideways, `align-top`/`align-middle`/`align-bottom` vertically, on one slide or deck-wide through `class:`). As everywhere, naming one axis puts the other back at the universal default (top-left), so name both to place it. Add a legend and the split returns.
 - **`feature`.** Explicit synonym for the default layout — one closed-form expression, legend to the side.
 - **`derivation`.** The argument is a multi-step chain (2-4 steps), each needing its own justification — a proof or derivation, not a single closed form.
 - **`theorem`.** Formal Definition/Theorem/Proof exposition for a pure-math audience stating and proving a claim.

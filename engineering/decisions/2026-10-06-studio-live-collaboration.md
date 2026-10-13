@@ -890,6 +890,78 @@ What the bitrate does not fix, all on iOS and out of the page's reach:
 - *Choppy* that is network loss needs a measure from the device; the follow-up adds a per-person
   call-quality readout (loss, jitter, bitrate), the way §8.1's connection readout did for paths.
 
+**Call quality readout** (2026-10-11). A person's ⋯ menu now says how their audio is arriving:
+*Audio: 64 kbit/s · 0.4 % lost · 18 ms jitter*, and *You send 64 kbit/s* under it. It shows while
+both of you are on the call and nothing otherwise. The Trystero adapter reads each connection's
+`inbound-rtp` / `outbound-rtp` audio stats (`audioStatsFrom`, `Transport.audioStats`, optional like
+`paths`; `session.audioStats()` filters to admitted members) on the same 5 s tick as the connection
+paths. Rates and loss cover the time since the previous read, so a bad minute shows now rather than
+averaged into a good hour; the first read shows the running loss and no rate. This is what tells
+network loss (loss and jitter climb) from the iOS bug (they stay flat while the sound is bad).
+Measured on the real surface (`tools/live-session-check.mjs`, two Chromium processes over real
+WebRTC, fake microphone): the browser's own `getStats` said the host heard the guest at 16.3 kbit/s
+with 0 of 816 packets lost; the menu said *17 kbit/s · 0.0 % lost · 0 ms jitter, You send
+16 kbit/s*. UNVERIFIED: the same readout on a real phone, and Safari's stats (WebKit may leave
+`jitter` or `packetsLost` out, in which case that part of the line is simply absent).
+
+**Playback volume** (2026-10-11). Each person's ⋯ menu has a *Volume* slider, 0–200 % in 10 %
+steps, kept for the session (not saved; a person who leaves and returns starts at 100 %). Up to
+100 % the hidden `<audio>` element plays the voice (`element.volume`). Above it the element stays
+attached but muted (Chromium feeds a remote stream to Web Audio only while an element plays it) and
+Suono's new `stage.amplify(stream, gain)` plays the stream through a `GainNode` on the owned
+context (Web Audio stays in Suono). At 100 % or below, or where Web Audio is missing, the element
+plays it as before, so the default path is unchanged. Why: an `<audio>` element cannot go above
+1.0, and iOS plays call audio at call volume once the microphone is on. Measured on the real
+surface (`tools/live-session-check.mjs`, two Chromium processes): see the PR for the run. NOT
+measured: the loudness gain on a phone (the gain stage is the only lever the page has; iOS may
+still cap the output) — UNVERIFIED until the owner tries it on the iPhone.
+
+**High fidelity** (2026-10-11). The arrow beside Mute now always opens a microphone menu: the
+picker when there is more than one microphone, and **High fidelity (music)** for everyone. It is
+per person, as decided on 2026-10-07: it changes only what *this* browser sends. Turning it on
+re-captures the microphone with echo cancellation, noise suppression and automatic gain off (a
+browser fixes voice processing when it opens the microphone, so a re-capture is the only way) and
+re-sends at 128 kbit/s (`HIGH_FIDELITY_BITRATE`) instead of 64 kbit/s. Mute, the chosen microphone
+and the call all carry over; leaving the call resets it, and a refused capture keeps the old
+setting. The menu says to wear headphones, because without echo cancellation a speaker feeds back.
+The switch is drawn as a toggle (the same track and thumb as *Let people in automatically*), in both
+states. It first shipped as a check mark that appeared only when on, and on the owner's iPhone
+(2026-10-12) the off state showed nothing at all, so there was no way to see which state it was in.
+The item stays a `menuitemcheckbox` (valid inside a menu); the toggle is its visible face, and the
+menu stays open when you tap it so you watch it flip.
+**Mono, not stereo.** The follow-up asked for 128 kbit/s stereo. A browser sends stereo Opus only
+when the other side's session description asks for it (`stereo=1` in the Opus fmtp), and Trystero
+0.26 gives us no hook on the offer or answer (it calls `setLocalDescription()` itself;
+`setCodecPreferences` accepts only the codecs the browser lists, none with `stereo=1`). So the
+switch is 128 kbit/s mono; stereo needs our own signaling or a Trystero change, and is not built.
+Measured on the real surface (`node tools/live-session-check.mjs dark --hifi`, two Chromium
+processes over real WebRTC; the host's microphone a generated 48 kHz signal of harmonics, 9 and
+14 kHz tones and white noise, since the fake device's beep is too quiet to show a rate):
+
+| Host's switch | Capture | Host sends | Guest hears the 14 kHz tone | Guest's 18–20 kHz level |
+|---|---|---|---|---|
+| off | processing on | 63.9 kbit/s | −32.4 dBFS | −102.0 dBFS |
+| **on** | processing off | **132.6 kbit/s** | −32.3 dBFS | **−83.0 dBFS** |
+| off again | processing on | 66.7 kbit/s | −32.3 dBFS | −102.7 dBFS |
+
+The rate follows the switch both ways. The 14 kHz tone was already carried at 64 kbit/s, so it does
+not move; what 128 kbit/s adds is the top band (about 20 dB more at 18–20 kHz; the rates include RTP headers). The generated
+signal ignores the processing constraints, so this run shows the bitrate effect and the constraints
+sent (`echoCancellation` false and so on, read from the recorded `getUserMedia` call), not what the
+processing does to a real microphone. The Playwright specs for these controls (`docs/e2e/live-panel-calls.spec.ts`, on the harness from
+#2639) found two accessibility defects in this work, and one is fixed: the always-visible arrow
+beside Mute was 16 px wide, under WCAG 2.2's 24 px minimum target, so it is now 24 px; the Volume
+slider sits directly inside the person menu's `role="menu"`, which axe reports as
+`aria-required-children`, and a `group` wrapper does not satisfy it. That one is the owner's call
+(a popover for Volume, or a documented exception) and its test is marked `test.fail` until then, so
+the nightly stays green while it holds and goes red when it is fixed.
+
+One capture runs at a time (`joinCall`): a second tap while the first is still waiting on the
+browser runs after it with the latest choice, and Leave call during a capture leaves once it
+lands (the checker, tier 1, on Opus, found both races; the run above also taps twice quickly and
+taps then leaves). UNVERIFIED: a real microphone with processing off, echo
+between two real devices, and Safari, Firefox and iOS.
+
 **Panel layout on a phone** (the owner's iPhone test, 2026-10-07). Three findings:
 - *No way to leave the session on a phone.* The session menu (the clock; copy, bring everyone,
   leave or end) lived in the panel's title bar, and the phone sheet renders the panel without
@@ -920,6 +992,161 @@ meters a remote stream only while an element plays it), the audio context resume
 join click, a permission prompt answered after the session closed leaks nothing, and a person not
 on the call shows no mic at all (*Muted* is only for someone on the call, which also stopped the
 row from truncating names).
+
+### 12.3 Who controls what: Me, Them, Session (2026-10-12)
+
+**Why.** The owner, testing on an iPhone, found the call controls scattered ("things are all over
+the place") and could not find the Volume slider when alone in a session. Both are one fault: a
+person's own controls had no single home, and a control that exists only in some states reads as
+missing. Today a person's own settings are split across the row's Mute and Leave, the thin arrow
+beside Mute, the lobby (the name, set once, no way to change it after joining) and the header menu;
+how loud you hear others lived two taps deep in *their* menu; and nothing showed whether your own
+microphone was working.
+
+**The model: three scopes, and every control has exactly one home.**
+- **Me**: what I send and my devices. Microphone (device, a live level meter, mic level, voice
+  mode: Clean voice or High fidelity), what I hear (a master volume, the output device where the
+  browser allows it; Safari has no output picker), my name, and what I share about myself (my cursor
+  and my slide).
+- **Them**: per person. How loud I hear them and how their audio is arriving (their popover), and
+  the actions on them (follow, go to their slide, and for the host their role and removal), which
+  stay in their ⋯ menu.
+- **Session**: the invite link, auto-admit, bring everyone, leave or end. The header menu.
+
+**The rule: deterministic placement.** A control is always where it lives, in every state. Where it
+cannot act yet it stays visible and says why ("Join the call to hear and adjust people", "Amina
+isn't on the call yet") instead of disappearing. Nothing appears only when two other conditions
+hold. The owner's word for this was "deterministic".
+
+**Settled (owner, 2026-10-12).**
+- Your own controls: a **Your audio** popover from the arrow beside Mute (meter, microphone, mic
+  level, voice mode, hearing), and a **⋯ on your own row** (name, what you share, sounds), matching
+  how other people's rows work.
+- Other people's audio: a **volume button on every other person's row**, always present, opening a
+  popover with the slider and the quality line. This replaces §12.2's placement of the readout and
+  the Volume slider in the ⋯ menu, which fixes the axe `aria-required-children` finding (a slider is
+  not a menu item; a popover holds one properly). Their ⋯ menu keeps only actions.
+- The four "Me" items to build, in this order: the live mic meter (so you can test alone), mic
+  level (outgoing loudness, which also addresses a quiet call at the sender), master volume plus the
+  output device, and changing your name and what you share.
+
+**Built on #2633 (2026-10-12), in this order.** Microphone first. **Your audio** is a popover from the
+arrow beside Join audio or Mute, and it is on your row before you join too (the parts that need a live
+microphone say so). It holds: a **live level meter** of what you send (a bar from `inputLevel()`,
+`role="meter"`, red past 90 % so a clipping voice shows); the **microphone list** (a radio group when
+there is more than one); **Mic level**, 0–200 % in 10 % steps; and **High fidelity** as a real `Switch`.
+Mic level is Suono's new `stage.gainStream(stream, gain)`: the capture is routed through a gain into a
+new stream, and that stream is what the call sends, so the level changes what every listener hears.
+Mute turns off the sent track, so it still needs no renegotiation; a re-capture (a new microphone, High
+fidelity) keeps the level; a browser without Web Audio sends the capture as it always did and the slider
+says it cannot act. Measured on a real two-browser call (`tools/live-session-check.mjs dark --hifi`,
+a synthetic microphone): at 50 % the guest hears 0.26× the power (a halved amplitude is 0.25×); the
+100 % reading repeats (0.604, then 0.618). At 200 % this test signal saturates (it is already at 0.6 of
+full scale, so doubling it clips at 1.0 and the meter reads 100, red); a quieter source would show the
+full 4×. The checker (tier 1, Opus) found two real defects, both fixed with tests: after Leave call the
+microphone list was still offered and picking one rejoined the call and opened the microphone (the list
+now shows only on a call, and `pickMic` is guarded the way High fidelity is); and the shaped send only
+renders while the audio context runs, so an iPhone phone call or Siri prompt would silence every
+listener while the page still said "on the call" (the controller now resumes the context on a timer and
+on unmute, and while it is down the arrow gets a red ring and Your audio says so). A smaller one: mute
+now also disables the raw capture track, so Firefox's microphone light goes off. UNVERIFIED: the level
+on a real microphone and an iPhone, and the shaped send on WebKit/iOS (it was measured crossing a real
+peer connection on Chromium only).
+
+**Hearing, built next (2026-10-12).** The same popover has a **Hearing** section: **Everyone**, one volume
+(0–200 %) multiplied into each person's own, and the **speaker**. The multiplication is in
+`LiveAudio.applyVolume`: up to 100 % the element plays it, above that Suono's gain stage does (the
+combined gain can reach 4×, the stage's clamp). The speaker picker uses `setSinkId` on each player and on
+the stage's own context for the amplified path (`stage.setSink`), and it follows the choice for players
+made later. Safari has no `setSinkId`, so there the section says "Your browser plays through the system
+output; it has no speaker picker" instead of hiding. Before you join the speaker list is empty (labels
+need microphone permission) and says "Join audio to list your speakers". Measured on a real two-browser
+call: Everyone at 200 % mutes the element and puts a gain of 2 in the path; at 50 % the element plays at
+0.5; back at 100 % it is 1. The popover caps its height to the room Radix reports
+(`--radix-popover-content-available-height`), found when iPhone-size WebKit could not reach the last
+speaker in a popover taller than the screen under the trigger. UNVERIFIED: choosing a different speaker
+on a real device (headless Chromium lists one fake speaker), and iOS, which has no picker. Name and what
+you share are built last.
+
+**What you share, built (2026-10-12).** A **⋯ on your own row** opens **Your settings** with three
+switches: **Show my cursor**, **Show my slide**, **Show when I'm typing**. `LiveController` wraps the
+awareness object's `setLocalStateField`, so a withheld field is never written (cursor, `editingAt`,
+slide), and `applyShare` removes what was already published when you flip a switch. When the slide is
+withheld the awareness carries `slideHidden: true` and the others' rows read "Slide hidden" rather than a
+stale slide number; the receiver whitelist keeps only that boolean. Chat typing dots honor "typing" too.
+Defaults are all on. The switches are real `Switch` controls with labels, in a popover (not a menu,
+because a switch inside `role="menu"` has the same `aria-required-children` problem the slider had).
+
+**Name, built (2026-10-12).** Your settings opens with a **Your name** field (Save, or Enter). Tavola gains
+`session.rename(name)` and a `rename` control message, member to host. The host (`hostApplyRename`) cleans
+the name, **refuses one another member already has, in any letter case**, allows one change a second per
+member, updates the roster **and** the member's rejoin token (so a reconnect keeps it), and broadcasts the
+roster; the heir's copy follows because the broadcast refreshes it. An older host drops an unknown message
+without a disconnect (`decodeControl` returns null). The host's rename also updates the lobby invite, so a
+newcomer sees the new name. The independent checker (tier 1: this changes who people appear to be) found two
+real defects, both fixed with tests: a member could rename to the host's exact name and the chat grouped their
+line under the host's header, and a host rename never reached the lobby invite. It also found that a refused
+rename looked successful, so the field now says "The name did not change" after 2.5 s, and that a roster echo
+could wipe what you were still typing, so the field only follows the roster while it is not focused. Measured
+on the real two-browser call: the guest renamed "Amina" to "Amina Okafor", the host's roster showed it, and
+the guest renamed back.
+
+**What you share, after the second independent review (2026-10-13).** Five defects, all fixed with tests. (1) Your settings did not
+autofocus its first field (that is the Name input, and focusing it opens a phone keyboard every time), but it also left focus on
+the trigger, so a keyboard user's next Tab went past the popover and closed it; the popover now takes focus itself, and the
+next Tab enters it. (2) Turning typing off made `editingAt` always absent, and the "don't move me while I type" check on a host's
+Bring everyone read that field, so a person who hid their typing was yanked mid-edit; the controller now tracks the last local edit
+itself (`myEditAt`). (3) With your slide hidden, Bring everyone still wrote the slide into presence and never cleared it, so a late
+joiner received it: it is said once and withdrawn after 6 s (`SUMMON_SHOWN_MS`). (4) What you hid was not kept across a reload and
+was not re-applied when a new session started in the same tab, so a host who hid their slide and reloaded published it again: it is
+kept in sessionStorage for the tab and applied when a session wires. (5) "Slide hidden" also hid the editing mark, and the cursor note
+did not say a visible cursor shows roughly where you are working. Held up under review: y-codemirror writes `cursor` only through
+`setLocalStateField`, so the wrapper catches it; no other code writes awareness fields; the receiver whitelist stops a peer spoofing
+anything but its own `slideHidden`. Still true: turning typing off does not withdraw a chat "typing" post already sent, so it shows
+for up to 4 s.
+
+**Connection diagnostics, and what the owner's hotspot runs found (2026-10-12).** The owner ran a phone (host) and a tablet and
+reported a slow or stuck first connect, drops that came back, and audio gaps afterward. Read from Trystero 0.26: a
+connection that stays `disconnected` for 5 s is closed (`disconnectedCloseDelayMs`) and Trystero never restarts ICE itself,
+so a dropped link is rediscovered over the relays and re-admitted by token, and the call's audio returns only after that
+chain (loopback, both links closed: link back in about 2 s, audio about 6 s after the close). What was built: **Your
+settings → Connection → Copy connection log**, a bounded timeline (`TrysteroOptions` has no switch for it; it is always on)
+of every RTCPeerConnection from creation (`installPcSpy`: ICE state changes with elapsed time, candidates gathered by kind,
+STUN/TURN errors), peer joins and leaves, browser online/offline, tab visible, a round-trip sample every 10 s
+(`SAMPLE_EVERY_MS`, its own ring so samples never push out the first connection attempt), every candidate pair with its
+state (`pairs()`), the role, and whether the screen wake lock is held. **Addresses are never in the log**, only the kind
+(`describeCandidate`: ipv4, ipv6, mdns, hidden), because a public address names an ISP and a city and the log is pasted into
+bug reports. The copy starts inside the tap with a promise for the text (`ClipboardItem`), because Safari refuses a write that
+begins after an `await`. The owner's runs: an iPhone host and an iPad on the same wifi connected over `srflx→srflx (udp)`
+(out through the router and back, not directly) with clean links; jank only wifi to wifi, never cellular to wifi; then the
+tablet could not get in at all on **hotel wifi** ("Nobody answered"), which fits client isolation and blocked direct
+connections there. The final check: **phone on cellular, tablet on wifi works perfectly**. Same-wifi on such networks needs a
+relay (TURN, P5, the owner's decision); the "Nobody answered" text now names that case and the fix a person can make (put one
+device on mobile data). Also added: a **screen wake lock** while a session is live (`live-wake.ts`, tested: one request
+however often it is asked, released on every teardown path including a guest `leave()`, which moves no stage), because a locked
+phone suspends the page and a suspended host is gone from the room.
+**A recovery switch was built and then removed.** An experimental, default-off switch restarted ICE (`restartIce`) on a link
+that stayed `disconnected`, on an `online` event and on tab-visible, with the smaller peer id offering. The independent
+checker (2026-10-13) showed it can **deadlock a link that carries no call**: Trystero's `signal()` drops an offer with no
+`a=rtpmap` once the data channel is open, so the restarting side stays in `have-local-offer` and can never negotiate audio
+later (reproduced in real Chromium 131 with Trystero's own `peer.mjs`), and that while ICE is really `disconnected` the
+restart offer cannot reach the other side anyway (it rides the peer's own data channel), so it gains almost nothing where it
+was aimed. With no demonstrated benefit and a way to break calls, it was removed; it is in git history at `07e0e5d1` if a
+real-network need appears (restricting it to links already in a call is the only shape that was seen to work). Findings fixed
+from the same review: wake-lock requests stacked and a guest's leave never released it; a second transport closing out of
+order left a stale RTCPeerConnection wrapper (now one shared wrapper with a set of listeners); the log showed public /24
+addresses. Not done: the slow first connect (no data yet), the 20 s handoff grace with the phone as host, and a guest's wait
+for the host stays 12 s (it was raised to 25 s briefly on a reading of Trystero's ICE timeout that the checker showed does not
+apply: that timeout is for non-trickle ICE only). UNVERIFIED: iOS wake-lock behavior, and the iOS clipboard write.
+Found while verifying, and fixed: portaling the popover INTO the panel (the phone scroll fix) made a tap on a switch near the
+panel's edge reach react-resizable-panels' document handler, which focuses the resize handle and closed the popover on the real
+Studio. The popover now goes into the modal dialog only when the panel sits in one (the phone's Sheet) and stays in `<body>`
+otherwise. The Name field is not focused on open (it would open the phone keyboard each time).
+
+**Sequence.** The per-person popover ships with #2633 (it is that PR's Volume decision). The "Me"
+controls are a separate PR after #2633 merges, because they build on its call controls and one
+feature is one PR. Mic level changes what every listener receives, so it gets a tier-1 independent
+check and a measurement of the send level before and after on the real two-browser call.
 
 ## 13. Implementation reference — what it is built from, and why
 

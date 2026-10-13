@@ -291,7 +291,11 @@ in `chat-agent.ts`.
 Chromium: photos added through the Library's file input, the real thumbnail code (512 px, under 150 KB of
 base64), the real agent loop, and the caption read back from IndexedDB. The model is mocked (HARD RULE #24),
 so **how a real model chooses between photos is UNVERIFIED.** The spec fails if the thumbnail edge grows.
-A backup now carries captions with the rest of a photo's metadata (see the next section).
+A workspace backup carries each photo's caption with the rest of its metadata (see the next section). A restore
+treats a backup as a file from anyone: the caption must be a string, is cut to one line of at most 140 characters,
+and has control, bidirectional and invisible characters removed. A person's own wording otherwise survives the
+round trip, quotes included. What keeps a caption from breaking out of a prompt is the chat boundary, not the
+store: `infoOf` in `agent-assets-browser.ts` runs every caption through `cleanCaption` before the model sees it.
 
 ## Editing a photo's metadata (added 2026-10-13)
 
@@ -334,6 +338,7 @@ and a button that rewrites decks to a photo's new name.
 390 px: edit, save, read the record back from IndexedDB, remove an alias, and a deck that still writes the old
 name paints the photo inside the sandboxed preview frame. Firefox, WebKit, real touch and screen-reader
 behavior are **UNVERIFIED**.
+
 
 ## Options not taken
 

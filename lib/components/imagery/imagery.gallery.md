@@ -2,10 +2,29 @@
 
 # imagery
 
-`3 components`
+`4 components`
 
 Imagery — visuals that carry their own meaning.
 
+
+---
+
+<!-- _class: collage -->
+<!-- _footer: "collage · imagery survey" -->
+
+`The atelier`
+
+## Hand-lasted, one pair at a time.
+
+`Five photographs from the autumn bench`
+
+Each pair starts as a last carved to one foot. Leather is cut by hand and finished over fourteen weeks.
+
+- ![Tall portrait](sample:photo-tall.svg) `hero`
+- ![Wide landscape](sample:photo-wide.svg)
+- ![Square](sample:photo-square.svg)
+- ![Panorama](sample:photo-pano.svg)
+- ![Narrow column](sample:photo-column.svg)
 
 ---
 

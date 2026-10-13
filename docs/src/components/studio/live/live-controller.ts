@@ -5,12 +5,13 @@ import * as encoding from 'lib0/encoding';
 import { yCollab, yUndoManagerKeymap } from 'y-codemirror.next';
 import { Awareness, applyAwarenessUpdate, encodeAwarenessUpdate, removeAwarenessStates } from 'y-protocols/awareness';
 import * as Y from 'yjs';
-import { cleanName, createHostKey, createSession, formatFragment, formatLink, fromBase64Url, type HostKey, hostKeyFrom, type LinkPath, linkKind, mintLink, parseFragment, type Session, type SessionState, type Succession, type TokenEntry, toBase64Url, tokenId } from '@/lib/tavola';
+import { type AudioStats, cleanName, createHostKey, createSession, formatFragment, formatLink, fromBase64Url, type HostKey, hostKeyFrom, type LinkEvent, type LinkPath, linkKind, mintLink, parseFragment, type Session, type SessionState, type Succession, type TokenEntry, toBase64Url, tokenId } from '@/lib/tavola';
 import { trysteroTransport } from '@/lib/tavola/adapters/trystero';
-import { CALL_BITRATE, LiveAudio } from './live-audio';
+import { CALL_BITRATE, HIGH_FIDELITY_BITRATE, LiveAudio } from './live-audio';
 import { LIVE_TURN } from './live-ice';
-import { IDLE_VIEW, type LiveActions, type LiveChatLine, type LiveColor, type LivePerson, type LiveView, type LobbyActions, type LobbyView, liveColor, liveColorLight } from './live-model';
+import { IDLE_VIEW, type LiveActions, type LiveChatLine, type LiveColor, type LivePerson, type LiveShare, type LiveView, type LobbyActions, type LobbyView, liveColor, liveColorLight } from './live-model';
 import { clearJoinIntent, HOST_KEY, hasFreshJoin, type LiveCollab, type LiveDeps, type LiveHost, readSealedJoin, saveName, scrubLiveFragment, storedLiveName, storeSealedJoin, takeFreshJoin } from './live-store';
+import { WakeKeeper } from './live-wake';
 import { deleteHostPrivateKey, getHostPrivateKey, putHostPrivateKey, seal, unseal } from './secret-box';
 
 // The Studio's side of a live session, loaded only when a session starts or a link is opened
@@ -32,6 +33,17 @@ import { deleteHostPrivateKey, getHostPrivateKey, putHostPrivateKey, seal, unsea
 /** localStorage: room → { deckId, token }, so a guest's linked copy and rejoin token survive a
  *  reload. The token is a credential, so it is stored SEALED (secret-box.ts). */
 const LINKS_KEY = 'lattice-live-links';
+/** sessionStorage: what this person shares (cursor, slide, typing), so a reload keeps it. */
+const SHARE_KEY = 'lattice-live-share';
+const readShare = (): LiveShare => {
+	const all = { cursor: true, slide: true, typing: true };
+	try {
+		const raw = JSON.parse(sessionStorage.getItem(SHARE_KEY) || '{}') as Partial<LiveShare>;
+		return { cursor: raw.cursor !== false, slide: raw.slide !== false, typing: raw.typing !== false };
+	} catch {
+		return all;
+	}
+};
 const TYPING_MS = 2500;
 const CHAT_MAX = 1000;
 /** Lines a browser keeps, and the host hands a newcomer. */
@@ -119,6 +131,8 @@ type Post =
 /** How long a dropped member shows as reconnecting before the chat says they left. A phone that
  *  backgrounds a tab drops its connection within seconds and comes back when the tab returns. */
 const AWAY_GRACE_MS = 60_000;
+/** With the slide hidden, a "Bring everyone" stays in presence this long, then is withdrawn. */
+const SUMMON_SHOWN_MS = 6000;
 /** A "typing" post counts for this long; the typist re-sends at most every TYPING_POST_MS. */
 const TYPING_SHOW_MS = 4000;
 const TYPING_POST_MS = 2000;
@@ -173,7 +187,7 @@ function holdHostLock(room: string): Promise<(() => void) | null> {
 			.catch(() => resolve(() => {}));
 	});
 }
-type AwState = { peer?: string; user?: { name: string; color: string; colorLight: string }; slide?: number; editingAt?: number; summon?: { slide: number; n: number }; cursor?: { anchor: unknown; head: unknown } };
+type AwState = { peer?: string; user?: { name: string; color: string; colorLight: string }; slide?: number; slideHidden?: boolean; editingAt?: number; summon?: { slide: number; n: number }; cursor?: { anchor: unknown; head: unknown } };
 
 type Runtime = {
 	session: Session;
@@ -301,6 +315,7 @@ export function sanitizeAwareness(update: Uint8Array, from: string, ownerOf: (cl
 			const clean: AwState = { peer: from, user: { name: member.name, color: liveColor(member.color), colorLight: liveColorLight(member.color) } };
 			const st = state as Record<string, unknown>;
 			if (Number.isInteger(st.slide) && (st.slide as number) >= 0) clean.slide = st.slide as number;
+			if (st.slideHidden === true) clean.slideHidden = true;
 			if (typeof st.editingAt === 'number') clean.editingAt = st.editingAt;
 			const sm = st.summon as { slide?: unknown; n?: unknown } | undefined;
 			if (member.role === 'host' && sm && Number.isInteger(sm.slide) && Number.isInteger(sm.n)) clean.summon = { slide: sm.slide as number, n: sm.n as number };
@@ -371,6 +386,7 @@ export class LiveController {
 	private sealSeq = 0;
 	/** The network path to each member, re-read every few seconds (the two-network check reads it). */
 	private paths: Record<string, LinkPath> = {};
+	private quality: Record<string, AudioStats> = {};
 	/** Heir: the chat-id owners the host handed over, for when this browser takes over. */
 	private heirSids: Array<[string, string]> = [];
 	/** Host: what was last handed to the heir, so it is sent once per change. */
@@ -382,6 +398,24 @@ export class LiveController {
 	private speakingNow = new Set<string>();
 	private speakTimer: ReturnType<typeof setInterval> | null = null;
 	private micDenied = false;
+	/** A microphone capture is in flight (`joinCall`), the latest request made meanwhile, and whether Leave call was pressed. */
+	private joining = false;
+	private queuedJoin: { deviceId?: string; highFidelity?: boolean } | null = null;
+	private leaveAfterJoin = false;
+	/** Whether the call's send is stalled, as the panel last drew it (a redraw only when it changes). */
+	private stalledShown = false;
+	/** What this person lets the others see of them. Theirs to withhold; kept for this tab, not saved. */
+	/** The host name the lobby invite last carried, so a rename reaches the lobby too. */
+	private invitedAs: string | undefined;
+	/** What you share, kept for this tab (sessionStorage), so a reload does not quietly publish what you hid. */
+	private share: LiveShare = readShare();
+	/** When this person last edited the source, in session time: the "don't move me while I type" check must not depend on what they share. */
+	private myEditAt = 0;
+	private timeline: () => LinkEvent[] = () => [];
+	/** The screen wake lock held while a session is live (live-wake.ts). */
+	private readonly wake = new WakeKeeper();
+	private pairs: () => Promise<string[]> = () => Promise.resolve([]);
+	private outDevices: Array<{ id: string; label: string }> = [];
 	private micDevices: Array<{ id: string; label: string }> = [];
 	/** The tab title before "On air · " was put in front of it. */
 	private plainTitle: string | null = null;
@@ -493,6 +527,16 @@ export class LiveController {
 		if (args.host?.doc) Y.applyUpdate(doc, fromB64(args.host.doc));
 		else if (args.host) ytext.insert(0, d.source);
 		const aw = new Awareness(doc);
+		// What this person shares is theirs to withhold, and presence leaves this browser at exactly one place:
+		// `setLocalStateField`. A field they have turned off never reaches the awareness state, so it never
+		// reaches anyone (the receiving side rebuilds each state from a whitelist, so it cannot be forged either).
+		const setField = aw.setLocalStateField.bind(aw);
+		aw.setLocalStateField = (field: string, value: unknown) => {
+			if (field === 'cursor' && !this.share.cursor) return;
+			if (field === 'editingAt' && !this.share.typing) return;
+			if (field === 'slide' && !this.share.slide) return;
+			setField(field, value);
+		};
 		const REMOTE = Symbol('tavola-remote');
 		const owner = new Map<number, string>();
 		let rt: Runtime | null = null;
@@ -544,6 +588,9 @@ export class LiveController {
 		const key = args.key ?? null;
 		const audio = new LiveAudio(() => this.host.rerender());
 		this.audio = audio;
+		const transport = trysteroTransport(args.room, args.secret, { turnConfig: LIVE_TURN });
+		this.timeline = () => transport.timeline?.() ?? [];
+		this.pairs = () => transport.pairs?.().catch(() => []) ?? Promise.resolve([]);
 		const session = createSession({
 			media: { add: (stream, from) => {
 				audio.addRemote(from, stream);
@@ -552,7 +599,7 @@ export class LiveController {
 				// takeover neither side sees the other as a newcomer (checker, 2026-10-07).
 				if (audio.inCall) this.post({ k: 'mic', on: !audio.isMuted }, from);
 			}, drop: (from) => audio.dropRemote(from) },
-			transport: trysteroTransport(args.room, args.secret, { turnConfig: LIVE_TURN }),
+			transport: transport,
 			doc: docStream,
 			awareness: awStream,
 			...(args.host && key ? { host: { name: args.host.name, key, tokens: args.host.tokens, ...(args.host.succession ? { succession: args.host.succession } : {}), ...(args.host.selfToken ? { selfToken: args.host.selfToken } : {}), invite: { title: d.deckTitle, hostName: args.host.name, slides: d.slideCount, theme: d.theme } } } : { hostFingerprint: args.hostFingerprint }),
@@ -574,12 +621,15 @@ export class LiveController {
 			if (rt) rt.release = null;
 		});
 		this.rt = rt;
+		// A session started in a tab that already chose what to hide (a reload, or a second session): make the presence match.
+		if (!(this.share.cursor && this.share.slide && this.share.typing)) this.applyShare();
 		const r = rt;
 
 		let prev: SessionState = session.getState();
 		r.disposers.push(
 			session.subscribe(() => {
 				const s = session.getState();
+				this.wake.keep(s.stage === 'live');
 				const before = new Map(prev.members.map((m) => [m.id, m]));
 				if (prev.stage === 'live' && s.stage === 'live') {
 					for (const m of s.members) {
@@ -699,6 +749,7 @@ export class LiveController {
 		const onLocalEdit = (_e: unknown, tr: Y.Transaction) => {
 			if (!tr.local) return;
 			const t = session.now();
+			this.myEditAt = t;
 			if (t - lastEdit < 1000) return;
 			lastEdit = t;
 			// Session time, so every browser compares it against the same clock.
@@ -725,6 +776,12 @@ export class LiveController {
 				void r.session.paths().then((p) => {
 					if (this.rt === r) this.paths = p;
 				});
+				// Call numbers only while this browser is on the call; the transport keeps no state otherwise to read.
+				if (this.audio?.inCall) {
+					void r.session.audioStats().then((q) => {
+						if (this.rt === r) this.quality = q;
+					});
+				} else this.quality = {};
 			}
 			if (this.rt?.session.getState().stage === 'live') this.host.rerender();
 		}, 1000);
@@ -743,6 +800,8 @@ export class LiveController {
 	}
 
 	private teardownNow(r: Runtime, how: 'leave' | 'end', linger: boolean) {
+		// `leave()` moves no stage, so the subscribe tick never says "not live": release the screen here (checker, 2026-10-13).
+		this.wake.keep(false);
 		// `end()` owns its own shutdown (it leaves the transport a beat later so the `end` messages get
 		// out). Running `leave()` here too would close the connections first — red-team finding 2.
 		if (how === 'end') r.session.end();
@@ -774,6 +833,7 @@ export class LiveController {
 		} catch {}
 		this.seq = 0;
 		this.paths = {};
+		this.quality = {};
 		this.heirSids = [];
 		this.sentSids = '';
 		this.handbackDue = false;
@@ -800,6 +860,7 @@ export class LiveController {
 	}
 
 	dispose(): void {
+		this.wake.keep(false);
 		const r = this.rt;
 		if (!r) return;
 		// An unload does not wait for WebCrypto, so write the save NOW from the last sealed blob (the
@@ -874,21 +935,36 @@ export class LiveController {
 		this.onAirTitle();
 	}
 
-	/** Capture the microphone (or switch to another one) and send it to every member. */
-	private async joinCall(deviceId?: string) {
+	/**
+	 * Capture the microphone (or switch to another one, or turn High fidelity on or off) and send it
+	 * to every member. One capture at a time: a second request made while the browser is still
+	 * answering the first (a double tap on the switch, or a permission prompt left open) waits and
+	 * runs after it with the latest choice, so the last tap wins; and Leave call during a capture
+	 * leaves once it lands, rather than being undone by it.
+	 */
+	private async joinCall(deviceId?: string, highFidelity?: boolean) {
 		const a = this.audio;
 		const r = this.rt;
 		if (!a || !r) return;
+		if (this.joining) {
+			this.queuedJoin = { deviceId, highFidelity };
+			return;
+		}
+		this.joining = true;
+		this.leaveAfterJoin = false;
 		try {
-			const stream = await a.join(deviceId);
-			if (this.rt !== r) {
+			const stream = await a.join(deviceId, highFidelity);
+			if (this.rt !== r || this.leaveAfterJoin) {
 				a.leave();
+				this.leaveAfterJoin = false;
+				this.queuedJoin = null;
 				return;
 			}
 			this.micDenied = false;
-			r.session.setMedia(stream, { maxBitrate: CALL_BITRATE });
+			r.session.setMedia(stream, { maxBitrate: a.highFidelity ? HIGH_FIDELITY_BITRATE : CALL_BITRATE });
 			this.post({ k: 'mic', on: !a.isMuted });
 			this.micDevices = await a.devices();
+			this.outDevices = await a.outputs();
 			this.startSpeaking();
 		} catch (e) {
 			const denied = (e as { name?: string })?.name === 'NotAllowedError' || (e as { name?: string })?.name === 'SecurityError';
@@ -896,15 +972,24 @@ export class LiveController {
 			// Name the reason: a device answer we never saw on a desktop run is diagnosable from a phone screenshot.
 			const why = (e as { name?: string; message?: string })?.name || (e as { message?: string })?.message || 'unknown error';
 			this.host.notify(denied ? 'The browser blocked the microphone. Allow it in the address bar, then try again.' : `Couldn't start the microphone (${why}).`);
+		} finally {
+			this.joining = false;
 		}
 		this.onAirTitle();
 		this.host.rerender();
+		const next = this.queuedJoin;
+		this.queuedJoin = null;
+		if (next && this.rt === r) await this.joinCall(next.deviceId, next.highFidelity);
 	}
 
 	private leaveCall() {
 		const a = this.audio;
+		this.queuedJoin = null;
+		if (this.joining) this.leaveAfterJoin = true;
 		if (!a?.inCall) return;
 		a.leave();
+		this.micDevices = [];
+		this.stalledShown = false;
 		this.rt?.session.setMedia(null);
 		this.post({ k: 'mic', on: false });
 		this.onAirTitle();
@@ -915,11 +1000,34 @@ export class LiveController {
 	private startSpeaking() {
 		if (this.speakTimer) return;
 		this.speakTimer = setInterval(() => {
+			// A suspended audio context silences what we send: try to bring it back, and tell the panel while it is down.
+			const stalled = this.audio?.heal() ?? false;
+			if (stalled !== this.stalledShown) {
+				this.stalledShown = stalled;
+				this.host.rerender();
+			}
 			const now = this.audio?.speaking() ?? new Set<string>();
 			if (now.size === this.speakingNow.size && [...now].every((x) => this.speakingNow.has(x))) return;
 			this.speakingNow = now;
 			this.host.rerender();
 		}, 150);
+	}
+
+	/** Make the presence this tab is already sending match what the person now shares. */
+	private applyShare() {
+		const r = this.rt;
+		if (!r) return;
+		const st = { ...(r.aw.getLocalState() as Record<string, unknown> | null) };
+		if (!this.share.cursor) delete st.cursor;
+		if (!this.share.typing) delete st.editingAt;
+		if (this.share.slide) {
+			delete st.slideHidden;
+			st.slide = this.deps.activeSlide;
+		} else {
+			delete st.slide;
+			st.slideHidden = true;
+		}
+		r.aw.setLocalState(st);
 	}
 
 	private endCall() {
@@ -931,6 +1039,7 @@ export class LiveController {
 		this.speakingNow.clear();
 		this.micDenied = false;
 		this.micDevices = [];
+		this.outDevices = [];
 		this.onAirTitle();
 	}
 
@@ -1099,7 +1208,7 @@ export class LiveController {
 		}
 		if (!r || !s) return;
 		// Presence: my slide.
-		if (s.me && (r.aw.getLocalState() as AwState | null)?.slide !== deps.activeSlide) r.aw.setLocalStateField('slide', deps.activeSlide);
+		if (s.me && this.share.slide && (r.aw.getLocalState() as AwState | null)?.slide !== deps.activeSlide) r.aw.setLocalStateField('slide', deps.activeSlide);
 		if (s.me) {
 			const local = r.aw.getLocalState() as AwState | null;
 			if (local?.user?.name !== s.me.name || local?.user?.color !== liveColor(s.me.color)) r.aw.setLocalStateField('user', { name: s.me.name, color: liveColor(s.me.color), colorLight: liveColorLight(s.me.color) });
@@ -1110,7 +1219,8 @@ export class LiveController {
 			else if (this.following) this.following = null;
 		}
 		// The host keeps the lobby invite current.
-		if (s.isHost && (prev.deckTitle !== deps.deckTitle || prev.slideCount !== deps.slideCount || prev.theme !== deps.theme)) {
+		if (s.isHost && (prev.deckTitle !== deps.deckTitle || prev.slideCount !== deps.slideCount || prev.theme !== deps.theme || this.invitedAs !== s.me?.name)) {
+			this.invitedAs = s.me?.name;
 			r.session.setInvite({ title: deps.deckTitle, hostName: s.me?.name ?? '', slides: deps.slideCount, theme: deps.theme });
 		}
 	}
@@ -1150,7 +1260,7 @@ export class LiveController {
 				this.lastSummon = summon.n;
 				// The first summon seen on joining is history, not a request.
 				if (first && !this.bound) return;
-				const myEdit = (r.aw.getLocalState() as AwState | null)?.editingAt ?? 0;
+				const myEdit = this.myEditAt;
 				const slide = summon.slide;
 				if (r.session.now() - myEdit < TYPING_MS) this.host.notifyAction(`The host is on slide ${slide + 1}`, { label: 'Go', onClick: () => this.host.goToSlide(slide) });
 				else {
@@ -1440,7 +1550,7 @@ export class LiveController {
 		const people: LivePerson[] = s.members.map((m) => {
 			const st = byPeer.get(m.id);
 			const me = m.id === s.selfId;
-			return { id: m.id, name: m.name, color: m.color, role: m.role, me, slide: me ? this.deps.activeSlide : (st?.slide ?? null), editing: !!st?.editingAt && this.now - st.editingAt < TYPING_MS && st.editingAt < this.now + 5000, mic: this.micOf(m.id, me), ...(!me && this.paths[m.id] ? { link: { kind: linkKind(this.paths[m.id]), detail: `${this.paths[m.id].local}→${this.paths[m.id].remote} (${this.paths[m.id].protocol})` } } : {}) };
+			return { id: m.id, name: m.name, color: m.color, role: m.role, me, slide: me ? this.deps.activeSlide : (st?.slide ?? null), ...(!me && st?.slideHidden ? { slideHidden: true } : {}), editing: !!st?.editingAt && this.now - st.editingAt < TYPING_MS && st.editingAt < this.now + 5000, mic: this.micOf(m.id, me), ...(!me && this.audio?.inCall && this.audio.hasStream(m.id) ? { volume: this.audio.volume(m.id) } : {}), ...(!me && this.audio?.inCall && this.audio.hasStream(m.id) && Object.keys(this.quality[m.id] ?? {}).length ? { quality: this.quality[m.id] } : {}), ...(!me && this.paths[m.id] ? { link: { kind: linkKind(this.paths[m.id]), detail: `${this.paths[m.id].local}→${this.paths[m.id].remote} (${this.paths[m.id].protocol})` } } : {}) };
 		});
 		for (const [k, a] of this.away) {
 			if (!people.some((p) => p.name === a.name && p.color === a.color)) people.push({ id: `away:${k}`, name: a.name, color: a.color, role: a.role === 'host' && s.members.some((m) => m.role === 'host') ? 'edit' : a.role, slide: null, editing: false, mic: 'off', away: true });
@@ -1464,7 +1574,8 @@ export class LiveController {
 			following: this.following,
 			hostAway: s.hostAway,
 			audio: !!this.audio && r.session.hasMedia && LiveAudio.supported(),
-			call: { inCall: !!this.audio?.inCall, muted: !!this.audio?.isMuted, denied: this.micDenied, devices: this.micDevices, device: this.audio?.device ?? null },
+			share: this.share,
+			call: { inCall: !!this.audio?.inCall, muted: !!this.audio?.isMuted, denied: this.micDenied, devices: this.micDevices, device: this.audio?.device ?? null, highFidelity: !!this.audio?.highFidelity, micLevel: this.audio?.micLevel ?? 1, canShapeMic: !!this.audio?.canShapeMic, stalled: this.stalledShown, masterVolume: this.audio?.masterVolume ?? 1, outputs: this.outDevices, output: this.audio?.output || null, canPickOutput: LiveAudio.canPickOutput() },
 			canChat: s.me?.role !== 'view',
 			typing,
 		};
@@ -1477,6 +1588,35 @@ export class LiveController {
 		const stage = this.badLink ? 'bad-link' : s ? map[s.stage] : 'connecting';
 		if (!stage) return null;
 		return { stage, title: s?.invite?.title ?? null, hostName: s?.invite?.hostName ?? null, slides: s?.invite?.slides ?? null, theme: s?.invite?.theme ?? null, name: this.lobbyName };
+	}
+
+	/** The connection timeline as text, for a bug report: what this browser is, the wake lock, each event, the paths. */
+	private async logText(): Promise<string> {
+		const lines = [`Lattice Live connection log · ${new Date().toISOString()}`, `browser: ${navigator.userAgent}`, `role: ${this.rt?.session.getState().isHost ? 'host' : 'guest'}`, `screen wake lock: ${this.wake.state}`, `online: ${navigator.onLine} · visible: ${document.visibilityState}`];
+		const paths: Record<string, LinkPath> = (await this.rt?.session.paths().catch(() => ({}))) ?? {};
+		for (const [id, p] of Object.entries(paths)) lines.push(`path ${id.slice(0, 6)}: ${p.local}→${p.remote} (${p.protocol})`);
+		const pairs = await this.pairs();
+		if (pairs.length) lines.push('candidate pairs (every connection check each link tried):', ...pairs.map((p) => `  ${p}`));
+		for (const e of this.timeline()) lines.push(`${(e.at / 1000).toFixed(1).padStart(7)}s  ${e.peer.padEnd(6)}  ${e.what}`);
+		return lines.join('\n');
+	}
+
+	/** Copies the log. The clipboard write starts in the tap itself, holding a promise for the text: Safari refuses a
+	 *  write that begins after an `await`, because the tap's permission to write is gone by then (checker, 2026-10-13). */
+	private copyLog(): Promise<boolean> {
+		if (!navigator.clipboard) return Promise.resolve(false);
+		const text = this.logText();
+		const write =
+			typeof ClipboardItem !== 'undefined' && navigator.clipboard.write
+				? navigator.clipboard.write([new ClipboardItem({ 'text/plain': text.then((t) => new Blob([t], { type: 'text/plain' })) })])
+				: text.then((t) => navigator.clipboard.writeText(t));
+		return write.then(
+			() => {
+				this.host.notify('Connection log copied.');
+				return true;
+			},
+			() => false,
+		);
 	}
 
 	/** Resolves whether the link reached the clipboard, so a button can show "Copied" only when it did. */
@@ -1551,6 +1691,7 @@ export class LiveController {
 			r.session.remove(id);
 		},
 		setRole: (id, role) => this.rt?.session.setRole(id, role),
+		rename: (name) => this.rt?.session.rename(name),
 		follow: (id) => {
 			this.following = id;
 			this.onAwareness();
@@ -1560,13 +1701,46 @@ export class LiveController {
 			const r = this.rt;
 			if (!r) return;
 			const prevN = (r.aw.getLocalState() as AwState | null)?.summon?.n ?? 0;
-			r.aw.setLocalStateField('summon', { slide: this.deps.activeSlide, n: prevN + 1 });
+			const n = prevN + 1;
+			r.aw.setLocalStateField('summon', { slide: this.deps.activeSlide, n });
+			// With your slide hidden the summon is the one place it still leaves: say it once, then take it back, so a
+			// late joiner or a presence renewal never carries it (checker, 2026-10-13).
+			if (!this.share.slide) {
+				setTimeout(() => {
+					const st = { ...(r.aw.getLocalState() as Record<string, unknown> | null) };
+					if ((st.summon as { n?: number } | undefined)?.n !== n) return;
+					delete st.summon;
+					r.aw.setLocalState(st);
+				}, SUMMON_SHOWN_MS);
+			}
 			this.sys(`You brought everyone to slide ${this.deps.activeSlide + 1}`);
 			this.host.rerender();
 		},
 		toggleMic: () => void this.toggleMic(),
 		leaveCall: () => this.leaveCall(),
-		pickMic: (id) => void this.joinCall(id),
+		// Only on a live call: picking a microphone off the call would JOIN it and open the microphone.
+		pickMic: (id) => {
+			if (this.audio?.inCall) void this.joinCall(id);
+		},
+		// A new capture, because the browser fixes voice processing when the microphone is opened.
+		setHighFidelity: (on) => {
+			// Only on a live call: toggling it off the call would JOIN it, which nobody asked for.
+			if (this.audio?.inCall) void this.joinCall(this.audio.device ?? undefined, on);
+		},
+		setVolume: (id, v) => this.audio?.setVolume(id, v),
+		setMicLevel: (v) => this.audio?.setMicLevel(v),
+		setMasterVolume: (v) => this.audio?.setMasterVolume(v),
+		copyLog: () => this.copyLog(),
+		setShare: (patch) => {
+			this.share = { ...this.share, ...patch };
+			try {
+				sessionStorage.setItem(SHARE_KEY, JSON.stringify(this.share));
+			} catch {}
+			this.applyShare();
+			this.host.rerender();
+		},
+		pickOutput: (id) => void this.audio?.setOutput(id).then(() => this.host.rerender()),
+		inputLevel: () => this.audio?.inputLevel() ?? 0,
 		end: () => {
 			this.teardown('end');
 			this.host.notify('Live session ended. The deck stays as it is.');
@@ -1596,7 +1770,7 @@ export class LiveController {
 		},
 		chatTyping: () => {
 			const t = Date.now();
-			if (t - this.lastTypingPost < TYPING_POST_MS || this.rt?.session.getState().me?.role === 'view') return;
+			if (!this.share.typing || t - this.lastTypingPost < TYPING_POST_MS || this.rt?.session.getState().me?.role === 'view') return;
 			this.lastTypingPost = t;
 			this.post({ k: 'typing' });
 		},

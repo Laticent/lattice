@@ -1,0 +1,1 @@
+- **math:** a hero equation with no legend now takes the whole slide, centered, instead of sitting in the left column beside an empty half and a divider. The `align-left` / `align-center` / `align-right` and `align-top` / `align-middle` / `align-bottom` modifiers move it, on one slide or deck-wide. With a legend, nothing changes. Demo: `examples/math-bare-equation.md`.

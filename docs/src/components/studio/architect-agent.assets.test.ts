@@ -140,6 +140,23 @@ describe('a caption needs a picture that was actually delivered', () => {
 	});
 });
 
+describe('a caption that is not a string', () => {
+	it('is refused, never stored as "[object Object]", and never clears an existing caption', async () => {
+		const { assets, calls } = fakeAssets([info('a', { caption: 'Keep me' })]);
+		const t = box(assets);
+		await t.run('view_asset', JSON.stringify({ names: ['a'], again: true }));
+		t.takeImages();
+		// A string that is EMPTY once cleaned must not clear the caption either: zero-width space, NEL, NUL, a bidi
+		// override with a joiner, a soft hyphen, the Hangul filler and the braille blank all survive String.trim.
+		const blank = ['\u200b', '\u0085', '\u0000', '\u202e\u200d', '\u00ad', '\u3164\u2800', '   '];
+		const captions = [{ name: 'a', caption: { evil: true } }, ...blank.map((caption) => ({ name: 'a', caption }))];
+		const out = await t.run('caption_asset', JSON.stringify({ captions }));
+		expect(out.match(/non-empty string/g)).toHaveLength(captions.length);
+		expect(calls.captions).toEqual([]);
+		expect(await t.run('list_assets', '{}')).toContain('"Keep me"');
+	});
+});
+
 describe('with no Library', () => {
 	it('answers that there is none instead of failing', async () => {
 		const t = box(undefined);

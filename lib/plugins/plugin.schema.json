@@ -85,7 +85,7 @@
         },
         "inline": {
           "type": "object",
-          "description": "Inline-code KINDS: a record behind one tag character, written in Segno's notation (`^{database, c3}`), keyed by the kind's name. The host owns one dispatch table (lib/core/inline-code-directives.js) whose first rows are its own marks, pills and sparks; it keeps the dispatch order and the backslash escape. The plugin's `<name>.inline.js` exports an `inline` object with the same keys, each `{ resolve, html, element, diagnose }`: text → fields, an HTML string, a DOM element, or why an attempt does not render. Bundled wherever the dispatcher is (the linter, the runtime), so the module must stay light: no data it can load later. A sigil another row claims (`~` is the spark's) fails the build by name. In-tree only.",
+          "description": "Inline-code KINDS: a record behind one tag character, written in Segno's notation (`^{database, c3}`), keyed by the kind's name. The host owns one dispatch table (lib/core/inline-code-directives.js) whose first rows are its own marks, pills and sparks; it keeps the dispatch order and the backslash escape. The plugin's `<name>.inline.js` exports an `inline` object with the same keys, each `{ resolve, html, element, diagnose }`: text → fields, an HTML string, a DOM element, or why an attempt does not render. `resolve(text, off, probe)` may return `true` instead of building its fields when `probe` is true, and `diagnose(text, off, explain)` may return `true` instead of the reason when `explain` is false: the dispatcher asks only whether a span renders, or is a broken attempt, far more often than it needs the answer. A kind that ignores both flags is still right, only slower. Bundled wherever the dispatcher is (the linter, the runtime), so the module must stay light: no data it can load later. A sigil another row claims (`~` is the spark's) fails the build by name. In-tree only.",
           "minProperties": 1,
           "propertyNames": {"pattern": "^[a-z][a-z0-9-]*$"},
           "additionalProperties": {
@@ -341,6 +341,26 @@
                 "type": "boolean",
                 "description": "The alias still renders, and the render reports its replacement."
               }
+            }
+          }
+        },
+        "placeholder": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "How a block of this fence takes space, as DATA, for the placeholder a deck shows where the plugin has not been listed or approved and its code may not run (plugin-system §9 decision 11). Each `placement` maps to geometry the engine already has: `stage` fills the slide's stage box (as a Mermaid diagram or a chart does), `figure` takes the content width at a ratio (as an image does), `chip` is a small square in the avatar size scale. Once the plugin has drawn, the host remembers a `figure`'s real proportions and uses those instead of `aspect`. A zip plugin may declare it; a shipped plugin draws at once and has no use for one.",
+          "properties": {
+            "placement": {
+              "enum": ["stage", "figure", "chip"],
+              "description": "`figure` when absent."
+            },
+            "aspect": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]{0,2}/[1-9][0-9]{0,2}$",
+              "description": "For `figure`: width over height of a drawn block, as `W/H` (`16/9`, `4/1`); `16/9` when absent."
+            },
+            "size": {
+              "enum": ["sm", "md", "lg", "xl"],
+              "description": "For `chip`: the avatar size scale (1.1em, 1.45em, 2.4em, 4em); `md` when absent."
             }
           }
         },

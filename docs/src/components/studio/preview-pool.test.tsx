@@ -209,14 +209,14 @@ function ScrollGrid({ n }: { n: number }) {
 	);
 }
 
-function Grid({ n, specimen = false, pooled = true }: { n: number; specimen?: boolean; pooled?: boolean }) {
+function Grid({ n, specimen = false, pooled = true, baseSlots }: { n: number; specimen?: boolean; pooled?: boolean; baseSlots?: number }) {
 	const tiles = Array.from({ length: n }, (_, i) => (
 		// biome-ignore lint/suspicious/noArrayIndexKey: a fixed-length fake grid; the index IS the tile's identity.
 		<div key={i} data-testid={`tile-${i}`}>
 			<PooledThumbFace options={{ themeBase: '', runtimeUrl: '', engineUrl: '' }} sample={`# ${i}`} specimen={specimen} className="aspect-video w-full" />
 		</div>
 	));
-	return pooled ? <PreviewPool>{tiles}</PreviewPool> : tiles;
+	return pooled ? <PreviewPool baseSlots={baseSlots}>{tiles}</PreviewPool> : tiles;
 }
 
 /** The `sample` each mounted frame is currently showing — the pool's output, in one read. */
@@ -286,6 +286,17 @@ describe('PreviewPool — which tiles hold a frame', () => {
 		for (let i = 0; i < n; i++) intersect(face(container, i), true);
 		settle();
 		expect(showing(container).length, `the pool grew past its floor of ${BASE_SLOTS} for off-screen tiles`).toBeLessThanOrEqual(BASE_SLOTS);
+		unmount();
+	});
+
+	it('takes a smaller floor from a surface that shows one tile at a time (the chat transcript)', () => {
+		const n = BASE_SLOTS * 2;
+		const { container, unmount } = render(<Grid n={n} baseSlots={3} />);
+		for (let i = 0; i < n; i++) intersect(face(container, i), true);
+		settle();
+		const held = showing(container).length;
+		expect(held, 'the pool ignored its `baseSlots` and kept the gallery floor').toBeLessThanOrEqual(3);
+		expect(held, 'a smaller floor starved the pool entirely').toBeGreaterThan(0);
 		unmount();
 	});
 

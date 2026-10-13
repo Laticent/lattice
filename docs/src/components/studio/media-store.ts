@@ -275,18 +275,23 @@ export async function setMediaCaption(id: string, caption: string): Promise<Medi
 /** The metadata a person edits by hand. `undefined` leaves a field alone; an empty string clears it. */
 export type MediaMetaPatch = { caption?: string; credit?: string; taken?: string };
 
-/** A line of text a person typed, kept as typed: one line, no control or invisible characters, capped. Quotes
- *  and the middle dot stay. The chat's prompt is the only place they are unsafe, and it cleans a description
- *  on the way out (agent-assets-browser.ts `infoOf`), so the person's wording is not changed to protect it. */
-export const cleanLine = (v: string, max: number): string =>
-	v
+/** A line of text a person typed, kept as typed: one line, no control or invisible characters, capped. Quotes and
+ *  the middle dot stay. The chat's prompt is the only place they are unsafe, and it cleans a description on the way
+ *  out (agent-assets-browser.ts `infoOf`), so the person's wording is not changed to protect it.
+ *  Invisible characters ARE removed, because a file from anyone can use them to hide text that screen readers and
+ *  models read: format and separator characters (bidi overrides, zero-width), the Hangul filler and braille blank,
+ *  the tag characters and the variation-selector supplement. The two emoji selectors (U+FE0E, U+FE0F) stay, so an
+ *  emoji keeps its look. Cut by whole characters, so an emoji at the limit is kept or dropped whole. */
+export const cleanLine = (v: string, max: number): string => {
+	const t = v
 		// biome-ignore lint/suspicious/noControlCharactersInRegex: stripping them is the point
 		.replace(/[\u0000-\u001f\u007f-\u009f]+/g, ' ')
-		.replace(/[\p{Cf}\p{Zl}\p{Zp}]+/gu, '')
+		.replace(/(?:[\p{Cf}\p{Zl}\p{Zp}\u3164\u2800]|[\uFE00-\uFE0D]|[\u{E0000}-\u{E01EF}])+/gu, '')
 		.replace(/\s+/g, ' ')
-		.trim()
-		.slice(0, max)
 		.trim();
+	return Array.from(t).slice(0, max).join('').trim();
+};
+
 const cleanTaken = (v: string): string => (isIsoDate(v.trim()) ? v.trim() : '');
 
 /** The metadata change as a pure function of the row, so a rename and a metadata edit can share one write. */

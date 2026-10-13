@@ -1,0 +1,1 @@
+- Live calls get a **Hearing** section in the Your audio popover: one **Everyone** volume (0 to 200 %) multiplied into each person's own, and a **speaker** picker where the browser allows it (not Safari, which says so). The popover now fits the room on a phone-size screen.

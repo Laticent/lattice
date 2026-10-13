@@ -17,6 +17,9 @@ const table = require('../../../lib/core/inline-code-directives.js');
 const { stateHtml, stateElement, parseInlineState } = require('../../../lib/core/state-marks.js');
 const pills = require('../../../lib/core/inline-pills.js');
 const sparks = require('../../../lib/core/inline-sparks.js');
+const icons = require('../../../lib/plugins/icons/icons.inline.js');
+const avatars = require('../../../lib/plugins/avatars/avatars.inline.js');
+const { CORE } = require('../../../lib/core/segno-slots.js');
 const { EXCLUDE_MIRRORS_SHELL } = require('../../helpers/generated-mirrors.js');
 
 /** The hand-written dispatcher the table replaced, verbatim in behavior. */
@@ -116,6 +119,160 @@ describe('the inline-code table — against a FROZEN copy of the pre-table outpu
     }
     assert.ok(compared > 1000, `compared ${compared}`);
   });
+});
+
+describe('the inline-code table — the lead table and the probe flags', () => {
+  // `dispatches`, `renderHtml` and `renderElement` ask only the rows whose `lead` is the span's
+  // first character, and `dispatches` / the escape pass a row `probe` / `explain: false` so it can
+  // answer yes or no without building fields or a message. Both are speed-ups that must change
+  // nothing, so this pins each against the plain call it stands in for, over every frozen span,
+  // each also behind a leading space, a backslash, a tab and a BOM (a row that rendered such a
+  // span would be skipped).
+  const GOLDEN = require('./inline-code-table.golden.json');
+  const PREFIXES = ['', ' ', '\\', '\t', '\ufeff', 'x'];
+  const spans = Object.keys(GOLDEN).flatMap((g) => PREFIXES.map((p) => p + g));
+  const { KINDS } = table;
+
+  test('every row has an ASCII lead, or asks regardless', () => {
+    for (const k of KINDS) assert.ok(k.lead === -1 || (Number.isInteger(k.lead) && k.lead >= 0 && k.lead < 128), `${k.name}: ${k.lead}`);
+    assert.deepEqual(KINDS.filter((k) => k.plugin).map((k) => [k.name, k.lead]), KINDS.filter((k) => k.plugin).map((k) => [k.name, k.sigil.charCodeAt(0)]));
+  });
+
+  test('a row never renders or accepts a span that does not open with its lead', () => {
+    for (const k of KINDS) {
+      if (k.lead === -1) continue;
+      for (const span of spans) {
+        if (span.charCodeAt(0) === k.lead) continue;
+        assert.equal(k.resolve(span, null) ? 'resolved' : null, null, `${k.name} resolved ${JSON.stringify(span)}`);
+        assert.equal(k.html(span, null), null, `${k.name} drew ${JSON.stringify(span)}`);
+      }
+    }
+  });
+
+  test('the table gives the answer the full loop would, with every plugin on and off', () => {
+    const fullLoop = (span, off) => KINDS.filter((k) => !k.plugin || !off?.has(k.plugin)).some((k) => k.resolve(span, off));
+    for (const off of [null, new Set(['icons']), new Set(['avatars']), new Set(['icons', 'avatars'])]) {
+      for (const span of spans) assert.equal(table.dispatches(span, off), fullLoop(span, off), `${JSON.stringify(span)} off=${off && [...off]}`);
+    }
+  });
+
+  /** Every inline-code span in every tracked Markdown file, fenced blocks left out, plugin spans
+   *  INCLUDED (the guard below must see avatars and icons, which the golden file leaves out). */
+  function allCorpusSpans() {
+    const files = execSync(`git ls-files '*.md' ${EXCLUDE_MIRRORS_SHELL}`, { cwd: ROOT }).toString().trim().split('\n');
+    const out = new Set();
+    for (const f of files) {
+      const text = fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/^[ \t]*(```|~~~)[\s\S]*?^[ \t]*\1/gm, '');
+      for (const m of text.matchAll(/(?<!`)`([^`\n]+)`(?!`)/g)) out.add(m[1]);
+    }
+    return [...out];
+  }
+
+  /** Seeded edits of the corpus's own directive spans: drop, swap or repeat a word, borrow a word
+   *  from another span, change the closer. The words come from the repo's decks, so a rule a
+   *  FUTURE kind adds (`bare` with `tone`, a blank name) is reachable without being named here. */
+  function mutants(seeds) {
+    let state = 0x2650;
+    const rnd = (n) => { state = (Math.imul(state, 1664525) + 1013904223) >>> 0; return state % n; };
+    const directive = seeds.filter((t) => /^\\?[~^!]?[{[]/.test(t));
+    // Words from the repo's own spans, and from each kind's own spec (every named value of every
+    // parameter), so a rule such as "frame with look" is reachable without a span that happens to say it.
+    const specWords = [];
+    for (const spec of [icons.SPEC, avatars.SPEC, ...Object.values(CORE)]) {
+      for (const [name, t] of Object.entries(spec.params || {})) {
+        const values = t.values || (t.prefix ? Array.from({ length: Math.min(t.max, 14) }, (_, i) => `${t.prefix}${i + 1}`) : []);
+        for (const v of values) specWords.push(`${name}=${v}`, v);
+        specWords.push(`${name}=`, `${name}=x`);
+      }
+    }
+    const words = [...new Set([...specWords, ...directive.flatMap((t) => t.replace(/^\\?[~^!]?[{[]|[}\]]$/g, '').split(/,\s*/))])];
+    const out = [];
+    for (const seed of directive) {
+      for (let i = 0; i < 40; i++) {
+        const m = /^(\\?[~^!]?[{[])(.*?)([}\]]?)$/.exec(seed);
+        if (!m) continue;
+        const parts = m[2].split(/,\s*/);
+        const at = rnd(parts.length);
+        switch (rnd(6)) {
+          case 0: parts.splice(at, 1); break;
+          case 1: parts.splice(at, 0, words[rnd(words.length)]); break;
+          case 2: parts[at] = words[rnd(words.length)]; break;
+          case 3: parts.push(words[rnd(words.length)], words[rnd(words.length)]); break;
+          case 4: parts.splice(at, 0, parts[at]); break;
+          default: parts.reverse(); break;
+        }
+        out.push(m[1] + parts.join(', ') + (rnd(8) === 0 ? '' : m[3]));
+      }
+    }
+    return out;
+  }
+
+  /** Every PAIR of one kind's own parameter words after a valid head, so a rule that looks at two
+   *  options together (a frame with a look, a skin with a beard) is reached by construction. */
+  function pairs() {
+    // Valid heads, and the empty or blank ones a kind refuses (a blank name, an empty label).
+    const kinds = [['^{database', icons.SPEC], ['!{Ada Okafor', avatars.SPEC], ['{BETA', CORE.pill], ['~{1 2 3', CORE.spark],
+      ['!{""', avatars.SPEC], ['!{ ', avatars.SPEC], ['!{c3', avatars.SPEC], ['{""', CORE.pill], ['{ ', CORE.pill], ['^{', icons.SPEC], ['~{', CORE.spark]];
+    const out = [];
+    for (const [head, spec] of kinds) {
+      const words = [];
+      for (const [name, t] of Object.entries(spec.params || {})) {
+        const values = t.values || (t.prefix ? Array.from({ length: Math.min(t.max, 6) }, (_, i) => `${t.prefix}${i + 1}`) : []);
+        for (const v of values.slice(0, 12)) words.push(`${name}=${v}`, v);
+      }
+      for (let i = 0; i < words.length; i++) {
+        out.push(`${head}, ${words[i]}}`);
+        for (let j = i + 1; j < words.length; j++) out.push(`${head}, ${words[i]}, ${words[j]}}`);
+      }
+    }
+    return out;
+  }
+
+  const corpus = allCorpusSpans();
+  const probed = [...new Set([...spans, ...corpus, ...corpus.map((c) => `\\${c}`), ...mutants(corpus), ...pairs()])];
+
+  test('a probe says what a full resolve says, and explain: false what a full diagnose says, for every kind', () => {
+    // The two flags let a kind skip work, never change its answer. Over the frozen spans, the repo's
+    // own spans (avatars and icons included) and seeded edits of them, so a kind that drifts (a rule
+    // added to `resolve` and not to its probe, a blank name that a probe forgets) fails here.
+    assert.ok(probed.length > 5000, `probed ${probed.length}`);
+    for (const k of KINDS) {
+      for (const span of probed) {
+        assert.equal(Boolean(k.resolve(span, null, true)), Boolean(k.resolve(span, null)), `${k.name}.resolve probe ${JSON.stringify(span)}`);
+        if (k.diagnose) assert.equal(Boolean(k.diagnose(span, null, false)), Boolean(k.diagnose(span, null)), `${k.name}.diagnose explain=false ${JSON.stringify(span)}`);
+      }
+    }
+  });
+
+  test('the escape and dispatches give the plain-loop answer over the same spans, with plugins on and off', () => {
+    const plainDispatch = (t, off) => KINDS.filter((k) => !k.plugin || !off?.has(k.plugin)).some((k) => k.resolve(t, off));
+    const plainDiag = (t) => KINDS.some((k) => k.diagnose?.(t, undefined));
+    for (const span of probed) {
+      for (const off of [null, new Set(['icons', 'avatars'])]) {
+        assert.equal(table.dispatches(span, off), plainDispatch(span, off), `dispatches ${JSON.stringify(span)}`);
+      }
+      const rest = span.slice(1);
+      const want = span.length >= 2 && span[0] === '\\' && (plainDispatch(rest, undefined) || plainDiag(rest)) ? rest : null;
+      assert.equal(table.escapedText(span), want, `escapedText ${JSON.stringify(span)}`);
+    }
+  });
+
+  test('ordinary code asks no row at all, and each directive asks only the row that opens with it', () => {
+    // The speed-up in one deterministic line: a span that opens with a letter, a dash or a slash
+    // consults nothing, so its cost does not grow with the number of kinds. A timing assertion here
+    // would flake in the merge train; `npm run parser:bakeoff:segno` carries the timing.
+    for (const code of ['npm run build', '--on-accent', '/src/lib', '.md', '$0', 'a', '']) {
+      assert.deepEqual(table.rowsAsked(code, null).map((k) => k.name), [], JSON.stringify(code));
+    }
+    const asked = (t) => table.rowsAsked(t, null).map((k) => k.name);
+    assert.deepEqual(asked('[x]'), ['state']);
+    assert.deepEqual(asked('{LIVE}'), ['pill']);
+    assert.deepEqual(asked('~{1 2 3}'), ['spark']);
+    assert.deepEqual(asked('^{database}'), ['icon']);
+    assert.deepEqual(asked('!{Ada Okafor}'), ['avatar']);
+    assert.deepEqual(table.rowsAsked('^{database}', new Set(['icons'])).map((k) => k.name), [], 'a plugin that is off leaves the list');
+  });
+
 });
 
 describe('the inline-code table — plugin rows', () => {

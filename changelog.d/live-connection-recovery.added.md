@@ -1,0 +1,1 @@
+- Live: **Your settings → Connection → Copy connection log** copies a timeline for bug reports: every connection attempt from its start (ICE state changes, candidates found, STUN/TURN errors), peer joins and leaves, a round-trip sample every 10 seconds, each connection check and its state, your role, and whether the screen wake lock is held. Addresses are never included.

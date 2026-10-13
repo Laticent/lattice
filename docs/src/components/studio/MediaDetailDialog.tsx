@@ -1,4 +1,4 @@
-import { X } from 'lucide-react';
+import { Sparkles, X } from 'lucide-react';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -23,7 +23,7 @@ function localToday(): string {
 	return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-export function MediaDetailDialog({ m, open, onOpenChange, usedIn, aliasUse, onSave, onRemoveAlias, onUseNewName }: {
+export function MediaDetailDialog({ m, open, onOpenChange, usedIn, aliasUse, onSave, onRemoveAlias, onUseNewName, onSuggest }: {
 	m: MediaRecord | null;
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
@@ -36,6 +36,8 @@ export function MediaDetailDialog({ m, open, onOpenChange, usedIn, aliasUse, onS
 	onRemoveAlias: (alias: string) => Promise<string | null>;
 	/** Rewrite the decks that write `asset:<alias>` to the photo's current name. Resolves an error line, or null. */
 	onUseNewName: (alias: string) => Promise<string | null>;
+	/** Ask the connected model for a description of this photo. Resolves the text for the field, or a line saying why not. */
+	onSuggest: () => Promise<{ text: string } | { note: string }>;
 }) {
 	const url = useObjectUrl(m?.blob);
 	const [name, setName] = React.useState('');
@@ -44,6 +46,8 @@ export function MediaDetailDialog({ m, open, onOpenChange, usedIn, aliasUse, onS
 	const [taken, setTaken] = React.useState('');
 	const [error, setError] = React.useState<string | null>(null);
 	const [busy, setBusy] = React.useState(false);
+	const [suggesting, setSuggesting] = React.useState(false);
+	const [suggestNote, setSuggestNote] = React.useState<string | null>(null);
 	const uid = React.useId();
 	// Reset the form only when a different record opens, not on every refresh of the same one.
 	const id = m?.id;
@@ -54,6 +58,8 @@ export function MediaDetailDialog({ m, open, onOpenChange, usedIn, aliasUse, onS
 		setCredit(m?.credit ?? '');
 		setTaken(m?.taken ?? '');
 		setError(null);
+		setSuggestNote(null);
+		setSuggesting(false);
 	}, [id]);
 	if (!m) return null;
 
@@ -61,6 +67,23 @@ export function MediaDetailDialog({ m, open, onOpenChange, usedIn, aliasUse, onS
 	const dirty = caption !== (m.caption ?? '') || credit !== (m.credit ?? '') || taken !== (m.taken ?? '') || name !== m.name;
 	const takenOk = taken === '' || isIsoDate(taken);
 	const canSave = dirty && nameOk && takenOk && !busy;
+
+	/** Fill the description field with the model's draft. It is a draft: nothing is saved until the person presses Save,
+	 *  and the person can edit it first. A refusal (no model connected, a model that cannot read images, the budget cap)
+	 *  is a line under the field, never a silent no-op. */
+	async function suggest() {
+		setSuggesting(true);
+		setSuggestNote(null);
+		try {
+			const r = await onSuggest();
+			if ('text' in r) setCaption(r.text);
+			else setSuggestNote(r.note);
+		} catch {
+			setSuggestNote("Couldn't reach the model. Check your connection and try again.");
+		} finally {
+			setSuggesting(false);
+		}
+	}
 
 	/** One of the alias actions: busy while it runs, its refusal shown in the dialog. */
 	async function run(action: () => Promise<string | null>) {
@@ -119,8 +142,15 @@ export function MediaDetailDialog({ m, open, onOpenChange, usedIn, aliasUse, onS
 				</div>
 				<div className="grid gap-3 text-[13px]">
 					<div className="grid gap-1">
-						<label htmlFor={`${uid}-caption`} className="font-semibold">Description</label>
+						<div className="flex items-center justify-between gap-2">
+							<label htmlFor={`${uid}-caption`} className="font-semibold">Description</label>
+							<Button type="button" size="sm" variant="ghost" disabled={suggesting || busy} onClick={() => void suggest()} data-suggest>
+								<Sparkles className="size-3.5" aria-hidden />
+								{suggesting ? 'Looking…' : 'Suggest'}
+							</Button>
+						</div>
 						<Textarea id={`${uid}-caption`} value={caption} maxLength={140} rows={2} onChange={(e) => setCaption(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); e.currentTarget.form?.requestSubmit(); } }} placeholder="What the picture shows. The chat reads it." />
+					{suggestNote && <p role="status" className="text-[11.5px] text-muted-foreground">{suggestNote}</p>}
 					</div>
 					<div className="grid gap-3 sm:grid-cols-2">
 						<div className="grid gap-1">

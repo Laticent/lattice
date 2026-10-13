@@ -27,12 +27,43 @@ export type LivePerson = {
 	/** How this browser reaches them: one network, direct across networks, or through a relay.
 	 *  `detail` is the raw candidate pair ("srflx→host (udp)"). Absent until the first read. */
 	link?: { kind: 'local' | 'direct' | 'relay'; detail: string };
+	/** How their call audio is doing, while both of you are on the call. Absent until it can be measured. */
+	/** They chose not to share which slide they are on. */
+	slideHidden?: boolean;
+	/** How loud this browser plays them (1 = as it arrives, up to 2), while you are on the call and hear them. */
+	volume?: number;
+	quality?: { inKbps?: number; lostPct?: number; jitterMs?: number; sendKbps?: number };
 };
+
+/** "64 kbit/s · 0.4 % lost · 18 ms jitter" — what the person's menu says about the call audio they send you. */
+export function qualityLine(q: NonNullable<LivePerson['quality']>): string {
+	const parts: string[] = [];
+	if (q.inKbps !== undefined) parts.push(`${Math.round(q.inKbps)} kbit/s`);
+	if (q.lostPct !== undefined) parts.push(`${q.lostPct < 10 ? q.lostPct.toFixed(1) : Math.round(q.lostPct)} % lost`);
+	if (q.jitterMs !== undefined) parts.push(`${Math.round(q.jitterMs)} ms jitter`);
+	return parts.join(' · ');
+}
 
 /** `inCall`: the microphone is captured and sent. `denied`: the browser refused the microphone
  *  (the panel says how to allow it). `devices`: the microphones to pick from (labels appear once
  *  permission is given). */
-export type LiveCall = { inCall: boolean; muted: boolean; denied: boolean; devices: Array<{ id: string; label: string }>; device: string | null };
+/** What this person lets the others see of them. All on by default. */
+export type LiveShare = { cursor: boolean; slide: boolean; typing: boolean };
+
+export type LiveCall = { inCall: boolean; muted: boolean; denied: boolean; devices: Array<{ id: string; label: string }>; device: string | null; highFidelity: boolean;
+	/** How loud this browser sends, 0–2 (1 = as captured). */
+	micLevel: number;
+	/** Whether this browser can shape the send (Web Audio is there): false means the level control cannot act. */
+	canShapeMic: boolean;
+	/** The send has stopped flowing (the audio context was suspended, e.g. by a phone call): others hear silence. */
+	stalled: boolean;
+	/** One volume for everyone, 0–2 (1 = as it arrives), multiplied into each person's. */
+	masterVolume: number;
+	/** The speakers this browser can play to, the chosen one ('' or null = the system default), and whether it can choose at all (not Safari). */
+	outputs: Array<{ id: string; label: string }>;
+	output: string | null;
+	canPickOutput: boolean;
+};
 
 export type LiveKnock = { id: string; name: string; at: number };
 
@@ -66,6 +97,8 @@ export type LiveView = {
 	audio: boolean;
 	/** This browser's side of the call. */
 	call: LiveCall;
+	/** What you let the others see of you. */
+	share: LiveShare;
 	/** View-only members read the chat but cannot post (their document changes are never sent). */
 	canChat: boolean;
 	/** Names of the people typing a chat message right now (never this browser). */
@@ -88,6 +121,24 @@ export type LiveActions = {
 	toggleMic: () => void;
 	leaveCall: () => void;
 	pickMic: (deviceId: string) => void;
+	/** Send this browser's audio with voice processing off and a higher rate (music, a demo). */
+	setHighFidelity: (on: boolean) => void;
+	/** How loud to send your own microphone, 0–2 (1 = as captured). Kept across calls in this tab. */
+	setMicLevel: (level: number) => void;
+	/** Choose what the others see of you: your cursor, your slide, when you are typing. Kept for this tab. */
+	setShare: (patch: Partial<LiveShare>) => void;
+	/** Copy the connection timeline (state changes, restarts, paths) for a bug report. Resolves whether it reached the clipboard. */
+	copyLog: () => Promise<boolean>;
+	/** Change the name others see (the host cleans it and may ignore a rapid second change). */
+	rename: (name: string) => void;
+	/** One volume for everyone you hear, 0–2. */
+	setMasterVolume: (volume: number) => void;
+	/** Play call audio through this speaker (where the browser allows it). */
+	pickOutput: (deviceId: string) => void;
+	/** The level of what you are sending now, 0–1, for the meter. Cheap: call it on a frame. */
+	inputLevel: () => number;
+	/** How loud to play one person, 0–2 (1 = as it arrives). Kept for this session. */
+	setVolume: (id: string, volume: number) => void;
 	end: () => void;
 	leave: () => void;
 	sendChat: (text: string) => void;
@@ -128,7 +179,8 @@ export const IDLE_VIEW: LiveView = {
 	hostAway: false,
 	heir: null,
 	audio: false,
-	call: { inCall: false, muted: false, denied: false, devices: [], device: null },
+	share: { cursor: true, slide: true, typing: true },
+	call: { inCall: false, muted: false, denied: false, devices: [], device: null, highFidelity: false, micLevel: 1, canShapeMic: false, stalled: false, masterVolume: 1, outputs: [], output: null, canPickOutput: false },
 	canChat: true,
 	typing: [],
 };

@@ -1,0 +1,1 @@
+- **Studio chat:** the header is now one model chip with a dropdown, plus one session figure. The dropdown holds the per-turn price of a question and of an edit, the session against its cap, and the same model picker as Workspace → AI, so you can change model without leaving the chat.

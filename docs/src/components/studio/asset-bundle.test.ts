@@ -331,23 +331,69 @@ describe('asset-bundle — package zips from elsewhere', () => {
 		expect(quoting.refused).toEqual([]);
 	});
 
-	it('refuses a plugin package by name, with or without code, as `lattice packages add` does', async () => {
-		const { default: JSZip } = await import('jszip');
-		const plugin = (withCode: boolean) => {
+	describe('a zip plugin (plugin-system §4.10 and §9 decision 13)', () => {
+		const RENDER = 'function render(f){return "<p>" + f.body.length + "</p>"}\nexport { render as default };';
+		const zipOf = async (over: { manifest?: Record<string, unknown>; files?: Record<string, string | null> } = {}) => {
+			const { default: JSZip } = await import('jszip');
 			const zip = new JSZip();
-			zip.file('glow/glow.manifest.json', JSON.stringify({ name: 'glow', type: 'plugin', format: 1, contributes: { styles: true } }));
-			zip.file('glow/glow.docs.md', '# glow');
-			zip.file('glow/glow.fixtures.md', '# glow');
-			zip.file('glow/glow.styles.css', '.glow{color:var(--text-body)}');
-			if (withCode) zip.file('glow/glow.render.js', 'export default () => "";');
+			zip.file('glow/glow.manifest.json', JSON.stringify({ name: 'glow', type: 'plugin', format: 1, api: 1, contributes: { fences: { glow: { body: 'text' } }, styles: true }, ...over.manifest }));
+			const files: Record<string, string | null> = { 'glow.docs.md': '# glow', 'glow.fixtures.md': '# glow', 'glow.styles.css': '[data-lattice-plugin="glow"]{color:var(--text-body)}', 'glow.render.js': RENDER, ...over.files };
+			for (const [f, text] of Object.entries(files)) if (text !== null) zip.file(`glow/${f}`, text);
 			return zip.generateAsync({ type: 'blob' });
 		};
-		const { PLUGIN_REFUSAL } = (await import('../../../../lib/packages/plugin-refusal.js')).default;
-		for (const withCode of [false, true]) {
-			const round = await unpackBundle(await plugin(withCode));
-			expect(round.refused).toEqual([{ name: 'glow', why: PLUGIN_REFUSAL }]);
+
+		it('is installed only by the Library’s own import, and read as its fence, renderer and CSS', async () => {
+			const round = await unpackBundle(await zipOf(), { plugins: true });
+			expect(round.refused).toEqual([]);
+			expect(round.plugins).toEqual([expect.objectContaining({ name: 'glow', fence: 'glow', code: RENDER, css: expect.stringContaining('data-lattice-plugin') })]);
 			expect([...round.themes, ...round.components, ...round.finishes, ...round.scenes]).toHaveLength(0);
-		}
+		});
+
+		it('reads a declared placeholder hint, keeping only what the schema allows', async () => {
+			const ph = async (placeholder: unknown) => (await unpackBundle(await zipOf({ manifest: { contributes: { fences: { glow: { placeholder } } } } }), { plugins: true })).plugins?.[0]?.placeholder;
+			expect(await ph({ aspect: '16/9' })).toEqual({ placement: 'figure', aspect: '16/9' });
+			expect(await ph({ placement: 'stage', aspect: '4/1' })).toEqual({ placement: 'stage' });
+			expect(await ph({ placement: 'chip', size: 'xl' })).toEqual({ placement: 'chip', size: 'xl' });
+			expect(await ph({ placement: 'chip' })).toEqual({ placement: 'chip', size: 'md' });
+			expect(await ph({ placement: 'x;y', aspect: '16:9;x', size: 'huge' })).toEqual({ placement: 'figure' });
+		});
+
+		it('is refused by name inside a project or a backup, which say where to import it', async () => {
+			const { PLUGIN_PROJECT_REFUSAL } = (await import('../../../../lib/packages/plugin-refusal.js')).default;
+			const round = await unpackBundle(await zipOf());
+			expect(round.refused).toEqual([{ name: 'glow', why: PLUGIN_PROJECT_REFUSAL }]);
+			expect(round.plugins).toBeUndefined();
+		});
+
+		it('is refused for anything that runs code outside the sandbox, by rule', async () => {
+			for (const [manifest, why] of [
+				[{ contributes: { fences: { glow: {} }, hydrate: {} } }, /contributes hydrate/],
+				[{ render: { parity: 'equivalent', degradesTo: 'source', exec: { hydrate: 'pass' } } }, /render\.exec/],
+				[{ contributes: { fences: { glow: {}, other: {} } } }, /declares 2 fences/],
+			] as const) {
+				const round = await unpackBundle(await zipOf({ manifest }), { plugins: true });
+				expect(round.plugins).toEqual([]);
+				expect(round.refused[0].why).toMatch(why);
+			}
+		});
+
+		it('is refused when its one script is missing, is not the export form, or does not parse', async () => {
+			expect((await unpackBundle(await zipOf({ files: { 'glow.render.js': null } }), { plugins: true })).refused[0].why).toMatch(/no render\.js/);
+			expect((await unpackBundle(await zipOf({ files: { 'glow.render.js': 'export default function(){}' } }), { plugins: true })).refused[0].why).toMatch(/does not end in `export \{ name as default \}`/);
+			expect((await unpackBundle(await zipOf({ files: { 'glow.render.js': 'function render(f){return f.body.}\nexport { render as default };' } }), { plugins: true })).refused[0].why).toBeTruthy();
+		});
+
+		it('says so when it meets a subfolder, instead of dropping it', async () => {
+			const { default: JSZip } = await import('jszip');
+			const zip = new JSZip();
+			zip.file('glow/glow.manifest.json', JSON.stringify({ name: 'glow', type: 'plugin', format: 1, api: 1, contributes: { fences: { glow: {} } } }));
+			zip.file('glow/glow.docs.md', '# glow');
+			zip.file('glow/glow.fixtures.md', '# glow');
+			zip.file('glow/glow.render.js', RENDER);
+			zip.file('glow/shared/helper.js', 'export const x = 1;');
+			const round = await unpackBundle(await zip.generateAsync({ type: 'blob' }), { plugins: true });
+			expect(round.notes.join('\n')).toMatch(/glow: .*left out 1 file\(s\) in subfolders \(shared\/helper\.js\)/);
+		});
 	});
 
 	it('trusts the manifest, not the file names: a renamed folder imports under its manifest name', async () => {

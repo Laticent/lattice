@@ -61,7 +61,7 @@
 import { type Cert, createHostKey, type HostKey, MAX_CHAIN, ROOT_MAX, signCert, signHello, tokenId, verifyChain, verifyHostHello } from './hostkey.js';
 import { randomBytes, toBase64Url } from './link.js';
 import { type Control, cleanName, decodeControl, encodeControl, frame, PROTOCOL_VERSION, TAG_AWARENESS, TAG_CONTROL, TAG_DOC, TAG_POST, type TokenEntry } from './protocol.js';
-import type { Clock, Color, Invite, Knock, LinkPath, MediaOptions, Member, PeerId, Role, SessionState, Stream, Transport } from './types.js';
+import type { AudioStats, Clock, Color, Invite, Knock, LinkPath, MediaOptions, Member, PeerId, Role, SessionState, Stream, Transport } from './types.js';
 
 export type { TokenEntry };
 
@@ -132,6 +132,8 @@ export type Session = {
 	admit(id: PeerId): void;
 	deny(id: PeerId): void;
 	remove(id: PeerId): void;
+	/** Change the name others see for you. A guest asks the host, which cleans it and rate-limits it. */
+	rename(name: string): void;
 	setRole(id: PeerId, role: 'edit' | 'view'): void;
 	setAutoAdmit(on: boolean): void;
 	setLinkRole(role: 'edit' | 'view'): void;
@@ -161,6 +163,9 @@ export type Session = {
 	/** The network path to each member this browser is connected to (empty when the transport cannot
 	 *  say). For a "how are we connected" readout, and for the two-network check. */
 	paths(): Promise<Record<PeerId, LinkPath>>;
+	/** How call audio is doing with each member this browser is connected to (empty when the transport
+	 *  cannot say). Rates cover the time since the previous call, so poll it on a steady timer. */
+	audioStats(): Promise<Record<PeerId, AudioStats>>;
 	/** Send `stream`'s tracks to every admitted member, and to each one admitted later; never to a
 	 *  stranger. Null stops sending. A transport without media ignores it. */
 	setMedia(stream: MediaStream | null, opts?: MediaOptions): void;
@@ -401,6 +406,7 @@ export function createSession(opts: SessionOptions): Session {
 		if (opts.awareness) send(peer, frame(TAG_AWARENESS, opts.awareness.encodeAll()));
 	};
 	const forget = (peer: PeerId) => {
+		renamedAt.delete(peer);
 		opts.doc.forget?.(peer);
 		opts.awareness?.forget?.(peer);
 		// A peer still connected (re-admitted in a moment, after a takeover or a blip) keeps its
@@ -569,6 +575,30 @@ export function createSession(opts: SessionOptions): Session {
 		sendControl(id, { t: 'admit', role, color, token, members: state.members });
 		broadcastRoster();
 		syncWith(id);
+	};
+	/** Host: the last time each member changed its name (a rename is a roster broadcast to everyone). */
+	const renamedAt = new Map<PeerId, number>();
+	const RENAME_MIN_MS = 1000;
+	const hostApplyRename = (id: PeerId, raw: string) => {
+		const m = memberOf(id);
+		if (!m) return;
+		const name = cleanName(raw);
+		if (name === m.name) return;
+		// Two people under one name cannot be told apart in the roster, the chat or a cursor label, and the
+		// host would never have reviewed this name: refuse it (a knock's name is reviewed; a rename is not).
+		const same = name.toLocaleLowerCase();
+		if (state.members.some((x) => x.id !== id && x.name.toLocaleLowerCase() === same)) return;
+		const now = clock.now();
+		if (id !== t.selfId) {
+			const last = renamedAt.get(id);
+			if (last !== undefined && now - last < RENAME_MIN_MS) return;
+			renamedAt.set(id, now);
+		}
+		const tok = tokenOf.get(id);
+		const known = tok ? tokens.get(tok) : undefined;
+		if (tok && known) tokens.set(tok, { ...known, name });
+		set({ members: state.members.map((x) => (x.id === id ? { ...x, name } : x)), ...(id === t.selfId && state.me ? { me: { ...state.me, name } } : {}) });
+		broadcastRoster();
 	};
 	const hostOnKnock = (from: PeerId, name: string, token?: string, claimed?: number) => {
 		if (blocked.has(from)) return;
@@ -938,6 +968,7 @@ export function createSession(opts: SessionOptions): Session {
 				if (ending) return;
 				if (msg.t === 'knock') hostOnKnock(from, msg.name, msg.token, msg.client);
 				else if (msg.t === 'sync' && memberOf(from)) answerSync(from);
+				else if (msg.t === 'rename') hostApplyRename(from, msg.name);
 				else if (msg.t === 'roster?' && memberOf(from)) sendControl(from, { t: 'roster', members: state.members, term: myTerm, ...(heirId ? { heir: heirId } : {}) });
 				// Session time, not this device's: a host that took over keeps the clock everyone had.
 				else if (msg.t === 'ping' && memberOf(from)) sendControl(from, { t: 'pong', n: msg.n, at: clock.now() + clockOffset });
@@ -1068,6 +1099,11 @@ export function createSession(opts: SessionOptions): Session {
 				forget(id);
 			})();
 		},
+		rename(name) {
+			if (closed || ending || state.stage !== 'live' || !state.me) return;
+			if (isHost) hostApplyRename(t.selfId, name);
+			else if (hostId && hostTrusted) sendControl(hostId, { t: 'rename', name: cleanName(name) });
+		},
 		setRole(id, role) {
 			hostOnly(() => {
 				const m = memberOf(id);
@@ -1139,6 +1175,10 @@ export function createSession(opts: SessionOptions): Session {
 			syncMedia();
 		},
 		hasMedia: !!t.addTrack && !!t.onTrack,
+		async audioStats() {
+			const all = (await t.audioStats?.().catch(() => ({}) as Record<PeerId, AudioStats>)) ?? {};
+			return Object.fromEntries(Object.entries(all).filter(([id]) => memberOf(id) && id !== t.selfId));
+		},
 		async paths() {
 			const all = (await t.paths?.().catch(() => ({}) as Record<PeerId, LinkPath>)) ?? {};
 			return Object.fromEntries(Object.entries(all).filter(([id]) => memberOf(id) && id !== t.selfId));

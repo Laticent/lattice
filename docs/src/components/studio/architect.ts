@@ -12,10 +12,12 @@ import { buildCanonContext } from '@/components/studio/ai/presentation-canon.js'
 import { buildRefinePrompt, cleanRewrite, REFINE_ACTIONS } from '@/components/studio/ai/refine.js';
 import { adjustSpend, budgetStatus, readBudgetCap, readBudgetFloor, readBudgetMode, readCachingEnabled, readDedupEnabled, readSpend, recordSpend } from '@/components/studio/ai/spend.js';
 import { deckCanon, deckProfiles } from '@/playground/authoring-core.generated.js';
+import { THUMB_TOKENS } from './agent-assets';
 import type { AgentRawEdit, DeckCheck, ToolCall } from './architect-agent';
 import { FINISHES } from './finish-catalog';
 import { EDGE_TYPES, MARK_TYPES, PLACEMENTS, TEXTURE_TYPES, WASH_TYPES } from './finish-generate';
 import { getFrontMatter, innerFrontMatter, writeFrontMatterLine } from './front-matter';
+import { cleanLine } from './media-store';
 import { BUILTIN_PALETTES } from './palettes';
 import { type ContentPart, type GroundMsg, groundMessages, type MsgContent, type ReferenceDoc, refDocsTokens } from './reference-doc';
 import { deckOutputLang, languageDirective } from './studio-language';
@@ -167,6 +169,8 @@ export type ORModel = {
 	contextLength: number | null;
 	maxOutput: number | null;
 	vision: boolean;
+	/** Accepts video input. `undefined` on a catalog cached before the field existed: unknown, not no. */
+	video?: boolean;
 };
 
 /** This key's readout from /auth/key — usage + (optional) per-key spend limit. */
@@ -200,7 +204,7 @@ export type ModelAvailability = {
 export type TierProgress = { progress: number; text?: string; status?: string };
 
 export type ArchitectModel = {
-	complete: (o: { messages: { role: string; content: MsgContent }[]; json?: boolean; fallback?: string; onUsage?: (u: Usage) => void; onToken?: (t: string) => void; onGenerationId?: (id: string) => void; onFinishReason?: (r: string) => void; signal?: AbortSignal; maxTokens?: number; plugins?: unknown[]; cacheTtl?: string; tools?: readonly unknown[]; toolChoice?: 'auto' | 'none'; onToolCalls?: (calls: ToolCall[]) => void; cacheTail?: boolean }) => Promise<string>;
+	complete: (o: { messages: { role: string; content: MsgContent }[]; json?: boolean; fallback?: string; onUsage?: (u: Usage) => void; onToken?: (t: string) => void; onGenerationId?: (id: string) => void; onFinishReason?: (r: string) => void; signal?: AbortSignal; maxTokens?: number; plugins?: unknown[]; cacheTtl?: string; tools?: readonly unknown[]; toolChoice?: 'auto' | 'none'; onToolCalls?: (calls: ToolCall[]) => void; onToolStart?: (name: string) => void; cacheTail?: boolean }) => Promise<string>;
 	// The authoritative cost of a generation by its stream id — corrects an aborted turn's estimate.
 	openRouterGenerationCost?: (id: string) => Promise<number | null>;
 	// bge-small sentence embeddings (CDN, on-device) — null on Safari/mobile/no-CDN/model-off.
@@ -485,6 +489,81 @@ export async function generateDescription(slideSource: string, deckLang?: string
 	const next = String(out).trim().replace(/^describe:\s*/i, '').replace(/\s+/g, ' ').trim();
 	if (!next) return { status: 'nochange' };
 	return { status: 'ok', text: next };
+}
+
+// ── A photo's description: "Suggest" in the Library's photo view ─────────────────────────────────────────────
+// Drafts the one-line alt text for ONE Library photo from a small thumbnail, for the author to review in the
+// field before saving (never saved by this call). The picture goes to the author's own OpenRouter model, on their
+// own key, only when they press the button. Same honesty as the slide description above: no cloud model is
+// `offline`, a model that cannot read images is `novision` (read from the catalog; unknown reads as no, so the
+// button never promises a look it cannot take), the budget cap is `blocked`, and an unusable reply is `nochange`.
+const PHOTO_DESCRIBE_SYSTEM =
+	'You write alt text for ONE photo that will appear on a presentation slide, for a person who cannot see it.\n' +
+	'Rules:\n' +
+	'- Describe only what is visible. Never guess names, places, brands or text you cannot read.\n' +
+	'- Plain language. One sentence, at most 20 words. No "image of" or "photo of" preamble.\n' +
+	'- Output only the sentence, nothing else.';
+
+export type PhotoSuggestOutcome =
+	| { status: 'ok'; text: string }
+	| { status: 'offline' }
+	| { status: 'novision' }
+	| { status: 'blocked'; note: string }
+	| { status: 'nochange' };
+
+/** The (pure) message list for a photo description. Exported for testing. */
+export function buildPhotoDescriptionPrompt(thumbDataUrl: string): Msg[] {
+	return [
+		{ role: 'system', content: PHOTO_DESCRIBE_SYSTEM },
+		{
+			role: 'user',
+			content: [
+				{ type: 'text', text: 'Describe this photo.' },
+				{ type: 'image_url', image_url: { url: thumbDataUrl } },
+			],
+		} as unknown as Msg,
+	];
+}
+
+/** A model's reply made safe to put in the description field: one line, no wrapping quotes, no "Photo of" lead-in. */
+export function cleanPhotoDescription(reply: string): string {
+	const one = cleanLine(String(reply ?? ''), 400)
+		.replace(/^["'“”‘’`]+|["'“”‘’`]+$/g, '')
+		.replace(/^(?:an? )?(?:image|photo|picture|photograph) (?:of|showing)\s+/i, '')
+		.trim();
+	return cleanLine(one.charAt(0).toUpperCase() + one.slice(1), 140);
+}
+
+export async function suggestPhotoDescription(thumbDataUrl: string, deckLang?: string): Promise<PhotoSuggestOutcome> {
+	if (!thumbDataUrl.startsWith('data:image/')) return { status: 'nochange' };
+	const model = await architectModel();
+	if (!model) return { status: 'offline' };
+	const generation = model.availability().generation;
+	// A description must be accurate, so the cloud tier only: the floor and the tiny on-device model do not look at pictures.
+	if (generation !== 'openrouter') return { status: 'offline' };
+	let sees = false;
+	try {
+		const id = model.openRouterModel();
+		sees = !!(await model.listOpenRouterModels()).find((m) => m.id === id)?.vision;
+	} catch {
+		sees = false;
+	}
+	if (!sees) return { status: 'novision' };
+	const blk = cloudBudgetBlock(model, PHOTO_DESCRIBE_SYSTEM, THUMB_TOKENS, 80);
+	if (blk) return { status: 'blocked', note: blk };
+	let out = '';
+	try {
+		out = await model.complete({
+			messages: withStudioVoice(buildPhotoDescriptionPrompt(thumbDataUrl), generation, deckLang),
+			fallback: '',
+			maxTokens: 80,
+			onUsage: (u) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0)),
+		});
+	} catch {
+		return { status: 'offline' };
+	}
+	const text = cleanPhotoDescription(out);
+	return text ? { status: 'ok', text } : { status: 'nochange' };
 }
 
 // ── Theme Studio: "Describe a look" ────────────────────────────────────────
@@ -1392,7 +1471,7 @@ export function buildChatSystem(generation: string, grounding?: ChatGrounding, f
  * resulting source + a line diff for a review-then-apply card (nothing is applied
  * here). Degrades to `offline`/`blocked` honestly — never a fabricated answer.
  */
-export type ChatOptions = { onToken?: (t: string) => void; onActivity?: (label: string) => void; signal?: AbortSignal; constrainFacts?: boolean; grounding?: ChatGrounding };
+export type ChatOptions = { onToken?: (t: string) => void; onActivity?: (label: string) => void; signal?: AbortSignal; constrainFacts?: boolean; grounding?: ChatGrounding; /** This turn's photos, as data URLs the model can see (cloud tier only; see chat-photos.ts). */ photos?: { name: string; dataUrl: string }[]; /** This turn's short video, as a data URL (cloud tier, a model that reads video). */ videos?: { dataUrl: string }[] };
 
 // "Facts locked" — a tone/clarity-only constraint (Munger's content-truth point): the
 // model may improve wording/structure but must not alter any number, date, name, or
@@ -1445,7 +1524,9 @@ export async function chatComplete(history: ChatTurn[], source: string, docs?: R
 		// Same arithmetic the readout uses (estTokens), uncached: the GATE prices the worst
 		// case, so it must not assume a cache hit it can't guarantee.
 		const systemTokens = estTokens(staticPrefix) + estTokens(dynamicTail);
-		const blk = cloudBudgetBlock(model, `${last?.content ?? ''}\n${source}`, refDocsTokens(docs) + systemTokens, CHAT_MAX_TOKENS);
+		// A photo is priced at a flat 1,500 tokens, a clip at 4,500 (chat-photo-parts PHOTO_TOKENS / VIDEO_TOKENS; literals here because
+		// that module is loaded on demand and this one is startup code).
+		const blk = cloudBudgetBlock(model, `${last?.content ?? ''}\n${source}`, refDocsTokens(docs) + systemTokens + (opts?.photos?.length ?? 0) * 1500 + (opts?.videos?.length ?? 0) * 4500, CHAT_MAX_TOKENS);
 		if (blk) return { status: 'blocked', reply: blk };
 	}
 	// Ground the final user turn in the reference doc (#640).
@@ -1454,6 +1535,13 @@ export async function chatComplete(history: ChatTurn[], source: string, docs?: R
 		...history.slice(0, -1),
 		{ role: 'user', content: `${last?.content ?? ''}\n\nThe current deck — address slides by their [slide N] markers, never include a marker in an edit body:\n\n${numberSlides(source)}` },
 	], generation, deckOutputLang(source)), docs, generation === 'openrouter');
+	// This turn's photos ride the last user message (cloud tier only: the on-device tiers cannot see).
+	// Loaded on demand: this module is startup JavaScript, and a turn with a photo on the one-shot
+	// fallback (a model that refused the agent's tools) is rare.
+	if (generation === 'openrouter' && (opts?.photos?.length || opts?.videos?.length)) {
+		const { withPhotos } = await import('./chat-photo-parts');
+		ground.messages = withPhotos(ground.messages, opts.photos ?? [], opts.videos ?? []) as typeof ground.messages;
+	}
 	let reply = '';
 	// A local copy of the streamed text so an explicit Stop keeps the partial reply
 	// (model.complete throws on abort before returning, so its return value is lost).

@@ -47,6 +47,10 @@ const seedFn = (m) => {
   // biome-ignore lint/complexity/useArrowFunction: it is called with `new`, which an arrow cannot be.
   window.RTCPeerConnection = function (...a) { if (window.__rtcBlocked) a[0] = { ...(a[0] ?? {}), iceServers: [], iceTransportPolicy: 'relay' }; const pc = new Native(...a); window.__livePcs.push(pc); return pc; };
   window.RTCPeerConnection.prototype = Native.prototype;
+  // Keep every GainNode the page makes, so the check can see the call's volume stage engage.
+  window.__liveGains = [];
+  const NativeGain = window.AudioContext?.prototype.createGain;
+  if (NativeGain) window.AudioContext.prototype.createGain = function (...a) { const g = NativeGain.apply(this, a); window.__liveGains.push(g); return g; };
 };
 /** The candidate types of every connected pair on `page`, e.g. ["srflx→srflx (udp)"]. */
 const pathsOf = (page) => page.evaluate(async () => {
@@ -71,6 +75,22 @@ const video = process.argv.includes('--video') ? { recordVideo: { dir: OUT, size
 const hb = await launch();
 const hctx = await hb.newContext({ viewport: { width: 1440, height: 900 }, permissions: ['clipboard-read', 'clipboard-write', 'microphone'], ...video });
 await hctx.addInitScript(seedFn, mode);
+// `--hifi`: the host's microphone is a generated 48 kHz signal (voice-like harmonics, a 9 kHz and a
+// 14 kHz tone, and white noise so Opus has enough to fill a bitrate cap), and every capture's
+// constraints are recorded. The fake device's beep is too quiet to show a send rate or a tone.
+if (process.argv.includes('--hifi')) await hctx.addInitScript(() => {
+  window.__gumCalls = [];
+  navigator.mediaDevices.getUserMedia = async (c) => {
+    window.__gumCalls.push(c.audio);
+    const ctx = new AudioContext({ sampleRate: 48000 });
+    const out = ctx.createMediaStreamDestination();
+    const mix = ctx.createGain(); mix.gain.value = 0.12; mix.connect(out);
+    for (const f of [220, 440, 660, 880, 1320, 2200, 9000, 14000]) { const o = ctx.createOscillator(); o.frequency.value = f; o.connect(mix); o.start(); }
+    const buf = ctx.createBuffer(1, 48000, 48000); for (let i = 0; i < 48000; i++) buf.getChannelData(0)[i] = Math.random() * 2 - 1;
+    const n = ctx.createBufferSource(); n.buffer = buf; n.loop = true; const ng = ctx.createGain(); ng.gain.value = 0.25; n.connect(ng); ng.connect(mix); n.start();
+    return out.stream;
+  };
+});
 const host = await hctx.newPage();
 host.on('pageerror', (e) => log(`host pageerror ${e.message}`));
 await host.goto(BASE, { waitUntil: 'networkidle' });
@@ -84,7 +104,7 @@ log(`host live; link ${link.replace(/(#live=[^.]+)\.[^.]+\./, '$1.<secret>.')}`)
 await host.screenshot({ path: `${OUT}real-host-start-${mode}.png` });
 
 const gb = await launch();
-const gctx = await gb.newContext({ viewport: { width: 1440, height: 900 }, permissions: ['microphone'], ...video });
+const gctx = await gb.newContext({ viewport: { width: 1440, height: 900 }, permissions: ['microphone', 'clipboard-read', 'clipboard-write'], ...video });
 await gctx.addInitScript(seedFn, mode);
 const guest = await gctx.newPage();
 guest.on('pageerror', (e) => log(`guest pageerror ${e.message}`));
@@ -175,9 +195,127 @@ const audioBytes = (page) => page.evaluate(async () => {
   for (const pc of window.__livePcs ?? []) for (const st of (await pc.getStats()).values()) if (st.type === 'outbound-rtp' && st.kind === 'audio') sent += st.bytesSent;
   return sent;
 });
+// What the browser itself says it hears: the readout in the person's menu must match this.
+const audioIn = (page) => page.evaluate(async () => {
+  const o = { bytes: 0, got: 0, lost: 0, jitterMs: 0 };
+  for (const pc of window.__livePcs ?? []) for (const st of (await pc.getStats()).values()) if (st.type === 'inbound-rtp' && st.kind === 'audio') { o.bytes += st.bytesReceived; o.got += st.packetsReceived; o.lost += st.packetsLost; o.jitterMs = st.jitter * 1000; }
+  return o;
+});
 const b0 = await audioBytes(host);
+const i0 = await audioIn(host);
 await host.waitForTimeout(10000);
 const b1 = await audioBytes(host);
+const i1 = await audioIn(host);
+log(`getStats, host hearing the guest: ${(((i1.bytes - i0.bytes) * 8) / 10 / 1000).toFixed(1)} kbit/s, ${i1.lost} of ${i1.got + i1.lost} packets lost in all, jitter ${i1.jitterMs.toFixed(1)} ms`);
+await host.getByRole('button', { name: 'Volume for Amina' }).click();
+await host.waitForSelector('[data-live-quality]', { timeout: 15000 }).catch(() => {});
+log(`the host's audio popover for Amina reads: ${JSON.stringify(await host.locator('[data-live-quality]').allInnerTexts())}`);
+await host.screenshot({ path: `${OUT}call-quality-popover-${mode}.png` });
+// Volume (P3): the slider in the same popover. Past 100 % the element is muted and a gain stage plays the voice.
+const vol = host.locator('[data-live-volume] input[type=range]');
+const player = () => host.evaluate(() => { const el = document.querySelector('audio[data-live-audio]'); return { muted: el.muted, volume: el.volume, paused: el.paused, gains: window.__liveGains.map((g) => g.gain.value) }; });
+log(`volume slider at ${await vol.inputValue()} %, player ${JSON.stringify(await player())}`);
+await vol.focus();
+for (let i = 0; i < 10; i++) await host.keyboard.press('ArrowRight');
+log(`volume slider at ${await vol.inputValue()} %, player ${JSON.stringify(await player())}`);
+await host.screenshot({ path: `${OUT}call-volume-popover-${mode}.png` });
+await vol.focus();
+for (let i = 0; i < 10; i++) await host.keyboard.press('ArrowLeft');
+log(`volume slider back at ${await vol.inputValue()} %, player ${JSON.stringify(await player())}`);
+await host.keyboard.press('Escape');
+await host.waitForSelector('[data-live-person-audio]', { state: 'detached' });
+// Hearing: one volume for everyone, multiplied into each person's (here Amina at 100 %).
+await panel(host).getByRole('button', { name: 'Your audio', exact: true }).click();
+await host.waitForSelector('[data-live-master]');
+const master = host.locator('[data-live-master] input[type=range]');
+const setMaster = async (pct) => { await master.focus(); await host.keyboard.press('Home'); for (let i = 0; i < pct / 10; i++) await host.keyboard.press('ArrowRight'); await host.waitForTimeout(400); };
+for (const pct of [200, 50, 100]) { await setMaster(pct); log(`everyone at ${pct} %, player ${JSON.stringify(await player())}`); }
+log(`speaker picker: ${await host.locator('[data-live-output-list], [data-live-output-note]').first().innerText()}`);
+await host.screenshot({ path: `${OUT}call-hearing-${mode}.png` });
+await host.keyboard.press('Escape');
+await host.waitForSelector('[data-live-your-audio]', { state: 'detached' });
+// What you share: the host withholds their slide, and the GUEST's view of the host must change (then change back).
+const hostRowOnGuest = () => guest.evaluate(() => [...document.querySelectorAll('[data-live-panel] li')].find((li) => li.textContent?.includes('Sharmarke') && !li.textContent.includes('You ·'))?.textContent ?? 'not found');
+log(`guest sees the host as: ${JSON.stringify(await hostRowOnGuest())}`);
+await panel(host).getByRole('button', { name: 'Your settings', exact: true }).click();
+await host.waitForSelector('[data-live-your-settings]');
+await host.locator('#live-share-slide').click();
+await guest.waitForFunction(() => [...document.querySelectorAll('[data-live-panel] li')].some((li) => li.textContent?.includes('Sharmarke') && li.textContent.includes('Slide hidden')), null, { timeout: 15000 });
+log(`host turned "Show my slide" off; guest sees the host as: ${JSON.stringify(await hostRowOnGuest())}`);
+await host.screenshot({ path: `${OUT}call-your-settings-${mode}.png` });
+await host.locator('#live-share-slide').click();
+await guest.waitForFunction(() => [...document.querySelectorAll('[data-live-panel] li')].some((li) => li.textContent?.includes('Sharmarke') && !li.textContent.includes('Slide hidden') && /Slide \d/.test(li.textContent)), null, { timeout: 15000 });
+log(`host turned it back on; guest sees the host as: ${JSON.stringify(await hostRowOnGuest())}`);
+await host.keyboard.press('Escape');
+await host.waitForSelector('[data-live-your-settings]', { state: 'detached' });
+// Name: the GUEST renames themselves after joining, and the HOST's roster must show the new name.
+await panel(guest).getByRole('button', { name: 'Your settings', exact: true }).click();
+await guest.waitForSelector('[data-live-your-settings]');
+const oldName = await guest.locator('#live-your-name').inputValue();
+await guest.locator('#live-your-name').fill('Amina Okafor');
+await guest.locator('#live-your-name').press('Enter');
+await host.waitForFunction(() => [...document.querySelectorAll('[data-live-panel] li')].some((li) => li.textContent?.includes('Amina Okafor')), null, { timeout: 15000 });
+log(`guest renamed "${oldName}" -> "Amina Okafor"; host's roster now: ${JSON.stringify(await host.evaluate(() => [...document.querySelectorAll('[data-live-panel] li')].map((li) => li.textContent?.slice(0, 40))))}`);
+// And back (a second rename inside a second is ignored by design, so wait it out): later steps look her up as "Amina".
+await guest.waitForTimeout(1200);
+await guest.locator('#live-your-name').fill('Amina');
+await guest.locator('#live-your-name').press('Enter');
+await host.waitForFunction(() => ![...document.querySelectorAll('[data-live-panel] li')].some((li) => li.textContent?.includes('Amina Okafor')), null, { timeout: 15000 });
+log('guest renamed back to "Amina"; the host no longer shows "Amina Okafor"');
+await guest.keyboard.press('Escape');
+await guest.waitForSelector('[data-live-your-settings]', { state: 'detached' });
+const copyLogOf = async (pg) => { await panel(pg).getByRole('button', { name: 'Your settings', exact: true }).click(); await pg.waitForSelector('[data-live-your-settings]'); await pg.getByRole('button', { name: 'Copy connection log' }).click(); const t = await pg.evaluate(() => navigator.clipboard.readText()); await pg.keyboard.press('Escape'); await pg.waitForSelector('[data-live-your-settings]', { state: 'detached' }); return t; };
+for (const [who, pg] of [['host', host], ['guest', guest]]) log(`${who}'s connection log (log lines): ${JSON.stringify((await copyLogOf(pg)).split('\n').filter((l) => /online|restart|recover|role:|candidate pairs|^\s+\S+\s+(succeeded|failed|waiting|in-progress|frozen)|sample rtt|created|gathered|ice (checking|connected|completed|failed|disconnected)|ICE server error|wake lock|joined|left/i.test(l)).map((l) => l.trim()))}`);
+// High fidelity (P4): the host's send rate and what the guest hears of a 14 kHz tone, switch off, on, off.
+if (process.argv.includes('--hifi')) {
+  const sentRate = async (secs) => { const a = await audioBytes(host); await host.waitForTimeout(secs * 1000); return ((await audioBytes(host)) - a) * 8 / secs / 1000; };
+  // dBFS of the strongest bin within 14 kHz +/- 100 Hz, and the mean level of 18-20 kHz, of what the guest hears.
+  const heard = (secs) => guest.evaluate(async (t) => {
+    const el = document.querySelector('audio[data-live-audio]'); const ctx = new AudioContext({ sampleRate: 48000 });
+    const an = ctx.createAnalyser(); an.fftSize = 8192; an.smoothingTimeConstant = 0; ctx.createMediaStreamSource(el.srcObject).connect(an);
+    const bins = new Float32Array(an.frequencyBinCount); const hz = (b) => (b * 48000) / an.fftSize; let tone = -200, floor = 0, n = 0, k = 0;
+    const end = Date.now() + t * 1000;
+    while (Date.now() < end) { an.getFloatFrequencyData(bins); let peak = -200, sum = 0, c = 0; for (let b = 0; b < bins.length; b++) { const f = hz(b); if (f >= 13900 && f <= 14100) peak = Math.max(peak, bins[b]); if (f >= 18000 && f <= 20000) { sum += Math.max(-140, bins[b]); c++; } } tone = Math.max(tone, peak); floor += sum / c; k++; await new Promise((r) => setTimeout(r, 100)); n++; }
+    await ctx.close(); return { toneDb: +tone.toFixed(1), floorDb: +(floor / k).toFixed(1) };
+  }, secs);
+  // The popover stays open after a tap and animates out on close, so these ENSURE a settled state rather than toggling.
+  const audioOpen = '[data-live-your-audio][data-state=open]';
+  const openMicMenu = async () => { if ((await host.locator(audioOpen).count()) === 0) { await host.waitForSelector('[data-live-your-audio]', { state: 'detached' }).catch(() => {}); await panel(host).getByRole('button', { name: 'Your audio', exact: true }).click(); } await host.waitForSelector(audioOpen); await host.waitForTimeout(300); };
+  const closeMicMenu = async () => { await host.keyboard.press('Escape'); await host.waitForSelector('[data-live-your-audio]', { state: 'detached' }); };
+  const setHifi = async (on) => { await openMicMenu(); const item = host.locator('[data-live-high-fidelity]'); if ((await item.getAttribute('aria-checked')) !== String(on)) await item.click(); else await host.keyboard.press('Escape'); await host.waitForFunction((o) => window.__gumCalls.at(-1)?.echoCancellation === !o, on, { timeout: 15000 }); await host.waitForTimeout(3000); };
+  for (const on of [false, true, false]) {
+    if (on || (await host.evaluate(() => window.__gumCalls.length)) > 1) await setHifi(on);
+    const [kbps, h] = await Promise.all([sentRate(8), heard(8)]);
+    log(`high fidelity ${on ? 'ON ' : 'off'}: capture ${JSON.stringify(await host.evaluate(() => { const c = window.__gumCalls.at(-1); return { echoCancellation: c.echoCancellation, noiseSuppression: c.noiseSuppression, autoGainControl: c.autoGainControl }; }))}; host sends ${kbps.toFixed(1)} kbit/s; guest hears the 14 kHz tone at ${h.toneDb} dBFS, 18-20 kHz floor ${h.floorDb} dBFS`);
+    if (on) { await openMicMenu(); await host.screenshot({ path: `${OUT}call-high-fidelity-menu-${mode}.png` }); await closeMicMenu(); }
+  }
+  // Mic level: what the GUEST hears must follow the host's slider (it changes what everyone receives).
+  // Average power of the inbound audio over a window, from the browser's own counters.
+  const power = (secs) => guest.evaluate(async (t) => {
+    const read = async () => { let e = 0, d = 0; for (const pc of window.__livePcs ?? []) for (const st of (await pc.getStats()).values()) if (st.type === 'inbound-rtp' && st.kind === 'audio') { e += st.totalAudioEnergy; d += st.totalSamplesDuration; } return { e, d }; };
+    const a = await read(); await new Promise((r) => setTimeout(r, t * 1000)); const b = await read();
+    return (b.e - a.e) / Math.max(1e-9, b.d - a.d);
+  }, secs);
+  await openMicMenu();
+  const levelSlider = host.locator('[data-live-mic-level] input[type=range]');
+  const setLevelPct = async (pct) => { await levelSlider.focus(); await host.keyboard.press('Home'); for (let i = 0; i < pct / 10; i++) await host.keyboard.press('ArrowRight'); await host.waitForTimeout(2500); };
+  const meterNow = () => host.locator('[data-live-meter]').getAttribute('aria-valuenow');
+  const readings = {};
+  for (const pct of [100, 200, 50, 100]) { await setLevelPct(pct); readings[pct] = readings[pct] ?? []; const w = await power(6); readings[pct].push(w); log(`mic level ${pct} %: guest hears average power ${w.toExponential(2)}; host meter reads ${await meterNow()}`); }
+  const r2 = readings[200][0] / readings[100][0]; const r05 = readings[50][0] / readings[100][0];
+  log(`mic level, what the guest hears vs 100 %: 50 % = ${r05.toFixed(2)}x power (a halved amplitude is 0.25x). 200 % reads ${r2.toFixed(2)}x because this synthetic signal is already at ${readings[100][0].toFixed(2)} of full scale, so doubling it clips at 1.0 (the host meter turns red); a quieter source would show the full 4x.`);
+  await host.screenshot({ path: `${OUT}call-your-audio-${mode}.png` });
+  await closeMicMenu();
+  // Two quick taps (on, then off), then Leave call during the second capture: the last tap wins, and Leave is not undone.
+  const tap = async () => { await openMicMenu(); await host.locator('[data-live-high-fidelity]').click(); };
+  await tap(); await tap();
+  await host.waitForTimeout(4000);
+  log(`two quick taps (on, off): last capture echoCancellation=${await host.evaluate(() => window.__gumCalls.at(-1).echoCancellation)}, captures in all ${await host.evaluate(() => window.__gumCalls.length)}`);
+  await tap(); await panel(host).getByRole('button', { name: 'Leave call' }).click();
+  await host.waitForTimeout(4000);
+  log(`tap then Leave call: still on the call = ${await panel(host).getByRole('button', { name: 'Join audio' }).count() === 0}`);
+  await panel(host).getByRole('button', { name: 'Join audio' }).click();
+}
 log(`audio bitrate, host to guest: ${(((b1 - b0) * 8) / 10 / 1000).toFixed(1)} kbit/s (${(((b1 - b0) / 10) * 3600 / 1e6).toFixed(1)} MB per hour per stream, payload + RTP headers)`);
 log(`before mute, the host shows Amina's mic as: ${await micOf(host, 'Amina')}`);
 await panel(guest).getByRole('button', { name: 'Mute', exact: true }).click();

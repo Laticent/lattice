@@ -6111,6 +6111,16 @@ const SANCTIONED_E2E_SLEEPS = [
        + 'the page reaching both listeners within a bounded poll.',
   },
   {
+    file: 'docs/e2e/plugin-fence.spec.ts', ms: 2500, count: 3,
+    why: 'THREE ABSENCE ASSERTIONS, the claim the spec exists to prove (plugin-system §9 decisions 10 to 14): '
+       + 'a hostile zip plugin (listed but unapproved, then approved, then run again by Share to PDF) sends '
+       + 'NOTHING to a loopback HTTP server or a UDP socket. There is no signal for a request that must not '
+       + 'arrive; a poll of an empty log goes green on its first tick. 2500ms is the same window '
+       + 'code-packages.spec.ts holds, covering the renderer\'s load-time and per-fence attempts (fetch, '
+       + 'WebSocket, WebRTC ICE gathering, the slowest) after the fence has visibly drawn; the same test\'s '
+       + 'CONTROLS then show the page reaching both listeners within a bounded poll.',
+  },
+  {
     file: 'docs/e2e/workspace-backup-size.spec.ts', ms: 2000, count: 1,
     why: 'ONE ABSENCE ASSERTION: when a workspace restore skipped something, the "Not restored" '
        + 'list must survive the reload and then NOT go away on its own, because it is how the user '

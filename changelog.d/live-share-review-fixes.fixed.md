@@ -1,0 +1,1 @@
+- Live: what you share is now kept across a reload, applied when a new session starts in the same tab, and no longer lets Bring everyone leave your hidden slide in presence. A host can no longer move you mid-edit when you have turned off showing when you type, and Your settings can be entered and left from the keyboard. A hidden slide still shows when you are editing.

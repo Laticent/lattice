@@ -1,16 +1,19 @@
-import { ArrowLeftRight, ArrowUp, Check, ChevronDown, Copy, Crown, Eye, Headphones, Link2, LogOut, Mic, MicOff, MoreHorizontal, Pencil, PhoneOff, Server, UserMinus, UsersRound, Wifi, X } from 'lucide-react';
+import { ArrowLeftRight, ArrowUp, Check, ChevronDown, Copy, Crown, Eye, Headphones, Link2, LogOut, Mic, MicOff, MoreHorizontal, Pencil, PhoneOff, Server, UserMinus, UsersRound, Volume2, VolumeX, Wifi, X } from 'lucide-react';
 import * as React from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import { cleanName } from '@/lib/tavola';
 import { cn } from '@/lib/utils';
 import { CHAT_COMPOSER_FIELD, CHAT_COMPOSER_ROW, CHAT_COMPOSER_TOOLS } from '../panel-shells';
 import { LiveAvatar } from './LiveAvatar';
-import { elapsed, type LiveActions, type LiveChatLine, type LivePerson, type LiveView, liveColor, SLIDE_REF } from './live-model';
+import { elapsed, type LiveActions, type LiveChatLine, type LivePerson, type LiveView, liveColor, qualityLine, SLIDE_REF } from './live-model';
 
 // The Live panel — the collaboration PORTAL, not the workspace (§5.2 of
 // engineering/decisions/2026-10-06-studio-live-collaboration.md). It is narrow on purpose:
@@ -29,8 +32,251 @@ const LINK_ICON = { local: Wifi, direct: ArrowLeftRight, relay: Server } as cons
 
 function whereLabel(p: LivePerson): string {
 	if (p.away) return 'Reconnecting…';
+	if (p.slideHidden) return p.editing ? 'Slide hidden · editing' : 'Slide hidden';
 	if (p.slide === null) return 'Arriving…';
 	return `Slide ${p.slide + 1}${p.editing ? ' · editing' : ''}`;
+}
+
+
+/**
+ * A level slider, 0–200 % in 10 % steps. Used for how loud you hear one person, and for how loud you send.
+ * Past 100 % the sound is amplified (a quiet phone, a quiet voice). It sits in a popover, not a menu: a
+ * slider is not a menu item, and `onKeyDown` keeps the popover's arrow keys from eating its own.
+ */
+function LevelSlider({ id, label, value, onChange, disabled = false, hint, attr }: { id: string; label: string; value: number; onChange: (v: number) => void; disabled?: boolean; hint?: string; attr: string }) {
+	const pct = Math.round(value * 100);
+	const hintId = `${id}-hint`;
+	return (
+		<div className="flex flex-col gap-1 py-1 text-[11px] text-muted-foreground" {...{ [attr]: '' }}>
+			<label htmlFor={id} className="flex items-center justify-between">
+				<span>{label}</span>
+				<span className="tabular-nums" aria-hidden>
+					{pct} %
+				</span>
+			</label>
+			<input
+				id={id}
+				type="range"
+				min={0}
+				max={200}
+				step={10}
+				value={pct}
+				disabled={disabled}
+				aria-valuetext={`${pct} percent`}
+				aria-describedby={hint ? hintId : undefined}
+				onChange={(e) => onChange(Number(e.target.value) / 100)}
+				onKeyDown={(e) => e.stopPropagation()}
+				className="h-5 w-full cursor-pointer accent-foreground disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:h-8"
+			/>
+			{hint && (
+				<span id={hintId} className="leading-snug">
+					{hint}
+				</span>
+			)}
+		</div>
+	);
+}
+
+/** How loud you hear one person. */
+function VolumeSlider({ p, actions }: { p: LivePerson; actions: LiveActions }) {
+	return <LevelSlider id={`live-volume-${p.id}`} label="Volume" value={p.volume ?? 1} onChange={(v) => actions.setVolume(p.id, v)} attr="data-live-volume" />;
+}
+
+/**
+ * How loud you hear one person, and how their audio is arriving. ALWAYS on their row while calls are
+ * available (a control that appears only in some states reads as missing: on the owner's iPhone, alone
+ * in a session, there was nothing to find). What is inside says what is possible right now: the slider
+ * when you are both on the call, otherwise why not. A popover rather than a menu item, because a slider
+ * is not a menu item (axe `aria-required-children`), and a popover holds one properly.
+ */
+function PersonAudio({ p, view, actions }: { p: LivePerson; view: LiveView; actions: LiveActions }) {
+	const live = p.volume !== undefined;
+	const Glyph = live && (p.volume ?? 1) === 0 ? VolumeX : Volume2;
+	return (
+		<Popover>
+			<PopoverTrigger asChild>
+				<Button variant="ghost" size="icon" className={cn('size-6 shrink-0', TOUCH, !live && 'text-muted-foreground/60')} aria-label={`Volume for ${p.name}`} data-live-volume-button data-live-available={live}>
+					<Glyph className="size-3.5" />
+				</Button>
+			</PopoverTrigger>
+			<LivePopoverContent align="end" className="w-60 p-3" data-live-person-audio>
+				<div className="mb-1 text-[12px] font-semibold text-foreground">{p.name}</div>
+				{live ? (
+					<>
+						<VolumeSlider p={p} actions={actions} />
+						{p.quality && qualityLine(p.quality) && (
+							<div className="mt-2 flex flex-col gap-0.5 text-[11px] text-muted-foreground" data-live-quality>
+								<span>Audio: {qualityLine(p.quality)}</span>
+								{p.quality.sendKbps !== undefined && <span>You send {Math.round(p.quality.sendKbps)} kbit/s</span>}
+							</div>
+						)}
+					</>
+				) : (
+					<div className="flex flex-col gap-2 text-[11.5px] leading-snug text-muted-foreground" data-live-audio-unavailable>
+						<span>{!view.call.inCall ? 'Join the call to hear and adjust people.' : `${p.name} isn't on the call yet.`}</span>
+						{!view.call.inCall && (
+							<Button size="sm" onClick={actions.toggleMic} className="self-start">
+								Join audio
+							</Button>
+						)}
+					</div>
+				)}
+			</LivePopoverContent>
+		</Popover>
+	);
+}
+
+/** One thing you can choose to show the others: a label, what it means, and a switch. */
+function ShareRow({ id, label, note, checked, onChange }: { id: string; label: string; note: string; checked: boolean; onChange: (on: boolean) => void }) {
+	return (
+		<div className="flex flex-col gap-0.5">
+			<div className="flex items-center justify-between gap-3 text-[12px] text-foreground">
+				<label htmlFor={id}>{label}</label>
+				<Switch id={id} checked={checked} onCheckedChange={onChange} aria-describedby={`${id}-note`} />
+			</div>
+			<span id={`${id}-note`} className="text-[11px] leading-snug text-muted-foreground">
+				{note}
+			</span>
+		</div>
+	);
+}
+
+/** Copies the connection timeline for a bug report, and says whether it reached the clipboard. */
+function CopyLog({ onCopy }: { onCopy: () => Promise<boolean> }) {
+	const [state, setState] = React.useState<'idle' | 'copied' | 'failed'>('idle');
+	return (
+		<div className="flex flex-col gap-1">
+			<Button
+				type="button"
+				variant="secondary"
+				size="sm"
+				className={cn('h-8 self-start', TOUCH)}
+				onClick={() => {
+					void onCopy().then((ok) => {
+						setState(ok ? 'copied' : 'failed');
+						window.setTimeout(() => setState('idle'), 3000);
+					});
+				}}
+			>
+				{state === 'copied' ? 'Copied' : 'Copy connection log'}
+			</Button>
+			<span className="text-[11px] leading-snug text-muted-foreground" role="status">
+				{state === 'failed' ? 'Could not copy. Allow clipboard access and try again.' : 'State changes, restarts and the path each link took. Paste it into a bug report.'}
+			</span>
+		</div>
+	);
+}
+
+/**
+ * Your name, changed on Save (Enter): one change is one roster update for everyone, so not per keystroke. The
+ * host decides (it cleans the name, refuses one another person already has, and ignores a second change inside
+ * a second), so when the roster has not shown the new name after a moment the field says so instead of
+ * leaving a Save that seems to have worked.
+ */
+function NameField({ name, onSave }: { name: string; onSave: (name: string) => void }) {
+	const [draft, setDraft] = React.useState(name);
+	const [refused, setRefused] = React.useState(false);
+	const focused = React.useRef(false);
+	const asked = React.useRef<string | null>(null);
+	const clean = cleanName(draft);
+	// The roster is the truth: follow it, but never wipe what the person is typing right now.
+	React.useEffect(() => {
+		if (!focused.current) setDraft(name);
+		if (asked.current !== null && name === asked.current) {
+			asked.current = null;
+			setRefused(false);
+		}
+	}, [name]);
+	const dirty = draft.trim() !== '' && clean !== name;
+	return (
+		<form
+			className="flex flex-col gap-1"
+			data-live-name
+			onSubmit={(e) => {
+				e.preventDefault();
+				if (!dirty) return;
+				const want = clean;
+				asked.current = want;
+				setRefused(false);
+				onSave(want);
+				window.setTimeout(() => {
+					if (asked.current === want) setRefused(true);
+				}, 2500);
+			}}
+		>
+			<label htmlFor="live-your-name" className="text-[12px] text-foreground">
+				Your name
+			</label>
+			<div className="flex gap-2">
+				<Input
+					id="live-your-name"
+					value={draft}
+					maxLength={40}
+					autoComplete="off"
+					aria-describedby={refused ? 'live-your-name-note' : undefined}
+					onFocus={() => {
+						focused.current = true;
+					}}
+					onBlur={() => {
+						focused.current = false;
+					}}
+					onChange={(e) => {
+						setDraft(e.target.value);
+						setRefused(false);
+					}}
+					className="h-8 flex-1 text-[12px]"
+				/>
+				<Button type="submit" size="sm" variant="secondary" disabled={!dirty} className={cn('h-8 shrink-0', TOUCH)}>
+					Save
+				</Button>
+			</div>
+			{refused && (
+				<span id="live-your-name-note" role="status" className="text-[11px] leading-snug text-muted-foreground">
+					The name did not change. Someone here may already have it, or you changed it twice within a second. Try another.
+				</span>
+			)}
+		</form>
+	);
+}
+
+/**
+ * The ⋯ on your own row, like everyone else's: your settings that are not about audio (the "Me" scope, note
+ * §12.3). What the others see of you is yours to choose, and it is on your row always, alone in a session too.
+ */
+function YourSettings({ view, actions }: { view: LiveView; actions: LiveActions }) {
+	const sh = view.share;
+	const me = view.people.find((p) => p.me);
+	return (
+		<Popover>
+			<PopoverTrigger asChild>
+				<Button variant="ghost" size="icon" className={cn('size-6 shrink-0', TOUCH)} aria-label="Your settings" title="Your settings" data-live-your-settings-button>
+					<MoreHorizontal className="size-3.5" />
+				</Button>
+			</PopoverTrigger>
+			{/* Focus the popover itself, not its first field: the first field is the Name input, and focusing it opens the keyboard on a phone every time this opens. The next Tab still enters the popover, so a keyboard user is not left outside it. */}
+			<LivePopoverContent align="end" onOpenAutoFocus={(e) => {
+					e.preventDefault();
+					(e.target as HTMLElement | null)?.focus?.({ preventScroll: true });
+				}} className="max-h-[min(75vh,var(--radix-popover-content-available-height))] w-72 overflow-y-auto p-3" data-live-your-settings>
+				<div className="mb-2 text-[12px] font-semibold text-foreground">Your settings</div>
+				{me && (
+					<div className="mb-3">
+						<NameField name={me.name} onSave={actions.rename} />
+					</div>
+				)}
+				<div className="flex flex-col gap-3" data-live-share>
+					<div className="font-mono text-[10px] font-bold uppercase tracking-widest text-muted-foreground">What others see</div>
+					<ShareRow id="live-share-cursor" label="Show my cursor" note="Others see where you are in the editor. That shows roughly where you are working even when your slide is hidden." checked={sh.cursor} onChange={(on) => actions.setShare({ cursor: on })} />
+					<ShareRow id="live-share-slide" label="Show my slide" note="Others see which slide you are on, and can jump to it." checked={sh.slide} onChange={(on) => actions.setShare({ slide: on })} />
+					<ShareRow id="live-share-typing" label="Show when I'm typing" note="Others see when you type in the editor and in the chat." checked={sh.typing} onChange={(on) => actions.setShare({ typing: on })} />
+				</div>
+				<div className="mt-3 flex flex-col gap-3 border-t border-border pt-3" data-live-connection>
+					<div className="font-mono text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Connection</div>
+					<CopyLog onCopy={actions.copyLog} />
+				</div>
+			</LivePopoverContent>
+		</Popover>
+	);
 }
 
 function PersonRow({ p, view, actions }: { p: LivePerson; view: LiveView; actions: LiveActions }) {
@@ -55,7 +301,9 @@ function PersonRow({ p, view, actions }: { p: LivePerson; view: LiveView; action
 				</div>
 			</div>
 			{view.audio && p.me && <CallControls view={view} actions={actions} />}
+			{p.me && <YourSettings view={view} actions={actions} />}
 			{view.audio && !p.me && p.mic !== 'off' && <MicGlyph className={cn('size-3.5 shrink-0', p.mic === 'muted' ? 'text-muted-foreground/60' : 'text-foreground')} aria-label={p.mic === 'muted' ? 'Muted' : 'Mic on'} />}
+			{view.audio && !p.me && !p.away && <PersonAudio p={p} view={view} actions={actions} />}
 			{!p.me && !p.away && (
 				<DropdownMenu>
 					<DropdownMenuTrigger asChild>
@@ -63,7 +311,7 @@ function PersonRow({ p, view, actions }: { p: LivePerson; view: LiveView; action
 							<MoreHorizontal className="size-3.5" />
 						</Button>
 					</DropdownMenuTrigger>
-					<DropdownMenuContent align="end" className="w-48">
+					<DropdownMenuContent align="end" className="w-56">
 						<DropdownMenuItem onSelect={() => actions.follow(following ? null : p.id)}>
 							<Eye className="size-4" /> {following ? 'Stop following' : `Follow ${p.name}`}
 						</DropdownMenuItem>
@@ -98,55 +346,172 @@ function PersonRow({ p, view, actions }: { p: LivePerson; view: LiveView; action
 }
 
 /**
- * Your own call controls, on your own row (§5.8): join; then mute and hang up, and pick the
- * microphone when there is more than one. Being in the session is not being on the call (someone
- * can edit silently), so hanging up says "Leave call"; leaving the SESSION is the session menu's.
+ * The live level of what you send, as a bar. Reads `actions.inputLevel()` on animation frames while it is
+ * mounted (a popover mounts it only while open, so nothing runs otherwise). RMS speech sits low in 0–1, so
+ * the bar is scaled (a square root) to move visibly at ordinary speaking volume; it is a meter, not a
+ * measurement. Respects reduced motion by not animating the width change.
+ */
+function MicMeter({ actions, active }: { actions: LiveActions; active: boolean }) {
+	const [shown, setShown] = React.useState(0);
+	React.useEffect(() => {
+		if (!active) {
+			setShown(0);
+			return;
+		}
+		let raf = 0;
+		const tick = () => {
+			setShown(Math.min(1, Math.sqrt(actions.inputLevel()) * 1.6));
+			raf = requestAnimationFrame(tick);
+		};
+		raf = requestAnimationFrame(tick);
+		return () => cancelAnimationFrame(raf);
+	}, [actions, active]);
+	const pct = Math.round(shown * 100);
+	return (
+		// biome-ignore lint/a11y/useSemanticElements: a styled bar; a native <meter> cannot be skinned the same in every engine, and role="meter" carries the same value to assistive tech.
+		<div role="meter" aria-label="Microphone level" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} className="h-2 w-full overflow-hidden rounded-full bg-border" data-live-meter>
+			<div className={cn('h-full rounded-full bg-primary', shown > 0.9 && 'bg-destructive')} style={{ width: `${pct}%` }} />
+		</div>
+	);
+}
+
+/**
+ * Everything about what YOU send, in one popover (the "Me" scope, note §12.3): a live level meter so you
+ * can see your microphone work (alone, with nobody else on), which microphone, how loud you send, and the
+ * voice mode. It is on your row before you join the call too, with the parts that need a live microphone
+ * saying so, because a control that only appears in some states reads as missing.
+ */
+function YourAudio({ view, actions }: { view: LiveView; actions: LiveActions }) {
+	const c = view.call;
+	return (
+		<Popover>
+			<PopoverTrigger asChild>
+				<Button
+					size="icon"
+					variant={c.inCall && !c.muted ? 'default' : 'outline'}
+					className={cn('-ml-px h-7 w-6 rounded-l-none pointer-coarse:h-10 pointer-coarse:w-6', c.stalled && 'ring-2 ring-destructive')}
+					aria-label={c.stalled ? 'Your audio: your microphone has stopped sending' : 'Your audio'}
+					title={c.stalled ? 'Your microphone has stopped sending' : 'Your audio'}
+					data-live-your-audio-button
+					data-stalled={c.stalled}
+				>
+					<ChevronDown className="size-3" />
+				</Button>
+			</PopoverTrigger>
+			<LivePopoverContent align="end" className="max-h-[min(75vh,var(--radix-popover-content-available-height))] w-72 overflow-y-auto p-3" data-live-your-audio>
+				<div className="mb-2 text-[12px] font-semibold text-foreground">Your audio</div>
+				<div className="flex flex-col gap-3">
+					<div className="flex flex-col gap-1">
+						<MicMeter actions={actions} active={c.inCall && !c.muted} />
+						<span className="text-[11px] leading-snug text-muted-foreground" data-live-meter-note>
+							{!c.inCall ? 'Join audio to see your microphone move.' : c.muted ? 'You are muted.' : 'Say something: the bar should move.'}
+						</span>
+						{c.stalled && (
+							<span className="text-[11px] leading-snug text-destructive" role="alert" data-live-stalled>
+								Your microphone has stopped sending (the phone took the audio, for a call or Siri). Tap Unmute, or Leave call and Join audio again.
+							</span>
+						)}
+						{!c.inCall && (
+							<Button size="sm" onClick={actions.toggleMic} className="mt-1 self-start">
+								<Headphones className="size-3.5" /> Join audio
+							</Button>
+						)}
+					</div>
+					{c.inCall && c.devices.length > 1 && (
+						<RadioGroup value={c.device ?? ''} onValueChange={actions.pickMic} aria-label="Microphone" className="flex flex-col items-stretch gap-0.5" data-live-mic-list>
+							{c.devices.map((d) => (
+								<label key={d.id} htmlFor={`live-mic-${d.id}`} className="flex min-h-8 cursor-pointer items-center gap-2 rounded-sm px-2 py-1 text-[12px] has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring pointer-coarse:min-h-10">
+									<RadioGroupItem id={`live-mic-${d.id}`} value={d.id} className="size-3.5 shrink-0 rounded-full border border-foreground data-[state=checked]:bg-foreground" />
+									<span className="min-w-0 flex-1 truncate">{d.label}</span>
+								</label>
+							))}
+						</RadioGroup>
+					)}
+					{!c.inCall && (
+						<span className="text-[11px] leading-snug text-muted-foreground" data-live-mic-hint>
+							Join audio to choose a microphone.
+						</span>
+					)}
+					<LevelSlider
+						id="live-mic-level"
+						label="Mic level"
+						value={c.micLevel}
+						onChange={actions.setMicLevel}
+						disabled={c.inCall && !c.canShapeMic}
+						hint={c.inCall && !c.canShapeMic ? "This browser can't change your level." : 'How loud you are to everyone else. Above 100 % a loud voice can clip: the bar turns red.'}
+						attr="data-live-mic-level"
+					/>
+					<div className="flex flex-col gap-1">
+						<div className="flex items-center justify-between gap-3 text-[12px] text-foreground">
+							<label htmlFor="live-high-fidelity">High fidelity (music)</label>
+							<Switch id="live-high-fidelity" checked={c.highFidelity} disabled={!c.inCall} onCheckedChange={actions.setHighFidelity} aria-describedby="live-hifi-note" data-live-high-fidelity />
+						</div>
+						<span id="live-hifi-note" className="text-[11px] leading-snug text-muted-foreground">
+							{c.inCall ? 'Sends 128 kbit/s with echo cancellation, noise suppression and automatic gain off. Wear headphones, or the others hear an echo.' : 'Join audio first. Then this sends 128 kbit/s with voice processing off, for music; wear headphones.'}
+						</span>
+					</div>
+					<div className="flex flex-col gap-1" data-live-hearing>
+						<div className="font-mono text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Hearing</div>
+						<LevelSlider id="live-master-volume" label="Everyone" value={c.masterVolume} onChange={actions.setMasterVolume} attr="data-live-master" hint="One volume for everyone you hear. Each person's own volume is on their row." />
+						{!c.canPickOutput ? (
+							<span className="text-[11px] leading-snug text-muted-foreground" data-live-output-note>
+								Your browser plays through the system output; it has no speaker picker.
+							</span>
+						) : c.outputs.length < 2 ? (
+							<span className="text-[11px] leading-snug text-muted-foreground" data-live-output-note>
+								{c.inCall ? 'Only one speaker found.' : 'Join audio to list your speakers.'}
+							</span>
+						) : (
+							<RadioGroup value={c.output ?? c.outputs[0]?.id ?? ''} onValueChange={actions.pickOutput} aria-label="Speaker" className="flex flex-col items-stretch gap-0.5" data-live-output-list>
+								{c.outputs.map((d) => (
+									<label key={d.id} htmlFor={`live-out-${d.id}`} className="flex min-h-8 cursor-pointer items-center gap-2 rounded-sm px-2 py-1 text-[12px] has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring pointer-coarse:min-h-10">
+										<RadioGroupItem id={`live-out-${d.id}`} value={d.id} className="size-3.5 shrink-0 rounded-full border border-foreground data-[state=checked]:bg-foreground" />
+										<span className="min-w-0 flex-1 truncate">{d.label}</span>
+									</label>
+								))}
+							</RadioGroup>
+						)}
+					</div>
+				</div>
+			</LivePopoverContent>
+		</Popover>
+	);
+}
+
+/**
+ * Your own call controls, on your own row (§5.8): join, or mute; the Your audio popover beside them
+ * either way; and hang up once you are on the call. Being in the session is not being on the call
+ * (someone can edit silently), so hanging up says "Leave call"; leaving the SESSION is the session menu's.
  */
 function CallControls({ view, actions }: { view: LiveView; actions: LiveActions }) {
 	const c = view.call;
-	if (!c.inCall)
-		return (
-			<Button size="sm" variant="outline" onClick={actions.toggleMic} className="h-7 shrink-0 gap-1.5 px-2.5 text-[11.5px] pointer-coarse:h-10">
-				<Headphones className="size-3.5" /> Join audio
-			</Button>
-		);
 	return (
 		<div className="flex shrink-0 items-center gap-1" data-live-call>
 			<div className="flex items-stretch">
-				<Button
-					size="icon"
-					variant={c.muted ? 'outline' : 'default'}
-					onClick={actions.toggleMic}
-					aria-pressed={!c.muted}
-					aria-label={c.muted ? 'Unmute' : 'Mute'}
-					title={c.muted ? 'Unmute' : 'Mute'}
-					className={cn('size-7', TOUCH, c.devices.length > 1 && 'rounded-r-none')}
-				>
-					{c.muted ? <MicOff className="size-3.5" /> : <Mic className="size-3.5" />}
-				</Button>
-				{/* The microphone picker rides on the mute button (a thin arrow), only when there is a choice. */}
-				{c.devices.length > 1 && (
-					<DropdownMenu>
-						<DropdownMenuTrigger asChild>
-							<Button size="icon" variant={c.muted ? 'outline' : 'default'} className="-ml-px h-7 w-4 rounded-l-none pointer-coarse:h-10 pointer-coarse:w-6" aria-label="Microphone" title="Microphone">
-								<ChevronDown className="size-3" />
-							</Button>
-						</DropdownMenuTrigger>
-						<DropdownMenuContent align="end" className="w-60">
-							<DropdownMenuLabel className="text-[11px] font-normal text-muted-foreground">Microphone</DropdownMenuLabel>
-							{c.devices.map((d) => (
-								<DropdownMenuItem key={d.id} onSelect={() => actions.pickMic(d.id)}>
-									<Mic className="size-4" /> <span className="truncate">{d.label}</span>
-									{d.id === c.device && <Check className="ml-auto size-4" />}
-								</DropdownMenuItem>
-							))}
-						</DropdownMenuContent>
-					</DropdownMenu>
+				{c.inCall ? (
+					<Button
+						size="icon"
+						variant={c.muted ? 'outline' : 'default'}
+						onClick={actions.toggleMic}
+						aria-pressed={!c.muted}
+						aria-label={c.muted ? 'Unmute' : 'Mute'}
+						title={c.muted ? 'Unmute' : 'Mute'}
+						className={cn('size-7 rounded-r-none', TOUCH)}
+					>
+						{c.muted ? <MicOff className="size-3.5" /> : <Mic className="size-3.5" />}
+					</Button>
+				) : (
+					<Button size="sm" variant="outline" onClick={actions.toggleMic} className="h-7 shrink-0 gap-1.5 rounded-r-none px-2.5 text-[11.5px] pointer-coarse:h-10">
+						<Headphones className="size-3.5" /> Join audio
+					</Button>
 				)}
+				<YourAudio view={view} actions={actions} />
 			</div>
-			<Button size="icon" variant="outline" onClick={actions.leaveCall} aria-label="Leave call" title="Leave call" className={cn('size-7 border-destructive/50 text-destructive hover:bg-destructive/10 hover:text-destructive', TOUCH)}>
-				<PhoneOff className="size-3.5" />
-			</Button>
+			{c.inCall && (
+				<Button size="icon" variant="outline" onClick={actions.leaveCall} aria-label="Leave call" title="Leave call" className={cn('size-7 border-destructive/50 text-destructive hover:bg-destructive/10 hover:text-destructive', TOUCH)}>
+					<PhoneOff className="size-3.5" />
+				</Button>
+			)}
 		</div>
 	);
 }
@@ -424,6 +789,18 @@ function InviteRow({ view, actions, full }: { view: LiveView; actions: LiveActio
 	);
 }
 
+/** The panel's own root element, so a popover can find the modal it sits in. On a phone the panel lives in a modal
+ *  Sheet, whose scroll lock blocks touch scrolling in anything outside the Sheet: a popover taller than its room
+ *  showed but would not scroll (owner's iPhone, 2026-10-12). So a popover goes INTO that dialog. Anywhere else it stays
+ *  in `<body>`: inside the panel itself, a tap on a switch near the panel's edge reached react-resizable-panels' document
+ *  handler, which focuses the resize handle, and that focus change dismissed the popover (found on the real Studio). */
+const LiveRoot = React.createContext<HTMLElement | null>(null);
+const useLiveRoot = () => React.useContext(LiveRoot);
+function LivePopoverContent(props: React.ComponentProps<typeof PopoverContent>) {
+	const dialog = useLiveRoot()?.closest<HTMLElement>('[role="dialog"]') ?? null;
+	return <PopoverContent container={dialog} {...props} />;
+}
+
 export function LivePanel({ view, actions, title, now, defaultName = '', headerSlot }: { view: LiveView; actions: LiveActions; title?: string; now: number; defaultName?: string; headerSlot?: HTMLElement | null }) {
 	const chatEnd = React.useRef<HTMLLIElement>(null);
 	const chatCount = view.chat.length;
@@ -432,8 +809,10 @@ export function LivePanel({ view, actions, title, now, defaultName = '', headerS
 	}, [chatCount]);
 	const live = view.status === 'live';
 	const full = view.people.length >= view.cap;
+	const [root, setRoot] = React.useState<HTMLElement | null>(null);
 	return (
-		<div className="group/live @container/live flex min-h-0 flex-1 flex-col" data-live-panel>
+		<LiveRoot.Provider value={root}>
+		<div ref={setRoot} className="group/live @container/live flex min-h-0 flex-1 flex-col" data-live-panel>
 			{title && (
 				<div className="flex items-center gap-2 border-b border-border px-3.5 py-2 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
 					<span>{title}</span>
@@ -518,5 +897,6 @@ export function LivePanel({ view, actions, title, now, defaultName = '', headerS
 				</>
 			)}
 		</div>
+		</LiveRoot.Provider>
 	);
 }
