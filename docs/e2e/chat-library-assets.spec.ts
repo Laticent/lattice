@@ -131,12 +131,29 @@ test('a vision model is shown a photo once, captions it, and next turn reads the
 		{ text: 'I looked at shop-floor and saved what it shows.' },
 		{ text: 'Second turn answered from the captions.' },
 	]);
+	// Count the Library's real IndexedDB reads: each `listMedia` is two `getAll` calls on the `kind` index (image, video)
+	// and loads every photo's bytes, so the count is the cost of reading the shelf.
+	await page.addInitScript(() => {
+		(window as unknown as { __kindReads: number }).__kindReads = 0;
+		const orig = IDBIndex.prototype.getAll;
+		IDBIndex.prototype.getAll = function (this: IDBIndex, ...a: Parameters<IDBIndex['getAll']>) {
+			if (this.name === 'kind') (window as unknown as { __kindReads: number }).__kindReads++;
+			return orig.apply(this, a);
+		};
+	});
 	await gotoStudio(page);
 	await setEditorContent(page, DECK);
 	await addPhotos(page, PHOTOS);
 	await openChat(page);
 
+	const reads = () => page.evaluate(() => (window as unknown as { __kindReads: number }).__kindReads);
+	const readsBefore = await reads();
 	await ask(page, 'Make a collage of my photos.', 'I looked at shop-floor and saved what it shows.');
+	// One turn that lists the Library, looks at one photo and saves one caption reads the shelf ONCE (two getAll calls),
+	// not once per call. The app's own preview refresh after the caption may add one more read.
+	const readsDuring = (await reads()) - readsBefore;
+	test.info().annotations.push({ type: 'shelf-reads', description: `getAll(kind) calls during the turn: ${readsDuring}` });
+	expect(readsDuring, 'the turn read the shelf more than once per photo call').toBeLessThanOrEqual(4);
 
 	// Round 1: the list is in the prompt and the three Library tools are offered.
 	expect(toolNames(bodies[0])).toEqual(expect.arrayContaining(['list_assets', 'view_asset', 'caption_asset']));
