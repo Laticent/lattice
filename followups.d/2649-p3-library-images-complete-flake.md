@@ -17,4 +17,5 @@ source: https://github.com/Laticent/lattice/pull/2649
        done when — either the spec fails again on an unrelated PR and gets a root-cause fix (the menu option is asserted selected, then Enter races the apply), or a month passes with no repeat and this file is deleted.
        evidence  — the failing job log, or `npx playwright test e2e/library-images-complete.spec.ts --project=desktop --repeat-each=20 --retries=0` locally.
        verify    — tier 0 gates.
+       repeat    — 2026-10-13, #2673's studio-smoke failed the same test (now line 67, "on a collage slide a list item offers whole photo lines") with the same symptom: Enter on the completion left `- te-` in the editor. #2673 did not touch the Markdown editor or the Library, it passed 4 of 4 locally, and the next run on a newer head passed. That is the repeat on an unrelated PR this file waits for, so it is ready for the root-cause fix.
 ```
