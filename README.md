@@ -132,7 +132,9 @@ The package also exposes these named entry points:
 | — | `dist/lattice-dagre-min.js` | the graph-layout engine for a state chart that BRANCHES. Load it *before* the runtime. Its absence is silent on the slide — the chart draws its branches as skips on the reading-order grid a chain uses |
 | `@laticent/lattice/css` | `dist/lattice.css` | the engine bundle — **palette-blind** (components only, no color tokens) |
 | `@laticent/lattice/css/min` | `dist/lattice-min.css` | minified engine bundle (Marp `@theme`/`@size` directives preserved) |
-| `@laticent/lattice/palette/<name>.css` | `dist/palettes/<name>.css` | one palette's **tokens**, imports resolved, for a bundler (Vite, webpack) or your own UI. Not a slide renderer: to show slides, use `render()` from `@laticent/lattice/engine` (see the themes guide) |
+| `@laticent/lattice/palette/<name>.css` | `dist/palettes/<name>.css` | one palette's **tokens**, imports resolved, for a bundler (Vite, webpack) or your own UI. Not a slide renderer on its own: to show slides, use `render()` from `@laticent/lattice/engine`, or the packed pair below (see the themes guide) |
+| `@laticent/lattice/slides.css` | `dist/slides.css` | the **packed slide form**: the engine scaffold and CSS scoped to `article.lattice > section`, plus the 16:9 slide box. Link it with one `palette/<name>.slides.css`, around the markup `render()` returns. 16:9 only, no panes (use `render()`'s own `css` for those) |
+| `@laticent/lattice/palette/<name>.slides.css` | `dist/palettes/<name>.slides.css` | one palette's tokens moved from `:root` onto every slide, so a palette swap is a different second `<link>` with no second render |
 | `@laticent/lattice/themes/<name>.css` | `themes/<name>/<name>.css` | one palette — a **Marp theme file**, not a standalone stylesheet; a bundler stops on its `@import 'lattice'` |
 | `lattice` bin (not an import path) | `dist/lattice.js` | the bundled CLI renderer / PDF exporter (`npx lattice deck.md out.pdf`). Run it; don't `require` it — it reads the process's arguments and exits. `dist/lattice-min.js` is its minified twin, shipped in the tarball and the release zip but not exported |
 
