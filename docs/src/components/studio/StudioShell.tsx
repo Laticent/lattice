@@ -4040,6 +4040,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		setActiveSlide(r.active);
 		requestAnimationFrame(() => editorRef.current?.revealSlide(r.active));
 	}
+	/** The Library rewrote the open deck's text (a photo's decks moved to its new name): same path as any slide edit. */
+	const replaceDeckSource = (next: string) => applyDeckOp({ source: next, active: activeFullIndex });
 	// "Add slide" opens the unified add-slide gallery (its Blank tile keeps a quick blank
 	// insert one tap away) — the #1058 "one insert door" — inserting after the current
 	// slide, rather than dropping a bare blank with no component choice.
@@ -6708,7 +6710,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 									)}
 									{libraryOpen && (
 										<PanelLoader panel={libraryPanel} shell={(body) => <LibraryShell docked open onOpenChange={setLibraryOpen}>{body}</LibraryShell>}>
-											{(Library) => <Library docked open onOpenChange={setLibraryOpen} options={options} activePalette={palette} activeFinish={finish} initialFilter={libInitialFilter} activeDeckId={deck.id} activeDeckSource={source} onReplaceSource={(next) => applyDeckOp({ source: next, active: activeFullIndex })} onApplyTheme={applyPalette} onApplyFinish={(name) => { const token = `finish-${name}`; setFinish(token); notify(`Applied ${token}.`); }} onInsert={(skeleton) => applyDeckOp(addSlideAfter(source, activeFullIndex, skeleton))} onEditTheme={editTheme} onEditComponent={editComponent} onEditFinish={editFinish} onEditMotion={editMotion} onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); refreshScenes(); refreshAssets(); }} />}
+											{(Library) => <Library docked open onOpenChange={setLibraryOpen} options={options} activePalette={palette} activeFinish={finish} initialFilter={libInitialFilter} activeDeckId={deck.id} activeDeckSource={source} onReplaceSource={replaceDeckSource} onApplyTheme={applyPalette} onApplyFinish={(name) => { const token = `finish-${name}`; setFinish(token); notify(`Applied ${token}.`); }} onInsert={(skeleton) => applyDeckOp(addSlideAfter(source, activeFullIndex, skeleton))} onEditTheme={editTheme} onEditComponent={editComponent} onEditFinish={editFinish} onEditMotion={editMotion} onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); refreshScenes(); refreshAssets(); }} />}
 										</PanelLoader>
 									)}
 								</ResizablePanel>
@@ -6899,7 +6901,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 							activeFinish={finish}
 							initialFilter={libInitialFilter}
 							activeDeckId={deck.id}
-							activeDeckSource={source} onReplaceSource={(next) => applyDeckOp({ source: next, active: activeFullIndex })}
+							activeDeckSource={source} onReplaceSource={replaceDeckSource}
 							onApplyTheme={applyPalette}
 							onApplyFinish={(name) => { const token = `finish-${name}`; setFinish(token); notify(`Applied ${token}.`); }}
 							onInsert={(skeleton) => applyDeckOp(addSlideAfter(source, activeFullIndex, skeleton))}

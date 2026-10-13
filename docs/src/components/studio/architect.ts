@@ -12,7 +12,6 @@ import { buildCanonContext } from '@/components/studio/ai/presentation-canon.js'
 import { buildRefinePrompt, cleanRewrite, REFINE_ACTIONS } from '@/components/studio/ai/refine.js';
 import { adjustSpend, budgetStatus, readBudgetCap, readBudgetFloor, readBudgetMode, readCachingEnabled, readDedupEnabled, readSpend, recordSpend } from '@/components/studio/ai/spend.js';
 import { deckCanon, deckProfiles } from '@/playground/authoring-core.generated.js';
-import { THUMB_TOKENS } from './agent-assets';
 import type { AgentRawEdit, DeckCheck, ToolCall } from './architect-agent';
 import { FINISHES } from './finish-catalog';
 import { EDGE_TYPES, MARK_TYPES, PLACEMENTS, TEXTURE_TYPES, WASH_TYPES } from './finish-generate';
