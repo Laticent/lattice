@@ -11,7 +11,6 @@ import { cn } from '@/lib/utils';
 import { AssetVersionsDialog, type VersionedAsset } from './AssetVersions';
 import { agentAssets } from './agent-assets-browser';
 import { componentZipName, finishZipName, packBundle, packComponent, packFinish, packTheme, themeZipName, unpackBundle } from './asset-bundle';
-import { decksUsingOutsideCode, renameAssetRefsOutsideCode } from './asset-refs';
 import { deleteStudioComponent, listStudioComponents, type StudioComponent } from './component-library';
 import { DeleteBtn } from './delete-btn';
 import { downloadBlob, iosNeedsShareSheet } from './download';
@@ -24,7 +23,7 @@ import { MediaCard } from './MediaCard';
 import { MediaDetailDialog } from './MediaDetailDialog';
 import { decksUsingRecord, removeMediaAlias, updateMediaDetails } from './media-edit';
 import { classifyMedia, importImage, MEDIA_ACCEPT, MediaImportError, uniqueName } from './media-import';
-import { decksUsing, deleteMedia, LIBRARY_SCOPE, listMedia, MEDIA_REFUSAL_PREFIX, type MediaRecord, namesOf, saveMedia, setMediaScope, visibleMedia } from './media-store';
+import { deleteMedia, LIBRARY_SCOPE, listMedia, MEDIA_REFUSAL_PREFIX, type MediaRecord, namesOf, saveMedia, setMediaScope, visibleMedia } from './media-store';
 import { MOTION_PALETTE_STYLE } from './motion/palette-fallback';
 import { LIBRARY_FILTERS, LIBRARY_HEADER, type LibraryFilter } from './panel-shells';
 import { formatBytes, REF_DOC_ACCEPT, readReferenceDoc } from './reference-doc';
@@ -538,11 +537,18 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	// The control that opened the detail dialog, so closing it returns keyboard focus there.
 	const openerRef = React.useRef<HTMLElement | null>(null);
 	const detail = media.find((a) => a.id === detailId) ?? null;
+	// The reader of deck markdown (asset-refs.ts) carries the markdown parser, so it loads only when a photo with old names is
+	// opened, never with the Library itself. Until it arrives the dialog says it is checking, not that no deck uses the name.
+	const [refsModule, setRefsModule] = React.useState<typeof import('./asset-refs') | null>(null);
+	const needsRefs = !!detail && (detail.aliases?.length ?? 0) > 0;
+	React.useEffect(() => {
+		if (needsRefs && !refsModule) void import('./asset-refs').then(setRefsModule, () => setRefsModule(null));
+	}, [needsRefs, refsModule]);
 	const detailAliasUse = React.useMemo(() => {
-		if (!detail) return {};
+		if (!detail || !refsModule) return null;
 		const sources = liveSource === undefined ? otherSources : [...otherSources, liveSource];
-		return Object.fromEntries((detail.aliases ?? []).map((n) => [n, decksUsingOutsideCode(n, sources)]));
-	}, [detail, otherSources, liveSource]);
+		return Object.fromEntries((detail.aliases ?? []).map((n) => [n, refsModule.decksUsingOutsideCode(n, sources)]));
+	}, [detail, otherSources, liveSource, refsModule]);
 	/** Run a metadata change, refresh the shelf and the open deck's previews, and turn a refusal into a line to show. */
 	async function changeMedia(run: () => Promise<unknown>): Promise<string | null> {
 		try {
@@ -559,6 +565,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	 *  editor); every other deck is rewritten in storage. Code samples that mention the name are left as written. */
 	async function adoptNewName(a: MediaRecord, alias: string): Promise<string | null> {
 		try {
+			const { renameAssetRefsOutsideCode } = await import('./asset-refs');
 			const stamp = Date.now();
 			const label = `Before using asset:${a.name}`;
 			let changed = 0;

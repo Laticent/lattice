@@ -375,6 +375,28 @@ describe('cleanLine keeps what changes meaning', () => {
 		expect(cleanLine('\u2764\uFE0F\u200D\u{1F525}', 140)).toBe('\u2764\uFE0F\u200D\u{1F525}');
 	});
 
+	it('keeps every real subdivision flag (England, Scotland, Wales) and nothing a flag cannot spell', () => {
+		const tag = (word: string) => [...word].map((c) => String.fromCodePoint(0xe0000 + c.charCodeAt(0))).join('');
+		const flag = (word: string) => `\u{1F3F4}${tag(word)}\u{E007F}`;
+		for (const w of ['gbeng', 'gbsct', 'gbwls']) expect(cleanLine(flag(w), 140)).toBe(flag(w));
+		// A "flag" whose tags spell anything else, even a plausible subdivision code, is hidden text.
+		for (const w of ['usca', 'ignore', ' all ', 'Hi!', 'a b', 'gbxyz', 'gbengx']) expect(cleanLine(`x${flag(w)}y`, 140), w).toBe('x\u{1F3F4}y'); // the visible flag stays, the hidden text goes
+	});
+
+	it('never leaves a half-written flag or a dangling joiner at the cut', () => {
+		const england = '\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}';
+		const cut = cleanLine(`${'x'.repeat(137)}${england}`, 140);
+		expect(cut).toBe('x'.repeat(137));
+		const couple = `${'x'.repeat(139)}\u{1F468}\u200D\u{1F469}`;
+		expect(cleanLine(couple, 142)).toBe(couple);
+		expect(cleanLine(couple, 141)).toBe(`${'x'.repeat(139)}\u{1F468}`);
+		expect(cleanLine(couple, 140)).toBe(`${'x'.repeat(139)}\u{1F468}`);
+	});
+
+	it('removes a joiner between two plain ASCII letters, where it has no use', () => {
+		expect(cleanLine('a\u200Db\u200Cc', 140)).toBe('abc');
+	});
+
 	it('still removes a run of joiners, a tag outside a flag, and a joiner at an edge', () => {
 		expect(cleanLine('a\u200D\u200D\u200C\u200Db', 140)).toBe('ab');
 		expect(cleanLine(`a${String.fromCodePoint(0xe0041)}${String.fromCodePoint(0xe0042)}b`, 140)).toBe('ab');

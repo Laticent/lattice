@@ -31,7 +31,8 @@ export function MediaDetailDialog({ m: incoming, open, onOpenChange, usedIn, ali
 	/** Decks that write `asset:<name>` for the current name. */
 	usedIn: number;
 	/** Decks that still write each alias. */
-	aliasUse: Record<string, number>;
+	/** Decks that still write each old name, or null while that is being worked out (the markdown reader loads on demand). */
+	aliasUse: Record<string, number> | null;
 	/** Resolves an error line to show, or null on success. */
 	onSave: (change: MediaMetaPatch & { name?: string }) => Promise<string | null>;
 	onRemoveAlias: (alias: string) => Promise<string | null>;
@@ -228,9 +229,9 @@ export function MediaDetailDialog({ m: incoming, open, onOpenChange, usedIn, ali
 								{m.aliases?.map((a) => (
 									<li key={a} className="flex flex-wrap items-center gap-2 rounded-lg border border-border px-2.5 py-1.5 text-[12px]">
 										<code className="font-mono">asset:{a}</code>
-										<span className="text-muted-foreground">{aliasUse[a] ? `in ${aliasUse[a]} deck${aliasUse[a] === 1 ? '' : 's'}` : 'not used in a deck'}</span>
+										<span className="text-muted-foreground">{aliasUse === null ? 'checking decks…' : aliasUse[a] ? `in ${aliasUse[a]} deck${aliasUse[a] === 1 ? '' : 's'}` : 'not used in a deck'}</span>
 										<span className="ml-auto flex items-center gap-1.5">
-											{aliasUse[a] ? (
+											{aliasUse?.[a] ? (
 												<Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => void run(() => onUseNewName(a))}>
 													Use new name in {aliasUse[a] === 1 ? 'the deck' : 'decks'}
 												</Button>

@@ -9,12 +9,27 @@ import type { MediaRecord } from './media-store';
 const rec = (id: string, extra: Partial<MediaRecord> = {}): MediaRecord => ({ id, name: id, kind: 'image', scope: 'library', blob: new Blob(['x']), mime: 'image/png', bytes: 1, width: 1, height: 1, sourceName: 'a.png', original: true, addedAt: 1, ...extra }) as MediaRecord;
 
 type Suggest = () => Promise<{ text: string } | { note: string }>;
-function Host({ m, onSave = vi.fn(async (_change: object) => null), onSuggest = async () => ({ note: 'n' }) }: { m: MediaRecord | null; onSave?: (c: object) => Promise<string | null>; onSuggest?: Suggest }) {
-	return <MediaDetailDialog m={m} open={!!m} onOpenChange={() => {}} usedIn={0} aliasUse={{}} onSave={onSave} onRemoveAlias={async () => null} onUseNewName={async () => null} onSuggest={onSuggest} />;
+function Host({ m, aliasUse = {}, onSave = vi.fn(async (_change: object) => null), onSuggest = async () => ({ note: 'n' }) }: { m: MediaRecord | null; aliasUse?: Record<string, number> | null; onSave?: (c: object) => Promise<string | null>; onSuggest?: Suggest }) {
+	return <MediaDetailDialog m={m} open={!!m} onOpenChange={() => {}} usedIn={0} aliasUse={aliasUse} onSave={onSave} onRemoveAlias={async () => null} onUseNewName={async () => null} onSuggest={onSuggest} />;
 }
 const field = (label: string) => screen.getByLabelText(label) as HTMLInputElement;
 
 afterEach(cleanup);
+
+describe('the old names list', () => {
+	it('says it is checking while the deck reader loads, then shows the counts and the button', () => {
+		const m = rec('a', { aliases: ['old'] });
+		const { rerender } = render(<Host m={m} aliasUse={null} />);
+		expect(screen.getByText('checking decks…')).toBeTruthy();
+		expect(screen.queryByText('not used in a deck')).toBeNull();
+		expect(screen.queryByText(/Use new name/)).toBeNull();
+		rerender(<Host m={m} aliasUse={{ old: 2 }} />);
+		expect(screen.getByText('in 2 decks')).toBeTruthy();
+		expect(screen.getByText('Use new name in decks')).toBeTruthy();
+		rerender(<Host m={m} aliasUse={{ old: 0 }} />);
+		expect(screen.getByText('not used in a deck')).toBeTruthy();
+	});
+});
 
 describe('what Save sends', () => {
 	it('is only what the person changed, so a description written underneath is not erased', async () => {

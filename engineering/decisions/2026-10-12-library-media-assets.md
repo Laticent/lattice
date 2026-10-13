@@ -376,16 +376,25 @@ unusable reply each give a plain line, never a silent button. The call lives in 
 ### Rename can rewrite the decks
 
 The alias list in the detail view shows how many decks still write each old name, and **Use new name** rewrites them
-(`asset-refs.ts`). The count and the button use one function, so they cannot disagree. Code is left as written, by CommonMark's
-block rules, because those decide where a code span can start and end: a fenced block (``` or ~~~; one opened inside a list item
-ends with the item), a top-level indented code block (four spaces or a tab after a blank line, outside a list), an HTML block that
-starts a line with `<pre>`, `<script>`, `<style>` or `<textarea>` and runs to the line holding its closing tag (blank lines
-included), and an inline code span, which never crosses a block boundary (a blank line, a list item, a heading, a quote or a rule
-ends it). An inline `<code>` inside a sentence is not code here, because markdown inside it still renders. Where a container makes a
-line's meaning uncertain (an indented line inside a list item), it is read as prose: a reference wrongly left alone keeps working
-through the old name, while one wrongly rewritten changes a code sample. `asset:hero.jpg`, which is not a valid reference, is not
-touched. Every scan moves forward only, and a block of any length is handled, so the work is proportional to the deck's length
-(pinned with hostile inputs, including a 150,000-line block).
+(`asset-refs.ts`). The count and the button use one function, so they cannot disagree.
+
+**The parser decides what is code, not a rule list of ours.** An earlier version re-implemented CommonMark's block rules by hand,
+and three independent reviews kept finding one more shape it read differently from the renderer (a table row, a setext heading, a
+fence in a list item, a `<pre>` with blank lines). Now `parse()` from the engine's own `markdown-it` (the `commonmark` preset, HTML on,
+tables and strikethrough, as in `lib/engine/index.js`) says where fenced and indented code, raw HTML blocks and paragraphs are, by their
+line ranges. The only rule written here is how backticks pair inside one paragraph (a run of N closes at the next run of exactly N;
+a backslash before an opener makes it text). A reference is something the renderer resolves, so what is rewritten is: a front-matter
+value, the destination of an image or link (`![](asset:x)`, `[r]: asset:x`) outside an inline code span, and an attribute value inside
+an HTML tag (`<img src="asset:x">`, a CSS `url()`). Bare text, a code sample, the text of a `<pre>` or `<script>`, and `asset:hero.jpg`
+(not a valid reference) stay as written. If the references in a paragraph cannot be matched one-to-one with the parser's text for it,
+that paragraph is left alone: a reference wrongly left alone keeps working through the old name, while one wrongly rewritten changes
+a code sample.
+
+**The test is the renderer.** `asset-refs.test.ts` holds some 50 deck shapes, including every shape the reviews found. For each, the
+real renderer says which `asset:` values it resolves; the rewrite must move exactly those, and the visible text of every other
+`asset:` (a sample, a `<pre>`, a sentence) must come out unchanged. It also runs each shape with Windows line endings, and a
+150,000-line block and pathological backtick and fence patterns against a time limit. The parser loads on demand (about 35 KB
+gzipped), only when a photo with old names is opened or "Use new name" is pressed; until then the dialog says "checking decks…".
 
 Each deck gets a Version history entry first (`Before using asset:<new>`). The way back is saved first and read back: the store
 swallows a full-storage error, so a deck is never rewritten on the promise of an undo that was not written. If the browser has
@@ -404,9 +413,11 @@ A second independent check read the EXIF reader, the alt fill and the rewrite as
   (`meta.assetAlt`) and the background reader ignores it. An author's own `![bg …]` is unaffected.
 - **Text read from a file went through a weaker cleaner than text a person types.** It now uses `cleanLine` (control, invisible
   and unpaired-surrogate characters out, cut by whole characters). A numeric entity that is not a character becomes a space.
-  `cleanLine` keeps what changes a text's meaning: a subdivision-flag sequence (the flag of England), and ONE joiner between two
-  ordinary characters (a family emoji, a Persian word with its zero-width non-joiner). A run of joiners, a tag outside a flag and
-  every other invisible character is removed, because those are the channels a hostile file uses to hide text.
+  `cleanLine` keeps what changes a text's meaning: the three subdivision flags that exist as emoji (England, Scotland, Wales: a black flag,
+  the tag letters `gbeng`, `gbsct` or `gbwls`, a cancel tag), and ONE joiner between two NON-ASCII characters (a family emoji, a Persian
+  word with its zero-width non-joiner). Any other tag sequence (tags can hide instructions from a reader and show them to a model), a run
+  of joiners, a joiner between plain ASCII letters, a half-written flag left by a length cut, and every other invisible character are
+  removed.
 - **Two location cases went unflagged:** a GPS pointer written as type IFD, and an XMP packet with only a longitude. Both are flagged.
   (The stored bytes were scrubbed either way; this is the "carried a location" notice.)
 - **Dialog state:** Save sends only what the person changed from the values the form OPENED with, so a description the chat wrote

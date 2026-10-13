@@ -30,19 +30,29 @@ export const cleanLine = (v: string, max: number): string => {
 	const t = v
 		// biome-ignore lint/suspicious/noControlCharactersInRegex: stripping them is the point
 		.replace(/[\u0000-\u001f\u007f-\u009f]+/g, ' ')
-		// Three things survive, because removing them changes what a text SAYS: a subdivision-flag sequence (a black flag, tag
-		// letters, a cancel tag: the flag of England), and ONE joiner between two ordinary characters (a family emoji, a Persian
-		// word with its zero-width non-joiner). A run of joiners, a tag outside a flag, and every other invisible character goes:
-		// those are the channels a hostile file uses to hide text.
+		// Three things survive, because removing them changes what a text SAYS:
+		//  - one of the three subdivision flags that exist as emoji: a black flag, the tag letters `gbeng` (England), `gbsct` (Scotland)
+		//    or `gbwls` (Wales), and a cancel tag. A tag sequence spelling anything else is not a flag, it is hidden text: tags are the
+		//    channel hostile text uses to hide instructions from a reader and show them to a model;
+		//  - ONE joiner (U+200D, U+200C) between two NON-ASCII characters, such as a family emoji or a Persian word. Between plain ASCII
+		//    letters a joiner has no use, so it goes;
+		// and everything else invisible goes: a run of joiners, a tag outside a flag, the other format characters.
 		.replace(
-			/(\u{1F3F4}[\u{E0020}-\u{E007E}]{2,6}\u{E007F})|(?<=[^\p{Cf}\s])([\u200C\u200D])(?=[^\p{Cf}\s])|(?:[\p{Cf}\p{Zl}\p{Zp}\u3164\u2800]|[\uFE00-\uFE0D]|[\u{E0000}-\u{E01EF}])+/gu,
+			// biome-ignore lint/suspicious/noControlCharactersInRegex: the ASCII range (to tell a non-ASCII neighbor) is the point
+			/(\u{1F3F4}(?:\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}|\u{E0067}\u{E0062}\u{E0073}\u{E0063}\u{E0074}|\u{E0067}\u{E0062}\u{E0077}\u{E006C}\u{E0073})\u{E007F})|(?<=[^\p{Cf}\s\u0000-\u007F])([\u200C\u200D])(?=[^\p{Cf}\s\u0000-\u007F])|(?:[\p{Cf}\p{Zl}\p{Zp}\u3164\u2800]|[\uFE00-\uFE0D]|[\u{E0000}-\u{E01EF}])+/gu,
 			(_m, flag: string | undefined, joiner: string | undefined) => flag ?? joiner ?? '',
 		)
 		// A lone surrogate is half a character: it would print as a replacement box and fail `isWellFormed`.
 		.replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '')
 		.replace(/\s+/g, ' ')
 		.trim();
-	return Array.from(t).slice(0, max).join('').trim();
+	// Cut by whole characters, then never leave a flag half written (a black flag and tags with no cancel tag), nor a dangling joiner.
+	return Array.from(t)
+		.slice(0, max)
+		.join('')
+		.replace(/\u{1F3F4}[\u{E0030}-\u{E007E}]*$/u, '')
+		.replace(/[\u200C\u200D]+$/u, '')
+		.trim();
 };
 
 const cleanTaken = (v: string): string => (isIsoDate(v.trim()) ? v.trim() : '');
