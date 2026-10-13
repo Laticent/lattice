@@ -30,7 +30,7 @@ for (const [w, h] of [
 ] as const) {
 	test.describe(`at ${w}px`, () => {
 		test.use({ viewport: { width: w, height: h } });
-		test('the chat names its phase every turn, renders tables and real numbering, and switches model from the header', async ({ page }) => {
+		test(`the chat names its phase every turn, renders tables and real numbering, and switches model from the header${w === 390 ? ' @webkit-phone' : ''}`, async ({ page }) => {
 	test.setTimeout(120_000);
 	await page.addInitScript(() => {
 		try {

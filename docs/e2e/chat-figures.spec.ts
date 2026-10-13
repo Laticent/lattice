@@ -21,7 +21,7 @@ for (const [w, h] of [
 ] as const) {
 	test.describe(`at ${w}px`, () => {
 		test.use({ viewport: { width: w, height: h } });
-		test('a reply with a diagram, an equation and a slide draws them, and only a few frames stay live', async ({ page }) => {
+		test(`a reply with a diagram, an equation and a slide draws them, and only a few frames stay live${w === 390 ? ' @webkit-phone' : ''}`, async ({ page }) => {
 			test.setTimeout(120_000);
 			await page.addInitScript(() => {
 				try {

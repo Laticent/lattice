@@ -87,7 +87,7 @@ for (const [w, h] of [
 	test.describe(`at ${w}px`, () => {
 		test.use({ viewport: { width: w, height: h } });
 
-		test('a picked photo is kept in the Library, shown, and sent to the model as an image', async ({ page }) => {
+		test(`a picked photo is kept in the Library, shown, and sent to the model as an image${w === 390 ? ' @webkit-phone' : ''}`, async ({ page }) => {
 			test.setTimeout(90_000);
 			const bodies = await seed(page, true);
 			await gotoStudio(page);
