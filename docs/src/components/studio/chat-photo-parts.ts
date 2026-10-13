@@ -30,9 +30,11 @@ export const VIDEO_TOKENS = 4500;
 
 /** Why a clip cannot be attached, in words, or null when it can. Pure: the caller measures. */
 export function videoRefusal(seconds: number, bytes: number): string | null {
-	if (bytes > MAX_VIDEO_BYTES) return `That video is ${Math.round(bytes / 1_048_576)} MB; a message can carry at most ${Math.floor(MAX_VIDEO_BYTES / 1_048_576)} MB (about ${MAX_VIDEO_SECONDS} seconds).`;
+	if (bytes > MAX_VIDEO_BYTES) return `That video is ${(bytes / 1_048_576).toFixed(1)} MB; a message can carry at most ${Math.floor(MAX_VIDEO_BYTES / 1_048_576)} MB (about ${MAX_VIDEO_SECONDS} seconds).`;
 	if (!Number.isFinite(seconds) || seconds <= 0) return "That video's length could not be read, so it was not attached.";
-	if (seconds > MAX_VIDEO_SECONDS) return `That video is ${Math.round(seconds)} seconds; a message can carry at most ${MAX_VIDEO_SECONDS}. Trim it and try again.`;
+	// Half a second of slack: a phone's "15 second" clip decodes at 15.0x, and refusing it with a message
+	// that says "15 seconds" contradicts itself. The cap is a cost guard, not a stopwatch.
+	if (seconds > MAX_VIDEO_SECONDS + 0.5) return `That video is ${seconds.toFixed(1)} seconds; a message can carry at most ${MAX_VIDEO_SECONDS}. Trim it and try again.`;
 	return null;
 }
 

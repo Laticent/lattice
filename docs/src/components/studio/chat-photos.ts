@@ -96,8 +96,11 @@ export async function photoDataUrl(name: string): Promise<string | null> {
 // message would fill the browser's quota. The thread keeps a poster and a length (`ChatVideo`). A clip
 // is read once, measured, refused when it is over the cap, and sent inline as a data URL.
 
+/** At most this many clips are held: the pending one and the one just sent (a same-tab Regenerate
+ *  re-sends it). Older ones are released, so memory is bounded however many are attached. */
+const MAX_HELD_VIDEOS = 2;
 const heldVideos = new Map<string, string>();
-/** The clip's data URL while this tab holds it, or null (a reload, or a Regenerate after it was sent). */
+/** The clip's data URL while this tab holds it, or null (a reload, or it was released). */
 export const heldVideo = (name: string): string | null => heldVideos.get(name) ?? null;
 export const forgetVideo = (name: string): void => {
 	heldVideos.delete(name);
@@ -157,13 +160,15 @@ export async function readChatVideo(file: File): Promise<{ video: ChatVideo; dat
 		const w = 160;
 		const canvas = document.createElement('canvas');
 		canvas.width = w;
-		canvas.height = Math.max(1, Math.round((w * (el.videoHeight || 90)) / (el.videoWidth || 160)));
+		// Height capped: an extreme aspect ratio must not make a large poster (it is stored in the thread).
+		canvas.height = Math.min(240, Math.max(1, Math.round((w * (el.videoHeight || 90)) / (el.videoWidth || 160))));
 		canvas.getContext('2d')?.drawImage(el, 0, 0, canvas.width, canvas.height);
 		const poster = canvas.toDataURL('image/jpeg', 0.7);
-		const base = mediaNameFromFile(file.name, 'video');
-		let name = base;
-		for (let n = 2; heldVideos.has(name); n++) name = `${base}-${n}`;
+		// A random suffix, not a counter: the held map is empty after a reload while a persisted thread
+		// still names `clip`, and a new `clip.webm` must not be mistaken for the old turn's clip.
+		const name = `${mediaNameFromFile(file.name, 'video')}-${Math.random().toString(36).slice(2, 7)}`;
 		heldVideos.set(name, dataUrl);
+		while (heldVideos.size > MAX_HELD_VIDEOS) heldVideos.delete(heldVideos.keys().next().value as string);
 		return { video: { name, durationMs: Math.round(el.duration * 1000), poster }, dataUrl };
 	} catch {
 		return { error: `${file.name} couldn't be read as a video. It may be a format this browser can't play.` };

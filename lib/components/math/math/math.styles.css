@@ -217,6 +217,14 @@ section.math.form.feature:not(:has(> .cell-stage > :is(ul, ol))) > .cell-stage >
   padding-right: 0;
   min-width: 0;
 }
+/* `feature` WITH an alignment modifier. Its stage rule (0,4,1) outranks stage.css's modifier rule
+ * (0,3,1) that promotes the stage to a flex column, so a lone `math feature align-left` stayed a grid
+ * and moved nothing; bare `math` only worked because stage.css comes later in the bundle and wins the
+ * tie. Re-state the promotion here, above both, for the no-legend case. */
+section.math.form.feature:is(.align-top, .align-middle, .align-bottom, .align-left, .align-center, .align-right):not(:has(> .cell-stage > :is(ul, ol))) > .cell-stage {
+  display: flex;
+  flex-direction: column;
+}
 /* The block shrink-wraps, and `align-self` is released (the left-column arm pins it to `center`).
  * Both matter once an alignment modifier turns this stage into a flex column: `align-items` then
  * places the block, but only if the block is narrower than the stage and does not carry its own

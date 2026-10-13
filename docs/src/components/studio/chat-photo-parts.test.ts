@@ -81,7 +81,8 @@ describe('photoNote for an earlier turn', () => {
 describe('video', () => {
 	it('accepts a clip at the limits and refuses past them, in words', () => {
 		expect(videoRefusal(MAX_VIDEO_SECONDS, MAX_VIDEO_BYTES)).toBeNull();
-		expect(videoRefusal(MAX_VIDEO_SECONDS + 0.5, 1000)).toMatch(/at most 15/);
+		expect(videoRefusal(MAX_VIDEO_SECONDS + 0.4, 1000)).toBeNull(); // a phone's "15 s" clip decodes at 15.0x
+		expect(videoRefusal(MAX_VIDEO_SECONDS + 0.6, 1000)).toMatch(/15\.6 seconds; a message can carry at most 15/);
 		expect(videoRefusal(5, MAX_VIDEO_BYTES + 1)).toMatch(/MB/);
 		expect(videoRefusal(Number.NaN, 1000)).toMatch(/could not be read/);
 		expect(videoRefusal(Number.POSITIVE_INFINITY, 1000)).toMatch(/could not be read/);

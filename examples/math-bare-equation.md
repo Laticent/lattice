@@ -90,3 +90,15 @@ $$
 $$
 \mathcal{L}(\theta) = -\frac{1}{N}\sum_{i=1}^{N}\Big[y_i \log \sigma(x_i^\top\theta) + (1-y_i)\log\big(1-\sigma(x_i^\top\theta)\big)\Big] + \lambda\lVert\theta\rVert_2^2
 $$
+
+---
+
+<!-- _class: math feature align-right align-bottom -->
+
+`feature behaves the same`
+
+## `math feature` with no legend follows the same modifiers.
+
+$$
+\int_0^\infty e^{-x^2}\,dx = \frac{\sqrt{\pi}}{2}
+$$

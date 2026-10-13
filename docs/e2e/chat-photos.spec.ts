@@ -186,7 +186,7 @@ test('a short clip is attached with a poster and a length, and goes to a video m
 	await pickFile(page, { name: 'Walkthrough.webm', mimeType: 'video/webm', buffer: clip });
 
 	const strip = page.getByTestId('chat-photo-strip');
-	const poster = strip.getByRole('img', { name: 'Video walkthrough', exact: true });
+	const poster = strip.getByRole('img', { name: /^Video walkthrough-[a-z0-9]+$/ });
 	await expect(poster).toBeVisible({ timeout: 20_000 });
 	await expect.poll(() => poster.evaluate((el: HTMLImageElement) => el.naturalWidth), { message: 'the poster never decoded' }).toBeGreaterThan(0);
 	await expect(strip.getByText(/^0:0[1-3]$/)).toBeVisible();
@@ -195,7 +195,7 @@ test('a short clip is attached with a poster and a length, and goes to a video m
 	await page.getByRole('textbox', { name: 'Message the Architect' }).fill('what happens in this clip?');
 	await page.getByRole('button', { name: 'Send', exact: true }).click();
 	await expect(page.getByText('I can see a small striped image.')).toBeVisible({ timeout: 30_000 });
-	await expect(page.getByTestId('chat-message-photos').getByRole('img', { name: 'Video walkthrough', exact: true })).toBeVisible();
+	await expect(page.getByTestId('chat-message-photos').getByRole('img', { name: /^Video walkthrough-[a-z0-9]+$/ })).toBeVisible();
 
 	const sent = bodies.at(-1)?.messages.filter((m) => m.role === 'user').at(-1)?.content as { type: string; text?: string; video_url?: { url: string } }[];
 	expect(Array.isArray(sent), 'the clip was sent as plain text').toBe(true);

@@ -16,7 +16,7 @@ import { MessagePhotos, PhotoStrip } from './ChatPhotos';
 import { isFigureLang } from './chat-figures';
 import { type ChatSegment, renderMessageSegments, renderMessageSegmentsStreaming } from './chat-markdown';
 import { photoNote, videoNote } from './chat-photo-parts';
-import { addChatPhotos, heldVideo, MAX_CHAT_PHOTOS, photoDataUrl, readChatVideo } from './chat-photos';
+import { addChatPhotos, forgetVideo, heldVideo, MAX_CHAT_PHOTOS, photoDataUrl, readChatVideo } from './chat-photos';
 import { THINKING } from './chat-status';
 import { DiffCard } from './diff-card';
 import { frontMatterBlock, getFrontMatter } from './front-matter';
@@ -235,7 +235,10 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `deckId` is the trigger; the body reads nothing from it.
 	React.useEffect(() => {
 		setPendingPhotos([]);
-		setPendingVideos([]);
+		setPendingVideos((cur) => {
+			for (const v of cur) forgetVideo(v.name);
+			return [];
+		});
 	}, [deckId]);
 	React.useEffect(() => {
 		saveChat(deckId, messages);
@@ -384,13 +387,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 	// Photos from the picker (or a paste): into the Library on THIS deck's shelf, then pending for the
 	// next message. Cloud tier only — the on-device tiers cannot see — and a model the catalog says is
 	// text-only is refused here rather than after the author has typed the question.
-	addPhotosRef.current = async (files: File[]) => {
-		// One add at a time: `room` is read from the last render, so overlapping adds (five quick pastes)
-		// each saw room for four and saved all five to the shelf.
-		if (addingRef.current) {
-			notify('Still adding the last attachment — one moment.');
-			return;
-		}
+	const attachMedia = async (files: File[]) => {
 		const forDeck = deckId;
 		if (status.generation !== 'openrouter') {
 			notify('Photos and video need a cloud model that can see — connect one in Workspace → AI.');
@@ -422,7 +419,6 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 		} catch {
 			/* catalog unreachable: the model's own answer says it if it cannot see */
 		}
-		addingRef.current = true;
 		setAddingPhotos(true);
 		try {
 			if (images.length) {
@@ -445,8 +441,22 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 				else if (deckIdRef.current === forDeck) setPendingVideos([got.video]);
 			}
 		} finally {
-			addingRef.current = false;
 			setAddingPhotos(false);
+		}
+	};
+	// One add at a time, and the flag is taken BEFORE the first await: `room` and `pendingVideos` are read
+	// from the last render, so two pastes that both passed a late check each saw room for the whole
+	// limit (and the second clip replaced the first, leaking its bytes).
+	addPhotosRef.current = async (files: File[]) => {
+		if (addingRef.current) {
+			notify('Still adding the last attachment — one moment.');
+			return;
+		}
+		addingRef.current = true;
+		try {
+			await attachMedia(files);
+		} finally {
+			addingRef.current = false;
 		}
 	};
 
@@ -589,7 +599,10 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 
 			<div className="flex flex-col gap-1.5 border-t border-border p-2.5">
 				{refDoc.chip}
-				<PhotoStrip photos={pendingPhotos} videos={pendingVideos} onRemoveVideo={(name) => setPendingVideos((cur) => cur.filter((v) => v.name !== name))} deckId={deckId} busy={addingPhotos} onRemove={(name) => setPendingPhotos((cur) => cur.filter((p) => p.name !== name))} />
+				<PhotoStrip photos={pendingPhotos} videos={pendingVideos} onRemoveVideo={(name) => {
+						forgetVideo(name);
+						setPendingVideos((cur) => cur.filter((v) => v.name !== name));
+					}} deckId={deckId} busy={addingPhotos} onRemove={(name) => setPendingPhotos((cur) => cur.filter((p) => p.name !== name))} />
 				{/* PADDING. One value on every side (p-2) rather than a 10/6 split, and it has to
 					    clear the `rounded-xl` corner — content inset closer than the radius reads as
 					    crowding into the curve. The buttons are `shrink-0` and the field is the only

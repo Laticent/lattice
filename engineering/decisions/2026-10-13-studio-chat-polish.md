@@ -104,13 +104,24 @@ header lost its over-cap color; and three test assertions that could not fail we
 reworded. Not fixed, and not new: the `§N§` placeholder in `inline()` and its quadratic link pattern
 (both pre-existing).
 
+## 4c. The second checker pass (video, math, harness)
+
+Found and fixed: `math feature` with no legend ignored every alignment modifier (its stage rule outranks the
+modifier's flex promotion, and bare `math` only worked by source order); held video bytes were never
+released and a post-reload name could collide with a persisted turn's clip (now bounded to two clips, with
+random name suffixes and release on remove and deck switch); a 15.0x-second phone clip was refused with
+"15 seconds" (half a second of slack, one-decimal messages); the attach guard was taken after an `await`
+(now before the first); poster height is capped. Not changed: a mixed photo-and-video pick drops the lot
+when one part is refused (minor), and the one-shot fallback re-sends a refused clip once.
+
 ## 5. What this does not claim
 
-- **Not verified on iOS Safari or a physical phone** (HARD RULE #23). Everything above is Chromium at a
-  phone *width*, not a phone. The native picker (Photo Library, Take Photo) is the browser's own and was
-  driven through Playwright's file chooser, which stands in for the choice, not for the picker. The pool's
-  WebKit behavior is the reason it exists and is not measured here.
-- **Video is held for one turn, not stored.** The Library's video slice is not built, so a clip cannot be an `asset:`; the chat keeps a poster and a length and holds the bytes in memory until it is sent. Regenerate after a reload therefore loses the clip, and says so.
+- **Not verified on a physical phone** (HARD RULE #23). The chat specs' 390 px cases (status line, table,
+  list numbering, model switch, figures, photo) also pass on real WebKit with the iPhone 15 Pro profile
+  (`webkit-phone`, WebKit 26): the engine the pool exists for, not the device. The native picker is the
+  browser's own and was driven through Playwright's file chooser, which stands in for the choice, not for
+  the picker. Video was not run on WebKit (it records WebM, which WebKit does not).
+- **Video is held for one turn, not stored.** The Library's video slice is not built, so a clip cannot be an `asset:`; the chat keeps a poster and a length and holds the bytes in memory until it is sent. The tab holds at most the two latest clips (the pending one and the one just sent, for a same-tab Regenerate); older ones are released, so memory is bounded. After a reload the clip is gone, and Regenerate says so. A clip over 15 s plus half a second of slack is refused.
 - **The status line was verified at the DOM, not by eye over time.** A fulfilled mock cannot stream, so
   the phases are held open with delays; their real cadence on a live model is unmeasured.
 - **The streaming bubble hands off to the committed message with one re-point** of a figure's frame.
