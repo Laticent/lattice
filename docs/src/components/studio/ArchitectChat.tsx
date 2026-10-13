@@ -393,32 +393,37 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 			notify('Photos and video need a cloud model that can see — connect one in Workspace → AI.');
 			return;
 		}
-		const clips = files.filter((f) => f.type.startsWith('video/'));
-		const images = files.filter((f) => !f.type.startsWith('video/'));
+		let clips = files.filter((f) => f.type.startsWith('video/'));
+		let images = files.filter((f) => !f.type.startsWith('video/'));
 		const room = MAX_CHAT_PHOTOS - pendingPhotos.length;
+		// Each kind is judged on its own: a refusal for one never drops the other (a full shelf of
+		// photos still lets the clip in, and a clip already pending still lets the photos in).
 		if (images.length && room <= 0) {
 			notify(`A message can carry ${MAX_CHAT_PHOTOS} photos — remove one first.`);
-			return;
+			images = [];
 		}
 		if (clips.length && pendingVideos.length) {
 			notify('A message can carry one video — remove it first.');
-			return;
+			clips = [];
 		}
 		try {
-			const known = (await listStudioModels()).find((m) => m.id === status.modelId);
-			if (images.length && known && known.vision === false) {
-				notify(`${known.name || 'This model'} can't read photos — pick one marked "vision" in the model menu.`);
-				return;
-			}
-			// `video` is absent on a catalog cached before the field existed: unknown, so allowed, and the
-			// model's own refusal is turned into the same advice (describeModelError).
-			if (clips.length && known && known.video === false) {
-				notify(`${known.name || 'This model'} can't read video — pick one marked "video" in the model menu.`);
-				return;
+			if (images.length || clips.length) {
+				const known = (await listStudioModels()).find((m) => m.id === status.modelId);
+				if (images.length && known && known.vision === false) {
+					notify(`${known.name || 'This model'} can't read photos — pick one marked "vision" in the model menu.`);
+					images = [];
+				}
+				// `video` is absent on a catalog cached before the field existed: unknown, so allowed, and the
+				// model's own refusal is turned into the same advice (describeModelError).
+				if (clips.length && known && known.video === false) {
+					notify(`${known.name || 'This model'} can't read video — pick one marked "video" in the model menu.`);
+					clips = [];
+				}
 			}
 		} catch {
 			/* catalog unreachable: the model's own answer says it if it cannot see */
 		}
+		if (!images.length && !clips.length) return;
 		setAddingPhotos(true);
 		try {
 			if (images.length) {

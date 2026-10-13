@@ -225,3 +225,24 @@ test('a model that reads images but not video refuses a clip up front', async ({
 	await expect(page.getByText(/can't read video/)).toBeVisible({ timeout: 20_000 });
 	await expect(page.getByTestId('chat-photo-strip')).toHaveCount(0);
 });
+
+test('a mixed pick judges each kind on its own: the photo attaches, the refused clip is explained', async ({ page }) => {
+	test.setTimeout(60_000);
+	await seed(page, true, false);
+	await gotoStudio(page);
+	await openChatAtWidth(page, 1440);
+	const clip = await recordClip(page, 1);
+	await page.getByRole('button', { name: 'Attach a photo, video or reference document' }).click();
+	const chooser = page.waitForEvent('filechooser');
+	await page.getByRole('button', { name: 'Add a photo or video…' }).click();
+	await (
+		await chooser
+	).setFiles([
+		{ name: 'Team Offsite.png', mimeType: 'image/png', buffer: PNG },
+		{ name: 'Clip.webm', mimeType: 'video/webm', buffer: clip },
+	]);
+	await expect(page.getByText(/can't read video/)).toBeVisible({ timeout: 20_000 });
+	const strip = page.getByTestId('chat-photo-strip');
+	await expect(strip.getByRole('img')).toHaveCount(1, { timeout: 20_000 });
+	await expect(strip.getByRole('img', { name: /^Video/ })).toHaveCount(0);
+});
