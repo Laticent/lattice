@@ -97,7 +97,7 @@ export function MediaDetailDialog({ m, open, onOpenChange, usedIn, aliasUse, onS
 						</div>
 						<div className="grid gap-1">
 							<label htmlFor={`${uid}-taken`} className="font-semibold">Date taken</label>
-							<Input id={`${uid}-taken`} value={taken} inputMode="numeric" onChange={(e) => setTaken(e.target.value)} placeholder="YYYY-MM-DD" aria-invalid={!takenOk} />
+							<Input id={`${uid}-taken`} type="date" value={taken} max={new Date().toISOString().slice(0, 10)} onChange={(e) => setTaken(e.target.value)} aria-invalid={!takenOk} />
 						</div>
 					</div>
 					<div className="grid gap-1">
