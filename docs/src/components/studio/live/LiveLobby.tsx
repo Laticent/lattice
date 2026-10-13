@@ -13,7 +13,7 @@ const COPY: Record<LobbyView['stage'], { title: string; body: string } | null> =
 	ready: null,
 	waiting: { title: 'Waiting for the host', body: '' },
 	denied: { title: "The host didn't let you in", body: 'Ask them to send the link again if this was a mistake.' },
-	'host-absent': { title: 'Nobody answered', body: "Either the host doesn't have the deck open right now, or your network blocks direct browser-to-browser connections (common on office networks). Ask the host to check, or try another network." },
+	'host-absent': { title: 'Nobody answered', body: "Either the host doesn't have the deck open right now, or your network blocks direct browser-to-browser connections. Hotel, office and school wifi often do, especially when both of you are on the same wifi. Ask the host to check that the deck is open and their screen is on, or put one of you on mobile data." },
 	full: { title: 'This session is full', body: 'A live session holds up to 4 people.' },
 	outdated: { title: 'Reload to join', body: "The host's Studio is a different version from yours. Reload this page, and ask the host to reload theirs." },
 	'bad-link': { title: "This link isn't complete", body: 'Part of the link is missing or changed, which often happens when an email or chat app breaks a long link across lines. Ask the host to send it again.' },

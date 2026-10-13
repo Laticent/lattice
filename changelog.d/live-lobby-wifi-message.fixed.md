@@ -1,0 +1,1 @@
+- Live: the "Nobody answered" message now says hotel, office and school wifi often stop two devices on the same wifi from connecting, and suggests keeping the host's screen on or putting one device on mobile data.
