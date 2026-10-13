@@ -5,6 +5,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { cn } from '@/lib/utils';
 import { agentTurnUsd, architectSpend, type ChatGrounding, useArchitectStatus } from './architect';
 import { ModelList, useModelCatalog } from './ModelPicker';
+import { assetChoices, onAssetUrlsChanged } from './media-urls';
 import { type ReferenceDoc, refDocsTokens } from './reference-doc';
 
 // The money readout: what this turn costs, and what the session has spent.
@@ -52,11 +53,17 @@ export function ChatCost({ source, grounding, docs, primed, className }: { sourc
 		on();
 		return () => globalThis.removeEventListener?.('lattice-chat-agent-ready', on);
 	}, []);
+	// The Library adds its list and three tools to a turn, so a photo added or removed re-prices the readout.
+	const [libraryCount, setLibraryCount] = React.useState(() => assetChoices().length);
+	React.useEffect(() => {
+		setLibraryCount(assetChoices().length);
+		return onAssetUrlsChanged(() => setLibraryCount(assetChoices().length));
+	}, []);
 	// A question and an edit, priced from the measured shape of each (agentTurnUsd): an edit
 	// takes a second model call and costs about half again as much, so one figure would
 	// mislead about one of them. Memoized because building the prompt walks the catalog.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `agentReady` is the intentional re-price trigger once the lazy agent module lands.
-	const turnEst = React.useMemo(() => (cloud && status.price ? agentTurnUsd(status.price, grounding, !!primed, source, refDocsTokens(docs)) : null), [cloud, grounding, primed, docs, source, status.price, agentReady]);
+	const turnEst = React.useMemo(() => (cloud && status.price ? agentTurnUsd(status.price, grounding, !!primed, source, refDocsTokens(docs), libraryCount) : null), [cloud, grounding, primed, docs, source, status.price, agentReady, libraryCount]);
 	const usd = (n: number) => `$${n.toFixed(n < 0.1 ? 3 : 2)}`;
 
 	if (!cloud) return null;

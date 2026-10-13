@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { type AssetInfo, assetManifest, cleanCaption, listAssetsView, MANIFEST_CAP, shapeOf } from './agent-assets';
+import { type AssetInfo, assetManifest, cleanCaption, libraryPromptTokens, listAssetsView, MANIFEST_CAP, shapeOf } from './agent-assets';
 
 const photo = (name: string, over: Partial<AssetInfo> = {}): AssetInfo => ({ name, kind: 'image', width: 3000, height: 2000, bytes: 900_000, scope: 'library', ...over });
 
@@ -87,5 +87,18 @@ describe('cleanCaption', () => {
 		expect(c).not.toContain('·');
 		expect(c).not.toMatch(/[\u202E\u200B\u0085]/);
 		expect(c).toBe('A door - this deck only hidden end');
+	});
+});
+
+describe('libraryPromptTokens — the readout never prices the Library below what the prompt really carries', () => {
+	// The WORST line: a 40-character name and a full-length caption, kept to this deck.
+	const real = (n: number) => Array.from({ length: n }, (_, i) => photo(`${'team-offsite-photo-'.padEnd(36, 'x')}${String(i).padStart(4, '0')}`, { scope: 'deck', caption: 'c'.repeat(140) }));
+	it('is at or above the real manifest, estimated at four characters a token, at every size', () => {
+		for (const n of [1, 3, 10, 40, 41, 200]) expect(libraryPromptTokens(n)).toBeGreaterThanOrEqual(Math.ceil(assetManifest(real(n)).length / 4));
+	});
+	it('is zero for an empty Library and flat past the manifest cap', () => {
+		expect(libraryPromptTokens(0)).toBe(0);
+		expect(libraryPromptTokens(-3)).toBe(0);
+		expect(libraryPromptTokens(500)).toBe(libraryPromptTokens(MANIFEST_CAP));
 	});
 });

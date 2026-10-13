@@ -13,8 +13,8 @@
 // over its soft budget; importing them DYNAMICALLY instead made the bundler re-split shared
 // chunks and cost more. So everything the startup code already holds is passed in through
 // `init(deps)` by `architect.ts`, and only this feature's own modules are imported.
-import { assetManifest, THUMB_TOKENS } from './agent-assets';
-import { agentAssets } from './agent-assets-browser';
+import { assetManifest, libraryPromptTokens, THUMB_TOKENS } from './agent-assets';
+import { createAgentAssets } from './agent-assets-browser';
 import { agentLibrary } from './agent-library';
 import type { ArchitectModel, ChatGrounding, ChatOptions, ChatResult, ChatTurn, ORPrice, ProposedEdit } from './architect';
 import { AGENT_TOOLS, type AgentComplete, type AgentComponent, type AgentRawEdit, ASSET_TOOLS, bindKernel, buildAgentSystem, createToolbox, type DeckCheck, deckBrief, deckForTurn, describeEdit, type KernelDeps, runAgentLoop, type ToolCall } from './architect-agent';
@@ -128,6 +128,9 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 	const grounding = opts?.grounding;
 	const last = history[history.length - 1];
 	// The Library is read once per turn. A failed read is an empty Library, never a failed turn.
+	// One instance per turn: it reads the shelf (every photo's bytes) once and serves list, thumbnails and
+	// captions from that read, instead of one full read per call.
+	const agentAssets = createAgentAssets();
 	const library = await agentAssets.list().catch(() => []);
 	// Asked only when there is something to look at: a model that cannot read images is not nudged to try.
 	const sees = library.length ? await modelSeesImages(model) : false;
@@ -357,15 +360,16 @@ function withFit(grounding?: ChatGrounding): ((source: string) => Promise<DeckCh
  * 4,096-token output CEILING, which is the budget gate's worst case and quoted every turn at
  * ~3x a question's real cost. The ceiling stays in the gate; this is the typical turn.
  */
-export function agentTurnUsd(price: ORPrice | null, grounding: ChatGrounding | undefined, primed: boolean, source: string, extraTokens = 0): { question: number; edit: number } | null {
+export function agentTurnUsd(price: ORPrice | null, grounding: ChatGrounding | undefined, primed: boolean, source: string, extraTokens = 0, libraryCount = 0): { question: number; edit: number } | null {
 	if (!price || price.promptPerM == null || price.completionPerM == null) return null;
 	const inUsd = price.promptPerM / 1e6;
 	const outUsd = price.completionPerM / 1e6;
 	const { staticPrefix, dynamicTail } = agentSystemParts(source, grounding);
 	// The tool schemas lead every request, so they sit in the cached prefix with the system core.
-	const stat = (estTokens(staticPrefix) + estTokens(JSON.stringify(AGENT_TOOLS))) * AGENT_TOKEN_SCALE;
+	// With a Library the three asset tools join them (they are sent only then), and the list rides in the tail.
+	const stat = (estTokens(staticPrefix) + estTokens(JSON.stringify(libraryCount > 0 ? [...AGENT_TOOLS, ...ASSET_TOOLS] : AGENT_TOOLS))) * AGENT_TOKEN_SCALE;
 	// The turn carries the deck whole, or past INLINE_DECK_CHARS an outline (deckForTurn).
-	const rest = (estTokens(dynamicTail) + estTokens(deckForTurn(source)) + extraTokens) * AGENT_TOKEN_SCALE;
+	const rest = (estTokens(dynamicTail) + estTokens(deckForTurn(source)) + extraTokens + libraryPromptTokens(libraryCount)) * AGENT_TOKEN_SCALE;
 	// Round one: the static prefix at the cache-read rate once a turn has written it, and
 	// at the 1-hour write rate (2x) on the turn that writes it; the rest is written to the
 	// 5-minute cache for the next round (1.25x).

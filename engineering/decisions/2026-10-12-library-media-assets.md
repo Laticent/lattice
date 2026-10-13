@@ -283,6 +283,16 @@ in `chat-agent.ts`.
   characters; the prompt calls captions and the pictures themselves data, never instructions.
 - **A model that cannot read images is told so** (`view_asset` answers from the catalog's `vision` flag; an
   unknown flag reads as no) and is never sent a picture. It still gets the list and `list_assets`.
+- **The cost readout includes the Library.** `agentTurnUsd` takes the photo count: with one or more photos it adds
+  the three asset tools to the cached prefix and `libraryPromptTokens(count)` (a header plus at most 40 lines at
+  the worst-case line size) to the tail; with none it is unchanged. `ChatCost` re-prices when a photo is added or
+  removed. The per-line figure is a worst case on purpose (a bare-name Library is overstated by up to about a
+  cent, never understated), and a test holds it at or above the real manifest at every size. Measured in the real
+  Studio at a $3 / $15 price, two photos move the readout from $0.078–0.088 to $0.083–0.093, a cold turn; a
+  warm turn costs far less. Pictures are not in the readout, because whether the chat will look at one is not
+  known before the turn.
+- **One shelf read per turn.** `createAgentAssets()` reads the shelf once and serves the list, every thumbnail
+  and every caption from that read; it was one full read of every photo's bytes per call.
 - **The budget gate prices a picture as a fixed `THUMB_TOKENS`**, not as the ~40K characters of base64 that
   carry it, which would have overstated a round's cost about twelve times.
 - **Videos are listed but cannot be viewed.** There is no poster frame yet.
