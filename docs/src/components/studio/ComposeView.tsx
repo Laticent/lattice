@@ -14,8 +14,10 @@ import { type CommentKind, commentInner, commentKind, stripChannelPrefix } from 
 import { deckSchema, deckToDoc, type EmitBaseline, emitDeck, initBaseline, serializeSlideNode } from '@/lib/compose/deck-doc';
 import { slideClassOf } from '@/lib/compose/deck-source';
 import { deckFenceTags, highlightLanguageFor } from '@/lib/compose/fence-catalog';
+import { closePillEditor, type InlineKernels, inlineNotationPlugin, insertPill, type NotationPluginOptions, type OpenPill } from '@/lib/compose/inline-notation';
 import { addPaneTitle, applyPaneChoice, type PaneChoice, type PaneDirection, type PaneInfo, paneChoices, paneFit, paneLabel, paneMarkerGuard, paneOwnsTitles, paneStarter, slidePanes, starterEditable } from '@/lib/compose/pane-model';
 import { type PaneCatalogRow, paneNeedsFrom } from '@/lib/compose/pane-needs';
+import { pillSheetReady, releasePillSheet, syncPillSheet } from '@/lib/compose/pill-sheet';
 import { activeRegister, applicableRegisters, applyRegister, type Reg, type SlideBlocks, type SlideHeadings, slideTakesTable } from '@/lib/compose/registers';
 import { selectionSpansSlides, selectSlideThenDeck, touchesLockedSlide } from '@/lib/compose/selection-commands';
 import { insertStarterTable, stripCellSpans, tabToNextCellOrAddRow } from '@/lib/compose/table-commands';
@@ -30,6 +32,9 @@ import { registerValue } from './deck-preset';
 import { TableControls } from './table-controls';
 import { tourChromeOverlap } from './tour-chrome';
 import { useRailLayout, useVisualViewport } from './use-visual-viewport';
+
+// The pill editor is lazy, like IconGrid: none of it is in the Studio's startup JavaScript.
+const PillEditorHost = React.lazy(() => import('./PillEditor'));
 
 const { stateClassesFor } = stateMarks;
 
@@ -404,6 +409,8 @@ const LUCIDE_PATHS: Record<string, string> = {
 	// distinction the door is actually making.
 	'square-code': '<path d="m10 9-3 3 3 3"/><path d="m14 15 3-3-3-3"/><rect x="3" y="3" width="18" height="18" rx="2"/>',
 	'chevron-up-down': '<path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/>',
+	// The insert-pill door.
+	tag: '<path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/>',
 };
 function lucideSvg(name: keyof typeof LUCIDE_PATHS): string {
 	return `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${LUCIDE_PATHS[name]}</svg>`;
@@ -630,6 +637,8 @@ class SlideView {
 		// the door's default tag is computed at CLICK time, not at construction.
 		private getFences?: () => SlideFences | undefined,
 		private getSource?: () => string,
+		// The inline-notation kernels, once the authoring bundle has loaded (null before).
+		private getKernels?: () => InlineKernels | null,
 	) {
 		this.node = node;
 		this.locked = !!node.attrs.locked;
@@ -699,6 +708,15 @@ class SlideView {
 			insertFence(tag)(this.view.state, this.view.dispatch);
 			this.view.focus();
 		}, 'cs-pill-btn cs-insert-code'));
+		// Insert a pill at the caret and open its editor on it: the way in for an author who has
+		// no pill to click yet. A short selected word becomes its label. A no-op in a fence, in a
+		// locked slide, and until the kernels have loaded.
+		actions.append(this.btn('Insert pill', 'tag', () => {
+			// Say why when it declines, instead of doing nothing.
+			if (!insertPill(() => this.getKernels?.() ?? null)(this.view.state, this.view.dispatch)) {
+				notify('Put the cursor in plain text on one line to insert a pill.');
+			}
+		}, 'cs-pill-btn cs-insert-pill'));
 		if (onSettings) actions.append(this.btn('Slide settings', 'sliders-horizontal', () => { const i = this.index(); if (i >= 0) onSettings(i); }, 'cs-pill-btn'));
 		pill.append(this.fmtGroup, div, actions);
 
@@ -1499,7 +1517,7 @@ export class CommentView {
 }
 
 type PaneOpen = (getPos: () => number | undefined, paneIndex: number) => void;
-function buildPlugins(getDefaultTag: () => string, getPaneOpen: () => PaneOpen | undefined = () => undefined) {
+function buildPlugins(getDefaultTag: () => string, getPaneOpen: () => PaneOpen | undefined = () => undefined, notation?: NotationPluginOptions) {
 	return [
 		structuralGuard(),
 		commentRunPlugin(),
@@ -1509,6 +1527,7 @@ function buildPlugins(getDefaultTag: () => string, getPaneOpen: () => PaneOpen |
 		collapsePlugin(),
 		activeSlidePlugin(),
 		stateMarkerPlugin(),
+		...(notation ? [inlineNotationPlugin(notation)] : []),
 		codeHighlightPlugin(),
 		formatSyncPlugin(),
 		history(),
@@ -1917,6 +1936,89 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 	// constructed once per deck and must not be rebuilt on every keystroke.
 	const sourceRef = React.useRef(source);
 	sourceRef.current = source;
+
+	// THE INLINE-NOTATION KERNELS — the engine's own pill reader, writer and vocabulary
+	// (lib/authoring/inline-editors.js), loaded once from the authoring bundle the Markdown editor
+	// already uses, so this is the same module instance and not a second copy. Null until it
+	// lands; the chip plugin paints nothing and the "+ Pill" door declines until then.
+	const kernelsRef = React.useRef<InlineKernels | null>(null);
+	// The pill the editor is open on, or null. One editor for the whole deck. The RANGE is owned by the
+	// notation plugin, which maps it through every transaction; this is a mirror for rendering
+	// (lib/compose/inline-notation.ts, "The open editor's range").
+	const [pillEdit, setPillEdit] = React.useState<OpenPill | null>(null);
+	const closePillEdit = React.useCallback(() => {
+		const v = viewRef.current;
+		if (v) closePillEditor(v);
+		setPillEdit(null);
+	}, []);
+	React.useEffect(() => {
+		let live = true;
+		import('@/playground/authoring-core.generated.js')
+			.then((m) => {
+				if (!live) return;
+				kernelsRef.current = (m as unknown as { inlineEditors: InlineKernels }).inlineEditors;
+				// The plugin reads the kernels at paint time; a no-op transaction asks for a repaint.
+				const v = viewRef.current;
+				if (v) v.dispatch(v.state.tr.setMeta('inlineKernelsLoaded', true));
+			})
+			// Without the kernels there is no pill chip and the insert door declines; say so in the console.
+			.catch((e) => console.error('[compose] the pill editor could not load its kernels', e));
+		return () => {
+			live = false;
+		};
+	}, []);
+
+	// THE PILL SHEET — the engine's pill rules and the deck's tokens, copied from the live preview
+	// frame (lib/compose/pill-sheet.ts), so a pill is drawn here as the slide draws it. It is rebuilt
+	// when what it was built from changes: the site palette or mode, the preview frame reloading, or
+	// the deck's own front matter (a `theme:` edit restyles the preview without touching either of
+	// those). `syncPillSheet` is cheap when nothing changed, so every trigger just asks.
+	const syncSheetRef = React.useRef<() => void>(() => {});
+	React.useEffect(() => {
+		let live = true;
+		let tries = 0;
+		let retry: number | undefined;
+		let debounce: number | undefined;
+		const repaint = () => {
+			const v = viewRef.current;
+			if (live && v) v.dispatch(v.state.tr.setMeta('pillSheet', true));
+		};
+		const sync = () => {
+			syncPillSheet(repaint);
+		};
+		syncSheetRef.current = sync;
+		// The preview frame may not exist yet when Compose mounts: ask a bounded number of times.
+		const waitForFrame = () => {
+			if (!live || pillSheetReady() || tries++ >= 12) return;
+			sync();
+			retry = window.setTimeout(waitForFrame, 500);
+		};
+		waitForFrame();
+		const later = () => {
+			window.clearTimeout(debounce);
+			debounce = window.setTimeout(sync, 300);
+		};
+		const mo = new MutationObserver(later);
+		mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-palette', 'data-mode'] });
+		// `load` does not bubble, so the capture phase is how a document-level listener hears an iframe's.
+		const onFrameLoad = (e: Event) => {
+			if (e.target instanceof HTMLIFrameElement && e.target.classList.contains('live')) later();
+		};
+		document.addEventListener('load', onFrameLoad, true);
+		return () => {
+			live = false;
+			window.clearTimeout(retry);
+			window.clearTimeout(debounce);
+			mo.disconnect();
+			document.removeEventListener('load', onFrameLoad, true);
+			releasePillSheet();
+		};
+	}, []);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `source` is the trigger (a front-matter theme edit restyles the preview); the body reads the frame.
+	React.useEffect(() => {
+		const t = window.setTimeout(() => syncSheetRef.current(), 600);
+		return () => window.clearTimeout(t);
+	}, [source]);
 	const onInsertBelowRef = React.useRef(onInsertBelow);
 	onInsertBelowRef.current = onInsertBelow;
 	const [chromeRevealed, setChromeRevealed] = React.useState(true);
@@ -1982,10 +2084,18 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			const doc = deckToDoc(source);
 			baselineRef.current = initBaseline(doc);
 			view = new EditorView(hostRef.current, {
-				state: EditorState.create({ doc, plugins: buildPlugins(() => defaultTagAtCaret(), () => (onOpenPanePickerRef.current ? openPane : undefined)) }),
+				state: EditorState.create({
+					doc,
+					plugins: buildPlugins(() => defaultTagAtCaret(), () => (onOpenPanePickerRef.current ? openPane : undefined), {
+						getKernels: () => kernelsRef.current,
+						getDeckLiteral: () => kernelsRef.current?.isLiteralFromSource(sourceRef.current) ?? false,
+						isRendered: () => pillSheetReady(),
+						onOpenChange: (open) => setPillEdit(open),
+					}),
+				}),
 				nodeViews: {
 					slide: (node, nodeView, getPos, decorations) =>
-						new SlideView(node, nodeView, getPos as () => number, decorations, (i) => onOpenSlideSettingsRef.current?.(i), () => slideHeadingsRef.current, onInsertBelowRef.current ? (i) => onInsertBelowRef.current?.(i) : undefined, mountIsland, () => slideBlocksRef.current, () => slideFencesRef.current, () => sourceRef.current),
+						new SlideView(node, nodeView, getPos as () => number, decorations, (i) => onOpenSlideSettingsRef.current?.(i), () => slideHeadingsRef.current, onInsertBelowRef.current ? (i) => onInsertBelowRef.current?.(i) : undefined, mountIsland, () => slideBlocksRef.current, () => slideFencesRef.current, () => sourceRef.current, () => kernelsRef.current),
 					comment: (node, nodeView, getPos) => new CommentView(node, nodeView, getPos as () => number | undefined),
 					code_block: (node, nodeView, getPos) => new CodeBlockView(node, nodeView, (el, pos) => onChipRef.current(el, pos), getPos as () => number | undefined),
 				},
@@ -2165,6 +2275,13 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			{/* The chip's picker — anchored, not wrapped, because the chip lives in a NodeView
 			    React does not own. Rendered only while a chip is open, so a deck of forty
 			    fences carries one popover rather than forty. */}
+			{/* The pill editor — one for the whole deck, opened on a pill's chip or by the "+ Pill" door.
+			    Keyed on the pill so a click on another chip remounts it on that pill. */}
+			{pillEdit && viewRef.current && kernelsRef.current && (
+				<React.Suspense fallback={null}>
+					<PillEditorHost key={pillEdit.id} view={viewRef.current} kernels={kernelsRef.current} range={pillEdit} onClose={closePillEdit} />
+				</React.Suspense>
+			)}
 			{chipAnchor && viewRef.current && <FencePicker view={viewRef.current} source={source} anchor={chipAnchor} open onOpenChange={(o) => { if (!o) { openChipRef.current = null; setChipAnchor(null); } }} align="start" />}
 		</div>
 	);
@@ -2344,6 +2461,20 @@ function ComposeStyles() {
 			/* THE CHIP — the fence's language, legible without the caret, and the picker's
 			   trigger. Top-right, the same corner and the same quiet mono voice as the
 			   locked-slide badge, so the two read as one family of block-level labels. */
+			/* The pill chip: a small tag button after each pill the engine draws. View-only; the raw span stays. */
+			/* THE PILL, drawn as the slide draws it (lib/compose/pill-sheet.ts): the span's text is hidden
+			   while the selection is elsewhere, and a click on the pill opens the editor. */
+			.cs-host .cs-psrc,.cs-host code:has(> .cs-psrc){display:none}
+			.cs-npill{display:inline-block;vertical-align:baseline;user-select:none}
+			.cs-npill-btn{all:unset;display:inline-block;cursor:pointer;vertical-align:baseline;border-radius:6px}
+			.cs-npill-btn:focus-visible{outline:2px solid var(--accent,#1e5f96);outline-offset:2px}
+			.cs-npill-btn:disabled{cursor:default}
+			.cs-npill-sel .lat-pill{outline:2px solid var(--accent,#1e5f96);outline-offset:1px}
+			.cs-nchip-wrap{display:inline-block;padding-left:4px;vertical-align:baseline;user-select:none}
+			.cs-nchip{display:inline-grid;place-items:center;width:18px;height:18px;padding:0;border:1px solid var(--border,#e4eaf2);border-radius:999px;background:var(--bg-alt,#f2f5fa);color:var(--text-muted,#6b7f9a);cursor:pointer;vertical-align:middle;transition:color .12s ease,border-color .12s ease,background .12s ease}
+			.cs-nchip:hover:not(:disabled){color:var(--accent,#1e5f96);border-color:var(--accent,#1e5f96)}
+			.cs-nchip:disabled{cursor:default;opacity:.45}
+			.cs-nchip:focus-visible{outline:2px solid var(--accent,#1e5f96);outline-offset:1px}
 			.cs-code-chip{position:absolute;top:5px;right:6px;z-index:1;display:inline-flex;align-items:center;min-height:17px;padding:1px 7px;border:1px solid var(--border,#e4eaf2);border-radius:999px;background:var(--bg,#fff);color:var(--text-muted,#6b7f9a);font-family:var(--font-mono,ui-monospace,monospace);font-size:9px;letter-spacing:.08em;text-transform:uppercase;line-height:1.5;cursor:pointer;user-select:none;transition:color .12s,border-color .12s,background .12s}
 			.cs-code-chip:hover:not(:disabled){color:var(--text-heading,#0a1628);border-color:var(--accent,#006fa8);background:var(--accent-soft,#eff6fc)}
 			/* On a locked slide the chip is a LABEL, not a control — it still names the
