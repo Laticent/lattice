@@ -403,24 +403,45 @@ Avro or a second compressor, and the measurements below are why.
 | What goes to a model (photo, clip, PDF) | Base64 in the request body | The API takes JSON. Built at the moment of sending from the stored bytes and never stored. |
 | `refdocs.json` in a backup | PDFs as base64 text | Kept so a backup made now still restores in an older version. It deflates back to about the PDF's size. |
 
-**Measured** (JSZip, level 6, one run each on this machine; the files are real, not synthetic):
+**Measured** (JSZip, level 6, three runs on one machine; the files are real, not synthetic). The JPEG is
+`engineering/decisions/2026-09-25-flowchart-authoring/05-elk-comparison.jpg` and the PDF is
+`exemplars/academic/course-overview.pdf`. The WebM is a 10-second clip recorded by Playwright's video capture (VP8) and is
+not committed; any WebM or MP4 you hold gives the same shape. There is no bench script in the tree, so re-measure with
+a few lines of JSZip (`file(name, bytes, { compression: 'STORE' | 'DEFLATE' })`, then `generateAsync`):
 
 | File | Size | Deflate result | Deflate time | Store time |
 |---|---|---|---|---|
-| Recorded WebM (VP8) | 296 KB | 95.6% of original | 59 ms | 12 ms |
+| WebM (VP8, Playwright capture) | 296 KB | 95.6% of original | 59 ms | 12 ms |
 | JPEG (a diagram) | 127 KB | 91.6% | 12 ms | 1 ms |
 | PDF | 452 KB | 26.5% | 19 ms | 4 ms |
 
 So deflate is the right call for a PDF or JSON and the wrong one for a clip or photo: about five times the CPU for 0 to 9%
-(a phone video is closer to 0%). Base64 is exactly 4/3 (1.333) of the bytes; a stored PDF was a third larger than the
-file and `listRefDocs` loaded every PDF's whole string into memory on each Library open. A PDF is now a Blob, and a record
-written the old way is rewritten as binary once, when the Library opens (`migrateLegacyRefDocs`).
+(a phone-recorded H.264 clip was not available to measure, and should be closer to 0%). Base64 is exactly 4/3 (1.333) of the bytes; a stored PDF was a third larger than the
+file and `listRefDocs` loaded every PDF's whole string into memory on each Library open. A PDF saved from now on is a Blob.
+A record written the old way is still read and downloaded as it is.
+
+**The cost, stated plainly.** A PDF stored as binary is invisible to a build from before this change: its chat grounding
+says "needs a connected cloud model" when one is connected, its download says "Could not download", and its backup
+writes an empty row. That applies to **every PDF saved from now on**, so a person who rolls back, or keeps a tab open
+across the deploy, loses access to those PDFs until they update. The bytes stay in IndexedDB and nothing is deleted. We
+accept this: the alternative, writing the base64 text beside the Blob, keeps the extra third of disk and the string in
+memory that this change exists to remove. **The rewrite of old records (`migrateLegacyRefDocs`, a compare-and-swap) is
+built and tested but not run yet**, because it would widen that exposure from the PDFs saved since the deploy to every PDF
+a person owns. Run it in a later release, once rolling back past this one is no longer realistic
+(`followups.d/2654-p3-run-the-legacy-pdf-rewrite.md`).
+
+A restored PDF row is checked before it is stored: valid base64, within 5 MB, stored typed as `application/pdf` whatever
+its text claimed, and sized from what was decoded, never from the row's own `bytes` (the spend guard reads that number).
 
 **Why not protobuf, Avro or a custom container.** They are for structured records that cross a language or version
 boundary. Our records are a handful of fields (a name, a scope, two sizes) beside a payload, and IndexedDB's structured
 clone already stores them without a text layer. The payload is already compressed, so a second codec cannot shrink it.
 A schema format would add a decoder, a version to migrate and a new way to fail on a restore, to save bytes that are
 not there. The place a codec earns its keep is text, and `DEFLATE` on the JSON already covers it.
+
+**A backup reads each item on its own.** One photo, clip or PDF the browser cannot read (IndexedDB lost the file behind a
+Blob, or a 50 MB clip does not fit in memory on a phone) is left out and named in the backup's warnings; it does not cost
+the rest of the media or the decks.
 
 **Not changed.** A video is stored as given; transcoding in the browser would cost minutes of CPU on a phone for a smaller
 file the author did not ask for.

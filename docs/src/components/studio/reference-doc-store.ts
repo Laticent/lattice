@@ -8,7 +8,7 @@
 // inline-only decision, engineering/decisions/2026-06-29-studio-spend-budget.md).
 import { ASSET_STORE, openDB } from '@/components/studio/library/asset-db.js';
 import { deleteAsset, listAssets, putAsset, REFUSAL_PREFIX } from '@/components/studio/library/asset-store.js';
-import { blobToDataUrl, dataUrlToBlob, type ReferenceDoc } from './reference-doc';
+import { blobToDataUrl, dataUrlToBlob, MAX_DOC_BYTES, type ReferenceDoc } from './reference-doc';
 
 /** A persisted reference doc — an asset-store record of kind 'refdoc'. */
 export type RefDocRecord = {
@@ -62,9 +62,15 @@ function readable(row: RefDocRecord): RefDocRecord {
 /** Persist a doc to the shared library (dedups by name — re-adding replaces in
  *  place). `addedAt` is passed in so callers own the clock (tests stay deterministic). */
 export async function saveRefDoc(doc: ReferenceDoc, addedAt: number): Promise<RefDocRecord> {
-	const record: Omit<RefDocRecord, 'id'> = { kind: REFDOC_KIND, name: doc.name, docKind: doc.kind, text: doc.text, bytes: doc.bytes, addedAt };
-	// A PDF arrives as base64 text (it is read that way for the request) and is stored as the bytes it encodes.
-	const blob = doc.kind === 'pdf' && doc.dataUrl ? dataUrlToBlob(doc.dataUrl) : undefined;
+	// A PDF arrives as base64 text (it is read that way for the request) and is stored as the bytes it encodes,
+	// typed as a PDF whatever the text said (a file picked with no type reads as octet-stream, and a backup row can
+	// claim any type: `recordToDoc` sends this type to the model).
+	const decoded = doc.kind === 'pdf' && doc.dataUrl ? dataUrlToBlob(doc.dataUrl) : undefined;
+	const blob = decoded ? decoded.slice(0, decoded.size, 'application/pdf') : undefined;
+	// The size is what was decoded, never the row's own claim: a restored row says whatever its file says, and the
+	// cost readout and the spend guard read this number.
+	const bytes = blob ? blob.size : Math.min(MAX_DOC_BYTES, Math.max(0, Math.floor(Number(doc.bytes) || 0)));
+	const record: Omit<RefDocRecord, 'id'> = { kind: REFDOC_KIND, name: doc.name, docKind: doc.kind, text: doc.text, bytes, addedAt };
 	if (!blob) return readable((await putAsset(record)) as RefDocRecord);
 	try {
 		// putAsset assigns an id and updates an existing (kind,name) in place.

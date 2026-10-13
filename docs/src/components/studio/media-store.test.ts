@@ -10,6 +10,7 @@ import {
 	decksUsing,
 	deleteDeckMedia,
 	isMediaName,
+	isPosterDataUrl,
 	LIBRARY_SCOPE,
 	listMedia,
 	MEDIA_REFUSAL_PREFIX,
@@ -202,7 +203,7 @@ describe('an engine that will not store a Blob', () => {
 
 	it('says plainly why when the engine will store neither, and leaves the shelf alone', async () => {
 		refuse('blob-and-buffer');
-		await expect(saveMedia(png(), 1)).rejects.toThrow(/would not store the photo.*private window/s);
+		await expect(saveMedia(png(), 1)).rejects.toThrow(/would not store that file.*private window/s);
 		await expect(saveMedia(png(), 1)).rejects.toThrow(MEDIA_REFUSAL_PREFIX);
 		vi.restoreAllMocks();
 		expect(await listMedia()).toHaveLength(0);
@@ -213,6 +214,13 @@ describe('an engine that will not store a Blob', () => {
 		const put = refuse('blob');
 		await expect(saveMedia(png(), 2)).rejects.toThrow(/already another saved image/);
 		expect(put).not.toHaveBeenCalled();
+	});
+});
+
+describe('isPosterDataUrl', () => {
+	it('lets a plain JPEG data URL through and nothing else', () => {
+		expect(isPosterDataUrl('data:image/jpeg;base64,/9j/4AAQ')).toBe(true);
+		for (const bad of ['https://attacker.example/beacon.png', 'javascript:alert(1)', 'data:image/svg+xml;base64,PHN2Zy8+', 'data:image/jpeg;base64,AAAA" onerror="x', `data:image/jpeg;base64,${'A'.repeat(130_000)}`, '', 7, null, undefined]) expect(isPosterDataUrl(bad), String(bad).slice(0, 30)).toBe(false);
 	});
 });
 

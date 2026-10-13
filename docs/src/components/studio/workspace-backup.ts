@@ -86,6 +86,8 @@ export type PackReport = {
 	/** Photos the Library holds in a type a backup does not carry. Always 0 for photos added by this
 	 *  version, which stores only types it can write; non-zero means one from before. */
 	mediaSkipped?: number;
+	/** Names of photos or videos this browser could not read back, so they are not in the file. */
+	mediaUnreadable?: string[];
 	/** UTF-8 bytes of the `refdocs.json` written. */
 	refdocsBytes: number;
 	/** Rows in it, one per reference doc. */
@@ -198,11 +200,12 @@ export async function packWorkspace(now: number, report?: PackReport): Promise<B
 
 	// Photos: `media/` holds the bytes and `media.json` indexes them (workspace-media.ts). A shelf that
 	// cannot be read yields none, like a browser with no IndexedDB, and never aborts the backup.
-	const media = await packMedia(zip).catch(() => ({ rows: 0, bytes: 0, skipped: 0 }));
+	const media = await packMedia(zip).catch(() => ({ rows: 0, bytes: 0, skipped: 0, unreadable: [] as string[] }));
 	if (report) {
 		report.mediaRows = media.rows;
 		report.mediaBytes = media.bytes;
 		report.mediaSkipped = media.skipped;
+		if (media.unreadable.length) report.mediaUnreadable = media.unreadable;
 	}
 
 	const manifest: WorkspaceManifest = {
@@ -302,6 +305,7 @@ export function backupRestoreGaps(report: PackReport): string[] {
 	if (report.refdocsBytes > MAX_REFDOCS_BYTES) gaps.push(`your reference docs (${mb(report.refdocsBytes)}) are over the ${limit(MAX_REFDOCS_BYTES)} a restore reads, so they will not come back from it`);
 	else if ((report.refdocRows ?? 0) > MAX_BACKUP_ROWS) gaps.push(`you have more than ${MAX_BACKUP_ROWS.toLocaleString('en-US')} reference docs, more than a restore reads, so they will not come back from it`);
 	if (report.refdocsUnreadable?.length) gaps.push(`${report.refdocsUnreadable.length} saved PDF${report.refdocsUnreadable.length === 1 ? '' : 's'} (${report.refdocsUnreadable.slice(0, 3).join(', ')}) could not be read from this browser, so ${report.refdocsUnreadable.length === 1 ? 'it is' : 'they are'} not in this file`);
+	if (report.mediaUnreadable?.length) gaps.push(`${report.mediaUnreadable.length} of your photos or videos (${report.mediaUnreadable.slice(0, 3).join(', ')}) could not be read from this browser, so ${report.mediaUnreadable.length === 1 ? 'it is' : 'they are'} not in this file`);
 	if ((report.mediaSkipped ?? 0) > 0) gaps.push(`${report.mediaSkipped} of your photos are in a type a backup does not carry, so they are not in this file`);
 	if ((report.mediaBytes ?? 0) > MAX_MEDIA_RESTORE_BYTES) gaps.push(`your photos (${mb(report.mediaBytes ?? 0)}) are over the ${limit(MAX_MEDIA_RESTORE_BYTES)} a restore reads, so some will not come back from it`);
 	else if ((report.mediaRows ?? 0) > MAX_MEDIA_ROWS) gaps.push(`you have more than ${MAX_MEDIA_ROWS.toLocaleString('en-US')} photos, more than a restore reads, so they will not come back from it`);

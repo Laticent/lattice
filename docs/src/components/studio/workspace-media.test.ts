@@ -63,9 +63,30 @@ describe('a round trip', () => {
 		expect(method('media.json')).toBe('\x08\x00'); // DEFLATE
 	});
 
+	it('leaves out one photo the browser cannot read, names it, and still writes the rest', async () => {
+		await saveMedia(photo({ name: 'fine' }), 1);
+		await saveMedia(photo({ name: 'lost' }, OTHER), 2);
+		const real = Blob.prototype.arrayBuffer;
+		let reads = 0;
+		Blob.prototype.arrayBuffer = function (this: Blob) {
+			// The shelf lists newest first, so `lost` (saved second) is read first.
+			return ++reads === 1 ? Promise.reject(new DOMException('gone', 'NotReadableError')) : real.call(this);
+		};
+		const z = new JSZip();
+		let out: Awaited<ReturnType<typeof packMedia>>;
+		try {
+			out = await packMedia(z);
+		} finally {
+			Blob.prototype.arrayBuffer = real;
+		}
+		expect(out).toMatchObject({ rows: 1, unreadable: ['lost'] });
+		expect(Object.keys(z.files).filter((f) => f.startsWith('media/') && f !== 'media/')).toEqual(['media/fine.png']);
+		expect(JSON.parse(String(await z.file('media.json')?.async('string'))).map((r: { name: string }) => r.name)).toEqual(['fine']);
+	});
+
 	it('writes nothing for an empty shelf, and restoring a backup with no photos is a no-op', async () => {
 		const z = new JSZip();
-		expect(await packMedia(z)).toEqual({ rows: 0, bytes: 0, skipped: 0, omitted: [] });
+		expect(await packMedia(z)).toEqual({ rows: 0, bytes: 0, skipped: 0, omitted: [], unreadable: [] });
 		expect(Object.keys(z.files)).toEqual([]);
 		expect(await restoreMedia(z as never, 1, ctx())).toEqual({ restored: 0, shared: 0, refused: [], renames: [] });
 	});
@@ -443,6 +464,18 @@ describe('video in a backup', () => {
 			expect(out.restored, poster.slice(0, 30)).toBe(1);
 			expect((await listMedia())[0].poster, poster.slice(0, 30)).toBeUndefined();
 		}
+	});
+});
+
+describe('a .lattice carries photos only', () => {
+	it('refuses a video row, and still restores the photo beside it', async () => {
+		const MP4 = new Uint8Array([0, 0, 0, 24, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d, 1, 2, 3, 4]);
+		const rows = [row({ name: 'hero' }), row({ name: 'walk', kind: 'video', mime: 'video/mp4', file: 'walk.mp4', durationMs: 1000 })];
+		const zip = await craft(rows, { 'hero.png': PNG, 'walk.mp4': MP4 });
+		const out = await restoreMedia(zip, 1, ctx(), { imagesOnly: true });
+		expect(out.restored).toBe(1);
+		expect(out.refused.map((r) => r.why)).toEqual(['a .lattice carries photos only']);
+		expect((await listMedia()).map((m) => m.name)).toEqual(['hero']);
 	});
 });
 

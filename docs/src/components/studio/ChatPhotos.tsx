@@ -1,7 +1,7 @@
 import { ImageOff, Play, X } from 'lucide-react';
 import * as React from 'react';
 import { cn } from '@/lib/utils';
-import { listMedia } from './media-store';
+import { isPosterDataUrl, listMedia } from './media-store';
 import { ensureAssetUrls, onAssetUrlsChanged, setActiveAssetDeck } from './media-urls';
 import type { ChatPhoto, ChatVideo } from './studio-store';
 
@@ -108,7 +108,7 @@ export function PhotoStrip({ photos, videos = [], deckId, onRemove, onRemoveVide
 				<Thumb key={p.name} photo={p} url={urls[p.name]} size={52} onRemove={() => onRemove(p.name)} />
 			))}
 			{videos.map((v) => (
-				<VideoThumb key={v.name} video={v} poster={posters[v.name] ?? v.poster} size={52} onRemove={() => onRemoveVideo?.(v.name)} />
+				<VideoThumb key={v.name} video={v} poster={posters[v.name] ?? (isPosterDataUrl(v.poster) ? v.poster : undefined)} size={52} onRemove={() => onRemoveVideo?.(v.name)} />
 			))}
 			{busy && (
 				<span className="grid size-[52px] place-items-center rounded-lg border border-dashed border-border text-[10px] text-muted-foreground" role="status">
@@ -130,7 +130,7 @@ export function MessagePhotos({ photos, videos = [], deckId, className }: { phot
 				<Thumb key={p.name} photo={p} url={urls[p.name]} size={photos.length + videos.length === 1 ? 128 : 76} />
 			))}
 			{videos.map((v) => (
-				<VideoThumb key={v.name} video={v} poster={posters[v.name] ?? v.poster} size={photos.length + videos.length === 1 ? 128 : 76} />
+				<VideoThumb key={v.name} video={v} poster={posters[v.name] ?? (isPosterDataUrl(v.poster) ? v.poster : undefined)} size={photos.length + videos.length === 1 ? 128 : 76} />
 			))}
 		</div>
 	);

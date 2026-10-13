@@ -25,7 +25,7 @@ import { MOTION_PALETTE_STYLE } from './motion/palette-fallback';
 import { PhotoFormatDialog } from './PhotoFormatDialog';
 import { LIBRARY_FILTERS, LIBRARY_HEADER, type LibraryFilter } from './panel-shells';
 import { formatBytes, REF_DOC_ACCEPT, readReferenceDoc } from './reference-doc';
-import { deleteRefDoc, listRefDocs, migrateLegacyRefDocs, type RefDocRecord, refDocBlob, saveRefDoc } from './reference-doc-store';
+import { deleteRefDoc, listRefDocs, type RefDocRecord, refDocBlob, saveRefDoc } from './reference-doc-store';
 import { deleteStudioScene, listStudioScenes, type StudioScene } from './scene-library';
 import { renderThemeShowcase } from './share-export';
 import { listShippedScenes, type ShippedScene, shippedDrawing } from './shipped-scenes';
@@ -242,13 +242,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 		readOtherSources();
 	}, [activeDeckId, readOtherSources]);
 
-	// Reference PDFs saved before they were stored as binary are rewritten once per open panel, off the render path.
-	const migratedDocs = React.useRef(false);
 	const reload = React.useCallback(() => {
-		if (!migratedDocs.current) {
-			migratedDocs.current = true;
-			void migrateLegacyRefDocs().then((n) => n && reload());
-		}
 		// The shipped motion library rides beside the user's shelf, not in it: it is read-only,
 		// never selected, shared or deleted, and it does not count toward `total`.
 		listShippedScenes().then(setShipped);

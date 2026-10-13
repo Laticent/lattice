@@ -41,6 +41,23 @@ describe('a saved PDF is stored as binary', () => {
 		expect(refDocBlob((await listRefDocs())[0])).toBeNull();
 	});
 
+	it('takes the size from the bytes it decoded, not the size the row claims, so a hostile row cannot zero the cost guard', async () => {
+		await saveRefDoc({ name: 'cheap.pdf', kind: 'pdf', dataUrl: urlOf(PDF), bytes: -1e15 }, 1);
+		await saveRefDoc({ name: 'note.md', kind: 'text', text: 'x', bytes: -1e15 }, 2);
+		await saveRefDoc({ name: 'big.md', kind: 'text', text: 'x', bytes: 1e15 }, 3);
+		const rows = Object.fromEntries((await listRefDocs()).map((r) => [r.name, r.bytes]));
+		expect(rows).toEqual({ 'cheap.pdf': PDF.length, 'note.md': 0, 'big.md': 5 * 1024 * 1024 });
+	});
+
+	it('stores a PDF typed as a PDF whatever its text claimed, so the model is never sent another type', async () => {
+		await saveRefDoc({ name: 'a.pdf', kind: 'pdf', dataUrl: `data:text/html;base64,${Buffer.from(PDF).toString('base64')}`, bytes: 1 }, 1);
+		await saveRefDoc({ name: 'b.pdf', kind: 'pdf', dataUrl: `data:application/octet-stream;base64,${Buffer.from(PDF).toString('base64')}`, bytes: 1 }, 2);
+		for (const rec of await listRefDocs()) {
+			expect((rec.blob as Blob).type).toBe('application/pdf');
+			expect((await recordToDoc(rec)).dataUrl).toBe(urlOf(PDF));
+		}
+	});
+
 	it('refuses a PDF whose text is not base64 rather than storing it', async () => {
 		await expect(saveRefDoc({ name: 'bad.pdf', kind: 'pdf', dataUrl: 'data:application/pdf;base64,@@@', bytes: 3 }, 3)).rejects.toThrow();
 		expect(await rawRows()).toEqual([]);

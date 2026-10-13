@@ -3,7 +3,7 @@ import { CHROME, expect, gotoStudio, test } from './studio-fixture';
 
 // A saved reference PDF is binary at rest. The unit tests prove it against fake-indexeddb; this reads the real
 // IndexedDB in real Chromium: the record holds a Blob the size of the file, no base64 text, and a record
-// written the old way (base64 text) is rewritten as binary the first time the Library opens.
+// written the old way (base64 text) is left as it is.
 
 /** A PDF-shaped file: the `%PDF` header and 600 KB of bytes that do not compress to nothing. */
 const PDF_BYTES = 600_000;
@@ -30,7 +30,7 @@ async function openFiles(page: Page) {
 	await page.getByRole('tab', { name: 'Files' }).click();
 }
 
-test('a PDF added in the Library is stored as binary, and a legacy base64 record is rewritten as binary on open', async ({ page }) => {
+test('a PDF added in the Library is stored as binary, and a legacy base64 record still opens and downloads untouched', async ({ page }) => {
 	test.setTimeout(90_000);
 	await gotoStudio(page);
 	await openFiles(page);
@@ -59,9 +59,11 @@ test('a PDF added in the Library is stored as binary, and a legacy base64 record
 	);
 	expect((await rawRefDocs(page)).find((d) => d.name === 'Old Guide.pdf')).toMatchObject({ blobSize: null, hasDataUrl: true });
 
+	// The rewrite of old records is deliberately not run on open (see the library-media note): a person who rolls
+	// back after it ran would lose those PDFs. So the old record is still listed, and still the old shape.
 	await page.reload();
 	await openFiles(page);
-	await expect.poll(async () => (await rawRefDocs(page)).find((d) => d.name === 'Old Guide.pdf'), { timeout: 20_000 }).toMatchObject({ blobSize: 3000, hasDataUrl: false });
-	await expect(page.getByText('Old Guide.pdf')).toBeVisible();
+	await expect(page.getByText('Old Guide.pdf')).toBeVisible({ timeout: 20_000 });
+	expect((await rawRefDocs(page)).find((d) => d.name === 'Old Guide.pdf')).toMatchObject({ blobSize: null, hasDataUrl: true });
 	await page.screenshot({ path: test.info().outputPath('library-files.png') });
 });

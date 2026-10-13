@@ -81,7 +81,7 @@ export async function packLatticePhotos(source: string, deckId: string | undefin
 /** Put a `.lattice`'s photos in this browser's Library, and rewrite `source` for any that had to take a
  *  new name. Never throws and never overwrites a photo already here (workspace-media.ts says why). */
 export async function restoreLatticePhotos(zip: { file: (path: string) => object | null }, source: string, now: number): Promise<{ source: string; restored: number; refused: { name: string; why: string }[] }> {
-	const r = await restoreMedia(zip as Parameters<typeof restoreMedia>[0], now, { backupDeckIds: new Set(), copies: {} }, { maxTotalBytes: MAX_LATTICE_MEDIA_BYTES, only: new Set(assetNamesIn(source)) });
+	const r = await restoreMedia(zip as Parameters<typeof restoreMedia>[0], now, { backupDeckIds: new Set(), copies: {} }, { maxTotalBytes: MAX_LATTICE_MEDIA_BYTES, only: new Set(assetNamesIn(source)), imagesOnly: true });
 	const map = new Map(r.renames.map((x) => [x.from, x.to]));
 	return { source: map.size ? renameAssetRefs(source, map) : source, restored: r.restored, refused: r.refused };
 }

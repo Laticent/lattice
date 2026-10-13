@@ -96,6 +96,15 @@ export function sniffImageMime(b: Uint8Array): string | null {
 	return null;
 }
 
+/** The most a stored poster may be, in characters: a 160 px JPEG is a few KB. */
+export const MAX_POSTER_CHARS = 120_000;
+/** Is this a poster Lattice may put in an `<img src>`: a plain JPEG data URL of a sane size, and nothing else (no
+ *  `https:` address that would fetch from a stranger's server, no SVG, no `javascript:`)? A poster in a backup or a
+ *  saved chat thread is text from a file, so this is asked at every place it is read. */
+export function isPosterDataUrl(v: unknown): v is string {
+	return typeof v === 'string' && v.length <= MAX_POSTER_CHARS && /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(v);
+}
+
 /** What the leading bytes say a video is: MP4 or QuickTime (`ftyp`) and WebM (EBML header). Null for anything
  *  else. A video file's own `type` comes from its extension or the recorder, so the bytes decide, as for photos. */
 export function sniffVideoMime(b: Uint8Array): string | null {
@@ -130,7 +139,7 @@ export async function saveMedia(input: NewMedia, addedAt: number): Promise<Media
 		if (isRefusal(first)) throw first;
 		// A full disk is not a Blob problem, and a second attempt would only copy the bytes into memory
 		// and fail the same way. Say what is true.
-		if (isQuota(first)) throw new Error(`${MEDIA_REFUSAL_PREFIX} this browser has no room left to store photos. Delete some photos or other saved items and try again.`);
+		if (isQuota(first)) throw new Error(`${MEDIA_REFUSAL_PREFIX} this browser has no room left to store photos or videos. Delete some photos, videos or other saved items and try again.`);
 		// Some engines refuse to store a Blob at all: Safari in a private window answers
 		// "UnknownError: Error preparing Blob/File data to be stored in object store" (reproduced on real
 		// WebKit), while an ArrayBuffer stores fine. So the bytes go in as an ArrayBuffer and are rebuilt
@@ -140,8 +149,8 @@ export async function saveMedia(input: NewMedia, addedAt: number): Promise<Media
 			return await putMedia(input, id, addedAt, true);
 		} catch (second) {
 			if (isRefusal(second)) throw second;
-			if (isQuota(second)) throw new Error(`${MEDIA_REFUSAL_PREFIX} this browser has no room left to store photos. Delete some photos or other saved items and try again.`);
-			throw new Error(`${MEDIA_REFUSAL_PREFIX} this browser would not store the photo. A private window often cannot; open Lattice in a normal window and try again.`);
+			if (isQuota(second)) throw new Error(`${MEDIA_REFUSAL_PREFIX} this browser has no room left to store photos or videos. Delete some photos, videos or other saved items and try again.`);
+			throw new Error(`${MEDIA_REFUSAL_PREFIX} this browser would not store that file. A private window often cannot; open Lattice in a normal window and try again.`);
 		}
 	}
 }

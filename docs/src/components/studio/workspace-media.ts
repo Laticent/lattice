@@ -23,7 +23,7 @@
 
 import { cleanCaption } from './agent-assets';
 import { scrubberFor } from './media-scrub';
-import { isMediaName, LIBRARY_SCOPE, listMedia, MAX_MEDIA_FILE_BYTES, saveMedia, setMediaScope, sniffImageMime, sniffVideoMime, uniqueName } from './media-store';
+import { isMediaName, isPosterDataUrl, LIBRARY_SCOPE, listMedia, MAX_MEDIA_FILE_BYTES, saveMedia, setMediaScope, sniffImageMime, sniffVideoMime, uniqueName } from './media-store';
 import { declaredInflatedBytes, jsonGuard, readBudget, readBytesBudget } from './zip-limits';
 
 export const MEDIA_INDEX = 'media.json';
@@ -51,9 +51,6 @@ const EXT: Record<string, string> = {
 	'video/quicktime': 'mov',
 };
 const FILE_OK = /^[a-z0-9][a-z0-9_-]*\.(jpg|png|webp|gif|mp4|webm|mov)$/;
-/** The most a row's `poster` may be: a poster is a ~160 px JPEG data URL, a few KB. */
-const MAX_POSTER_CHARS = 120_000;
-const POSTER_OK = /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/;
 
 type Zip = { file: (path: string, data?: unknown, options?: { compression?: 'STORE' | 'DEFLATE' }) => object | null };
 type Refusal = { name: string; why: string };
@@ -94,12 +91,13 @@ export type PackOptions = {
 
 /** Write every Library photo into `zip` as `media/<file>` plus `media.json`. Resolves how many, how many
  *  bytes, how many it could not write (a type outside what the Library stores), and the names it left out
- *  for size, so a backup never drops a photo without saying so. */
-export async function packMedia(zip: Zip, opts: PackOptions = {}): Promise<{ rows: number; bytes: number; skipped: number; omitted: string[] }> {
+ *  for size or could not read, so a backup never drops a photo without saying so. */
+export async function packMedia(zip: Zip, opts: PackOptions = {}): Promise<{ rows: number; bytes: number; skipped: number; omitted: string[]; unreadable: string[] }> {
 	const all = (await listMedia()).filter((m) => !opts.names || opts.names.has(m.name));
-	if (!all.length) return { rows: 0, bytes: 0, skipped: 0, omitted: [] };
+	if (!all.length) return { rows: 0, bytes: 0, skipped: 0, omitted: [], unreadable: [] };
 	const rows: MediaRow[] = [];
 	const omitted: string[] = [];
+	const unreadable: string[] = [];
 	let bytes = 0;
 	let skipped = 0;
 	for (const m of all) {
@@ -115,13 +113,22 @@ export async function packMedia(zip: Zip, opts: PackOptions = {}): Promise<{ row
 		const file = `${m.name}.${ext}`;
 		// Bytes, not the Blob: JSZip reads a Blob only where the host supports it, and bytes work everywhere.
 		// STORED, not deflated: a JPEG, WebP, PNG, MP4 or WebM is already compressed, so deflate spends about five
-		// times the CPU to save 0 to 5% (measured on a recorded WebM and a JPEG; a `.lattice` stores them the same way).
-		zip.file(`media/${file}`, new Uint8Array(await m.blob.arrayBuffer()), { compression: 'STORE' });
+		// times the CPU to save 0 to 9% (measured on a WebM and a JPEG; a `.lattice` stores them the same way).
+		// One item the browser cannot read (IndexedDB lost the file behind its Blob, or a 50 MB clip does not fit in
+		// memory on this phone) costs that item, named in `unreadable`, and never the whole media section.
+		let data: Uint8Array;
+		try {
+			data = new Uint8Array(await m.blob.arrayBuffer());
+		} catch {
+			unreadable.push(m.name);
+			continue;
+		}
+		zip.file(`media/${file}`, data, { compression: 'STORE' });
 		bytes += m.blob.size;
 		rows.push({ name: m.name, kind: m.kind, scope: opts.scope ?? m.scope, mime: m.mime, bytes: m.blob.size, width: m.width, height: m.height, sourceName: m.sourceName, original: m.original, ...(m.caption ? { caption: m.caption } : {}), ...(m.kind === 'video' ? { durationMs: m.durationMs ?? 0, ...(m.poster ? { poster: m.poster } : {}) } : {}), addedAt: m.addedAt, file });
 	}
 	if (rows.length) zip.file(MEDIA_INDEX, JSON.stringify(rows, null, 2));
-	return { rows: rows.length, bytes, skipped, omitted };
+	return { rows: rows.length, bytes, skipped, omitted, unreadable };
 }
 
 const int = (v: unknown, max: number): number => (typeof v === 'number' && Number.isFinite(v) ? Math.min(max, Math.max(0, Math.floor(v))) : 0);
@@ -152,7 +159,7 @@ export type RestoreContext = {
  * photo already here is skipped, a different one under the same name returns under a new name and the
  * rename is reported so the caller can rewrite the decks it just wrote.
  */
-export async function restoreMedia(zip: Zip, now: number, ctx: RestoreContext, opts: { maxTotalBytes?: number; only?: ReadonlySet<string> } = {}): Promise<{ restored: number; shared: number; refused: Refusal[]; renames: MediaRename[] }> {
+export async function restoreMedia(zip: Zip, now: number, ctx: RestoreContext, opts: { maxTotalBytes?: number; only?: ReadonlySet<string>; imagesOnly?: boolean } = {}): Promise<{ restored: number; shared: number; refused: Refusal[]; renames: MediaRename[] }> {
 	const refused: Refusal[] = [];
 	const renames: MediaRename[] = [];
 	const index = zip.file(MEDIA_INDEX);
@@ -224,6 +231,11 @@ export async function restoreMedia(zip: Zip, now: number, ctx: RestoreContext, o
 			continue;
 		}
 		const isVideo = mime.startsWith('video/');
+		// A `.lattice` carries photos only (its export never writes a clip), so a clip in one was put there by hand.
+		if (opts.imagesOnly && (isVideo || raw.kind === 'video')) {
+			skip('a .lattice carries photos only');
+			continue;
+		}
 		// The row's own `kind` has to agree with its type: a "video" row over image bytes is a lie, not a clip.
 		if ((raw.kind === 'video') !== isVideo) {
 			skip('its kind does not match its type');
@@ -356,7 +368,7 @@ export async function restoreMedia(zip: Zip, now: number, ctx: RestoreContext, o
 					// same cleaning a model-written one does (agent-assets.ts `cleanCaption`).
 					...(!isVideo && cleanCaption(raw.caption) ? { caption: cleanCaption(raw.caption) } : {}),
 					// A poster goes into an <img src>, so it must be a plain JPEG data URL of a sane size and nothing else.
-					...(isVideo ? { durationMs: int(raw.durationMs, 24 * 3_600_000), ...(typeof raw.poster === 'string' && raw.poster.length <= MAX_POSTER_CHARS && POSTER_OK.test(raw.poster) ? { poster: raw.poster } : {}) } : {}),
+					...(isVideo ? { durationMs: int(raw.durationMs, 24 * 3_600_000), ...(isPosterDataUrl(raw.poster) ? { poster: raw.poster } : {}) } : {}),
 				},
 				int(raw.addedAt, Number.MAX_SAFE_INTEGER) || now,
 			);
