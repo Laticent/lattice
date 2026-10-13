@@ -116,6 +116,11 @@ test('the present-transport kernels the player already inlines are still self-co
 		assert.equal(wheelGate(0, 60, 1010), null, 'and its cooldown state survived the trip');
 		assert.equal(wheelGate(0, 6, 9000), null, 'and so did its threshold');
 
+		// `digitAction` is the collage lightbox's jump verb, inlined into the player's collage block.
+		const digit = inlineIntoEmptyScope(t.digitAction, 'digitAction');
+		assert.equal(digit('2', 4), 1, 'the inlined digit rule still names the photo');
+		assert.equal(digit('5', 4), null, 'and still refuses a digit past the count');
+
 		const pad = inlineIntoEmptyScope(t.padInset, 'padInset');
 		assert.ok(pad(1280, 720, { factor: 0.05 }) > 0, 'the inlined inset still computes a pad');
 	});

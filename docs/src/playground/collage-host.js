@@ -72,12 +72,12 @@ export function openCollageTile(frame, tile, viaKeyboard = false) {
 		const ticket = {};
 		current = ticket;
 		Promise.all([import('../../../lib/core/collage-lightbox.mjs'), import('../../../lib/core/present-transport.mjs')])
-			.then(([{ openCollageLightbox }, { keyAction, swipeAction, createZoomGesture, zoomStep }]) => {
+			.then(([{ openCollageLightbox }, { keyAction, swipeAction, digitAction, createWheelGate, createZoomGesture, zoomStep }]) => {
 				if (current !== ticket) return; // a newer open, or a close, got there first
 				const handle = openCollageLightbox(document, {
 					items,
 					index,
-					kernel: { keyAction, swipeAction, createZoomGesture, zoomStep },
+					kernel: { keyAction, swipeAction, digitAction, createWheelGate, createZoomGesture, zoomStep },
 					restoreFocus: viaKeyboard,
 					onClose: () => {
 						if (current === handle) current = null;

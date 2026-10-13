@@ -89,6 +89,11 @@ export function assetStamp(): string {
 	return rev > 0 ? `/* lattice assets: ${rev} */` : '';
 }
 
+/** The id of the deck whose own assets are visible, or null. The chat reads the same shelf. */
+export function activeAssetDeckId(): string | null {
+	return activeDeckId;
+}
+
 /** The photos the open deck may name, for the editor's completion. Read after `ensureAssetUrls`. */
 export function assetChoices(): AssetChoice[] {
 	return choices;
