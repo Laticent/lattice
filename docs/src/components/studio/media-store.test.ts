@@ -8,6 +8,7 @@ import { openDB, reqAsPromise } from './library/asset-db.js';
 import { deleteAsset, listAssets } from './library/asset-store.js';
 import {
 	decksUsing,
+	decksUsingRecord,
 	deleteDeckMedia,
 	isMediaName,
 	LIBRARY_SCOPE,
@@ -15,10 +16,14 @@ import {
 	MEDIA_REFUSAL_PREFIX,
 	mediaNameFromFile,
 	type NewMedia,
+	namesOf,
+	removeMediaAlias,
+	renameMedia,
 	saveMedia,
 	setMediaCaption,
 	setMediaScope,
 	sniffImageMime,
+	updateMediaMeta,
 	visibleMedia,
 } from './media-store';
 
@@ -257,5 +262,73 @@ describe('setMediaCaption', () => {
 		await setMediaCaption(rec.id, 'A door');
 		const [after] = await listMedia();
 		expect([after.name, after.scope, after.bytes]).toEqual(['hero', 'deck-1', 1]);
+	});
+});
+
+describe('rename with aliases', () => {
+	beforeEach(emptyShelf);
+	afterEach(emptyShelf);
+
+	it('keeps the old name as an alias, and the alias blocks a new upload', async () => {
+		const rec = await saveMedia(base(), 1);
+		const renamed = await renameMedia(rec.id, 'team-offsite');
+		expect(renamed?.name).toBe('team-offsite');
+		expect(namesOf(renamed as never)).toEqual(['team-offsite', 'hero']);
+		await expect(saveMedia(base({ name: 'hero' }), 2)).rejects.toThrow(MEDIA_REFUSAL_PREFIX);
+	});
+
+	it('refuses a name another image holds, as a name or an alias', async () => {
+		const a = await saveMedia(base({ name: 'a' }), 1);
+		const b = await saveMedia(base({ name: 'b' }), 2);
+		await renameMedia(a.id, 'a2');
+		await expect(renameMedia(b.id, 'a')).rejects.toThrow(MEDIA_REFUSAL_PREFIX);
+		await expect(renameMedia(b.id, 'a2')).rejects.toThrow(MEDIA_REFUSAL_PREFIX);
+		await expect(renameMedia(b.id, 'Bad Name')).rejects.toThrow(MEDIA_REFUSAL_PREFIX);
+		expect((await listMedia()).find((m) => m.id === b.id)?.name).toBe('b');
+	});
+
+	it('takes an own alias back without duplicating it', async () => {
+		const rec = await saveMedia(base(), 1);
+		await renameMedia(rec.id, 'x');
+		const back = await renameMedia(rec.id, 'hero');
+		expect(back?.name).toBe('hero');
+		expect(back?.aliases).toEqual(['x']);
+	});
+
+	it('frees an alias when it is removed', async () => {
+		const rec = await saveMedia(base(), 1);
+		await renameMedia(rec.id, 'x');
+		const cleared = await removeMediaAlias(rec.id, 'hero');
+		expect(cleared?.aliases).toBeUndefined();
+		await expect(saveMedia(base({ name: 'hero' }), 2)).resolves.toBeTruthy();
+	});
+});
+
+describe('updateMediaMeta', () => {
+	beforeEach(emptyShelf);
+	afterEach(emptyShelf);
+
+	it('sets, cleans and clears description, credit and date', async () => {
+		const rec = await saveMedia(base(), 1);
+		const set = await updateMediaMeta(rec.id, { caption: ' A "door" ', credit: 'Ada L.', taken: '2026-03-04' });
+		expect([set?.caption, set?.credit, set?.taken]).toEqual(["A 'door'", 'Ada L.', '2026-03-04']);
+		const bad = await updateMediaMeta(rec.id, { taken: 'last march' });
+		expect(bad?.taken).toBeUndefined();
+		const cleared = await updateMediaMeta(rec.id, { caption: '', credit: '' });
+		expect([cleared?.caption, cleared?.credit]).toEqual([undefined, undefined]);
+	});
+
+	it('leaves fields it was not given and refuses a video', async () => {
+		const rec = await saveMedia(base({ caption: 'keep' } as never), 1);
+		expect((await updateMediaMeta(rec.id, { credit: 'x' }))?.caption).toBe('keep');
+		const vid = await saveMedia(base({ kind: 'video', name: 'reel', mime: 'video/mp4' }), 2);
+		expect(await updateMediaMeta(vid.id, { credit: 'x' })).toBeNull();
+	});
+});
+
+describe('decksUsingRecord', () => {
+	it('counts a deck that still writes an old name', () => {
+		const rec = { name: 'q3', aliases: ['hero'] };
+		expect(decksUsingRecord(rec, ['![](asset:hero)', '![](asset:q3)', '![](asset:other)', '![](asset:hero) ![](asset:q3)'])).toBe(3);
 	});
 });

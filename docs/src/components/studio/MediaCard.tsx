@@ -18,7 +18,7 @@ function useObjectUrl(blob: Blob): string | null {
 	return url;
 }
 
-export function MediaCard({ m, activeDeckId, usedIn, usedElsewhere, armed, confirmLabel, onArm, onCancel, onDelete, onScope }: {
+export function MediaCard({ m, activeDeckId, usedIn, usedElsewhere, armed, confirmLabel, onArm, onCancel, onDelete, onScope, onOpen }: {
 	m: MediaRecord;
 	/** The deck open in the Studio, or null when none is. A deck-scoped asset can only be moved from its own deck. */
 	activeDeckId: string | null;
@@ -32,6 +32,8 @@ export function MediaCard({ m, activeDeckId, usedIn, usedElsewhere, armed, confi
 	onCancel: () => void;
 	onDelete: () => void;
 	onScope: (scope: string) => void;
+	/** Open the detail view: the picture large, and its description, credit, date and name to edit. */
+	onOpen: () => void;
 }) {
 	const url = useObjectUrl(m.blob);
 	const shared = m.scope === LIBRARY_SCOPE;
@@ -45,19 +47,20 @@ export function MediaCard({ m, activeDeckId, usedIn, usedElsewhere, armed, confi
 			{/* The image is ABSOLUTE inside a fixed box. As a `h-full` grid item it was sized by its own
 			    row, not by the 88px: a 1920×2560 photo painted 351px tall, `object-cover` had nothing to
 			    crop to, and `overflow-hidden` showed only the top strip (measured in Chromium). */}
-			<div className="relative h-[88px] w-full overflow-hidden bg-[var(--bg-alt)]">
+			<button type="button" onClick={onOpen} aria-label={`Details for ${m.name}`} className="relative block h-[88px] w-full overflow-hidden bg-[var(--bg-alt)]">
 				{url ? (
 					<img src={url} alt="" className="absolute inset-0 h-full w-full object-cover" loading="lazy" draggable={false} />
 				) : (
 					<ImageIcon className="absolute left-1/2 top-1/2 size-6 -translate-x-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden />
 				)}
-			</div>
+			</button>
 			<div className="p-2.5">
 				<div className="flex items-center gap-1.5 text-[12.5px] font-bold text-[var(--text-heading)]">
 					<ImageIcon className="size-3.5 shrink-0 text-[var(--accent)]" aria-hidden />
 					<span className="truncate" title={m.sourceName}>asset:{m.name}</span>
 					<span className="rounded-full border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-[var(--accent-soft)] px-1.5 py-0.5 font-mono text-[8.5px] uppercase tracking-wide text-[var(--accent)]">{shared ? 'All decks' : 'This deck'}</span>
 				</div>
+				{m.caption && <div className="mt-1 line-clamp-2 text-[11.5px] text-muted-foreground">{m.caption}</div>}
 				<div className="mt-1 truncate font-mono text-[10.5px] text-muted-foreground">
 					{m.width}×{m.height} · {formatBytes(m.bytes)}
 					{m.original ? '' : ' · optimized'}

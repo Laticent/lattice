@@ -19,8 +19,9 @@ import type { ImportRefusal } from './import-gate';
 import { listAllAssetVersions, pruneOrphanVersions } from './library/asset-history.js';
 import { listAssets } from './library/asset-store.js';
 import { MediaCard } from './MediaCard';
+import { MediaDetailDialog } from './MediaDetailDialog';
 import { classifyMedia, importImage, MEDIA_ACCEPT, MediaImportError, uniqueName } from './media-import';
-import { decksUsing, deleteMedia, LIBRARY_SCOPE, listMedia, MEDIA_REFUSAL_PREFIX, type MediaRecord, saveMedia, setMediaScope, visibleMedia } from './media-store';
+import { decksUsing, decksUsingRecord, deleteMedia, LIBRARY_SCOPE, listMedia, MEDIA_REFUSAL_PREFIX, type MediaMetaPatch, type MediaRecord, removeMediaAlias, renameMedia, saveMedia, setMediaScope, updateMediaMeta, visibleMedia } from './media-store';
 import { MOTION_PALETTE_STYLE } from './motion/palette-fallback';
 import { LIBRARY_FILTERS, LIBRARY_HEADER, type LibraryFilter } from './panel-shells';
 import { formatBytes, REF_DOC_ACCEPT, readReferenceDoc } from './reference-doc';
@@ -315,10 +316,10 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	// Deferred, so typing in the editor never waits on a count of N assets over M decks.
 	const liveSource = React.useDeferredValue(activeDeckSource);
 	// Decks OTHER than the open one that name each photo: what keeps a shared photo from being kept to one deck.
-	const usedElsewhere = React.useMemo(() => Object.fromEntries(media.map((a) => [a.name, decksUsing(a.name, otherSources)])), [media, otherSources]);
+	const usedElsewhere = React.useMemo(() => Object.fromEntries(media.map((a) => [a.name, decksUsingRecord(a, otherSources)])), [media, otherSources]);
 	const mediaUse = React.useMemo(() => {
 		const sources = liveSource === undefined ? otherSources : [...otherSources, liveSource];
-		return Object.fromEntries(media.map((a) => [a.name, decksUsing(a.name, sources)]));
+		return Object.fromEntries(media.map((a) => [a.name, decksUsingRecord(a, sources)]));
 	}, [media, otherSources, liveSource]);
 	const vMedia = filter === 'all' || filter === 'media' ? shownMedia.filter((a) => !q || a.name.includes(q) || a.sourceName.toLowerCase().includes(q)) : [];
 	const vDocs = filter === 'all' || filter === 'refdoc' ? docs.filter((d) => !q || d.name.toLowerCase().includes(q)) : [];
@@ -524,6 +525,25 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 				notify(`Deleted ${a.name}.`);
 			})
 			.catch(() => notify(`Could not delete ${a.name}. Try again.`));
+	}
+	// The photo whose detail dialog is open. Held by id and read from `media`, so a save shows at once.
+	const [detailId, setDetailId] = React.useState<string | null>(null);
+	const detail = media.find((a) => a.id === detailId) ?? null;
+	const detailAliasUse = React.useMemo(() => {
+		if (!detail) return {};
+		const sources = liveSource === undefined ? otherSources : [...otherSources, liveSource];
+		return Object.fromEntries((detail.aliases ?? []).map((n) => [n, decksUsing(n, sources)]));
+	}, [detail, otherSources, liveSource]);
+	/** Run a metadata change, refresh the shelf and the open deck's previews, and turn a refusal into a line to show. */
+	async function changeMedia(run: () => Promise<unknown>): Promise<string | null> {
+		try {
+			await run();
+			reload();
+			onChanged();
+			return null;
+		} catch (e) {
+			return String((e as Error)?.message || 'That did not save. Try again.').replace(/^Can't add — /, '');
+		}
 	}
 	function moveMedia(a: MediaRecord, scope: string) {
 		setMediaScope(a.id, scope)
@@ -968,7 +988,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 								);
 							})}
 							{vMedia.map((a) => (
-								<MediaCard key={`media:${a.id}`} m={a} activeDeckId={activeDeckId} usedIn={mediaUse[a.name] || 0} usedElsewhere={usedElsewhere[a.name] || 0} armed={armed === `media:${a.id}`} confirmLabel={confirmLabel} onArm={() => setArmed(`media:${a.id}`)} onCancel={() => setArmed(null)} onDelete={() => { setArmed(null); removeMedia(a); }} onScope={(s) => moveMedia(a, s)} />
+								<MediaCard key={`media:${a.id}`} m={a} activeDeckId={activeDeckId} usedIn={mediaUse[a.name] || 0} usedElsewhere={usedElsewhere[a.name] || 0} armed={armed === `media:${a.id}`} confirmLabel={confirmLabel} onArm={() => setArmed(`media:${a.id}`)} onCancel={() => setArmed(null)} onDelete={() => { setArmed(null); removeMedia(a); }} onScope={(s) => moveMedia(a, s)} onOpen={() => setDetailId(a.id)} />
 							))}
 							{vDocs.map((d) => (
 								// Reference doc — manage-only card (no select/share; docs aren't lattice assets).
@@ -1067,6 +1087,16 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 			{/* Mounted inside the frame so it shares the Library's lifecycle, but rendered by
 			    Dialog into the TOP LAYER, so it sits above the panel in both transports rather
 			    than inside the sheet that would otherwise own the dismiss gesture. */}
+			<MediaDetailDialog
+				m={detail}
+				open={!!detail}
+				onOpenChange={(o) => { if (!o) setDetailId(null); }}
+				usedIn={detail ? mediaUse[detail.name] || 0 : 0}
+				aliasUse={detailAliasUse}
+				onSave={(p: MediaMetaPatch) => changeMedia(() => updateMediaMeta(detail?.id as string, p))}
+				onRename={(to) => changeMedia(() => renameMedia(detail?.id as string, to))}
+				onRemoveAlias={(al) => changeMedia(() => removeMediaAlias(detail?.id as string, al))}
+			/>
 			<AssetVersionsDialog
 				asset={historyFor}
 				open={!!historyFor}

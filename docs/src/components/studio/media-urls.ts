@@ -11,7 +11,7 @@
 // own. Another deck's asset is deliberately absent, so a reference to it renders the missing-image
 // stand-in rather than quietly working.
 import type { AssetChoice } from './editor-complete';
-import { listMedia, type MediaRecord, visibleMedia } from './media-store';
+import { listMedia, type MediaRecord, namesOf, visibleMedia } from './media-store';
 
 const urlById = new Map<string, string>();
 // The visible assets' bytes by name, kept beside the URLs so an export can read them as `data:` URIs.
@@ -56,8 +56,11 @@ export async function refreshAssetUrls(): Promise<void> {
 	const seen = visibleMedia(all, activeDeckId);
 	choices = seen.map((m) => ({ name: m.name, scope: m.scope, width: m.width, height: m.height, sourceName: m.sourceName }));
 	for (const m of seen) {
-		next[m.name] = urlFor(m);
-		blobByName.set(m.name, { id: m.id, blob: m.blob, mime: m.mime });
+		// Aliases resolve to the same bytes: a renamed photo keeps working under every name it has had.
+		for (const n of namesOf(m)) {
+			next[n] = urlFor(m);
+			blobByName.set(n, { id: m.id, blob: m.blob, mime: m.mime });
+		}
 	}
 	if (signature(next) !== signature(current)) {
 		current = next;

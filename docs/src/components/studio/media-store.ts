@@ -44,8 +44,18 @@ export type MediaRecord = {
 	 *  delete-and-add, which makes a new record and so drops the caption. Optional and never
 	 *  required by anything but the chat. */
 	caption?: string;
+	/** Earlier names, kept after a rename so `asset:<old>` in a deck still resolves here (the Avro
+	 *  `aliases` idea). Names and aliases share one namespace. Absent on a record that was never renamed. */
+	aliases?: string[];
+	/** Who to credit, written by the person or read from the file's artist or copyright at import. */
+	credit?: string;
+	/** When the picture was taken (`YYYY-MM-DD`), read from the file at import or typed. */
+	taken?: string;
 	addedAt: number;
 };
+
+/** Every name a deck may write for this record: its own and its aliases. */
+export const namesOf = (m: Pick<MediaRecord, 'name' | 'aliases'>): string[] => [m.name, ...(m.aliases ?? [])];
 
 export type NewMedia = Omit<MediaRecord, 'id' | 'addedAt'>;
 
@@ -155,7 +165,7 @@ async function putMedia(input: NewMedia, id: string, addedAt: number, asBuffer: 
 					read(i + 1);
 					return;
 				}
-				const clash = found.find((a) => a.name === input.name);
+				const clash = found.find((a) => namesOf(a).includes(input.name));
 				if (clash) {
 					refusal = new Error(`${MEDIA_REFUSAL_PREFIX} “${input.name}” is already another saved ${clash.kind}. Delete it first to reuse the name.`);
 					t.abort();
@@ -243,6 +253,97 @@ export async function setMediaCaption(id: string, caption: string): Promise<Medi
 	});
 }
 
+/** The metadata a person edits by hand. `undefined` leaves a field alone; an empty string clears it. */
+export type MediaMetaPatch = { caption?: string; credit?: string; taken?: string };
+
+const cleanLine = (v: string, max: number): string => cleanCaption(v).slice(0, max);
+const cleanTaken = (v: string): string => (/^\d{4}-\d{2}-\d{2}$/.test(v.trim()) ? v.trim() : '');
+
+/** Change an image's description, credit or date taken. Resolves the updated record, or null when it
+ *  no longer exists. */
+export async function updateMediaMeta(id: string, patch: MediaMetaPatch): Promise<MediaRecord | null> {
+	return mutateImage(id, (row) => {
+		const next: MediaRecord = { ...row };
+		const set = <K extends 'caption' | 'credit' | 'taken'>(k: K, v: string) => {
+			if (v) next[k] = v as MediaRecord[K];
+			else delete next[k];
+		};
+		if (patch.caption !== undefined) set('caption', cleanLine(patch.caption, 140));
+		if (patch.credit !== undefined) set('credit', cleanLine(patch.credit, 100));
+		if (patch.taken !== undefined) set('taken', cleanTaken(patch.taken));
+		return next;
+	});
+}
+
+/** Rename an image. The old name becomes an alias, so `asset:<old>` keeps resolving. Refuses a name any
+ *  other record holds as a name or alias. Renaming back to one of its own aliases takes it back. */
+export async function renameMedia(id: string, to: string): Promise<MediaRecord | null> {
+	if (!isMediaName(to)) throw new Error(`${MEDIA_REFUSAL_PREFIX} “${to}” isn't a usable asset name. Use lowercase letters, digits, - and _.`);
+	return mutateImage(
+		id,
+		(row, others) => {
+			if (row.name === to) return row;
+			const clash = others.find((a) => namesOf(a).includes(to));
+			if (clash) throw new Error(`${MEDIA_REFUSAL_PREFIX} “${to}” already belongs to another saved ${clash.kind}.`);
+			const aliases = [...new Set([row.name, ...(row.aliases ?? [])])].filter((n) => n !== to);
+			return { ...row, name: to, aliases };
+		},
+		true,
+	);
+}
+
+/** Drop one alias, freeing the name. Decks that still write it will show the missing-image stand-in. */
+export async function removeMediaAlias(id: string, alias: string): Promise<MediaRecord | null> {
+	return mutateImage(id, (row) => {
+		const aliases = (row.aliases ?? []).filter((n) => n !== alias);
+		const { aliases: _old, ...rest } = row;
+		return aliases.length ? { ...rest, aliases } : rest;
+	});
+}
+
+/** Read one image row, let `change` rewrite it, write it back — all in one readwrite transaction. `change`
+ *  may throw a refusal. `withOthers` also reads every other media row first, for a name check. */
+function mutateImage(id: string, change: (row: MediaRecord, others: MediaRecord[]) => MediaRecord, withOthers = false): Promise<MediaRecord | null> {
+	return openDB().then(
+		(db: IDBDatabase) =>
+			new Promise<MediaRecord | null>((resolve, reject) => {
+				const t = db.transaction(ASSET_STORE, 'readwrite');
+				const store = t.objectStore(ASSET_STORE);
+				let out: MediaRecord | null = null;
+				let refusal: Error | null = null;
+				t.oncomplete = () => resolve(out);
+				t.onabort = () => reject(refusal || t.error || new Error('the change failed'));
+				t.onerror = () => reject(t.error || new Error('the change failed'));
+				const write = (row: MediaRecord & { data?: ArrayBuffer }, others: MediaRecord[]) => {
+					try {
+						const next = change(row, others) as MediaRecord & { data?: ArrayBuffer };
+						store.put(next);
+						out = readable(next);
+					} catch (e) {
+						refusal = e as Error;
+						t.abort();
+					}
+				};
+				const get = store.get(id);
+				get.onsuccess = () => {
+					const row = get.result as (MediaRecord & { data?: ArrayBuffer }) | undefined;
+					if (!row || row.kind !== 'image') return;
+					if (!withOthers) return write(row, []);
+					const found: MediaRecord[] = [];
+					const read = (i: number) => {
+						const req = store.index('kind').getAll(KINDS[i]);
+						req.onsuccess = () => {
+							found.push(...(req.result as MediaRecord[]).filter((a) => a.id !== id));
+							if (i + 1 < KINDS.length) read(i + 1);
+							else write(row, found);
+						};
+					};
+					read(0);
+				};
+			}),
+	);
+}
+
 /** Remove one asset. */
 export async function deleteMedia(id: string): Promise<void> {
 	await deleteAsset(id);
@@ -280,4 +381,10 @@ export async function deleteDeckMedia(deckId: string): Promise<number> {
 export function decksUsing(name: string, sources: string[]): number {
 	const ref = new RegExp(`\\basset:${name.replace(/[-_]/g, (c) => `\\${c}`)}(?![A-Za-z0-9_-]|\\.[A-Za-z0-9])`, 'i');
 	return sources.filter((s) => ref.test(s)).length;
+}
+
+/** How many decks write `asset:<name>` for ANY name this record has had (its own or an alias). A deck that
+ *  still uses an old name depends on the record as much as one that uses the new name. */
+export function decksUsingRecord(m: Pick<MediaRecord, 'name' | 'aliases'>, sources: string[]): number {
+	return sources.filter((s) => namesOf(m).some((n) => decksUsing(n, [s]))).length;
 }
