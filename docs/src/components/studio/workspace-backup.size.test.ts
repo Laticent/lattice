@@ -15,7 +15,7 @@ import jsonGuard from '../../../../lib/packages/json-guard.js';
 import { saveStudioComponent } from './component-library';
 import { deleteAsset, listAssets } from './library/asset-store.js';
 import { listRefDocs, saveRefDoc } from './reference-doc-store';
-import { exportStudioState, importStudioState, loadSource, saveSource } from './studio-store';
+import { exportStudioState, loadSource, } from './studio-store';
 import { backupRestoreGaps, MAX_BACKUP_ROWS, MAX_REFDOCS_BYTES, type PackReport, packWorkspace, restoreWorkspace, WORKSPACE_FORMAT } from './workspace-backup';
 import { MAX_INFLATED_BYTES, MAX_ZIP_BYTES, MAX_ZIP_ENTRIES } from './zip-limits';
 
@@ -257,28 +257,6 @@ describe('restoreWorkspace — a bad side lane is skipped and named, and the dec
 		// One shelf read, then one name lookup inside each save: 31. Listing per row would be ~61.
 		expect(indexReads).toBeLessThanOrEqual(30 + 3);
 	});
-
-	it('a real backup whose reference docs pass the 64 MB package cap still restores', async () => {
-		saveSource('deck-aaa', '# Quarterly plan');
-		const state = exportStudioState();
-		state.index.push({ id: 'deck-aaa', title: 'Quarterly plan', builtin: false });
-		importStudioState(state, T0);
-		// Ten maximum-size PDFs: 6.7 MiB each as a data URL, 67 MiB of refdocs.json.
-		const pdf = `data:application/pdf;base64,${Buffer.from(crypto.getRandomValues(new Uint8Array(65536))).toString('base64').repeat(80)}`;
-		for (let i = 0; i < 10; i++) await saveRefDoc({ name: `brand-${i}.pdf`, kind: 'pdf', dataUrl: pdf, bytes: 5 * 1024 * 1024 }, T0 + i);
-		const blob = await packWorkspace(T0);
-		const { default: JSZip } = await import('jszip');
-		const refdocs = (await JSZip.loadAsync(blob)).file('refdocs.json') as unknown as { _data: { uncompressedSize: number } };
-		expect(refdocs._data.uncompressedSize).toBeGreaterThan(MAX_INFLATED_BYTES);
-		for (const a of await listAssets()) await deleteAsset(a.id);
-		localStorage.clear();
-
-		const summary = await restoreWorkspace(blob, T0 + 60_000);
-		expect(summary.refused).toEqual([]);
-		expect(summary.refdocs).toBe(10);
-		expect((await listRefDocs()).length).toBe(10);
-		expect(loadSource('deck-aaa')).toContain('# Quarterly plan');
-	}, 120_000);
 });
 
 describe('the value cap has room for the heaviest real workspace', () => {

@@ -388,6 +388,43 @@ Known limits of what shipped, found by an independent review and left as they ar
   mistaken for each other when Regenerate re-reads the thread. A clip removed from the strip before sending, or left
   behind by leaving the deck, is deleted; a sent clip stays until the author deletes it.
 
+## How binary content is stored (2026-10-13)
+
+The rule is **bytes stay bytes, and a codec is chosen by what the bytes already are.** Nothing here uses protobuf,
+Avro or a second compressor, and the measurements below are why.
+
+| Where | Format | Why |
+|---|---|---|
+| Photos, videos, PDFs in IndexedDB | A `Blob`, as given | IndexedDB stores a Blob natively and hands it back file-backed, so a list read holds no bytes in memory. No base64, no wrapper. |
+| The same, in a browser that refuses a `Blob` (Safari private window) | An `ArrayBuffer`, rebuilt into a `Blob` on read | A fallback, tried only after the Blob write fails for a reason other than a full disk. |
+| Entries in a backup zip (`media/`) | `STORE`, no compression | A JPEG, WebP, PNG, MP4 or WebM is already compressed. |
+| JSON in a zip (`media.json`, decks, `refdocs.json`) | `DEFLATE` | Text compresses to a fraction of its size. |
+| A clip's or photo's thumbnail (`poster`) | A JPEG `data:` string, 160 px, a few KB | A string stores in every engine; the cost is a third of a few KB per clip, which is not worth a second code path. |
+| What goes to a model (photo, clip, PDF) | Base64 in the request body | The API takes JSON. Built at the moment of sending from the stored bytes and never stored. |
+| `refdocs.json` in a backup | PDFs as base64 text | Kept so a backup made now still restores in an older version. It deflates back to about the PDF's size. |
+
+**Measured** (JSZip, level 6, one run each on this machine; the files are real, not synthetic):
+
+| File | Size | Deflate result | Deflate time | Store time |
+|---|---|---|---|---|
+| Recorded WebM (VP8) | 296 KB | 95.6% of original | 59 ms | 12 ms |
+| JPEG (a diagram) | 127 KB | 91.6% | 12 ms | 1 ms |
+| PDF | 452 KB | 26.5% | 19 ms | 4 ms |
+
+So deflate is the right call for a PDF or JSON and the wrong one for a clip or photo: about five times the CPU for 0 to 9%
+(a phone video is closer to 0%). Base64 is exactly 4/3 (1.333) of the bytes; a stored PDF was a third larger than the
+file and `listRefDocs` loaded every PDF's whole string into memory on each Library open. A PDF is now a Blob, and a record
+written the old way is rewritten as binary once, when the Library opens (`migrateLegacyRefDocs`).
+
+**Why not protobuf, Avro or a custom container.** They are for structured records that cross a language or version
+boundary. Our records are a handful of fields (a name, a scope, two sizes) beside a payload, and IndexedDB's structured
+clone already stores them without a text layer. The payload is already compressed, so a second codec cannot shrink it.
+A schema format would add a decoder, a version to migrate and a new way to fail on a restore, to save bytes that are
+not there. The place a codec earns its keep is text, and `DEFLATE` on the JSON already covers it.
+
+**Not changed.** A video is stored as given; transcoding in the browser would cost minutes of CPU on a phone for a smaller
+file the author did not ask for.
+
 ## Options not taken
 
 - **Capturing metadata (capture date, caption) on the record.** An earlier draft of this note (§7) read the

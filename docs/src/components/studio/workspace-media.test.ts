@@ -53,6 +53,16 @@ describe('a round trip', () => {
 		expect(await bytesOf(back[0])).toEqual(WEBP);
 	});
 
+	it('stores media entries as they are and deflates the index, so a clip is not recompressed for nothing', async () => {
+		await saveMedia(photo({ name: 'shared' }), 1);
+		const z = new JSZip();
+		await packMedia(z);
+		const packed = await JSZip.loadAsync(await z.generateAsync({ type: 'uint8array', compression: 'DEFLATE' }));
+		const method = (path: string) => (packed.files[path] as unknown as { _data: { compression: { magic: string } } })._data.compression.magic;
+		expect(method('media/shared.png')).toBe('\x00\x00'); // STORE
+		expect(method('media.json')).toBe('\x08\x00'); // DEFLATE
+	});
+
 	it('writes nothing for an empty shelf, and restoring a backup with no photos is a no-op', async () => {
 		const z = new JSZip();
 		expect(await packMedia(z)).toEqual({ rows: 0, bytes: 0, skipped: 0, omitted: [] });

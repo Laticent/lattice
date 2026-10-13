@@ -28,7 +28,8 @@ import { listStudioComponents, saveStudioComponent, toMeta } from './component-l
 import { listStudioFinishes, saveStudioFinish } from './finish-library';
 import type { ImportRefusal } from './import-gate';
 import { LIBRARY_SCOPE } from './media-store';
-import { listRefDocs, type RefDocRecord, recordToDoc, saveRefDoc } from './reference-doc-store';
+import { blobToDataUrl, dataUrlToBlob, MAX_DOC_BYTES } from './reference-doc';
+import { listRefDocs, type RefDocRecord, refDocBlob, saveRefDoc } from './reference-doc-store';
 import { listStoredScenes, putUnreadableScene, type StudioScene, saveStudioScene, type UnreadableScene, unreadableSceneShelf } from './scene-library';
 import { exportStudioState, type ImportSummary, importStudioState, loadSource, mapCheckpointSources, requestSourceFlush, resolvedSources, type StudioExport, saveSource, titleFromSource } from './studio-store';
 import { listStudioThemes, saveStudioTheme } from './theme-library';
@@ -52,6 +53,15 @@ export type WorkspaceManifest = {
 };
 
 /** `refused`: library packages the backup held that could not be read back, each with the reason. */
+/** Does this `data:` URL decode? A backup row is untrusted, so the answer is found out, not assumed. */
+function canDecode(dataUrl: string): boolean {
+	try {
+		return dataUrlToBlob(dataUrl).size > 0;
+	} catch {
+		return false;
+	}
+}
+
 export type RestoreSummary = ImportSummary & { themes: number; components: number; finishes: number; scenes: number; unreadableScenes: number; refdocs: number; media: number; mediaRenamed: number; refused: { name: string; why: string }[] };
 
 // biome-ignore lint/suspicious/noExplicitAny: JSZip is dynamically imported.
@@ -155,7 +165,16 @@ export async function packWorkspace(now: number, report?: PackReport): Promise<B
 	// Reference docs are user-imported content (the Architect's brand guidelines
 	// etc.) — as much "the workspace" as the decks are.
 	if (refdocs.length) {
-		const json = JSON.stringify(refdocs, null, 2);
+		// A PDF is binary in the Library but base64 text in this file: the format older versions read, so a backup
+		// made now still restores there. The text is made one doc at a time and deflates back to about the PDF's size.
+		const rows = await Promise.all(
+			refdocs.map(async (r) => {
+				const { blob: _blob, data: _data, ...rest } = r;
+				const bytes = refDocBlob(r);
+				return bytes ? { ...rest, dataUrl: r.dataUrl ?? (await blobToDataUrl(bytes)) } : rest;
+			}),
+		);
+		const json = JSON.stringify(rows, null, 2);
 		zip.file('refdocs.json', json);
 		// In UTF-8 bytes: the restore's first check reads the size the zip declares, which is UTF-8,
 		// and a UTF-8 length is never shorter than the UTF-16 one its read budget counts.
@@ -463,8 +482,15 @@ export async function restoreWorkspace(file: Blob, now: number): Promise<Restore
 	for (const rec of refdocRecords as RefDocRecord[]) {
 		// A row that is not a named record is junk, not a doc: skip it without a write.
 		if (!rec || typeof rec !== 'object' || typeof rec.name !== 'string' || !rec.name) continue;
-		// saveRefDoc upserts by name — the same path Library import uses.
-		await saveRefDoc(recordToDoc(rec), rec.addedAt ?? now);
+		// A backup is a file from anyone. A PDF row must be base64 and within what intake allows: text that does not
+		// decode, or is over the cap, is skipped (and named), never stored for a request to send later.
+		const pdf = rec.docKind === 'pdf';
+		if (pdf && !(typeof rec.dataUrl === 'string' && rec.dataUrl.length <= Math.ceil((MAX_DOC_BYTES * 4) / 3) + 64 && canDecode(rec.dataUrl))) {
+			summary.refused.push({ name: `reference doc ${rec.name.slice(0, 60)}`, why: 'its PDF is not readable base64 data, or is over the size a reference doc may be' });
+			continue;
+		}
+		// saveRefDoc upserts by name — the same path Library import uses; it stores the PDF as binary.
+		await saveRefDoc({ id: rec.id, name: rec.name, kind: pdf ? 'pdf' : 'text', text: rec.text, dataUrl: rec.dataUrl, bytes: rec.bytes }, rec.addedAt ?? now);
 		summary.refdocs++;
 	}
 

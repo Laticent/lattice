@@ -78,12 +78,22 @@ export function useReferenceDoc(onManage?: () => void, photos?: { accept: string
 
 	// Toggle a saved doc in/out of the grounding set; the popover stays open so you
 	// can pick several.
-	const toggleSaved = (rec: RefDocRecord) => {
-		setDocs((cur) => {
-			if (cur.some((d) => d.id === rec.id)) return cur.filter((d) => d.id !== rec.id);
-			if (cur.length >= MAX_GROUND_DOCS) { notify(`You can ground up to ${MAX_GROUND_DOCS} docs at once — remove one first.`); return cur; }
-			return [...cur, recordToDoc(rec)];
-		});
+	const toggleSaved = async (rec: RefDocRecord) => {
+		if (docs.some((d) => d.id === rec.id)) {
+			setDocs((cur) => cur.filter((d) => d.id !== rec.id));
+			return;
+		}
+		if (docs.length >= MAX_GROUND_DOCS) {
+			notify(`You can ground up to ${MAX_GROUND_DOCS} docs at once — remove one first.`);
+			return;
+		}
+		// A saved PDF is binary at rest; its base64 text is made here, for the one doc being attached.
+		const doc = await recordToDoc(rec).catch(() => null);
+		if (!doc) {
+			notify('Could not read that doc.');
+			return;
+		}
+		setDocs((cur) => (cur.some((d) => d.id === rec.id) || cur.length >= MAX_GROUND_DOCS ? cur : [...cur, doc]));
 	};
 
 	const removeSaved = async (rec: RefDocRecord, e: React.MouseEvent) => {

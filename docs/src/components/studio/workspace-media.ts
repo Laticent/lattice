@@ -55,7 +55,7 @@ const FILE_OK = /^[a-z0-9][a-z0-9_-]*\.(jpg|png|webp|gif|mp4|webm|mov)$/;
 const MAX_POSTER_CHARS = 120_000;
 const POSTER_OK = /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/;
 
-type Zip = { file: (path: string, data?: unknown) => object | null };
+type Zip = { file: (path: string, data?: unknown, options?: { compression?: 'STORE' | 'DEFLATE' }) => object | null };
 type Refusal = { name: string; why: string };
 
 /** What a row of `media.json` says about one stored file. */
@@ -114,7 +114,9 @@ export async function packMedia(zip: Zip, opts: PackOptions = {}): Promise<{ row
 		}
 		const file = `${m.name}.${ext}`;
 		// Bytes, not the Blob: JSZip reads a Blob only where the host supports it, and bytes work everywhere.
-		zip.file(`media/${file}`, new Uint8Array(await m.blob.arrayBuffer()));
+		// STORED, not deflated: a JPEG, WebP, PNG, MP4 or WebM is already compressed, so deflate spends about five
+		// times the CPU to save 0 to 5% (measured on a recorded WebM and a JPEG; a `.lattice` stores them the same way).
+		zip.file(`media/${file}`, new Uint8Array(await m.blob.arrayBuffer()), { compression: 'STORE' });
 		bytes += m.blob.size;
 		rows.push({ name: m.name, kind: m.kind, scope: opts.scope ?? m.scope, mime: m.mime, bytes: m.blob.size, width: m.width, height: m.height, sourceName: m.sourceName, original: m.original, ...(m.caption ? { caption: m.caption } : {}), ...(m.kind === 'video' ? { durationMs: m.durationMs ?? 0, ...(m.poster ? { poster: m.poster } : {}) } : {}), addedAt: m.addedAt, file });
 	}

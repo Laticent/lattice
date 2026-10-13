@@ -25,7 +25,7 @@ import { MOTION_PALETTE_STYLE } from './motion/palette-fallback';
 import { PhotoFormatDialog } from './PhotoFormatDialog';
 import { LIBRARY_FILTERS, LIBRARY_HEADER, type LibraryFilter } from './panel-shells';
 import { formatBytes, REF_DOC_ACCEPT, readReferenceDoc } from './reference-doc';
-import { deleteRefDoc, listRefDocs, type RefDocRecord, saveRefDoc } from './reference-doc-store';
+import { deleteRefDoc, listRefDocs, migrateLegacyRefDocs, type RefDocRecord, refDocBlob, saveRefDoc } from './reference-doc-store';
 import { deleteStudioScene, listStudioScenes, type StudioScene } from './scene-library';
 import { renderThemeShowcase } from './share-export';
 import { listShippedScenes, type ShippedScene, shippedDrawing } from './shipped-scenes';
@@ -48,16 +48,6 @@ function download(blob: Blob, filename: string) {
 // second toast claiming a save that still waits on a tap.
 function sharedNotice(message: string) {
 	if (!iosNeedsShareSheet()) notify(message);
-}
-
-// Rebuild a Blob from a `data:…;base64,…` URL (a stored PDF's original bytes).
-function dataUrlToBlob(dataUrl: string): Blob {
-	const [head, b64] = dataUrl.split(',');
-	const mime = /:(.*?);/.exec(head)?.[1] || 'application/octet-stream';
-	const bin = atob(b64 || '');
-	const bytes = new Uint8Array(bin.length);
-	for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-	return new Blob([bytes], { type: mime });
 }
 
 // Honest, free date label for a reference-doc card (the record's addedAt).
@@ -252,7 +242,13 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 		readOtherSources();
 	}, [activeDeckId, readOtherSources]);
 
+	// Reference PDFs saved before they were stored as binary are rewritten once per open panel, off the render path.
+	const migratedDocs = React.useRef(false);
 	const reload = React.useCallback(() => {
+		if (!migratedDocs.current) {
+			migratedDocs.current = true;
+			void migrateLegacyRefDocs().then((n) => n && reload());
+		}
 		// The shipped motion library rides beside the user's shelf, not in it: it is read-only,
 		// never selected, shared or deleted, and it does not count toward `total`.
 		listShippedScenes().then(setShipped);
@@ -438,8 +434,9 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	// lattice assets), so refdoc cards carry no selection checkbox.
 	function downloadDoc(d: RefDocRecord) {
 		try {
-			if (d.docKind === 'pdf' && !d.dataUrl) { notify('Could not download that doc.'); return; } // don't ship a 0-byte .pdf
-			const blob = d.docKind === 'pdf' && d.dataUrl ? dataUrlToBlob(d.dataUrl) : new Blob([d.text ?? ''], { type: 'text/plain' });
+			const pdfBytes = refDocBlob(d);
+			if (d.docKind === 'pdf' && !pdfBytes) { notify('Could not download that doc.'); return; } // don't ship a 0-byte .pdf
+			const blob = d.docKind === 'pdf' && pdfBytes ? pdfBytes : new Blob([d.text ?? ''], { type: 'text/plain' });
 			download(blob, d.name);
 		} catch {
 			notify('Could not download that doc.');
