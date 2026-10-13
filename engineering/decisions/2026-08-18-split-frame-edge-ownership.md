@@ -296,3 +296,9 @@ The selector reaches every auto-split page whose layout class was swapped, not o
 tone bar too. Before, a run disagreed with itself: native body pages drew it and the cover did not. Still open:
 a split page with a semantic tone and no `tone-edge` drops the rail and glow styles entirely, for the same reason
 (`followups.d/2645-p3-tone-rail-glow-dropped-on-split-pages.md`).
+
+The `spectrum-solid` / `duo` / `mono` register rule excludes a semantic `tone-edge` by class, so on a split page it
+painted its own bar over the tone. Its `:where()` exclusion now lists the `data-split-mods` form too. Measured at
+2160x3840, indaco, row 2 on all three pages: `spectrum: solid|duo|mono` read the register bar before and read
+`#550014` after. Also read the tone color at row 2: `spectrum: off`, `finish: atrium`, `size: square`, cuoio light
+(`#8A010C`) and dark (`#ED6868`); `class: print` reads ink `#111111`, where the control has no tone bar.
