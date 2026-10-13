@@ -21,8 +21,9 @@ const open = (page: import('@playwright/test').Page, query = '') => openPage(pag
 
 test('@crosswidth @webkit-phone your own row carries the call: join, mute, leave', async ({ page }) => {
 	await open(page);
-	await expect(page.getByRole('button', { name: 'Microphone', exact: true })).toHaveCount(0); // not on the call
-	await page.getByRole('button', { name: 'Join audio' }).click();
+	// Not on the call yet: Join audio AND the Your audio popover are both on your row (nothing waits for a state).
+	await expect(page.getByRole('button', { name: 'Your audio', exact: true })).toBeVisible();
+	await page.getByRole('button', { name: 'Join audio', exact: true }).click();
 	await onCall(page);
 	await page.getByRole('button', { name: 'Mute', exact: true }).click();
 	await page.getByRole('button', { name: 'Leave call' }).click();
@@ -70,7 +71,8 @@ test('@crosswidth @webkit-phone in the docked column at its narrowest, the invit
 
 test('@a11y @webkit-phone the panel and a person\'s menu have no axe findings, in both color modes', async ({ page }) => {
 	await open(page);
-	await onCall(page);
+	// No volume or quality: those rows are the call-feature spec's (live-panel-calls.spec.ts), which names its own known finding.
+	await onCall(page, { volume: undefined, quality: undefined });
 	for (const mode of ['dark', 'light']) {
 		await page.evaluate((m) => document.documentElement.setAttribute('data-mode', m), mode);
 		expect(await axeFindings(page), `axe findings in the panel (${mode})`).toEqual([]);

@@ -1,0 +1,1 @@
+- Live: on desktop, tapping a switch in Your settings no longer closes the popover. The popover goes into the phone's modal sheet only when there is one, and Your settings no longer opens with the Name field focused (which opened the keyboard on a phone).

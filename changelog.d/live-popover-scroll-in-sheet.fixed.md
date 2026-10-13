@@ -1,0 +1,1 @@
+- Live: on a phone, the **Your audio**, **Your settings** and per-person popovers now scroll when they are taller than the screen. The Studio drawer blocked touch scrolling in anything outside it, so the lower half (Hearing) was cut off and out of reach.

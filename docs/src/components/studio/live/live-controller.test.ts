@@ -55,6 +55,7 @@ async function hostSession() {
 	const sh = shell();
 	// Each controller is its own browser tab: no chat-id prefixes inherited (jsdom shares storage).
 	sessionStorage.removeItem('lattice-live-sids');
+	sessionStorage.removeItem('lattice-live-share');
 	const h = new LiveController(sh.host, deps('host-deck'));
 	h.actions.start('Sharmarke');
 	await until(() => h.view().status === 'live', h);
@@ -65,6 +66,7 @@ async function guestOf(h: Ctl, name: string) {
 	// Each guest is its own browser: no rejoin token left by the one before (jsdom shares storage).
 	localStorage.removeItem('lattice-live-links');
 	sessionStorage.removeItem('lattice-live-sids');
+	sessionStorage.removeItem('lattice-live-share');
 	location.hash = `#live=${(h.view().link ?? '').split('#live=')[1]}`;
 	takeLiveIntent();
 	const g = new LiveController(sh.host, deps(`${name}-deck`));
@@ -550,5 +552,106 @@ describe('succession in the Studio (2026-10-07)', () => {
 		expect(a.view().chat.some((l) => l.kind === 'system' && l.text === 'The host is back, so you are no longer hosting')).toBe(true);
 		a.dispose();
 		c.dispose();
+	});
+});
+
+describe('what you share (2026-10-12)', () => {
+	// biome-ignore lint/suspicious/noExplicitAny: tests reach the private runtime's awareness.
+	const awOf = (c: Ctl) => (c as any).rt.aw as { getLocalState(): Record<string, unknown> | null; setLocalStateField(f: string, v: unknown): void };
+	const seen = (viewer: Ctl, name: string) => viewer.view().people.find((p) => p.name === name);
+
+	it('your slide is shown by default, withheld on request, and shown again on request', async () => {
+		const { h } = await hostSession();
+		const { g: a } = await guestOf(h, 'Amina');
+		h.update({ ...deps('host-deck'), activeSlide: 3 });
+		await until(() => seen(a, 'Sharmarke')?.slide === 3, h, a);
+		h.actions.setShare({ slide: false });
+		await until(() => seen(a, 'Sharmarke')?.slideHidden === true, h, a);
+		expect(seen(a, 'Sharmarke')?.slide).toBeNull(); // not the old slide, not a guess
+		h.update({ ...deps('host-deck'), activeSlide: 5 }); // moving while hidden shares nothing
+		await settle(h, a);
+		expect(seen(a, 'Sharmarke')?.slide).toBeNull();
+		h.actions.setShare({ slide: true });
+		await until(() => seen(a, 'Sharmarke')?.slide === 5, h, a);
+		expect(seen(a, 'Sharmarke')?.slideHidden).toBeUndefined();
+	});
+
+	it('a cursor and a typing mark you have turned off never reach the awareness state; turned on again, they can', async () => {
+		const { h } = await hostSession();
+		const cursor = { anchor: { type: null, tname: 'source', item: null, assoc: 0 }, head: { type: null, tname: 'source', item: null, assoc: 0 } };
+		h.actions.setShare({ cursor: false, typing: false });
+		awOf(h).setLocalStateField('cursor', cursor);
+		awOf(h).setLocalStateField('editingAt', Date.now());
+		expect(awOf(h).getLocalState()).not.toHaveProperty('cursor');
+		expect(awOf(h).getLocalState()).not.toHaveProperty('editingAt');
+		h.actions.setShare({ cursor: true, typing: true });
+		awOf(h).setLocalStateField('cursor', cursor);
+		awOf(h).setLocalStateField('editingAt', 12345);
+		expect(awOf(h).getLocalState()).toHaveProperty('cursor');
+		expect(awOf(h).getLocalState()).toHaveProperty('editingAt', 12345);
+	});
+
+	it('turning typing off clears a mark already sent, and the chat typing line stops', async () => {
+		const { h } = await hostSession();
+		const { g: a } = await guestOf(h, 'Amina');
+		awOf(a).setLocalStateField('editingAt', Date.now());
+		expect(awOf(a).getLocalState()).toHaveProperty('editingAt');
+		a.actions.setShare({ typing: false });
+		expect(awOf(a).getLocalState()).not.toHaveProperty('editingAt'); // withdrawn at once, not just stopped
+		a.actions.chatTyping();
+		await settle(h, a);
+		expect(h.view().typing).toEqual([]); // the host never hears that Amina is typing
+		a.actions.setShare({ typing: true });
+		a.actions.chatTyping();
+		await until(() => h.view().typing.includes('Amina'), h, a);
+	});
+
+	it('turning typing off still protects you from being moved while you type (checker, 2026-10-13)', async () => {
+		const { h } = await hostSession();
+		const { g, notes } = await guestOf(h, 'Amina');
+		const go = vi.fn();
+		// biome-ignore lint/suspicious/noExplicitAny: tests reach the private host shell and runtime.
+		(g as any).host.goToSlide = go;
+		g.actions.setShare({ typing: false });
+		// biome-ignore lint/suspicious/noExplicitAny: tests reach the private runtime's shared text.
+		(g as any).rt.ytext.insert(0, 'x');
+		h.update({ ...deps('host-deck'), activeSlide: 1 });
+		h.actions.bringEveryone();
+		await until(() => notes.some((n) => /The host is on slide/.test(n)), h, g);
+		expect(go).not.toHaveBeenCalled(); // a toast with a Go button, not a jump
+	});
+
+	it('with your slide hidden, Bring everyone is said once and then taken back, so a late joiner never carries it', async () => {
+		const { h } = await hostSession();
+		h.actions.setShare({ slide: false });
+		vi.useFakeTimers({ toFake: ['setTimeout'] });
+		try {
+			h.actions.bringEveryone();
+			expect(awOf(h).getLocalState()).toHaveProperty('summon');
+			vi.advanceTimersByTime(6001);
+		} finally {
+			vi.useRealTimers();
+		}
+		expect(awOf(h).getLocalState()).not.toHaveProperty('summon');
+		expect(awOf(h).getLocalState()).toHaveProperty('slideHidden', true);
+	});
+
+	it('what you hid survives a reload, and a session started afterwards in the same tab publishes nothing you hid', async () => {
+		const { h } = await hostSession();
+		h.actions.setShare({ slide: false, cursor: false });
+		const reloaded = new LiveController(shell().host, deps('host-deck'));
+		reloaded.actions.start('Sharmarke');
+		await until(() => reloaded.view().status === 'live', reloaded);
+		expect(reloaded.view().share).toEqual({ cursor: false, slide: false, typing: true });
+		expect(awOf(reloaded).getLocalState()).toHaveProperty('slideHidden', true);
+		expect(awOf(reloaded).getLocalState()).not.toHaveProperty('slide');
+		expect(awOf(reloaded).getLocalState()).not.toHaveProperty('cursor');
+	});
+
+	it('what you share is in your view, all on to begin with', async () => {
+		const { h } = await hostSession();
+		expect(h.view().share).toEqual({ cursor: true, slide: true, typing: true });
+		h.actions.setShare({ slide: false });
+		expect(h.view().share).toEqual({ cursor: true, slide: false, typing: true });
 	});
 });

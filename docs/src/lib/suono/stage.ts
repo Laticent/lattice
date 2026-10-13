@@ -577,6 +577,23 @@ export function createStage(opts: StageOptions = {}): Stage {
 				/* best-effort */
 			}
 		},
+		audioState() {
+			return audioCtx?.state ?? null;
+		},
+		canSetSink() {
+			const c = getCtx() as unknown as { setSinkId?: unknown } | null;
+			return !!c && typeof c.setSinkId === 'function';
+		},
+		async setSink(deviceId) {
+			const c = getCtx() as unknown as { setSinkId?: (id: string) => Promise<void> } | null;
+			if (!c || typeof c.setSinkId !== 'function') return false;
+			try {
+				await c.setSinkId(deviceId);
+				return true;
+			} catch {
+				return false;
+			}
+		},
 		resume() {
 			try {
 				audioCtx?.resume?.().catch(() => {});
@@ -632,6 +649,77 @@ export function createStage(opts: StageOptions = {}): Stage {
 							source.disconnect();
 						} catch {
 							/* best-effort */
+						}
+					},
+				};
+			} catch {
+				return null;
+			}
+		},
+		amplify(stream, gain) {
+			const ctx = getCtx();
+			if (!ctx || typeof ctx.createMediaStreamSource !== 'function' || typeof ctx.createGain !== 'function') return null;
+			try {
+				if (ctx.state === 'suspended') void ctx.resume?.()?.catch?.(() => {});
+				const source = ctx.createMediaStreamSource(stream);
+				const node = ctx.createGain();
+				const clamp = (g: number) => Math.min(4, Math.max(0, Number.isFinite(g) ? g : 1));
+				node.gain.value = clamp(gain);
+				source.connect(node);
+				node.connect(ctx.destination);
+				let stopped = false;
+				return {
+					setGain(g) {
+						if (!stopped) node.gain.value = clamp(g);
+					},
+					stop() {
+						if (stopped) return;
+						stopped = true;
+						try {
+							source.disconnect();
+							node.disconnect();
+						} catch {
+							/* best-effort */
+						}
+					},
+				};
+			} catch {
+				return null;
+			}
+		},
+		gainStream(stream, gain) {
+			const ctx = getCtx();
+			if (!ctx || typeof ctx.createMediaStreamSource !== 'function' || typeof ctx.createMediaStreamDestination !== 'function' || typeof ctx.createGain !== 'function') return null;
+			try {
+				if (ctx.state === 'suspended') void ctx.resume?.()?.catch?.(() => {});
+				const source = ctx.createMediaStreamSource(stream);
+				const node = ctx.createGain();
+				const dest = ctx.createMediaStreamDestination();
+				const clamp = (g: number) => Math.min(4, Math.max(0, Number.isFinite(g) ? g : 1));
+				node.gain.value = clamp(gain);
+				source.connect(node);
+				node.connect(dest);
+				let stopped = false;
+				return {
+					stream: dest.stream,
+					setGain(g) {
+						if (!stopped) node.gain.value = clamp(g);
+					},
+					stop() {
+						if (stopped) return;
+						stopped = true;
+						try {
+							source.disconnect();
+							node.disconnect();
+						} catch {
+							/* best-effort */
+						}
+						for (const t of dest.stream.getTracks()) {
+							try {
+								t.stop();
+							} catch {
+								/* already ended */
+							}
 						}
 					},
 				};
