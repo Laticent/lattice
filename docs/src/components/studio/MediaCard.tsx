@@ -8,9 +8,10 @@ import { formatBytes } from './reference-doc';
 // not a lattice-asset, so there is no select box and no zip share. The thumbnail is an object
 // URL minted for the card's lifetime and revoked on unmount (a leaked URL pins the Blob).
 
-function useObjectUrl(blob: Blob): string | null {
+export function useObjectUrl(blob: Blob | undefined): string | null {
 	const [url, setUrl] = React.useState<string | null>(null);
 	React.useEffect(() => {
+		if (!blob) return setUrl(null);
 		const u = URL.createObjectURL(blob);
 		setUrl(u);
 		return () => URL.revokeObjectURL(u);

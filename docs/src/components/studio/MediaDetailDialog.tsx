@@ -17,17 +17,6 @@ import { formatBytes } from './reference-doc';
 // Pixel size, bytes and file name are facts about the stored file and are shown, not edited.
 // Decision note: engineering/decisions/2026-10-12-library-media-assets.md §Metadata.
 
-function useObjectUrl(blob: Blob | undefined): string | null {
-	const [url, setUrl] = React.useState<string | null>(null);
-	React.useEffect(() => {
-		if (!blob) return setUrl(null);
-		const u = URL.createObjectURL(blob);
-		setUrl(u);
-		return () => URL.revokeObjectURL(u);
-	}, [blob]);
-	return url;
-}
-
 export function MediaDetailDialog({ m, open, onOpenChange, usedIn, aliasUse, onSave, onRename, onRemoveAlias }: {
 	m: MediaRecord | null;
 	open: boolean;
