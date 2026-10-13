@@ -18,12 +18,12 @@ export type RefDocRecord = {
 	docKind: 'text' | 'pdf';
 	text?: string;
 	/** A PDF's own bytes, stored as binary: base64 text would be a third larger on disk, and every list read
-	 *  would hold each PDF as a string. */
+	 *  would hold each PDF as a string. Read now; written once `WRITE_PDFS_AS_BINARY` is on. */
 	blob?: Blob;
 	/** Only where an engine refused to store a `Blob` (Safari in a private window): the same bytes as an
 	 *  ArrayBuffer, rebuilt into `blob` on the way out. */
 	data?: ArrayBuffer;
-	/** Records written before PDFs were stored as binary. Still read; `migrateLegacyRefDocs` rewrites them. */
+	/** A PDF as base64 text: what every build reads, and what is written until `WRITE_PDFS_AS_BINARY` is on. */
 	dataUrl?: string;
 	bytes: number;
 	addedAt: number;
@@ -59,9 +59,21 @@ function readable(row: RefDocRecord): RefDocRecord {
 	return { ...rest, blob: new Blob([data], { type: 'application/pdf' }) };
 }
 
+/**
+ * Does a saved PDF go to disk as binary (`true`) or as base64 text (`false`)?
+ *
+ * The READER understands both and ships now; the WRITER is held one release. A build from before this change reads a
+ * PDF only through `dataUrl`, so a person who rolls back, or keeps a tab open across the deploy, would lose sight of every
+ * PDF saved as binary in the meantime (the chat says a cloud model is needed when one is connected, "Could not download",
+ * an empty row in a backup). Shipping the reader first means the release that starts writing binary can be rolled back to
+ * this one, which reads it. Flip this and call `migrateLegacyRefDocs` from the Library in that next release
+ * (`followups.d/2654-p3-write-pdfs-as-binary.md`); the binary path below is built and tested through the `binary` option.
+ */
+export const WRITE_PDFS_AS_BINARY = false;
+
 /** Persist a doc to the shared library (dedups by name — re-adding replaces in
  *  place). `addedAt` is passed in so callers own the clock (tests stay deterministic). */
-export async function saveRefDoc(doc: ReferenceDoc, addedAt: number): Promise<RefDocRecord> {
+export async function saveRefDoc(doc: ReferenceDoc, addedAt: number, { binary = WRITE_PDFS_AS_BINARY }: { binary?: boolean } = {}): Promise<RefDocRecord> {
 	// A PDF arrives as base64 text (it is read that way for the request) and is stored as the bytes it encodes,
 	// typed as a PDF whatever the text said (a file picked with no type reads as octet-stream, and a backup row can
 	// claim any type: `recordToDoc` sends this type to the model).
@@ -72,6 +84,11 @@ export async function saveRefDoc(doc: ReferenceDoc, addedAt: number): Promise<Re
 	const bytes = blob ? blob.size : Math.min(MAX_DOC_BYTES, Math.max(0, Math.floor(Number(doc.bytes) || 0)));
 	const record: Omit<RefDocRecord, 'id'> = { kind: REFDOC_KIND, name: doc.name, docKind: doc.kind, text: doc.text, bytes, addedAt };
 	if (!blob) return readable((await putAsset(record)) as RefDocRecord);
+	if (!binary) {
+		// The format every build reads: base64 text, now with the type a PDF has and the size that was decoded.
+		const dataUrl = `data:application/pdf;base64,${(doc.dataUrl as string).slice((doc.dataUrl as string).indexOf(',') + 1)}`;
+		return readable((await putAsset({ ...record, dataUrl })) as RefDocRecord);
+	}
 	try {
 		// putAsset assigns an id and updates an existing (kind,name) in place.
 		return readable((await putAsset({ ...record, blob })) as RefDocRecord);

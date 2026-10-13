@@ -1,5 +1,5 @@
-- Reference PDFs you save from now on are stored as binary instead of base64 text: a third less storage per PDF, and opening the Library no longer loads each of them into memory as a string. PDFs saved earlier keep working as they are; they are not rewritten yet.
+- Reference PDFs can now be read from a binary form on disk, which is a third smaller than the base64 text they are stored as today and does not load as a string when the Library opens. New PDFs are still saved as text in this release so a rollback never loses sight of one; the switch to binary follows in the next release.
+- A reference PDF you add is now stored with its real size and typed as a PDF, and a restore refuses a PDF row whose data is not valid base64 or is over the 5 MB a reference doc may be, and names it.
 - A workspace backup stores photos and videos as they are instead of compressing them again: those files are already compressed, so the second pass spent several times the CPU to save 0 to 9%. Text in the backup is still compressed, and backups made before this change restore as before.
-- Restoring a backup now refuses a PDF row whose data is not valid base64 or is over the 5 MB a reference doc may be, and names it, instead of storing it.
 - A backup that cannot read one photo, video or PDF in this browser now leaves out just that file and names it in the backup's warnings, instead of leaving out every photo or failing.
 - Storage-full and private-window messages now say "photos or videos" instead of "photos".

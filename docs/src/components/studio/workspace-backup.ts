@@ -177,13 +177,17 @@ export async function packWorkspace(now: number, report?: PackReport): Promise<B
 		const rows: unknown[] = [];
 		for (const r of refdocs) {
 			const { blob: _blob, data: _data, ...rest } = r;
+			if (r.dataUrl) {
+				rows.push({ ...rest, dataUrl: r.dataUrl });
+				continue;
+			}
 			const bytes = refDocBlob(r);
 			if (!bytes) {
 				rows.push(rest);
 				continue;
 			}
 			try {
-				rows.push({ ...rest, dataUrl: r.dataUrl ?? (await blobToDataUrl(bytes)) });
+				rows.push({ ...rest, dataUrl: await blobToDataUrl(bytes) });
 			} catch {
 				if (report) (report.refdocsUnreadable ??= []).push(r.name);
 			}

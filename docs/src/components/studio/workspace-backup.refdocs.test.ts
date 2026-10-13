@@ -67,9 +67,9 @@ describe('restoreWorkspace — a backup with reference PDFs', () => {
 		expect(loadSource('deck-aaa')).toContain('# Quarterly plan');
 	}, 120_000);
 
-	it('writes a stored PDF as base64 rows, restores it as binary, and skips a row that is not base64 or is over the cap', async () => {
+	it('writes a binary-stored PDF as base64 rows, restores it in the default format, and skips a row that is not base64 or is over the cap', async () => {
 		const bytes = Buffer.from(crypto.getRandomValues(new Uint8Array(4096)));
-		await saveRefDoc({ name: 'good.pdf', kind: 'pdf', dataUrl: `data:application/pdf;base64,${bytes.toString('base64')}`, bytes: 4096 }, T0);
+		await saveRefDoc({ name: 'good.pdf', kind: 'pdf', dataUrl: `data:application/pdf;base64,${bytes.toString('base64')}`, bytes: 4096 }, T0, { binary: true });
 		expect(((await listAssets('refdoc')) as Array<{ dataUrl?: string; blob?: Blob }>).map((r) => [typeof r.dataUrl, r.blob instanceof Blob])).toEqual([['undefined', true]]);
 		const { default: JSZip } = await import('jszip');
 		const zip = await JSZip.loadAsync(new Uint8Array(await (await packWorkspace(T0)).arrayBuffer()));
@@ -86,8 +86,9 @@ describe('restoreWorkspace — a backup with reference PDFs', () => {
 		expect(summary.refused.map((r) => r.name).sort()).toEqual(['reference doc huge.pdf', 'reference doc junk.pdf', 'reference doc none.pdf']);
 		const [back] = (await listAssets('refdoc')) as Array<{ name: string; blob?: Blob; dataUrl?: string }>;
 		expect(back.name).toBe('good.pdf');
-		expect(back.dataUrl).toBeUndefined();
-		expect(new Uint8Array(await (back.blob as Blob).arrayBuffer())).toEqual(new Uint8Array(bytes));
+		// Restored through `saveRefDoc` in its default format: base64 text, which every build reads.
+		expect(back.dataUrl).toBe(`data:application/pdf;base64,${bytes.toString('base64')}`);
+		expect(back.blob).toBeUndefined();
 	});
 
 	it('names a PDF it cannot read instead of failing the whole backup, and restores an empty PDF', async () => {
@@ -95,9 +96,9 @@ describe('restoreWorkspace — a backup with reference PDFs', () => {
 		const state = exportStudioState();
 		state.index.push({ id: 'deck-aaa', title: 'Plan', builtin: false });
 		importStudioState(state, T0);
-		await saveRefDoc({ name: 'ok.pdf', kind: 'pdf', dataUrl: 'data:application/pdf;base64,AAEC', bytes: 3 }, T0);
-		await saveRefDoc({ name: 'lost.pdf', kind: 'pdf', dataUrl: 'data:application/pdf;base64,AAEC', bytes: 3 }, T0 + 1);
-		await saveRefDoc({ name: 'empty.pdf', kind: 'pdf', dataUrl: 'data:application/pdf;base64,', bytes: 0 }, T0 + 2);
+		await saveRefDoc({ name: 'ok.pdf', kind: 'pdf', dataUrl: 'data:application/pdf;base64,AAEC', bytes: 3 }, T0, { binary: true });
+		await saveRefDoc({ name: 'lost.pdf', kind: 'pdf', dataUrl: 'data:application/pdf;base64,AAEC', bytes: 3 }, T0 + 1, { binary: true });
+		await saveRefDoc({ name: 'empty.pdf', kind: 'pdf', dataUrl: 'data:application/pdf;base64,', bytes: 0 }, T0 + 2, { binary: true });
 		// The browser lost the file behind one stored Blob: reading it rejects.
 		const real = Blob.prototype.arrayBuffer;
 		let calls = 0;

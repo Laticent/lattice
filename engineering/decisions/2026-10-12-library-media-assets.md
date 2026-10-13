@@ -395,8 +395,9 @@ Avro or a second compressor, and the measurements below are why.
 
 | Where | Format | Why |
 |---|---|---|
-| Photos, videos, PDFs in IndexedDB | A `Blob`, as given | IndexedDB stores a Blob natively and hands it back file-backed, so a list read holds no bytes in memory. No base64, no wrapper. |
-| The same, in a browser that refuses a `Blob` (Safari private window) | An `ArrayBuffer`, rebuilt into a `Blob` on read | A fallback, tried only after the Blob write fails for a reason other than a full disk. |
+| Photos and videos in IndexedDB | A `Blob`, as given | IndexedDB stores a Blob natively and hands it back file-backed, so a list read holds no bytes in memory. No base64, no wrapper. |
+| Reference PDFs in IndexedDB | Base64 text today; a `Blob` from the next release (read now, written next; see below) | A build from before this change reads only the text, so the writer waits one release. |
+| Photos and videos, in a browser that refuses a `Blob` (Safari private window) | An `ArrayBuffer`, rebuilt into a `Blob` on read | A fallback, tried only after the Blob write fails for a reason other than a full disk. |
 | Entries in a backup zip (`media/`) | `STORE`, no compression | A JPEG, WebP, PNG, MP4 or WebM is already compressed. |
 | JSON in a zip (`media.json`, decks, `refdocs.json`) | `DEFLATE` | Text compresses to a fraction of its size. |
 | A clip's or photo's thumbnail (`poster`) | A JPEG `data:` string, 160 px, a few KB | A string stores in every engine; the cost is a third of a few KB per clip, which is not worth a second code path. |
@@ -417,18 +418,24 @@ a few lines of JSZip (`file(name, bytes, { compression: 'STORE' | 'DEFLATE' })`,
 
 So deflate is the right call for a PDF or JSON and the wrong one for a clip or photo: about five times the CPU for 0 to 9%
 (a phone-recorded H.264 clip was not available to measure, and should be closer to 0%). Base64 is exactly 4/3 (1.333) of the bytes; a stored PDF was a third larger than the
-file and `listRefDocs` loaded every PDF's whole string into memory on each Library open. A PDF saved from now on is a Blob.
-A record written the old way is still read and downloaded as it is.
+file and `listRefDocs` loaded every PDF's whole string into memory on each Library open.
 
-**The cost, stated plainly.** A PDF stored as binary is invisible to a build from before this change: its chat grounding
-says "needs a connected cloud model" when one is connected, its download says "Could not download", and its backup
-writes an empty row. That applies to **every PDF saved from now on**, so a person who rolls back, or keeps a tab open
-across the deploy, loses access to those PDFs until they update. The bytes stay in IndexedDB and nothing is deleted. We
-accept this: the alternative, writing the base64 text beside the Blob, keeps the extra third of disk and the string in
-memory that this change exists to remove. **The rewrite of old records (`migrateLegacyRefDocs`, a compare-and-swap) is
-built and tested but not run yet**, because it would widen that exposure from the PDFs saved since the deploy to every PDF
-a person owns. Run it in a later release, once rolling back past this one is no longer realistic
-(`followups.d/2654-p3-run-the-legacy-pdf-rewrite.md`).
+**This release reads binary PDFs and still writes base64 text. The writer flips next release.** A build from before this
+change reads a PDF only through `dataUrl`. If this release wrote binary, anyone who rolled back, or kept a tab open across
+the deploy, would lose sight of every PDF saved in the meantime: chat grounding says a cloud model is needed when one is
+connected, download says "Could not download", and a backup writes an empty row. So the order is expand, then contract:
+
+1. **This release (the expand).** The reader handles a record with a `blob`, a record with `dataUrl`, and (for a browser that
+   refuses Blobs) an ArrayBuffer. The writer (`saveRefDoc`) still writes base64, but a restore or an add now stores it typed
+   as a PDF and sized from the decoded bytes. The binary writer, the one-time rewrite of old records
+   (`migrateLegacyRefDocs`, a compare-and-swap) and their tests are in the tree and switched off by one constant,
+   `WRITE_PDFS_AS_BINARY`.
+2. **The next release (the contract).** Flip the constant and call the rewrite from the Library
+   (`followups.d/2654-p3-write-pdfs-as-binary.md`). Rolling that release back lands on this one, which reads binary.
+
+What this costs: the third of extra disk and the in-memory string stay for PDFs for one more release. What it buys: the
+change can be rolled back at every step. The backup file keeps PDFs as base64 rows throughout, so a backup restores in any
+version.
 
 A restored PDF row is checked before it is stored: valid base64, within 5 MB, stored typed as `application/pdf` whatever
 its text claimed, and sized from what was decoded, never from the row's own `bytes` (the spend guard reads that number).

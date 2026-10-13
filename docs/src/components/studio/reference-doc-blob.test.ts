@@ -15,9 +15,32 @@ const wipe = async () => {
 };
 beforeEach(wipe);
 
-describe('a saved PDF is stored as binary', () => {
+describe('by default a saved PDF is written as base64 text, the format every build reads', () => {
+	it('stores the text typed as a PDF, sized from what was decoded, with no Blob', async () => {
+		await saveRefDoc({ name: 'a.pdf', kind: 'pdf', dataUrl: `data:text/html;base64,${Buffer.from(PDF).toString('base64')}`, bytes: -1e15 }, 1);
+		await saveRefDoc({ name: 'b.pdf', kind: 'pdf', dataUrl: `data:application/octet-stream;base64,${Buffer.from(PDF).toString('base64')}`, bytes: 1 }, 2);
+		for (const raw of await rawRows()) {
+			expect(raw.dataUrl).toBe(urlOf(PDF));
+			expect(raw.blob).toBeUndefined();
+			expect(raw.bytes).toBe(PDF.length);
+		}
+	});
+
+	it('still refuses text that is not base64', async () => {
+		await expect(saveRefDoc({ name: 'bad.pdf', kind: 'pdf', dataUrl: 'data:application/pdf;base64,@@@', bytes: 3 }, 3)).rejects.toThrow();
+		expect(await rawRows()).toEqual([]);
+	});
+
+	it('a build that reads only dataUrl sees every PDF saved now: that is why the writer waits', async () => {
+		await saveRefDoc({ name: 'c.pdf', kind: 'pdf', dataUrl: urlOf(PDF), bytes: PDF.length }, 1);
+		const [raw] = await rawRows();
+		expect(typeof raw.dataUrl).toBe('string'); // what a pre-change build's recordToDoc and downloadDoc read
+	});
+});
+
+describe('a saved PDF is stored as binary when the writer is on', () => {
 	it('keeps the bytes as a Blob and no base64 text, and gives the request its base64 when it is attached', async () => {
-		await saveRefDoc({ name: 'brand.pdf', kind: 'pdf', dataUrl: urlOf(PDF), bytes: PDF.length }, 1);
+		await saveRefDoc({ name: 'brand.pdf', kind: 'pdf', dataUrl: urlOf(PDF), bytes: PDF.length }, 1, { binary: true });
 		const [raw] = await rawRows();
 		expect(raw.blob).toBeInstanceOf(Blob);
 		expect((raw.blob as Blob).size).toBe(PDF.length);
@@ -34,7 +57,7 @@ describe('a saved PDF is stored as binary', () => {
 	});
 
 	it('leaves a text doc alone', async () => {
-		await saveRefDoc({ name: 'guide.md', kind: 'text', text: 'cobalt', bytes: 6 }, 2);
+		await saveRefDoc({ name: 'guide.md', kind: 'text', text: 'cobalt', bytes: 6 }, 2, { binary: true });
 		const [raw] = await rawRows();
 		expect(raw).toMatchObject({ docKind: 'text', text: 'cobalt' });
 		expect(raw.blob).toBeUndefined();
@@ -42,16 +65,16 @@ describe('a saved PDF is stored as binary', () => {
 	});
 
 	it('takes the size from the bytes it decoded, not the size the row claims, so a hostile row cannot zero the cost guard', async () => {
-		await saveRefDoc({ name: 'cheap.pdf', kind: 'pdf', dataUrl: urlOf(PDF), bytes: -1e15 }, 1);
-		await saveRefDoc({ name: 'note.md', kind: 'text', text: 'x', bytes: -1e15 }, 2);
-		await saveRefDoc({ name: 'big.md', kind: 'text', text: 'x', bytes: 1e15 }, 3);
+		await saveRefDoc({ name: 'cheap.pdf', kind: 'pdf', dataUrl: urlOf(PDF), bytes: -1e15 }, 1, { binary: true });
+		await saveRefDoc({ name: 'note.md', kind: 'text', text: 'x', bytes: -1e15 }, 2, { binary: true });
+		await saveRefDoc({ name: 'big.md', kind: 'text', text: 'x', bytes: 1e15 }, 3, { binary: true });
 		const rows = Object.fromEntries((await listRefDocs()).map((r) => [r.name, r.bytes]));
 		expect(rows).toEqual({ 'cheap.pdf': PDF.length, 'note.md': 0, 'big.md': 5 * 1024 * 1024 });
 	});
 
 	it('stores a PDF typed as a PDF whatever its text claimed, so the model is never sent another type', async () => {
-		await saveRefDoc({ name: 'a.pdf', kind: 'pdf', dataUrl: `data:text/html;base64,${Buffer.from(PDF).toString('base64')}`, bytes: 1 }, 1);
-		await saveRefDoc({ name: 'b.pdf', kind: 'pdf', dataUrl: `data:application/octet-stream;base64,${Buffer.from(PDF).toString('base64')}`, bytes: 1 }, 2);
+		await saveRefDoc({ name: 'a.pdf', kind: 'pdf', dataUrl: `data:text/html;base64,${Buffer.from(PDF).toString('base64')}`, bytes: 1 }, 1, { binary: true });
+		await saveRefDoc({ name: 'b.pdf', kind: 'pdf', dataUrl: `data:application/octet-stream;base64,${Buffer.from(PDF).toString('base64')}`, bytes: 1 }, 2, { binary: true });
 		for (const rec of await listRefDocs()) {
 			expect((rec.blob as Blob).type).toBe('application/pdf');
 			expect((await recordToDoc(rec)).dataUrl).toBe(urlOf(PDF));
@@ -59,7 +82,7 @@ describe('a saved PDF is stored as binary', () => {
 	});
 
 	it('refuses a PDF whose text is not base64 rather than storing it', async () => {
-		await expect(saveRefDoc({ name: 'bad.pdf', kind: 'pdf', dataUrl: 'data:application/pdf;base64,@@@', bytes: 3 }, 3)).rejects.toThrow();
+		await expect(saveRefDoc({ name: 'bad.pdf', kind: 'pdf', dataUrl: 'data:application/pdf;base64,@@@', bytes: 3 }, 3, { binary: true })).rejects.toThrow();
 		expect(await rawRows()).toEqual([]);
 	});
 });
@@ -110,7 +133,8 @@ describe('the rewrite of a legacy record is a compare-and-swap', () => {
 		expect(await swapLegacyRefDoc(stale, dataUrlToBlob(urlOf(PDF)))).toBe(false);
 		const [now] = await listRefDocs();
 		expect(now.addedAt).toBe(100);
-		expect(new Uint8Array(await (now.blob as Blob).arrayBuffer())).toEqual(NEWER);
+		expect(now.dataUrl).toBe(urlOf(NEWER));
+		expect(now.blob).toBeUndefined();
 	});
 
 	it('does not bring back a PDF deleted after the list was read', async () => {
