@@ -305,13 +305,19 @@ painted its own bar over the tone. Its `:where()` exclusion now lists the `data-
 ## Addendum 2026-10-13 — the rail and glow styles reach auto-split pages
 
 The same root cause as the `tone-edge` fix, on the other two tone styles. A split page carries the semantic tone
-(`tone-warn`) and the style (`tone-glow`, `tone-rail`) as `data-split-mods`, and every rule that draws them was keyed
-on a class. Measured on indaco at 2160x3840, `cards-grid tone-warn` then `decision tone-fail`, x=1 at mid-height, 11
-pages: the cover and closing page read the page color (`#006FA8`, `#FFFFFF`) and so did every `decision` page; the
-native body pages read `#8A5D00`. The drop was a bug, not a design: a run disagreed with itself.
+(`tone-warn`) as `data-split-mods`; the style tokens (`tone-rail`, `tone-edge`, `tone-glow`) stay classes, because
+`TONE_STYLE_TOKENS` ride as classes (`lib/core/surface-registers.js`). Every rule that draws the rail was keyed on the
+semantic class. Measured on indaco at 2160x3840, `cards-grid tone-warn` then `decision tone-fail`, x=1 at mid-height, 11
+pages (cover and body only; this run has no closing page): the cover and every `decision` page read the page color
+(`#006FA8`, `#FFFFFF`); the native body pages read `#8A5D00`. The drop was a bug, not a design: a run disagreed with itself.
 
-The fix drops the `.tone-edge` scope from the `--tone-color` definitions and gives the default rail, the explicit
-`tone-rail` and the `tone-glow` ring a second form in `base.variants.css`, `[data-split-mods~="tone-*"]`. The default
-rail and the semantic definitions stay at (0,1,1), and `tone-edge` (0,2,1) still beats the rail. After, all 11 pages read
-the tone color at x=1: `#8A5D00` (warn) and `#550014` (fail) in light, `#EDB85C` and `#E9798C` in dark. A `tone-glow`
-deck reads the same on every page. `examples/split-tone-rail-story.md` shows it.
+The fix drops the `.tone-edge` scope from the `--tone-color` definitions and gives the default rail and the
+`tone-glow` ring a `[data-split-mods~="tone-*"]` arm for the semantic in `base.variants.css`. `tone-edge` (0,2,1) still
+beats the rail. After, all 11 pages read the tone color at x=1: `#8A5D00` (warn) and `#550014` (fail) in light,
+`#EDB85C` and `#E9798C` in dark; a `tone-glow` deck reads the same on every page.
+
+The checker found the finish backdrop still hid the rail. Under `finish: atrium` the backdrop inset (`left: 8px`,
+`base.finish.css`) was keyed on the class, so split covers and `decision` pages drew the backdrop over the rail and,
+for glow, the whole ring. The three backdrop rules and the overflow rule now carry the same arm.
+`examples/split-tone-rail-story.md` shows it. Not measured: other themes' contrast of the warn rail against an
+accent-field cover (indaco light `#8A5D00` on `#006FA8` is 1.05:1 in luminance, though the hues differ).
