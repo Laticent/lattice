@@ -300,20 +300,24 @@ a cloud sandbox, so the absolute figures are about half what a laptop gives:
 
 | job | kernel (retired) | arm's dispatcher | shipped | shipped/kernel |
 |---|---|---|---|---|
-| inline dispatch, every span both read alike | 32 ns | 69 ns | 53 ns | 1.6x |
-| &nbsp;&nbsp;ordinary code (code to both) | 29 ns | 55 ns | 37 ns | 1.3x |
-| &nbsp;&nbsp;state marks `[x]` | 56 ns | 37 ns | 86 ns | 1.5x |
-| &nbsp;&nbsp;pills `{BETA, tag, c4}` | 232 ns | 1.04 µs | 942 ns | 4.1x |
-| Segno syntax the kernel reads as code (482 spans) | — | 1.60 µs | 3.02 µs | — |
+| inline dispatch, every span both read alike | 27 ns | 52 ns | 38 ns | 1.4x |
+| &nbsp;&nbsp;ordinary code (code to both) | 28 ns | 49 ns | 43 ns | 1.6x |
+| &nbsp;&nbsp;state marks `[x]` | 49 ns | 29 ns | 86 ns | 1.8x |
+| &nbsp;&nbsp;pills `{BETA, tag, c4}` | 182 ns | 536 ns | 503 ns | 2.8x |
+| Segno syntax the kernel reads as code (482 spans) | — | 1.68 µs | 2.36 µs | — |
 
-Ordinary code is 99% of spans and costs 1.3x the kernel, inside the 1.5x target. The every-span
-ratio reads 1.4x to 1.65x between runs in this sandbox (five runs of near-final code: 1.41, 1.46,
-1.49, 1.52 and 1.64), so it sits on the line, not under it. What holds it there is the 35 pills
-(and 18 other directives) of 4,742 spans: Segno parses a pill where the kernel matched a pattern,
-and the arm's own copy is slower still (1.04 µs). Closing that is a faster Segno parse, not a
-faster dispatcher; the design note accepts pills above the bar (§ The engine). Before this change
-the same run read 174 ns for every span and 149 ns for ordinary code (5.2x the kernel), because
-every kind ran its own check on every span.
+This is the middle of three runs. The same code reads differently from run to run in this sandbox,
+and the ordinary-code row shows it: it is 99% of spans and unchanged code, and it read 1.0x, 1.6x
+and 1.4x the kernel across those three runs (31, 43 and 33 ns shipped against 31, 28 and 23 ns).
+The every-span ratio read 1.65x, 1.37x and 1.29x; before the pill work it read 1.34x, 1.71x and
+1.41x. So it sits on the 1.5x line and the noise decides which side a run lands on. What the pill
+work moved is the part that is not noise. The 35 pills (and 18 other directives) of 4,742 spans
+cost the shipped path 933, 678 and 702 ns each before and 563, 503 and 521 ns after, which is
+5.1x, 3.5x and 3.8x the kernel and then 3.0x, 2.8x and 2.7x. Closing the rest is a faster Segno
+parse (about 290 ns of the 503) rather than a faster dispatcher; the design note accepts pills
+above the bar (§ The engine). Before the first-character table the same run read 174 ns for every
+span and 149 ns for ordinary code (5.2x the kernel), because every kind ran its own check on every
+span.
 
 What moved it:
 
@@ -326,6 +330,9 @@ What moved it:
   let a kind answer yes or no without building its fields or its reason. The backslash escape used
   to build the reason: a mistyped icon name (`\^{databse}`) ran an edit-distance search over the
   whole set, 173 µs, to decide whether to strip a backslash; it now takes about 1.6 µs.
+- **A record binds from the parser's tree.** See "How a record binds fast" below: a pill's bind went
+  from about 355 ns to 260 ns, and the dispatcher's decision for it from about 480 ns to 370 ns
+  (interleaved runs on one machine).
 - **One parse per span.** `dispatches` then `diagnose` on a broken pill or spark parsed the same
   text two or three times; each reader keeps its last result.
 
@@ -396,6 +403,27 @@ and to the previous generator:
   range bounds. A set of every other code unit (32k ranges) read 256k characters inside attempt
   windows in 11.4 s generated and 1.6 s compiled; it now takes about 6 ms in each. No shipped
   grammar has more than 9 such ranges, so their parsers are unchanged.
+
+### How a record binds fast
+
+A plain `{…}` span of bare words and `name=bare` items (a pill, a chart point, a state) is bound
+straight from the parser's flat tree. The full bind builds an `Item` and a `Scalar` per item, a
+`Binding`, and a result; the fast read builds only the result. It is the same rules as the full
+bind (§ Write a grammar): positionals first, a declared name, a bare word to its one owner. It
+only ever succeeds. On anything else it returns null and the full bind runs, and the full bind
+alone words an error: a quote, a nested record or list, an unknown name or word, a repeat, a
+missing required value, a tag, a sigil, a sub-slot. So an error reads as it always did, and
+`schema.test.ts` holds a success equal to the full bind's on every span of one to three items
+built from a pool that reaches each of those branches.
+
+One more condition keeps it correct. The parser writes one reused buffer, and the fast read walks
+it while it calls each parameter's `read`. A type of your own may parse a span inside its `read`,
+which would overwrite the buffer under the walk. So a slot takes the fast read only when every
+type it declares was built by Segno (`text()`, `oneOf()`, `indexed()`, `number()`, and a `range()`
+or `named()` of one); a type you wrote, or a copy of a built-in with a new `read`, keeps the full
+bind. A built-in is frozen, so it cannot be changed in place to add a `read`. The `.` and `./read`
+entries each carry their own mark, so a slot built with `record` from one entry and `text` from the
+other takes the full bind: the results are the same and the saving is lost.
 
 ## Build
 

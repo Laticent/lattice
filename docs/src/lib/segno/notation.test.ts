@@ -1,7 +1,7 @@
 // @vitest-environment node
 // The inline notation: three shapes, one separator, one escape, quotes that must close.
 import { describe, expect, it } from 'vitest';
-import { isDirective, MAX_NESTING, parse, type Value } from './notation';
+import { isDirective, isName, MAX_NESTING, parse, type Value } from './notation';
 
 const shape = (v: Value | null): unknown => {
   if (v === null) return null;
@@ -217,5 +217,35 @@ describe('the reader, at its edges', () => {
   it('an escaped quote inside a quote does not close it', () => {
     const p = parse('{a, "x\\"');
     expect(!p.ok && [p.diagnostic.code, p.diagnostic.from]).toEqual(['unclosed-quote', 4]);
+  });
+});
+
+describe('the cheap filters keep their meaning', () => {
+  // `isName` replaced a regular expression and `isDirective` got a faster first branch; both are
+  // held to the definitions they replaced on every short string over an alphabet that reaches each branch.
+  const strings = (alphabet: string[], max: number): string[] => {
+    const out = [''];
+    let layer = [''];
+    for (let n = 0; n < max; n++) {
+      layer = layer.flatMap((p) => alphabet.map((c) => p + c));
+      out.push(...layer);
+    }
+    return out;
+  };
+  it('isName is the name pattern', () => {
+    for (const s of strings(['a', 'Z', '0', '-', ' ', '_', '\u00e9', '\n', '='], 4)) expect(isName(s), JSON.stringify(s)).toBe(/^[A-Za-z][A-Za-z0-9-]*$/.test(s));
+  });
+  it('isDirective is the tag-then-brace test', () => {
+    const was = (text: string) => {
+      let i = 0;
+      let escaped = false;
+      if (text.charCodeAt(0) === 0x5c) { escaped = true; i = 1; }
+      if ('~^!'.includes(text[i] ?? '\0')) i++;
+      if (text.charCodeAt(i) !== 0x7b) return null;
+      const c = text.charCodeAt(i + 1);
+      if (Number.isNaN(c) || c === 32 || c === 9 || c === 160 || c === 0x7d) return null;
+      return escaped ? 'escaped' : 'directive';
+    };
+    for (const s of strings(['\\', '~', '^', '!', '{', '}', ' ', 'a', '\t', '\u00a0', '['], 4)) expect(isDirective(s), JSON.stringify(s)).toBe(was(s));
   });
 });
