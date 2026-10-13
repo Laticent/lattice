@@ -2024,6 +2024,29 @@ luminance-separated grays) — the same channels that survive black-and-white pr
 Design + rationale: `engineering/decisions/2026-06-16-colour-blindness-accessibility.md`
 and `…-cvd-redundant-encoding.md`.
 
+## Library photos — `asset:<name>`
+
+In the Studio, a photo you add to the Library is a picture any deck can show: `![](asset:team-offsite)` on a slide, or
+`![bg](asset:hero)` as a background. The name is the one on the photo's card. It works wherever an image does (an
+`image` slide, a `collage` list, a `logo-wall` mark, a deck `logo:`), and it exists only in the Studio's browser. The CLI
+leaves the reference as written, and a Markdown or Marp export carries the reference, not the photo (a workspace backup
+carries the photo).
+
+**You write the picture; the photo's own details fill in the rest.**
+
+- **Alt text.** Leave the alt empty (`![](asset:roof)`) and the slide uses the photo's description from the Library, in
+  the preview, the exported page, and a collage's enlarged view and narration. Write your own alt
+  (`![The whole team](asset:roof)`) and yours wins. A photo with no description gives an empty alt, as before.
+- **Renaming.** Rename a photo in the Library and the old name keeps working in every deck. The photo's detail view lists
+  the old names, shows how many decks still write each, and **Use new name** rewrites those decks (a Version history
+  entry is kept first, and a code sample that mentions the name is left as written).
+- **A name, once.** A photo's name and its old names are one pool. A new photo cannot take a name another photo has had.
+- **Missing photos.** A name the Library does not hold (the photo was deleted, or the deck is open in another browser)
+  draws the missing-image stand-in, and an export still finishes.
+
+Where a photo's description, credit and date come from, and what Lattice keeps and removes from the file (the location is
+always removed): `engineering/decisions/2026-10-12-library-media-assets.md` § Editing a photo's metadata.
+
 ---
 
 ## Related

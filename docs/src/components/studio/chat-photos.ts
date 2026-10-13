@@ -13,7 +13,7 @@
 
 import { MAX_VIDEO_BYTES, VISION_EDGE, videoRefusal } from './chat-photo-parts';
 import { classifyMedia, importImage, importVideo, MediaImportError } from './media-import';
-import { deleteMedia, listMedia, MEDIA_REFUSAL_PREFIX, saveMedia, uniqueName } from './media-store';
+import { deleteMedia, listMedia, MEDIA_REFUSAL_PREFIX, namesOf, saveMedia, uniqueName } from './media-store';
 import type { ChatPhoto, ChatVideo } from './studio-store';
 
 export { MAX_CHAT_PHOTOS, MAX_VIDEO_SECONDS, PHOTO_TOKENS, VIDEO_TOKENS, VISION_EDGE } from './chat-photo-parts';
@@ -31,7 +31,7 @@ export async function addChatPhotos(files: FileList | File[] | null, deckId: str
 	const picked = Array.from(files ?? []);
 	const out: AddedPhotos = { photos: [], failed: [], renamed: [] };
 	if (!picked.length) return out;
-	const taken = new Set((await listMedia()).map((a) => a.name));
+	const taken = new Set((await listMedia()).flatMap(namesOf));
 	for (const file of picked) {
 		try {
 			if (classifyMedia(file) !== 'image') throw new MediaImportError(`${file.name} isn't an image.`);

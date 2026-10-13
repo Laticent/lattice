@@ -379,6 +379,49 @@ include the corpus byte check and the regressions for stale positions. **Not ver
 touch and keyboard (this was emulation, not a device), and Safari's `@scope` (the fallback shows the
 source in the code face).
 
+## 12b. Phase 2 as built (sparks, the icon axis, the crowding warning)
+
+**What shipped.**
+
+- **A kind and a panel, nothing else.** `sparkKind` joins `OBJECT_KINDS` and `SparkPanel` joins `PANELS`. The
+  node, the paste guard, the serializer and `normalizeObjects` did not change: the `~` sigil was already in the
+  node's source test and in `normalizeObjects`' first-character test, and `kindOf` asks each kind's `read`, so
+  `~{12 14 17}` is a spark and `{12 14 17}` is nothing. Opening the shipped decks still writes no bytes (the
+  corpus byte-identity test now converts sparks as well as pills).
+- **The writer** (`editSpark`, `lib/core/inline-sparks.js`) is shaped like `editPill`: it parses the span with
+  Segno, replaces or appends or drops only the words that change, and accepts the result only if the kernel's own
+  `interpret` still reads it as a spark (a field-by-field comparison follows as a backstop that no tested input reaches). It takes several axes in one call, so a
+  panel can switch to bars and clear the end dot a bar cannot carry in a single write (otherwise the engine's
+  refusal would leave no path from a line with markers to a bar). The spark's `data` axis takes an array or the
+  data text; the panel sends the author's own tokens with one cell changed, so `+17.50` stays `+17.50`.
+  `read` returns the fields plus `dataText`, a copy the caller may change.
+- **The panel** offers only what the data takes: trend types for a trend, ratio types for a ratio, marks only on
+  line, area and step. A "Shows" switch changes a trend to a share of a total and back (it writes a sample, because
+  nothing converts one into the other). A bad number is shown and never written. A refusal from the writer is
+  shown with the "Edit as text" exit, never swallowed.
+- **The door** ("Insert spark", slide bar) puts `~{12 14 13 17 21}` after the caret's word with a space, leaves a
+  selected word as it is, and opens the editor. `insertBlocker` takes the noun, so its messages say "spark".
+- **The sheet** copies `.lat-spark` rules from the preview frame as it does `.lat-pill` rules, so a spark in Compose
+  is the slide's drawing in the deck's tokens.
+- **`icon=` on a pill** is a named item in `editPill` (`icon` joins the axis list). The kernel's reader decides
+  whether the icons plugin knows the name, so an unknown name is a null and never a pill that quietly stops being
+  one; taking the icon off an icon-only pill is refused, because nothing would be left to show. The panel opens
+  `IconGrid` from a row, and the host holds the editor open while the grid is up (`holdOpen`), because focus
+  moving into the grid is not the author leaving.
+- **The crowding warning** uses the linter's own check: `pillIsCrowded` in `lint-core.js` now backs both
+  `pill-shape-crowded` and the panel (`kernels.pill.crowded`), so the two cannot disagree.
+
+**Where the next doors go (measured, not decided).** At 390px, with touch emulation, the slide bar's first row is
+266px wide (the width between the slide's end caps) and now holds undo, redo, table, code, pill, spark and slide
+settings: eight 28px buttons, with about 10px of padding left. A fifth door does not fit on row one. The avatar,
+chart and diagram doors therefore cannot each take a button. Recommendation for phase 3: one "Insert" menu that
+holds pills, sparks, avatars, charts and diagrams, so the bar keeps only the doors used every day. That is a
+decision for the owner, recorded in `followups.d/`.
+
+**Known fidelity gaps.** A number-cell edit writes the series with single spaces (`~{12  14  17}` becomes
+`~{12 14 18}`), and the ratio boxes show parsed numbers, so `72.50/80` is written back as `72.5/80` on an edit.
+Every other word keeps its bytes.
+
 ## 13. References
 
 - `engineering/decisions/2026-07-18-compose-prosemirror.md` — the Compose architecture.

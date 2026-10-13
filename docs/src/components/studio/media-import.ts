@@ -5,6 +5,7 @@
 // canvas, encode) and is exercised against a real browser, not jsdom — jsdom has no image
 // decoder, so a test there would only confirm a stub (HARD RULE #23).
 
+import { type FileMeta, readFileMeta } from './media-exif';
 import { scrubberFor } from './media-scrub';
 import { isIsoVideo, MAX_MEDIA_FILE_BYTES, type MediaKind, mediaNameFromFile, type NewMedia, sniffImageMime, sniffVideoMime, uniqueName } from './media-store';
 
@@ -183,6 +184,26 @@ async function rasterizeSvg(file: File): Promise<{ blob: Blob; width: number; he
 	}
 }
 
+/** What the file says about itself, read BEFORE anything scrubs or re-encodes it, as fields of a new record.
+ *  A JPEG keeps its metadata in the first segments, so a slice is enough; PNG and WebP can put theirs after the
+ *  picture data, so those are read whole (the importer reads a kept PNG or WebP whole to scrub it anyway). A
+ *  file this cannot read gives nothing, and the import goes on. */
+export async function fileMetaFields(file: File, mime: string): Promise<Pick<NewMedia, 'credit' | 'taken' | 'fileCaption' | 'hadLocation'>> {
+	let meta: FileMeta = {};
+	try {
+		const buf = JPEG_LIKE.has(mime) ? await file.slice(0, 2 * 1_048_576).arrayBuffer() : mime === 'image/png' || mime === 'image/webp' ? await file.arrayBuffer() : null;
+		if (buf) meta = readFileMeta(new Uint8Array(buf));
+	} catch {
+		meta = {};
+	}
+	return {
+		...(meta.credit ? { credit: meta.credit } : {}),
+		...(meta.taken ? { taken: meta.taken } : {}),
+		...(meta.caption ? { fileCaption: meta.caption } : {}),
+		...(meta.hadLocation ? { hadLocation: true as const } : {}),
+	};
+}
+
 type Encoded = { blob: Blob; mime: string; width: number; height: number; original: boolean };
 
 /** One photo, as one chosen format. Shared by the import and by the size measurement, so the sizes the
@@ -286,18 +307,19 @@ export async function importImage(file: File, scope: string, format?: PhotoForma
 		const { blob, width, height } = await rasterizeSvg(file);
 		return { kind: 'image', name: mediaNameFromFile(file.name, 'image'), scope, blob, mime: blob.type || 'image/png', bytes: blob.size, width, height, sourceName: file.name, original: false };
 	}
+	const fromFile = await fileMetaFields(file, mime);
 	const bitmap = await decode(file);
 	try {
 		if (format) {
 			const e = await encodeAs(file, bitmap, mime, format);
 			if (e.blob.size > MAX_MEDIA_FILE_BYTES) throw new MediaImportError(`${file.name} is still ${Math.round(e.blob.size / 1_048_576)} MB after it was converted; a photo may be at most ${Math.floor(MAX_MEDIA_FILE_BYTES / 1_048_576)} MB.`);
-			return { kind: 'image', name: mediaNameFromFile(file.name, 'image'), scope, blob: e.blob, mime: e.mime, bytes: e.blob.size, width: e.width, height: e.height, sourceName: file.name, original: e.original };
+			return { kind: 'image', name: mediaNameFromFile(file.name, 'image'), scope, blob: e.blob, mime: e.mime, bytes: e.blob.size, width: e.width, height: e.height, sourceName: file.name, original: e.original, ...fromFile };
 		}
 		const plan = planImage(mime, bitmap.width, bitmap.height);
 		const scrub = !plan.reencode ? scrubberFor(mime) : undefined;
 		const cleaned = scrub ? scrub(new Uint8Array(await file.arrayBuffer())) : null;
 		if (!plan.reencode && cleaned) {
-			return { kind: 'image', name: mediaNameFromFile(file.name, 'image'), scope, blob: new Blob([cleaned as BlobPart], { type: mime }), mime, bytes: cleaned.length, width: plan.width, height: plan.height, sourceName: file.name, original: true };
+			return { kind: 'image', name: mediaNameFromFile(file.name, 'image'), scope, blob: new Blob([cleaned as BlobPart], { type: mime }), mime, bytes: cleaned.length, width: plan.width, height: plan.height, sourceName: file.name, original: true, ...fromFile };
 		}
 		// A kept type the scrubber could not parse falls through to a canvas
 		// re-encode, capped like any other photo and stored as PNG: never stored with a block nobody could read.
@@ -316,7 +338,7 @@ export async function importImage(file: File, scope: string, format?: PhotoForma
 		const blob = await toBlob(canvas, out.mime);
 		if (blob.size > MAX_MEDIA_FILE_BYTES) throw new MediaImportError(`${file.name} is still ${Math.round(blob.size / 1_048_576)} MB after it was converted; a photo may be at most ${Math.floor(MAX_MEDIA_FILE_BYTES / 1_048_576)} MB.`);
 		// The type the browser actually wrote: an engine without a WebP encoder answers a WebP request with a PNG.
-		return { kind: 'image', name: mediaNameFromFile(file.name, 'image'), scope, blob, mime: blob.type || out.mime, bytes: blob.size, width: out.width, height: out.height, sourceName: file.name, original: false };
+		return { kind: 'image', name: mediaNameFromFile(file.name, 'image'), scope, blob, mime: blob.type || out.mime, bytes: blob.size, width: out.width, height: out.height, sourceName: file.name, original: false, ...fromFile };
 	} finally {
 		bitmap.close();
 	}

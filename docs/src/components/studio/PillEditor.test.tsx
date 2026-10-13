@@ -103,3 +103,35 @@ describe('readSlotColors', () => {
 		expect(colors.every((c) => c === null)).toBe(true);
 	});
 });
+
+describe('PillPanel — the icon and the crowding warning', () => {
+	it('says a circle or diamond with a long label is crowded, and says what to do', () => {
+		setup('{Shipped, circle}');
+		expect(screen.getByRole('status').textContent).toMatch(/Shorten the label, or pick Tag/);
+		cleanup();
+		setup('{7, circle}');
+		expect(screen.queryByRole('status')).toBeNull();
+		cleanup();
+		setup('{Shipped, tag}');
+		expect(screen.queryByRole('status')).toBeNull();
+	});
+
+	it('offers to add an icon, or change and remove the one it has', () => {
+		setup('{DONE, c2}');
+		expect(screen.getByRole('button', { name: 'Add an icon' })).toBeTruthy();
+		cleanup();
+		setup('{DONE, icon=api}');
+		expect(screen.getByRole('button', { name: 'Change icon (api)' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Remove' })).toBeTruthy();
+		cleanup();
+		// An icon-only pill has nothing else to show, so the icon cannot be taken off it.
+		setup('{icon=api}');
+		expect(screen.queryByRole('button', { name: 'Remove' })).toBeNull();
+	});
+
+	it('removing the icon reports exactly that edit', async () => {
+		const { user, onEdit } = setup('{DONE, icon=api}');
+		await user.click(screen.getByRole('button', { name: 'Remove' }));
+		expect(onEdit).toHaveBeenLastCalledWith({ icon: null });
+	});
+});

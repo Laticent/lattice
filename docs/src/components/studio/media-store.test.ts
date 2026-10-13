@@ -6,6 +6,7 @@ import 'fake-indexeddb/auto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { openDB, reqAsPromise } from './library/asset-db.js';
 import { deleteAsset, listAssets } from './library/asset-store.js';
+import { cleanLine, decksUsingRecord, isIsoDate, removeMediaAlias, renameMedia, updateMediaDetails, updateMediaMeta } from './media-edit';
 import {
 	decksUsing,
 	deleteDeckMedia,
@@ -13,9 +14,11 @@ import {
 	isPosterDataUrl,
 	LIBRARY_SCOPE,
 	listMedia,
+	MAX_ALIASES,
 	MEDIA_REFUSAL_PREFIX,
 	mediaNameFromFile,
 	type NewMedia,
+	namesOf,
 	saveMedia,
 	setMediaCaption,
 	setMediaScope,
@@ -282,5 +285,237 @@ describe('setMediaCaption', () => {
 		await setMediaCaption(rec.id, 'A door');
 		const [after] = await listMedia();
 		expect([after.name, after.scope, after.bytes]).toEqual(['hero', 'deck-1', 1]);
+	});
+});
+
+describe('rename with aliases', () => {
+	beforeEach(emptyShelf);
+	afterEach(emptyShelf);
+
+	it('keeps the old name as an alias, and the alias blocks a new upload', async () => {
+		const rec = await saveMedia(base(), 1);
+		const renamed = await renameMedia(rec.id, 'team-offsite');
+		expect(renamed?.name).toBe('team-offsite');
+		expect(namesOf(renamed as never)).toEqual(['team-offsite', 'hero']);
+		await expect(saveMedia(base({ name: 'hero' }), 2)).rejects.toThrow(MEDIA_REFUSAL_PREFIX);
+	});
+
+	it('refuses a name another image holds, as a name or an alias', async () => {
+		const a = await saveMedia(base({ name: 'a' }), 1);
+		const b = await saveMedia(base({ name: 'b' }), 2);
+		await renameMedia(a.id, 'a2');
+		await expect(renameMedia(b.id, 'a')).rejects.toThrow(MEDIA_REFUSAL_PREFIX);
+		await expect(renameMedia(b.id, 'a2')).rejects.toThrow(MEDIA_REFUSAL_PREFIX);
+		await expect(renameMedia(b.id, 'Bad Name')).rejects.toThrow(MEDIA_REFUSAL_PREFIX);
+		expect((await listMedia()).find((m) => m.id === b.id)?.name).toBe('b');
+	});
+
+	it('takes an own alias back without duplicating it', async () => {
+		const rec = await saveMedia(base(), 1);
+		await renameMedia(rec.id, 'x');
+		const back = await renameMedia(rec.id, 'hero');
+		expect(back?.name).toBe('hero');
+		expect(back?.aliases).toEqual(['x']);
+	});
+
+	it('frees an alias when it is removed', async () => {
+		const rec = await saveMedia(base(), 1);
+		await renameMedia(rec.id, 'x');
+		const cleared = await removeMediaAlias(rec.id, 'hero');
+		expect(cleared?.aliases).toBeUndefined();
+		await expect(saveMedia(base({ name: 'hero' }), 2)).resolves.toBeTruthy();
+	});
+});
+
+describe('updateMediaMeta', () => {
+	beforeEach(emptyShelf);
+	afterEach(emptyShelf);
+
+	it('sets, cleans and clears description, credit and date', async () => {
+		const rec = await saveMedia(base(), 1);
+		const set = await updateMediaMeta(rec.id, { caption: ' A "door" ', credit: 'Ada L.', taken: '2026-03-04' });
+		expect([set?.caption, set?.credit, set?.taken]).toEqual(['A "door"', 'Ada L.', '2026-03-04']);
+		const bad = await updateMediaMeta(rec.id, { taken: 'last march' });
+		expect(bad?.taken).toBeUndefined();
+		const cleared = await updateMediaMeta(rec.id, { caption: '', credit: '' });
+		expect([cleared?.caption, cleared?.credit]).toEqual([undefined, undefined]);
+	});
+
+	it('leaves fields it was not given and refuses a video', async () => {
+		const rec = await saveMedia(base({ caption: 'keep' } as never), 1);
+		expect((await updateMediaMeta(rec.id, { credit: 'x' }))?.caption).toBe('keep');
+		const vid = await saveMedia(base({ kind: 'video', name: 'reel', mime: 'video/mp4' }), 2);
+		expect(await updateMediaMeta(vid.id, { credit: 'x' })).toBeNull();
+	});
+});
+
+describe('decksUsingRecord', () => {
+	it('counts a deck that still writes an old name', () => {
+		const rec = { name: 'q3', aliases: ['hero'] };
+		expect(decksUsingRecord(rec, ['![](asset:hero)', '![](asset:q3)', '![](asset:other)', '![](asset:hero) ![](asset:q3)'])).toBe(3);
+	});
+});
+
+describe('limits and cross-checks', () => {
+	beforeEach(emptyShelf);
+	afterEach(emptyShelf);
+
+	it('refuses a rename that would pass the old-name limit instead of dropping one', async () => {
+		const rec = await saveMedia(base({ name: 'n0' }), 1);
+		for (let i = 1; i <= MAX_ALIASES; i++) await renameMedia(rec.id, `n${i}`);
+		await expect(renameMedia(rec.id, 'one-too-many')).rejects.toThrow(MEDIA_REFUSAL_PREFIX);
+		expect((await listMedia())[0].name).toBe(`n${MAX_ALIASES}`);
+	});
+
+	it('refuses a record whose old names collide with a name already held', async () => {
+		await saveMedia(base({ name: 'taken' }), 1);
+		await expect(saveMedia(base({ name: 'fresh', aliases: ['taken'] }), 2)).rejects.toThrow(MEDIA_REFUSAL_PREFIX);
+	});
+
+	it('knows a real calendar day from a shape that only looks like one', () => {
+		expect(isIsoDate('2026-02-28')).toBe(true);
+		expect(isIsoDate('2024-02-29')).toBe(true);
+		expect(isIsoDate('2026-02-29')).toBe(false);
+		expect(isIsoDate('2026-99-99')).toBe(false);
+		expect(isIsoDate('26-1-1')).toBe(false);
+	});
+});
+
+describe('updateMediaDetails', () => {
+	beforeEach(emptyShelf);
+	afterEach(emptyShelf);
+
+	it('renames and edits in one write', async () => {
+		const rec = await saveMedia(base({ name: 'hero' }), 1);
+		const out = await updateMediaDetails(rec.id, { name: 'cover', caption: 'A cover', credit: 'Ada' });
+		expect([out?.name, out?.aliases, out?.caption, out?.credit]).toEqual(['cover', ['hero'], 'A cover', 'Ada']);
+	});
+
+	it('saves nothing at all when the new name is refused', async () => {
+		await saveMedia(base({ name: 'taken' }), 1);
+		const rec = await saveMedia(base({ name: 'mine', caption: 'before' } as never), 2);
+		await expect(updateMediaDetails(rec.id, { name: 'taken', caption: 'after', credit: 'x' })).rejects.toThrow(MEDIA_REFUSAL_PREFIX);
+		const mine = (await listMedia()).find((m) => m.id === rec.id);
+		expect([mine?.name, mine?.caption, mine?.credit]).toEqual(['mine', 'before', undefined]);
+	});
+
+	it('edits without a rename when no name is given', async () => {
+		const rec = await saveMedia(base({ name: 'hero' }), 1);
+		const out = await updateMediaDetails(rec.id, { credit: 'Ada' });
+		expect([out?.name, out?.aliases, out?.credit]).toEqual(['hero', undefined, 'Ada']);
+	});
+});
+
+describe('cleanLine keeps what changes meaning', () => {
+	it('keeps a family emoji, a Persian word with its joiner, and the flag of England', () => {
+		const family = '\u{1F468}\u200D\u{1F469}\u200D\u{1F467}';
+		expect(cleanLine(family, 140)).toBe(family);
+		expect(cleanLine('\u0628\u0647\u200C\u0646\u0627\u0645', 140)).toBe('\u0628\u0647\u200C\u0646\u0627\u0645');
+		const england = '\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}';
+		expect(cleanLine(england, 140)).toBe(england);
+		expect(cleanLine('\u2764\uFE0F\u200D\u{1F525}', 140)).toBe('\u2764\uFE0F\u200D\u{1F525}');
+	});
+
+	it('keeps every real subdivision flag (England, Scotland, Wales) and nothing a flag cannot spell', () => {
+		const tag = (word: string) => [...word].map((c) => String.fromCodePoint(0xe0000 + c.charCodeAt(0))).join('');
+		expect(cleanLine('Anarchy \u{1F3F4}', 140)).toBe('Anarchy \u{1F3F4}'); // a plain black flag is a character, not a half flag
+		const flag = (word: string) => `\u{1F3F4}${tag(word)}\u{E007F}`;
+		for (const w of ['gbeng', 'gbsct', 'gbwls']) expect(cleanLine(flag(w), 140)).toBe(flag(w));
+		// A "flag" whose tags spell anything else, even a plausible subdivision code, is hidden text.
+		for (const w of ['usca', 'ignore', ' all ', 'Hi!', 'a b', 'gbxyz', 'gbengx']) expect(cleanLine(`x${flag(w)}y`, 140), w).toBe('x\u{1F3F4}y'); // the visible flag stays, the hidden text goes
+	});
+
+	it('never leaves a half-written flag or a dangling joiner at the cut', () => {
+		const england = '\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}';
+		const cut = cleanLine(`${'x'.repeat(137)}${england}`, 140);
+		expect(cut).toBe('x'.repeat(137));
+		const couple = `${'x'.repeat(139)}\u{1F468}\u200D\u{1F469}`;
+		expect(cleanLine(couple, 142)).toBe(couple);
+		expect(cleanLine(couple, 141)).toBe(`${'x'.repeat(139)}\u{1F468}`);
+		expect(cleanLine(couple, 140)).toBe(`${'x'.repeat(139)}\u{1F468}`);
+	});
+
+	it('removes a joiner between two plain ASCII letters, where it has no use', () => {
+		expect(cleanLine('a\u200Db\u200Cc', 140)).toBe('abc');
+	});
+
+	it('still removes a run of joiners, a tag outside a flag, and a joiner at an edge', () => {
+		expect(cleanLine('a\u200D\u200D\u200C\u200Db', 140)).toBe('ab');
+		expect(cleanLine(`a${String.fromCodePoint(0xe0041)}${String.fromCodePoint(0xe0042)}b`, 140)).toBe('ab');
+		expect(cleanLine('\u200Dab\u200D', 140)).toBe('ab');
+		expect(cleanLine('a \u200D b', 140)).toBe('a b');
+	});
+});
+
+describe('cleanLine', () => {
+	it('keeps what a person typed: quotes, the middle dot, accents and an emoji with its look', () => {
+		expect(cleanLine('The "roof" · Zürich \u2764\uFE0F', 140)).toBe('The "roof" · Zürich \u2764\uFE0F');
+	});
+
+	it('removes control, bidirectional and hidden characters', () => {
+		expect(cleanLine(`a\r\nb\u202E\u200Bc\u3164d\u2800e${String.fromCodePoint(0xe0041)}f${String.fromCodePoint(0xe0100)}g\uFE01h`, 140)).toBe('a bcdefgh');
+	});
+
+	it('cuts by whole characters, so an emoji at the limit is kept or dropped whole', () => {
+		const out = cleanLine(`${'a'.repeat(139)}\u{1F600}x`, 140);
+		expect(Array.from(out)).toHaveLength(140);
+		expect(out.endsWith('\u{1F600}')).toBe(true);
+		expect(cleanLine('\u{1F600}\u{1F600}', 1)).toBe('\u{1F600}');
+	});
+});
+
+describe("a photo's bytes survive every rewrite of its record", () => {
+	beforeEach(emptyShelf);
+	const bytesOf = async (id: string) => {
+		const m = (await listMedia()).find((x) => x.id === id);
+		return m ? [...new Uint8Array(await m.blob.arrayBuffer())].join(',') : null;
+	};
+
+	it('a caption, a rename, an alias removal and a scope flip leave the stored bytes as they were', async () => {
+		const png = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 1, 2, 3, 4, 5, 6, 7, 8]);
+		const rec = await saveMedia(base({ name: 'shoe', blob: new Blob([png], { type: 'image/png' }), mime: 'image/png', bytes: png.length }), 1);
+		const original = await bytesOf(rec.id);
+		expect(original).toBe([...png].join(','));
+		await setMediaCaption(rec.id, 'A shoe');
+		expect(await bytesOf(rec.id)).toBe(original);
+		await updateMediaDetails(rec.id, { name: 'brogue', credit: 'Me' });
+		expect(await bytesOf(rec.id)).toBe(original);
+		await setMediaScope(rec.id, 'deck-a');
+		expect(await bytesOf(rec.id)).toBe(original);
+		await removeMediaAlias(rec.id, 'shoe');
+		expect(await bytesOf(rec.id)).toBe(original);
+		const [row] = await listMedia();
+		expect(row).toMatchObject({ name: 'brogue', caption: 'A shoe', credit: 'Me', scope: 'deck-a' });
+		expect(row.blob.type).toBe('image/png');
+	});
+
+	it('a rewrite writes a Blob it made, not the handle it read: a read Blob is never handed back to put()', async () => {
+		const rec = await saveMedia(base({ name: 'shoe' }), 1);
+		const seen: { blob?: unknown }[] = [];
+		const read: unknown[] = [];
+		const realGet = IDBObjectStore.prototype.get;
+		const realPut = IDBObjectStore.prototype.put;
+		IDBObjectStore.prototype.get = function (this: IDBObjectStore, q: IDBValidKey | IDBKeyRange) {
+			const req = realGet.call(this, q);
+			req.addEventListener('success', () => {
+				const v = req.result as { blob?: unknown } | undefined;
+				if (v?.blob) read.push(v.blob);
+			});
+			return req;
+		};
+		IDBObjectStore.prototype.put = function (this: IDBObjectStore, v: unknown, k?: IDBValidKey) {
+			seen.push(v as { blob?: unknown });
+			return realPut.call(this, v, k);
+		};
+		try {
+			await setMediaCaption(rec.id, 'A shoe');
+			await updateMediaDetails(rec.id, { credit: 'Me' });
+			await setMediaScope(rec.id, 'deck-a');
+		} finally {
+			IDBObjectStore.prototype.get = realGet;
+			IDBObjectStore.prototype.put = realPut;
+		}
+		expect(seen.length).toBeGreaterThanOrEqual(3);
+		for (const v of seen) expect(read.includes(v.blob), 'the Blob written back is not one IndexedDB just handed out').toBe(false);
 	});
 });

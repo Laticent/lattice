@@ -347,7 +347,239 @@ in `chat-agent.ts`.
 Chromium: photos added through the Library's file input, the real thumbnail code (512 px, under 150 KB of
 base64), the real agent loop, and the caption read back from IndexedDB. The model is mocked (HARD RULE #24),
 so **how a real model chooses between photos is UNVERIFIED.** The spec fails if the thumbnail edge grows.
-A workspace backup carries each photo's caption and a restore reads it back through `cleanCaption`, so a restore does not make the chat look at every photo again. A backup file is untrusted and the caption re-enters a prompt, which is why it is cleaned on the way in; a caption that is not a string is dropped.
+A workspace backup carries each photo's caption with the rest of its metadata (see the next section). A restore
+treats a backup as a file from anyone: the caption must be a string, is cut to one line of at most 140 characters,
+and has control, bidirectional and invisible characters removed. A person's own wording otherwise survives the
+round trip, quotes included. What keeps a caption from breaking out of a prompt is the chat boundary, not the
+store: `infoOf` in `agent-assets-browser.ts` runs every caption through `cleanCaption` before the model sees it.
+
+## Editing a photo's metadata (added 2026-10-13)
+
+The Images tab opens a detail dialog for a photo, so a person can see and edit what a deck can reuse
+(`MediaDetailDialog.tsx`). Four fields are editable. The record holds them next to the bytes, and the stored
+bytes stay scrubbed, so an export never carries them.
+
+| Field | Record field | Notes |
+|---|---|---|
+| Description | `caption` | One line, 140 characters. The chat writes the same field; a person's edit wins and the chat captions only a photo with none. Kept as typed. The chat gets a cleaned copy (`infoOf` in `agent-assets-browser.ts`), so a quote cannot break out of its prompt. |
+| Credit | `credit` | One line, 100 characters. |
+| Date taken | `taken` | A real `YYYY-MM-DD`, chosen with the browser's date picker. |
+| Name | `name` | See aliases. |
+
+**A rename keeps the old name as an alias** (the Avro idea of `aliases`: a renamed field still answers to its old
+name). `renameMedia` moves the old name into `aliases`, so `asset:<old>` keeps resolving and no deck text is
+edited. Rules:
+
+- **Names and aliases share one namespace.** A new upload, a restore and a rename may not take a name or alias
+  another photo holds. `putMedia` and `renameMedia` check this inside the write transaction. The Library importer
+  and a restore treat a held alias as a held name (rename on clash, reuse when the bytes are identical).
+- **Resolution adds alias keys** to the name → URL map and the export data map (`media-urls.ts`), so a
+  preview, the presenter and every export show the photo under any name it has had. The delete warning and
+  the "used in" count include decks that write an old name (`decksUsingRecord`).
+- **A photo keeps at most 20 old names** (`MAX_ALIASES`). A rename past that is refused rather than dropping
+  one, because a dropped name turns the decks that write it into placeholders without a word. A person
+  removes an alias in the dialog to free the name.
+- **Backups carry all four fields and the aliases** in `media.json`. A missing field reads as empty and an
+  unknown field is ignored, so a backup crosses builds in both directions. On restore, text is cleaned, an old
+  name another photo here already holds is dropped, and the decks the restore wrote are rewritten from that old
+  name to the restored photo (a `renames` entry), so they do not quietly show the other photo. A restore that
+  reuses an identical photo gets the same rewrite for the old names the backup listed.
+
+### What a photo's own file gives us (read once, at import)
+
+`media-exif.ts` reads the file BEFORE the scrub or the canvas re-encode, because the stored bytes keep none of it. It
+reads JPEG (EXIF, XMP, IPTC), PNG (`eXIf`, uncompressed XMP `iTXt`, `tEXt`) and WebP (`EXIF`, `XMP `), and never
+throws: a file it cannot read gives nothing and the import goes on.
+
+| What | Where it comes from | What we keep |
+|---|---|---|
+| Credit | XMP creator, IPTC byline, EXIF Artist, else a copyright line | `credit`, filled in at import |
+| Date taken | EXIF DateTimeOriginal, XMP, IPTC date, EXIF DateTimeDigitized. Never EXIF DateTime (the modified date). | `taken`, filled in at import |
+| Description | XMP description, IPTC caption, EXIF ImageDescription, then a title | `fileCaption`, **a suggestion**: shown in the detail view with **Use as description**, never used as alt text until the person takes it. A file's own text can be a private note. A camera default (`SONY DSC`, `IMG_2041`), a file name or a bare number is not offered. |
+| Location | EXIF GPS coordinates, or XMP GPS text | `hadLocation: true` only. The coordinates are never read into a value. The detail view says "This photo carried a location. Lattice removed it when the photo was added." |
+| Camera, lens, exposure, software, everything else | | Ignored. A deck has no use for them. |
+
+The reader treats the file as hostile: every read is bounds-checked, block sizes and IFD entry counts are capped, text is a
+plain string and never markup, a compressed XMP packet is skipped rather than inflated, and an IFD that points back at
+itself cannot loop. `media-exif.test.ts` builds real JPEG, PNG and WebP bytes, truncates them at every length, and feeds
+it overrunning offsets, a lying segment length and a pathological XMP packet.
+
+### The description is the alt text
+
+The Studio hands the engine a second map beside `assetUrls`: `assetAlts` (name → description, aliases included).
+`lattice_sample_images` in `lib/engine/background-image.js` fills an **empty** alt on an `asset:` image from it, at the
+token, so a component that reads alt text later (a collage's lightbox caption and narration) sees what a prose image sees.
+
+- An alt the author wrote is never replaced. `![bg …]` is never an empty alt. A name with no description leaves alt empty.
+- A deck that names no described photo renders **byte-identical** to before (pinned in `asset-images.test.js`).
+- The description is escaped as text: it cannot add an attribute or markup (also pinned).
+- A description edit changes the preview's asset stamp, so the slides that show the photo re-render with no deck edit.
+- An export gets the descriptions for the photos the deck names (`altsFor`), beside its data-URI map.
+- **Export sign-off:** this is a change to the bytes of the exported page, so it needed the dark and light review. The
+  whole difference, in both modes, is `alt=""` becoming the description on each photo, a `data-label` on each collage
+  tile (the lightbox caption), and the embedded generation timestamp. The author's own alt and every other byte are unchanged.
+
+### Suggest
+
+**Suggest a name and description** in the detail view sends one thumbnail, one fixed instruction (forbidding guesses at names,
+places, brands and unreadable text; it asks for JSON `{name, description}`) and the deck's language to the author's **image
+model**, on their own OpenRouter key, only when they press it. The author's standing instructions are not sent: they are about
+slides, not alt text (pinned in `architect-photo-describe.test.ts`). The draft goes in the form and saves nothing until Save. It
+reuses the chat's thumbnail code (`createAgentAssets().thumbnail(name, edge)`, cut from the stored, scrubbed bytes), the budget gate
+(`cloudBudgetBlock`, priced from the look's picture size) and the model's `vision` flag from the catalog. No connected model, a
+model that cannot read images (unknown reads as no), a budget block and an unusable reply each give a plain line, never a silent
+button. The call lives in `suggest-photo-description.ts`, loaded on demand.
+
+**The name.** A camera's name (`img-4568`, `dsc0042`, `pxl-2026…`, bare digits; `generatedName` in `MediaDetailDialog.tsx`) says
+nothing about the picture, so the suggested name replaces it, and the old name stays as an alias like any rename. A name the person
+chose is only offered ("Suggested name: … Use this name"), never applied. The model's name is cleaned to what the Library accepts
+(`cleanPhotoName`: lowercase, hyphens, 32 characters) or dropped.
+
+### The detail view's design (second pass, 2026-10-13)
+
+A phone check and a measurement of the first version found it uneven: controls 32, 36, 64 and 90 px tall; Credit 257 px wide, Date 192,
+Name 526; the picture took half the desktop dialog, so Name sat below the fold; the alias remove button was 14 px; three static hint
+lines repeated. The owner chose **one column everywhere, tightened**, and **a native date input styled as a shadcn Input that takes
+its column's width** (no new dependency; the device's own picker). What it is now: shadcn `Label` (new `ui/label.tsx`), `Input`,
+`Textarea`, `Button`, `Collapsible`, `Badge` and `HelpTip`; every input `h-9`; Credit | Date a 50/50 pair at every width; Name full
+width; **Suggest with AI** as a full-width `h-9` outline button directly under the Description field (a small button on the label row read as a pill, not a button, on a phone; its explanation is in a HelpTip, not a static line); old names and "From the
+file" as collapsibles (Old names opens itself while a deck still writes one, and never closes under the person); 36 px remove button;
+the picture capped at `min(30dvh, 220px)`; header and Save row fixed with only the body scrolling, so Save is never below the fold.
+A HelpTip sits BESIDE its `Label`, never inside it: a button inside a label is labelled by it and answers `getByLabel`. The e2e pins
+equal heights, the Credit | Date width, Name filling the column, and Save on screen at 1440, 820 and 390.
+
+### The image model
+
+A phone check showed Suggest ran on whatever model the chat used, with no way to choose, and no way to ask for a closer look. Two
+workspace settings now sit in Workspace → Model beside the chat's model (`ImageModelSettings.tsx`, stored in `StudioSettings` as
+`imageModel` and `imageLook`, so they ride in a backup and a junk stored value reads as the default):
+
+- **Image model**: a picker of vision models only (the same catalog list as the chat's picker, filtered), defaulting to
+  `~anthropic/claude-sonnet-latest`, the alias of the newest Sonnet. The alias is not itself listed by OpenRouter, so `modelSees`
+  reads it through its family. It is its own setting because the best model for editing a deck is not always the one to pay for to
+  look at a picture. `createArchitectModel().complete` gained a per-call `model` (used by no other caller).
+- **Look closer** (`image-look.ts`): Quick (512 px picture), Careful (1024 px, the default) and Thorough (1568 px, and the model
+  is asked to think first via `reasoningEffort: 'medium'`). The panel prints the cost in input tokens (about edge² / 750). A model
+  that cannot reason ignores the effort field.
+
+The chat's own photo looking (`view_asset`, which attaches pictures to the chat model itself) is unchanged and still follows the
+chat's model: moving it would change what every chat turn costs, which is a decision for its own change.
+
+### What the second independent check found (merge with `main`, then the phone check)
+
+- A `.lattice` export dropped a photo a deck still named by an OLD name, because the pack and restore code matched on the current
+  name only. Both halves now match `namesOf(photo)` and the row's `aliases`; `lattice-media.test.ts` round-trips it.
+- `asset-refs.ts` rewrote a code span inside a table cell: markdown-it gives a cell's inline token no line range, so the cell now
+  reads with its row's (`tr_open`).
+- The chat's photo intake named new photos against current names only; it now treats an alias as a taken name.
+- The format dialog from `main` had a branch that built the record without the file's own details; fixed and e2e-guarded.
+- **Third check (the phone-feedback commit), all fixed.** The image and chat model lists shared one radio-group name, so an arrow
+  key in one could change the CHAT model (each list now has its own name); a Suggest answer overwrote a name typed while it was
+  on its way (the field is read live); an auto-applied name could clash with another photo and make the save refuse the
+  description too (the name is made unique first); the budget hard stop priced a Suggest at the chat model's price (it now prices
+  the image model, and a `~…-latest` alias at its family's dearest member); a model that reasons could spend its whole
+  `max_tokens` thinking and return nothing (ceilings raised to 600 / 800 / 3000, and a cut-off reply says so instead of "no
+  suggestion"); a backup file could choose which provider receives the photos (`imageModel`, like the chat's model, is not
+  restored from a file; the look dial is); `generatedName` missed real camera and chat-app names; `cleanPhotoName` now folds
+  accents (`école` → `ecole`) instead of dropping letters; the dialog keeps pinch-zoom (`touch-pinch-zoom`).
+- **The picture after a save, and what is not verified.** The picture's object URL used to be minted again whenever the Library
+  re-read the photo (a new Blob object), and the old URL was revoked at once, so the picture could point at nothing. A first
+  version kept the first Blob's URL for good, which would break if the browser drops an overwritten record's Blob data (not
+  observable here). The hook now mints a URL for each new Blob, keeps showing the old one until the new one has decoded, then
+  revokes the old one two seconds later. The Chromium test proves the picture is painted after a save; whether it fixes the
+  iPhone report is **UNVERIFIED** until it runs on that device.
+- **The broken picture was a rewrite bug, not a display bug (found on a real iPhone, 2026-10-13).** After a rename or a description
+  edit the card showed WebKit's broken-image mark with the name and size intact. `mutateImage`, `setMediaCaption` and
+  `setMediaScope` read a row (its Blob is a handle to a file the browser keeps for that record) and wrote it back with the SAME
+  handle; WebKit replaces the record and deletes that file. The first import never had the problem because it writes a fresh Blob.
+  All three now copy the bytes into an in-memory Blob first (`detachedBlob`, read outside the write transaction, since awaiting inside
+  one lets it commit early) and write that. `media-store.test.ts` pins that no Blob IndexedDB handed out is ever put back, and checks
+  the stored bytes after a caption, a rename, an alias removal and a scope flip; the e2e decodes the STORED pixels after each edit and
+  a reload, in Chromium, WebKit and Firefox. A photo already broken this way on someone's device cannot be repaired (the file is gone);
+  it now shows `PhotoPlaceholder` (the product's own lattice with one cracked tile) instead of the browser's mark, with a line saying
+  the file may be missing, so the author knows to add it again.
+- **Left as is, deliberately.** The chat can replace a description the person typed, but only when the person asks it to look
+  again (`view_asset … again`), and it is the same field by design. A HEIC photo gives no credit, date or location flag (the reader
+  knows JPEG, PNG and WebP); nothing is stored from it either way, since the photo is re-encoded.
+- `<code>asset:x</code>` and TeX are rewritten by the "everything not code" rule; only Markdown code, raw-text blocks and
+  inline code spans are exempt.
+
+### Rename can rewrite the decks
+
+The alias list in the detail view shows how many decks still write each old name, and **Use new name** rewrites them
+(`asset-refs.ts`). The count and the button use one function, so they cannot disagree.
+
+**The parser decides what is code, not a rule list of ours.** An earlier version re-implemented CommonMark's block rules by hand,
+and three independent reviews kept finding one more shape it read differently from the renderer (a table row, a setext heading, a
+fence in a list item, a `<pre>` with blank lines). Now `parse()` from the engine's own `markdown-it` (the `commonmark` preset, HTML on,
+tables and strikethrough, as in `lib/engine/index.js`) says where fenced and indented code, raw HTML blocks and paragraphs are, by their
+line ranges. The only rule written here is how backticks pair inside one paragraph (a run of N closes at the next run of exactly N;
+a backslash before an opener makes it text). The engine resolves `asset:` in more places than an image destination (a video's
+poster bullet, a `url(asset:x)` in a directive comment, an `<img>` tag inline or spread over lines), and a checker round showed that
+a destination-only rule missed all four. So the rule is "everything the parser does not say is code": every `asset:x` is rewritten
+except in fenced or indented code, a `<pre>`/`<script>`/`<style>`/`<textarea>` block, or an inline code span. A sentence that only
+mentions a photo name follows the rename too, which is harmless; `asset:hero.jpg` (not a valid reference) stays as written. If the references in a paragraph cannot be matched one-to-one with the parser's text for it,
+that paragraph is left alone: a reference wrongly left alone keeps working through the old name, while one wrongly rewritten changes
+a code sample.
+
+**The test is the renderer.** `asset-refs.test.ts` holds some 50 deck shapes, including every shape the reviews found. For each, the
+real renderer says which `asset:` values it resolves; the rewrite must move exactly those, and the visible text of every other
+`asset:` (a sample, a `<pre>`, a sentence) must come out unchanged. It also runs each shape with Windows line endings, and a
+150,000-line block and pathological backtick and fence patterns against a time limit. The parser loads on demand (about 35 KB
+gzipped), only when a photo with old names is opened or "Use new name" is pressed; until then the dialog says "checking decks…".
+
+Each deck gets a Version history entry first (`Before using asset:<new>`). The way back is saved first and read back: the store
+swallows a full-storage error, so a deck is never rewritten on the promise of an undo that was not written. If the browser has
+no room, the dialog says so, says how many decks were updated, and says the rest still use the old name, which keeps working. The
+open deck is replaced through the shell (`onReplaceSource`) and every other deck in storage.
+
+### Hostile input, and what an independent check found
+
+A second independent check read the EXIF reader, the alt fill and the rewrite as an attacker would. What it found, and the fix:
+
+- **A crafted XMP packet could freeze the tab.** The first reader used regular expressions that rescan from every start; 262 KB of
+  `<` took two minutes. Every XMP scan is now a single forward pass (`unxml`, `xmpValue`, `openTagEnd` in `media-exif.ts`), and
+  `media-exif.test.ts` runs the pathological shapes against a time limit. **No pattern in that file may rescan from an earlier
+  position.**
+- **A description that starts with `bg` turned a photo into the slide background.** The alt fill now marks the token
+  (`meta.assetAlt`) and the background reader ignores it. An author's own `![bg …]` is unaffected.
+- **Text read from a file went through a weaker cleaner than text a person types.** It now uses `cleanLine` (control, invisible
+  and unpaired-surrogate characters out, cut by whole characters). A numeric entity that is not a character becomes a space.
+  `cleanLine` keeps what changes a text's meaning: the three subdivision flags that exist as emoji (England, Scotland, Wales: a black flag,
+  the tag letters `gbeng`, `gbsct` or `gbwls`, a cancel tag), and ONE joiner between two NON-ASCII characters (a family emoji, a Persian
+  word with its zero-width non-joiner). Any other tag sequence (tags can hide instructions from a reader and show them to a model), a run
+  of joiners, a joiner between plain ASCII letters, a half-written flag left by a length cut, and every other invisible character are
+  removed.
+- **Two location cases went unflagged:** a GPS pointer written as type IFD, and an XMP packet with only a longitude. Both are flagged.
+  (The stored bytes were scrubbed either way; this is the "carried a location" notice.)
+- **Dialog state:** Save sends only what the person changed from the values the form OPENED with, so a description the chat wrote
+  underneath is not erased; the form starts over every time it opens, so a cancelled draft is gone; and a Suggest answer lands only in
+  the visit that asked (a counter moves on every open, close and photo change), even if the same photo is reopened.
+
+### Weight at startup
+
+The Studio route loads its shell at startup, and every byte there is measured against `main` (`docs/route-budget.json`). The first
+cut added 4,067 bytes (gzipped) there. The editing code now lives in `media-edit.ts` and Suggest in `suggest-photo-description.ts`,
+both loaded on demand (the Library, and the Chat panel's photo import), never at startup, and the route is **561 bytes smaller than `main`**, with nothing to declare.
+
+### Keyboard and focus
+
+The detail view is a real form: Enter in a field saves, and the Save button is disabled until something changed. Enter on a card
+opens it, Tab stays inside, and Escape closes it and returns focus to the card (an explicit `returnFocusTo`, because the Library
+clears the record the moment the dialog asks to close). A rename and the edit save in ONE transaction (`updateMediaDetails`),
+so a refused name never leaves the edit half saved.
+
+### Verified, and what is not
+
+**Verified** in real Chromium (`docs/e2e/library-image-metadata.spec.ts`, 21 tests, OpenRouter mocked per HARD RULE #24): edit,
+save and read the record back from IndexedDB at 1440, 820 and 390 px; an alias keeps a deck's slide painting; the description
+fills alt in the preview, live on edit, and in the exported page; EXIF read at import (credit, date, the suggestion, the location
+flag, no EXIF left in the stored bytes); Use new name on the open deck and on a stored deck, and its honest failure when storage refuses the undo entry; Suggest with a vision model, a model
+without vision, and no model; keyboard open, tab containment, Enter to save, Escape and focus return; at 390 px nothing in the dialog is wider than the dialog, the date field is short, the Edit button opens it, and the picture is still painted after a save (Chromium only); the suggested name, the image model and the look from the workspace settings. The export sign-off artifacts
+above were produced from the real Studio in both modes.
+
+**UNVERIFIED:** the sideways pan itself (it was seen on an iPhone; Chromium does not reproduce it, so the spec pins the layout that prevents it), Firefox and WebKit (only Chromium is installed here; the engine-sensitive tests are tagged for the nightly's
+`@webkit-tablet @gecko` projects), real touch input, a screen reader, and **how a real model words a description** (the model is mocked).
 
 ## Slice 5 as built (2026-10-13)
 
@@ -506,9 +738,10 @@ file the author did not ask for.
 
 - **Capturing metadata (capture date, caption) on the record.** An earlier draft of this note (§7) read the
   date, caption and location before the re-encode, kept them on the record and stripped them only from exported
-  bytes. It was dropped when the importer settled on "re-encode and discard", and nothing recorded the reversal.
-  What ships keeps nothing, so a photo's capture date is gone for good after import. Reviving it means reading
-  EXIF before the canvas pass (#2627's `exifOrientation` walk is prior art) into a `meta` field. Left to the owner.
+  bytes. It was dropped when the importer settled on "re-encode and discard". **Reversed 2026-10-13:** a
+  record now holds a description, credit and date taken (see "Editing a photo's metadata"). They are typed so
+  far; reading them from EXIF before the canvas pass (#2627's `exifOrientation` walk is prior art) is next.
+  Location stays out: it is never stored.
 - **Naming a photo by a fingerprint of its bytes** (`asset:team-offsite-7f3a9c`). A reference would then show
   exactly those bytes or the stand-in, never a different photo that happens to share a camera file name, and
   restore would put photos back by fingerprint instead of renaming. It is cheap now and a migration later, since

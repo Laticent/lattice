@@ -1,6 +1,7 @@
 import { normalizeSourceText } from '@/lib/normalize-source-text';
 import { DECKS, deckSource, type StudioDeck } from './decks';
 import { frontMatterBlock, frontMatterKeySpan, frontMatterValue, getFrontMatter, stripFrontMatter } from './front-matter';
+import { asImageLook, DEFAULT_IMAGE_LOOK, DEFAULT_IMAGE_MODEL, type ImageLook } from './image-look';
 import { splitSlides } from './lint';
 import { clearComments } from './slide-comments';
 import { DEFAULT_LANGUAGE, detectLanguage } from './studio-language';
@@ -824,8 +825,8 @@ export const LEGACY_ONBOARDED_POSTURE: Posture = 'craft';
 // trajectory, and every error, INCLUDING whatever a third-party library chose to put
 // in a `console.error` argument. That is not a thing to switch on for someone.
 // See `2026-08-18-crash-toast-retirement.md` §"Opt-in".
-export type StudioSettings = { validation: boolean; pageNumbers: boolean; headerFooter: boolean; language: string; posture: Posture; readHintSeen: boolean; handleStyle: HandleStyle; pdfPages: PdfPages; pdfWriter: PdfWriter; overflowMarker: StandingOverflowMarker; lensDefaults: boolean; intentSearch: boolean; crashReports: boolean };
-const DEFAULT_SETTINGS: StudioSettings = { validation: true, pageNumbers: true, headerFooter: false, language: DEFAULT_LANGUAGE, posture: BOOT_POSTURE, readHintSeen: false, handleStyle: 'knob', pdfPages: 'png', pdfWriter: 'text', overflowMarker: 'reader', lensDefaults: true, intentSearch: true, crashReports: false };
+export type StudioSettings = { validation: boolean; pageNumbers: boolean; headerFooter: boolean; language: string; posture: Posture; readHintSeen: boolean; handleStyle: HandleStyle; pdfPages: PdfPages; pdfWriter: PdfWriter; overflowMarker: StandingOverflowMarker; lensDefaults: boolean; intentSearch: boolean; crashReports: boolean; imageModel: string; imageLook: ImageLook };
+const DEFAULT_SETTINGS: StudioSettings = { validation: true, pageNumbers: true, headerFooter: false, language: DEFAULT_LANGUAGE, posture: BOOT_POSTURE, readHintSeen: false, handleStyle: 'knob', pdfPages: 'png', pdfWriter: 'text', overflowMarker: 'reader', lensDefaults: true, intentSearch: true, crashReports: false, imageModel: DEFAULT_IMAGE_MODEL, imageLook: DEFAULT_IMAGE_LOOK };
 
 // Derive the boot stop for a browser with no explicitly-stored posture — the
 // hardened three-population form (R4/R6, prior-use-first so an actively-editing
@@ -887,7 +888,9 @@ export function loadSettings(): StudioSettings {
 	const crashReports = saved.crashReports === true;
 	// Only an explicit 'photo' opts out of the shared writer; anything else is the default.
 	const pdfWriter: PdfWriter = saved.pdfWriter === 'photo' ? 'photo' : 'text';
-	return { ...DEFAULT_SETTINGS, ...saved, language, posture, intentSearch, crashReports, pdfWriter };
+	// The photo-looking model is an OpenRouter id (`vendor/name`, or the `~vendor/name-latest` alias); anything else reads as the default.
+	const imageModel = typeof saved.imageModel === 'string' && /^~?[\w.-]+\/[\w.:-]+$/.test(saved.imageModel) ? saved.imageModel : DEFAULT_IMAGE_MODEL;
+	return { ...DEFAULT_SETTINGS, ...saved, language, posture, intentSearch, crashReports, pdfWriter, imageModel, imageLook: asImageLook(saved.imageLook) };
 }
 // Notify same-tab listeners a setting changed (the native `storage` event only fires in
 // OTHER tabs). The Fabricate designer listens so a handle-style switch in the Workspace
@@ -1123,6 +1126,9 @@ export function importStudioState(data: StudioExport, ts: number): ImportSummary
 	// standing, because `saveSettings` merges over `loadSettings()`.
 	const importedSettings: Partial<StudioSettings> = { ...data.settings };
 	delete importedSettings.crashReports;
+	// The model that looks at the person's photos is a consent too: it decides which provider receives them. Like the chat's model
+	// (never in a backup), it is not restorable from a file; the local choice stands. The look dial is only a cost knob and does restore.
+	delete importedSettings.imageModel;
 	saveSettings(importedSettings);
 	saveInstructions(data.instructions);
 	saveOnDeviceInstructions(data.onDeviceInstructions ?? ''); // absent in a pre-split backup — restores empty, never throws

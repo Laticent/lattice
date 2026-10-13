@@ -47,7 +47,7 @@ import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync,
 import { createRequire } from 'node:module';
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { collectGalleryAssets } from '../src/playground/galleries.mjs';
+import { collectGalleryAssets, loadExampleDecks } from '../src/playground/galleries.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(here, '..', '..');
@@ -253,6 +253,31 @@ const generated = loadAll().map((m) => [
   JSON.stringify({ name: m.name, slides: galleryPlan(m) }),
 ]);
 
+// The Galleries sheet's "All examples" list: one static deck per examples/*.md plus a
+// small index of slug, title and slide count. Fetched on demand (the index when the sheet
+// first opens, a deck when chosen), so the route's eager payload does not carry 270 decks.
+// Hashed with the rest, so editing a deck changes the URL it is served from.
+const engine = componentRequire(join(repoRoot, 'lib', 'engine'));
+const exampleDecks = loadExampleDecks(repoRoot, (src) => {
+  try {
+    return (engine.render(src).html.match(/<section\b/g) || []).length;
+  } catch {
+    return 0; // loadExampleDecks falls back to the fence count
+  }
+});
+// The case-insensitive collision guard below covers `assets` only; these slugs become file names
+// too, and `Foo.md` beside `foo.md` is one file on macOS or Windows.
+const slugsSeen = new Map();
+for (const { slug } of exampleDecks) {
+  const prior = slugsSeen.get(slug.toLowerCase());
+  if (prior) throw new Error(`sync-playground-assets: examples/${prior}.md and examples/${slug}.md differ only in case; they stage to one galleries/ file on a case-insensitive filesystem. Rename one.`);
+  slugsSeen.set(slug.toLowerCase(), slug);
+}
+generated.push(
+  ['galleries/index.json', JSON.stringify(exampleDecks.map(({ slug, title, slides }) => ({ id: slug, title, slides })))],
+  ...exampleDecks.map((d) => [`galleries/${d.slug}.md`, d.source]),
+);
+
 // `samples/` is a FLAT namespace and the copy below is last-wins, so two files
 // with the same basename would silently leave one image standing in for another —
 // and the content hash would still change, so the symptom is a wrong picture, not
@@ -325,5 +350,5 @@ for (const [rel, content] of generated) {
 }
 
 console.log(
-  `sync-playground-assets: staged ${assets.length + generated.length} asset(s) (${generated.length} generated plans) into public/playground/v/${version}/.`,
+  `sync-playground-assets: staged ${assets.length + generated.length} asset(s) (${generated.length} generated: plans, plus the example-deck index and ${exampleDecks.length} decks) into public/playground/v/${version}/.`,
 );

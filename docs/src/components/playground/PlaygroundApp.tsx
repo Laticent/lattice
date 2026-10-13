@@ -63,7 +63,7 @@ import { swipeAction } from '../../../../lib/core/present-transport.mjs';
 import { ComponentPicker } from './ComponentPicker';
 import { DeckSetupSheet } from './DeckSetupSheet';
 import { type EditorAdapter, EditorHost } from './EditorHost';
-import { GalleriesSheet, type GalleryGroup } from './GalleriesSheet';
+import { type ExampleDeck, GalleriesSheet, type GalleryGroup } from './GalleriesSheet';
 import { WalkBar } from './WalkBar';
 
 export type PlaygroundData = {
@@ -93,6 +93,10 @@ export type PlaygroundData = {
 	// Optional so the test harness (and any host without staged assets) degrades
 	// to the editor-only playground.
 	plansBase?: string;
+	// Base URL of the staged galleries/ folder: `index.json` (every examples/*.md deck's id, title
+	// and slide count) and `<id>.md` (one deck). Fetched on demand, never inlined. Optional like
+	// `plansBase`: a host without staged assets simply has no "All examples" list.
+	galleriesBase?: string;
 };
 
 // The Explore surface's walk position: a component's gallery plan (stable step
@@ -286,7 +290,7 @@ function adoptBootSeed(view: 'read' | 'edit', pane: 'edit' | 'preview') {
  * the config panel (DeckSetupSheet). None are reimplemented.
  */
 export function PlaygroundApp({ data }: { data: PlaygroundData }) {
-	const { catalog, components, lenses, gallerySources, galleryGroups, themeBase, runtimeUrl, engineUrl, dagreUrl, katexUrl, palettes, finishes, lintVocab, starter, plansBase } = data;
+	const { catalog, components, lenses, gallerySources, galleryGroups, themeBase, runtimeUrl, engineUrl, dagreUrl, katexUrl, palettes, finishes, lintVocab, starter, plansBase, galleriesBase } = data;
 
 	// Two component states, one rule each (2026-07-05 decision §4): `draftComponent`
 	// is DERIVED — what detectComponent reads out of the live editor, possibly '' when
@@ -1432,13 +1436,10 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		[catalog, split.expand],
 	);
 
-	const onLoadGallery = React.useCallback(
-		(id: string) => {
-			const src = gallerySources[id];
-			if (src == null) {
-				setStatusLine('Gallery unavailable.', true);
-				return;
-			}
+	// Open a deck's source in Explore. Shared by the curated decks (looked up in the page's props)
+	// and the examples (fetched on demand), so both land the same way.
+	const openGalleryDeck = React.useCallback(
+		(id: string, src: string) => {
 			// A gallery is a deck to explore — walk it in place (slide-index
 			// positions; no plan exists for authored decks). Always land in Explore,
 			// so loading one from Edit flips to the rendered view and the mode/pane
@@ -1463,7 +1464,67 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			freshRender();
 			requestAnimationFrame(() => frameRef.current?.contentWindow?.__latticeFit?.());
 		},
-		[gallerySources, setStatusLine, freshRender, split.expand],
+		[freshRender, split.expand],
+	);
+
+	// Bumped by EVERY pick that replaces the explored deck (curated deck, example, component), so a
+	// slow example fetch that resolves after a later pick cannot replace what the reader chose next.
+	const deckPickSeqRef = React.useRef(0);
+	const onLoadGallery = React.useCallback(
+		(id: string) => {
+			deckPickSeqRef.current++;
+			const src = gallerySources[id];
+			if (src == null) {
+				setStatusLine('Gallery unavailable.', true);
+				return;
+			}
+			openGalleryDeck(id, src);
+		},
+		[gallerySources, setStatusLine, openGalleryDeck],
+	);
+
+	// The "All examples" list: the index is fetched once (the sheet asks when it first opens), a
+	// deck when it is chosen. A failed fetch says "Gallery unavailable." like a missing curated
+	// deck. `exampleSeqRef` makes the LAST pick win if two fetches overlap on a slow link.
+	const exampleIndexRef = React.useRef<Promise<ExampleDeck[] | null> | null>(null);
+	const loadExampleIndex = React.useCallback((): Promise<ExampleDeck[] | null> => {
+		if (!galleriesBase) return Promise.resolve(null);
+		if (!exampleIndexRef.current) {
+			exampleIndexRef.current = fetch(`${galleriesBase}index.json`)
+				.then((res) => (res.ok ? (res.json() as Promise<ExampleDeck[]>) : null))
+				.catch(() => null)
+				.then((list) => {
+					// Do not cache a failure: reopening the sheet retries.
+					if (!list) exampleIndexRef.current = null;
+					return list;
+				});
+		}
+		return exampleIndexRef.current;
+	}, [galleriesBase]);
+	const onLoadExample = React.useCallback(
+		async (slug: string) => {
+			const seq = ++deckPickSeqRef.current;
+			const viewAtPick = viewRef.current;
+			// The same stale-tab path a plan fetch has: a 404 means a deploy replaced the staged tree
+			// while this tab sat open, and retrying can never succeed.
+			const stale = () => notifySticky('This page is out of date — the site was updated while it sat open.', { label: 'Reload', onClick: () => window.location.reload() });
+			try {
+				const res = await fetch(`${galleriesBase}${encodeURIComponent(slug)}.md`);
+				if (!res.ok) {
+					if (res.status === 404 && seq === deckPickSeqRef.current) stale();
+					else if (seq === deckPickSeqRef.current) setStatusLine('Gallery unavailable.', true);
+					return;
+				}
+				const src = await res.text();
+				// Drop the result if the reader picked something else, or left Explore for Edit,
+				// while it was in flight.
+				if (seq !== deckPickSeqRef.current || (viewAtPick === 'read' && viewRef.current !== 'read')) return;
+				openGalleryDeck(slug, src);
+			} catch {
+				if (seq === deckPickSeqRef.current) setStatusLine('Gallery unavailable.', true);
+			}
+		},
+		[galleriesBase, setStatusLine, openGalleryDeck],
 	);
 
 	// Reset reads the DRAFT's component at click time; when the draft holds none
@@ -1761,6 +1822,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	 * title; 'LAST' → the closing slide, for walking backwards across components). */
 	const startWalk = React.useCallback(
 		async (name: string, step: string | null): Promise<boolean> => {
+			deckPickSeqRef.current++;
 			const plan = await fetchPlan(name);
 			if (!plan) {
 				// The designed 404 path: the staged tree was rewritten by a deploy while
@@ -2765,6 +2827,8 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 						resetTarget={resetTarget && catalog[resetTarget] ? resetTarget : ''}
 						resetArm={!draftIsPristine()}
 						onLoadGallery={onLoadGallery}
+						loadExampleIndex={galleriesBase ? loadExampleIndex : undefined}
+						onLoadExample={onLoadExample}
 						onResetExample={onResetExample}
 					/>
 				</div>

@@ -262,4 +262,28 @@ test.describe('compose pill editor', () => {
 		await expect(page.locator('.cs-npill')).toHaveCount(0);
 		await expect.poll(() => composeText(page)).toMatch(/\{SHIPPED, c2\}/i);
 	});
+
+	test('@smoke the icon grid adds an icon to a pill, the editor stays open under it, and one undo takes it back', async ({ page }) => {
+		await openDeckInCompose(page);
+		await chip(page, 'SHIPPED').click();
+		await editor(page).getByRole('button', { name: 'Add an icon' }).click();
+		// The grid is up over the editor; focus moving into it must not close the editor.
+		await page.getByRole('textbox', { name: 'Search icons' }).fill('api');
+		await page.getByRole('button', { name: 'api', exact: true }).first().click();
+		await expect.poll(() => savedDeck(page)).toBe(DECK.replace('`{SHIPPED, c2}`', '`{SHIPPED, c2, icon=api}`'));
+		await expect(editor(page)).toBeVisible();
+		await expect(editor(page).getByRole('button', { name: 'Change icon (api)' })).toBeVisible();
+		await editor(page).getByRole('button', { name: 'Remove' }).click();
+		await expect.poll(() => savedDeck(page)).toBe(DECK);
+	});
+
+	test('a circle with a long label says it is crowded', async ({ page }) => {
+		await openDeckInCompose(page);
+		await chip(page, 'SHIPPED').click();
+		await editor(page).getByRole('radio', { name: 'Shape: Circle' }).click();
+		await expect(editor(page).getByRole('status')).toContainText('Shorten the label');
+		await editor(page).getByRole('radio', { name: 'Shape: Tag' }).click();
+		await expect(editor(page).getByRole('status')).toHaveCount(0);
+	});
 });
+

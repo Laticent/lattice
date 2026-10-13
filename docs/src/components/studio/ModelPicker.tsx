@@ -18,11 +18,29 @@ import { type ArchitectStatus, listStudioModels, type ORModel, setStudioModel } 
 // drift (HARD RULE #1/#15).
 /** The catalog, the lens, the search and the selection — one hook so the Workspace accordion and
  *  the chat's header chip are the SAME picker rather than two that drift (HARD RULE #15). */
-export function useModelCatalog(status: ArchitectStatus, opts: { onPicked?: (m: ORModel) => void; enabled?: boolean } = {}) {
+export function useModelCatalog(
+	status: ArchitectStatus,
+	opts: {
+		onPicked?: (m: ORModel) => void;
+		enabled?: boolean;
+		/** What picking does. Left out, it sets the chat's model; the image model passes its own setter. */
+		select?: (m: ORModel) => Promise<void> | void;
+		/** The picked id when it is not the chat's model. */
+		currentId?: string | null;
+		/** List only models that can read pictures. */
+		visionOnly?: boolean;
+		/** What the confirmation calls the thing picked. */
+		label?: string;
+	} = {},
+) {
 	const [models, setModels] = React.useState<ORModel[] | null>(null);
 	const [view, setView] = React.useState<string>('featured');
 	const [query, setQuery] = React.useState('');
-	const [selectedId, setSelectedId] = React.useState<string | null>(status.modelId);
+	const wanted = opts.currentId !== undefined ? opts.currentId : status.modelId;
+	// Each picker's radios are their own group: two lists sharing a name make the browser treat them as one, so an arrow key in one
+	// moved the check (and fired the pick) in the other.
+	const groupName = React.useId();
+	const [selectedId, setSelectedId] = React.useState<string | null>(wanted);
 
 	// Load the catalog once, only when OpenRouter is connected (no fetch on the
 	// floor/on-device tiers — keeps tests and offline use network-free).
@@ -40,24 +58,24 @@ export function useModelCatalog(status: ArchitectStatus, opts: { onPicked?: (m: 
 
 	// Reflect an external model change (e.g. another surface) in the summary.
 	React.useEffect(() => {
-		setSelectedId(status.modelId);
-	}, [status.modelId]);
+		setSelectedId(wanted);
+	}, [wanted]);
 
 	const current = React.useMemo(() => (models && selectedId ? models.find((m) => m.id === selectedId) : null) ?? null, [models, selectedId]);
-	const groups = React.useMemo(() => groupByVendor(filterModels(models ?? [], view, query)), [models, view, query]);
+	const groups = React.useMemo(() => groupByVendor(filterModels((models ?? []).filter((m) => !opts.visionOnly || m.vision), view, query)), [models, view, query, opts.visionOnly]);
 
 	const pick = async (m: ORModel) => {
 		setSelectedId(m.id);
-		await setStudioModel(m.id);
+		await (opts.select ? opts.select(m) : setStudioModel(m.id));
 		opts.onPicked?.(m);
-		notify(`Model set to ${shortName(m)}.`);
+		notify(`${opts.label ?? 'Model'} set to ${shortName(m)}.`);
 	};
-	return { models, view, setView, query, setQuery, selectedId, current, groups, pick };
+	return { models, view, setView, query, setQuery, selectedId, current, groups, pick, groupName };
 }
 
 /** Search, the Featured/Value/Free/All lens, and the vendor-grouped priced list. */
 export function ModelList({ catalog, searchRef, maxHeight = 280 }: { catalog: ReturnType<typeof useModelCatalog>; searchRef?: React.Ref<HTMLInputElement>; maxHeight?: number }) {
-	const { models, view, setView, query, setQuery, selectedId, groups, pick } = catalog;
+	const { models, view, setView, query, setQuery, selectedId, groups, pick, groupName } = catalog;
 	return (
 		<>
 			<input
@@ -97,7 +115,7 @@ export function ModelList({ catalog, searchRef, maxHeight = 280 }: { catalog: Re
 								const sel = m.id === selectedId;
 								return (
 									<label key={m.id} title={rowTitle(m) || undefined} className={cn('flex cursor-pointer items-start gap-2.5 rounded-lg px-2 py-2', sel ? 'bg-[var(--accent-soft)]' : 'hover:bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]')}>
-										<input type="radio" name="studio-or-model" value={m.id} checked={sel} onChange={() => pick(m)} className="mt-1 size-3.5 shrink-0 accent-[var(--accent)]" />
+										<input type="radio" name={groupName} value={m.id} checked={sel} onChange={() => pick(m)} className="mt-1 size-3.5 shrink-0 accent-[var(--accent)]" />
 										<span className="min-w-0 flex-1">
 											<span className="flex items-center gap-1.5">
 												<span className="truncate text-[13px] font-semibold text-[var(--text-heading)]">{shortName(m)}</span>
