@@ -40,7 +40,7 @@ the same three runs, so the figure is noise-bound in this sandbox.
 
 What is left, in the order it would pay: (1) the grammar's own parse is about 290 ns of a pill's
 503, and `parse()` allocates two result objects per call (`{ok, tree: {buf, top, kinds}}`) that
-the fast read throws away; (2) the harness times every column through one `time()` call site,
-which goes megamorphic once three different functions pass through it, so each column pays an
-indirect call and the ratios are diluted and noisy. A per-column timer would tell the dispatcher's
-real ratio; change it only with a before/after run of both harnesses on one machine.
+the fast read throws away; (2) the harness times every column through one `time()` call site, which sees many different
+functions. That probably makes each column pay an indirect call and adds run-to-run noise, but it is
+a hypothesis and was not tested. A per-column timer would show it; change the harness only with a
+before/after run of both versions on one machine.
