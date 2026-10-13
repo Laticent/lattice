@@ -1,0 +1,485 @@
+import fs from 'node:fs';
+import { createRequire } from 'node:module';
+import path from 'node:path';
+import { history, undo } from 'prosemirror-history';
+import { DOMParser as PMDOMParser } from 'prosemirror-model';
+import { EditorState, NodeSelection, type Plugin, TextSelection } from 'prosemirror-state';
+import { EditorView } from 'prosemirror-view';
+import { describe, expect, it } from 'vitest';
+import { deckSchema, deckToDoc, docToDeck, emitDeck, initBaseline, rebaselineSlides } from './deck-doc';
+import { serializeInlineObject } from './inline-object';
+import {
+	closeObjectEditor,
+	editObject,
+	editObjectAsText,
+	type InlineKernels,
+	inlineObjectsPlugin,
+	insertObject,
+	kindOf,
+	leaveObject,
+	normalizeDeck,
+	normalizeObjects,
+	type OpenObject,
+	openObject,
+	openObjectEditor,
+} from './inline-objects';
+
+// The REAL kernels, the same module the Studio loads through the authoring bundle.
+const kernels = createRequire(import.meta.url)('../../../../lib/authoring/inline-editors.js') as InlineKernels;
+
+const DECK = [
+	'<!-- _class: content -->',
+	'',
+	'## Status',
+	'',
+	'Shipped `{SHIPPED, c2}` and `{BETA, tag, c4}`, but `{x}` is not a pill and `{{name}}` is not either.',
+	'',
+	'- Item `{3, circle}`',
+	'',
+	'```text',
+	'a fence with `{LIVE}` inside',
+	'```',
+	'',
+	'---',
+	'',
+	'<!-- _class: content -->',
+	'',
+	'## Next',
+	'',
+	'Plain slide with `{DONE, c1}`.',
+	'',
+	'---',
+	'',
+	'<!-- _class: content -->',
+	'',
+	'## Locked',
+	'',
+	'This has ~~strike~~ and `{LOCKED, c6}`.',
+].join('\n');
+
+function mount(source: string, onOpenChange: (o: OpenObject | null) => void = () => {}, extra: Plugin[] = [history()]) {
+	const doc = deckToDoc(source);
+	const plugin = inlineObjectsPlugin({ getKernels: () => kernels, getDeckLiteral: () => false, onOpenChange });
+	const view = new EditorView(document.createElement('div'), { state: EditorState.create({ doc, plugins: [plugin, ...extra] }) });
+	normalizeDeck(view, kernels, false);
+	return view;
+}
+
+/** Every object node in the document, in order, with its position. */
+function objects(doc: ReturnType<typeof deckToDoc>) {
+	const out: { pos: number; src: string }[] = [];
+	doc.descendants((node, pos) => {
+		if (node.type === deckSchema.nodes.inline_object) out.push({ pos, src: node.attrs.src as string });
+	});
+	return out;
+}
+
+const texts = (view: EditorView) => objects(view.state.doc).map((o) => o.src);
+
+describe('the inline object node', () => {
+	it('turns the code spans the engine reads as pills into nodes, and nothing else', () => {
+		const view = mount(DECK);
+		expect(texts(view)).toEqual(['{SHIPPED, c2}', '{BETA, tag, c4}', '{3, circle}', '{DONE, c1}']);
+		// `{x}` and `{{name}}` are not pills, the fenced one is not inline, and the locked slide stays text.
+		const deck = docToDeck(view.state.doc);
+		expect(deck).toContain('`{x}`');
+		expect(deck).toContain('`{LOCKED, c6}`');
+	});
+
+	it('writes back exactly the bytes it came from', () => {
+		const view = mount(DECK);
+		expect(docToDeck(view.state.doc)).toBe(docToDeck(deckToDoc(DECK)));
+	});
+
+	it('keeps the formatting around it', () => {
+		const src = '<!-- _class: content -->\n\n## T\n\nBold **`{SHIPPED, c2}`** and *`{BETA}`* here.';
+		const view = mount(src);
+		expect(texts(view)).toEqual(['{SHIPPED, c2}', '{BETA}']);
+		expect(docToDeck(view.state.doc)).toBe(docToDeck(deckToDoc(src)));
+		const first = view.state.doc.nodeAt(objects(view.state.doc)[0].pos);
+		expect(first?.marks.map((m) => m.type.name)).toEqual(['strong']);
+	});
+
+	it('leaves two adjacent spans that merged into one run as text', () => {
+		const view = mount('<!-- _class: content -->\n\n## T\n\n`{A}``{B}`');
+		expect(texts(view)).toEqual([]);
+	});
+
+	it('does nothing in a deck that turned the inline grammar off', () => {
+		const state = EditorState.create({ doc: deckToDoc(DECK) });
+		expect(normalizeObjects(state, kernels, true)).toBeNull();
+		const slideOff = deckToDoc(`<!-- _class: inline-code-literal -->\n\n## T\n\n\`{SHIPPED, c2}\``);
+		expect(normalizeObjects(EditorState.create({ doc: slideOff }), kernels, false)).toBeNull();
+	});
+
+	it('plain text copy and textContent still see the notation', () => {
+		const view = mount(DECK);
+		expect(view.state.doc.textContent).toContain('{SHIPPED, c2}');
+	});
+
+	it('the document and the slide both ask the kernel, never a second parser', () => {
+		expect(kindOf('{SHIPPED, c2}', kernels)?.kind.id).toBe('pill');
+		expect(kindOf('{x}', kernels)).toBeNull();
+		expect(kindOf('{a}\n---\n{b}', kernels)).toBeNull();
+	});
+});
+
+// The property that matters for every deck an author opens: drawing the objects must not change
+// one byte of the deck. Run over every deck, gallery and baseline the repo ships.
+describe('opening a deck changes no bytes (the shipped corpus)', () => {
+	const ROOT = path.resolve(__dirname, '../../../..');
+	function markdownIn(dir: string, out: string[] = []): string[] {
+		for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+			if (e.name === 'node_modules' || e.name === '.git' || e.name === 'dist') continue;
+			const full = path.join(dir, e.name);
+			if (e.isDirectory()) markdownIn(full, out);
+			else if (e.name.endsWith('.md')) out.push(full);
+		}
+		return out;
+	}
+	const files = [
+		...markdownIn(path.join(ROOT, 'examples')),
+		...markdownIn(path.join(ROOT, 'lib')).filter((f) => f.endsWith('.gallery.md')),
+		...markdownIn(path.join(ROOT, 'test/integration/baseline-decks')),
+	];
+
+	it('has a real corpus', () => {
+		expect(files.length).toBeGreaterThan(100);
+	});
+
+	it('emits the same deck with and without the objects, and keeps every untouched slide verbatim', () => {
+		let withObjects = 0;
+		let converted = 0;
+		for (const file of files) {
+			const source = fs.readFileSync(file, 'utf8');
+			let doc: ReturnType<typeof deckToDoc>;
+			try {
+				doc = deckToDoc(source);
+			} catch {
+				continue; // a deck Compose cannot parse is not Compose's to open
+			}
+			const base = initBaseline(doc);
+			const before = emitDeck(doc, base);
+			const state = EditorState.create({ doc });
+			const tr = normalizeObjects(state, kernels, kernels.isLiteralFromSource(source));
+			if (!tr) continue;
+			withObjects++;
+			converted += objects(tr.doc).length;
+			// The silent pass re-points the baseline; the emit must be byte-identical to the one without objects.
+			const base2 = initBaseline(doc);
+			rebaselineSlides(tr.doc, base2);
+			expect(emitDeck(tr.doc, base2), file).toBe(before);
+			// And a full re-serialize (the edited-slide path) agrees too.
+			expect(docToDeck(tr.doc), file).toBe(docToDeck(doc));
+		}
+		// Measured when this was written: 112 pills in 6 decks convert (4 more sit in literal decks).
+		expect(withObjects).toBeGreaterThanOrEqual(5);
+		expect(converted).toBeGreaterThanOrEqual(100);
+	});
+});
+
+describe('the selection decides text or object', () => {
+	it('leaves a span as text while the selection touches it, and turns it into an object when the selection leaves', () => {
+		const view = mount(DECK, undefined, [history()]);
+		// Turn the first object back into text and keep the caret in it.
+		const [first] = objects(view.state.doc);
+		expect(editObjectAsText(view, first.pos)).toBe(true);
+		expect(texts(view)).toEqual(['{BETA, tag, c4}', '{3, circle}', '{DONE, c1}']);
+		const sel = view.state.selection;
+		expect(view.state.doc.textBetween(sel.from, sel.to)).toBe('SHIPPED, c2');
+		// Typing inside it stays text.
+		view.dispatch(view.state.tr.insertText('X', sel.from));
+		expect(texts(view)).not.toContain('{XSHIPPED, c2}');
+		// Moving away completes it: the span is an object again (the engine reads `{XSHIPPED, c2}` as a pill).
+		view.dispatch(view.state.tr.setSelection(TextSelection.atStart(view.state.doc)));
+		expect(texts(view)).toContain('{XSHIPPED, c2}');
+	});
+
+	it('does not touch a span the caret is at the edge of', () => {
+		const view = mount(DECK);
+		const [first] = objects(view.state.doc);
+		editObjectAsText(view, first.pos);
+		const node = view.state.doc.nodeAt(first.pos);
+		expect(node?.isText).toBe(true);
+		view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, first.pos + (node?.nodeSize ?? 0))));
+		expect(view.state.doc.nodeAt(first.pos)?.isText).toBe(true);
+	});
+
+	it('does not run after an undo, so the redo stack survives', () => {
+		const view = mount(DECK);
+		const [first] = objects(view.state.doc);
+		openObjectEditor(view, first.pos);
+		expect(editObject(view, first.pos, { color: 'c9' }, kernels)).toBe(true);
+		undo(view.state, view.dispatch);
+		expect(view.state.doc.nodeAt(first.pos)?.attrs.src).toBe('{SHIPPED, c2}');
+	});
+});
+
+describe('the open editor', () => {
+	it('opens on a tap: the node is selected and the editor is open on it', () => {
+		const seen: (OpenObject | null)[] = [];
+		const view = mount(DECK, (o) => seen.push(o));
+		const [first] = objects(view.state.doc);
+		expect(openObjectEditor(view, first.pos)).toBe(true);
+		expect(view.state.selection).toBeInstanceOf(NodeSelection);
+		expect(openObject(view.state)).toMatchObject({ pos: first.pos, src: '{SHIPPED, c2}' });
+		expect(seen.at(-1)).toMatchObject({ pos: first.pos });
+	});
+
+	it('refuses a position that is not an object', () => {
+		const view = mount(DECK);
+		expect(openObjectEditor(view, 1)).toBe(false);
+		expect(openObject(view.state)).toBeNull();
+	});
+
+	it('every pick lands, keeps the editor open and the node selected, and keeps the id', () => {
+		const view = mount(DECK);
+		const [first] = objects(view.state.doc);
+		openObjectEditor(view, first.pos);
+		const id = openObject(view.state)?.id;
+		expect(editObject(view, first.pos, { color: 'c9' }, kernels)).toBe(true);
+		expect(docToDeck(view.state.doc)).toContain('`{SHIPPED, c9}`');
+		expect(editObject(view, first.pos, { size: 'lg' }, kernels)).toBe(true);
+		expect(docToDeck(view.state.doc)).toContain('`{SHIPPED, c9, lg}`');
+		expect(view.state.selection).toBeInstanceOf(NodeSelection);
+		expect(openObject(view.state)).toMatchObject({ pos: first.pos, src: '{SHIPPED, c9, lg}', id });
+	});
+
+	it('writes nothing the kernel declines, and nothing when the object already says it', () => {
+		const view = mount(DECK);
+		const [first] = objects(view.state.doc);
+		const before = view.state.doc;
+		expect(editObject(view, first.pos, { color: 'c13' }, kernels)).toBe(false);
+		expect(editObject(view, first.pos, { label: '' }, kernels)).toBe(false);
+		expect(view.state.doc).toBe(before);
+		expect(editObject(view, first.pos, { color: 'c2' }, kernels)).toBe(true);
+		expect(view.state.doc).toBe(before);
+	});
+
+	it('a label with a backtick is never written, and a line break never reaches the deck', () => {
+		const view = mount(DECK);
+		const [first] = objects(view.state.doc);
+		expect(editObject(view, first.pos, { label: 'a`b' }, kernels)).toBe(false);
+		editObject(view, first.pos, { label: 'a\nb' }, kernels);
+		expect(docToDeck(view.state.doc)).not.toMatch(/`\{[^`]*\n[^`]*\}`/);
+		for (const o of objects(view.state.doc)) expect(o.src).not.toMatch(/[\r\n`]/);
+	});
+
+	it('follows the object when the author types or deletes before it (the stale position regression)', () => {
+		const view = mount(DECK);
+		const [first, second] = objects(view.state.doc);
+		openObjectEditor(view, second.pos);
+		// Type ahead of it, on its line.
+		view.dispatch(view.state.tr.insertText('abc', first.pos - 1));
+		// The selection maps onto the node, so the editor stays open, now three characters later.
+		const moved = openObject(view.state);
+		expect(moved).toMatchObject({ pos: second.pos + 3, src: '{BETA, tag, c4}' });
+		expect(view.state.doc.nodeAt(moved?.pos as number)?.attrs.src).toBe('{BETA, tag, c4}');
+		expect(editObject(view, moved?.pos as number, { color: 'c7' }, kernels)).toBe(true);
+		expect(docToDeck(view.state.doc)).toContain('`{BETA, tag, c7}`');
+		expect(docToDeck(view.state.doc)).toContain('`{SHIPPED, c2}`');
+	});
+
+	it('a deletion before the open object (history, a collaborator) moves the position with it', () => {
+		const view = mount(DECK);
+		const [first, second] = objects(view.state.doc);
+		openObjectEditor(view, second.pos);
+		// A transaction that deletes text before the object but leaves the selection mapped onto it.
+		const tr = view.state.tr.delete(first.pos + 1, second.pos);
+		view.dispatch(tr);
+		const open = openObject(view.state);
+		expect(open?.src).toBe('{BETA, tag, c4}');
+		expect(view.state.doc.nodeAt(open?.pos as number)?.attrs.src).toBe('{BETA, tag, c4}');
+		expect(editObject(view, open?.pos as number, { color: 'c8' }, kernels)).toBe(true);
+		expect(docToDeck(view.state.doc)).toContain('{BETA, tag, c8}');
+	});
+
+	it('closes when the object is deleted, and when the selection leaves it', () => {
+		const view = mount(DECK);
+		const [first] = objects(view.state.doc);
+		openObjectEditor(view, first.pos);
+		view.dispatch(view.state.tr.delete(first.pos, first.pos + 1));
+		expect(openObject(view.state)).toBeNull();
+		const [again] = objects(view.state.doc);
+		openObjectEditor(view, again.pos);
+		view.dispatch(view.state.tr.setSelection(TextSelection.atStart(view.state.doc)));
+		expect(openObject(view.state)).toBeNull();
+	});
+
+	it('Done moves the caret off the object, so the next keystroke cannot replace it', () => {
+		const view = mount(DECK);
+		const [first] = objects(view.state.doc);
+		openObjectEditor(view, first.pos);
+		leaveObject(view);
+		expect(openObject(view.state)).toBeNull();
+		expect(view.state.selection).toBeInstanceOf(TextSelection);
+		expect(view.state.selection.from).toBe(first.pos + 1);
+		view.dispatch(view.state.tr.insertText('x'));
+		expect(texts(view)).toContain('{SHIPPED, c2}');
+	});
+
+	it('closeObjectEditor closes without moving anything', () => {
+		const view = mount(DECK);
+		const [first] = objects(view.state.doc);
+		openObjectEditor(view, first.pos);
+		closeObjectEditor(view);
+		expect(openObject(view.state)).toBeNull();
+		expect(view.state.selection).toBeInstanceOf(NodeSelection);
+	});
+
+	it('does nothing to a locked slide', () => {
+		const view = mount(DECK);
+		const lockedPos = (() => {
+			let at = -1;
+			view.state.doc.descendants((n, pos) => {
+				if (at < 0 && n.isText && n.text?.includes('{LOCKED')) at = pos;
+			});
+			return at;
+		})();
+		expect(view.state.doc.nodeAt(lockedPos)?.isText).toBe(true);
+		expect(openObjectEditor(view, lockedPos)).toBe(false);
+	});
+});
+
+describe('undo', () => {
+	it('is one step per pick', () => {
+		const view = mount(DECK);
+		const [first] = objects(view.state.doc);
+		openObjectEditor(view, first.pos);
+		editObject(view, first.pos, { color: 'c9' }, kernels);
+		editObject(view, first.pos, { size: 'lg' }, kernels);
+		undo(view.state, view.dispatch);
+		expect(docToDeck(view.state.doc)).toContain('`{SHIPPED, c9}`');
+		undo(view.state, view.dispatch);
+		expect(docToDeck(view.state.doc)).toBe(docToDeck(deckToDoc(DECK)));
+	});
+
+	it('a pick made right after typing undoes alone, and leaves the typing', () => {
+		const view = mount(DECK);
+		view.dispatch(view.state.tr.insertText('X', 1));
+		const typed = docToDeck(view.state.doc);
+		const [first] = objects(view.state.doc);
+		openObjectEditor(view, first.pos);
+		editObject(view, first.pos, { color: 'c9' }, kernels);
+		undo(view.state, view.dispatch);
+		expect(docToDeck(view.state.doc)).toBe(typed);
+	});
+});
+
+describe('insertObject', () => {
+	const door = () => insertObject(() => kernels);
+
+	function caretIn(view: EditorView, needle: string, after = false) {
+		let at = -1;
+		view.state.doc.descendants((node, pos) => {
+			if (at < 0 && node.isText && node.text?.includes(needle)) at = pos + node.text.indexOf(needle) + (after ? needle.length : 0);
+		});
+		view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, at)));
+		return at;
+	}
+
+	it('puts an object at the caret, selects it and opens its editor', () => {
+		const view = mount(DECK);
+		const at = caretIn(view, 'Plain slide', true);
+		expect(door()(view.state, view.dispatch)).toBe(true);
+		expect(view.state.doc.nodeAt(at)?.attrs.src).toBe('{Status}');
+		expect(view.state.selection).toBeInstanceOf(NodeSelection);
+		expect(openObject(view.state)).toMatchObject({ pos: at, src: '{Status}' });
+		expect(docToDeck(view.state.doc)).toContain('Plain slide`{Status}` with');
+	});
+
+	it('uses a short selected word as the label', () => {
+		const view = mount(DECK);
+		let from = -1;
+		view.state.doc.descendants((node, pos) => {
+			if (from < 0 && node.isText && node.text?.startsWith('Plain slide')) from = pos;
+		});
+		view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, from, from + 5)));
+		expect(door()(view.state, view.dispatch)).toBe(true);
+		expect(view.state.doc.nodeAt(from)?.attrs.src).toBe('{Plain}');
+	});
+
+	it('declines where it would damage the document, and says nothing was done', () => {
+		const view = mount(DECK);
+		const before = view.state.doc;
+		// In a fenced block.
+		caretIn(view, 'a fence with');
+		expect(door()(view.state, view.dispatch)).toBe(false);
+		// In a locked slide.
+		caretIn(view, 'This has');
+		expect(door()(view.state, view.dispatch)).toBe(false);
+		// Across two blocks.
+		let a = -1;
+		let b = -1;
+		view.state.doc.descendants((node, pos) => {
+			if (a < 0 && node.isText && node.text?.includes('Shipped')) a = pos + 2;
+			if (b < 0 && node.isText && node.text?.includes('Item')) b = pos + 2;
+		});
+		view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, a, b)));
+		expect(door()(view.state, view.dispatch)).toBe(false);
+		expect(view.state.doc).toBe(before);
+	});
+
+	it('works against the author\'s own inline code: it splits the span, it does not merge into it', () => {
+		const view = mount('<!-- _class: content -->\n\n## T\n\nA `some code` here.');
+		caretIn(view, 'some', true);
+		expect(door()(view.state, view.dispatch)).toBe(true);
+		expect(docToDeck(view.state.doc)).toBe('<!-- _class: content -->\n\n## T\n\nA `some``{Status}`` code` here.');
+	});
+
+	it('declines until the kernels have loaded', () => {
+		const view = mount(DECK);
+		caretIn(view, 'Plain slide', true);
+		expect(insertObject(() => null)(view.state, view.dispatch)).toBe(false);
+	});
+});
+
+describe('a paste carries an object only from this editor', () => {
+	const parser = PMDOMParser.fromSchema(deckSchema);
+
+	function parse(html: string) {
+		const host = document.createElement('div');
+		host.innerHTML = html;
+		return parser.parse(host);
+	}
+
+	it('keeps an object this editor copied', () => {
+		const node = deckSchema.nodes.inline_object.create({ src: '{SHIPPED, c2}' });
+		const spec = node.type.spec.toDOM?.(node) as [string, Record<string, string>, string];
+		const html = `<p><code data-inline-object="${spec[1]['data-inline-object']}" data-lattice-origin="${spec[1]['data-lattice-origin']}">${spec[2]}</code></p>`;
+		expect(objects(parse(html)).map((o) => o.src)).toEqual(['{SHIPPED, c2}']);
+	});
+
+	it('turns foreign HTML into plain code, never an object', () => {
+		const doc = parse('<p><code data-inline-object="{SHIPPED, c2}">{SHIPPED, c2}</code></p>');
+		expect(objects(doc)).toEqual([]);
+		expect(doc.textContent).toContain('{SHIPPED, c2}');
+	});
+
+	it('refuses a source with a line break even with this session\'s token', () => {
+		const node = deckSchema.nodes.inline_object.create({ src: '{SHIPPED}' });
+		const origin = (node.type.spec.toDOM?.(node) as [string, Record<string, string>, string])[1]['data-lattice-origin'];
+		const host = document.createElement('div');
+		const code = document.createElement('code');
+		code.setAttribute('data-inline-object', '{X}\n\n---\n\n<!-- _backgroundImage: url(https://evil.example/x.png) -->');
+		code.setAttribute('data-lattice-origin', origin);
+		code.textContent = 'x';
+		const p = document.createElement('p');
+		p.append(code);
+		host.append(p);
+		expect(objects(parser.parse(host))).toEqual([]);
+	});
+
+	it('writes a source with a line break back on one line, whatever built the node', () => {
+		let out = '';
+		const node = deckSchema.nodes.inline_object.create({ src: '{X}\n\n---' });
+		serializeInlineObject({ write: (s) => (out += s) }, node);
+		expect(out).toBe('`{X} ---`');
+	});
+
+	it('fences a source that holds a backtick the way the code mark does', () => {
+		let out = '';
+		serializeInlineObject({ write: (s) => (out += s) }, deckSchema.nodes.inline_object.create({ src: '{a`b}' }));
+		expect(out).toBe('`` {a`b} ``');
+	});
+});

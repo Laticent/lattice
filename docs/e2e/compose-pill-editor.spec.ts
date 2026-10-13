@@ -15,9 +15,9 @@ async function savedDeck(page: Page): Promise<string> {
 /**
  * COMPOSE — the pill editor.
  *
- * Compose draws every pill the engine draws, as the slide draws it, and hides its grammar until the
- * caret touches it (owner, 2026-10-13). Clicking the drawn pill opens one shared editor for its
- * label, shape, color and size, and each pick rewrites ONLY the word the author changed
+ * Compose draws every pill the engine draws, as the slide draws it, as ONE inline object (owner,
+ * 2026-10-13): a tap selects it and opens one shared editor for its label, shape, color and size, and
+ * each pick rewrites ONLY the word the author changed
  * (engineering/decisions/2026-10-13-compose-inline-notation-editors.md). The two things that
  * would hurt an author silently are an edit that rewrites bytes it was not asked to touch and a
  * door that inserts something other than a pill, so those two carry `@smoke` and run on the PR
@@ -68,12 +68,13 @@ const editor = (page: Page) => page.locator('[data-slot="popover-content"]');
 const composeText = (page: Page) => page.locator('.cs-host .ProseMirror').innerText();
 const drawnPills = (page: Page) => page.locator('.cs-npill .lat-pill');
 const chip = (page: Page, name: RegExp | string) => page.getByRole('button', { name: typeof name === 'string' ? `Edit pill ${name}` : name });
+const bar = (page: Page) => page.locator('.cs-slide-active');
 
 test.describe('compose pill editor', () => {
-	test('@smoke Compose shows the pill, not its grammar, and brings the grammar back when the caret reaches it', async ({ page }) => {
+	test('@smoke Compose shows the pill, not its grammar', async ({ page }) => {
 		await openDeckInCompose(page);
-		// Four pills on the editable slide and one on the locked one, each drawn by the engine's own markup.
-		await expect(drawnPills(page)).toHaveCount(5);
+		// Four pills on the editable slide, each drawn by the engine's own markup, and none of their text.
+		await expect(drawnPills(page)).toHaveCount(4);
 		await expect.poll(() => composeText(page)).not.toMatch(/\{SHIPPED|\{BETA|\{3, circle\}/);
 		await expect(drawnPills(page).first()).toHaveAttribute('data-c', 'c2');
 		// The pill carries the deck's own look, not an unstyled span: a capsule has a radius and a fill.
@@ -83,18 +84,12 @@ test.describe('compose pill editor', () => {
 		});
 		expect(style.radius).not.toBe('0px');
 		expect(style.bg).not.toBe('rgba(0, 0, 0, 0)');
-
-		// Arrowing onto a pill shows its text, with the tag button, so the text can be edited.
-		await page.locator('.cs-slide').first().locator('.cs-slide-content p', { hasText: 'Shipped' }).first().click({ position: { x: 4, y: 8 } });
-		await page.keyboard.press('Home');
-		for (let i = 0; i < 8; i++) await page.keyboard.press('ArrowRight');
-		await expect.poll(() => composeText(page)).toMatch(/\{SHIPPED, c2\}/i);
-		await expect(page.locator('.cs-nchip')).not.toHaveCount(0);
-		await page.keyboard.press('ArrowDown');
-		await expect.poll(() => composeText(page)).not.toContain('{SHIPPED, c2}');
+		// The slide Compose cannot round-trip keeps its text: nothing there is drawn, and nothing opens.
+		await expect.poll(() => composeText(page)).toMatch(/\{LOCKED, c6\}/i);
+		await expect(chip(page, 'LOCKED')).toHaveCount(0);
 	});
 
-	test('@smoke a pick rewrites only the word that was picked, and every other byte of the deck stays', async ({ page }) => {
+	test('@smoke a tap opens the editor, and a pick rewrites only the word that was picked', async ({ page }) => {
 		await openDeckInCompose(page);
 		await chip(page, 'SHIPPED').click();
 		await expect(editor(page)).toBeVisible();
@@ -119,11 +114,13 @@ test.describe('compose pill editor', () => {
 		await expect.poll(() => savedDeck(page)).toBe(DECK.replace('`{BETA, c4, tag}`', '`{BETA, c9, tag}`'));
 	});
 
-	test('@smoke the insert door puts a pill at the caret and opens its editor on it', async ({ page }) => {
+	test('@smoke opening a deck does not rewrite it, and the insert door puts a pill at the caret and opens its editor', async ({ page }) => {
 		await openDeckInCompose(page);
+		// Nothing was written by drawing the pills: the saved deck is the deck that was opened.
+		await expect.poll(() => savedDeck(page)).toBe(DECK);
 		await page.locator('.cs-slide').nth(1).locator('.cs-slide-content p').first().click();
 		await page.keyboard.press('End');
-		await page.locator('.cs-slide-active').getByRole('button', { name: 'Insert pill' }).click();
+		await bar(page).getByRole('button', { name: 'Insert pill' }).click();
 
 		await expect(editor(page)).toBeVisible();
 		await expect(editor(page).getByRole('textbox', { name: 'Label' })).toHaveValue('Status');
@@ -138,6 +135,16 @@ test.describe('compose pill editor', () => {
 		await expect.poll(() => savedDeck(page)).toContain('`{"Cost, excluding tax", c2}`');
 	});
 
+	test('Done leaves the pill alone and puts the caret after it, so typing cannot replace it', async ({ page }) => {
+		await openDeckInCompose(page);
+		await chip(page, 'SHIPPED').click();
+		await editor(page).getByRole('button', { name: 'Done' }).click();
+		await expect(editor(page)).toBeHidden();
+		await page.keyboard.type('!');
+		await expect.poll(() => savedDeck(page)).toContain('`{SHIPPED, c2}`!');
+		await expect(drawnPills(page)).toHaveCount(4);
+	});
+
 	test('one undo undoes one pick', async ({ page }) => {
 		await openDeckInCompose(page);
 		await chip(page, 'SHIPPED').click();
@@ -149,22 +156,25 @@ test.describe('compose pill editor', () => {
 		await expect.poll(() => savedDeck(page)).toBe(DECK);
 	});
 
-	test('the editor has its own Undo button, which reverts the picks it made and nothing older', async ({ page }) => {
+	test('Compose has its own Undo and Redo buttons, for the devices with no shortcut', async ({ page }) => {
 		await openDeckInCompose(page);
-		await chip(page, 'SHIPPED').click();
-		const undo = editor(page).getByRole('button', { name: 'Undo last change' });
+		await bar(page).locator('.cs-slide-bar').first().hover();
+		const undo = bar(page).getByRole('button', { name: 'Undo' });
+		const redo = bar(page).getByRole('button', { name: 'Redo' });
+		// Opening the deck made nothing to undo.
 		await expect(undo).toBeDisabled();
+		await expect(redo).toBeDisabled();
+		await chip(page, 'SHIPPED').click();
 		await editor(page).getByRole('radio', { name: 'Color 7' }).click();
 		await expect.poll(() => savedDeck(page)).toContain('`{SHIPPED, c7}`');
-		await editor(page).getByRole('radio', { name: 'Large' }).click();
-		await expect.poll(() => savedDeck(page)).toContain('`{SHIPPED, c7, lg}`');
-		await undo.click();
-		await expect.poll(() => savedDeck(page)).toContain('`{SHIPPED, c7}`');
+		await editor(page).getByRole('button', { name: 'Done' }).click();
+		await expect(undo).toBeEnabled();
 		await undo.click();
 		await expect.poll(() => savedDeck(page)).toBe(DECK);
-		// Nothing older than this editor's own picks can be undone from here.
 		await expect(undo).toBeDisabled();
-		await expect(editor(page)).toBeVisible();
+		await expect(redo).toBeEnabled();
+		await redo.click();
+		await expect.poll(() => savedDeck(page)).toContain('`{SHIPPED, c7}`');
 	});
 
 	test('Edit as text closes the editor and selects the text between the braces', async ({ page }) => {
@@ -173,18 +183,14 @@ test.describe('compose pill editor', () => {
 		await editor(page).getByRole('button', { name: 'Edit as text' }).click();
 		await expect(editor(page)).toBeHidden();
 		await expect.poll(() => page.evaluate(() => window.getSelection()?.toString())).toBe('SHIPPED, c2');
+		// The span is text while the caret is in it, and the pill comes back when the caret leaves.
+		await expect(drawnPills(page)).toHaveCount(3);
+		await page.keyboard.press('ArrowDown');
+		await expect(drawnPills(page)).toHaveCount(4);
 	});
 
-	test('a slide Compose cannot round-trip shows a disabled chip, and nothing opens', async ({ page }) => {
-		await openDeckInCompose(page);
-		const locked = chip(page, 'LOCKED');
-		await expect(locked).toBeDisabled();
-		await expect(editor(page)).toBeHidden();
-	});
-
-	test('a deck that turned the inline grammar off paints no chips', async ({ page }) => {
+	test('a deck that turned the inline grammar off draws no pills', async ({ page }) => {
 		await openDeckInCompose(page, '---\ninline-code: literal\n---\n\n## Literal deck\n\nShipped `{SHIPPED, c2}` here.');
-		await expect(page.locator('.cs-nchip')).toHaveCount(0);
 		await expect(page.locator('.cs-npill')).toHaveCount(0);
 		await expect.poll(() => composeText(page)).toMatch(/\{SHIPPED, c2\}/i);
 	});

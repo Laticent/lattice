@@ -1691,17 +1691,25 @@ measured:
 ### Editing a pill without typing it — the Studio
 
 In the Studio's Compose editor a pill is **drawn as the slide draws it**, in your theme's own
-colors, and its `{…}` text is hidden. Click the pill to change its label, shape, color and size
-from one editor (a popover on a desktop or tablet, a sheet on a phone). Each pick rewrites **only
-the word you changed** in the span, so `{BETA, c4, tag}` stays in that order and every other pill
-on the slide is untouched. Move the cursor onto a pill, or type next to it, and its text comes
-back with a small tag button, so editing the text works exactly as before; **Edit as text** in the
-editor does the same. The editor has its own **Undo** button, which reverts the picks it made (a
-phone has no other undo in Compose: iOS's own undo does not see the editor's changes). The **+ Pill** button on the slide's formatting bar puts a new one at the
-cursor. A pill stays as text, with the tag button, on a slide that is edited in Markdown, and
-nothing is drawn in a deck set to `inline-code: literal` or for a span the engine would not draw
-as a pill (a reserved label, an unknown icon). The editor does not touch a pill's `icon=`; that
-word is kept exactly as written. Design:
+colors, and it is **one object**: its `{…}` text is not on the page, and there is no caret inside
+it. **Tap or click the pill** to change its label, shape, color and size from one editor (a popover
+on a desktop or tablet, a sheet on a phone). Each pick rewrites **only the word you changed** in the
+span, so `{BETA, c4, tag}` stays in that order and every other pill on the slide is untouched.
+**Done** closes the editor and puts the cursor just after the pill; **Edit as text** turns the pill
+back into its `{…}` text with the words between the braces selected, and the pill is drawn again when
+the cursor leaves it. The arrow keys step over a pill as one thing, Backspace takes all of it, and
+Enter on a selected pill opens its editor.
+
+The slide bar has **Undo** and **Redo** buttons for the whole deck, because a phone has no undo
+gesture Compose's history is visible to (iOS's own undo lists only what the browser edited). On a
+narrow pane the bar is two rows: history and the insert doors on the first, the Format group on the
+second. The **+ Pill** button puts a new pill at the cursor (a short selected word becomes its label)
+and opens its editor.
+
+A pill stays as text on a slide that is edited in Markdown, in a deck set to `inline-code: literal`,
+and where the engine would not draw it (a reserved label, an unknown icon). Opening a deck never
+rewrites it: a drawn pill writes back the exact code span it came from. The editor does not touch a
+pill's `icon=`; that word is kept exactly as written. Design:
 `engineering/decisions/2026-10-13-compose-inline-notation-editors.md`.
 
 ## Inline sparks — `~{12 14 17}`

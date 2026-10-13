@@ -2,7 +2,7 @@ import { createRequire } from 'node:module';
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { InlineKernels, PillEdit, PillFields } from '@/lib/compose/inline-notation';
+import type { InlineKernels, PillEdit, PillFields } from '@/lib/compose/inline-objects';
 import { PillPanel, readSlotColors, SHAPE_GLYPH } from './PillEditor';
 
 const kernels = createRequire(import.meta.url)('../../../../lib/authoring/inline-editors.js') as InlineKernels;
@@ -11,14 +11,13 @@ const fields = (text: string): PillFields => kernels.pill.read(text) as PillFiel
 
 const accepting = () => vi.fn<(edit: PillEdit) => boolean>(() => true);
 
-function setup(text = '{SHIPPED, c2}', onEdit = accepting(), canUndo = true) {
-	const onUndo = vi.fn();
+function setup(text = '{SHIPPED, c2}', onEdit = accepting()) {
 	const onEditAsText = vi.fn();
 	const onDone = vi.fn();
 	const user = userEvent.setup();
 	const colors = Array.from({ length: 12 }, (_, i) => (i % 2 ? `rgb(${i * 20},0,0)` : null));
-	render(<PillPanel fields={fields(text)} kernels={kernels} slotColors={colors} onEdit={onEdit} onEditAsText={onEditAsText} onDone={onDone} canUndo={canUndo} onUndo={onUndo} />);
-	return { user, onEdit, onEditAsText, onDone, onUndo };
+	render(<PillPanel fields={fields(text)} kernels={kernels} slotColors={colors} onEdit={onEdit} onEditAsText={onEditAsText} onDone={onDone} />);
+	return { user, onEdit, onEditAsText, onDone };
 }
 
 afterEach(cleanup);
@@ -52,19 +51,6 @@ describe('PillPanel — the controls come from the engine', () => {
 		setup();
 		const names = screen.getAllByRole('radio').map((r) => r.getAttribute('aria-label') ?? '');
 		expect(names.filter((n) => /\b(red|green|blue|amber|good|bad|ok|warn)/i.test(n))).toEqual([]);
-	});
-});
-
-describe('PillPanel — undo', () => {
-	it('Undo is a visible button that calls onUndo', async () => {
-		const { user, onUndo } = setup();
-		await user.click(screen.getByRole('button', { name: 'Undo last change' }));
-		expect(onUndo).toHaveBeenCalledTimes(1);
-	});
-
-	it('Undo is disabled when there is nothing this editor wrote to undo', () => {
-		setup('{SHIPPED, c2}', accepting(), false);
-		expect((screen.getByRole('button', { name: 'Undo last change' }) as HTMLButtonElement).disabled).toBe(true);
 	});
 });
 

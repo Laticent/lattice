@@ -1,16 +1,15 @@
 // THE PILL EDITOR — point and click, never type the syntax.
 //
-// Opens on a pill chip in Compose (lib/compose/inline-notation.ts) and edits the pill's label,
-// shape, color and size. Design and decisions: engineering/decisions/2026-10-13-compose-inline-
+// The pill's panel in Compose's inline object editor (InlineObjectEditor.tsx): its label, shape,
+// color and size. Design and decisions: engineering/decisions/2026-10-13-compose-inline-
 // notation-editors.md (owner, 2026-10-13: a popover on desktop and tablet, a sheet on the phone).
 //
 //   · `PillPanel` is the controls and nothing else: it is handed the pill's fields and reports
 //     one `PillEdit` per change. The shape and color choices come from the ENGINE's vocabulary
 //     (`kernels.pill.SHAPES` / `COLORS` / `SIZES`), so a value the engine gains shows up here
 //     with no edit.
-//   · `PillEditorHost` puts the panel where it belongs, writes each edit through the kernel
-//     (`applyPillEdit`: only the changed word is replaced, or nothing is written), and keeps the
-//     range of the pill it is editing as the document moves under it.
+//   · `InlineObjectEditorHost` puts the panel where it belongs and writes each edit through the
+//     kernel (`editObject`: only the changed word is replaced, or nothing is written).
 //
 // THE DRAWING IS SCHEMATIC, AND SAYS SO. The Studio page does not carry the deck's pill CSS, so
 // the shape thumbnails are outlines drawn here. The COLORS are the deck's own: read from the live
@@ -18,20 +17,13 @@
 // mean different hues in different themes. The slide preview beside Compose shows the exact
 // drawing, and it updates as each edit lands.
 //
-// Lazy: StudioShell/ComposeView load this with React.lazy, as IconGrid is, so none of it is in
-// the Studio's startup JavaScript.
+// Lazy with the host: none of it is in the Studio's startup JavaScript.
 
-import { Tag, Undo2 } from 'lucide-react';
-import { undo, undoDepth } from 'prosemirror-history';
-import type { EditorView } from 'prosemirror-view';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { PanelBody, PanelHeader, PanelSheet } from '@/components/ui/panel';
-import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { applyPillEdit, type InlineKernels, type PillEdit, type PillFields, pillAt, type SpanRange, selectPillText } from '@/lib/compose/inline-notation';
-import { useIsPhone } from '@/lib/use-breakpoint';
+import type { InlineKernels, PillEdit, PillFields } from '@/lib/compose/inline-objects';
 import { cn } from '@/lib/utils';
 
 /** The selected look for a toggle item: the repo's chip-row pattern (SlideContext.tsx), so the pressed one is plain to see. */
@@ -104,8 +96,6 @@ export function PillPanel({
 	onEdit,
 	onEditAsText,
 	onDone,
-	canUndo,
-	onUndo,
 }: {
 	fields: PillFields;
 	kernels: InlineKernels;
@@ -114,9 +104,6 @@ export function PillPanel({
 	onEdit: (edit: PillEdit) => boolean;
 	onEditAsText: () => void;
 	onDone: () => void;
-	/** Compose has no undo on a phone: iOS's own undo only sees the browser's edits, not ProseMirror's. */
-	canUndo: boolean;
-	onUndo: () => void;
 }) {
 	const [label, setLabel] = React.useState(fields.value);
 	const [refused, setRefused] = React.useState<string | null>(null);
@@ -224,15 +211,9 @@ export function PillPanel({
 			</div>
 			</div>
 			<div className="flex shrink-0 items-center justify-between gap-2 border-t border-border pt-3">
-				<div className="flex items-center gap-1">
-					<Button type="button" variant="ghost" size="sm" disabled={!canUndo} onClick={onUndo} aria-label="Undo last change">
-						<Undo2 aria-hidden className="size-4" />
-						Undo
-					</Button>
-					<Button type="button" variant="ghost" size="sm" onClick={onEditAsText}>
-						Edit as text
-					</Button>
-				</div>
+				<Button type="button" variant="ghost" size="sm" onClick={onEditAsText}>
+					Edit as text
+				</Button>
 				<Button type="button" size="sm" onClick={onDone}>
 					Done
 				</Button>
@@ -240,109 +221,3 @@ export function PillPanel({
 		</div>
 	);
 }
-
-/** A virtual anchor that finds the pill's place in the page again on every measurement. */
-export type ChipAnchor = { getBoundingClientRect: () => DOMRect; contextElement?: Element };
-
-export function PillEditorHost({
-	view,
-	kernels,
-	range,
-	onClose,
-}: {
-	view: EditorView;
-	kernels: InlineKernels;
-	/** The pill's range as the document stands NOW: the notation plugin maps it through every edit. */
-	range: SpanRange;
-	onClose: () => void;
-}) {
-	const phone = useIsPhone();
-	// The preview frame is read once per open: the theme can differ between two opens.
-	const slotColors = React.useMemo(() => readSlotColors(), []);
-	const span = pillAt(view.state.doc, range, kernels);
-
-	// A pill the document no longer has (an undo, an edit elsewhere) closes the editor.
-	React.useEffect(() => {
-		if (!span) onClose();
-	}, [span, onClose]);
-
-	const [, bump] = React.useReducer((n: number) => n + 1, 0);
-	// Undo here reverts only what this editor wrote: the history depth when it opened is the floor.
-	const undoFloor = React.useRef(undoDepth(view.state));
-	const rangeRef = React.useRef(range);
-	rangeRef.current = range;
-	const anchorRef = React.useRef({
-		getBoundingClientRect: () => {
-			// The pill's live place on the page, found by the position stamped on its widget (a drawn
-			// pill or its tag button): the widget is rebuilt whenever the text changes, so an element
-			// held across an edit would be detached. Coordinates are the fallback.
-			try {
-				const el = view.dom.querySelector<HTMLElement>(`[data-pill-from="${rangeRef.current.from}"]`);
-				if (el?.isConnected) return el.getBoundingClientRect();
-				const at = Math.min(rangeRef.current.from, view.state.doc.content.size);
-				const c = view.coordsAtPos(at);
-				return new DOMRect(c.left, c.top, Math.max(1, c.right - c.left), c.bottom - c.top);
-			} catch {
-				return new DOMRect(0, 0, 0, 0);
-			}
-		},
-		contextElement: view.dom as Element,
-	});
-
-	const close = React.useCallback(() => {
-		onClose();
-		view.focus();
-	}, [onClose, view]);
-
-	const onEdit = React.useCallback(
-		(edit: PillEdit) => {
-			// The new range reaches this component as the `range` prop, mapped by the plugin.
-			const ok = applyPillEdit(view, rangeRef.current, edit, kernels) !== null;
-			bump();
-			return ok;
-		},
-		[view, kernels],
-	);
-
-	// The editor stays open and follows the pill (the plugin maps its range through the undo); undo
-	// does not focus the text, so a phone's keyboard does not open over the sheet.
-	const onUndo = React.useCallback(() => {
-		if (undoDepth(view.state) > undoFloor.current) undo(view.state, view.dispatch);
-		bump();
-	}, [view]);
-
-	const onEditAsText = React.useCallback(() => {
-		const r = rangeRef.current;
-		onClose();
-		selectPillText(view, r);
-	}, [onClose, view]);
-
-	if (!span) return null;
-	const panel = <PillPanel fields={span.fields} kernels={kernels} slotColors={slotColors} onEdit={onEdit} onEditAsText={onEditAsText} onDone={close} canUndo={undoDepth(view.state) > undoFloor.current} onUndo={onUndo} />;
-
-	if (phone) {
-		return (
-			<PanelSheet open onOpenChange={(o) => !o && close()} width="md">
-				<PanelHeader icon={<Tag />} title="Edit pill" srDescription="Change this pill's label, shape, color and size." />
-				<PanelBody>{panel}</PanelBody>
-			</PanelSheet>
-		);
-	}
-	return (
-		<Popover open onOpenChange={(o) => !o && close()}>
-			<PopoverAnchor virtualRef={anchorRef} />
-			<PopoverContent
-				align="start"
-				collisionPadding={8}
-				hideWhenDetached
-				aria-label="Edit pill"
-				className="flex w-[min(21rem,90vw)] flex-col overflow-hidden max-h-[max(220px,calc(var(--radix-popover-content-available-height)-12px))]"
-				onOpenAutoFocus={(e) => e.preventDefault()}
-			>
-				{panel}
-			</PopoverContent>
-		</Popover>
-	);
-}
-
-export default PillEditorHost;
