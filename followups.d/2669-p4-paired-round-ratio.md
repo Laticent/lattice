@@ -1,6 +1,6 @@
 ---
 origin: 2669
-priority: P2
+priority: P4
 recorded: 2026-10-13
 area: infra
 severity: low
