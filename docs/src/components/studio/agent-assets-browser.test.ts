@@ -36,6 +36,11 @@ describe('createAgentAssets', () => {
 		expect(names).toEqual(['a', 'b', 'c', 'mine']);
 	});
 
+	it('does not offer a video: a slide cannot show one, so the model is not told it can use it', async () => {
+		listMedia.mockResolvedValue([rec('a'), rec('reel', { kind: 'video', mime: 'video/webm' })]);
+		expect((await createAgentAssets().list()).map((a) => a.name)).toEqual(['a']);
+	});
+
 	it('serves a caption it just saved from its own copy, so the same turn sees it', async () => {
 		const lib = createAgentAssets();
 		expect(await lib.setCaption('a', 'A door')).toBe('A door');

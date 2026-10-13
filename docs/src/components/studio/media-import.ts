@@ -6,7 +6,7 @@
 // decoder, so a test there would only confirm a stub (HARD RULE #23).
 
 import { scrubberFor } from './media-scrub';
-import { MAX_MEDIA_FILE_BYTES, type MediaKind, mediaNameFromFile, type NewMedia, sniffImageMime, uniqueName } from './media-store';
+import { MAX_MEDIA_FILE_BYTES, type MediaKind, mediaNameFromFile, type NewMedia, sniffImageMime, sniffVideoMime, uniqueName } from './media-store';
 
 /** The long edge a stored photo is capped to. A slide shows at most ~1920 px wide, so pixels
  *  past this cost storage quota and buy nothing a viewer can see. */
@@ -40,8 +40,11 @@ export function webpSupported(): boolean {
 /** What the native picker is asked for. `image/*` opens Photo Library / Take Photo / Files
  *  on Android and iOS; the extensions cover HEIC where the OS reports no MIME type. */
 export const MEDIA_ACCEPT = 'image/*,.heic,.heif';
+/** The Library's picker also takes video (the Videos tab). The chat's own picker adds `video/*` itself. */
+export const LIBRARY_MEDIA_ACCEPT = `${MEDIA_ACCEPT},video/*,.mp4,.mov,.webm,.m4v`;
 
 const EXT_MIME: Record<string, string> = {
+	mp4: 'video/mp4', m4v: 'video/mp4', mov: 'video/quicktime', webm: 'video/webm',
 	jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', gif: 'image/gif',
 	svg: 'image/svg+xml', avif: 'image/avif', heic: 'image/heic', heif: 'image/heif',
 };
@@ -54,9 +57,12 @@ export function mimeOf(file: { name: string; type: string }): string {
 	return EXT_MIME[ext] ?? '';
 }
 
-/** Is this file one the Images tab takes? (Slice 5 adds video.) */
+/** Is this file one the Library takes: a photo, a video, or neither (null)? */
 export function classifyMedia(file: { name: string; type: string }): MediaKind | null {
-	return mimeOf(file).startsWith('image/') ? 'image' : null;
+	const mime = mimeOf(file);
+	if (mime.startsWith('image/')) return 'image';
+	if (mime.startsWith('video/')) return 'video';
+	return null;
 }
 
 export type ImagePlan = {
@@ -314,6 +320,67 @@ export async function importImage(file: File, scope: string, format?: PhotoForma
 	} finally {
 		bitmap.close();
 	}
+}
+
+// ── Video ───────────────────────────────────────────────────────────────────
+
+const once = (el: HTMLVideoElement, ok: string, ms: number): Promise<void> =>
+	new Promise((resolve, reject) => {
+		const t = setTimeout(() => reject(new Error('timeout')), ms);
+		el.addEventListener(ok, () => { clearTimeout(t); resolve(); }, { once: true });
+		el.addEventListener('error', () => { clearTimeout(t); reject(new Error('decode')); }, { once: true });
+	});
+
+/** A video's length, size and a small poster, read by playing the first frame in a detached element. Rejects
+ *  when this browser cannot decode the file. The element is released either way. */
+export async function probeVideo(blob: Blob): Promise<{ durationMs: number; width: number; height: number; poster: string }> {
+	const el = document.createElement('video');
+	el.muted = true;
+	el.playsInline = true;
+	el.preload = 'metadata';
+	const url = URL.createObjectURL(blob);
+	try {
+		el.src = url;
+		await once(el, 'loadedmetadata', 10_000);
+		// A recording some browsers write has no length in its header (`Infinity`); seeking far past the
+		// end makes the browser find it.
+		if (!Number.isFinite(el.duration)) {
+			el.currentTime = 1e101;
+			await once(el, 'durationchange', 5_000).catch(() => {});
+			await new Promise((r) => setTimeout(r, 0));
+		}
+		if (!Number.isFinite(el.duration) || el.duration <= 0) throw new Error('length');
+		el.currentTime = Math.min(0.1, el.duration / 2);
+		await once(el, 'seeked', 5_000).catch(() => {});
+		const w = 160;
+		const canvas = document.createElement('canvas');
+		canvas.width = w;
+		// Height capped: an extreme aspect ratio must not make a large poster.
+		canvas.height = Math.min(240, Math.max(1, Math.round((w * (el.videoHeight || 90)) / (el.videoWidth || 160))));
+		canvas.getContext('2d')?.drawImage(el, 0, 0, canvas.width, canvas.height);
+		return { durationMs: Math.round(el.duration * 1000), width: el.videoWidth || 0, height: el.videoHeight || 0, poster: canvas.toDataURL('image/jpeg', 0.7) };
+	} finally {
+		el.removeAttribute('src');
+		el.load();
+		URL.revokeObjectURL(url);
+	}
+}
+
+/** Read a video into a record ready for `saveMedia`. Stored as given (no transcoding in the browser), so any
+ *  metadata in the file, including a location atom, stays: the decision note's open question 4 is not settled.
+ *  Refused when over the Library's size cap, when the bytes are not a video type the Library stores, or when
+ *  this browser cannot play it. */
+export async function importVideo(file: File, scope: string): Promise<NewMedia> {
+	if (file.size > MAX_MEDIA_FILE_BYTES) throw new MediaImportError(`${file.name} is ${Math.round(file.size / 1_048_576)} MB; a video may be at most ${Math.floor(MAX_MEDIA_FILE_BYTES / 1_048_576)} MB.`);
+	const mime = sniffVideoMime(new Uint8Array(await file.slice(0, 16).arrayBuffer()));
+	if (!mime) throw new MediaImportError(`${file.name} isn't an MP4, MOV or WebM video.`);
+	let probed: Awaited<ReturnType<typeof probeVideo>>;
+	try {
+		probed = await probeVideo(file);
+	} catch {
+		throw new MediaImportError(`${file.name} couldn't be read as a video. It may be a format this browser can't play.`);
+	}
+	return { kind: 'video', name: mediaNameFromFile(file.name, 'video'), scope, blob: new Blob([file], { type: mime }), mime, bytes: file.size, width: probed.width, height: probed.height, sourceName: file.name, original: true, durationMs: probed.durationMs, poster: probed.poster };
 }
 
 export { uniqueName };

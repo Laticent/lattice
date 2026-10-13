@@ -308,9 +308,9 @@ describe('hostile rows', () => {
 	});
 
 	it('a type the Library never stores is refused, even when the extension looks right', async () => {
-		expect(await refusedWith([row({ mime: 'text/html' })])).toEqual(['its type is not an image Lattice stores']);
-		expect(await refusedWith([row({ mime: 'image/png', file: 'hero.jpg' })], { 'hero.jpg': PNG })).toEqual(['its type is not an image Lattice stores']);
-		expect(await refusedWith([row({ mime: 'application/javascript' })])).toEqual(['its type is not an image Lattice stores']);
+		expect(await refusedWith([row({ mime: 'text/html' })])).toEqual(['its type is not an image or video Lattice stores']);
+		expect(await refusedWith([row({ mime: 'image/png', file: 'hero.jpg' })], { 'hero.jpg': PNG })).toEqual(['its type is not an image or video Lattice stores']);
+		expect(await refusedWith([row({ mime: 'application/javascript' })])).toEqual(['its type is not an image or video Lattice stores']);
 	});
 
 	it('an SVG is refused by name, because opened as a document it runs its script on the site’s origin', async () => {
@@ -386,6 +386,53 @@ describe('hostile rows', () => {
 	it('a hostile sourceName is truncated, not trusted', async () => {
 		await restoreMedia(await craft([row({ sourceName: 'x'.repeat(5000) })]), 1, ctx());
 		expect((await listMedia())[0].sourceName).toHaveLength(200);
+	});
+});
+
+describe('video in a backup', () => {
+	// A minimal MP4 head: a 'ftyp' box is what the sniffer reads, and the rest is filler a player would never open.
+	const MP4 = new Uint8Array([0, 0, 0, 24, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d, 0, 0, 0, 0, 0x69, 0x73, 0x6f, 0x6d, 0x6d, 0x70, 0x34, 0x31, 1, 2, 3]);
+	const WEBM = new Uint8Array([0x1a, 0x45, 0xdf, 0xa3, 1, 2, 3, 4]);
+	const POSTER = 'data:image/jpeg;base64,/9j/4AAQSkZJRg==';
+	const clip = (over: Partial<NewMedia> = {}, bytes: Uint8Array = MP4): NewMedia => ({
+		kind: 'video', name: 'walk', scope: LIBRARY_SCOPE, blob: new Blob([bytes as BlobPart], { type: 'video/mp4' }), mime: 'video/mp4',
+		bytes: bytes.length, width: 640, height: 360, sourceName: 'Walk.mp4', original: true, durationMs: 4200, poster: POSTER, ...over,
+	});
+	const vrow = (over: Record<string, unknown> = {}) => row({ name: 'walk', kind: 'video', mime: 'video/mp4', file: 'walk.mp4', durationMs: 4200, poster: POSTER, ...over });
+	const refusedWith = async (rows: unknown, files: Record<string, Uint8Array>) => (await restoreMedia(await craft(rows, files), 1, ctx())).refused.map((r) => r.why);
+
+	it('a clip round-trips with its length, poster and bytes', async () => {
+		await saveMedia(clip(), 10);
+		const z = new JSZip();
+		expect(await packMedia(z)).toMatchObject({ rows: 1, skipped: 0 });
+		const packed = await JSZip.loadAsync(await z.generateAsync({ type: 'uint8array' }));
+		expect(Object.keys(packed.files)).toContain('media/walk.mp4');
+		await emptyShelf();
+		expect(await restoreMedia(packed, 99, ctx())).toEqual({ restored: 1, shared: 0, refused: [], renames: [] });
+		const [back] = await listMedia();
+		expect(back).toMatchObject({ kind: 'video', name: 'walk', mime: 'video/mp4', durationMs: 4200, poster: POSTER, addedAt: 10 });
+		expect(await bytesOf(back)).toEqual(MP4);
+	});
+
+	it('a WebM restores under its own type', async () => {
+		const out = await restoreMedia(await craft([vrow({ mime: 'video/webm', file: 'walk.webm' })], { 'walk.webm': WEBM }), 1, ctx());
+		expect(out.refused).toEqual([]);
+		expect((await listMedia())[0]).toMatchObject({ kind: 'video', mime: 'video/webm' });
+	});
+
+	it('refuses image bytes behind a video row, and a kind that disagrees with the type', async () => {
+		expect(await refusedWith([vrow()], { 'walk.mp4': PNG })).toEqual(['its bytes are not MP4 video data']);
+		expect(await refusedWith([vrow({ kind: 'image' })], { 'walk.mp4': MP4 })).toEqual(['its kind does not match its type']);
+		expect(await refusedWith([row({ kind: 'video' })], { 'hero.png': PNG })).toEqual(['its kind does not match its type']);
+	});
+
+	it('keeps only a plain JPEG data URL as the poster', async () => {
+		for (const poster of ['javascript:alert(1)', 'data:image/svg+xml;base64,PHN2Zy8+', 'data:image/jpeg;base64,AAAA" onerror="x', `data:image/jpeg;base64,${'A'.repeat(130_000)}`]) {
+			await emptyShelf();
+			const out = await restoreMedia(await craft([vrow({ poster })], { 'walk.mp4': MP4 }), 1, ctx());
+			expect(out.restored, poster.slice(0, 30)).toBe(1);
+			expect((await listMedia())[0].poster, poster.slice(0, 30)).toBeUndefined();
+		}
 	});
 });
 

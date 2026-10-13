@@ -38,12 +38,12 @@ export function videoRefusal(seconds: number, bytes: number): string | null {
 	return null;
 }
 
-/** The sentence that tells the model a clip came with the message. A video is NOT stored in the
- *  Library (it has no video shelf yet), so unlike a photo it has no `asset:` name to offer. */
+/** The sentence that tells the model a clip came with the message. A clip is kept in the Library's Videos
+ *  shelf, but a slide cannot play a video yet, so unlike a photo it has no `asset:` name to offer. */
 export function videoNote(count: number, shown = true): string {
 	if (count < 1) return '';
 	const what = count === 1 ? 'a short video' : `${count} short videos`;
-	return `\n\n(The author attached ${what} to this message; ${count === 1 ? 'it is' : 'they are'} ${shown ? 'shown to you below' : 'not shown again'}. ${count === 1 ? 'It is' : 'They are'} not saved in the deck's media, so it cannot go on a slide.)`;
+	return `\n\n(The author attached ${what} to this message; ${count === 1 ? 'it is' : 'they are'} ${shown ? 'shown to you below' : 'not shown again'}. ${count === 1 ? 'It is' : 'They are'} kept in the author's Library as a video, and a slide cannot play a video yet, so do not offer to put it on one.)`;
 }
 
 /** The sentence that tells the model what the author attached and how to use it. A name is a Library

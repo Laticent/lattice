@@ -121,7 +121,7 @@ when one part is refused (minor), and the one-shot fallback re-sends a refused c
   (`webkit-phone`, WebKit 26): the engine the pool exists for, not the device. The native picker is the
   browser's own and was driven through Playwright's file chooser, which stands in for the choice, not for
   the picker. Video was not run on WebKit (it records WebM, which WebKit does not).
-- **Video is held for one turn, not stored.** The Library's video slice is not built, so a clip cannot be an `asset:`; the chat keeps a poster and a length and holds the bytes in memory until it is sent. The tab holds at most the two latest clips (the pending one and the one just sent, for a same-tab Regenerate); older ones are released, so memory is bounded. After a reload the clip is gone, and Regenerate says so. A clip over 15 s plus half a second of slack is refused.
+- **A chat clip is a Library video.** (Changed after the first version, which held the bytes in memory for one turn.) `addChatVideo` saves it to the open deck's shelf through `importVideo`, so it has a name, shows in Library → Videos, survives a reload, and Regenerate re-reads it from the shelf (`videoDataUrl`). The thread keeps only the name and length; the poster is read from the shelf, so thumbnails no longer share the browser's `localStorage` quota with deck sources (a thread saved before this change keeps its own poster). The chat's caps stay tighter than the Library's: 15 seconds and 15 MB, checked before anything is saved. A clip the author deletes from the Library is reported when Regenerate cannot find it. A slide cannot play it yet.
 - **The status line was verified at the DOM, not by eye over time.** A fulfilled mock cannot stream, so
   the phases are held open with delays; their real cadence on a live model is unmeasured.
 - **The streaming bubble hands off to the committed message with one re-point** of a figure's frame.
@@ -129,7 +129,6 @@ when one part is refused (minor), and the one-shot fallback re-sends a refused c
 ## 6. Open
 
 - A phone check of the native photo picker, the pool and the status line on a real device.
-- Storing a chat video in the Library, when its video slice lands (it would then be an `asset:` like a photo).
 - Video was exercised with a clip recorded in Chromium (WebM). A phone's H.264 MP4, and the cap on a real 15-second phone clip, are untested.
 - Dropping a photo onto the composer (paste and the picker are in; drag is not).
 - Math arm, checked 2026-10-13 on 4b0eef0 in the sandbox: `check:family-conformance` ran to the end without a Chrome drop. The `math` row fires at portrait, story and mobile and is not among the 39 differences from `test/oracle/family-conformance.json`, which are all other components. `overflow:check` found four decks that clip more than the baseline, none with a math slide (follow-up filed). Not confirmed: a nightly run after the merge.

@@ -19,6 +19,7 @@ import {
 	setMediaCaption,
 	setMediaScope,
 	sniffImageMime,
+	sniffVideoMime,
 	visibleMedia,
 } from './media-store';
 
@@ -212,6 +213,22 @@ describe('an engine that will not store a Blob', () => {
 		const put = refuse('blob');
 		await expect(saveMedia(png(), 2)).rejects.toThrow(/already another saved image/);
 		expect(put).not.toHaveBeenCalled();
+	});
+});
+
+describe('sniffVideoMime', () => {
+	const b = (...n: number[]) => new Uint8Array(n);
+	const str = (t: string) => [...t].map((c) => c.charCodeAt(0));
+	it('names MP4, QuickTime and WebM by their bytes', () => {
+		expect(sniffVideoMime(b(0, 0, 0, 24, ...str('ftypisom')))).toBe('video/mp4');
+		expect(sniffVideoMime(b(0, 0, 0, 20, ...str('ftypqt  ')))).toBe('video/quicktime');
+		expect(sniffVideoMime(b(0x1a, 0x45, 0xdf, 0xa3, 1))).toBe('video/webm');
+	});
+	it('refuses a picture in the same container, and anything else', () => {
+		expect(sniffVideoMime(b(0, 0, 0, 24, ...str('ftypavif')))).toBeNull();
+		expect(sniffVideoMime(b(0, 0, 0, 24, ...str('ftypheic')))).toBeNull();
+		expect(sniffVideoMime(b(0xff, 0xd8, 0xff, 0xe1))).toBeNull();
+		expect(sniffVideoMime(new Uint8Array(32))).toBeNull();
 	});
 });
 

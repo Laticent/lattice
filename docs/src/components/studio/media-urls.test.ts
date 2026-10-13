@@ -28,6 +28,13 @@ describe('the map', () => {
 		for (const u of Object.values(map)) expect(u).toMatch(/^blob:/);
 	});
 
+	it('holds photos only: a video name is not in the map, so a deck naming one shows the placeholder', async () => {
+		await saveMedia(make({ name: 'hero' }), 1);
+		await saveMedia(make({ name: 'reel', kind: 'video', mime: 'video/webm', blob: new Blob(['x'], { type: 'video/webm' }), durationMs: 1000 }), 2);
+		expect(Object.keys(await ensureAssetUrls())).toEqual(['hero']);
+		expect(await missingAssetNames('![](asset:reel) ![](asset:hero)')).toEqual(['reel']);
+	});
+
 	it('is empty, not an error, when nothing is saved', async () => {
 		expect(await ensureAssetUrls()).toEqual({});
 		expect(assetStamp()).toBe('');

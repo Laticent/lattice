@@ -5,7 +5,7 @@ summary: Photos and videos in the Library — one `asset:<name>` namespace, a sc
 
 # Library media assets — photos and videos, shared or per deck (2026-10-12)
 
-**Where this stands:** images (slices 1 to 4) are built in #2640; video (slice 5) and the open questions below are still proposals.
+**Where this stands:** images (slices 1 to 4) are built in #2640. Video (slice 5) is built in part: a `video` record, intake, a Videos tab, backup and restore, and the chat's clips (see "Slice 5 as built" below). A slide still cannot show a video, no export carries one, and the open questions below are unsettled.
 
 **Owner rulings (2026-10-12):** one `asset:<name>` namespace with a `scope` flag rather than two
 prefixes; images and video in the same line of work; one Images tab with a "This deck / All
@@ -347,6 +347,33 @@ Chromium: photos added through the Library's file input, the real thumbnail code
 base64), the real agent loop, and the caption read back from IndexedDB. The model is mocked (HARD RULE #24),
 so **how a real model chooses between photos is UNVERIFIED.** The spec fails if the thumbnail edge grows.
 A workspace backup carries each photo's caption and a restore reads it back through `cleanCaption`, so a restore does not make the chat look at every photo again. A backup file is untrusted and the caption re-enters a prompt, which is why it is cleaned on the way in; a caption that is not a string is dropped.
+
+## Slice 5 as built (2026-10-13)
+
+What shipped, and where it differs from the proposal in §1:
+
+- **Record.** `kind: 'video'` in the same store, bytes as a `Blob`, plus `durationMs` and a `poster`. The poster
+  is a **data-URL string**, not a `Blob` as §1 proposed: it is a 160 px JPEG of a few KB, and a string stores in
+  every engine, including a Safari private window that refuses a `Blob`. One name still means one asset
+  across both kinds and both scopes (`saveMedia` is unchanged).
+- **Intake.** `importVideo` (`media-import.ts`) refuses a file over 50 MB (`MAX_MEDIA_FILE_BYTES`), reads the
+  type from the bytes (`sniffVideoMime`: MP4, QuickTime, WebM; an AVIF or HEIC picture shares the `ftyp` box
+  and is refused as a video), and plays the first frame to get the length, size and poster. The bytes are
+  stored as given, so any metadata in the file stays. Open question 4 (the GPS atom) is not settled and is
+  not changed here. The Library picker accepts `video/*` as §3 said; a clip goes straight in (there is no
+  format to choose), a photo still goes through the format dialog.
+- **Tab.** A **Videos** tab beside Images. "All" shows both kinds. The card shows the poster and length, and
+  plays the clip inline on a tap; the clip gets an object URL only while it plays, so a shelf of videos does
+  not pin its bytes.
+- **Backup and restore.** `media.json` rows carry `kind: 'video'`, `durationMs` and `poster`; the file is
+  written as `.mp4`, `.webm` or `.mov`. A restore checks the row's kind against its type, the bytes against the
+  sniffer, and keeps a poster only if it is a plain JPEG data URL of a sane size (it goes into an `<img src>`).
+  There is no scrubber for video, so the restore does not rewrite a clip's bytes.
+- **Not built.** Rendering a video on a slide, the HTML-player embed cap, and the poster in PDF, PNG and PPTX
+  exports. A deck that writes `asset:<video name>` resolves to the missing-image stand-in, because the
+  name → URL map and editor completion list photos only, and the chat's manifest does not offer a video as
+  something to put on a slide. **No export carries a clip, so no exported byte changed** and the
+  export sign-off in "Gates" is still owed by whoever builds the slide side.
 
 ## Options not taken
 

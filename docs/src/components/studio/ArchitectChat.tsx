@@ -16,7 +16,7 @@ import { MessagePhotos, PhotoStrip } from './ChatPhotos';
 import { isFigureLang } from './chat-figures';
 import { type ChatSegment, renderMessageSegments, renderMessageSegmentsStreaming } from './chat-markdown';
 import { photoNote, videoNote } from './chat-photo-parts';
-import { addChatPhotos, forgetVideo, heldVideo, MAX_CHAT_PHOTOS, photoDataUrl, readChatVideo } from './chat-photos';
+import { addChatPhotos, addChatVideo, MAX_CHAT_PHOTOS, photoDataUrl, videoDataUrl } from './chat-photos';
 import { THINKING } from './chat-status';
 import { DiffCard } from './diff-card';
 import { frontMatterBlock, getFrontMatter } from './front-matter';
@@ -235,10 +235,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `deckId` is the trigger; the body reads nothing from it.
 	React.useEffect(() => {
 		setPendingPhotos([]);
-		setPendingVideos((cur) => {
-			for (const v of cur) forgetVideo(v.name);
-			return [];
-		});
+		setPendingVideos([]);
 	}, [deckId]);
 	React.useEffect(() => {
 		saveChat(deckId, messages);
@@ -301,8 +298,8 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 			const lastIdx = history.length - 1;
 			const turns: ChatTurn[] = history.map((m, i) => ({ role: m.role, content: m.role === 'user' && i !== lastIdx && (m.photos?.length || m.videos?.length) ? `${m.content}${photoNote((m.photos ?? []).map((p) => p.name), false)}${videoNote(m.videos?.length ?? 0, false)}` : m.content }));
 			const sentVideos = history[lastIdx]?.role === 'user' ? (history[lastIdx].videos ?? []) : [];
-			const clips = sentVideos.map((v) => ({ dataUrl: heldVideo(v.name) })).filter((x): x is { dataUrl: string } => !!x.dataUrl);
-			if (clips.length < sentVideos.length) notify('That video is no longer held in this tab, so the model did not see it. Attach it again to resend.');
+			const clips = (await Promise.all(sentVideos.map(async (v) => ({ dataUrl: await videoDataUrl(v.name).catch(() => null) })))).filter((x): x is { dataUrl: string } => !!x.dataUrl);
+			if (clips.length < sentVideos.length) notify('That video is no longer in the Library, so the model did not see it.');
 			const sent = history[lastIdx]?.role === 'user' ? (history[lastIdx].photos ?? []) : [];
 			const seen = (await Promise.all(sent.map(async (p) => ({ name: p.name, dataUrl: await photoDataUrl(p.name).catch(() => null) })))).filter((x): x is { name: string; dataUrl: string } => !!x.dataUrl);
 			if (seen.length < sent.length) notify(sent.length === 1 ? 'That photo is no longer in the Library, so the model did not see it.' : `${sent.length - seen.length} of those photos are no longer in the Library, so the model did not see them.`);
@@ -441,7 +438,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 			}
 			if (clips.length) {
 				if (clips.length > 1) notify('A message can carry one video — using the first.');
-				const got = await readChatVideo(clips[0]);
+				const got = await addChatVideo(clips[0], forDeck);
 				if ('error' in got) notify(got.error);
 				else if (deckIdRef.current === forDeck) setPendingVideos([got.video]);
 			}
@@ -604,10 +601,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 
 			<div className="flex flex-col gap-1.5 border-t border-border p-2.5">
 				{refDoc.chip}
-				<PhotoStrip photos={pendingPhotos} videos={pendingVideos} onRemoveVideo={(name) => {
-						forgetVideo(name);
-						setPendingVideos((cur) => cur.filter((v) => v.name !== name));
-					}} deckId={deckId} busy={addingPhotos} onRemove={(name) => setPendingPhotos((cur) => cur.filter((p) => p.name !== name))} />
+				<PhotoStrip photos={pendingPhotos} videos={pendingVideos} onRemoveVideo={(name) => setPendingVideos((cur) => cur.filter((v) => v.name !== name))} deckId={deckId} busy={addingPhotos} onRemove={(name) => setPendingPhotos((cur) => cur.filter((p) => p.name !== name))} />
 				{/* PADDING. One value on every side (p-2) rather than a 10/6 split, and it has to
 					    clear the `rounded-xl` corner — content inset closer than the radius reads as
 					    crowding into the curve. The buttons are `shrink-0` and the field is the only

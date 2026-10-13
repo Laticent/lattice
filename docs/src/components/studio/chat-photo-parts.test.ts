@@ -93,7 +93,7 @@ describe('video', () => {
 		const parts = out[0].content as unknown as { type: string; text?: string; video_url?: { url: string } }[];
 		expect(parts.find((p) => p.type === 'video_url')?.video_url?.url).toBe('data:video/mp4;base64,AAAA');
 		expect(parts[0].text).toContain('short video');
-		expect(parts[0].text).toContain('cannot go on a slide');
+		expect(parts[0].text).toContain('cannot play a video yet');
 	});
 	it('prices a clip flat and keeps its base64 out of the budget text', () => {
 		const big = `data:video/mp4;base64,${'A'.repeat(1_000_000)}`;

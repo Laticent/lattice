@@ -1,0 +1,3 @@
+- The Library has a **Videos** tab. Add a clip from the Library's picker (MP4, MOV or WebM, up to 50 MB) and it shows with a poster and length and plays in place. A video you send in the Studio chat is now saved there too, so it keeps its poster after a reload and Regenerate sends it again. Before, the chat held the clip in memory for the one message and lost it on reload.
+- A workspace backup carries videos and a restore puts them back, checking each file's bytes against its type.
+- A slide cannot show a video yet, so a deck that writes `asset:<video name>` shows the missing-image placeholder, and the chat is not offered a video to put on a slide.

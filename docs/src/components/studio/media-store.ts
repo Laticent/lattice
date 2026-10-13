@@ -37,8 +37,13 @@ export type MediaRecord = {
 	height: number;
 	/** The file name the person picked, before it was turned into `name`. */
 	sourceName: string;
-	/** False once the importer downscaled a photo; the stored pixels are not the camera's. */
+	/** False once the importer downscaled a photo; the stored pixels are not the camera's. A video is stored as given. */
 	original: boolean;
+	/** Video only: the length in milliseconds. */
+	durationMs?: number;
+	/** Video only: a small JPEG data URL of an early frame. A string, not a Blob, because it is a few KB and
+	 *  a string stores in every engine, including a Safari private window that refuses a Blob. */
+	poster?: string;
 	/** A one-line description of what the picture shows, written by the chat the first time it
 	 *  looked at the photo (agent-assets.ts). Tied to this record's bytes: replacing a photo is
 	 *  delete-and-add, which makes a new record and so drops the caption. Optional and never
@@ -88,6 +93,19 @@ export function sniffImageMime(b: Uint8Array): string | null {
 	if (at(0, 'GIF87a') || at(0, 'GIF89a')) return 'image/gif';
 	if (at(0, 'RIFF') && at(8, 'WEBP')) return 'image/webp';
 	if (at(4, 'ftyp') && (at(8, 'avif') || at(8, 'avis'))) return 'image/avif';
+	return null;
+}
+
+/** What the leading bytes say a video is: MP4 or QuickTime (`ftyp`) and WebM (EBML header). Null for anything
+ *  else. A video file's own `type` comes from its extension or the recorder, so the bytes decide, as for photos. */
+export function sniffVideoMime(b: Uint8Array): string | null {
+	const at = (i: number, s: string) => s.split('').every((ch, k) => b[i + k] === ch.charCodeAt(0));
+	if (b[0] === 0x1a && b[1] === 0x45 && b[2] === 0xdf && b[3] === 0xa3) return 'video/webm';
+	if (at(4, 'ftyp')) {
+		// AVIF and HEIC pictures share the `ftyp` box; they are images, never clips.
+		if (['avif', 'avis', 'heic', 'heix', 'hevc', 'hevx', 'heim', 'heis', 'mif1', 'msf1'].some((brand) => at(8, brand))) return null;
+		return at(8, 'qt') ? 'video/quicktime' : 'video/mp4';
+	}
 	return null;
 }
 

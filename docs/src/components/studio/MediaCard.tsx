@@ -1,22 +1,29 @@
-import { Image as ImageIcon, Layers, Lock } from 'lucide-react';
+import { Image as ImageIcon, Layers, Lock, Play, Video as VideoIcon } from 'lucide-react';
 import * as React from 'react';
 import { DeleteBtn } from './delete-btn';
 import { LIBRARY_SCOPE, type MediaRecord } from './media-store';
 import { formatBytes } from './reference-doc';
 
-// One photo or video on the Images tab. Manage-only, like a reference-doc card: media is
+// One photo (Images tab) or video (Videos tab). Manage-only, like a reference-doc card: media is
 // not a lattice-asset, so there is no select box and no zip share. The thumbnail is an object
 // URL minted for the card's lifetime and revoked on unmount (a leaked URL pins the Blob).
 
-function useObjectUrl(blob: Blob): string | null {
+function useObjectUrl(blob: Blob, enabled = true): string | null {
 	const [url, setUrl] = React.useState<string | null>(null);
 	React.useEffect(() => {
+		// A clip's bytes are only given a URL once the person plays it: a shelf of videos must not pin them all.
+		if (!enabled) return;
 		const u = URL.createObjectURL(blob);
 		setUrl(u);
-		return () => URL.revokeObjectURL(u);
-	}, [blob]);
+		return () => {
+			URL.revokeObjectURL(u);
+			setUrl(null);
+		};
+	}, [blob, enabled]);
 	return url;
 }
+
+const clock = (ms: number) => `${Math.floor(ms / 60000)}:${String(Math.round(ms / 1000) % 60).padStart(2, '0')}`;
 
 export function MediaCard({ m, activeDeckId, usedIn, usedElsewhere, armed, confirmLabel, onArm, onCancel, onDelete, onScope }: {
 	m: MediaRecord;
@@ -33,7 +40,9 @@ export function MediaCard({ m, activeDeckId, usedIn, usedElsewhere, armed, confi
 	onDelete: () => void;
 	onScope: (scope: string) => void;
 }) {
-	const url = useObjectUrl(m.blob);
+	const isVideo = m.kind === 'video';
+	const [playing, setPlaying] = React.useState(false);
+	const url = useObjectUrl(m.blob, !isVideo || playing);
 	const shared = m.scope === LIBRARY_SCOPE;
 	// The scope flip is offered only where it can be named: a shared asset can become this deck's (needs an
 	// open deck, and no OTHER deck naming it: keeping it to one deck would turn the rest into placeholders),
@@ -46,7 +55,20 @@ export function MediaCard({ m, activeDeckId, usedIn, usedElsewhere, armed, confi
 			    row, not by the 88px: a 1920×2560 photo painted 351px tall, `object-cover` had nothing to
 			    crop to, and `overflow-hidden` showed only the top strip (measured in Chromium). */}
 			<div className="relative h-[88px] w-full overflow-hidden bg-[var(--bg-alt)]">
-				{url ? (
+				{isVideo ? (
+					playing && url ? (
+						// biome-ignore lint/a11y/useMediaCaption: the author's own clip; there is no caption track to offer.
+						<video src={url} controls autoPlay playsInline className="absolute inset-0 h-full w-full bg-black object-contain" aria-label={`Video ${m.name}`} />
+					) : (
+						<button type="button" onClick={() => setPlaying(true)} aria-label={`Play ${m.name}`} className="absolute inset-0 h-full w-full">
+							{m.poster ? <img src={m.poster} alt="" className="absolute inset-0 h-full w-full object-cover" draggable={false} /> : <VideoIcon className="absolute left-1/2 top-1/2 size-6 -translate-x-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden />}
+							<span className="absolute inset-0 grid place-items-center text-white" aria-hidden>
+								<Play className="size-6 drop-shadow" fill="currentColor" />
+							</span>
+							{m.durationMs ? <span className="absolute bottom-1 left-1 rounded bg-black/60 px-1 font-mono text-[9px] text-white">{clock(m.durationMs)}</span> : null}
+						</button>
+					)
+				) : url ? (
 					<img src={url} alt="" className="absolute inset-0 h-full w-full object-cover" loading="lazy" draggable={false} />
 				) : (
 					<ImageIcon className="absolute left-1/2 top-1/2 size-6 -translate-x-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden />
@@ -54,12 +76,13 @@ export function MediaCard({ m, activeDeckId, usedIn, usedElsewhere, armed, confi
 			</div>
 			<div className="p-2.5">
 				<div className="flex items-center gap-1.5 text-[12.5px] font-bold text-[var(--text-heading)]">
-					<ImageIcon className="size-3.5 shrink-0 text-[var(--accent)]" aria-hidden />
-					<span className="truncate" title={m.sourceName}>asset:{m.name}</span>
+					{isVideo ? <VideoIcon className="size-3.5 shrink-0 text-[var(--accent)]" aria-hidden /> : <ImageIcon className="size-3.5 shrink-0 text-[var(--accent)]" aria-hidden />}
+					<span className="truncate" title={m.sourceName}>{isVideo ? m.name : `asset:${m.name}`}</span>
 					<span className="rounded-full border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-[var(--accent-soft)] px-1.5 py-0.5 font-mono text-[8.5px] uppercase tracking-wide text-[var(--accent)]">{shared ? 'All decks' : 'This deck'}</span>
 				</div>
 				<div className="mt-1 truncate font-mono text-[10.5px] text-muted-foreground">
-					{m.width}×{m.height} · {formatBytes(m.bytes)}
+					{m.width}×{m.height}
+					{isVideo && m.durationMs ? ` · ${clock(m.durationMs)}` : ''} · {formatBytes(m.bytes)}
 					{m.original ? '' : ' · optimized'}
 					{usedIn > 0 ? ` · used in ${usedIn} deck${usedIn === 1 ? '' : 's'}` : ''}
 				</div>
