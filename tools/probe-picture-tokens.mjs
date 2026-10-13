@@ -51,6 +51,15 @@ const quantile = (xs, p) => {
  * data file. Every reading is multiplied by `shape` (see SHAPE). A model is listed only when that costs MORE than a
  * default at either size, because the defaults already cover the rest. A negative or non-numeric reading is unmeasured, not an exception.
  */
+/**
+ * Pure: the models the current data file lists as exceptions that `rows` no longer measures (an error, a timeout, a
+ * missing row). A rerun that loses one would send it back to the default, so `--write` refuses unless told to.
+ */
+export function lostExceptions(previous, rows) {
+	const measured = new Set(rows.filter((r) => Number.isFinite(r.t512) && Number.isFinite(r.t1568) && r.t512 > 0 && r.t1568 > 0).map((r) => r.id));
+	return Object.keys(previous?.exceptions ?? {}).filter((id) => !measured.has(id));
+}
+
 export function summarize(rows, measured, defaults = DEFAULTS, shape = SHAPE) {
 	const ok = rows.filter((r) => Number.isFinite(r.t512) && Number.isFinite(r.t1568) && r.t512 > 0 && r.t1568 > 0);
 	const exceptions = {};
@@ -148,7 +157,7 @@ async function probe(args) {
 	};
 	const rows = [];
 	let next = 0;
-	const complete = () => !only && !Number.isFinite(limit) && next >= models.length && total < cap && rows.length === models.length;
+	const complete = () => !only && !Number.isFinite(limit) && rows.length === models.length;
 	const worker = async () => {
 		while (next < models.length && total < cap) {
 			const id = models[next++];
@@ -161,12 +170,12 @@ async function probe(args) {
 	};
 	await Promise.all(Array.from({ length: 6 }, worker));
 	console.log(`probe-picture-tokens: ${rows.length}/${models.length} models, cost $${total.toFixed(4)}`);
-	if (args.includes('--write') && !complete()) {
-		console.error('probe-picture-tokens: refusing --write on a partial run (--model, --limit, the --cap stop, or a model not reached). A partial table drops exceptions and sends their models back to the default. Rerun the whole catalog, or use --out and --from.');
-		process.exit(1);
-	}
 	const out = flag('--out');
 	if (out) fs.writeFileSync(out, JSON.stringify(rows, null, 1));
+	if (args.includes('--write') && !complete()) {
+		console.error('probe-picture-tokens: refusing --write on a partial run (--model, --limit, the --cap stop, or a model not reached). A partial table drops exceptions and sends their models back to the default. Rows were saved to --out if you gave one; rerun the whole catalog.');
+		process.exit(1);
+	}
 	for (const r of rows.slice(0, 5)) console.log(JSON.stringify(r));
 	return rows;
 }
@@ -178,6 +187,11 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
 	if (from >= 0 || args.includes('--write')) {
 		if (from >= 0 && rows.length < 150) {
 			console.error(`probe-picture-tokens: ${args[from + 1]} has ${rows.length} rows — too few for a whole catalog. Refusing to write a table from a partial probe.`);
+			process.exit(1);
+		}
+		const lost = fs.existsSync(DATA_FILE) ? lostExceptions(JSON.parse(fs.readFileSync(DATA_FILE, 'utf8')), rows) : [];
+		if (lost.length && !args.includes('--allow-lost')) {
+			console.error(`probe-picture-tokens: this run did not measure ${lost.length} model(s) the table lists as exceptions (${lost.join(', ')}). Writing it would send them back to the default. Rerun, or pass --allow-lost if they are gone from the catalog.`);
 			process.exit(1);
 		}
 		const measuredAt = args.includes('--date') ? args[args.indexOf('--date') + 1] : new Date().toISOString().slice(0, 10);

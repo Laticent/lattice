@@ -150,14 +150,15 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 		true,
 	);
 	// This turn's photos ride the last user message as image parts, so every round of the tool loop
-	// re-sends them (and the cache breakpoint on the tail makes that a read, not a write).
+	// re-sends them (on a model that takes a cache breakpoint, the one on the tail makes that a read, not a write).
 	const photos = opts?.photos ?? [];
 	const videos = opts?.videos ?? [];
 	ground.messages = withPhotos(ground.messages, photos, videos) as typeof ground.messages;
 	// A clip is priced flat (its base64 is skipped by budgetText). Pictures are priced per round, by the model:
 	// the agent's 512 px views and the author's 1568 px attachments cost different amounts on every model.
 	const attachedTokens = videos.length * VIDEO_TOKENS;
-	const pictureCost = await resolvePictureTokens(model);
+	// Resolved on the first round that holds a picture: an alias id needs the model catalog, and a turn with no picture has no reason to wait for it.
+	let pictureCost: Promise<Awaited<ReturnType<typeof resolvePictureTokens>>> | null = null;
 	const toolbox = createToolbox({
 		source,
 		catalog: (grounding?.catalog ?? []) as AgentComponent[],
@@ -193,7 +194,9 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 		const convo = priced.map((p) => p.text).join('\n');
 		// The author's photos ride the last user message and are re-sent every round; every other picture is a view_asset thumbnail.
 		// A model that lists its own image price may charge more than the token figure at the prompt rate; the gap rides as dollars.
-		const { tokens: pictureTokens, usd: pictureUsd } = priceRound(pictureCost, model.openRouterModelPrice?.() ?? null, priced.reduce((n, p) => n + p.images, 0), photos.length);
+		const pictureCount = priced.reduce((n, p) => n + p.images, 0);
+		if (pictureCount && !pictureCost) pictureCost = resolvePictureTokens(model);
+		const { tokens: pictureTokens, usd: pictureUsd } = pictureCount && pictureCost ? priceRound(await pictureCost, model.openRouterModelPrice?.() ?? null, pictureCount, photos.length) : { tokens: 0, usd: 0 };
 		roundPictureTokens = pictureTokens;
 		roundPictureUsd = pictureUsd;
 		if (streamed.trim()) done.push(streamed);

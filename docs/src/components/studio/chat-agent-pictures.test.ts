@@ -27,12 +27,12 @@ describe('the chat agent’s budget gate prices an attached photo by model', () 
 	afterEach(() => setBudget(null, 'alert'));
 	const turn = (model: ArchitectModel) => chatAgent(model, [{ role: 'user', content: 'Use my photo.' }], '# A deck', undefined, { photos: PHOTOS, grounding: { catalog: [], findings: [] } });
 
-	// Measured through this harness at $10/M (prompt only): the default photo (2,400 tokens) turn costs between $0.05
-	// and $0.10, the same turn with the photo priced at 10x the prompt rate between $0.25 and $0.30, and on GPT-4o mini
-	// (36,850 tokens) between $0.40 and $0.50. A $0.15 cap sits between the first and the other two.
+	// Through this harness at $10/M (prompt only), with the table as shipped: the turn with the default photo (3,600
+	// tokens, $0.036) costs under $0.15 in all; the same photo priced at 10x the prompt rate ($0.36) costs over it, and so
+	// does GPT-4o mini's (57,100 tokens, $0.57). Rerun the harness before moving CAP if the table or the system prompt changes.
 	const CAP = 0.15;
 
-	it('passes a model whose pictures cost the default, and refuses one whose pictures cost 15x that', async () => {
+	it('passes a model whose pictures cost the default, and refuses one whose pictures cost 15x or more of that', async () => {
 		expect(pictureTokensFor('openai/gpt-4o-mini').photo).toBeGreaterThan(15 * pictureTokensFor('anthropic/claude-sonnet-5.5').photo);
 		const base = fakeModel('anthropic/claude-sonnet-5.5');
 		const dear = fakeModel('openai/gpt-4o-mini');

@@ -58,11 +58,14 @@ describe('architect-model — prompt-cache breakpoint (#610)', () => {
 		expect(withCachedSystem(undefined as never, 'anthropic/x')).toEqual([]);
 	});
 
-	it('the breakpoint vendor set is a subset of the cache-capable vendor set', () => {
-		// every vendor we mark must be one OpenRouter reports as cache-capable
-		for (const id of ['anthropic/x']) expect(orSupportsCache(id)).toBe(true);
-		// Google still caches (implicitly), so the Prompt-caching switch stays offered for it.
-		expect(orSupportsCache('google/x')).toBe(true);
+	it('offers the Prompt-caching switch exactly where a breakpoint is marked', () => {
+		expect(orSupportsCache('anthropic/x')).toBe(true);
+		// These cache on their own (Google implicitly), so a marker or the switch does nothing for them.
+		for (const id of ['google/x', 'openai/gpt-5', 'deepseek/x', 'x-ai/x']) expect(orSupportsCache(id)).toBe(false);
+		// The switch's gate and the marks read one vendor set: it is offered exactly where a marker is added.
+		for (const id of ['anthropic/claude-sonnet-4.5', 'google/gemini-2.5-pro', 'openai/gpt-5', '~anthropic/claude-sonnet-latest']) {
+			expect(orSupportsCache(id), id).toBe(Array.isArray(withCachedSystem([SYS, USER], id)[0].content));
+		}
 	});
 
 	// A canon/voice split (withStudioVoice's cloud path): the system arrives as
@@ -115,9 +118,10 @@ describe('architect-model — the alias prefix does not defeat caching', () => {
 		expect((out[0].content as { cache_control?: unknown }[])[0].cache_control).toEqual({ type: 'ephemeral', ttl: '1h' });
 	});
 
-	it('reports alias ids as cache-capable to the UI-honesty gate', () => {
+	it('reports an alias id to the UI-honesty gate by its vendor', () => {
 		expect(orSupportsCache('~anthropic/claude-haiku-latest')).toBe(true);
-		expect(orSupportsCache('~openai/gpt-5')).toBe(true);
+		expect(orSupportsCache('~openai/gpt-5')).toBe(false);
+		expect(orSupportsCache('~google/gemini-flash-latest')).toBe(false);
 		expect(orSupportsCache('~meta-llama/llama-3-70b')).toBe(false);
 	});
 

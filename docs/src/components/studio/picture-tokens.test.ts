@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULTS, SHAPE, summarize } from '../../../../tools/probe-picture-tokens.mjs';
+import { DEFAULTS, lostExceptions, SHAPE, summarize } from '../../../../tools/probe-picture-tokens.mjs';
 import { IMAGE_RATE_MAX_MULTIPLE, pictureSurchargeUsd, pictureTokensFor, priceRound, resolvePictureTokens } from './picture-tokens';
 import data from './picture-tokens.data.json';
 
@@ -14,7 +14,7 @@ describe('pictureTokensFor — what one picture costs, by model', () => {
 	it('charges a listed model its measured figure, whatever variant the id carries', () => {
 		// Measured 2026-10-13: a 512 px 3:2 picture is 8,500 tokens and a 1568 px one 36,835 on GPT-4o mini; times the 1.55 shape factor.
 		expect(pictureTokensFor('openai/gpt-4o-mini')).toEqual({ thumb: 13200, photo: 57100 });
-				expect(pictureTokensFor('openai/gpt-4o-mini:nitro')).toEqual({ thumb: 13200, photo: 57100 });
+		expect(pictureTokensFor('openai/gpt-4o-mini:nitro')).toEqual({ thumb: 13200, photo: 57100 });
 		expect(pictureTokensFor('minimax/minimax-01').photo).toBeGreaterThan(13000);
 	});
 	it('never charges a listed model less than the default at either size', () => {
@@ -92,6 +92,30 @@ describe('summarize — the probe tool’s pure half', () => {
 	it('writes a finite file for an empty probe, never a null', () => {
 		const out = summarize([], '2026-10-13');
 		expect(JSON.parse(JSON.stringify(out)).max).toEqual([0, 0]);
+	});
+});
+
+describe('lostExceptions — a rerun must not quietly send a listed model back to the default', () => {
+	const previous = { exceptions: { 'openai/gpt-4o-mini': [13200, 57100], 'amazon/nova-lite-v1': [2850, 3600] } };
+	it('names a listed model the new run did not measure (an error, a timeout, or no row)', () => {
+		const rows = [
+			{ id: 'openai/gpt-4o-mini', t512: 'ERR 429', t1568: 'ERR 429' },
+			{ id: 'anthropic/claude-sonnet-5.5', t512: 250, t1568: 2131 },
+		];
+		expect(lostExceptions(previous, rows)).toEqual(['openai/gpt-4o-mini', 'amazon/nova-lite-v1']);
+	});
+	it('is empty when every listed model was measured again, and when there is no previous table', () => {
+		const rows = [
+			{ id: 'openai/gpt-4o-mini', t512: 8500, t1568: 36835 },
+			{ id: 'amazon/nova-lite-v1', t512: 1826, t1568: 1826 },
+		];
+		expect(lostExceptions(previous, rows)).toEqual([]);
+		expect(lostExceptions(undefined, rows)).toEqual([]);
+	});
+	it('protects every model the committed table lists', () => {
+		const everyListed = Object.keys(data.exceptions).map((id) => ({ id, t512: 1, t1568: 1 }));
+		expect(lostExceptions(data, everyListed)).toEqual([]);
+		expect(lostExceptions(data, [])).toEqual(Object.keys(data.exceptions));
 	});
 });
 
