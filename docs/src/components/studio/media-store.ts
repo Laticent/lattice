@@ -14,6 +14,7 @@
 // transaction does not). A clash is REFUSED, never resolved by overwriting.
 import { ASSET_STORE, openDB, reqAsPromise } from '@/components/studio/library/asset-db.js';
 import { deleteAsset } from '@/components/studio/library/asset-store.js';
+import { isMediaName, NAME_OK } from './media-name';
 
 export type MediaKind = 'image' | 'video';
 /** `'library'` — every deck — or the id of the one deck that owns the asset. */
@@ -48,14 +49,9 @@ const KINDS: MediaKind[] = ['image', 'video'];
 /** The opening words of a refusal this module raised — the UI shows it as is. */
 export const MEDIA_REFUSAL_PREFIX = "Can't add —";
 
-// Same shape as the `sample:` grammar in lib/core/remote-ref.js, minus the dot: one path
-// segment of plain characters, so a name can never carry `..` or a scheme.
-const NAME_OK = /^[a-z0-9][a-z0-9_-]*$/;
-
-/** Is this a name a deck can write as `asset:<name>`? */
-export function isMediaName(name: string): boolean {
-	return NAME_OK.test(name);
-}
+// The name grammar lives in media-name.ts (same shape as the `sample:` grammar in
+// lib/core/remote-ref.js, minus the dot); re-exported so existing callers keep this import.
+export { isMediaName };
 
 /** A file name turned into a legal asset name: `Team Offsite (2).JPG` → `team-offsite-2`.
  *  Never empty — an unusable name falls back to the kind. */

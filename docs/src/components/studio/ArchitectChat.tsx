@@ -7,20 +7,25 @@ import { readCachingEnabled } from '@/components/studio/ai/spend.js';
 import { Textarea } from '@/components/ui/textarea';
 import { notify } from '@/lib/notify';
 import { cn } from '@/lib/utils';
-import { applyProposedEditsChecked, type ChatGrounding, type ChatTurn, chatComplete, type DiffRow, useArchitectStatus } from './architect';
+import { applyProposedEditsChecked, type ChatGrounding, type ChatTurn, chatComplete, type DiffRow, listStudioModels, useArchitectStatus } from './architect';
 import { ChatCodeBlock } from './ChatCodeBlock';
 import { ChatCost } from './ChatCost';
 import { ChatFigure, ChatFigureContext, type ChatFigureRender } from './ChatFigure';
 import { ChatLiveStatus } from './ChatLiveStatus';
+import { MessagePhotos, PhotoStrip } from './ChatPhotos';
 import { isFigureLang } from './chat-figures';
 import { type ChatSegment, renderMessageSegments, renderMessageSegmentsStreaming } from './chat-markdown';
+import { photoNote } from './chat-photo-parts';
+import { addChatPhotos, MAX_CHAT_PHOTOS, photoDataUrl } from './chat-photos';
 import { THINKING } from './chat-status';
 import { DiffCard } from './diff-card';
 import { frontMatterBlock, getFrontMatter } from './front-matter';
+import { MEDIA_ACCEPT } from './media-import';
+import { refreshAssetUrls, setActiveAssetDeck } from './media-urls';
 import { CHAT_COMPOSER_FIELD, CHAT_COMPOSER_ROW, CHAT_COMPOSER_TOOLS, ChatEmptyCard } from './panel-shells';
 import { PreviewPool } from './preview-pool';
 import { useReferenceDoc } from './reference-doc-ui';
-import { type ChatMessage, type ChatProposal, loadChat, loadChatDraft, saveChat, saveChatDraft } from './studio-store';
+import { type ChatMessage, type ChatPhoto, type ChatProposal, loadChat, loadChatDraft, saveChat, saveChatDraft } from './studio-store';
 
 // The Architect chat (Converse) — a real conversational thread. Replies STREAM in
 // token-by-token (rAF-coalesced), render as on-brand Markdown (prose sanitized with
@@ -182,7 +187,13 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 	);
 	const [pulse, setPulse] = React.useState(0);
 	const scrollRef = React.useRef<HTMLDivElement>(null);
-	const refDoc = useReferenceDoc(onManageDocs);
+	// Photos picked for the NEXT message. Ephemeral like the draft's attachments: the bytes live in the
+	// Library, and a sent message keeps only the reference (studio-store `ChatPhoto`).
+	const [pendingPhotos, setPendingPhotos] = React.useState<ChatPhoto[]>([]);
+	const [addingPhotos, setAddingPhotos] = React.useState(false);
+	// The picker is built before `status` exists, so it calls through a ref to the handler below.
+	const addPhotosRef = React.useRef<(files: File[]) => void>(() => {});
+	const refDoc = useReferenceDoc(onManageDocs, { accept: MEDIA_ACCEPT, onFiles: (f) => addPhotosRef.current(f) });
 	const status = useArchitectStatus(pulse);
 
 	// What a figure in a reply needs to draw as the open deck would: the render context the shell
@@ -273,11 +284,17 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 				});
 		};
 		try {
-			const turns: ChatTurn[] = history.map((m) => ({ role: m.role, content: m.content }));
+			// An EARLIER turn's photos are named in its text (the model can refer to asset:<name>) but not
+			// re-sent: each image is billed as input every time it travels. Only the LAST turn's go as pixels.
+			const lastIdx = history.length - 1;
+			const turns: ChatTurn[] = history.map((m, i) => ({ role: m.role, content: m.role === 'user' && m.photos?.length && i !== lastIdx ? `${m.content}${photoNote(m.photos.map((p) => p.name))}` : m.content }));
+			const sent = history[lastIdx]?.role === 'user' ? (history[lastIdx].photos ?? []) : [];
+			const seen = (await Promise.all(sent.map(async (p) => ({ name: p.name, dataUrl: await photoDataUrl(p.name).catch(() => null) })))).filter((x): x is { name: string; dataUrl: string } => !!x.dataUrl);
+			if (seen.length < sent.length) notify(sent.length === 1 ? 'That photo is no longer in the Library, so the model did not see it.' : `${sent.length - seen.length} of those photos are no longer in the Library, so the model did not see them.`);
 			const onActivity = (label: string) => {
 				if (mountedRef.current) setLiveActivity(label);
 			};
-			const out = await chatComplete(turns, source, refDoc.docs, { onToken, onActivity, signal: controller.signal, constrainFacts: factsLocked, grounding: groundingRef.current });
+			const out = await chatComplete(turns, source, refDoc.docs, { onToken, onActivity, signal: controller.signal, constrainFacts: factsLocked, grounding: groundingRef.current, ...(seen.length ? { photos: seen } : {}) });
 			if (out.status === 'offline') {
 				raiseTurnNotice(sendDeckId, turnSeq, 'offline', 'Connect a model in Workspace → AI and I can answer and edit your deck.');
 				// THE NOTICE IS DECK STATE; THIS IS AN ACTION ON THE SHELL — and the shell has
@@ -337,14 +354,56 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 
 	const send = () => {
 		const text = input.trim();
-		if (!text || busy) return;
+		// A photo alone is a message: the model is told what was attached either way.
+		if ((!text && !pendingPhotos.length) || busy || addingPhotos) return;
 		const sendDeckId = deckId;
+		const photos = pendingPhotos;
 		setInput('');
+		setPendingPhotos([]);
 		saveChatDraft(sendDeckId, '');
-		const history: ChatMessage[] = [...messages, { role: 'user', content: text }];
+		const history: ChatMessage[] = [...messages, { role: 'user', content: text || (photos.length === 1 ? 'Here is a photo.' : 'Here are some photos.'), ...(photos.length ? { photos } : {}) }];
 		saveChat(sendDeckId, history);
 		if (deckIdRef.current === sendDeckId) setMessages(history);
 		void run(history, sendDeckId);
+	};
+
+	// Photos from the picker (or a paste): into the Library on THIS deck's shelf, then pending for the
+	// next message. Cloud tier only — the on-device tiers cannot see — and a model the catalog says is
+	// text-only is refused here rather than after the author has typed the question.
+	addPhotosRef.current = async (files: File[]) => {
+		if (status.generation !== 'openrouter') {
+			notify('Photos need a cloud model that can see — connect one in Workspace → AI.');
+			return;
+		}
+		const room = MAX_CHAT_PHOTOS - pendingPhotos.length;
+		if (room <= 0) {
+			notify(`A message can carry ${MAX_CHAT_PHOTOS} photos — remove one first.`);
+			return;
+		}
+		try {
+			const known = (await listStudioModels()).find((m) => m.id === status.modelId);
+			if (known && known.vision === false) {
+				notify(`${known.name || 'This model'} can't read photos — pick one marked "vision" in the model menu.`);
+				return;
+			}
+		} catch {
+			/* catalog unreachable: the model's own answer says it if it cannot see */
+		}
+		setAddingPhotos(true);
+		try {
+			const res = await addChatPhotos(files.slice(0, room), deckId);
+			if (res.photos.length) {
+				// The preview, the Library and the editor's completion learn of the new shelf entry.
+				await setActiveAssetDeck(deckId);
+				await refreshAssetUrls();
+				setPendingPhotos((cur) => [...cur, ...res.photos].slice(0, MAX_CHAT_PHOTOS));
+			}
+			if (files.length > room) notify(`Only the first ${room} photo${room === 1 ? '' : 's'} fit — a message carries ${MAX_CHAT_PHOTOS}.`);
+			if (res.renamed.length) notify(`${res.renamed.slice(0, 2).join('; ')}.`);
+			if (res.failed.length) notify(res.failed.slice(0, 2).join(' '));
+		} finally {
+			setAddingPhotos(false);
+		}
 	};
 
 	const stop = () => abortRef.current?.abort();
@@ -435,7 +494,10 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 					m.role === 'user' ? (
 						// biome-ignore lint/suspicious/noArrayIndexKey: append-only chat log — index is stable identity.
 						<div key={i} className="flex justify-end">
-							<div className="max-w-[92%] whitespace-pre-wrap rounded-2xl bg-primary px-3 py-2 text-[12.5px] leading-relaxed text-primary-foreground">{m.content}</div>
+							<div className="flex max-w-[92%] flex-col items-end gap-1.5">
+								{m.photos?.length ? <MessagePhotos photos={m.photos} deckId={deckId} /> : null}
+								<div className="whitespace-pre-wrap rounded-2xl bg-primary px-3 py-2 text-[12.5px] leading-relaxed text-primary-foreground">{m.content}</div>
+							</div>
 						</div>
 					) : (
 						// biome-ignore lint/suspicious/noArrayIndexKey: append-only chat log — index is stable identity.
@@ -483,6 +545,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 
 			<div className="flex flex-col gap-1.5 border-t border-border p-2.5">
 				{refDoc.chip}
+				<PhotoStrip photos={pendingPhotos} deckId={deckId} busy={addingPhotos} onRemove={(name) => setPendingPhotos((cur) => cur.filter((p) => p.name !== name))} />
 				{/* PADDING. One value on every side (p-2) rather than a 10/6 split, and it has to
 					    clear the `rounded-xl` corner — content inset closer than the radius reads as
 					    crowding into the curve. The buttons are `shrink-0` and the field is the only
@@ -515,6 +578,13 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 						data-focus-ring="container"
 						value={input}
 						onChange={(e) => setInput(e.target.value)}
+						onPaste={(e) => {
+							// A picture on the clipboard (a screenshot, a copied image) is a photo, not text.
+							const imgs = Array.from(e.clipboardData?.files ?? []).filter((f) => f.type.startsWith('image/'));
+							if (!imgs.length) return;
+							e.preventDefault();
+							addPhotosRef.current(imgs);
+						}}
 						onKeyDown={(e) => {
 							if (e.key === 'Enter' && !e.shiftKey) {
 								e.preventDefault();
@@ -548,7 +618,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 							<Square className="size-3.5" />
 						</button>
 					) : (
-						<button type="button" onClick={send} disabled={!input.trim()} aria-label="Send" className="grid size-7 shrink-0 place-items-center rounded-lg bg-primary text-primary-foreground disabled:opacity-40">
+						<button type="button" onClick={send} disabled={(!input.trim() && !pendingPhotos.length) || addingPhotos} aria-label="Send" className="grid size-7 shrink-0 place-items-center rounded-lg bg-primary text-primary-foreground disabled:opacity-40">
 							<ArrowUp className="size-4" />
 						</button>
 					)}

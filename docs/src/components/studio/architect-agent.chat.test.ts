@@ -288,3 +288,24 @@ describe('the transport reports a tool call the moment its name arrives', () => 
 		}
 	});
 });
+
+describe('chatComplete — photos', () => {
+	it('sends this turn\'s photos as image parts on the last user message, with a note naming the assets', async () => {
+		let seen: { role: string; content: unknown }[] = [];
+		await withBackend(async (o) => {
+			seen = (o as unknown as { messages: { role: string; content: unknown }[] }).messages;
+			o.onToken?.('I can see it.');
+			return 'I can see it.';
+		});
+		const out = await chatComplete([{ role: 'user', content: 'what is this' }], DECK, undefined, { photos: [{ name: 'team-offsite', dataUrl: 'data:image/jpeg;base64,AAAA' }] });
+		expect(out.status).toBe('ok');
+		const last = seen.filter((m) => m.role === 'user').at(-1)?.content as { type: string; text?: string; image_url?: { url: string } }[];
+		expect(Array.isArray(last)).toBe(true);
+		expect(last.find((p) => p.type === 'image_url')?.image_url?.url).toBe('data:image/jpeg;base64,AAAA');
+		expect(last.find((p) => p.type === 'text')?.text).toContain('asset:team-offsite');
+	});
+
+	// NOT covered here: that a photo's base64 stays out of the budget gate. This harness's model wrapper
+	// never prices a call, so the gate cannot block in it and a test of that would pass without the fix
+	// (checked by reverting it). The flattening itself is pinned in chat-photo-parts.test.ts.
+});

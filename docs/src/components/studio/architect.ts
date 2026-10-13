@@ -13,6 +13,7 @@ import { buildRefinePrompt, cleanRewrite, REFINE_ACTIONS } from '@/components/st
 import { adjustSpend, budgetStatus, readBudgetCap, readBudgetFloor, readBudgetMode, readCachingEnabled, readDedupEnabled, readSpend, recordSpend } from '@/components/studio/ai/spend.js';
 import { deckCanon, deckProfiles } from '@/playground/authoring-core.generated.js';
 import type { AgentRawEdit, DeckCheck, ToolCall } from './architect-agent';
+import { withPhotos } from './chat-photo-parts';
 import { FINISHES } from './finish-catalog';
 import { EDGE_TYPES, MARK_TYPES, PLACEMENTS, TEXTURE_TYPES, WASH_TYPES } from './finish-generate';
 import { getFrontMatter, innerFrontMatter, writeFrontMatterLine } from './front-matter';
@@ -1392,7 +1393,7 @@ export function buildChatSystem(generation: string, grounding?: ChatGrounding, f
  * resulting source + a line diff for a review-then-apply card (nothing is applied
  * here). Degrades to `offline`/`blocked` honestly — never a fabricated answer.
  */
-export type ChatOptions = { onToken?: (t: string) => void; onActivity?: (label: string) => void; signal?: AbortSignal; constrainFacts?: boolean; grounding?: ChatGrounding };
+export type ChatOptions = { onToken?: (t: string) => void; onActivity?: (label: string) => void; signal?: AbortSignal; constrainFacts?: boolean; grounding?: ChatGrounding; /** This turn's photos, as data URLs the model can see (cloud tier only; see chat-photos.ts). */ photos?: { name: string; dataUrl: string }[] };
 
 // "Facts locked" — a tone/clarity-only constraint (Munger's content-truth point): the
 // model may improve wording/structure but must not alter any number, date, name, or
@@ -1454,6 +1455,8 @@ export async function chatComplete(history: ChatTurn[], source: string, docs?: R
 		...history.slice(0, -1),
 		{ role: 'user', content: `${last?.content ?? ''}\n\nThe current deck — address slides by their [slide N] markers, never include a marker in an edit body:\n\n${numberSlides(source)}` },
 	], generation, deckOutputLang(source)), docs, generation === 'openrouter');
+	// This turn's photos ride the last user message (cloud tier only: the on-device tiers cannot see).
+	if (generation === 'openrouter' && opts?.photos?.length) ground.messages = withPhotos(ground.messages, opts.photos) as typeof ground.messages;
 	let reply = '';
 	// A local copy of the streamed text so an explicit Stop keeps the partial reply
 	// (model.complete throws on abort before returning, so its return value is lost).

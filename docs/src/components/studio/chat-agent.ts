@@ -16,6 +16,7 @@
 import { agentLibrary } from './agent-library';
 import type { ArchitectModel, ChatGrounding, ChatOptions, ChatResult, ChatTurn, ORPrice, ProposedEdit } from './architect';
 import { AGENT_TOOLS, type AgentComplete, type AgentComponent, type AgentRawEdit, bindKernel, buildAgentSystem, createToolbox, type DeckCheck, deckBrief, deckForTurn, describeEdit, type KernelDeps, runAgentLoop, type ToolCall } from './architect-agent';
+import { contentForBudget, PHOTO_TOKENS, withPhotos } from './chat-photo-parts';
 import { THINKING } from './chat-status';
 import { FRONT_MATTER_KEYS } from './front-matter-keys';
 import type { ContentPart, MsgContent, ReferenceDoc } from './reference-doc';
@@ -114,6 +115,11 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 		docs,
 		true,
 	);
+	// This turn's photos ride the last user message as image parts, so every round of the tool loop
+	// re-sends them (and the cache breakpoint on the tail makes that a read, not a write).
+	const photos = opts?.photos ?? [];
+	ground.messages = withPhotos(ground.messages, photos) as typeof ground.messages;
+	const photoTokens = photos.length * PHOTO_TOKENS;
 	const toolbox = createToolbox({
 		source,
 		catalog: (grounding?.catalog ?? []) as AgentComponent[],
@@ -142,13 +148,13 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 		// whole conversation so far, and a hard-stop cap has to hold across all of them.
 		const convo = msgs
 			.slice(1)
-			.map((m) => (typeof m.content === 'string' ? m.content : JSON.stringify(m.content ?? '')) + (m.tool_calls ? JSON.stringify(m.tool_calls) : ''))
+			.map((m) => contentForBudget(m.content as MsgContent) + (m.tool_calls ? JSON.stringify(m.tool_calls) : ''))
 			.join('\n');
 		if (streamed.trim()) done.push(streamed);
 		streamed = '';
 		genId = null;
 		roundPrompt = convo;
-		const blk = cloudBudgetBlock(model, convo, systemTokens + docTokens, CHAT_MAX_TOKENS);
+		const blk = cloudBudgetBlock(model, convo, systemTokens + docTokens + photoTokens, CHAT_MAX_TOKENS);
 		if (blk) {
 			blockedNote = blk;
 			const e = new Error(blk);
@@ -229,7 +235,7 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 			// prompt plus the prose seen; the generation id, when it arrived, replaces it with the
 			// exact figure.
 			if (roundOpen && (streamed || genId)) {
-				const est = estimateUsd(roundPrompt, model.openRouterModelPrice?.() ?? null, Math.ceil(streamed.length / 4), docTokens + systemTokens) ?? 0;
+				const est = estimateUsd(roundPrompt, model.openRouterModelPrice?.() ?? null, Math.ceil(streamed.length / 4), docTokens + systemTokens + photoTokens) ?? 0;
 				if (est) recordSpend(est, Math.ceil(streamed.length / 4));
 				if (genId && model.openRouterGenerationCost) {
 					void model
@@ -404,6 +410,8 @@ export function describeModelError(message: string): string {
 	if (status === 401 || status === 403) return `OpenRouter rejected the connection — reconnect in Workspace → AI.${tail}`;
 	if (status === 402) return `Your OpenRouter account is out of credits — add credits at openrouter.ai, or switch to On-device in Workspace → AI.${tail}`;
 	if (status === 400 && /context length|maximum context|too many tokens/i.test(detail || raw)) return `The deck and its attachments are too long for this model — detach a reference document, or pick a model with a longer context in Workspace → AI.${tail}`;
+	// A model that cannot read images refuses a request that carries one; say so, and say the way out.
+	if ((status === 400 || status === 404 || status === 422) && /image|vision|multimodal|modalit/i.test(detail || raw)) return `The selected model can't read photos — pick one marked "vision" in the model menu, or remove the photo and ask again.${tail}`;
 	if (status === 404 || status === 400) return `The selected model could not take this request — pick another model in Workspace → AI.${tail}`;
 	if (status === 429) return `OpenRouter is rate-limiting this key — wait a moment and send again.${tail}`;
 	if (status >= 500) return `OpenRouter or the model's provider had an error — send again in a moment.${tail}`;

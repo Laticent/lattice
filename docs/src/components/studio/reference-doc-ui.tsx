@@ -7,7 +7,7 @@
 // search box so it scales past a handful of files (#651 — a flat dropdown didn't). Pick
 // a saved doc to reuse it, or trash it; an optional "Manage in Library" link opens the
 // full manager. The chip shows the active doc + an honest "billed each run" note.
-import { Check, Paperclip, Plus, Trash2, X } from 'lucide-react';
+import { Check, ImagePlus, Paperclip, Plus, Trash2, X } from 'lucide-react';
 import * as React from 'react';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -38,14 +38,19 @@ function fmtAdded(ts: number): string {
  * it after a successful run, and two ready-made elements: `attachButton` (the
  * paperclip picker — drop it in the prompt row) and `chip` (render it below the row).
  * `onManage`, when given, adds a "Manage in Library" link to the picker footer.
+ * `photos`, when given, adds an "Add a photo…" row above the file row: the chat passes it so the
+ * same paperclip takes a picture from the device. The hook only opens the picker and hands the
+ * files over; what a photo becomes (a Library asset, an image sent to the model) is the caller's.
+ * `accept` is the caller's too, so this module does not import the image pipeline.
  */
-export function useReferenceDoc(onManage?: () => void) {
+export function useReferenceDoc(onManage?: () => void, photos?: { accept: string; onFiles: (files: File[]) => void }) {
 	// Multiple docs can ground ONE generation (#656). `docs` is the active set the
 	// caller feeds to generate*/chatComplete; the picker toggles membership.
 	const [docs, setDocs] = React.useState<ReferenceDoc[]>([]);
 	const [saved, setSaved] = React.useState<RefDocRecord[]>([]);
 	const [open, setOpen] = React.useState(false);
 	const inputRef = React.useRef<HTMLInputElement>(null);
+	const photoRef = React.useRef<HTMLInputElement>(null);
 
 	const refresh = React.useCallback(() => {
 		listRefDocs().then(setSaved).catch(() => setSaved([]));
@@ -97,8 +102,8 @@ export function useReferenceDoc(onManage?: () => void) {
 				<PopoverTrigger asChild>
 					<button
 						type="button"
-						aria-label="Attach a reference document"
-						title="Attach or reuse a reference doc (.txt, .md, .pdf) to ground generation"
+						aria-label={photos ? 'Attach a photo or reference document' : 'Attach a reference document'}
+						title={photos ? 'Add a photo, or attach a reference doc (.txt, .md, .pdf) to ground the reply' : 'Attach or reuse a reference doc (.txt, .md, .pdf) to ground generation'}
 						className={cn(
 							'grid size-7 shrink-0 place-items-center rounded-md hover:bg-[color-mix(in_srgb,var(--accent)_10%,transparent)]',
 							docs.length ? 'text-[var(--accent)]' : 'text-muted-foreground',
@@ -113,6 +118,19 @@ export function useReferenceDoc(onManage?: () => void) {
 					<Command>
 						<CommandInput placeholder="Search your docs…" className="text-[12.5px]" />
 						{/* Pinned above the list so search never hides it. */}
+						{photos && (
+							<button
+								type="button"
+								onClick={() => {
+									setOpen(false);
+									setTimeout(() => photoRef.current?.click(), 0);
+								}}
+								className="flex w-full items-center gap-2 border-b border-border px-3 py-2 text-left text-[12.5px] font-semibold text-[var(--accent)] hover:bg-[var(--accent-soft)]"
+							>
+								<ImagePlus className="size-4 shrink-0" />
+								Add a photo…
+							</button>
+						)}
 						<button
 							type="button"
 							onClick={() => { setOpen(false); setTimeout(() => inputRef.current?.click(), 0); }}
@@ -164,6 +182,23 @@ export function useReferenceDoc(onManage?: () => void) {
 				</PopoverContent>
 			</Popover>
 			<input ref={inputRef} type="file" accept={REF_DOC_ACCEPT} hidden onChange={(e) => onFile(e.target.files?.[0])} />
+			{/* No `capture` attribute: on a phone the picker then offers Photo Library, Take Photo and
+			    Choose File, which is the whole point. COPY the files out before anything awaits — a
+			    FileList is live, and WebKit empties it. */}
+			{photos && (
+				<input
+					ref={photoRef}
+					type="file"
+					accept={photos.accept}
+					multiple
+					hidden
+					onChange={(e) => {
+						const picked = Array.from(e.target.files ?? []);
+						e.target.value = '';
+						if (picked.length) photos.onFiles(picked);
+					}}
+				/>
+			)}
 		</>
 	);
 
