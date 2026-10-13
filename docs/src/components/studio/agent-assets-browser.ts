@@ -1,10 +1,10 @@
 // The browser-backed `AgentAssets`: reads the Library shelf, scales a photo to a thumbnail, stores a
 // caption. The pure half (shapes, manifest, list view) is agent-assets.ts.
-import { type AgentAssets, type AssetInfo, MAX_THUMB_EDGE } from './agent-assets';
+import { type AgentAssets, type AssetInfo, cleanCaption, MAX_THUMB_EDGE } from './agent-assets';
 import { listMedia, type MediaRecord, setMediaCaption, visibleMedia } from './media-store';
 import { activeAssetDeckId } from './media-urls';
 
-const infoOf = (m: MediaRecord): AssetInfo => ({ name: m.name, kind: m.kind, width: m.width, height: m.height, bytes: m.bytes, scope: m.scope === 'library' ? 'library' : 'deck', caption: m.caption || undefined });
+const infoOf = (m: MediaRecord): AssetInfo => ({ name: m.name, kind: m.kind, width: m.width, height: m.height, bytes: m.bytes, scope: m.scope === 'library' ? 'library' : 'deck', caption: cleanCaption(m.caption) || undefined });
 
 /** A Blob scaled so its long edge is at most `edge`, as a JPEG data URL. Null when the browser
  *  cannot decode it. A transparent PNG is flattened onto white, which is what a JPEG does anyway. */
@@ -43,9 +43,9 @@ export function createAgentAssets(): AgentAssets {
 		async list() {
 			return (await shelf()).map(infoOf);
 		},
-		async thumbnail(name) {
+		async thumbnail(name, edge = MAX_THUMB_EDGE) {
 			const rec = (await shelf()).find((m) => m.name === name && m.kind === 'image');
-			return rec ? thumbOf(rec.blob, MAX_THUMB_EDGE) : null;
+			return rec ? thumbOf(rec.blob, edge) : null;
 		},
 		async setCaption(name, caption) {
 			const rec = (await shelf()).find((m) => m.name === name && m.kind === 'image');

@@ -9,6 +9,7 @@ import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { useBreakpoint, useLandscapePhone } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
 import { AssetVersionsDialog, type VersionedAsset } from './AssetVersions';
+import { createAgentAssets } from './agent-assets-browser';
 import { componentZipName, finishZipName, packBundle, packComponent, packFinish, packTheme, themeZipName, unpackBundle } from './asset-bundle';
 import { deleteStudioComponent, listStudioComponents, type StudioComponent } from './component-library';
 import { DeleteBtn } from './delete-btn';
@@ -19,8 +20,9 @@ import type { ImportRefusal } from './import-gate';
 import { listAllAssetVersions, pruneOrphanVersions } from './library/asset-history.js';
 import { listAssets } from './library/asset-store.js';
 import { MediaCard } from './MediaCard';
+import { decksUsingRecord, removeMediaAlias, updateMediaDetails } from './media-edit';
 import { classifyMedia, importImage, MEDIA_ACCEPT, MediaImportError, type PhotoFormat, uniqueName } from './media-import';
-import { decksUsing, deleteMedia, LIBRARY_SCOPE, listMedia, MEDIA_REFUSAL_PREFIX, type MediaRecord, saveMedia, setMediaScope, visibleMedia } from './media-store';
+import { deleteMedia, LIBRARY_SCOPE, listMedia, MEDIA_REFUSAL_PREFIX, type MediaRecord, namesOf, saveMedia, setMediaScope, visibleMedia } from './media-store';
 import { MOTION_PALETTE_STYLE } from './motion/palette-fallback';
 import { PhotoFormatDialog } from './PhotoFormatDialog';
 import { LIBRARY_FILTERS, LIBRARY_HEADER, type LibraryFilter } from './panel-shells';
@@ -29,8 +31,11 @@ import { deleteRefDoc, listRefDocs, type RefDocRecord, saveRefDoc } from './refe
 import { deleteStudioScene, listStudioScenes, type StudioScene } from './scene-library';
 import { renderThemeShowcase } from './share-export';
 import { listShippedScenes, type ShippedScene, shippedDrawing } from './shipped-scenes';
-import { loadDeckList, loadSource } from './studio-store';
+import { loadCheckpoints, loadDeckList, loadSource, saveCheckpoint, saveSource } from './studio-store';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
+
+// The detail dialog (and the shadcn parts only it uses) loads the first time a photo is opened, not with the Library: most visits never open one.
+const MediaDetailDialog = React.lazy(() => import('./MediaDetailDialog').then((m) => ({ default: m.MediaDetailDialog })));
 
 // The unified Library — one shelf for every saved theme + component + finish + the
 // user's reference docs (#651), with a consistent apply/insert · share · manage flow
@@ -171,7 +176,7 @@ function LibraryFrame({ docked, open, onOpenChange, dropProps, children }: { doc
 	);
 }
 
-export function Library({ open, onOpenChange, docked, options, activePalette, activeFinish, initialFilter, activeDeckId = null, activeDeckSource, onApplyTheme, onApplyFinish, onInsert, onEditTheme, onEditComponent, onEditFinish, onEditMotion, onChanged }: {
+export function Library({ open, onOpenChange, docked, options, activePalette, activeFinish, initialFilter, activeDeckId = null, activeDeckSource, onReplaceSource, onApplyTheme, onApplyFinish, onInsert, onEditTheme, onEditComponent, onEditFinish, onEditMotion, onChanged }: {
 	open: boolean;
 	onOpenChange: (o: boolean) => void;
 	/** Desktop-Craft: render as a docked left column (plain div, no Sheet portal),
@@ -202,6 +207,8 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	onEditFinish?: (f: StudioFinish) => void;
 	onEditMotion?: (m: StudioScene) => void;
 	onChanged: () => void;
+	/** Replace the open deck's markdown (the shell owns it live). Used when a photo's decks are rewritten to its new name. */
+	onReplaceSource: (source: string) => void;
 }) {
 	// A phone docks the search field at the bottom; the docked column and the tablet
 	// sheet keep it in the header. Same predicate `PanelSheet` uses to pick its edge.
@@ -316,10 +323,10 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	// Deferred, so typing in the editor never waits on a count of N assets over M decks.
 	const liveSource = React.useDeferredValue(activeDeckSource);
 	// Decks OTHER than the open one that name each photo: what keeps a shared photo from being kept to one deck.
-	const usedElsewhere = React.useMemo(() => Object.fromEntries(media.map((a) => [a.name, decksUsing(a.name, otherSources)])), [media, otherSources]);
+	const usedElsewhere = React.useMemo(() => Object.fromEntries(media.map((a) => [a.name, decksUsingRecord(a, otherSources)])), [media, otherSources]);
 	const mediaUse = React.useMemo(() => {
 		const sources = liveSource === undefined ? otherSources : [...otherSources, liveSource];
-		return Object.fromEntries(media.map((a) => [a.name, decksUsing(a.name, sources)]));
+		return Object.fromEntries(media.map((a) => [a.name, decksUsingRecord(a, sources)]));
 	}, [media, otherSources, liveSource]);
 	const vMedia = filter === 'all' || filter === 'media' ? shownMedia.filter((a) => !q || a.name.includes(q) || a.sourceName.toLowerCase().includes(q)) : [];
 	const vDocs = filter === 'all' || filter === 'refdoc' ? docs.filter((d) => !q || d.name.toLowerCase().includes(q)) : [];
@@ -483,10 +490,11 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	async function importPicked(picked: File[], format: PhotoFormat) {
 		const scope = addScope === 'deck' && activeDeckId ? activeDeckId : LIBRARY_SCOPE;
 		setBusy('Adding…');
-		const taken = new Set((await listMedia()).map((a) => a.name));
+		const taken = new Set((await listMedia()).flatMap(namesOf));
 		let n = 0;
 		const failed: string[] = [];
 		const renamed: string[] = [];
+		let described = 0;
 		try {
 			for (const file of picked) {
 				try {
@@ -498,6 +506,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 					await saveMedia(rec, Date.now());
 					taken.add(rec.name);
 					n++;
+					if (rec.fileCaption) described++;
 				} catch (e) {
 					// The person is told below; the cause goes to the console for whoever has to debug a browser
 					// that refuses (a private window, a full quota, an engine that cannot store a Blob).
@@ -510,7 +519,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 			if (n) onChanged(); // the open deck's previews learn of the new photo
 			// Browsers may evict a site's storage under pressure (Safari after a week unused); ask to keep it. A refusal changes nothing.
 			if (n) void navigator.storage?.persist?.().catch(() => {});
-			if (n) notify(`Added ${n} image${n === 1 ? '' : 's'}${scope === LIBRARY_SCOPE ? ' to all decks' : ' to this deck'}.`);
+			if (n) notify(`Added ${n} image${n === 1 ? '' : 's'}${scope === LIBRARY_SCOPE ? ' to all decks' : ' to this deck'}.${described ? ` ${described === 1 ? 'It has' : `${described} have`} a description in the file: open ${described === 1 ? 'it' : 'one'} to use it.` : ''}`);
 			// A name that was already a photo is never replaced: say which name the new one took, so a deck that
 			// still shows the old picture is not a mystery.
 			if (renamed.length) notify(`${renamed.slice(0, 2).join('; ')}${renamed.length > 2 ? ` (+${renamed.length - 2} more)` : ''}. Delete the old one first to reuse the name.`);
@@ -531,6 +540,115 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 				notify(`Deleted ${a.name}.`);
 			})
 			.catch(() => notify(`Could not delete ${a.name}. Try again.`));
+	}
+	// The photo whose detail dialog is open. Held by id and read from `media`, so a save shows at once.
+	const [detailId, setDetailId] = React.useState<string | null>(null);
+	// The control that opened the detail dialog, so closing it returns keyboard focus there.
+	const openerRef = React.useRef<HTMLElement | null>(null);
+	const detail = media.find((a) => a.id === detailId) ?? null;
+	// Mounted from the first open on and kept, so closing plays its exit and returns focus to the card that opened it.
+	const [dialogWanted, setDialogWanted] = React.useState(false);
+	React.useEffect(() => {
+		if (detail) setDialogWanted(true);
+	}, [detail]);
+	// The reader of deck markdown (asset-refs.ts) carries the markdown parser, so it loads only when a photo with old names is
+	// opened, never with the Library itself. Until it arrives the dialog says it is checking, not that no deck uses the name.
+	const [refsModule, setRefsModule] = React.useState<typeof import('./asset-refs') | null>(null);
+	// The lazy load can fail (offline, a stale chunk). Then the dialog says so and offers no removal, rather than "checking" forever.
+	const [refsFailed, setRefsFailed] = React.useState(false);
+	// A failed load is retried the next time a photo is opened.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: detailId is the trigger, not a value read
+	React.useEffect(() => setRefsFailed(false), [detailId]);
+	const needsRefs = !!detail && (detail.aliases?.length ?? 0) > 0;
+	React.useEffect(() => {
+		if (needsRefs && !refsModule && !refsFailed) void import('./asset-refs').then(setRefsModule, () => setRefsFailed(true));
+	}, [needsRefs, refsModule, refsFailed]);
+	// Every name and alias on the shelf except the open photo's own: a suggested name is made unique against these before it is applied.
+	const detailTaken = React.useMemo(() => new Set(media.filter((a) => a.id !== detail?.id).flatMap(namesOf)), [media, detail?.id]);
+	const detailAliasUse = React.useMemo(() => {
+		if (!detail || !refsModule) return null;
+		const sources = liveSource === undefined ? otherSources : [...otherSources, liveSource];
+		return Object.fromEntries((detail.aliases ?? []).map((n) => [n, refsModule.decksUsingOutsideCode(n, sources)]));
+	}, [detail, otherSources, liveSource, refsModule]);
+	/** Run a metadata change, refresh the shelf and the open deck's previews, and turn a refusal into a line to show. */
+	async function changeMedia(run: () => Promise<unknown>): Promise<string | null> {
+		try {
+			await run();
+			reload();
+			onChanged();
+			return null;
+		} catch (e) {
+			return String((e as Error)?.message || 'That did not save. Try again.').replace(/^Can't add — /, '');
+		}
+	}
+	/** Rewrite every deck that writes `asset:<alias>` to the photo's current name. Each deck gets a Version history entry
+	 *  first, so the change can be undone from there. The open deck goes through the shell (its text is live in the
+	 *  editor); every other deck is rewritten in storage. Code samples that mention the name are left as written. */
+	async function adoptNewName(a: MediaRecord, alias: string): Promise<string | null> {
+		try {
+			const { renameAssetRefsOutsideCode } = await import('./asset-refs');
+			const stamp = Date.now();
+			const label = `Before using asset:${a.name}`;
+			let changed = 0;
+			let outOfRoom = false;
+			for (const dk of loadDeckList()) {
+				const isActive = dk.id === activeDeckIdRef.current;
+				const src = isActive ? (activeDeckSource ?? loadSource(dk.id)) : loadSource(dk.id);
+				if (src == null) continue;
+				const next = renameAssetRefsOutsideCode(src, alias, a.name);
+				if (next === src) continue;
+				// The way back is saved FIRST, and read back: the store swallows a full-storage error, and a deck must not be
+				// rewritten on a promise of an undo that was never written.
+				saveCheckpoint(dk.id, src, label, stamp);
+				if (loadCheckpoints(dk.id)[0]?.source !== src) {
+					outOfRoom = true;
+					break;
+				}
+				if (isActive) {
+					onReplaceSource(next);
+				} else {
+					saveSource(dk.id, next);
+					if (loadSource(dk.id) !== next) {
+						outOfRoom = true;
+						break;
+					}
+				}
+				changed++;
+			}
+			readOtherSources();
+			onChanged();
+			if (outOfRoom) {
+				return `This browser has no room left to save. ${changed ? `${changed} deck${changed === 1 ? ' was' : 's were'} updated; the` : 'No deck was changed; the'} rest still use asset:${alias}, which keeps working. Free some space and try again.`;
+			}
+			notify(changed ? `Updated ${changed} deck${changed === 1 ? '' : 's'} to asset:${a.name}. The earlier text is in Version history.` : `No deck writes asset:${alias} any more.`);
+			return null;
+		} catch {
+			return 'Could not update the decks. Try again; the old name keeps working in the meantime.';
+		}
+	}
+	/** A draft description for one photo, from the connected model. The model and the budget live in the Architect
+	 *  bridge, loaded only now: a Library that never asks for a suggestion never pays for it. */
+	async function suggestDescription(a: MediaRecord): Promise<{ text: string; name?: string } | { note: string }> {
+		const { suggestPhotoDescription, imageSettings } = await import('./suggest-photo-description');
+		const { IMAGE_LOOKS } = await import('./image-look');
+		const thumb = await createAgentAssets().thumbnail(a.name, IMAGE_LOOKS[imageSettings().look].edge);
+		if (!thumb) return { note: "This photo couldn't be read to describe it." };
+		const { deckOutputLang } = await import('./studio-language');
+		const r = await suggestPhotoDescription(thumb, activeDeckSource ? deckOutputLang(activeDeckSource) : undefined);
+		switch (r.status) {
+			case 'ok':
+				return { text: r.text, ...(r.name ? { name: r.name } : {}) };
+			case 'offline':
+				return { note: 'Connect your OpenRouter account in Setup to get suggestions. Until then you can type them.' };
+			case 'novision':
+				return { note: "The image model you picked can't read images. Choose another in Workspace → Model → Image model, or type a description." };
+			case 'blocked':
+				return { note: r.note };
+			case 'short':
+				return { note: 'The image model ran out of room before it answered. Try Quick in Workspace → Model → Look closer, or pick another image model.' };
+			default:
+				return { note: 'No suggestion came back. Try again, or type one.' };
+		}
 	}
 	function moveMedia(a: MediaRecord, scope: string) {
 		setMediaScope(a.id, scope)
@@ -977,7 +1095,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 								);
 							})}
 							{vMedia.map((a) => (
-								<MediaCard key={`media:${a.id}`} m={a} activeDeckId={activeDeckId} usedIn={mediaUse[a.name] || 0} usedElsewhere={usedElsewhere[a.name] || 0} armed={armed === `media:${a.id}`} confirmLabel={confirmLabel} onArm={() => setArmed(`media:${a.id}`)} onCancel={() => setArmed(null)} onDelete={() => { setArmed(null); removeMedia(a); }} onScope={(s) => moveMedia(a, s)} />
+								<MediaCard key={`media:${a.id}`} m={a} activeDeckId={activeDeckId} usedIn={mediaUse[a.name] || 0} usedElsewhere={usedElsewhere[a.name] || 0} armed={armed === `media:${a.id}`} confirmLabel={confirmLabel} onArm={() => setArmed(`media:${a.id}`)} onCancel={() => setArmed(null)} onDelete={() => { setArmed(null); removeMedia(a); }} onScope={(s) => moveMedia(a, s)} onOpen={(opener) => { openerRef.current = opener; setDetailId(a.id); }} />
 							))}
 							{vDocs.map((d) => (
 								// Reference doc — manage-only card (no select/share; docs aren't lattice assets).
@@ -1076,6 +1194,24 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 			{/* Mounted inside the frame so it shares the Library's lifecycle, but rendered by
 			    Dialog into the TOP LAYER, so it sits above the panel in both transports rather
 			    than inside the sheet that would otherwise own the dismiss gesture. */}
+			{dialogWanted && (
+			<React.Suspense fallback={null}>
+			<MediaDetailDialog
+				m={detail}
+				open={!!detail}
+				onOpenChange={(o) => { if (!o) setDetailId(null); }}
+				usedIn={detail ? mediaUse[detail.name] || 0 : 0}
+				aliasUse={detailAliasUse}
+				aliasUseFailed={refsFailed}
+				takenNames={detailTaken}
+				onSave={(c) => changeMedia(() => updateMediaDetails(detail?.id as string, c))}
+				onRemoveAlias={(al) => changeMedia(() => removeMediaAlias(detail?.id as string, al))}
+				onUseNewName={(al) => adoptNewName(detail as MediaRecord, al)}
+				onSuggest={() => suggestDescription(detail as MediaRecord)}
+				returnFocusTo={() => openerRef.current}
+			/>
+			</React.Suspense>
+			)}
 			<AssetVersionsDialog
 				asset={historyFor}
 				open={!!historyFor}

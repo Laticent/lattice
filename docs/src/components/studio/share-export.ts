@@ -112,11 +112,12 @@ async function ensureTheme(options: SingleSlideOptions, palette: string, mode: '
  * the photos `source` names. Empty for a deck that names none, which never loads the registry. A
  * `blob:` URL from the live preview is not usable in a file or a capture frame (media-urls.ts).
  */
-async function assetOpts(source: string): Promise<{ assetUrls?: Record<string, string> }> {
+async function assetOpts(source: string): Promise<{ assetUrls?: Record<string, string>; assetAlts?: Record<string, string> }> {
 	if (!/\basset:[a-z0-9]/i.test(source)) return {};
 	try {
-		const { dataUrlsFor } = await import('./media-urls');
-		return { assetUrls: await dataUrlsFor(source) };
+		const { altsFor, dataUrlsFor } = await import('./media-urls');
+		const assetUrls = await dataUrlsFor(source);
+		return { assetUrls, assetAlts: await altsFor(source) };
 	} catch (e) {
 		// An EMPTY map, not none: with none the Studio's render hook would fill in the preview's `blob:` URLs,
 		// which die with the tab. With an empty map every photo is drawn as the missing-image stand-in.

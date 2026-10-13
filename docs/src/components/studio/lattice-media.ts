@@ -10,7 +10,7 @@
 // file as untrusted. A `.lattice` is a file from anyone, exactly as a backup is.
 
 import type { LatticeMedia } from './lattice-file';
-import { listMedia, visibleMedia } from './media-store';
+import { listMedia, namesOf, visibleMedia } from './media-store';
 import { assetNamesIn } from './media-urls';
 import { MEDIA_INDEX, packMedia, renameAssetRefs, restoreMedia } from './workspace-media';
 import { MAX_LATTICE_MEDIA_BYTES } from './zip-limits';
@@ -32,9 +32,10 @@ export type PhotoSummary = {
 export async function latticePhotoSummary(source: string, deckId: string | undefined): Promise<PhotoSummary> {
 	const named = assetNamesIn(source);
 	if (!named.length) return { count: 0, bytes: 0, missing: [] };
-	const seen = new Map(visibleMedia(await listMedia(), deckId ?? null).map((m) => [m.name, m]));
-	const have = named.filter((n) => seen.has(n));
-	return { count: have.length, bytes: have.reduce((sum, n) => sum + (seen.get(n)?.blob.size ?? 0), 0), missing: named.filter((n) => !seen.has(n)) };
+	// A deck may still write a photo's OLD name (an alias): it resolves in the Studio, so the file must carry it.
+	const seen = new Map(visibleMedia(await listMedia(), deckId ?? null).flatMap((m) => namesOf(m).map((n) => [n, m] as const)));
+	const have = [...new Set(named.filter((n) => seen.has(n)).map((n) => seen.get(n)))];
+	return { count: have.length, bytes: have.reduce((sum, m) => sum + (m?.blob.size ?? 0), 0), missing: named.filter((n) => !seen.has(n)) };
 }
 
 export type PackedPhotos = {
@@ -52,9 +53,10 @@ export async function packLatticePhotos(source: string, deckId: string | undefin
 	const named = assetNamesIn(source);
 	if (!named.length) return { included: [], omitted: [], missing: [] };
 	try {
-		const visible = new Set(visibleMedia(await listMedia(), deckId ?? null).map((m) => m.name));
-		const names = new Set(named.filter((n) => visible.has(n)));
-		const missing = named.filter((n) => !visible.has(n));
+		// Name or alias: a deck that still writes an old name is carried by the photo's current one.
+		const canonical = new Map(visibleMedia(await listMedia(), deckId ?? null).flatMap((m) => namesOf(m).map((n) => [n, m.name] as const)));
+		const names = new Set(named.filter((n) => canonical.has(n)));
+		const missing = named.filter((n) => !canonical.has(n));
 		const files: Record<string, Uint8Array> = {};
 		let index = '';
 		// A collector standing in for the zip: `buildLatticeZip` owns the archive, so the bytes are handed to it.
@@ -71,7 +73,7 @@ export async function packLatticePhotos(source: string, deckId: string | undefin
 		// A visible photo that is in neither list (a legacy record of a type the file cannot hold) is missing too,
 		// never dropped without a word.
 		const placed = new Set([...included, ...packed.omitted]);
-		return { ...(index ? { media: { index, files } } : {}), included, omitted: packed.omitted, missing: [...missing, ...[...names].filter((n) => !placed.has(n))] };
+		return { ...(index ? { media: { index, files } } : {}), included, omitted: packed.omitted, missing: [...missing, ...[...names].filter((n) => !placed.has(canonical.get(n) as string))] };
 	} catch {
 		return { included: [], omitted: [], missing: named };
 	}

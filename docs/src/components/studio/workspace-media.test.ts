@@ -5,7 +5,9 @@
 import 'fake-indexeddb/auto';
 import JSZip from 'jszip';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { openDB } from './library/asset-db.js';
 import { deleteAsset, listAssets } from './library/asset-store.js';
+import { renameMedia, updateMediaMeta } from './media-edit';
 import { LIBRARY_SCOPE, listMedia, MAX_MEDIA_FILE_BYTES, type NewMedia, saveMedia } from './media-store';
 import { jpeg, jpegSegment, png, pngChunk, webp } from './test-images';
 import { MAX_MEDIA_ROWS, MEDIA_INDEX, packMedia, renameAssetRefs, restoreMedia } from './workspace-media';
@@ -401,5 +403,128 @@ describe('renameAssetRefs', () => {
 	});
 	it('leaves a source with no such reference untouched', () => {
 		expect(renameAssetRefs('# no photos', 'hero', 'hero-2')).toBe('# no photos');
+	});
+});
+
+/** Put the file-read facts on a stored row, the way an import would have. */
+async function putFileFacts(id: string, facts: { fileCaption?: string; hadLocation?: true }) {
+	const db = await openDB();
+	await new Promise<void>((res, rej) => {
+		const t = db.transaction('assets', 'readwrite');
+		const st = t.objectStore('assets');
+		const g = st.get(id);
+		g.onsuccess = () => st.put({ ...g.result, ...facts });
+		t.oncomplete = () => res();
+		t.onerror = () => rej(t.error);
+	});
+}
+
+describe('description, credit, date and old names ride in a backup', () => {
+	it('round-trips them, and a renamed photo still answers to its old name', async () => {
+		const rec = await saveMedia(photo({ name: 'hero' }), 1);
+		await updateMediaMeta(rec.id, { caption: 'A door', credit: 'Ada L.', taken: '2026-03-04' });
+		await putFileFacts(rec.id, { fileCaption: 'Surprise party, do not share', hadLocation: true });
+		await renameMedia(rec.id, 'front-door');
+		const z = new JSZip();
+		await packMedia(z);
+		const packed = await JSZip.loadAsync(await z.generateAsync({ type: 'uint8array' }));
+		await emptyShelf();
+		expect((await restoreMedia(packed, 9, ctx())).refused).toEqual([]);
+		const [back] = await listMedia();
+		expect([back.name, back.aliases, back.caption, back.credit, back.taken]).toEqual(['front-door', ['hero'], 'A door', 'Ada L.', '2026-03-04']);
+		expect([back.fileCaption, back.hadLocation]).toEqual(['Surprise party, do not share', true]);
+	});
+
+	it('restores an older backup that has none of these fields', async () => {
+		const out = await restoreMedia(await craft([row()]), 9, ctx());
+		expect(out.restored).toBe(1);
+		const [back] = await listMedia();
+		expect([back.aliases, back.caption, back.credit, back.taken]).toEqual([undefined, undefined, undefined, undefined]);
+	});
+
+	it('ignores a field this build does not know', async () => {
+		const out = await restoreMedia(await craft([row({ rating: 5, gps: '51.5,-0.1' })]), 9, ctx());
+		expect(out.restored).toBe(1);
+		expect(Object.keys((await listMedia())[0])).not.toContain('gps');
+	});
+
+	it('cleans the text and drops an old name that would clash, without refusing the photo', async () => {
+		await saveMedia(photo({ name: 'taken-here' }, OTHER), 1);
+		const rows = [
+			row({ caption: 'A "quote"\nline', credit: 5, taken: 'last march', aliases: ['taken-here', 'other', 'ok-old', 'ok-old', 'Bad Name', 7, 'hero'] }),
+			row({ name: 'other', file: 'other.png', aliases: ['ok-old'] }),
+		];
+		const out = await restoreMedia(await craft(rows, { 'hero.png': PNG, 'other.png': png(3) }), 9, ctx());
+		expect(out.refused).toEqual([]);
+		const by = Object.fromEntries((await listMedia()).map((m) => [m.name, m]));
+		expect(by.hero.caption).toBe('A "quote" line');
+		expect([by.hero.credit, by.hero.taken]).toEqual([undefined, undefined]);
+		// 'taken-here' is on the device, 'other' and 'hero' are photos' own names; only the first 'ok-old' survives.
+		expect(by.hero.aliases).toEqual(['ok-old']);
+		expect(by.other.aliases).toBeUndefined();
+	});
+
+	it('keeps no more than 20 old names a photo', async () => {
+		const aliases = Array.from({ length: 40 }, (_, i) => `old-${i}`);
+		await restoreMedia(await craft([row({ aliases })]), 9, ctx());
+		expect((await listMedia())[0].aliases).toHaveLength(20);
+	});
+});
+
+describe('old names and restore', () => {
+	it('treats a backup photo whose name is an old name here as a name clash, not a refusal', async () => {
+		const rec = await saveMedia(photo({ name: 'hero' }, OTHER), 1);
+		await renameMedia(rec.id, 'cover');
+		const out = await restoreMedia(await craft([row()]), 9, ctx());
+		expect(out.refused).toEqual([]);
+		expect(out.restored).toBe(1);
+		// The backup's `hero` is a different photo, so it comes back under a new name and the decks follow it.
+		expect(out.renames).toEqual([{ from: 'hero', to: 'hero-2', scope: LIBRARY_SCOPE }]);
+		expect((await listMedia()).map((m) => m.name).sort()).toEqual(['cover', 'hero-2']);
+	});
+
+	it('reuses the identical photo that answers to the backup name as an old name', async () => {
+		const rec = await saveMedia(photo({ name: 'hero' }), 1);
+		await renameMedia(rec.id, 'cover');
+		const out = await restoreMedia(await craft([row()]), 9, ctx());
+		expect(out.refused).toEqual([]);
+		expect(out.restored).toBe(0);
+		// `hero` still resolves to it, so no deck needs rewriting.
+		expect(out.renames).toEqual([]);
+		expect(await listMedia()).toHaveLength(1);
+	});
+
+	it('points the backup decks at the photo when an old name it listed is already another photo here', async () => {
+		await saveMedia(photo({ name: 'hero' }, OTHER), 1);
+		const out = await restoreMedia(await craft([row({ name: 'cover', file: 'cover.png', aliases: ['hero'] })], { 'cover.png': PNG }), 9, ctx());
+		expect(out.refused).toEqual([]);
+		expect(out.renames).toEqual([{ from: 'hero', to: 'cover', scope: LIBRARY_SCOPE }]);
+		expect((await listMedia()).find((m) => m.name === 'cover')?.aliases).toBeUndefined();
+	});
+
+	it('gives a crafted old name that equals another photo of the same backup no rewrite', async () => {
+		const rows = [row({ name: 'cover', file: 'cover.png', aliases: ['hero'] }), row()];
+		const out = await restoreMedia(await craft(rows, { 'cover.png': png(5), 'hero.png': PNG }), 9, ctx());
+		expect(out.renames).toEqual([]);
+		expect((await listMedia()).find((m) => m.name === 'cover')?.aliases).toBeUndefined();
+	});
+
+	it('points the backup decks at an identical photo here for the old names the backup listed', async () => {
+		await saveMedia(photo({ name: 'cover' }), 1);
+		const out = await restoreMedia(await craft([row({ name: 'cover', file: 'cover.png', aliases: ['hero'] })], { 'cover.png': PNG }), 9, ctx());
+		expect(out.restored).toBe(0);
+		expect(out.renames).toEqual([{ from: 'hero', to: 'cover', scope: LIBRARY_SCOPE }]);
+	});
+
+	it('cleans a file description, and only a literal true counts as a location', async () => {
+		await restoreMedia(await craft([row({ fileCaption: 'Line one\nLine two', hadLocation: 'yes' })]), 9, ctx());
+		const [back] = await listMedia();
+		expect(back.fileCaption).toBe('Line one Line two');
+		expect(back.hadLocation).toBeUndefined();
+	});
+
+	it('refuses a calendar date that does not exist', async () => {
+		await restoreMedia(await craft([row({ taken: '2026-99-99' })]), 9, ctx());
+		expect((await listMedia())[0].taken).toBeUndefined();
 	});
 });

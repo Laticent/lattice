@@ -38,6 +38,22 @@ describe('a .lattice carries the photos the deck names', () => {
 		expect(await latticePhotoSummary(SRC, 'deck-a')).toMatchObject({ count: 2, missing: ['gone'] });
 	});
 
+	it('a deck that still writes a photo\'s OLD name still gets the photo, and it still resolves after the round trip', async () => {
+		await saveMedia({ ...photo('hero', png(1)), aliases: ['old-hero'] }, 1);
+		const src = '# Deck\n\n![](asset:old-hero)\n';
+		expect(await latticePhotoSummary(src, 'deck-a')).toMatchObject({ count: 1, missing: [] });
+		const { packed, bytes } = await exportWith(src, 'deck-a');
+		expect(packed.included).toEqual(['hero']);
+		expect(packed.missing).toEqual([]);
+		await wipe();
+		const read = await readLatticeFile(bytes);
+		const back = await restoreLatticePhotos((read.photos as NonNullable<typeof read.photos>).zip, read.source, 5);
+		expect(back.restored).toBe(1);
+		const [rec] = await listMedia();
+		expect(rec.name).toBe('hero');
+		expect(rec.aliases).toEqual(['old-hero']);
+	});
+
 	it('a file for a deck with no photos has no media part', async () => {
 		const { packed, bytes } = await exportWith('# Plain\n');
 		expect(packed.media).toBeUndefined();

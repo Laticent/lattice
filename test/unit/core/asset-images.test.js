@@ -1,4 +1,4 @@
-'use strict';
+
 // `asset:<name>` — a photo the person added to the Studio Library (engineering/decisions/
 // 2026-10-12-library-media-assets.md). Sibling of sample-images.test.js: `sample:` resolves
 // against a folder URL, `asset:` against a name → URL map the host mints (a `blob:` object URL in
@@ -109,6 +109,72 @@ describe('asset: — every engine path that paints a picture', () => {
     for (const bad of ['x', 7, [], null]) {
       assert.match(render('## T\n\n![A](asset:hero)\n', bad), /asset:hero/, String(bad));
     }
+  });
+});
+
+describe('asset: — an empty alt is filled from the photo description', () => {
+  const ALTS = { hero: 'The team on the roof', a: 'First', b: 'Second', c: 'Third', d: 'Fourth', logo: 'Acme mark' };
+  const render = (md, assetAlts = ALTS) => engine.render(md, 'indaco', { assetUrls: URLS, assetAlts }).html;
+
+  test('an empty alt on a prose image takes the description', () => {
+    assert.match(render('## T\n\n![](asset:hero)\n'), /alt="The team on the roof"/);
+  });
+
+  test('an alt the author wrote is never replaced', () => {
+    const out = render('## T\n\n![My own words](asset:hero)\n');
+    assert.match(out, /alt="My own words"/);
+    assert.doesNotMatch(out, /The team on the roof/);
+  });
+
+  test('a collage tile sees the description, so its lightbox caption and narration do too', () => {
+    const out = render('<!-- _class: collage -->\n\n## T\n\n- ![](asset:a)\n- ![](asset:b)\n- ![](asset:c)\n- ![](asset:d)\n');
+    for (const alt of ['First', 'Second', 'Third', 'Fourth']) assert.match(out, new RegExp(`alt="${alt}"`), alt);
+  });
+
+  test('a description is escaped as text, never read as markup or as a new attribute', () => {
+    const out = render('## T\n\n![](asset:hero)\n', { hero: '"><img src=x onerror=alert(1)> & <b>bold</b> [x](y)' });
+    // Exactly one image tag, and once its quoted values are removed it carries no `onerror` or stray attribute.
+    const tags = [...out.matchAll(/<img\b((?:"[^"]*"|[^>"])*)>/g)].map((m) => m[1]);
+    assert.equal(tags.length, 1);
+    const names = [...tags[0].replace(/"[^"]*"/g, '""').matchAll(/\s([a-z-]+)=/g)].map((m) => m[1]);
+    assert.ok(!names.includes('onerror') && !names.includes('x'), names.join(','));
+    assert.match(out, /alt="&quot;&gt;&lt;img src=x onerror=alert\(1\)&gt; &amp; &lt;b&gt;bold&lt;\/b&gt; \[x\]\(y\)"/);
+  });
+
+  test('a background directive is not an empty alt', () => {
+    assert.doesNotMatch(render('<!-- _class: image -->\n\n## T\n\n![bg](asset:hero)\n'), /The team on the roof/);
+  });
+
+  test('a description that reads like a directive stays a picture, never the slide background', () => {
+    for (const alt of ['bg contain', 'bg', 'bg left 40%', 'bg fit']) {
+      const out = render('# Title\n\n![](asset:hero)\n', { hero: alt });
+      assert.doesNotMatch(out, /background-image:url/, alt);
+      assert.match(out, new RegExp(`<img[^>]*alt="${alt}"`), alt);
+    }
+    // And an author's own `![bg …]` still works with a description present.
+    assert.match(render('<!-- _class: image -->\n\n## T\n\n![bg](asset:hero)\n', { hero: 'bg contain' }), new RegExp(`url\\('${B}1111'\\)`));
+  });
+
+  test('a name with no description, a missing photo and a non-string value leave alt empty', () => {
+    for (const alts of [{}, { hero: 42 }, { hero: '' }, Object.create({ hero: 'inherited' })]) {
+      assert.doesNotMatch(render('## T\n\n![](asset:hero)\n', alts), /alt="[^"]/, JSON.stringify(alts));
+    }
+    assert.doesNotMatch(render('## T\n\n![](asset:gone)\n'), /The team on the roof/);
+  });
+
+  test('without a map the render is byte-identical to one with a map and no descriptions', () => {
+    const md = '## T\n\n![A](asset:hero)\n\n![](asset:logo)\n';
+    assert.equal(render(md, null), render(md, {}));
+    assert.equal(engine.render(md, 'indaco', { assetUrls: URLS }).html, render(md, null));
+  });
+
+  test('a sample: image and a non-asset image are never touched', () => {
+    const out = engine.render('## T\n\n![](sample:logo-acme.svg)\n\n![](https://x.test/a.png)\n', 'indaco', { samplesUrl: 'https://s.test/', assetUrls: URLS, assetAlts: ALTS }).html;
+    assert.doesNotMatch(out, /The team on the roof|Acme mark/);
+  });
+
+  test('a non-object alt map is no map', () => {
+    for (const bad of ['x', 7, [], null]) assert.doesNotMatch(render('## T\n\n![](asset:hero)\n', bad), /alt="[^"]/, String(bad));
   });
 });
 

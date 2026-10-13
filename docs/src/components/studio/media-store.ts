@@ -44,12 +44,33 @@ export type MediaRecord = {
 	 *  delete-and-add, which makes a new record and so drops the caption. Optional and never
 	 *  required by anything but the chat. */
 	caption?: string;
+	/** Earlier names, kept after a rename so `asset:<old>` in a deck still resolves here (the Avro
+	 *  `aliases` idea). Names and aliases share one namespace. Absent on a record that was never renamed. */
+	aliases?: string[];
+	/** Who to credit. Read from the file's artist or copyright when the photo is added, or typed in the detail view. */
+	credit?: string;
+	/** When the picture was taken (`YYYY-MM-DD`). Read from the file when the photo is added, or typed. */
+	taken?: string;
+	/** A description the file itself carried (XMP, IPTC or EXIF), kept as a SUGGESTION: it is never used as alt
+	 *  text until the person takes it as the description, because a file's own text can be a private note.
+	 *  Absent when the file had none, or only a camera default. */
+	fileCaption?: string;
+	/** The file carried a GPS location when it was added. Only the fact is kept; the location was removed from the
+	 *  stored bytes and is not stored anywhere. */
+	hadLocation?: true;
 	addedAt: number;
 };
 
+/** The most old names one photo keeps. A rename that would pass it is refused: dropping one would turn the decks
+ *  that still write it into placeholders without a word. */
+export const MAX_ALIASES = 20;
+
+/** Every name a deck may write for this record: its own and its aliases. */
+export const namesOf = (m: Pick<MediaRecord, 'name' | 'aliases'>): string[] => [m.name, ...(m.aliases ?? [])];
+
 export type NewMedia = Omit<MediaRecord, 'id' | 'addedAt'>;
 
-const KINDS: MediaKind[] = ['image', 'video'];
+export const KINDS: MediaKind[] = ['image', 'video'];
 
 /** The opening words of a refusal this module raised — the UI shows it as is. */
 export const MEDIA_REFUSAL_PREFIX = "Can't add —";
@@ -155,7 +176,7 @@ async function putMedia(input: NewMedia, id: string, addedAt: number, asBuffer: 
 					read(i + 1);
 					return;
 				}
-				const clash = found.find((a) => a.name === input.name);
+				const clash = found.find((a) => namesOf(a).some((n) => namesOf(input).includes(n)));
 				if (clash) {
 					refusal = new Error(`${MEDIA_REFUSAL_PREFIX} “${input.name}” is already another saved ${clash.kind}. Delete it first to reuse the name.`);
 					t.abort();
@@ -174,8 +195,26 @@ async function putMedia(input: NewMedia, id: string, addedAt: number, asBuffer: 
 	});
 }
 
+/** A stored photo's bytes copied into a Blob that lives in MEMORY, or null when the row holds its bytes as a buffer (nothing to detach).
+ *
+ *  WHY. A Blob read from IndexedDB is a handle to a file the browser keeps for that ONE record. Writing the record back with that same
+ *  handle (a caption, a rename, a scope flip) asks WebKit to store a file it is about to delete, because the old record is replaced:
+ *  on an iPhone the photo's card showed WebKit's broken-image mark after every edit, with its size and name intact. A fresh in-memory
+ *  Blob is what the first import writes, so a rewrite writes the same kind. Read OUTSIDE the write transaction: awaiting inside one
+ *  lets it commit early. */
+export async function detachedBlob(id: string): Promise<Blob | null> {
+	try {
+		const db = await openDB();
+		const row = (await reqAsPromise(db.transaction(ASSET_STORE, 'readonly').objectStore(ASSET_STORE).get(id))) as (MediaRecord & { data?: ArrayBuffer }) | undefined;
+		if (!row?.blob) return null;
+		return new Blob([await row.blob.arrayBuffer()], { type: row.mime });
+	} catch {
+		return null;
+	}
+}
+
 /** A record as the app uses it: a `blob`, whichever way the bytes were stored. */
-function readable(row: MediaRecord & { data?: ArrayBuffer }): MediaRecord {
+export function readable(row: MediaRecord & { data?: ArrayBuffer }): MediaRecord {
 	if (row.blob || !row.data) return row;
 	const { data, ...rest } = row;
 	return { ...rest, blob: new Blob([data], { type: row.mime }) } as MediaRecord;
@@ -202,6 +241,7 @@ export function visibleMedia(all: MediaRecord[], activeDeckId: string | null): M
 /** Flip an asset between shared and one deck's. The NAME does not change, so no deck's
  *  markdown is rewritten. Resolves the updated record, or null when it no longer exists. */
 export async function setMediaScope(id: string, scope: MediaScope): Promise<MediaRecord | null> {
+	const fresh = await detachedBlob(id);
 	const db = await openDB();
 	return new Promise<MediaRecord | null>((resolve, reject) => {
 		const t = db.transaction(ASSET_STORE, 'readwrite');
@@ -214,8 +254,9 @@ export async function setMediaScope(id: string, scope: MediaScope): Promise<Medi
 			const row = get.result as MediaRecord | undefined;
 			if (!row || !KINDS.includes(row.kind)) return;
 			// The raw row keeps whichever of `blob` or `data` it was stored with; only the copy handed back is made readable.
-			store.put({ ...row, scope });
-			out = readable({ ...row, scope });
+			const next = { ...row, scope, ...(fresh && row.blob ? { blob: fresh } : {}) };
+			store.put(next);
+			out = readable(next);
 		};
 	});
 }
@@ -223,6 +264,7 @@ export async function setMediaScope(id: string, scope: MediaScope): Promise<Medi
 /** Store a caption on one image. Resolves the updated record, or null when it no longer exists
  *  or is not an image. An empty caption clears it. */
 export async function setMediaCaption(id: string, caption: string): Promise<MediaRecord | null> {
+	const fresh = await detachedBlob(id);
 	const db = await openDB();
 	const clean = cleanCaption(caption);
 	return new Promise<MediaRecord | null>((resolve, reject) => {
@@ -236,7 +278,8 @@ export async function setMediaCaption(id: string, caption: string): Promise<Medi
 			const row = get.result as (MediaRecord & { data?: ArrayBuffer }) | undefined;
 			if (!row || row.kind !== 'image') return;
 			const { caption: _old, ...rest } = row;
-			const next = clean ? { ...rest, caption: clean } : rest;
+			const kept = clean ? { ...rest, caption: clean } : rest;
+			const next = fresh && row.blob ? { ...kept, blob: fresh } : kept;
 			store.put(next);
 			out = readable(next as MediaRecord & { data?: ArrayBuffer });
 		};
