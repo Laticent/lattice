@@ -82,7 +82,7 @@ describe('resolve-tone-style', () => {
   // 2026-07-03 §9). Guard the mechanism so a refactor can't silently reintroduce the band.
   test('tone-edge recolors the spectrum border, gated on a semantic tone', () => {
     const css = fs.readFileSync(path.join(__dirname, '../../../lib/base/base.variants.css'), 'utf8');
-    const rule = css.match(/section:is\([^)]*\)\.tone-edge\s*\{[^}]*\}/);
+    const rule = css.match(/section:is\([^)]*\)\.tone-edge[^{]*\{[^}]*\}/);
     assert.ok(rule, 'tone-edge should be gated on a semantic tone via section:is(...).tone-edge');
     assert.match(rule[0], /border-top:[^;]*var\(--tone-color\)/, 'tone-edge should recolor the top border with --tone-color');
     assert.match(rule[0], /border-image:\s*none/, 'tone-edge should clear the spectrum border-image');
