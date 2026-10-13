@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import { contentForBudget, PHOTO_TOKENS, photoNote, withPhotos } from './chat-photo-parts';
+import { isMediaName } from './media-store';
 
 const URL1 = 'data:image/jpeg;base64,AAAA';
 
@@ -58,5 +59,13 @@ describe('contentForBudget', () => {
 	it('passes strings through and treats null as empty', () => {
 		expect(contentForBudget('abc')).toBe('abc');
 		expect(contentForBudget(null)).toBe('');
+	});
+});
+
+describe('the copied name grammar', () => {
+	it('accepts and refuses exactly what media-store.isMediaName does', () => {
+		// photoNote keeps a name iff the copy accepts it; compare against the store's own check.
+		const names = ['a', 'team-offsite', 'img-0042', 'a_b', '9lives', '-lead', '_lead', 'UPPER', 'a b', 'a/b', '../x', '', 'a.b', 'é', 'x'.repeat(60)];
+		for (const n of names) expect(photoNote([n]) !== '', JSON.stringify(n)).toBe(isMediaName(n));
 	});
 });

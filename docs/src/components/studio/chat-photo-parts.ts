@@ -2,8 +2,13 @@
 // Its own module, importing nothing heavy, because the chat agent (lazy) and `architect.ts` (startup)
 // both need it and neither may drag the media store in. The IO half is `chat-photos.ts`.
 
-import { isMediaName } from './media-name';
 import type { ContentPart, MsgContent } from './reference-doc';
+
+// The Library's asset-name grammar (media-store.ts `isMediaName`). Copied, not imported: that module
+// is the IndexedDB store, and this one is read by startup code. `chat-photo-parts.test.ts` holds the
+// two equal over a table of names, so the copy cannot drift.
+const MEDIA_NAME = /^[a-z0-9][a-z0-9_-]*$/;
+const isMediaName = (name: string): boolean => MEDIA_NAME.test(name);
 
 /** A turn carries at most this many photos: each one is billed as input on the turn it is sent. */
 export const MAX_CHAT_PHOTOS = 4;
