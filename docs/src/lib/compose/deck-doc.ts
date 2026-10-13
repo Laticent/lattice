@@ -178,6 +178,20 @@ export function initBaseline(doc: PMNode): EmitBaseline {
 	return { nodes, raws };
 }
 
+/** Re-point an emit baseline at `doc`'s slide nodes WITHOUT touching the bytes it caches.
+ *
+ *  For a transaction that changes how a slide is REPRESENTED but not what it says: the inline-object
+ *  pass turns `{SHIPPED, c2}` code spans into atom nodes that serialize back to the same bytes.
+ *  Those slides get new node identities, and without this `emitDeck` would take each for an edited
+ *  slide and re-serialize it, rewriting an untouched slide's bytes (a `*` bullet becoming `-`)
+ *  merely because the deck was opened. The slide count must not have changed. */
+export function rebaselineSlides(doc: PMNode, baseline: EmitBaseline): void {
+	if (doc.childCount !== baseline.nodes.length) return;
+	doc.forEach((slide, _offset, i) => {
+		baseline.nodes[i] = slide;
+	});
+}
+
 /** One document → deck source, EDIT-LOCAL. A slide whose node identity still matches the
  *  baseline (untouched since the last emit) re-emits its cached bytes VERBATIM — so a
  *  lossy construct (table, math, raw HTML) on a slide the author never touched can never

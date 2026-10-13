@@ -1688,6 +1688,32 @@ measured:
   not about pills: two plain `` `code` `` values do the same, because the row is a grid
   and a grid item paints over rather than pushing. Put one value in the trailing slot.
 
+### Editing a pill without typing it — the Studio
+
+In the Studio's Compose editor a pill is **drawn as the slide draws it**, in your theme's own
+colors, and it is **one object**: its `{…}` text is not on the page, and there is no caret inside
+it. **Tap or click the pill** to change its label, shape, color and size from one editor (a popover
+on a desktop or tablet, a sheet on a phone). Each pick rewrites **only the word you changed** in the
+span, so `{BETA, c4, tag}` stays in that order and every other pill on the slide is untouched.
+**Done** closes the editor and puts the cursor just after the pill; **Edit as text** turns the pill
+back into its `{…}` text with the words between the braces selected, and the pill is drawn again when
+the cursor leaves it. The arrow keys step over a pill as one thing, Backspace takes all of it, and
+Enter on a selected pill opens its editor.
+
+The slide bar has **Undo** and **Redo** buttons for the whole deck, because a phone has no undo
+gesture Compose's history is visible to (iOS's own undo lists only what the browser edited). On a
+narrow pane the bar is two rows: history and the insert doors on the first, the Format group on the
+second. The **+ Pill** button puts a new pill at the cursor (a short selected word becomes its label)
+and opens its editor.
+
+A pill stays as text on a slide that is edited in Markdown, in a deck set to `inline-code: literal`,
+and where the engine would not draw it (a reserved label, an unknown icon). Opening a deck never
+rewrites it: a drawn pill writes back the exact code span it came from. Two code spans cannot touch in
+Markdown (`` `{A}``{B}` `` is one span, and both would stop being pills), so Compose keeps a single space
+between a pill and a neighboring pill or code span, and **+ Pill** adds that space itself. Backspace on that space does nothing visible: it comes straight back. The editor does not touch a
+pill's `icon=`; that word is kept exactly as written. Design:
+`engineering/decisions/2026-10-13-compose-inline-notation-editors.md`.
+
 ## Inline sparks — `~{12 14 17}`
 
 A `~{…}` inside **single-backtick** inline code renders as a **spark**: a chart the size
