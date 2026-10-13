@@ -335,8 +335,9 @@ in `chat-agent.ts`.
 - **A model's own image price raises that figure, never lowers it** (added 2026-10-13). `listModels` now keeps
   OpenRouter's `pricing.image` as `ORPrice.imagePerM`, and `pictureSurchargeUsd` (`agent-assets.ts`) adds the gap
   over the flat figure to the gate (`cloudBudgetBlock`'s `extraUsd`). The live catalog lists it for 30 of 461
-  models (19 without the `:batch` variants; 2026-10-13), all Google, and on every one it equals the prompt price, so today the surcharge is $0 and
-  the flat 800 tokens already match. OpenRouter does not say what the number counts, so the rule reads a rate
+  models (19 without the `:batch` variants; 2026-10-13), all Google, and on every one it equals the prompt price, so today the surcharge is $0. That does NOT
+  mean the flat 800 tokens match what Google bills: one live turn (below) measured about 11,000 tokens for one
+  512 px picture on `google/gemini-2.5-flash-lite`. OpenRouter does not say what the number counts, so the rule reads a rate
   within 10x the prompt rate as per-token (800 tokens at that rate) and a larger one as dollars per picture.
   Five pictures at $3/M: $0.0120 flat; $0.0960 for a hypothetical 8x token rate; $0.0240 for a hypothetical
   $0.0048 a picture. The readout does not charge pictures (it counts none). Of the gate's call sites only the agent's changed: the
@@ -415,3 +416,13 @@ commit builds and tests against `main` alone.
 5. Whether camera capture ("Take Photo") warrants its own button, or `accept="image/*"` is
    enough. On iOS it is enough; on some Android browsers the picker hides the camera unless
    `capture` is set. Slice 1 checks.
+
+**Live measurement, 2026-10-13 (one turn, owner-approved key spend).** Real Studio, real OpenRouter, model
+`google/gemini-2.5-flash-lite` ($0.10/M in), one 3000x2000 Library photo, the agent calling `view_asset` then
+`caption_asset`. Round 1 (no picture): 7,554 prompt tokens, $0.000758. Round 2 (one 512 px JPEG thumbnail added,
+about 250 tokens of new text): 18,927 prompt tokens, $0.001715. So the picture cost about 11,000 tokens, about
+$0.0009, against the gate's 800 tokens ($0.00008): **the gate under-prices a picture on this model about 11x**, a
+fraction of a cent a picture. Round 3 returned no usage frame, so the turn's total is not known. One model, one
+image, one run: not enough to move `THUMB_TOKENS`, which is right for Claude (about 350 tokens a 512 px picture
+in the earlier Claude run) and generous there. `pricing.image` does not explain it (it equals the prompt price),
+so the surcharge cannot close this gap. Recorded as `followups.d/2670-p3-gemini-picture-tokens-vs-thumb-tokens.md`.
