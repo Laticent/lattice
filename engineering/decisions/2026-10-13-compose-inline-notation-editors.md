@@ -1,12 +1,14 @@
 ---
-status: proposed
-summary: Give Compose point-and-click editors for the inline notation (pills, sparks, avatars) so non-technical authors never type `{SHIPPED, c2}` or `~{12 14 17, end}`. One shared popover host, one drawn chip as the door, controls generated from Segno's own slot schemas, and a write path that replaces only the words the author changed. Charts and diagrams follow as later phases on the same host.
+status: in-progress
+summary: Give Compose point-and-click editors for the inline notation (pills, sparks, avatars) so non-technical authors never type `{SHIPPED, c2}` or `~{12 14 17, end}`. One shared editor host (a popover on desktop and tablet, a sheet on the phone), one drawn chip as the door, controls generated from Segno's own slot schemas, and a write path that replaces only the words the author changed. Charts and diagrams follow as later phases on the same host.
 ---
 
 # Compose inline notation editors — point and click, never type the syntax (2026-10-13)
 
-> Status: **proposed.** The design model below is a recommendation. Section 11 lists the
-> forks the owner confirms before any code is written (design before code, CLAUDE.md).
+> Status: **decided, not yet built** (2026-10-13). The owner confirmed the four forks in §11:
+> the chip door, host plus pills in the first PR, a popover on desktop and tablet with a
+> sheet on the phone, and a word-level write path. Three match the recommendation; the
+> surface fork does not, and §5 axis D now says what was chosen.
 
 **The answer first.** Compose should draw a small, clickable chip next to every pill, spark
 and avatar. A click opens one shared editor with the controls that notation allows: shape
@@ -139,12 +141,17 @@ vocabulary match the readers use, the way `withSparkSize` does for the size word
   unit, with the quoting rule applied (`"Cost, excluding tax"`).
 
 **Axis D — where the editor opens.**
-- *One popover host for the whole document*, moved to whichever chip was clicked, the way the
-  code-fence picker already is. Forty slides must not carry forty closed popovers.
-  **Recommended.** The editor opens in a `PanelSheet`, the surface `IconGrid` already uses
-  at every width, and the sheet itself lifts above the phone keyboard. The phone keyboard
-  once hid Compose's register bar (`2026-07-18-compose-mobile-keyboard-rail.md`, whose rail
-  was later retired), so keyboard behavior is verified on a real device, not assumed.
+- *One editor host for the whole document*, moved to whichever chip was clicked, the way
+  the code-fence picker already is. Forty slides must not carry forty closed popovers.
+- **Chosen (owner, 2026-10-13): a popover anchored to the chip on desktop and tablet, and a
+  `PanelSheet` on the phone.** The popover sits next to the text it edits. The sheet is the
+  surface `IconGrid` already uses, and it lifts above the phone keyboard by itself
+  (`--kb` lift and focus rule in `ui/panel.tsx`). The phone keyboard once hid Compose's
+  register bar (`2026-07-18-compose-mobile-keyboard-rail.md`, whose rail was later
+  retired), so keyboard behavior is verified on a real device, not assumed. This costs two
+  surfaces to build and test; the recommendation had been the sheet at every width. Both
+  surfaces render one shared panel component, so the cost is the container, not the
+  controls.
 
 **Axis E — where the code lives.**
 - The writer is a pure function next to each reader in `lib/core` (and the avatar plugin),
@@ -165,7 +172,7 @@ vocabulary match the readers use, the way `withSparkSize` does for the size word
 
 Add a Compose plugin that finds every inline-code span the kernels can read and paints a
 drawn, clickable chip beside it (A1), plus an insert door on the divider bar (A4). Both open
-one lazily loaded popover host (D), which builds its controls from the notation's Segno slot
+one lazily loaded editor host (D: a popover on desktop and tablet, a sheet on the phone), which builds its controls from the notation's Segno slot
 schema (B1) and writes back by replacing only the changed words (C1), after proving
 `read(write(read(span)))` equals `read(span)`. Pills ship first. The spark editor follows,
 and shares its number field with the chart series grid in phase 3. The avatar designer
@@ -199,7 +206,7 @@ and no "green means good" label.
 | Widget decorations break the caret, selection or IME | A1 leaves the text in place and the chip outside the editable range (`stopEvent`, `ignoreSelection`, the pane bar's pattern). A2, the risky one, is deferred. |
 | The Studio's startup JavaScript grows | The panels are lazy-loaded; only the small chip painter ships in startup. Any measured growth gets a `docs/route-budget.d/` declaration (#2649 hit this gate). |
 | Drift between the editor and the engine | The editor reads the engine's own slot schemas and kernels. No second vocabulary exists to drift. |
-| A phone keyboard covers the editor | `PanelSheet` already lifts above the keyboard; verified on a real device, not emulation (HARD RULE #23). |
+| A phone keyboard covers the editor | The phone uses `PanelSheet`, which already lifts above the keyboard; verified on a real device, not emulation (HARD RULE #23). |
 | Authors lose trust after one surprise rewrite | Promise 2, the property test, and "edit as text" always present. |
 | Scope creep into charts and diagrams | They are phases 3 and 4 with their own acceptance checks, not part of the first PR. |
 
@@ -207,7 +214,7 @@ and no "green means good" label.
 
 A phase that builds with only `main` is its own PR. A phase that needs an unmerged PR waits.
 
-1. **Host, door and pill editor.** The popover host, the chip painter, the insert door, the
+1. **Host, door and pill editor.** The editor host (popover and sheet), the chip painter, the insert door, the
    pill writer, the schema-driven panel, the round-trip property test, "edit as text", the
    locked and literal rules. This is the PR that proves the architecture.
 2. **Spark editor.** Adds the number grid and the spark panel. Needs phase 1 merged.
@@ -239,22 +246,17 @@ paste into a table) are candidates for their own small PRs.
 - **Not verified in the cloud sandbox.** Real touch, the software keyboard and iOS Safari;
   Mermaid, which does not load there. Phase 1 needs a person with a phone.
 
-## 11. Open decisions for the owner
+## 11. Decided (owner, 2026-10-13)
 
-1. **The door.** Recommended: **A1**, a drawn chip beside the raw text, with A2 (replace the
-   text while the caret is elsewhere) deferred. The alternative is A2 now: a better first
-   impression, with the caret and IME risk in the first PR.
-2. **The first PR's size.** Recommended: **host plus pills only**, so the architecture is
-   reviewed on its smallest user. The alternative is pills and sparks together: fewer
-   round trips, a bigger review, and the spark's number grid arrives before the host has
-   proven itself.
-3. **What the editor opens in.** Recommended: a **`PanelSheet` at every width**, like
-   `IconGrid`: one surface to build and test, and it already handles the phone keyboard.
-   The alternative is a popover anchored to the chip on desktop and tablet with a sheet on
-   the phone: it sits closer to the text and costs a second surface.
-4. **The write path.** Recommended: **C1**, replace only the changed words. The alternative,
-   C2, re-prints the whole span: simpler to build, and it rewrites alias spellings and word
-   order, which breaks "nothing is lost".
+| # | Fork | Decision | Against the recommendation |
+|---|---|---|---|
+| 1 | The door | **A1**, a drawn chip beside the raw text. Replacing the text with the drawing (A2) is deferred until A1 proves out. | matches |
+| 2 | The first PR's size | **Host plus pills only.** Sparks are the next PR. | matches |
+| 3 | What the editor opens in | **A popover anchored to the chip on desktop and tablet, a `PanelSheet` on the phone.** | differs: the recommendation was the sheet at every width |
+| 4 | The write path | **C1**, replace only the changed words. | matches |
+
+Nothing is left open for phase 1. Phases 3 to 5 each get their own note before they are
+built (§9).
 
 ## 12. References
 
