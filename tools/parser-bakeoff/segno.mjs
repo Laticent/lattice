@@ -100,7 +100,7 @@ function translatePill(s) {
  * (kernel, the arm's copy, the shipped path) used to be timed one after another, seconds apart,
  * so a slow stretch of the machine landed on one column and not the others: the kernel's own
  * figure for the same 4,766 spans read 27 and 32 ns across runs of unchanged code, and the
- * every-span ratio read 1.0x to 1.44x. Round-robin means every column sees the same stretches,
+ * every-span ratio read 1.2x to 1.7x. Round-robin means every column sees the same stretches,
  * and a ratio of fastest rounds compares like with like.
  *
  * Each column also gets a timer function of its own (`new Function`). One shared timer has ONE

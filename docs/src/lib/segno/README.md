@@ -172,7 +172,7 @@ block pass. Those take code on top.
 
 **Two outputs.** `compile` builds a parser from closures, for a grammar that arrives at runtime.
 `generate(spec)` writes the same parser as TypeScript source — straight-line code, character tests
-inlined, the tree in one reused integer buffer (`flat.ts`) — for a grammar that ships. The inline
+inlined, the tree in one reused integer buffer (`flat.ts`), returned in one reused result object — for a grammar that ships. The inline
 notation ships generated (`notation.generated.ts`), and a test holds the two to identical output on
 20,000 fuzzed spans.
 
@@ -311,9 +311,9 @@ it sits under the design note's 1.5x bar with room. The bakeoff times the three 
 alternately, round by round, and keeps each column's fastest round. Timed one column after another,
 as it used to be, a slow stretch of the sandbox landed on one column: the kernel's own figure for the
 same 4,766 spans read 27 and 32 ns across runs of unchanged code, and the every-span ratio read
-anywhere from 1.0x to 1.65x. A different timer function per column (so each call site sees one
+anywhere from 1.2x to 1.7x. A different timer function per column (so each call site sees one
 target) moved the ratio by about 0.05, inside that noise, and is kept only because it costs nothing.
-The 35 pills (and 18 other directives) of 4,742 spans are about 0.13 of the ratio: halving a pill's
+The 35 pills (and 18 other directives) of 4,766 spans are about 0.13 of the ratio: halving a pill's
 cost would move it by less than the run-to-run spread. They are still the slowest thing per span,
 and the design note accepts pills above the bar (§ The engine). A pill's grammar stage went from
 about 270 ns to about 225 ns (`parse()` no longer allocates a result and a tree object per call, and

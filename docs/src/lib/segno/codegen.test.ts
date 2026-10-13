@@ -186,3 +186,23 @@ describe('generate(), from the adversarial review', () => {
     for (const s of ['XYayx', 'XYaayYayx', 'Xx', 'XYyx', 'XYax']) expect(load(spec)(s), s).toEqual(compile(spec).parse(s));
   });
 });
+
+describe('the result a generated parse() returns', () => {
+  it('is one shared object whose tree points at the current buffer', () => {
+    const a = generatedFlat('{a}');
+    const b = generatedFlat('{b, c}');
+    expect(a).toBe(b); // documented: read buf and top before parsing again
+    if (b.ok) expect(b.tree.top).toBeGreaterThan(0);
+  });
+
+  it('does not keep a huge buffer alive after it is let go', () => {
+    // The generated parse() lets a buffer past 64K entries go at the start of the next parse. The
+    // shared result must follow, or a failing parse (which never assigns it) leaves 30+ MB
+    // reachable: the 3M-character flowchart row of the phase 3b red team.
+    const shared = generatedFlat('{a}');
+    expect(generatedFlat(`[${'a,'.repeat(300000)}a]`).ok).toBe(true);
+    expect(shared.ok && shared.tree.buf.length).toBeGreaterThan(65536);
+    expect(generatedFlat('{').ok).toBe(false);
+    expect(shared.ok && shared.tree.buf.length).toBe(256);
+  });
+});

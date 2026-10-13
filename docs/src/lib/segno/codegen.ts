@@ -384,7 +384,8 @@ const RULES: Record<string, () => boolean> = { ${Object.keys(spec.rules).map((r)
 
 // The result of a parse that succeeds. One object, reused: its tree is already valid only until the
 // next parse (the buffer is shared), so a caller holding it across parses was never safe, and
-// allocating a result and a tree object per span was measurable (~15% of a pill's parse).
+// allocating a result and a tree object per span was measurable (~15% of a pill's parse). A caller
+// must not keep, compare or mutate a result across parses.
 const OK: { ok: true; tree: GenTree } = { ok: true, tree: { buf, top: 0, kinds: KINDS } };
 
 /**
@@ -407,7 +408,7 @@ export function parse(input: string, rule = ${q(spec.start)}): { ok: true; tree:
   top = 0;
   // A tree that outgrew the first buffer is let go here rather than kept for the page's life: one
   // hostile 3M-character flowchart row held 67 MB through every later parse (phase 3b's red team).
-  if (buf.length > 65536) buf = new Int32Array(256);
+  if (buf.length > 65536) { buf = new Int32Array(256); OK.tree.buf = buf; } // the shared result must not keep the big one alive
   ${maxDepth > MAX_DEPTH ? `let ok: boolean;
   try {
     ok = start();
