@@ -300,24 +300,29 @@ a cloud sandbox, so the absolute figures are about half what a laptop gives:
 
 | job | kernel (retired) | arm's dispatcher | shipped | shipped/kernel |
 |---|---|---|---|---|
-| inline dispatch, every span both read alike | 27 ns | 52 ns | 38 ns | 1.4x |
-| &nbsp;&nbsp;ordinary code (code to both) | 28 ns | 49 ns | 43 ns | 1.6x |
-| &nbsp;&nbsp;state marks `[x]` | 49 ns | 29 ns | 86 ns | 1.8x |
-| &nbsp;&nbsp;pills `{BETA, tag, c4}` | 182 ns | 536 ns | 503 ns | 2.8x |
-| Segno syntax the kernel reads as code (482 spans) | — | 1.68 µs | 2.36 µs | — |
+| inline dispatch, every span both read alike | 26 ns | 50 ns | 32 ns | 1.2x |
+| &nbsp;&nbsp;ordinary code (code to both) | 23 ns | 42 ns | 27 ns | 1.2x |
+| &nbsp;&nbsp;state marks `[x]` | 42 ns | 22 ns | 71 ns | 1.7x |
+| &nbsp;&nbsp;pills `{BETA, tag, c4}` | 166 ns | 496 ns | 482 ns | 2.9x |
+| Segno syntax the kernel reads as code (482 spans) | — | 987 ns | 2.10 µs | — |
 
-This is the middle of three runs. The same code reads differently from run to run in this sandbox,
-and the ordinary-code row shows it: it is 99% of spans and unchanged code, and it read 1.0x, 1.6x
-and 1.4x the kernel across those three runs (31, 43 and 33 ns shipped against 31, 28 and 23 ns).
-The every-span ratio read 1.65x, 1.37x and 1.29x; before the pill work it read 1.34x, 1.71x and
-1.41x. So it sits on the 1.5x line and the noise decides which side a run lands on. What the pill
-work moved is the part that is not noise. The 35 pills (and 18 other directives) of 4,742 spans
-cost the shipped path 933, 678 and 702 ns each before and 563, 503 and 521 ns after, which is
-5.1x, 3.5x and 3.8x the kernel and then 3.0x, 2.8x and 2.7x. Closing the rest is a faster Segno
-parse (about 290 ns of the 503) rather than a faster dispatcher; the design note accepts pills
-above the bar (§ The engine). Before the first-character table the same run read 174 ns for every
-span and 149 ns for ordinary code (5.2x the kernel), because every kind ran its own check on every
-span.
+This is the middle of five runs. The every-span ratio read 1.21x, 1.22x, 1.21x, 1.18x and 1.37x, so
+it sits under the design note's 1.5x bar with room. The bakeoff times the three columns of a row
+alternately, round by round, and keeps each column's fastest round. Timed one column after another,
+as it used to be, a slow stretch of the sandbox landed on one column: the kernel's own figure for the
+same 4,766 spans read 27 and 32 ns across runs of unchanged code, and the every-span ratio read
+anywhere from 1.0x to 1.65x. A different timer function per column (so each call site sees one
+target) moved the ratio by about 0.05, inside that noise, and is kept only because it costs nothing.
+The 35 pills (and 18 other directives) of 4,742 spans are about 0.13 of the ratio: halving a pill's
+cost would move it by less than the run-to-run spread. They are still the slowest thing per span,
+and the design note accepts pills above the bar (§ The engine). A pill's grammar stage went from
+about 270 ns to about 225 ns (`parse()` no longer allocates a result and a tree object per call, and
+skips the rule-table lookup for the default rule), and the shipped decision from about 500 ns to
+about 480 ns. The grammar's own time also depends on what V8 has already seen: a pill's parse reads
+166 ns in a fresh process and 230 to 370 ns after the process has parsed the shipped decks' other
+spans, because the generated rule functions are re-optimized with the wider type feedback.
+Before the first-character table the same run read 174 ns for every span and 149 ns for ordinary
+code (5.2x the kernel), because every kind ran its own check on every span.
 
 What moved it:
 

@@ -94,25 +94,44 @@ function translatePill(s) {
 }
 
 /**
- * Best of several rounds, each long enough to be JIT-warm. This sandbox's timing moves by up
- * to 2x from run to run, and a single median of short rounds reported a 2.6x gap one run and
- * 1.3x the next for the same code. The minimum over long rounds is the stable figure: noise
- * only ever ADDS time, so the fastest round is the closest to the code's real cost.
+ * Best of several rounds, each long enough to be JIT-warm, and the columns of a row timed
+ * ALTERNATELY. This sandbox's timing moves by up to 2x from run to run, and noise only ever ADDS
+ * time, so the fastest round is the closest to the code's real cost. But the columns of one row
+ * (kernel, the arm's copy, the shipped path) used to be timed one after another, seconds apart,
+ * so a slow stretch of the machine landed on one column and not the others: the kernel's own
+ * figure for the same 4,766 spans read 27 and 32 ns across runs of unchanged code, and the
+ * every-span ratio read 1.0x to 1.44x. Round-robin means every column sees the same stretches,
+ * and a ratio of fastest rounds compares like with like.
+ *
+ * Each column also gets a timer function of its own (`new Function`). One shared timer has ONE
+ * `fn(s)` call site, and V8 keeps type feedback per function: after the first column it has seen
+ * every dispatcher, so later columns would be timed through a megamorphic call.
  */
-function time(fn, inputs, target = 2e6) {
-  const reps = Math.max(1, Math.round(target / inputs.length));
-  for (let r = 0; r < reps; r++) for (const s of inputs) fn(s); // warm
-  let best = Infinity;
-  for (let round = 0; round < 7; round++) {
-    const t = process.hrtime.bigint();
-    for (let r = 0; r < reps; r++) for (const s of inputs) fn(s);
-    best = Math.min(best, Number(process.hrtime.bigint() - t) / (reps * inputs.length));
-  }
-  return best;
+const TIMER = `(fn, inputs, reps) => {
+  const t = process.hrtime.bigint();
+  for (let r = 0; r < reps; r++) for (const s of inputs) fn(s);
+  return Number(process.hrtime.bigint() - t) / (reps * inputs.length);
+}`;
+let timers = 0;
+/** columns: [[fn, inputs], …] → the fastest per-span time of each, in ns. A column may be null. */
+function timeSet(columns, target = 2e6) {
+  const live = columns.map((c) => (c === null ? null : {
+    fn: c[0], inputs: c[1], reps: Math.max(1, Math.round(target / c[1].length)),
+    run: new Function(`return ${TIMER} // timer ${timers++}`)(), best: Infinity,
+  }));
+  for (const c of live) if (c) c.run(c.fn, c.inputs, c.reps); // warm
+  for (let round = 0; round < 7; round++) for (const c of live) if (c) c.best = Math.min(c.best, c.run(c.fn, c.inputs, c.reps));
+  return live.map((c) => (c === null ? NaN : c.best));
 }
+const time = (fn, inputs) => timeSet([[fn, inputs]])[0];
 
 const rows = [];
 const row = (job, n, kernel, segno, live = NaN) => rows.push({ job, n, kernel, segno, shipped: live });
+/** One row timed in all three columns, alternately: kernel on `k` (today's spelling), the arm's copy and the shipped path on `s` (Segno's). */
+const trio = (job, n, k, s) => {
+  const [kernel, segno, live] = timeSet([[reference.inline, k], [segnoInline, s], [shippedInline, s]]);
+  row(job, n, kernel, segno, live);
+};
 {
   const { real } = inputsFor('inline');
   const segnoInputs = real.map(translatePill);
@@ -132,21 +151,22 @@ const row = (job, n, kernel, segno, live = NaN) => rows.push({ job, n, kernel, s
   const sameJob = both.filter(([s, b]) => !(reference.inline(s) === null && segnoInline(b) !== null));
   const marks = accepted.filter(([a]) => SHORTCUTS.has(a));
   const pills = accepted.filter(([a]) => a.startsWith('{'));
-  row('inline dispatch, every span both read alike', sameJob.length, time(reference.inline, sameJob.map(([a]) => a)), time(segnoInline, sameJob.map(([, b]) => b)), time(shippedInline, sameJob.map(([, b]) => b)));
-  row('  ordinary code (code to both)', ordinary.length, time(reference.inline, ordinary.map(([a]) => a)), time(segnoInline, ordinary.map(([, b]) => b)), time(shippedInline, ordinary.map(([, b]) => b)));
-  row(`  directives (${agree}/${accepted.length} agree)`, accepted.length, time(reference.inline, accepted.map(([a]) => a)), time(segnoInline, accepted.map(([, b]) => b)), time(shippedInline, accepted.map(([, b]) => b)));
-  row('  state marks [x]', marks.length, time(reference.inline, marks.map(([a]) => a)), time(segnoInline, marks.map(([, b]) => b)), time(shippedInline, marks.map(([, b]) => b)));
-  row('  pills {BETA, tag, c4}', pills.length, time(reference.inline, pills.map(([a]) => a)), time(segnoInline, pills.map(([, b]) => b)), time(shippedInline, pills.map(([, b]) => b)));
+  const as = (rows2) => [rows2.map(([a]) => a), rows2.map(([, b]) => b)];
+  trio('inline dispatch, every span both read alike', sameJob.length, ...as(sameJob));
+  trio('  ordinary code (code to both)', ordinary.length, ...as(ordinary));
+  trio(`  directives (${agree}/${accepted.length} agree)`, accepted.length, ...as(accepted));
+  trio('  state marks [x]', marks.length, ...as(marks));
+  trio('  pills {BETA, tag, c4}', pills.length, ...as(pills));
   const p = pills.map(([, b]) => b);
   row('    stage: grammar (flat tree)', p.length, NaN, time((s) => parseFlat(s), p));
   row('    stage: + tree to values', p.length, NaN, time((s) => parseTree(s), p));
-  row('  Segno syntax the kernel reads as code', segnoOnly.length, NaN, time(segnoInline, segnoOnly.map(([, b]) => b)), time(shippedInline, segnoOnly.map(([, b]) => b)));
+  { const sIn = segnoOnly.map(([, b]) => b); const [seg, live] = timeSet([[segnoInline, sIn], [shippedInline, sIn]]); row('  Segno syntax the kernel reads as code', segnoOnly.length, NaN, seg, live); }
 }
 {
   const lists = inputsFor('axis').real.filter((s) => s.trim().startsWith('['));
   const axes = lists.filter((s) => axis.read(s).ok);
-  row('bracket lists, same job: split into parts', lists.length, time(reference.axis, lists), time((s) => parseTree(s), lists));
-  row('quadrant axes, axis job: typed numbers, ranges', axes.length, time(reference.axis, axes), time((s) => axis.read(s), axes));
+  { const [k, g] = timeSet([[reference.axis, lists], [(s) => parseTree(s), lists]]); row('bracket lists, same job: split into parts', lists.length, k, g); }
+  { const [k, g] = timeSet([[reference.axis, axes], [(s) => axis.read(s), axes]]); row('quadrant axes, axis job: typed numbers, ranges', axes.length, k, g); }
   row('    stage: grammar (flat tree)', axes.length, NaN, time((s) => parseFlat(s), axes));
   row('    stage: + tree to values', axes.length, NaN, time((s) => parseTree(s), axes));
   const failing = lists.filter((s) => !axis.read(s).ok);
