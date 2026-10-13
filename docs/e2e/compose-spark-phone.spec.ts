@@ -58,3 +58,40 @@ for (const mode of ['light', 'dark'] as const) {
 		await expect(sheet).toHaveCount(0);
 	});
 }
+
+test('the active slide\'s bar stays fully on screen while a long slide scrolls under it, at 390px', async ({ page }) => {
+	const lines = Array.from({ length: 40 }, (_, i) => `Line ${i + 1} of a long slide that scrolls.`).join('\n\n');
+	const long = ['<!-- _class: content -->', '', '## Long slide', '', lines, '', '---', '', '<!-- _class: content -->', '', '## Next', '', 'Short.'].join('\n');
+	await gotoStudio(page);
+	await setEditorContent(page, long);
+	await page.getByRole('button', { name: COMPOSE, exact: true }).first().click();
+	await page.locator('.cs-host .ProseMirror').waitFor();
+	await page.locator('.cs-slide').first().waitFor();
+	await page.setViewportSize({ width: 390, height: 844 });
+	await page.getByRole('button', { name: COMPOSE, exact: true }).first().tap();
+	const active = page.locator('.cs-slide-active');
+	await page.locator('.cs-slide').first().locator('.cs-slide-content p').nth(20).click({ position: { x: 3, y: 8 } });
+	await expect(active).toHaveCount(1);
+	const pill = active.locator('.cs-sb-pill').first();
+	const fullyOnScreen = async () =>
+		page.evaluate(() => {
+			const host = document.querySelector('.cs-host') as HTMLElement;
+			const pill = document.querySelector('.cs-slide-active .cs-sb-pill') as HTMLElement;
+			const h = host.getBoundingClientRect();
+			const p = pill.getBoundingClientRect();
+			return { top: p.top - h.top, bottom: h.bottom - p.bottom, scrolled: host.scrollTop };
+		});
+	// Scroll the pane so the slide's own top is well above the viewport, as the keyboard's caret scroll does.
+	await page.evaluate(() => {
+		const host = document.querySelector('.cs-host') as HTMLElement;
+		host.scrollTop = host.scrollTop + 600;
+	});
+	await expect(pill).toBeVisible();
+	const m = await fullyOnScreen();
+	expect(m.scrolled).toBeGreaterThan(300);
+	expect(m.top, 'the pill is below the pane\'s top edge').toBeGreaterThanOrEqual(0);
+	expect(m.bottom, 'and above its bottom edge').toBeGreaterThanOrEqual(0);
+	// Its buttons are tappable where they are.
+	await active.getByRole('button', { name: 'Insert spark' }).tap();
+	await expect(page.locator('[data-slot="popover-content"], [role="dialog"]').first()).toBeVisible();
+});

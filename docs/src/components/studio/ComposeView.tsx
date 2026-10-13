@@ -2632,6 +2632,11 @@ function ComposeStyles() {
 			@media (max-width:640px){
 				.cs-host .cs-pane-change,.cs-host .cs-pane-add-title{min-height:32px}
 				.cs-slide-bar{margin-left:0;margin-right:0;padding:0 4px}
+				/* The ACTIVE slide's bar stays on screen while its slide scrolls under it. A phone's keyboard scrolls the
+				   pane to keep the caret in view, which left the bar half above the top edge, its buttons clipped and
+				   hard to hit (reported from a real iPhone). Opaque, so text never shows through the hairline; the
+				   containing block is the slide, so the bar leaves with its slide and the next slide's bar takes over. */
+				.cs-slide-active > .cs-slide-bar{position:sticky;top:0;z-index:20;margin-top:0;padding-top:12px;padding-bottom:6px;background:var(--bg,#fff)}
 				.cs-sb-line{height:28px}
 				.cs-sc-cap{width:28px;height:28px}
 				.cs-sc-cap svg{width:15px;height:15px}
