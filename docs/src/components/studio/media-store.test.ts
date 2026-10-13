@@ -377,6 +377,7 @@ describe('cleanLine keeps what changes meaning', () => {
 
 	it('keeps every real subdivision flag (England, Scotland, Wales) and nothing a flag cannot spell', () => {
 		const tag = (word: string) => [...word].map((c) => String.fromCodePoint(0xe0000 + c.charCodeAt(0))).join('');
+		expect(cleanLine('Anarchy \u{1F3F4}', 140)).toBe('Anarchy \u{1F3F4}'); // a plain black flag is a character, not a half flag
 		const flag = (word: string) => `\u{1F3F4}${tag(word)}\u{E007F}`;
 		for (const w of ['gbeng', 'gbsct', 'gbwls']) expect(cleanLine(flag(w), 140)).toBe(flag(w));
 		// A "flag" whose tags spell anything else, even a plausible subdivision code, is hidden text.

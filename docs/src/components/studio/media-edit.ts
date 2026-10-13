@@ -50,7 +50,7 @@ export const cleanLine = (v: string, max: number): string => {
 	return Array.from(t)
 		.slice(0, max)
 		.join('')
-		.replace(/\u{1F3F4}[\u{E0030}-\u{E007E}]*$/u, '')
+		.replace(/\u{1F3F4}[\u{E0030}-\u{E007E}]+$/u, '')
 		.replace(/[\u200C\u200D]+$/u, '')
 		.trim();
 };

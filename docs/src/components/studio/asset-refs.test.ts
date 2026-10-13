@@ -12,8 +12,10 @@ const R = (s: string) => renameAssetRefsOutsideCode(s, 'hero', 'cover');
 const md = new MarkdownIt('commonmark', { html: true }).enable(['table', 'strikethrough']);
 /** Every reference the renderer RESOLVES: an image source, a link target, a CSS url() inside a tag. */
 const imageSources = (s: string) => [...md.render(s).matchAll(/(?:\s(?:src|href)="|url\()(asset:[^")]*)/g)].map((m) => m[1]);
-/** `asset:hero` as TEXT the reader sees (a code sample, a pre block, a sentence): the rendered page with every tag removed. */
-const sampleCount = (s: string) => (md.render(s).replace(/<[^>]*>/g, '').match(/asset:hero/g) ?? []).length;
+/** `asset:hero` inside CODE the reader sees (a code span, a fence, a pre/script/style block): the one place it must stay as written.
+ *  A bare mention in a sentence is not code: it follows the rename. */
+const sampleCount = (s: string) =>
+	[...md.render(s).matchAll(/<(code|pre|script|style|textarea)\b[^>]*>([\s\S]*?)<\/\1>/gi)].reduce((n, m) => n + (m[2].replace(/<[^>]*>/g, '').match(/asset:hero/g) ?? []).length, 0);
 
 function agrees(source: string) {
 	const out = R(source);
@@ -64,9 +66,16 @@ const SHAPES: Record<string, string> = {
 	'inline code, double backticks and a reference': 'Write `asset:hero` or ``a `asset:hero` b`` then ![](asset:hero)\n',
 	'an escaped backtick opens nothing': 'a \\` b ![](asset:hero) c ` d `asset:hero` e\n',
 	'an unmatched backtick is text': 'a ` b ![](asset:hero)\n',
-	'a bare mention in prose is a mention, not a picture': 'Write asset:hero to use it.\n\n![](asset:hero)\n',
+	'a bare mention in prose follows the rename': 'Write asset:hero to use it.\n\n![](asset:hero)\n',
 	'a bare mention in a list item and a heading': '# About asset:hero\n\n- say asset:hero here\n- ![](asset:hero)\n',
+	// references the engine draws that are not an image destination
+	'a video poster bullet': '<!-- _class: video -->\n\n- asset:hero `poster`\n\n![](asset:hero)\n',
+	'a per-slide background directive': '<!-- _backgroundImage: url(asset:hero) -->\n\n![](asset:hero)\n',
+	'an inline img tag in a paragraph': 'Text <img src="asset:hero"> more\n',
+	'a definition destination on the next line': '![r][r]\n\n[r]:\n  asset:hero\n',
+	'a destination on the line after the bracket': '![](\nasset:hero)\n',
 	'a link destination': '[download](asset:hero) and ![](asset:hero)\n',
+	'a link title and an escaped bracket': '[x](http://e.com "](asset:hero") x \\](asset:hero) ![](asset:hero)\n',
 	'a css url in a tag': '<div style="background:url(asset:hero)"></div>\n\n![](asset:hero)\n',
 };
 
@@ -97,6 +106,10 @@ describe('what is not an image', () => {
 	it('does not touch a name that is not a valid reference', () => {
 		expect(R('![](asset:hero.jpg)')).toBe('![](asset:hero.jpg)');
 		expect(R('Sentence ends with ![](asset:hero).')).toBe('Sentence ends with ![](asset:cover).');
+	});
+
+	it('rewrites an img tag spread over several lines, which the engine resolves', () => {
+		expect(R('<img\n  alt="x"\n  src="asset:hero"\n>\n')).toBe('<img\n  alt="x"\n  src="asset:cover"\n>\n');
 	});
 
 	it('returns a source with no asset reference unchanged', () => {

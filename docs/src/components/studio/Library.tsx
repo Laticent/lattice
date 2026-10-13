@@ -540,10 +540,15 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	// The reader of deck markdown (asset-refs.ts) carries the markdown parser, so it loads only when a photo with old names is
 	// opened, never with the Library itself. Until it arrives the dialog says it is checking, not that no deck uses the name.
 	const [refsModule, setRefsModule] = React.useState<typeof import('./asset-refs') | null>(null);
+	// The lazy load can fail (offline, a stale chunk). Then the dialog says so and offers no removal, rather than "checking" forever.
+	const [refsFailed, setRefsFailed] = React.useState(false);
+	// A failed load is retried the next time a photo is opened.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: detailId is the trigger, not a value read
+	React.useEffect(() => setRefsFailed(false), [detailId]);
 	const needsRefs = !!detail && (detail.aliases?.length ?? 0) > 0;
 	React.useEffect(() => {
-		if (needsRefs && !refsModule) void import('./asset-refs').then(setRefsModule, () => setRefsModule(null));
-	}, [needsRefs, refsModule]);
+		if (needsRefs && !refsModule && !refsFailed) void import('./asset-refs').then(setRefsModule, () => setRefsFailed(true));
+	}, [needsRefs, refsModule, refsFailed]);
 	const detailAliasUse = React.useMemo(() => {
 		if (!detail || !refsModule) return null;
 		const sources = liveSource === undefined ? otherSources : [...otherSources, liveSource];
@@ -1176,6 +1181,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 				onOpenChange={(o) => { if (!o) setDetailId(null); }}
 				usedIn={detail ? mediaUse[detail.name] || 0 : 0}
 				aliasUse={detailAliasUse}
+				aliasUseFailed={refsFailed}
 				onSave={(c) => changeMedia(() => updateMediaDetails(detail?.id as string, c))}
 				onRemoveAlias={(al) => changeMedia(() => removeMediaAlias(detail?.id as string, al))}
 				onUseNewName={(al) => adoptNewName(detail as MediaRecord, al)}

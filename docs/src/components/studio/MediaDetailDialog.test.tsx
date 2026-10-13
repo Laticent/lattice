@@ -29,6 +29,14 @@ describe('the old names list', () => {
 		rerender(<Host m={m} aliasUse={{ old: 0 }} />);
 		expect(screen.getByText('not used in a deck')).toBeTruthy();
 	});
+
+	it('says so when the deck reader failed to load, and keeps removal off while the use is unknown', () => {
+		const m = rec('a', { aliases: ['old'] });
+		render(<MediaDetailDialog m={m} open onOpenChange={() => {}} usedIn={0} aliasUse={null} aliasUseFailed onSave={async () => null} onRemoveAlias={async () => null} onUseNewName={async () => null} onSuggest={async () => ({ note: 'n' })} />);
+		expect(screen.getByText(/could not check decks/)).toBeTruthy();
+		expect(screen.queryByText('checking decks…')).toBeNull();
+		expect((screen.getByLabelText('Remove the alias old') as HTMLButtonElement).disabled).toBe(true);
+	});
 });
 
 describe('what Save sends', () => {

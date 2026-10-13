@@ -10,14 +10,16 @@
 // a setext heading, a fence in a list item). Now the block structure comes from `parse()`, and the only rule written here is how
 // backticks pair inside ONE paragraph, which CommonMark defines as a run of N backticks closing at the next run of exactly N.
 //
-// A reference is something the renderer RESOLVES, so it is rewritten when it is
-//   - a value in the front matter (`logo: asset:hero`);
-//   - the destination of an image or link in a paragraph, heading, list item, quote or table cell, outside an inline code span
-//     (`![](asset:hero)`, `[r]: asset:hero`);
-//   - an attribute value inside an HTML tag (`<img src="asset:hero">`), which the engine resolves like any image.
-// It is left alone as bare text (a sentence that mentions `asset:hero` is a mention, not a picture), in a fenced or indented code
-// block, in the text of a raw HTML block (a `<pre>`, a `<script>`), and in an inline code span. If the references in a paragraph cannot be matched one-to-one with the parser's text for it, that paragraph is left
-// alone: a reference wrongly left alone keeps working through the photo's old name, one wrongly rewritten changes a code sample.
+// WHAT IS A REFERENCE. The engine resolves `asset:` in more places than an image destination: a component can take a bare
+// `asset:name` (a video's poster bullet), a directive can carry `url(asset:name)` in an HTML comment, and an inline or multi-line
+// `<img src="asset:name">` is resolved like any image. So the rule is "anything the parser does not say is code": every `asset:name`
+// is rewritten EXCEPT in
+//   - a fenced or indented code block;
+//   - the lines of a raw-text HTML block (`<pre>`, `<script>`, `<style>`, `<textarea>`), which are text, not markup;
+//   - an inline code span.
+// A sentence that merely mentions a photo name is rewritten too: it follows the rename, which is harmless, where a reference wrongly
+// left alone would show a placeholder once the old name is removed. If the references in a paragraph cannot be matched one-to-one with
+// the parser's text for it, that paragraph is left alone.
 
 import MarkdownIt from 'markdown-it';
 
@@ -32,19 +34,8 @@ const FRONT_MATTER = /^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/;
 /** A whole name only: not `asset:hero-2`, and not `asset:hero.jpg`, which the grammar does not accept as a reference
  *  (lib/core/remote-ref.js `assetName`) and a deck that wrote it shows the stand-in either way. */
 const refPattern = () => /\basset:([A-Za-z0-9][A-Za-z0-9_-]*)(?![A-Za-z0-9_-]|\.[A-Za-z0-9])/gi;
-/** An HTML start tag on one line. Only inside one is an `asset:` an attribute value; `var a = "asset:hero"` in a `<script>` is text. */
-const HTML_TAG = /<[A-Za-z][^<>]*>/g;
-/** The value of an attribute (`src="asset:x"`) or a CSS `url(asset:x)` inside a tag. */
-const attrRefPattern = () => /((?:=\s*["'])|(?:url\(\s*["']?))asset:([A-Za-z0-9][A-Za-z0-9_-]*)(?![A-Za-z0-9_-]|\.[A-Za-z0-9])/gi;
-
-/** Is the reference at `at` the destination of an image or link, or of a link reference definition? That is `](asset:…`, `]( asset:…`,
- *  `](<asset:…`, or `]: asset:…`. Anywhere else in running text it is a mention. */
-function isDestination(text: string, at: number): boolean {
-	let j = at - 1;
-	if (text[j] === '<') j--;
-	while (j >= 0 && (text[j] === ' ' || text[j] === '\t')) j--;
-	return (text[j] === '(' || text[j] === ':') && text[j - 1] === ']';
-}
+/** A raw-text HTML block (CommonMark type 1): its lines are text up to the closing tag, never markup. */
+const RAW_TEXT_BLOCK = /^\s{0,3}<(?:pre|script|style|textarea)(?:[\s>]|$)/i;
 
 /** The ranges `[start, end)` of the inline code spans in one paragraph's text: a run of N backticks closes at the next run of exactly
  *  N, and an unmatched run is plain text. A backslash before an OPENING backtick makes it a literal backtick (a closer needs no such
@@ -100,13 +91,13 @@ export function renameAssetRefsOutsideCode(source: string, from: string, to: str
 	const tokens = markdown().parse(body, {});
 
 	// What each line is, as the parser sees it. Default `prose`: a line no block claimed (a link reference definition) is a reference.
-	const kind: ('prose' | 'code' | 'html' | 'group')[] = lines.map(() => 'prose');
+	const kind: ('prose' | 'code' | 'group')[] = lines.map(() => 'prose');
 	const groups = new Map<string, Group>();
 	for (const t of tokens) {
 		if (!t.map) continue;
 		const [a, b] = t.map;
 		if (t.type === 'fence' || t.type === 'code_block') for (let l = a; l < b; l++) kind[l] = 'code';
-		else if (t.type === 'html_block') for (let l = a; l < b; l++) kind[l] = 'html';
+		else if (t.type === 'html_block') for (let l = a; l < b; l++) kind[l] = RAW_TEXT_BLOCK.test(t.content) ? 'code' : 'prose';
 		else if (t.type === 'inline') {
 			// A table row is several inline tokens (one per cell) over the same lines, so they share one group, in order.
 			const key = `${a}:${b}`;
@@ -114,7 +105,7 @@ export function renameAssetRefsOutsideCode(source: string, from: string, to: str
 			const spans = codeSpanRanges(t.content);
 			for (const m of t.content.matchAll(refPattern())) {
 				const at = m.index ?? 0;
-				group.flags.push(isDestination(t.content, at) && !spans.some(([s, e]) => at >= s && at < e));
+				group.flags.push(!spans.some(([s, e]) => at >= s && at < e));
 			}
 			groups.set(key, group);
 			for (let l = a; l < b; l++) kind[l] = 'group';
@@ -128,12 +119,8 @@ export function renameAssetRefsOutsideCode(source: string, from: string, to: str
 	for (let l = 0; l < lines.length; l++) {
 		const line = lines[l];
 		if (kind[l] === 'prose') {
-			// A line no block claimed (a link reference definition): only a destination is a reference.
-			out.push(line.replace(refPattern(), (whole, name: string, at: number) => (isDestination(line, at) ? swap(whole, name) : whole)));
-		} else if (kind[l] === 'html') {
-			// The text of a raw HTML block is not markdown, so a `<pre>` or `<script>` sample stays; an attribute value inside a
-			// tag is a real reference.
-			out.push(line.replace(HTML_TAG, (tag) => tag.replace(attrRefPattern(), (whole, pre: string, name: string) => (name.toLowerCase() === want ? `${pre}asset:${to}` : whole))));
+			// A line the parser gave to no code: a reference wherever it stands (a directive comment, a tag, a definition).
+			out.push(line.replace(refPattern(), swap));
 		} else if (kind[l] === 'group') {
 			const g = byFirstLine.get(l);
 			if (!g) continue; // a later line of a group already emitted
@@ -145,7 +132,7 @@ export function renameAssetRefsOutsideCode(source: string, from: string, to: str
 				continue;
 			}
 			let n = 0;
-			const rewritten = text.replace(refPattern(), (whole, name: string, at: number) => (g.flags[n++] && isDestination(text, at) ? swap(whole, name) : whole));
+			const rewritten = text.replace(refPattern(), (whole, name: string) => (g.flags[n++] ? swap(whole, name) : whole));
 			for (const piece of rewritten.split('\n')) out.push(piece);
 		} else {
 			out.push(line);

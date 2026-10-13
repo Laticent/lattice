@@ -383,10 +383,11 @@ and three independent reviews kept finding one more shape it read differently fr
 fence in a list item, a `<pre>` with blank lines). Now `parse()` from the engine's own `markdown-it` (the `commonmark` preset, HTML on,
 tables and strikethrough, as in `lib/engine/index.js`) says where fenced and indented code, raw HTML blocks and paragraphs are, by their
 line ranges. The only rule written here is how backticks pair inside one paragraph (a run of N closes at the next run of exactly N;
-a backslash before an opener makes it text). A reference is something the renderer resolves, so what is rewritten is: a front-matter
-value, the destination of an image or link (`![](asset:x)`, `[r]: asset:x`) outside an inline code span, and an attribute value inside
-an HTML tag (`<img src="asset:x">`, a CSS `url()`). Bare text, a code sample, the text of a `<pre>` or `<script>`, and `asset:hero.jpg`
-(not a valid reference) stay as written. If the references in a paragraph cannot be matched one-to-one with the parser's text for it,
+a backslash before an opener makes it text). The engine resolves `asset:` in more places than an image destination (a video's
+poster bullet, a `url(asset:x)` in a directive comment, an `<img>` tag inline or spread over lines), and a checker round showed that
+a destination-only rule missed all four. So the rule is "everything the parser does not say is code": every `asset:x` is rewritten
+except in fenced or indented code, a `<pre>`/`<script>`/`<style>`/`<textarea>` block, or an inline code span. A sentence that only
+mentions a photo name follows the rename too, which is harmless; `asset:hero.jpg` (not a valid reference) stays as written. If the references in a paragraph cannot be matched one-to-one with the parser's text for it,
 that paragraph is left alone: a reference wrongly left alone keeps working through the old name, while one wrongly rewritten changes
 a code sample.
 
