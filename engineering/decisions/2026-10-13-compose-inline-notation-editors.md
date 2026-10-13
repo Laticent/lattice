@@ -25,17 +25,21 @@ inline visuals (sparks, avatars, pills) have no custom editor. The ask is to fin
 friction can come out and what editor widgets to use.
 
 The Compose audit behind #2649 measured the gap on the real Studio. In Compose, every
-notation renders as raw monospace code, with a CSS uppercase transform on top:
+notation renders as a boxed span of raw monospace code:
 
 | Source | What Compose shows | What the slide draws |
 |---|---|---|
-| `` `{SHIPPED, c2}` `` | a boxed `{SHIPPED, c2}` | a colored status pill |
-| `` `~{0.8 0.9 1.1 1.9, end}` `` | a boxed `~{0.8 0.9 1.1 1.9, END}` | a small line chart |
-| `` `!{Ada Okafor, hair=coily}` `` | a boxed `!{ADA OKAFOR, HAIR=COILY}` | a portrait |
+| `` `{SHIPPED, c2}` `` among other spans in a paragraph | a boxed `{SHIPPED, c2}` | a colored status pill |
+| `` `~{0.8 0.9 1.1 1.9, end}` `` alone in a list item | a boxed `~{0.8 0.9 1.1 1.9, END}` | a small line chart |
+| `` `!{Ada Okafor, hair=coily}` `` alone on a list line | a boxed `!{ADA OKAFOR, HAIR=COILY}` | a portrait |
 
-The author gets no preview, no list of options and no sign that `c2` is a color. The only
-help today lives in the Markdown source editor (a completion menu, `IconGrid.tsx` for
-icons), and Compose has none of it.
+The uppercase in the last two rows comes from the eyebrow rule, `.cs-host p > code:only-child`
+in `ComposeView.tsx`, which fires when a span is the only code element in its paragraph or
+list item. It also changes the case of what the author typed (`end` reads as `END`), another
+reason a raw span misleads. The author gets no preview, no list of options and no sign that
+`c2` is a color. The only help inside an editor today is in the Markdown source editor (a
+completion menu); Compose has none. The icon grid opened from Compose copies the icon to the
+clipboard instead of inserting it.
 
 ## 2. Who this is for, and the rule that follows
 
@@ -55,9 +59,9 @@ Ordered by how often an author meets it, and by how much typing it costs.
 
 | Thing | What the author types today | Why it hurts |
 |---|---|---|
-| Pill | `` `{BETA, tag, c4}` `` | Three invisible vocabularies: 7 shapes, 12 color slots, 3 sizes |
+| Pill | `` `{BETA, tag, c4}` `` | Three invisible vocabularies: 8 shapes, 12 color slots, 3 sizes |
 | Spark | `` `~{12 14 17, bar, c3, end}` `` | A number series, 7 types, 4 flags, 3 frame axes |
-| Avatar | `` `!{Ada Okafor, hair=coily, skin=6}` `` | Ten trait keys with values nobody can guess |
+| Avatar | `` `!{Ada Okafor, hair=coily, skin=6}` `` | Sixteen trait keys with values nobody can guess |
 | Chart data | `- EMEA \`4.2\`` in a nested list | Backticks around every number; grouped series are made by indentation |
 | Diagram | a fenced Mermaid block | Code. The worst case. |
 | Icon | `` `^{database}` `` or `icon=` inside a pill | Needs the icon's name |
@@ -74,29 +78,35 @@ This list is why the recommendation is small. Almost every hard part is already 
 |---|---|---|
 | A schema for each notation, as data | Segno slot specs: `oneOf`, `indexed` (the `c1`–`c12` color slot), `flag`, `number`, `text`. The linter and the renderer already read them. | `lib/core/segno-slots.js`, `lib/core/segno-spec.js` |
 | A pure reader per notation | `resolve` for pills and sparks, `read` for avatars. Each returns the resolved fields and refuses what it cannot read. | `lib/core/inline-pills.js`, `lib/core/inline-sparks.js`, `lib/plugins/avatars/avatars.inline.js` |
-| Word positions inside a span | Segno's parse tree gives each record item a name and `from` / `to` offsets (`iconSpelling` already uses them). | `@laticent/segno`, `lib/core/inline-pills.js` |
+| Word positions inside a span | Segno's parse tree gives each record item `from` / `to` offsets and a `name`. The name is `null` for a bare word, so only `key=value` items carry one; `{SHIPPED, tag, c2}` has no name on `tag` or `c2`. `iconSpelling` and `withSparkSize` read the offsets. | `@laticent/segno` (`notation.ts` `Item`), `lib/core/inline-pills.js`, `lib/authoring/lint-core.js` |
 | What may come next in a pill | `nextWords` and `withWord`, which the Markdown editor's completion menu uses. | `lib/core/inline-pills.js`, `lib/core/inline-sparks.js` |
 | The real drawing of each notation | `pillElement`, `sparkElement`, `avatarElement` build the same DOM the slide gets. | the three kernels above |
 | The vocabularies | pill shapes, colors and sizes exported as `SHAPES`, `COLORS`, `SIZES`; spark `TYPES`; avatar `TRAIT_ORDER` and the generated trait vocabulary. | kernels; `avatars.vocab.generated.js` |
 | An icon picker | `IconGrid.tsx` and `icon-grid-model.ts`, lazy-loaded | `docs/src/components/studio/` |
 | A clickable widget inside the editor | `Decoration.widget` with `stopEvent` and `ignoreSelection` (the pane bar) | `ComposeView.tsx` |
 | One popover for the whole document | the code-fence language chip's picker, anchored to the live chip | `ComposeView.tsx` |
-| View-only decorations that leave the document untouched | the state-marker badges | `ComposeView.tsx` (`stateMarkerPlugin`) |
+| View-only decorations that leave the document untouched | the state-marker badges (`Decoration.inline`) | `ComposeView.tsx` (`stateMarkerPlugin`) |
 | UI primitives | shadcn `popover`, `sheet`, `toggle-group`, `radio-group`, `slider`, `command` | `docs/src/components/ui/` |
-| A phone sheet that handles the keyboard | `PanelSheet`, and the keyboard rail decision | `ui/panel.tsx`, `2026-07-18-compose-mobile-keyboard-rail.md` |
+| A sheet that lifts above the phone keyboard | `PanelSheet` (its `--kb` lift and focus rule) | `docs/src/components/ui/panel.tsx` |
 | A precedent for "the editor is clamped to what the format can store" | table editing | `2026-07-19-compose-table-editing.md` |
 
-What does **not** exist: a writer. Nothing turns a changed field back into a span, and
-nothing in Compose draws these notations or opens an editor for them. Those two pieces are
-the new work.
+What exists is small and narrow. `withWord` appends one word to a pill or spark.
+`withSparkSize` in `lint-core.js` sets one spark field: it reads the items from Segno, drops
+the size word and **re-prints the whole span**, which normalizes the separators to `, `, so
+it is the C2 behavior §5 rejects. What does **not** exist: a general writer that changes one
+axis and keeps every other byte, and anything in Compose that draws these notations or
+opens an editor for them. Those pieces are the new work. The writer has one extra job
+because bare words are unnamed: it must work out which axis each bare word fills by the
+vocabulary match the readers use, the way `withSparkSize` does for the size word.
 
 ## 5. Design axes and the recommended move
 
 **Axis A — the door: how an author reaches the editor.**
 - *A1. A drawn chip beside the raw text* (view-only widget decoration, the real pill, spark
   or avatar from `pillElement` and its siblings). Click it to edit. The raw text stays visible
-  and editable. **Recommended.** It follows the state-badge precedent: no schema change, no
-  serializer change, nothing in the document moves.
+  and editable. **Recommended.** The state-marker badges are the precedent for a view-only
+  decoration (no schema change, no serializer change, nothing in the document moves), and the
+  pane bar is the precedent for a clickable widget decoration.
 - *A2. Replace the raw text with the drawn thing* while the caret is elsewhere, and show the
   text when the caret enters (a live preview). The nicest result, and the riskiest: hiding
   text inside an editable range is where caret, selection and IME bugs live. **Later, if A1
@@ -131,8 +141,10 @@ the new work.
 **Axis D — where the editor opens.**
 - *One popover host for the whole document*, moved to whichever chip was clicked, the way the
   code-fence picker already is. Forty slides must not carry forty closed popovers.
-  **Recommended.** On a phone it opens as a `PanelSheet`, the same way `IconGrid` does, and
-  honors the keyboard rail decision.
+  **Recommended.** The editor opens in a `PanelSheet`, the surface `IconGrid` already uses
+  at every width, and the sheet itself lifts above the phone keyboard. The phone keyboard
+  once hid Compose's register bar (`2026-07-18-compose-mobile-keyboard-rail.md`, whose rail
+  was later retired), so keyboard behavior is verified on a real device, not assumed.
 
 **Axis E — where the code lives.**
 - The writer is a pure function next to each reader in `lib/core` (and the avatar plugin),
@@ -162,7 +174,7 @@ follows after that, then the diagram outline builder.
 ## 7. What it feels like
 
 - **Pill.** A small colored pill appears beside `{SHIPPED, c2}`. Click it. A popover shows the
-  label field, seven shape thumbnails drawn in the deck's theme, twelve color swatches drawn
+  label field, eight shape thumbnails drawn in the deck's theme, twelve color swatches drawn
   in the active theme, and a size choice. Picking a swatch changes the one word `c2` and
   nothing else. A circle or diamond with a long label shows the same crowding warning the
   linter gives. "Edit as text" puts the caret in the raw span.
@@ -187,7 +199,7 @@ and no "green means good" label.
 | Widget decorations break the caret, selection or IME | A1 leaves the text in place and the chip outside the editable range (`stopEvent`, `ignoreSelection`, the pane bar's pattern). A2, the risky one, is deferred. |
 | The Studio's startup JavaScript grows | The panels are lazy-loaded; only the small chip painter ships in startup. Any measured growth gets a `docs/route-budget.d/` declaration (#2649 hit this gate). |
 | Drift between the editor and the engine | The editor reads the engine's own slot schemas and kernels. No second vocabulary exists to drift. |
-| A phone keyboard covers the editor | Sheet host and the existing keyboard rail decision; verified on a real device, not emulation (HARD RULE #23). |
+| A phone keyboard covers the editor | `PanelSheet` already lifts above the keyboard; verified on a real device, not emulation (HARD RULE #23). |
 | Authors lose trust after one surprise rewrite | Promise 2, the property test, and "edit as text" always present. |
 | Scope creep into charts and diagrams | They are phases 3 and 4 with their own acceptance checks, not part of the first PR. |
 
@@ -236,9 +248,10 @@ paste into a table) are candidates for their own small PRs.
    reviewed on its smallest user. The alternative is pills and sparks together: fewer
    round trips, a bigger review, and the spark's number grid arrives before the host has
    proven itself.
-3. **How the editor opens on a phone.** Recommended: a **bottom sheet** (`PanelSheet`),
-   matching `IconGrid` and the keyboard rail. The alternative is a popover everywhere,
-   which is one fewer surface and crowded on a phone.
+3. **What the editor opens in.** Recommended: a **`PanelSheet` at every width**, like
+   `IconGrid`: one surface to build and test, and it already handles the phone keyboard.
+   The alternative is a popover anchored to the chip on desktop and tablet with a sheet on
+   the phone: it sits closer to the text and costs a second surface.
 4. **The write path.** Recommended: **C1**, replace only the changed words. The alternative,
    C2, re-prints the whole span: simpler to build, and it rewrites alias spellings and word
    order, which breaks "nothing is lost".
@@ -252,7 +265,8 @@ paste into a table) are candidates for their own small PRs.
   slots, and decision 20 (Segno is Lattice's one parser).
 - `engineering/decisions/2026-09-28-inline-sparks.md`,
   `2026-09-29-inline-icons.md`, `2026-10-09-inline-avatars.md` — the three notations.
-- `engineering/decisions/2026-07-18-compose-mobile-keyboard-rail.md` — the phone keyboard.
+- `engineering/decisions/2026-07-18-compose-mobile-keyboard-rail.md` — the phone keyboard
+  problem in Compose (its rail was later retired).
 - `lib/base/base.docs.md` § Inline pills, § Inline sparks;
   `lib/plugins/avatars/avatars.docs.md`.
 - `followups.d/2649-p1-compose-inline-notation-editors.md` — the backlog item this note
