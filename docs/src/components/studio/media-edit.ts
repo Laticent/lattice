@@ -6,7 +6,7 @@
 // rule every writer must obey (a name and an old name are one pool: `namesOf`, checked in `putMedia`'s transaction); this
 // file applies it to a rename.
 import { ASSET_STORE, openDB } from '@/components/studio/library/asset-db.js';
-import { decksUsing, isMediaName, KINDS, MAX_ALIASES, MEDIA_REFUSAL_PREFIX, type MediaRecord, namesOf, readable } from './media-store';
+import { decksUsing, detachedBlob, isMediaName, KINDS, MAX_ALIASES, MEDIA_REFUSAL_PREFIX, type MediaRecord, namesOf, readable } from './media-store';
 
 /** `YYYY-MM-DD` that is a real calendar day. */
 export function isIsoDate(v: string): boolean {
@@ -112,7 +112,8 @@ export async function removeMediaAlias(id: string, alias: string): Promise<Media
 /** Read one image row, let `change` rewrite it, write it back — all in one readwrite transaction. `change`
  *  may throw a refusal. `withOthers` also reads every other media row first, for a name check. */
 function mutateImage(id: string, change: (row: MediaRecord, others: MediaRecord[]) => MediaRecord, withOthers = false): Promise<MediaRecord | null> {
-	return openDB().then(
+	// The photo's bytes are copied into a fresh in-memory Blob first, and THAT is what is written back (see `detachedBlob`).
+	return detachedBlob(id).then((fresh) => openDB().then(
 		(db: IDBDatabase) =>
 			new Promise<MediaRecord | null>((resolve, reject) => {
 				const t = db.transaction(ASSET_STORE, 'readwrite');
@@ -124,7 +125,8 @@ function mutateImage(id: string, change: (row: MediaRecord, others: MediaRecord[
 				t.onerror = () => reject(t.error || new Error('the change failed'));
 				const write = (row: MediaRecord & { data?: ArrayBuffer }, others: MediaRecord[]) => {
 					try {
-						const next = change(row, others) as MediaRecord & { data?: ArrayBuffer };
+						const changed = change(row, others) as MediaRecord & { data?: ArrayBuffer };
+						const next = fresh && changed.blob ? { ...changed, blob: fresh } : changed;
 						store.put(next);
 						out = readable(next);
 					} catch (e) {
@@ -149,7 +151,7 @@ function mutateImage(id: string, change: (row: MediaRecord, others: MediaRecord[
 					read(0);
 				};
 			}),
-	);
+	));
 }
 
 /** How many decks write `asset:<name>` for ANY name this record has had (its own or an alias). A deck that

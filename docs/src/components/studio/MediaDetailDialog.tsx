@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useObjectUrl } from './MediaCard';
 import { isIsoDate, type MediaMetaPatch } from './media-edit';
 import { isMediaName, type MediaRecord, uniqueName } from './media-store';
+import { PhotoPlaceholder } from './PhotoPlaceholder';
 import { formatBytes } from './reference-doc';
 
 // The detail view behind a Library photo card: see the picture, read what is known about it, and edit
@@ -70,6 +71,9 @@ export function MediaDetailDialog({ m: incoming, open, onOpenChange, usedIn, ali
 	if (incoming) lastRecord.current = incoming;
 	const m = incoming ?? lastRecord.current;
 	const url = useObjectUrl(m?.blob);
+	const [unreadable, setUnreadable] = React.useState(false);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: a new URL is a new chance for the picture to draw
+	React.useEffect(() => setUnreadable(false), [url]);
 	const [name, setName] = React.useState('');
 	// The Name field as it is NOW: a Suggest answer can arrive after the person has typed their own, and must not replace it.
 	const nameNow = React.useRef('');
@@ -216,7 +220,8 @@ export function MediaDetailDialog({ m: incoming, open, onOpenChange, usedIn, ali
 					}}
 				>
 				<div className="flex max-h-[40dvh] items-center justify-center overflow-hidden rounded-lg bg-[var(--bg-alt)]">
-					{url && <img src={url} alt={m.caption ?? ''} className="max-h-[40dvh] w-auto max-w-full object-contain" draggable={false} />}
+					{url && !unreadable && <img src={url} alt={m.caption ?? ''} className="max-h-[40dvh] w-auto max-w-full object-contain" draggable={false} onError={() => setUnreadable(true)} />}
+					{url && unreadable && <PhotoPlaceholder className="min-h-[160px]" />}
 				</div>
 				<div className="grid gap-3 text-[13px]">
 					<div className="grid min-w-0 gap-1.5">

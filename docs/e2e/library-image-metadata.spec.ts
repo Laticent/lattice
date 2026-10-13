@@ -727,3 +727,113 @@ test('@smoke @mobile @webkit-phone on a phone the dialog does not pan sideways, 
 	await expect(dialog).toBeVisible();
 	await expect.poll(() => loaded('[data-media-detail="img-4568"] img'), { message: 'the dialog picture is painted' }).toBe(true);
 });
+
+// ── A saved photo stays a photo ───────────────────────────────────────────────────────────────────────────
+// On a real iPhone, editing a photo's details left its card showing WebKit's broken-image mark with the name and size intact: the
+// edit wrote the record back with the same Blob handle IndexedDB had just handed out, a file WebKit deletes when it replaces the
+// record. The proof has to be the STORED bytes, read fresh and decoded, in the engine that failed (webkit-phone, webkit-tablet,
+// gecko) as well as Chromium.
+async function storedPixels(page: Page): Promise<{ w: number; h: number; left: string; right: string } | null> {
+	return page.evaluate(async () => {
+		const db: IDBDatabase = await new Promise((res, rej) => {
+			const r = indexedDB.open('lattice-workbench');
+			r.onsuccess = () => res(r.result);
+			r.onerror = () => rej(r.error);
+		});
+		const rows: { kind: string; blob?: Blob; data?: ArrayBuffer; mime: string }[] = await new Promise((res) => {
+			const r = db.transaction('assets').objectStore('assets').getAll();
+			r.onsuccess = () => res(r.result as never);
+		});
+		const row = rows.find((x) => x.kind === 'image');
+		if (!row) return null;
+		try {
+			const blob = row.blob ?? new Blob([row.data as ArrayBuffer], { type: row.mime });
+			const bmp = await createImageBitmap(blob);
+			const c = document.createElement('canvas');
+			c.width = bmp.width;
+			c.height = bmp.height;
+			const g = c.getContext('2d') as CanvasRenderingContext2D;
+			g.drawImage(bmp, 0, 0);
+			const px = (x: number) => [...g.getImageData(x, 10, 1, 1).data.slice(0, 3)].map((v) => (v > 127 ? 'H' : 'L')).join('');
+			return { w: bmp.width, h: bmp.height, left: px(10), right: px(bmp.width - 10) };
+		} catch {
+			return { w: 0, h: 0, left: 'unreadable', right: 'unreadable' };
+		}
+	});
+}
+
+test('@smoke an edit, a rename and a reload leave the stored picture readable and drawn @crosswidth @webkit-phone @webkit-tablet @gecko', async ({ page }) => {
+	test.slow();
+	await gotoStudio(page);
+	await openLibraryImages(page, 1440);
+	await addPhoto(page, 'Loafers.png');
+	const card = page.locator('[data-media-card="loafers"]');
+	await expect(card).toBeVisible();
+	const first = await storedPixels(page);
+	expect(first).toMatchObject({ w: 600, h: 400, left: 'HLL', right: 'LLH' });
+
+	const drawn = (sel: string) => page.evaluate((s) => { const i = document.querySelector(s) as HTMLImageElement | null; return !!i && i.complete && i.naturalWidth > 0; }, sel);
+	await expect.poll(() => drawn('[data-media-card="loafers"] img'), { message: 'drawn before any edit' }).toBe(true);
+
+	// Edit the description, then the name: each rewrites the record.
+	await card.getByRole('button', { name: 'Edit loafers' }).click();
+	const dialog = page.locator('[data-media-detail="loafers"]');
+	await dialog.getByLabel('Description').fill('Brown loafers on a rug');
+	await dialog.getByRole('button', { name: 'Save' }).click();
+	await expect(dialog).toBeHidden();
+	expect(await storedPixels(page), 'readable after a description edit').toEqual(first);
+
+	await page.locator('[data-media-card="loafers"]').getByRole('button', { name: 'Edit loafers' }).click();
+	await dialog.getByLabel('Name').fill('brown-loafers');
+	await dialog.getByRole('button', { name: 'Save' }).click();
+	await expect(dialog).toBeHidden();
+	await expect(page.locator('[data-media-card="brown-loafers"]')).toBeVisible();
+	expect(await storedPixels(page), 'readable after a rename').toEqual(first);
+	await expect.poll(() => drawn('[data-media-card="brown-loafers"] img'), { message: 'drawn after the edits' }).toBe(true);
+
+	// A fresh load reads the record from storage again: still a picture, never the placeholder.
+	await page.reload();
+	await openLibraryImages(page, 1440);
+	await expect(page.locator('[data-media-card="brown-loafers"]')).toBeVisible();
+	await expect.poll(() => drawn('[data-media-card="brown-loafers"] img'), { message: 'drawn after a reload' }).toBe(true);
+	await expect(page.locator('[data-photo-placeholder]')).toHaveCount(0);
+	expect(await storedPixels(page), 'readable after a reload').toEqual(first);
+});
+
+test('@smoke a photo the browser cannot draw shows our placeholder, not the browser\'s broken-image mark', async ({ page }) => {
+	test.slow();
+	await gotoStudio(page);
+	await openLibraryImages(page, 1440);
+	await addPhoto(page, 'Ruined.png');
+	await expect(page.locator('[data-media-card="ruined"]')).toBeVisible();
+	// Ruin the stored bytes the way a dropped file would read: a record whose Blob is not an image.
+	await page.evaluate(async () => {
+		const db: IDBDatabase = await new Promise((res, rej) => {
+			const r = indexedDB.open('lattice-workbench');
+			r.onsuccess = () => res(r.result);
+			r.onerror = () => rej(r.error);
+		});
+		await new Promise<void>((res) => {
+			const t = db.transaction('assets', 'readwrite');
+			const store = t.objectStore('assets');
+			const all = store.getAll();
+			all.onsuccess = () => {
+				for (const row of all.result as { kind: string; blob?: Blob }[]) if (row.kind === 'image') store.put({ ...row, blob: new Blob(['this is not an image'], { type: 'image/png' }) });
+			};
+			t.oncomplete = () => res();
+		});
+	});
+	await page.reload();
+	await openLibraryImages(page, 1440);
+	const card = page.locator('[data-media-card="ruined"]');
+	await expect(card.locator('[data-photo-placeholder]')).toBeVisible({ timeout: 15_000 });
+	await expect(card.locator('img')).toHaveCount(0);
+	await expect(card.getByRole('img', { name: "This photo can't be shown" })).toBeVisible();
+	await card.screenshot({ path: process.env.PLACEHOLDER_SHOT ?? 'test-results/placeholder-card.png' });
+
+	await card.getByRole('button', { name: 'Edit ruined' }).click();
+	const dialog = page.locator('[data-media-detail="ruined"]');
+	await expect(dialog.locator('[data-photo-placeholder]')).toBeVisible();
+	await settled(dialog);
+	await dialog.screenshot({ path: process.env.PLACEHOLDER_SHOT_DIALOG ?? 'test-results/placeholder-dialog.png' });
+});

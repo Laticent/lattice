@@ -422,3 +422,59 @@ describe('cleanLine', () => {
 		expect(cleanLine('\u{1F600}\u{1F600}', 1)).toBe('\u{1F600}');
 	});
 });
+
+describe("a photo's bytes survive every rewrite of its record", () => {
+	beforeEach(emptyShelf);
+	const bytesOf = async (id: string) => {
+		const m = (await listMedia()).find((x) => x.id === id);
+		return m ? [...new Uint8Array(await m.blob.arrayBuffer())].join(',') : null;
+	};
+
+	it('a caption, a rename, an alias removal and a scope flip leave the stored bytes as they were', async () => {
+		const png = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 1, 2, 3, 4, 5, 6, 7, 8]);
+		const rec = await saveMedia(base({ name: 'shoe', blob: new Blob([png], { type: 'image/png' }), mime: 'image/png', bytes: png.length }), 1);
+		const original = await bytesOf(rec.id);
+		expect(original).toBe([...png].join(','));
+		await setMediaCaption(rec.id, 'A shoe');
+		expect(await bytesOf(rec.id)).toBe(original);
+		await updateMediaDetails(rec.id, { name: 'brogue', credit: 'Me' });
+		expect(await bytesOf(rec.id)).toBe(original);
+		await setMediaScope(rec.id, 'deck-a');
+		expect(await bytesOf(rec.id)).toBe(original);
+		await removeMediaAlias(rec.id, 'shoe');
+		expect(await bytesOf(rec.id)).toBe(original);
+		const [row] = await listMedia();
+		expect(row).toMatchObject({ name: 'brogue', caption: 'A shoe', credit: 'Me', scope: 'deck-a' });
+		expect(row.blob.type).toBe('image/png');
+	});
+
+	it('a rewrite writes a Blob it made, not the handle it read: a read Blob is never handed back to put()', async () => {
+		const rec = await saveMedia(base({ name: 'shoe' }), 1);
+		const seen: { blob?: unknown }[] = [];
+		const read: unknown[] = [];
+		const realGet = IDBObjectStore.prototype.get;
+		const realPut = IDBObjectStore.prototype.put;
+		IDBObjectStore.prototype.get = function (this: IDBObjectStore, q: IDBValidKey | IDBKeyRange) {
+			const req = realGet.call(this, q);
+			req.addEventListener('success', () => {
+				const v = req.result as { blob?: unknown } | undefined;
+				if (v?.blob) read.push(v.blob);
+			});
+			return req;
+		};
+		IDBObjectStore.prototype.put = function (this: IDBObjectStore, v: unknown, k?: IDBValidKey) {
+			seen.push(v as { blob?: unknown });
+			return realPut.call(this, v, k);
+		};
+		try {
+			await setMediaCaption(rec.id, 'A shoe');
+			await updateMediaDetails(rec.id, { credit: 'Me' });
+			await setMediaScope(rec.id, 'deck-a');
+		} finally {
+			IDBObjectStore.prototype.get = realGet;
+			IDBObjectStore.prototype.put = realPut;
+		}
+		expect(seen.length).toBeGreaterThanOrEqual(3);
+		for (const v of seen) expect(read.includes(v.blob), 'the Blob written back is not one IndexedDB just handed out').toBe(false);
+	});
+});

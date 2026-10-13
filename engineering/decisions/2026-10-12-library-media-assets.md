@@ -466,6 +466,16 @@ chat's model: moving it would change what every chat turn costs, which is a deci
   observable here). The hook now mints a URL for each new Blob, keeps showing the old one until the new one has decoded, then
   revokes the old one two seconds later. The Chromium test proves the picture is painted after a save; whether it fixes the
   iPhone report is **UNVERIFIED** until it runs on that device.
+- **The broken picture was a rewrite bug, not a display bug (found on a real iPhone, 2026-10-13).** After a rename or a description
+  edit the card showed WebKit's broken-image mark with the name and size intact. `mutateImage`, `setMediaCaption` and
+  `setMediaScope` read a row (its Blob is a handle to a file the browser keeps for that record) and wrote it back with the SAME
+  handle; WebKit replaces the record and deletes that file. The first import never had the problem because it writes a fresh Blob.
+  All three now copy the bytes into an in-memory Blob first (`detachedBlob`, read outside the write transaction, since awaiting inside
+  one lets it commit early) and write that. `media-store.test.ts` pins that no Blob IndexedDB handed out is ever put back, and checks
+  the stored bytes after a caption, a rename, an alias removal and a scope flip; the e2e decodes the STORED pixels after each edit and
+  a reload, in Chromium, WebKit and Firefox. A photo already broken this way on someone's device cannot be repaired (the file is gone);
+  it now shows `PhotoPlaceholder` (the product's own lattice with one cracked tile) instead of the browser's mark, with a line saying
+  the file may be missing, so the author knows to add it again.
 - **Left as is, deliberately.** The chat can replace a description the person typed, but only when the person asks it to look
   again (`view_asset … again`), and it is the same field by design. A HEIC photo gives no credit, date or location flag (the reader
   knows JPEG, PNG and WebP); nothing is stored from it either way, since the photo is re-encoded.

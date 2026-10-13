@@ -2,6 +2,7 @@ import { Image as ImageIcon, Layers, Lock, Pencil } from 'lucide-react';
 import * as React from 'react';
 import { DeleteBtn } from './delete-btn';
 import { LIBRARY_SCOPE, type MediaRecord } from './media-store';
+import { PhotoPlaceholder } from './PhotoPlaceholder';
 import { formatBytes } from './reference-doc';
 
 // One photo or video on the Images tab. Manage-only, like a reference-doc card: media is
@@ -70,6 +71,10 @@ export function MediaCard({ m, activeDeckId, usedIn, usedElsewhere, armed, confi
 	onOpen: (opener: HTMLElement) => void;
 }) {
 	const url = useObjectUrl(m.blob);
+	// A picture the browser cannot draw shows our placeholder, never its own broken-image mark.
+	const [unreadable, setUnreadable] = React.useState(false);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: a new URL is a new chance for the picture to draw
+	React.useEffect(() => setUnreadable(false), [url]);
 	const shared = m.scope === LIBRARY_SCOPE;
 	// The scope flip is offered only where it can be named: a shared asset can become this deck's (needs an
 	// open deck, and no OTHER deck naming it: keeping it to one deck would turn the rest into placeholders),
@@ -82,8 +87,10 @@ export function MediaCard({ m, activeDeckId, usedIn, usedElsewhere, armed, confi
 			    row, not by the 88px: a 1920×2560 photo painted 351px tall, `object-cover` had nothing to
 			    crop to, and `overflow-hidden` showed only the top strip (measured in Chromium). */}
 			<button type="button" onClick={(e) => onOpen(e.currentTarget)} aria-label={`Details for ${m.name}`} className="relative block h-[88px] w-full overflow-hidden bg-[var(--bg-alt)]">
-				{url ? (
-					<img src={url} alt={m.caption ?? ''} className="absolute inset-0 h-full w-full object-cover" loading="lazy" draggable={false} />
+				{url && !unreadable ? (
+					<img src={url} alt={m.caption ?? ''} className="absolute inset-0 h-full w-full object-cover" loading="lazy" draggable={false} onError={() => setUnreadable(true)} />
+				) : url ? (
+					<PhotoPlaceholder compact className="absolute inset-0" />
 				) : (
 					<ImageIcon className="absolute left-1/2 top-1/2 size-6 -translate-x-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden />
 				)}

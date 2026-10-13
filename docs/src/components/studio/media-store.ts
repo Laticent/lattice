@@ -195,6 +195,24 @@ async function putMedia(input: NewMedia, id: string, addedAt: number, asBuffer: 
 	});
 }
 
+/** A stored photo's bytes copied into a Blob that lives in MEMORY, or null when the row holds its bytes as a buffer (nothing to detach).
+ *
+ *  WHY. A Blob read from IndexedDB is a handle to a file the browser keeps for that ONE record. Writing the record back with that same
+ *  handle (a caption, a rename, a scope flip) asks WebKit to store a file it is about to delete, because the old record is replaced:
+ *  on an iPhone the photo's card showed WebKit's broken-image mark after every edit, with its size and name intact. A fresh in-memory
+ *  Blob is what the first import writes, so a rewrite writes the same kind. Read OUTSIDE the write transaction: awaiting inside one
+ *  lets it commit early. */
+export async function detachedBlob(id: string): Promise<Blob | null> {
+	try {
+		const db = await openDB();
+		const row = (await reqAsPromise(db.transaction(ASSET_STORE, 'readonly').objectStore(ASSET_STORE).get(id))) as (MediaRecord & { data?: ArrayBuffer }) | undefined;
+		if (!row?.blob) return null;
+		return new Blob([await row.blob.arrayBuffer()], { type: row.mime });
+	} catch {
+		return null;
+	}
+}
+
 /** A record as the app uses it: a `blob`, whichever way the bytes were stored. */
 export function readable(row: MediaRecord & { data?: ArrayBuffer }): MediaRecord {
 	if (row.blob || !row.data) return row;
@@ -223,6 +241,7 @@ export function visibleMedia(all: MediaRecord[], activeDeckId: string | null): M
 /** Flip an asset between shared and one deck's. The NAME does not change, so no deck's
  *  markdown is rewritten. Resolves the updated record, or null when it no longer exists. */
 export async function setMediaScope(id: string, scope: MediaScope): Promise<MediaRecord | null> {
+	const fresh = await detachedBlob(id);
 	const db = await openDB();
 	return new Promise<MediaRecord | null>((resolve, reject) => {
 		const t = db.transaction(ASSET_STORE, 'readwrite');
@@ -235,8 +254,9 @@ export async function setMediaScope(id: string, scope: MediaScope): Promise<Medi
 			const row = get.result as MediaRecord | undefined;
 			if (!row || !KINDS.includes(row.kind)) return;
 			// The raw row keeps whichever of `blob` or `data` it was stored with; only the copy handed back is made readable.
-			store.put({ ...row, scope });
-			out = readable({ ...row, scope });
+			const next = { ...row, scope, ...(fresh && row.blob ? { blob: fresh } : {}) };
+			store.put(next);
+			out = readable(next);
 		};
 	});
 }
@@ -244,6 +264,7 @@ export async function setMediaScope(id: string, scope: MediaScope): Promise<Medi
 /** Store a caption on one image. Resolves the updated record, or null when it no longer exists
  *  or is not an image. An empty caption clears it. */
 export async function setMediaCaption(id: string, caption: string): Promise<MediaRecord | null> {
+	const fresh = await detachedBlob(id);
 	const db = await openDB();
 	const clean = cleanCaption(caption);
 	return new Promise<MediaRecord | null>((resolve, reject) => {
@@ -257,7 +278,8 @@ export async function setMediaCaption(id: string, caption: string): Promise<Medi
 			const row = get.result as (MediaRecord & { data?: ArrayBuffer }) | undefined;
 			if (!row || row.kind !== 'image') return;
 			const { caption: _old, ...rest } = row;
-			const next = clean ? { ...rest, caption: clean } : rest;
+			const kept = clean ? { ...rest, caption: clean } : rest;
+			const next = fresh && row.blob ? { ...kept, blob: fresh } : kept;
 			store.put(next);
 			out = readable(next as MediaRecord & { data?: ArrayBuffer });
 		};
