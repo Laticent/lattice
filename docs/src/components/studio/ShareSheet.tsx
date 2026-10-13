@@ -28,10 +28,9 @@ import { type WebpageExportChoice, WebpageOptionsPanel } from './WebpageOptionsP
 // pipeline (image PDF/PPTX, vector Print, the Marp ZIP) — see share-export.ts.
 
 // Exports that never name a photo's picture and have nothing to note about one — plus the `.lattice`,
-// whose exporter writes its own note: it knows whether photos went in, were switched off or were over the cap.
-const NO_PHOTO_NOTE = new Set(['printsrc', 'captions', 'lattice']);
-// Source exports: the deck's text travels, the Library's photos do not.
-const SOURCE_WITH_PHOTOS = new Set(['md', 'marp']);
+// Markdown and Marp, whose exporters write their own note: each knows whether photos went in, were switched
+// off or were over the cap.
+const NO_PHOTO_NOTE = new Set(['printsrc', 'captions', 'lattice', 'md', 'marp']);
 
 export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, finishClass, finishExtraCss, localComponents, deckPackages, options, palette, mode, extraTheme, extraCss, onPresent, onCollaborate, initialView = 'menu' }: { open: boolean; onOpenChange: (v: boolean) => void; deckTitle: string; source: string; deckId?: string; finishClass?: string; finishExtraCss?: string; localComponents?: ReadonlyArray<{ name: string; css: string }>; deckPackages?: DeckPackages; options: SingleSlideOptions; palette: string; mode: 'light' | 'dark'; extraTheme?: { name: string; css: string }; extraCss?: string; onPresent: () => void; onCollaborate?: () => void; initialView?: 'menu' | 'pdf' }) {
 	const close = () => onOpenChange(false);
@@ -156,15 +155,12 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 				// same thing (the owner's iPhone showed both). A degradation still speaks.
 				// A photo the deck names that this browser cannot show (deleted, in another deck, or unreadable just now)
 				// is drawn as the missing-image stand-in; say so, so the stand-in in the file is never a surprise.
-				// A source export (.lattice, Markdown, Marp) keeps the reference text and carries no picture at all,
-				// so it says that instead. The registry loads only when the deck names a photo.
+				// The source exports (.lattice, Markdown, Marp) carry the pictures themselves and write their own note
+				// (NO_PHOTO_NOTE). The registry loads only when the deck names a photo.
 				if (!degraded && !NO_PHOTO_NOTE.has(key) && /\basset:[a-z0-9]/i.test(source)) {
 					const names = (list: string[]) => `${list.slice(0, 3).map((n) => `“${n}”`).join(', ')}${list.length > 3 ? `, and ${list.length - 3} more` : ''}`;
 					const m = await import('./media-urls').catch(() => null);
-					if (m && SOURCE_WITH_PHOTOS.has(key)) {
-						const used = m.assetNamesIn(source);
-						degraded = `the ${used.length === 1 ? 'photo' : 'photos'} it names (${names(used)}) ${used.length === 1 ? 'is' : 'are'} not inside this file; ${used.length === 1 ? 'it lives' : 'they live'} in this browser's Library, so anyone who opens it elsewhere sees ${used.length === 1 ? 'a stand-in' : 'stand-ins'}`;
-					} else if (!m) {
+					if (!m) {
 						degraded = "its photos could not be checked against this browser's Library, so any that are missing appear as stand-ins";
 					} else {
 						const gone = await m.missingAssetNames(source).catch(() => null);
@@ -208,18 +204,22 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 		// what is missing from it, because the progress line it was announced on is gone
 		// by then.
 		run('pdf', 'PDF', async (onStatus, onDegraded) => {
-			const reason = await sharePdf(options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss, annotations, await embedPayload(opts));
-			if (reason) onDegraded(reason);
+			const embed = await embedPayload(opts);
+			const reason = await sharePdf(options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss, annotations, embed?.bytes);
+			const both = [reason, embed?.note].filter(Boolean).join('; ');
+			if (both) onDegraded(both);
 		});
 	};
 	// PowerPoint from its options step — re-openable is its only choice (no sticky notes).
 	const exportPptx = (opts: ExportOptions) => {
 		run('pptx', 'PowerPoint', async (onStatus, onDegraded) => {
 			// Editable goes through Calco; the plain picture deck keeps its own exporter.
+			const embed = await embedPayload(opts);
 			const reason = opts.editable
-				? await shareOffice('pptx', options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss, true, await embedPayload(opts))
-				: await sharePptx(options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss, await embedPayload(opts));
-			if (reason) onDegraded(reason);
+				? await shareOffice('pptx', options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss, true, embed?.bytes)
+				: await sharePptx(options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss, embed?.bytes);
+			const both = [reason, embed?.note].filter(Boolean).join('; ');
+			if (both) onDegraded(both);
 		});
 	};
 	// LibreOffice (.odp) from its options step: editable text is its one choice.
@@ -231,7 +231,7 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 	};
 	// The `.lattice` a re-openable export carries: the author's `source` (never the artifact
 	// copy with a finish baked in) and the saved packages it uses — and no comments, ever.
-	const embedPayload = (opts: ExportOptions) => (opts.embedSource ? embeddableLattice(source, deckTitle, Date.now(), deckPackages) : Promise.resolve(undefined));
+	const embedPayload = (opts: ExportOptions) => (opts.embedSource ? embeddableLattice(source, deckTitle, Date.now(), deckPackages, deckId) : Promise.resolve(undefined));
 
 	// Webpage (.html) export from its options step: notes ride by default; `stripNotes`
 	// scrubs them from every copy in the shared file (see WebpageOptionsPanel).
@@ -290,7 +290,7 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 	const exportMarpBundle = (overflowMarker: OverflowMarker) => {
 		// Resolves to a reason when the bundle dropped the deck's own script (marp-cli would run it).
 		run('marp', 'Marp bundle', async (_onStatus, onDegraded) => {
-			const reason = await shareMarp(options, source, name, palette, finishClass, finishExtraCss, overflowMarker, extraTheme, localComponents);
+			const reason = await shareMarp(options, source, name, palette, finishClass, finishExtraCss, overflowMarker, extraTheme, localComponents, deckId);
 			if (reason) onDegraded(reason);
 		});
 	};
@@ -317,7 +317,10 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 		html: { busy: busy === 'html', progress: true, onClick: () => setView('html') },
 		captions: { busy: busy === 'captions', progress: true, onClick: () => run('captions', 'Captions', (onStatus) => shareCaptions(options, artifactSource, name, palette, mode, extraTheme, onStatus)) },
 		lattice: { busy: busy === 'lattice', progress: true, onClick: () => setView('lattice') },
-		md: { busy: busy === 'md', onClick: () => run('md', 'Markdown', () => shareMarkdown(options, source, name, palette, extraTheme, finishClass, finishExtraCss, localComponents)) },
+		md: { busy: busy === 'md', onClick: () => run('md', 'Markdown', async (_onStatus, onDegraded) => {
+			const reason = await shareMarkdown(options, source, name, palette, extraTheme, finishClass, finishExtraCss, localComponents, deckId);
+			if (reason) onDegraded(reason);
+		}) },
 		marp: { onClick: () => setView('marp') },
 		printsrc: { onClick: () => run('printsrc', 'Print source', () => sharePrintSource(source, name)) },
 	};

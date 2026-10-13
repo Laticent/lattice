@@ -323,9 +323,16 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
     },
     // The active model's per-MILLION price pair, for the pre-send estimate + display.
     // Null until the catalog has loaded (listModels) — callers degrade gracefully.
-    modelPrice() {
-      const id = readLS(OR_MODEL_LS) || defaultModel;
-      const m = catalogCache?.find((x) => x.id === id);
+    modelPrice(forId) {
+      const id = forId || readLS(OR_MODEL_LS) || defaultModel;
+      let m = catalogCache?.find((x) => x.id === id);
+      // A `~vendor/name-latest` alias is not itself listed: price it at its family's dearest member, so a spending cap errs on the
+      // safe side.
+      if (!m && id.startsWith('~')) {
+        const family = id.slice(1).replace(/-latest$/, '');
+        const kin = (catalogCache || []).filter((x) => x.id.startsWith(family) && x.promptPerM != null);
+        m = kin.sort((a, b) => (b.completionPerM ?? 0) - (a.completionPerM ?? 0))[0];
+      }
       return m ? { promptPerM: m.promptPerM, completionPerM: m.completionPerM, imagePerM: m.imagePerM ?? null } : null;
     },
     disconnect() { writeLS(OR_KEY_LS, null); writeLS(OR_VERIFIER_LS, null); },
@@ -402,7 +409,7 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
       writeCachedCatalog(catalogCache);
       return catalogCache;
     },
-    async complete({ messages, json, onToken, signal, onUsage, onGenerationId, onFinishReason, maxTokens, plugins, cacheTtl, tools, toolChoice, onToolCalls, onToolStart, cacheTail }) {
+    async complete({ messages, json, onToken, signal, onUsage, onGenerationId, onFinishReason, maxTokens, plugins, cacheTtl, tools, toolChoice, onToolCalls, onToolStart, cacheTail, model: modelOverride, reasoningEffort }) {
       const key = readLS(OR_KEY_LS);
       if (!key) throw new Error('OpenRouter not connected');
       // usage:{include:true} guarantees the authoritative per-request `usage.cost`
@@ -421,8 +428,12 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
       // with its reasoning from the Drawing Board's chat, which set it explicitly.
       // `cacheTail` (the chat agent's tool loop) adds a rolling breakpoint on the newest
       // message so each round reads the previous rounds from cache; see withCachedTail.
-      const cached = cacheOn ? withCachedSystem(messages, this.getModel(), cacheTtl) : messages;
-      const body = { model: this.getModel(), messages: cacheOn && cacheTail ? withCachedTail(cached, this.getModel()) : cached, stream: !!onToken, usage: { include: true } };
+      // `model` lets ONE call run on a different model than the chat's (the Library's photo description uses the image model
+      // the author picked); `reasoningEffort` asks a reasoning-capable model to think harder. Neither is set by any other caller.
+      const modelId = modelOverride || this.getModel();
+      const cached = cacheOn ? withCachedSystem(messages, modelId, cacheTtl) : messages;
+      const body = { model: modelId, messages: cacheOn && cacheTail ? withCachedTail(cached, modelId) : cached, stream: !!onToken, usage: { include: true } };
+      if (reasoningEffort) body.reasoning = { effort: reasoningEffort };
       // Optional plugins (e.g. the file-parser plugin that extracts an inlined
       // reference PDF server-side, #640). Passed through verbatim when present.
       if (plugins?.length) body.plugins = plugins;
@@ -964,7 +975,7 @@ export function createArchitectModel({ getSettings, explicitTierWins = false, de
     openRouterAccount() { return openrouter.accountInfo(); },
     openRouterCredits() { return openrouter.creditsInfo(); }, // the account wallet (balance)
     openRouterKeySettingsUrl() { return openrouter.keySettingsUrl(); }, // where to set a hard per-key cap
-    openRouterModelPrice() { return openrouter.modelPrice(); }, // active model's per-M price (for estimates)
+    openRouterModelPrice(id) { return openrouter.modelPrice(id); }, // active model's per-M price (for estimates)
     openRouterGenerationCost(id) { return openrouter.generationCost(id); }, // authoritative cost of one generation (aborted-turn reconciliation)
     // Snapshot/restore the stored key so the settings UI can offer an Undo on
     // Disconnect (mirroring the deck-deletion guardrail) without re-running OAuth.

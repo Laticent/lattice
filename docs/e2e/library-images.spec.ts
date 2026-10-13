@@ -370,7 +370,8 @@ test('@smoke a PNG with an eXIf GPS chunk and a GIF with comment and XMP blocks 
 
 // THE PERSON CHOOSES THE FORMAT, with sizes measured on their own files and what each choice means beside it.
 // Real engine, real encoders: the oracle is the stored record and the numbers on screen.
-test('@smoke adding a photo asks for the format, shows measured sizes, and stores what was chosen', async ({ page }) => {
+// Two copies, not `@webkit-tablet @gecko`: the Chromium `desktop` project drops any `@webkit-*` title (playwright.config.ts).
+for (const engine of [' @gecko', ' @webkit-tablet']) test(`@smoke adding a photo asks for the format, shows measured sizes, and stores what was chosen${engine}`, async ({ page }) => {
 	await gotoStudio(page);
 	await page.setViewportSize({ width: 1440, height: 900 });
 	await openLibraryImages(page, 1440);

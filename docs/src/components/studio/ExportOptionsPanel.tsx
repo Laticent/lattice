@@ -134,7 +134,7 @@ export function ExportOptionsPanel({
 							<span>
 								<span className="block text-[13px] font-semibold text-[var(--text-heading)]">Re-openable in Lattice</span>
 								<span className="mt-0.5 block text-[11.5px] leading-snug text-muted-foreground">
-									Anyone you send this {label} to can import it in Lattice and edit the deck. It includes your speaker notes and hidden slides; comments stay out.
+									Anyone you send this {label} to can import it in Lattice and edit the deck. It includes your speaker notes, hidden slides and the photos the deck uses, as stored in your Library (up to 32 MB of them); comments stay out.
 								</span>
 							</span>
 						</span>

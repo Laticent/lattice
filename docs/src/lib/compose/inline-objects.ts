@@ -42,10 +42,49 @@ export interface PillEdit {
 	shape?: string | null;
 	color?: string | null;
 	size?: string | null;
+	/** An icon name from the icons plugin, or null to take the icon off. */
+	icon?: string | null;
+}
+
+/** What the engine reads out of a spark (lib/core/inline-sparks.js `read`). */
+export interface SparkFields {
+	/** The numbers as the author wrote them (`12 14 17`, `72/80`, `72%`). */
+	dataText: string;
+	data: { kind: 'series'; values: number[] } | { kind: 'ratio'; value: number; target: number; pct: boolean };
+	type: string;
+	size: string;
+	c: string | null;
+	fill: boolean;
+	zero: boolean;
+	markers: string[];
+}
+
+/** One change to a spark (lib/core/inline-sparks.js `editSpark`): an absent key leaves the axis alone. */
+export interface SparkEdit {
+	/** The numbers as an array, or the data text (`72/80`, `72%`, `12 14 17`). */
+	data?: string | number[];
+	type?: string | null;
+	size?: string | null;
+	color?: string | null;
+	end?: boolean;
+	minmax?: boolean;
+	fill?: boolean;
+	zero?: boolean;
 }
 
 /** The kernels the editor reads, as lib/authoring/inline-editors.js exports them. */
 export interface InlineKernels {
+	spark: {
+		read(text: string): SparkFields | null;
+		edit(text: string, edit: SparkEdit): string | null;
+		element(doc: Document, text: string): HTMLElement | null;
+		readonly TYPES: readonly string[];
+		readonly SERIES_TYPES: readonly string[];
+		readonly SIZES: readonly string[];
+		readonly COLORS: readonly string[];
+		readonly MARKERS: readonly string[];
+		readonly MAX_POINTS: number;
+	};
 	pill: {
 		read(text: string): PillFields | null;
 		edit(text: string, edit: PillEdit): string | null;
@@ -54,6 +93,8 @@ export interface InlineKernels {
 		readonly SHAPES: readonly string[];
 		readonly COLORS: readonly string[];
 		readonly SIZES: readonly string[];
+		/** A circle or diamond whose label is too long for it (the linter's `pill-shape-crowded`). */
+		crowded(fields: PillFields): boolean;
 	};
 	isLiteralFromSource(source: string): boolean;
 	INLINE_CODE_LITERAL: string;
@@ -85,8 +126,16 @@ export const pillKind: ObjectKind<PillFields, PillEdit> = {
 	name: (f) => `Edit pill ${f.value || 'icon'}`,
 };
 
-/** Every kind Compose can edit. Phase 1 has one; a spark or an avatar is one more entry and one more panel. */
-export const OBJECT_KINDS: readonly ObjectKind[] = [pillKind as ObjectKind];
+export const sparkKind: ObjectKind<SparkFields, SparkEdit> = {
+	id: 'spark',
+	read: (src, k) => k.spark.read(src),
+	draw: (doc, src, k) => k.spark.element(doc, src),
+	edit: (src, edit, k) => k.spark.edit(src, edit),
+	name: (f) => `Edit spark, ${f.type}`,
+};
+
+/** Every kind Compose can edit. An avatar is one more entry and one more panel. */
+export const OBJECT_KINDS: readonly ObjectKind[] = [pillKind as ObjectKind, sparkKind as ObjectKind];
 
 /** Which kind owns `src`, and the fields it reads. Null when none does (the span stays text). */
 export function kindOf(src: string, kernels: InlineKernels): { kind: ObjectKind; fields: unknown } | null {
@@ -362,16 +411,21 @@ export function editObjectAsText(view: EditorView, pos: number): boolean {
  * locked slide, and where the engine draws no pills (`inline-code: literal`, deck or slide), where an
  * object would be drawn here as a pill the slide does not draw.
  */
-export function insertBlocker(state: EditorState, kernels: InlineKernels | null, deckLiteral: boolean): string | null {
-	if (!kernels) return 'The pill editor is still loading.';
+export function insertBlocker(state: EditorState, kernels: InlineKernels | null, deckLiteral: boolean, noun = 'pill'): string | null {
+	if (!kernels) return `The ${noun} editor is still loading.`;
 	const { $from, $to, empty } = state.selection;
-	if ($from.node(1)?.attrs.locked) return 'This slide is edited in Markdown, so pills cannot be added here.';
-	if (deckLiteral || (($from.node(1)?.attrs.directives as string[]) || []).some((d) => d.includes(kernels.INLINE_CODE_LITERAL))) return 'Pills are turned off here (inline-code: literal).';
-	if (!$from.parent.inlineContent || $from.parent.type.spec.code || !$from.sameParent($to) || !$from.parent.canReplaceWith($from.index(), $to.index(), objectType())) return 'Put the cursor in plain text on one line to insert a pill.';
+	if ($from.node(1)?.attrs.locked) return `This slide is edited in Markdown, so ${noun}s cannot be added here.`;
+	if (deckLiteral || (($from.node(1)?.attrs.directives as string[]) || []).some((d) => d.includes(kernels.INLINE_CODE_LITERAL))) return `${noun[0].toUpperCase()}${noun.slice(1)}s are turned off here (inline-code: literal).`;
+	if (!$from.parent.inlineContent || $from.parent.type.spec.code || !$from.sameParent($to) || !$from.parent.canReplaceWith($from.index(), $to.index(), objectType())) return `Put the cursor in plain text on one line to insert a ${noun}.`;
 	// Inside the author's own code span the new object would split it in two.
 	const before = $from.nodeBefore;
 	const after = $to.nodeAfter;
-	if (empty && before?.isText && after?.isText && isCodeish(before) && isCodeish(after)) return 'The cursor is inside a code span. Move it outside to insert a pill.';
+	if (empty && before?.isText && after?.isText && isCodeish(before) && isCodeish(after)) return `The cursor is inside a code span. Move it outside to insert a ${noun}.`;
+	// A selection that reaches into the author's code span would split it too, at either end.
+	for (const $p of [$from, $to]) {
+		if (!empty && $p.nodeBefore?.isText && $p.nodeAfter?.isText && isCodeish($p.nodeBefore) && isCodeish($p.nodeAfter)) return `The selection ends inside a code span. Move it outside to insert a ${noun}.`;
+	}
+	if (!empty && $from.nodeBefore?.isText && $from.nodeAfter?.isText && isCodeish($from.nodeAfter) && $from.nodeAfter === $to.nodeAfter) return `The selection is inside a code span. Move it outside to insert a ${noun}.`;
 	return null;
 }
 
@@ -381,30 +435,43 @@ export function insertBlocker(state: EditorState, kernels: InlineKernels | null,
  * when it declines. At a code span's edge, or beside another object, a space keeps the two code spans
  * apart (`{A}``{B}` is one span in Markdown).
  */
-export function insertObject(getKernels: () => InlineKernels | null, opts: { sample?: string; getDeckLiteral?: () => boolean } = {}): Command {
+export function insertObject(getKernels: () => InlineKernels | null, opts: { sample?: string; getDeckLiteral?: () => boolean; kind?: 'pill' | 'spark' } = {}): Command {
 	return (state, dispatch) => {
 		const kernels = getKernels();
-		if (insertBlocker(state, kernels, opts.getDeckLiteral?.() ?? false) || !kernels) return false;
+		const spark = opts.kind === 'spark';
+		if (insertBlocker(state, kernels, opts.getDeckLiteral?.() ?? false, spark ? 'spark' : 'pill') || !kernels) return false;
 		const { $from, $to, from, to, empty } = state.selection;
 		const picked = empty ? '' : state.doc.textBetween(from, to, ' ').trim();
 		const label = picked && picked.length <= 40 && !/\n/.test(picked) ? picked : (opts.sample ?? 'Status');
-		const src = kernels.pill.edit('{X}', { label });
+		// A spark starts as a small rising line: the author edits the numbers, the shape is already right. A selected
+		// word is left where it is (a number has no place in a label), so the spark goes in after it.
+		const src = spark ? SPARK_SAMPLE : kernels.pill.edit('{X}', { label });
 		if (!src || !isObjectSource(src) || !kindOf(src, kernels)) return false;
 		if (dispatch) {
 			const node = objectType().create({ src });
-			const before = $from.nodeBefore;
-			const after = $to.nodeAfter;
-			const lead = Boolean(before && touchesAsCode(before, node));
+			// A spark goes after the word the caret is in, never through it.
+			const rest = spark && $to.nodeAfter?.isText && !isCodeish($to.nodeAfter) ? /^\S*/.exec($to.nodeAfter.text ?? '')?.[0].length ?? 0 : 0;
+			const at0 = spark ? $to.pos + rest : from;
+			const end0 = spark ? at0 : to;
+			const $at = spark ? state.doc.resolve(at0) : $from;
+			const before = $at.nodeBefore;
+			const after = spark ? $at.nodeAfter : $to.nodeAfter;
+			// A spark sits beside words, so it follows one with a space; a pill is meant to be flush with its text.
+			const needsGap = spark && Boolean(before?.isText && before.text && !/\s$/.test(before.text) && !isCodeish(before));
+			const lead = needsGap || Boolean(before && touchesAsCode(before, node));
 			const trail = Boolean(after && touchesAsCode(node, after));
 			const space = () => deckSchema.text(' ');
-			const tr = state.tr.replaceWith(from, to, [...(lead ? [space()] : []), node, ...(trail ? [space()] : [])]);
-			const at = from + (lead ? 1 : 0);
+			const tr = state.tr.replaceWith(at0, end0, [...(lead ? [space()] : []), node, ...(trail ? [space()] : [])]);
+			const at = at0 + (lead ? 1 : 0);
 			tr.setSelection(NodeSelection.create(tr.doc, at)).setMeta(objectsKey, { open: at } satisfies ObjectsMeta);
 			dispatch(tr.scrollIntoView());
 		}
 		return true;
 	};
 }
+
+/** What "+ Spark" inserts: a short rising line, readable on a slide the moment it lands. */
+export const SPARK_SAMPLE = '~{12 14 13 17 21}';
 
 // ── What Compose shows ───────────────────────────────────────────────────────
 

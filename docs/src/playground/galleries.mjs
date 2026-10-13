@@ -13,7 +13,7 @@
 // resolves against the staged lib/samples/ copy (docs/src/lib/samples-base.ts);
 // any other local image a deck references is staged by collectGalleryAssets.
 
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 
 // Editorial showcases — the headline decks, in featured order.
@@ -163,3 +163,55 @@ export const GALLERY_GROUPS = [
   { key: 'Showcases', hint: 'Full editorial decks — every layout in context.' },
   { key: 'By family', hint: 'One survey deck per component family.' },
 ];
+
+// ── Every examples/*.md deck — the Galleries sheet's searchable list ─────────────
+//
+// The per-feature demo decks (HARD RULE #9) are not curated, so there is no list to
+// edit: this derives one from the directory, and a new example appears on the next
+// build. Unlike the curated decks these are NOT inlined into the page — the sync
+// script stages one `galleries/<slug>.md` per deck plus a small `galleries/index.json`,
+// and the Playground fetches the index when the sheet first opens and a deck when
+// it is chosen (the same pattern as the Explore walk plans).
+
+// A deck's display title: front-matter `title:`, else the first `# ` heading, else
+// the file name. Heading text is flattened to plain words (the list is a text list).
+export function deckTitle(src, slug) {
+  const fm = /^---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/.exec(src);
+  const fromFm = fm && /^title:[ \t]*(.+?)[ \t]*$/m.exec(fm[1]);
+  // Unquote ONLY a YAML value, and only a matching pair — a heading may open with a quote mark
+  // that is part of the sentence (`# "Shipped" is a product word.`).
+  const raw = fromFm
+    ? fromFm[1].replace(/^(["'])(.*)\1$/, '$2')
+    : (/^#[ \t]+(.+?)[ \t]*$/m.exec(fm ? src.slice(fm[0].length) : src) || [])[1];
+  const clean = (raw || '')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/[*_`]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return clean || slug;
+}
+
+/**
+ * Every `examples/*.md` deck as { slug, title, slides, source }, A–Z by title.
+ * `slideCount` counts `---` fences, which is right for the curated decks but wrong for any deck
+ * that splits on headings (the engine default: `split-headings` reads "1 slide" and renders 7) or
+ * shows a `---` inside a code fence. A caller that can load the engine passes `countSlides` (the
+ * sync script does — the engine is the one render path, HARD RULE #1); this module is also bundled
+ * into the Astro build, where a relative `require` of lib/engine does not resolve.
+ * @param {string} repoRoot absolute path to the lattice repo root
+ * @param {(src: string) => number} [countSlides] defaults to the fence count
+ */
+export function loadExampleDecks(repoRoot, countSlides = slideCount) {
+  const dir = join(repoRoot, 'examples');
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir)
+    .filter((f) => f.endsWith('.md') && f.toLowerCase() !== 'readme.md')
+    .sort()
+    .map((f) => {
+      const slug = f.slice(0, -3);
+      const source = readFileSync(join(dir, f), 'utf8');
+      return { slug, title: deckTitle(source, slug), slides: countSlides(source) || slideCount(source), source };
+    })
+    .sort((a, b) => a.title.localeCompare(b.title, 'en', { sensitivity: 'base' }) || a.slug.localeCompare(b.slug));
+}

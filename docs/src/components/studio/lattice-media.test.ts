@@ -5,7 +5,7 @@ import 'fake-indexeddb/auto';
 import JSZip from 'jszip';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { exportLatticeBlob, readLatticeFile } from './lattice-file';
-import { latticePhotoSummary, packLatticePhotos, restoreLatticePhotos } from './lattice-media';
+import { bundlePhotos, latticePhotoSummary, packLatticePhotos, restoreLatticePhotos, withPhotoPaths } from './lattice-media';
 import { deleteAsset, listAssets } from './library/asset-store.js';
 import { LIBRARY_SCOPE, listMedia, type NewMedia, saveMedia } from './media-store';
 import { png } from './test-images';
@@ -36,6 +36,22 @@ describe('a .lattice carries the photos the deck names', () => {
 		expect(packed.missing.sort()).toEqual(['gone', 'theirs']);
 		expect(packed.omitted).toEqual([]);
 		expect(await latticePhotoSummary(SRC, 'deck-a')).toMatchObject({ count: 2, missing: ['gone'] });
+	});
+
+	it('a deck that still writes a photo\'s OLD name still gets the photo, and it still resolves after the round trip', async () => {
+		await saveMedia({ ...photo('hero', png(1)), aliases: ['old-hero'] }, 1);
+		const src = '# Deck\n\n![](asset:old-hero)\n';
+		expect(await latticePhotoSummary(src, 'deck-a')).toMatchObject({ count: 1, missing: [] });
+		const { packed, bytes } = await exportWith(src, 'deck-a');
+		expect(packed.included).toEqual(['hero']);
+		expect(packed.missing).toEqual([]);
+		await wipe();
+		const read = await readLatticeFile(bytes);
+		const back = await restoreLatticePhotos((read.photos as NonNullable<typeof read.photos>).zip, read.source, 5);
+		expect(back.restored).toBe(1);
+		const [rec] = await listMedia();
+		expect(rec.name).toBe('hero');
+		expect(rec.aliases).toEqual(['old-hero']);
 	});
 
 	it('a file for a deck with no photos has no media part', async () => {
@@ -109,5 +125,24 @@ describe('a .lattice carries the photos the deck names', () => {
 		const { packed } = await exportWith('# D\n\n![](asset:legacy)\n');
 		expect(packed.included).toEqual([]);
 		expect(packed.missing).toEqual(['legacy']);
+	});
+});
+
+describe('a Markdown or Marp export carries the photos beside the deck', () => {
+	beforeEach(wipe);
+
+	it('writes photos/<name>.<ext> and points the source at it, leaving a photo it cannot carry as written', async () => {
+		await saveMedia(photo('team', png(1)), 1);
+		const b = await bundlePhotos('# D\n\n![](asset:team)\n\n![](asset:gone)\n', undefined);
+		expect(Object.keys(b.files)).toEqual(['photos/team.png']);
+		expect(b.source).toContain('![](photos/team.png)');
+		expect(b.source).toContain('![](asset:gone)');
+		expect(b.missing).toEqual(['gone']);
+	});
+
+	it('rewrites whole image names only: not another name, not prose, not a fenced example', () => {
+		const paths = new Map([['hero', 'photos/hero.jpg']]);
+		const src = '![](asset:Hero) ![](asset:hero-2) ![](asset:hero.jpg)\nUse `asset:hero` here\n```md\n![](asset:hero)\n```\n![](asset:hero)';
+		expect(withPhotoPaths(src, paths)).toBe('![](photos/hero.jpg) ![](asset:hero-2) ![](asset:hero.jpg)\nUse `asset:hero` here\n```md\n![](asset:hero)\n```\n![](photos/hero.jpg)');
 	});
 });

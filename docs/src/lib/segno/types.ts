@@ -22,6 +22,23 @@
  */
 
 export type Cls = 'vocab' | 'id' | 'number' | 'time' | 'range' | 'text';
+const BUILT_IN = new WeakSet<object>();
+/** Mark a type as one of Segno's own: its `read` only looks at the text it is given. */
+function own<T extends object>(t: T): T {
+  // Frozen, so a caller cannot swap in a `read` that parses and keep the mark.
+  Object.freeze(t);
+  BUILT_IN.add(t);
+  return t;
+}
+/**
+ * Is this one of Segno's own types (a `range` or `named` only if what it wraps is)? Their `read`
+ * never parses a span, so a slot may read them while it walks the parser's reused buffer
+ * (schema.ts, the fast read). A caller's own type may do anything, so it is not asked there. A
+ * copy of a built-in (`{ ...text(), read }`) is not marked, which is the point.
+ */
+/** @internal */
+export const isBuiltIn = (t: object): boolean => BUILT_IN.has(t);
+
 export const CLASS_ORDER: readonly Cls[] = ['vocab', 'id', 'number', 'time', 'range', 'text'];
 
 export interface Type<T> {
@@ -50,11 +67,12 @@ export interface Type<T> {
  * schema would not build. Named-only parameters take no part in bare-word binding.
  */
 export function named<T>(t: Type<T>): Type<T> {
-  return { ...t, namedOnly: true, describe: `${t.describe}, written name=value` };
+  const n = { ...t, namedOnly: true, describe: `${t.describe}, written name=value` };
+  return isBuiltIn(t) ? own(n) : n;
 }
 
 /** Any text. Quoted text is only ever this type. */
-export const text = (): Type<string> => ({
+export const text = (): Type<string> => own({
   cls: 'text',
   describe: 'text',
   read: (s) => s,
@@ -84,26 +102,26 @@ export function oneOf<const V extends string>(values: readonly V[], options: Enu
     if (!values.includes(v as V)) throw new Error(`segno: alias target "${v}" is not one of ${values.join(', ')}`);
     for (const a of alts) claim(a, v as V);
   }
-  return {
+  return own({
     cls: 'vocab',
     describe: `one of ${values.join(', ')}`,
     words: [...map.keys()],
     read: (s, quoted) => (quoted ? undefined : map.get(s.toLowerCase())),
     canonical: (s) => map.get(s.toLowerCase()),
-  };
+  });
 }
 
 /** A declared word that switches something on: `milestone`, `total`, `dashed`. */
 export function flag(word: string, options: { aliases?: readonly string[] } = {}): Type<true> {
   const words = [word, ...(options.aliases ?? [])].map((w) => w.toLowerCase());
   for (const w of words) if (!TYPEABLE.test(w)) throw new Error(`segno: "${w}" cannot be written as a bare word — it holds a separator, quote, bracket or edge space`);
-  return {
+  return own({
     cls: 'vocab',
     describe: `"${word}"`,
     words,
     read: (s, quoted) => (!quoted && words.includes(s.toLowerCase()) ? true : undefined),
     canonical: (s) => (words.includes(s.toLowerCase()) ? word : undefined),
-  };
+  });
 }
 
 /**
@@ -124,7 +142,7 @@ export function indexed(prefix: string, options: { max: number; label?: string }
   const { max } = options;
   const words = Array.from({ length: max }, (_, i) => `${p}${i + 1}`);
   const range = `${p}1–${p}${max}`;
-  return {
+  return own({
     cls: 'vocab',
     describe: options.label ? `${options.label} ${range}` : range,
     words,
@@ -144,11 +162,11 @@ export function indexed(prefix: string, options: { max: number; label?: string }
       if (s.length <= p.length || s.slice(0, p.length).toLowerCase() !== p || !/^[1-9]\d*$/.test(s.slice(p.length))) return undefined;
       return `"${s}" is past the limit — this takes ${range}`;
     },
-  };
+  });
 }
 
 /** An id: `#api`. Lower-case letters, digits and hyphens, starting with a letter or digit. */
-export const id = (): Type<string> => ({
+export const id = (): Type<string> => own({
   cls: 'id',
   describe: 'an id like #api',
   read: (s, quoted) => {
@@ -287,7 +305,7 @@ export function readNumberFull(t: string): NumberValue | undefined {
   return { value: neg ? -Math.abs(value) : value, signed, unit };
 }
 
-export const number = (): Type<NumberValue> => ({
+export const number = (): Type<NumberValue> => own({
   cls: 'number',
   describe: 'a number',
   read: (s, quoted) => (quoted ? undefined : readNumber(s)),
@@ -329,7 +347,7 @@ export function readTime(raw: string): TimePoint | undefined {
   return undefined;
 }
 
-export const time = (): Type<TimePoint> => ({
+export const time = (): Type<TimePoint> => own({
   cls: 'time',
   describe: 'a time (2026-03-15, 2026 Q1, Q3, Jan)',
   read: (s, quoted) => (quoted ? undefined : readTime(s)),
@@ -344,7 +362,7 @@ export interface Range<T> {
 
 /** `a..b` over another type. `..` is the only range delimiter; the first one splits. */
 export function range<T>(of: Type<T>): Type<Range<T>> {
-  return {
+  const r: Type<Range<T>> = {
     cls: 'range',
     describe: `a range of ${of.describe} (a..b)`,
     read: (s, quoted) => {
@@ -356,4 +374,5 @@ export function range<T>(of: Type<T>): Type<Range<T>> {
       return from !== undefined && to !== undefined ? { from, to } : undefined;
     },
   };
+  return isBuiltIn(of) ? own(r) : r;
 }

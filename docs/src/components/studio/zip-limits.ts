@@ -28,6 +28,10 @@ export const MAX_ZIP_BYTES: number = limits.MAX_ZIP_BYTES;
 export const MAX_INFLATED_BYTES: number = limits.MAX_INFLATED_BYTES;
 /** Most photo bytes a `.lattice` carries, beside the deck and its packages (MAX_ZIP_BYTES). */
 export const MAX_LATTICE_MEDIA_BYTES: number = limits.MAX_LATTICE_MEDIA_BYTES;
+/** Most photo bytes the `.lattice` inside a re-openable PDF or PowerPoint carries. */
+export const MAX_EMBEDDED_MEDIA_BYTES: number = limits.MAX_EMBEDDED_MEDIA_BYTES;
+/** Largest `.lattice` payload a PDF or PowerPoint may carry: the deck and its packages, plus those photos. */
+export const MAX_EMBEDDED_PAYLOAD_BYTES: number = MAX_ZIP_BYTES + MAX_EMBEDDED_MEDIA_BYTES;
 /** Most entries an asset archive may hold. */
 export const MAX_ZIP_ENTRIES: number = limits.MAX_ZIP_ENTRIES;
 

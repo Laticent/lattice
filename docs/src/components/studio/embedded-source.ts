@@ -31,7 +31,7 @@ import type JSZipType from 'jszip';
 // (HARD RULE #1). This file adapts it to Blobs and keeps the untrusted READ half, which only
 // the Studio needs. A DEFAULT import: it is a CommonJS leaf (vite-cjs-lib-dev.mjs).
 import reopenable from '../../../../lib/core/reopenable.js';
-import { MAX_ZIP_BYTES, readBytesBudget } from './zip-limits';
+import { MAX_EMBEDDED_PAYLOAD_BYTES, readBytesBudget } from './zip-limits';
 
 /** The attachment's file name in a PDF, and the payload format either way. */
 export const EMBED_FILENAME: string = reopenable.EMBED_FILENAME;
@@ -123,10 +123,10 @@ async function decodeEmbeddedStream(raw: Uint8Array, filter: string): Promise<Ui
 	// Capped on BOTH sides of the inflate: a payload that is already larger than a
 	// `.lattice` may be is refused unread, and the inflate stops at the chunk that crosses
 	// the cap, so a small deflate bomb cannot expand to gigabytes first.
-	if (raw.byteLength > MAX_ZIP_BYTES) throw new Error(TOO_LARGE);
+	if (raw.byteLength > MAX_EMBEDDED_PAYLOAD_BYTES) throw new Error(TOO_LARGE);
 	if (filter === '') return raw;
 	if (filter !== 'FlateDecode') throw new Error('That PDF’s Lattice deck is stored in a form this version cannot read.');
-	return inflateCapped(raw, MAX_ZIP_BYTES);
+	return inflateCapped(raw, MAX_EMBEDDED_PAYLOAD_BYTES);
 }
 
 /** zlib inflate with a running byte cap (exported for the bomb test). */
@@ -171,5 +171,5 @@ export async function embedInPptx(pptx: Blob, lattice: Uint8Array): Promise<Blob
 export async function extractFromPptx(zip: JSZipType): Promise<Uint8Array | null> {
 	const entry = zip.file(PPTX_EMBED_PART);
 	if (!entry) return null;
-	return (await readBytesBudget(TOO_LARGE, MAX_ZIP_BYTES)(entry)) ?? null;
+	return (await readBytesBudget(TOO_LARGE, MAX_EMBEDDED_PAYLOAD_BYTES)(entry)) ?? null;
 }

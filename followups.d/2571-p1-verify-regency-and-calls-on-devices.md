@@ -15,3 +15,5 @@ where     — the PR preview link; design note §8.1 (runbook), §12.1 and §12.
 done when — on two real devices: the host's phone locks for a minute, the other editor hosts, the phone wakes and takes the session back with chat intact; and a two-person call with mute and the speaking ring works, including on an iPhone.
 evidence  — screenshots from both devices of each step, recorded in §12.1 / §12.2.
 verify    — tier 0; the owner runs it (pairs with 2547-p1-verify-live-on-two-real-networks).
+
+progress  — 2026-10-13 (#2633): the owner ran an iPhone host and a tablet on cellular and wifi: calls connect and stay up, and volume above 100 % works on the iPhone. Still open: the regency (host handoff) on devices, and two networks without a hotel-style isolation.

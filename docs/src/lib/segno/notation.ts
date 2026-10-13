@@ -81,7 +81,18 @@ export interface Diagnostic {
 
 export type Parsed = { ok: true; item: Item } | { ok: false; diagnostic: Diagnostic };
 
-const NAME = /^[A-Za-z][A-Za-z0-9-]*$/;
+/** Is this a parameter name an author can write: a letter, then letters, digits and hyphens? */
+export function isName(s: string): boolean {
+  const n = s.length;
+  if (n === 0) return false;
+  let c = s.charCodeAt(0);
+  if (!((c >= 65 && c <= 90) || (c >= 97 && c <= 122))) return false;
+  for (let k = 1; k < n; k++) {
+    c = s.charCodeAt(k);
+    if (!((c >= 97 && c <= 122) || (c >= 48 && c <= 57) || (c >= 65 && c <= 90) || c === 45)) return false;
+  }
+  return true;
+}
 
 /**
  * How many levels of brackets a span may nest. Each level spends two of the engine's
@@ -94,6 +105,16 @@ export const MAX_NESTING = Math.floor(MAX_DEPTH / 2);
 
 /** Space, tab or no-break space — the grammar's WS. */
 const isSpace = (c: number) => c === 32 || c === 9 || c === 160;
+
+/**
+ * Where a bare run really ends. It never STARTS with a space (the grammar forbids it), so only
+ * its end is trimmed — in place, with no [from, to] pair allocated on the hot path.
+ */
+export function bareEnd(s: string, from: number, to: number): number {
+  let end = to;
+  while (end > from && isSpace(s.charCodeAt(end - 1))) end--;
+  return end;
+}
 
 function unquote(s: string, from: number, to: number): string {
   let out = '';
@@ -123,6 +144,28 @@ function bindKinds(kinds: readonly string[]) {
   kindsSeen = kinds;
   K_BARE = kinds.indexOf('bare'); K_QUOTED = kinds.indexOf('quoted'); K_RECORD = kinds.indexOf('record');
   K_LIST = kinds.indexOf('list'); K_WORD = kinds.indexOf('word'); K_TAGGED = kinds.indexOf('tagged');
+  FLAT_KIND.bare = K_BARE; FLAT_KIND.word = K_WORD; FLAT_KIND.record = K_RECORD;
+}
+
+/** The kind numbers `flatTree` callers compare against; set by the first parse. */
+export const FLAT_KIND = { bare: -1, word: -1, record: -1 };
+
+/**
+ * @internal for schema.ts; not part of the published API.
+ * The generated parser's flat tree (flat.ts) for `text`, or null when the text does not parse.
+ * schema.ts binds a plain `{…}` record straight from it, without building the Item and Scalar
+ * objects `parse` returns; whatever that cannot bind it hands back to `parse`, which alone words
+ * the errors. Valid until the next parse, so read it before parsing again.
+ */
+export function flatTree(text: string): Int32Array | null {
+  const r = parseGenerated(text);
+  // Kept for `parseRaw`: when the caller cannot bind this span it parses the same text next, and
+  // parsing it twice cost every quoted label and every error span 40-50% more than before.
+  handedText = text;
+  handedResult = r;
+  if (!r.ok) return null;
+  bindKinds(r.tree.kinds);
+  return r.tree.buf;
 }
 
 function readValue(s: string, b: Int32Array, at: number): Value {
@@ -131,10 +174,7 @@ function readValue(s: string, b: Int32Array, at: number): Value {
   const to = b[at + 2];
   const next = b[at + 3];
   if (kind === K_BARE) {
-    // A bare run never STARTS with a space (the grammar forbids it), so only its end is
-    // trimmed — in place, with no [from, to] pair allocated on the hot path.
-    let end = to;
-    while (end > from && isSpace(s.charCodeAt(end - 1))) end--;
+    const end = bareEnd(s, from, to);
     return { kind: 'scalar', text: s.slice(from, end), quoted: false, from, to: end };
   }
   if (kind === K_QUOTED) return { kind: 'scalar', text: unquote(s, from, to), quoted: true, from, to };
@@ -187,7 +227,7 @@ function readItem(s: string, b: Int32Array, at: number): Item {
   const nameValue = readValue(s, b, head) as Scalar;
   const tail = b[head + 3];
   if (tail >= b[at + 3]) return { name: null, value: nameValue, from: nameValue.from, to: nameValue.to };
-  if (!NAME.test(nameValue.text)) {
+  if (!isName(nameValue.text)) {
     const end = b[tail + 2];
     throw new ReadError({
       code: 'bad-name', severity: 'error',
@@ -280,8 +320,16 @@ export function parse(text: string): Parsed {
   return { ok: false, diagnostic: progresses(text, r.diagnostic) ? r.diagnostic : withoutFix(r.diagnostic) };
 }
 
+/** The last result `flatTree` produced, still valid only while nothing else has parsed. */
+let handedText: string | null = null;
+let handedResult: ReturnType<typeof parseGenerated> | null = null;
+
 function parseRaw(text: string): Parsed {
-  const r = parseGenerated(text);
+  // Every parse goes through here or `flatTree`, and each replaces or clears the handed-over result,
+  // so a match means the buffer still holds this text's tree.
+  const r = handedResult !== null && handedText === text ? handedResult : parseGenerated(text);
+  handedText = null;
+  handedResult = null;
   if (!r.ok) return { ok: false, diagnostic: syntaxDiagnostic(text, r.error) };
   bindKinds(r.tree.kinds);
   try {
@@ -322,8 +370,12 @@ export function isDirective(text: string): 'directive' | 'escaped' | null {
   let i = 0;
   let escaped = false;
   if (text.charCodeAt(0) === 0x5c /* \ */) { escaped = true; i = 1; }
-  if (TAGS.includes(text[i] ?? '\0')) i++;
-  if (text.charCodeAt(i) !== 0x7b /* { */) return null;
+  // A `{` is the common opener and needs no tag test; only another first character asks TAGS.
+  if (text.charCodeAt(i) !== 0x7b /* { */) {
+    if (!TAGS.includes(text[i] ?? '\0')) return null;
+    i++;
+    if (text.charCodeAt(i) !== 0x7b /* { */) return null;
+  }
   const c = text.charCodeAt(i + 1);
   if (Number.isNaN(c) || isSpace(c) || c === 0x7d) return null;
   return escaped ? 'escaped' : 'directive';

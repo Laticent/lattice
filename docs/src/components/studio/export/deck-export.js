@@ -152,10 +152,25 @@ export function embedThemeInMarkdown(source, theme) {
 // across all three engine paths (the component bridge; see
 // engineering/decisions/2026-06-12-workbench-component-bridge.md). Pairs with the
 // theme embed: theme first, then components, both self-contained.
-export function exportMarkdown(source, name, theme, components) {
+//
+// `files` maps a path inside the archive (`photos/team.jpg`) to bytes: the Library photos the deck
+// names, which the caller has already pointed the source's references at. With none, the download
+// is the bare `.md` it always was; with some it is a `.zip` holding the `.md` beside them, because a
+// Markdown file cannot hold a picture and a reference to a path the recipient lacks is a broken image.
+export async function exportMarkdown(source, name, theme, components, files = {}) {
 	let md = embedThemeInMarkdown(source, theme);
 	md = embedComponentsInMarkdown(md, components);
-	download(new Blob([md], { type: 'text/markdown;charset=utf-8' }), safeName(name) + '.md');
+	const slug = safeName(name);
+	const paths = Object.keys(files);
+	if (!paths.length) {
+		download(new Blob([md], { type: 'text/markdown;charset=utf-8' }), slug + '.md');
+		return;
+	}
+	const { default: JSZip } = await import('jszip');
+	const zip = new JSZip();
+	zip.file(`${slug}.md`, md);
+	for (const p of paths) zip.file(p, files[p]);
+	download(await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' }), slug + '.zip');
 }
 
 // The shipped parents a SAVED theme names with `@import '<name>'`, read by the one
@@ -187,7 +202,8 @@ export async function importedThemeNames(css) {
  * @param {{includeAgent?: boolean, version?: string,
  *          overflowMarker?: 'author'|'reader'|'off', pluginsOff?: string[],
  *          extraTheme?: {name: string, css: string},
- *          components?: Array<{name: string, css: string}>}} [opts]
+ *          components?: Array<{name: string, css: string}>,
+ *          files?: Record<string, Uint8Array>}} [opts]
  *   `overflowMarker` is the EXPORT setting (lib/core/resolve-overflow-marker.js) —
  *   who the overflow signal in the rendered bundle is addressed to. Typed
  *   explicitly rather than left to inference: the caller passes it from workspace
@@ -197,7 +213,7 @@ export async function importedThemeNames(css) {
  *   bundle writes its CSS directly. `components` are the saved components the deck
  *   uses, embedded as `<style>` blocks exactly as the Markdown export embeds them.
  */
-export async function exportMarp(source, name, palette, themeBase, { includeAgent = true, version, overflowMarker, extraTheme, components = [], pluginsOff = [] } = {}) {
+export async function exportMarp(source, name, palette, themeBase, { includeAgent = true, version, overflowMarker, extraTheme, components = [], pluginsOff = [], files = {} } = {}) {
 	const PG = typeof window !== 'undefined' ? window.LatticePlayground : undefined;
 	const marp = PG?.marp;
 	if (!marp) throw new Error('engine not ready — try again in a moment');
@@ -230,6 +246,9 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 		}
 	}));
 	const localized = samplePaths.size ? withSampleAssets(source, samplePaths) : source;
+	// `files` — the Library photos the deck names, as bytes at the paths the caller already wrote into
+	// `source` (share-export.ts `bundlePhotos`). This producer has no filesystem, so the Studio hands them in.
+	for (const [path, bytes] of Object.entries(files)) dir.file(path, bytes);
 
 	// deck.md — the auto-glossary's generated slide baked in FIRST (it appends a
 	// whole slide and strips its own trigger), then splits baked to literal `---`,

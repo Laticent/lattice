@@ -15,3 +15,5 @@ where     — the slot is LIVE_TURN in docs/src/components/studio/live/live-ice.
 done when — the owner chose: no TURN, or a named free provider configured in the adapter with its trade-off (a third party relays media while in use) written into §7.
 evidence  — the decision line in §10.
 verify    — tier 0; it is a decision.
+
+progress  — 2026-10-13 (#2633): the owner's hotel-wifi run confirmed it: two devices on the same hotel wifi could not connect at all (client isolation), while phone on cellular + tablet on wifi connected and stayed up. The lobby message now names the case; only a relay fixes it, so this decision is now the one that decides whether same-wifi works on such networks.

@@ -707,3 +707,111 @@ describe('a paste carries an object only from this editor', () => {
 		expect(out).toBe('`` {a`b} ``');
 	});
 });
+
+describe('sparks are objects too (phase 2)', () => {
+	const SPARK_DECK = ['<!-- _class: content -->', '', '## KPIs', '', 'Revenue `~{12 14 13 17 21, bar, c3}` and churn `~{72/80, bullet}`, share `~{72%}`.', '', 'Not a spark `~{abc}` and a pill `{DONE, c1}`.'].join('\n');
+
+	function caretIn(view: EditorView, needle: string, after = false) {
+		let at = -1;
+		view.state.doc.descendants((node, pos) => {
+			if (at < 0 && node.isText && node.text?.includes(needle)) at = pos + node.text.indexOf(needle) + (after ? needle.length : 0);
+		});
+		view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, at)));
+		return at;
+	}
+
+	it('asks the kernel which kind owns a source: a spark is not a pill and a pill is not a spark', () => {
+		expect(kindOf('~{12 14 17}', kernels)?.kind.id).toBe('spark');
+		expect(kindOf('{DONE, c1}', kernels)?.kind.id).toBe('pill');
+		expect(kindOf('~{abc}', kernels)).toBeNull();
+		expect(kindOf('~{\\n}', kernels)).toBeNull();
+	});
+
+	it('turns the sparks the engine draws into nodes, beside the pills, and writes the same bytes back', () => {
+		const view = mount(SPARK_DECK);
+		expect(texts(view)).toEqual(['~{12 14 13 17 21, bar, c3}', '~{72/80, bullet}', '~{72%}', '{DONE, c1}']);
+		expect(docToDeck(view.state.doc)).toBe(docToDeck(deckToDoc(SPARK_DECK)));
+		expect(reparsed(view)).toEqual(texts(view));
+	});
+
+	it('an edit through the host writes the changed word and the deck re-reads it', () => {
+		const view = mount(SPARK_DECK);
+		const [first] = objects(view.state.doc);
+		expect(editObject(view, first.pos, { size: 'lg', color: null }, kernels)).toBe(true);
+		expect(view.state.doc.nodeAt(first.pos)?.attrs.src).toBe('~{12 14 13 17 21, bar, lg}');
+		expect(reparsed(view)[0]).toBe('~{12 14 13 17 21, bar, lg}');
+	});
+
+	it('a refused edit writes nothing', () => {
+		const view = mount(SPARK_DECK);
+		const [first] = objects(view.state.doc);
+		const before = view.state.doc;
+		expect(editObject(view, first.pos, { end: true }, kernels)).toBe(false); // a marker on a bar
+		expect(view.state.doc.eq(before)).toBe(true);
+	});
+
+	it('undo takes a spark edit back in one step', () => {
+		const view = mount(SPARK_DECK);
+		const [first] = objects(view.state.doc);
+		editObject(view, first.pos, { data: [1, 2, 3] }, kernels);
+		expect(view.state.doc.nodeAt(first.pos)?.attrs.src).toBe('~{1 2 3, bar, c3}');
+		undo(view.state, view.dispatch);
+		expect(view.state.doc.nodeAt(first.pos)?.attrs.src).toBe('~{12 14 13 17 21, bar, c3}');
+	});
+
+	it('the spark door inserts after the word, with a space, and opens the editor', () => {
+		const view = mount(SPARK_DECK);
+		const at = caretIn(view, 'Not a spark ', true);
+		const door = insertObject(() => kernels, { kind: 'spark' });
+		expect(door(view.state, view.dispatch)).toBe(true);
+		expect(openObject(view.state)).toMatchObject({ src: '~{12 14 13 17 21}' });
+		// Beside the author's own code span, a space keeps the two apart (`a``b` is one span in Markdown).
+		expect(docToDeck(view.state.doc)).toContain('Not a spark `~{12 14 13 17 21}` `~{abc}`');
+		expect(view.state.doc.nodeAt(at)?.attrs.src).toBe('~{12 14 13 17 21}');
+		expect(reparsed(view)).toContain('~{12 14 13 17 21}');
+	});
+
+	it('the spark door leaves a selected word as it is and goes in after it', () => {
+		const view = mount(SPARK_DECK);
+		let from = -1;
+		view.state.doc.descendants((node, pos) => {
+			if (from < 0 && node.isText && node.text?.startsWith('Not a spark')) from = pos;
+		});
+		view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, from, from + 3)));
+		expect(insertObject(() => kernels, { kind: 'spark' })(view.state, view.dispatch)).toBe(true);
+		expect(docToDeck(view.state.doc)).toContain('Not `~{12 14 13 17 21}` a spark');
+	});
+
+	it('the blocker names the thing in its message', () => {
+		const view = mount(SPARK_DECK);
+		const why = insertBlocker(view.state, null, false, 'spark');
+		expect(why).toMatch(/spark editor/);
+	});
+
+	it('goes after the word the caret is in, never through it', () => {
+		const view = mount('<!-- _class: content -->\n\n## T\n\nRevenue grew fast.');
+		caretIn(view, 'grew', false);
+		view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, view.state.selection.from + 2)));
+		expect(insertObject(() => kernels, { kind: 'spark' })(view.state, view.dispatch)).toBe(true);
+		expect(docToDeck(view.state.doc)).toContain('Revenue grew `~{12 14 13 17 21}` fast.');
+	});
+
+	it('declines when a selection reaches into the author\'s own code span, at either end', () => {
+		const view = mount('<!-- _class: content -->\n\n## T\n\nSee `foo` here.');
+		const before = view.state.doc;
+		let code = -1;
+		let start = -1;
+		view.state.doc.descendants((n, pos) => {
+			if (n.isText && n.text?.startsWith('foo') && code < 0) code = pos;
+			if (n.isText && n.text?.startsWith('See') && start < 0) start = pos;
+		});
+		// From "See" into the middle of `foo`.
+		view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, start, code + 2)));
+		expect(insertObject(() => kernels, { kind: 'spark' })(view.state, view.dispatch)).toBe(false);
+		expect(insertBlocker(view.state, kernels, false, 'spark')).toMatch(/code span/);
+		// Wholly inside it.
+		view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, code, code + 2)));
+		expect(insertObject(() => kernels, { kind: 'spark' })(view.state, view.dispatch)).toBe(false);
+		expect(view.state.doc.eq(before)).toBe(true);
+	});
+});

@@ -1,7 +1,7 @@
 import JSZip from 'jszip';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { sampleAssetNames, withRuntimeScriptsReport, withSampleAssets } from '../../../../../lib/core/marp-bundle.js';
-import { exportMarp, importedThemeNames } from './deck-export.js';
+import { exportMarkdown, exportMarp, importedThemeNames } from './deck-export.js';
 
 // The Marp bundle's THEME and COMPONENT supply (2026-09-23-portable-packages.md §1, §4).
 //
@@ -259,5 +259,28 @@ describe('exportMarp — the bundle carries the deck\'s `sample:` pictures', () 
 		await exportMarp(DECK.replace('sample:logo-acme-mark.svg', 'brand/mark.svg'), 'deck', 'indaco', BASE, { includeAgent: false });
 		const md2 = (await (await bundle()).file('deck/deck.md')?.async('string')) ?? '';
 		expect(md2.slice(md2.indexOf('application/lattice-front-matter'))).not.toContain('logo:');
+	});
+});
+
+// The Library photos a deck names ride beside it (2026-10-12-library-media-assets.md §6): the caller
+// rewrites the source to `assets/<name>.<ext>` and hands the bytes in as `files`.
+describe('Markdown and Marp exports carry the photos the deck names', () => {
+	const PHOTO = new Uint8Array([1, 2, 3, 4]);
+
+	it('Marp writes the photo bytes at the path the deck names', async () => {
+		await exportMarp('# Hi\n\n![](photos/team.jpg)', 'deck', 'indaco', BASE, { includeAgent: false, files: { 'photos/team.jpg': PHOTO } });
+		const zip = await bundle();
+		expect([...(await zip.file('deck/photos/team.jpg')!.async('uint8array'))]).toEqual([1, 2, 3, 4]);
+		expect(await zip.file('deck/deck.md')!.async('string')).toContain('![](photos/team.jpg)');
+	});
+
+	it('Markdown stays a bare .md without photos, and becomes a zip with the .md beside them when it has some', async () => {
+		await exportMarkdown('# Hi', 'deck', undefined, []);
+		expect(blobs[0].type).toMatch(/markdown/);
+		blobs = [];
+		await exportMarkdown('# Hi\n\n![](photos/team.jpg)', 'deck', undefined, [], { 'photos/team.jpg': PHOTO });
+		const zip = await bundle();
+		expect(Object.keys(zip.files).filter((p) => !zip.files[p].dir).sort()).toEqual(['deck.md', 'photos/team.jpg']);
+		expect(await zip.file('deck.md')!.async('string')).toContain('photos/team.jpg');
 	});
 });

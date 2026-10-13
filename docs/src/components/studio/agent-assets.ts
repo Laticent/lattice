@@ -29,7 +29,7 @@ export type AssetInfo = {
 export type AgentAssets = {
 	list(): Promise<AssetInfo[]>;
 	/** A JPEG data URL at most `MAX_THUMB_EDGE` px on the long edge, or null when it cannot be made. */
-	thumbnail(name: string): Promise<string | null>;
+	thumbnail(name: string, edge?: number): Promise<string | null>;
 	/** Store a caption on the named image. Resolves the cleaned caption as stored ('' when it
 	 *  cleaned to nothing), or null when the image is gone. */
 	setCaption(name: string, caption: string): Promise<string | null>;

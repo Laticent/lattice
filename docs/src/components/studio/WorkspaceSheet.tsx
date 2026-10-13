@@ -55,6 +55,9 @@ import { DEGRADED_TOAST_MS } from './toast-duration';
 import type { PackReport } from './workspace-backup';
 import { downloadBlob, isEvictionProneBrowser, stashRestoreReport, storageSummary, WORKSPACE_ZIP_NAME } from './workspace-backup-meta';
 
+// The image model's picker loads when Workspace → Model is opened, not with the Studio.
+const ImageModelSettings = React.lazy(() => import('./ImageModelSettings').then((m) => ({ default: m.ImageModelSettings })));
+
 const pct = (used: number, total: number) => (total > 0 ? Math.min(100, Math.max(0, (used / total) * 100)) : 0);
 
 // Workspace Settings — "your setup", distinct from the deck Inspector's "deck-wide".
@@ -1035,6 +1038,7 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 											<button type="button" onClick={disconnect} className="ml-auto rounded-md border border-border px-2.5 py-1 text-[12px] font-semibold text-[var(--accent)]">Disconnect</button>
 										</div>
 										<div className="mt-3"><ModelPicker status={ai} /></div>
+										<div className="mt-4"><React.Suspense fallback={<div className="h-[88px]" aria-hidden />}><ImageModelSettings status={ai} /></React.Suspense></div>
 										<p className="mt-2 text-[11px] leading-relaxed text-muted-foreground"><span className="text-[var(--accent)]">●</span> Metered per request · the deck text leaves your device.</p>
 									</div>
 								) : (

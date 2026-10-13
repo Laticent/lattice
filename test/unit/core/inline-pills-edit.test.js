@@ -145,6 +145,20 @@ describe('editPill — spelling and order are the author\'s', () => {
     assert.equal(pills.editPill('{icon=database}', { size: 'lg' }), '{icon=database, lg}');
   });
 
+  test('the icon axis adds, replaces and removes `icon=`, and the kernel decides which names exist', () => {
+    assert.equal(pills.editPill('{DONE, c2}', { icon: 'api' }), '{DONE, c2, icon=api}');
+    assert.equal(pills.editPill('{DONE, icon=api, c2}', { icon: 'database' }), '{DONE, icon=database, c2}');
+    assert.equal(pills.editPill('{DONE, icon=api, c2}', { icon: null }), '{DONE, c2}');
+    assert.equal(pills.editPill('{DONE, Icon=api}', { icon: 'API' }), '{DONE, Icon=api}'); // already says it
+    assert.equal(pills.editPill('{DONE, icon=api}', { icon: 'database', color: 'c3' }), '{DONE, icon=database, c3}');
+    // Refusals: an unknown icon, a name that is not a word, and taking the only thing an icon-only pill shows.
+    assert.equal(pills.editPill('{DONE}', { icon: 'no-such-icon' }), null);
+    assert.equal(pills.editPill('{DONE}', { icon: 'a b' }), null);
+    assert.equal(pills.editPill('{DONE}', { icon: 'a}, c2' }), null);
+    assert.equal(pills.editPill('{icon=api}', { icon: null }), null);
+    assert.equal(pills.editPill('{c2, icon=api}', { icon: null }), null);
+  });
+
   test('the case the author typed is kept on words that were not edited', () => {
     assert.equal(pills.editPill('{LIVE, TAG, c4}', { color: 'c6' }), '{LIVE, TAG, c6}');
   });
