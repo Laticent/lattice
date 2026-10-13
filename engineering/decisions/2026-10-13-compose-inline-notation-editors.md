@@ -312,6 +312,10 @@ visible pair for the deck), how the next kind plugs in (a registry), and how an 
   was written as one span and both stopped being pills on the next load. The same rule that makes
   objects keeps a single space between an object and a neighboring object or code span, "+ Pill" adds
   it, and the serializer adds it as a last resort. Inside the author's own code span, "+ Pill" declines.
+  A mark between the two (`**`{A}`**`{B}`: the closing `**` sits between the backticks) already keeps
+  them apart, so no space is added there. The caret stays before a space put in at it, so typing code
+  just before a pill stays in the code span. One known rough edge: Backspace on the separating space
+  puts it straight back and leaves an empty step in the undo history.
 - **The edit-time pass is narrow on purpose.** It looks only at the slides the author changed or moved
   through, so it cannot give an untouched slide new nodes (a slide with new nodes is re-serialized, not
   re-emitted from its cached bytes). It does not run after an undo or redo until the author makes a
@@ -346,6 +350,13 @@ visible pair for the deck), how the next kind plugs in (a registry), and how an 
   `.lat-pill` rules and the tokens they read, in one `@scope`d stylesheet), so there is no second copy
   to drift. Until the sheet is ready, an object shows its source in the code face and is still one
   tappable thing.
+
+**A second checker pass, on the fixes, found five more:** typing code before a pill threw the caret out
+of the span; the gap pass added a space where a mark already separated two pills; "+ Pill" and a paste
+could create objects in an `inline-code: literal` deck or slide (the door now declines and says why, and
+a stray object goes back to its code span); the narrow bar's first row changed width between slides; and
+a deck that pins `color-scheme: only dark` was dropped by the sheet's allow-list. All fixed with
+mutation-checked tests except the Backspace rough edge above, which is documented.
 
 **What the independent checker found, and what changed.** A checker with no stake in the build ran the
 diff and broke three promises with concrete inputs: two pills touching wrote one code span (the existing
