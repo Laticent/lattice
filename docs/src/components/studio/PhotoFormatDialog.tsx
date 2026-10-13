@@ -122,7 +122,7 @@ export function PhotoFormatDialog({ files, onCancel, onConfirm }: { files: File[
 										<span className="shrink-0 text-[12.5px] font-semibold tabular-nums text-[var(--text-heading)]" data-format-size={f}>
 											{unavailable ? <span className="font-normal text-muted-foreground">Not in this browser</span> : b === null ? <Loader2 className="size-3.5 animate-spin text-muted-foreground" aria-label="Measuring" /> : mb(b)}
 											{delta !== null && !unavailable ? (
-												<span className={cn('ml-1.5 text-[11px] font-medium', delta > 0 ? 'text-[var(--destructive,#b45309)]' : delta < 0 ? 'text-[var(--success,#15803d)]' : 'text-muted-foreground')}>
+												<span className={cn('ml-1.5 text-[11px] font-medium', delta > 0 ? 'text-[var(--warn)]' : delta < 0 ? 'text-[var(--pass)]' : 'text-muted-foreground')}>
 													{delta === 0 ? 'same' : `${delta > 0 ? '+' : '−'}${Math.abs(delta)}%`}
 												</span>
 											) : null}
