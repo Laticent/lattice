@@ -1,11 +1,14 @@
 import { LayoutGrid } from 'lucide-react';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
+import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { useOverlayBack } from '@/lib/overlay-back';
 import { useIsPhone } from '@/lib/use-breakpoint';
 
 export type GalleryItem = { id: string; label: string; slides: number };
+/** One `examples/*.md` deck in the on-demand index (`galleries/index.json`). */
+export type ExampleDeck = { id: string; title: string; slides: number };
 export type GalleryGroup = { key: string; hint: string; items: GalleryItem[] };
 
 /**
@@ -29,12 +32,17 @@ export function GalleriesSheet({
 	resetTarget,
 	resetArm,
 	onLoadGallery,
+	loadExampleIndex,
+	onLoadExample,
 	onResetExample,
 }: {
 	groups: GalleryGroup[];
 	resetTarget: string;
 	resetArm: boolean;
 	onLoadGallery: (id: string) => void;
+	/** Fetches the every-example index; absent when the host staged none (the section hides). */
+	loadExampleIndex?: () => Promise<ExampleDeck[] | null>;
+	onLoadExample: (id: string) => void;
 	onResetExample: () => void;
 }) {
 	const [open, setOpen] = React.useState(false);
@@ -54,7 +62,7 @@ export function GalleriesSheet({
 	return (
 		<Sheet open={open} onOpenChange={setOpen} modal={false}>
 			<SheetTrigger asChild>
-				<Button id="pg-galleries-trigger" variant="outline" size="sm" aria-label="Galleries" title="Galleries — load a showcase or family deck">
+				<Button id="pg-galleries-trigger" variant="outline" size="sm" aria-label="Galleries" title="Galleries — load a showcase, family or example deck">
 					<LayoutGrid />
 					<span className="hidden sm:inline">Galleries</span>
 				</Button>
@@ -63,7 +71,7 @@ export function GalleriesSheet({
 				<SheetHeader className="border-b border-border">
 					<SheetTitle className="flex items-center gap-2 text-[15px]"><LayoutGrid className="size-[18px] text-[var(--accent)]" />Load a deck</SheetTitle>
 					<SheetDescription className="sr-only">
-						Scaffold the selected component, or load a full showcase or family survey deck into the editor.
+						Scaffold the selected component, or open a showcase, family survey or example deck.
 					</SheetDescription>
 				</SheetHeader>
 				<div className="flex flex-col gap-5 px-4 pb-5">
@@ -126,6 +134,16 @@ export function GalleriesSheet({
 							</ul>
 						</section>
 					))}
+					{loadExampleIndex && (
+						<ExamplesSection
+							open={open}
+							loadIndex={loadExampleIndex}
+							onPick={(id) => {
+								onLoadExample(id);
+								close();
+							}}
+						/>
+					)}
 				</div>
 			</SheetContent>
 		</Sheet>
@@ -150,5 +168,67 @@ function DrawerAction({
 		>
 			{children}
 		</button>
+	);
+}
+
+/**
+ * "All examples": a searchable list of every `examples/*.md` deck, A–Z by title with its
+ * slide count. Inline in the sheet rather than a popover — the sheet is non-modal, and a
+ * portaled popover would count as an outside click and dismiss it. The index is fetched when
+ * the sheet first opens (never on page load) and a failed fetch is retried on the next open.
+ */
+function ExamplesSection({
+	open,
+	loadIndex,
+	onPick,
+}: {
+	open: boolean;
+	loadIndex: () => Promise<ExampleDeck[] | null>;
+	onPick: (id: string) => void;
+}) {
+	const [decks, setDecks] = React.useState<ExampleDeck[] | null>(null);
+	const [failed, setFailed] = React.useState(false);
+	React.useEffect(() => {
+		if (!open || decks) return;
+		let live = true;
+		setFailed(false);
+		void loadIndex().then((list) => {
+			if (!live) return;
+			if (list) setDecks(list);
+			else setFailed(true);
+		});
+		return () => {
+			live = false;
+		};
+	}, [open, decks, loadIndex]);
+
+	return (
+		<section>
+			<h3 className="m-0 mb-0.5 font-mono text-[11px] uppercase tracking-[0.12em] text-primary">All examples</h3>
+			<p className="m-0 mb-2 text-xs leading-snug text-muted-foreground">
+				Every per-feature demo deck in the repo{decks ? ` (${decks.length})` : ''}. Search by title.
+			</p>
+			{failed ? (
+				<p className="m-0 text-xs text-muted-foreground">Examples unavailable. Close and reopen to retry.</p>
+			) : (
+				<Command className="h-auto rounded-md border border-border bg-background focus-within:border-primary focus-within:ring-1 focus-within:ring-primary">
+					<CommandInput aria-label="Search examples" placeholder={decks ? 'Search examples…' : 'Loading examples…'} disabled={!decks} />
+					<CommandList className="max-h-64">
+						<CommandEmpty>No example matches.</CommandEmpty>
+						{(decks ?? []).map((d) => (
+							<CommandItem key={d.id} value={`${d.title} ${d.id}`} onSelect={() => onPick(d.id)} className="justify-between gap-3">
+								<span className="flex min-w-0 flex-col">
+									<span className="truncate text-sm">{d.title}</span>
+									<span className="truncate font-mono text-[10.5px] text-muted-foreground">{d.id}</span>
+								</span>
+								<span className="shrink-0 font-mono text-[10.5px] tracking-wide text-muted-foreground">
+									{d.slides} {d.slides === 1 ? 'slide' : 'slides'}
+								</span>
+							</CommandItem>
+						))}
+					</CommandList>
+				</Command>
+			)}
+		</section>
 	);
 }

@@ -77,7 +77,7 @@ export const STEPS = [
 		mode: 'read',
 		popover: {
 			title: 'Load a full deck',
-			description: 'Two shelves: complete showcase decks, and per-family survey decks. They walk slide by slide, same as any component.',
+			description: 'Three shelves: complete showcase decks, per-family survey decks, and every per-feature example deck, searchable. They walk slide by slide, same as any component.',
 			side: 'bottom',
 			align: 'end',
 		},
