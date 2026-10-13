@@ -1,4 +1,4 @@
-import { ChevronRight, Sparkles, X } from 'lucide-react';
+import { CalendarDays, ChevronRight, Sparkles, X } from 'lucide-react';
 import * as React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -264,7 +264,22 @@ export function MediaDetailDialog({ m: incoming, open, onOpenChange, usedIn, ali
 							</div>
 							<div className="grid min-w-0 gap-2">
 								<Label htmlFor={`${uid}-taken`}>Date taken</Label>
-								<Input id={`${uid}-taken`} type="date" value={taken} max={localToday()} onChange={(e) => setTaken(e.target.value)} aria-invalid={!takenOk} className="[&::-webkit-date-and-time-value]:text-left" />
+								{/* iOS Safari draws a date input with its own pill: taller than `h-9` and wider than its column, and it ignores both
+								    until `appearance` is off. So on iOS (the `-webkit-touch-callout` query is iOS-only) the native look is removed, the
+								    field is sized like every other Input, and a calendar glyph of our own stands in for the picker button. Elsewhere the
+								    native control and its own picker button are kept. */}
+								<div className="relative min-w-0">
+									<Input
+										id={`${uid}-taken`}
+										type="date"
+										value={taken}
+										max={localToday()}
+										onChange={(e) => setTaken(e.target.value)}
+										aria-invalid={!takenOk}
+										className="block min-w-0 max-w-full text-left [&::-webkit-date-and-time-value]:min-h-0 [&::-webkit-date-and-time-value]:text-left [@supports(-webkit-touch-callout:none)]:appearance-none [@supports(-webkit-touch-callout:none)]:[-webkit-appearance:none] [@supports(-webkit-touch-callout:none)]:pr-9"
+									/>
+									<CalendarDays className="pointer-events-none absolute top-1/2 right-3 hidden size-4 -translate-y-1/2 text-muted-foreground [@supports(-webkit-touch-callout:none)]:block" aria-hidden />
+								</div>
 							</div>
 						</div>
 

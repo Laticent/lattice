@@ -734,12 +734,23 @@ test('@smoke @mobile @webkit-phone on a phone the dialog does not pan sideways, 
 	const fit = await dialog.evaluate((el) => {
 		const date = el.querySelector('input[type="date"]') as HTMLInputElement;
 		const box = el.getBoundingClientRect();
-		const wide = [...el.querySelectorAll('*')].filter((n) => getComputedStyle(n).display !== 'contents').filter((n) => n.getBoundingClientRect().right > box.right + 0.5 || n.getBoundingClientRect().left < box.left - 0.5).map((n) => `${n.tagName}.${(n as HTMLElement).className}`.slice(0, 80));
+		const wide = [...el.querySelectorAll('*')].filter((n) => getComputedStyle(n).display !== 'contents' && n.getClientRects().length > 0).filter((n) => n.getBoundingClientRect().right > box.right + 0.5 || n.getBoundingClientRect().left < box.left - 0.5).map((n) => `${n.tagName}.${(n as HTMLElement).className}`.slice(0, 80));
 		return { scrollW: el.scrollWidth, clientW: el.clientWidth, dateW: date.getBoundingClientRect().width, touch: getComputedStyle(el).touchAction, overflowX: getComputedStyle(el).overflowX, wide };
 	});
 	expect(fit.scrollW, `nothing is wider than the dialog: ${fit.wide.join(' | ')}`).toBeLessThanOrEqual(fit.clientW);
 	expect(fit.wide, 'no control pokes out of the dialog').toEqual([]);
 	expect(fit.dateW, 'the date field is short').toBeLessThanOrEqual(200);
+	// The date control is the one that went wrong on a real iPhone: taller than its neighbors and wider than its column, so it ran
+	// off the right edge. Measured in the engine, it is the same height as Credit and ends inside the dialog's padding.
+	const pair = await dialog.evaluate((el) => {
+		const credit = (el.querySelector('input[placeholder="Photographer"]') as HTMLElement).getBoundingClientRect();
+		const date = (el.querySelector('input[type="date"]') as HTMLElement).getBoundingClientRect();
+		const body = (el.querySelector('form > div') as HTMLElement).getBoundingClientRect();
+		return { creditH: credit.height, dateH: date.height, creditRight: credit.right, dateLeft: date.left, dateRight: date.right, bodyRight: body.right };
+	});
+	expect(pair.dateH, 'Date is as tall as Credit').toBe(pair.creditH);
+	expect(pair.dateRight, 'Date ends inside the dialog').toBeLessThanOrEqual(pair.bodyRight + 0.5);
+	expect(pair.creditRight, 'Credit and Date do not overlap').toBeLessThanOrEqual(pair.dateLeft);
 	expect(fit.overflowX).toBe('hidden');
 	expect(fit.touch).toContain('pan-y');
 
