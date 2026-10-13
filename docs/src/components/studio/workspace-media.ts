@@ -22,7 +22,7 @@
 // `importStudioState` does the same "beside, never over" for a deck that diverged).
 
 import { scrubberFor } from './media-scrub';
-import { isMediaName, LIBRARY_SCOPE, listMedia, MAX_MEDIA_FILE_BYTES, saveMedia, setMediaScope, sniffImageMime, uniqueName } from './media-store';
+import { cleanLine, isMediaName, LIBRARY_SCOPE, listMedia, MAX_MEDIA_FILE_BYTES, type MediaRecord, namesOf, saveMedia, setMediaScope, sniffImageMime, uniqueName } from './media-store';
 import { declaredInflatedBytes, jsonGuard, readBudget, readBytesBudget } from './zip-limits';
 
 export const MEDIA_INDEX = 'media.json';
@@ -31,6 +31,8 @@ export const MEDIA_INDEX = 'media.json';
 export const MAX_MEDIA_RESTORE_BYTES = 1024 * 1024 * 1024;
 /** Most rows `media.json` may hold. Each is an IndexedDB write. */
 export const MAX_MEDIA_ROWS = 5_000;
+/** The most old names one photo's row may bring back. */
+const MAX_ALIASES = 20;
 /** Most refusals a restore lists by name; the rest are counted. */
 const MAX_REFUSALS_LISTED = 25;
 /** Most `media.json` may inflate to: a row is a few hundred bytes. */
@@ -63,6 +65,12 @@ type MediaRow = {
 	original: boolean;
 	addedAt: number;
 	file: string;
+	// Added after the first backups shipped. A reader treats a missing field as empty (the Avro rule), and a
+	// reader that does not know one ignores it, so a backup crosses builds in both directions.
+	caption?: string;
+	credit?: string;
+	taken?: string;
+	aliases?: string[];
 };
 
 /** Write every Library photo into `zip` as `media/<file>` plus `media.json`. Resolves how many, how many
@@ -84,10 +92,31 @@ export async function packMedia(zip: Zip): Promise<{ rows: number; bytes: number
 		// Bytes, not the Blob: JSZip reads a Blob only where the host supports it, and bytes work everywhere.
 		zip.file(`media/${file}`, new Uint8Array(await m.blob.arrayBuffer()));
 		bytes += m.blob.size;
-		rows.push({ name: m.name, kind: 'image', scope: m.scope, mime: m.mime, bytes: m.blob.size, width: m.width, height: m.height, sourceName: m.sourceName, original: m.original, addedAt: m.addedAt, file });
+		rows.push({ name: m.name, kind: 'image', scope: m.scope, mime: m.mime, bytes: m.blob.size, width: m.width, height: m.height, sourceName: m.sourceName, original: m.original, addedAt: m.addedAt, file, ...(m.caption ? { caption: m.caption } : {}), ...(m.credit ? { credit: m.credit } : {}), ...(m.taken ? { taken: m.taken } : {}), ...(m.aliases?.length ? { aliases: m.aliases } : {}) });
 	}
 	if (rows.length) zip.file(MEDIA_INDEX, JSON.stringify(rows, null, 2));
 	return { rows: rows.length, bytes, skipped };
+}
+
+/** The description, credit, date and old names a backup row carries, made safe to store. An old name that
+ *  another photo already holds is dropped, and the ones kept are added to `claimed` so no later row can take them. */
+function restoredMeta(raw: Partial<MediaRow>, name: string, claimed: Set<string>): Pick<MediaRecord, 'caption' | 'credit' | 'taken' | 'aliases'> {
+	const out: Pick<MediaRecord, 'caption' | 'credit' | 'taken' | 'aliases'> = {};
+	const caption = typeof raw.caption === 'string' ? cleanLine(raw.caption, 140) : '';
+	if (caption) out.caption = caption;
+	const credit = typeof raw.credit === 'string' ? cleanLine(raw.credit, 100) : '';
+	if (credit) out.credit = credit;
+	if (typeof raw.taken === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(raw.taken)) out.taken = raw.taken;
+	if (Array.isArray(raw.aliases)) {
+		const keep: string[] = [];
+		for (const a of raw.aliases.slice(0, MAX_ALIASES)) {
+			if (typeof a !== 'string' || !isMediaName(a) || a === name || claimed.has(a)) continue;
+			claimed.add(a);
+			keep.push(a);
+		}
+		if (keep.length) out.aliases = keep;
+	}
+	return out;
 }
 
 const int = (v: unknown, max: number): number => (typeof v === 'number' && Number.isFinite(v) ? Math.min(max, Math.max(0, Math.floor(v))) : 0);
@@ -150,10 +179,20 @@ export async function restoreMedia(zip: Zip, now: number, ctx: RestoreContext): 
 	};
 	for (const m of shelf) hold({ id: m.id, name: m.name, scope: m.scope, size: m.blob.size, blob: m.blob });
 	const local = new Set(shelf.map((m) => m.name));
-	// Every name a new photo must not take: what is on the device, and every name the BACKUP uses, so a
-	// photo renamed to dodge a local clash cannot land on a name a later row of the same backup owns.
-	const reserved = new Set(local);
-	for (const raw of rows as Partial<MediaRow>[]) if (typeof raw?.name === 'string' && isMediaName(raw.name)) reserved.add(raw.name);
+	// Every name a new photo must not take: what is on the device (aliases included), and every name and alias
+	// the BACKUP uses, so a photo renamed to dodge a local clash cannot land on a name a later row of the same
+	// backup owns.
+	const reserved = new Set(shelf.flatMap(namesOf));
+	// The names an ALIAS from the backup may claim: not one this device holds, not any photo's own name in the
+	// backup. An alias that would clash is dropped (the photo comes back without it), never a reason to refuse.
+	const claimed = new Set(reserved);
+	for (const raw of rows as Partial<MediaRow>[]) {
+		if (typeof raw?.name === 'string' && isMediaName(raw.name)) {
+			reserved.add(raw.name);
+			claimed.add(raw.name);
+		}
+		if (Array.isArray(raw?.aliases)) for (const a of raw.aliases) if (typeof a === 'string' && isMediaName(a)) reserved.add(a);
+	}
 	let totalRead = 0;
 	let restored = 0;
 	let shared = 0;
@@ -285,6 +324,8 @@ export async function restoreMedia(zip: Zip, now: number, ctx: RestoreContext): 
 			name = uniqueName(name, reserved);
 			renames.push({ from: raw.name, to: name, scope: backupScope });
 		}
+		// The words a person wrote, read as untrusted text: a backup is a file from anyone.
+		const meta = restoredMeta(raw, name, claimed);
 		try {
 			const saved = await saveMedia(
 				{
@@ -298,6 +339,7 @@ export async function restoreMedia(zip: Zip, now: number, ctx: RestoreContext): 
 					height: int(raw.height, 100_000),
 					sourceName: typeof raw.sourceName === 'string' ? raw.sourceName.slice(0, 200) : raw.name,
 					original: raw.original === true,
+					...meta,
 				},
 				int(raw.addedAt, Number.MAX_SAFE_INTEGER) || now,
 			);

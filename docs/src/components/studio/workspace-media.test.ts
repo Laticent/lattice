@@ -6,7 +6,7 @@ import 'fake-indexeddb/auto';
 import JSZip from 'jszip';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { deleteAsset, listAssets } from './library/asset-store.js';
-import { LIBRARY_SCOPE, listMedia, MAX_MEDIA_FILE_BYTES, type NewMedia, saveMedia } from './media-store';
+import { LIBRARY_SCOPE, listMedia, MAX_MEDIA_FILE_BYTES, type NewMedia, renameMedia, saveMedia, updateMediaMeta } from './media-store';
 import { jpeg, jpegSegment, png, pngChunk, webp } from './test-images';
 import { MAX_MEDIA_ROWS, MEDIA_INDEX, packMedia, renameAssetRefs, restoreMedia } from './workspace-media';
 
@@ -401,5 +401,55 @@ describe('renameAssetRefs', () => {
 	});
 	it('leaves a source with no such reference untouched', () => {
 		expect(renameAssetRefs('# no photos', 'hero', 'hero-2')).toBe('# no photos');
+	});
+});
+
+describe('description, credit, date and old names ride in a backup', () => {
+	it('round-trips them, and a renamed photo still answers to its old name', async () => {
+		const rec = await saveMedia(photo({ name: 'hero' }), 1);
+		await updateMediaMeta(rec.id, { caption: 'A door', credit: 'Ada L.', taken: '2026-03-04' });
+		await renameMedia(rec.id, 'front-door');
+		const z = new JSZip();
+		await packMedia(z);
+		const packed = await JSZip.loadAsync(await z.generateAsync({ type: 'uint8array' }));
+		await emptyShelf();
+		expect((await restoreMedia(packed, 9, ctx())).refused).toEqual([]);
+		const [back] = await listMedia();
+		expect([back.name, back.aliases, back.caption, back.credit, back.taken]).toEqual(['front-door', ['hero'], 'A door', 'Ada L.', '2026-03-04']);
+	});
+
+	it('restores an older backup that has none of these fields', async () => {
+		const out = await restoreMedia(await craft([row()]), 9, ctx());
+		expect(out.restored).toBe(1);
+		const [back] = await listMedia();
+		expect([back.aliases, back.caption, back.credit, back.taken]).toEqual([undefined, undefined, undefined, undefined]);
+	});
+
+	it('ignores a field this build does not know', async () => {
+		const out = await restoreMedia(await craft([row({ rating: 5, gps: '51.5,-0.1' })]), 9, ctx());
+		expect(out.restored).toBe(1);
+		expect(Object.keys((await listMedia())[0])).not.toContain('gps');
+	});
+
+	it('cleans the text and drops an old name that would clash, without refusing the photo', async () => {
+		await saveMedia(photo({ name: 'taken-here' }, OTHER), 1);
+		const rows = [
+			row({ caption: 'A "quote"\nline', credit: 5, taken: 'last march', aliases: ['taken-here', 'other', 'ok-old', 'ok-old', 'Bad Name', 7, 'hero'] }),
+			row({ name: 'other', file: 'other.png', aliases: ['ok-old'] }),
+		];
+		const out = await restoreMedia(await craft(rows, { 'hero.png': PNG, 'other.png': png(3) }), 9, ctx());
+		expect(out.refused).toEqual([]);
+		const by = Object.fromEntries((await listMedia()).map((m) => [m.name, m]));
+		expect(by.hero.caption).toBe('A "quote" line');
+		expect([by.hero.credit, by.hero.taken]).toEqual([undefined, undefined]);
+		// 'taken-here' is on the device, 'other' and 'hero' are photos' own names; only the first 'ok-old' survives.
+		expect(by.hero.aliases).toEqual(['ok-old']);
+		expect(by.other.aliases).toBeUndefined();
+	});
+
+	it('keeps no more than 20 old names a photo', async () => {
+		const aliases = Array.from({ length: 40 }, (_, i) => `old-${i}`);
+		await restoreMedia(await craft([row({ aliases })]), 9, ctx());
+		expect((await listMedia())[0].aliases).toHaveLength(20);
 	});
 });

@@ -1,3 +1,5 @@
 - The Library's Images tab now opens a detail view for each photo: the picture large, with its description, credit, date taken and name editable. The description shows on the card, and the chat reads it too.
 - Renaming a photo keeps its old name as an alias, so `asset:<old-name>` in a deck keeps showing the same photo with no deck edited. Names and aliases share one namespace, so a new upload cannot take a name that is an alias of another photo. Removing an alias frees the name.
 - The delete warning on a photo now counts decks that still write one of its old names.
+- A workspace backup now carries each photo's description, credit, date taken and old names, and a restore puts them back. An older backup without them still restores. An old name that another photo already holds is dropped on restore instead of refusing the photo.
+- A description keeps the quotes you type. The chat still gets a cleaned copy of it, so a quote mark cannot break out of its prompt.

@@ -256,7 +256,18 @@ export async function setMediaCaption(id: string, caption: string): Promise<Medi
 /** The metadata a person edits by hand. `undefined` leaves a field alone; an empty string clears it. */
 export type MediaMetaPatch = { caption?: string; credit?: string; taken?: string };
 
-const cleanLine = (v: string, max: number): string => cleanCaption(v).slice(0, max);
+/** A line of text a person typed, kept as typed: one line, no control or invisible characters, capped. Quotes
+ *  and the middle dot stay. The chat's prompt is the only place they are unsafe, and it cleans a description
+ *  on the way out (agent-assets-browser.ts `infoOf`), so the person's wording is not changed to protect it. */
+export const cleanLine = (v: string, max: number): string =>
+	v
+		// biome-ignore lint/suspicious/noControlCharactersInRegex: stripping them is the point
+		.replace(/[\u0000-\u001f\u007f-\u009f]+/g, ' ')
+		.replace(/[\p{Cf}\p{Zl}\p{Zp}]+/gu, '')
+		.replace(/\s+/g, ' ')
+		.trim()
+		.slice(0, max)
+		.trim();
 const cleanTaken = (v: string): string => (/^\d{4}-\d{2}-\d{2}$/.test(v.trim()) ? v.trim() : '');
 
 /** Change an image's description, credit or date taken. Resolves the updated record, or null when it

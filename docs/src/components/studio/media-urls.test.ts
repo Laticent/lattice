@@ -4,7 +4,7 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { deleteAsset, listAssets } from './library/asset-store.js';
-import { LIBRARY_SCOPE, type NewMedia, saveMedia, setMediaScope } from './media-store';
+import { LIBRARY_SCOPE, type NewMedia, renameMedia, saveMedia, setMediaScope } from './media-store';
 import { assetNamesIn, assetStamp, dataUrlsFor, ensureAssetUrls, missingAssetNames, onAssetUrlsChanged, refreshAssetUrls, resetAssetUrlsForTests, setActiveAssetDeck, sourceUsesAssets } from './media-urls';
 
 const make = (over: Partial<NewMedia> = {}): NewMedia => ({
@@ -189,5 +189,28 @@ describe('dataUrlsFor — what an export renders with', () => {
 		expect(assetNamesIn('![](asset:team-photo.jpg) and asset:team-photo.')).toEqual(['team-photo.jpg', 'team-photo']);
 		expect(await missingAssetNames('![](asset:team-photo.jpg)')).toEqual(['team-photo.jpg']);
 		expect(await dataUrlsFor('![](asset:team-photo.jpg)')).toEqual({});
+	});
+});
+
+describe('a renamed photo', () => {
+	it('answers to its old name in the preview map and in an export, with the same bytes', async () => {
+		const rec = await saveMedia(make({ name: 'hero' }), 1);
+		await renameMedia(rec.id, 'team-offsite');
+		const map = await ensureAssetUrls();
+		expect(Object.keys(map).sort()).toEqual(['hero', 'team-offsite']);
+		expect(map.hero).toBe(map['team-offsite']);
+		const data = await dataUrlsFor('![](asset:hero) ![](asset:team-offsite)');
+		expect(data.hero).toBe(data['team-offsite']);
+		expect(data.hero).toMatch(/^data:image\/png;base64,/);
+		expect(await missingAssetNames('![](asset:hero)')).toEqual([]);
+	});
+
+	it('re-renders the preview when a photo is renamed', async () => {
+		const rec = await saveMedia(make({ name: 'hero' }), 1);
+		await ensureAssetUrls();
+		const before = assetStamp();
+		await renameMedia(rec.id, 'team-offsite');
+		await refreshAssetUrls();
+		expect(assetStamp()).not.toBe(before);
 	});
 });

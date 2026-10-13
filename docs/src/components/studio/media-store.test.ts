@@ -311,7 +311,7 @@ describe('updateMediaMeta', () => {
 	it('sets, cleans and clears description, credit and date', async () => {
 		const rec = await saveMedia(base(), 1);
 		const set = await updateMediaMeta(rec.id, { caption: ' A "door" ', credit: 'Ada L.', taken: '2026-03-04' });
-		expect([set?.caption, set?.credit, set?.taken]).toEqual(["A 'door'", 'Ada L.', '2026-03-04']);
+		expect([set?.caption, set?.credit, set?.taken]).toEqual(['A "door"', 'Ada L.', '2026-03-04']);
 		const bad = await updateMediaMeta(rec.id, { taken: 'last march' });
 		expect(bad?.taken).toBeUndefined();
 		const cleared = await updateMediaMeta(rec.id, { caption: '', credit: '' });
