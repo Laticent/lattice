@@ -14,7 +14,7 @@ import { type CommentKind, commentInner, commentKind, stripChannelPrefix } from 
 import { deckSchema, deckToDoc, type EmitBaseline, emitDeck, initBaseline, rebaselineSlides, serializeSlideNode } from '@/lib/compose/deck-doc';
 import { slideClassOf } from '@/lib/compose/deck-source';
 import { deckFenceTags, highlightLanguageFor } from '@/lib/compose/fence-catalog';
-import { type InlineKernels, inlineObjectsPlugin, insertObject, isSilentPass, normalizeDeck, type ObjectsPluginOptions, type OpenObject, objectNodeView, repaintObjects } from '@/lib/compose/inline-objects';
+import { type InlineKernels, inlineObjectsPlugin, insertBlocker, insertObject, isSilentPass, normalizeDeck, type ObjectsPluginOptions, type OpenObject, objectNodeView, repaintObjects } from '@/lib/compose/inline-objects';
 import { addPaneTitle, applyPaneChoice, type PaneChoice, type PaneDirection, type PaneInfo, paneChoices, paneFit, paneLabel, paneMarkerGuard, paneOwnsTitles, paneStarter, slidePanes, starterEditable } from '@/lib/compose/pane-model';
 import { type PaneCatalogRow, paneNeedsFrom } from '@/lib/compose/pane-needs';
 import { pillSheetReady, releasePillSheet, syncPillSheet } from '@/lib/compose/pill-sheet';
@@ -738,9 +738,11 @@ class SlideView {
 		// locked slide, and until the kernels have loaded.
 		actions.append(this.btn('Insert pill', 'tag', () => {
 			// Say why when it declines, instead of doing nothing.
-			if (!insertObject(() => this.getKernels?.() ?? null)(this.view.state, this.view.dispatch)) {
-				notify('Put the cursor in plain text on one line to insert a pill.');
-			}
+			const kernels = this.getKernels?.() ?? null;
+			const deckLiteral = kernels?.isLiteralFromSource(this.getSource?.() ?? '') ?? false;
+			const why = insertBlocker(this.view.state, kernels, deckLiteral);
+			if (why) notify(why);
+			else insertObject(() => kernels, { getDeckLiteral: () => deckLiteral })(this.view.state, this.view.dispatch);
 		}, 'cs-pill-btn cs-insert-pill'));
 		if (onSettings) actions.append(this.btn('Slide settings', 'sliders-horizontal', () => { const i = this.index(); if (i >= 0) onSettings(i); }, 'cs-pill-btn'));
 		pill.append(history, historyDiv, this.fmtGroup, div, actions);
@@ -2602,6 +2604,7 @@ function ComposeStyles() {
 					.cs-sb-pill > .cs-sb-format{order:3;flex:0 0 100%;justify-content:center;min-height:28px}
 					.cs-sb-pill > .cs-sb-actions:last-child{order:2}
 					.cs-sb-pill > .cs-sb-div-hist{display:none}
+					.cs-sb-pill > .cs-sb-format:empty + .cs-sb-div{display:block}
 					.cs-sb-pill > .cs-sb-format:empty{display:block}
 				}
 				.cs-tblc-div{flex:none;width:1px;height:14px;background:var(--border,#e4eaf2);margin:0 3px}

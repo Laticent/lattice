@@ -58,6 +58,11 @@ describe('buildSheetText', () => {
 		expect(buildSheetText([], {}, 'light dark')).toContain('color-scheme:light dark');
 	});
 
+	it('keeps a scheme the deck pins with `only`', () => {
+		expect(buildSheetText([], {}, 'only dark')).toContain('color-scheme:only dark');
+		expect(buildSheetText([], {}, 'light dark only')).toContain('color-scheme:light dark only');
+	});
+
 	it('writes no scheme it does not recognize, so a stray value can never reach the stylesheet', () => {
 		expect(buildSheetText([], {}, 'dark; background:red')).not.toContain('color-scheme');
 		expect(buildSheetText([], {}, '')).not.toContain('color-scheme');

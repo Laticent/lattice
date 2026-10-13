@@ -20,7 +20,7 @@
 //     (HARD RULES #1, #7).
 
 import { closeHistory, isHistoryTransaction } from 'prosemirror-history';
-import type { Mark, Node as PMNode } from 'prosemirror-model';
+import { Mark, type Node as PMNode } from 'prosemirror-model';
 import { type Command, type EditorState, NodeSelection, Plugin, PluginKey, TextSelection, type Transaction } from 'prosemirror-state';
 import type { EditorView, NodeView } from 'prosemirror-view';
 import { deckSchema } from './deck-doc';
@@ -108,6 +108,18 @@ function isCodeish(node: PMNode | null | undefined): boolean {
 	return Boolean(node && (node.type === objectType() || (node.isText && code().isInSet(node.marks))));
 }
 
+/**
+ * Do two neighboring inline nodes WRITE as touching code spans? Both are code spans (one at least an
+ * object) and no other mark opens or closes between them. Where one does (`**`{A}`**`{B}`: the closing
+ * `**` sits between the backticks), they are already apart and need no space.
+ */
+export function touchesAsCode(a: PMNode, b: PMNode): boolean {
+	if (!isCodeish(a) || !isCodeish(b)) return false;
+	if (a.type !== objectType() && b.type !== objectType()) return false;
+	const plain = (n: PMNode) => n.marks.filter((m) => m.type !== code());
+	return Mark.sameSet(plain(a), plain(b));
+}
+
 /** Where a `<pos>` lies in `doc` as indexes of the slides it touches. */
 function slidesTouching(doc: PMNode, ranges: readonly { from: number; to: number }[]): Set<number> {
 	const out = new Set<number>();
@@ -167,22 +179,28 @@ export interface NormalizeOptions {
  * does the same as a last resort.
  */
 export function normalizeObjects(state: EditorState, kernels: InlineKernels, deckLiteral: boolean, opts: NormalizeOptions = {}): Transaction | null {
-	if (deckLiteral) return null;
 	const sparing = opts.sparing ?? true;
 	const codeMark = code();
 	const type = objectType();
 	const sel = state.selection;
 	const found: { from: number; to: number; src: string; marks: readonly Mark[] }[] = [];
+	// Objects in a place the engine draws no pills (the deck or the slide is `inline-code: literal`), which
+	// a paste can bring in from another deck: they go back to the code span they are.
+	const strays: { from: number; to: number; src: string; marks: readonly Mark[] }[] = [];
 	state.doc.forEach((slide, offset, index) => {
 		if (slide.type.name !== 'slide' || slide.attrs.locked) return;
 		if (opts.slides && !opts.slides.has(index)) return;
-		if (((slide.attrs.directives as string[]) || []).some((d) => d.includes(kernels.INLINE_CODE_LITERAL))) return;
+		const literal = deckLiteral || ((slide.attrs.directives as string[]) || []).some((d) => d.includes(kernels.INLINE_CODE_LITERAL));
 		slide.descendants((node, pos) => {
+			const from = offset + 1 + pos;
+			if (literal) {
+				if (node.type === type) strays.push({ from, to: from + 1, src: node.attrs.src as string, marks: node.marks });
+				return;
+			}
 			if (!node.isText || !node.text || !codeMark.isInSet(node.marks)) return;
 			// The sigil first: the cheapest reject, before the kernel is asked anything.
 			const c = node.text.charCodeAt(0);
 			if (c !== 0x7b && c !== 0x7e && c !== 0x21) return;
-			const from = offset + 1 + pos;
 			const to = from + node.nodeSize;
 			if (sparing && sel.from <= to && sel.to >= from) return;
 			if (!kindOf(node.text, kernels)) return;
@@ -191,10 +209,11 @@ export function normalizeObjects(state: EditorState, kernels: InlineKernels, dec
 	});
 	const tr = state.tr;
 	// Back to front, so each replacement leaves the positions of the ones before it alone.
-	for (let i = found.length - 1; i >= 0; i--) {
-		const f = found[i];
-		tr.replaceWith(f.from, f.to, type.create({ src: f.src }, null, f.marks));
-	}
+	const edits = [
+		...found.map((f) => ({ ...f, make: () => type.create({ src: f.src }, null, f.marks) })),
+		...strays.map((f) => ({ ...f, make: () => deckSchema.text(f.src, codeMark.create().addToSet([...f.marks])) })),
+	].sort((a, b) => b.from - a.from);
+	for (const e of edits) tr.replaceWith(e.from, e.to, e.make());
 	// Then keep code spans apart, on the document as it now stands, back to front for the same reason.
 	const gaps: { pos: number; marks: readonly Mark[] }[] = [];
 	tr.doc.forEach((slide, offset, index) => {
@@ -204,17 +223,23 @@ export function normalizeObjects(state: EditorState, kernels: InlineKernels, dec
 			let at = offset + 1 + pos + 1;
 			let prev: PMNode | null = null;
 			block.forEach((child) => {
-				if (prev && isCodeish(prev) && isCodeish(child) && (prev.type === type || child.type === type)) {
-					const owner = child.type === type ? child : prev;
-					gaps.push({ pos: at, marks: owner.marks.filter((m) => m.type !== codeMark) });
-				}
+				if (prev && touchesAsCode(prev, child)) gaps.push({ pos: at, marks: child.marks.filter((m) => m.type !== codeMark) });
 				at += child.nodeSize;
 				prev = child;
 			});
 			return false;
 		});
 	});
+	// The caret keeps its place BEFORE a space put in at it. A step mapping moves a cursor past an insertion
+	// at its position, so typing code just before a pill (where the space has to go) would carry the caret
+	// out of the code span and every later keystroke would land outside it.
+	const before = tr.selection;
+	const stepsBefore = tr.steps.length;
 	for (let i = gaps.length - 1; i >= 0; i--) tr.insert(gaps[i].pos, deckSchema.text(' ', gaps[i].marks));
+	if (gaps.length && before instanceof TextSelection) {
+		const m = tr.mapping.slice(stepsBefore);
+		tr.setSelection(TextSelection.create(tr.doc, m.map(before.anchor, -1), m.map(before.head, -1)));
+	}
 	return tr.docChanged ? tr : null;
 }
 
@@ -332,37 +357,48 @@ export function editObjectAsText(view: EditorView, pos: number): boolean {
 }
 
 /**
- * The "+ Pill" door: put a new pill at the caret and open its editor on it. A selected word becomes
- * the label (a short, plain selection only), so "make this a pill" is one tap. Declines in a fenced
- * block, in a locked slide, and across blocks, where the schema or the structural guard would refuse.
+ * Why the "+ Pill" door cannot insert here, in words the author can use, or null when it can. Declines in
+ * a fenced block, across blocks, inside the author's own code span (the new object would split it), in a
+ * locked slide, and where the engine draws no pills (`inline-code: literal`, deck or slide), where an
+ * object would be drawn here as a pill the slide does not draw.
  */
-export function insertObject(getKernels: () => InlineKernels | null, sample = 'Status'): Command {
+export function insertBlocker(state: EditorState, kernels: InlineKernels | null, deckLiteral: boolean): string | null {
+	if (!kernels) return 'The pill editor is still loading.';
+	const { $from, $to, empty } = state.selection;
+	if ($from.node(1)?.attrs.locked) return 'This slide is edited in Markdown, so pills cannot be added here.';
+	if (deckLiteral || (($from.node(1)?.attrs.directives as string[]) || []).some((d) => d.includes(kernels.INLINE_CODE_LITERAL))) return 'Pills are turned off here (inline-code: literal).';
+	if (!$from.parent.inlineContent || $from.parent.type.spec.code || !$from.sameParent($to) || !$from.parent.canReplaceWith($from.index(), $to.index(), objectType())) return 'Put the cursor in plain text on one line to insert a pill.';
+	// Inside the author's own code span the new object would split it in two.
+	const before = $from.nodeBefore;
+	const after = $to.nodeAfter;
+	if (empty && before?.isText && after?.isText && isCodeish(before) && isCodeish(after)) return 'The cursor is inside a code span. Move it outside to insert a pill.';
+	return null;
+}
+
+/**
+ * The "+ Pill" door: put a new pill at the caret and open its editor on it. A selected word becomes
+ * the label (a short, plain selection only), so "make this a pill" is one tap. `insertBlocker` says
+ * when it declines. At a code span's edge, or beside another object, a space keeps the two code spans
+ * apart (`{A}``{B}` is one span in Markdown).
+ */
+export function insertObject(getKernels: () => InlineKernels | null, opts: { sample?: string; getDeckLiteral?: () => boolean } = {}): Command {
 	return (state, dispatch) => {
 		const kernels = getKernels();
-		if (!kernels) return false;
+		if (insertBlocker(state, kernels, opts.getDeckLiteral?.() ?? false) || !kernels) return false;
 		const { $from, $to, from, to, empty } = state.selection;
-		if (!$from.parent.inlineContent || $from.parent.type.spec.code) return false;
-		if ($from.node(1)?.attrs.locked) return false;
-		// A selection across blocks would be replaced with one object and merge the paragraphs.
-		if (!$from.sameParent($to)) return false;
-		if (!$from.parent.canReplaceWith($from.index(), $to.index(), objectType())) return false;
-		// Inside the author's own code span the new object would split it in two; decline, and the
-		// caller says why. At a span's EDGE, or beside another object, a space keeps the two code spans
-		// apart (they cannot touch in Markdown: `{A}``{B}` is one span).
-		const before = $from.nodeBefore;
-		const after = $to.nodeAfter;
-		if (!empty ? false : isCodeish(before) && isCodeish(after) && before?.isText && after?.isText) return false;
 		const picked = empty ? '' : state.doc.textBetween(from, to, ' ').trim();
-		const label = picked && picked.length <= 40 && !/\n/.test(picked) ? picked : sample;
+		const label = picked && picked.length <= 40 && !/\n/.test(picked) ? picked : (opts.sample ?? 'Status');
 		const src = kernels.pill.edit('{X}', { label });
 		if (!src || !isObjectSource(src) || !kindOf(src, kernels)) return false;
 		if (dispatch) {
-			const lead = isCodeish(before);
-			const trail = isCodeish(after);
+			const node = objectType().create({ src });
+			const before = $from.nodeBefore;
+			const after = $to.nodeAfter;
+			const lead = Boolean(before && touchesAsCode(before, node));
+			const trail = Boolean(after && touchesAsCode(node, after));
 			const space = () => deckSchema.text(' ');
-			const parts = [...(lead ? [space()] : []), objectType().create({ src }), ...(trail ? [space()] : [])];
+			const tr = state.tr.replaceWith(from, to, [...(lead ? [space()] : []), node, ...(trail ? [space()] : [])]);
 			const at = from + (lead ? 1 : 0);
-			const tr = state.tr.replaceWith(from, to, parts);
 			tr.setSelection(NodeSelection.create(tr.doc, at)).setMeta(objectsKey, { open: at } satisfies ObjectsMeta);
 			dispatch(tr.scrollIntoView());
 		}

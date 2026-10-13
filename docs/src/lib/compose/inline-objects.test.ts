@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
+import { toggleMark } from 'prosemirror-commands';
 import { closeHistory, history, redo, redoDepth, undo, undoDepth } from 'prosemirror-history';
 import { DOMParser as PMDOMParser } from 'prosemirror-model';
 import { EditorState, NodeSelection, type Plugin, TextSelection } from 'prosemirror-state';
@@ -14,6 +15,7 @@ import {
 	editObjectAsText,
 	type InlineKernels,
 	inlineObjectsPlugin,
+	insertBlocker,
 	insertObject,
 	kindOf,
 	leaveObject,
@@ -479,6 +481,14 @@ describe('two pills never touch (the checker\'s first finding)', () => {
 		expect(docToDeck(doc)).toBe('`{ONE, c2}` `{TWO, c4}`');
 	});
 
+	it('the serializer\'s last resort leaves two objects alone when a mark sits between them', () => {
+		const obj = (src: string, marks: readonly import('prosemirror-model').Mark[] = []) => deckSchema.nodes.inline_object.create({ src }, null, marks);
+		const strong = deckSchema.marks.strong.create();
+		const para = deckSchema.nodes.paragraph.create(null, [obj('{ONE, c2}', [strong]), obj('{TWO, c4}')]);
+		const doc = deckSchema.nodes.doc.create(null, [deckSchema.nodes.slide.create(null, [para])]);
+		expect(docToDeck(doc)).toBe('**`{ONE, c2}`**`{TWO, c4}`');
+	});
+
 	it('an object beside code text is separated too', () => {
 		const view = mount('<!-- _class: content -->\n\n## T\n\nA `{ONE, c2}` `code` B');
 		const [a] = objects(view.state.doc);
@@ -587,6 +597,64 @@ describe('an edit-time pass stays on the slides the author touched', () => {
 		});
 		expect(slidesAfter[1]).toBe(slidesBefore[1]);
 		expect(slidesAfter[2]).toBe(slidesBefore[2]);
+	});
+});
+
+describe('the second checker\'s findings', () => {
+	const base = '<!-- _class: content -->\n\n## T\n\n';
+
+	it('typing code just before a pill keeps the caret in the code span (the gap goes after it)', () => {
+		const view = mount(`${base}Say ab\`{ONE, c2}\` B`);
+		let from = -1;
+		view.state.doc.descendants((n, pos) => {
+			if (from < 0 && n.isText && n.text?.startsWith('Say ab')) from = pos + 4;
+		});
+		view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, from, from + 2)));
+		toggleMark(deckSchema.marks.code)(view.state, view.dispatch);
+		view.dispatch(view.state.tr.insertText('x'));
+		view.dispatch(view.state.tr.insertText('y'));
+		expect(docToDeck(view.state.doc)).toContain('Say `xy` `{ONE, c2}` B');
+		expect(reparsed(view)).toEqual(['{ONE, c2}']);
+	});
+
+	it('pills that a mark already separates get no space the author never wrote', () => {
+		for (const src of [`X **\`{A, c2}\`**\`{B, c4}\` Y`, `X [\`{A, c2}\`](http://x)\`{B, c4}\` Y`, `X *\`{A, c2}\`*\`code\` Y`]) {
+			const view = mount(base + src);
+			const written = docToDeck(deckToDoc(base + src));
+			expect(docToDeck(view.state.doc)).toBe(written);
+			// And an edit in the same slide leaves the touching marks as they were.
+			view.dispatch(view.state.tr.insertText('¤', 2));
+			expect(docToDeck(view.state.doc).replace('¤', '')).toBe(written);
+		}
+	});
+
+	it('the door declines in a deck or a slide set to inline-code: literal, and says why', () => {
+		const deckLit = mount('---\ninline-code: literal\n---\n\n## T\n\nPlain text here.');
+		const slideLit = mount('<!-- _class: content inline-code-literal -->\n\n## T\n\nPlain text here.');
+		for (const [view, literal] of [[deckLit, true], [slideLit, false]] as const) {
+			let at = -1;
+			view.state.doc.descendants((n, pos) => {
+				if (at < 0 && n.isText && n.text?.includes('Plain text')) at = pos + 5;
+			});
+			view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, at)));
+			expect(insertBlocker(view.state, kernels, literal)).toMatch(/inline-code: literal/);
+			expect(insertObject(() => kernels, { getDeckLiteral: () => literal })(view.state, view.dispatch)).toBe(false);
+			expect(texts(view)).toEqual([]);
+		}
+	});
+
+	it('an object pasted into a literal slide goes back to the code span it is', () => {
+		const state = EditorState.create({ doc: deckToDoc('<!-- _class: content inline-code-literal -->\n\n## T\n\nHere: and there.') });
+		let at = -1;
+		state.doc.descendants((n, pos) => {
+			if (at < 0 && n.isText && n.text?.startsWith('Here:')) at = pos + 5;
+		});
+		const withObject = state.apply(state.tr.insert(at, deckSchema.nodes.inline_object.create({ src: '{SHIPPED, c2}' })));
+		expect(objects(withObject.doc)).toHaveLength(1);
+		const tr = normalizeObjects(withObject, kernels, false, { sparing: false });
+		expect(tr).not.toBeNull();
+		expect(objects((tr as NonNullable<typeof tr>).doc)).toHaveLength(0);
+		expect(docToDeck((tr as NonNullable<typeof tr>).doc)).toContain('Here:`{SHIPPED, c2}` and there.');
 	});
 });
 

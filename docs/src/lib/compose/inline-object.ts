@@ -13,7 +13,7 @@
 // Nothing here knows what a pill is. `src` is a string the engine's kernel gives meaning to, so a
 // new kind (a spark, an avatar) needs no schema change.
 
-import type { NodeSpec, Node as PMNode } from 'prosemirror-model';
+import { Mark, type NodeSpec, type Node as PMNode } from 'prosemirror-model';
 import { CLIP_ORIGIN } from './clip-origin';
 
 /**
@@ -73,6 +73,13 @@ function isCodeSpan(node: PMNode | null | undefined): boolean {
 	return Boolean(node && (node.type.name === 'inline_object' || (node.isText && node.marks.some((m) => m.type.name === 'code'))));
 }
 
+/** Two siblings write as touching code spans when both are, and no other mark opens or closes between them. */
+function touchesAsCode(a: PMNode | null | undefined, b: PMNode): boolean {
+	if (!a || !isCodeSpan(a) || !isCodeSpan(b)) return false;
+	const plain = (n: PMNode) => n.marks.filter((m) => m.type.name !== 'code');
+	return Mark.sameSet(plain(a), plain(b));
+}
+
 /**
  * Write an object back as the code span it came from.
  *
@@ -87,7 +94,7 @@ export function serializeInlineObject(state: { write(s: string): void }, node: P
 	const src = (node.attrs.src as string).replace(/[\r\n]+/g, ' ');
 	const prev = parent && index !== undefined && index > 0 ? parent.child(index - 1) : null;
 	const next = parent && index !== undefined && index + 1 < parent.childCount ? parent.child(index + 1) : null;
-	const lead = isCodeSpan(prev) ? ' ' : '';
-	const trail = isCodeSpan(next) && next?.type.name !== 'inline_object' ? ' ' : '';
+	const lead = touchesAsCode(prev, node) ? ' ' : '';
+	const trail = next && next.type.name !== 'inline_object' && touchesAsCode(next, node) ? ' ' : '';
 	state.write(lead + fenceFor(src, -1) + src + fenceFor(src, 1) + trail);
 }

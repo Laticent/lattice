@@ -73,7 +73,7 @@ export function buildSheetText(rules: readonly string[], tokens: Readonly<Record
 	const decls = Object.entries(tokens)
 		.filter(([, v]) => v)
 		.map(([k, v]) => `${k}:${v}`);
-	if (/^(light|dark)( (light|dark))?$|^normal$/.test(scheme)) decls.push(`color-scheme:${scheme}`);
+	if (/^(only )?(light|dark)( (light|dark))?( only)?$|^normal$/.test(scheme)) decls.push(`color-scheme:${scheme}`);
 	return `.${PILL_SCOPE}{${decls.join(';')}}\n@scope (.${PILL_SCOPE}){${rules.join('\n')}}`;
 }
 
