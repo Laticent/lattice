@@ -73,7 +73,7 @@ What the map holds depends on the host:
 |---|---|
 | Studio preview, presenter | `URL.createObjectURL(blob)`, revoked when the deck closes or the asset changes |
 | Studio export (webpage, PDF, PowerPoint, image set) | a `data:` URI built from the photo's bytes (`dataUrlsFor`, `media-urls.ts`). A `blob:` URL dies with the tab, so a saved file would ship a dead link, and a capture frame may not fetch one. The Share sheet adds a note when a named photo is not in this browser's Library |
-| Markdown, Marp, `.lattice` exports | the reference text only; the bytes do not travel (they ride in a workspace backup, §9) |
+| `.lattice`, Markdown, Marp exports | the bytes travel: the `.lattice` as `media/`, Markdown and Marp as `photos/<name>.<ext>` with the reference rewritten to that path (§6; only image references outside code fences are rewritten). A photo the file cannot hold stays as written and is named in the toast |
 | CLI | not supported; the reference passes through untouched. A CLI deck uses a relative path. (No `lint:deck` rule yet.) |
 
 A reference the map cannot satisfy (asset deleted, deck opened on another browser) renders the
@@ -225,7 +225,9 @@ mention its photos. What each one does, as built and checked on the real Studio 
 | PowerPoint | The photo is in the slide picture. | Chromium, Firefox. **WebKit drops every picture in this lane today, a repo sample image included** (`followups.d/2640-p2-webkit-pptx-drops-images.md`) |
 | Image set, print | Same render as PDF and PowerPoint (`buildDeckRender` takes the same `data:` map). | UNVERIFIED on its own: the e2e drives PDF, PowerPoint and webpage, not the image-set download |
 | `.lattice` | `media/<name>.<ext>` plus `media.json` carry the photos the deck NAMES (not the whole Library), unless the author turns "Include photos" off. Import restores them through the backup's `restoreMedia` (sniff, scrub, caps, never overwrite) and renames a clashing name in the deck. | Unit round-trip (`lattice-media.test.ts`); real Chromium e2e: a second browser profile with an empty Library opens the file and draws the photo. Not yet driven on WebKit or on a phone |
-| Markdown, Marp | The reference stays as written; the photo is not in the file. | A recipient who opens the deck elsewhere gets the unresolved reference (Marp draws a broken image). The Share sheet says which photos are not inside the file |
+| Markdown | A deck that names photos downloads as a `.zip`: the `.md` beside `photos/<name>.<ext>`, each `asset:` reference rewritten to that path. A deck with no photos is the bare `.md` it always was. | Unit (`deck-export.marp.test.ts`, `lattice-media.test.ts`); real Chromium e2e reads the downloaded archive and decodes the photo. Not yet run on WebKit or Firefox |
+| Marp | The bundle gains the same `photos/` folder and rewrite. It is not `assets/`, which already holds Lattice's sample art: a Library photo named like a sample file would have overwritten it. | Same as Markdown |
+| Re-openable PDF, PowerPoint | The embedded `.lattice` carries the photos the deck names, up to `MAX_EMBEDDED_MEDIA_BYTES` (32 MB). The importer's embedded-payload cap rose from 25 MB to 25 MB + 32 MB to match. | Unit round-trip (`embedded-photos.test.ts`); real Chromium e2e: a second profile imports the PDF and draws the photo. PowerPoint shares the code path but is not driven |
 | Workspace backup | `media/` holds the bytes, `media.json` indexes them (§9). A restore puts them back to the same deck. | Chromium, WebKit, Firefox: back up, delete both photos, restore, bytes and scopes equal |
 
 **How the `.lattice` carries photos (2026-10-13).** The owner's iPhone showed "the photos it names … are
@@ -243,8 +245,14 @@ not inside this file" over a project file whose whole job is to be opened elsewh
   toast names the rest. The number is a proposal: it is about 60 photos at the 2 MB the importer can
   produce today.
 
-Not covered, and written to `followups.d/`: the `.lattice` a re-openable PDF or PowerPoint embeds (its reader
-is capped at 25 MB), and live collaboration.
+**The other exports (2026-10-13).** Owner decisions: Markdown becomes a `.zip` when the deck names photos (a bare
+`.md` otherwise), and the Marp bundle's `assets/` folder takes the photos. Both reuse `packLatticePhotos` (same
+visibility, 128 MB cap, never-throw) through `bundlePhotos`, so there is one packer. The embedded `.lattice` gets its
+own, smaller number, `MAX_EMBEDDED_MEDIA_BYTES` = 32 MB (`lib/packages/limits.js`): the importer refuses a PDF or
+PowerPoint over 200 MB (`MAX_CARRIER_BYTES`), and the carrier already holds the rendered pages. The switch that
+opts a PDF in ("Re-openable in Lattice") now says it includes the photos, as the Library stores them: full
+resolution and scrubbed of metadata, which is more than the page shows. Not covered, and written to `followups.d/`:
+live collaboration, which needs a guest-asks-host design (`2640-p3-live-collaboration-photos.md`).
 
 **Why exports use `data:` and not the preview's `blob:`.** A saved file cannot hold a `blob:` URL, and
 the PDF, PNG and PowerPoint cameras render in a frame that may not fetch one: before this was fixed the

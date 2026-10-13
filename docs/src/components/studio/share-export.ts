@@ -27,7 +27,7 @@ import type { BakeVoice } from './read-aloud';
 import type { SlideComment } from './slide-comments';
 import type { OverflowMarker } from './studio-store';
 import type { StudioTheme } from './theme-library';
-import { MAX_LATTICE_MEDIA_BYTES } from './zip-limits';
+import { MAX_EMBEDDED_MEDIA_BYTES, MAX_LATTICE_MEDIA_BYTES } from './zip-limits';
 
 // `window.LatticePlayground` is declared once, canonically, in playground-global.d.ts.
 type PG = LatticePlaygroundEngine;
@@ -903,8 +903,10 @@ export function embedFinishInMarkdown(source: string, finishClass?: string, fini
 }
 
 /** Markdown source with the current theme + referenced components + (when active) the saved finish embedded. */
-export async function shareMarkdown(options: SingleSlideOptions, source: string, name: string, palette: string, extra?: ExtraTheme, finishClass?: string, finishCss?: string, components: ReadonlyArray<LocalComponentCss> = []): Promise<void> {
+export async function shareMarkdown(options: SingleSlideOptions, source: string, name: string, palette: string, extra?: ExtraTheme, finishClass?: string, finishCss?: string, components: ReadonlyArray<LocalComponentCss> = [], deckId?: string): Promise<string | undefined> {
 	const ex = await exporters();
+	// The photos the deck names ride beside the .md in a .zip (a Markdown file cannot hold a picture).
+	const { named, photos } = await photosBesideDeck(source, deckId);
 	// Embed the live theme CSS so the .md keeps its look even where the theme
 	// isn't installed. A saved library theme carries its own CSS; otherwise fetch
 	// the palette. Best-effort: a failed fetch still exports the bare source.
@@ -922,7 +924,15 @@ export async function shareMarkdown(options: SingleSlideOptions, source: string,
 	// …and the saved components the deck uses. This passed `[]` until 2026-09, so a
 	// saved component's slides arrived unstyled on the recipient's machine while the
 	// theme and finish beside them survived (2026-09-23-portable-packages.md §1).
-	ex.exportMarkdown(embedFinishInMarkdown(source, finishClass, finishCss), name, theme, [...components]);
+	await ex.exportMarkdown(embedFinishInMarkdown(photos?.source ?? source, finishClass, finishCss), name, theme, [...components], photos?.files);
+	return latticePhotoNote(named, true, photos);
+}
+
+/** The photos a Markdown or Marp export carries, or none when the deck names none (no Library read at all). */
+async function photosBesideDeck(source: string, deckId: string | undefined) {
+	const named = (await import('./media-urls')).assetNamesIn(source);
+	const photos = named.length ? await (await import('./lattice-media')).bundlePhotos(source, deckId) : undefined;
+	return { named, photos };
 }
 
 /** The `.lattice` project file — the deck source, its review comments and the Library photos it
@@ -975,8 +985,22 @@ async function latticeBlob(source: string, deckTitle: string, comments: SlideCom
  * in — so the recipient edits what the author wrote. COMMENTS ARE NEVER IN IT: an empty list
  * is passed whatever the deck holds (2026-10-05-reopenable-exports.md).
  */
-export async function embeddableLattice(source: string, deckTitle: string, now: number, packages?: DeckPackages): Promise<Uint8Array> {
-	return new Uint8Array(await (await latticeBlob(source, deckTitle, [], now, packages)).arrayBuffer());
+export async function embeddableLattice(source: string, deckTitle: string, now: number, packages?: DeckPackages, deckId?: string): Promise<{ bytes: Uint8Array; note?: string }> {
+	// The photos the deck names ride inside, up to MAX_EMBEDDED_MEDIA_BYTES (smaller than a standalone
+	// `.lattice` so the PDF or PowerPoint stays under the carrier cap the importer enforces). A deck that
+	// names none skips the Library read entirely.
+	const named = (await import('./media-urls')).assetNamesIn(source);
+	const photos = named.length ? await (await import('./lattice-media')).packLatticePhotos(source, deckId, MAX_EMBEDDED_MEDIA_BYTES) : undefined;
+	const bytes = new Uint8Array(await (await latticeBlob(source, deckTitle, [], now, packages, photos?.media)).arrayBuffer());
+	// Two reasons, worded apart: a photo over the cap is in the Library and only the copy lacks it; a missing one
+	// is a stand-in on the pages too (and this note stands in for the Share sheet's own stand-in note).
+	const over = photos?.omitted ?? [];
+	const gone = photos ? photos.missing : named;
+	const parts: string[] = [];
+	if (gone.length) parts.push(`${gone.length === 1 ? 'the photo' : 'the photos'} ${quoted(gone)} could not be added (not in this browser's Library, or could not be read), so ${gone.length === 1 ? 'it shows' : 'they show'} as ${gone.length === 1 ? 'a stand-in' : 'stand-ins'} in the file and in the re-openable copy`);
+	if (over.length) parts.push(`${over.length === 1 ? 'the photo' : 'the photos'} ${quoted(over)} would pass the ${Math.round(MAX_EMBEDDED_MEDIA_BYTES / 1_048_576)} MB of photos a re-openable copy holds, so ${over.length === 1 ? 'it is' : 'they are'} not inside it and whoever opens it in Lattice sees ${over.length === 1 ? 'a stand-in' : 'stand-ins'}`);
+	const note = parts.join('; ') || undefined;
+	return { bytes, note };
 }
 
 /** The Share toast's note on an Export-to-Marp bundle, or undefined: the deck's own script the export
@@ -1008,8 +1032,9 @@ export function marpExportNote(removed?: {
 /** The self-contained Marp ZIP bundle (renders anywhere). Resolves to a reason for the toast
  *  when the bundle dropped the deck's own executable HTML, which marp-cli would otherwise run on
  *  the recipient's machine (theme-css-is-a-preview-sink.md § 11). */
-export async function shareMarp(options: SingleSlideOptions, source: string, name: string, palette: string, finishClass?: string, finishCss?: string, overflowMarker?: OverflowMarker, extra?: ExtraTheme, components: ReadonlyArray<LocalComponentCss> = []): Promise<string | undefined> {
+export async function shareMarp(options: SingleSlideOptions, source: string, name: string, palette: string, finishClass?: string, finishCss?: string, overflowMarker?: OverflowMarker, extra?: ExtraTheme, components: ReadonlyArray<LocalComponentCss> = [], deckId?: string): Promise<string | undefined> {
 	await ensureReady(options); // PG.marp must be present
+	const { named, photos } = await photosBesideDeck(source, deckId);
 	const ex = await exporters();
 	// Same finish-embed as the Markdown handoff so the ZIP renders the custom finish.
 	// `overflowMarker` — who a clipped slide's marker speaks to in the exported deck.
@@ -1034,8 +1059,8 @@ export async function shareMarp(options: SingleSlideOptions, source: string, nam
 		const katexUrl = deriveKatexProviderUrl();
 		if (katexUrl) await ensureKatexProvider(katexUrl).catch(() => {});
 	}
-	const removed = await ex.exportMarp(embedFinishInMarkdown(source, finishClass, finishCss), name, palette, options.themeBase, { includeAgent: true, overflowMarker: overflowMarker ?? loadSettings().overflowMarker, extraTheme: extra, components: [...components], pluginsOff: deckPluginsOff(source) });
-	return marpExportNote(removed);
+	const removed = await ex.exportMarp(embedFinishInMarkdown(photos?.source ?? source, finishClass, finishCss), name, palette, options.themeBase, { includeAgent: true, files: photos?.files, overflowMarker: overflowMarker ?? loadSettings().overflowMarker, extraTheme: extra, components: [...components], pluginsOff: deckPluginsOff(source) });
+	return [marpExportNote(removed), latticePhotoNote(named, true, photos)].filter(Boolean).join('; ') || undefined;
 }
 
 /** One-click image PDF (2× raster, one slide per page). The page-image format
