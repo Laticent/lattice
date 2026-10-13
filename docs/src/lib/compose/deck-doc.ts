@@ -101,7 +101,14 @@ function readDirectives(raw: string | null, origin: string | null): string[] {
 }
 
 /** The deck schema — prosemirror-markdown's block/mark set + table nodes, wrapped in slide nodes. */
-export const deckSchema = new Schema({ nodes, marks: proseSchema.spec.marks });
+// The `code` mark opts out of spellcheck. Inline code in a deck is notation — `{SHIPPED, c2}`,
+// `~{12 14 17}`, `!{Ada Okafor, hair=coily}` — so a red squiggle under it reads as an error in
+// the very syntax Compose is meant to hide. Prose keeps its spellcheck; Chrome and Safari honor
+// `spellcheck="false"` on a descendant of a spellchecked editable.
+const codeMark = proseSchema.spec.marks.get('code');
+if (!codeMark) throw new Error("prosemirror-markdown's schema lost its `code` mark");
+const marks = proseSchema.spec.marks.update('code', { ...codeMark, toDOM: () => ['code', { spellcheck: 'false' }] });
+export const deckSchema = new Schema({ nodes, marks });
 
 const EMPTY_PARAGRAPH = () => Fragment.from(deckSchema.nodes.paragraph.create());
 

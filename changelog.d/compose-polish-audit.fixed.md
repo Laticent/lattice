@@ -1,0 +1,4 @@
+- Compose: the slide settings gear on a slide's formatting bar opens the settings panel at Write. It only set state before, because the panel docks at Craft, so on desktop and tablet the click showed a first-use nudge and nothing else. It now reveals Craft the way the compact toolbar's button does.
+- Studio: the first slide chip in the slide navigator is no longer clipped on load. The rail centered the active chip while it still had zero width, which scrolled it 39.5px; it now waits for a real width and centers once.
+- Compose: inline code (pills, sparks, avatars) no longer gets spellcheck underlines. Prose keeps its spellcheck.
+- Studio: the "N issue" chip in the editor bar is a button that opens the Coach and names the unknown layouts ("compare-table isn't a layout Lattice knows. Fix all swaps it for the closest match."); the Coach's issue card says the same.

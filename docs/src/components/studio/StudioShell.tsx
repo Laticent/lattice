@@ -1662,7 +1662,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	);
 	const knownWithLocal = React.useMemo(() => [...catalogNames, ...localNames], [catalogNames, localNames]);
 	const lintKnown = React.useMemo(() => (validation ? knownWithLocal : usedComponents(source)), [validation, source, knownWithLocal]);
+	// The unknown layout names, not just their count: "1 issue" tells an author nothing, and
+	// Compose shows no underline to look for. The chip and the Coach card both name them.
+	const unknownNames = React.useMemo(() => [...new Set(unknownComponents(source, lintKnown))], [source, lintKnown]);
 	const issues = React.useMemo(() => unknownComponents(source, lintKnown).length, [source, lintKnown]);
+	const issueHint = `${unknownNames.slice(0, 3).join(', ')}${unknownNames.length > 3 ? '…' : ''} ${unknownNames.length > 1 ? "aren't layouts" : "isn't a layout"} Lattice knows. Fix all swaps ${unknownNames.length > 1 ? 'them' : 'it'} for the closest match.`;
 	// WHAT "FIX ALL" CAN ACTUALLY FIX — reported by the editor's own lint pass, because the
 	// count above is not it. `issues` counts UNKNOWN COMPONENTS; the button runs lint-core's
 	// `applyAllFixes`, which repairs a DIFFERENT set. Gating one on the other was wrong in
@@ -2773,6 +2777,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	}
 	function openSlideSettings(fullIdx: number) {
 		focusFullSlide(fullIdx);
+		// The panel only docks at Craft (`settingsShown`), and Compose lives at Write — so without
+		// the reveal the gear set state nothing rendered. The compact toolbar's button pairs the
+		// same three calls.
+		revealCraftDock();
 		setInspectorScope('slide');
 		setInspectorOpen(true);
 	}
@@ -3541,7 +3549,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const railNavRef = React.useRef<HTMLElement | null>(null);
 	const centerRail = React.useCallback((nav: HTMLElement | null, animate: boolean) => {
 		const pill = nav?.querySelector<HTMLElement>('button[aria-current="true"]');
-		if (!nav || !pill || nav.scrollWidth <= nav.clientWidth) return;
+		// A zero-width rail has not been laid out yet (measured at mount: width 0, so the centering
+		// maths scrolled it 39.5px and the first pill sat half under the rail's own edge). Do
+		// nothing now; `railNavCallback` centers it once it has a width.
+		if (!nav || !pill || !nav.clientWidth || nav.scrollWidth <= nav.clientWidth) return;
 		const n = nav.getBoundingClientRect();
 		const p = pill.getBoundingClientRect();
 		const left = nav.scrollLeft + (p.left + p.width / 2) - (n.left + n.width / 2);
@@ -3550,10 +3561,24 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	}, []);
 	// A rail that MOUNTS (back from the article view, a phone rotated back from landscape) starts at
 	// scrollLeft 0 while none of the effect's triggers changed: center it at once, without animating.
+	const railObserverRef = React.useRef<ResizeObserver | null>(null);
 	const railNavCallback = React.useCallback(
 		(nav: HTMLElement | null) => {
+			railObserverRef.current?.disconnect();
+			railObserverRef.current = null;
 			railNavRef.current = nav;
 			centerRail(nav, false);
+			// Center once, the first time the rail has a width — never again on a resize, which
+			// would fight a reader who has scrolled the rail by hand.
+			if (nav && !nav.clientWidth && typeof ResizeObserver !== 'undefined') {
+				const ro = new ResizeObserver(() => {
+					if (!nav.clientWidth) return;
+					ro.disconnect();
+					centerRail(nav, false);
+				});
+				ro.observe(nav);
+				railObserverRef.current = ro;
+			}
 		},
 		[centerRail],
 	);
@@ -4234,7 +4259,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			{issues > 0 && (
 				<div className="mx-2.5 mt-2.5 flex items-center gap-2 rounded-[10px] border border-[color-mix(in_srgb,var(--warn)_28%,transparent)] bg-[color-mix(in_srgb,var(--warn)_7%,transparent)] px-3 py-2">
 					<AlertTriangle className="size-4 text-[var(--warn)]" />
-					<span className="text-xs font-semibold text-[var(--text-heading)]">{issues} inline issue{issues > 1 ? 's' : ''}</span>
+					<span className="text-xs font-semibold text-[var(--text-heading)]">{issues} inline issue{issues > 1 ? 's' : ''}<span className="font-normal text-muted-foreground"> — {issueHint}</span></span>
 					{fixableIssues > 0 && <button type="button" onClick={() => editorRef.current?.fixAll()} className="ml-auto rounded-md border border-border px-2 py-1 text-[11px] font-semibold text-[var(--accent)]">Fix all</button>}
 				</div>
 			)}
@@ -5301,7 +5326,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			<div data-slot="edit-bar" className="flex items-center gap-2 border-b border-border px-3.5 py-1.5 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
 				Edit
 				<span className="flex-1" />
-				{issues > 0 && <span className="inline-flex items-center gap-1 rounded-full border border-[color-mix(in_srgb,var(--warn)_35%,transparent)] bg-[color-mix(in_srgb,var(--warn)_8%,transparent)] px-2 py-0.5 font-sans text-[11px] font-semibold normal-case tracking-normal text-[var(--warn)]"><AlertTriangle className="size-3" />{issues} issue{issues > 1 ? 's' : ''}</span>}
+				{issues > 0 && (
+					<Tip label={issueHint}>
+						<button type="button" onClick={() => { revealCraftDock(); setActiveAssistant('coach'); }} aria-label={`${issues} issue${issues > 1 ? 's' : ''}: ${issueHint}`} className="inline-flex items-center gap-1 rounded-full border border-[color-mix(in_srgb,var(--warn)_35%,transparent)] bg-[color-mix(in_srgb,var(--warn)_8%,transparent)] px-2 py-0.5 font-sans text-[11px] font-semibold normal-case tracking-normal text-[var(--warn)] transition-colors hover:bg-[color-mix(in_srgb,var(--warn)_16%,transparent)]"><AlertTriangle className="size-3" />{issues} issue{issues > 1 ? 's' : ''}</button>
+					</Tip>
+				)}
 				{hasSelection && (
 					<DropdownMenu>
 						<Tooltip>
