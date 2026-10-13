@@ -32,6 +32,7 @@
     "./runtime": "./dist/lattice-runtime.js",
     "./runtime/min": "./dist/lattice-runtime-min.js",
     "./css": "./dist/lattice.css",
+    "./slides.css": "./dist/slides.css",
     "./css/min": "./dist/lattice-min.css",
     "./default": "./dist/lattice-default.css",
     "./default/min": "./dist/lattice-default-min.css",

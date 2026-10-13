@@ -85,8 +85,24 @@ import '@laticent/lattice/palette/indaco.css';
 Importing the engine's CSS beside it (`@laticent/lattice/css`) also builds, but
 it is **not** a slide renderer. That stylesheet does not size the slide, and the
 palette's tokens resolve once on the page root, so a `dark` slide keeps the
-light canvas. Measured on the same 51 slides, it matched none of them. Use the
-engine for slides.
+light canvas. Measured on the same 51 slides, it matched none of them.
+
+**To show slides without running the engine in the browser, link the packed
+pair.** Render once (at build time or on a server) with `render()`, keep its
+`html`, and style it with two stylesheets. A palette swap is then a different
+second import, with no second render:
+
+```js
+import '@laticent/lattice/slides.css';
+import '@laticent/lattice/palette/cuoio-dark.slides.css';
+```
+
+Linked from `dist/` and built through Vite 8.2.2, the pair drew the same 51
+slides as the CLI pixel for pixel in `indaco` and in `cuoio-dark`
+(`tools/palette-slide-parity.js`). Two limits hold by construction: the sheet
+is **16:9 only**, and it has **no panes** (their per-deck styles cannot live in
+a fixed sheet). For `size: story` or any other canvas, or for panes, use
+`render()`'s own `css`.
 
 ## The contract every palette honors
 

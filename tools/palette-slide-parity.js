@@ -9,11 +9,9 @@
 //
 // Arms:
 //   render  engine.render()'s own `css` — the documented slide path.
-//   packed  slides.css + palette/<name>.slides.css — the UNPUBLISHED candidate, built here into
-//           the output folder: the engine scaffold + `packTheme(dist/lattice.css)` + the 16:9
-//           geometry stamp (through `hoistImports`), and `packTheme(dist/palettes/<name>.css)`
-//           per palette. Nothing in the package ships these files; this arm is what publishing
-//           them would give a consumer.
+//   packed  dist/slides.css + dist/palettes/<name>.slides.css — the packed slide form the package
+//           publishes (@laticent/lattice/slides.css + /palette/<name>.slides.css, written by
+//           tools/build-default-bundle.js). Linked from dist/, so this arm measures what ships.
 //   pair    dist/lattice.css + dist/palettes/<name>.css — what the package publishes today.
 //   bundled one stylesheet per palette that a bundler built (opt-in: `--bundled <path>`, where
 //           `{palette}` in the path is replaced by each palette name). It measures what a consumer's
@@ -33,7 +31,6 @@ const { execFileSync, spawnSync } = require('node:child_process');
 
 const ROOT = path.resolve(__dirname, '..');
 const engine = require('../lib/engine');
-const { scaffold, packTheme, resolveSize, geometryVarsCss, hoistImports } = require('../lib/engine/css.js');
 const { parseAeCount } = require('./preview');
 
 const GALLERIES = [
@@ -76,18 +73,15 @@ function themeChain(name) {
 }
 
 // The candidate: one engine sheet for every palette, and one small packed sheet per palette.
-function buildPacked(dir) {
-  fs.mkdirSync(path.join(dir, 'palette'), { recursive: true });
-  const geometry = resolveSize();
-  const base = stripComments(read(path.join(ROOT, 'dist/lattice.css')));
-  fs.writeFileSync(path.join(dir, 'slides.css'), hoistImports(`${scaffold(geometry)}\n${packTheme(base)}\n${geometryVarsCss(geometry)}\n`));
-  for (const f of fs.readdirSync(path.join(ROOT, 'dist/palettes'))) {
-    const packed = packTheme(read(path.join(ROOT, 'dist/palettes', f)));
-    fs.writeFileSync(path.join(dir, 'palette', f.replace(/\.css$/, '.slides.css')), packed);
+// The packed arm links the files the package publishes (tools/build-default-bundle.js), so the
+// measurement is of what ships. `pkg` holds symlinks to dist/ so the layout is slides.css +
+// palette/<name>.slides.css, as a consumer sees it.
+function linkPacked(dir) {
+  fs.mkdirSync(dir, { recursive: true });
+  for (const [name, target] of [['slides.css', 'dist/slides.css'], ['palette', 'dist/palettes'], ['fonts', 'dist/fonts']]) {
+    fs.rmSync(path.join(dir, name), { force: true, recursive: true });
+    fs.symlinkSync(path.join(ROOT, target), path.join(dir, name));
   }
-  // The engine sheet's @font-face urls are relative to dist/, where a published slides.css would sit.
-  fs.rmSync(path.join(dir, 'fonts'), { force: true, recursive: true });
-  fs.symlinkSync(path.join(ROOT, 'dist/fonts'), path.join(dir, 'fonts'));
 }
 
 function page({ css, links = [], html, dark }) {
@@ -139,7 +133,7 @@ async function main() {
   if (!fs.existsSync(path.join(ROOT, 'dist/palettes'))) throw new Error('palette-slide-parity: no dist/palettes — run `npm run build`');
   const puppeteer = require('puppeteer');
   const pkg = path.join(opts.out, 'packed-candidate');
-  if (opts.arms.includes('packed')) buildPacked(pkg);
+  if (opts.arms.includes('packed')) linkPacked(pkg);
   const browser = await puppeteer.launch({ executablePath: process.env.CHROME_PATH, args: ['--no-sandbox', '--force-color-profile=srgb', '--font-render-hinting=none'] });
   const rows = [];
   try {

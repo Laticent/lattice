@@ -1068,5 +1068,28 @@ it is the record of what was wrong.
     pixel-identical before and after the fix, with no fuzz.
     `test/unit/css/border-image-none-shorthand.test.js` keeps the shorthand out of `lib/` and
     `themes/`, and `engineering/gotchas/css.md` has the symptom.
-  - **Status.** Left for the owner's pick, with the measurement in the follow-up. The
-    recommendation there is (b) unless a named consumer needs the palette swap.
+  - **Status.** Decided 2026-10-13 (p13): **(a), published.** The owner's reason is the product goal,
+    not a named consumer: Lattice should be universal and hassle free, so an embedder gets live palette
+    swap without running the engine. The recommendation had been (b) unless a consumer needed the swap.
+
+- **The packed palette form, published (2026-10-13, p13).** `tools/build-default-bundle.js` now writes
+  `dist/slides.css` and `dist/palettes/<name>.slides.css` (33), reached through a new `./slides.css`
+  `exports` entry; the existing `./palette/*.css` pattern already exposes the palette files. The
+  parity harness's `packed` arm links those files, so it measures what ships. Measured on the six
+  galleries (51 slides): `render()` 51/51, packed 51/51, today's pair 0/51, in `indaco` and `cuoio-dark`,
+  linked from `dist/`. Through a Vite 8.2.2 build (`--bundled`, relative asset URLs) the packed pair
+  matched **19/51 in indaco and 51/51 in cuoio-dark** until one fix. A light palette starts with
+  `:where(:root) { color-scheme: light }`, which `packSelector` prepends `section ` to, so the rule
+  matched a slide's descendants and never the slide. Natively that is harmless. lightningcss lowers
+  `light-dark()` to a `--lightningcss-light` / `--lightningcss-dark` toggle that `color-scheme` must
+  set on the same element, so on the slide the toggles were unset and `--bg-alt` read
+  `#f2f5fa#002847`: white cards, black text. The packed build now writes that selector as `:root`, which
+  packs onto the slide. After, Vite: **51/51 in both palettes**. Without the one-line change, the unit
+  test in `test/unit/tools/palette-bundle.test.js` and the Vite test in
+  `docs/src/lib/published-palette.test.ts` both fail. `packTheme` itself is unchanged: it also serves
+  the CLI, the Studio and `render()`, and the dead descendant rule is harmless to them.
+  - **Limits, stated in the files' banner, the README and the themes guide.** 16:9 only, no panes. The
+    quote gallery at `size: story` (0/7) and the two-slide panes deck (0/2) did not match in the
+    prototype and are not claimed. `render()`'s own `css` covers them.
+  - **Not measured:** the other 31 palettes (the harness ran indaco and cuoio-dark), webpack, and
+    a consumer's own markup. The sheet is 1.2 MB unpacked and the 33 palette files add about 350 KB.

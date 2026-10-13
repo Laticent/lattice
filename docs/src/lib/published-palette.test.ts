@@ -79,4 +79,22 @@ describe('a published palette imports cleanly in Vite', () => {
 		const dark = css.lastIndexOf('color-scheme:dark');
 		expect(dark).toBeGreaterThan(light);
 	}, 60_000);
+
+	it('the packed slide pair builds: scoped to the slide, with the fonts and no import left', async () => {
+		const css = await buildCss('packed', ['@laticent/lattice/slides.css', '@laticent/lattice/palette/cuoio-dark.slides.css']);
+		// Scoped to a slide, not :root, so a second palette can sit beside it on one page.
+		expect(css).toMatch(/article\.lattice/);
+		expect(css.replace(/\s/g, '').toLowerCase()).toContain(firstToken('cuoio'));
+		expect(css).toMatch(/@font-face/);
+		expect(css).not.toMatch(/@import/);
+		// lightningcss turns the `border-image: none` shorthand into an empty one the browser drops.
+		expect(css).not.toMatch(/border-image:\s*[;}]/);
+	}, 60_000);
+
+	it('a light packed palette keeps its light-dark() colors through the minifier', async () => {
+		// lightningcss lowers light-dark() to a toggle that color-scheme must set on the slide. When it did not, a
+		// token read `#f2f5fa#002847` and the slide drew white cards (19 of 51 slides matched the CLI in indaco).
+		const css = await buildCss('packed-light', ['@laticent/lattice/slides.css', '@laticent/lattice/palette/indaco.slides.css']);
+		expect(css).toMatch(/article\.lattice>:where\(section\):not\(\[[^\]]*root\]\)\{[^}]*--lightningcss-light:initial[^}]*color-scheme:light[^}]*--brand-canvas/);
+	}, 60_000);
 });
