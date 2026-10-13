@@ -18,6 +18,8 @@ import { agentAssets } from './agent-assets-browser';
 import { agentLibrary } from './agent-library';
 import type { ArchitectModel, ChatGrounding, ChatOptions, ChatResult, ChatTurn, ORPrice, ProposedEdit } from './architect';
 import { AGENT_TOOLS, type AgentComplete, type AgentComponent, type AgentRawEdit, ASSET_TOOLS, bindKernel, buildAgentSystem, createToolbox, type DeckCheck, deckBrief, deckForTurn, describeEdit, type KernelDeps, runAgentLoop, type ToolCall } from './architect-agent';
+import { PHOTO_TOKENS, VIDEO_TOKENS, withPhotos } from './chat-photo-parts';
+import { THINKING } from './chat-status';
 import { FRONT_MATTER_KEYS } from './front-matter-keys';
 import type { ContentPart, MsgContent, ReferenceDoc } from './reference-doc';
 
@@ -118,7 +120,7 @@ function budgetText(m: { content?: unknown; tool_calls?: unknown }): { text: str
 	const c = m.content;
 	const parts = Array.isArray(c) ? c : [];
 	images = parts.filter((p) => (p as { type?: string })?.type === 'image_url').length;
-	const text = typeof c === 'string' ? c : Array.isArray(c) ? parts.map((p) => ((p as { type?: string })?.type === 'image_url' ? '[image]' : JSON.stringify(p))).join('') : JSON.stringify(c ?? '');
+	const text = typeof c === 'string' ? c : Array.isArray(c) ? parts.map((p) => ((p as { type?: string })?.type === 'image_url' ? '[image]' : (p as { type?: string })?.type === 'video_url' ? '[video]' : JSON.stringify(p))).join('') : JSON.stringify(c ?? '');
 	return { text: text + (m.tool_calls ? JSON.stringify(m.tool_calls) : ''), images };
 }
 
@@ -143,6 +145,16 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 		docs,
 		true,
 	);
+	// This turn's photos ride the last user message as image parts, so every round of the tool loop
+	// re-sends them (and the cache breakpoint on the tail makes that a read, not a write).
+	const photos = opts?.photos ?? [];
+	const videos = opts?.videos ?? [];
+	ground.messages = withPhotos(ground.messages, photos, videos) as typeof ground.messages;
+	// What the author's own attachments cost ABOVE what the per-round picture count already charges: every
+	// `image_url` in the conversation is priced at THUMB_TOKENS (budgetText), which is right for the
+	// 512 px views the agent takes and low for a 1568 px attachment; a clip is priced flat (its base64 is
+	// skipped by budgetText).
+	const attachedTokens = photos.length * Math.max(0, PHOTO_TOKENS - THUMB_TOKENS) + videos.length * VIDEO_TOKENS;
 	const toolbox = createToolbox({
 		source,
 		catalog: (grounding?.catalog ?? []) as AgentComponent[],
@@ -181,7 +193,7 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 		streamed = '';
 		genId = null;
 		roundPrompt = convo;
-		const blk = cloudBudgetBlock(model, convo, systemTokens + docTokens + pictureTokens, CHAT_MAX_TOKENS);
+		const blk = cloudBudgetBlock(model, convo, systemTokens + docTokens + pictureTokens + attachedTokens, CHAT_MAX_TOKENS);
 		if (blk) {
 			blockedNote = blk;
 			const e = new Error(blk);
@@ -191,6 +203,10 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 		let calls: ToolCall[] = [];
 		let finish: string | null = null;
 		roundOpen = true;
+		// Every round opens by saying so. The panel clears the last tool's label when prose
+		// arrives, so without this the gap between "tool finished" and "first token of the next
+		// round" — the longest silent stretch of an edit turn — showed nothing at all.
+		opts?.onActivity?.(THINKING);
 		const text = await model.complete({
 			messages: msgs as { role: string; content: MsgContent }[],
 			plugins: ground.plugins,
@@ -203,6 +219,9 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 			onToolCalls: (c) => {
 				calls = c;
 			},
+			// A call's name lands long before its arguments do (a whole slide streams inside
+			// `edit_slides` with no prose), so say what is being drafted while it arrives.
+			onToolStart: (name: string) => opts?.onActivity?.(TOOL_DRAFTING[name] ?? TOOL_ACTIVITY[name] ?? THINKING),
 			onToken: (t: string) => {
 				streamed += t;
 				onToken(t);
@@ -255,7 +274,7 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 			// prompt plus the prose seen; the generation id, when it arrived, replaces it with the
 			// exact figure.
 			if (roundOpen && (streamed || genId)) {
-				const est = estimateUsd(roundPrompt, model.openRouterModelPrice?.() ?? null, Math.ceil(streamed.length / 4), docTokens + systemTokens + roundPictureTokens) ?? 0;
+				const est = estimateUsd(roundPrompt, model.openRouterModelPrice?.() ?? null, Math.ceil(streamed.length / 4), docTokens + systemTokens + roundPictureTokens + attachedTokens) ?? 0;
 				if (est) recordSpend(est, Math.ceil(streamed.length / 4));
 				if (genId && model.openRouterGenerationCost) {
 					void model
@@ -365,6 +384,12 @@ const CACHE_WRITE_1H_RATE = 2;
 /** What a cached prompt-prefix read costs, as a fraction of base input (architect.ts). */
 const CACHE_READ_RATE = 0.1;
 
+/** What the transcript says while a tool call is still ARRIVING — only the edit tools differ
+ *  from the running label, because their arguments are the slow part. */
+const TOOL_DRAFTING: Record<string, string> = {
+	edit_slides: 'Drafting the edit…',
+};
+
 /** What the transcript says while a tool runs. */
 const TOOL_ACTIVITY: Record<string, string> = {
 	read_component: 'Reading a component…',
@@ -427,6 +452,10 @@ export function describeModelError(message: string): string {
 	if (status === 401 || status === 403) return `OpenRouter rejected the connection — reconnect in Workspace → AI.${tail}`;
 	if (status === 402) return `Your OpenRouter account is out of credits — add credits at openrouter.ai, or switch to On-device in Workspace → AI.${tail}`;
 	if (status === 400 && /context length|maximum context|too many tokens/i.test(detail || raw)) return `The deck and its attachments are too long for this model — detach a reference document, or pick a model with a longer context in Workspace → AI.${tail}`;
+	// A model that cannot read video refuses a request that carries a clip.
+	if ((status === 400 || status === 404 || status === 422) && /video/i.test(detail || raw)) return `The selected model can't read video — pick one marked "video" in the model menu, or remove the clip and ask again.${tail}`;
+	// A model that cannot read images refuses a request that carries one; say so, and say the way out.
+	if ((status === 400 || status === 404 || status === 422) && /image|vision|multimodal|modalit/i.test(detail || raw)) return `The selected model can't read photos — pick one marked "vision" in the model menu, or remove the photo and ask again.${tail}`;
 	if (status === 404 || status === 400) return `The selected model could not take this request — pick another model in Workspace → AI.${tail}`;
 	if (status === 429) return `OpenRouter is rate-limiting this key — wait a moment and send again.${tail}`;
 	if (status >= 500) return `OpenRouter or the model's provider had an error — send again in a moment.${tail}`;

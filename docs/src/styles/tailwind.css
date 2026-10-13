@@ -175,6 +175,69 @@
 		list-style: revert;
 		padding-inline-start: 1.35rem;
 	}
+	/* The rest of what chat-markdown.ts emits. Spacing is padding/gap, never margin (HARD
+	 * RULE #20 covers engine CSS; the same measuring reason applies here: the transcript
+	 * is a scroller whose height the stick-to-bottom logic reads). Siblings space through
+	 * the transcript's own `space-y`; these only shape their own box. */
+	.lx-ui .cm-md-h {
+		font-weight: 700;
+		color: var(--text-heading, inherit);
+		padding-top: 0.25rem;
+	}
+	.lx-ui .cm-md-h1,
+	.lx-ui .cm-md-h2 {
+		font-size: 1.08em;
+	}
+	.lx-ui .cm-md-li-p {
+		padding-top: 0.35rem;
+	}
+	.lx-ui .cm-md-list > li + li {
+		padding-top: 0.3rem;
+	}
+	.lx-ui .cm-md-quote {
+		border-inline-start: 3px solid var(--border);
+		padding-inline-start: 0.75rem;
+		color: var(--text-muted);
+	}
+	.lx-ui .cm-md-hr {
+		border: 0;
+		border-top: 1px solid var(--border);
+		height: 0;
+	}
+	/* A table can be wider than a 390px panel. The wrapper scrolls on its own axis so the
+	 * transcript never gains a horizontal scrollbar, and cells never wrap mid-number. */
+	.lx-ui .cm-md-table-wrap {
+		overflow-x: auto;
+		border: 1px solid var(--border);
+		border-radius: 0.5rem;
+		-webkit-overflow-scrolling: touch;
+	}
+	.lx-ui .cm-md-table {
+		border-collapse: collapse;
+		width: 100%;
+		font-size: 0.92em;
+		line-height: 1.4;
+	}
+	.lx-ui .cm-md-table th,
+	.lx-ui .cm-md-table td {
+		padding: 0.4rem 0.6rem;
+		text-align: start;
+		vertical-align: top;
+		border-top: 1px solid var(--border);
+		min-width: 4.5rem;
+	}
+	.lx-ui .cm-md-table thead th {
+		border-top: 0;
+		font-weight: 700;
+		background: color-mix(in srgb, var(--border) 35%, transparent);
+		white-space: nowrap;
+	}
+	.lx-ui .cm-md-table .cm-al-c {
+		text-align: center;
+	}
+	.lx-ui .cm-md-table .cm-al-r {
+		text-align: end;
+	}
 	/* A control's LABEL is not prose. Reported from a real iPhone: press-and-hold a
 	 * Studio drawer row and iOS SELECTS the word ("Library") and raises the
 	 * Copy / Look Up callout instead of the row reading as pressed — the long press

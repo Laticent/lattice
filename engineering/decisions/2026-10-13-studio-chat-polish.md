@@ -1,0 +1,134 @@
+---
+status: shipped
+summary: One screen recording of the Studio chat on a phone produced six reports. A reply in progress showed a dead caret on every turn after the first, because the dots showed only while the reply was empty. Tables printed raw pipes and numbered lists read "1. 1. 1." because the renderer closed a list on every blank line. The model could only be changed in Workspace, and the header showed two unlabeled numbers. Plugin fences and slides printed as source. Photos could not be attached. Each is fixed and verified in a real browser at 390, 820 and 1440 px, and the figure strategy was chosen by a measured bake-off.
+companion:
+  - ./2026-10-12-chat-figures-bakeoff.md
+  - ./2026-10-12-library-media-assets.md
+  - ./2026-10-05-studio-chat-agent.md
+---
+
+# Studio chat polish (2026-10-13)
+
+**Surfaces:** `docs/src/components/studio/ArchitectChat.tsx`, `ChatLiveStatus.tsx`, `ChatCost.tsx`,
+`ModelPicker.tsx`, `ChatFigure.tsx`, `ChatPhotos.tsx`, `chat-markdown.ts`, `chat-figures.ts`,
+`chat-photos.ts`, `chat-photo-parts.ts`, `chat-agent.ts`, `ai/architect-model.js`.
+
+## 1. What the author reported
+
+From a screen recording and five screenshots of the chat on a phone:
+
+> there is still some jank in the chat in the studio. we don't always have feedback something is
+> happening. the first time you get the moving three dots, but subsequent chats seem to simply have a
+> caret that does nothing. [...] there is no support for markdown table rendering and sometimes
+> ordered lists render as having the same number (1). we can't upload device native files like
+> photos, videos, etc. we don't support rendering of lattice slides. we don't support rendering of
+> plugins we support (ie mermaid, math, function plot, etc). [...] our plugins should work outside
+> the deck [...] we don't support the ability to change the selected model (we need to clean up cost
+> disclosure and model selection being a drop down next to cost information).
+
+## 2. Root causes
+
+| Report | Cause | Where |
+|---|---|---|
+| Dead caret after the first turn | The bouncing dots rendered only while the reply was empty (`live === ''`). A later turn opens with prose ("I'll read the slides…"), which hid the dots for good, and the tool round that followed showed a 2 px pulsing bar. The only other signal, a tool's label, was set when the tool *ran*, never cleared, and missing for the long stretch where a whole slide streams inside a tool call. | `ArchitectChat.tsx`, `chat-agent.ts` |
+| `1. 1. 1.` | `renderProse` flushed its list on every blank line, so a loose numbered list became one single-item `<ol>` per item. | `chat-markdown.ts` |
+| No tables | The renderer had no table rule. | `chat-markdown.ts` |
+| Model change | `ModelPicker` lived only in Workspace → AI. The header carried "≈ $0.018–0.024" and "$6.08 session" with no labels. | `ChatCost.tsx`, `ModelPicker.tsx` |
+| Fences print as source | `ChatCodeBlock` is the only fence renderer. No function takes a language and a source and returns a drawn figure: every plugin draws through the engine and the runtime in an iframe. | see the bake-off |
+| No photos | The paperclip took text, Markdown and PDF only, and the message type has no image part. | `reference-doc-ui.tsx`, `reference-doc.ts` |
+
+## 3. What shipped
+
+**Status line.** One line under the Architect's text, present from send to commit, always naming the
+phase: "Thinking…" (each round opens with it, so the gap between a finished tool and the next token is
+no longer silent), "Writing…", "Reading slides…", "Drafting the edit…". The transport reports a tool
+call the moment its *name* streams in (`onToolStart`), long before its arguments finish. A turn silent
+past 15 s says "still working". The bouncing dots and the pulsing bar are gone.
+
+**Markdown.** One list per run of items (with the real start number, nesting by indent, and indented
+paragraphs kept in their item); tables with alignment, inline formatting and horizontal scroll inside a
+wrapper (the transcript never scrolls sideways); blockquotes; rules; styled chat headings.
+
+**Header.** One chip naming the model, with a dropdown, and one session figure. The dropdown holds the
+price of a question and of an edit, the session against its cap, and the same model picker as Workspace
+(`ModelPicker` split into `useModelCatalog` and `ModelList`, one picker). The catalog loads when the
+dropdown first opens.
+
+**Figures.** A reply's `mermaid`, `math`, `functionplot` and `lattice` fences are drawn in the bubble
+by a pool of frames the chat owns, in the open deck's theme, with a Source toggle. The strategy and its
+numbers are in `2026-10-12-chat-figures-bakeoff.md`. `PreviewPool` gained a `baseSlots` floor (default
+unchanged).
+
+**Video.** The same door takes one clip of at most 15 seconds and 15 MB, to a model whose catalog entry lists video input (`ORModel.video`; absent on an older cached catalog means unknown and allowed, and a model's own refusal is turned into the same advice). It is read once, measured (a header with no length is found by seeking past the end), refused in words when over a cap, shown as a poster with its length, and sent inline as a `video_url` part, priced flat at 4,500 tokens by the budget gate. One per message.
+
+**Photos.** The paperclip's "Add a photo…" opens the device's own picker (no `capture` attribute), and a
+pasted image is taken too. A photo goes through the Library's intake (`importImage`: EXIF and GPS
+removed, capped at 2560 px) to **this deck's shelf**, shows as a thumbnail, and travels to the model as
+an image part on the turn it is attached, downscaled to 1568 px, with a note naming it `asset:<name>`
+so the model can write `![](asset:<name>)` on a slide. The thread stores the reference, never the bytes.
+An earlier turn's photos are named in its text but not re-sent, because each image is billed as input
+every time it travels. A model the catalog lists as text-only refuses the photo before anything is sent;
+one it does not list answers for itself, and a rejection reads "pick one marked vision".
+
+### Decisions that were mine to make, and the one that was not
+
+- **A photo is a deck-scoped Library asset, not a shared one** (confirmed as the default by the author, 2026-10-13). It stays usable as `asset:<name>` in
+  this deck, it does not clutter the shared Library, and "This deck → All decks" in the Library moves it.
+  Reversible by one scope flag.
+- **The pool's floor is 4, not 10.** The cap still grows to cover what is on screen.
+- **The rendering strategy was not chosen on judgment.** The author asked for a measured comparison and
+  got one.
+
+## 4. How it was verified
+
+Real Chromium against the production build, with a scripted OpenRouter (HARD RULE #24: no key, no spend),
+at 390, 820 and 1440 px: `docs/e2e/chat-polish.spec.ts` (status line, table, list numbering, model
+switch), `chat-figures.spec.ts` (fourteen fences, three drawn, frames bounded by what is visible),
+`chat-photos.spec.ts` (a real PNG through the file chooser, a decoded thumbnail, the request body the
+model receives, and the text-only refusal). Unit tests cover the renderer, the sample builder, the photo
+helpers and the status labels. The suite's own screenshots were read, and they caught two defects the
+assertions did not: a locator that matched the missing-photo placeholder instead of the picture, and the
+browser's default `<figure>` margin insetting every figure.
+
+## 4b. What the independent checker found (and what changed)
+
+A checker pass over the diff found a blocker the author's own tests missed: a list line ending in CR,
+CRLF, U+2028 or U+2029 matched the list test but not the item pattern, so the list loop never advanced
+and the tab froze (a model that emits CRLF triggers it, and the saved reply re-froze every reopen).
+Line endings are now normalized at both entry points and the loop cannot stay on a line. Also fixed:
+unbounded quote nesting overflowed the stack (now capped at 8, rendered as text beyond); pending photos
+carried across a deck switch (now reset, and an add finishing after a switch is dropped); an earlier
+turn's note told the model a photo was "shown below" when it was not re-sent; overlapping photo adds
+saved more than the limit (one add at a time); the one-shot fallback's budget left out photos; the
+header lost its over-cap color; and three test assertions that could not fail were tightened or
+reworded. Not fixed, and not new: the `§N§` placeholder in `inline()` and its quadratic link pattern
+(both pre-existing).
+
+## 4c. The second checker pass (video, math, harness)
+
+Found and fixed: `math feature` with no legend ignored every alignment modifier (its stage rule outranks the
+modifier's flex promotion, and bare `math` only worked by source order); held video bytes were never
+released and a post-reload name could collide with a persisted turn's clip (now bounded to two clips, with
+random name suffixes and release on remove and deck switch); a 15.0x-second phone clip was refused with
+"15 seconds" (half a second of slack, one-decimal messages); the attach guard was taken after an `await`
+(now before the first); poster height is capped. Not changed: a mixed photo-and-video pick drops the lot
+when one part is refused (minor), and the one-shot fallback re-sends a refused clip once.
+
+## 5. What this does not claim
+
+- **Not verified on a physical phone** (HARD RULE #23). The chat specs' 390 px cases (status line, table,
+  list numbering, model switch, figures, photo) also pass on real WebKit with the iPhone 15 Pro profile
+  (`webkit-phone`, WebKit 26): the engine the pool exists for, not the device. The native picker is the
+  browser's own and was driven through Playwright's file chooser, which stands in for the choice, not for
+  the picker. Video was not run on WebKit (it records WebM, which WebKit does not).
+- **Video is held for one turn, not stored.** The Library's video slice is not built, so a clip cannot be an `asset:`; the chat keeps a poster and a length and holds the bytes in memory until it is sent. The tab holds at most the two latest clips (the pending one and the one just sent, for a same-tab Regenerate); older ones are released, so memory is bounded. After a reload the clip is gone, and Regenerate says so. A clip over 15 s plus half a second of slack is refused.
+- **The status line was verified at the DOM, not by eye over time.** A fulfilled mock cannot stream, so
+  the phases are held open with delays; their real cadence on a live model is unmeasured.
+- **The streaming bubble hands off to the committed message with one re-point** of a figure's frame.
+
+## 6. Open
+
+- A phone check of the native photo picker, the pool and the status line on a real device.
+- Storing a chat video in the Library, when its video slice lands (it would then be an `asset:` like a photo).
+- Video was exercised with a clip recorded in Chromium (WebM). A phone's H.264 MP4, and the cap on a real 15-second phone clip, are untested.
+- Dropping a photo onto the composer (paste and the picker are in; drag is not).

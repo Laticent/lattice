@@ -167,6 +167,8 @@ export type ORModel = {
 	contextLength: number | null;
 	maxOutput: number | null;
 	vision: boolean;
+	/** Accepts video input. `undefined` on a catalog cached before the field existed: unknown, not no. */
+	video?: boolean;
 };
 
 /** This key's readout from /auth/key — usage + (optional) per-key spend limit. */
@@ -200,7 +202,7 @@ export type ModelAvailability = {
 export type TierProgress = { progress: number; text?: string; status?: string };
 
 export type ArchitectModel = {
-	complete: (o: { messages: { role: string; content: MsgContent }[]; json?: boolean; fallback?: string; onUsage?: (u: Usage) => void; onToken?: (t: string) => void; onGenerationId?: (id: string) => void; onFinishReason?: (r: string) => void; signal?: AbortSignal; maxTokens?: number; plugins?: unknown[]; cacheTtl?: string; tools?: readonly unknown[]; toolChoice?: 'auto' | 'none'; onToolCalls?: (calls: ToolCall[]) => void; cacheTail?: boolean }) => Promise<string>;
+	complete: (o: { messages: { role: string; content: MsgContent }[]; json?: boolean; fallback?: string; onUsage?: (u: Usage) => void; onToken?: (t: string) => void; onGenerationId?: (id: string) => void; onFinishReason?: (r: string) => void; signal?: AbortSignal; maxTokens?: number; plugins?: unknown[]; cacheTtl?: string; tools?: readonly unknown[]; toolChoice?: 'auto' | 'none'; onToolCalls?: (calls: ToolCall[]) => void; onToolStart?: (name: string) => void; cacheTail?: boolean }) => Promise<string>;
 	// The authoritative cost of a generation by its stream id — corrects an aborted turn's estimate.
 	openRouterGenerationCost?: (id: string) => Promise<number | null>;
 	// bge-small sentence embeddings (CDN, on-device) — null on Safari/mobile/no-CDN/model-off.
@@ -1392,7 +1394,7 @@ export function buildChatSystem(generation: string, grounding?: ChatGrounding, f
  * resulting source + a line diff for a review-then-apply card (nothing is applied
  * here). Degrades to `offline`/`blocked` honestly — never a fabricated answer.
  */
-export type ChatOptions = { onToken?: (t: string) => void; onActivity?: (label: string) => void; signal?: AbortSignal; constrainFacts?: boolean; grounding?: ChatGrounding };
+export type ChatOptions = { onToken?: (t: string) => void; onActivity?: (label: string) => void; signal?: AbortSignal; constrainFacts?: boolean; grounding?: ChatGrounding; /** This turn's photos, as data URLs the model can see (cloud tier only; see chat-photos.ts). */ photos?: { name: string; dataUrl: string }[]; /** This turn's short video, as a data URL (cloud tier, a model that reads video). */ videos?: { dataUrl: string }[] };
 
 // "Facts locked" — a tone/clarity-only constraint (Munger's content-truth point): the
 // model may improve wording/structure but must not alter any number, date, name, or
@@ -1445,7 +1447,9 @@ export async function chatComplete(history: ChatTurn[], source: string, docs?: R
 		// Same arithmetic the readout uses (estTokens), uncached: the GATE prices the worst
 		// case, so it must not assume a cache hit it can't guarantee.
 		const systemTokens = estTokens(staticPrefix) + estTokens(dynamicTail);
-		const blk = cloudBudgetBlock(model, `${last?.content ?? ''}\n${source}`, refDocsTokens(docs) + systemTokens, CHAT_MAX_TOKENS);
+		// A photo is priced at a flat 1,500 tokens, a clip at 4,500 (chat-photo-parts PHOTO_TOKENS / VIDEO_TOKENS; literals here because
+		// that module is loaded on demand and this one is startup code).
+		const blk = cloudBudgetBlock(model, `${last?.content ?? ''}\n${source}`, refDocsTokens(docs) + systemTokens + (opts?.photos?.length ?? 0) * 1500 + (opts?.videos?.length ?? 0) * 4500, CHAT_MAX_TOKENS);
 		if (blk) return { status: 'blocked', reply: blk };
 	}
 	// Ground the final user turn in the reference doc (#640).
@@ -1454,6 +1458,13 @@ export async function chatComplete(history: ChatTurn[], source: string, docs?: R
 		...history.slice(0, -1),
 		{ role: 'user', content: `${last?.content ?? ''}\n\nThe current deck — address slides by their [slide N] markers, never include a marker in an edit body:\n\n${numberSlides(source)}` },
 	], generation, deckOutputLang(source)), docs, generation === 'openrouter');
+	// This turn's photos ride the last user message (cloud tier only: the on-device tiers cannot see).
+	// Loaded on demand: this module is startup JavaScript, and a turn with a photo on the one-shot
+	// fallback (a model that refused the agent's tools) is rare.
+	if (generation === 'openrouter' && (opts?.photos?.length || opts?.videos?.length)) {
+		const { withPhotos } = await import('./chat-photo-parts');
+		ground.messages = withPhotos(ground.messages, opts.photos ?? [], opts.videos ?? []) as typeof ground.messages;
+	}
 	let reply = '';
 	// A local copy of the streamed text so an explicit Stop keeps the partial reply
 	// (model.complete throws on abort before returning, so its return value is lost).
