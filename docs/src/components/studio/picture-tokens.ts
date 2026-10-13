@@ -18,21 +18,31 @@ function catalogId(id: string): string {
 }
 
 /** The slice of the model the lookup needs: its id, and the catalog that says where a `~…-latest` alias points. */
-type PictureModel = { openRouterModel?: () => string; listOpenRouterModels?: () => Promise<{ id: string; aliasSlug?: string | null }[]> };
+type CatalogModel = { id: string; vision?: boolean; aliasSlug?: string | null };
+type PictureModel = { openRouterModel?: () => string; listOpenRouterModels?: () => Promise<CatalogModel[]> };
+
+/** The model catalog, or [] when it cannot be had within `ms`: a stalled fetch must not hold a chat turn, and a failed one
+ *  is the same as an empty one to every caller (no price, no alias target, no vision flag). The timer is always cleared. */
+export async function boundedCatalog(model: PictureModel, ms = 4000): Promise<CatalogModel[]> {
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	try {
+		return await Promise.race([Promise.resolve(model.listOpenRouterModels?.()).then((c) => c ?? []), new Promise<CatalogModel[]>((r) => (timer = setTimeout(() => r([]), ms)))]);
+	} catch {
+		return [];
+	} finally {
+		clearTimeout(timer);
+	}
+}
 
 /** Tokens one picture costs on the model in use. A `~anthropic/claude-sonnet-latest` style alias is not a model the
  *  table measured; the catalog says which model it points at today (`alias_target.slug`), and that one is looked up.
- *  A catalog that cannot be read, or that predates the field, falls back to the alias id itself: the default. */
+ *  A catalog that cannot be had in time, or that predates the field, falls back to the alias id itself: the default. */
 export async function resolvePictureTokens(model: PictureModel): Promise<PictureTokens> {
 	const id = model.openRouterModel?.();
 	if (!id) return DEFAULT;
 	if (!id.startsWith('~')) return pictureTokensFor(id);
-	try {
-		const hit = (await model.listOpenRouterModels?.())?.find((m) => m.id === id);
-		return pictureTokensFor(hit?.aliasSlug ?? id);
-	} catch {
-		return pictureTokensFor(id);
-	}
+	const hit = (await boundedCatalog(model)).find((m) => m.id === id);
+	return pictureTokensFor(hit?.aliasSlug ?? id);
 }
 
 /** Tokens one picture costs on `modelId`. A model the table does not list is charged the default, which a

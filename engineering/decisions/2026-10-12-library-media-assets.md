@@ -467,11 +467,18 @@ The cost readout treats such a model as primed after the first turn whatever the
 governs Anthropic's breakpoint (`ArchitectChat.tsx`). The readout's cache rates (2x write, 0.1x read) are still Anthropic's for every
 vendor; they overstate a cold Google or OpenAI turn and are untouched here.
 
-**The price must be known before the first turn.** The budget gate compares an estimate against the cap, and the estimate needs the
-model's price from the catalog, which loads on demand. On a fresh browser profile nothing had loaded it, so the first chat turn
-skipped the gate and ran past a hard-stop cap. `chatAgent` now loads the catalog first when the price is unknown, waiting at most
-4 seconds. Verified on the real Studio (final build, fresh profile, the real key, a $0.0001 stop-mode cap, `~anthropic/claude-haiku-latest`):
-no request left the page and the chat said "Estimated ~$0.01 — that would exceed your $0.00 cap"; the same setup before the change sent it.
+**The price must be known before the first spend.** The budget gate compares an estimate against the cap, and the estimate needs the
+model's price from the catalog, which loaded only when something asked for it (the Workspace model tab, an alias lookup). On a fresh
+browser profile nothing had, so the first chat turn, and the Coach's Fix and the refine and generate actions on any profile that
+had not opened the model tab, skipped the gate and ran past a hard-stop cap (13 call sites of `cloudBudgetBlock`; an unknown price is `null`
+and `estimateUsd` returns `null`). Now `createArchitectModel` starts the catalog fetch when a key is present, so it is normally loaded
+before anything can spend; concurrent callers share one in-flight fetch (`listModels` memoizes it); and the chat agent, if the turn still
+beats it, waits for it with `boundedCatalog` (at most 4 seconds, timer cleared, a failure reads as an empty catalog) before its first
+budget check. The wait applies to the vision check and the alias lookup too, so no catalog read can hold a turn. A user in alert mode or
+with no cap can wait up to the same 4 seconds on a slow first fetch for a price nothing will compare; accepted, because the alias lookup
+and the readout want the same catalog. Verified on the real Studio (fresh profile, the real key, a $0.0001 stop-mode cap,
+`~anthropic/claude-haiku-latest`, the final head's code): no request left the page and the chat said "Estimated ~$0.01 — that would
+exceed your $0.00 cap"; the same setup before the change sent it.
 
 **Real Studio, final build, one turn each (2026-10-13).** A Library photo, the agent calling `view_asset` then `caption_asset`.
 `google/gemini-2.5-flash-lite`: no request carried `cache_control`, prompt tokens read 7,554 / 8,949 / 8,989 (not doubled), three

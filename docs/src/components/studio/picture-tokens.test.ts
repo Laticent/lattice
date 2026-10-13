@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
-import { DEFAULTS, lostExceptions, SHAPE, summarize } from '../../../../tools/probe-picture-tokens.mjs';
-import { IMAGE_RATE_MAX_MULTIPLE, pictureSurchargeUsd, pictureTokensFor, priceRound, resolvePictureTokens } from './picture-tokens';
+import { describe, expect, it, vi } from 'vitest';
+import { DEFAULTS, lostExceptions, pictureCost, SHAPE, summarize } from '../../../../tools/probe-picture-tokens.mjs';
+import { boundedCatalog, IMAGE_RATE_MAX_MULTIPLE, pictureSurchargeUsd, pictureTokensFor, priceRound, resolvePictureTokens } from './picture-tokens';
 import data from './picture-tokens.data.json';
 
 describe('pictureTokensFor — what one picture costs, by model', () => {
@@ -180,5 +180,35 @@ describe('priceRound — one round’s pictures: thumbnails and the author’s a
 		const both = priceRound(cost, price, 3, 1);
 		expect(both.usd).toBeCloseTo(2 * ((2000 * 6) / 1e6) + (3600 * 6) / 1e6, 9);
 		expect(priceRound(cost, { promptPerM: 3, imagePerM: null }, 3, 1).usd).toBe(0);
+	});
+});
+
+describe('boundedCatalog — a stalled catalog never holds a turn', () => {
+	it('returns the catalog, an empty list for a missing, failing or absent one, and never rejects', async () => {
+		expect(await boundedCatalog({ listOpenRouterModels: async () => [{ id: 'a/b' }] })).toEqual([{ id: 'a/b' }]);
+		expect(await boundedCatalog({ listOpenRouterModels: async () => Promise.reject(new Error('offline')) })).toEqual([]);
+		expect(await boundedCatalog({})).toEqual([]);
+	});
+	it('gives up after the bound, and leaves no timer behind either way', async () => {
+		vi.useFakeTimers();
+		try {
+			const stalled = boundedCatalog({ listOpenRouterModels: () => new Promise(() => {}) }, 4000);
+			await vi.advanceTimersByTimeAsync(4001);
+			expect(await stalled).toEqual([]);
+			expect(vi.getTimerCount()).toBe(0);
+			await boundedCatalog({ listOpenRouterModels: async () => [{ id: 'x/y' }] }, 4000);
+			expect(vi.getTimerCount()).toBe(0);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+});
+
+describe('pictureCost — the probe tool’s per-picture difference', () => {
+	it('subtracts the baseline, keeps an error an error, and refuses a missing baseline', () => {
+		expect(pictureCost(16, 1306)).toBe(1290);
+		expect(pictureCost(16, 'ERR 429')).toBe('ERR 429');
+		expect(pictureCost('ERR 429', 18000)).toBe('ERR no-baseline');
+		expect(pictureCost(Number.NaN, 18000)).toBe('ERR no-baseline');
 	});
 });

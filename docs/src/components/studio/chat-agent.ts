@@ -21,7 +21,7 @@ import { AGENT_TOOLS, type AgentComplete, type AgentComponent, type AgentRawEdit
 import { VIDEO_TOKENS, withPhotos } from './chat-photo-parts';
 import { THINKING } from './chat-status';
 import { FRONT_MATTER_KEYS } from './front-matter-keys';
-import { priceRound, resolvePictureTokens } from './picture-tokens';
+import { boundedCatalog, priceRound, resolvePictureTokens } from './picture-tokens';
 import type { ContentPart, MsgContent, ReferenceDoc } from './reference-doc';
 
 type Arch = typeof import('./architect');
@@ -108,7 +108,7 @@ export function agentSystemParts(source: string, grounding?: ChatGrounding, fact
 async function modelSeesImages(model: ArchitectModel): Promise<boolean> {
 	try {
 		const id = model.openRouterModel();
-		return !!(await model.listOpenRouterModels()).find((m) => m.id === id)?.vision;
+		return !!(await boundedCatalog(model)).find((m) => m.id === id)?.vision;
 	} catch {
 		return false;
 	}
@@ -128,10 +128,10 @@ function budgetText(m: { content?: unknown; tool_calls?: unknown }): { text: str
 export async function chatAgent(model: ArchitectModel, history: ChatTurn[], source: string, docs: ReferenceDoc[] | undefined, opts: ChatOptions | undefined): Promise<ChatResult | null> {
 	const grounding = opts?.grounding;
 	const last = history[history.length - 1];
-	// The price the budget gate compares against comes from the model catalog, which loads on demand (the Workspace model tab, an
-	// alias lookup). With no price the gate has nothing to compare and lets the turn through, so on a fresh browser profile the first
-	// turn ran past a hard-stop cap. Load it now, bounded so a stalled fetch cannot hold the turn; a failed load is the old behavior.
-	if (!model.openRouterModelPrice?.()) await Promise.race([Promise.resolve(model.listOpenRouterModels?.()).catch(() => undefined), new Promise((r) => setTimeout(r, 4000))]);
+	// The price the budget gate compares against comes from the model catalog. A connected model fetches it when it is created (architect-model.js),
+	// so this normally finds it loaded; if the turn still beats it (a slow network, a fresh profile), wait for it, at most 4 s, because with no price
+	// the gate has nothing to compare and lets the turn through past a hard-stop cap. A failed or late catalog is the old behavior.
+	if (!model.openRouterModelPrice?.()) await boundedCatalog(model);
 	// The Library is read once per turn. A failed read is an empty Library, never a failed turn.
 	// One instance per turn: it reads the shelf (every photo's bytes) once and serves list, thumbnails and
 	// captions from that read, instead of one full read per call.

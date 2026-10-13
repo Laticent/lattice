@@ -244,6 +244,7 @@ export function orPricePerM(raw) {
 function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0) {
   const referer = () => (typeof location !== 'undefined' ? location.origin : 'https://lattice.dev');
   let catalogCache = readCachedCatalog(); // id→{name,…} catalog; seeded from the TTL localStorage cache so price/name survive a reload
+  let catalogInflight = null; // the one catalog fetch in progress: concurrent callers (chat, picker, alias lookup) share it instead of each fetching
   return {
     name: 'openrouter',
     ready() { return !!readLS(OR_KEY_LS); },
@@ -357,7 +358,12 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
     },
     // The model catalog with pricing normalized to per-MILLION tokens (the API
     // gives per-token USD strings). Public endpoint; the key is not required.
-    async listModels() {
+    listModels() {
+      if (catalogCache) return Promise.resolve(catalogCache);
+      catalogInflight ??= this.loadCatalog().finally(() => { catalogInflight = null; });
+      return catalogInflight;
+    },
+    async loadCatalog() {
       // Serve the cache (session memo → fresh localStorage) before any network. A
       // self-heal clears catalogCache + the LS entry, so the next call refetches.
       if (catalogCache) return catalogCache;
@@ -813,6 +819,9 @@ export function createArchitectModel({ getSettings, explicitTierWins = false, de
   const prompt = promptApiBackend();
   const webllm = webllmBackend();
   let openrouter = openRouterBackend(defaultModel, defaultMaxTokens);
+  // A connected user's price list is wanted before their first spend (the budget gate compares an estimate against the cap, and
+  // with no price it lets the call through), so fetch it now rather than when something happens to ask. Cached for 24 h, public, best-effort.
+  if (readLS(OR_KEY_LS)) openrouter.listModels().catch(() => {});
   let universal = transformersGenBackend();
   let promptAvail = 'unknown';
   const embeddings = embeddingsBackend(); // bge-small, WORKER-ONLY (never the main thread)

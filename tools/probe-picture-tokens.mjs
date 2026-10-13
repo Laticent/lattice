@@ -85,6 +85,13 @@ export function summarize(rows, measured, defaults = DEFAULTS, shape = SHAPE) {
 	};
 }
 
+/** What one picture cost: the prompt tokens with it minus the prompt tokens without. No baseline means no difference (a picture's
+ *  own count would read as a wildly inflated per-picture cost), and an error reading stays an error. */
+export function pictureCost(none, withPicture) {
+	if (!Number.isFinite(none)) return 'ERR no-baseline';
+	return Number.isFinite(withPicture) ? withPicture - none : withPicture;
+}
+
 /** A deterministic w x h PNG, base64: bands plus seeded dots, so a vision model has something to tokenize. */
 export function png(w, h) {
 	const { PNG } = require('pngjs');
@@ -168,19 +175,33 @@ async function probe(args) {
 			const none = await call(id, null);
 			const a = await call(id, pics[512]);
 			const b = await call(id, pics[1568]);
-			// No baseline means no difference: a picture's own count would read as a (wildly inflated) per-picture cost.
-			const d = (x) => (Number.isFinite(none) ? (Number.isFinite(x) ? x - none : x) : 'ERR no-baseline');
-			rows.push({ id, none, t512: d(a), t1568: d(b) });
+			rows.push({ id, none, t512: pictureCost(none, a), t1568: pictureCost(none, b) });
 		}
 	};
-	await Promise.all(Array.from({ length: 6 }, worker));
-	console.log(`probe-picture-tokens: ${rows.length}/${models.length} models, cost $${total.toFixed(4)}`);
-	// Rows are always saved: they cost real money, and a refused --write must not throw them away.
-	const out = flag('--out') ?? path.join(os.tmpdir(), `picture-tokens-rows-${Date.now()}.json`);
-	fs.writeFileSync(out, JSON.stringify(rows, null, 1));
-	console.log(`probe-picture-tokens: rows saved to ${out} (rebuild the table from them with --from ${out})`);
+	// Rows are saved even if the run is interrupted or crashes: they cost real money, and a refused --write must not throw them away.
+	const tmpOut = path.join(os.tmpdir(), `picture-tokens-rows-${Date.now()}.json`);
+	const save = () => {
+		for (const dest of [tmpOut, flag('--out')].filter(Boolean)) {
+			try {
+				fs.writeFileSync(dest, JSON.stringify(rows, null, 1));
+			} catch (e) {
+				console.error(`probe-picture-tokens: could not write ${dest}: ${e.message}`);
+			}
+		}
+	};
+	process.once('SIGINT', () => {
+		save();
+		console.error(`probe-picture-tokens: interrupted; ${rows.length} row(s) saved to ${tmpOut}`);
+		process.exit(130);
+	});
+	try {
+		await Promise.all(Array.from({ length: 6 }, worker));
+	} finally {
+		save();
+	}
+	console.log(`probe-picture-tokens: ${rows.length}/${models.length} models, cost $${total.toFixed(4)}; rows saved to ${tmpOut}${flag('--out') ? ` and ${flag('--out')}` : ''} (rebuild the table from them with --from)`);
 	if (args.includes('--write') && !complete()) {
-		console.error('probe-picture-tokens: refusing --write on a partial run (--model, --limit, the --cap stop, or a model not reached). A partial table drops exceptions and sends their models back to the default. Rows were saved to --out if you gave one; rerun the whole catalog.');
+		console.error('probe-picture-tokens: refusing --write on a partial run (--model, --limit, the --cap stop, or a model not reached). A partial table drops exceptions and sends their models back to the default. The rows are saved (path above); rerun the whole catalog.');
 		process.exit(1);
 	}
 	for (const r of rows.slice(0, 5)) console.log(JSON.stringify(r));
