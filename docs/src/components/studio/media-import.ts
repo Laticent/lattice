@@ -340,8 +340,9 @@ export async function probeVideo(blob: Blob): Promise<{ durationMs: number; widt
 	el.preload = 'metadata';
 	const url = URL.createObjectURL(blob);
 	try {
-		// `createObjectURL` always answers `blob:`; saying so keeps the element's `src` to that one scheme.
-		if (!url.startsWith('blob:')) throw new Error('not an object URL');
+		// An object URL is `blob:<origin>/<uuid>`, so it holds letters, digits and `-_.:/[]` (an IPv6 origin has brackets) and nothing else. Saying so
+		// keeps the element's `src` to that shape: no markup character can ride in.
+		if (!/^blob:[\w.:/[\]-]+$/.test(url)) throw new Error('not an object URL');
 		el.setAttribute('src', url);
 		await once(el, 'loadedmetadata', 10_000);
 		// A recording some browsers write has no length in its header (`Infinity`); seeking far past the
