@@ -404,7 +404,7 @@ describe('the fast read', () => {
   build([], 3);
   spans.push('{BETA}', '{ BETA }', '{BETA }', '{BETA,tag}', '{BETA , tag , c4}', '{}', '{', '{BETA', '[x]', '~{1 2}', '"text"', 'plain');
 
-  const run = (r: ReturnType<(typeof slots)['pill']['read']>) => JSON.parse(JSON.stringify(r));
+  const run = (r: { ok: boolean }) => JSON.parse(JSON.stringify(r));
   for (const [name, slot] of Object.entries(slots)) {
     it(`${name}: every span binds as the full path binds it`, () => {
       let bound = 0;

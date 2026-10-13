@@ -421,7 +421,9 @@ it while it calls each parameter's `read`. A type of your own may parse a span i
 which would overwrite the buffer under the walk. So a slot takes the fast read only when every
 type it declares was built by Segno (`text()`, `oneOf()`, `indexed()`, `number()`, and a `range()`
 or `named()` of one); a type you wrote, or a copy of a built-in with a new `read`, keeps the full
-bind.
+bind. A built-in is frozen, so it cannot be changed in place to add a `read`. The `.` and `./read`
+entries each carry their own mark, so a slot built with `record` from one entry and `text` from the
+other takes the full bind: the results are the same and the saving is lost.
 
 ## Build
 
