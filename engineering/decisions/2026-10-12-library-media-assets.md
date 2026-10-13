@@ -291,16 +291,58 @@ in `chat-agent.ts`.
 Chromium: photos added through the Library's file input, the real thumbnail code (512 px, under 150 KB of
 base64), the real agent loop, and the caption read back from IndexedDB. The model is mocked (HARD RULE #24),
 so **how a real model chooses between photos is UNVERIFIED.** The spec fails if the thumbnail edge grows.
-A backup does not carry captions yet (a followup), so a restore re-captions a photo the first time the
-chat needs to see it.
+A backup now carries captions with the rest of a photo's metadata (see the next section).
+
+## Editing a photo's metadata (added 2026-10-13)
+
+The Images tab opens a detail dialog for a photo, so a person can see and edit what a deck can reuse
+(`MediaDetailDialog.tsx`). Four fields are editable. The record holds them next to the bytes, and the stored
+bytes stay scrubbed, so an export never carries them.
+
+| Field | Record field | Notes |
+|---|---|---|
+| Description | `caption` | One line, 140 characters. The chat writes the same field; a person's edit wins and the chat captions only a photo with none. Kept as typed. The chat gets a cleaned copy (`infoOf` in `agent-assets-browser.ts`), so a quote cannot break out of its prompt. |
+| Credit | `credit` | One line, 100 characters. |
+| Date taken | `taken` | A real `YYYY-MM-DD`, chosen with the browser's date picker. |
+| Name | `name` | See aliases. |
+
+**A rename keeps the old name as an alias** (the Avro idea of `aliases`: a renamed field still answers to its old
+name). `renameMedia` moves the old name into `aliases`, so `asset:<old>` keeps resolving and no deck text is
+edited. Rules:
+
+- **Names and aliases share one namespace.** A new upload, a restore and a rename may not take a name or alias
+  another photo holds. `putMedia` and `renameMedia` check this inside the write transaction. The Library importer
+  and a restore treat a held alias as a held name (rename on clash, reuse when the bytes are identical).
+- **Resolution adds alias keys** to the name → URL map and the export data map (`media-urls.ts`), so a
+  preview, the presenter and every export show the photo under any name it has had. The delete warning and
+  the "used in" count include decks that write an old name (`decksUsingRecord`).
+- **A photo keeps at most 20 old names** (`MAX_ALIASES`). A rename past that is refused rather than dropping
+  one, because a dropped name turns the decks that write it into placeholders without a word. A person
+  removes an alias in the dialog to free the name.
+- **Backups carry all four fields and the aliases** in `media.json`. A missing field reads as empty and an
+  unknown field is ignored, so a backup crosses builds in both directions. On restore, text is cleaned, an old
+  name another photo here already holds is dropped, and the decks the restore wrote are rewritten from that old
+  name to the restored photo (a `renames` entry), so they do not quietly show the other photo. A restore that
+  reuses an identical photo gets the same rewrite for the old names the backup listed.
+
+**Not built yet** (the order the work was agreed in): reading description, credit and date from the file's
+EXIF/XMP at import (never GPS), the engine filling an empty alt from the description (an export change, so it
+needs the dark and light demo-deck sign-off), a "Suggest description" button that reuses the chat's captioning,
+and a button that rewrites decks to a photo's new name.
+
+**Verified:** `docs/e2e/library-image-metadata.spec.ts` drives the real Studio in Chromium at 1440, 820 and
+390 px: edit, save, read the record back from IndexedDB, remove an alias, and a deck that still writes the old
+name paints the photo inside the sandboxed preview frame. Firefox, WebKit, real touch and screen-reader
+behavior are **UNVERIFIED**.
 
 ## Options not taken
 
 - **Capturing metadata (capture date, caption) on the record.** An earlier draft of this note (§7) read the
   date, caption and location before the re-encode, kept them on the record and stripped them only from exported
-  bytes. It was dropped when the importer settled on "re-encode and discard", and nothing recorded the reversal.
-  What ships keeps nothing, so a photo's capture date is gone for good after import. Reviving it means reading
-  EXIF before the canvas pass (#2627's `exifOrientation` walk is prior art) into a `meta` field. Left to the owner.
+  bytes. It was dropped when the importer settled on "re-encode and discard". **Reversed 2026-10-13:** a
+  record now holds a description, credit and date taken (see "Editing a photo's metadata"). They are typed so
+  far; reading them from EXIF before the canvas pass (#2627's `exifOrientation` walk is prior art) is next.
+  Location stays out: it is never stored.
 - **Naming a photo by a fingerprint of its bytes** (`asset:team-offsite-7f3a9c`). A reference would then show
   exactly those bytes or the stand-in, never a different photo that happens to share a camera file name, and
   restore would put photos back by fingerprint instead of renaming. It is cheap now and a migration later, since

@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { CHROME, expect, gotoStudio, test } from './studio-fixture';
+import { CHROME, expect, gotoStudio, livePreview, setEditorContent, test } from './studio-fixture';
 
 // The Library's photo detail dialog, driven on the real Studio: open a card, edit description, credit,
 // date and name, and prove the record, the reopened dialog and the fit of the dialog at 1440 / 820 / 390.
@@ -107,3 +107,36 @@ for (const vw of [1440, 820, 390]) {
 		});
 	});
 }
+
+test('@smoke a deck that writes the OLD name still paints after a rename, and a new upload cannot take the old name', async ({ page }) => {
+	test.slow();
+	await gotoStudio(page);
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await openLibraryImages(page, 1440);
+	await addPhoto(page, 'Probe Old.png');
+	await expect(page.locator('[data-media-card="probe-old"]')).toBeVisible();
+
+	await setEditorContent(page, '# Old name\n\n![A probe](asset:probe-old)\n');
+	const img = livePreview(page).locator('img[alt="A probe"]').first();
+	await expect(img).toBeVisible({ timeout: 30_000 });
+	await expect.poll(async () => img.evaluate((el: HTMLImageElement) => (el.complete ? el.naturalWidth : -1))).toBe(600);
+
+	// Rename the photo. The deck's text still says `asset:probe-old`, and the slide must still show the photo.
+	await page.locator('[data-media-card="probe-old"]').getByRole('button', { name: 'Details for probe-old' }).click();
+	const dialog = page.locator('[data-media-detail="probe-old"]');
+	await dialog.getByLabel('Name').fill('probe-new');
+	await dialog.getByRole('button', { name: 'Save' }).click();
+	await expect(dialog).toBeHidden();
+	await expect(page.locator('[data-media-card="probe-new"]')).toBeVisible();
+	const after = livePreview(page).locator('img[alt="A probe"]').first();
+	await expect(after).toBeVisible({ timeout: 30_000 });
+	await expect.poll(async () => after.getAttribute('src'), { message: 'the old name resolves to an object URL' }).toMatch(/^blob:/);
+	await expect.poll(async () => after.evaluate((el: HTMLImageElement) => (el.complete ? el.naturalWidth : -1)), { message: 'the browser LOADED the photo under its old name' }).toBe(600);
+	// And the Library counts the deck that still writes the old name.
+	await expect(page.locator('[data-media-card="probe-new"]').getByText(/used in 1 deck/)).toBeVisible({ timeout: 15_000 });
+
+	// A new upload named like the old name is renamed, not refused: the old name is held.
+	await addPhoto(page, 'Probe Old.png');
+	await expect(page.locator('[data-media-card="probe-old-2"]')).toBeVisible();
+	await expect(page.getByText(/“probe-old” was taken/)).toBeVisible();
+});

@@ -453,3 +453,54 @@ describe('description, credit, date and old names ride in a backup', () => {
 		expect((await listMedia())[0].aliases).toHaveLength(20);
 	});
 });
+
+describe('old names and restore', () => {
+	it('treats a backup photo whose name is an old name here as a name clash, not a refusal', async () => {
+		const rec = await saveMedia(photo({ name: 'hero' }, OTHER), 1);
+		await renameMedia(rec.id, 'cover');
+		const out = await restoreMedia(await craft([row()]), 9, ctx());
+		expect(out.refused).toEqual([]);
+		expect(out.restored).toBe(1);
+		// The backup's `hero` is a different photo, so it comes back under a new name and the decks follow it.
+		expect(out.renames).toEqual([{ from: 'hero', to: 'hero-2', scope: LIBRARY_SCOPE }]);
+		expect((await listMedia()).map((m) => m.name).sort()).toEqual(['cover', 'hero-2']);
+	});
+
+	it('reuses the identical photo that answers to the backup name as an old name', async () => {
+		const rec = await saveMedia(photo({ name: 'hero' }), 1);
+		await renameMedia(rec.id, 'cover');
+		const out = await restoreMedia(await craft([row()]), 9, ctx());
+		expect(out.refused).toEqual([]);
+		expect(out.restored).toBe(0);
+		// `hero` still resolves to it, so no deck needs rewriting.
+		expect(out.renames).toEqual([]);
+		expect(await listMedia()).toHaveLength(1);
+	});
+
+	it('points the backup decks at the photo when an old name it listed is already another photo here', async () => {
+		await saveMedia(photo({ name: 'hero' }, OTHER), 1);
+		const out = await restoreMedia(await craft([row({ name: 'cover', file: 'cover.png', aliases: ['hero'] })], { 'cover.png': PNG }), 9, ctx());
+		expect(out.refused).toEqual([]);
+		expect(out.renames).toEqual([{ from: 'hero', to: 'cover', scope: LIBRARY_SCOPE }]);
+		expect((await listMedia()).find((m) => m.name === 'cover')?.aliases).toBeUndefined();
+	});
+
+	it('gives a crafted old name that equals another photo of the same backup no rewrite', async () => {
+		const rows = [row({ name: 'cover', file: 'cover.png', aliases: ['hero'] }), row()];
+		const out = await restoreMedia(await craft(rows, { 'cover.png': png(5), 'hero.png': PNG }), 9, ctx());
+		expect(out.renames).toEqual([]);
+		expect((await listMedia()).find((m) => m.name === 'cover')?.aliases).toBeUndefined();
+	});
+
+	it('points the backup decks at an identical photo here for the old names the backup listed', async () => {
+		await saveMedia(photo({ name: 'cover' }), 1);
+		const out = await restoreMedia(await craft([row({ name: 'cover', file: 'cover.png', aliases: ['hero'] })], { 'cover.png': PNG }), 9, ctx());
+		expect(out.restored).toBe(0);
+		expect(out.renames).toEqual([{ from: 'hero', to: 'cover', scope: LIBRARY_SCOPE }]);
+	});
+
+	it('refuses a calendar date that does not exist', async () => {
+		await restoreMedia(await craft([row({ taken: '2026-99-99' })]), 9, ctx());
+		expect((await listMedia())[0].taken).toBeUndefined();
+	});
+});

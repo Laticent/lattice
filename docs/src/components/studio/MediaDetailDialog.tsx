@@ -5,18 +5,17 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useObjectUrl } from './MediaCard';
-import { isMediaName, type MediaMetaPatch, type MediaRecord } from './media-store';
+import { isIsoDate, isMediaName, type MediaMetaPatch, type MediaRecord } from './media-store';
 import { formatBytes } from './reference-doc';
 
 // The detail view behind a Library photo card: see the picture, read what is known about it, and edit
 // the metadata a deck can reuse. A DIALOG, for the reason AssetVersions.tsx gives (the Library is itself
 // a sheet on tablet and phone, and a sheet inside a sheet has two dismiss gestures).
 //
-// WHAT IS EDITABLE: the description (the record's `caption`, which the chat also reads, and which a deck
-// can use as alt text), the credit, the date taken, and the name. Renaming keeps the old name as an
+// WHAT IS EDITABLE: the description (the record's `caption`, which the chat also reads), the credit, the date taken, and the name. Renaming keeps the old name as an
 // alias, so no deck is edited and `asset:<old>` keeps resolving (media-store.ts `renameMedia`).
 // Pixel size, bytes and file name are facts about the stored file and are shown, not edited.
-// Decision note: engineering/decisions/2026-10-12-library-media-assets.md §Metadata.
+// Decision note: engineering/decisions/2026-10-12-library-media-assets.md §Editing a photo's metadata.
 
 export function MediaDetailDialog({ m, open, onOpenChange, usedIn, aliasUse, onSave, onRename, onRemoveAlias }: {
 	m: MediaRecord | null;
@@ -53,7 +52,7 @@ export function MediaDetailDialog({ m, open, onOpenChange, usedIn, aliasUse, onS
 
 	const nameOk = name === m.name || isMediaName(name);
 	const dirty = caption !== (m.caption ?? '') || credit !== (m.credit ?? '') || taken !== (m.taken ?? '') || name !== m.name;
-	const takenOk = taken === '' || /^\d{4}-\d{2}-\d{2}$/.test(taken);
+	const takenOk = taken === '' || isIsoDate(taken);
 
 	async function save() {
 		if (!m) return;
@@ -64,8 +63,16 @@ export function MediaDetailDialog({ m, open, onOpenChange, usedIn, aliasUse, onS
 				const e = await onRename(name);
 				if (e) return setError(e);
 			}
-			const e = await onSave({ caption, credit, taken });
-			if (e) return setError(e);
+			// Only what this person changed: a description the chat wrote while the dialog was open is not erased
+			// by a form that never held it.
+			const patch: MediaMetaPatch = {};
+			if (caption !== (m.caption ?? '')) patch.caption = caption;
+			if (credit !== (m.credit ?? '')) patch.credit = credit;
+			if (taken !== (m.taken ?? '')) patch.taken = taken;
+			if (Object.keys(patch).length) {
+				const e = await onSave(patch);
+				if (e) return setError(e);
+			}
 			onOpenChange(false);
 		} finally {
 			setBusy(false);
@@ -88,7 +95,7 @@ export function MediaDetailDialog({ m, open, onOpenChange, usedIn, aliasUse, onS
 				<div className="grid gap-3 text-[13px]">
 					<div className="grid gap-1">
 						<label htmlFor={`${uid}-caption`} className="font-semibold">Description</label>
-						<Textarea id={`${uid}-caption`} value={caption} maxLength={140} rows={2} onChange={(e) => setCaption(e.target.value)} placeholder="What the picture shows. Used as its alt text and by the chat." />
+						<Textarea id={`${uid}-caption`} value={caption} maxLength={140} rows={2} onChange={(e) => setCaption(e.target.value)} placeholder="What the picture shows. The chat reads it." />
 					</div>
 					<div className="grid gap-3 sm:grid-cols-2">
 						<div className="grid gap-1">

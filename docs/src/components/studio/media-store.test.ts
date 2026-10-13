@@ -10,9 +10,11 @@ import {
 	decksUsing,
 	decksUsingRecord,
 	deleteDeckMedia,
+	isIsoDate,
 	isMediaName,
 	LIBRARY_SCOPE,
 	listMedia,
+	MAX_ALIASES,
 	MEDIA_REFUSAL_PREFIX,
 	mediaNameFromFile,
 	type NewMedia,
@@ -330,5 +332,30 @@ describe('decksUsingRecord', () => {
 	it('counts a deck that still writes an old name', () => {
 		const rec = { name: 'q3', aliases: ['hero'] };
 		expect(decksUsingRecord(rec, ['![](asset:hero)', '![](asset:q3)', '![](asset:other)', '![](asset:hero) ![](asset:q3)'])).toBe(3);
+	});
+});
+
+describe('limits and cross-checks', () => {
+	beforeEach(emptyShelf);
+	afterEach(emptyShelf);
+
+	it('refuses a rename that would pass the old-name limit instead of dropping one', async () => {
+		const rec = await saveMedia(base({ name: 'n0' }), 1);
+		for (let i = 1; i <= MAX_ALIASES; i++) await renameMedia(rec.id, `n${i}`);
+		await expect(renameMedia(rec.id, 'one-too-many')).rejects.toThrow(MEDIA_REFUSAL_PREFIX);
+		expect((await listMedia())[0].name).toBe(`n${MAX_ALIASES}`);
+	});
+
+	it('refuses a record whose old names collide with a name already held', async () => {
+		await saveMedia(base({ name: 'taken' }), 1);
+		await expect(saveMedia(base({ name: 'fresh', aliases: ['taken'] }), 2)).rejects.toThrow(MEDIA_REFUSAL_PREFIX);
+	});
+
+	it('knows a real calendar day from a shape that only looks like one', () => {
+		expect(isIsoDate('2026-02-28')).toBe(true);
+		expect(isIsoDate('2024-02-29')).toBe(true);
+		expect(isIsoDate('2026-02-29')).toBe(false);
+		expect(isIsoDate('2026-99-99')).toBe(false);
+		expect(isIsoDate('26-1-1')).toBe(false);
 	});
 });

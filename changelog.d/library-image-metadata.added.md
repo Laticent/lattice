@@ -2,4 +2,6 @@
 - Renaming a photo keeps its old name as an alias, so `asset:<old-name>` in a deck keeps showing the same photo with no deck edited. Names and aliases share one namespace, so a new upload cannot take a name that is an alias of another photo. Removing an alias frees the name.
 - The delete warning on a photo now counts decks that still write one of its old names.
 - A workspace backup now carries each photo's description, credit, date taken and old names, and a restore puts them back. An older backup without them still restores. An old name that another photo already holds is dropped on restore instead of refusing the photo.
-- A description keeps the quotes you type. The chat still gets a cleaned copy of it, so a quote mark cannot break out of its prompt.
+- A description keeps the quotes you type. The chat still gets a cleaned copy of it, so a quote mark cannot break out of its prompt. Date taken is a date picker.
+- A photo whose name is only an old name on this device no longer makes a restore or an upload fail with "delete it first": it is renamed on clash (or reused when the bytes match), and the decks a restore wrote are pointed at the right photo.
+- A photo keeps at most 20 old names. A rename past that is refused.

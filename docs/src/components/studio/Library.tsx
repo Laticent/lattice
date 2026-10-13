@@ -21,7 +21,7 @@ import { listAssets } from './library/asset-store.js';
 import { MediaCard } from './MediaCard';
 import { MediaDetailDialog } from './MediaDetailDialog';
 import { classifyMedia, importImage, MEDIA_ACCEPT, MediaImportError, uniqueName } from './media-import';
-import { decksUsing, decksUsingRecord, deleteMedia, LIBRARY_SCOPE, listMedia, MEDIA_REFUSAL_PREFIX, type MediaMetaPatch, type MediaRecord, removeMediaAlias, renameMedia, saveMedia, setMediaScope, updateMediaMeta, visibleMedia } from './media-store';
+import { decksUsing, decksUsingRecord, deleteMedia, LIBRARY_SCOPE, listMedia, MEDIA_REFUSAL_PREFIX, type MediaMetaPatch, type MediaRecord, namesOf, removeMediaAlias, renameMedia, saveMedia, setMediaScope, updateMediaMeta, visibleMedia } from './media-store';
 import { MOTION_PALETTE_STYLE } from './motion/palette-fallback';
 import { LIBRARY_FILTERS, LIBRARY_HEADER, type LibraryFilter } from './panel-shells';
 import { formatBytes, REF_DOC_ACCEPT, readReferenceDoc } from './reference-doc';
@@ -477,7 +477,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 		if (!picked.length) return;
 		const scope = addScope === 'deck' && activeDeckId ? activeDeckId : LIBRARY_SCOPE;
 		setBusy('Adding…');
-		const taken = new Set((await listMedia()).map((a) => a.name));
+		const taken = new Set((await listMedia()).flatMap(namesOf));
 		let n = 0;
 		const failed: string[] = [];
 		const renamed: string[] = [];

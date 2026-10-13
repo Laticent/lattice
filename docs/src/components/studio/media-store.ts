@@ -47,12 +47,24 @@ export type MediaRecord = {
 	/** Earlier names, kept after a rename so `asset:<old>` in a deck still resolves here (the Avro
 	 *  `aliases` idea). Names and aliases share one namespace. Absent on a record that was never renamed. */
 	aliases?: string[];
-	/** Who to credit, written by the person or read from the file's artist or copyright at import. */
+	/** Who to credit. Typed by the person in the detail view; nothing reads it from the file yet. */
 	credit?: string;
-	/** When the picture was taken (`YYYY-MM-DD`), read from the file at import or typed. */
+	/** When the picture was taken (`YYYY-MM-DD`). Typed by the person; nothing reads it from the file yet. */
 	taken?: string;
 	addedAt: number;
 };
+
+/** The most old names one photo keeps. A rename that would pass it is refused: dropping one would turn the decks
+ *  that still write it into placeholders without a word. */
+export const MAX_ALIASES = 20;
+
+/** `YYYY-MM-DD` that is a real calendar day. */
+export function isIsoDate(v: string): boolean {
+	const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v);
+	if (!m) return false;
+	const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
+	return d.getUTCFullYear() === +m[1] && d.getUTCMonth() === +m[2] - 1 && d.getUTCDate() === +m[3];
+}
 
 /** Every name a deck may write for this record: its own and its aliases. */
 export const namesOf = (m: Pick<MediaRecord, 'name' | 'aliases'>): string[] => [m.name, ...(m.aliases ?? [])];
@@ -165,7 +177,7 @@ async function putMedia(input: NewMedia, id: string, addedAt: number, asBuffer: 
 					read(i + 1);
 					return;
 				}
-				const clash = found.find((a) => namesOf(a).includes(input.name));
+				const clash = found.find((a) => namesOf(a).some((n) => namesOf(input).includes(n)));
 				if (clash) {
 					refusal = new Error(`${MEDIA_REFUSAL_PREFIX} “${input.name}” is already another saved ${clash.kind}. Delete it first to reuse the name.`);
 					t.abort();
@@ -268,7 +280,7 @@ export const cleanLine = (v: string, max: number): string =>
 		.trim()
 		.slice(0, max)
 		.trim();
-const cleanTaken = (v: string): string => (/^\d{4}-\d{2}-\d{2}$/.test(v.trim()) ? v.trim() : '');
+const cleanTaken = (v: string): string => (isIsoDate(v.trim()) ? v.trim() : '');
 
 /** Change an image's description, credit or date taken. Resolves the updated record, or null when it
  *  no longer exists. */
@@ -297,6 +309,7 @@ export async function renameMedia(id: string, to: string): Promise<MediaRecord |
 			const clash = others.find((a) => namesOf(a).includes(to));
 			if (clash) throw new Error(`${MEDIA_REFUSAL_PREFIX} “${to}” already belongs to another saved ${clash.kind}.`);
 			const aliases = [...new Set([row.name, ...(row.aliases ?? [])])].filter((n) => n !== to);
+			if (aliases.length > MAX_ALIASES) throw new Error(`${MEDIA_REFUSAL_PREFIX} this photo already has ${MAX_ALIASES} old names. Remove one first.`);
 			return { ...row, name: to, aliases };
 		},
 		true,

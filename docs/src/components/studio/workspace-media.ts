@@ -22,7 +22,7 @@
 // `importStudioState` does the same "beside, never over" for a deck that diverged).
 
 import { scrubberFor } from './media-scrub';
-import { cleanLine, isMediaName, LIBRARY_SCOPE, listMedia, MAX_MEDIA_FILE_BYTES, type MediaRecord, namesOf, saveMedia, setMediaScope, sniffImageMime, uniqueName } from './media-store';
+import { cleanLine, isIsoDate, isMediaName, LIBRARY_SCOPE, listMedia, MAX_ALIASES, MAX_MEDIA_FILE_BYTES, type MediaRecord, namesOf, saveMedia, setMediaScope, sniffImageMime, uniqueName } from './media-store';
 import { declaredInflatedBytes, jsonGuard, readBudget, readBytesBudget } from './zip-limits';
 
 export const MEDIA_INDEX = 'media.json';
@@ -31,8 +31,6 @@ export const MEDIA_INDEX = 'media.json';
 export const MAX_MEDIA_RESTORE_BYTES = 1024 * 1024 * 1024;
 /** Most rows `media.json` may hold. Each is an IndexedDB write. */
 export const MAX_MEDIA_ROWS = 5_000;
-/** The most old names one photo's row may bring back. */
-const MAX_ALIASES = 20;
 /** Most refusals a restore lists by name; the rest are counted. */
 const MAX_REFUSALS_LISTED = 25;
 /** Most `media.json` may inflate to: a row is a few hundred bytes. */
@@ -98,19 +96,29 @@ export async function packMedia(zip: Zip): Promise<{ rows: number; bytes: number
 	return { rows: rows.length, bytes, skipped };
 }
 
+/** The old names a backup row lists that Lattice could write, de-duplicated and capped. */
+function backupAliases(raw: Partial<MediaRow>): string[] {
+	if (!Array.isArray(raw.aliases)) return [];
+	return [...new Set(raw.aliases.filter((a): a is string => typeof a === 'string' && isMediaName(a)))].slice(0, MAX_ALIASES);
+}
+
 /** The description, credit, date and old names a backup row carries, made safe to store. An old name that
  *  another photo already holds is dropped, and the ones kept are added to `claimed` so no later row can take them. */
-function restoredMeta(raw: Partial<MediaRow>, name: string, claimed: Set<string>): Pick<MediaRecord, 'caption' | 'credit' | 'taken' | 'aliases'> {
-	const out: Pick<MediaRecord, 'caption' | 'credit' | 'taken' | 'aliases'> = {};
+function restoredMeta(raw: Partial<MediaRow>, name: string, claimed: Set<string>): Pick<MediaRecord, 'caption' | 'credit' | 'taken' | 'aliases'> & { dropped: string[] } {
+	const out: Pick<MediaRecord, 'caption' | 'credit' | 'taken' | 'aliases'> & { dropped: string[] } = { dropped: [] };
 	const caption = typeof raw.caption === 'string' ? cleanLine(raw.caption, 140) : '';
 	if (caption) out.caption = caption;
 	const credit = typeof raw.credit === 'string' ? cleanLine(raw.credit, 100) : '';
 	if (credit) out.credit = credit;
-	if (typeof raw.taken === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(raw.taken)) out.taken = raw.taken;
+	if (typeof raw.taken === 'string' && isIsoDate(raw.taken)) out.taken = raw.taken;
 	if (Array.isArray(raw.aliases)) {
 		const keep: string[] = [];
-		for (const a of raw.aliases.slice(0, MAX_ALIASES)) {
-			if (typeof a !== 'string' || !isMediaName(a) || a === name || claimed.has(a)) continue;
+		for (const a of backupAliases(raw)) {
+			if (a === name) continue;
+			if (claimed.has(a)) {
+				out.dropped.push(a);
+				continue;
+			}
 			claimed.add(a);
 			keep.push(a);
 		}
@@ -129,7 +137,7 @@ async function digest(data: Blob | Uint8Array): Promise<string> {
 }
 
 /** A photo on the shelf, as the restore tracks it: the blob only for what was already here. */
-type Held = { id: string; name: string; scope: string; size: number; blob?: Blob; hash?: string };
+type Held = { id: string; name: string; names: string[]; scope: string; size: number; blob?: Blob; hash?: string };
 
 /** A photo that came back under a different name than the backup gave it, and which backup scope it was in. */
 export type MediaRename = { from: string; to: string; scope: string };
@@ -177,8 +185,9 @@ export async function restoreMedia(zip: Zip, now: number, ctx: RestoreContext): 
 		list.push(h);
 		bySize.set(h.size, list);
 	};
-	for (const m of shelf) hold({ id: m.id, name: m.name, scope: m.scope, size: m.blob.size, blob: m.blob });
-	const local = new Set(shelf.map((m) => m.name));
+	for (const m of shelf) hold({ id: m.id, name: m.name, names: namesOf(m), scope: m.scope, size: m.blob.size, blob: m.blob });
+	// A name an alias holds is held: a row under it is the same dedupe-or-rename question as a name.
+	const local = new Set(shelf.flatMap(namesOf));
 	// Every name a new photo must not take: what is on the device (aliases included), and every name and alias
 	// the BACKUP uses, so a photo renamed to dodge a local clash cannot land on a name a later row of the same
 	// backup owns.
@@ -301,7 +310,7 @@ export async function restoreMedia(zip: Zip, now: number, ctx: RestoreContext): 
 					const mine = await digest(bytes);
 					for (const c of candidates) c.hash ??= c.blob ? await digest(c.blob) : undefined;
 					const same = candidates.filter((c) => c.hash === mine);
-					match = same.find((c) => c.name === raw.name) ?? same[0];
+					match = same.find((c) => c.names.includes(raw.name as string)) ?? same[0];
 				} catch {
 					match = undefined;
 				}
@@ -317,7 +326,10 @@ export async function restoreMedia(zip: Zip, now: number, ctx: RestoreContext): 
 						shared++;
 					}
 				}
-				if (match.name !== raw.name) renames.push({ from: raw.name, to: match.name, scope: backupScope });
+				if (!match.names.includes(raw.name)) renames.push({ from: raw.name, to: match.name, scope: backupScope });
+				// Old names the backup's decks may still write: this photo is what they meant, so point them at it.
+				// An old name the device photo already answers to needs nothing.
+				for (const a of backupAliases(raw)) if (!match.names.includes(a)) renames.push({ from: a, to: match.name, scope: backupScope });
 				continue;
 			}
 			// A different photo under a taken name: keep both. The incoming one comes back under a new name.
@@ -325,7 +337,8 @@ export async function restoreMedia(zip: Zip, now: number, ctx: RestoreContext): 
 			renames.push({ from: raw.name, to: name, scope: backupScope });
 		}
 		// The words a person wrote, read as untrusted text: a backup is a file from anyone.
-		const meta = restoredMeta(raw, name, claimed);
+		claimed.add(name);
+		const { dropped, ...meta } = restoredMeta(raw, name, claimed);
 		try {
 			const saved = await saveMedia(
 				{
@@ -343,7 +356,11 @@ export async function restoreMedia(zip: Zip, now: number, ctx: RestoreContext): 
 				},
 				int(raw.addedAt, Number.MAX_SAFE_INTEGER) || now,
 			);
-			hold({ id: saved.id, name, scope, size: bytes.length, hash: await digest(bytes).catch(() => undefined) });
+			// An old name this device already gives to another photo is not kept, and the decks that wrote it meant
+			// THIS photo: point them here. (An old name clashing with another photo of the SAME backup is a crafted
+			// file, since names cannot coexist in one library, and gets no rewrite.)
+			for (const a of dropped) if (local.has(a)) renames.push({ from: a, to: name, scope: backupScope });
+			hold({ id: saved.id, name, names: namesOf(saved), scope, size: bytes.length, hash: await digest(bytes).catch(() => undefined) });
 			local.add(name);
 			reserved.add(name);
 			restored++;
