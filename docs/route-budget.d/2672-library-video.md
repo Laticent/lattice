@@ -1,0 +1,2 @@
+studio: +310
+The chat's video attach now saves a clip to the Library (`addChatVideo`, `videoDataUrl`, `discardChatVideo`) in place of the old in-memory map, and the chat strip reads a clip's poster from the shelf; both ride in the chat bundle the Studio loads at start. The importer, the Videos tab, backup and restore, and the PDF store are not in the eager chunk. Given back first: the old `readChatVideo` and its held-clip map are deleted, which is why the net is 310 bytes.
