@@ -463,24 +463,41 @@ with a `free` box of the same size and a zeroed payload. Every size and offset s
 the front (faststart) or the back (what an iPhone writes) is safe, and a player skips `free`. The file is walked by reading
 box headers through `Blob.slice`, so a 50 MB clip is never loaded to be cleaned.
 
-**What is overwritten.** `udta` and `meta` under `moov` and under each `trak`: Apple's `com.apple.quicktime.location.ISO6709`
-(in `meta`), Android's and QuickTime's `©xyz` and 3GPP's `loci` (in `udta`), and the make, model, software and creation date
-beside them. Also top-level `uuid`, `XMP_` and `xml ` boxes (XMP packets). Whole boxes go, not single keys, so a key this
-code has never heard of cannot ride through inside one. A clip whose boxes cannot be walked (truncated, a size that does not
-fit, a bound exceeded) is refused with a message, and not stored unread.
+**What is overwritten.** The walk opens every standard container (`moov`, `trak`, `mdia`, `minf`, `edts`, `mvex`, `meco`, and
+`moof`/`traf` in a fragmented file) and clears, at any depth, `udta`, `meta`, `loci` and `©xyz`: Apple's
+`com.apple.quicktime.location.ISO6709` (in `meta`), Android's and QuickTime's `©xyz` and 3GPP's `loci` (in `udta`), with the
+make, model, software and creation date beside them. It also clears a `uuid` box at the top level or directly under `moov`
+(XMP packets, Canon's CMT records, one of which holds GPS), top-level `XMP_` and `xml ` boxes, and **any data after the
+last box**: a vendor trailer is not a box, players ignore it, and some carry a track log. That trailer is overwritten only
+once both `moov` and `mdat` have been read whole, because a box that does not fit before that is a truncated clip, and
+zeroing it would destroy real media; a truncated or corrupt clip is refused with a message, not stored unread. A `uuid`
+inside a `trak` (a spherical-video projection) or a `moof` (a streaming header) is left alone because a player needs it.
 
-**What is not.** A timed-metadata **track** (a GoPro's GPMF, an Insta360's camm, some phones' `mebx`) keeps its samples in
-`mdat`, and clearing those means rewriting the sample tables. A clip from such a camera can still carry a position per
-frame. **A WebM is not scrubbed**: it is not an ISO box file, and a browser's recorder writes no location into one. This
+**What it costs.** Whole boxes go, not single keys, so more than location goes: a track's `udta` roles and loudness boxes,
+Nero chapters (`chpl`), Apple's playback-intent keys (slow-motion hints, the Live Photo pairing ID). None is needed to
+decode the picture; a vendor gallery may lose a hint. A single metadata box over 8 MB, or a file of more than 50,000
+top-level boxes, is refused.
+
+**What is not.** Anything that lives in the **samples**, which sit in `mdat` and are addressed by tables in `moov`, so
+clearing it means rewriting those tables: a timed-metadata track (a GoPro's GPMF, an Insta360's camm, a Sony's `rtmd`,
+some phones' `mebx`), and a **text or subtitle track whose captions hold coordinates** (a DJI drone with captions on; this
+was reproduced on a real ffmpeg-built file). Such a clip keeps a position per frame, and the scrub reports success on it.
+**A WebM is not scrubbed**: it is not an ISO box file, and a browser's recorder writes no location into one. iPhone and
+Android phone clips keep their location in exactly the places that are cleared (`moov/meta` keys, `moov/udta/©xyz`). This
 removes the standard static location boxes; it does not promise that no clip carries a location.
 
-**Verified.** Synthetic files in both layouts (`video-scrub.test.ts`: coordinates gone, length and every offset unchanged,
-media data byte-for-byte, a 64-bit size, a last box that runs to the end, hostile sizes refused); a restore test; and
+**Verified.** Synthetic files in both layouts and at every depth above (`video-scrub.test.ts`: coordinates gone, length
+and every offset unchanged, media data byte-for-byte, a 64-bit size, a metadata box that runs to the end, a trailer starting
+with 0 or with other bytes, a truncated clip refused, the depth bound, hostile sizes refused); a restore test; and
 `docs/e2e/chat-photos.spec.ts`, which records a real MP4 in Chromium, injects both location shapes into its `moov`, adds it
-through the Library, and reads the stored bytes back from IndexedDB: same length, no coordinates, still plays. The test
-fails with the scrub off. **Not verified on a real phone file with real location boxes**: the author's iPhone clip was added
-before this change. To check one, add it in Library → Videos, make a workspace backup, and search the `.zip`'s
-`media/<name>.mov` for `com.apple.quicktime.location`.
+through the Library and reads the stored bytes back from IndexedDB: same length, no coordinates, still plays. That test
+fails with the scrub off (observed). An independent review also ran six real ffmpeg-built clips carrying coordinates
+(MP4 with `moov` last and first, fragmented, MOV with `©xyz`, MOV with Apple location keys, MOV with a track `udta`):
+after the scrub each had no coordinates and decoded to identical frames (`ffmpeg -f framemd5`). **Not verified on a real
+phone file with real location boxes**, nor in a browser playing a `moov`-last QuickTime layout. To check a clip by hand, add
+it in Library → Videos, make a workspace backup, extract `media/<name>.mov`, and run `ffprobe -show_entries
+format_tags:stream_tags` on it and search it for the digits of the place you recorded it at. Searching for the key
+`com.apple.quicktime.location` alone is not enough: a per-frame position is numbers, not that string.
 
 **Not changed.** A video is not re-encoded; transcoding in the browser would cost minutes of CPU on a phone for a smaller
 file the author did not ask for.
@@ -545,7 +562,7 @@ commit builds and tests against `main` alone.
 3. Whether Markdown and Marp exports should carry the photos a deck names (a Marp bundle already copies
    `sample:` art). They keep the reference only. `.lattice` now carries them (§6).
 4. ~~Whether a video should have its GPS atom stripped.~~ Settled 2026-10-13: yes, at import and at restore, by overwriting
-   the metadata boxes in place ("Clip location data" below).
+   the metadata boxes in place ("Clip location data" above).
 5. Whether camera capture ("Take Photo") warrants its own button, or `accept="image/*"` is
    enough. On iOS it is enough; on some Android browsers the picker hides the camera unless
    `capture` is set. Slice 1 checks.

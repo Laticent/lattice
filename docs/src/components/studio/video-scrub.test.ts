@@ -108,6 +108,66 @@ describe('other places a clip carries metadata', () => {
 	});
 });
 
+describe('metadata at any depth, and in the shapes other cameras write', () => {
+	const ftyp = () => box('ftyp', enc('mp42'), u32(0), enc('mp42'));
+	const mvhd = () => box('mvhd', new Uint8Array(100));
+	const loc = () => box('udta', box('\u00a9xyz', new Uint8Array([0, 26, 0, 0]), enc(COORDS)));
+	const wrap = (...inner: Uint8Array[]) => cat(ftyp(), MDAT, box('moov', mvhd(), ...inner));
+	const scrubbed = async (src: Uint8Array) => (await scrubVideoBytes(src.slice())) as Uint8Array;
+
+	it.each([
+		['trak/meta', () => wrap(trak(appleMeta()))],
+		['trak/mdia/udta', () => wrap(trak(box('mdia', box('mdhd', new Uint8Array(24)), loc())))],
+		['trak/mdia/minf/udta', () => wrap(trak(box('mdia', box('minf', box('vmhd', new Uint8Array(12)), loc()))))],
+		['moov/meco/meta', () => wrap(box('meco', appleMeta()))],
+		['moov/uuid (Canon CMT)', () => wrap(box('uuid', new Uint8Array(16).fill(5), enc(`CMT4 ${COORDS}`)))],
+		['moov/loci', () => wrap(box('loci', new Uint8Array(20), enc(COORDS)))],
+		['top-level loci', () => cat(wrap(), box('loci', new Uint8Array(20), enc(COORDS)))],
+		['moof/traf/udta', () => cat(wrap(), box('moof', box('mfhd', new Uint8Array(8)), box('traf', box('tfhd', new Uint8Array(8)), loc())), box('mdat', new Uint8Array(32)))],
+	])('clears a location in %s', async (_name, build) => {
+		const src = build();
+		expect(text(src)).toContain('37.7749');
+		const out = await scrubbed(src);
+		expect(text(out)).not.toContain('37.7749');
+		expect(out.length).toBe(src.length);
+		expect(layout(out)).toEqual(layout(src));
+	});
+
+	it('leaves a spherical-video uuid inside a trak alone, because a player needs it', async () => {
+		const sv = box('uuid', new Uint8Array(16).fill(8), enc('spherical-projection'));
+		const out = await scrubbed(wrap(trak(sv)));
+		expect(text(out)).toContain('spherical-projection');
+	});
+
+	it('overwrites a vendor trailer after the last box, whatever its first bytes are', async () => {
+		for (const head of [[0, 0, 0, 0], [0x53, 0x45, 0x46, 0x48], [0xff, 0xff, 0xff, 0xff]]) {
+			const src = cat(wrap(), new Uint8Array(head), enc(`TRAILER ${COORDS} trk=`), new Uint8Array(40));
+			const out = await scrubbed(src);
+			expect(text(out), head.join()).not.toContain('37.7749');
+			expect(out.length).toBe(src.length);
+			expect(text(out)).toContain('mvhd'); // the real boxes before it are untouched
+		}
+	});
+
+	it('refuses a box that does not fit when moov and mdat have not both been read whole (a truncated clip is not a trailer)', async () => {
+		const truncated = cat(ftyp(), box('moov', mvhd()), u32(5_000_000), enc('mdat'), new Uint8Array(100));
+		expect(await scrubVideoBytes(truncated.slice())).toBeNull();
+	});
+
+	it('does not zero real media: a clip with its moov first and a complete mdat keeps every mdat byte', async () => {
+		const src = cat(ftyp(), box('moov', mvhd(), loc()), MDAT, new Uint8Array([0, 0, 0, 0, 1, 2, 3]));
+		const out = await scrubbed(src);
+		const at = src.findIndex((_, i) => text(src.subarray(i, i + 4)) === 'mdat') - 4;
+		expect(out.subarray(at, at + MDAT.length)).toEqual(MDAT);
+	});
+
+	it('stops descending past the depth bound instead of recursing', async () => {
+		let deep: Uint8Array = loc();
+		for (let i = 0; i < 12; i++) deep = box('mdia', deep);
+		expect(await scrubVideoBytes(wrap(trak(deep)).slice())).toBeNull();
+	});
+});
+
 describe('a clip with nothing to remove', () => {
 	it('plans no patch and hands the same Blob back, untouched', async () => {
 		const src = cat(box('ftyp', enc('mp42'), u32(0), enc('mp42')), MDAT, box('moov', box('mvhd', new Uint8Array(100)), trak()));

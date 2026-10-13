@@ -16,8 +16,9 @@ why now   — every chat claim in #2654 is verified in Chromium and in WebKit at
             1080×1920, 16.4 MB camera-roll clip added in Library → Videos, read and played in place. STILL OPEN: the
             chat attach, reload and Regenerate on the phone, a model reading a clip, an Android phone, a photo from
             the library and one just taken, the figure pool, and the status line, and a phone clip with Location ON
-            added after the location scrub (add it, make a workspace backup, search `media/<name>.mov` for
-            `com.apple.quicktime.location`: it should not be there).
+            added after the location scrub (add it, make a workspace backup, extract `media/<name>.mov`, run
+            `ffprobe -show_entries format_tags:stream_tags` and search it for the digits of where it was recorded:
+            neither should find them).
 where     — the Studio chat on an iPhone and an Android phone, against a real OpenRouter key.
 done when — on each phone: a photo from the library and one just taken attach and send; a 15 second clip
             attaches (or is refused in words: a 9 s phone clip is already 16.4 MB, over the chat's 15 MB cap) and a
