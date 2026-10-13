@@ -41,7 +41,7 @@ async function addPhoto(page: Page, name: string, o: { w?: number; h?: number; n
 			input.dispatchEvent(new Event('change', { bubbles: true }));
 			// The format dialog asks how to store them; the probes take its default.
 			for (let i = 0; i < 200; i++) {
-				const b = [...document.querySelectorAll('[role="dialog"] button')].find((x) => x.textContent?.trim() === 'Add photos') as HTMLButtonElement | undefined;
+				const b = [...document.querySelectorAll('[role="dialog"] button')].find((x) => x.textContent?.trim().startsWith('Add photo')) as HTMLButtonElement | undefined;
 				if (b) {
 					// These probes are PNGs that must stay byte-exact, so they ask for the original.
 					const keep = document.querySelector('[role="dialog"] [role="radio"][aria-label="Keep original"]') as HTMLButtonElement | null;

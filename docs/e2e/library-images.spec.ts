@@ -66,7 +66,7 @@ async function pickPhoto(page: Page, files: { name: string; width: number; heigh
 		input.dispatchEvent(new Event('change', { bubbles: true }));
 		// The format dialog asks how to store them; the probes take its default.
 		for (let i = 0; i < 200; i++) {
-			const b = [...document.querySelectorAll('[role="dialog"] button')].find((x) => x.textContent?.trim() === 'Add photos') as HTMLButtonElement | undefined;
+			const b = [...document.querySelectorAll('[role="dialog"] button')].find((x) => x.textContent?.trim().startsWith('Add photo')) as HTMLButtonElement | undefined;
 			if (b) {
 				// A PNG probe must stay byte-exact, so it asks for the original; a camera JPEG takes the default.
 				const choose = specs.every((s) => s.type === 'image/png') ? 'Keep original' : 'JPEG';
@@ -312,7 +312,7 @@ test('@smoke a PNG with an eXIf GPS chunk and a GIF with comment and XMP blocks 
 		input.dispatchEvent(new Event('change', { bubbles: true }));
 		// The format dialog asks how to store them; the probes take its default.
 		for (let i = 0; i < 200; i++) {
-			const b = [...document.querySelectorAll('[role="dialog"] button')].find((x) => x.textContent?.trim() === 'Add photos') as HTMLButtonElement | undefined;
+			const b = [...document.querySelectorAll('[role="dialog"] button')].find((x) => x.textContent?.trim().startsWith('Add photo')) as HTMLButtonElement | undefined;
 			if (b) {
 				b.click();
 				break;
@@ -420,7 +420,7 @@ test('@smoke adding a photo asks for the format, shows measured sizes, and store
 	expect(orig).toBeGreaterThan(0);
 	await expect(dialog.getByText('Smallest', { exact: true })).toBeVisible();
 	await dialog.getByRole('radio', { name: 'PNG' }).click();
-	await dialog.getByRole('button', { name: 'Add photos' }).click();
+	await dialog.getByRole('button', { name: /^Add photos?/ }).click();
 	await expect.poll(async () => (await storedMedia(page))[0]?.mime, { timeout: 30_000 }).toBe('image/png');
 	const stored = (await storedMedia(page))[0];
 	expect(stored.original, 'a JPEG converted to PNG is no longer the camera file').toBe(false);

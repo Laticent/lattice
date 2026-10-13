@@ -88,7 +88,7 @@ async function addPhotos(page: Page, files: { name: string; width: number; heigh
 		input.dispatchEvent(new Event('change', { bubbles: true }));
 		// The format dialog asks how to store them; the probes take its default.
 		for (let i = 0; i < 200; i++) {
-			const b = [...document.querySelectorAll('[role="dialog"] button')].find((x) => x.textContent?.trim() === 'Add photos') as HTMLButtonElement | undefined;
+			const b = [...document.querySelectorAll('[role="dialog"] button')].find((x) => x.textContent?.trim().startsWith('Add photo')) as HTMLButtonElement | undefined;
 			if (b) {
 				b.click();
 				break;
