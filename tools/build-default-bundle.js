@@ -185,16 +185,16 @@ function main(argv) {
     const currentMin = read(MIN_OUTPUT);
     const stalePalettes = Object.entries(freshPalettes).filter(([n, text]) => read(path.join(PALETTES_DIR, `${n}.css`)) !== text).map(([n]) => n);
     const extra = fs.existsSync(PALETTES_DIR)
-      ? fs.readdirSync(PALETTES_DIR).filter((f) => !freshPalettes[f.replace(/\.css$/, '')] && !packed.palettes[f.replace(/\.slides\.css$/, '')])
+      ? fs.readdirSync(PALETTES_DIR).filter((f) => !Object.hasOwn(freshPalettes, f.replace(/\.css$/, '')) && !(f.endsWith('.slides.css') && Object.hasOwn(packed.palettes, f.replace(/\.slides\.css$/, ''))))
       : [];
     const stalePacked = Object.entries(packed.palettes).filter(([n, text]) => read(path.join(PALETTES_DIR, `${n}.slides.css`)) !== text).map(([n]) => `${n}.slides`);
-    if (read(SLIDES_OUTPUT) !== packed.slides) stalePacked.push('slides.css');
+    if (read(SLIDES_OUTPUT) !== packed.slides) stalePacked.push('dist/slides.css');
     if (stalePalettes.length || extra.length || stalePacked.length) {
       process.stderr.write(`error: dist/palettes/ is stale (${[...stalePalettes, ...extra, ...stalePacked].join(', ')}).\n       Run \`npm run default:build\` to regenerate.\n`);
       return 1;
     }
     if (current === fresh && currentMin === freshMin) {
-      process.stdout.write(`lattice-default.css + lattice-default-min.css + dist/palettes/ (${Object.keys(freshPalettes).length}) are up to date.\n`);
+      process.stdout.write(`lattice-default.css + lattice-default-min.css + slides.css + dist/palettes/ (${Object.keys(freshPalettes).length}, each with a .slides.css) are up to date.\n`);
       return 0;
     }
     process.stderr.write('error: lattice-default.css / lattice-default-min.css is stale relative to the engine/default palette.\n');

@@ -98,8 +98,8 @@ import '@laticent/lattice/palette/cuoio-dark.slides.css';
 ```
 
 Linked from `dist/` and built through Vite 8.2.2, the pair drew the same 51
-slides as the CLI pixel for pixel in `indaco` and in `cuoio-dark`
-(`tools/palette-slide-parity.js`). Two limits hold by construction: the sheet
+slides as the CLI in `indaco` and in `cuoio-dark`, within the regression gate's
+3% fuzz (`tools/palette-slide-parity.js`). Two limits hold by construction: the sheet
 is **16:9 only**, and it has **no panes** (their per-deck styles cannot live in
 a fixed sheet). For `size: story` or any other canvas, or for panes, use
 `render()`'s own `css`.
