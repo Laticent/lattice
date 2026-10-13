@@ -765,7 +765,7 @@ async function storedPixels(page: Page): Promise<{ w: number; h: number; left: s
 test('@smoke an edit, a rename and a reload leave the stored picture readable and drawn @crosswidth @webkit-phone @webkit-tablet @gecko', async ({ page }) => {
 	test.slow();
 	await gotoStudio(page);
-	await openLibraryImages(page, 1440);
+	await openLibraryImages(page, page.viewportSize()?.width ?? 1440);
 	await addPhoto(page, 'Loafers.png');
 	const card = page.locator('[data-media-card="loafers"]');
 	await expect(card).toBeVisible();
@@ -793,7 +793,7 @@ test('@smoke an edit, a rename and a reload leave the stored picture readable an
 
 	// A fresh load reads the record from storage again: still a picture, never the placeholder.
 	await page.reload();
-	await openLibraryImages(page, 1440);
+	await openLibraryImages(page, page.viewportSize()?.width ?? 1440);
 	await expect(page.locator('[data-media-card="brown-loafers"]')).toBeVisible();
 	await expect.poll(() => drawn('[data-media-card="brown-loafers"] img'), { message: 'drawn after a reload' }).toBe(true);
 	await expect(page.locator('[data-photo-placeholder]')).toHaveCount(0);
