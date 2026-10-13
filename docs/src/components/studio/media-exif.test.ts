@@ -270,3 +270,62 @@ describe('hostile and broken files', () => {
 		expect(out).toBe('<img src=x onerror=alert(1)>');
 	});
 });
+
+describe('XMP is read in linear time', () => {
+	// The checker's inputs: each of these took seconds to minutes with the first regex-based reader.
+	const timed = (file: Uint8Array) => {
+		const start = performance.now();
+		readFileMeta(file);
+		return performance.now() - start;
+	};
+	const MAX = 262_144;
+	const packetOf = (inner: string) => bytes('http://ns.adobe.com/xap/1.0/\0', inner);
+
+	it('does not slow down on a run of "<" with no ">"', () => {
+		const inner = `<dc:description>${'<'.repeat(60_000)}</dc:description>`;
+		expect(timed(jpeg(seg(0xe1, packetOf(inner))))).toBeLessThan(300);
+		// The same packet four times in one PNG, at the size the reader accepts.
+		const big = `<dc:description>${'<'.repeat(MAX - 50)}</dc:description>`;
+		expect(timed(png(itxtXmp(big), itxtXmp(big), itxtXmp(big), itxtXmp(big)))).toBeLessThan(1500);
+	});
+
+	it('does not slow down on repeated unterminated openings, attributes or CDATA', () => {
+		for (const piece of ['<dc:description a', '<![CDATA[', '<dc:description>', '<rdf:li>', 'dc:title ', 'dc:description  ', '<!--']) {
+			const inner = piece.repeat(Math.floor((MAX - 100) / piece.length));
+			expect(timed(png(itxtXmp(inner), itxtXmp(inner), itxtXmp(inner), itxtXmp(inner))), piece).toBeLessThan(1500);
+		}
+	});
+
+	it('still reads the value after an unrelated element that looks a little like it', () => {
+		const out = readFileMeta(jpeg(jpegXmp(`<dc:description2>decoy</dc:description2>${alt('dc:description', 'The real one')}`)));
+		expect(out.caption).toBe('The real one');
+	});
+});
+
+describe('text read from a file is well formed', () => {
+	it('never ends in half an emoji, and drops a lone surrogate written as an entity', () => {
+		const t = tiff([{ tag: 0x010e, ascii: `${'a'.repeat(137)} \u{1F600}\u{1F600}\u{1F600} tail` }]);
+		const cap = readFileMeta(jpeg(seg(0xe1, exifAscii(t)))).caption as string;
+		expect(cap.isWellFormed()).toBe(true);
+		const viaEntity = readFileMeta(jpeg(jpegXmp(alt('dc:description', 'bad &#xD800; unit &#55357; here')))).caption as string;
+		expect(viaEntity.isWellFormed()).toBe(true);
+		expect(viaEntity).toBe('bad unit here');
+	});
+
+	it('strips the hidden characters a stored description would lose anyway', () => {
+		const hidden = `x\u3164y\u2800z${String.fromCodePoint(0xe0100)}w`;
+		expect(readFileMeta(jpeg(jpegXmp(alt('dc:description', hidden)))).caption).toBe('xyzw');
+	});
+});
+
+describe('location flags', () => {
+	it('flags a longitude-only XMP packet, and an IFD pointer written as type IFD (13)', () => {
+		expect(readFileMeta(jpeg(jpegXmp('<exif:GPSLongitude>0,7.5W</exif:GPSLongitude>')))).toEqual({ hadLocation: true });
+		// A TIFF whose GPS pointer entry has type 13: patch the type word of the 0x8825 entry in a normal block.
+		const t = tiff([{ tag: 0x010e, ascii: 'A caption here' }], [], GPS_LAT);
+		const idx = [...t].findIndex((_, i) => t[i] === 0x88 && t[i + 1] === 0x25);
+		const patched = new Uint8Array(t);
+		patched[idx + 3] = 13;
+		expect(readFileMeta(jpeg(seg(0xe1, exifAscii(patched))))).toEqual({ caption: 'A caption here', hadLocation: true });
+	});
+});

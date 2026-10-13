@@ -68,3 +68,44 @@ describe('mapOutsideCode', () => {
     expect(seen).toEqual(['a', 'c ', ' e']);
   });
 });
+
+describe('what the checker found', () => {
+  it('an unmatched backtick does not hide a real image in a later paragraph', () => {
+    const md = 'Type a ` to start code.\n\n![](asset:hero)\n\nAnd another ` here.\n';
+    expect(R(md)).toBe('Type a ` to start code.\n\n![](asset:cover)\n\nAnd another ` here.\n');
+    expect(decksUsingOutsideCode('hero', [md])).toBe(1);
+  });
+
+  it('leaves a top-level indented code block alone, but not an indented paragraph inside a list', () => {
+    expect(R('Para\n\n    ![](asset:hero)\n')).toBe('Para\n\n    ![](asset:hero)\n');
+    expect(R('Para\n\n\t![](asset:hero)\n')).toBe('Para\n\n\t![](asset:hero)\n');
+    const list = '- item\n\n    ![](asset:hero)\n';
+    expect(R(list)).toBe('- item\n\n    ![](asset:cover)\n');
+    // The indented run ends at the next unindented line.
+    expect(R('Para\n\n    code ![](asset:hero)\n    more\n\nBack ![](asset:hero)\n')).toBe('Para\n\n    code ![](asset:hero)\n    more\n\nBack ![](asset:cover)\n');
+  });
+
+  it('leaves a fence inside a list item alone, at any indentation', () => {
+    expect(R('- item\n\n      ~~~\n      ![](asset:hero)\n      ~~~\n\n![](asset:hero)\n')).toBe('- item\n\n      ~~~\n      ![](asset:hero)\n      ~~~\n\n![](asset:cover)\n');
+    expect(R('1. step\n   ~~~md\n   ![](asset:hero)\n   ~~~\n')).toBe('1. step\n   ~~~md\n   ![](asset:hero)\n   ~~~\n');
+  });
+
+  it('leaves HTML pre, code, script and style elements alone, and a tag that never closes is plain text', () => {
+    expect(R('<pre>![](asset:hero)</pre> ![](asset:hero)')).toBe('<pre>![](asset:hero)</pre> ![](asset:cover)');
+    expect(R('<CODE class="x">asset:hero</CODE> asset:hero')).toBe('<CODE class="x">asset:hero</CODE> asset:cover');
+    expect(R('<script>var a = "asset:hero"</script>![](asset:hero)')).toBe('<script>var a = "asset:hero"</script>![](asset:cover)');
+    expect(R('<pre> never closed ![](asset:hero)')).toBe('<pre> never closed ![](asset:cover)');
+    expect(R('<prefix>![](asset:hero)</prefix>')).toBe('<prefix>![](asset:cover)</prefix>');
+  });
+
+  it('runs in linear time on hostile input', () => {
+    const N = 120_000;
+    const cases = ['`'.repeat(1) + 'a'.repeat(3) + '``'.repeat(1), '`a``b```c````d'.repeat(Math.floor(N / 14)), '<pre'.repeat(N / 4), '<code>x</code>'.repeat(N / 14), '- ```\n'.repeat(N / 6), '![](asset:hero) `'.repeat(N / 17), '\n\n    x'.repeat(N / 8)];
+    for (const c of cases) {
+      const start = performance.now();
+      R(c);
+      decksUsingOutsideCode('hero', [c]);
+      expect(performance.now() - start, c.slice(0, 20)).toBeLessThan(800);
+    }
+  });
+});

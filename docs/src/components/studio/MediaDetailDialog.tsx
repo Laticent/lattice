@@ -58,22 +58,32 @@ export function MediaDetailDialog({ m: incoming, open, onOpenChange, usedIn, ali
 	const [suggesting, setSuggesting] = React.useState(false);
 	const [suggestNote, setSuggestNote] = React.useState<string | null>(null);
 	const uid = React.useId();
-	// Reset the form only when a different record opens, not on every refresh of the same one.
+	// The form starts over every time the dialog OPENS, and when a different photo is shown: a draft from a cancelled visit is
+	// gone, and a refresh of the same photo (the Library reloads while the dialog is open) does not wipe what is being typed.
+	// `base` is what the form was opened with. Save sends only the fields the person changed from it, so a description the
+	// chat wrote while the dialog was open is never overwritten by a form that never held it.
 	const id = m?.id;
-	// biome-ignore lint/correctness/useExhaustiveDependencies: keyed on the record's identity on purpose
+	const [base, setBase] = React.useState({ name: '', caption: '', credit: '', taken: '' });
+	// biome-ignore lint/correctness/useExhaustiveDependencies: keyed on opening and on the photo's identity on purpose
 	React.useEffect(() => {
-		setName(m?.name ?? '');
-		setCaption(m?.caption ?? '');
-		setCredit(m?.credit ?? '');
-		setTaken(m?.taken ?? '');
+		if (!open) return;
+		const start = { name: m?.name ?? '', caption: m?.caption ?? '', credit: m?.credit ?? '', taken: m?.taken ?? '' };
+		setBase(start);
+		setName(start.name);
+		setCaption(start.caption);
+		setCredit(start.credit);
+		setTaken(start.taken);
 		setError(null);
 		setSuggestNote(null);
 		setSuggesting(false);
-	}, [id]);
+	}, [id, open]);
+	// Which photo a Suggest answer may land in: the one that asked, and only while it is still open.
+	const showing = React.useRef<string | null>(null);
+	showing.current = open ? (id ?? null) : null;
 	if (!m) return null;
 
-	const nameOk = name === m.name || isMediaName(name);
-	const dirty = caption !== (m.caption ?? '') || credit !== (m.credit ?? '') || taken !== (m.taken ?? '') || name !== m.name;
+	const nameOk = name === base.name || isMediaName(name);
+	const dirty = caption !== base.caption || credit !== base.credit || taken !== base.taken || name !== base.name;
 	const takenOk = taken === '' || isIsoDate(taken);
 	const canSave = dirty && nameOk && takenOk && !busy;
 
@@ -81,16 +91,19 @@ export function MediaDetailDialog({ m: incoming, open, onOpenChange, usedIn, ali
 	 *  and the person can edit it first. A refusal (no model connected, a model that cannot read images, the budget cap)
 	 *  is a line under the field, never a silent no-op. */
 	async function suggest() {
+		const asked = m?.id ?? null;
 		setSuggesting(true);
 		setSuggestNote(null);
 		try {
 			const r = await onSuggest();
+			// The answer belongs to the photo that asked. If the dialog was closed or shows another photo by now, drop it.
+			if (showing.current !== asked) return;
 			if ('text' in r) setCaption(r.text);
 			else setSuggestNote(r.note);
 		} catch {
-			setSuggestNote("Couldn't reach the model. Check your connection and try again.");
+			if (showing.current === asked) setSuggestNote("Couldn't reach the model. Check your connection and try again.");
 		} finally {
-			setSuggesting(false);
+			if (showing.current === asked) setSuggesting(false);
 		}
 	}
 
@@ -114,10 +127,10 @@ export function MediaDetailDialog({ m: incoming, open, onOpenChange, usedIn, ali
 			// Only what this person changed: a description the chat wrote while the dialog was open is not erased
 			// by a form that never held it. A rename and the edit are one save, so a refused name leaves nothing half done.
 			const change: MediaMetaPatch & { name?: string } = {};
-			if (name !== m.name) change.name = name;
-			if (caption !== (m.caption ?? '')) change.caption = caption;
-			if (credit !== (m.credit ?? '')) change.credit = credit;
-			if (taken !== (m.taken ?? '')) change.taken = taken;
+			if (name !== base.name) change.name = name;
+			if (caption !== base.caption) change.caption = caption;
+			if (credit !== base.credit) change.credit = credit;
+			if (taken !== base.taken) change.taken = taken;
 			if (Object.keys(change).length) {
 				const e = await onSave(change);
 				if (e) return setError(e);

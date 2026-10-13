@@ -31,6 +31,8 @@ export const cleanLine = (v: string, max: number): string => {
 		// biome-ignore lint/suspicious/noControlCharactersInRegex: stripping them is the point
 		.replace(/[\u0000-\u001f\u007f-\u009f]+/g, ' ')
 		.replace(/(?:[\p{Cf}\p{Zl}\p{Zp}\u3164\u2800]|[\uFE00-\uFE0D]|[\u{E0000}-\u{E01EF}])+/gu, '')
+		// A lone surrogate is half a character: it would print as a replacement box and fail `isWellFormed`.
+		.replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '')
 		.replace(/\s+/g, ' ')
 		.trim();
 	return Array.from(t).slice(0, max).join('').trim();

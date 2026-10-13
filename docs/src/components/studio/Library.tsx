@@ -32,7 +32,7 @@ import { deleteRefDoc, listRefDocs, type RefDocRecord, saveRefDoc } from './refe
 import { deleteStudioScene, listStudioScenes, type StudioScene } from './scene-library';
 import { renderThemeShowcase } from './share-export';
 import { listShippedScenes, type ShippedScene, shippedDrawing } from './shipped-scenes';
-import { loadDeckList, loadSource, saveCheckpoint, saveSource } from './studio-store';
+import { loadCheckpoints, loadDeckList, loadSource, saveCheckpoint, saveSource } from './studio-store';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
 
 // The unified Library — one shelf for every saved theme + component + finish + the
@@ -560,24 +560,42 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	async function adoptNewName(a: MediaRecord, alias: string): Promise<string | null> {
 		try {
 			const stamp = Date.now();
+			const label = `Before using asset:${a.name}`;
 			let changed = 0;
+			let outOfRoom = false;
 			for (const dk of loadDeckList()) {
 				const isActive = dk.id === activeDeckIdRef.current;
 				const src = isActive ? (activeDeckSource ?? loadSource(dk.id)) : loadSource(dk.id);
 				if (src == null) continue;
 				const next = renameAssetRefsOutsideCode(src, alias, a.name);
 				if (next === src) continue;
-				saveCheckpoint(dk.id, src, `Before using asset:${a.name}`, stamp);
-				if (isActive) onReplaceSource(next);
-				else saveSource(dk.id, next);
+				// The way back is saved FIRST, and read back: the store swallows a full-storage error, and a deck must not be
+				// rewritten on a promise of an undo that was never written.
+				saveCheckpoint(dk.id, src, label, stamp);
+				if (loadCheckpoints(dk.id)[0]?.source !== src) {
+					outOfRoom = true;
+					break;
+				}
+				if (isActive) {
+					onReplaceSource(next);
+				} else {
+					saveSource(dk.id, next);
+					if (loadSource(dk.id) !== next) {
+						outOfRoom = true;
+						break;
+					}
+				}
 				changed++;
 			}
 			readOtherSources();
 			onChanged();
+			if (outOfRoom) {
+				return `This browser has no room left to save. ${changed ? `${changed} deck${changed === 1 ? ' was' : 's were'} updated; the` : 'No deck was changed; the'} rest still use asset:${alias}, which keeps working. Free some space and try again.`;
+			}
 			notify(changed ? `Updated ${changed} deck${changed === 1 ? '' : 's'} to asset:${a.name}. The earlier text is in Version history.` : `No deck writes asset:${alias} any more.`);
 			return null;
 		} catch {
-			return 'Could not update the decks. Nothing was lost; try again.';
+			return 'Could not update the decks. Try again; the old name keeps working in the meantime.';
 		}
 	}
 	/** A draft description for one photo, from the connected model. The model and the budget live in the Architect

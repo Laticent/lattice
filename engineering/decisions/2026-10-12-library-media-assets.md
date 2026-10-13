@@ -365,20 +365,53 @@ token, so a component that reads alt text later (a collage's lightbox caption an
 
 ### Suggest
 
-**Suggest** in the detail view sends one 512 px thumbnail to the author's own OpenRouter model, on their own key, only
-when they press it, and puts a one-sentence draft in the Description field. It saves nothing until Save. It reuses the chat's
-thumbnail (`agentAssets.thumbnail`), the budget gate (`cloudBudgetBlock`) and the model's `vision` flag from the catalog. No
-connected model, a model that cannot read images (unknown reads as no), a budget block and an unusable reply each give a plain line,
-never a silent button. `architect.ts` `suggestPhotoDescription` is the call; its prompt forbids guessing names, places, brands
-and unreadable text.
+**Suggest** in the detail view sends one 512 px thumbnail, one fixed instruction (forbidding guesses at names, places,
+brands and unreadable text) and the deck's language to the author's own OpenRouter model, on their own key, only when they press
+it. The author's standing instructions are not sent: they are about slides, not alt text (pinned in
+`architect-photo-describe.test.ts`). The draft goes in the Description field and saves nothing until Save. It reuses the chat's
+thumbnail (`agentAssets.thumbnail`, cut from the stored, scrubbed bytes), the budget gate (`cloudBudgetBlock`) and the model's
+`vision` flag from the catalog. No connected model, a model that cannot read images (unknown reads as no), a budget block and an
+unusable reply each give a plain line, never a silent button. The call lives in `suggest-photo-description.ts`, loaded on demand.
 
 ### Rename can rewrite the decks
 
-The alias list in the detail view shows how many decks still write each old name (outside code), and **Use new name**
-rewrites them (`asset-refs.ts`). It skips fenced code and inline code, so a deck that teaches the syntax keeps its sample, and
-it skips `asset:hero.jpg`, which is not a valid reference. Each deck gets a Version history entry first (`Before using
-asset:<new>`), the open deck is replaced through the shell (`onReplaceSource`) and every other deck in storage. The old name
-keeps working either way, so nothing needs to be rewritten for a deck to keep showing its photo.
+The alias list in the detail view shows how many decks still write each old name, and **Use new name** rewrites them
+(`asset-refs.ts`). The count and the button use one function, so they cannot disagree. Code is left as written, by the rules
+that can be decided from the text itself: a fenced block (``` or ~~~, at any indentation), a top-level indented code block (four
+spaces or a tab after a blank line, outside a list), an HTML `<pre>`, `<code>`, `<script>` or `<style>` element, and an inline
+code span, which never crosses a blank line. Where a container decides what a line means (an indented line inside a list item),
+it is read as prose: a reference wrongly left alone keeps working through the old name, while one wrongly rewritten changes a
+code sample. `asset:hero.jpg`, which is not a valid reference, is not touched. Every scan moves forward only, so the work is
+proportional to the deck's length (pinned with hostile inputs).
+
+Each deck gets a Version history entry first (`Before using asset:<new>`). The way back is saved first and read back: the store
+swallows a full-storage error, so a deck is never rewritten on the promise of an undo that was not written. If the browser has
+no room, the dialog says so, says how many decks were updated, and says the rest still use the old name, which keeps working. The
+open deck is replaced through the shell (`onReplaceSource`) and every other deck in storage.
+
+### Hostile input, and what an independent check found
+
+A second independent check read the EXIF reader, the alt fill and the rewrite as an attacker would. What it found, and the fix:
+
+- **A crafted XMP packet could freeze the tab.** The first reader used regular expressions that rescan from every start; 262 KB of
+  `<` took two minutes. Every XMP scan is now a single forward pass (`unxml`, `xmpValue`, `openTagEnd` in `media-exif.ts`), and
+  `media-exif.test.ts` runs the pathological shapes against a time limit. **No pattern in that file may rescan from an earlier
+  position.**
+- **A description that starts with `bg` turned a photo into the slide background.** The alt fill now marks the token
+  (`meta.assetAlt`) and the background reader ignores it. An author's own `![bg …]` is unaffected.
+- **Text read from a file went through a weaker cleaner than text a person types.** It now uses `cleanLine` (control, invisible
+  and unpaired-surrogate characters out, cut by whole characters). A numeric entity that is not a character becomes a space.
+- **Two location cases went unflagged:** a GPS pointer written as type IFD, and an XMP packet with only a longitude. Both are flagged.
+  (The stored bytes were scrubbed either way; this is the "carried a location" notice.)
+- **Dialog state:** Save sends only what the person changed from the values the form OPENED with, so a description the chat wrote
+  underneath is not erased; the form starts over every time it opens, so a cancelled draft is gone; and a Suggest answer lands only in
+  the photo that asked.
+
+### Weight at startup
+
+The Studio route loads its shell at startup, and every byte there is measured against `main` (`docs/route-budget.json`). The first
+cut added 4,067 bytes (gzipped) there. The editing code now lives in `media-edit.ts` and Suggest in `suggest-photo-description.ts`,
+both loaded with the Library on demand, and the route is **561 bytes smaller than `main`**, with nothing to declare.
 
 ### Keyboard and focus
 
@@ -389,10 +422,10 @@ so a refused name never leaves the edit half saved.
 
 ### Verified, and what is not
 
-**Verified** in real Chromium (`docs/e2e/library-image-metadata.spec.ts`, 15 tests, OpenRouter mocked per HARD RULE #24): edit,
+**Verified** in real Chromium (`docs/e2e/library-image-metadata.spec.ts`, 13 tests, OpenRouter mocked per HARD RULE #24): edit,
 save and read the record back from IndexedDB at 1440, 820 and 390 px; an alias keeps a deck's slide painting; the description
 fills alt in the preview, live on edit, and in the exported page; EXIF read at import (credit, date, the suggestion, the location
-flag, no EXIF left in the stored bytes); Use new name on the open deck and on a stored deck; Suggest with a vision model, a model
+flag, no EXIF left in the stored bytes); Use new name on the open deck and on a stored deck, and its honest failure when storage refuses the undo entry; Suggest with a vision model, a model
 without vision, and no model; keyboard open, tab containment, Enter to save, Escape and focus return. The export sign-off artifacts
 above were produced from the real Studio in both modes.
 

@@ -124,7 +124,7 @@ for (const vw of [1440, 820, 390]) {
 	});
 }
 
-test('@smoke a deck that writes the OLD name still paints after a rename, and a new upload cannot take the old name @webkit-tablet @gecko', async ({ page }) => {
+test('@smoke a deck that writes the OLD name still paints after a rename, and a new upload cannot take the old name @crosswidth @webkit-tablet @gecko', async ({ page }) => {
 	test.slow();
 	await gotoStudio(page);
 	await page.setViewportSize({ width: 1440, height: 900 });
@@ -157,7 +157,7 @@ test('@smoke a deck that writes the OLD name still paints after a rename, and a 
 	await expect(page.getByText(/“probe-old” was taken/)).toBeVisible();
 });
 
-test('@smoke a photo\'s description is its alt text: in the preview, live when edited, never over an author\'s own, and in the exported page @webkit-tablet @gecko', async ({ page }) => {
+test('@smoke a photo\'s description is its alt text: in the preview, live when edited, never over an author\'s own, and in the exported page @crosswidth @webkit-tablet @gecko', async ({ page }) => {
 	test.slow();
 	await gotoStudio(page);
 	await page.setViewportSize({ width: 1440, height: 900 });
@@ -252,7 +252,7 @@ async function addExifPhoto(page: Page, name: string) {
 	}, name);
 }
 
-test('@smoke a photo\'s own description, artist and date are read at import; its location is flagged and gone @webkit-tablet @gecko', async ({ page }) => {
+test('@smoke a photo\'s own description, artist and date are read at import; its location is flagged and gone @crosswidth @webkit-tablet @gecko', async ({ page }) => {
 	test.slow();
 	await gotoStudio(page);
 	await page.setViewportSize({ width: 1440, height: 900 });
@@ -548,4 +548,59 @@ test('@smoke the detail view works from the keyboard: Enter opens it, Tab stays 
 	await expect(dialog).toBeHidden();
 	await expect(thumb).toBeFocused();
 	expect((await mediaRows(page))[0].credit).toBeUndefined();
+});
+
+test('@smoke "Use new name" says so when the browser has no room, and rewrites nothing it could not undo', async ({ page }) => {
+	test.slow();
+	await gotoStudio(page);
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await openLibraryImages(page, 1440);
+	await addPhoto(page, 'Full Disk.png');
+	await expect(page.locator('[data-media-card="full-disk"]')).toBeVisible();
+	await setEditorContent(page, '# Deck A\n\n![A probe](asset:full-disk)\n');
+	await savedDeckWith(page, 'Deck A');
+
+	// A second deck becomes the open one; deck A is then a stored deck that still writes the old name.
+	await page.locator('header').getByRole('button', { name: /slides?$|Untitled deck|Markdown for the boardroom/ }).first().click();
+	await page.getByRole('menuitem', { name: 'New deck' }).click();
+	const craft = page.locator('header').getByText('Craft', { exact: true });
+	if (await craft.isVisible().catch(() => false)) await craft.click();
+
+	const imagesTab = page.getByRole('tab', { name: 'Images' });
+	if (!(await imagesTab.isVisible().catch(() => false))) await page.getByRole('button', { name: CHROME.library }).click();
+	await imagesTab.click();
+	await page.locator('[data-media-card="full-disk"]').getByRole('button', { name: 'Details for full-disk' }).click();
+	const first = page.locator('[data-media-detail="full-disk"]');
+	await first.getByLabel('Name').fill('roomy');
+	await first.getByRole('button', { name: 'Save' }).click();
+	await expect(first).toBeHidden();
+
+	// From here the browser refuses to store a Version history entry, as it does when its storage is full.
+	await page.evaluate(() => {
+		const real = Storage.prototype.setItem;
+		Storage.prototype.setItem = function (k: string, v: string) {
+			if (k.startsWith('lattice-studio-snap')) throw new DOMException('The quota has been exceeded.', 'QuotaExceededError');
+			return real.call(this, k, v);
+		};
+	});
+	await page.locator('[data-media-card="roomy"]').getByRole('button', { name: 'Details for roomy' }).click();
+	const dialog = page.locator('[data-media-detail="roomy"]');
+	const row = dialog.locator('li').filter({ hasText: 'asset:full-disk' });
+	// No `if`: the button MUST be there, or the setup is wrong and this test would prove nothing.
+	await expect(row.getByRole('button', { name: /Use new name/ })).toBeVisible({ timeout: 15_000 });
+	await row.getByRole('button', { name: /Use new name/ }).click();
+	await expect(dialog.getByRole('alert')).toContainText(/no room left/, { timeout: 15_000 });
+	await expect(page.getByText(/Updated \d+ decks? to asset:roomy/)).toHaveCount(0);
+	// Nothing was rewritten on the promise of an undo that could not be written.
+	const stored = await page.evaluate(() => {
+		const out: string[] = [];
+		for (let i = 0; i < localStorage.length; i++) {
+			const k = localStorage.key(i) as string;
+			if (k.startsWith('lattice-studio-src-')) out.push(localStorage.getItem(k) ?? '');
+		}
+		return out.filter((t) => t.includes('Deck A'));
+	});
+	expect(stored).toHaveLength(1);
+	expect(stored[0]).toContain('asset:full-disk');
+	expect(stored[0]).not.toContain('asset:roomy');
 });

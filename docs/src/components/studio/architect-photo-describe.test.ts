@@ -1,5 +1,5 @@
-// @vitest-environment node
 import { describe, expect, it } from 'vitest';
+import { languageFor } from './studio-language';
 import { buildPhotoDescriptionPrompt, cleanPhotoDescription, suggestPhotoDescription } from './suggest-photo-description';
 
 // The call itself needs a connected cloud model, so its states (no key, a model that cannot read images, a reply) are
@@ -14,6 +14,18 @@ describe('buildPhotoDescriptionPrompt', () => {
 		const parts = msgs[1].content as unknown as { type: string; image_url?: { url: string } }[];
 		expect(parts.map((p) => p.type)).toEqual(['text', 'image_url']);
 		expect(parts[1].image_url?.url).toBe('data:image/jpeg;base64,AAAA');
+	});
+});
+
+describe('what a Suggest call sends', () => {
+	it('is the thumbnail, one fixed instruction and the language, with no standing instructions of the author', () => {
+		localStorage.setItem('lattice-studio-instructions', 'ALWAYS WRITE IN PIRATE VOICE, SECRET HOUSE STYLE');
+		const msgs = buildPhotoDescriptionPrompt('data:image/jpeg;base64,AAAA', 'fr');
+		const sent = JSON.stringify(msgs);
+		expect(sent).not.toMatch(/PIRATE|STANDING INSTRUCTIONS/);
+		expect(msgs).toHaveLength(2);
+		expect(String(msgs[0].content)).toContain(`Write the sentence in ${languageFor('fr').label}.`);
+		expect(msgs[1].content).toHaveLength(2);
 	});
 });
 

@@ -11,3 +11,6 @@
 - A photo's detail view lists its old names with how many decks still write each, and **Use new name** rewrites those decks to the current name. Each deck gets a Version history entry first, and a code sample that mentions the old name is left as written.
 - **Suggest** in a photo's detail view asks the model you connected in Setup for a one-sentence description of that photo, and puts it in the Description field for you to edit. It sends a small thumbnail only when you press it, to your own OpenRouter account, and saves nothing until you press Save. With no model connected, or a model that cannot read images, it says so instead of doing nothing.
 - The photo detail view is fully keyboard-driven: Enter on a card opens it, Tab stays inside, Enter in a field saves, and Escape closes it and returns focus to the card.
+- A photo's description is never read as a slide directive: a description such as "bg contain" stays alt text.
+- Reading a photo's own details is safe against crafted files, including a packet built to freeze the page, and a file's text is cleaned the same way text you type is.
+- **Use new name** reports honestly when the browser has no room to save: it rewrites nothing it cannot undo, and says how many decks were updated.

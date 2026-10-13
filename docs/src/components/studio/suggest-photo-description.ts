@@ -6,9 +6,11 @@
 // model, voice and budget helpers rather than reimplementing any of them.
 import { recordSpend } from '@/components/studio/ai/spend.js';
 import { THUMB_TOKENS } from './agent-assets';
-import { architectModel, cloudBudgetBlock, withStudioVoice } from './architect';
+import { architectModel, cloudBudgetBlock } from './architect';
 import { cleanLine } from './media-edit';
 import type { GroundMsg as Msg } from './reference-doc';
+import { languageFor } from './studio-language';
+import { loadSettings } from './studio-store';
 
 // ── A photo's description: "Suggest" in the Library's photo view ─────────────────────────────────────────────
 // Drafts the one-line alt text for ONE Library photo from a small thumbnail, for the author to review in the
@@ -31,9 +33,12 @@ export type PhotoSuggestOutcome =
 	| { status: 'nochange' };
 
 /** The (pure) message list for a photo description. Exported for testing. */
-export function buildPhotoDescriptionPrompt(thumbDataUrl: string): Msg[] {
+export function buildPhotoDescriptionPrompt(thumbDataUrl: string, deckLang?: string): Msg[] {
+	// The language the description is written in is the deck's (else the workspace default). The author's standing instructions
+	// (tone for slides, house style) are NOT sent: they are not about alt text, and this call sends only what it needs.
+	const language = languageFor(deckLang || loadSettings().language).label;
 	return [
-		{ role: 'system', content: PHOTO_DESCRIBE_SYSTEM },
+		{ role: 'system', content: `${PHOTO_DESCRIBE_SYSTEM}\n- Write the sentence in ${language}.` },
 		{
 			role: 'user',
 			content: [
@@ -73,7 +78,7 @@ export async function suggestPhotoDescription(thumbDataUrl: string, deckLang?: s
 	let out = '';
 	try {
 		out = await model.complete({
-			messages: withStudioVoice(buildPhotoDescriptionPrompt(thumbDataUrl), generation, deckLang),
+			messages: buildPhotoDescriptionPrompt(thumbDataUrl, deckLang),
 			fallback: '',
 			maxTokens: 80,
 			onUsage: (u) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0)),

@@ -16,7 +16,7 @@
 // string and never markup, and a malformed block ends that block, never the import. This module never
 // throws: a file it cannot read gives `{}`.
 
-import { isIsoDate } from './media-edit';
+import { cleanLine, isIsoDate } from './media-edit';
 
 export type FileMeta = {
 	/** A description the file carried: XMP description, IPTC caption, EXIF ImageDescription, or a title. */
@@ -42,22 +42,16 @@ const latin1 = new TextDecoder('latin1');
 
 // ── text hygiene ────────────────────────────────────────────────────────────────────────────────────────
 
-/** One line of plain text: control and invisible characters out, whitespace collapsed. */
-function oneLine(v: string): string {
-	return (
-		v
-			// biome-ignore lint/suspicious/noControlCharactersInRegex: stripping them is the point
-			.replace(/[\u0000-\u001f\u007f-\u009f]+/g, ' ')
-			.replace(/[\p{Cf}\p{Zl}\p{Zp}]+/gu, '')
-			.replace(/\s+/g, ' ')
-			.trim()
-	);
-}
+/** One line of plain text: control, invisible and unpaired-surrogate characters out, whitespace collapsed. The same cleaner
+ *  every stored description goes through (media-edit.ts `cleanLine`), so what is read here and what is saved agree. */
+const oneLine = (v: string): string => cleanLine(v, 4096);
 
-/** A cut at a word boundary with an ellipsis, so a long description is not left ending mid-word. */
+/** A cut at a word boundary with an ellipsis, so a long description is not left ending mid-word. By whole characters,
+ *  so an emoji at the limit is kept or dropped whole. */
 function clip(v: string, max: number): string {
-	if (v.length <= max) return v;
-	const cut = v.slice(0, max - 1);
+	const chars = Array.from(v);
+	if (chars.length <= max) return v;
+	const cut = chars.slice(0, max - 1).join('');
 	const at = cut.lastIndexOf(' ');
 	return `${(at > max * 0.6 ? cut.slice(0, at) : cut).replace(/[\s,;:.-]+$/, '')}…`;
 }
@@ -139,13 +133,13 @@ function readTiff(t: Uint8Array): Found {
 	out.artist = ascii(ifd0.get(0x013b));
 	out.copyright = ascii(ifd0.get(0x8298));
 	const exifPtr = ifd0.get(0x8769);
-	if (exifPtr && exifPtr[0] === 4) {
+	if (exifPtr && (exifPtr[0] === 4 || exifPtr[0] === 13)) {
 		const exif = entries(u32(exifPtr[2]));
 		out.original = ascii(exif.get(0x9003));
 		out.digitized = ascii(exif.get(0x9004));
 	}
 	const gpsPtr = ifd0.get(0x8825);
-	if (gpsPtr && gpsPtr[0] === 4) {
+	if (gpsPtr && (gpsPtr[0] === 4 || gpsPtr[0] === 13)) {
 		// Coordinates present: GPSLatitude (0x0002) or GPSLongitude (0x0004). A bare GPSVersionID is no location.
 		const gps = entries(u32(gpsPtr[2]));
 		if (gps.has(0x0002) || gps.has(0x0004)) out.location = true;
@@ -154,30 +148,89 @@ function readTiff(t: Uint8Array): Found {
 }
 
 // ── XMP ─────────────────────────────────────────────────────────────────────────────────────────────────
+//
+// LINEAR BY CONSTRUCTION. The packet is hostile text. Every scan below moves forward and never restarts from an earlier
+// position, so work is proportional to the packet's length. (A regex like `/<[^>]*>/g` over a run of `<` with no `>`
+// rescans to the end from every start: 262 KB of that took two minutes. No pattern in this file may do that.)
 
 const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" };
+
+/** The text of `v` with markup removed, in one pass: tags become a space, a CDATA section keeps its text, and a `<` with
+ *  no `>` after it ends the text. Entities are decoded AFTER, so `&lt;b&gt;` is the literal text `<b>`, never a tag. */
 function unxml(v: string): string {
-	return v
-		.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
-		.replace(/<[^>]*>/g, ' ')
-		.replace(/&(?:#(\d{1,7})|#x([0-9a-f]{1,6})|(amp|lt|gt|quot|apos));/gi, (_w, dec: string, hex: string, name: string) => {
-			if (name) return ENTITIES[name.toLowerCase()];
-			const cp = dec ? +dec : Number.parseInt(hex, 16);
-			return cp > 0 && cp <= 0x10ffff ? String.fromCodePoint(cp) : ' ';
-		});
+	let out = '';
+	let i = 0;
+	while (i < v.length) {
+		const lt = v.indexOf('<', i);
+		if (lt === -1) {
+			out += v.slice(i);
+			break;
+		}
+		out += v.slice(i, lt);
+		if (v.startsWith('<![CDATA[', lt)) {
+			const end = v.indexOf(']]>', lt + 9);
+			if (end === -1) {
+				out += v.slice(lt + 9);
+				break;
+			}
+			out += v.slice(lt + 9, end);
+			i = end + 3;
+			continue;
+		}
+		const gt = v.indexOf('>', lt + 1);
+		if (gt === -1) break;
+		out += ' ';
+		i = gt + 1;
+	}
+	return out.replace(/&(?:#(\d{1,7})|#x([0-9a-f]{1,6})|(amp|lt|gt|quot|apos));/gi, (_w, dec: string, hex: string, name: string) => {
+		if (name) return ENTITIES[name.toLowerCase()];
+		const cp = dec ? +dec : Number.parseInt(hex, 16);
+		// A code point that is not a character (zero, past Unicode, or a lone surrogate) is a space, not a broken string.
+		return cp > 0 && cp <= 0x10ffff && !(cp >= 0xd800 && cp <= 0xdfff) ? String.fromCodePoint(cp) : ' ';
+	});
 }
 
-/** The first text value of an XMP property: `<dc:x><rdf:Alt><rdf:li>…</rdf:li></rdf:Alt></dc:x>`, a plain
- *  element, or an attribute on the description. Patterns are anchored on literal tag names and the input is
- *  capped, so a hostile packet cannot make this expensive. */
-function xmpValue(xmp: string, name: string): string | undefined {
-	const el = new RegExp(`<${name}(?:\\s[^>]*)?>([\\s\\S]*?)</${name}>`, 'i').exec(xmp);
-	if (el) {
-		const li = /<rdf:li(?:\s[^>]*)?>([\s\S]*?)<\/rdf:li>/i.exec(el[1]);
-		return unxml(li ? li[1] : el[1]);
+const TAG_END = new Set([' ', '\t', '\n', '\r', '>', '/']);
+
+/** Where the first `<name …>` start tag ends: the index of its `>`, or -1. The name must be followed by whitespace, `>` or `/`
+ *  (so `<dc:description2>` is another element). Forward only: the first match, or none. */
+function openTagEnd(text: string, name: string, from = 0): number {
+	const needle = `<${name}`;
+	for (let i = text.indexOf(needle, from); i !== -1; i = text.indexOf(needle, i + needle.length)) {
+		if (TAG_END.has(text[i + needle.length] ?? '>')) return text.indexOf('>', i + needle.length);
 	}
-	const attr = new RegExp(`\\s${name}\\s*=\\s*"([^"]*)"`, 'i').exec(xmp);
-	return attr ? unxml(attr[1]) : undefined;
+	return -1;
+}
+
+/** The first text value of an XMP property: `<dc:x><rdf:Alt><rdf:li>…</rdf:li></rdf:Alt></dc:x>`, a plain element, or an
+ *  attribute on the description. The FIRST occurrence only: a malformed first one gives nothing rather than a hunt. */
+function xmpValue(xmp: string, name: string): string | undefined {
+	const gt = openTagEnd(xmp, name);
+	if (gt !== -1) {
+		const close = xmp.indexOf(`</${name}>`, gt);
+		if (close === -1) return undefined;
+		const inner = xmp.slice(gt + 1, close);
+		const liGt = openTagEnd(inner, 'rdf:li');
+		if (liGt !== -1) {
+			const liClose = inner.indexOf('</rdf:li>', liGt);
+			if (liClose !== -1) return unxml(inner.slice(liGt + 1, liClose));
+		}
+		return unxml(inner);
+	}
+	// Attribute form: ` name="value"`.
+	const needle = `${name}`;
+	for (let i = xmp.indexOf(needle); i !== -1; i = xmp.indexOf(needle, i + needle.length)) {
+		if (i === 0 || !/\s/.test(xmp[i - 1])) continue;
+		let j = i + needle.length;
+		while (j < xmp.length && /\s/.test(xmp[j])) j++;
+		if (xmp[j] !== '=') continue;
+		j++;
+		while (j < xmp.length && /\s/.test(xmp[j])) j++;
+		if (xmp[j] !== '"') continue;
+		const end = xmp.indexOf('"', j + 1);
+		return end === -1 ? undefined : unxml(xmp.slice(j + 1, end));
+	}
+	return undefined;
 }
 
 function readXmp(bytes: Uint8Array): Found & { title?: string; created?: string } {
@@ -189,8 +242,8 @@ function readXmp(bytes: Uint8Array): Found & { title?: string; created?: string 
 	out.copyright = xmpValue(xmp, 'dc:rights');
 	out.original = xmpValue(xmp, 'exif:DateTimeOriginal') ?? xmpValue(xmp, 'photoshop:DateCreated');
 	out.created = xmpValue(xmp, 'xmp:CreateDate');
-	// Coordinates as XMP text. Present or not; the value is never kept.
-	if (/\sexif:GPSLatitude\s*=|<exif:GPSLatitude[\s>]/i.test(xmp)) out.location = true;
+	// Coordinates written as XMP text (either axis). Present or not; the value is never read.
+	if (xmp.includes('exif:GPSLatitude') || xmp.includes('exif:GPSLongitude')) out.location = true;
 	return out;
 }
 
