@@ -433,7 +433,7 @@ Name 526; the picture took half the desktop dialog, so Name sat below the fold; 
 lines repeated. The owner chose **one column everywhere, tightened**, and **a native date input styled as a shadcn Input that takes
 its column's width** (no new dependency; the device's own picker). What it is now: shadcn `Label` (new `ui/label.tsx`), `Input`,
 `Textarea`, `Button`, `Collapsible`, `Badge` and `HelpTip`; every input `h-9`; Credit | Date a 50/50 pair at every width; Name full
-width; **Suggest with AI** on the Description label row (its explanation in a HelpTip, not a static line); old names and "From the
+width; **Suggest with AI** as a full-width `h-9` outline button directly under the Description field (a small button on the label row read as a pill, not a button, on a phone; its explanation is in a HelpTip, not a static line); old names and "From the
 file" as collapsibles (Old names opens itself while a deck still writes one, and never closes under the person); 36 px remove button;
 the picture capped at `min(30dvh, 220px)`; header and Save row fixed with only the body scrolling, so Save is never below the fold.
 A HelpTip sits BESIDE its `Label`, never inside it: a button inside a label is labelled by it and answers `getByLabel`. The e2e pins

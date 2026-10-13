@@ -248,12 +248,12 @@ export function MediaDetailDialog({ m: incoming, open, onOpenChange, usedIn, ali
 										It becomes the photo's alt text in the preview and in exports, and the chat reads it. <strong>Suggest with AI</strong> asks your image model (Workspace → Model) to look at the photo and draft a name and a description. Nothing is saved until you press Save.
 									</HelpTip>
 								</span>
-								<Button type="button" variant="outline" size="sm" disabled={suggesting || busy} onClick={() => void suggest()} aria-label="Suggest a name and description" data-suggest>
+							</div>
+							<Textarea id={`${uid}-caption`} value={caption} maxLength={140} rows={3} className="min-h-[4.5rem] resize-none" onChange={(e) => setCaption(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); e.currentTarget.form?.requestSubmit(); } }} placeholder="What the picture shows" />
+							<Button type="button" variant="outline" className="w-full" disabled={suggesting || busy} onClick={() => void suggest()} aria-label="Suggest a name and description" data-suggest>
 									<Sparkles aria-hidden />
 									{suggesting ? 'Looking…' : 'Suggest with AI'}
 								</Button>
-							</div>
-							<Textarea id={`${uid}-caption`} value={caption} maxLength={140} rows={3} className="min-h-[4.5rem] resize-none" onChange={(e) => setCaption(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); e.currentTarget.form?.requestSubmit(); } }} placeholder="What the picture shows" />
 							{suggestNote && <p role="status" className="text-xs text-muted-foreground">{suggestNote}</p>}
 						</div>
 
