@@ -1091,6 +1091,20 @@ could wipe what you were still typing, so the field only follows the roster whil
 on the real two-browser call: the guest renamed "Amina" to "Amina Okafor", the host's roster showed it, and
 the guest renamed back.
 
+**What you share, after the second independent review (2026-10-13).** Five defects, all fixed with tests. (1) Your settings did not
+autofocus its first field (that is the Name input, and focusing it opens a phone keyboard every time), but it also left focus on
+the trigger, so a keyboard user's next Tab went past the popover and closed it; the popover now takes focus itself, and the
+next Tab enters it. (2) Turning typing off made `editingAt` always absent, and the "don't move me while I type" check on a host's
+Bring everyone read that field, so a person who hid their typing was yanked mid-edit; the controller now tracks the last local edit
+itself (`myEditAt`). (3) With your slide hidden, Bring everyone still wrote the slide into presence and never cleared it, so a late
+joiner received it: it is said once and withdrawn after 6 s (`SUMMON_SHOWN_MS`). (4) What you hid was not kept across a reload and
+was not re-applied when a new session started in the same tab, so a host who hid their slide and reloaded published it again: it is
+kept in sessionStorage for the tab and applied when a session wires. (5) "Slide hidden" also hid the editing mark, and the cursor note
+did not say a visible cursor shows roughly where you are working. Held up under review: y-codemirror writes `cursor` only through
+`setLocalStateField`, so the wrapper catches it; no other code writes awareness fields; the receiver whitelist stops a peer spoofing
+anything but its own `slideHidden`. Still true: turning typing off does not withdraw a chat "typing" post already sent, so it shows
+for up to 4 s.
+
 **Connection diagnostics, and what the owner's hotspot runs found (2026-10-12).** The owner ran a phone (host) and a tablet and
 reported a slow or stuck first connect, drops that came back, and audio gaps afterward. Read from Trystero 0.26: a
 connection that stays `disconnected` for 5 s is closed (`disconnectedCloseDelayMs`) and Trystero never restarts ICE itself,

@@ -33,6 +33,17 @@ import { deleteHostPrivateKey, getHostPrivateKey, putHostPrivateKey, seal, unsea
 /** localStorage: room → { deckId, token }, so a guest's linked copy and rejoin token survive a
  *  reload. The token is a credential, so it is stored SEALED (secret-box.ts). */
 const LINKS_KEY = 'lattice-live-links';
+/** sessionStorage: what this person shares (cursor, slide, typing), so a reload keeps it. */
+const SHARE_KEY = 'lattice-live-share';
+const readShare = (): LiveShare => {
+	const all = { cursor: true, slide: true, typing: true };
+	try {
+		const raw = JSON.parse(sessionStorage.getItem(SHARE_KEY) || '{}') as Partial<LiveShare>;
+		return { cursor: raw.cursor !== false, slide: raw.slide !== false, typing: raw.typing !== false };
+	} catch {
+		return all;
+	}
+};
 const TYPING_MS = 2500;
 const CHAT_MAX = 1000;
 /** Lines a browser keeps, and the host hands a newcomer. */
@@ -120,6 +131,8 @@ type Post =
 /** How long a dropped member shows as reconnecting before the chat says they left. A phone that
  *  backgrounds a tab drops its connection within seconds and comes back when the tab returns. */
 const AWAY_GRACE_MS = 60_000;
+/** With the slide hidden, a "Bring everyone" stays in presence this long, then is withdrawn. */
+const SUMMON_SHOWN_MS = 6000;
 /** A "typing" post counts for this long; the typist re-sends at most every TYPING_POST_MS. */
 const TYPING_SHOW_MS = 4000;
 const TYPING_POST_MS = 2000;
@@ -394,7 +407,10 @@ export class LiveController {
 	/** What this person lets the others see of them. Theirs to withhold; kept for this tab, not saved. */
 	/** The host name the lobby invite last carried, so a rename reaches the lobby too. */
 	private invitedAs: string | undefined;
-	private share: LiveShare = { cursor: true, slide: true, typing: true };
+	/** What you share, kept for this tab (sessionStorage), so a reload does not quietly publish what you hid. */
+	private share: LiveShare = readShare();
+	/** When this person last edited the source, in session time: the "don't move me while I type" check must not depend on what they share. */
+	private myEditAt = 0;
 	private timeline: () => LinkEvent[] = () => [];
 	/** The screen wake lock held while a session is live (live-wake.ts). */
 	private readonly wake = new WakeKeeper();
@@ -605,6 +621,8 @@ export class LiveController {
 			if (rt) rt.release = null;
 		});
 		this.rt = rt;
+		// A session started in a tab that already chose what to hide (a reload, or a second session): make the presence match.
+		if (!(this.share.cursor && this.share.slide && this.share.typing)) this.applyShare();
 		const r = rt;
 
 		let prev: SessionState = session.getState();
@@ -731,6 +749,7 @@ export class LiveController {
 		const onLocalEdit = (_e: unknown, tr: Y.Transaction) => {
 			if (!tr.local) return;
 			const t = session.now();
+			this.myEditAt = t;
 			if (t - lastEdit < 1000) return;
 			lastEdit = t;
 			// Session time, so every browser compares it against the same clock.
@@ -1241,7 +1260,7 @@ export class LiveController {
 				this.lastSummon = summon.n;
 				// The first summon seen on joining is history, not a request.
 				if (first && !this.bound) return;
-				const myEdit = (r.aw.getLocalState() as AwState | null)?.editingAt ?? 0;
+				const myEdit = this.myEditAt;
 				const slide = summon.slide;
 				if (r.session.now() - myEdit < TYPING_MS) this.host.notifyAction(`The host is on slide ${slide + 1}`, { label: 'Go', onClick: () => this.host.goToSlide(slide) });
 				else {
@@ -1682,7 +1701,18 @@ export class LiveController {
 			const r = this.rt;
 			if (!r) return;
 			const prevN = (r.aw.getLocalState() as AwState | null)?.summon?.n ?? 0;
-			r.aw.setLocalStateField('summon', { slide: this.deps.activeSlide, n: prevN + 1 });
+			const n = prevN + 1;
+			r.aw.setLocalStateField('summon', { slide: this.deps.activeSlide, n });
+			// With your slide hidden the summon is the one place it still leaves: say it once, then take it back, so a
+			// late joiner or a presence renewal never carries it (checker, 2026-10-13).
+			if (!this.share.slide) {
+				setTimeout(() => {
+					const st = { ...(r.aw.getLocalState() as Record<string, unknown> | null) };
+					if ((st.summon as { n?: number } | undefined)?.n !== n) return;
+					delete st.summon;
+					r.aw.setLocalState(st);
+				}, SUMMON_SHOWN_MS);
+			}
 			this.sys(`You brought everyone to slide ${this.deps.activeSlide + 1}`);
 			this.host.rerender();
 		},
@@ -1703,6 +1733,9 @@ export class LiveController {
 		copyLog: () => this.copyLog(),
 		setShare: (patch) => {
 			this.share = { ...this.share, ...patch };
+			try {
+				sessionStorage.setItem(SHARE_KEY, JSON.stringify(this.share));
+			} catch {}
 			this.applyShare();
 			this.host.rerender();
 		},

@@ -32,7 +32,7 @@ const LINK_ICON = { local: Wifi, direct: ArrowLeftRight, relay: Server } as cons
 
 function whereLabel(p: LivePerson): string {
 	if (p.away) return 'Reconnecting…';
-	if (p.slideHidden) return 'Slide hidden';
+	if (p.slideHidden) return p.editing ? 'Slide hidden · editing' : 'Slide hidden';
 	if (p.slide === null) return 'Arriving…';
 	return `Slide ${p.slide + 1}${p.editing ? ' · editing' : ''}`;
 }
@@ -253,8 +253,11 @@ function YourSettings({ view, actions }: { view: LiveView; actions: LiveActions 
 					<MoreHorizontal className="size-3.5" />
 				</Button>
 			</PopoverTrigger>
-			{/* No autofocus: the first field is the Name input, and focusing it opens the keyboard on a phone every time this opens. */}
-			<LivePopoverContent align="end" onOpenAutoFocus={(e) => e.preventDefault()} className="max-h-[min(75vh,var(--radix-popover-content-available-height))] w-72 overflow-y-auto p-3" data-live-your-settings>
+			{/* Focus the popover itself, not its first field: the first field is the Name input, and focusing it opens the keyboard on a phone every time this opens. The next Tab still enters the popover, so a keyboard user is not left outside it. */}
+			<LivePopoverContent align="end" onOpenAutoFocus={(e) => {
+					e.preventDefault();
+					(e.target as HTMLElement | null)?.focus?.({ preventScroll: true });
+				}} className="max-h-[min(75vh,var(--radix-popover-content-available-height))] w-72 overflow-y-auto p-3" data-live-your-settings>
 				<div className="mb-2 text-[12px] font-semibold text-foreground">Your settings</div>
 				{me && (
 					<div className="mb-3">
@@ -263,7 +266,7 @@ function YourSettings({ view, actions }: { view: LiveView; actions: LiveActions 
 				)}
 				<div className="flex flex-col gap-3" data-live-share>
 					<div className="font-mono text-[10px] font-bold uppercase tracking-widest text-muted-foreground">What others see</div>
-					<ShareRow id="live-share-cursor" label="Show my cursor" note="Others see where you are in the editor." checked={sh.cursor} onChange={(on) => actions.setShare({ cursor: on })} />
+					<ShareRow id="live-share-cursor" label="Show my cursor" note="Others see where you are in the editor. That shows roughly where you are working even when your slide is hidden." checked={sh.cursor} onChange={(on) => actions.setShare({ cursor: on })} />
 					<ShareRow id="live-share-slide" label="Show my slide" note="Others see which slide you are on, and can jump to it." checked={sh.slide} onChange={(on) => actions.setShare({ slide: on })} />
 					<ShareRow id="live-share-typing" label="Show when I'm typing" note="Others see when you type in the editor and in the chat." checked={sh.typing} onChange={(on) => actions.setShare({ typing: on })} />
 				</div>

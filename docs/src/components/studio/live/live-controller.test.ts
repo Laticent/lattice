@@ -55,6 +55,7 @@ async function hostSession() {
 	const sh = shell();
 	// Each controller is its own browser tab: no chat-id prefixes inherited (jsdom shares storage).
 	sessionStorage.removeItem('lattice-live-sids');
+	sessionStorage.removeItem('lattice-live-share');
 	const h = new LiveController(sh.host, deps('host-deck'));
 	h.actions.start('Sharmarke');
 	await until(() => h.view().status === 'live', h);
@@ -65,6 +66,7 @@ async function guestOf(h: Ctl, name: string) {
 	// Each guest is its own browser: no rejoin token left by the one before (jsdom shares storage).
 	localStorage.removeItem('lattice-live-links');
 	sessionStorage.removeItem('lattice-live-sids');
+	sessionStorage.removeItem('lattice-live-share');
 	location.hash = `#live=${(h.view().link ?? '').split('#live=')[1]}`;
 	takeLiveIntent();
 	const g = new LiveController(sh.host, deps(`${name}-deck`));
@@ -602,6 +604,48 @@ describe('what you share (2026-10-12)', () => {
 		a.actions.setShare({ typing: true });
 		a.actions.chatTyping();
 		await until(() => h.view().typing.includes('Amina'), h, a);
+	});
+
+	it('turning typing off still protects you from being moved while you type (checker, 2026-10-13)', async () => {
+		const { h } = await hostSession();
+		const { g, notes } = await guestOf(h, 'Amina');
+		const go = vi.fn();
+		// biome-ignore lint/suspicious/noExplicitAny: tests reach the private host shell and runtime.
+		(g as any).host.goToSlide = go;
+		g.actions.setShare({ typing: false });
+		// biome-ignore lint/suspicious/noExplicitAny: tests reach the private runtime's shared text.
+		(g as any).rt.ytext.insert(0, 'x');
+		h.update({ ...deps('host-deck'), activeSlide: 1 });
+		h.actions.bringEveryone();
+		await until(() => notes.some((n) => /The host is on slide/.test(n)), h, g);
+		expect(go).not.toHaveBeenCalled(); // a toast with a Go button, not a jump
+	});
+
+	it('with your slide hidden, Bring everyone is said once and then taken back, so a late joiner never carries it', async () => {
+		const { h } = await hostSession();
+		h.actions.setShare({ slide: false });
+		vi.useFakeTimers({ toFake: ['setTimeout'] });
+		try {
+			h.actions.bringEveryone();
+			expect(awOf(h).getLocalState()).toHaveProperty('summon');
+			vi.advanceTimersByTime(6001);
+		} finally {
+			vi.useRealTimers();
+		}
+		expect(awOf(h).getLocalState()).not.toHaveProperty('summon');
+		expect(awOf(h).getLocalState()).toHaveProperty('slideHidden', true);
+	});
+
+	it('what you hid survives a reload, and a session started afterwards in the same tab publishes nothing you hid', async () => {
+		const { h } = await hostSession();
+		h.actions.setShare({ slide: false, cursor: false });
+		const reloaded = new LiveController(shell().host, deps('host-deck'));
+		reloaded.actions.start('Sharmarke');
+		await until(() => reloaded.view().status === 'live', reloaded);
+		expect(reloaded.view().share).toEqual({ cursor: false, slide: false, typing: true });
+		expect(awOf(reloaded).getLocalState()).toHaveProperty('slideHidden', true);
+		expect(awOf(reloaded).getLocalState()).not.toHaveProperty('slide');
+		expect(awOf(reloaded).getLocalState()).not.toHaveProperty('cursor');
 	});
 
 	it('what you share is in your view, all on to begin with', async () => {

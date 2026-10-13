@@ -258,6 +258,23 @@ test('@crosswidth @webkit-phone inside the modal sheet a phone uses, a tall popo
 	await expect(page.getByText(/speaker/i).last()).toBeInViewport();
 });
 
+test('@crosswidth @webkit-phone Your settings can be entered and left from the keyboard, and a hidden slide still shows you are editing', async ({ page }) => {
+	await open(page);
+	await yourSettings(page).focus();
+	await page.keyboard.press('Enter');
+	await expect(page.locator('[data-live-your-settings]')).toBeVisible();
+	// One Tab goes INTO the popover (the Name field), not past it: it does not autofocus a field, so the phone keyboard stays shut.
+	await page.keyboard.press('Tab');
+	await expect(page.locator('[data-live-your-settings]')).toBeVisible();
+	expect(await page.evaluate(() => !!document.activeElement?.closest('[data-live-your-settings]'))).toBe(true);
+	await expect(page.getByRole('textbox', { name: 'Your name' })).toBeFocused();
+	await page.keyboard.press('Escape');
+	await expect(page.locator('[data-live-your-settings]')).toHaveCount(0);
+	await expect(yourSettings(page)).toBeFocused();
+	await live(page, (l) => l.person('p2', { slideHidden: true, slide: null, editing: true }));
+	await expect(page.getByText('Slide hidden · editing')).toBeVisible();
+});
+
 test('@crosswidth @webkit-phone Your settings has a Connection section with a log to copy', async ({ page }) => {
 	await open(page);
 	await yourSettings(page).click();
