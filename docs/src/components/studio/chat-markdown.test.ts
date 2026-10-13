@@ -175,3 +175,19 @@ describe('quotes and rules', () => {
 		expect(renderProse('* * *')).toContain('<hr');
 	});
 });
+
+describe('hostile line endings and nesting (found by the checker pass)', () => {
+	it('a list line ending in CR, CRLF, U+2028 or U+2029 renders and returns', () => {
+		for (const eol of ['\r', '\r\n', '\u2028', '\u2029']) {
+			const out = renderProse(`hello${eol}- a${eol}- b${eol}`);
+			expect(out, JSON.stringify(eol)).toContain('<li>a</li><li>b</li>');
+			expect(renderProse(`1. x${eol}`)).toContain('<li>x</li>');
+			expect(html(renderMessageSegmentsStreaming(`- a${eol}- b`))).toContain('<li>b</li>');
+		}
+	});
+	it('thousands of nested quote markers render as text instead of overflowing the stack', () => {
+		const out = renderProse(`${'> '.repeat(5000)}x`);
+		expect(out).toContain('x');
+		expect((out.match(/<blockquote/g) ?? []).length).toBeLessThanOrEqual(9);
+	});
+});

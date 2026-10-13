@@ -1445,7 +1445,9 @@ export async function chatComplete(history: ChatTurn[], source: string, docs?: R
 		// Same arithmetic the readout uses (estTokens), uncached: the GATE prices the worst
 		// case, so it must not assume a cache hit it can't guarantee.
 		const systemTokens = estTokens(staticPrefix) + estTokens(dynamicTail);
-		const blk = cloudBudgetBlock(model, `${last?.content ?? ''}\n${source}`, refDocsTokens(docs) + systemTokens, CHAT_MAX_TOKENS);
+		// A photo is priced at a flat 1,500 tokens (chat-photo-parts PHOTO_TOKENS; a literal here because
+		// that module is loaded on demand and this one is startup code).
+		const blk = cloudBudgetBlock(model, `${last?.content ?? ''}\n${source}`, refDocsTokens(docs) + systemTokens + (opts?.photos?.length ?? 0) * 1500, CHAT_MAX_TOKENS);
 		if (blk) return { status: 'blocked', reply: blk };
 	}
 	// Ground the final user turn in the reference doc (#640).

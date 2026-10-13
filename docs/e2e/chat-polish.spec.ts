@@ -73,8 +73,9 @@ for (const [w, h] of [
 	// Round one is held open: the line says so before a single token has arrived.
 	const status = page.getByTestId('chat-live-status');
 	await expect(status).toHaveText('Thinking…');
-	// Prose and a tool call arrive; round two is then held open. Between them the line never
-	// disappears, which is the whole report — it was a dead caret here.
+	// Prose and a tool call arrive; round two is then held open. The line is checked at the two
+	// moments the report was about — while round one is held and again before the reply commits.
+	// (A fulfilled mock cannot stream, so this does not prove every instant in between.)
 	await expect(page.getByText("I'll read the slides first.")).toBeVisible({ timeout: 15_000 });
 	await expect(status).toBeVisible();
 	await expect(page.getByText('My score: 9.5 out of 10.')).toBeVisible({ timeout: 30_000 });

@@ -98,8 +98,18 @@ function langLabel(info: string): string {
 
 // Render a run of prose (no fences) to safe HTML: escape everything, then layer
 // headings / lists / tables / quotes / paragraphs / inline spans on the escaped text.
+/** Every line ending a reply can carry, as one: CRLF, a lone CR, and the Unicode line and paragraph
+ *  separators. `.` in the item regex matches none of them, so a list line ending in one used to match
+ *  `isItem` but not the item regex and the list loop never advanced (a frozen tab on a model that emits
+ *  CRLF). Normalized at both entry points so no later stage sees a line break it does not split on. */
+const normalizeEol = (s: string): string => s.replace(/\r\n?|\u2028|\u2029/g, '\n');
+
+/** Quote nesting past this renders as plain text: each level recurses, and a line of thousands of `>`
+ *  overflowed the stack. */
+const MAX_QUOTE_DEPTH = 8;
+
 export function renderProse(md: string): string {
-	return renderBlocks(escapeHtml(md).split('\n'));
+	return renderBlocks(escapeHtml(normalizeEol(md)).split('\n'), 0);
 }
 
 type ListItem = { indent: number; tag: 'ul' | 'ol'; num: number; paras: string[][] };
@@ -131,7 +141,7 @@ function renderList(items: ListItem[]): string {
 }
 
 // Already-escaped lines in, HTML out. Recursive only for a quote's body.
-function renderBlocks(lines: string[]): string {
+function renderBlocks(lines: string[], depth: number): string {
 	const out: string[] = [];
 	let i = 0;
 	while (i < lines.length) {
@@ -151,13 +161,13 @@ function renderBlocks(lines: string[]): string {
 			i++;
 			continue;
 		}
-		if (isQuote(line)) {
+		if (isQuote(line) && depth < MAX_QUOTE_DEPTH) {
 			const body: string[] = [];
 			while (i < lines.length && isQuote(lines[i])) {
 				body.push(lines[i].replace(/^\s{0,3}&gt;\s?/, ''));
 				i++;
 			}
-			out.push(`<blockquote class="cm-md-quote">${renderBlocks(body)}</blockquote>`);
+			out.push(`<blockquote class="cm-md-quote">${renderBlocks(body, depth + 1)}</blockquote>`);
 			continue;
 		}
 		if (isTableStart(lines, i)) {
@@ -210,6 +220,12 @@ function renderBlocks(lines: string[]): string {
 				last.paras[last.paras.length - 1].push(l.trim());
 				i++;
 			}
+			// A line `isItem` accepted but the item pattern did not leaves no items: never loop on it.
+			if (!items.length) {
+				out.push(`<p>${inline(line)}</p>`);
+				i++;
+				continue;
+			}
 			out.push(renderList(items));
 			continue;
 		}
@@ -227,7 +243,7 @@ function renderBlocks(lines: string[]): string {
 // Split a reply into ordered prose/code segments. Edit-protocol blocks
 // (`lattice-edit …`) are dropped — they become diff cards, never visible code.
 export function renderMessageSegments(md: string): ChatSegment[] {
-	const lines = String(md || '').split('\n');
+	const lines = normalizeEol(String(md || '')).split('\n');
 	const segs: ChatSegment[] = [];
 	let prose: string[] = [];
 	const flushProse = () => {
@@ -267,7 +283,7 @@ export function renderMessageSegmentsStreaming(md: string): ChatSegment[] {
 
 // Trim the trailing incomplete construct from a streaming buffer.
 export function clampStreaming(md: string): string {
-	const lines = md.split('\n');
+	const lines = normalizeEol(md).split('\n');
 	// 1. An unclosed fence: scan tracking the open marker; if one is still open at the
 	//    end, hold everything from its opener onward (marker-aware — a ~~~ block is only
 	//    closed by ~~~, so a ``` line inside it does not prematurely balance it). This

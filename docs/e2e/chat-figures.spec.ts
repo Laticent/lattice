@@ -62,7 +62,9 @@ for (const [w, h] of [
 			// KaTeX for the equation. Read from the pooled frames themselves.
 			const drawn = () =>
 				page.evaluate(() => {
-					const docs = [...document.querySelectorAll('iframe')].map((f) => f.contentDocument).filter(Boolean) as Document[];
+					// Only the CHAT's frames: the Studio's own preview is an iframe that draws a diagram too.
+					const sc = document.querySelector('[data-testid="chat-figure"]')?.closest('.overflow-y-auto');
+					const docs = [...(sc?.querySelectorAll('iframe') ?? [])].map((f) => (f as HTMLIFrameElement).contentDocument).filter(Boolean) as Document[];
 					return {
 						frames: docs.length,
 						svg: docs.some((d) => !!d.querySelector('section svg')),

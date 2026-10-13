@@ -21,11 +21,15 @@ export const PHOTO_TOKENS = 1500;
 /** The sentence that tells the model what the author attached and how to use it. A name is a Library
  *  asset name — `[a-z0-9_-]` by `mediaNameFromFile` — and is checked again here, because a thread
  *  persists in storage and a name that is not one never reaches a prompt. */
-export function photoNote(rawNames: string[]): string {
+export function photoNote(rawNames: string[], shown = true): string {
 	const names = rawNames.filter(isMediaName);
 	if (!names.length) return '';
 	const list = names.map((n) => `asset:${n}`).join(', ');
-	return `\n\n(The author attached ${names.length === 1 ? 'a photo' : `${names.length} photos`} to this message, saved in the deck's media as ${list}. ${names.length === 1 ? 'It is' : 'They are'} shown to you below. To put one on a slide, write ![](asset:NAME).)`;
+	const what = names.length === 1 ? 'a photo' : `${names.length} photos`;
+	// An EARLIER turn's photos are not re-sent (each image is billed every time it travels), so that
+	// note must not say they are shown: a model told so invents a description.
+	if (!shown) return `\n\n(The author attached ${what} to this message, saved in the deck's media as ${list}. ${names.length === 1 ? 'It is' : 'They are'} not shown again. To put one on a slide, write ![](asset:NAME).)`;
+	return `\n\n(The author attached ${what} to this message, saved in the deck's media as ${list}. ${names.length === 1 ? 'It is' : 'They are'} shown to you below. To put one on a slide, write ![](asset:NAME).)`;
 }
 
 /**
@@ -47,7 +51,7 @@ export function withPhotos<M extends { role: string; content: MsgContent | null 
 	const t = parts.findIndex((p) => p.type === 'text');
 	const note = photoNote(photos.map((p) => p.name));
 	if (t >= 0) parts[t] = { type: 'text', text: `${(parts[t] as { text: string }).text}${note}` };
-	else parts.unshift({ type: 'text', text: note.trim() });
+	else if (note.trim()) parts.unshift({ type: 'text', text: note.trim() });
 	for (const p of photos) parts.push({ type: 'image_url', image_url: { url: p.dataUrl } });
 	return messages.map((m, i) => (i === idx ? { ...m, content: parts } : m));
 }

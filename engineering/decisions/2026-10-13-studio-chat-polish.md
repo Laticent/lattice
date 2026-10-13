@@ -88,6 +88,20 @@ helpers and the status labels. The suite's own screenshots were read, and they c
 assertions did not: a locator that matched the missing-photo placeholder instead of the picture, and the
 browser's default `<figure>` margin insetting every figure.
 
+## 4b. What the independent checker found (and what changed)
+
+A checker pass over the diff found a blocker the author's own tests missed: a list line ending in CR,
+CRLF, U+2028 or U+2029 matched the list test but not the item pattern, so the list loop never advanced
+and the tab froze (a model that emits CRLF triggers it, and the saved reply re-froze every reopen).
+Line endings are now normalized at both entry points and the loop cannot stay on a line. Also fixed:
+unbounded quote nesting overflowed the stack (now capped at 8, rendered as text beyond); pending photos
+carried across a deck switch (now reset, and an add finishing after a switch is dropped); an earlier
+turn's note told the model a photo was "shown below" when it was not re-sent; overlapping photo adds
+saved more than the limit (one add at a time); the one-shot fallback's budget left out photos; the
+header lost its over-cap color; and three test assertions that could not fail were tightened or
+reworded. Not fixed, and not new: the `§N§` placeholder in `inline()` and its quadratic link pattern
+(both pre-existing).
+
 ## 5. What this does not claim
 
 - **Not verified on iOS Safari or a physical phone** (HARD RULE #23). Everything above is Chromium at a

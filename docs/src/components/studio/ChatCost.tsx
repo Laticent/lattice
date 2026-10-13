@@ -65,7 +65,7 @@ export function ChatCost({ source, grounding, docs, primed, className }: { sourc
 		<span className={cn('flex min-w-0 items-center gap-2 font-sans text-[11px] normal-case tracking-normal', className)}>
 			<ModelChip status={status} turnEst={turnEst} usd={usd} spend={spend} onRefresh={() => setPulse((p) => p + 1)} />
 			<span className="shrink-0 whitespace-nowrap text-muted-foreground" title={spend.cap > 0 ? `This session: ${sessionFmt} of your $${spend.cap.toFixed(2)} cap` : `This session: ${sessionFmt}`}>
-				<span className="font-semibold text-foreground">{sessionFmt}</span>
+				<span className={cn('font-semibold', spend.status.level === 'over' ? 'text-[var(--fail,#b3261e)]' : spend.status.level === 'warn' ? 'text-[var(--warn,#9a6a00)]' : 'text-foreground')}>{sessionFmt}</span>
 				<span className="sr-only"> spent this session</span>
 			</span>
 		</span>

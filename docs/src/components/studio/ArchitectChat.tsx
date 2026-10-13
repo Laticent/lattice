@@ -193,6 +193,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 	const [addingPhotos, setAddingPhotos] = React.useState(false);
 	// The picker is built before `status` exists, so it calls through a ref to the handler below.
 	const addPhotosRef = React.useRef<(files: File[]) => void>(() => {});
+	const addingRef = React.useRef(false);
 	const refDoc = useReferenceDoc(onManageDocs, { accept: MEDIA_ACCEPT, onFiles: (f) => addPhotosRef.current(f) });
 	const status = useArchitectStatus(pulse);
 
@@ -228,6 +229,10 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 	}, []);
 	React.useEffect(() => setMessages(loadChat(deckId)), [deckId]);
 	React.useEffect(() => setInput(loadChatDraft(deckId)), [deckId]);
+	// Photos picked for the next message belong to the deck they were picked on (they are saved to its
+	// shelf); carrying them to another deck sent pixels the new deck cannot name.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `deckId` is the trigger; the body reads nothing from it.
+	React.useEffect(() => setPendingPhotos([]), [deckId]);
 	React.useEffect(() => {
 		saveChat(deckId, messages);
 		scrollRef.current?.scrollTo?.({ top: scrollRef.current.scrollHeight });
@@ -287,7 +292,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 			// An EARLIER turn's photos are named in its text (the model can refer to asset:<name>) but not
 			// re-sent: each image is billed as input every time it travels. Only the LAST turn's go as pixels.
 			const lastIdx = history.length - 1;
-			const turns: ChatTurn[] = history.map((m, i) => ({ role: m.role, content: m.role === 'user' && m.photos?.length && i !== lastIdx ? `${m.content}${photoNote(m.photos.map((p) => p.name))}` : m.content }));
+			const turns: ChatTurn[] = history.map((m, i) => ({ role: m.role, content: m.role === 'user' && m.photos?.length && i !== lastIdx ? `${m.content}${photoNote(m.photos.map((p) => p.name), false)}` : m.content }));
 			const sent = history[lastIdx]?.role === 'user' ? (history[lastIdx].photos ?? []) : [];
 			const seen = (await Promise.all(sent.map(async (p) => ({ name: p.name, dataUrl: await photoDataUrl(p.name).catch(() => null) })))).filter((x): x is { name: string; dataUrl: string } => !!x.dataUrl);
 			if (seen.length < sent.length) notify(sent.length === 1 ? 'That photo is no longer in the Library, so the model did not see it.' : `${sent.length - seen.length} of those photos are no longer in the Library, so the model did not see them.`);
@@ -371,6 +376,13 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 	// next message. Cloud tier only — the on-device tiers cannot see — and a model the catalog says is
 	// text-only is refused here rather than after the author has typed the question.
 	addPhotosRef.current = async (files: File[]) => {
+		// One add at a time: `room` is read from the last render, so overlapping adds (five quick pastes)
+		// each saw room for four and saved all five to the shelf.
+		if (addingRef.current) {
+			notify('Still adding the last photo — one moment.');
+			return;
+		}
+		const forDeck = deckId;
 		if (status.generation !== 'openrouter') {
 			notify('Photos need a cloud model that can see — connect one in Workspace → AI.');
 			return;
@@ -389,19 +401,22 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 		} catch {
 			/* catalog unreachable: the model's own answer says it if it cannot see */
 		}
+		addingRef.current = true;
 		setAddingPhotos(true);
 		try {
-			const res = await addChatPhotos(files.slice(0, room), deckId);
+			const res = await addChatPhotos(files.slice(0, room), forDeck);
 			if (res.photos.length) {
 				// The preview, the Library and the editor's completion learn of the new shelf entry.
-				await setActiveAssetDeck(deckId);
+				await setActiveAssetDeck(forDeck);
 				await refreshAssetUrls();
-				setPendingPhotos((cur) => [...cur, ...res.photos].slice(0, MAX_CHAT_PHOTOS));
+				// Only if the author is still on the deck the photo was saved for.
+				if (deckIdRef.current === forDeck) setPendingPhotos((cur) => [...cur, ...res.photos].slice(0, MAX_CHAT_PHOTOS));
 			}
 			if (files.length > room) notify(`Only the first ${room} photo${room === 1 ? '' : 's'} fit — a message carries ${MAX_CHAT_PHOTOS}.`);
 			if (res.renamed.length) notify(`${res.renamed.slice(0, 2).join('; ')}.`);
 			if (res.failed.length) notify(res.failed.slice(0, 2).join(' '));
 		} finally {
+			addingRef.current = false;
 			setAddingPhotos(false);
 		}
 	};

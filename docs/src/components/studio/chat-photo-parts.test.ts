@@ -69,3 +69,11 @@ describe('the copied name grammar', () => {
 		for (const n of names) expect(photoNote([n]) !== '', JSON.stringify(n)).toBe(isMediaName(n));
 	});
 });
+
+describe('photoNote for an earlier turn', () => {
+	it('says the photo is not shown again, never that it is shown below', () => {
+		const n = photoNote(['a'], false);
+		expect(n).toContain('not shown again');
+		expect(n).not.toContain('shown to you below');
+	});
+});

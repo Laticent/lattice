@@ -132,5 +132,6 @@ test('a model that cannot read images refuses the photo before anything is sent'
 	await pickPhoto(page);
 	await expect(page.getByText(/can't read photos/)).toBeVisible({ timeout: 20_000 });
 	await expect(page.getByTestId('chat-photo-strip')).toHaveCount(0);
-	expect(bodies, 'a request went out for a photo the model cannot see').toHaveLength(0);
+	// Nothing was sent: the refusal happens at attach time, before any message exists.
+	expect(bodies).toHaveLength(0);
 });
