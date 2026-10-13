@@ -1,10 +1,8 @@
-import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { inflateSync } from 'node:zlib';
 import type { Browser, Page } from '@playwright/test';
 import JSZip from 'jszip';
-import { PDFDocument } from 'pdf-lib';
+import { PDFDict, PDFDocument, PDFName, PDFRawStream } from 'pdf-lib';
 import { CHROME, expect, gotoStudio, setEditorContent, shareExport, test } from './studio-fixture';
 
 // A Library photo has to survive every way a deck LEAVES the browser, because `asset:<name>` means
@@ -76,6 +74,37 @@ async function greenShare(page: Page, png: Buffer): Promise<number> {
 	}, png.toString('base64'));
 }
 
+/** The most probe-green any one picture on page 1 of a PDF holds. The export draws the slide as one raster and the
+ *  photo over it as its own picture, so the page's pictures together are what a viewer sees; the photo is on the
+ *  page when one of them is the probe's green. Handles the two encodings the writers produce: plain Flate RGB
+ *  (inflated here) and JPEG (decoded by the browser). */
+async function greenShareOfPageImage(page: Page, pdf: Uint8Array): Promise<number> {
+	const doc = await PDFDocument.load(pdf, { updateMetadata: false });
+	const xobjects = doc.getPage(0).node.Resources()?.lookup(PDFName.of('XObject'), PDFDict);
+	let best = 0;
+	let seen = 0;
+	for (const [, ref] of xobjects?.entries() ?? []) {
+		const img = doc.context.lookup(ref);
+		if (!(img instanceof PDFRawStream) || img.dict.get(PDFName.of('Subtype')) !== PDFName.of('Image')) continue;
+		seen++;
+		const w = Number(img.dict.get(PDFName.of('Width'))?.toString());
+		const h = Number(img.dict.get(PDFName.of('Height'))?.toString());
+		const filter = img.dict.get(PDFName.of('Filter'))?.toString() ?? '';
+		if (filter === '/DCTDecode') {
+			best = Math.max(best, await greenShare(page, Buffer.from(img.getContents())));
+			continue;
+		}
+		expect(filter, 'a page picture is plain Flate RGB or JPEG').toBe('/FlateDecode');
+		const raw = inflateSync(img.getContents());
+		expect(raw.length, 'RGB, 8 bits, no predictor').toBe(w * h * 3);
+		let n = 0;
+		for (let i = 0; i < raw.length; i += 3) if (Math.abs(raw[i] - 16) < 40 && Math.abs(raw[i + 1] - 160) < 40 && Math.abs(raw[i + 2] - 90) < 40) n++;
+		best = Math.max(best, n / (w * h));
+	}
+	expect(seen, 'page 1 carries a picture').toBeGreaterThan(0);
+	return best;
+}
+
 async function setUp(page: Page) {
 	await gotoStudio(page);
 	await page.setViewportSize({ width: 1440, height: 900 });
@@ -129,12 +158,10 @@ onEveryEngine('@smoke the PDF export draws the photo on the page, and does not r
 	expect(doc.getPageCount()).toBe(1);
 	// Anchor first: "no warning" passes on a page with no toast at all, so wait for the export's own toast.
 	await expect(page.locator('[data-sonner-toast]').filter({ hasText: /PDF ready/ }).first()).toBeVisible({ timeout: 60_000 });
-	await expect(page.locator('[data-sonner-toast]')).not.toContainText(/could not load every image/i);
-	// Rasterize page 1 with poppler and look for the photo's color: the page, not the file's plumbing.
-	const dir = mkdtempSync(join(tmpdir(), 'lib-img-pdf-'));
-	execFileSync('pdftoppm', ['-png', '-r', '48', '-f', '1', '-l', '1', path, join(dir, 'p')]);
-	const png = readFileSync(execFileSync('sh', ['-c', `ls ${dir}/p*.png | head -1`]).toString().trim());
-	expect(await greenShare(page, png), 'the photo is painted on the PDF page').toBeGreaterThan(0.02);
+	await expect(page.locator('[data-sonner-toast]').filter({ hasText: /could not load every image/i })).toHaveCount(0);
+	// The page is one raster of the slide (an image-per-page PDF), so the page's own image is what a viewer shows.
+	// Read it from the file rather than shelling out to poppler, which the per-PR `studio-smoke` job does not install.
+	expect(await greenShareOfPageImage(page, new Uint8Array(readFileSync(path))), 'the photo is painted on the PDF page').toBeGreaterThan(0.02);
 });
 
 // NOT on WebKit: its PowerPoint raster capture drops EVERY picture today, a repo sample image included, and
@@ -198,7 +225,7 @@ onEveryEngine('@smoke a Markdown export of a deck that names a photo carries the
 	const png = await zip.file('photos/export-probe.png')!.async('nodebuffer');
 	expect(await greenShare(page, png), 'the carried photo is the probe').toBeGreaterThan(0.9);
 	await expect(page.locator('[data-sonner-toast]').filter({ hasText: /Markdown ready/ }).first()).toBeVisible({ timeout: 30_000 });
-	await expect(page.locator('[data-sonner-toast]')).not.toContainText(/stand-in|not inside/i);
+	await expect(page.locator('[data-sonner-toast]').filter({ hasText: /stand-in|not inside/i })).toHaveCount(0);
 });
 
 // The Marp bundle already has an photos/ folder for Lattice's sample art; the photo goes in the same one.
@@ -226,7 +253,7 @@ onEveryEngine('@smoke a .lattice carries the photo, and a fresh browser profile 
 	expect(Object.keys(zip.files), 'the photo rides inside the file').toEqual(expect.arrayContaining(['media.json', 'media/export-probe.png']));
 	// Anchor on the export's own toast, then say what must be absent: no stand-in warning when every photo went in.
 	await expect(page.locator('[data-sonner-toast]').filter({ hasText: /Lattice project ready/ }).first()).toBeVisible({ timeout: 30_000 });
-	await expect(page.locator('[data-sonner-toast]')).not.toContainText(/stand-in|not inside this file/i);
+	await expect(page.locator('[data-sonner-toast]').filter({ hasText: /stand-in|not inside this file/i })).toHaveCount(0);
 
 	const other = await browser.newContext({ baseURL: new URL(page.url()).origin, acceptDownloads: true });
 	try {
@@ -267,7 +294,7 @@ onEveryEngine('@smoke a re-openable PDF carries the photo, and a fresh browser p
 	await dialog.getByRole('button', { name: /^Download PDF/ }).click();
 	const path = (await (await pending).path()) as string;
 	await expect(page.locator('[data-sonner-toast]').filter({ hasText: /PDF ready/ }).first()).toBeVisible({ timeout: 60_000 });
-	await expect(page.locator('[data-sonner-toast]')).not.toContainText(/not inside the re-openable copy/i);
+	await expect(page.locator('[data-sonner-toast]').filter({ hasText: /not inside the re-openable copy/i })).toHaveCount(0);
 
 	const other = await browser.newContext({ baseURL: new URL(page.url()).origin, acceptDownloads: true });
 	try {
