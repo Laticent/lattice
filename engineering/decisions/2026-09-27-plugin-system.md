@@ -1778,8 +1778,7 @@ slide's own container unit, so a 16:9 figure fits the stage and a wide one still
 square in `size` `sm|md|lg|xl` (the avatar scale; name in its title and accessible name). For a figure, the
 proportions of the plugin's last DRAWN output (`aspectOfOutput`: the first `<svg>`'s `viewBox` or `width`/`height`,
 reduced, 1 to 999), remembered in this browser by the code's digest (`lattice-plugin-aspects`, bounded at 200, never
-in a deck or a backup), override the declared `aspect`. `placeholderHint` reduces every value at each hop (import,
-store, door), so an attribute or a style never holds anything but a known placement, a `W/H` ratio or a size.
+in a deck or a backup), override the declared `aspect`. `placeholderHint` reduces every value at import and again where the markup is made, so an attribute or a style never holds anything but a known placement, a `W/H` ratio or a size.
 Seen in the real Studio with five plugins (two chips, a wide and a default figure, a stage). A `stage` placeholder
 shows only on a slide the door draws on: a `diagram` slide is rebuilt by a shipped pass, so a fence there stays code.
 A `chip` is still a block (a fence is block syntax); inline syntax such as `!{Ada Okafor}` is a parser rule and not a

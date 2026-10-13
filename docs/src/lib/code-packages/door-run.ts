@@ -226,7 +226,8 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 			// Not in the deck's `plugins:`: nothing runs, and a drawn placeholder stands where the block is.
 			// The plugin's declared placement; for a figure, the proportions it last DREW at win over the declared ones.
 			const hint = placeholderHint(p.placeholder);
-			sections.set(key, fencePlaceholder(p.name, hint.placement === 'figure' ? { ...hint, aspect: rememberedAspect(p.sha256) ?? hint.aspect } : hint));
+			// (`fencePlaceholder` keeps an aspect only for a figure, so a remembered one cannot size a stage or a chip.)
+			sections.set(key, fencePlaceholder(p.name, { ...hint, aspect: rememberedAspect(p.sha256) ?? hint.aspect }));
 			unlisted.add(p.name);
 			continue;
 		}
