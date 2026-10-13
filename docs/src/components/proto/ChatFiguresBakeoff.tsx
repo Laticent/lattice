@@ -54,9 +54,12 @@ type Baked = { html: string; css: string; img?: string };
 
 export default function ChatFiguresBakeoff({ options }: { options: SingleSlideOptions }) {
 	const q = React.useMemo(() => new URLSearchParams(location.search), []);
-	const strategy = (q.get('strategy') as Strategy) || 'eager';
-	const kind = (q.get('kind') as Kind) || 'mermaid';
-	const n = Number(q.get('n') || 10);
+	// Query values are checked against fixed lists before they pick a function or a branch: an
+	// arbitrary `?kind=` must never name a property to call.
+	const pick = <T extends string>(v: string | null, allowed: readonly T[], fallback: T): T => allowed.find((a) => a === v) ?? fallback;
+	const strategy = pick(q.get('strategy'), ['eager', 'pool', 'bake', 'bake-img'] as const, 'eager');
+	const kind = pick(q.get('kind'), ['mermaid', 'math', 'plot', 'slide'] as const, 'mermaid');
+	const n = Math.min(200, Math.max(0, Math.floor(Number(q.get('n') || 10)) || 0));
 	const scrollRef = React.useRef<HTMLDivElement>(null);
 	const [baked, setBaked] = React.useState<(Baked | null)[]>(() => Array.from({ length: n }, () => null));
 	const t0 = React.useRef(performance.now());
