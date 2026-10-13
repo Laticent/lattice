@@ -17,6 +17,7 @@
 //     kernel changes only the words the author changed (axis C1), or returns null, and a null
 //     writes nothing.
 
+import { closeHistory } from 'prosemirror-history';
 import type { Mark, Node as PMNode } from 'prosemirror-model';
 import { type Command, type EditorState, Plugin, PluginKey, TextSelection, type Transaction } from 'prosemirror-state';
 import { Decoration, DecorationSet, type EditorView } from 'prosemirror-view';
@@ -127,6 +128,8 @@ export function applyPillEdit(view: EditorView, range: SpanRange, edit: PillEdit
 	const out = kernels.pill.edit(cur.text, edit);
 	if (out === null) return null;
 	if (out === cur.text) return { ...range, text: out };
+	// Close the open history group first, so a pick is its own undo step and never joins the typing before it.
+	view.dispatch(closeHistory(view.state.tr));
 	view.dispatch(view.state.tr.replaceWith(range.from, range.to, deckSchema.text(out, [code().create()])));
 	// A locked slide's guard hands the unchanged state back; say so rather than report a write.
 	const now = pillAt(view.state.doc, { from: range.from, to: range.from + out.length }, kernels);

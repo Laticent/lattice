@@ -149,6 +149,24 @@ test.describe('compose pill editor', () => {
 		await expect.poll(() => savedDeck(page)).toBe(DECK);
 	});
 
+	test('the editor has its own Undo button, which reverts the picks it made and nothing older', async ({ page }) => {
+		await openDeckInCompose(page);
+		await chip(page, 'SHIPPED').click();
+		const undo = editor(page).getByRole('button', { name: 'Undo last change' });
+		await expect(undo).toBeDisabled();
+		await editor(page).getByRole('radio', { name: 'Color 7' }).click();
+		await expect.poll(() => savedDeck(page)).toContain('`{SHIPPED, c7}`');
+		await editor(page).getByRole('radio', { name: 'Large' }).click();
+		await expect.poll(() => savedDeck(page)).toContain('`{SHIPPED, c7, lg}`');
+		await undo.click();
+		await expect.poll(() => savedDeck(page)).toContain('`{SHIPPED, c7}`');
+		await undo.click();
+		await expect.poll(() => savedDeck(page)).toBe(DECK);
+		// Nothing older than this editor's own picks can be undone from here.
+		await expect(undo).toBeDisabled();
+		await expect(editor(page)).toBeVisible();
+	});
+
 	test('Edit as text closes the editor and selects the text between the braces', async ({ page }) => {
 		await openDeckInCompose(page);
 		await chip(page, 'SHIPPED').click();

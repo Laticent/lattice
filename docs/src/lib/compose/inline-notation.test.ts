@@ -147,6 +147,23 @@ describe('applyPillEdit', () => {
 	});
 });
 
+describe('applyPillEdit and the author\'s typing', () => {
+	it('a pick made right after typing undoes alone, and leaves the typing', async () => {
+		const { history, undo, undoDepth } = await import('prosemirror-history');
+		const view = mount(DECK, [history()]);
+		const [first] = findPillSpans(view.state.doc, kernels, false);
+		view.dispatch(view.state.tr.insertText('X', 1));
+		const typed = docToDeck(view.state.doc);
+		const [pill] = findPillSpans(view.state.doc, kernels, false);
+		const depth = undoDepth(view.state);
+		applyPillEdit(view, pill, { color: 'c9' }, kernels);
+		expect(undoDepth(view.state)).toBe(depth + 1);
+		undo(view.state, view.dispatch);
+		expect(docToDeck(view.state.doc)).toBe(typed);
+		expect(first.text).toBe('{SHIPPED, c2}');
+	});
+});
+
 describe('insertPill', () => {
 	const plugin = () => inlineNotationPlugin({ getKernels: () => kernels, getDeckLiteral: () => false, isRendered: () => false, onOpenChange: () => {} });
 

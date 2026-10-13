@@ -21,7 +21,8 @@
 // Lazy: StudioShell/ComposeView load this with React.lazy, as IconGrid is, so none of it is in
 // the Studio's startup JavaScript.
 
-import { Tag } from 'lucide-react';
+import { Tag, Undo2 } from 'lucide-react';
+import { undo, undoDepth } from 'prosemirror-history';
 import type { EditorView } from 'prosemirror-view';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
@@ -103,6 +104,8 @@ export function PillPanel({
 	onEdit,
 	onEditAsText,
 	onDone,
+	canUndo,
+	onUndo,
 }: {
 	fields: PillFields;
 	kernels: InlineKernels;
@@ -111,6 +114,9 @@ export function PillPanel({
 	onEdit: (edit: PillEdit) => boolean;
 	onEditAsText: () => void;
 	onDone: () => void;
+	/** Compose has no undo on a phone: iOS's own undo only sees the browser's edits, not ProseMirror's. */
+	canUndo: boolean;
+	onUndo: () => void;
 }) {
 	const [label, setLabel] = React.useState(fields.value);
 	const [refused, setRefused] = React.useState<string | null>(null);
@@ -218,9 +224,15 @@ export function PillPanel({
 			</div>
 			</div>
 			<div className="flex shrink-0 items-center justify-between gap-2 border-t border-border pt-3">
-				<Button type="button" variant="ghost" size="sm" onClick={onEditAsText}>
-					Edit as text
-				</Button>
+				<div className="flex items-center gap-1">
+					<Button type="button" variant="ghost" size="sm" disabled={!canUndo} onClick={onUndo} aria-label="Undo last change">
+						<Undo2 aria-hidden className="size-4" />
+						Undo
+					</Button>
+					<Button type="button" variant="ghost" size="sm" onClick={onEditAsText}>
+						Edit as text
+					</Button>
+				</div>
 				<Button type="button" size="sm" onClick={onDone}>
 					Done
 				</Button>
@@ -254,6 +266,9 @@ export function PillEditorHost({
 		if (!span) onClose();
 	}, [span, onClose]);
 
+	const [, bump] = React.useReducer((n: number) => n + 1, 0);
+	// Undo here reverts only what this editor wrote: the history depth when it opened is the floor.
+	const undoFloor = React.useRef(undoDepth(view.state));
 	const rangeRef = React.useRef(range);
 	rangeRef.current = range;
 	const anchorRef = React.useRef({
@@ -282,10 +297,19 @@ export function PillEditorHost({
 	const onEdit = React.useCallback(
 		(edit: PillEdit) => {
 			// The new range reaches this component as the `range` prop, mapped by the plugin.
-			return applyPillEdit(view, rangeRef.current, edit, kernels) !== null;
+			const ok = applyPillEdit(view, rangeRef.current, edit, kernels) !== null;
+			bump();
+			return ok;
 		},
 		[view, kernels],
 	);
+
+	// The editor stays open and follows the pill (the plugin maps its range through the undo); undo
+	// does not focus the text, so a phone's keyboard does not open over the sheet.
+	const onUndo = React.useCallback(() => {
+		if (undoDepth(view.state) > undoFloor.current) undo(view.state, view.dispatch);
+		bump();
+	}, [view]);
 
 	const onEditAsText = React.useCallback(() => {
 		const r = rangeRef.current;
@@ -294,7 +318,7 @@ export function PillEditorHost({
 	}, [onClose, view]);
 
 	if (!span) return null;
-	const panel = <PillPanel fields={span.fields} kernels={kernels} slotColors={slotColors} onEdit={onEdit} onEditAsText={onEditAsText} onDone={close} />;
+	const panel = <PillPanel fields={span.fields} kernels={kernels} slotColors={slotColors} onEdit={onEdit} onEditAsText={onEditAsText} onDone={close} canUndo={undoDepth(view.state) > undoFloor.current} onUndo={onUndo} />;
 
 	if (phone) {
 		return (
