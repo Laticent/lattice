@@ -162,6 +162,24 @@ shows its file dialog and a drag-and-drop onto the Library accepts the same type
   `.txt/.md/.pdf`; nothing else is accepted, and the Images tab does not grow a "any file"
   option, because a Word file has nowhere to render.
 
+#### Format choice at intake (2026-10-13)
+
+The importer's automatic policy above is still what the chat's photo intake uses. The Library's **Add image** (picker and
+drop) now asks first (`PhotoFormatDialog.tsx`), with four choices and the size each would store for THESE files, measured by
+the import's own encoder (`media-import.ts` `measureFormats`, a sample of up to four files scaled by size for a bigger batch):
+
+| Choice | Stores | Cost |
+|---|---|---|
+| Keep original | the file's pixels and type, metadata cut (`media-scrub.ts`), no resize; HEIC and AVIF become JPEG | largest |
+| JPEG (default) | lossy q0.88, long edge at most 2560 px, transparency painted white | |
+| WebP | lossy q0.82, same cap, transparency kept; hidden where the browser cannot write WebP | about two thirds of JPEG |
+| PNG | lossless, same cap; a PNG already under the cap is kept as it is | several times JPEG for a photograph |
+
+PNG is offered but not recommended for photographs: on a photo-like test image PNG was 5.1 MB at 1920 px and 8.3 MB at 2560 px
+against 0.9 and 1.3 MB for JPEG (synthetic proxy, `python3` + PIL; no real photos were reachable). The last choice is remembered.
+Each option's one-line meaning is on the dialog, since the choice decides what the photo can do later (a `.lattice` carries
+128 MB of photos, `MAX_LATTICE_MEDIA_BYTES`).
+
 ### 4. Quotas and limits
 
 Numbers below are **proposals**, to be confirmed or changed by the owner; none are measured

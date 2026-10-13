@@ -26,6 +26,15 @@ async function addPng(page: Page, name: string, size: { w: number; h: number; co
 			const input = document.querySelector('input[type="file"][accept*="image"]') as HTMLInputElement;
 			input.files = dt.files;
 			input.dispatchEvent(new Event('change', { bubbles: true }));
+			// The format dialog asks how to store them; the probes take its default.
+			for (let i = 0; i < 200; i++) {
+				const b = [...document.querySelectorAll('[role="dialog"] button')].find((x) => x.textContent?.trim() === 'Add photos') as HTMLButtonElement | undefined;
+				if (b) {
+					b.click();
+					break;
+				}
+				await new Promise((r) => setTimeout(r, 50));
+			}
 		},
 		{ fileName: name, w: size.w, h: size.h, color: size.color ?? '#10a05a' },
 	);
