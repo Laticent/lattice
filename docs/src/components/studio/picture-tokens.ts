@@ -36,12 +36,13 @@ export async function boundedCatalog(model: PictureModel, ms = 4000): Promise<Ca
 
 /** Tokens one picture costs on the model in use. A `~anthropic/claude-sonnet-latest` style alias is not a model the
  *  table measured; the catalog says which model it points at today (`alias_target.slug`), and that one is looked up.
- *  A catalog that cannot be had in time, or that predates the field, falls back to the alias id itself: the default. */
-export async function resolvePictureTokens(model: PictureModel): Promise<PictureTokens> {
+ *  A catalog that cannot be had in time, or that predates the field, falls back to the alias id itself: the default.
+ *  A caller that already holds the catalog passes it, so one turn waits for it once. */
+export async function resolvePictureTokens(model: PictureModel, catalog?: CatalogModel[]): Promise<PictureTokens> {
 	const id = model.openRouterModel?.();
 	if (!id) return DEFAULT;
 	if (!id.startsWith('~')) return pictureTokensFor(id);
-	const hit = (await boundedCatalog(model)).find((m) => m.id === id);
+	const hit = (catalog ?? (await boundedCatalog(model))).find((m) => m.id === id);
 	return pictureTokensFor(hit?.aliasSlug ?? id);
 }
 

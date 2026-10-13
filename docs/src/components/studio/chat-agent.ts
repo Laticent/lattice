@@ -105,10 +105,10 @@ export function agentSystemParts(source: string, grounding?: ChatGrounding, fact
 
 /** Can the selected OpenRouter model read images? From the model catalog, which the picker has
  *  already fetched; unknown reads as no, so the agent never promises a look it cannot take. */
-async function modelSeesImages(model: ArchitectModel): Promise<boolean> {
+function modelSeesImages(model: ArchitectModel, catalog: { id: string; vision?: boolean }[]): boolean {
 	try {
 		const id = model.openRouterModel();
-		return !!(await boundedCatalog(model)).find((m) => m.id === id)?.vision;
+		return !!catalog.find((m) => m.id === id)?.vision;
 	} catch {
 		return false;
 	}
@@ -128,17 +128,18 @@ function budgetText(m: { content?: unknown; tool_calls?: unknown }): { text: str
 export async function chatAgent(model: ArchitectModel, history: ChatTurn[], source: string, docs: ReferenceDoc[] | undefined, opts: ChatOptions | undefined): Promise<ChatResult | null> {
 	const grounding = opts?.grounding;
 	const last = history[history.length - 1];
-	// The price the budget gate compares against comes from the model catalog. A connected model fetches it when it is created (architect-model.js),
-	// so this normally finds it loaded; if the turn still beats it (a slow network, a fresh profile), wait for it, at most 4 s, because with no price
-	// the gate has nothing to compare and lets the turn through past a hard-stop cap. A failed or late catalog is the old behavior.
-	if (!model.openRouterModelPrice?.()) await boundedCatalog(model);
+	// The model catalog, read at most once a turn and only when something needs it (the vision check, an alias lookup). It is fetched when a model
+	// connects (architect-model.js), so this normally finds it loaded; the wait is bounded (4 s) so a stalled fetch cannot hold the turn. The budget
+	// gate waits for the price itself (cloudBudgetBlock), in stop mode with a cap.
+	let catalogOnce: ReturnType<typeof boundedCatalog> | null = null;
+	const catalog = () => (catalogOnce ??= boundedCatalog(model));
 	// The Library is read once per turn. A failed read is an empty Library, never a failed turn.
 	// One instance per turn: it reads the shelf (every photo's bytes) once and serves list, thumbnails and
 	// captions from that read, instead of one full read per call.
 	const agentAssets = createAgentAssets();
 	const library = await agentAssets.list().catch(() => []);
 	// Asked only when there is something to look at: a model that cannot read images is not nudged to try.
-	const sees = library.length ? await modelSeesImages(model) : false;
+	const sees = library.length ? await modelSeesImages(model, await catalog()) : false;
 	const { staticPrefix, dynamicTail } = agentSystemParts(source, grounding, opts?.constrainFacts ? FACT_GUARD : '', assetManifest(library, undefined, sees));
 	const systemContent = [
 		{ type: 'text', text: staticPrefix },
@@ -199,7 +200,7 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 		// The author's photos ride the last user message and are re-sent every round; every other picture is a view_asset thumbnail.
 		// A model that lists its own image price may charge more than the token figure at the prompt rate; the gap rides as dollars.
 		const pictureCount = priced.reduce((n, p) => n + p.images, 0);
-		if (pictureCount && !pictureCost) pictureCost = resolvePictureTokens(model);
+		if (pictureCount && !pictureCost) pictureCost = catalog().then((c) => resolvePictureTokens(model, c));
 		const { tokens: pictureTokens, usd: pictureUsd } = pictureCount && pictureCost ? priceRound(await pictureCost, model.openRouterModelPrice?.() ?? null, pictureCount, photos.length) : { tokens: 0, usd: 0 };
 		roundPictureTokens = pictureTokens;
 		roundPictureUsd = pictureUsd;
@@ -207,7 +208,7 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 		streamed = '';
 		genId = null;
 		roundPrompt = convo;
-		const blk = cloudBudgetBlock(model, convo, systemTokens + docTokens + pictureTokens + attachedTokens, CHAT_MAX_TOKENS, pictureUsd);
+		const blk = await cloudBudgetBlock(model, convo, systemTokens + docTokens + pictureTokens + attachedTokens, CHAT_MAX_TOKENS, pictureUsd);
 		if (blk) {
 			blockedNote = blk;
 			const e = new Error(blk);

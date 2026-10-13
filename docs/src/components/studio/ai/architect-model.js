@@ -245,6 +245,7 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
   const referer = () => (typeof location !== 'undefined' ? location.origin : 'https://lattice.dev');
   let catalogCache = readCachedCatalog(); // id→{name,…} catalog; seeded from the TTL localStorage cache so price/name survive a reload
   let catalogInflight = null; // the one catalog fetch in progress: concurrent callers (chat, picker, alias lookup) share it instead of each fetching
+  let catalogGen = 0; // bumped when the cache is invalidated: a fetch that started before must not write its stale answer back
   return {
     name: 'openrouter',
     ready() { return !!readLS(OR_KEY_LS); },
@@ -256,7 +257,7 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
     keySettingsUrl() { return OPENROUTER_KEYS_SETTINGS_URL; },
     setModel(id) { writeLS(OR_MODEL_LS, id || null); },
     keySnapshot() { return readLS(OR_KEY_LS); }, // for the Disconnect Undo (restore without re-OAuth)
-    restore(key) { writeLS(OR_KEY_LS, key || null); },
+    restore(key) { writeLS(OR_KEY_LS, key || null); if (key) this.listModels().catch(() => {}); },
     // This key's account readout: usage (always) + limit/remaining (when a per-key
     // limit is set). Best-effort, client-side, the user's own key — null on failure
     // so the UI just hides the strip. Pay-as-you-go keys report a null limit.
@@ -354,6 +355,8 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
       if (!j.key) throw new Error('OpenRouter returned no key');
       writeLS(OR_KEY_LS, j.key);
       writeLS(OR_VERIFIER_LS, null);
+      // A key was just written, so something can spend now: have the price list before it does (see the prefetch at model creation).
+      this.listModels().catch(() => {});
       return true;
     },
     // The model catalog with pricing normalized to per-MILLION tokens (the API
@@ -369,8 +372,10 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
       if (catalogCache) return catalogCache;
       const cached = readCachedCatalog();
       if (cached) { catalogCache = cached; return cached; }
+      const gen = catalogGen;
       let res;
-      try { res = await fetch(OPENROUTER_MODELS_URL); }
+      // A fetch that never answers would pin every caller to this one in-flight promise, so it is abandoned after 15 s (the next call tries again).
+      try { res = await fetch(OPENROUTER_MODELS_URL, typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? { signal: AbortSignal.timeout(15000) } : undefined); }
       catch (e) { if (catalogCache) return catalogCache; throw e; } // serve stale rather than break the picker
       if (!res.ok) {
         if (catalogCache) return catalogCache;
@@ -392,6 +397,8 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
         // The model a `~…-latest` alias currently points at (OpenRouter's `alias_target.slug`); null for a plain id, and absent on a catalog cached before this field.
         aliasSlug: m.alias_target?.slug || null,
       }));
+      // The cache was invalidated while this fetch was out: hand back what it got, but leave the cache for the refetch the invalidation asked for.
+      if (gen !== catalogGen) { const stale = catalogCache; catalogCache = null; return stale; }
       writeCachedCatalog(catalogCache);
       return catalogCache;
     },
@@ -460,6 +467,8 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
         // another model") instead of healing silently. Callers without tools still heal here.
         if (isDeadModelError(res.status, errText) && body.model !== defaultModel && !body.tools) {
           catalogCache = null;
+          catalogGen++;
+          catalogInflight = null;
           writeLS(OR_CATALOG_LS, null);
           res = await send(defaultModel);
         }

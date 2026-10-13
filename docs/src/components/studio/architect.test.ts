@@ -1,4 +1,4 @@
-import { afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { deckCanon } from '@/playground/authoring-core.generated.js';
 import { agentTurnUsd, applyDeckEdit, applyProposedEditsChecked, architectModel, architectSpend, buildChatSystem, CHAT_MAX_TOKENS, CHAT_OUTPUT_EST, chatSystemTokens, cloudBudgetBlock, deckSystem, estimateUsd, generateComponent, generateTheme, loadChatAgent, normalizeGeneration, refineComponent, refineSelection, requestFindingFix, runArchitect, setBudget, withStudioVoice } from './architect';
 import { suggestFor } from './Editor';
@@ -233,13 +233,60 @@ describe('cloudBudgetBlock — a picture on a model with its own image price', (
 		try {
 			const price = { promptPerM: 3, imagePerM: 9 };
 			// Before: only the flat tokens were charged, $0.012 < the $0.02 cap, so the round went through.
-			expect(cloudBudgetBlock(modelAt(null), '', flatTokens, 0)).toBeNull();
-			expect(cloudBudgetBlock(modelAt(9), '', flatTokens, 0)).toBeNull();
+			expect(await cloudBudgetBlock(modelAt(null), '', flatTokens, 0)).toBeNull();
+			expect(await cloudBudgetBlock(modelAt(9), '', flatTokens, 0)).toBeNull();
 			// After: the model's own rate is charged, $0.036 > the cap, so the gate stops it.
-			expect(cloudBudgetBlock(modelAt(9), '', flatTokens, 0, pictureSurchargeUsd(price, [{ count: 5, tokens: 800 }]))).toMatch(/exceed your \$0\.02 cap/);
+			expect(await cloudBudgetBlock(modelAt(9), '', flatTokens, 0, pictureSurchargeUsd(price, [{ count: 5, tokens: 800 }]))).toMatch(/exceed your \$0\.02 cap/);
 			// A model with no image price is unchanged by the new argument.
-			expect(cloudBudgetBlock(modelAt(null), '', flatTokens, 0, pictureSurchargeUsd({ promptPerM: 3, imagePerM: null }, [{ count: 5, tokens: 800 }]))).toBeNull();
+			expect(await cloudBudgetBlock(modelAt(null), '', flatTokens, 0, pictureSurchargeUsd({ promptPerM: 3, imagePerM: null }, [{ count: 5, tokens: 800 }]))).toBeNull();
 		} finally {
+			setBudget(null, 'alert');
+		}
+	});
+});
+
+describe('cloudBudgetBlock — a price that has not loaded yet', () => {
+	// The price comes from the model catalog, which loads on demand. With none the cap has nothing to hold a call to.
+	const lateModel = (listed: () => Promise<unknown>) => {
+		let loaded = false;
+		return {
+			openRouterModelPrice: () => (loaded ? { promptPerM: 10, completionPerM: 0 } : null),
+			listOpenRouterModels: async () => {
+				const r = await listed();
+				loaded = true;
+				return r;
+			},
+		} as unknown as Parameters<typeof cloudBudgetBlock>[0];
+	};
+	it('waits for the catalog, then holds the call to the cap (the Coach Fix, refine and generate all go through here)', async () => {
+		setBudget(0.001, 'stop');
+		try {
+			expect(await cloudBudgetBlock(lateModel(async () => []), 'x'.repeat(40_000), 0, 0)).toMatch(/exceed your \$0\.00 cap/);
+		} finally {
+			setBudget(null, 'alert');
+		}
+	});
+	it('does not wait when nothing could use the price: no cap, or alert mode', async () => {
+		let asked = 0;
+		const model = { openRouterModelPrice: () => null, listOpenRouterModels: async () => { asked++; return []; } } as unknown as Parameters<typeof cloudBudgetBlock>[0];
+		setBudget(null, 'alert');
+		expect(await cloudBudgetBlock(model, 'hello')).toBeNull();
+		setBudget(5, 'alert');
+		expect(await cloudBudgetBlock(model, 'hello')).toBeNull();
+		setBudget(null, 'alert');
+		expect(asked).toBe(0);
+	});
+	it('gives up after 4 s on a catalog that never arrives, and lets the call through as before', async () => {
+		vi.useFakeTimers();
+		setBudget(0.001, 'stop');
+		try {
+			const model = { openRouterModelPrice: () => null, listOpenRouterModels: () => new Promise(() => {}) } as unknown as Parameters<typeof cloudBudgetBlock>[0];
+			const p = cloudBudgetBlock(model, 'x'.repeat(40_000), 0, 0);
+			await vi.advanceTimersByTimeAsync(4100);
+			expect(await p).toBeNull();
+			expect(vi.getTimerCount()).toBe(0);
+		} finally {
+			vi.useRealTimers();
 			setBudget(null, 'alert');
 		}
 	});

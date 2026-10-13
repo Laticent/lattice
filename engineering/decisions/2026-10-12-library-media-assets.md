@@ -468,17 +468,23 @@ governs Anthropic's breakpoint (`ArchitectChat.tsx`). The readout's cache rates 
 vendor; they overstate a cold Google or OpenAI turn and are untouched here.
 
 **The price must be known before the first spend.** The budget gate compares an estimate against the cap, and the estimate needs the
-model's price from the catalog, which loaded only when something asked for it (the Workspace model tab, an alias lookup). On a fresh
-browser profile nothing had, so the first chat turn, and the Coach's Fix and the refine and generate actions on any profile that
-had not opened the model tab, skipped the gate and ran past a hard-stop cap (13 call sites of `cloudBudgetBlock`; an unknown price is `null`
-and `estimateUsd` returns `null`). Now `createArchitectModel` starts the catalog fetch when a key is present, so it is normally loaded
-before anything can spend; concurrent callers share one in-flight fetch (`listModels` memoizes it); and the chat agent, if the turn still
-beats it, waits for it with `boundedCatalog` (at most 4 seconds, timer cleared, a failure reads as an empty catalog) before its first
-budget check. The wait applies to the vision check and the alias lookup too, so no catalog read can hold a turn. A user in alert mode or
-with no cap can wait up to the same 4 seconds on a slow first fetch for a price nothing will compare; accepted, because the alias lookup
-and the readout want the same catalog. Verified on the real Studio (fresh profile, the real key, a $0.0001 stop-mode cap,
-`~anthropic/claude-haiku-latest`, the final head's code): no request left the page and the chat said "Estimated ~$0.01 — that would
-exceed your $0.00 cap"; the same setup before the change sent it.
+model's price from the catalog, which loaded only when something asked for it (the Workspace model tab, an alias lookup). With no price
+`openRouterModelPrice()` is `null`, `estimateUsd` returns `null`, and the call goes through: on a fresh browser profile the first chat turn,
+and the Coach's Fix and the refine and generate actions on any profile that had not opened the model tab, ran past a hard-stop cap (13
+call sites of `cloudBudgetBlock`). Three changes close it, each pinned by a test that fails without it:
+- `cloudBudgetBlock` is async and, in stop mode with a cap and no price, waits for the catalog (at most 4 seconds, timer cleared) before it
+  compares. Every spending action goes through it. It does not wait in alert mode or with no cap, where nothing could use the price.
+- The catalog is fetched as soon as a key exists: when a connected model is created, and when a key is written during the session (the OAuth
+  return, Undo after Disconnect), so it is normally loaded before anything can spend. Concurrent callers share one in-flight fetch
+  (`listModels` memoizes it), a fetch that never answers is abandoned after 15 seconds so the next call can try again, and a fetch that
+  started before the self-heal invalidated the cache cannot write its stale answer back.
+- The chat reads the catalog at most once a turn (`boundedCatalog`, 4 seconds, failure reads as empty) and only when the vision check or an
+  alias lookup needs it. On a hung network a turn with photos, an alias model and a cap can still wait about 8 seconds once (the catalog
+  read, then the gate's own wait) before the fetch aborts at 15.
+A call that starts in the first moments after a key is written, before the fetch returns, waits for it in the gate. Verified on the real
+Studio (the final build, a fresh profile, the real key, a $0.0001 stop-mode cap, `~anthropic/claude-haiku-latest`): no request left the page,
+the chat said "Estimated ~$0.01 — that would exceed your $0.00 cap", and the page made exactly one catalog request; the same setup before
+the change sent the chat request. The Coach's Fix, refine and generate are verified in unit tests against the real gate, not driven on a real Studio.
 
 **Real Studio, final build, one turn each (2026-10-13).** A Library photo, the agent calling `view_asset` then `caption_asset`.
 `google/gemini-2.5-flash-lite`: no request carried `cache_control`, prompt tokens read 7,554 / 8,949 / 8,989 (not doubled), three

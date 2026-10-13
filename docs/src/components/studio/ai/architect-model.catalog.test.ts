@@ -63,4 +63,46 @@ describe('the OpenRouter model catalog', () => {
 		await expect(m.listOpenRouterModels()).rejects.toThrow('offline');
 		expect(await m.listOpenRouterModels()).toHaveLength(1);
 	});
+
+	it('is fetched when a key is written during the session (OAuth return, Undo after Disconnect), not only when one was stored at load', async () => {
+		const calls: string[] = [];
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async (url: unknown) => {
+				calls.push(String(url));
+				if (String(url).includes('/auth/keys')) return new Response(JSON.stringify({ key: 'sk-new' }), { status: 200 });
+				return new Response(JSON.stringify(CATALOG), { status: 200 });
+			}),
+		);
+		localStorage.setItem('lattice-db-or-model', 'anthropic/claude-sonnet-5.5');
+		localStorage.setItem('lattice-db-or-verifier', 'v');
+		const m = createArchitectModel({ getSettings: () => ({}) }) as unknown as { resumeOpenRouterAuth: (c: string) => Promise<boolean>; restoreOpenRouter: (k: string) => void; openRouterModelPrice: () => unknown };
+		expect(calls.filter((u) => u.includes('/models'))).toHaveLength(0); // no key at creation: nothing fetched
+		await m.resumeOpenRouterAuth('code');
+		await vi.waitFor(() => expect(m.openRouterModelPrice()).not.toBeNull());
+		expect(calls.filter((u) => u.includes('/models'))).toHaveLength(1);
+	});
+
+	it('abandons a catalog fetch that never answers, so the next call can try again', async () => {
+		let n = 0;
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async (_url: unknown, init?: { signal?: AbortSignal }) => {
+				n++;
+				if (n === 1) return new Promise((_r, rej) => init?.signal?.addEventListener('abort', () => rej(new Error('aborted'))));
+				return new Response(JSON.stringify(CATALOG), { status: 200 });
+			}),
+		);
+		vi.useFakeTimers();
+		try {
+			const m = createArchitectModel({ getSettings: () => ({}) }) as unknown as { listOpenRouterModels: () => Promise<unknown[]> };
+			const first = m.listOpenRouterModels();
+			const settled = expect(first).rejects.toThrow('aborted');
+			await vi.advanceTimersByTimeAsync(15_100);
+			await settled;
+			expect(await m.listOpenRouterModels()).toHaveLength(1);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
 });

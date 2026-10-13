@@ -359,7 +359,7 @@ export async function runArchitect(source: string, instruction: string, docs?: R
 	// Respect the budget on the paid cloud tier — blocks when over, and (hard-stop mode)
 	// refuses a call whose estimate would breach the cap. Local tiers are free.
 	if (generation === 'openrouter') {
-		const blk = cloudBudgetBlock(model, `${instruction}\n${source}`, refDocsTokens(docs));
+		const blk = await cloudBudgetBlock(model, `${instruction}\n${source}`, refDocsTokens(docs));
 		if (blk) return { status: 'blocked', note: blk };
 	}
 	// Ground in the user's reference doc (#640) — e.g. "rewrite this in the style of
@@ -416,7 +416,7 @@ export async function refineSelection(action: RefineActionId, text: string, deck
 	const generation = model.availability().generation;
 	if (generation === 'floor') return { status: 'offline' };
 	if (generation === 'openrouter') {
-		const blk = cloudBudgetBlock(model, text);
+		const blk = await cloudBudgetBlock(model, text);
 		if (blk) return { status: 'blocked', note: blk };
 	}
 	let out = '';
@@ -478,7 +478,7 @@ export async function generateDescription(slideSource: string, deckLang?: string
 	// Accuracy matters (a wrong alt is worse than none), so require the cloud tier —
 	// the deterministic floor and tiny on-device model are not trusted to describe.
 	if (generation !== 'openrouter') return { status: 'offline' };
-	const blk = cloudBudgetBlock(model, slideSource);
+	const blk = await cloudBudgetBlock(model, slideSource);
 	if (blk) return { status: 'blocked', note: blk };
 	let out = '';
 	try {
@@ -542,7 +542,7 @@ export async function generateTheme(current: ThemeEssentials, prompt: string, do
 	const generation = model.availability().generation;
 	if (generation === 'floor') return { status: 'offline' };
 	if (generation === 'openrouter') {
-		const blk = cloudBudgetBlock(model, prompt, refDocsTokens(docs));
+		const blk = await cloudBudgetBlock(model, prompt, refDocsTokens(docs));
 		if (blk) return { status: 'blocked', note: blk };
 	}
 	const tc = await loadThemeCore();
@@ -633,7 +633,7 @@ export async function generateFinish(prompt: string): Promise<FinishGenOutcome> 
 	const generation = model.availability().generation;
 	if (generation === 'floor') return { status: 'offline' };
 	if (generation === 'openrouter') {
-		const blk = cloudBudgetBlock(model, prompt);
+		const blk = await cloudBudgetBlock(model, prompt);
 		if (blk) return { status: 'blocked', note: blk };
 	}
 	let reply = '';
@@ -705,7 +705,7 @@ export async function generateDrawing(prompt: string): Promise<DrawingGenOutcome
 	const generation = model.availability().generation;
 	if (generation === 'floor') return { status: 'offline' };
 	if (generation === 'openrouter') {
-		const blk = cloudBudgetBlock(model, prompt);
+		const blk = await cloudBudgetBlock(model, prompt);
 		if (blk) return { status: 'blocked', note: blk };
 	}
 	let reply = '';
@@ -921,7 +921,7 @@ async function repairToClean(
 	let refined = 0;
 	for (let pass = 1; pass <= MAX_REPAIR_PASSES && errorCount > 0; pass++) {
 		if (generation === 'openrouter') {
-			const blk = cloudBudgetBlock(model, JSON.stringify(draft));
+			const blk = await cloudBudgetBlock(model, JSON.stringify(draft));
 			if (blk) break; // out of budget → keep the best draft so far
 		}
 		onRefining?.(pass, errorCount);
@@ -978,7 +978,7 @@ async function improveDesign(
 	let improved = 0;
 	for (let round = 1; round <= rounds; round++) {
 		if (generation === 'openrouter') {
-			const blk = cloudBudgetBlock(model, JSON.stringify(best.draft));
+			const blk = await cloudBudgetBlock(model, JSON.stringify(best.draft));
 			if (blk) break; // out of budget → keep the best so far
 		}
 		onImproving?.(round, rounds);
@@ -1061,7 +1061,7 @@ export async function generateComponent(
 	const generation = model.availability().generation;
 	if (generation === 'floor') return { status: 'offline' };
 	if (generation === 'openrouter') {
-		const blk = cloudBudgetBlock(model, prompt, refDocsTokens(docs));
+		const blk = await cloudBudgetBlock(model, prompt, refDocsTokens(docs));
 		if (blk) return { status: 'blocked', note: blk };
 	}
 	// Dedup-first (§5/§8): unless the author turned it off, rank the request against
@@ -1164,7 +1164,7 @@ export async function refineComponent(
 	const generation = model.availability().generation;
 	if (generation === 'floor') return { status: 'offline' };
 	if (generation === 'openrouter') {
-		const blk = cloudBudgetBlock(model, `${instruction}\n${JSON.stringify(current)}`);
+		const blk = await cloudBudgetBlock(model, `${instruction}\n${JSON.stringify(current)}`);
 		if (blk) return { status: 'blocked', note: blk };
 	}
 	opts?.onStatus?.({ phase: 'generating' });
@@ -1226,7 +1226,7 @@ export async function requestFindingFix(source: string, finding: Finding, catalo
 	const generation = model.availability().generation;
 	if (generation === 'floor') return { status: 'offline' };
 	if (generation === 'openrouter') {
-		const blk = cloudBudgetBlock(model, source);
+		const blk = await cloudBudgetBlock(model, source);
 		if (blk) return { status: 'blocked', note: blk };
 	}
 	try {
@@ -1464,7 +1464,7 @@ export async function chatComplete(history: ChatTurn[], source: string, docs?: R
 			const { priceRound, resolvePictureTokens } = await import('./picture-tokens');
 			({ tokens: photoTokens, usd: photoUsd } = priceRound(await resolvePictureTokens(model), model.openRouterModelPrice?.() ?? null, nPhotos, nPhotos));
 		}
-		const blk = cloudBudgetBlock(model, `${last?.content ?? ''}\n${source}`, refDocsTokens(docs) + systemTokens + photoTokens + (opts?.videos?.length ?? 0) * 4500, CHAT_MAX_TOKENS, photoUsd);
+		const blk = await cloudBudgetBlock(model, `${last?.content ?? ''}\n${source}`, refDocsTokens(docs) + systemTokens + photoTokens + (opts?.videos?.length ?? 0) * 4500, CHAT_MAX_TOKENS, photoUsd);
 		if (blk) return { status: 'blocked', reply: blk };
 	}
 	// Ground the final user turn in the reference doc (#640).
@@ -1750,14 +1750,22 @@ export function estimateUsd(promptText: string, price: ORPrice | null, maxOut = 
 // The cloud budget gate, shared by every architect action: blocks when already over
 // the cap/balance, AND — in hard-stop mode — refuses a call whose ESTIMATE would
 // breach the self-cap, so a single large request can't overshoot. Returns a note, or null.
-export function cloudBudgetBlock(model: ArchitectModel, promptText: string, extraTokens = 0, maxOut = CHAT_OUTPUT_EST, extraUsd = 0): string | null {
+export async function cloudBudgetBlock(model: ArchitectModel, promptText: string, extraTokens = 0, maxOut = CHAT_OUTPUT_EST, extraUsd = 0): Promise<string | null> {
 	const s = architectSpend();
 	if (s.status.blocked) return 'Budget cap reached — raise it in Workspace → Spend, or switch tier.';
 	if (s.mode === 'stop' && s.cap > 0) {
 		// The hard stop prices THIS call's ceiling — its job is to refuse a call that could
 		// overshoot, so it assumes the reply runs to the end. `maxOut` defaults to the shared
 		// ceiling; only the chat, which lifts its own, passes the larger figure.
-		const est = estimateUsd(promptText, model.openRouterModelPrice?.() ?? null, maxOut, extraTokens, extraUsd);
+		let price = model.openRouterModelPrice?.() ?? null;
+		if (!price) {
+			// The price comes from the model catalog, which loads on demand; with none the cap has nothing to hold the call to. Wait for it, at most 4 s.
+			let timer: ReturnType<typeof setTimeout> | undefined;
+			await Promise.race([Promise.resolve(model.listOpenRouterModels?.()).catch(() => undefined), new Promise((r) => (timer = setTimeout(r, 4000)))]);
+			clearTimeout(timer);
+			price = model.openRouterModelPrice?.() ?? null;
+		}
+		const est = estimateUsd(promptText, price, maxOut, extraTokens, extraUsd);
 		if (est != null && s.session + est > s.cap) {
 			return `Estimated ~$${est.toFixed(2)} — that would exceed your $${s.cap.toFixed(2)} cap. Raise it in Workspace → Spend, pick a cheaper model, or switch to On-device (free).`;
 		}
