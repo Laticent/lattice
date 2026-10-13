@@ -16,6 +16,7 @@ import {
 	mediaNameFromFile,
 	type NewMedia,
 	saveMedia,
+	setMediaCaption,
 	setMediaScope,
 	sniffImageMime,
 	visibleMedia,
@@ -229,5 +230,32 @@ describe('sniffImageMime', () => {
 		expect(sniffImageMime(b(...str('<svg xmlns')))).toBeNull();
 		expect(sniffImageMime(new Uint8Array(32))).toBeNull();
 		expect(sniffImageMime(new Uint8Array(0))).toBeNull();
+	});
+});
+
+describe('setMediaCaption', () => {
+	beforeEach(emptyShelf);
+	afterEach(emptyShelf);
+
+	it('stores a cleaned caption on an image and clears it with an empty one', async () => {
+		const rec = await saveMedia(base(), 1);
+		const saved = await setMediaCaption(rec.id, '  Two people\nat a "bench"  ');
+		expect(saved?.caption).toBe("Two people at a 'bench'");
+		expect((await listMedia())[0].caption).toBe("Two people at a 'bench'");
+		expect((await setMediaCaption(rec.id, '  '))?.caption).toBeUndefined();
+		expect((await listMedia())[0].caption).toBeUndefined();
+	});
+
+	it('leaves a video alone and reports a missing record as null', async () => {
+		const vid = await saveMedia(base({ kind: 'video', name: 'reel', mime: 'video/mp4' }), 1);
+		expect(await setMediaCaption(vid.id, 'x')).toBeNull();
+		expect(await setMediaCaption('nope', 'x')).toBeNull();
+	});
+
+	it('keeps the bytes, name and scope it did not touch', async () => {
+		const rec = await saveMedia(base({ scope: 'deck-1' }), 1);
+		await setMediaCaption(rec.id, 'A door');
+		const [after] = await listMedia();
+		expect([after.name, after.scope, after.bytes]).toEqual(['hero', 'deck-1', 1]);
 	});
 });

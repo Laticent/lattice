@@ -248,6 +248,52 @@ on that refusal retries as an `ArrayBuffer` (`data`), rebuilding the Blob on rea
 is told the browser would not store the photo and to try a normal window. A name clash is never retried.
 The first version of this had no fallback and, on WebKit, added nothing.
 
+## The chat uses the Library (added 2026-10-12)
+
+The Studio chat could not see Library photos, so "make a collage of my photos" produced placeholder
+paths. It now sees them in three layers, cheapest first. The code is `agent-assets.ts` (pure),
+`agent-assets-browser.ts` (storage and thumbnails), the tools in `architect-agent.ts`, and the wiring
+in `chat-agent.ts`.
+
+| Layer | What the model gets | Cost |
+|---|---|---|
+| The list | One line per asset in the prompt tail: name, photo or video, shape (`landscape 3:2`), scope, caption. Capped at 40 lines, then "…and N more". | About 15 tokens an asset. Nothing for an empty Library. |
+| `list_assets` | Name, shape, pixel size, bytes, scope and caption for a filtered slice (words match name, caption and shape). | Only when called. |
+| `view_asset`, then `caption_asset` | A JPEG thumbnail, 512 px on the long edge, labeled by name, for a photo with no caption. The model writes a caption of under 20 words and the store keeps it on the record (`MediaRecord.caption`). | About 800 tokens a picture, at most 6 a turn, once per photo ever. |
+
+**Decisions, and why**
+- **The list rides in the dynamic tail, not the cached prefix.** It changes whenever a photo is added or
+  captioned; the prefix must stay byte-stable (the 1-hour cache).
+- **The three tools are sent only when the Library holds something** (`ASSET_TOOLS`, separate from
+  `AGENT_TOOLS`). Tools lead the request, so adding them for everyone would change the cache key for
+  every author, including those with no photos.
+- **Pictures travel in a user message after the tool results**, because a tool result carries text only.
+  The message ends on a text part, because the rolling cache breakpoint (`withCachedTail`) marks a
+  message only when its last part is text.
+- **Seen once, then text.** A captioned photo comes back from `view_asset` as its caption, not a picture.
+  A caption is tied to the record's bytes; replacing a photo is delete-and-add, which makes a new record
+  with no caption.
+- **`caption_asset` accepts a caption only for a photo whose picture has been SENT.** A photo counts as seen
+  when the loop delivers the picture message (`takeImages`), not when `view_asset` queues it, so a model that
+  sends `view_asset` and `caption_asset` in one message cannot save a caption it made up (the independent
+  checker found this). `view_asset` also declines when the next round is the last, which goes out without
+  tools and so could never caption what it was shown.
+- **A caption is untrusted.** It is model output about untrusted pixels, put back in a later prompt.
+  `cleanCaption` makes it one line, strips control characters, quotes and backticks, and caps it at 140
+  characters; the prompt calls captions and the pictures themselves data, never instructions.
+- **A model that cannot read images is told so** (`view_asset` answers from the catalog's `vision` flag; an
+  unknown flag reads as no) and is never sent a picture. It still gets the list and `list_assets`.
+- **The budget gate prices a picture as a fixed `THUMB_TOKENS`**, not as the ~40K characters of base64 that
+  carry it, which would have overstated a round's cost about twelve times.
+- **Videos are listed but cannot be viewed.** There is no poster frame yet.
+
+**What is verified, and what is not.** `docs/e2e/chat-library-assets.spec.ts` drives the real Studio in
+Chromium: photos added through the Library's file input, the real thumbnail code (512 px, under 150 KB of
+base64), the real agent loop, and the caption read back from IndexedDB. The model is mocked (HARD RULE #24),
+so **how a real model chooses between photos is UNVERIFIED.** The spec fails if the thumbnail edge grows.
+A backup does not carry captions yet (a followup), so a restore re-captions a photo the first time the
+chat needs to see it.
+
 ## Options not taken
 
 - **Capturing metadata (capture date, caption) on the record.** An earlier draft of this note (§7) read the
