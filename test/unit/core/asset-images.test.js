@@ -149,7 +149,7 @@ describe('asset: — an empty alt is filled from the photo description', () => {
     for (const alt of ['bg contain', 'bg', 'bg left 40%', 'bg fit']) {
       const out = render('# Title\n\n![](asset:hero)\n', { hero: alt });
       assert.doesNotMatch(out, /background-image:url/, alt);
-      assert.match(out, new RegExp(`<img[^>]*alt="${alt.replace('%', '%')}"`), alt);
+      assert.match(out, new RegExp(`<img[^>]*alt="${alt}"`), alt);
     }
     // And an author's own `![bg …]` still works with a description present.
     assert.match(render('<!-- _class: image -->\n\n## T\n\n![bg](asset:hero)\n', { hero: 'bg contain' }), new RegExp(`url\\('${B}1111'\\)`));

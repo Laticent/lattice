@@ -15,7 +15,7 @@ const imageSources = (s: string) => [...md.render(s).matchAll(/(?:\s(?:src|href)
 /** `asset:hero` inside CODE the reader sees (a code span, a fence, a pre/script/style block): the one place it must stay as written.
  *  A bare mention in a sentence is not code: it follows the rename. */
 const sampleCount = (s: string) =>
-	[...md.render(s).matchAll(/<(code|pre|script|style|textarea)\b[^>]*>([\s\S]*?)<\/\1>/gi)].reduce((n, m) => n + (m[2].replace(/<[^>]*>/g, '').match(/asset:hero/g) ?? []).length, 0);
+	[...md.render(s).matchAll(/<(code|pre|script|style|textarea)\b[^>]*>([\s\S]*?)<\/\1>/gi)].reduce((n, m) => n + (m[2].match(/(?<![="(])asset:hero/g) ?? []).length, 0);
 
 function agrees(source: string) {
 	const out = R(source);
