@@ -131,12 +131,29 @@ test('a vision model is shown a photo once, captions it, and next turn reads the
 		{ text: 'I looked at shop-floor and saved what it shows.' },
 		{ text: 'Second turn answered from the captions.' },
 	]);
+	// Count the Library's real IndexedDB reads: each `listMedia` is two `getAll` calls on the `kind` index (image, video)
+	// and loads every photo's bytes, so the count is the cost of reading the shelf.
+	await page.addInitScript(() => {
+		(window as unknown as { __kindReads: number }).__kindReads = 0;
+		const orig = IDBIndex.prototype.getAll;
+		IDBIndex.prototype.getAll = function (this: IDBIndex, ...a: Parameters<IDBIndex['getAll']>) {
+			if (this.name === 'kind') (window as unknown as { __kindReads: number }).__kindReads++;
+			return orig.apply(this, a);
+		};
+	});
 	await gotoStudio(page);
 	await setEditorContent(page, DECK);
 	await addPhotos(page, PHOTOS);
 	await openChat(page);
 
+	const reads = () => page.evaluate(() => (window as unknown as { __kindReads: number }).__kindReads);
+	const readsBefore = await reads();
 	await ask(page, 'Make a collage of my photos.', 'I looked at shop-floor and saved what it shows.');
+	// One turn that lists the Library, looks at one photo and saves one caption reads the shelf ONCE (two getAll calls),
+	// not once per call. The app's own preview refresh after the caption may add one more read.
+	const readsDuring = (await reads()) - readsBefore;
+	test.info().annotations.push({ type: 'shelf-reads', description: `getAll(kind) calls during the turn: ${readsDuring}` });
+	expect(readsDuring, 'the turn read the shelf more than once per photo call').toBeLessThanOrEqual(4);
 
 	// Round 1: the list is in the prompt and the three Library tools are offered.
 	expect(toolNames(bodies[0])).toEqual(expect.arrayContaining(['list_assets', 'view_asset', 'caption_asset']));
@@ -199,4 +216,50 @@ test('an empty Library adds nothing to the prompt, tools included', async ({ pag
 	expect(wire(bodies[0])).not.toContain('LIBRARY ASSETS');
 	expect(toolNames(bodies[0])).not.toContain('view_asset');
 	expect(toolNames(bodies[0])).toContain('edit_slides');
+});
+
+// The cost readout beside the chat is a typical-turn estimate (agentTurnUsd). A Library puts its list and three
+// tool definitions in every turn, so adding photos must raise it, a little, and removing them must bring it back.
+const readout = async (page: Page) => {
+	// The per-turn figures live in the model chip's dropdown (ChatCost's ModelChip): open it, read both, close it.
+	const chip = page.getByRole('button', { name: /Change model/ });
+	if (!(await chip.count())) return null;
+	await chip.click();
+	const figure = async (label: string) => {
+		const row = page.getByText(label, { exact: true }).locator('xpath=following-sibling::span').first();
+		if (!(await row.count())) return null;
+		const m = (await row.textContent())?.match(/\$([\d.]+)/);
+		return m ? Number(m[1]) : null;
+	};
+	const question = await figure('Ask a question');
+	const edit = await figure('Make an edit');
+	await page.keyboard.press('Escape');
+	return question != null && edit != null ? { question, edit } : null;
+};
+
+test('the cost readout rises by a few tenths of a cent when the Library gains photos', async ({ page }) => {
+	test.setTimeout(180_000);
+	await mockModel(page, true, []);
+	// A real user has the model catalog cached (it is fetched when the picker opens or a turn runs), and the
+	// readout needs its price. Seed the cache the way the app writes it, at Sonnet's $3 / $15 per million.
+	await page.addInitScript((id) => {
+		try {
+			const models = [{ id, name: 'Mock model', promptPerM: 3, completionPerM: 15, contextLength: 200000, maxOutput: 8192, vision: true }];
+			localStorage.setItem('lattice-db-or-catalog', JSON.stringify({ fetchedAt: Date.now(), models }));
+		} catch {}
+	}, MODEL);
+	await gotoStudio(page);
+	await setEditorContent(page, DECK);
+	await openChat(page);
+	await expect.poll(() => readout(page), { timeout: 30_000 }).not.toBeNull();
+	const before = await readout(page);
+	await addPhotos(page, PHOTOS);
+	if (!(await page.getByRole('textbox', { name: 'Message the Architect' }).isVisible())) await openChat(page);
+	await expect.poll(async () => (await readout(page))?.edit ?? 0, { timeout: 30_000 }).toBeGreaterThan(before?.edit ?? 0);
+	const after = await readout(page);
+	await page.screenshot({ path: test.info().outputPath('chat-readout-with-library.png') });
+	expect(after?.question).toBeGreaterThanOrEqual(before?.question ?? 0);
+	// Two photos add their list lines and the three tool definitions: well under a cent.
+	expect((after?.edit ?? 0) - (before?.edit ?? 0)).toBeLessThan(0.01);
+	test.info().annotations.push({ type: 'readout', description: `before ${JSON.stringify(before)} after ${JSON.stringify(after)}` });
 });

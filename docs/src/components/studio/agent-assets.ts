@@ -25,7 +25,7 @@ export type AssetInfo = {
 	caption?: string;
 };
 
-/** What the chat needs from the Library. The browser implementation is `agentAssets`; tests pass a fake. */
+/** What the chat needs from the Library. The browser implementation is `createAgentAssets` (one per turn); tests pass a fake. */
 export type AgentAssets = {
 	list(): Promise<AssetInfo[]>;
 	/** A JPEG data URL at most `MAX_THUMB_EDGE` px on the long edge, or null when it cannot be made. */
@@ -42,6 +42,19 @@ export const MAX_THUMB_EDGE = 512;
 export const MANIFEST_CAP = 40;
 /** Thumbnails the model may request in one turn. */
 export const MAX_VIEWS_PER_TURN = 6;
+/** What the Library costs a turn before any picture is sent, for the cost readout: the header and the
+ *  capped list, in estimated tokens (the same `chars / 4` as `estTokens`). The three tool definitions are
+ *  priced separately by the caller, who holds `ASSET_TOOLS`. Measured against `assetManifest` in the tests
+ *  so the constants cannot drift below the real block. Zero for an empty Library: nothing is sent then. */
+export const MANIFEST_HEADER_TOKENS = 130;
+// The WORST case for one line: a 40-character name and a full 140-character caption. An uncaptioned photo is
+// about 25, so the readout overstates a Library of bare names by up to a cent, never understates one.
+export const MANIFEST_LINE_TOKENS = 60;
+export function libraryPromptTokens(count: number): number {
+	if (!(count > 0)) return 0;
+	return MANIFEST_HEADER_TOKENS + Math.min(count, MANIFEST_CAP) * MANIFEST_LINE_TOKENS;
+}
+
 /** Rough token charge for one thumbnail, for the budget gate (a base64 string is not tokens). */
 export const THUMB_TOKENS = 800;
 

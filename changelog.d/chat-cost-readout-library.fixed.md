@@ -1,0 +1,2 @@
+- The cost estimate beside the Studio chat now includes the Library: with photos in it, each turn carries a short list of them and three extra tool definitions, and the estimate rises by a few tenths of a cent to match (and falls back when the photos are removed). With no photos the estimate is unchanged.
+- When the chat looks at several photos in one turn, the Library is now read once for the turn instead of once per photo.
