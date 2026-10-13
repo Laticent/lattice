@@ -55,7 +55,7 @@ describe('a round trip', () => {
 
 	it('writes nothing for an empty shelf, and restoring a backup with no photos is a no-op', async () => {
 		const z = new JSZip();
-		expect(await packMedia(z)).toEqual({ rows: 0, bytes: 0, skipped: 0 });
+		expect(await packMedia(z)).toEqual({ rows: 0, bytes: 0, skipped: 0, omitted: [] });
 		expect(Object.keys(z.files)).toEqual([]);
 		expect(await restoreMedia(z as never, 1, ctx())).toEqual({ restored: 0, shared: 0, refused: [], renames: [] });
 	});

@@ -292,8 +292,8 @@ export const SHARE_EXPORTS = {
 	/** One click. → `<deck>-captions.zip` — a ZIP of tracks, NOT a bare `.vtt`
 	 *  despite the row's label; a spec asserting /\.vtt$/ on it would fail. */
 	captions: { row: /^Captions \(\.vtt\)/, confirm: null },
-	/** One click. → `.lattice` */
-	lattice: { row: /^Lattice project/, confirm: null },
+	/** Options step "Export Lattice project" (include photos, on by default). → `.lattice` */
+	lattice: { row: /^Lattice project/, confirm: /^Download project/ },
 	/** One click. → `.md`. The `^` anchor matters: the "Print source" row's
 	 *  description also contains the word "Markdown". */
 	markdown: { row: /^Markdown/, confirm: null },

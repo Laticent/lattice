@@ -29,6 +29,21 @@ async function addPhoto(page: Page, name: string) {
 		const input = document.querySelector('input[type="file"][accept*="image"]') as HTMLInputElement;
 		input.files = dt.files;
 		input.dispatchEvent(new Event('change', { bubbles: true }));
+		// The format dialog asks how to store them; the probes take its default.
+		for (let i = 0; i < 200; i++) {
+			const b = [...document.querySelectorAll('[role="dialog"] button')].find((x) => x.textContent?.trim().startsWith('Add photo')) as HTMLButtonElement | undefined;
+			if (b) {
+				// These probes are PNGs that must stay byte-exact, so they ask for the original.
+				const keep = document.querySelector('[role="dialog"] [role="radio"][aria-label="Keep original"]') as HTMLButtonElement | null;
+				if (keep) {
+					keep.click();
+					await new Promise((r) => setTimeout(r, 150));
+				}
+				b.click();
+				break;
+			}
+			await new Promise((r) => setTimeout(r, 50));
+		}
 	}, name);
 }
 
@@ -165,4 +180,59 @@ test('@smoke a Markdown export of a deck that names a photo says the photo is no
 	await setUp(page);
 	await download(page, 'markdown');
 	await expect(page.locator('[data-sonner-toast]').filter({ hasText: /“export-probe”\) is not inside this file|“export-probe”.*not inside this file/ }).first()).toBeVisible({ timeout: 30_000 });
+});
+
+// The `.lattice` is the file a co-presenter EDITS from, so it carries the photos the deck names (the toggle
+// is on by default) and the importer puts them back. The oracle is a SECOND browser profile with an empty
+// Library opening the downloaded file and drawing the photo; a unit test of the zip would pass with the
+// photo in the wrong place.
+test('@smoke a .lattice carries the photo, and a fresh browser profile opens it with the picture @gecko', async ({ page, browser }) => {
+	await setUp(page);
+	const path = await download(page, 'lattice');
+	const zip = await JSZip.loadAsync(readFileSync(path));
+	expect(Object.keys(zip.files), 'the photo rides inside the file').toEqual(expect.arrayContaining(['media.json', 'media/export-probe.png']));
+	// Anchor on the export's own toast, then say what must be absent: no stand-in warning when every photo went in.
+	await expect(page.locator('[data-sonner-toast]').filter({ hasText: /Lattice project ready/ }).first()).toBeVisible({ timeout: 30_000 });
+	await expect(page.locator('[data-sonner-toast]')).not.toContainText(/stand-in|not inside this file/i);
+
+	const other = await browser.newContext({ baseURL: new URL(page.url()).origin, acceptDownloads: true });
+	try {
+		const p2 = await other.newPage();
+		await gotoStudio(p2);
+		await p2.setViewportSize({ width: 1440, height: 900 });
+		await p2.locator('input[type="file"][accept*=".lattice"]').setInputFiles({ name: 'probe.lattice', mimeType: 'application/zip', buffer: readFileSync(path) });
+		await expect(p2.getByText(/Added 1 photo from the file to your Library/).first()).toBeVisible({ timeout: 30_000 });
+		const img = p2.locator('[aria-label="Live deck preview"] iframe.live').contentFrame().locator('img[alt="A green probe"]').first();
+		await expect(img).toHaveAttribute('src', /^blob:/, { timeout: 40_000 });
+		// The picture, not the stand-in: the browser's own decoder reads the pixel.
+		const px = await img.evaluate(async (el) => {
+			const i = el as HTMLImageElement;
+			await i.decode();
+			const c = document.createElement('canvas');
+			c.width = i.naturalWidth;
+			c.height = i.naturalHeight;
+			const g = c.getContext('2d') as CanvasRenderingContext2D;
+			g.drawImage(i, 0, 0);
+			return { w: i.naturalWidth, rgb: Array.from(g.getImageData(10, 10, 1, 1).data.slice(0, 3)) };
+		});
+		expect(px).toEqual({ w: 640, rgb: GREEN });
+	} finally {
+		await other.close();
+	}
+});
+
+// The switch is real: turned off, the file keeps the name only and the toast says the photo is not inside it.
+test('@smoke turning "Include photos" off leaves the photo out of the .lattice and says so @gecko', async ({ page }) => {
+	await setUp(page);
+	const dialog = page.getByRole('dialog');
+	await dialog.getByRole('button', { name: /^Lattice project/ }).click();
+	const sw = dialog.getByRole('switch', { name: 'Include photos' });
+	await expect(sw, 'on by default').toHaveAttribute('aria-checked', 'true');
+	await sw.click();
+	await expect(sw).toHaveAttribute('aria-checked', 'false');
+	const pending = page.waitForEvent('download', { timeout: 240_000 });
+	await dialog.getByRole('button', { name: /^Download project/ }).click();
+	const zip = await JSZip.loadAsync(readFileSync((await (await pending).path()) as string));
+	expect(Object.keys(zip.files).filter((n) => n.startsWith('media'))).toEqual([]);
+	await expect(page.locator('[data-sonner-toast]').filter({ hasText: /“export-probe”\) is not inside this file/ }).first()).toBeVisible({ timeout: 30_000 });
 });

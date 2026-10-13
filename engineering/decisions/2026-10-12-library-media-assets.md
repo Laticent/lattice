@@ -162,6 +162,24 @@ shows its file dialog and a drag-and-drop onto the Library accepts the same type
   `.txt/.md/.pdf`; nothing else is accepted, and the Images tab does not grow a "any file"
   option, because a Word file has nowhere to render.
 
+#### Format choice at intake (2026-10-13)
+
+The importer's automatic policy above is still what the chat's photo intake uses. The Library's **Add image** (picker and
+drop) now asks first (`PhotoFormatDialog.tsx`), with four choices and the size each would store for THESE files, measured by
+the import's own encoder (`media-import.ts` `measureFormats`, a sample of up to four files scaled by size for a bigger batch):
+
+| Choice | Stores | Cost |
+|---|---|---|
+| Keep original | the file's pixels and type, metadata cut (`media-scrub.ts`), no resize; HEIC and AVIF become JPEG | largest |
+| JPEG (default) | lossy q0.88, long edge at most 2560 px, transparency painted white | |
+| WebP | lossy q0.82, same cap, transparency kept; hidden where the browser cannot write WebP | about two thirds of JPEG |
+| PNG | lossless, same cap; a PNG already under the cap is kept as it is | several times JPEG for a photograph |
+
+PNG is offered but not recommended for photographs: on a photo-like test image PNG was 5.1 MB at 1920 px and 8.3 MB at 2560 px
+against 0.9 and 1.3 MB for JPEG (synthetic proxy, `python3` + PIL; no real photos were reachable). The last choice is remembered.
+Each option's one-line meaning is on the dialog, since the choice decides what the photo can do later (a `.lattice` carries
+128 MB of photos, `MAX_LATTICE_MEDIA_BYTES`).
+
 ### 4. Quotas and limits
 
 Numbers below are **proposals**, to be confirmed or changed by the owner; none are measured
@@ -206,8 +224,27 @@ mention its photos. What each one does, as built and checked on the real Studio 
 | PDF | The photo is on the page. | Chromium, WebKit, Firefox: poppler rasterizes page 1 and the photo's color is on it |
 | PowerPoint | The photo is in the slide picture. | Chromium, Firefox. **WebKit drops every picture in this lane today, a repo sample image included** (`followups.d/2640-p2-webkit-pptx-drops-images.md`) |
 | Image set, print | Same render as PDF and PowerPoint (`buildDeckRender` takes the same `data:` map). | UNVERIFIED on its own: the e2e drives PDF, PowerPoint and webpage, not the image-set download |
-| Markdown, Marp, `.lattice` | The reference stays as written; the photo is not in the file. | A recipient who opens the deck elsewhere gets the unresolved reference (Marp draws a broken image, Lattice the stand-in). The Share sheet now says which photos are not inside the file; carrying them is open (below) |
+| `.lattice` | `media/<name>.<ext>` plus `media.json` carry the photos the deck NAMES (not the whole Library), unless the author turns "Include photos" off. Import restores them through the backup's `restoreMedia` (sniff, scrub, caps, never overwrite) and renames a clashing name in the deck. | Unit round-trip (`lattice-media.test.ts`); real Chromium e2e: a second browser profile with an empty Library opens the file and draws the photo. Not yet driven on WebKit or on a phone |
+| Markdown, Marp | The reference stays as written; the photo is not in the file. | A recipient who opens the deck elsewhere gets the unresolved reference (Marp draws a broken image). The Share sheet says which photos are not inside the file |
 | Workspace backup | `media/` holds the bytes, `media.json` indexes them (§9). A restore puts them back to the same deck. | Chromium, WebKit, Firefox: back up, delete both photos, restore, bytes and scopes equal |
+
+**How the `.lattice` carries photos (2026-10-13).** The owner's iPhone showed "the photos it names … are
+not inside this file" over a project file whose whole job is to be opened elsewhere. Four choices:
+
+- **On by default, with a switch.** The Share sheet's Lattice row now opens an options step with one switch,
+  "Include photos (N · size)". Off keeps the old behavior and says so in the toast.
+- **Only the photos the deck names and can see.** A photo another deck owns stays a stand-in and is named.
+- **One reader.** The write side is `packMedia` and the read side `restoreMedia`, the same code a workspace
+  backup uses, so a `.lattice` is as untrusted as a backup and gets the same refusals. The rows are written
+  with scope `library`: the recipient's deck gets a new id, so a deck-scoped photo arrives shared.
+- **One new number, `MAX_LATTICE_MEDIA_BYTES` = 128 MB** (`lib/packages/limits.js`), on top of the 25 MB
+  the deck and its packages already had. The writer and the reader read the same constant, so a file one
+  Studio saves is never one another refuses. A deck that would pass it ships the photos that fit and the
+  toast names the rest. The number is a proposal: it is about 60 photos at the 2 MB the importer can
+  produce today.
+
+Not covered, and written to `followups.d/`: the `.lattice` a re-openable PDF or PowerPoint embeds (its reader
+is capped at 25 MB), and live collaboration.
 
 **Why exports use `data:` and not the preview's `blob:`.** A saved file cannot hold a `blob:` URL, and
 the PDF, PNG and PowerPoint cameras render in a frame that may not fetch one: before this was fixed the
@@ -360,8 +397,8 @@ commit builds and tests against `main` alone.
 2. Whether an uploaded video should be playable in the **Studio presenter** (it can: a `blob:`
    URL feeds a `<video>`), or poster-only everywhere except the HTML export. This doc assumes
    playable in the presenter.
-3. Whether Markdown, Marp and `.lattice` exports should carry the photos a deck names (a Marp bundle
-   already copies `sample:` art; `.lattice` would need a safe read side). They keep the reference only.
+3. Whether Markdown and Marp exports should carry the photos a deck names (a Marp bundle already copies
+   `sample:` art). They keep the reference only. `.lattice` now carries them (§6).
 4. Whether a video export that keeps the original bytes should strip the GPS atom (a small
    rewrite of the file's header boxes, no re-encode) or fall back to the poster frame whenever
    location is present. The atom rewrite is cheap but is a byte change to a user's video.
