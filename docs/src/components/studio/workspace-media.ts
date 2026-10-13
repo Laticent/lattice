@@ -21,6 +21,7 @@
 // the restore itself wrote are rewritten once, from one name map, to match (studio-store.ts
 // `importStudioState` does the same "beside, never over" for a deck that diverged).
 
+import { cleanCaption } from './agent-assets';
 import { scrubberFor } from './media-scrub';
 import { isMediaName, LIBRARY_SCOPE, listMedia, MAX_MEDIA_FILE_BYTES, saveMedia, setMediaScope, sniffImageMime, uniqueName } from './media-store';
 import { declaredInflatedBytes, jsonGuard, readBudget, readBytesBudget } from './zip-limits';
@@ -61,6 +62,9 @@ type MediaRow = {
 	height: number;
 	sourceName: string;
 	original: boolean;
+	/** The chat's one-line description of the photo, when it has looked at it. Optional: a backup from
+	 *  before captions existed has none, and a photo nobody looked at has none. */
+	caption?: string;
 	addedAt: number;
 	file: string;
 };
@@ -84,7 +88,7 @@ export async function packMedia(zip: Zip): Promise<{ rows: number; bytes: number
 		// Bytes, not the Blob: JSZip reads a Blob only where the host supports it, and bytes work everywhere.
 		zip.file(`media/${file}`, new Uint8Array(await m.blob.arrayBuffer()));
 		bytes += m.blob.size;
-		rows.push({ name: m.name, kind: 'image', scope: m.scope, mime: m.mime, bytes: m.blob.size, width: m.width, height: m.height, sourceName: m.sourceName, original: m.original, addedAt: m.addedAt, file });
+		rows.push({ name: m.name, kind: 'image', scope: m.scope, mime: m.mime, bytes: m.blob.size, width: m.width, height: m.height, sourceName: m.sourceName, original: m.original, ...(m.caption ? { caption: m.caption } : {}), addedAt: m.addedAt, file });
 	}
 	if (rows.length) zip.file(MEDIA_INDEX, JSON.stringify(rows, null, 2));
 	return { rows: rows.length, bytes, skipped };
@@ -298,6 +302,9 @@ export async function restoreMedia(zip: Zip, now: number, ctx: RestoreContext): 
 					height: int(raw.height, 100_000),
 					sourceName: typeof raw.sourceName === 'string' ? raw.sourceName.slice(0, 200) : raw.name,
 					original: raw.original === true,
+					// A backup file is untrusted and the caption goes back into the chat's prompt, so it takes the
+					// same cleaning a model-written one does (agent-assets.ts `cleanCaption`).
+					...(cleanCaption(raw.caption) ? { caption: cleanCaption(raw.caption) } : {}),
 				},
 				int(raw.addedAt, Number.MAX_SAFE_INTEGER) || now,
 			);
