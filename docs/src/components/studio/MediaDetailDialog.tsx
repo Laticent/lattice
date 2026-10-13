@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { useObjectUrl } from './MediaCard';
 import { isMediaName, type MediaMetaPatch, type MediaRecord } from './media-store';
 import { formatBytes } from './reference-doc';
 
