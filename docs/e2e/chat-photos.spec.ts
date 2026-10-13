@@ -74,9 +74,9 @@ async function seed(page: import('@playwright/test').Page, vision: boolean, vide
 }
 
 async function pickPhoto(page: import('@playwright/test').Page) {
-	await page.getByRole('button', { name: 'Attach a photo, video or reference document' }).click();
+	await page.getByRole('button', { name: 'Attach photos, videos or files' }).click();
 	const chooser = page.waitForEvent('filechooser');
-	await page.getByRole('button', { name: 'Add a photo or video…' }).click();
+	await page.getByRole('menuitem', { name: /From this device/ }).click();
 	await (await chooser).setFiles({ name: 'Team Offsite.png', mimeType: 'image/png', buffer: PNG });
 }
 
@@ -171,9 +171,9 @@ async function recordClip(page: import('@playwright/test').Page, seconds: number
 }
 
 async function pickFile(page: import('@playwright/test').Page, file: { name: string; mimeType: string; buffer: Buffer }) {
-	await page.getByRole('button', { name: 'Attach a photo, video or reference document' }).click();
+	await page.getByRole('button', { name: 'Attach photos, videos or files' }).click();
 	const chooser = page.waitForEvent('filechooser');
-	await page.getByRole('button', { name: 'Add a photo or video…' }).click();
+	await page.getByRole('menuitem', { name: /From this device/ }).click();
 	await (await chooser).setFiles(file);
 }
 
@@ -232,9 +232,9 @@ test('a mixed pick judges each kind on its own: the photo attaches, the refused 
 	await gotoStudio(page);
 	await openChatAtWidth(page, 1440);
 	const clip = await recordClip(page, 1);
-	await page.getByRole('button', { name: 'Attach a photo, video or reference document' }).click();
+	await page.getByRole('button', { name: 'Attach photos, videos or files' }).click();
 	const chooser = page.waitForEvent('filechooser');
-	await page.getByRole('button', { name: 'Add a photo or video…' }).click();
+	await page.getByRole('menuitem', { name: /From this device/ }).click();
 	await (
 		await chooser
 	).setFiles([
@@ -426,3 +426,125 @@ test("a clip's location data is overwritten before it is stored, and the clip st
 	await expect(card.locator('video')).toBeVisible();
 	await expect.poll(() => card.locator('video').evaluate((v: HTMLVideoElement) => v.readyState), { timeout: 10_000 }).toBeGreaterThanOrEqual(2);
 });
+
+// ── The attach control: two paths, from this device and from the Library ─────────────────────────────────────────────
+
+const attachButton = (page: import('@playwright/test').Page) => page.getByRole('button', { name: 'Attach photos, videos or files' });
+
+test('the paperclip offers exactly two paths, and the device path opens the native picker with nothing else in between', async ({ page }) => {
+	test.setTimeout(60_000);
+	await seed(page, true, true);
+	await gotoStudio(page);
+	await openChatAtWidth(page, 1440);
+	await attachButton(page).click();
+	const menu = page.getByRole('menu', { name: 'Attach' });
+	await expect(menu.getByRole('menuitem')).toHaveCount(2);
+	await expect(menu.getByRole('menuitem', { name: /From this device/ })).toBeVisible();
+	await expect(menu.getByRole('menuitem', { name: /From your Library/ })).toBeVisible();
+	// The old layered picker is gone: no search box, no "Add a file…" row, no "never uploaded" line.
+	await expect(page.getByPlaceholder('Search your docs…')).toHaveCount(0);
+	await expect(page.getByText('Add a file…')).toHaveCount(0);
+
+	// The device path opens the browser's own picker straight away, offering photos, videos and the document types.
+	const accept = await page.getByTestId('chat-attach-device').getAttribute('accept');
+	expect(accept).toContain('image/*');
+	expect(accept).toContain('video/*');
+	expect(accept).toContain('.pdf');
+	const chooser = page.waitForEvent('filechooser');
+	await menu.getByRole('menuitem', { name: /From this device/ }).click();
+	expect((await chooser).isMultiple()).toBe(true);
+	await expect(page.getByTestId('chat-attach')).toHaveCount(0); // and our menu is out of the way
+});
+
+test('a document picked from the device becomes a grounding chip, and a photo picked beside it a thumbnail', async ({ page }) => {
+	test.setTimeout(60_000);
+	await seed(page, true, true);
+	await gotoStudio(page);
+	await openChatAtWidth(page, 1440);
+	await attachButton(page).click();
+	const chooser = page.waitForEvent('filechooser');
+	await page.getByRole('menuitem', { name: /From this device/ }).click();
+	await (await chooser).setFiles([
+		{ name: 'Brief.md', mimeType: 'text/markdown', buffer: Buffer.from('# Brief\n\nCobalt, restrained.') },
+		{ name: 'Team Offsite.png', mimeType: 'image/png', buffer: PNG },
+	]);
+	await expect(page.getByRole('button', { name: 'Remove Brief.md' })).toBeVisible({ timeout: 20_000 }); // the grounding chip (its name also appears in the toast)
+	await expect(page.getByTestId('chat-photo-strip').getByRole('img', { name: /team-offsite/ })).toBeVisible({ timeout: 20_000 });
+});
+
+for (const [w, h] of [
+	[1440, 900],
+	[820, 1000],
+	[390, 844],
+] as const) {
+	test(`from the Library: attach a photo, a clip and a file by tapping, and taking the clip off keeps it in the Library at ${w}px`, async ({ page }) => {
+		test.setTimeout(120_000);
+		await page.setViewportSize({ width: w, height: h });
+		await seed(page, true, true);
+		await gotoStudio(page);
+
+		// One of each already in the Library (written the way the importers write them), before the chat opens.
+		const clip = await recordClip(page, 1);
+		await page.evaluate(
+			async ({ png, webm }) => {
+				const bytes = (b64: string) => Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+				const db: IDBDatabase = await new Promise((res, rej) => {
+					const r = indexedDB.open('lattice-workbench');
+					r.onsuccess = () => res(r.result);
+					r.onerror = () => rej(r.error);
+				});
+				await new Promise<void>((resolve, reject) => {
+					const t = db.transaction('assets', 'readwrite');
+					const st = t.objectStore('assets');
+					st.put({ id: 'm_img', kind: 'image', name: 'team-offsite', scope: 'library', blob: new Blob([bytes(png)], { type: 'image/png' }), mime: 'image/png', bytes: bytes(png).length, width: 160, height: 120, sourceName: 'Team Offsite.png', original: true, addedAt: 3 });
+					st.put({ id: 'm_vid', kind: 'video', name: 'walk', scope: 'library', blob: new Blob([bytes(webm)], { type: 'video/webm' }), mime: 'video/webm', bytes: bytes(webm).length, width: 160, height: 90, sourceName: 'Walk.webm', original: true, durationMs: 1000, addedAt: 2 });
+					st.put({ id: 'r_doc', kind: 'refdoc', name: 'Guide.md', docKind: 'text', text: '# Guide', bytes: 7, addedAt: 1 });
+					t.oncomplete = () => resolve();
+					t.onerror = () => reject(t.error);
+				});
+			},
+			{ png: PNG.toString('base64'), webm: clip.toString('base64') },
+		);
+		await openChatAtWidth(page, w);
+
+		await attachButton(page).click();
+		await page.screenshot({ path: test.info().outputPath(`chat-attach-menu-${w}.png`) });
+		await page.getByRole('menuitem', { name: /From your Library/ }).click();
+		const panel = page.getByTestId('chat-attach');
+		await expect(panel.getByText('From your Library')).toBeVisible();
+		// The popover stays inside the screen at every width.
+		const box = await panel.boundingBox();
+		expect(box && box.x >= 8 && box.x + box.width <= w - 8 && box.y >= 0 && box.y + box.height <= h, JSON.stringify(box)).toBe(true); // clear of the screen edge, not flush
+		await page.screenshot({ path: test.info().outputPath(`chat-attach-library-${w}.png`) });
+
+		await panel.getByRole('button', { name: /^Attach team-offsite/ }).click();
+		await panel.getByRole('tab', { name: /^Videos/ }).click();
+		await panel.getByRole('button', { name: /^Attach walk/ }).click();
+		await panel.getByRole('tab', { name: /^Files/ }).click();
+		await panel.getByRole('button', { name: /^Attach Guide\.md/ }).click();
+		// What is attached is checked in the list, and shown on the message.
+		await expect(panel.getByRole('button', { name: /^Remove Guide\.md/ })).toHaveAttribute('aria-pressed', 'true');
+		await page.keyboard.press('Escape');
+		await expect(panel).toBeHidden();
+		const strip = page.getByTestId('chat-photo-strip');
+		await expect(strip.getByRole('img', { name: /team-offsite/ })).toBeVisible();
+		await expect(strip.getByRole('img', { name: /^Video walk/ })).toBeVisible();
+		await expect(page.getByRole('button', { name: 'Remove Guide.md' })).toBeVisible();
+
+		// Taking the Library clip off the message does NOT delete it from the Library.
+		await strip.getByRole('button', { name: /^Remove walk/ }).click();
+		await expect(strip.getByRole('img', { name: /^Video walk/ })).toHaveCount(0);
+		const stillThere = await page.evaluate(
+			() =>
+				new Promise<boolean>((resolve, reject) => {
+					const r = indexedDB.open('lattice-workbench');
+					r.onerror = () => reject(r.error);
+					r.onsuccess = () => {
+						const q = r.result.transaction('assets').objectStore('assets').get('m_vid');
+						q.onsuccess = () => resolve(!!q.result);
+					};
+				}),
+		);
+		expect(stillThere, 'the clip is still in the Library').toBe(true);
+	});
+}

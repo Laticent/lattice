@@ -7,7 +7,12 @@
 // search box so it scales past a handful of files (#651 — a flat dropdown didn't). Pick
 // a saved doc to reuse it, or trash it; an optional "Manage in Library" link opens the
 // full manager. The chip shows the active doc + an honest "billed each run" note.
-import { Check, ImagePlus, Paperclip, Plus, Trash2, X } from 'lucide-react';
+//
+// The deck CHAT does not use the paperclip below: it takes photos and videos as well as documents, so it has its own
+// two-path control (`ChatAttach.tsx`: from this device, or from the Library) and uses this hook only for the document
+// state it returns (`docs`, `saved`, `toggleSaved`, `addFiles`) and the `chip`. The paperclip stays for the surfaces that
+// ground generation in a document and nothing else (Fabricate).
+import { Check, Paperclip, Plus, Trash2, X } from 'lucide-react';
 import * as React from 'react';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -38,19 +43,14 @@ function fmtAdded(ts: number): string {
  * it after a successful run, and two ready-made elements: `attachButton` (the
  * paperclip picker — drop it in the prompt row) and `chip` (render it below the row).
  * `onManage`, when given, adds a "Manage in Library" link to the picker footer.
- * `photos`, when given, adds an "Add a photo…" row above the file row: the chat passes it so the
- * same paperclip takes a picture from the device. The hook only opens the picker and hands the
- * files over; what a photo becomes (a Library asset, an image sent to the model) is the caller's.
- * `accept` is the caller's too, so this module does not import the image pipeline.
  */
-export function useReferenceDoc(onManage?: () => void, photos?: { accept: string; label?: string; onFiles: (files: File[]) => void }) {
+export function useReferenceDoc(onManage?: () => void) {
 	// Multiple docs can ground ONE generation (#656). `docs` is the active set the
 	// caller feeds to generate*/chatComplete; the picker toggles membership.
 	const [docs, setDocs] = React.useState<ReferenceDoc[]>([]);
 	const [saved, setSaved] = React.useState<RefDocRecord[]>([]);
 	const [open, setOpen] = React.useState(false);
 	const inputRef = React.useRef<HTMLInputElement>(null);
-	const photoRef = React.useRef<HTMLInputElement>(null);
 
 	const refresh = React.useCallback(() => {
 		listRefDocs().then(setSaved).catch(() => setSaved([]));
@@ -59,9 +59,9 @@ export function useReferenceDoc(onManage?: () => void, photos?: { accept: string
 
 	const capReached = () => { if (docs.length >= MAX_GROUND_DOCS) { notify(`You can ground up to ${MAX_GROUND_DOCS} docs at once — remove one first.`); return true; } return false; };
 
-	const onFile = async (file?: File | null) => {
-		if (!file) return;
-		if (capReached()) return;
+	/** Read, save to the shared library and attach one file. Resolves its name, or null after saying why it could not. */
+	const addOne = async (file: File): Promise<string | null> => {
+		if (capReached()) return null;
 		try {
 			const d = await readReferenceDoc(file);
 			const rec = await saveRefDoc(d, Date.now()); // persist to the shared library
@@ -69,11 +69,28 @@ export function useReferenceDoc(onManage?: () => void, photos?: { accept: string
 			// The cap is re-checked INSIDE the updater so concurrent adds can't race past it.
 			setDocs((cur) => (cur.some((x) => x.id === rec.id) || cur.length >= MAX_GROUND_DOCS ? cur : [...cur, { ...d, id: rec.id }]));
 			refresh();
-			notify(`Attached “${d.name}” — saved to your library and grounding the next generation (billed each run).`);
+			return d.name;
 		} catch (e) {
 			notify((e as Error)?.message || 'Could not read that file.');
+			return null;
 		}
+	};
+
+	const onFile = async (file?: File | null) => {
+		if (!file) return;
+		const name = await addOne(file);
+		if (name) notify(`Attached “${name}” — saved to your library and grounding the next generation (billed each run).`);
 		if (inputRef.current) inputRef.current.value = ''; // allow re-picking the same file
+	};
+
+	/** Several files at once (the chat's device picker), one notice for the batch. */
+	const addFiles = async (files: File[]) => {
+		const names: string[] = [];
+		for (const f of files) {
+			const name = await addOne(f);
+			if (name) names.push(name);
+		}
+		if (names.length) notify(`Attached ${names.length === 1 ? `“${names[0]}”` : `${names.length} files`} — saved to your library and grounding the reply (billed each run).`);
 	};
 
 	// Toggle a saved doc in/out of the grounding set; the popover stays open so you
@@ -124,8 +141,8 @@ export function useReferenceDoc(onManage?: () => void, photos?: { accept: string
 				<PopoverTrigger asChild>
 					<button
 						type="button"
-						aria-label={photos ? 'Attach a photo, video or reference document' : 'Attach a reference document'}
-						title={photos ? 'Add a photo or a short video, or attach a reference doc (.txt, .md, .pdf) to ground the reply' : 'Attach or reuse a reference doc (.txt, .md, .pdf) to ground generation'}
+						aria-label="Attach a reference document"
+						title="Attach or reuse a reference doc (.txt, .md, .pdf) to ground generation"
 						className={cn(
 							'grid size-7 shrink-0 place-items-center rounded-md hover:bg-[color-mix(in_srgb,var(--accent)_10%,transparent)]',
 							docs.length ? 'text-[var(--accent)]' : 'text-muted-foreground',
@@ -140,19 +157,6 @@ export function useReferenceDoc(onManage?: () => void, photos?: { accept: string
 					<Command>
 						<CommandInput placeholder="Search your docs…" className="text-[12.5px]" />
 						{/* Pinned above the list so search never hides it. */}
-						{photos && (
-							<button
-								type="button"
-								onClick={() => {
-									setOpen(false);
-									setTimeout(() => photoRef.current?.click(), 0);
-								}}
-								className="flex w-full items-center gap-2 border-b border-border px-3 py-2 text-left text-[12.5px] font-semibold text-[var(--accent)] hover:bg-[var(--accent-soft)]"
-							>
-								<ImagePlus className="size-4 shrink-0" />
-								{photos.label ?? 'Add a photo…'}
-							</button>
-						)}
 						<button
 							type="button"
 							onClick={() => { setOpen(false); setTimeout(() => inputRef.current?.click(), 0); }}
@@ -204,23 +208,6 @@ export function useReferenceDoc(onManage?: () => void, photos?: { accept: string
 				</PopoverContent>
 			</Popover>
 			<input ref={inputRef} type="file" accept={REF_DOC_ACCEPT} hidden onChange={(e) => onFile(e.target.files?.[0])} />
-			{/* No `capture` attribute: on a phone the picker then offers Photo Library, Take Photo and
-			    Choose File, which is the whole point. COPY the files out before anything awaits — a
-			    FileList is live, and WebKit empties it. */}
-			{photos && (
-				<input
-					ref={photoRef}
-					type="file"
-					accept={photos.accept}
-					multiple
-					hidden
-					onChange={(e) => {
-						const picked = Array.from(e.target.files ?? []);
-						e.target.value = '';
-						if (picked.length) photos.onFiles(picked);
-					}}
-				/>
-			)}
 		</>
 	);
 
@@ -242,5 +229,5 @@ export function useReferenceDoc(onManage?: () => void, photos?: { accept: string
 		</div>
 	) : null;
 
-	return { docs, clear: () => setDocs([]), attachButton, chip };
+	return { docs, clear: () => setDocs([]), attachButton, chip, saved, refresh, toggleSaved, addFiles };
 }

@@ -12,7 +12,7 @@ import type { ChatPhoto, ChatVideo } from './studio-store';
 /** The Library's name -> URL map for THIS deck, re-read when the shelf changes. The deck is set here
  *  rather than assumed: the shell scopes the shelf lazily (only once a deck names a photo), and a
  *  photo kept for this deck is invisible to a map scoped to no deck at all. */
-function useAssetUrls(deckId: string): Record<string, string> {
+export function useAssetUrls(deckId: string): Record<string, string> {
 	const [urls, setUrls] = React.useState<Record<string, string>>({});
 	React.useEffect(() => {
 		let alive = true;

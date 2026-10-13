@@ -114,6 +114,42 @@ random name suffixes and release on remove and deck switch); a 15.0x-second phon
 (now before the first); poster height is capped. Not changed: a mixed photo-and-video pick drops the lot
 when one part is refused (minor), and the one-shot fallback re-sends a refused clip once.
 
+## 4d. Attaching to a message: two paths (2026-10-13)
+
+The paperclip used to open one popover that mixed three ideas: a search box over saved docs, an "Add a photo or video…" row
+that opened the phone's own sheet on top of it, and an "Add a file…" row. A tester on an iPhone called it janky, and the
+screenshots showed why: two layers deciding the same thing, and wording about "docs" hiding that the Library also holds
+photos and videos. It is now two paths and nothing else (`ChatAttach.tsx`):
+
+- **From this device.** The browser's or phone's own picker, opened directly from the tap (not from a timer after it: a
+  delayed `click()` can be dropped on iOS). One `<input multiple>` takes photos, videos and the document types; on a phone
+  its native sheet offers Photo Library, Take Photo or Video and Choose Files. Each file goes where its type says: a
+  photo or clip through the media path (saved to the Library, attached to this message), a `.pdf`, `.md` or `.txt`
+  as a reference document.
+- **From your Library.** Replaces the menu inside the same popover (a back arrow returns), so nothing is stacked on the
+  native sheet. Tabs for Photos, Videos and Files, with counts. Tapping an item attaches it at once and checks it, and a
+  second tap takes it off, so what is attached is always visible and there is no "Attach" button to forget.
+
+What an attachment is: a photo or clip belongs to **this message** (a message carries 4 photos and 1 clip); a file is a
+reference document that **grounds every reply** until it is removed, billed each run. A Library photo is already a
+Library asset, so nothing is imported. A Library clip is checked against the same 15 MB and 15 s limits as one from the
+device and refused in words, in the list, when it is over. Taking a clip **from the device** off the message deletes it
+(it was saved only for this message); taking one **from the Library** off leaves it there. The same media gate applies to
+both paths: a cloud model that can see, and a catalog entry that does not say otherwise.
+
+Gone: the search box in the chat (the Library's own search is the place to find things), the "Add a file…" row, and the
+"Stored in your browser · never uploaded" line, which was true of documents and read as a claim about photos and clips,
+which are sent to the model. Fabricate keeps its documents-only paperclip: it takes nothing else, so the old list is
+coherent there. `useReferenceDoc` serves both and now returns the state the chat needs (`saved`, `toggleSaved`,
+`addFiles`).
+
+**Verified:** `docs/e2e/chat-photos.spec.ts` in real Chromium at 1440, 820 and 390 px: the menu has exactly two rows and no
+search box; the device row opens the native chooser straight away (multiple, accepting images, video and `.pdf`); a `.md`
+and a photo picked together become a chip and a thumbnail; from the Library, a photo, a clip and a file each attach by one
+tap and show a check; taking the clip off keeps it in the Library; the popover stays clear of the screen edge.
+**Not verified: that the iOS native sheet opens directly from the tap on a real iPhone** (it opened from the old
+popover row on one). That is the first thing to check on the preview.
+
 ## 5. What this does not claim
 
 - **The chat is not verified on a physical phone** (HARD RULE #23); the Library video shelf is, in part (see §6). The chat specs' 390 px cases (status line, table,
