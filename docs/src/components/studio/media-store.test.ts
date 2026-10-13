@@ -365,6 +365,24 @@ describe('updateMediaDetails', () => {
 	});
 });
 
+describe('cleanLine keeps what changes meaning', () => {
+	it('keeps a family emoji, a Persian word with its joiner, and the flag of England', () => {
+		const family = '\u{1F468}\u200D\u{1F469}\u200D\u{1F467}';
+		expect(cleanLine(family, 140)).toBe(family);
+		expect(cleanLine('\u0628\u0647\u200C\u0646\u0627\u0645', 140)).toBe('\u0628\u0647\u200C\u0646\u0627\u0645');
+		const england = '\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}';
+		expect(cleanLine(england, 140)).toBe(england);
+		expect(cleanLine('\u2764\uFE0F\u200D\u{1F525}', 140)).toBe('\u2764\uFE0F\u200D\u{1F525}');
+	});
+
+	it('still removes a run of joiners, a tag outside a flag, and a joiner at an edge', () => {
+		expect(cleanLine('a\u200D\u200D\u200C\u200Db', 140)).toBe('ab');
+		expect(cleanLine(`a${String.fromCodePoint(0xe0041)}${String.fromCodePoint(0xe0042)}b`, 140)).toBe('ab');
+		expect(cleanLine('\u200Dab\u200D', 140)).toBe('ab');
+		expect(cleanLine('a \u200D b', 140)).toBe('a b');
+	});
+});
+
 describe('cleanLine', () => {
 	it('keeps what a person typed: quotes, the middle dot, accents and an emoji with its look', () => {
 		expect(cleanLine('The "roof" · Zürich \u2764\uFE0F', 140)).toBe('The "roof" · Zürich \u2764\uFE0F');

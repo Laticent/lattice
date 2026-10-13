@@ -233,6 +233,23 @@ function xmpValue(xmp: string, name: string): string | undefined {
 	return undefined;
 }
 
+/** Is `name` used as an element (`<name`) or an attribute (` name=`) in the packet, rather than mentioned inside a description?
+ *  Forward only. */
+function hasXmpProperty(xmp: string, name: string): boolean {
+	for (let i = xmp.indexOf(name); i !== -1; i = xmp.indexOf(name, i + name.length)) {
+		const before = xmp[i - 1] ?? '';
+		const after = xmp[i + name.length] ?? '';
+		if ((before === '<' || /\s/.test(before)) && (after === '>' || after === '=' || after === '/' || /\s/.test(after))) {
+			// An attribute needs its `=` (after optional spaces); an element does not.
+			if (before === '<') return true;
+			let j = i + name.length;
+			while (j < xmp.length && /\s/.test(xmp[j])) j++;
+			if (xmp[j] === '=') return true;
+		}
+	}
+	return false;
+}
+
 function readXmp(bytes: Uint8Array): Found & { title?: string; created?: string } {
 	const xmp = utf8.decode(bytes.subarray(0, MAX_XMP_CHARS));
 	const out: Found & { title?: string; created?: string } = {};
@@ -243,7 +260,7 @@ function readXmp(bytes: Uint8Array): Found & { title?: string; created?: string 
 	out.original = xmpValue(xmp, 'exif:DateTimeOriginal') ?? xmpValue(xmp, 'photoshop:DateCreated');
 	out.created = xmpValue(xmp, 'xmp:CreateDate');
 	// Coordinates written as XMP text (either axis). Present or not; the value is never read.
-	if (xmp.includes('exif:GPSLatitude') || xmp.includes('exif:GPSLongitude')) out.location = true;
+	if (hasXmpProperty(xmp, 'exif:GPSLatitude') || hasXmpProperty(xmp, 'exif:GPSLongitude')) out.location = true;
 	return out;
 }
 

@@ -5,54 +5,92 @@
 // code span. That text is documentation, and rewriting it to a new name would change what the slide says. Only a
 // reference that renders — prose, an image, a front-matter value — is a reference.
 
-// What counts as code, and so is left alone. It follows CommonMark where the answer is local and certain, and errs toward
-// "prose" where it is not (a container, such as a list item, decides what an indented line means). A reference wrongly
-// left alone keeps working through the photo's old name; one wrongly rewritten changes a code sample, so the rules below
-// are the ones that can be decided from the line itself.
-//   - a fenced block (``` or ~~~, any indentation), closed by a fence of the same mark and at least the same length;
-//   - a top-level indented code block: four spaces or a tab, after a blank line, outside a list;
-//   - an HTML <pre>, <code>, <script> or <style> element;
-//   - an inline code span, which never crosses a blank line (a paragraph ends it).
+// What counts as code, and so is left alone. It follows CommonMark's BLOCK rules, because that is what decides where a code span
+// can start and end, and errs toward "prose" where a container (a list item, a quote) makes a line's meaning uncertain: a
+// reference wrongly left alone keeps working through the photo's old name, while one wrongly rewritten changes a code sample.
+//   - a fenced block (``` or ~~~): closed by a fence of the same mark and at least the same length. A fence opened inside a list
+//     item ends when the item does (a later line indented less than the fence), and one opened at the top level runs to the end;
+//   - a top-level indented code block: four spaces or a tab after a blank line, outside a list;
+//   - an HTML block that starts a line with <pre>, <script>, <style> or <textarea>: raw text up to the line holding its closing
+//     tag, blank lines included. (An inline <code> in a sentence is NOT code here: markdown inside it still renders.)
+//   - an inline code span, which never crosses a block boundary: a blank line, a list item, a heading, a quote or a rule ends it.
 // Every scan moves forward only, so the work is proportional to the length of the deck.
 
 const FENCE_OPEN = /^(\s*)(`{3,}|~{3,})(.*)$/;
 const LIST_MARKER = /^ {0,3}(?:[-*+]|\d{1,9}[.)])(?:\s|$)/;
 const INDENTED = /^(?: {4,}|\t)/;
+const ATX_HEADING = /^ {0,3}#{1,6}(?:\s|$)/;
+const THEMATIC_BREAK = /^ {0,3}([-*_])(?: *\1){2,} *$/;
+const QUOTE = /^ {0,3}>/;
+const HTML_RAW_OPEN = /^ {0,3}<(pre|script|style|textarea)(?:[\s>]|$)/i;
+
+const indentOf = (line: string): number => line.length - line.trimStart().length;
+/** A line that begins a new block, so an inline code span cannot reach across it. */
+const startsBlock = (line: string): boolean => LIST_MARKER.test(line) || ATX_HEADING.test(line) || THEMATIC_BREAK.test(line) || QUOTE.test(line);
 
 /** Run `fn` over every part of `source` that is not code. */
 export function mapOutsideCode(source: string, fn: (prose: string) => string): string {
 	const lines = source.split('\n');
 	const out: string[] = [];
-	let fence: { mark: string; len: number } | null = null;
+	let fence: { mark: string; len: number; indent: number } | null = null;
+	let rawHtml: string | null = null; // the closing tag a raw HTML block waits for
 	let paragraph: string[] = [];
 	let prevBlank = true;
+	let prevHeading = false;
 	let listy = false; // inside a list, where an indented line is list content, not code
 	let codeRun = false; // inside an indented code block
 	const flush = () => {
 		if (!paragraph.length) return;
-		out.push(...mapHtmlCode(paragraph.join('\n'), (t) => mapInlineCode(t, fn)).split('\n'));
+		// A loop, not `out.push(...lines)`: spreading a very long block into arguments overflows the call stack.
+		for (const l of mapInlineCode(paragraph.join('\n'), fn).split('\n')) out.push(l);
 		paragraph = [];
 	};
 	for (const line of lines) {
-		if (fence) {
+		if (rawHtml) {
 			out.push(line);
-			const close = FENCE_OPEN.exec(line);
-			if (close && close[2][0] === fence.mark && close[2].length >= fence.len && close[3].trim() === '') fence = null;
+			if (line.toLowerCase().includes(rawHtml)) rawHtml = null;
 			continue;
+		}
+		if (fence) {
+			const close = FENCE_OPEN.exec(line);
+			const closes = close && close[2][0] === fence.mark && close[2].length >= fence.len && close[3].trim() === '';
+			// A fence inside a list item ends where the item does: a later line indented less than the fence.
+			if (!closes && fence.indent >= 2 && line.trim() !== '' && indentOf(line) < fence.indent) {
+				fence = null;
+			} else {
+				out.push(line);
+				if (closes) fence = null;
+				continue;
+			}
 		}
 		if (line.trim() === '') {
 			flush();
 			out.push(line);
 			prevBlank = true;
+			prevHeading = false;
 			continue;
 		}
 		const open = FENCE_OPEN.exec(line);
-		// A backtick fence's info string may not contain a backtick (that would be an inline span, not a fence).
-		if (open && !(open[2][0] === '`' && open[3].includes('`'))) {
+		const fenceIndent = open ? open[1].length : 0;
+		// A backtick fence's info string may not contain a backtick (that would be an inline span, not a fence). An indent of four
+		// or more is a fence only inside a list; at the top level it is an indented code block or a lazy line of a paragraph.
+		if (open && !(open[2][0] === '`' && open[3].includes('`')) && (fenceIndent <= 3 || listy)) {
 			flush();
 			out.push(line);
-			fence = { mark: open[2][0], len: open[2].length };
+			fence = { mark: open[2][0], len: open[2].length, indent: fenceIndent };
 			prevBlank = false;
+			prevHeading = false;
+			codeRun = false;
+			continue;
+		}
+		const raw = HTML_RAW_OPEN.exec(line);
+		if (raw) {
+			flush();
+			out.push(line);
+			const closing = `</${raw[1].toLowerCase()}>`;
+			if (!line.toLowerCase().includes(closing)) rawHtml = closing;
+			prevBlank = false;
+			prevHeading = false;
 			codeRun = false;
 			continue;
 		}
@@ -61,58 +99,21 @@ export function mapOutsideCode(source: string, fn: (prose: string) => string): s
 			out.push(line);
 			codeRun = true;
 			prevBlank = false;
+			prevHeading = false;
 			continue;
 		}
 		codeRun = false;
 		if (LIST_MARKER.test(line)) listy = true;
 		else if (prevBlank && !INDENTED.test(line)) listy = false;
+		// A list item, a heading, a quote or a rule starts a new block, and the line after a heading does too.
+		if (startsBlock(line) || prevHeading) flush();
 		paragraph.push(line);
+		prevHeading = ATX_HEADING.test(line);
+		if (prevHeading) flush();
 		prevBlank = false;
 	}
 	flush();
 	return out.join('\n');
-}
-
-/** Pass HTML <pre>, <code>, <script> and <style> elements through untouched, and run `fn` over the text between them.
- *  An opening tag with no closing tag one is plain text. Each tag's next position is looked up at most until it passes. */
-function mapHtmlCode(text: string, fn: (prose: string) => string): string {
-	if (!text.includes('<')) return fn(text);
-	const lower = text.toLowerCase();
-	const names = ['pre', 'code', 'script', 'style'];
-	const next: Record<string, number> = {};
-	let out = '';
-	let i = 0;
-	for (;;) {
-		let at = -1;
-		let which = '';
-		for (const n of names) {
-			if (next[n] === undefined || (next[n] !== -1 && next[n] < i)) next[n] = nextOpen(lower, n, i);
-			if (next[n] !== -1 && (at === -1 || next[n] < at)) {
-				at = next[n];
-				which = n;
-			}
-		}
-		if (at === -1) break;
-		const close = lower.indexOf(`</${which}>`, at);
-		if (close === -1) {
-			next[which] = -1; // no closing tag anywhere after: this name is plain text from here on
-			continue;
-		}
-		const end = close + which.length + 3;
-		out += fn(text.slice(i, at)) + text.slice(at, end);
-		i = end;
-	}
-	return out + fn(text.slice(i));
-}
-
-/** The next `<name` at or after `from` that is a whole tag name, or -1. */
-function nextOpen(lower: string, name: string, from: number): number {
-	const needle = `<${name}`;
-	for (let i = lower.indexOf(needle, from); i !== -1; i = lower.indexOf(needle, i + needle.length)) {
-		const c = lower[i + needle.length] ?? '>';
-		if (c === '>' || c === '/' || c === ' ' || c === '\t' || c === '\n') return i;
-	}
-	return -1;
 }
 
 /** Inline code spans: a run of N backticks closes at the next run of exactly N, and an unmatched run is plain text.

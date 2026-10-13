@@ -84,6 +84,17 @@ describe('a slow Suggest', () => {
 		expect((screen.getByText('Save') as HTMLButtonElement).disabled).toBe(true);
 	});
 
+	it('from a cancelled visit does not overwrite typing after the same photo is opened again', async () => {
+		const s = slow();
+		const { rerender } = render(<Host m={rec('a')} onSuggest={s.onSuggest} />);
+		fireEvent.click(screen.getByText('Suggest'));
+		rerender(<Host m={null} onSuggest={s.onSuggest} />);
+		rerender(<Host m={rec('a')} onSuggest={s.onSuggest} />);
+		fireEvent.change(field('Description'), { target: { value: 'typed after reopen' } });
+		await act(async () => s.resolve({ text: 'Old answer' }));
+		expect(field('Description').value).toBe('typed after reopen');
+	});
+
 	it('shows a refusal as a line under the field, not in the field', async () => {
 		const s = slow();
 		render(<Host m={rec('a')} onSuggest={s.onSuggest} />);

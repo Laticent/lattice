@@ -376,13 +376,16 @@ unusable reply each give a plain line, never a silent button. The call lives in 
 ### Rename can rewrite the decks
 
 The alias list in the detail view shows how many decks still write each old name, and **Use new name** rewrites them
-(`asset-refs.ts`). The count and the button use one function, so they cannot disagree. Code is left as written, by the rules
-that can be decided from the text itself: a fenced block (``` or ~~~, at any indentation), a top-level indented code block (four
-spaces or a tab after a blank line, outside a list), an HTML `<pre>`, `<code>`, `<script>` or `<style>` element, and an inline
-code span, which never crosses a blank line. Where a container decides what a line means (an indented line inside a list item),
-it is read as prose: a reference wrongly left alone keeps working through the old name, while one wrongly rewritten changes a
-code sample. `asset:hero.jpg`, which is not a valid reference, is not touched. Every scan moves forward only, so the work is
-proportional to the deck's length (pinned with hostile inputs).
+(`asset-refs.ts`). The count and the button use one function, so they cannot disagree. Code is left as written, by CommonMark's
+block rules, because those decide where a code span can start and end: a fenced block (``` or ~~~; one opened inside a list item
+ends with the item), a top-level indented code block (four spaces or a tab after a blank line, outside a list), an HTML block that
+starts a line with `<pre>`, `<script>`, `<style>` or `<textarea>` and runs to the line holding its closing tag (blank lines
+included), and an inline code span, which never crosses a block boundary (a blank line, a list item, a heading, a quote or a rule
+ends it). An inline `<code>` inside a sentence is not code here, because markdown inside it still renders. Where a container makes a
+line's meaning uncertain (an indented line inside a list item), it is read as prose: a reference wrongly left alone keeps working
+through the old name, while one wrongly rewritten changes a code sample. `asset:hero.jpg`, which is not a valid reference, is not
+touched. Every scan moves forward only, and a block of any length is handled, so the work is proportional to the deck's length
+(pinned with hostile inputs, including a 150,000-line block).
 
 Each deck gets a Version history entry first (`Before using asset:<new>`). The way back is saved first and read back: the store
 swallows a full-storage error, so a deck is never rewritten on the promise of an undo that was not written. If the browser has
@@ -401,17 +404,20 @@ A second independent check read the EXIF reader, the alt fill and the rewrite as
   (`meta.assetAlt`) and the background reader ignores it. An author's own `![bg …]` is unaffected.
 - **Text read from a file went through a weaker cleaner than text a person types.** It now uses `cleanLine` (control, invisible
   and unpaired-surrogate characters out, cut by whole characters). A numeric entity that is not a character becomes a space.
+  `cleanLine` keeps what changes a text's meaning: a subdivision-flag sequence (the flag of England), and ONE joiner between two
+  ordinary characters (a family emoji, a Persian word with its zero-width non-joiner). A run of joiners, a tag outside a flag and
+  every other invisible character is removed, because those are the channels a hostile file uses to hide text.
 - **Two location cases went unflagged:** a GPS pointer written as type IFD, and an XMP packet with only a longitude. Both are flagged.
   (The stored bytes were scrubbed either way; this is the "carried a location" notice.)
 - **Dialog state:** Save sends only what the person changed from the values the form OPENED with, so a description the chat wrote
   underneath is not erased; the form starts over every time it opens, so a cancelled draft is gone; and a Suggest answer lands only in
-  the photo that asked.
+  the visit that asked (a counter moves on every open, close and photo change), even if the same photo is reopened.
 
 ### Weight at startup
 
 The Studio route loads its shell at startup, and every byte there is measured against `main` (`docs/route-budget.json`). The first
 cut added 4,067 bytes (gzipped) there. The editing code now lives in `media-edit.ts` and Suggest in `suggest-photo-description.ts`,
-both loaded with the Library on demand, and the route is **561 bytes smaller than `main`**, with nothing to declare.
+both loaded on demand (the Library, and the Chat panel's photo import), never at startup, and the route is **561 bytes smaller than `main`**, with nothing to declare.
 
 ### Keyboard and focus
 

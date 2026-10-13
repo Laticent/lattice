@@ -14,3 +14,5 @@
 - A photo's description is never read as a slide directive: a description such as "bg contain" stays alt text.
 - Reading a photo's own details is safe against crafted files, including a packet built to freeze the page, and a file's text is cleaned the same way text you type is.
 - **Use new name** reports honestly when the browser has no room to save: it rewrites nothing it cannot undo, and says how many decks were updated.
+- **Use new name** reads markdown the way the renderer does: a list item, heading or quote ends an inline code span, an HTML `<pre>` block runs to its closing tag, and a code fence inside a list item ends with the item, so the count of decks and the rewrite agree with what a slide really shows. A very long block no longer crashes the detail view.
+- A description keeps a family emoji, a flag and a Persian word's joiner when it is saved, while hidden-text characters are still removed. A **Suggest** answer from a cancelled visit can no longer overwrite what you typed after reopening the same photo.

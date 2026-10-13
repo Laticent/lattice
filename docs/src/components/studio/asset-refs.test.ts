@@ -90,11 +90,18 @@ describe('what the checker found', () => {
     expect(R('1. step\n   ~~~md\n   ![](asset:hero)\n   ~~~\n')).toBe('1. step\n   ~~~md\n   ![](asset:hero)\n   ~~~\n');
   });
 
-  it('leaves HTML pre, code, script and style elements alone, and a tag that never closes is plain text', () => {
-    expect(R('<pre>![](asset:hero)</pre> ![](asset:hero)')).toBe('<pre>![](asset:hero)</pre> ![](asset:cover)');
-    expect(R('<CODE class="x">asset:hero</CODE> asset:hero')).toBe('<CODE class="x">asset:hero</CODE> asset:cover');
-    expect(R('<script>var a = "asset:hero"</script>![](asset:hero)')).toBe('<script>var a = "asset:hero"</script>![](asset:cover)');
-    expect(R('<pre> never closed ![](asset:hero)')).toBe('<pre> never closed ![](asset:cover)');
+  it('leaves an HTML pre, script, style or textarea block alone, up to the line holding its closing tag, blank lines included', () => {
+    // CommonMark: the block starts at a line beginning with the tag and ends at the line that holds the closing tag.
+    expect(R('<pre>![](asset:hero)</pre> ![](asset:hero)')).toBe('<pre>![](asset:hero)</pre> ![](asset:hero)');
+    expect(R('<pre>\nline\n\nasset:hero\n\n</pre>\n![](asset:hero)')).toBe('<pre>\nline\n\nasset:hero\n\n</pre>\n![](asset:cover)');
+    expect(R('<script>\nvar a = "asset:hero"\n</script>\n![](asset:hero)')).toBe('<script>\nvar a = "asset:hero"\n</script>\n![](asset:cover)');
+    expect(R('<STYLE>\n/* asset:hero */\n</STYLE>\n![](asset:hero)')).toBe('<STYLE>\n/* asset:hero */\n</STYLE>\n![](asset:cover)');
+    expect(R('<pre> never closed\n![](asset:hero)')).toBe('<pre> never closed\n![](asset:hero)');
+  });
+
+  it('does NOT treat an inline <code> or a mid-sentence <pre> as code: markdown inside it still renders', () => {
+    expect(R('See <code>![](asset:hero)</code> here')).toBe('See <code>![](asset:cover)</code> here');
+    expect(R('Text <pre>![](asset:hero)</pre> more')).toBe('Text <pre>![](asset:cover)</pre> more');
     expect(R('<prefix>![](asset:hero)</prefix>')).toBe('<prefix>![](asset:cover)</prefix>');
   });
 
@@ -107,5 +114,40 @@ describe('what the checker found', () => {
       decksUsingOutsideCode('hero', [c]);
       expect(performance.now() - start, c.slice(0, 20)).toBeLessThan(800);
     }
+  });
+});
+
+describe('what the second check found', () => {
+  it('a backtick in one list item does not hide a reference in the next', () => {
+    const md = '- Press ` to start\n- ![](asset:hero)\n- end ` here\n';
+    expect(R(md)).toBe('- Press ` to start\n- ![](asset:cover)\n- end ` here\n');
+    expect(decksUsingOutsideCode('hero', [md])).toBe(1);
+  });
+
+  it('a heading ends an inline code span', () => {
+    const md = '# Use ` key\n![](asset:hero) and ` more\n';
+    expect(R(md)).toBe('# Use ` key\n![](asset:cover) and ` more\n');
+    expect(decksUsingOutsideCode('hero', [md])).toBe(1);
+  });
+
+  it('a quote and a rule end an inline code span too', () => {
+    expect(R('> a ` b\n![](asset:hero)\n> c ` d\n')).toBe('> a ` b\n![](asset:cover)\n> c ` d\n');
+    expect(R('x `\n***\n![](asset:hero) `\n')).toBe('x `\n***\n![](asset:cover) `\n');
+  });
+
+  it('a fence opened in a list item ends with the item, so a later paragraph is prose', () => {
+    expect(R('- item\n  ```\n  asset:hero\n\nNext para ![](asset:hero)\n')).toBe('- item\n  ```\n  asset:hero\n\nNext para ![](asset:cover)\n');
+    // And the sample inside it is still left alone.
+    expect(R('- item\n  ```\n  ![](asset:hero)\n  ```\n')).toBe('- item\n  ```\n  ![](asset:hero)\n  ```\n');
+  });
+
+  it('an indented fence-looking line after paragraph text is text, not a fence', () => {
+    expect(R('Some text\n    ```\n![](asset:hero)\n')).toBe('Some text\n    ```\n![](asset:cover)\n');
+  });
+
+  it('survives a block of a hundred and fifty thousand lines with no blank line', () => {
+    const md = `${'| a | b |\n'.repeat(150_000)}![](asset:hero)\n`;
+    const out = R(md);
+    expect(out.endsWith('![](asset:cover)\n')).toBe(true);
   });
 });

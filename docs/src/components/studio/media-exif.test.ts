@@ -318,6 +318,17 @@ describe('text read from a file is well formed', () => {
 	});
 });
 
+describe('location flags in XMP', () => {
+	it('flags an element or an attribute, and not a description that merely mentions the tag', () => {
+		expect(readFileMeta(jpeg(jpegXmp('<exif:GPSLatitude>51,30N</exif:GPSLatitude>'))).hadLocation).toBe(true);
+		const attr = '<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="r"><rdf:Description\n  exif:GPSLongitude = "0,7W"/></rdf:RDF></x:xmpmeta>';
+		expect(readFileMeta(jpeg(seg(0xe1, bytes('http://ns.adobe.com/xap/1.0/\0', attr)))).hadLocation).toBe(true);
+		const said = readFileMeta(jpeg(jpegXmp(alt('dc:description', 'We discussed exif:GPSLatitude handling at the offsite'))));
+		expect(said.hadLocation).toBeUndefined();
+		expect(said.caption).toContain('offsite');
+	});
+});
+
 describe('location flags', () => {
 	it('flags a longitude-only XMP packet, and an IFD pointer written as type IFD (13)', () => {
 		expect(readFileMeta(jpeg(jpegXmp('<exif:GPSLongitude>0,7.5W</exif:GPSLongitude>')))).toEqual({ hadLocation: true });

@@ -30,7 +30,14 @@ export const cleanLine = (v: string, max: number): string => {
 	const t = v
 		// biome-ignore lint/suspicious/noControlCharactersInRegex: stripping them is the point
 		.replace(/[\u0000-\u001f\u007f-\u009f]+/g, ' ')
-		.replace(/(?:[\p{Cf}\p{Zl}\p{Zp}\u3164\u2800]|[\uFE00-\uFE0D]|[\u{E0000}-\u{E01EF}])+/gu, '')
+		// Three things survive, because removing them changes what a text SAYS: a subdivision-flag sequence (a black flag, tag
+		// letters, a cancel tag: the flag of England), and ONE joiner between two ordinary characters (a family emoji, a Persian
+		// word with its zero-width non-joiner). A run of joiners, a tag outside a flag, and every other invisible character goes:
+		// those are the channels a hostile file uses to hide text.
+		.replace(
+			/(\u{1F3F4}[\u{E0020}-\u{E007E}]{2,6}\u{E007F})|(?<=[^\p{Cf}\s])([\u200C\u200D])(?=[^\p{Cf}\s])|(?:[\p{Cf}\p{Zl}\p{Zp}\u3164\u2800]|[\uFE00-\uFE0D]|[\u{E0000}-\u{E01EF}])+/gu,
+			(_m, flag: string | undefined, joiner: string | undefined) => flag ?? joiner ?? '',
+		)
 		// A lone surrogate is half a character: it would print as a replacement box and fail `isWellFormed`.
 		.replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '')
 		.replace(/\s+/g, ' ')

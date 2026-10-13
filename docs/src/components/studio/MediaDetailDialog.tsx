@@ -77,9 +77,13 @@ export function MediaDetailDialog({ m: incoming, open, onOpenChange, usedIn, ali
 		setSuggestNote(null);
 		setSuggesting(false);
 	}, [id, open]);
-	// Which photo a Suggest answer may land in: the one that asked, and only while it is still open.
-	const showing = React.useRef<string | null>(null);
-	showing.current = open ? (id ?? null) : null;
+	// A Suggest answer belongs to the visit that asked: the counter moves every time the dialog opens, closes or shows another
+	// photo, so an answer from a cancelled visit cannot land in a reopened form, even of the same photo.
+	const visit = React.useRef(0);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: moves on opening, closing and the photo's identity on purpose
+	React.useEffect(() => {
+		visit.current += 1;
+	}, [id, open]);
 	if (!m) return null;
 
 	const nameOk = name === base.name || isMediaName(name);
@@ -91,19 +95,19 @@ export function MediaDetailDialog({ m: incoming, open, onOpenChange, usedIn, ali
 	 *  and the person can edit it first. A refusal (no model connected, a model that cannot read images, the budget cap)
 	 *  is a line under the field, never a silent no-op. */
 	async function suggest() {
-		const asked = m?.id ?? null;
+		const asked = visit.current;
 		setSuggesting(true);
 		setSuggestNote(null);
 		try {
 			const r = await onSuggest();
 			// The answer belongs to the photo that asked. If the dialog was closed or shows another photo by now, drop it.
-			if (showing.current !== asked) return;
+			if (visit.current !== asked) return;
 			if ('text' in r) setCaption(r.text);
 			else setSuggestNote(r.note);
 		} catch {
-			if (showing.current === asked) setSuggestNote("Couldn't reach the model. Check your connection and try again.");
+			if (visit.current === asked) setSuggestNote("Couldn't reach the model. Check your connection and try again.");
 		} finally {
-			if (showing.current === asked) setSuggesting(false);
+			if (visit.current === asked) setSuggesting(false);
 		}
 	}
 
