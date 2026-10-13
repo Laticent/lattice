@@ -39,6 +39,9 @@ export type RenderMarkdownOpts = {
 	 *  Left unset, the Studio's render-options hook fills it when the source names an `asset:`
 	 *  reference (components/studio/asset-render-hook.ts); every other surface passes nothing. */
 	assetUrls?: Record<string, string>;
+	/** `asset:<name>` → the photo's description. The engine fills an EMPTY alt from it; an alt the author wrote
+	 *  stays. Filled by the same hook as `assetUrls`, and by an export beside its data-URI map. */
+	assetAlts?: Record<string, string>;
 	stats?: boolean;
 	/** Caller-supplied DECK POSITION for a document holding only part of the deck:
 	 *  `offset` slides precede it, the deck holds `total`. Lets a preview render the

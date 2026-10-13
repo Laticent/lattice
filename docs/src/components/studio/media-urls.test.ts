@@ -4,8 +4,8 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { deleteAsset, listAssets } from './library/asset-store.js';
-import { LIBRARY_SCOPE, type NewMedia, renameMedia, saveMedia, setMediaScope } from './media-store';
-import { assetNamesIn, assetStamp, dataUrlsFor, ensureAssetUrls, missingAssetNames, onAssetUrlsChanged, refreshAssetUrls, resetAssetUrlsForTests, setActiveAssetDeck, sourceUsesAssets } from './media-urls';
+import { LIBRARY_SCOPE, type NewMedia, renameMedia, saveMedia, setMediaScope, updateMediaMeta } from './media-store';
+import { altsFor, assetNamesIn, assetStamp, dataUrlsFor, ensureAssetAlts, ensureAssetUrls, missingAssetNames, onAssetUrlsChanged, refreshAssetUrls, resetAssetUrlsForTests, setActiveAssetDeck, sourceUsesAssets } from './media-urls';
 
 const make = (over: Partial<NewMedia> = {}): NewMedia => ({
 	kind: 'image', name: 'hero', scope: LIBRARY_SCOPE, blob: new Blob(['x'], { type: 'image/png' }),
@@ -212,5 +212,36 @@ describe('a renamed photo', () => {
 		await renameMedia(rec.id, 'team-offsite');
 		await refreshAssetUrls();
 		expect(assetStamp()).not.toBe(before);
+	});
+});
+
+describe('descriptions as alt text', () => {
+	it('maps a described photo, under every name it has had, and leaves an undescribed one out', async () => {
+		const a = await saveMedia(make({ name: 'hero' }), 1);
+		await saveMedia(make({ name: 'plain' }), 2);
+		await updateMediaMeta(a.id, { caption: 'The team on the roof' });
+		await renameMedia(a.id, 'roof');
+		expect(await ensureAssetAlts()).toEqual({ hero: 'The team on the roof', roof: 'The team on the roof' });
+	});
+
+	it('re-renders the preview when only a description changes', async () => {
+		const a = await saveMedia(make({ name: 'hero' }), 1);
+		await ensureAssetUrls();
+		const before = assetStamp();
+		await updateMediaMeta(a.id, { caption: 'A door' });
+		await refreshAssetUrls();
+		expect(assetStamp()).not.toBe(before);
+		const mid = assetStamp();
+		await refreshAssetUrls();
+		expect(assetStamp(), 'an unchanged shelf is not a change').toBe(mid);
+	});
+
+	it('an export reads only the descriptions of the photos the deck names', async () => {
+		const a = await saveMedia(make({ name: 'hero' }), 1);
+		const b = await saveMedia(make({ name: 'other' }), 2);
+		await updateMediaMeta(a.id, { caption: 'A' });
+		await updateMediaMeta(b.id, { caption: 'B' });
+		expect(await altsFor('![](asset:hero)')).toEqual({ hero: 'A' });
+		expect(await altsFor('no photos here')).toEqual({});
 	});
 });

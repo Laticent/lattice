@@ -15,11 +15,13 @@ import { listMedia, type MediaRecord, namesOf, visibleMedia } from './media-stor
 
 const urlById = new Map<string, string>();
 // The visible assets' bytes by name, kept beside the URLs so an export can read them as `data:` URIs.
-const blobByName = new Map<string, { id: string; blob: Blob; mime: string }>();
+const blobByName = new Map<string, { id: string; blob: Blob; mime: string; alt?: string }>();
 const dataUriById = new Map<string, Promise<string>>();
 // Photos whose bytes could not be read for the last export, so the Share sheet can name them.
 const failedIds = new Set<string>();
 let current: Record<string, string> = {};
+// name → description, for the photos that have one. The engine fills an EMPTY alt from it (`opts.assetAlts`).
+let currentAlts: Record<string, string> = {};
 // What the editor offers when you type an image reference: the visible photos, newest first.
 let choices: AssetChoice[] = [];
 let activeDeckId: string | null = null;
@@ -52,6 +54,7 @@ export async function refreshAssetUrls(): Promise<void> {
 		}
 	}
 	const next: Record<string, string> = {};
+	const nextAlts: Record<string, string> = {};
 	blobByName.clear();
 	const seen = visibleMedia(all, activeDeckId);
 	choices = seen.map((m) => ({ name: m.name, scope: m.scope, width: m.width, height: m.height, sourceName: m.sourceName }));
@@ -59,11 +62,14 @@ export async function refreshAssetUrls(): Promise<void> {
 		// Aliases resolve to the same bytes: a renamed photo keeps working under every name it has had.
 		for (const n of namesOf(m)) {
 			next[n] = urlFor(m);
-			blobByName.set(n, { id: m.id, blob: m.blob, mime: m.mime });
+			blobByName.set(n, { id: m.id, blob: m.blob, mime: m.mime, alt: m.caption || undefined });
+			if (m.caption) nextAlts[n] = m.caption;
 		}
 	}
-	if (signature(next) !== signature(current)) {
+	// A description edit changes what a slide says, so it re-renders the slides like a changed photo does.
+	if (signature(next) !== signature(current) || signature(nextAlts) !== signature(currentAlts)) {
 		current = next;
+		currentAlts = nextAlts;
 		rev++;
 		for (const cb of listeners) cb();
 	}
@@ -83,6 +89,13 @@ export async function ensureAssetUrls(): Promise<Record<string, string>> {
 	if (!loaded) loaded = refreshAssetUrls().catch(() => {});
 	await loaded;
 	return current;
+}
+
+/** The descriptions the preview fills into an empty alt, after the first read. Empty for a Library with none. */
+export async function ensureAssetAlts(): Promise<Record<string, string>> {
+	if (!loaded) loaded = refreshAssetUrls().catch(() => {});
+	await loaded;
+	return currentAlts;
 }
 
 /** A CSS-comment stamp that changes when the map does. It rides in the preview's extra CSS,
@@ -169,6 +182,18 @@ export async function dataUrlsFor(source: string): Promise<Record<string, string
 	return out;
 }
 
+/** The descriptions an EXPORT fills into an empty alt: only the photos `source` names. Read after `dataUrlsFor`,
+ *  which refreshes the shelf. */
+export async function altsFor(source: string): Promise<Record<string, string>> {
+	await refreshAssetUrls();
+	const out: Record<string, string> = {};
+	for (const name of assetNamesIn(source)) {
+		const alt = blobByName.get(name)?.alt;
+		if (alt) out[name] = alt;
+	}
+	return out;
+}
+
 /** The names `source` writes that the open deck cannot see (deleted, or another deck's). An export
  *  says so, so a stand-in in the file is never a surprise. */
 export async function missingAssetNames(source: string): Promise<string[]> {
@@ -187,6 +212,7 @@ export function resetAssetUrlsForTests(): void {
 	dataUriById.clear();
 	failedIds.clear();
 	current = {};
+	currentAlts = {};
 	choices = [];
 	activeDeckId = null;
 	rev = 0;

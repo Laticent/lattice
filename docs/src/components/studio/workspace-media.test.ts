@@ -5,6 +5,7 @@
 import 'fake-indexeddb/auto';
 import JSZip from 'jszip';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { openDB } from './library/asset-db.js';
 import { deleteAsset, listAssets } from './library/asset-store.js';
 import { LIBRARY_SCOPE, listMedia, MAX_MEDIA_FILE_BYTES, type NewMedia, renameMedia, saveMedia, updateMediaMeta } from './media-store';
 import { jpeg, jpegSegment, png, pngChunk, webp } from './test-images';
@@ -404,10 +405,24 @@ describe('renameAssetRefs', () => {
 	});
 });
 
+/** Put the file-read facts on a stored row, the way an import would have. */
+async function putFileFacts(id: string, facts: { fileCaption?: string; hadLocation?: true }) {
+	const db = await openDB();
+	await new Promise<void>((res, rej) => {
+		const t = db.transaction('assets', 'readwrite');
+		const st = t.objectStore('assets');
+		const g = st.get(id);
+		g.onsuccess = () => st.put({ ...g.result, ...facts });
+		t.oncomplete = () => res();
+		t.onerror = () => rej(t.error);
+	});
+}
+
 describe('description, credit, date and old names ride in a backup', () => {
 	it('round-trips them, and a renamed photo still answers to its old name', async () => {
 		const rec = await saveMedia(photo({ name: 'hero' }), 1);
 		await updateMediaMeta(rec.id, { caption: 'A door', credit: 'Ada L.', taken: '2026-03-04' });
+		await putFileFacts(rec.id, { fileCaption: 'Surprise party, do not share', hadLocation: true });
 		await renameMedia(rec.id, 'front-door');
 		const z = new JSZip();
 		await packMedia(z);
@@ -416,6 +431,7 @@ describe('description, credit, date and old names ride in a backup', () => {
 		expect((await restoreMedia(packed, 9, ctx())).refused).toEqual([]);
 		const [back] = await listMedia();
 		expect([back.name, back.aliases, back.caption, back.credit, back.taken]).toEqual(['front-door', ['hero'], 'A door', 'Ada L.', '2026-03-04']);
+		expect([back.fileCaption, back.hadLocation]).toEqual(['Surprise party, do not share', true]);
 	});
 
 	it('restores an older backup that has none of these fields', async () => {
@@ -497,6 +513,13 @@ describe('old names and restore', () => {
 		const out = await restoreMedia(await craft([row({ name: 'cover', file: 'cover.png', aliases: ['hero'] })], { 'cover.png': PNG }), 9, ctx());
 		expect(out.restored).toBe(0);
 		expect(out.renames).toEqual([{ from: 'hero', to: 'cover', scope: LIBRARY_SCOPE }]);
+	});
+
+	it('cleans a file description, and only a literal true counts as a location', async () => {
+		await restoreMedia(await craft([row({ fileCaption: 'Line one\nLine two', hadLocation: 'yes' })]), 9, ctx());
+		const [back] = await listMedia();
+		expect(back.fileCaption).toBe('Line one Line two');
+		expect(back.hadLocation).toBeUndefined();
 	});
 
 	it('refuses a calendar date that does not exist', async () => {

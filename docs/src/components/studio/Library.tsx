@@ -21,7 +21,7 @@ import { listAssets } from './library/asset-store.js';
 import { MediaCard } from './MediaCard';
 import { MediaDetailDialog } from './MediaDetailDialog';
 import { classifyMedia, importImage, MEDIA_ACCEPT, MediaImportError, uniqueName } from './media-import';
-import { decksUsing, decksUsingRecord, deleteMedia, LIBRARY_SCOPE, listMedia, MEDIA_REFUSAL_PREFIX, type MediaMetaPatch, type MediaRecord, namesOf, removeMediaAlias, renameMedia, saveMedia, setMediaScope, updateMediaMeta, visibleMedia } from './media-store';
+import { decksUsing, decksUsingRecord, deleteMedia, LIBRARY_SCOPE, listMedia, MEDIA_REFUSAL_PREFIX, type MediaRecord, namesOf, removeMediaAlias, saveMedia, setMediaScope, updateMediaDetails, visibleMedia } from './media-store';
 import { MOTION_PALETTE_STYLE } from './motion/palette-fallback';
 import { LIBRARY_FILTERS, LIBRARY_HEADER, type LibraryFilter } from './panel-shells';
 import { formatBytes, REF_DOC_ACCEPT, readReferenceDoc } from './reference-doc';
@@ -481,6 +481,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 		let n = 0;
 		const failed: string[] = [];
 		const renamed: string[] = [];
+		let described = 0;
 		try {
 			for (const file of picked) {
 				try {
@@ -492,6 +493,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 					await saveMedia(rec, Date.now());
 					taken.add(rec.name);
 					n++;
+					if (rec.fileCaption) described++;
 				} catch (e) {
 					// The person is told below; the cause goes to the console for whoever has to debug a browser
 					// that refuses (a private window, a full quota, an engine that cannot store a Blob).
@@ -504,7 +506,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 			if (n) onChanged(); // the open deck's previews learn of the new photo
 			// Browsers may evict a site's storage under pressure (Safari after a week unused); ask to keep it. A refusal changes nothing.
 			if (n) void navigator.storage?.persist?.().catch(() => {});
-			if (n) notify(`Added ${n} image${n === 1 ? '' : 's'}${scope === LIBRARY_SCOPE ? ' to all decks' : ' to this deck'}.`);
+			if (n) notify(`Added ${n} image${n === 1 ? '' : 's'}${scope === LIBRARY_SCOPE ? ' to all decks' : ' to this deck'}.${described ? ` ${described === 1 ? 'It has' : `${described} have`} a description in the file: open ${described === 1 ? 'it' : 'one'} to use it.` : ''}`);
 			// A name that was already a photo is never replaced: say which name the new one took, so a deck that
 			// still shows the old picture is not a mystery.
 			if (renamed.length) notify(`${renamed.slice(0, 2).join('; ')}${renamed.length > 2 ? ` (+${renamed.length - 2} more)` : ''}. Delete the old one first to reuse the name.`);
@@ -1093,8 +1095,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 				onOpenChange={(o) => { if (!o) setDetailId(null); }}
 				usedIn={detail ? mediaUse[detail.name] || 0 : 0}
 				aliasUse={detailAliasUse}
-				onSave={(p: MediaMetaPatch) => changeMedia(() => updateMediaMeta(detail?.id as string, p))}
-				onRename={(to) => changeMedia(() => renameMedia(detail?.id as string, to))}
+				onSave={(c) => changeMedia(() => updateMediaDetails(detail?.id as string, c))}
 				onRemoveAlias={(al) => changeMedia(() => removeMediaAlias(detail?.id as string, al))}
 			/>
 			<AssetVersionsDialog

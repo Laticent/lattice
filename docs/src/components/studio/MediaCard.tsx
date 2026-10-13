@@ -50,7 +50,7 @@ export function MediaCard({ m, activeDeckId, usedIn, usedElsewhere, armed, confi
 			    crop to, and `overflow-hidden` showed only the top strip (measured in Chromium). */}
 			<button type="button" onClick={onOpen} aria-label={`Details for ${m.name}`} className="relative block h-[88px] w-full overflow-hidden bg-[var(--bg-alt)]">
 				{url ? (
-					<img src={url} alt="" className="absolute inset-0 h-full w-full object-cover" loading="lazy" draggable={false} />
+					<img src={url} alt={m.caption ?? ''} className="absolute inset-0 h-full w-full object-cover" loading="lazy" draggable={false} />
 				) : (
 					<ImageIcon className="absolute left-1/2 top-1/2 size-6 -translate-x-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden />
 				)}

@@ -69,6 +69,8 @@ type MediaRow = {
 	credit?: string;
 	taken?: string;
 	aliases?: string[];
+	fileCaption?: string;
+	hadLocation?: true;
 };
 
 /** Write every Library photo into `zip` as `media/<file>` plus `media.json`. Resolves how many, how many
@@ -90,7 +92,7 @@ export async function packMedia(zip: Zip): Promise<{ rows: number; bytes: number
 		// Bytes, not the Blob: JSZip reads a Blob only where the host supports it, and bytes work everywhere.
 		zip.file(`media/${file}`, new Uint8Array(await m.blob.arrayBuffer()));
 		bytes += m.blob.size;
-		rows.push({ name: m.name, kind: 'image', scope: m.scope, mime: m.mime, bytes: m.blob.size, width: m.width, height: m.height, sourceName: m.sourceName, original: m.original, addedAt: m.addedAt, file, ...(m.caption ? { caption: m.caption } : {}), ...(m.credit ? { credit: m.credit } : {}), ...(m.taken ? { taken: m.taken } : {}), ...(m.aliases?.length ? { aliases: m.aliases } : {}) });
+		rows.push({ name: m.name, kind: 'image', scope: m.scope, mime: m.mime, bytes: m.blob.size, width: m.width, height: m.height, sourceName: m.sourceName, original: m.original, addedAt: m.addedAt, file, ...(m.caption ? { caption: m.caption } : {}), ...(m.credit ? { credit: m.credit } : {}), ...(m.taken ? { taken: m.taken } : {}), ...(m.aliases?.length ? { aliases: m.aliases } : {}), ...(m.fileCaption ? { fileCaption: m.fileCaption } : {}), ...(m.hadLocation ? { hadLocation: true } : {}) });
 	}
 	if (rows.length) zip.file(MEDIA_INDEX, JSON.stringify(rows, null, 2));
 	return { rows: rows.length, bytes, skipped };
@@ -104,13 +106,16 @@ function backupAliases(raw: Partial<MediaRow>): string[] {
 
 /** The description, credit, date and old names a backup row carries, made safe to store. An old name that
  *  another photo already holds is dropped, and the ones kept are added to `claimed` so no later row can take them. */
-function restoredMeta(raw: Partial<MediaRow>, name: string, claimed: Set<string>): Pick<MediaRecord, 'caption' | 'credit' | 'taken' | 'aliases'> & { dropped: string[] } {
-	const out: Pick<MediaRecord, 'caption' | 'credit' | 'taken' | 'aliases'> & { dropped: string[] } = { dropped: [] };
+function restoredMeta(raw: Partial<MediaRow>, name: string, claimed: Set<string>): Pick<MediaRecord, 'caption' | 'credit' | 'taken' | 'aliases' | 'fileCaption' | 'hadLocation'> & { dropped: string[] } {
+	const out: Pick<MediaRecord, 'caption' | 'credit' | 'taken' | 'aliases' | 'fileCaption' | 'hadLocation'> & { dropped: string[] } = { dropped: [] };
 	const caption = typeof raw.caption === 'string' ? cleanLine(raw.caption, 140) : '';
 	if (caption) out.caption = caption;
 	const credit = typeof raw.credit === 'string' ? cleanLine(raw.credit, 100) : '';
 	if (credit) out.credit = credit;
 	if (typeof raw.taken === 'string' && isIsoDate(raw.taken)) out.taken = raw.taken;
+	const fileCaption = typeof raw.fileCaption === 'string' ? cleanLine(raw.fileCaption, 140) : '';
+	if (fileCaption) out.fileCaption = fileCaption;
+	if (raw.hadLocation === true) out.hadLocation = true;
 	if (Array.isArray(raw.aliases)) {
 		const keep: string[] = [];
 		for (const a of backupAliases(raw)) {

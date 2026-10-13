@@ -25,6 +25,7 @@ import {
 	setMediaCaption,
 	setMediaScope,
 	sniffImageMime,
+	updateMediaDetails,
 	updateMediaMeta,
 	visibleMedia,
 } from './media-store';
@@ -357,5 +358,30 @@ describe('limits and cross-checks', () => {
 		expect(isIsoDate('2026-02-29')).toBe(false);
 		expect(isIsoDate('2026-99-99')).toBe(false);
 		expect(isIsoDate('26-1-1')).toBe(false);
+	});
+});
+
+describe('updateMediaDetails', () => {
+	beforeEach(emptyShelf);
+	afterEach(emptyShelf);
+
+	it('renames and edits in one write', async () => {
+		const rec = await saveMedia(base({ name: 'hero' }), 1);
+		const out = await updateMediaDetails(rec.id, { name: 'cover', caption: 'A cover', credit: 'Ada' });
+		expect([out?.name, out?.aliases, out?.caption, out?.credit]).toEqual(['cover', ['hero'], 'A cover', 'Ada']);
+	});
+
+	it('saves nothing at all when the new name is refused', async () => {
+		await saveMedia(base({ name: 'taken' }), 1);
+		const rec = await saveMedia(base({ name: 'mine', caption: 'before' } as never), 2);
+		await expect(updateMediaDetails(rec.id, { name: 'taken', caption: 'after', credit: 'x' })).rejects.toThrow(MEDIA_REFUSAL_PREFIX);
+		const mine = (await listMedia()).find((m) => m.id === rec.id);
+		expect([mine?.name, mine?.caption, mine?.credit]).toEqual(['mine', 'before', undefined]);
+	});
+
+	it('edits without a rename when no name is given', async () => {
+		const rec = await saveMedia(base({ name: 'hero' }), 1);
+		const out = await updateMediaDetails(rec.id, { credit: 'Ada' });
+		expect([out?.name, out?.aliases, out?.credit]).toEqual(['hero', undefined, 'Ada']);
 	});
 });

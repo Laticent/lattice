@@ -47,10 +47,17 @@ export type MediaRecord = {
 	/** Earlier names, kept after a rename so `asset:<old>` in a deck still resolves here (the Avro
 	 *  `aliases` idea). Names and aliases share one namespace. Absent on a record that was never renamed. */
 	aliases?: string[];
-	/** Who to credit. Typed by the person in the detail view; nothing reads it from the file yet. */
+	/** Who to credit. Read from the file's artist or copyright when the photo is added, or typed in the detail view. */
 	credit?: string;
-	/** When the picture was taken (`YYYY-MM-DD`). Typed by the person; nothing reads it from the file yet. */
+	/** When the picture was taken (`YYYY-MM-DD`). Read from the file when the photo is added, or typed. */
 	taken?: string;
+	/** A description the file itself carried (XMP, IPTC or EXIF), kept as a SUGGESTION: it is never used as alt
+	 *  text until the person takes it as the description, because a file's own text can be a private note.
+	 *  Absent when the file had none, or only a camera default. */
+	fileCaption?: string;
+	/** The file carried a GPS location when it was added. Only the fact is kept; the location was removed from the
+	 *  stored bytes and is not stored anywhere. */
+	hadLocation?: true;
 	addedAt: number;
 };
 
@@ -282,38 +289,47 @@ export const cleanLine = (v: string, max: number): string =>
 		.trim();
 const cleanTaken = (v: string): string => (isIsoDate(v.trim()) ? v.trim() : '');
 
+/** The metadata change as a pure function of the row, so a rename and a metadata edit can share one write. */
+function withMeta(row: MediaRecord, patch: MediaMetaPatch): MediaRecord {
+	const next: MediaRecord = { ...row };
+	const set = <K extends 'caption' | 'credit' | 'taken'>(k: K, v: string) => {
+		if (v) next[k] = v as MediaRecord[K];
+		else delete next[k];
+	};
+	if (patch.caption !== undefined) set('caption', cleanLine(patch.caption, 140));
+	if (patch.credit !== undefined) set('credit', cleanLine(patch.credit, 100));
+	if (patch.taken !== undefined) set('taken', cleanTaken(patch.taken));
+	return next;
+}
+
+/** The rename as a pure function of the row and every other record. Throws a refusal. */
+function withRename(row: MediaRecord, to: string, others: MediaRecord[]): MediaRecord {
+	if (!isMediaName(to)) throw new Error(`${MEDIA_REFUSAL_PREFIX} “${to}” isn't a usable asset name. Use lowercase letters, digits, - and _.`);
+	if (row.name === to) return row;
+	const clash = others.find((a) => namesOf(a).includes(to));
+	if (clash) throw new Error(`${MEDIA_REFUSAL_PREFIX} “${to}” already belongs to another saved ${clash.kind}.`);
+	const aliases = [...new Set([row.name, ...(row.aliases ?? [])])].filter((n) => n !== to);
+	if (aliases.length > MAX_ALIASES) throw new Error(`${MEDIA_REFUSAL_PREFIX} this photo already has ${MAX_ALIASES} old names. Remove one first.`);
+	return { ...row, name: to, aliases };
+}
+
 /** Change an image's description, credit or date taken. Resolves the updated record, or null when it
  *  no longer exists. */
 export async function updateMediaMeta(id: string, patch: MediaMetaPatch): Promise<MediaRecord | null> {
-	return mutateImage(id, (row) => {
-		const next: MediaRecord = { ...row };
-		const set = <K extends 'caption' | 'credit' | 'taken'>(k: K, v: string) => {
-			if (v) next[k] = v as MediaRecord[K];
-			else delete next[k];
-		};
-		if (patch.caption !== undefined) set('caption', cleanLine(patch.caption, 140));
-		if (patch.credit !== undefined) set('credit', cleanLine(patch.credit, 100));
-		if (patch.taken !== undefined) set('taken', cleanTaken(patch.taken));
-		return next;
-	});
+	return mutateImage(id, (row) => withMeta(row, patch));
 }
 
 /** Rename an image. The old name becomes an alias, so `asset:<old>` keeps resolving. Refuses a name any
  *  other record holds as a name or alias. Renaming back to one of its own aliases takes it back. */
 export async function renameMedia(id: string, to: string): Promise<MediaRecord | null> {
-	if (!isMediaName(to)) throw new Error(`${MEDIA_REFUSAL_PREFIX} “${to}” isn't a usable asset name. Use lowercase letters, digits, - and _.`);
-	return mutateImage(
-		id,
-		(row, others) => {
-			if (row.name === to) return row;
-			const clash = others.find((a) => namesOf(a).includes(to));
-			if (clash) throw new Error(`${MEDIA_REFUSAL_PREFIX} “${to}” already belongs to another saved ${clash.kind}.`);
-			const aliases = [...new Set([row.name, ...(row.aliases ?? [])])].filter((n) => n !== to);
-			if (aliases.length > MAX_ALIASES) throw new Error(`${MEDIA_REFUSAL_PREFIX} this photo already has ${MAX_ALIASES} old names. Remove one first.`);
-			return { ...row, name: to, aliases };
-		},
-		true,
-	);
+	return mutateImage(id, (row, others) => withRename(row, to, others), true);
+}
+
+/** A rename and a metadata edit in ONE transaction: either both land or neither does, so a refused name never
+ *  leaves the edit half saved. `to` is optional; an unchanged name is not a rename. */
+export async function updateMediaDetails(id: string, details: MediaMetaPatch & { name?: string }): Promise<MediaRecord | null> {
+	const { name, ...patch } = details;
+	return mutateImage(id, (row, others) => withMeta(name === undefined ? row : withRename(row, name, others), patch), true);
 }
 
 /** Drop one alias, freeing the name. Decks that still write it will show the missing-image stand-in. */

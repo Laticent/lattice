@@ -17,7 +17,13 @@ import { formatBytes } from './reference-doc';
 // Pixel size, bytes and file name are facts about the stored file and are shown, not edited.
 // Decision note: engineering/decisions/2026-10-12-library-media-assets.md §Editing a photo's metadata.
 
-export function MediaDetailDialog({ m, open, onOpenChange, usedIn, aliasUse, onSave, onRename, onRemoveAlias }: {
+/** Today as `YYYY-MM-DD` on THIS device's calendar. `toISOString` is UTC, which is already tomorrow (or still yesterday) for most of the world part of the day, and would grey out today's date. */
+function localToday(): string {
+	const d = new Date();
+	return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+export function MediaDetailDialog({ m, open, onOpenChange, usedIn, aliasUse, onSave, onRemoveAlias }: {
 	m: MediaRecord | null;
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
@@ -26,8 +32,7 @@ export function MediaDetailDialog({ m, open, onOpenChange, usedIn, aliasUse, onS
 	/** Decks that still write each alias. */
 	aliasUse: Record<string, number>;
 	/** Resolves an error line to show, or null on success. */
-	onSave: (patch: MediaMetaPatch) => Promise<string | null>;
-	onRename: (to: string) => Promise<string | null>;
+	onSave: (change: MediaMetaPatch & { name?: string }) => Promise<string | null>;
 	onRemoveAlias: (alias: string) => Promise<string | null>;
 }) {
 	const url = useObjectUrl(m?.blob);
@@ -53,24 +58,22 @@ export function MediaDetailDialog({ m, open, onOpenChange, usedIn, aliasUse, onS
 	const nameOk = name === m.name || isMediaName(name);
 	const dirty = caption !== (m.caption ?? '') || credit !== (m.credit ?? '') || taken !== (m.taken ?? '') || name !== m.name;
 	const takenOk = taken === '' || isIsoDate(taken);
+	const canSave = dirty && nameOk && takenOk && !busy;
 
 	async function save() {
 		if (!m) return;
 		setBusy(true);
 		setError(null);
 		try {
-			if (name !== m.name) {
-				const e = await onRename(name);
-				if (e) return setError(e);
-			}
 			// Only what this person changed: a description the chat wrote while the dialog was open is not erased
-			// by a form that never held it.
-			const patch: MediaMetaPatch = {};
-			if (caption !== (m.caption ?? '')) patch.caption = caption;
-			if (credit !== (m.credit ?? '')) patch.credit = credit;
-			if (taken !== (m.taken ?? '')) patch.taken = taken;
-			if (Object.keys(patch).length) {
-				const e = await onSave(patch);
+			// by a form that never held it. A rename and the edit are one save, so a refused name leaves nothing half done.
+			const change: MediaMetaPatch & { name?: string } = {};
+			if (name !== m.name) change.name = name;
+			if (caption !== (m.caption ?? '')) change.caption = caption;
+			if (credit !== (m.credit ?? '')) change.credit = credit;
+			if (taken !== (m.taken ?? '')) change.taken = taken;
+			if (Object.keys(change).length) {
+				const e = await onSave(change);
 				if (e) return setError(e);
 			}
 			onOpenChange(false);
@@ -89,13 +92,21 @@ export function MediaDetailDialog({ m, open, onOpenChange, usedIn, aliasUse, onS
 						{usedIn > 0 ? ` · used in ${usedIn} deck${usedIn === 1 ? '' : 's'}` : ''}
 					</DialogDescription>
 				</DialogHeader>
+				{/* A real form: Enter in a field saves, and Save is the submit button. `contents` keeps the dialog's grid. */}
+				<form
+					className="contents"
+					onSubmit={(e) => {
+						e.preventDefault();
+						if (canSave) void save();
+					}}
+				>
 				<div className="flex max-h-[40dvh] items-center justify-center overflow-hidden rounded-lg bg-[var(--bg-alt)]">
 					{url && <img src={url} alt={m.caption ?? ''} className="max-h-[40dvh] w-auto max-w-full object-contain" draggable={false} />}
 				</div>
 				<div className="grid gap-3 text-[13px]">
 					<div className="grid gap-1">
 						<label htmlFor={`${uid}-caption`} className="font-semibold">Description</label>
-						<Textarea id={`${uid}-caption`} value={caption} maxLength={140} rows={2} onChange={(e) => setCaption(e.target.value)} placeholder="What the picture shows. The chat reads it." />
+						<Textarea id={`${uid}-caption`} value={caption} maxLength={140} rows={2} onChange={(e) => setCaption(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); e.currentTarget.form?.requestSubmit(); } }} placeholder="What the picture shows. The chat reads it." />
 					</div>
 					<div className="grid gap-3 sm:grid-cols-2">
 						<div className="grid gap-1">
@@ -104,7 +115,7 @@ export function MediaDetailDialog({ m, open, onOpenChange, usedIn, aliasUse, onS
 						</div>
 						<div className="grid gap-1">
 							<label htmlFor={`${uid}-taken`} className="font-semibold">Date taken</label>
-							<Input id={`${uid}-taken`} type="date" value={taken} max={new Date().toISOString().slice(0, 10)} onChange={(e) => setTaken(e.target.value)} aria-invalid={!takenOk} />
+							<Input id={`${uid}-taken`} type="date" value={taken} max={localToday()} onChange={(e) => setTaken(e.target.value)} aria-invalid={!takenOk} />
 						</div>
 					</div>
 					<div className="grid gap-1">
@@ -114,6 +125,22 @@ export function MediaDetailDialog({ m, open, onOpenChange, usedIn, aliasUse, onS
 							{nameOk ? 'Renaming keeps the old name working in every deck.' : 'Use lowercase letters, digits, - and _.'}
 						</span>
 					</div>
+					{(m.fileCaption || m.hadLocation) && (
+						<div className="grid gap-1.5 rounded-lg border border-border bg-[var(--bg-alt)] p-3 text-[12.5px]" data-from-file>
+							<span className="font-semibold">From the file</span>
+							{m.fileCaption && (
+								<div className="flex items-start gap-2">
+									<p className="min-w-0 flex-1 text-muted-foreground">“{m.fileCaption}”</p>
+									{caption !== m.fileCaption && (
+										<Button type="button" size="sm" variant="outline" onClick={() => setCaption(m.fileCaption ?? '')}>
+											Use as description
+										</Button>
+									)}
+								</div>
+							)}
+							{m.hadLocation && <p className="text-muted-foreground">This photo carried a location. Lattice removed it when the photo was added, so it never reaches a deck or an export.</p>}
+						</div>
+					)}
 					{(m.aliases?.length ?? 0) > 0 && (
 						<div className="grid gap-1">
 							<span className="font-semibold">Also known as</span>
@@ -134,9 +161,10 @@ export function MediaDetailDialog({ m, open, onOpenChange, usedIn, aliasUse, onS
 				</div>
 				{error && <p role="alert" className="text-[12.5px] text-destructive">{error}</p>}
 				<DialogFooter>
-					<Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-					<Button onClick={() => void save()} disabled={!dirty || !nameOk || !takenOk || busy}>Save</Button>
+					<Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+					<Button type="submit" disabled={!canSave}>Save</Button>
 				</DialogFooter>
+				</form>
 			</DialogContent>
 		</Dialog>
 	);
