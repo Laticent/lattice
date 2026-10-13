@@ -27,6 +27,7 @@ describe('the old names list', () => {
 		expect(screen.getByText('in 2 decks')).toBeTruthy();
 		expect(screen.getByText('Use new name in decks')).toBeTruthy();
 		rerender(<Host m={m} aliasUse={{ old: 0 }} />);
+		// It opened itself while a deck still wrote the name, and does not close under the person once that is fixed.
 		expect(screen.getByText('not used in a deck')).toBeTruthy();
 	});
 
@@ -80,7 +81,7 @@ describe('when the form starts over', () => {
 });
 
 describe('a suggested name', () => {
-	const ask = async () => fireEvent.click(screen.getByText('Suggest a name and description'));
+	const ask = async () => fireEvent.click(screen.getByRole('button', { name: 'Suggest a name and description' }));
 
 	it('replaces a camera-made name, with the description, and says nothing is saved yet', async () => {
 		render(<Host m={rec('img-4568')} onSuggest={async () => ({ text: 'A black suede brogue', name: 'black-suede-brogue' })} />);
@@ -139,7 +140,7 @@ describe('a slow Suggest', () => {
 	it('lands in the photo that asked', async () => {
 		const s = slow();
 		render(<Host m={rec('a')} onSuggest={s.onSuggest} />);
-		fireEvent.click(screen.getByText('Suggest a name and description'));
+		fireEvent.click(screen.getByRole('button', { name: 'Suggest a name and description' }));
 		await act(async () => s.resolve({ text: 'A door' }));
 		expect(field('Description').value).toBe('A door');
 	});
@@ -147,7 +148,7 @@ describe('a slow Suggest', () => {
 	it('is dropped if the dialog was closed and another photo opened', async () => {
 		const s = slow();
 		const { rerender } = render(<Host m={rec('a')} onSuggest={s.onSuggest} />);
-		fireEvent.click(screen.getByText('Suggest a name and description'));
+		fireEvent.click(screen.getByRole('button', { name: 'Suggest a name and description' }));
 		rerender(<Host m={null} onSuggest={s.onSuggest} />);
 		rerender(<Host m={rec('b')} onSuggest={s.onSuggest} />);
 		await act(async () => s.resolve({ text: 'Description of photo A' }));
@@ -158,7 +159,7 @@ describe('a slow Suggest', () => {
 	it('from a cancelled visit does not overwrite typing after the same photo is opened again', async () => {
 		const s = slow();
 		const { rerender } = render(<Host m={rec('a')} onSuggest={s.onSuggest} />);
-		fireEvent.click(screen.getByText('Suggest a name and description'));
+		fireEvent.click(screen.getByRole('button', { name: 'Suggest a name and description' }));
 		rerender(<Host m={null} onSuggest={s.onSuggest} />);
 		rerender(<Host m={rec('a')} onSuggest={s.onSuggest} />);
 		fireEvent.change(field('Description'), { target: { value: 'typed after reopen' } });
@@ -169,7 +170,7 @@ describe('a slow Suggest', () => {
 	it('shows a refusal as a line under the field, not in the field', async () => {
 		const s = slow();
 		render(<Host m={rec('a')} onSuggest={s.onSuggest} />);
-		fireEvent.click(screen.getByText('Suggest a name and description'));
+		fireEvent.click(screen.getByRole('button', { name: 'Suggest a name and description' }));
 		await act(async () => s.resolve({ note: 'Connect your account.' }));
 		expect(screen.getByText('Connect your account.')).toBeTruthy();
 		expect(field('Description').value).toBe('');

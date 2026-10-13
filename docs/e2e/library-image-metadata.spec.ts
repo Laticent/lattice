@@ -61,6 +61,13 @@ async function openLibraryImages(page: Page, width: number) {
 	await page.getByRole('tab', { name: 'Images' }).click();
 }
 
+/** Open the Old names section if it is shut (it opens itself only while a deck still writes an old name). */
+async function openOldNames(dialog: ReturnType<Page['locator']>) {
+	const trigger = dialog.getByRole('button', { name: /^Old names/ });
+	await expect(trigger).toBeVisible();
+	if ((await trigger.getAttribute('aria-expanded')) !== 'true') await trigger.click();
+}
+
 /** Wait for the dialog's open animation to end, so a screenshot shows the settled state. */
 const settled = (d: ReturnType<Page['locator']>) => d.evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished.catch(() => {}))).then(() => undefined));
 
@@ -101,10 +108,28 @@ for (const vw of [1440, 820, 390]) {
 			expect(box && box.x >= 0 && box.x + box.width <= vw + 0.5, `dialog ${JSON.stringify(box)} inside ${vw}px`).toBe(true);
 			await expect(dialog.getByRole('button', { name: 'Save' })).toBeDisabled();
 
-			await dialog.getByLabel('Description').fill('The team on the "roof" at sunset');
-			await dialog.getByLabel('Credit').fill('Ada L.');
-			await dialog.getByLabel('Date taken').fill('2026-03-04');
-			await dialog.getByLabel('Name').fill('q3-offsite');
+			// One control system: the inputs are one height and the Credit | Date pair is one width; Name takes the column; and the
+			// Save row is on screen without scrolling the dialog.
+			const g = await dialog.evaluate((el) => {
+				const r = (sel: string) => (el.querySelector(sel) as HTMLElement).getBoundingClientRect();
+				const credit = r('input[placeholder="Photographer"]');
+				const date = r('input[type="date"]');
+				const nameField = [...el.querySelectorAll('input')].find((i) => i.id.endsWith('-name')) as HTMLElement;
+				const name = nameField.getBoundingClientRect();
+				const save = [...el.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Save') as HTMLElement;
+				const body = (el.querySelector('form > div') as HTMLElement).getBoundingClientRect();
+				return { credit: [credit.width, credit.height], date: [date.width, date.height], name: [name.width, name.height], saveBottom: save.getBoundingClientRect().bottom, bodyWidth: body.width };
+			});
+			expect(g.credit[1], 'Credit and Date and Name are one height').toBe(g.date[1]);
+			expect(g.name[1]).toBe(g.date[1]);
+			expect(Math.abs(g.credit[0] - g.date[0]), 'Credit and Date are one width').toBeLessThanOrEqual(1);
+			expect(g.name[0], 'Name takes the column').toBeGreaterThan(g.credit[0] * 1.9);
+			expect(g.saveBottom, 'Save is on screen').toBeLessThanOrEqual(vw === 1440 ? 900 : 1000);
+
+			await dialog.getByLabel('Description', { exact: true }).fill('The team on the "roof" at sunset');
+			await dialog.getByLabel('Credit', { exact: true }).fill('Ada L.');
+			await dialog.getByLabel('Date taken', { exact: true }).fill('2026-03-04');
+			await dialog.getByLabel('Name', { exact: true }).fill('q3-offsite');
 			await page.screenshot({ path: testInfo.outputPath(`detail-edit-${vw}.png`) });
 			await dialog.getByRole('button', { name: 'Save' }).click();
 			await expect(dialog).toBeHidden();
@@ -118,6 +143,7 @@ for (const vw of [1440, 820, 390]) {
 			await expect(renamed).toContainText('The team on the "roof" at sunset');
 			await renamed.getByRole('button', { name: 'Details for q3-offsite' }).click();
 			const again = page.locator('[data-media-detail="q3-offsite"]');
+			await openOldNames(again);
 			await expect(again.getByText('asset:team-offsite')).toBeVisible();
 			await settled(again);
 			await page.screenshot({ path: testInfo.outputPath(`detail-alias-${vw}.png`) });
@@ -146,7 +172,7 @@ test('@smoke a deck that writes the OLD name still paints after a rename, and a 
 	// Rename the photo. The deck's text still says `asset:probe-old`, and the slide must still show the photo.
 	await page.locator('[data-media-card="probe-old"]').getByRole('button', { name: 'Details for probe-old' }).click();
 	const dialog = page.locator('[data-media-detail="probe-old"]');
-	await dialog.getByLabel('Name').fill('probe-new');
+	await dialog.getByLabel('Name', { exact: true }).fill('probe-new');
 	await dialog.getByRole('button', { name: 'Save' }).click();
 	await expect(dialog).toBeHidden();
 	await expect(page.locator('[data-media-card="probe-new"]')).toBeVisible();
@@ -180,7 +206,7 @@ test('@smoke a photo\'s description is its alt text: in the preview, live when e
 	// Describe it in the dialog. The empty alt fills, the author's own stays.
 	await page.locator('[data-media-card="roof"]').getByRole('button', { name: 'Details for roof' }).click();
 	const dialog = page.locator('[data-media-detail="roof"]');
-	await dialog.getByLabel('Description').fill('The team on the roof at sunset');
+	await dialog.getByLabel('Description', { exact: true }).fill('The team on the roof at sunset');
 	await dialog.getByRole('button', { name: 'Save' }).click();
 	await expect(dialog).toBeHidden();
 	await expect(imgs.nth(0)).toHaveAttribute('alt', 'The team on the roof at sunset', { timeout: 30_000 });
@@ -188,7 +214,7 @@ test('@smoke a photo\'s description is its alt text: in the preview, live when e
 
 	// Editing the description updates the slide with no deck edit.
 	await page.locator('[data-media-card="roof"]').getByRole('button', { name: 'Details for roof' }).click();
-	await dialog.getByLabel('Description').fill('Everyone on the roof');
+	await dialog.getByLabel('Description', { exact: true }).fill('Everyone on the roof');
 	await dialog.getByRole('button', { name: 'Save' }).click();
 	await expect(imgs.nth(0)).toHaveAttribute('alt', 'Everyone on the roof', { timeout: 30_000 });
 
@@ -292,14 +318,14 @@ test('@smoke a photo\'s own description, artist and date are read at import; its
 
 	await page.locator('[data-media-card="sunset-roof"]').getByRole('button', { name: 'Details for sunset-roof' }).click();
 	const dialog = page.locator('[data-media-detail="sunset-roof"]');
-	await expect(dialog.getByLabel('Credit')).toHaveValue('Ada Lovelace');
-	await expect(dialog.getByLabel('Date taken')).toHaveValue('2024-08-15');
-	await expect(dialog.getByLabel('Description')).toHaveValue('');
+	await expect(dialog.getByLabel('Credit', { exact: true })).toHaveValue('Ada Lovelace');
+	await expect(dialog.getByLabel('Date taken', { exact: true })).toHaveValue('2024-08-15');
+	await expect(dialog.getByLabel('Description', { exact: true })).toHaveValue('');
 	const fromFile = dialog.locator('[data-from-file]');
 	await expect(fromFile).toContainText('The team on the roof at sunset');
 	await expect(fromFile).toContainText('carried a location');
 	await dialog.getByRole('button', { name: 'Use as description' }).click();
-	await expect(dialog.getByLabel('Description')).toHaveValue('The team on the roof at sunset');
+	await expect(dialog.getByLabel('Description', { exact: true })).toHaveValue('The team on the roof at sunset');
 	await expect(dialog.getByRole('button', { name: 'Use as description' })).toBeHidden();
 	await dialog.getByRole('button', { name: 'Save' }).click();
 	await expect(dialog).toBeHidden();
@@ -319,7 +345,7 @@ test('@smoke "Use new name" rewrites the decks that write an old name, leaves co
 
 	await page.locator('[data-media-card="old-name"]').getByRole('button', { name: 'Details for old-name' }).click();
 	const dialog = page.locator('[data-media-detail="old-name"]');
-	await dialog.getByLabel('Name').fill('new-name');
+	await dialog.getByLabel('Name', { exact: true }).fill('new-name');
 	await dialog.getByRole('button', { name: 'Save' }).click();
 	await expect(dialog).toBeHidden();
 
@@ -377,7 +403,7 @@ test('@smoke "Use new name" also rewrites a deck that is not open, and says how 
 	await imagesTab.click();
 	await page.locator('[data-media-card="shared-probe"]').getByRole('button', { name: 'Details for shared-probe' }).click();
 	const dialog = page.locator('[data-media-detail="shared-probe"]');
-	await dialog.getByLabel('Name').fill('team-probe');
+	await dialog.getByLabel('Name', { exact: true }).fill('team-probe');
 	await dialog.getByRole('button', { name: 'Save' }).click();
 	await expect(dialog).toBeHidden();
 	await page.locator('[data-media-card="team-probe"]').getByRole('button', { name: 'Details for team-probe' }).click();
@@ -473,7 +499,7 @@ test('@smoke Suggest drafts a description from the real thumbnail; it is not sav
 	await gotoStudio(page);
 	const dialog = await openPhotoDialog(page, 'suggest-me');
 	await dialog.getByRole('button', { name: 'Suggest a name and description' }).click();
-	await expect(dialog.getByLabel('Description')).toHaveValue('A team standing on a roof at sunset.', { timeout: 30_000 });
+	await expect(dialog.getByLabel('Description', { exact: true })).toHaveValue('A team standing on a roof at sunset.', { timeout: 30_000 });
 
 	// What went to the model: an image part carrying a small JPEG thumbnail, and the no-guessing contract.
 	expect(seen.bodies).toHaveLength(1);
@@ -488,7 +514,7 @@ test('@smoke Suggest drafts a description from the real thumbnail; it is not sav
 	expect(img.startsWith('data:image/jpeg;base64,')).toBe(true);
 	expect(img.length, 'a thumbnail, not the stored photo').toBeLessThan(400_000);
 	// The name is offered, not applied: `suggest-me` is a name the person chose.
-	await expect(dialog.getByLabel('Name')).toHaveValue('suggest-me');
+	await expect(dialog.getByLabel('Name', { exact: true })).toHaveValue('suggest-me');
 	await expect(dialog.locator('[data-suggested-name]')).toContainText('team-on-the-roof');
 
 	// A draft only: the record holds no description until Save.
@@ -517,7 +543,7 @@ test('@smoke Suggest says plainly when the model cannot read images, and when no
 	const dialog = await openPhotoDialog(page, 'no-vision');
 	await dialog.getByRole('button', { name: 'Suggest a name and description' }).click();
 	await expect(dialog.getByText(/can't read images/)).toBeVisible({ timeout: 30_000 });
-	await expect(dialog.getByLabel('Description')).toHaveValue('');
+	await expect(dialog.getByLabel('Description', { exact: true })).toHaveValue('');
 });
 
 test('@smoke Suggest with no model connected points to Setup and sends nothing', async ({ page }) => {
@@ -553,7 +579,7 @@ test('@smoke the detail view works from the keyboard: Enter opens it, Tab stays 
 	}
 
 	// Enter in the description saves it (the description is one line), and the dialog closes.
-	await dialog.getByLabel('Description').fill('Pressed Enter to save');
+	await dialog.getByLabel('Description', { exact: true }).fill('Pressed Enter to save');
 	await page.keyboard.press('Enter');
 	await expect(dialog).toBeHidden();
 	expect((await mediaRows(page))[0].caption).toBe('Pressed Enter to save');
@@ -562,7 +588,7 @@ test('@smoke the detail view works from the keyboard: Enter opens it, Tab stays 
 	await thumb.focus();
 	await page.keyboard.press('Enter');
 	await expect(dialog).toBeVisible();
-	await dialog.getByLabel('Credit').fill('Not saved');
+	await dialog.getByLabel('Credit', { exact: true }).fill('Not saved');
 	await page.keyboard.press('Escape');
 	await expect(dialog).toBeHidden();
 	await expect(thumb).toBeFocused();
@@ -590,7 +616,7 @@ test('@smoke "Use new name" says so when the browser has no room, and rewrites n
 	await imagesTab.click();
 	await page.locator('[data-media-card="full-disk"]').getByRole('button', { name: 'Details for full-disk' }).click();
 	const first = page.locator('[data-media-detail="full-disk"]');
-	await first.getByLabel('Name').fill('roomy');
+	await first.getByLabel('Name', { exact: true }).fill('roomy');
 	await first.getByRole('button', { name: 'Save' }).click();
 	await expect(first).toBeHidden();
 
@@ -632,8 +658,8 @@ test('@smoke a camera-made name is replaced by the suggested one, and the old na
 	await gotoStudio(page);
 	const dialog = await openPhotoDialog(page, 'img-4568');
 	await dialog.getByRole('button', { name: 'Suggest a name and description' }).click();
-	await expect(dialog.getByLabel('Name')).toHaveValue('black-suede-brogue', { timeout: 30_000 });
-	await expect(dialog.getByLabel('Description')).toHaveValue('Black suede and polished leather dress shoe on a dark surface.');
+	await expect(dialog.getByLabel('Name', { exact: true })).toHaveValue('black-suede-brogue', { timeout: 30_000 });
+	await expect(dialog.getByLabel('Description', { exact: true })).toHaveValue('Black suede and polished leather dress shoe on a dark surface.');
 	await expect(dialog.getByRole('status')).toContainText('Nothing is saved until you press Save');
 	await dialog.getByRole('button', { name: 'Save' }).click();
 	await expect(dialog).toBeHidden();
@@ -647,7 +673,7 @@ test('@smoke the image model and the look come from the workspace settings', asy
 	await gotoStudio(page);
 	const dialog = await openPhotoDialog(page, 'scan-me');
 	await dialog.getByRole('button', { name: 'Suggest a name and description' }).click();
-	await expect(dialog.getByLabel('Description')).toHaveValue('A chest x-ray on a light box.', { timeout: 30_000 });
+	await expect(dialog.getByLabel('Description', { exact: true })).toHaveValue('A chest x-ray on a light box.', { timeout: 30_000 });
 	expect(seen.bodies[0].model).toBe('openai/gpt-5');
 	expect(seen.bodies[0].reasoning).toEqual({ effort: 'medium' });
 	const parts = seen.bodies[0].messages[1].content as { type: string; image_url?: { url: string } }[];
@@ -718,7 +744,7 @@ test('@smoke @mobile @webkit-phone on a phone the dialog does not pan sideways, 
 	expect(fit.touch).toContain('pan-y');
 
 	// Save a change; the picture is still a picture, in the dialog's place on the shelf and on reopening.
-	await dialog.getByLabel('Description').fill('A shoe');
+	await dialog.getByLabel('Description', { exact: true }).fill('A shoe');
 	await dialog.getByRole('button', { name: 'Save' }).click();
 	await expect(dialog).toBeHidden();
 	const loaded = (sel: string) => page.evaluate((s) => { const i = document.querySelector(s) as HTMLImageElement | null; return !!i && i.complete && i.naturalWidth > 0; }, sel);
@@ -778,13 +804,13 @@ test('@smoke an edit, a rename and a reload leave the stored picture readable an
 	// Edit the description, then the name: each rewrites the record.
 	await card.getByRole('button', { name: 'Edit loafers' }).click();
 	const dialog = page.locator('[data-media-detail="loafers"]');
-	await dialog.getByLabel('Description').fill('Brown loafers on a rug');
+	await dialog.getByLabel('Description', { exact: true }).fill('Brown loafers on a rug');
 	await dialog.getByRole('button', { name: 'Save' }).click();
 	await expect(dialog).toBeHidden();
 	expect(await storedPixels(page), 'readable after a description edit').toEqual(first);
 
 	await page.locator('[data-media-card="loafers"]').getByRole('button', { name: 'Edit loafers' }).click();
-	await dialog.getByLabel('Name').fill('brown-loafers');
+	await dialog.getByLabel('Name', { exact: true }).fill('brown-loafers');
 	await dialog.getByRole('button', { name: 'Save' }).click();
 	await expect(dialog).toBeHidden();
 	await expect(page.locator('[data-media-card="brown-loafers"]')).toBeVisible();

@@ -426,6 +426,19 @@ nothing about the picture, so the suggested name replaces it, and the old name s
 chose is only offered ("Suggested name: … Use this name"), never applied. The model's name is cleaned to what the Library accepts
 (`cleanPhotoName`: lowercase, hyphens, 32 characters) or dropped.
 
+### The detail view's design (second pass, 2026-10-13)
+
+A phone check and a measurement of the first version found it uneven: controls 32, 36, 64 and 90 px tall; Credit 257 px wide, Date 192,
+Name 526; the picture took half the desktop dialog, so Name sat below the fold; the alias remove button was 14 px; three static hint
+lines repeated. The owner chose **one column everywhere, tightened**, and **a native date input styled as a shadcn Input that takes
+its column's width** (no new dependency; the device's own picker). What it is now: shadcn `Label` (new `ui/label.tsx`), `Input`,
+`Textarea`, `Button`, `Collapsible`, `Badge` and `HelpTip`; every input `h-9`; Credit | Date a 50/50 pair at every width; Name full
+width; **Suggest with AI** on the Description label row (its explanation in a HelpTip, not a static line); old names and "From the
+file" as collapsibles (Old names opens itself while a deck still writes one, and never closes under the person); 36 px remove button;
+the picture capped at `min(30dvh, 220px)`; header and Save row fixed with only the body scrolling, so Save is never below the fold.
+A HelpTip sits BESIDE its `Label`, never inside it: a button inside a label is labelled by it and answers `getByLabel`. The e2e pins
+equal heights, the Credit | Date width, Name filling the column, and Save on screen at 1440, 820 and 390.
+
 ### The image model
 
 A phone check showed Suggest ran on whatever model the chat used, with no way to choose, and no way to ask for a closer look. Two

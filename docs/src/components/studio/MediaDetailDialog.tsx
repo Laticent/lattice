@@ -1,8 +1,12 @@
-import { Sparkles, X } from 'lucide-react';
+import { ChevronRight, Sparkles, X } from 'lucide-react';
 import * as React from 'react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { HelpTip } from '@/components/ui/help-tip';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useObjectUrl } from './MediaCard';
 import { isIsoDate, type MediaMetaPatch } from './media-edit';
@@ -87,6 +91,15 @@ export function MediaDetailDialog({ m: incoming, open, onOpenChange, usedIn, ali
 	const [suggestNote, setSuggestNote] = React.useState<string | null>(null);
 	// A name the model proposed that was NOT applied (the photo already has a name the person chose): offered, never forced.
 	const [suggestedName, setSuggestedName] = React.useState<string | null>(null);
+	// The old-names section opens itself when there is something to do there (a deck still writes one, or that is still being worked out),
+	// and stays shut otherwise. Once the person opens or closes it, it is theirs.
+	const [oldOpen, setOldOpen] = React.useState(false);
+	const oldToggled = React.useRef(false);
+	const oldBusy = aliasUse === null || (m?.aliases ?? []).some((a) => (aliasUse?.[a] ?? 0) > 0);
+	React.useEffect(() => {
+		// Opens, never closes by itself: after "Use new name" the section must still say "not used in a deck".
+		if (!oldToggled.current && oldBusy) setOldOpen(true);
+	}, [oldBusy]);
 	const uid = React.useId();
 	// The form starts over every time the dialog OPENS, and when a different photo is shown: a draft from a cancelled visit is
 	// gone, and a refresh of the same photo (the Library reloads while the dialog is open) does not wipe what is being typed.
@@ -107,6 +120,7 @@ export function MediaDetailDialog({ m: incoming, open, onOpenChange, usedIn, ali
 		setSuggestNote(null);
 		setSuggestedName(null);
 		setSuggesting(false);
+		oldToggled.current = false;
 	}, [id, open]);
 	// A Suggest answer belongs to the visit that asked: the counter moves every time the dialog opens, closes or shows another
 	// photo, so an answer from a cancelled visit cannot land in a reopened form, even of the same photo.
@@ -194,7 +208,8 @@ export function MediaDetailDialog({ m: incoming, open, onOpenChange, usedIn, ali
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent
-				className="max-h-[90dvh] touch-pan-y touch-pinch-zoom overflow-y-auto overflow-x-hidden sm:max-w-xl"
+				// A column, not the base grid: the header and the Save row stay put and only the body scrolls, so Save is never below the fold.
+				className="flex max-h-[90dvh] touch-pan-y touch-pinch-zoom flex-col gap-0 overflow-hidden p-0 sm:max-w-lg"
 				data-media-detail={m.name}
 				onCloseAutoFocus={(e) => {
 					const back = returnFocusTo?.();
@@ -204,104 +219,130 @@ export function MediaDetailDialog({ m: incoming, open, onOpenChange, usedIn, ali
 					}
 				}}
 			>
-				<DialogHeader>
-					<DialogTitle>asset:{m.name}</DialogTitle>
-					<DialogDescription>
+				<DialogHeader className="min-w-0 gap-1 px-5 pt-5 pr-12 pb-3 text-left sm:px-6 sm:pt-6">
+					<DialogTitle className="truncate">asset:{m.name}</DialogTitle>
+					<DialogDescription className="truncate text-xs">
 						{m.width}×{m.height} · {formatBytes(m.bytes)} · from {m.sourceName}
 						{usedIn > 0 ? ` · used in ${usedIn} deck${usedIn === 1 ? '' : 's'}` : ''}
 					</DialogDescription>
 				</DialogHeader>
-				{/* A real form: Enter in a field saves, and Save is the submit button. `contents` keeps the dialog's grid. */}
+				{/* A real form: Enter in a field saves, and Save is the submit button. */}
 				<form
-					className="contents"
+					className="flex min-h-0 flex-1 flex-col"
 					onSubmit={(e) => {
 						e.preventDefault();
 						if (canSave) void save();
 					}}
 				>
-				<div className="flex max-h-[40dvh] items-center justify-center overflow-hidden rounded-lg bg-[var(--bg-alt)]">
-					{url && !unreadable && <img src={url} alt={m.caption ?? ''} className="max-h-[40dvh] w-auto max-w-full object-contain" draggable={false} onError={() => setUnreadable(true)} />}
-					{url && unreadable && <PhotoPlaceholder className="min-h-[160px]" />}
-				</div>
-				<div className="grid gap-3 text-[13px]">
-					<div className="grid min-w-0 gap-1.5">
-						<label htmlFor={`${uid}-caption`} className="font-semibold">Description</label>
-						<Textarea id={`${uid}-caption`} value={caption} maxLength={140} rows={2} onChange={(e) => setCaption(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); e.currentTarget.form?.requestSubmit(); } }} placeholder="What the picture shows. It becomes the alt text, and the chat reads it." />
-						<Button type="button" variant="outline" size="sm" className="w-full justify-center" disabled={suggesting || busy} onClick={() => void suggest()} data-suggest>
-							<Sparkles className="size-3.5" aria-hidden />
-							{suggesting ? 'Looking at the photo…' : 'Suggest a name and description'}
-						</Button>
-						<p role="status" className="text-[11.5px] text-muted-foreground">{suggestNote ?? 'Your image model looks at the photo and drafts both. You choose the model in Workspace → Model.'}</p>
-					</div>
-					<div className="grid min-w-0 gap-3 sm:grid-cols-2">
-						<div className="grid gap-1">
-							<label htmlFor={`${uid}-credit`} className="font-semibold">Credit</label>
-							<Input id={`${uid}-credit`} value={credit} maxLength={100} onChange={(e) => setCredit(e.target.value)} placeholder="Photographer or source" />
+					<div className="grid min-h-0 flex-1 touch-pan-y touch-pinch-zoom content-start gap-4 overflow-x-hidden overflow-y-auto px-5 pb-4 sm:px-6">
+						<div className="flex max-h-[min(30dvh,220px)] items-center justify-center overflow-hidden rounded-md bg-[var(--bg-alt)]">
+							{url && !unreadable && <img src={url} alt={m.caption ?? ''} className="max-h-[min(30dvh,220px)] w-auto max-w-full object-contain" draggable={false} onError={() => setUnreadable(true)} />}
+							{url && unreadable && <PhotoPlaceholder className="min-h-[140px]" />}
 						</div>
-						<div className="grid gap-1">
-							<label htmlFor={`${uid}-taken`} className="font-semibold">Date taken</label>
-							<Input id={`${uid}-taken`} type="date" value={taken} max={localToday()} onChange={(e) => setTaken(e.target.value)} aria-invalid={!takenOk} className="min-w-0 max-w-[12rem] [&::-webkit-date-and-time-value]:text-left" />
+
+						<div className="grid min-w-0 gap-2">
+							<div className="flex items-center justify-between gap-2">
+								<span className="flex items-center gap-1.5">
+									<Label htmlFor={`${uid}-caption`}>Description</Label>
+									<HelpTip label="More about the description" side="top">
+										It becomes the photo's alt text in the preview and in exports, and the chat reads it. <strong>Suggest with AI</strong> asks your image model (Workspace → Model) to look at the photo and draft a name and a description. Nothing is saved until you press Save.
+									</HelpTip>
+								</span>
+								<Button type="button" variant="outline" size="sm" disabled={suggesting || busy} onClick={() => void suggest()} aria-label="Suggest a name and description" data-suggest>
+									<Sparkles aria-hidden />
+									{suggesting ? 'Looking…' : 'Suggest with AI'}
+								</Button>
+							</div>
+							<Textarea id={`${uid}-caption`} value={caption} maxLength={140} rows={3} className="min-h-[4.5rem] resize-none" onChange={(e) => setCaption(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); e.currentTarget.form?.requestSubmit(); } }} placeholder="What the picture shows" />
+							{suggestNote && <p role="status" className="text-xs text-muted-foreground">{suggestNote}</p>}
 						</div>
-					</div>
-					<div className="grid gap-1">
-						<label htmlFor={`${uid}-name`} className="font-semibold">Name</label>
-						<Input id={`${uid}-name`} value={name} onChange={(e) => setName(e.target.value.toLowerCase())} aria-invalid={!nameOk} />
-						<span className="text-[11.5px] text-muted-foreground">
-							{nameOk ? 'Renaming keeps the old name working in every deck.' : 'Use lowercase letters, digits, - and _.'}
-						</span>
-						{suggestedName && suggestedName !== name && (
-							<span className="flex flex-wrap items-center gap-2 text-[12px]" data-suggested-name>
-								<span className="text-muted-foreground">Suggested name: <code className="font-mono">{suggestedName}</code></span>
-								<Button type="button" size="sm" variant="outline" onClick={() => { setName(suggestedName); setSuggestedName(null); }}>Use this name</Button>
+
+						<div className="grid min-w-0 grid-cols-2 gap-3">
+							<div className="grid min-w-0 gap-2">
+								<Label htmlFor={`${uid}-credit`}>Credit</Label>
+								<Input id={`${uid}-credit`} value={credit} maxLength={100} onChange={(e) => setCredit(e.target.value)} placeholder="Photographer" />
+							</div>
+							<div className="grid min-w-0 gap-2">
+								<Label htmlFor={`${uid}-taken`}>Date taken</Label>
+								<Input id={`${uid}-taken`} type="date" value={taken} max={localToday()} onChange={(e) => setTaken(e.target.value)} aria-invalid={!takenOk} className="[&::-webkit-date-and-time-value]:text-left" />
+							</div>
+						</div>
+
+						<div className="grid min-w-0 gap-2">
+							<span className="flex items-center gap-1.5">
+								<Label htmlFor={`${uid}-name`}>Name</Label>
+								<HelpTip label="More about the name" side="top">
+									Decks write <code>asset:{m.name}</code>. Renaming keeps the old name working in every deck, so no deck is edited.
+								</HelpTip>
 							</span>
-						)}
-					</div>
-					{(m.fileCaption || m.hadLocation) && (
-						<div className="grid gap-1.5 rounded-lg border border-border bg-[var(--bg-alt)] p-3 text-[12.5px]" data-from-file>
-							<span className="font-semibold">From the file</span>
-							{m.fileCaption && (
-								<div className="flex items-start gap-2">
-									<p className="min-w-0 flex-1 text-muted-foreground">“{m.fileCaption}”</p>
-									{caption !== m.fileCaption && (
-										<Button type="button" size="sm" variant="outline" onClick={() => setCaption(m.fileCaption ?? '')}>
-											Use as description
-										</Button>
-									)}
+							<Input id={`${uid}-name`} value={name} onChange={(e) => setName(e.target.value.toLowerCase())} aria-invalid={!nameOk} />
+							{!nameOk && <p className="text-xs text-destructive">Use lowercase letters, digits, - and _.</p>}
+							{suggestedName && suggestedName !== name && (
+								<div className="flex flex-wrap items-center gap-2 text-xs" data-suggested-name>
+									<span className="text-muted-foreground">Suggested name: <code className="font-mono">{suggestedName}</code></span>
+									<Button type="button" size="sm" variant="outline" onClick={() => { setName(suggestedName); setSuggestedName(null); }}>Use this name</Button>
 								</div>
 							)}
-							{m.hadLocation && <p className="text-muted-foreground">This photo carried a location. Lattice removed it when the photo was added, so it never reaches a deck or an export.</p>}
 						</div>
-					)}
-					{(m.aliases?.length ?? 0) > 0 && (
-						<div className="grid gap-1.5">
-							<span className="font-semibold">Also known as</span>
-							<ul className="grid gap-1.5">
-								{m.aliases?.map((a) => (
-									<li key={a} className="flex flex-wrap items-center gap-2 rounded-lg border border-border px-2.5 py-1.5 text-[12px]">
-										<code className="font-mono">asset:{a}</code>
-										<span className="text-muted-foreground">{aliasUse === null ? (aliasUseFailed ? 'could not check decks, close and reopen to retry' : 'checking decks…') : aliasUse[a] ? `in ${aliasUse[a]} deck${aliasUse[a] === 1 ? '' : 's'}` : 'not used in a deck'}</span>
-										<span className="ml-auto flex items-center gap-1.5">
-											{aliasUse?.[a] ? (
-												<Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => void run(() => onUseNewName(a))}>
-													Use new name in {aliasUse[a] === 1 ? 'the deck' : 'decks'}
+
+						{(m.aliases?.length ?? 0) > 0 && (
+							<Collapsible open={oldOpen} onOpenChange={(v) => { oldToggled.current = true; setOldOpen(v); }} className="grid min-w-0 gap-2" data-old-names>
+								<CollapsibleTrigger className="group flex h-9 w-full items-center gap-1.5 rounded-md text-sm font-medium outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50">
+									<ChevronRight className="size-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-90" aria-hidden />
+									Old names
+									<Badge variant="secondary">{m.aliases?.length}</Badge>
+								</CollapsibleTrigger>
+								<CollapsibleContent className="grid gap-2">
+									<ul className="grid gap-2">
+										{m.aliases?.map((a) => (
+											<li key={a} className="flex min-w-0 items-center gap-2 rounded-md border px-3 py-1.5 text-xs">
+												<span className="min-w-0 flex-1">
+													<code className="block truncate font-mono text-[13px]">asset:{a}</code>
+													<span className="block text-muted-foreground">{aliasUse === null ? (aliasUseFailed ? 'could not check decks, close and reopen to retry' : 'checking decks…') : aliasUse[a] ? `in ${aliasUse[a]} deck${aliasUse[a] === 1 ? '' : 's'}` : 'not used in a deck'}</span>
+												</span>
+												{aliasUse?.[a] ? (
+													<Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => void run(() => onUseNewName(a))}>
+														Use new name in {aliasUse[a] === 1 ? 'the deck' : 'decks'}
+													</Button>
+												) : null}
+												<Button type="button" size="icon" variant="ghost" aria-label={`Remove the alias ${a}`} disabled={busy || aliasUse === null} onClick={() => void run(() => onRemoveAlias(a))}>
+													<X aria-hidden />
 												</Button>
-											) : null}
-											<button type="button" aria-label={`Remove the alias ${a}`} className="text-muted-foreground hover:text-foreground" disabled={busy || aliasUse === null} onClick={() => void run(() => onRemoveAlias(a))}>
-												<X className="size-3.5" aria-hidden />
-											</button>
-										</span>
-									</li>
-								))}
-							</ul>
-							<span className="text-[11.5px] text-muted-foreground">The old name keeps working in every deck. Removing one frees the name, and a deck that still writes it will show a placeholder.</span>
-						</div>
-					)}
-				</div>
-				{error && <p role="alert" className="text-[12.5px] text-destructive">{error}</p>}
-				<DialogFooter>
-					<Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-					<Button type="submit" disabled={!canSave}>Save</Button>
-				</DialogFooter>
+											</li>
+										))}
+									</ul>
+									<p className="text-xs text-muted-foreground">The old name keeps working in every deck. Removing one frees the name, and a deck that still writes it will show a placeholder.</p>
+								</CollapsibleContent>
+							</Collapsible>
+						)}
+
+						{(m.fileCaption || m.hadLocation) && (
+							<Collapsible defaultOpen={!!m.fileCaption} className="grid min-w-0 gap-2" data-from-file>
+								<CollapsibleTrigger className="group flex h-9 w-full items-center gap-1.5 rounded-md text-sm font-medium outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50">
+									<ChevronRight className="size-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-90" aria-hidden />
+									From the file
+								</CollapsibleTrigger>
+								<CollapsibleContent className="grid gap-2 rounded-md border bg-[var(--bg-alt)] p-3 text-xs">
+									{m.fileCaption && (
+										<div className="flex items-start gap-2">
+											<p className="min-w-0 flex-1 text-muted-foreground">“{m.fileCaption}”</p>
+											{caption !== m.fileCaption && (
+												<Button type="button" size="sm" variant="outline" onClick={() => setCaption(m.fileCaption ?? '')}>
+													Use as description
+												</Button>
+											)}
+										</div>
+									)}
+									{m.hadLocation && <p className="text-muted-foreground">This photo carried a location. Lattice removed it when the photo was added, so it never reaches a deck or an export.</p>}
+								</CollapsibleContent>
+							</Collapsible>
+						)}
+						{error && <p role="alert" className="text-xs text-destructive">{error}</p>}
+					</div>
+					<DialogFooter className="grid grid-cols-2 gap-2 border-t px-5 py-3 sm:flex sm:px-6">
+						<Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+						<Button type="submit" disabled={!canSave}>Save</Button>
+					</DialogFooter>
 				</form>
 			</DialogContent>
 		</Dialog>
