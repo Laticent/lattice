@@ -340,6 +340,8 @@ export async function probeVideo(blob: Blob): Promise<{ durationMs: number; widt
 	el.preload = 'metadata';
 	const url = URL.createObjectURL(blob);
 	try {
+		// `createObjectURL` always answers `blob:`; saying so keeps the element's `src` to that one scheme.
+		if (!url.startsWith('blob:')) throw new Error('not an object URL');
 		el.src = url;
 		await once(el, 'loadedmetadata', 10_000);
 		// A recording some browsers write has no length in its header (`Infinity`); seeking far past the
