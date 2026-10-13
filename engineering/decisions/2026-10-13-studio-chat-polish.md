@@ -132,3 +132,4 @@ when one part is refused (minor), and the one-shot fallback re-sends a refused c
 - Storing a chat video in the Library, when its video slice lands (it would then be an `asset:` like a photo).
 - Video was exercised with a clip recorded in Chromium (WebM). A phone's H.264 MP4, and the cap on a real 15-second phone clip, are untested.
 - Dropping a photo onto the composer (paste and the picker are in; drag is not).
+- Math arm, checked 2026-10-13 on 4b0eef0 in the sandbox: `check:family-conformance` ran to the end without a Chrome drop. The `math` row fires at portrait, story and mobile and is not among the 39 differences from `test/oracle/family-conformance.json`, which are all other components. `overflow:check` found four decks that clip more than the baseline, none with a math slide (follow-up filed). Not confirmed: a nightly run after the merge.
