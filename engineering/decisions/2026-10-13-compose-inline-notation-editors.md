@@ -411,11 +411,12 @@ source in the code face).
 - **The crowding warning** uses the linter's own check: `pillIsCrowded` in `lint-core.js` now backs both
   `pill-shape-crowded` and the panel (`kernels.pill.crowded`), so the two cannot disagree.
 
-**Where the next doors go (not decided, not measured).** The slide bar's insert group now holds table, code, pill
-and spark. I did not measure the bar at 390px with the fourth door, so how many more fit is unknown (phase 1 put it
-at about three, before the spark door took one). Recommendation for phase 3: one "Insert" menu that holds pills,
-sparks, avatars, charts and diagrams, so the bar keeps only the doors used every day. That is a decision for the
-owner, recorded in `followups.d/`.
+**Where the next doors go (measured, not decided).** At 390px, with touch emulation, the slide bar's first row is
+266px wide (the width between the slide's end caps) and now holds undo, redo, table, code, pill, spark and slide
+settings: eight 28px buttons, with about 10px of padding left. A fifth door does not fit on row one. The avatar,
+chart and diagram doors therefore cannot each take a button. Recommendation for phase 3: one "Insert" menu that
+holds pills, sparks, avatars, charts and diagrams, so the bar keeps only the doors used every day. That is a
+decision for the owner, recorded in `followups.d/`.
 
 **Known fidelity gaps.** A number-cell edit writes the series with single spaces (`~{12  14  17}` becomes
 `~{12 14 18}`), and the ratio boxes show parsed numbers, so `72.50/80` is written back as `72.5/80` on an edit.

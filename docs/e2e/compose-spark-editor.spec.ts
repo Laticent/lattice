@@ -123,4 +123,28 @@ test.describe('compose spark editor', () => {
 			return s.compose === s.preview;
 		}, { timeout: 8000 }).toBe(true);
 	});
+
+	test('the insert door goes after the word the caret is in, and declines when a selection reaches into the author\'s own code', async ({ page }) => {
+		await openDeckInCompose(page, DECK.replace('Nothing here yet.', 'Revenue grew `foo` fast.'));
+		const para = page.locator('.cs-slide').nth(1).locator('.cs-slide-content p').first();
+		await para.click();
+		await page.keyboard.press('Home');
+		// "Revenue gr|ew": the caret is mid-word.
+		for (let i = 0; i < 'Revenue gr'.length; i++) await page.keyboard.press('ArrowRight');
+		await bar(page).getByRole('button', { name: 'Insert spark' }).click();
+		await expect.poll(() => savedDeck(page)).toContain('Revenue grew `~{12 14 13 17 21}` `foo` fast.');
+		await editor(page).getByRole('button', { name: 'Done' }).click();
+
+		// A selection from "grew" into the middle of `foo` would split the author's code: it declines and writes nothing.
+		const before = await savedDeck(page);
+		await para.click();
+		await page.keyboard.press('Home');
+		await page.keyboard.down('Shift');
+		for (let i = 0; i < 'Revenue grew  '.length + 2; i++) await page.keyboard.press('ArrowRight');
+		await page.keyboard.up('Shift');
+		await bar(page).getByRole('button', { name: 'Insert spark' }).click();
+		await expect(editor(page)).toHaveCount(0);
+		await expect.poll(() => savedDeck(page)).toBe(before);
+	});
 });
+
