@@ -286,7 +286,29 @@ class Binding {
 
 /** @internal Test hook, not public: `fast: false` makes every record slot take the full bind, so a test can
  *  hold the fast read equal to it; `hits` counts the binds the fast read made. */
-export const bindMode = { fast: true, hits: 0 };
+export const bindMode = {
+  fast: true,
+  hits: 0,
+  /** Under test, run the full bind beside every fast read and throw when they differ. Set before the first
+   *  read: by a test directly, or by `globalThis[Symbol.for('laticent.segno.checkBothPaths')] = true` before
+   *  the library loads. Off in every shipped path. */
+  check: (globalThis as Record<symbol, unknown>)[Symbol.for('laticent.segno.checkBothPaths')] === true,
+  /** How many fast reads `check` has compared. */
+  compared: 0,
+};
+
+// A test that loads the library by package name (the node unit tests read the built dist) cannot import
+// `bindMode`; with the check on it is published here so such a test can count the reads compared.
+if (bindMode.check) (globalThis as Record<symbol, unknown>)[Symbol.for('laticent.segno.bindMode')] = bindMode;
+
+/** Key-order-insensitive structural form, so two binds compare as `toEqual` would. */
+function canon(v: unknown): unknown {
+  if (Array.isArray(v)) return v.map(canon);
+  if (v !== null && typeof v === 'object') {
+    return Object.fromEntries(Object.keys(v).sort().map((k) => [k, canon((v as Record<string, unknown>)[k])]));
+  }
+  return v;
+}
 
 /** Declare a record slot. Throws SchemaError when a bare word could bind two ways. */
 export function record<const S extends RecordSpec>(spec: S): Slot<RecordOf<S>> {
@@ -508,7 +530,18 @@ export function record<const S extends RecordSpec>(spec: S): Slot<RecordOf<S>> {
       }
       if (fastable && bindMode.fast) {
         const f = fastRead(text);
-        if (f !== null) return f;
+        if (f !== null) {
+          if (bindMode.check) {
+            bindMode.fast = false;
+            let full: unknown;
+            try { full = slot.read(text); } finally { bindMode.fast = true; }
+            bindMode.compared++;
+            const a = JSON.stringify(canon(f));
+            const b = JSON.stringify(canon(full));
+            if (a !== b) throw new Error(`segno: the fast read and the full bind disagree on ${JSON.stringify(text)}\n  fast: ${a}\n  full: ${b}`);
+          }
+          return f;
+        }
       }
       const p = parse(text);
       if (!p.ok) return { ok: false, diagnostics: [p.diagnostic] };
