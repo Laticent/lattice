@@ -372,8 +372,21 @@ What shipped, and where it differs from the proposal in §1:
 - **Not built.** Rendering a video on a slide, the HTML-player embed cap, and the poster in PDF, PNG and PPTX
   exports. A deck that writes `asset:<video name>` resolves to the missing-image stand-in, because the
   name → URL map and editor completion list photos only, and the chat's manifest does not offer a video as
-  something to put on a slide. **No export carries a clip, so no exported byte changed** and the
+  something to put on a slide. **No export carries a clip, so no exported byte changed**: `.lattice` export and its Share summary pack photos only (`lattice-media.ts` filters on kind; a checker found the first version packed a clip when deck text named it, and a test now pins it), and the image exports never saw one (the name → URL map is photos only) and the
   export sign-off in "Gates" is still owed by whoever builds the slide side.
+
+Known limits of what shipped, found by an independent review and left as they are:
+
+- **Safari's private-window fallback keeps bytes in memory.** Where the browser refuses to store a `Blob`, `saveMedia`
+  stores an `ArrayBuffer` and `listMedia` rebuilds a `Blob` from it on every read, so a shelf of clips is held in
+  memory there (up to 50 MB each). The normal path stays file-backed. A photo shelf has the same trait at smaller sizes.
+- **The restore sniff is a magic-number check.** A clip needs `ftyp` at byte 4 or the EBML header, so a non-video
+  `ftyp` file (M4A) passes as `video/mp4`, and nothing decodes it at restore. The player refuses it later.
+- **Chat clips take fewer formats than before.** The old in-memory path took anything the browser could play; the
+  Library stores MP4, MOV and WebM, so an Ogg clip is refused with a message.
+- **A chat clip's name carries a random suffix** so a clip deleted from the Library and a later `video.mp4` cannot be
+  mistaken for each other when Regenerate re-reads the thread. A clip removed from the strip before sending, or left
+  behind by leaving the deck, is deleted; a sent clip stays until the author deletes it.
 
 ## Options not taken
 

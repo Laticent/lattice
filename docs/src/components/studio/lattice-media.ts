@@ -32,7 +32,8 @@ export type PhotoSummary = {
 export async function latticePhotoSummary(source: string, deckId: string | undefined): Promise<PhotoSummary> {
 	const named = assetNamesIn(source);
 	if (!named.length) return { count: 0, bytes: 0, missing: [] };
-	const seen = new Map(visibleMedia(await listMedia(), deckId ?? null).map((m) => [m.name, m]));
+	// Photos only: a clip is not part of a `.lattice` (a slide cannot show one, so the file would carry bytes nothing uses).
+	const seen = new Map(visibleMedia(await listMedia(), deckId ?? null).filter((m) => m.kind === 'image').map((m) => [m.name, m]));
 	const have = named.filter((n) => seen.has(n));
 	return { count: have.length, bytes: have.reduce((sum, n) => sum + (seen.get(n)?.blob.size ?? 0), 0), missing: named.filter((n) => !seen.has(n)) };
 }
@@ -52,7 +53,7 @@ export async function packLatticePhotos(source: string, deckId: string | undefin
 	const named = assetNamesIn(source);
 	if (!named.length) return { included: [], omitted: [], missing: [] };
 	try {
-		const visible = new Set(visibleMedia(await listMedia(), deckId ?? null).map((m) => m.name));
+		const visible = new Set(visibleMedia(await listMedia(), deckId ?? null).filter((m) => m.kind === 'image').map((m) => m.name));
 		const names = new Set(named.filter((n) => visible.has(n)));
 		const missing = named.filter((n) => !visible.has(n));
 		const files: Record<string, Uint8Array> = {};
@@ -67,7 +68,7 @@ export async function packLatticePhotos(source: string, deckId: string | undefin
 		};
 		// The count stays well under the 2000 entries a reader allows in the whole archive.
 		const packed = await packMedia(collector, { names, scope: 'library', maxBytes, maxCount: MAX_LATTICE_PHOTOS });
-		const included = Object.keys(files).map((p) => p.replace(/^media\//, '').replace(/\.[a-z]+$/, ''));
+		const included = Object.keys(files).map((p) => p.replace(/^media\//, '').replace(/\.[a-z0-9]+$/, ''));
 		// A visible photo that is in neither list (a legacy record of a type the file cannot hold) is missing too,
 		// never dropped without a word.
 		const placed = new Set([...included, ...packed.omitted]);

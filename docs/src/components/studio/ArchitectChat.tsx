@@ -16,7 +16,7 @@ import { MessagePhotos, PhotoStrip } from './ChatPhotos';
 import { isFigureLang } from './chat-figures';
 import { type ChatSegment, renderMessageSegments, renderMessageSegmentsStreaming } from './chat-markdown';
 import { photoNote, videoNote } from './chat-photo-parts';
-import { addChatPhotos, addChatVideo, MAX_CHAT_PHOTOS, photoDataUrl, videoDataUrl } from './chat-photos';
+import { addChatPhotos, addChatVideo, discardChatVideo, MAX_CHAT_PHOTOS, photoDataUrl, videoDataUrl } from './chat-photos';
 import { THINKING } from './chat-status';
 import { DiffCard } from './diff-card';
 import { frontMatterBlock, getFrontMatter } from './front-matter';
@@ -235,7 +235,10 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `deckId` is the trigger; the body reads nothing from it.
 	React.useEffect(() => {
 		setPendingPhotos([]);
-		setPendingVideos([]);
+		setPendingVideos((cur) => {
+			for (const v of cur) void discardChatVideo(v.name);
+			return [];
+		});
 	}, [deckId]);
 	React.useEffect(() => {
 		saveChat(deckId, messages);
@@ -441,6 +444,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 				const got = await addChatVideo(clips[0], forDeck);
 				if ('error' in got) notify(got.error);
 				else if (deckIdRef.current === forDeck) setPendingVideos([got.video]);
+				else void discardChatVideo(got.video.name); // the author left the deck while it was saved: nothing will send it
 			}
 		} finally {
 			setAddingPhotos(false);
@@ -601,7 +605,10 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 
 			<div className="flex flex-col gap-1.5 border-t border-border p-2.5">
 				{refDoc.chip}
-				<PhotoStrip photos={pendingPhotos} videos={pendingVideos} onRemoveVideo={(name) => setPendingVideos((cur) => cur.filter((v) => v.name !== name))} deckId={deckId} busy={addingPhotos} onRemove={(name) => setPendingPhotos((cur) => cur.filter((p) => p.name !== name))} />
+				<PhotoStrip photos={pendingPhotos} videos={pendingVideos} onRemoveVideo={(name) => {
+						void discardChatVideo(name);
+						setPendingVideos((cur) => cur.filter((v) => v.name !== name));
+					}} deckId={deckId} busy={addingPhotos} onRemove={(name) => setPendingPhotos((cur) => cur.filter((p) => p.name !== name))} />
 				{/* PADDING. One value on every side (p-2) rather than a 10/6 split, and it has to
 					    clear the `rounded-xl` corner — content inset closer than the radius reads as
 					    crowding into the curve. The buttons are `shrink-0` and the field is the only

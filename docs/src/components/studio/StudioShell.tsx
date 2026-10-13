@@ -2694,7 +2694,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			.catch(() => null)
 			.then((found) => {
 				const own = found?.own ?? 0;
-				if (own > 0 && !window.confirm(`This deck has ${own} photo${own === 1 ? '' : 's'} kept to it. Deleting the deck deletes ${own === 1 ? 'that photo' : 'those photos'} too, and that can't be undone. Delete the deck?`)) return;
+				if (own > 0 && !window.confirm(`This deck has ${own} photo${own === 1 ? '' : 's'} or video${own === 1 ? '' : 's'} kept to it. Deleting the deck deletes ${own === 1 ? 'it' : 'them'} too, and that can't be undone. Delete the deck?`)) return;
 				finishRemoveDeck(id, found?.m ?? null);
 			});
 	}

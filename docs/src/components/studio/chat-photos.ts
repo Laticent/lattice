@@ -13,7 +13,7 @@
 
 import { MAX_VIDEO_BYTES, VISION_EDGE, videoRefusal } from './chat-photo-parts';
 import { classifyMedia, importImage, importVideo, MediaImportError } from './media-import';
-import { listMedia, MEDIA_REFUSAL_PREFIX, saveMedia, uniqueName } from './media-store';
+import { deleteMedia, listMedia, MEDIA_REFUSAL_PREFIX, saveMedia, uniqueName } from './media-store';
 import type { ChatPhoto, ChatVideo } from './studio-store';
 
 export { MAX_CHAT_PHOTOS, MAX_VIDEO_SECONDS, PHOTO_TOKENS, VIDEO_TOKENS, VISION_EDGE } from './chat-photo-parts';
@@ -106,7 +106,9 @@ export async function addChatVideo(file: File, deckId: string): Promise<{ video:
 		const refusal = videoRefusal((rec.durationMs ?? 0) / 1000, rec.bytes);
 		if (refusal) return { error: refusal };
 		const taken = new Set((await listMedia()).map((a) => a.name));
-		rec.name = uniqueName(rec.name, taken);
+		// A random suffix, not just a free name: the thread names its clip, and a clip deleted from the Library
+		// and a new `video.mp4` attached later must not be mistaken for the old turn's clip on Regenerate.
+		rec.name = uniqueName(`${rec.name.slice(0, 40)}-${Math.random().toString(36).slice(2, 7)}`, taken);
 		await saveMedia(rec, Date.now());
 		void navigator.storage?.persist?.().catch(() => {});
 		return { video: { name: rec.name, durationMs: rec.durationMs ?? 0 } };
@@ -121,4 +123,15 @@ export async function addChatVideo(file: File, deckId: string): Promise<{ video:
 export async function videoDataUrl(name: string): Promise<string | null> {
 	const rec = (await listMedia()).find((m) => m.name === name && m.kind === 'video');
 	return rec ? blobToDataUrl(rec.blob) : null;
+}
+
+/** Remove a clip that was attached but never sent (taken out of the strip, or its deck was left). A photo
+ *  stays in the Library as a keepsake; a clip is up to 15 MB and the author never chose to keep it. */
+export async function discardChatVideo(name: string): Promise<void> {
+	try {
+		const rec = (await listMedia()).find((m) => m.name === name && m.kind === 'video');
+		if (rec) await deleteMedia(rec.id);
+	} catch {
+		/* the Library lists it; the author can delete it there */
+	}
 }
