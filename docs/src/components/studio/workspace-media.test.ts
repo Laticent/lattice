@@ -457,6 +457,43 @@ describe('video in a backup', () => {
 		expect(await refusedWith([row({ kind: 'video' })], { 'hero.png': PNG })).toEqual(['its kind does not match its type']);
 	});
 
+	it('overwrites a restored clip\'s location boxes, and refuses a clip whose boxes cannot be read', async () => {
+		const enc = (t: string) => new TextEncoder().encode(t);
+		const u32 = (n: number) => new Uint8Array([(n >>> 24) & 255, (n >>> 16) & 255, (n >>> 8) & 255, n & 255]);
+		const box = (type: string, ...payload: Uint8Array[]) => {
+			const body = new Uint8Array(payload.reduce((n, p) => n + p.length, 0));
+			let at = 0;
+			for (const p of payload) {
+				body.set(p, at);
+				at += p.length;
+			}
+			const out = new Uint8Array(8 + body.length);
+			out.set(u32(8 + body.length), 0);
+			out.set(enc(type), 4);
+			out.set(body, 8);
+			return out;
+		};
+		const join = (...parts: Uint8Array[]) => {
+			const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
+			let at = 0;
+			for (const p of parts) {
+				out.set(p, at);
+				at += p.length;
+			}
+			return out;
+		};
+		const COORDS = '+37.7749-122.4194/';
+		const dirty = join(box('ftyp', enc('isom'), u32(0), enc('isom')), box('moov', box('mvhd', new Uint8Array(100)), box('udta', box('\u00a9xyz', new Uint8Array([0, 18, 0, 0]), enc(COORDS)))), box('mdat', new Uint8Array(64)));
+		const broken = join(box('ftyp', enc('isom'), u32(0), enc('isom')), u32(99_999), enc('moov'), new Uint8Array(16));
+		const out = await restoreMedia(await craft([vrow(), vrow({ name: 'bad', file: 'bad.mp4' })], { 'walk.mp4': dirty, 'bad.mp4': broken }), 1, ctx());
+		expect(out.restored).toBe(1);
+		expect(out.refused.map((r) => r.why)).toEqual(['its video data could not be checked for location data']);
+		const [back] = await listMedia();
+		const stored = new Uint8Array(await back.blob.arrayBuffer());
+		expect(new TextDecoder('latin1').decode(stored)).not.toContain('37.7749');
+		expect(stored.length).toBe(dirty.length);
+	});
+
 	it('keeps only a plain JPEG data URL as the poster', async () => {
 		for (const poster of ['javascript:alert(1)', 'data:image/svg+xml;base64,PHN2Zy8+', 'data:image/jpeg;base64,AAAA" onerror="x', `data:image/jpeg;base64,${'A'.repeat(130_000)}`]) {
 			await emptyShelf();

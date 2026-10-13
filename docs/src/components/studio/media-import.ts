@@ -7,6 +7,7 @@
 
 import { scrubberFor } from './media-scrub';
 import { MAX_MEDIA_FILE_BYTES, type MediaKind, mediaNameFromFile, type NewMedia, sniffImageMime, sniffVideoMime, uniqueName } from './media-store';
+import { isIsoVideo, scrubVideoBlob } from './video-scrub';
 
 /** The long edge a stored photo is capped to. A slide shows at most ~1920 px wide, so pixels
  *  past this cost storage quota and buy nothing a viewer can see. */
@@ -369,21 +370,28 @@ export async function probeVideo(blob: Blob): Promise<{ durationMs: number; widt
 	}
 }
 
-/** Read a video into a record ready for `saveMedia`. Stored as given (no transcoding in the browser), so any
- *  metadata in the file, including a location atom, stays: the decision note's open question 4 is not settled.
- *  Refused when over the Library's size cap, when the bytes are not a video type the Library stores, or when
- *  this browser cannot play it. */
+/** Read a video into a record ready for `saveMedia`. Stored without re-encoding, but an MP4 or QuickTime clip has its
+ *  metadata boxes (a phone's location, make and model) overwritten first (`video-scrub.ts`), as a photo does; a WebM
+ *  carries none to remove. Refused when over the Library's size cap, when the bytes are not a video type the Library
+ *  stores, when its structure cannot be read to be cleaned, or when this browser cannot play it. */
 export async function importVideo(file: File, scope: string): Promise<NewMedia> {
 	if (file.size > MAX_MEDIA_FILE_BYTES) throw new MediaImportError(`${file.name} is ${Math.round(file.size / 1_048_576)} MB; a video may be at most ${Math.floor(MAX_MEDIA_FILE_BYTES / 1_048_576)} MB.`);
 	const mime = sniffVideoMime(new Uint8Array(await file.slice(0, 16).arrayBuffer()));
 	if (!mime) throw new MediaImportError(`${file.name} isn't an MP4, MOV or WebM video.`);
+	// Cleaned BEFORE it is probed or stored: nothing downstream ever holds the clip with its location in it.
+	let source: Blob = file;
+	if (isIsoVideo(mime)) {
+		const cleaned = await scrubVideoBlob(file).catch(() => null);
+		if (!cleaned) throw new MediaImportError(`${file.name} couldn't be checked for location data, so it was not added. Export it again from your camera app and try again.`);
+		source = cleaned;
+	}
 	let probed: Awaited<ReturnType<typeof probeVideo>>;
 	try {
-		probed = await probeVideo(file);
+		probed = await probeVideo(source);
 	} catch {
 		throw new MediaImportError(`${file.name} couldn't be read as a video. It may be a format this browser can't play.`);
 	}
-	return { kind: 'video', name: mediaNameFromFile(file.name, 'video'), scope, blob: new Blob([file], { type: mime }), mime, bytes: file.size, width: probed.width, height: probed.height, sourceName: file.name, original: true, durationMs: probed.durationMs, poster: probed.poster };
+	return { kind: 'video', name: mediaNameFromFile(file.name, 'video'), scope, blob: new Blob([source], { type: mime }), mime, bytes: source.size, width: probed.width, height: probed.height, sourceName: file.name, original: true, durationMs: probed.durationMs, poster: probed.poster };
 }
 
 export { uniqueName };

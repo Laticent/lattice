@@ -2,3 +2,4 @@
 - A workspace backup carries videos and a restore puts them back, checking each file's bytes against its type.
 - A slide cannot show a video yet, so a deck that writes `asset:<video name>` shows the missing-image placeholder, and the chat is not offered a video to put on a slide.
 - Opening a `.lattice` file now skips any video in it and says so: a `.lattice` carries photos only.
+- A video's location, make, model and creation date are removed when you add it, as they are from photos: an MP4 or QuickTime clip has those metadata boxes overwritten in place (no re-encoding, same file size), and a clip restored from a backup gets the same treatment. A clip whose structure cannot be read is refused with a message. Some action and 360 cameras write location into a timed track instead; that is not removed.

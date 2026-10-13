@@ -320,3 +320,109 @@ test('a clip taken out of the strip before it is sent is not left in the Library
 	await expect(page.getByText('No saved assets yet')).toBeVisible();
 	await expect(page.locator('[data-media-card^="draft-"]')).toHaveCount(0);
 });
+
+/** A real MP4 a real browser recorded (MediaRecorder), as bytes. */
+async function recordMp4(page: import('@playwright/test').Page, seconds: number): Promise<Buffer> {
+	const b64 = await page.evaluate(async (secs) => {
+		const c = document.createElement('canvas');
+		c.width = 160;
+		c.height = 90;
+		const ctx = c.getContext('2d') as CanvasRenderingContext2D;
+		const rec = new MediaRecorder(c.captureStream(15), { mimeType: 'video/mp4' });
+		const chunks: Blob[] = [];
+		rec.ondataavailable = (e) => chunks.push(e.data);
+		const done = new Promise<void>((r) => {
+			rec.onstop = () => r();
+		});
+		rec.start();
+		const t0 = performance.now();
+		await new Promise<void>((resolve) => {
+			const tick = () => {
+				ctx.fillStyle = `hsl(${((performance.now() - t0) / 8) % 360} 70% 50%)`;
+				ctx.fillRect(0, 0, 160, 90);
+				if (performance.now() - t0 < secs * 1000) requestAnimationFrame(tick);
+				else resolve();
+			};
+			tick();
+		});
+		rec.stop();
+		await done;
+		const buf = new Uint8Array(await new Blob(chunks, { type: 'video/mp4' }).arrayBuffer());
+		let s = '';
+		for (const x of buf) s += String.fromCharCode(x);
+		return btoa(s);
+	}, seconds);
+	return Buffer.from(b64, 'base64');
+}
+
+const COORDS = '+37.7749-122.4194+016.000/';
+const u32 = (n: number) => Buffer.from([(n >>> 24) & 255, (n >>> 16) & 255, (n >>> 8) & 255, n & 255]);
+const mp4Box = (type: string, ...payload: Buffer[]) => {
+	const body = Buffer.concat(payload);
+	return Buffer.concat([u32(8 + body.length), Buffer.from(type, 'latin1'), body]);
+};
+
+/** The clip with a phone's two location shapes appended INSIDE its `moov`: Apple's `meta`/`keys`/`ilst` and `udta`/`©xyz`. */
+function withLocation(mp4: Buffer): Buffer {
+	let at = 0;
+	while (at + 8 <= mp4.length) {
+		const size = mp4.readUInt32BE(at);
+		if (mp4.toString('latin1', at + 4, at + 8) === 'moov') {
+			const apple = mp4Box('meta', mp4Box('hdlr', u32(0), Buffer.from('mdta'), Buffer.alloc(12)), mp4Box('keys', u32(0), u32(1), mp4Box('mdta', Buffer.from('com.apple.quicktime.location.ISO6709'))), mp4Box('ilst', mp4Box('\u0000\u0000\u0000\u0001', mp4Box('data', u32(1), u32(0), Buffer.from(COORDS)))));
+			const android = mp4Box('udta', mp4Box('©xyz', Buffer.from([0, 26, 0, 0]), Buffer.from(COORDS)));
+			const added = Buffer.concat([apple, android]);
+			const moov = Buffer.concat([u32(size + added.length), mp4.subarray(at + 4, at + size), added]);
+			return Buffer.concat([mp4.subarray(0, at), moov, mp4.subarray(at + size)]);
+		}
+		if (size < 8) break;
+		at += size;
+	}
+	throw new Error('the recorded MP4 has no moov box');
+}
+
+test("a clip's location data is overwritten before it is stored, and the clip still plays", async ({ page }) => {
+	test.setTimeout(90_000);
+	await seed(page, true, true);
+	await gotoStudio(page);
+	const recorded = await recordMp4(page, 2);
+	expect(recorded.toString('latin1', 4, 8), 'this Chromium did not record an MP4').toBe('ftyp');
+	const dirty = withLocation(recorded);
+	expect(dirty.toString('latin1')).toContain(COORDS);
+
+	await page.getByRole('button', { name: CHROME.library }).click();
+	await page.getByRole('tab', { name: 'Videos' }).click();
+	await page.locator('input[type=file][accept*="video"]').first().setInputFiles({ name: 'Site Visit.mp4', mimeType: 'video/mp4', buffer: dirty });
+	// It was probed after cleaning: a card with a length means the cleaned clip still decodes.
+	const card = page.locator('[data-media-card="site-visit"]');
+	await expect(card).toBeVisible({ timeout: 20_000 });
+	await expect(card).toContainText(/0:0[1-3]/);
+
+	const stored = Buffer.from(
+		await page.evaluate(
+			() =>
+				new Promise<string>((resolve, reject) => {
+					const r = indexedDB.open('lattice-workbench');
+					r.onerror = () => reject(r.error);
+					r.onsuccess = () => {
+						const q = r.result.transaction('assets').objectStore('assets').index('kind').getAll('video');
+						q.onsuccess = async () => {
+							const rec = (q.result as { blob: Blob }[])[0];
+							const buf = new Uint8Array(await rec.blob.arrayBuffer());
+							let s = '';
+							for (const x of buf) s += String.fromCharCode(x);
+							resolve(btoa(s));
+						};
+					};
+				}),
+		),
+		'base64',
+	);
+	expect(stored.length, 'same length: nothing shifted').toBe(dirty.length);
+	expect(stored.toString('latin1')).not.toContain('37.7749');
+	expect(stored.toString('latin1')).not.toContain('com.apple.quicktime.location');
+	expect(stored.toString('latin1')).toContain('free');
+	// And it plays.
+	await card.getByRole('button', { name: 'Play site-visit' }).click();
+	await expect(card.locator('video')).toBeVisible();
+	await expect.poll(() => card.locator('video').evaluate((v: HTMLVideoElement) => v.readyState), { timeout: 10_000 }).toBeGreaterThanOrEqual(2);
+});

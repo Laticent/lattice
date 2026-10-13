@@ -156,7 +156,8 @@ shows its file dialog and a drag-and-drop onto the Library accepts the same type
 - **HEIC** (iPhone's native format): iOS Safari converts to JPEG when `accept` names `image/*`
   and `image/heic` is not requested. Other browsers that hand back raw HEIC get a clear
   "this browser can't read HEIC; export as JPEG" refusal, not a silent broken picture.
-- **Video** is stored as given (no transcoding in the browser). Import captures a poster frame
+- **Video** is stored without re-encoding (none in the browser), but an MP4 or QuickTime clip has its metadata boxes
+  overwritten first ("Clip location data" below). Import captures a poster frame
   at 0.5 s onto a canvas, and reads duration.
 - **"Files"** (the third word in the ask) is already the reference-doc tab. It stays the home of
   `.txt/.md/.pdf`; nothing else is accepted, and the Images tab does not grow a "any file"
@@ -358,9 +359,8 @@ What shipped, and where it differs from the proposal in §1:
   across both kinds and both scopes (`saveMedia` is unchanged).
 - **Intake.** `importVideo` (`media-import.ts`) refuses a file over 50 MB (`MAX_MEDIA_FILE_BYTES`), reads the
   type from the bytes (`sniffVideoMime`: MP4, QuickTime, WebM; an AVIF or HEIC picture shares the `ftyp` box
-  and is refused as a video), and plays the first frame to get the length, size and poster. The bytes are
-  stored as given, so any metadata in the file stays. Open question 4 (the GPS atom) is not settled and is
-  not changed here. The Library picker accepts `video/*` as §3 said; a clip goes straight in (there is no
+  and is refused as a video), overwrites an MP4 or QuickTime clip's metadata boxes (`video-scrub.ts`, see "Clip
+  location data" below), and plays the first frame to get the length, size and poster. The Library picker accepts `video/*` as §3 said; a clip goes straight in (there is no
   format to choose), a photo still goes through the format dialog.
 - **Tab.** A **Videos** tab beside Images. "All" shows both kinds. The card shows the poster and length, and
   plays the clip inline on a tap; the clip gets an object URL only while it plays, so a shelf of videos does
@@ -368,7 +368,7 @@ What shipped, and where it differs from the proposal in §1:
 - **Backup and restore.** `media.json` rows carry `kind: 'video'`, `durationMs` and `poster`; the file is
   written as `.mp4`, `.webm` or `.mov`. A restore checks the row's kind against its type, the bytes against the
   sniffer, and keeps a poster only if it is a plain JPEG data URL of a sane size (it goes into an `<img src>`).
-  There is no scrubber for video, so the restore does not rewrite a clip's bytes.
+  A restored MP4 or QuickTime clip is run through the same scrubber, and refused when its boxes cannot be read.
 - **Not built.** Rendering a video on a slide, the HTML-player embed cap, and the poster in PDF, PNG and PPTX
   exports. A deck that writes `asset:<video name>` resolves to the missing-image stand-in, because the
   name → URL map and editor completion list photos only, and the chat's manifest does not offer a video as
@@ -450,7 +450,39 @@ not there. The place a codec earns its keep is text, and `DEFLATE` on the JSON a
 Blob, or a 50 MB clip does not fit in memory on a phone) is left out and named in the backup's warnings; it does not cost
 the rest of the media or the decks.
 
-**Not changed.** A video is stored as given; transcoding in the browser would cost minutes of CPU on a phone for a smaller
+## Clip location data (2026-10-13)
+
+A phone writes its location into a clip's metadata, and a clip that kept it would carry it into the Library, into every
+workspace backup and into anything a person shares that backup with. Photos have always been scrubbed for this reason, so
+a clip is too: `video-scrub.ts`, at import (`importVideo`, before the clip is probed or stored, so nothing downstream holds
+the original) and at restore (`restoreMedia`).
+
+**How.** A clip cannot be rebuilt from the blocks it needs the way a photo is: dropping a box shifts every box after it,
+and the sample tables in `moov` hold absolute byte offsets into `mdat`. So each metadata box is **overwritten in place**
+with a `free` box of the same size and a zeroed payload. Every size and offset stays exactly where it was, so a `moov` at
+the front (faststart) or the back (what an iPhone writes) is safe, and a player skips `free`. The file is walked by reading
+box headers through `Blob.slice`, so a 50 MB clip is never loaded to be cleaned.
+
+**What is overwritten.** `udta` and `meta` under `moov` and under each `trak`: Apple's `com.apple.quicktime.location.ISO6709`
+(in `meta`), Android's and QuickTime's `©xyz` and 3GPP's `loci` (in `udta`), and the make, model, software and creation date
+beside them. Also top-level `uuid`, `XMP_` and `xml ` boxes (XMP packets). Whole boxes go, not single keys, so a key this
+code has never heard of cannot ride through inside one. A clip whose boxes cannot be walked (truncated, a size that does not
+fit, a bound exceeded) is refused with a message, and not stored unread.
+
+**What is not.** A timed-metadata **track** (a GoPro's GPMF, an Insta360's camm, some phones' `mebx`) keeps its samples in
+`mdat`, and clearing those means rewriting the sample tables. A clip from such a camera can still carry a position per
+frame. **A WebM is not scrubbed**: it is not an ISO box file, and a browser's recorder writes no location into one. This
+removes the standard static location boxes; it does not promise that no clip carries a location.
+
+**Verified.** Synthetic files in both layouts (`video-scrub.test.ts`: coordinates gone, length and every offset unchanged,
+media data byte-for-byte, a 64-bit size, a last box that runs to the end, hostile sizes refused); a restore test; and
+`docs/e2e/chat-photos.spec.ts`, which records a real MP4 in Chromium, injects both location shapes into its `moov`, adds it
+through the Library, and reads the stored bytes back from IndexedDB: same length, no coordinates, still plays. The test
+fails with the scrub off. **Not verified on a real phone file with real location boxes**: the author's iPhone clip was added
+before this change. To check one, add it in Library → Videos, make a workspace backup, and search the `.zip`'s
+`media/<name>.mov` for `com.apple.quicktime.location`.
+
+**Not changed.** A video is not re-encoded; transcoding in the browser would cost minutes of CPU on a phone for a smaller
 file the author did not ask for.
 
 ## Options not taken
@@ -512,9 +544,8 @@ commit builds and tests against `main` alone.
    playable in the presenter.
 3. Whether Markdown and Marp exports should carry the photos a deck names (a Marp bundle already copies
    `sample:` art). They keep the reference only. `.lattice` now carries them (§6).
-4. Whether a video export that keeps the original bytes should strip the GPS atom (a small
-   rewrite of the file's header boxes, no re-encode) or fall back to the poster frame whenever
-   location is present. The atom rewrite is cheap but is a byte change to a user's video.
+4. ~~Whether a video should have its GPS atom stripped.~~ Settled 2026-10-13: yes, at import and at restore, by overwriting
+   the metadata boxes in place ("Clip location data" below).
 5. Whether camera capture ("Take Photo") warrants its own button, or `accept="image/*"` is
    enough. On iOS it is enough; on some Android browsers the picker hides the camera unless
    `capture` is set. Slice 1 checks.

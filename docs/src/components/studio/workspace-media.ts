@@ -24,6 +24,7 @@
 import { cleanCaption } from './agent-assets';
 import { scrubberFor } from './media-scrub';
 import { isMediaName, isPosterDataUrl, LIBRARY_SCOPE, listMedia, MAX_MEDIA_FILE_BYTES, saveMedia, setMediaScope, sniffImageMime, sniffVideoMime, uniqueName } from './media-store';
+import { isIsoVideo, scrubVideoBytes } from './video-scrub';
 import { declaredInflatedBytes, jsonGuard, readBudget, readBytesBudget } from './zip-limits';
 
 export const MEDIA_INDEX = 'media.json';
@@ -302,7 +303,18 @@ export async function restoreMedia(zip: Zip, now: number, ctx: RestoreContext, o
 		// And the bytes get the same cleaning the importer gives a new photo: a backup from another person's
 		// workspace must not bring their photo's location into the decks this person sends out. A file the
 		// scrubber cannot read is refused rather than stored with a block nobody could inspect.
-		if (!isVideo) {
+		if (isVideo) {
+			// The same cleaning the importer gives a clip: a backup from another person's workspace must not bring their
+			// clip's location into decks this person sends out. A clip whose structure cannot be read is refused.
+			if (isIsoVideo(mime)) {
+				const cleaned = await scrubVideoBytes(bytes).catch(() => null);
+				if (!cleaned) {
+					skip('its video data could not be checked for location data');
+					continue;
+				}
+				bytes = cleaned as Uint8Array<ArrayBuffer>;
+			}
+		} else {
 			const scrub = scrubberFor(mime);
 			const cleaned = scrub ? scrub(bytes) : null;
 			if (!cleaned) {
