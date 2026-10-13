@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
-import { buildPhotoDescriptionPrompt, cleanPhotoDescription, suggestPhotoDescription } from './architect';
+import { buildPhotoDescriptionPrompt, cleanPhotoDescription, suggestPhotoDescription } from './suggest-photo-description';
 
 // The call itself needs a connected cloud model, so its states (no key, a model that cannot read images, a reply) are
 // driven on the real Studio with OpenRouter mocked (docs/e2e/library-image-metadata.spec.ts). What is pure and

@@ -584,7 +584,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	async function suggestDescription(a: MediaRecord): Promise<{ text: string } | { note: string }> {
 		const thumb = await agentAssets.thumbnail(a.name);
 		if (!thumb) return { note: "This photo couldn't be read to describe it." };
-		const { suggestPhotoDescription } = await import('./architect');
+		const { suggestPhotoDescription } = await import('./suggest-photo-description');
 		const { deckOutputLang } = await import('./studio-language');
 		const r = await suggestPhotoDescription(thumb, activeDeckSource ? deckOutputLang(activeDeckSource) : undefined);
 		switch (r.status) {
