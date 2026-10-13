@@ -5,10 +5,9 @@ summary: Give Compose point-and-click editors for the inline notation (pills, sp
 
 # Compose inline notation editors — point and click, never type the syntax (2026-10-13)
 
-> Status: **decided, not yet built** (2026-10-13). The owner confirmed the four forks in §11:
-> the chip door, host plus pills in the first PR, a popover on desktop and tablet with a
-> sheet on the phone, and a word-level write path. Three match the recommendation; the
-> surface fork does not, and §5 axis D now says what was chosen.
+> Status: **decided; phase 1 built** (2026-10-13). The owner confirmed four forks in §11, then
+> **revised the first one the same day**: Compose shows the pill as the slide draws it, not a chip
+> beside its grammar. §11 records both answers, and §12 says what phase 1 built and how.
 
 **The answer first.** Compose should draw a small, clickable chip next to every pill, spark
 and avatar. A click opens one shared editor with the controls that notation allows: shape
@@ -104,15 +103,15 @@ vocabulary match the readers use, the way `withSparkSize` does for the size word
 ## 5. Design axes and the recommended move
 
 **Axis A — the door: how an author reaches the editor.**
-- *A1. A drawn chip beside the raw text* (view-only widget decoration, the real pill, spark
+- *A1. A tag button beside the raw text* (view-only widget decoration, the real pill, spark
   or avatar from `pillElement` and its siblings). Click it to edit. The raw text stays visible
   and editable. **Recommended.** The state-marker badges are the precedent for a view-only
   decoration (no schema change, no serializer change, nothing in the document moves), and the
   pane bar is the precedent for a clickable widget decoration.
 - *A2. Replace the raw text with the drawn thing* while the caret is elsewhere, and show the
-  text when the caret enters (a live preview). The nicest result, and the riskiest: hiding
-  text inside an editable range is where caret, selection and IME bugs live. **Later, if A1
-  proves out.**
+  text when the caret touches it (a live preview). The nicest result, and the riskiest: hiding
+  text inside an editable range is where caret, selection and IME bugs live. **Chosen, on the
+  owner's revision of 2026-10-13** (§11, §12): show what is rendered, not the grammar.
 - *A3. A toolbar button only.* Cheap, but nothing on the page shows an author that a pill is
   editable. Rejected as the only door.
 - *A4. An insert door* ("+ Pill", "+ Spark", "+ Avatar" on the slide's divider bar). Needed
@@ -250,15 +249,68 @@ paste into a table) are candidates for their own small PRs.
 
 | # | Fork | Decision | Against the recommendation |
 |---|---|---|---|
-| 1 | The door | **A1**, a drawn chip beside the raw text. Replacing the text with the drawing (A2) is deferred until A1 proves out. | matches |
+| 1 | The door | **Revised the same day.** First answer: A1, a tag button beside the raw text, with A2 deferred. Revised answer: **A2**, the pill drawn as the slide draws it, its text hidden until the caret touches it. The reason, in the owner's words: show what is rendered, not the grammar, and a click brings up the popup. | first answer matched; the revision overrides it, and it moves the risk A1 avoided (caret and selection around hidden text) into phase 1, handled in §12 |
 | 2 | The first PR's size | **Host plus pills only.** Sparks are the next PR. | matches |
-| 3 | What the editor opens in | **A popover anchored to the chip on desktop and tablet, a `PanelSheet` on the phone.** | differs: the recommendation was the sheet at every width |
+| 3 | What the editor opens in | **A popover anchored to the pill on desktop and tablet, a `PanelSheet` on the phone.** | differs: the recommendation was the sheet at every width |
 | 4 | The write path | **C1**, replace only the changed words. | matches |
 
-Nothing is left open for phase 1. Phases 3 to 5 each get their own note before they are
-built (§9).
+Nothing is left open for phase 1. Phases 3 to 5 each get their own note before they are built (§9).
 
-## 12. References
+## 12. Phase 1 as built
+
+What shipped, in the order an author meets it, and where it differs from the design above.
+
+**The pill is drawn by the engine's own rules.** The Studio page does not carry the deck's CSS, so
+`lib/compose/pill-sheet.ts` copies two things out of the live preview frame at runtime: every rule
+whose selector names `.lat-pill`, and the current value of every custom property those rules read
+(`--pill-*`, `--cat-N-fill`, ...). They go into one constructable stylesheet, the rules inside
+`@scope (.cs-pill-scope)` and the tokens on `.cs-pill-scope`, so nothing restyles Compose's own
+chrome. The engine writes every pill rule under `article.lattice > section …`, so each drawn pill
+sits inside a pair of `display: contents` wrappers with that ancestry. There is no second copy of
+the pill's look: a shape or token the engine changes reaches Compose with no edit. The sheet is
+rebuilt when the site palette or mode changes, when the preview frame reloads, and when the deck
+source changes (a `theme:` edit restyles the preview without touching either of those).
+
+**When the text is hidden.** The span's text is hidden (`display: none`, by an inline decoration)
+and a widget draws the pill in its place. The text comes back, with the tag button after it,
+whenever the selection touches the span: a caret inside it or at either edge, or a range that
+cuts into it. A range that swallows the whole pill draws it selected. That rule is why nothing is
+ever edited unseen: typing at the edge of a pill extends its code mark, so the author must see the
+braces when they are there. A browser without constructable stylesheets or `@scope`, or a pill the
+engine cannot draw here, keeps the text and the tag button, which is the first form of the editor.
+
+**One range, mapped through every edit.** The open editor's range lives in the notation plugin's
+state and is mapped through each transaction, so it always names the pill it was opened on. An
+earlier version kept the range in React state; the independent checker found that a deletion
+before the pill left the range pointing into the wrong bytes, and the next click spliced there.
+The fix has three parts: `pillAt` requires the range to start at the pill (`textOffset` 0), the
+range is mapped by the plugin and closes when an edit deletes into the pill, and a resync, which
+rebuilds the plugin state, closes the editor. Both of the checker's repros are regression tests.
+
+**The insert door declines where it would damage the author's text.** "+ Pill" does nothing, and
+says why, inside or against an inline code span (a new code-marked run would merge into it), on a
+selection that crosses blocks, in a fence, and in a locked slide.
+
+**The writer.** `editPill` in `lib/core/inline-pills.js` applies one axis at a time, re-parsing
+between steps, and reads the result back: it returns null unless the pill reads as the old fields
+plus the requested change. It keeps the author's casing and order for every word it does not
+touch (named words too). A property test runs it over every readable pill in the shipped decks and
+galleries, and the checker fuzzed it with about 2.1 million edits over about 8,700 distinct pills
+without a violation.
+
+**Not in phase 1.** The `icon=` axis (an icon-only pill has no label to edit, and the panel says
+so), and a crowding warning for a circle or diamond with a long label. Both go in with phase 2.
+The pill is drawn in Compose's text size and the Compose font stack; the deck's own fonts are not
+loaded in the Studio page, so a theme with a distinctive pill face will differ slightly from the
+slide. The slide preview beside Compose is still the exact drawing.
+
+**Verified.** On the real Studio at 1440, 820 and 390, light and dark: the pills drawn with the
+deck's own fill and shape, the grammar hidden and back when the caret arrives, every pick landing
+in the persisted source with every other byte untouched, undo, "Edit as text", the insert door,
+the locked slide's disabled pill, and a literal deck. Not verified: a real phone's touch and
+keyboard, and Safari's handling of `@scope` (the fallback is the first form of the editor).
+
+## 13. References
 
 - `engineering/decisions/2026-07-18-compose-prosemirror.md` — the Compose architecture.
 - `engineering/decisions/2026-07-19-compose-table-editing.md` — the precedent this note
