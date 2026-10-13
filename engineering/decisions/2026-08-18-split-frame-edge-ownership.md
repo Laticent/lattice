@@ -293,12 +293,25 @@ to match the same attribute. Both stay at (0,2,1). The split pages carry the `sp
 
 The selector reaches every auto-split page whose layout class was swapped, not only `split-panel`: the
 `cards-grid` and `checklist` covers, every `decision` page and the `split-compare` cover and closing now draw the
-tone bar too. Before, a run disagreed with itself: native body pages drew it and the cover did not. Still open:
-a split page with a semantic tone and no `tone-edge` drops the rail and glow styles entirely, for the same reason
-(`followups.d/2645-p3-tone-rail-glow-dropped-on-split-pages.md`).
+tone bar too. Before, a run disagreed with itself: native body pages drew it and the cover did not. The rail and glow styles were
+still dropped; the addendum below closes that.
 
 The `spectrum-solid` / `duo` / `mono` register rule excludes a semantic `tone-edge` by class, so on a split page it
 painted its own bar over the tone. Its `:where()` exclusion now lists the `data-split-mods` form too. Measured at
 2160x3840, indaco, row 2 on all three pages: `spectrum: solid|duo|mono` read the register bar before and read
 `#550014` after. Also read the tone color at row 2: `spectrum: off`, `finish: atrium`, `size: square`, cuoio light
 (`#8A010C`) and dark (`#ED6868`); `class: print` reads ink `#111111`, where the control has no tone bar.
+
+## Addendum 2026-10-13 — the rail and glow styles reach auto-split pages
+
+The same root cause as the `tone-edge` fix, on the other two tone styles. A split page carries the semantic tone
+(`tone-warn`) and the style (`tone-glow`, `tone-rail`) as `data-split-mods`, and every rule that draws them was keyed
+on a class. Measured on indaco at 2160x3840, `cards-grid tone-warn` then `decision tone-fail`, x=1 at mid-height, 11
+pages: the cover and closing page read the page color (`#006FA8`, `#FFFFFF`) and so did every `decision` page; the
+native body pages read `#8A5D00`. The drop was a bug, not a design: a run disagreed with itself.
+
+The fix drops the `.tone-edge` scope from the `--tone-color` definitions and gives the default rail, the explicit
+`tone-rail` and the `tone-glow` ring a second form in `base.variants.css`, `[data-split-mods~="tone-*"]`. The default
+rail and the semantic definitions stay at (0,1,1), and `tone-edge` (0,2,1) still beats the rail. After, all 11 pages read
+the tone color at x=1: `#8A5D00` (warn) and `#550014` (fail) in light, `#EDB85C` and `#E9798C` in dark. A `tone-glow`
+deck reads the same on every page. `examples/split-tone-rail-story.md` shows it.
