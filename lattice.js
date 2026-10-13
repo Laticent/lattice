@@ -1691,6 +1691,10 @@ const { appendAutoGlossary, autoGlossarySections, glossaryEntries, resolveGlossa
 // withInstalledComponents. All of them take part in routing, approved or not, so a slide an
 // unapproved package claims is refused rather than handed to the next package in line.
 let DECK_CODE_PACKAGES = [];
+// The installed zip plugins this deck LISTS under `plugins:` (plugin-system §9 decision 11), each with its code
+// as the bytes the user approved: the door runs these on their fences. An installed plugin the deck does not list
+// is only offered, and its fence stays the code block it is. Filled by withInstalledComponents.
+let DECK_PLUGINS = [];
 /** Exit, naming each package, if any of these code packages lacks the user's approval. */
 function refuseUnapprovedCode(pkgs) {
   if (!pkgs.length) return;
@@ -1703,6 +1707,34 @@ function refuseUnapprovedCode(pkgs) {
     console.error(printableLine(`       to read what it runs and approve it: lattice packages trust component/${u.name}`));
   }
   process.exit(1);
+}
+/**
+ * The installed zip plugins a deck lists (lib/packages/code-door-fence.mjs `activePluginNames`, the rule both doors
+ * share). Each is gated again here (the store is a plain folder): a refused or shadowed plugin is named and left out.
+ * The door asks for consent at the digest of exactly these bytes, and prints `lattice packages trust plugin/<name>`
+ * when the user has not given it. A plugin the deck does not list, whose fence the deck writes, is named once.
+ */
+function withInstalledPlugins(source) {
+  const { refusePackage } = require('./lib/packages/gate.js');
+  const { activePluginNames } = require('./lib/packages/code-door-fence.mjs');
+  const { readTrust } = require('./lib/packages/trust.js');
+  const PLUGIN_NAMES = require('./lib/plugins/registry.generated.js').PLUGINS.map((g) => g.name);
+  const installed = [];
+  for (const p of packagesHome.listInstalled(PACKAGES_ROOT).filter((x) => x.type === 'plugin' && x.ok)) {
+    const why = (PLUGIN_NAMES.includes(p.name) && `"${p.name}" is a plugin Lattice ships, so the installed one of that name is not used`) || refusePackage(p.pkg, { forRender: true });
+    if (why) console.error(`warning: the installed plugin ${p.name} is refused and not used: ${why}`);
+    else installed.push(p);
+  }
+  if (!installed.length) return [];
+  const active = activePluginNames(source, installed.map((p) => p.name));
+  const approvals = readTrust();
+  const fenceOf = (p) => Object.keys(p.pkg.manifest.contributes.fences)[0];
+  for (const p of installed.filter((x) => !active.has(x.name))) {
+    if (new RegExp(`^[ \\t>]*(?:\`{3,}|~{3,})[ \\t]*${fenceOf(p)}(?![\\w-])`, 'm').test(source) && !flags.quiet) {
+      console.error(`warning: the installed plugin ${p.name} draws \`\`\`${fenceOf(p)} blocks, and this deck does not list it, so they stay code. To draw them, add it to the deck's front matter: plugins: [${p.name}]`);
+    }
+  }
+  return installed.filter((p) => active.has(p.name)).map((p) => ({ name: p.name, fence: fenceOf(p), code: p.pkg.files[p.pkg.roles['render.js']], layer: approvals[`plugin/${p.name}`]?.layer ?? null }));
 }
 // The installed component packages this render USES — `--reopenable` carries them in the
 // `.lattice`, so the deck opens styled for a recipient who never installed them. Filled by
@@ -1752,6 +1784,7 @@ function withInstalledComponents(source) {
   });
   DECK_CODE_PACKAGES = installedCode.map((p) => ({ name: p.name, sha256: codeDigest(p.pkg), layer: approvals[`component/${p.name}`]?.layer ?? null, code: String(p.pkg.files[p.pkg.roles['transform.js']]), facts: p.pkg.manifest?.facts }));
   refuseUnapprovedCode(DECK_CODE_PACKAGES.filter((p) => named.has(p.name)));
+  DECK_PLUGINS = withInstalledPlugins(source);
   // `--reopenable` carries what this render used: the components the CSS pass embedded, and the
   // code packages the deck names that passed the name gate above (never one the render refused).
   const usedNames = new Set(r.used);
@@ -2126,10 +2159,11 @@ function engineSlides(deckSource = rawMd) {
   // sandbox runs them, a second render puts their sanitized output in (lib/packages/code-door.js).
   // A deck no installed code package claims renders once, as before.
   let rendered;
-  if (DECK_CODE_PACKAGES.length) {
+  if (DECK_CODE_PACKAGES.length || DECK_PLUGINS.length) {
     const { renderWithCodePackages } = require('./lib/packages/code-door.js');
     const r = renderWithCodePackages((hook, more) => engine.render(deckMd, paletteName, { codePackages: hook, ...more, samplesUrl }), {
       packages: DECK_CODE_PACKAGES,
+      plugins: DECK_PLUGINS,
       executablePath: CHROME_EXEC,
       warn: (l) => console.error(l),
       info: (l) => { if (!QUIET) console.log(l); },

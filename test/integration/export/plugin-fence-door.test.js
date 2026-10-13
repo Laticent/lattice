@@ -289,3 +289,14 @@ describe('the fence door through the real sandbox', () => {
     assert.ok(drawn[0][0] * 150000 <= 8_000_000 + 150000, `at most the 8,000,000-character cap was kept (${drawn[0][0]} blocks)`);
   });
 });
+
+describe('the same fixture as the Studio’s door (HARD RULE #1)', () => {
+  test('the shared deck and plugin satisfy every check the Studio’s door is held to', { timeout: TIMEOUT }, async () => {
+    const { CHECKS, DECK: SHARED, PLUGIN } = await import('../../fixtures/fence-door-parity.mjs');
+    approve(PLUGIN);
+    const r = run(PLUGIN, SHARED);
+    assert.equal(r.refusal, undefined, JSON.stringify(r.refusal));
+    const failed = CHECKS.filter(([, ok]) => !ok(r.rendered.html)).map(([label]) => label);
+    assert.deepEqual(failed, []);
+  });
+});

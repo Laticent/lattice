@@ -539,11 +539,27 @@ describe('codeSyntaxRefusal: a dynamic import(), parsed', () => {
     assert.match(refusePackage(p, { forRender: true }), /dynamic `import\(\)`/);
   });
 
-  test('a plugin package is refused by name, with the string the Studio import uses too', () => {
+  test('a plugin that arrives as data passes the plugin gate, and is refused for each thing the gate names', () => {
     const { refusePackage } = require('../../../lib/packages/gate.js');
-    const { PLUGIN_REFUSAL } = require('../../../lib/packages/plugin-refusal.js');
-    // Code-free and with code alike: the name decides, before any file is judged.
-    assert.equal(refusePackage({ type: 'plugin', name: 'glow', code: false, files: {}, roles: {} }), PLUGIN_REFUSAL);
-    assert.equal(refusePackage({ type: 'plugin', name: 'glow', code: true, files: {}, roles: {} }), PLUGIN_REFUSAL);
+    const code = 'function render(f){return "<p>"+f.body.length+"</p>"}\nexport { render as default };';
+    const plugin = (over = {}, manifest = {}, name = 'gantt-plugin') => ({
+      type: 'plugin',
+      name,
+      code: true,
+      manifest: { name, type: 'plugin', contributes: { fences: { gantt: {} } }, ...manifest },
+      roles: { 'render.js': `${name}.render.js` },
+      files: { [`${name}.render.js`]: code },
+      ...over,
+    });
+    assert.equal(refusePackage(plugin()), null);
+    assert.equal(refusePackage(plugin(), { forRender: true }), null);
+    assert.match(refusePackage(plugin({}, { contributes: { fences: { gantt: {} }, hydrate: {} } })), /contributes hydrate/);
+    assert.match(refusePackage(plugin({}, { render: { exec: { hydrate: 'pass' } } })), /render\.exec/);
+    assert.match(refusePackage(plugin({}, { contributes: { fences: { mermaid: {} } } })), /fence `mermaid` is one a shipped plugin owns/);
+    assert.match(refusePackage(plugin({}, { contributes: { fences: { python: {} } } })), /code language Lattice highlights/);
+    assert.match(refusePackage(plugin({}, {}, 'chart')), /class Lattice uses/);
+    assert.match(refusePackage(plugin({ files: { 'gantt-plugin.render.js': `import("x");\n${code}` } })), /dynamic `import\(\)`/);
+    assert.match(refusePackage({ type: 'plugin', name: 'glow', code: false, files: {}, roles: {} }), /declares 0 fences/);
   });
+
 });

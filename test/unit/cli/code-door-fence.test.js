@@ -339,6 +339,21 @@ describe('the gate for a plugin’s one script', () => {
     assert.deepEqual([...PLUGIN_DATA_CONTRIBUTIONS], ['fences', 'styles', 'diagnostics']);
   });
 
+  test('refuses render.exec (hydrate "pass", a bake), payload and vendor by rule, not by prose', () => {
+    assert.match(refusePluginCode(plugin({}, { render: { parity: 'equivalent', degradesTo: 'source', exec: { hydrate: 'pass' } } })), /render\.exec/);
+    assert.match(refusePluginCode(plugin({}, { render: { parity: 'equivalent', degradesTo: 'source', exec: { bake: 'subprocess' } } })), /render\.exec/);
+    assert.match(refusePluginCode(plugin({}, { payload: { vendored: 'x' } })), /declares payload/);
+    assert.match(refusePluginCode(plugin({}, { vendor: [] })), /declares vendor/);
+    assert.equal(refusePluginCode(plugin({}, { render: { parity: 'equivalent', degradesTo: 'source' } })), null, 'a render block with no exec is fine');
+    assert.equal(refusePluginCode(plugin({}, { render: { parity: 'equivalent', degradesTo: 'source', exec: {} } })), null, 'an empty exec runs nothing');
+  });
+
+  test('refuses a renderer holding a lone surrogate: two files could share a consent digest in a browser', () => {
+    const bad = `// \ud800\n${code}`;
+    assert.match(refusePluginCode(plugin({ files: { 'gantt-plugin.render.js': bad } })), /lone UTF-16 surrogate/);
+    assert.equal(refusePluginCode(plugin({ files: { 'gantt-plugin.render.js': `// \ud83d\ude00\n${code}` } })), null, 'a paired surrogate (an emoji) is fine');
+  });
+
   test('refuses a fence name the schema does not allow, NUL and markup included', () => {
     for (const bad of ['a\u0000x', 'Gantt <b>', 'Gantt', '1gantt', 'a b', '']) {
       assert.match(refusePluginCode(plugin({}, { contributes: { fences: { [bad]: {} } } })) ?? '', /fence name|declares/, JSON.stringify(bad));
@@ -385,6 +400,18 @@ describe('the worker for a fence renderer', () => {
     assert.match(script, /a fence is a text body and an id/);
     assert.match(script, /__freeze\(\{body:f\.body,id:f\.id\}\)/);
     assert.doesNotMatch(script, /facts|baseUrl|idPrefix/, 'a fence renderer is never handed a slide');
+  });
+});
+
+describe('the CLI door refuses a plugin whose fence is a code language', () => {
+  test('a `python` plugin is not run and the door says why', () => {
+    const { renderWithCodePackages } = require('../../../lib/packages/code-door.js');
+    const warn = [];
+    const e = engine.createEngine();
+    const md = '---\ntheme: indaco\n---\n\n## P\n\n```python\nprint(1)\n```\n';
+    const r = renderWithCodePackages((hook, more) => e.render(md, 'indaco', { codePackages: hook, ...more }), { packages: [], plugins: [{ name: 'py-plugin', fence: 'python', code: 'function render(){return "<p>x</p>"}\nexport { render as default };' }], warn: (l) => warn.push(l) });
+    assert.ok(warn.some((l) => /plugin py-plugin is not run: `python` is a code language the engine highlights/.test(l)), warn.join('\n'));
+    assert.match(r.rendered.html, /hljs/, 'the block is still highlighted');
   });
 });
 
