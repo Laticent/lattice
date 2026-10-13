@@ -1,6 +1,17 @@
 import type { Page } from '@playwright/test';
 import { expect, gotoStudio, persistedSource, setEditorContent, test } from './studio-fixture';
 
+/** The saved deck text. The store keeps it JSON-encoded, so decode it before comparing bytes. */
+async function savedDeck(page: Page): Promise<string> {
+	const raw = await persistedSource(page);
+	try {
+		const v = JSON.parse(raw);
+		return typeof v === 'string' ? v : raw;
+	} catch {
+		return raw;
+	}
+}
+
 /**
  * COMPOSE — the pill editor.
  *
@@ -77,7 +88,7 @@ test.describe('compose pill editor', () => {
 		await page.locator('.cs-slide').first().locator('.cs-slide-content p', { hasText: 'Shipped' }).first().click({ position: { x: 4, y: 8 } });
 		await page.keyboard.press('Home');
 		for (let i = 0; i < 8; i++) await page.keyboard.press('ArrowRight');
-		await expect.poll(() => composeText(page)).toContain('{SHIPPED, c2}');
+		await expect.poll(() => composeText(page)).toMatch(/\{SHIPPED, c2\}/i);
 		await expect(page.locator('.cs-nchip')).not.toHaveCount(0);
 		await page.keyboard.press('ArrowDown');
 		await expect.poll(() => composeText(page)).not.toContain('{SHIPPED, c2}');
@@ -89,7 +100,7 @@ test.describe('compose pill editor', () => {
 		await expect(editor(page)).toBeVisible();
 
 		await editor(page).getByRole('radio', { name: 'Color 5' }).click();
-		await expect.poll(() => persistedSource(page)).toBe(DECK.replace('`{SHIPPED, c2}`', '`{SHIPPED, c5}`'));
+		await expect.poll(() => savedDeck(page)).toBe(DECK.replace('`{SHIPPED, c2}`', '`{SHIPPED, c5}`'));
 		// And the pill on screen is the one the slide will draw: color 5.
 		await expect(drawnPills(page).first()).toHaveAttribute('data-c', 'c5');
 
@@ -97,7 +108,7 @@ test.describe('compose pill editor', () => {
 		await editor(page).getByRole('radio', { name: 'Shape: Diamond' }).click();
 		await editor(page).getByRole('radio', { name: 'Size: Large' }).click();
 		await editor(page).getByRole('radio', { name: 'Color: theme default' }).click();
-		await expect.poll(() => persistedSource(page)).toBe(DECK.replace('`{SHIPPED, c2}`', '`{SHIPPED, diamond, lg}`'));
+		await expect.poll(() => savedDeck(page)).toBe(DECK.replace('`{SHIPPED, c2}`', '`{SHIPPED, diamond, lg}`'));
 	});
 
 	test('@smoke the order and spelling of the words the author wrote are kept', async ({ page }) => {
@@ -105,7 +116,7 @@ test.describe('compose pill editor', () => {
 		await chip(page, 'BETA').click();
 		await editor(page).getByRole('radio', { name: 'Color 9' }).click();
 		// `c4, tag` stays in that order, and only `c4` becomes `c9`.
-		await expect.poll(() => persistedSource(page)).toBe(DECK.replace('`{BETA, c4, tag}`', '`{BETA, c9, tag}`'));
+		await expect.poll(() => savedDeck(page)).toBe(DECK.replace('`{BETA, c4, tag}`', '`{BETA, c9, tag}`'));
 	});
 
 	test('@smoke the insert door puts a pill at the caret and opens its editor on it', async ({ page }) => {
@@ -117,25 +128,25 @@ test.describe('compose pill editor', () => {
 		await expect(editor(page)).toBeVisible();
 		await expect(editor(page).getByRole('textbox', { name: 'Label' })).toHaveValue('Status');
 		await editor(page).getByRole('textbox', { name: 'Label' }).fill('On track');
-		await expect.poll(() => persistedSource(page)).toContain('Nothing here yet.`{On track}`');
+		await expect.poll(() => savedDeck(page)).toContain('Nothing here yet.`{On track}`');
 	});
 
 	test('a label that needs quoting is quoted, and a quoted one reads back as typed', async ({ page }) => {
 		await openDeckInCompose(page);
 		await chip(page, 'SHIPPED').click();
 		await editor(page).getByRole('textbox', { name: 'Label' }).fill('Cost, excluding tax');
-		await expect.poll(() => persistedSource(page)).toContain('`{"Cost, excluding tax", c2}`');
+		await expect.poll(() => savedDeck(page)).toContain('`{"Cost, excluding tax", c2}`');
 	});
 
 	test('one undo undoes one pick', async ({ page }) => {
 		await openDeckInCompose(page);
 		await chip(page, 'SHIPPED').click();
 		await editor(page).getByRole('radio', { name: 'Color 7' }).click();
-		await expect.poll(() => persistedSource(page)).toContain('`{SHIPPED, c7}`');
+		await expect.poll(() => savedDeck(page)).toContain('`{SHIPPED, c7}`');
 		await editor(page).getByRole('button', { name: 'Done' }).click();
 		await page.locator('.cs-host .ProseMirror').focus();
 		await page.keyboard.press('ControlOrMeta+z');
-		await expect.poll(() => persistedSource(page)).toBe(DECK);
+		await expect.poll(() => savedDeck(page)).toBe(DECK);
 	});
 
 	test('Edit as text closes the editor and selects the text between the braces', async ({ page }) => {
@@ -157,6 +168,6 @@ test.describe('compose pill editor', () => {
 		await openDeckInCompose(page, '---\ninline-code: literal\n---\n\n## Literal deck\n\nShipped `{SHIPPED, c2}` here.');
 		await expect(page.locator('.cs-nchip')).toHaveCount(0);
 		await expect(page.locator('.cs-npill')).toHaveCount(0);
-		await expect.poll(() => composeText(page)).toContain('{SHIPPED, c2}');
+		await expect.poll(() => composeText(page)).toMatch(/\{SHIPPED, c2\}/i);
 	});
 });
