@@ -20,7 +20,6 @@ import type { ImportRefusal } from './import-gate';
 import { listAllAssetVersions, pruneOrphanVersions } from './library/asset-history.js';
 import { listAssets } from './library/asset-store.js';
 import { MediaCard } from './MediaCard';
-import { MediaDetailDialog } from './MediaDetailDialog';
 import { decksUsingRecord, removeMediaAlias, updateMediaDetails } from './media-edit';
 import { classifyMedia, importImage, MEDIA_ACCEPT, MediaImportError, type PhotoFormat, uniqueName } from './media-import';
 import { deleteMedia, LIBRARY_SCOPE, listMedia, MEDIA_REFUSAL_PREFIX, type MediaRecord, namesOf, saveMedia, setMediaScope, visibleMedia } from './media-store';
@@ -34,6 +33,9 @@ import { renderThemeShowcase } from './share-export';
 import { listShippedScenes, type ShippedScene, shippedDrawing } from './shipped-scenes';
 import { loadCheckpoints, loadDeckList, loadSource, saveCheckpoint, saveSource } from './studio-store';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
+
+// The detail dialog (and the shadcn parts only it uses) loads the first time a photo is opened, not with the Library: most visits never open one.
+const MediaDetailDialog = React.lazy(() => import('./MediaDetailDialog').then((m) => ({ default: m.MediaDetailDialog })));
 
 // The unified Library — one shelf for every saved theme + component + finish + the
 // user's reference docs (#651), with a consistent apply/insert · share · manage flow
@@ -544,6 +546,11 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	// The control that opened the detail dialog, so closing it returns keyboard focus there.
 	const openerRef = React.useRef<HTMLElement | null>(null);
 	const detail = media.find((a) => a.id === detailId) ?? null;
+	// Mounted from the first open on and kept, so closing plays its exit and returns focus to the card that opened it.
+	const [dialogWanted, setDialogWanted] = React.useState(false);
+	React.useEffect(() => {
+		if (detail) setDialogWanted(true);
+	}, [detail]);
 	// The reader of deck markdown (asset-refs.ts) carries the markdown parser, so it loads only when a photo with old names is
 	// opened, never with the Library itself. Until it arrives the dialog says it is checking, not that no deck uses the name.
 	const [refsModule, setRefsModule] = React.useState<typeof import('./asset-refs') | null>(null);
@@ -1187,6 +1194,8 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 			{/* Mounted inside the frame so it shares the Library's lifecycle, but rendered by
 			    Dialog into the TOP LAYER, so it sits above the panel in both transports rather
 			    than inside the sheet that would otherwise own the dismiss gesture. */}
+			{dialogWanted && (
+			<React.Suspense fallback={null}>
 			<MediaDetailDialog
 				m={detail}
 				open={!!detail}
@@ -1201,6 +1210,8 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 				onSuggest={() => suggestDescription(detail as MediaRecord)}
 				returnFocusTo={() => openerRef.current}
 			/>
+			</React.Suspense>
+			)}
 			<AssetVersionsDialog
 				asset={historyFor}
 				open={!!historyFor}
