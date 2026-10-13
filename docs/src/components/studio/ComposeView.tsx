@@ -412,6 +412,8 @@ const LUCIDE_PATHS: Record<string, string> = {
 	// Compose-wide undo / redo (a phone has no undo gesture the editor's history is visible to).
 	'undo-2': '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11"/>',
 	'redo-2': '<path d="m15 14 5-5-5-5"/><path d="M20 9H9.5A5.5 5.5 0 0 0 4 14.5A5.5 5.5 0 0 0 9.5 20H13"/>',
+	// The insert-spark door.
+	'chart-line': '<path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="m19 9-5 5-4-4-3 3"/>',
 	// The insert-pill door.
 	tag: '<path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/>',
 };
@@ -744,6 +746,14 @@ class SlideView {
 			if (why) notify(why);
 			else insertObject(() => kernels, { getDeckLiteral: () => deckLiteral })(this.view.state, this.view.dispatch);
 		}, 'cs-pill-btn cs-insert-pill'));
+		// Insert a spark (a word-sized chart) after the caret's word and open its editor on it.
+		actions.append(this.btn('Insert spark', 'chart-line', () => {
+			const kernels = this.getKernels?.() ?? null;
+			const deckLiteral = kernels?.isLiteralFromSource(this.getSource?.() ?? '') ?? false;
+			const why = insertBlocker(this.view.state, kernels, deckLiteral, 'spark');
+			if (why) notify(why);
+			else insertObject(() => kernels, { getDeckLiteral: () => deckLiteral, kind: 'spark' })(this.view.state, this.view.dispatch);
+		}, 'cs-pill-btn cs-insert-spark'));
 		if (onSettings) actions.append(this.btn('Slide settings', 'sliders-horizontal', () => { const i = this.index(); if (i >= 0) onSettings(i); }, 'cs-pill-btn'));
 		pill.append(history, historyDiv, this.fmtGroup, div, actions);
 

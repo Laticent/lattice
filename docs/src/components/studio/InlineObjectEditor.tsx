@@ -12,7 +12,7 @@
 // Lazy: ComposeView loads this with React.lazy, as IconGrid is, so none of it is in the Studio's
 // startup JavaScript.
 
-import { Tag } from 'lucide-react';
+import { ChartLine, Tag } from 'lucide-react';
 import type { EditorView } from 'prosemirror-view';
 import * as React from 'react';
 import { PanelBody, PanelHeader, PanelSheet } from '@/components/ui/panel';
@@ -20,6 +20,7 @@ import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { closeObjectEditor, editObject, editObjectAsText, type InlineKernels, kindOf, leaveObject, type OpenObject } from '@/lib/compose/inline-objects';
 import { hasFinePointer, useIsPhone } from '@/lib/use-breakpoint';
 import { PillPanel, readSlotColors } from './PillEditor';
+import { SparkPanel } from './SparkPanel';
 
 /** What a panel is handed. It reports one edit per change and never writes the document itself. */
 export interface ObjectPanelProps {
@@ -30,6 +31,8 @@ export interface ObjectPanelProps {
 	onEdit: (edit: never) => boolean;
 	onEditAsText: () => void;
 	onDone: () => void;
+	/** A panel that opens a surface of its own (the icon grid) holds the editor open while it is up: focus moving into it is not the author leaving. */
+	holdOpen: (held: boolean) => void;
 }
 
 interface PanelEntry {
@@ -44,6 +47,11 @@ const PANELS: Record<string, PanelEntry> = {
 		title: 'Edit pill',
 		describe: "Change this pill's label, shape, color and size.",
 		Panel: (p) => <PillPanel {...(p as unknown as React.ComponentProps<typeof PillPanel>)} />,
+	},
+	spark: {
+		title: 'Edit spark',
+		describe: "Change this spark's numbers, chart type, color, size and marks.",
+		Panel: (p) => <SparkPanel {...(p as unknown as React.ComponentProps<typeof SparkPanel>)} />,
 	},
 };
 
@@ -67,6 +75,10 @@ export function InlineObjectEditorHost({
 	const slotColors = React.useMemo(() => readSlotColors(), []);
 	const owner = kindOf(open.src, kernels);
 	const entry = owner ? PANELS[owner.kind.id] : undefined;
+	const held = React.useRef(false);
+	const holdOpen = React.useCallback((v: boolean) => {
+		held.current = v;
+	}, []);
 	const openRef = React.useRef(open);
 	openRef.current = open;
 
@@ -116,18 +128,18 @@ export function InlineObjectEditorHost({
 	}, [onClose, view]);
 
 	if (!owner || !entry) return null;
-	const panel = <entry.Panel fields={owner.fields} kernels={kernels} slotColors={slotColors} onEdit={onEdit as ObjectPanelProps['onEdit']} onEditAsText={onEditAsText} onDone={close} />;
+	const panel = <entry.Panel fields={owner.fields} kernels={kernels} slotColors={slotColors} onEdit={onEdit as ObjectPanelProps['onEdit']} onEditAsText={onEditAsText} onDone={close} holdOpen={holdOpen} />;
 
 	if (phone) {
 		return (
-			<PanelSheet open onOpenChange={(o) => !o && close()} width="md">
-				<PanelHeader icon={<Tag />} title={entry.title} srDescription={entry.describe} />
+			<PanelSheet open onOpenChange={(o) => !o && !held.current && close()} width="md">
+				<PanelHeader icon={owner.kind.id === 'spark' ? <ChartLine /> : <Tag />} title={entry.title} srDescription={entry.describe} />
 				<PanelBody>{panel}</PanelBody>
 			</PanelSheet>
 		);
 	}
 	return (
-		<Popover open onOpenChange={(o) => !o && close()}>
+		<Popover open onOpenChange={(o) => !o && !held.current && close()}>
 			<PopoverAnchor virtualRef={anchorRef} />
 			<PopoverContent
 				align="start"

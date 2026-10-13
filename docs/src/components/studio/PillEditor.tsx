@@ -25,9 +25,10 @@ import { Input } from '@/components/ui/input';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import type { InlineKernels, PillEdit, PillFields } from '@/lib/compose/inline-objects';
 import { cn } from '@/lib/utils';
+import { IconGrid } from './IconGrid';
 
 /** The selected look for a toggle item: the repo's chip-row pattern (SlideContext.tsx), so the pressed one is plain to see. */
-const ITEM =
+export const ITEM =
 	'border border-border text-muted-foreground hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] data-[state=on]:border-[var(--accent)] data-[state=on]:bg-[var(--accent-soft)] data-[state=on]:text-[var(--accent)]';
 
 /** What a person calls each shape. Anything the engine adds later falls back to its own name. */
@@ -96,6 +97,7 @@ export function PillPanel({
 	onEdit,
 	onEditAsText,
 	onDone,
+	holdOpen,
 }: {
 	fields: PillFields;
 	kernels: InlineKernels;
@@ -104,7 +106,14 @@ export function PillPanel({
 	onEdit: (edit: PillEdit) => boolean;
 	onEditAsText: () => void;
 	onDone: () => void;
+	/** Keep the editor up while the icon grid is. Optional: a panel rendered without a host needs no hold. */
+	holdOpen?: (held: boolean) => void;
 }) {
+	const [iconsOpen, setIconsOpen] = React.useState(false);
+	const openIcons = (v: boolean) => {
+		holdOpen?.(v);
+		setIconsOpen(v);
+	};
 	const [label, setLabel] = React.useState(fields.value);
 	const [refused, setRefused] = React.useState<string | null>(null);
 	const inputRef = React.useRef<HTMLInputElement>(null);
@@ -139,6 +148,12 @@ export function PillPanel({
 				{refused ? (
 					<p role="alert" className="text-[12px] text-[var(--warn)]">
 						{refused}
+					</p>
+				) : null}
+				{/* The linter's `pill-shape-crowded`, said where the author can act on it. */}
+				{!refused && kernels.pill.crowded(fields) ? (
+					<p role="status" className="text-[12px] text-[var(--warn)]">
+						A {fields.shape} fits one character or a two-digit number. This label stretches it. Shorten the label, or pick Tag.
 					</p>
 				) : null}
 			</div>
@@ -190,6 +205,30 @@ export function PillPanel({
 				{/* Slots are ordinals: the same number is a different hue in another theme. */}
 				<p className="text-[11px] text-muted-foreground">Colors follow your theme; a number is a place in it, not a meaning.</p>
 			</div>
+
+			<div className="flex items-center gap-3">
+				<span id={`${labelId}-icon`} className="w-10 shrink-0 font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+					Icon
+				</span>
+				<fieldset className="m-0 flex min-w-0 flex-1 flex-wrap items-center gap-1.5 border-0 p-0" aria-labelledby={`${labelId}-icon`}>
+					<Button type="button" variant="outline" size="sm" onClick={() => openIcons(true)}>
+						{fields.icon ? `Change icon (${fields.icon})` : 'Add an icon'}
+					</Button>
+					{fields.icon && !iconOnly ? (
+						<Button type="button" variant="ghost" size="sm" onClick={() => send({ icon: null }, 'That icon cannot be taken off here. Use Edit as text.')}>
+							Remove
+						</Button>
+					) : null}
+				</fieldset>
+			</div>
+			<IconGrid
+				open={iconsOpen}
+				onOpenChange={openIcons}
+				onPick={(name) => {
+					send({ icon: name }, 'That icon cannot be written here. Use Edit as text.');
+					openIcons(false);
+				}}
+			/>
 
 			<div className="flex items-center gap-3">
 				<span id={`${labelId}-size`} className="w-10 shrink-0 font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
