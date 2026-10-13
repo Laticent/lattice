@@ -2496,9 +2496,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// Open a deck source into a fresh deck. `comments` (from a .lattice import) are
 	// restored onto the NEW deck id so they travel with the file. Returns nothing;
 	// notifies on success.
-	function openImportedDeck(rawText: string, title: string, comments?: unknown) {
+	function openImportedDeck(rawText: string, title: string, comments?: unknown, alreadyAsked = false) {
 		// A live session is bound to this deck: leaving it ends (host) or leaves (guest) — ask first.
-		if (!live.mayLeaveDeck()) return;
+		// `alreadyAsked`: the import funnel asked before it saved the file's photos, so it must not ask twice.
+		if (!alreadyAsked && !live.mayLeaveDeck()) return;
 		// THE STUDIO'S DECK-IMPORT LINE-ENDING BOUNDARY, and it belongs HERE — at the funnel —
 		// not in a caller. Deck source reaches this function from every format `deck-import.ts`
 		// reads — a plain `.md`, a `.lattice` zip's `deck.md`, a webpage envelope, the `.lattice`
@@ -2530,7 +2531,32 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	}
 	// THE ONE FUNNEL every imported file reaches (deck-import.ts says which files): the deck
 	// source, the comments a `.lattice` carries, and the saved packages it brought along.
-	async function openLatticeImport({ source: src, title, comments, packages }: LatticeImport) {
+	async function openLatticeImport({ source: srcIn, title, comments, packages, photos }: LatticeImport) {
+		// The photos a `.lattice` carries go into the Library BEFORE the deck opens, for the reason the
+		// packages do below: a photo that had to take a new name (this Library already holds a different
+		// picture under it) is renamed in the deck's source before the deck exists. `restoreLatticePhotos`
+		// never throws and never overwrites a photo already here; what it refuses is named in the toast.
+		let src = srcIn;
+		let photoNote: { got: number; refused: { name: string; why: string }[] } | null = null;
+		// Ask about leaving a live session, and notice an empty file, BEFORE anything is saved: a deck that then
+		// does not open must not leave the file's photos in the Library behind a toast saying they were added.
+		if (!live.mayLeaveDeck()) return;
+		const willOpen = normalizeSourceText(srcIn).trim().length > 0;
+		if (photos && willOpen) {
+			try {
+				const { restoreLatticePhotos } = await import('./lattice-media');
+				const r = await restoreLatticePhotos(photos.zip, srcIn, Date.now());
+				src = r.source;
+				photoNote = { got: r.restored, refused: r.refused };
+			} catch (err) {
+				photoNote = { got: 0, refused: [{ name: 'photos', why: (err as Error)?.message || 'the Library is unavailable' }] };
+			}
+		}
+		const tellPhotos = () => {
+			if (!photoNote || (!photoNote.got && !photoNote.refused.length)) return;
+			const refused = photoNote.refused.length ? `Not added: ${photoNote.refused.map((r) => `${r.name} (${r.why})`).join('; ')}.` : undefined;
+			notify(photoNote.got ? `Added ${photoNote.got} ${photoNote.got === 1 ? 'photo' : 'photos'} from the file to your Library.` : 'No photos were added to your Library.', { description: refused });
+		};
 		// The saved themes/components/finishes the deck was exported with ride in the
 		// file as package folders (portable-packages §4). They go through the SAME funnel
 		// as a Library import — same gates, same `-custom` rename, same refusals — so a
@@ -2544,7 +2570,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		const scenesLeft = packages.scenes.length;
 		const carried = { ...packages, scenes: [] };
 		if (!carried.themes.length && !carried.components.length && !carried.finishes.length && !carried.refused.length && !scenesLeft) {
-			openImportedDeck(src, title, comments);
+			openImportedDeck(src, title, comments, true);
+			tellPhotos();
 			return;
 		}
 		const { importParsedBundle, applyImportRenames } = await import('./library/import-parsed');
@@ -2554,11 +2581,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		} catch (err) {
 			// The deck is the thing the person asked for; a Library that won't take its
 			// assets must not stop it opening.
-			openImportedDeck(src, title, comments);
+			openImportedDeck(src, title, comments, true);
+			tellPhotos();
 			notify(`Opened the deck, but its saved assets could not be added: ${(err as Error)?.message || 'the Library is unavailable'}.`);
 			return;
 		}
-		openImportedDeck(applyImportRenames(src, t.renames), title, comments);
+		openImportedDeck(applyImportRenames(src, t.renames), title, comments, true);
 		refreshThemes();
 		refreshComponents();
 		refreshFinishes();
@@ -2571,6 +2599,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			t.notes.length ? t.notes.join(' ') : null,
 		].filter(Boolean).join('\n') || undefined;
 		if (got || detail) notify(got ? `Added the deck's ${got} to your Library. Nothing you had was changed.` : 'Nothing was added to your Library.', { description: detail });
+		tellPhotos();
 	}
 	function onImportFile(e: React.ChangeEvent<HTMLInputElement>) {
 		const file = e.target.files?.[0];

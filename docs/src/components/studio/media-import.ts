@@ -13,6 +13,30 @@ import { MAX_MEDIA_FILE_BYTES, type MediaKind, mediaNameFromFile, type NewMedia,
  *  past this cost storage quota and buy nothing a viewer can see. */
 export const MAX_IMAGE_EDGE = 2560;
 const JPEG_QUALITY = 0.88;
+/** Lossy WebP: visually the same as the JPEG above at slide size, at roughly two thirds of the bytes. */
+const WEBP_QUALITY = 0.82;
+
+/** What the person asked a photo to be stored as (the Add-photos dialog). Left out, the importer applies its
+ *  automatic policy (`planImage`), which is what the chat's photo intake still uses.
+ *   - `original`: the file's own pixels and type, no resize, only metadata (location, camera, caption) cut out.
+ *     A type the Library cannot store (HEIC, AVIF) becomes JPEG, because there is nothing else to keep.
+ *   - `jpeg`, `webp`: lossy, capped to `MAX_IMAGE_EDGE`. Transparency is lost (painted white).
+ *   - `png`: lossless, capped to `MAX_IMAGE_EDGE`. A PNG already under the cap is kept as it is, never made bigger. */
+export type PhotoFormat = 'original' | 'jpeg' | 'webp' | 'png';
+export const PHOTO_FORMATS: PhotoFormat[] = ['original', 'jpeg', 'webp', 'png'];
+
+let webpOk: boolean | undefined;
+/** Can this browser WRITE WebP? Safari before 17 answers a WebP request with a PNG; the probe reads what it wrote. */
+export function webpSupported(): boolean {
+	if (webpOk === undefined) {
+		try {
+			webpOk = document.createElement('canvas').toDataURL('image/webp').startsWith('data:image/webp');
+		} catch {
+			webpOk = false;
+		}
+	}
+	return webpOk;
+}
 
 /** What the native picker is asked for. `image/*` opens Photo Library / Take Photo / Files
  *  on Android and iOS; the extensions cover HEIC where the OS reports no MIME type. */
@@ -117,7 +141,7 @@ async function intrinsicSize(file: File): Promise<{ width: number; height: numbe
 
 function toBlob(canvas: HTMLCanvasElement, mime: string): Promise<Blob> {
 	return new Promise((resolve, reject) => {
-		canvas.toBlob((b) => (b ? resolve(b) : reject(new MediaImportError('The browser could not encode that image.'))), mime, mime === 'image/jpeg' ? JPEG_QUALITY : undefined);
+		canvas.toBlob((b) => (b ? resolve(b) : reject(new MediaImportError('The browser could not encode that image.'))), mime, mime === 'image/jpeg' ? JPEG_QUALITY : mime === 'image/webp' ? WEBP_QUALITY : undefined);
 	});
 }
 
@@ -174,9 +198,98 @@ export async function fileMetaFields(file: File, mime: string): Promise<Pick<New
 	};
 }
 
+type Encoded = { blob: Blob; mime: string; width: number; height: number; original: boolean };
+
+/** One photo, as one chosen format. Shared by the import and by the size measurement, so the sizes the
+ *  dialog shows are the bytes the import writes. */
+async function encodeAs(file: File, bitmap: ImageBitmap, mime: string, format: PhotoFormat): Promise<Encoded> {
+	const keepable = mime === 'image/jpeg' || KEEP_AS_IS.has(mime);
+	const long = Math.max(bitmap.width, bitmap.height);
+	// A file is kept as it is (metadata cut) when the person asked for the original, or when it is already the
+	// lossless type they asked for and under the cap, since re-encoding it could only grow it.
+	const keep = (format === 'original' && keepable) || (long <= MAX_IMAGE_EDGE && ((format === 'png' && mime === 'image/png') || (format === 'webp' && mime === 'image/webp')));
+	if (keep) {
+		const scrub = scrubberFor(mime);
+		const cleaned = scrub ? scrub(new Uint8Array(await file.arrayBuffer())) : null;
+		if (cleaned) return { blob: new Blob([cleaned as BlobPart], { type: mime }), mime, width: bitmap.width, height: bitmap.height, original: true };
+	}
+	// Re-encode. `original` that could not be kept (HEIC, AVIF, an unreadable file) keeps the closest type.
+	const target = format === 'webp' ? 'image/webp' : format === 'png' || (format === 'original' && mime === 'image/png') ? 'image/png' : 'image/jpeg';
+	if (target === 'image/webp' && !webpSupported()) throw new MediaImportError('This browser cannot save WebP. Choose JPEG or PNG.');
+	const scale = long > MAX_IMAGE_EDGE ? MAX_IMAGE_EDGE / long : 1;
+	const width = Math.max(1, Math.round(bitmap.width * scale));
+	const height = Math.max(1, Math.round(bitmap.height * scale));
+	const canvas = document.createElement('canvas');
+	canvas.width = width;
+	canvas.height = height;
+	const ctx = canvas.getContext('2d');
+	if (!ctx) throw new MediaImportError('The browser could not prepare that image.');
+	if (target === 'image/jpeg') {
+		ctx.fillStyle = '#fff';
+		ctx.fillRect(0, 0, width, height);
+	}
+	ctx.drawImage(bitmap, 0, 0, width, height);
+	const blob = await toBlob(canvas, target);
+	return { blob, mime: blob.type || target, width, height, original: false };
+}
+
+/** The type the bytes say a file is, as the importer reads it. */
+async function sniffedMime(file: File): Promise<string> {
+	return sniffImageMime(new Uint8Array(await file.slice(0, 16).arrayBuffer())) ?? mimeOf(file);
+}
+
+export type FormatSizes = {
+	/** The files' size as picked. */
+	pickedBytes: number;
+	/** Bytes this choice would store for ALL the files; null when the browser cannot write it. */
+	bytes: Record<PhotoFormat, number | null>;
+	/** Files the numbers were MEASURED on, out of the batch. Past that the rest are scaled by size. */
+	sampled: number;
+	of: number;
+	/** Photos the browser cannot decode or an SVG (always stored as PNG): left out of the measurement. */
+	skipped: number;
+};
+
+/** How big the picked files would be in each format, MEASURED by running the import's own encoder on the
+ *  files (up to `SAMPLE`; a larger batch is scaled by file size). `isCanceled` stops it early when the dialog closes. */
+export async function measureFormats(files: File[], isCanceled: () => boolean = () => false): Promise<FormatSizes> {
+	const SAMPLE = 4;
+	const pickedBytes = files.reduce((n, f) => n + f.size, 0);
+	const bytes: Record<PhotoFormat, number | null> = { original: 0, jpeg: 0, webp: webpSupported() ? 0 : null, png: 0 };
+	let sampleBytes = 0;
+	let sampled = 0;
+	let skipped = 0;
+	for (const file of files) {
+		if (sampled >= SAMPLE || isCanceled()) break;
+		let bitmap: ImageBitmap | undefined;
+		try {
+			const mime = await sniffedMime(file);
+			if (mime === 'image/svg+xml') {
+				skipped++;
+				continue;
+			}
+			bitmap = await decode(file);
+			for (const f of PHOTO_FORMATS) {
+				if (bytes[f] === null) continue;
+				bytes[f] = (bytes[f] as number) + (await encodeAs(file, bitmap, mime, f)).blob.size;
+			}
+			sampleBytes += file.size;
+			sampled++;
+		} catch {
+			skipped++;
+		} finally {
+			bitmap?.close();
+		}
+	}
+	// A batch bigger than the sample is scaled by how much of its size was measured.
+	const k = sampleBytes > 0 ? pickedBytes / sampleBytes : 1;
+	for (const f of PHOTO_FORMATS) if (bytes[f] !== null) bytes[f] = Math.round((bytes[f] as number) * k);
+	return { pickedBytes, bytes, sampled, of: files.length, skipped };
+}
+
 /** Decode, plan, and (when the plan says so) re-encode. Returns a record ready for
  *  `saveMedia`, minus the name — the caller resolves a clash before it saves. */
-export async function importImage(file: File, scope: string): Promise<NewMedia> {
+export async function importImage(file: File, scope: string, format?: PhotoFormat): Promise<NewMedia> {
 	// Refused before anything decodes it: a restore reads at most this much per photo, so a photo the
 	// Library took above it would be one a backup could never bring back.
 	if (file.size > MAX_MEDIA_FILE_BYTES) throw new MediaImportError(`${file.name} is ${Math.round(file.size / 1_048_576)} MB; a photo may be at most ${Math.floor(MAX_MEDIA_FILE_BYTES / 1_048_576)} MB.`);
@@ -191,6 +304,11 @@ export async function importImage(file: File, scope: string): Promise<NewMedia> 
 	const fromFile = await fileMetaFields(file, mime);
 	const bitmap = await decode(file);
 	try {
+		if (format) {
+			const e = await encodeAs(file, bitmap, mime, format);
+			if (e.blob.size > MAX_MEDIA_FILE_BYTES) throw new MediaImportError(`${file.name} is still ${Math.round(e.blob.size / 1_048_576)} MB after it was converted; a photo may be at most ${Math.floor(MAX_MEDIA_FILE_BYTES / 1_048_576)} MB.`);
+			return { kind: 'image', name: mediaNameFromFile(file.name, 'image'), scope, blob: e.blob, mime: e.mime, bytes: e.blob.size, width: e.width, height: e.height, sourceName: file.name, original: e.original };
+		}
 		const plan = planImage(mime, bitmap.width, bitmap.height);
 		const scrub = !plan.reencode ? scrubberFor(mime) : undefined;
 		const cleaned = scrub ? scrub(new Uint8Array(await file.arrayBuffer())) : null;

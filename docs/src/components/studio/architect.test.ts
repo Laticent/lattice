@@ -630,6 +630,23 @@ describe('agentTurnUsd — the readout quotes a question AND an edit, at the typ
 		expect(t.question).toBeLessThan(((CHAT_OUTPUT_EST * price.completionPerM) / 1e6) * 0.5);
 	});
 
+	it('adds the Library list and the three asset tools when there are photos, and nothing when there are none', () => {
+		const none = agentTurnUsd(price, grounding, true, deck, 0, 0);
+		const base = agentTurnUsd(price, grounding, true, deck);
+		expect(none).toEqual(base); // an empty Library leaves the readout byte-for-byte as it was
+		const three = agentTurnUsd(price, grounding, true, deck, 0, 3);
+		const forty = agentTurnUsd(price, grounding, true, deck, 0, 40);
+		const eighty = agentTurnUsd(price, grounding, true, deck, 0, 80);
+		expect(three?.question).toBeGreaterThan(base?.question ?? Infinity);
+		expect(three?.edit).toBeGreaterThan(base?.edit ?? Infinity);
+		expect(forty?.question).toBeGreaterThan(three?.question ?? Infinity);
+		// The list is capped at 40 lines, so a bigger Library costs no more per turn.
+		expect(eighty).toEqual(forty);
+		// And it stays small: even the worst-case 40-photo Library (every line a long name and a full caption)
+		// adds about a cent to an edit at this price, never more than two.
+		expect((forty?.edit ?? 0) - (base?.edit ?? 0)).toBeLessThan(0.02);
+	});
+
 	it('prices a first turn (the prefix not yet cached) above a warm one, and says nothing without a price', () => {
 		const warm = agentTurnUsd(price, grounding, true, deck);
 		const cold = agentTurnUsd(price, grounding, false, deck);

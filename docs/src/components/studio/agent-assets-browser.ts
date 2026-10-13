@@ -6,10 +6,6 @@ import { activeAssetDeckId } from './media-urls';
 
 const infoOf = (m: MediaRecord): AssetInfo => ({ name: m.name, kind: m.kind, width: m.width, height: m.height, bytes: m.bytes, scope: m.scope === 'library' ? 'library' : 'deck', caption: cleanCaption(m.caption) || undefined });
 
-async function shelf(): Promise<MediaRecord[]> {
-	return visibleMedia(await listMedia(), activeAssetDeckId());
-}
-
 /** A Blob scaled so its long edge is at most `edge`, as a JPEG data URL. Null when the browser
  *  cannot decode it. A transparent PNG is flattened onto white, which is what a JPEG does anyway. */
 async function thumbOf(blob: Blob, edge: number): Promise<string | null> {
@@ -33,18 +29,31 @@ async function thumbOf(blob: Blob, edge: number): Promise<string | null> {
 	}
 }
 
-export const agentAssets: AgentAssets = {
-	async list() {
-		return (await shelf()).map(infoOf);
-	},
-	async thumbnail(name) {
-		const rec = (await shelf()).find((m) => m.name === name && m.kind === 'image');
-		return rec ? thumbOf(rec.blob, MAX_THUMB_EDGE) : null;
-	},
-	async setCaption(name, caption) {
-		const rec = (await shelf()).find((m) => m.name === name && m.kind === 'image');
-		if (!rec) return null;
-		const saved = await setMediaCaption(rec.id, caption);
-		return saved ? (saved.caption ?? '') : null;
-	},
-};
+/** The Library as the chat sees it, for ONE turn. It reads the shelf (every photo's bytes) at most once and
+ *  serves the list, every thumbnail and every caption from that read: a `view_asset` call over six photos
+ *  used to read the whole shelf six times. A photo added mid-turn is not seen until the next turn, which is
+ *  when the chat would see it anyway; a caption it saves is written to the store and to this copy. */
+export function createAgentAssets(): AgentAssets {
+	let held: Promise<MediaRecord[]> | null = null;
+	const shelf = () => {
+		held ??= listMedia().then((all) => visibleMedia(all, activeAssetDeckId()));
+		return held;
+	};
+	return {
+		async list() {
+			return (await shelf()).map(infoOf);
+		},
+		async thumbnail(name) {
+			const rec = (await shelf()).find((m) => m.name === name && m.kind === 'image');
+			return rec ? thumbOf(rec.blob, MAX_THUMB_EDGE) : null;
+		},
+		async setCaption(name, caption) {
+			const rec = (await shelf()).find((m) => m.name === name && m.kind === 'image');
+			if (!rec) return null;
+			const saved = await setMediaCaption(rec.id, caption);
+			if (!saved) return null;
+			rec.caption = saved.caption;
+			return saved.caption ?? '';
+		},
+	};
+}

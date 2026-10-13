@@ -17,7 +17,7 @@ import reopenable from '../../../../lib/core/reopenable.js';
 import type { ParsedBundle } from './asset-bundle';
 import type { PackageFiles } from './package-zip';
 import type { SlideComment } from './slide-comments';
-import { assertZipWithinLimits, declaredInflatedBytes, jsonGuard, MAX_INFLATED_BYTES, MAX_ZIP_BYTES, readBudget } from './zip-limits';
+import { assertZipWithinLimits, declaredInflatedBytes, jsonGuard, MAX_INFLATED_BYTES, MAX_LATTICE_MEDIA_BYTES, MAX_ZIP_BYTES, readBudget } from './zip-limits';
 
 // Untrusted-input guards: a `.lattice` is a file from anyone, so reading one must
 // not let a tiny deflate bomb inflate to gigabytes and OOM the tab. Cap both the
@@ -93,17 +93,24 @@ export function parseLatticeManifest(json: string): LatticeManifest {
  * 2026-06-16-lattice-export-format.md §3b). Shipped packages ride with the engine, so a
  * `.lattice` opens on a machine that has never seen the author's Library.
  */
-export async function exportLatticeBlob(source: string, title: string, comments: SlideComment[], now = 0, packages: readonly PackageFiles[] = []): Promise<Blob> {
+export async function exportLatticeBlob(source: string, title: string, comments: SlideComment[], now = 0, packages: readonly PackageFiles[] = [], media?: LatticeMedia): Promise<Blob> {
 	const { default: JSZip } = await import('jszip');
-	const bytes = await reopenable.buildLatticeZip(JSZip, { source, title, comments, now, packages });
+	const bytes = await reopenable.buildLatticeZip(JSZip, { source, title, comments, now, packages, media });
 	return new Blob([bytes as Uint8Array<ArrayBuffer>], { type: 'application/zip' });
 }
 
 const PACKAGES_DIR: string = reopenable.LATTICE_PACKAGES_DIR;
+const MEDIA_INDEX: string = reopenable.LATTICE_MEDIA_INDEX;
+
+/** The photos a deck names, ready to write: the text of `media.json` and each `media/<file>`'s bytes. */
+export type LatticeMedia = { index: string; files: Record<string, Uint8Array> };
 
 /** The result of reading a `.lattice`: the deck source + its manifest fields + the packages
- *  it carries (empty for a file written before packages rode along). */
-export type LatticeImport = { source: string; title: string; comments: SlideComment[]; packages: ParsedBundle };
+ *  it carries (empty for a file written before packages rode along). `photos` is the opened
+ *  archive, present only when the file carries photos. Reading it does not save anything: the
+ *  Studio's import funnel restores them through `restoreMedia`, which holds the gates (type
+ *  sniff, metadata scrub, size caps, never overwrite). */
+export type LatticeImport = { source: string; title: string; comments: SlideComment[]; packages: ParsedBundle; photos?: { zip: { file: (path: string) => object | null } } };
 
 /**
  * Read a `.lattice` file back into a deck source + comments. Throws with a plain
@@ -114,13 +121,22 @@ export async function readLatticeFile(file: Blob | Uint8Array): Promise<LatticeI
 	// Reject an oversized archive before touching it (cheap, catches the obvious case).
 	// Bytes as well as a Blob: `deck-import.ts` has already read the file (or pulled the
 	// `.lattice` out of a PDF / PowerPoint) and hands the bytes straight on.
-	if ((file instanceof Uint8Array ? file.byteLength : file.size) > MAX_ZIP_BYTES) {
+	// The photos a file carries ride on top of that cap, so the cap is judged once the archive says
+	// whether it has any (below); this first check only refuses what no file could be.
+	const onDisk = file instanceof Uint8Array ? file.byteLength : file.size;
+	if (onDisk > MAX_ZIP_BYTES + MAX_LATTICE_MEDIA_BYTES) {
 		throw new Error('That .lattice file is too large to open.');
 	}
 	const { default: JSZip } = await import('jszip');
 	const zip = await JSZip.loadAsync(file).catch(() => {
 		throw new Error('That .lattice file is not a valid archive.');
 	});
+	const carriesPhotos = !!zip.file(MEDIA_INDEX);
+	// The extra room is for PHOTOS, not for whatever else a file holds. What the `media/` entries declare is
+	// held to the photo cap, and everything else must fit the ordinary cap, so adding an empty `media.json`
+	// to a file does not raise it.
+	const mediaDeclared = Object.keys(zip.files).filter((p) => p.startsWith('media/') && !zip.files[p].dir).reduce((n, p) => n + declaredInflatedBytes(zip.files[p]), 0);
+	if (mediaDeclared > MAX_LATTICE_MEDIA_BYTES || onDisk - (carriesPhotos ? mediaDeclared : 0) > MAX_ZIP_BYTES) throw new Error('That .lattice file is too large to open.');
 	const deckEntry = zip.file(DECK_FILE);
 	const manifestEntry = zip.file(MANIFEST_FILE);
 	if (!deckEntry || !manifestEntry) {
@@ -164,5 +180,5 @@ export async function readLatticeFile(file: Blob | Uint8Array): Promise<LatticeI
 	// Note: `source` is UTF-8 decoded from the zip — round-trip is byte-identical for
 	// any well-formed text (a lone surrogate, only reachable via a corrupt paste, is
 	// normalized to U+FFFD on encode; an accepted narrow caveat, not a data path).
-	return { source, title: manifest.title, comments: manifest.comments, packages };
+	return { source, title: manifest.title, comments: manifest.comments, packages, ...(carriesPhotos ? { photos: { zip } } : {}) };
 }

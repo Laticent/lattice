@@ -9,7 +9,7 @@ import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { useBreakpoint, useLandscapePhone } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
 import { AssetVersionsDialog, type VersionedAsset } from './AssetVersions';
-import { agentAssets } from './agent-assets-browser';
+import { createAgentAssets } from './agent-assets-browser';
 import { componentZipName, finishZipName, packBundle, packComponent, packFinish, packTheme, themeZipName, unpackBundle } from './asset-bundle';
 import { deleteStudioComponent, listStudioComponents, type StudioComponent } from './component-library';
 import { DeleteBtn } from './delete-btn';
@@ -22,9 +22,10 @@ import { listAssets } from './library/asset-store.js';
 import { MediaCard } from './MediaCard';
 import { MediaDetailDialog } from './MediaDetailDialog';
 import { decksUsingRecord, removeMediaAlias, updateMediaDetails } from './media-edit';
-import { classifyMedia, importImage, MEDIA_ACCEPT, MediaImportError, uniqueName } from './media-import';
+import { classifyMedia, importImage, MEDIA_ACCEPT, MediaImportError, type PhotoFormat, uniqueName } from './media-import';
 import { deleteMedia, LIBRARY_SCOPE, listMedia, MEDIA_REFUSAL_PREFIX, type MediaRecord, namesOf, saveMedia, setMediaScope, visibleMedia } from './media-store';
 import { MOTION_PALETTE_STYLE } from './motion/palette-fallback';
+import { PhotoFormatDialog } from './PhotoFormatDialog';
 import { LIBRARY_FILTERS, LIBRARY_HEADER, type LibraryFilter } from './panel-shells';
 import { formatBytes, REF_DOC_ACCEPT, readReferenceDoc } from './reference-doc';
 import { deleteRefDoc, listRefDocs, type RefDocRecord, saveRefDoc } from './reference-doc-store';
@@ -473,12 +474,18 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	// resized or re-encoded when the plan says so, named from its file name, and saved to the
 	// chosen scope. A batch names its files against what is on the shelf AND against each other,
 	// so IMG_0042 and IMG_0042 (1) land as img-0042 and img-0042-1 instead of refusing each other.
-	async function addMediaFiles(files: FileList | File[] | null) {
+	// The pick waits in `pendingPhotos` while the person chooses a format (PhotoFormatDialog); only
+	// `importPicked` writes anything.
+	const [pendingPhotos, setPendingPhotos] = React.useState<File[] | null>(null);
+	function addMediaFiles(files: FileList | File[] | null) {
 		// COPY THE FILES OUT FIRST, before any await. A FileList is live: in WebKit it is already empty by
 		// the time the `await` below returns (measured on real WebKit, where the first version added
 		// nothing and said nothing), and the drop path hands over a DataTransfer's list that dies with it.
 		const picked = Array.from(files ?? []);
 		if (!picked.length) return;
+		setPendingPhotos(picked);
+	}
+	async function importPicked(picked: File[], format: PhotoFormat) {
 		const scope = addScope === 'deck' && activeDeckId ? activeDeckId : LIBRARY_SCOPE;
 		setBusy('Adding…');
 		const taken = new Set((await listMedia()).flatMap(namesOf));
@@ -490,7 +497,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 			for (const file of picked) {
 				try {
 					if (!classifyMedia(file)) throw new MediaImportError(`${file.name} isn't an image.`);
-					const rec = await importImage(file, scope);
+					const rec = await importImage(file, scope, format);
 					const wanted = rec.name;
 					rec.name = uniqueName(rec.name, taken);
 					if (rec.name !== wanted) renamed.push(`“${wanted}” was taken, so ${file.name} is “${rec.name}”`);
@@ -613,7 +620,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	/** A draft description for one photo, from the connected model. The model and the budget live in the Architect
 	 *  bridge, loaded only now: a Library that never asks for a suggestion never pays for it. */
 	async function suggestDescription(a: MediaRecord): Promise<{ text: string } | { note: string }> {
-		const thumb = await agentAssets.thumbnail(a.name);
+		const thumb = await createAgentAssets().thumbnail(a.name);
 		if (!thumb) return { note: "This photo couldn't be read to describe it." };
 		const { suggestPhotoDescription } = await import('./suggest-photo-description');
 		const { deckOutputLang } = await import('./studio-language');
@@ -1193,6 +1200,18 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 				open={!!historyFor}
 				onOpenChange={(o) => { if (!o) setHistoryFor(null); }}
 				onRestored={() => { reload(); onChanged(); }}
+			/>
+			<PhotoFormatDialog
+				files={pendingPhotos}
+				onCancel={() => {
+					setPendingPhotos(null);
+					if (mediaFileRef.current) mediaFileRef.current.value = '';
+				}}
+				onConfirm={(format) => {
+					const picked = pendingPhotos;
+					setPendingPhotos(null);
+					if (picked) void importPicked(picked, format);
+				}}
 			/>
 		</LibraryFrame>
 	);

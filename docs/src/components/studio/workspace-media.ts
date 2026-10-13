@@ -76,13 +76,27 @@ type MediaRow = {
 	hadLocation?: true;
 };
 
+/** What `packMedia` may be asked to leave out or change. A workspace backup passes none and takes every photo. */
+export type PackOptions = {
+	/** Only these names (lowercase), for a `.lattice` that carries the photos ONE deck names. */
+	names?: ReadonlySet<string>;
+	/** Written into every row in place of the photo's own scope. A `.lattice` is one deck and has no
+	 *  Library of its own, so its rows say `library`: the recipient's deck is a different id. */
+	scope?: string;
+	/** Stop adding photos once the bytes would pass this. The rest are named in `omitted`, never dropped quietly. */
+	maxBytes?: number;
+	/** Stop adding photos past this many, for the entry cap a reader enforces on the whole archive. */
+	maxCount?: number;
+};
+
 /** Write every Library photo into `zip` as `media/<file>` plus `media.json`. Resolves how many, how many
- *  bytes, and how many it could not write (a type outside what the Library stores), so a backup never
- *  drops a photo without saying so. */
-export async function packMedia(zip: Zip): Promise<{ rows: number; bytes: number; skipped: number }> {
-	const all = await listMedia();
-	if (!all.length) return { rows: 0, bytes: 0, skipped: 0 };
+ *  bytes, how many it could not write (a type outside what the Library stores), and the names it left out
+ *  for size, so a backup never drops a photo without saying so. */
+export async function packMedia(zip: Zip, opts: PackOptions = {}): Promise<{ rows: number; bytes: number; skipped: number; omitted: string[] }> {
+	const all = (await listMedia()).filter((m) => !opts.names || opts.names.has(m.name));
+	if (!all.length) return { rows: 0, bytes: 0, skipped: 0, omitted: [] };
 	const rows: MediaRow[] = [];
+	const omitted: string[] = [];
 	let bytes = 0;
 	let skipped = 0;
 	for (const m of all) {
@@ -91,14 +105,18 @@ export async function packMedia(zip: Zip): Promise<{ rows: number; bytes: number
 			skipped++;
 			continue;
 		}
+		if ((opts.maxBytes !== undefined && bytes + m.blob.size > opts.maxBytes) || (opts.maxCount !== undefined && rows.length >= opts.maxCount)) {
+			omitted.push(m.name);
+			continue;
+		}
 		const file = `${m.name}.${ext}`;
 		// Bytes, not the Blob: JSZip reads a Blob only where the host supports it, and bytes work everywhere.
 		zip.file(`media/${file}`, new Uint8Array(await m.blob.arrayBuffer()));
 		bytes += m.blob.size;
-		rows.push({ name: m.name, kind: 'image', scope: m.scope, mime: m.mime, bytes: m.blob.size, width: m.width, height: m.height, sourceName: m.sourceName, original: m.original, addedAt: m.addedAt, file, ...(m.caption ? { caption: m.caption } : {}), ...(m.credit ? { credit: m.credit } : {}), ...(m.taken ? { taken: m.taken } : {}), ...(m.aliases?.length ? { aliases: m.aliases } : {}), ...(m.fileCaption ? { fileCaption: m.fileCaption } : {}), ...(m.hadLocation ? { hadLocation: true } : {}) });
+		rows.push({ name: m.name, kind: 'image', scope: opts.scope ?? m.scope, mime: m.mime, bytes: m.blob.size, width: m.width, height: m.height, sourceName: m.sourceName, original: m.original, addedAt: m.addedAt, file, ...(m.caption ? { caption: m.caption } : {}), ...(m.credit ? { credit: m.credit } : {}), ...(m.taken ? { taken: m.taken } : {}), ...(m.aliases?.length ? { aliases: m.aliases } : {}), ...(m.fileCaption ? { fileCaption: m.fileCaption } : {}), ...(m.hadLocation ? { hadLocation: true } : {}) });
 	}
 	if (rows.length) zip.file(MEDIA_INDEX, JSON.stringify(rows, null, 2));
-	return { rows: rows.length, bytes, skipped };
+	return { rows: rows.length, bytes, skipped, omitted };
 }
 
 /** The old names a backup row lists that Lattice could write, de-duplicated and capped. */
@@ -163,7 +181,7 @@ export type RestoreContext = {
  * photo already here is skipped, a different one under the same name returns under a new name and the
  * rename is reported so the caller can rewrite the decks it just wrote.
  */
-export async function restoreMedia(zip: Zip, now: number, ctx: RestoreContext): Promise<{ restored: number; shared: number; refused: Refusal[]; renames: MediaRename[] }> {
+export async function restoreMedia(zip: Zip, now: number, ctx: RestoreContext, opts: { maxTotalBytes?: number; only?: ReadonlySet<string> } = {}): Promise<{ restored: number; shared: number; refused: Refusal[]; renames: MediaRename[] }> {
 	const refused: Refusal[] = [];
 	const renames: MediaRename[] = [];
 	const index = zip.file(MEDIA_INDEX);
@@ -183,7 +201,8 @@ export async function restoreMedia(zip: Zip, now: number, ctx: RestoreContext): 
 	if (!Array.isArray(rows)) return skipAll('the index is not readable');
 	if (rows.length > MAX_MEDIA_ROWS) return skipAll(`more than ${MAX_MEDIA_ROWS.toLocaleString('en-US')} photos, more than a restore reads`);
 
-	const overTotal = `over the ${Math.floor(MAX_MEDIA_RESTORE_BYTES / 1_048_576)} MB of photos a restore reads`;
+	const maxTotal = opts.maxTotalBytes ?? MAX_MEDIA_RESTORE_BYTES;
+	const overTotal = `over the ${Math.floor(maxTotal / 1_048_576)} MB of photos a restore reads`;
 	const overFile = `over the ${Math.floor(MAX_MEDIA_FILE_BYTES / 1_048_576)} MB one photo may be`;
 	// The shelf is read ONCE and kept current by hand: a restore of N photos is N saves, not N full reads.
 	const shelf = await listMedia();
@@ -218,6 +237,9 @@ export async function restoreMedia(zip: Zip, now: number, ctx: RestoreContext): 
 	for (const raw of rows as Partial<MediaRow>[]) {
 		const label = typeof raw?.name === 'string' ? raw.name : '(unnamed)';
 		const skip = (why: string) => refused.push({ name: `photo ${label.slice(0, 60)}`, why });
+		// A `.lattice` restores only the photos its own deck names (`only`, lowercase). A row for any other
+		// name is not read and not reported: it is not part of what the file said it was.
+		if (opts.only && !(typeof raw?.name === 'string' && opts.only.has(raw.name.toLowerCase()))) continue;
 		if (exhausted) {
 			skip(overTotal);
 			continue;
@@ -259,7 +281,7 @@ export async function restoreMedia(zip: Zip, now: number, ctx: RestoreContext): 
 			skip(overFile);
 			continue;
 		}
-		if (totalRead + declared > MAX_MEDIA_RESTORE_BYTES) {
+		if (totalRead + declared > maxTotal) {
 			exhausted = true;
 			skip(overTotal);
 			continue;
@@ -280,7 +302,7 @@ export async function restoreMedia(zip: Zip, now: number, ctx: RestoreContext): 
 			continue;
 		}
 		totalRead += bytes.length;
-		if (totalRead > MAX_MEDIA_RESTORE_BYTES) {
+		if (totalRead > maxTotal) {
 			exhausted = true;
 			skip(overTotal);
 			continue;

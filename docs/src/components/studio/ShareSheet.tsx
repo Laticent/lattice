@@ -11,6 +11,7 @@ import { ExportOptionsPanel } from './ExportOptionsPanel';
 import { buildCommentAnnotations, type ExportOptions } from './export-options';
 import { mergeClassTokens, stripFrontMatter } from './front-matter';
 import { ImageSetOptionsPanel } from './ImageSetOptionsPanel';
+import { LatticeOptionsPanel } from './LatticeOptionsPanel';
 import { SHEET_EXIT_MS } from './lazy-panel';
 import { splitSlides } from './lint';
 import { MarpOptionsPanel } from './MarpOptionsPanel';
@@ -26,10 +27,11 @@ import { type WebpageExportChoice, WebpageOptionsPanel } from './WebpageOptionsP
 // paths download/print the Markdown; the artifact paths run the engine export
 // pipeline (image PDF/PPTX, vector Print, the Marp ZIP) — see share-export.ts.
 
-// Exports that never name a photo's picture and have nothing to note about one.
-const NO_PHOTO_NOTE = new Set(['printsrc', 'captions']);
+// Exports that never name a photo's picture and have nothing to note about one — plus the `.lattice`,
+// whose exporter writes its own note: it knows whether photos went in, were switched off or were over the cap.
+const NO_PHOTO_NOTE = new Set(['printsrc', 'captions', 'lattice']);
 // Source exports: the deck's text travels, the Library's photos do not.
-const SOURCE_WITH_PHOTOS = new Set(['lattice', 'md', 'marp']);
+const SOURCE_WITH_PHOTOS = new Set(['md', 'marp']);
 
 export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, finishClass, finishExtraCss, localComponents, deckPackages, options, palette, mode, extraTheme, extraCss, onPresent, onCollaborate, initialView = 'menu' }: { open: boolean; onOpenChange: (v: boolean) => void; deckTitle: string; source: string; deckId?: string; finishClass?: string; finishExtraCss?: string; localComponents?: ReadonlyArray<{ name: string; css: string }>; deckPackages?: DeckPackages; options: SingleSlideOptions; palette: string; mode: 'light' | 'dark'; extraTheme?: { name: string; css: string }; extraCss?: string; onPresent: () => void; onCollaborate?: () => void; initialView?: 'menu' | 'pdf' }) {
 	const close = () => onOpenChange(false);
@@ -49,7 +51,7 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 	// reset in the render that OPENS the sheet (or that changes `initialView` while it is open), so
 	// the kept sheet never shows the last view for a frame; the other options steps are dropped
 	// once the sheet has slid out, as they were when the sheet unmounted on close.
-	const [view, setView] = React.useState<'menu' | 'pdf' | 'pptx' | 'odp' | 'html' | 'print' | 'imageset' | 'marp'>(initialView);
+	const [view, setView] = React.useState<'menu' | 'pdf' | 'pptx' | 'odp' | 'html' | 'print' | 'imageset' | 'marp' | 'lattice'>(initialView);
 	const shows = useShowCount(open);
 	const [seen, setSeen] = React.useState({ shows, initialView });
 	if (seen.shows !== shows || (open && seen.initialView !== initialView)) {
@@ -265,6 +267,13 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 			}
 		});
 	};
+	// The `.lattice` project from its options step: the photos the deck names ride inside it unless switched off.
+	const exportLattice = (includePhotos: boolean) => {
+		run('lattice', 'Lattice project', async (_onStatus, onDegraded) => {
+			const reason = await shareLattice(source, name, deckTitle, deckId, Date.now(), deckPackages, includePhotos);
+			if (reason) onDegraded(reason);
+		});
+	};
 	// Image set (.zip) export from its options step: format / resolution / thumbnails /
 	// SVG extraction — the shared kernel fills perfect-fidelity defaults.
 	const exportImages = (imageOpts: ImageSetOptions) => {
@@ -307,7 +316,7 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 		print: { onClick: () => setView('print') },
 		html: { busy: busy === 'html', progress: true, onClick: () => setView('html') },
 		captions: { busy: busy === 'captions', progress: true, onClick: () => run('captions', 'Captions', (onStatus) => shareCaptions(options, artifactSource, name, palette, mode, extraTheme, onStatus)) },
-		lattice: { busy: busy === 'lattice', onClick: () => run('lattice', 'Lattice project', () => shareLattice(source, name, deckTitle, deckId, Date.now(), deckPackages)) },
+		lattice: { busy: busy === 'lattice', progress: true, onClick: () => setView('lattice') },
 		md: { busy: busy === 'md', onClick: () => run('md', 'Markdown', () => shareMarkdown(options, source, name, palette, extraTheme, finishClass, finishExtraCss, localComponents)) },
 		marp: { onClick: () => setView('marp') },
 		printsrc: { onClick: () => run('printsrc', 'Print source', () => sharePrintSource(source, name)) },
@@ -345,6 +354,8 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 						/>
 					) : view === 'imageset' ? (
 						<ImageSetOptionsPanel busy={busy === 'images'} status={progress} onBack={() => setView('menu')} onExport={exportImages} />
+					) : view === 'lattice' ? (
+						<LatticeOptionsPanel busy={busy === 'lattice'} status={progress} source={source} deckId={deckId} onBack={() => setView('menu')} onExport={exportLattice} />
 					) : view === 'marp' ? (
 						<MarpOptionsPanel busy={busy === 'marp'} status={progress} defaultMarker={loadSettings().overflowMarker} onBack={() => setView('menu')} onExport={exportMarpBundle} />
 					) : (

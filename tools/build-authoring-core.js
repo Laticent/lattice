@@ -52,6 +52,8 @@ import lintCore from './lint-core.js';
 import reviewCore from './review-core.js';
 import scorecard from './scorecard.js';
 import notesCore from './notes-core.js';
+// The kernels the Compose inline-notation editors read (pill reader, writer, vocabulary).
+import inlineEditors from './inline-editors.js';
 import deckCanon from './deck-canon.js';
 // The genre table + resolver. The Studio Coach needs it directly (not only through
 // reviewCore) so the panel can SHOW which profile is in play, where that came from,
@@ -76,7 +78,7 @@ import { boundaryRulesGeneration, setBoundaryPluginsOff } from '../core/boundary
 // pulling the registry into its own eager chunk. Already in the bundle: the parser imports it.
 import { PLUGIN_NAMES } from '../plugins/blocks.generated.mjs';
 
-export { lintCore, reviewCore, scorecard, notesCore, deckCanon, deckProfiles, splitSectionsCore, setBoundaryPluginsOff, boundaryRulesGeneration, PLUGIN_NAMES };
+export { lintCore, reviewCore, scorecard, notesCore, inlineEditors, deckCanon, deckProfiles, splitSectionsCore, setBoundaryPluginsOff, boundaryRulesGeneration, PLUGIN_NAMES };
 `;
 
 const BUILD_OPTIONS = {

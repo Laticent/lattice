@@ -80,7 +80,7 @@ test('every re-openable export comes back into the Studio as the exact deck', as
 
 	const pdf = await exportFile(page, /^PDF/, /^Download PDF/, true);
 	const pptx = await exportFile(page, /^PowerPoint/, /^Download PowerPoint/, true);
-	const lattice = await exportFile(page, /^Lattice project/, null, null);
+	const lattice = await exportFile(page, /^Lattice project/, /^Download project/, null);
 	const plainPdf = await exportFile(page, /^PDF/, /^Download PDF/, false);
 
 	// The carriers are what they claim to be before anything reads them back.

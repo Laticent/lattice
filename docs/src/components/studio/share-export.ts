@@ -22,10 +22,12 @@ import { samplesBaseFor } from '../../lib/samples-base';
 import type { StudioComponent } from './component-library';
 import type { StudioFinish } from './finish-library';
 import { getFrontMatter, mergeClassTokens, stripFrontMatter, withPrintCanvas, writeFrontMatterLine } from './front-matter';
+import type { LatticeMedia } from './lattice-file';
 import type { BakeVoice } from './read-aloud';
 import type { SlideComment } from './slide-comments';
 import type { OverflowMarker } from './studio-store';
 import type { StudioTheme } from './theme-library';
+import { MAX_LATTICE_MEDIA_BYTES } from './zip-limits';
 
 // `window.LatticePlayground` is declared once, canonically, in playground-global.d.ts.
 type PG = LatticePlaygroundEngine;
@@ -924,24 +926,48 @@ export async function shareMarkdown(options: SingleSlideOptions, source: string,
 	ex.exportMarkdown(embedFinishInMarkdown(source, finishClass, finishCss), name, theme, [...components]);
 }
 
-/** The `.lattice` project file — the deck source + its review comments in one zip,
- *  so comments travel with the deck (re-import restores both). `now` is stamped by
- *  the caller (app code) into the manifest; the download name gets a `.lattice` ext. */
-export async function shareLattice(source: string, name: string, deckTitle: string, deckId: string | undefined, now: number, packages?: DeckPackages): Promise<void> {
+/** The `.lattice` project file — the deck source, its review comments and the Library photos it
+ *  names, in one zip, so all three travel with the deck (re-import restores them). `now` is stamped by
+ *  the caller (app code) into the manifest; the download name gets a `.lattice` ext.
+ *
+ *  `includePhotos` (on by default) packs the photos the deck names as they sit in the Library. Resolves
+ *  to a reason for the toast when the file shipped without a picture the deck uses: the author turned
+ *  photos off, the file would have passed the size cap, or a named photo is not in the Library. The
+ *  note is written HERE because only this function knows which of the three happened. */
+export async function shareLattice(source: string, name: string, deckTitle: string, deckId: string | undefined, now: number, packages?: DeckPackages, includePhotos = true): Promise<string | undefined> {
 	const { listComments } = await import('./slide-comments');
-	const blob = await latticeBlob(source, deckTitle, deckId ? listComments(deckId) : [], now, packages);
+	const { assetNamesIn } = await import('./media-urls');
+	const named = assetNamesIn(source);
+	const photos = includePhotos && named.length ? await (await import('./lattice-media')).packLatticePhotos(source, deckId) : undefined;
+	const blob = await latticeBlob(source, deckTitle, deckId ? listComments(deckId) : [], now, packages, photos?.media);
 	const { downloadBlob } = await import('./download');
 	downloadBlob(`${name}.lattice`, blob);
+	return latticePhotoNote(named, includePhotos, photos);
+}
+
+const quoted = (list: string[]) => `${list.slice(0, 3).map((n) => `“${n}”`).join(', ')}${list.length > 3 ? `, and ${list.length - 3} more` : ''}`;
+
+/** The toast's sentence about photos a `.lattice` left out, or undefined when it carries every one the deck names. */
+function latticePhotoNote(named: string[], includePhotos: boolean, photos?: { omitted: string[]; missing: string[]; included: string[] }): string | undefined {
+	if (!named.length) return undefined;
+	const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
+	if (!includePhotos) return `${plural(named.length, 'the photo', 'the photos')} it names (${quoted(named)}) ${plural(named.length, 'is', 'are')} not inside this file, so anyone who opens it elsewhere sees ${plural(named.length, 'a stand-in', 'stand-ins')}`;
+	const parts: string[] = [];
+	const missing = photos?.missing ?? named;
+	if (missing.length) parts.push(`${plural(missing.length, 'the photo', 'the photos')} ${quoted(missing)} could not be added (not in this browser's Library, or could not be read), so ${plural(missing.length, 'it shows', 'they show')} as a stand-in`);
+	const omitted = photos?.omitted ?? [];
+	if (omitted.length) parts.push(`${plural(omitted.length, 'the photo', 'the photos')} ${quoted(omitted)} would have made the file larger than ${Math.round(MAX_LATTICE_MEDIA_BYTES / 1_048_576)} MB, so ${plural(omitted.length, 'it is', 'they are')} not inside it`);
+	return parts.join('; ') || undefined;
 }
 
 /** ONE builder for the `.lattice` zip — the project download and the copy a re-openable
  *  PDF / PowerPoint carries — so the two can never disagree about what a deck is. */
-async function latticeBlob(source: string, deckTitle: string, comments: SlideComment[], now: number, packages?: DeckPackages): Promise<Blob> {
+async function latticeBlob(source: string, deckTitle: string, comments: SlideComment[], now: number, packages?: DeckPackages, media?: LatticeMedia): Promise<Blob> {
 	const [{ exportLatticeBlob }, pz] = await Promise.all([import('./lattice-file'), import('./package-zip')]);
 	// The user packages the deck uses ride inside the project file, as package folders, so
 	// it opens on a machine that has never seen this Library (portable-packages §4).
 	const pkgs = packages ? [...packages.themes.map(pz.themePackage), ...packages.components.map(pz.componentPackage), ...packages.finishes.map(pz.finishPackage)] : [];
-	return exportLatticeBlob(source, deckTitle, comments, now, pkgs);
+	return exportLatticeBlob(source, deckTitle, comments, now, pkgs, media);
 }
 
 /**

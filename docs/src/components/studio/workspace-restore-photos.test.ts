@@ -35,7 +35,7 @@ vi.hoisted(() => {
 	});
 });
 
-import { agentAssets } from './agent-assets-browser';
+import { createAgentAssets } from './agent-assets-browser';
 import { deleteAsset, listAssets } from './library/asset-store.js';
 import { LIBRARY_SCOPE, listMedia, type NewMedia, saveMedia, setMediaCaption } from './media-store';
 import { exportStudioState, importStudioState, loadCheckpoints, loadDeckList, loadSource, saveCheckpoint, saveSource } from './studio-store';
@@ -269,7 +269,7 @@ describe('photo captions in a backup', () => {
 		expect(stored).not.toMatch(/[\n\u202E\u3164\u{E0041}]/u);
 		expect(stored).toContain('A door');
 		// The CHAT boundary is what keeps it out of a prompt: no quote, separator or line break reaches the model.
-		const [seen] = (await agentAssets.list()).filter((a) => a.name === 'shop-floor');
+		const [seen] = (await createAgentAssets().list()).filter((a) => a.name === 'shop-floor');
 		expect(seen.caption).toBeTruthy();
 		expect(seen.caption).not.toMatch(/[\n\u00B7"`\u202E]/);
 		expect(seen.caption).toContain('A door');

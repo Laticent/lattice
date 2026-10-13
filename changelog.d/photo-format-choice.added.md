@@ -1,0 +1,1 @@
+- Adding photos to the Library now asks how to store them, with the size each choice would make for your own photos and what it means: Keep original (no resize, location removed), JPEG, WebP (about a third smaller than JPEG) or PNG (lossless, several times larger for photographs). Your last choice is remembered.

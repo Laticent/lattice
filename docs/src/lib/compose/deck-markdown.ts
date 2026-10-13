@@ -11,6 +11,7 @@ import { type NodeSpec, type Node as PMNode, Schema } from 'prosemirror-model';
 import { tableNodes } from 'prosemirror-tables';
 import { unescapeLeadingMarker } from '../../../../lib/core/cell-marker-edit.mjs';
 import { commentBlockRule, commentNodeSpec } from './comment-block';
+import { inlineObjectSpec, serializeInlineObject } from './inline-object';
 
 
 // The deck-model library core — Lattice slide prose ⟷ ProseMirror document,
@@ -111,10 +112,18 @@ export function fenceFor(marker: string, body: string): string {
 }
 
 /** The prose schema — prosemirror-markdown's block/mark set PLUS the table nodes and the
- *  authoring-comment atom. `deckSchema` (deck-doc) is built by wrapping THIS schema's nodes in a
+ *  authoring-comment atom and the inline-object atom (`inline-object.ts`). `deckSchema` (deck-doc) is built by wrapping THIS schema's nodes in a
  *  slide node, so every node spec is identical on both sides of the JSON bridge. */
 export const proseSchema = new Schema({
-	nodes: mdSchema.spec.nodes.update('code_block', codeBlockSpec).append(composeTableNodes).addToEnd('comment', commentNodeSpec),
+	nodes: mdSchema.spec.nodes
+		.update('code_block', codeBlockSpec)
+		// prosemirror-markdown's heading admits only `text | image`, so an inline object in a heading
+		// (`## A pill sizes itself `{LIVE, c2}``, which examples/inline-pills.md ships) was pushed out into a
+		// paragraph of its own on write. A heading takes the object too.
+		.update('heading', { ...(mdSchema.spec.nodes.get('heading') as NodeSpec), content: '(text | image | inline_object)*' })
+		.append(composeTableNodes)
+		.addToEnd('comment', commentNodeSpec)
+		.addToEnd('inline_object', inlineObjectSpec),
 	marks: mdSchema.spec.marks,
 });
 
@@ -241,6 +250,8 @@ const latticeNodes = {
 		state.write(node.attrs.text as string);
 		state.closeBlock(node);
 	},
+	// An inline object (a pill, a spark, an avatar) writes back the code span it came from.
+	inline_object: serializeInlineObject,
 	// A fence the author wrote comes back with the marker they wrote (see `codeBlockSpec`).
 	// With no marker it is the upstream serializer, byte for byte.
 	code_block(state: SerializerState, node: PMNode, parent: PMNode, index: number) {

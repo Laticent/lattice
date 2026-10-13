@@ -26,6 +26,8 @@ type ZipEntry = object;
 export const MAX_ZIP_BYTES: number = limits.MAX_ZIP_BYTES;
 /** Largest total the entries a reader opens may inflate to. */
 export const MAX_INFLATED_BYTES: number = limits.MAX_INFLATED_BYTES;
+/** Most photo bytes a `.lattice` carries, beside the deck and its packages (MAX_ZIP_BYTES). */
+export const MAX_LATTICE_MEDIA_BYTES: number = limits.MAX_LATTICE_MEDIA_BYTES;
 /** Most entries an asset archive may hold. */
 export const MAX_ZIP_ENTRIES: number = limits.MAX_ZIP_ENTRIES;
 

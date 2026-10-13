@@ -64,6 +64,20 @@ async function pickPhoto(page: Page, files: { name: string; width: number; heigh
 		const input = document.querySelector('input[type="file"][accept*="image"]') as HTMLInputElement;
 		input.files = dt.files;
 		input.dispatchEvent(new Event('change', { bubbles: true }));
+		// The format dialog asks how to store them; the probes take its default.
+		for (let i = 0; i < 200; i++) {
+			const b = [...document.querySelectorAll('[role="dialog"] button')].find((x) => x.textContent?.trim().startsWith('Add photo')) as HTMLButtonElement | undefined;
+			if (b) {
+				// A PNG probe must stay byte-exact, so it asks for the original; a camera JPEG takes the default.
+				const choose = specs.every((s) => s.type === 'image/png') ? 'Keep original' : 'JPEG';
+				// The dialog remembers the last choice, so every pick states its own.
+				(document.querySelector(`[role="dialog"] [role="radio"][aria-label="${choose}"]`) as HTMLButtonElement | null)?.click();
+				await new Promise((r) => setTimeout(r, 150));
+				b.click();
+				break;
+			}
+			await new Promise((r) => setTimeout(r, 50));
+		}
 		return hadExif;
 	}, files);
 }
@@ -296,6 +310,15 @@ test('@smoke a PNG with an eXIf GPS chunk and a GIF with comment and XMP blocks 
 		const input = document.querySelector('input[type="file"][accept*="image"]') as HTMLInputElement;
 		input.files = dt.files;
 		input.dispatchEvent(new Event('change', { bubbles: true }));
+		// The format dialog asks how to store them; the probes take its default.
+		for (let i = 0; i < 200; i++) {
+			const b = [...document.querySelectorAll('[role="dialog"] button')].find((x) => x.textContent?.trim().startsWith('Add photo')) as HTMLButtonElement | undefined;
+			if (b) {
+				b.click();
+				break;
+			}
+			await new Promise((r) => setTimeout(r, 50));
+		}
 		return { pngHadMark: has(dirtyPng), gifHadMark: has(dirtyGif), pngLength: dirtyPng.length, gifLength: dirtyGif.length };
 	}, MARK);
 	expect([before.pngHadMark, before.gifHadMark], 'positive control: both inputs carried the marker').toEqual([true, true]);
@@ -343,4 +366,64 @@ test('@smoke a PNG with an eXIf GPS chunk and a GIF with comment and XMP blocks 
 	expect(after['rotated-png'].shown, 'displayed size, before vs after').toEqual(await page.evaluate(() => (window as unknown as { __rotatedShown: number[] }).__rotatedShown));
 	expect(after['marked-png'].bytes).toBeLessThan(before.pngLength);
 	expect(after['marked-gif'].bytes).toBeLessThan(before.gifLength);
+});
+
+// THE PERSON CHOOSES THE FORMAT, with sizes measured on their own files and what each choice means beside it.
+// Real engine, real encoders: the oracle is the stored record and the numbers on screen.
+test('@smoke adding a photo asks for the format, shows measured sizes, and stores what was chosen', async ({ page }) => {
+	await gotoStudio(page);
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await openLibraryImages(page, 1440);
+	await page.evaluate(async () => {
+		// A photographic image (smooth structure plus grain) so the formats differ the way real photos do.
+		const c = document.createElement('canvas');
+		c.width = 2400;
+		c.height = 1600;
+		const g = c.getContext('2d') as CanvasRenderingContext2D;
+		const grad = g.createLinearGradient(0, 0, 2400, 1600);
+		grad.addColorStop(0, '#26466d');
+		grad.addColorStop(0.5, '#d89a4a');
+		grad.addColorStop(1, '#2b7a5a');
+		g.fillStyle = grad;
+		g.fillRect(0, 0, 2400, 1600);
+		const px = g.getImageData(0, 0, 2400, 1600);
+		let seed = 7;
+		for (let i = 0; i < px.data.length; i += 4) {
+			seed = (seed * 1664525 + 1013904223) >>> 0;
+			const n = ((seed >>> 24) - 128) / 10;
+			px.data[i] += n;
+			px.data[i + 1] += n;
+			px.data[i + 2] += n;
+		}
+		g.putImageData(px, 0, 0);
+		const blob: Blob = await new Promise((r) => c.toBlob((b) => r(b as Blob), 'image/jpeg', 0.95));
+		const dt = new DataTransfer();
+		dt.items.add(new File([blob], 'Harbour.jpg', { type: 'image/jpeg' }));
+		const input = document.querySelector('input[type="file"][accept*="image"]') as HTMLInputElement;
+		input.files = dt.files;
+		input.dispatchEvent(new Event('change', { bubbles: true }));
+	});
+	const dialog = page.getByRole('dialog', { name: /Add 1 photo/ });
+	await expect(dialog).toBeVisible();
+	// Nothing is stored until the person chooses.
+	expect(await storedMedia(page)).toHaveLength(0);
+	// Every option shows a measured size, never a placeholder, once the encoders have run.
+	const size = (f: string) => dialog.locator(`[data-format-size="${f}"]`);
+	for (const f of ['original', 'jpeg', 'png']) await expect(size(f)).toContainText(/MB|KB/, { timeout: 60_000 });
+	const mb = async (f: string) => {
+		const m = /([\d.]+)\s*(MB|KB)/.exec((await size(f).innerText()) || '');
+		return m ? Number(m[1]) * (m[2] === 'MB' ? 1_000_000 : 1_000) : Number.NaN;
+	};
+	const [orig, jpeg, png] = [await mb('original'), await mb('jpeg'), await mb('png')];
+	// The claim the dialog makes in words: PNG is much bigger than JPEG for a photograph.
+	expect(png, `PNG (${png}) is larger than JPEG (${jpeg})`).toBeGreaterThan(jpeg * 2);
+	expect(orig).toBeGreaterThan(0);
+	await expect(dialog.getByText('Smallest', { exact: true })).toBeVisible();
+	await dialog.getByRole('radio', { name: 'PNG' }).click();
+	await dialog.getByRole('button', { name: /^Add photos?/ }).click();
+	await expect.poll(async () => (await storedMedia(page))[0]?.mime, { timeout: 30_000 }).toBe('image/png');
+	const stored = (await storedMedia(page))[0];
+	expect(stored.original, 'a JPEG converted to PNG is no longer the camera file').toBe(false);
+	// The size shown for PNG is the size stored, within the measurement's own rounding.
+	expect(Math.abs(stored.bytes - png) / png).toBeLessThan(0.1);
 });

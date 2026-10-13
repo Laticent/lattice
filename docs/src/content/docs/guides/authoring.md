@@ -302,7 +302,7 @@ added there, and the editor takes dropped text.
 
 | Send | What they get |
 |---|---|
-| **Share → Lattice project (.lattice)** | The deck, its review comments, and the saved themes, components and finishes it uses. The complete handoff. |
+| **Share → Lattice project (.lattice)** | The deck, its review comments, the saved themes, components and finishes it uses, and the Library photos it names (an "Include photos" switch, on by default). The complete handoff. |
 | **Share → PDF** or **PowerPoint**, with **Re-openable in Lattice** on | A normal PDF or PowerPoint that also carries the deck. Anyone can view it; anyone with Lattice can import it and edit. |
 | **Share → Webpage (.html)** | The self-contained player, which always carries the deck. |
 | **Share → Markdown** | The source, and nothing else. |
