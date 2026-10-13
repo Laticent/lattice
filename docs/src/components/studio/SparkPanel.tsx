@@ -18,6 +18,7 @@
 
 import { Minus, Plus } from 'lucide-react';
 import * as React from 'react';
+import { flushSync } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
@@ -84,8 +85,16 @@ export function SparkPanel({
 
 	const send = (edit: SparkEdit, what: string) => setRefused(onEdit(edit) ? null : what);
 
-	const writeCells = (next: string[]) => {
-		setCells(next);
+	const writeCells = (next: string[], focusAt?: number) => {
+		// Rendered NOW (not after the click returns), so the new box can take focus inside the tap: iOS raises
+		// the keyboard only for a focus() made in the gesture that asked for it.
+		flushSync(() => setCells(next));
+		if (focusAt !== undefined) {
+			const box = gridRef.current?.querySelectorAll('input')[focusAt];
+			box?.focus();
+			// Everything selected, so the first keystroke replaces the copied value.
+			box?.setSelectionRange(0, box.value.length);
+		}
 		if (next.some((c) => !NUMBER.test(c))) return setRefused('Numbers only: no units, commas or currency signs.');
 		if (next.length < 2) return setRefused('A trend needs two or more numbers.');
 		send({ data: next.join(' ') }, 'Those numbers cannot be written here. Use Edit as text.');
@@ -152,7 +161,7 @@ export function SparkPanel({
 									))}
 								</div>
 								<div className="flex items-center gap-2">
-									<Button type="button" variant="outline" size="sm" disabled={cells.length >= MAX_POINTS} onClick={() => writeCells([...cells, cells.at(-1) ?? '0'])}>
+									<Button type="button" variant="outline" size="sm" disabled={cells.length >= MAX_POINTS} onClick={() => writeCells([...cells, cells.at(-1) ?? '0'], cells.length)}>
 										<Plus aria-hidden="true" /> Add a point
 									</Button>
 									<Button type="button" variant="outline" size="sm" disabled={cells.length <= 2} onClick={() => writeCells(cells.slice(0, -1))}>

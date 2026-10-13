@@ -82,6 +82,12 @@ describe('SparkPanel — one edit per change', () => {
 		expect(remove().disabled).toBe(true);
 		await user.click(screen.getByRole('button', { name: /Add a point/ }));
 		expect(onEdit).toHaveBeenLastCalledWith({ data: '12 14 14' });
+		// The new box has focus with its value selected, so typing replaces it.
+		const added = screen.getByLabelText('Point 3') as HTMLInputElement;
+		expect(document.activeElement).toBe(added);
+		expect([added.selectionStart, added.selectionEnd]).toEqual([0, added.value.length]);
+		await user.keyboard('9');
+		expect(onEdit).toHaveBeenLastCalledWith({ data: '12 14 9' });
 		expect(remove().disabled).toBe(false);
 		await user.click(remove());
 		expect(onEdit).toHaveBeenLastCalledWith({ data: '12 14' });
