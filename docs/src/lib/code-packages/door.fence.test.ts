@@ -101,7 +101,7 @@ describe('activation: the deck’s plugins: line', () => {
 		expect(opened).toEqual([]);
 		expect(html).not.toContain('data-lattice-plugin=');
 		// The placeholder names the plugin and carries none of the author's text.
-		expect(html).toMatch(/<div data-lattice-plugin-off="gantt-plugin" role="note"><span class="lattice-plugin-mark" aria-hidden="true"><\/span><span class="lattice-plugin-words"><strong>gantt-plugin<\/strong>/);
+		expect(html).toMatch(/<div data-lattice-plugin-off="gantt-plugin" data-placement="figure" role="note"><span class="lattice-plugin-mark" aria-hidden="true"><\/span><span class="lattice-plugin-words"><strong>gantt-plugin<\/strong>/);
 		expect(html).not.toMatch(/Design 1|Build 3/);
 		// The shipped passes' slides keep the code block the author wrote: a placeholder there would sit in a slide the door does not draw on.
 		expect(html).toContain('video slide, not drawn');
@@ -242,39 +242,61 @@ describe('rules whose removal no test used to notice', () => {
 	});
 });
 
-describe('the placeholder is the size the block will be', () => {
-	const style = (html: string) => {
-		const m = /<div data-lattice-plugin-off="gantt-plugin"( style="--lp-w:(\d+);--lp-h:(\d+)")?/.exec(html);
-		return m?.[2] ? `${m[2]} / ${m[3]}` : null;
+describe('the placeholder takes space the way the plugin says (plugin.schema.json placeholder)', () => {
+	const attrs = (html: string) => {
+		const m = /<div data-lattice-plugin-off="gantt-plugin" data-placement="(\w+)"( data-size="(\w+)")?( style="--lp-w:(\d+);--lp-h:(\d+)")?/.exec(html);
+		return m ? { placement: m[1], size: m[3] ?? null, ratio: m[5] ? `${m[5]}/${m[6]}` : null } : null;
 	};
+	const install = (placeholder?: { placement?: string; aspect?: string; size?: string }, c = code) => setPlugins([{ name: 'gantt-plugin', fence: 'gantt', code: c, ...(placeholder ? { placeholder } : {}) }]);
 
-	it('with nothing declared or remembered it carries no size (the stylesheet’s default)', async () => {
+	it('with nothing declared it is a figure with no ratio of its own (the stylesheet’s 16 / 9)', async () => {
 		await approve();
-		expect(style(await draw(DECK_UNLISTED))).toBeNull();
+		expect(attrs(await draw(DECK_UNLISTED))).toEqual({ placement: 'figure', size: null, ratio: null });
 	});
 
-	it('a manifest hint sizes it', async () => {
-		await setPlugins([{ name: 'gantt-plugin', fence: 'gantt', code, aspect: '3/1' }]);
+	it('a declared figure ratio sizes it', async () => {
+		await install({ aspect: '3/1' });
 		await approve();
-		expect(style(await draw(DECK_UNLISTED))).toBe('3 / 1');
+		expect(attrs(await draw(DECK_UNLISTED))).toEqual({ placement: 'figure', size: null, ratio: '3/1' });
 	});
 
-	it('the proportions of the last drawn output win over the hint, and are remembered by the code’s digest', async () => {
-		await setPlugins([{ name: 'gantt-plugin', fence: 'gantt', code, aspect: '3/1' }]);
+	it('stage fills the stage, and carries no ratio even when one is declared', async () => {
+		await install({ placement: 'stage', aspect: '3/1' });
+		await approve();
+		expect(attrs(await draw(DECK_UNLISTED))).toEqual({ placement: 'stage', size: null, ratio: null });
+	});
+
+	it('a chip is a square in the avatar size scale, mark only, named in its title', async () => {
+		await install({ placement: 'chip', size: 'lg' });
+		await approve();
+		const html = await draw(DECK_UNLISTED);
+		expect(attrs(html)).toEqual({ placement: 'chip', size: 'lg', ratio: null });
+		expect(html).toMatch(/data-placement="chip"[^>]*title="gantt-plugin: not listed in this deck's plugins:"/);
+		expect(html).not.toMatch(/<div data-lattice-plugin-off[^>]*data-placement="chip"[^>]*>(?:(?!<\/div>).)*lattice-plugin-words/);
+	});
+
+	it('for a figure, the proportions of the last drawn output win over the declared ones, by the code’s digest', async () => {
+		await install({ aspect: '3/1' });
 		await approve();
 		renderer = () => '<svg viewBox="0 0 400 100" width="400"><rect width="4" height="4"></rect></svg>';
 		await draw(DECK);
-		expect(style(await draw(DECK_UNLISTED))).toBe('4 / 1');
+		expect(attrs(await draw(DECK_UNLISTED))?.ratio).toBe('4/1');
 		// A different version of the code is a different plugin: it does not inherit the size.
-		await setPlugins([{ name: 'gantt-plugin', fence: 'gantt', code: `${code}\n/* v2 */`, aspect: '5/1' }]);
-		expect(style(await draw(DECK_UNLISTED))).toBe('5 / 1');
+		await install({ aspect: '5/1' }, `${code}\n/* v2 */`);
+		expect(attrs(await draw(DECK_UNLISTED))?.ratio).toBe('5/1');
 	});
 
-	it('an output with no intrinsic proportions remembers nothing', async () => {
+	it('what was remembered does not size a stage or a chip, and plain output remembers nothing', async () => {
+		await install({ placement: 'stage' });
 		await approve();
+		renderer = () => '<svg viewBox="0 0 400 100" width="400"><rect width="4" height="4"></rect></svg>';
+		await draw(DECK);
+		expect(attrs(await draw(DECK_UNLISTED))).toEqual({ placement: 'stage', size: null, ratio: null });
+		await install(undefined, `${code}\n/* plain */`);
+		await approve(`${code}\n/* plain */`);
 		renderer = () => '<p>plain</p>';
 		await draw(DECK);
-		expect(style(await draw(DECK_UNLISTED))).toBeNull();
+		expect(attrs(await draw(DECK_UNLISTED))?.ratio).toBeNull();
 	});
 });
 

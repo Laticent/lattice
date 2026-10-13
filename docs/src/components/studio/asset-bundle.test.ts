@@ -349,11 +349,13 @@ describe('asset-bundle — package zips from elsewhere', () => {
 			expect([...round.themes, ...round.components, ...round.finishes, ...round.scenes]).toHaveLength(0);
 		});
 
-		it('reads a declared placeholder aspect, and ignores one that is not W/H', async () => {
-			const ok = await unpackBundle(await zipOf({ manifest: { contributes: { fences: { glow: { placeholder: { aspect: '16/9' } } } } } }), { plugins: true });
-			expect(ok.plugins?.[0].aspect).toBe('16/9');
-			const bad = await unpackBundle(await zipOf({ manifest: { contributes: { fences: { glow: { placeholder: { aspect: '16:9;x' } } } } } }), { plugins: true });
-			expect(bad.plugins?.[0]?.aspect).toBeUndefined();
+		it('reads a declared placeholder hint, keeping only what the schema allows', async () => {
+			const ph = async (placeholder: unknown) => (await unpackBundle(await zipOf({ manifest: { contributes: { fences: { glow: { placeholder } } } } }), { plugins: true })).plugins?.[0]?.placeholder;
+			expect(await ph({ aspect: '16/9' })).toEqual({ placement: 'figure', aspect: '16/9' });
+			expect(await ph({ placement: 'stage', aspect: '4/1' })).toEqual({ placement: 'stage' });
+			expect(await ph({ placement: 'chip', size: 'xl' })).toEqual({ placement: 'chip', size: 'xl' });
+			expect(await ph({ placement: 'chip' })).toEqual({ placement: 'chip', size: 'md' });
+			expect(await ph({ placement: 'x;y', aspect: '16:9;x', size: 'huge' })).toEqual({ placement: 'figure' });
 		});
 
 		it('is refused by name inside a project or a backup, which say where to import it', async () => {

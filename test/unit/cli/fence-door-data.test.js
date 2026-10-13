@@ -118,16 +118,31 @@ describe('placeholder size: remembered from output, declared in the manifest', (
     for (const none of ['<p>x</p>', '<svg>', '<svg viewBox="0 0 0 10">', '<svg viewBox="a b c d">', '']) assert.equal(aspectOfOutput(none), null, none);
   });
 
-  test('the placeholder carries the aspect only when it is W/H', async () => {
+  test('placeholderHint keeps only a known placement, a W/H ratio for a figure and a known size for a chip', async () => {
+    const { placeholderHint } = await load();
+    assert.deepEqual(placeholderHint(null), { placement: 'figure' });
+    assert.deepEqual(placeholderHint({ aspect: '16/9' }), { placement: 'figure', aspect: '16/9' });
+    assert.deepEqual(placeholderHint({ placement: 'stage', aspect: '4/1', size: 'xl' }), { placement: 'stage' });
+    assert.deepEqual(placeholderHint({ placement: 'chip' }), { placement: 'chip', size: 'md' });
+    assert.deepEqual(placeholderHint({ placement: 'chip', size: 'xl' }), { placement: 'chip', size: 'xl' });
+    for (const bad of ['16:9', '0/5', '1000/2', '4/1;color:red', 'x"><script>', 5]) assert.deepEqual(placeholderHint({ aspect: bad }), { placement: 'figure' }, String(bad));
+    assert.deepEqual(placeholderHint({ placement: 'x"><b>', size: '"' }), { placement: 'figure' });
+  });
+
+  test('the placeholder’s attributes come only from the validated hint', async () => {
     const { fencePlaceholder } = await load();
-    assert.match(fencePlaceholder('g', '16/9'), /style="--lp-w:16;--lp-h:9"/);
-    for (const bad of ['16:9', '0/5', '1000/2', '4/1;color:red', 'x"><script>', null, undefined, 5]) assert.doesNotMatch(fencePlaceholder('g', bad), /style=/, String(bad));
+    assert.match(fencePlaceholder('g', { aspect: '16/9' }), /data-placement="figure" style="--lp-w:16;--lp-h:9"/);
+    assert.match(fencePlaceholder('g', { placement: 'stage' }), /data-placement="stage" role="note"/);
+    assert.match(fencePlaceholder('g', { placement: 'chip', size: 'lg' }), /data-placement="chip" data-size="lg"/);
+    assert.doesNotMatch(fencePlaceholder('g', { aspect: 'x"><script>' }), /script|style=/);
   });
 
   test('the schema accepts a placeholder.aspect and refuses anything else on it', () => {
     const schema = JSON.parse(fs.readFileSync(path.join(__dirname, '../../../lib/plugins/plugin.schema.json'), 'utf8'));
     const ph = schema.$defs.fence.properties.placeholder;
     assert.equal(ph.additionalProperties, false);
+    assert.deepEqual(ph.properties.placement.enum, ['stage', 'figure', 'chip']);
+    assert.deepEqual(ph.properties.size.enum, ['sm', 'md', 'lg', 'xl']);
     const re = new RegExp(ph.properties.aspect.pattern);
     for (const ok of ['16/9', '4/1', '999/999']) assert.ok(re.test(ok), ok);
     for (const no of ['16:9', '0/5', '1000/1', '4 / 1', '4/']) assert.ok(!re.test(no), no);
@@ -138,7 +153,7 @@ describe('fencePlaceholder: what stands where a plugin the deck did not list wou
   test('names the plugin, carries none of the author’s text, and escapes the name', async () => {
     const { fencePlaceholder } = await load();
     const html = fencePlaceholder('gantt-plugin');
-    assert.match(html, /^<div data-lattice-plugin-off="gantt-plugin" role="note">/);
+    assert.match(html, /^<div data-lattice-plugin-off="gantt-plugin" data-placement="figure" role="note">/);
     assert.match(html, /<strong>gantt-plugin<\/strong>/);
     assert.match(html, /not listed in this deck's plugins:/);
     const hostile = fencePlaceholder('x"><script>alert(1)</script>');

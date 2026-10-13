@@ -1765,20 +1765,25 @@ through `node lattice.js`, end to end (`test/integration/export/plugin-cli.test.
   are ignored today (decision 10), so the field stays free to define. The Studio's editor passes the same
   vocabulary (`externalFences`).
 
-**2026-10-13 — the placeholder takes the size of the block it stands for.** The first placeholder was sized in
-`em` of the smallest content size, so it read as a thin chip. It cannot ask the plugin how big it will be (its code
-may not run before the deck lists it and the user approves it), so the size comes from DATA, in this order: the
+**2026-10-13 — the placeholder takes space the way the plugin says, in geometry the engine already has.** The first
+placeholder was sized in `em` of the smallest content size and read as a thin chip. A second cut guessed a ratio
+(full width at every ratio, then a square-root rule) and was wrong on real shapes: an avatar became a bar across the
+slide. The engine already knows how its own figures take space: a Mermaid diagram or chart fills the stage
+(`section.diagram > .cell-stage > .mermaid`: `flex: 1; width: 100%; height: 100%`), an image takes the content width
+at a ratio, an avatar is a square in a token scale (`--avatar-size`: 1.1, 1.45, 2.4, 4em). So the manifest says
+WHICH, as data (`contributes.fences.<fence>.placeholder` in `plugin.schema.json`, additive; the code may not run
+before approval, so it cannot be asked): `placement: "stage"` fills the stage; `"figure"` (the default) takes the
+content width at `aspect` (`W/H`, default `16/9`, the web-image placeholder's) with its height at most `30cqi`, the
+slide's own container unit, so a 16:9 figure fits the stage and a wide one still fills the row; `"chip"` is a mark-only
+square in `size` `sm|md|lg|xl` (the avatar scale; name in its title and accessible name). For a figure, the
 proportions of the plugin's last DRAWN output (`aspectOfOutput`: the first `<svg>`'s `viewBox` or `width`/`height`,
-reduced, within 1 to 999), remembered in this browser by the code's digest (`lattice-plugin-aspects`, bounded at 200,
-never in a deck or a backup); else the manifest's `contributes.fences.<fence>.placeholder.aspect` (`W/H`,
-`plugin.schema.json`, a new additive field a zip plugin may declare); else a wide default (`16 / 5`). The
-placeholder takes `--lp-w` / `--lp-h` (the ratio as two numbers, so the stylesheet can do arithmetic), its
-height is 9em for a square and grows with the square root of the ratio, and its width follows the height up to the
-content width, so a square block is a square and a 4:1 one fills the row (`flex: none`, or a crowded slide's flex
-column shrinks it to its label). Tried against four realistic blocks (1:1, 6:1, 4:1, 16:9) in the real Studio: the
-first cut, full width at every ratio, drew an avatar as a bar across the slide. A ratio does not carry SCALE: a
-real avatar is smaller than 9em and a real map larger, and only the plugin's own output knows. Text is at the body size. Plain-markup output has no intrinsic proportions and remembers nothing. The value is
-validated (`ASPECT_RE`) before it reaches the `style` attribute at every hop (import, store, kernel).
+reduced, 1 to 999), remembered in this browser by the code's digest (`lattice-plugin-aspects`, bounded at 200, never
+in a deck or a backup), override the declared `aspect`. `placeholderHint` reduces every value at each hop (import,
+store, door), so an attribute or a style never holds anything but a known placement, a `W/H` ratio or a size.
+Seen in the real Studio with five plugins (two chips, a wide and a default figure, a stage). A `stage` placeholder
+shows only on a slide the door draws on: a `diagram` slide is rebuilt by a shipped pass, so a fence there stays code.
+A `chip` is still a block (a fence is block syntax); inline syntax such as `!{Ada Okafor}` is a parser rule and not a
+zip plugin's to contribute.
 
 ## References
 

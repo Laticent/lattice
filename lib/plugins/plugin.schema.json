@@ -347,13 +347,20 @@
         "placeholder": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["aspect"],
-          "description": "How much room a block of this fence takes, as DATA, for the placeholder a deck shows where the plugin has not been listed or approved and its code may not run (plugin-system §9 decision 11). The host sizes the placeholder from it; once the plugin has drawn, the host remembers the real output's proportions and uses those instead. A zip plugin may declare it; a shipped plugin draws at once and has no use for one.",
+          "description": "How a block of this fence takes space, as DATA, for the placeholder a deck shows where the plugin has not been listed or approved and its code may not run (plugin-system §9 decision 11). Each `placement` maps to geometry the engine already has: `stage` fills the slide's stage box (as a Mermaid diagram or a chart does), `figure` takes the content width at a ratio (as an image does), `chip` is a small square in the avatar size scale. Once the plugin has drawn, the host remembers a `figure`'s real proportions and uses those instead of `aspect`. A zip plugin may declare it; a shipped plugin draws at once and has no use for one.",
           "properties": {
+            "placement": {
+              "enum": ["stage", "figure", "chip"],
+              "description": "`figure` when absent."
+            },
             "aspect": {
               "type": "string",
               "pattern": "^[1-9][0-9]{0,2}/[1-9][0-9]{0,2}$",
-              "description": "Width over height of a drawn block, as `W/H` (`16/9`, `4/1`). Whole numbers up to 999."
+              "description": "For `figure`: width over height of a drawn block, as `W/H` (`16/9`, `4/1`); `16/9` when absent."
+            },
+            "size": {
+              "enum": ["sm", "md", "lg", "xl"],
+              "description": "For `chip`: the avatar size scale (1.1em, 1.45em, 2.4em, 4em); `md` when absent."
             }
           }
         },

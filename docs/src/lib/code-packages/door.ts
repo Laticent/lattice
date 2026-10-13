@@ -37,7 +37,7 @@ export type StudioCodePackage = { name: string; code: string; sha256: string; by
  * renderer whose file began with a byte-order mark or held an invalid byte has a different digest here
  * than the CLI's (which hashes the file's bytes): an approval never crosses between them either way.
  */
-export type StudioPlugin = { kind: 'plugin'; name: string; fence: string; code: string; sha256: string; bytes: number; /** The manifest's declared proportions of a block (`W/H`), for the placeholder. */ aspect?: string };
+export type StudioPlugin = { kind: 'plugin'; name: string; fence: string; code: string; sha256: string; bytes: number; /** The manifest's `placeholder` hint (placement, aspect, size), reduced by `placeholderHint`. */ placeholder?: { placement?: string; aspect?: string; size?: string } };
 /** What the notice above the preview shows: the code this deck uses that is not approved. `notes` are the door's own warnings (a slide it left alone, and why). */
 export type CodePackagesStatus = { unapproved: (StudioCodePackage | StudioPlugin)[]; failed: { name: string; slide: number; why: string }[]; /** Installed plugins whose fence the deck writes but whose name its `plugins:` list does not (a placeholder stands there). */ offered?: StudioPlugin[]; notes?: string[] };
 
@@ -150,10 +150,10 @@ export async function setCodePackages(list: { name: string; code: string; facts?
  * only draws in a deck that lists it under `plugins:` (decision 11), and only once approved.
  */
 let setPluginsSeq = 0;
-export async function setPlugins(list: { name: string; fence: string; code: string; aspect?: string }[]): Promise<void> {
+export async function setPlugins(list: { name: string; fence: string; code: string; placeholder?: { placement?: string; aspect?: string; size?: string } }[]): Promise<void> {
 	const mine = ++setPluginsSeq;
 	const next = new Map<string, StudioPlugin>();
-	for (const p of list) next.set(p.name, { kind: 'plugin', name: p.name, fence: p.fence, code: p.code, sha256: await pluginDigest(p.code, p.fence), bytes: new TextEncoder().encode(p.code).length, ...(p.aspect ? { aspect: p.aspect } : {}) });
+	for (const p of list) next.set(p.name, { kind: 'plugin', name: p.name, fence: p.fence, code: p.code, sha256: await pluginDigest(p.code, p.fence), bytes: new TextEncoder().encode(p.code).length, ...(p.placeholder ? { placeholder: p.placeholder } : {}) });
 	if (mine !== setPluginsSeq) return;
 	plugins.clear();
 	for (const [k, v] of next) plugins.set(k, v);

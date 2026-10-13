@@ -8,7 +8,7 @@ import DOMPurify from 'dompurify';
 import { doorFinish, doorFinishFence } from '../../../../lib/core/door-attr.mjs';
 import { createSlideSanitizer } from '../../../../lib/core/sanitize-slide-html.mjs';
 import { captureHook, claimKey, engineClaimsOf, SLIDE_MS, slideInput, spliced, substituteHook, withFailureNote } from '../../../../lib/packages/code-door-core.mjs';
-import { activePluginNames, aspectOfOutput, captureFences, fenceCaptureNotes, fenceInput, fenceKey, fenceMarkup, fenceNamespace, fenceOutputNote, fencePlaceholder, planFencePlugins, rebuiltFromAlternatives, substituteFences, withFenceNote } from '../../../../lib/packages/code-door-fence.mjs';
+import { activePluginNames, aspectOfOutput, captureFences, fenceCaptureNotes, fenceInput, fenceKey, fenceMarkup, fenceNamespace, fenceOutputNote, fencePlaceholder, placeholderHint, planFencePlugins, rebuiltFromAlternatives, substituteFences, withFenceNote } from '../../../../lib/packages/code-door-fence.mjs';
 import FENCE_DOOR from '../../../../lib/packages/fence-door.generated.json';
 import SHIPPED from '../../../../lib/packages/packages.generated.json';
 import { deckPluginList } from '../../../../lib/plugins/deck-plugins.mjs';
@@ -224,7 +224,9 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 		if (sections.has(key)) continue;
 		if (!declared.has(p.name)) {
 			// Not in the deck's `plugins:`: nothing runs, and a drawn placeholder stands where the block is.
-			sections.set(key, fencePlaceholder(p.name, rememberedAspect(p.sha256) ?? p.aspect ?? null));
+			// The plugin's declared placement; for a figure, the proportions it last DREW at win over the declared ones.
+			const hint = placeholderHint(p.placeholder);
+			sections.set(key, fencePlaceholder(p.name, hint.placement === 'figure' ? { ...hint, aspect: rememberedAspect(p.sha256) ?? hint.aspect } : hint));
 			unlisted.add(p.name);
 			continue;
 		}

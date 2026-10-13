@@ -495,17 +495,9 @@ section div[data-lattice-plugin-off] {
   align-items:center;
   gap:0.9em;
   box-sizing:border-box;
-  /* The room the block will take. `--lp-w` and `--lp-h` are the plugin's own proportions (remembered from its last
-   * drawn output, or declared in its manifest); the default is a wide, short block. The HEIGHT is capped (below) and the width
-   * follows it, so a square block is a square and not a bar across the slide, and a wide one still fills the width.
-   * The minimums keep the name and its line readable on a very small or very flat block. */
-  --lp-w:16;
-  --lp-h:5;
-  /* Height 9em for a square, growing with the square root of the ratio (a 16:9 block is 12em tall, a 4:1 one fills the width). */
-  width:min(100%, calc(9em * var(--lp-w) / var(--lp-h) * sqrt(var(--lp-w) / var(--lp-h))));
-  aspect-ratio:var(--lp-w) / var(--lp-h);
-  min-width:min(100%, 14em);
-  min-height:3.4em;
+  /* How much room it takes is geometry the engine already has, picked by `data-placement` (the plugin's manifest says
+   * which; plugin.schema.json `placeholder`): `stage` fills the stage as a Mermaid diagram or a chart does, `figure`
+   * takes the content width (within the stage's height) at a ratio as an image does, `chip` is a small square in the avatar size scale. */
   flex:none;
   padding:0.9em 1.2em;
   position:relative;
@@ -530,6 +522,35 @@ section div[data-lattice-plugin-off] {
     --lp-c: oklch(from var(--accent) l c calc(h - 28));
   }
 }
+/* figure (the default): the content width at the plugin's own proportions (remembered from its last drawn output, else
+ * the manifest's `aspect`, else 16 / 9: the web-image placeholder's), never taller than a slide's stage can hold. */
+section div[data-lattice-plugin-off][data-placement="figure"] {
+  /* Height at most 30cqi (the slide's own container unit, as the type tokens use), the width following it, so a 16:9
+   * figure fits the stage instead of running past the foot of the slide; a wide one still fills the row. */
+  width:min(100%, calc(30cqi * var(--lp-w, 16) / var(--lp-h, 9)));
+  aspect-ratio:var(--lp-w, 16) / var(--lp-h, 9);
+  min-height:3.4em;
+}
+/* stage: the stage box itself, the way `section.diagram > .cell-stage > .mermaid` fills it. */
+section div[data-lattice-plugin-off][data-placement="stage"] {
+  flex:1 1 auto;
+  width:100%;
+  min-height:8em;
+}
+/* chip: a square in the avatar size scale (avatars.styles.css `--avatar-size`: 1.1, 1.45, 2.4, 4em), mark only; the
+ * name rides in its title and accessible name. */
+section div[data-lattice-plugin-off][data-placement="chip"] {
+  --lp-chip:1.45em;
+  width:var(--lp-chip);
+  height:var(--lp-chip);
+  padding:0.2em;
+  justify-content:center;
+  border-radius:0.35em;
+}
+section div[data-lattice-plugin-off][data-placement="chip"][data-size="sm"] { --lp-chip:1.1em; }
+section div[data-lattice-plugin-off][data-placement="chip"][data-size="lg"] { --lp-chip:2.4em; }
+section div[data-lattice-plugin-off][data-placement="chip"][data-size="xl"] { --lp-chip:4em; }
+section div[data-lattice-plugin-off][data-placement="chip"] .lattice-plugin-mark { width:100%; height:100%; }
 section div[data-lattice-plugin-off] .lattice-plugin-mark {
   flex:none;
   width:1.9em;
