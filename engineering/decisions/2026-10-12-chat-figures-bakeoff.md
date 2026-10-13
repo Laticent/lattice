@@ -48,7 +48,7 @@ memory story is `2026-09-13-gallery-preview-memory.md`.
 | `eager` | one `DeckPreview` (one iframe, one document) per figure, all mounted | `DeckPreview` |
 | `pool` | a tile in a `PreviewPool` wrapped around the transcript's scroll content: at most a handful of frames, re-pointed as figures scroll into view | `PreviewPool`, `PooledThumbFace` |
 | `bake` | `projectDeckArticle` on a one-slide deck, inlined as sanitized SVG | Read · Article |
-| `bake-img` | the same bake, with the SVG written to a `Blob` URL and shown as `<img>` | Read · Article |
+| `bake-img` | the same bake, with the SVG written to a data URL and shown as `<img>` (the measured run used a `Blob` URL; the harness now uses a data URL so it adds no `createObjectURL` site, and the two hold the same bytes) | Read · Article |
 
 `pool` already is "a separate pool": `PreviewPool` is one per scroller by design (its header: "one pool
 per grid rather than one per app"), so the chat gets its own instance and shares no frames with the

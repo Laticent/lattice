@@ -13,7 +13,8 @@ import { PooledThumbFace, PreviewPool } from '../studio/preview-pool';
 //   eager     one <DeckPreview> (one iframe + document) per figure, all mounted — the naive baseline
 //   pool      the Studio's own PreviewPool: a small set of re-pointed frames, one pool per scroller
 //   bake      projectDeckArticle (Read · Article's path): render, bake, sanitize → inline SVG in the DOM
-//   bake-img  the baked SVG as a Blob <img>: no live nodes at all
+//   bake-img  the baked SVG as a data-URL <img>: no live nodes at all (a blob: URL would be the
+//             same measurement but a new createObjectURL site for download.test.ts's census)
 //
 // Route: /proto/chat-figures/?strategy=eager|pool|bake|bake-img&kind=mermaid|math|plot|slide&n=10
 // Delete this file, its page and the tool to revert; nothing else imports it.
@@ -80,7 +81,7 @@ export default function ChatFiguresBakeoff({ options }: { options: SingleSlideOp
 						const svg = new DOMParser().parseFromString(`<div>${out.articleHtml}</div>`, 'text/html').querySelector('svg');
 						if (svg) {
 							if (!svg.getAttribute('xmlns')) svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-							img = URL.createObjectURL(new Blob([svg.outerHTML], { type: 'image/svg+xml' }));
+							img = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg.outerHTML)}`;
 						}
 					}
 					if (live) setBaked((cur) => cur.map((b, k) => (k === i ? { html: out.articleHtml, css: out.css, img } : b)));
