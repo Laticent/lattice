@@ -21,8 +21,12 @@ export const PHOTO_TOKENS = 1500;
 /** A clip longer than this is refused: video is billed by the second (about 260 tokens each on the
  *  models that read it), and a long one is the expensive mistake. */
 export const MAX_VIDEO_SECONDS = 15;
-/** A clip larger than this is refused before it is read. It travels inline as base64 (a third larger),
- *  and 15 MB is what a 15-second phone clip at ordinary quality weighs. */
+/** A clip larger than this is refused before it is read. It travels inline as base64 (a third larger), so 15 MB of
+ *  video is a 20 MB request body, and the cap is there to keep a request in a size a provider will take (a limit
+ *  some video-capable providers document for inline data; not checked against every model Lattice offers).
+ *  It is NOT "what a 15-second clip weighs": a real iPhone clip measured 16.4 MB for 9 seconds (1080x1920), about
+ *  1.8 MB a second, so a phone clip hits this cap at roughly 8 seconds, well before the seconds cap. One sample, on
+ *  one phone; the number to move is this one, and only after a real model has accepted a larger body. */
 export const MAX_VIDEO_BYTES = 15 * 1024 * 1024;
 /** What one clip is priced at by the budget gate: 15 s at ~260 tokens a second, rounded up. Flat for
  *  the same reason as `PHOTO_TOKENS`. */
@@ -30,7 +34,7 @@ export const VIDEO_TOKENS = 4500;
 
 /** Why a clip cannot be attached, in words, or null when it can. Pure: the caller measures. */
 export function videoRefusal(seconds: number, bytes: number): string | null {
-	if (bytes > MAX_VIDEO_BYTES) return `That video is ${(bytes / 1_048_576).toFixed(1)} MB; a message can carry at most ${Math.floor(MAX_VIDEO_BYTES / 1_048_576)} MB (about ${MAX_VIDEO_SECONDS} seconds).`;
+	if (bytes > MAX_VIDEO_BYTES) return `That video is ${(bytes / 1_048_576).toFixed(1)} MB; a message can carry at most ${Math.floor(MAX_VIDEO_BYTES / 1_048_576)} MB. A phone clip is large for its length, so trim it to a few seconds and try again.`;
 	if (!Number.isFinite(seconds) || seconds <= 0) return "That video's length could not be read, so it was not attached.";
 	// Half a second of slack: a phone's "15 second" clip decodes at 15.0x, and refusing it with a message
 	// that says "15 seconds" contradicts itself. The cap is a cost guard, not a stopwatch.

@@ -116,7 +116,7 @@ when one part is refused (minor), and the one-shot fallback re-sends a refused c
 
 ## 5. What this does not claim
 
-- **Not verified on a physical phone** (HARD RULE #23). The chat specs' 390 px cases (status line, table,
+- **The chat is not verified on a physical phone** (HARD RULE #23); the Library video shelf is, in part (see §6). The chat specs' 390 px cases (status line, table,
   list numbering, model switch, figures, photo) also pass on real WebKit with the iPhone 15 Pro profile
   (`webkit-phone`, WebKit 26): the engine the pool exists for, not the device. The native picker is the
   browser's own and was driven through Playwright's file chooser, which stands in for the choice, not for
@@ -129,6 +129,15 @@ when one part is refused (minor), and the one-shot fallback re-sends a refused c
 ## 6. Open
 
 - A phone check of the native photo picker, the pool and the status line on a real device.
-- Video was exercised with a clip recorded in Chromium (WebM). A phone's H.264 MP4, and the cap on a real 15-second phone clip, are untested.
+- **Real-phone evidence for the Library video shelf (2026-10-13, from the PR's docs preview on an iPhone).** The author added a
+  camera-roll clip through the Library's picker: 1080×1920, 9.0 s, 16.4 MB, named `img-4526`. The Videos tab read its poster,
+  length, size and dimensions correctly, and the clip played in place with the browser's native controls. Two screenshots are in
+  the PR conversation. This covers the importer, the probe and playback on a real device with a real phone clip. It does **not**
+  cover the chat's attach path, a reload and Regenerate on the phone, a model reading the clip, or which codec or container
+  the file was (not shown).
+- **The chat's 15 MB cap is smaller than the 15-second cap it was meant to match.** That clip is about 1.8 MB a second, so a phone
+  clip reaches 15 MB at roughly 8 seconds. One sample, one phone. The cap exists to keep the base64 request body near 20 MB,
+  and it moves only after a real model has accepted a larger body; until then the refusal says so in words and does not
+  promise "about 15 seconds" (`chat-photo-parts.ts`).
 - Dropping a photo onto the composer (paste and the picker are in; drag is not).
 - Math arm, checked 2026-10-13 on 4b0eef0 in the sandbox: `check:family-conformance` ran to the end without a Chrome drop. The `math` row fires at portrait, story and mobile and is not among the 39 differences from `test/oracle/family-conformance.json`, which are all other components. `overflow:check` found four decks that clip more than the baseline, none with a math slide (follow-up filed). Not confirmed: a nightly run after the merge.

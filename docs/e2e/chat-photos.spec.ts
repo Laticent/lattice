@@ -283,6 +283,8 @@ test('a sent clip lives in Library → Videos, survives a reload, and Regenerate
 	await expect(page.getByRole('tab', { name: 'Images' })).toBeVisible();
 	await card.getByRole('button', { name: /^Play walkthrough-/ }).click();
 	await expect(card.locator('video')).toBeVisible();
+	// A playing clip is not the 88px still strip: it takes its own proportions (a portrait phone clip was a sliver).
+	expect((await card.locator('video').boundingBox())?.height ?? 0).toBeGreaterThan(120);
 	await page.screenshot({ path: test.info().outputPath('library-videos.png') });
 });
 

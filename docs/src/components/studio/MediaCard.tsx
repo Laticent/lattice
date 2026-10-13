@@ -1,5 +1,6 @@
 import { Image as ImageIcon, Layers, Lock, Play, Video as VideoIcon } from 'lucide-react';
 import * as React from 'react';
+import { cn } from '@/lib/utils';
 import { DeleteBtn } from './delete-btn';
 import { LIBRARY_SCOPE, type MediaRecord } from './media-store';
 import { formatBytes } from './reference-doc';
@@ -54,7 +55,12 @@ export function MediaCard({ m, activeDeckId, usedIn, usedElsewhere, armed, confi
 			{/* The image is ABSOLUTE inside a fixed box. As a `h-full` grid item it was sized by its own
 			    row, not by the 88px: a 1920×2560 photo painted 351px tall, `object-cover` had nothing to
 			    crop to, and `overflow-hidden` showed only the top strip (measured in Chromium). */}
-			<div className="relative h-[88px] w-full overflow-hidden bg-[var(--bg-alt)]">
+			{/* A still is a fixed 88px strip. A clip that is PLAYING gets its own proportions (capped), because a portrait phone
+			    clip in an 88px strip is a 50px-wide sliver; the video letterboxes inside when the cap binds. */}
+			<div
+				className={cn('relative w-full overflow-hidden', isVideo && playing ? 'bg-black' : 'h-[88px] bg-[var(--bg-alt)]')}
+				style={isVideo && playing ? { aspectRatio: `${m.width || 16} / ${m.height || 9}`, maxHeight: 'min(70vh, 480px)' } : undefined}
+			>
 				{isVideo ? (
 					playing && url ? (
 						// biome-ignore lint/a11y/useMediaCaption: the author's own clip; there is no caption track to offer.
