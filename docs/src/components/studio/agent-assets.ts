@@ -58,6 +58,29 @@ export function libraryPromptTokens(count: number): number {
 /** Rough token charge for one thumbnail, for the budget gate (a base64 string is not tokens). */
 export const THUMB_TOKENS = 800;
 
+/** What the budget gate adds, in USD, for `images` pictures on top of charging each THUMB_TOKENS at the prompt
+ *  price. Zero unless the model lists `pricing.image`. OpenRouter does not say what that number counts: on every
+ *  model that lists it today (Google's) it equals the prompt price, so it is a per-token rate; an older listing
+ *  was dollars per picture. A rate within IMAGE_RATE_MAX_MULTIPLE of the prompt rate is read as per-token
+ *  (THUMB_TOKENS at that rate); a larger one, or any price on a free-prompt model, is read as dollars per
+ *  picture (reading it per-token would price one picture in dollars). The gate charges the gap over the flat
+ *  figure, never less than the flat figure: a hard stop that over-reads by a fraction of a cent is safe, one
+ *  that under-reads is not.
+ *
+ *  Known limits (neither is a regression on the flat figure): above the 10x line the gate picks possible
+ *  under-charge over certain absurd over-charge, so a genuine per-token rate more than 10x the prompt rate
+ *  (none exists in the catalog) is still charged flat; and an attached photo (PHOTO_TOKENS) gets the surcharge
+ *  on THUMB_TOKENS of its tokens, not all of them. */
+export const IMAGE_RATE_MAX_MULTIPLE = 10;
+export function pictureSurchargeUsd(price: { promptPerM: number | null; imagePerM?: number | null } | null, images: number): number {
+	const image = price?.imagePerM;
+	if (!price || !(images > 0) || image == null || !(image > 0)) return 0;
+	const prompt = price.promptPerM ?? 0;
+	const flat = (THUMB_TOKENS * prompt) / 1e6;
+	const perPicture = prompt > 0 && image <= prompt * IMAGE_RATE_MAX_MULTIPLE ? (THUMB_TOKENS * image) / 1e6 : image / 1e6;
+	return images * Math.max(0, perPicture - flat);
+}
+
 /** The most a caption may be. It rides in the chat's prompt once per photo, every turn. */
 export const MAX_CAPTION_CHARS = 140;
 

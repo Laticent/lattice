@@ -324,7 +324,7 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
     modelPrice() {
       const id = readLS(OR_MODEL_LS) || defaultModel;
       const m = catalogCache?.find((x) => x.id === id);
-      return m ? { promptPerM: m.promptPerM, completionPerM: m.completionPerM } : null;
+      return m ? { promptPerM: m.promptPerM, completionPerM: m.completionPerM, imagePerM: m.imagePerM ?? null } : null;
     },
     disconnect() { writeLS(OR_KEY_LS, null); writeLS(OR_VERIFIER_LS, null); },
     // OAuth step 1: stash a PKCE verifier and return the URL to redirect to. The
@@ -376,6 +376,8 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
         name: m.name || m.id,
         promptPerM: m.pricing ? orPricePerM(m.pricing.prompt) : null,
         completionPerM: m.pricing ? orPricePerM(m.pricing.completion) : null,
+        // 30 of 461 models list it (19 without the :batch variants; all Google, 2026-10-13), each equal to its prompt price; null elsewhere.
+        imagePerM: m.pricing ? orPricePerM(m.pricing.image) : null,
         contextLength: m.context_length || m.top_provider?.context_length || null,
         maxOutput: m.top_provider?.max_completion_tokens || null,
         vision: Array.isArray(m.architecture?.input_modalities) && m.architecture.input_modalities.includes('image'),

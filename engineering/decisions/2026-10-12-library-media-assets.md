@@ -332,6 +332,16 @@ in `chat-agent.ts`.
   and every caption from that read; it was one full read of every photo's bytes per call.
 - **The budget gate prices a picture as a fixed `THUMB_TOKENS`**, not as the ~40K characters of base64 that
   carry it, which would have overstated a round's cost about twelve times.
+- **A model's own image price raises that figure, never lowers it** (added 2026-10-13). `listModels` now keeps
+  OpenRouter's `pricing.image` as `ORPrice.imagePerM`, and `pictureSurchargeUsd` (`agent-assets.ts`) adds the gap
+  over the flat figure to the gate (`cloudBudgetBlock`'s `extraUsd`). The live catalog lists it for 30 of 461
+  models (19 without the `:batch` variants; 2026-10-13), all Google, and on every one it equals the prompt price, so today the surcharge is $0 and
+  the flat 800 tokens already match. OpenRouter does not say what the number counts, so the rule reads a rate
+  within 10x the prompt rate as per-token (800 tokens at that rate) and a larger one as dollars per picture.
+  Five pictures at $3/M: $0.0120 flat; $0.0960 for a hypothetical 8x token rate; $0.0240 for a hypothetical
+  $0.0048 a picture. The readout does not charge pictures (it counts none). Of the gate's call sites only the agent's changed: the
+  one-shot chat path (a model that refuses tools) still charges photos flat. Limits: a per-token image rate above
+  10x the prompt rate is charged flat (none exists), and an attached photo gets the surcharge on 800 of its 1,500 tokens.
 - **Videos are listed but cannot be viewed.** There is no poster frame yet.
 
 **What is verified, and what is not.** `docs/e2e/chat-library-assets.spec.ts` drives the real Studio in

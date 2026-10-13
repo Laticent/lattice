@@ -185,7 +185,12 @@ export type ORAccount = {
 export type ORCredits = { credits: number; usage: number; balance: number };
 
 /** A per-million price pair for the active model (for the pre-send estimate). */
-export type ORPrice = { promptPerM: number | null; completionPerM: number | null };
+export type ORPrice = {
+	promptPerM: number | null;
+	completionPerM: number | null;
+	/** OpenRouter's `pricing.image` ×1e6, when the model lists one; absent or null otherwise (and on a catalog cached before this field). */
+	imagePerM?: number | null;
+};
 
 /** The generation-ladder availability flags `architect-model.js` reports. */
 export type ModelAvailability = {
@@ -1449,6 +1454,7 @@ export async function chatComplete(history: ChatTurn[], source: string, docs?: R
 		const systemTokens = estTokens(staticPrefix) + estTokens(dynamicTail);
 		// A photo is priced at a flat 1,500 tokens, a clip at 4,500 (chat-photo-parts PHOTO_TOKENS / VIDEO_TOKENS; literals here because
 		// that module is loaded on demand and this one is startup code).
+		// No picture surcharge here (agent-assets' pictureSurchargeUsd): this one-shot path runs only when the model refuses tools, and importing it would enter the startup bundle.
 		const blk = cloudBudgetBlock(model, `${last?.content ?? ''}\n${source}`, refDocsTokens(docs) + systemTokens + (opts?.photos?.length ?? 0) * 1500 + (opts?.videos?.length ?? 0) * 4500, CHAT_MAX_TOKENS);
 		if (blk) return { status: 'blocked', reply: blk };
 	}
@@ -1727,22 +1733,22 @@ export function agentTurnUsd(price: ORPrice | null, grounding: ChatGrounding | u
 /** Estimate a cloud call's USD cost: prompt tokens × in-price + an output ceiling ×
  *  out-price. `extraTokens` folds in an attached reference doc's contribution (#640)
  *  so the pre-send guard and readout include the doc the user pays for. */
-export function estimateUsd(promptText: string, price: ORPrice | null, maxOut = 4096, extraTokens = 0): number | null {
+export function estimateUsd(promptText: string, price: ORPrice | null, maxOut = 4096, extraTokens = 0, extraUsd = 0): number | null {
 	if (!price || price.promptPerM == null || price.completionPerM == null) return null;
-	return ((estTokens(promptText) + extraTokens) / 1e6) * price.promptPerM + (maxOut / 1e6) * price.completionPerM;
+	return ((estTokens(promptText) + extraTokens) / 1e6) * price.promptPerM + (maxOut / 1e6) * price.completionPerM + extraUsd;
 }
 
 // The cloud budget gate, shared by every architect action: blocks when already over
 // the cap/balance, AND — in hard-stop mode — refuses a call whose ESTIMATE would
 // breach the self-cap, so a single large request can't overshoot. Returns a note, or null.
-export function cloudBudgetBlock(model: ArchitectModel, promptText: string, extraTokens = 0, maxOut = CHAT_OUTPUT_EST): string | null {
+export function cloudBudgetBlock(model: ArchitectModel, promptText: string, extraTokens = 0, maxOut = CHAT_OUTPUT_EST, extraUsd = 0): string | null {
 	const s = architectSpend();
 	if (s.status.blocked) return 'Budget cap reached — raise it in Workspace → Spend, or switch tier.';
 	if (s.mode === 'stop' && s.cap > 0) {
 		// The hard stop prices THIS call's ceiling — its job is to refuse a call that could
 		// overshoot, so it assumes the reply runs to the end. `maxOut` defaults to the shared
 		// ceiling; only the chat, which lifts its own, passes the larger figure.
-		const est = estimateUsd(promptText, model.openRouterModelPrice?.() ?? null, maxOut, extraTokens);
+		const est = estimateUsd(promptText, model.openRouterModelPrice?.() ?? null, maxOut, extraTokens, extraUsd);
 		if (est != null && s.session + est > s.cap) {
 			return `Estimated ~$${est.toFixed(2)} — that would exceed your $${s.cap.toFixed(2)} cap. Raise it in Workspace → Spend, pick a cheaper model, or switch to On-device (free).`;
 		}

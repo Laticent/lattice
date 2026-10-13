@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { type AssetInfo, assetManifest, cleanCaption, libraryPromptTokens, listAssetsView, MANIFEST_CAP, shapeOf } from './agent-assets';
+import { type AssetInfo, assetManifest, cleanCaption, libraryPromptTokens, listAssetsView, MANIFEST_CAP, pictureSurchargeUsd, shapeOf, THUMB_TOKENS } from './agent-assets';
 
 const photo = (name: string, over: Partial<AssetInfo> = {}): AssetInfo => ({ name, kind: 'image', width: 3000, height: 2000, bytes: 900_000, scope: 'library', ...over });
 
@@ -100,5 +100,35 @@ describe('libraryPromptTokens — the readout never prices the Library below wha
 		expect(libraryPromptTokens(0)).toBe(0);
 		expect(libraryPromptTokens(-3)).toBe(0);
 		expect(libraryPromptTokens(500)).toBe(libraryPromptTokens(MANIFEST_CAP));
+	});
+});
+
+describe('pictureSurchargeUsd — a model that lists its own image price', () => {
+	const flat = (promptPerM: number) => (THUMB_TOKENS * promptPerM) / 1e6;
+	it('adds nothing without an image price, so a model without one is charged the flat figure as before', () => {
+		expect(pictureSurchargeUsd({ promptPerM: 3, imagePerM: null }, 5)).toBe(0);
+		expect(pictureSurchargeUsd({ promptPerM: 3 }, 5)).toBe(0); // a catalog cached before the field existed
+		expect(pictureSurchargeUsd(null, 5)).toBe(0);
+		expect(pictureSurchargeUsd({ promptPerM: 3, imagePerM: 9 }, 0)).toBe(0);
+	});
+	it('adds nothing when the image price equals the prompt price (every model that lists one today)', () => {
+		expect(pictureSurchargeUsd({ promptPerM: 0.75, imagePerM: 0.75 }, 5)).toBe(0);
+	});
+	it('charges the gap when the image rate is a multiple of the prompt rate', () => {
+		// $3/M prompt, $9/M image: a picture is 800 tokens × $9/M = $0.0072, against $0.0024 flat.
+		expect(pictureSurchargeUsd({ promptPerM: 3, imagePerM: 9 }, 2)).toBeCloseTo(2 * (flat(9) - flat(3)), 9);
+	});
+	it('reads a price more than 10x the prompt rate as dollars per picture', () => {
+		// $1.5/M prompt, image $4,800/M (raw $0.0048): 3,200x the prompt rate, so it is dollars per picture, not a token rate.
+		expect(pictureSurchargeUsd({ promptPerM: 1.5, imagePerM: 4800 }, 3)).toBeCloseTo(3 * (0.0048 - flat(1.5)), 9);
+	});
+	it('never prices a picture below the flat figure, and reads a free-prompt model\u2019s image price as dollars', () => {
+		expect(pictureSurchargeUsd({ promptPerM: 3, imagePerM: 0.5 }, 2)).toBe(0);
+		expect(pictureSurchargeUsd({ promptPerM: 0, imagePerM: 2000 }, 1)).toBeCloseTo(0.002, 9);
+	});
+	it('sits on the boundary: ten times the prompt rate is still a token rate', () => {
+		expect(pictureSurchargeUsd({ promptPerM: 3, imagePerM: 30 }, 1)).toBeCloseTo(flat(30) - flat(3), 9);
+		// Past it the number is dollars: $0.000031 a picture, below the flat $0.0024, so the flat figure stands.
+		expect(pictureSurchargeUsd({ promptPerM: 3, imagePerM: 31 }, 1)).toBe(0);
 	});
 });

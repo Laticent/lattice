@@ -1,6 +1,6 @@
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { deckCanon } from '@/playground/authoring-core.generated.js';
-import { agentTurnUsd, applyDeckEdit, applyProposedEditsChecked, architectModel, architectSpend, buildChatSystem, CHAT_MAX_TOKENS, CHAT_OUTPUT_EST, chatSystemTokens, deckSystem, estimateUsd, generateComponent, generateTheme, loadChatAgent, normalizeGeneration, refineComponent, refineSelection, requestFindingFix, runArchitect, setBudget, withStudioVoice } from './architect';
+import { agentTurnUsd, applyDeckEdit, applyProposedEditsChecked, architectModel, architectSpend, buildChatSystem, CHAT_MAX_TOKENS, CHAT_OUTPUT_EST, chatSystemTokens, cloudBudgetBlock, deckSystem, estimateUsd, generateComponent, generateTheme, loadChatAgent, normalizeGeneration, refineComponent, refineSelection, requestFindingFix, runArchitect, setBudget, withStudioVoice } from './architect';
 import { suggestFor } from './Editor';
 import { saveInstructions, saveOnDeviceInstructions, saveSettings } from './studio-store';
 
@@ -181,6 +181,10 @@ describe('estimateUsd — pre-send cost estimate', () => {
 		const est = estimateUsd('x'.repeat(400), price, 1000);
 		expect(est).toBeCloseTo(0.0003 + 0.015, 6);
 	});
+	it('adds a dollar surcharge on top of the token figure (the picture price of a model that lists one)', () => {
+		const base = estimateUsd('x'.repeat(400), price, 1000) ?? 0;
+		expect(estimateUsd('x'.repeat(400), price, 1000, 0, 0.005)).toBeCloseTo(base + 0.005, 9);
+	});
 	it('returns null when the price is unknown (catalog not loaded) — the gate then skips', () => {
 		expect(estimateUsd('hello', null)).toBeNull();
 		expect(estimateUsd('hello', { promptPerM: null, completionPerM: null })).toBeNull();
@@ -216,6 +220,28 @@ describe('setBudget — the cap the architect honors', () => {
 		s = architectSpend();
 		expect(s.cap).toBe(0);
 		expect(s.mode).toBe('alert');
+	});
+});
+
+describe('cloudBudgetBlock — a picture on a model with its own image price', () => {
+	// Five 800-token pictures at $3/M is $0.012 flat. At a $9/M image rate they cost $0.036.
+	const modelAt = (imagePerM: number | null) => ({ openRouterModelPrice: () => ({ promptPerM: 3, completionPerM: 0, imagePerM }) }) as unknown as Parameters<typeof cloudBudgetBlock>[0];
+	const flatTokens = 5 * 800;
+	it('refuses the round the model price would breach, and lets the flat figure through', async () => {
+		const { pictureSurchargeUsd } = await import('./agent-assets');
+		setBudget(0.02, 'stop');
+		try {
+			const price = { promptPerM: 3, imagePerM: 9 };
+			// Before: only the flat tokens were charged, $0.012 < the $0.02 cap, so the round went through.
+			expect(cloudBudgetBlock(modelAt(null), '', flatTokens, 0)).toBeNull();
+			expect(cloudBudgetBlock(modelAt(9), '', flatTokens, 0)).toBeNull();
+			// After: the model's own rate is charged, $0.036 > the cap, so the gate stops it.
+			expect(cloudBudgetBlock(modelAt(9), '', flatTokens, 0, pictureSurchargeUsd(price, 5))).toMatch(/exceed your \$0\.02 cap/);
+			// A model with no image price is unchanged by the new argument.
+			expect(cloudBudgetBlock(modelAt(null), '', flatTokens, 0, pictureSurchargeUsd({ promptPerM: 3, imagePerM: null }, 5))).toBeNull();
+		} finally {
+			setBudget(null, 'alert');
+		}
 	});
 });
 

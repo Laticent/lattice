@@ -13,7 +13,7 @@
 // over its soft budget; importing them DYNAMICALLY instead made the bundler re-split shared
 // chunks and cost more. So everything the startup code already holds is passed in through
 // `init(deps)` by `architect.ts`, and only this feature's own modules are imported.
-import { assetManifest, libraryPromptTokens, THUMB_TOKENS } from './agent-assets';
+import { assetManifest, libraryPromptTokens, pictureSurchargeUsd, THUMB_TOKENS } from './agent-assets';
 import { createAgentAssets } from './agent-assets-browser';
 import { agentLibrary } from './agent-library';
 import type { ArchitectModel, ChatGrounding, ChatOptions, ChatResult, ChatTurn, ORPrice, ProposedEdit } from './architect';
@@ -178,6 +178,7 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 	let roundPrompt = '';
 	// The pictures in the round in flight, so a Stop prices them too.
 	let roundPictureTokens = 0;
+	let roundPictureUsd = 0;
 	let genId: string | null = null;
 	// A request is in flight: set when a round is sent, cleared when it returns. A Stop
 	// prices only an open round — a finished one already reported its exact cost.
@@ -190,13 +191,17 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 		// whole conversation so far, and a hard-stop cap has to hold across all of them.
 		const priced = msgs.slice(1).map(budgetText);
 		const convo = priced.map((p) => p.text).join('\n');
-		const pictureTokens = priced.reduce((n, p) => n + p.images, 0) * THUMB_TOKENS;
+		const pictureCount = priced.reduce((n, p) => n + p.images, 0);
+		const pictureTokens = pictureCount * THUMB_TOKENS;
+		// A model that lists its own image price may charge more than THUMB_TOKENS at the prompt rate; the gap rides as dollars.
+		const pictureUsd = pictureSurchargeUsd(model.openRouterModelPrice?.() ?? null, pictureCount);
 		roundPictureTokens = pictureTokens;
+		roundPictureUsd = pictureUsd;
 		if (streamed.trim()) done.push(streamed);
 		streamed = '';
 		genId = null;
 		roundPrompt = convo;
-		const blk = cloudBudgetBlock(model, convo, systemTokens + docTokens + pictureTokens + attachedTokens, CHAT_MAX_TOKENS);
+		const blk = cloudBudgetBlock(model, convo, systemTokens + docTokens + pictureTokens + attachedTokens, CHAT_MAX_TOKENS, pictureUsd);
 		if (blk) {
 			blockedNote = blk;
 			const e = new Error(blk);
@@ -277,7 +282,7 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 			// prompt plus the prose seen; the generation id, when it arrived, replaces it with the
 			// exact figure.
 			if (roundOpen && (streamed || genId)) {
-				const est = estimateUsd(roundPrompt, model.openRouterModelPrice?.() ?? null, Math.ceil(streamed.length / 4), docTokens + systemTokens + roundPictureTokens + attachedTokens) ?? 0;
+				const est = estimateUsd(roundPrompt, model.openRouterModelPrice?.() ?? null, Math.ceil(streamed.length / 4), docTokens + systemTokens + roundPictureTokens + attachedTokens, roundPictureUsd) ?? 0;
 				if (est) recordSpend(est, Math.ceil(streamed.length / 4));
 				if (genId && model.openRouterGenerationCost) {
 					void model
