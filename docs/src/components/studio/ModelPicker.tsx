@@ -18,11 +18,26 @@ import { type ArchitectStatus, listStudioModels, type ORModel, setStudioModel } 
 // drift (HARD RULE #1/#15).
 /** The catalog, the lens, the search and the selection — one hook so the Workspace accordion and
  *  the chat's header chip are the SAME picker rather than two that drift (HARD RULE #15). */
-export function useModelCatalog(status: ArchitectStatus, opts: { onPicked?: (m: ORModel) => void; enabled?: boolean } = {}) {
+export function useModelCatalog(
+	status: ArchitectStatus,
+	opts: {
+		onPicked?: (m: ORModel) => void;
+		enabled?: boolean;
+		/** What picking does. Left out, it sets the chat's model; the image model passes its own setter. */
+		select?: (m: ORModel) => Promise<void> | void;
+		/** The picked id when it is not the chat's model. */
+		currentId?: string | null;
+		/** List only models that can read pictures. */
+		visionOnly?: boolean;
+		/** What the confirmation calls the thing picked. */
+		label?: string;
+	} = {},
+) {
 	const [models, setModels] = React.useState<ORModel[] | null>(null);
 	const [view, setView] = React.useState<string>('featured');
 	const [query, setQuery] = React.useState('');
-	const [selectedId, setSelectedId] = React.useState<string | null>(status.modelId);
+	const wanted = opts.currentId !== undefined ? opts.currentId : status.modelId;
+	const [selectedId, setSelectedId] = React.useState<string | null>(wanted);
 
 	// Load the catalog once, only when OpenRouter is connected (no fetch on the
 	// floor/on-device tiers — keeps tests and offline use network-free).
@@ -40,17 +55,17 @@ export function useModelCatalog(status: ArchitectStatus, opts: { onPicked?: (m: 
 
 	// Reflect an external model change (e.g. another surface) in the summary.
 	React.useEffect(() => {
-		setSelectedId(status.modelId);
-	}, [status.modelId]);
+		setSelectedId(wanted);
+	}, [wanted]);
 
 	const current = React.useMemo(() => (models && selectedId ? models.find((m) => m.id === selectedId) : null) ?? null, [models, selectedId]);
-	const groups = React.useMemo(() => groupByVendor(filterModels(models ?? [], view, query)), [models, view, query]);
+	const groups = React.useMemo(() => groupByVendor(filterModels((models ?? []).filter((m) => !opts.visionOnly || m.vision), view, query)), [models, view, query, opts.visionOnly]);
 
 	const pick = async (m: ORModel) => {
 		setSelectedId(m.id);
-		await setStudioModel(m.id);
+		await (opts.select ? opts.select(m) : setStudioModel(m.id));
 		opts.onPicked?.(m);
-		notify(`Model set to ${shortName(m)}.`);
+		notify(`${opts.label ?? 'Model'} set to ${shortName(m)}.`);
 	};
 	return { models, view, setView, query, setQuery, selectedId, current, groups, pick };
 }

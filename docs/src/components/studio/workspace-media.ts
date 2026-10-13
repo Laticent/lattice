@@ -93,7 +93,7 @@ export type PackOptions = {
  *  bytes, how many it could not write (a type outside what the Library stores), and the names it left out
  *  for size, so a backup never drops a photo without saying so. */
 export async function packMedia(zip: Zip, opts: PackOptions = {}): Promise<{ rows: number; bytes: number; skipped: number; omitted: string[] }> {
-	const all = (await listMedia()).filter((m) => !opts.names || opts.names.has(m.name));
+	const all = (await listMedia()).filter((m) => !opts.names || namesOf(m).some((n) => opts.names?.has(n)));
 	if (!all.length) return { rows: 0, bytes: 0, skipped: 0, omitted: [] };
 	const rows: MediaRow[] = [];
 	const omitted: string[] = [];
@@ -239,7 +239,8 @@ export async function restoreMedia(zip: Zip, now: number, ctx: RestoreContext, o
 		const skip = (why: string) => refused.push({ name: `photo ${label.slice(0, 60)}`, why });
 		// A `.lattice` restores only the photos its own deck names (`only`, lowercase). A row for any other
 		// name is not read and not reported: it is not part of what the file said it was.
-		if (opts.only && !(typeof raw?.name === 'string' && opts.only.has(raw.name.toLowerCase()))) continue;
+		// A row also answers to its aliases: a deck that still writes an old name is carried by the photo's current one.
+		if (opts.only && !(typeof raw?.name === 'string' && [raw.name, ...(Array.isArray(raw.aliases) ? raw.aliases : [])].some((n) => typeof n === 'string' && opts.only?.has(n.toLowerCase())))) continue;
 		if (exhausted) {
 			skip(overTotal);
 			continue;

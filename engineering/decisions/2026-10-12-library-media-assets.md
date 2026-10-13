@@ -412,13 +412,50 @@ token, so a component that reads alt text later (a collage's lightbox caption an
 
 ### Suggest
 
-**Suggest** in the detail view sends one 512 px thumbnail, one fixed instruction (forbidding guesses at names, places,
-brands and unreadable text) and the deck's language to the author's own OpenRouter model, on their own key, only when they press
-it. The author's standing instructions are not sent: they are about slides, not alt text (pinned in
-`architect-photo-describe.test.ts`). The draft goes in the Description field and saves nothing until Save. It reuses the chat's
-thumbnail (`agentAssets.thumbnail`, cut from the stored, scrubbed bytes), the budget gate (`cloudBudgetBlock`) and the model's
-`vision` flag from the catalog. No connected model, a model that cannot read images (unknown reads as no), a budget block and an
-unusable reply each give a plain line, never a silent button. The call lives in `suggest-photo-description.ts`, loaded on demand.
+**Suggest a name and description** in the detail view sends one thumbnail, one fixed instruction (forbidding guesses at names,
+places, brands and unreadable text; it asks for JSON `{name, description}`) and the deck's language to the author's **image
+model**, on their own OpenRouter key, only when they press it. The author's standing instructions are not sent: they are about
+slides, not alt text (pinned in `architect-photo-describe.test.ts`). The draft goes in the form and saves nothing until Save. It
+reuses the chat's thumbnail code (`createAgentAssets().thumbnail(name, edge)`, cut from the stored, scrubbed bytes), the budget gate
+(`cloudBudgetBlock`, priced from the look's picture size) and the model's `vision` flag from the catalog. No connected model, a
+model that cannot read images (unknown reads as no), a budget block and an unusable reply each give a plain line, never a silent
+button. The call lives in `suggest-photo-description.ts`, loaded on demand.
+
+**The name.** A camera's name (`img-4568`, `dsc0042`, `pxl-2026…`, bare digits; `generatedName` in `MediaDetailDialog.tsx`) says
+nothing about the picture, so the suggested name replaces it, and the old name stays as an alias like any rename. A name the person
+chose is only offered ("Suggested name: … Use this name"), never applied. The model's name is cleaned to what the Library accepts
+(`cleanPhotoName`: lowercase, hyphens, 32 characters) or dropped.
+
+### The image model
+
+A phone check showed Suggest ran on whatever model the chat used, with no way to choose, and no way to ask for a closer look. Two
+workspace settings now sit in Workspace → Model beside the chat's model (`ImageModelSettings.tsx`, stored in `StudioSettings` as
+`imageModel` and `imageLook`, so they ride in a backup and a junk stored value reads as the default):
+
+- **Image model**: a picker of vision models only (the same catalog list as the chat's picker, filtered), defaulting to
+  `~anthropic/claude-sonnet-latest`, the alias of the newest Sonnet. The alias is not itself listed by OpenRouter, so `modelSees`
+  reads it through its family. It is its own setting because the best model for editing a deck is not always the one to pay for to
+  look at a picture. `createArchitectModel().complete` gained a per-call `model` (used by no other caller).
+- **Look closer** (`image-look.ts`): Quick (512 px picture), Careful (1024 px, the default) and Thorough (1568 px, and the model
+  is asked to think first via `reasoningEffort: 'medium'`). The panel prints the cost in input tokens (about edge² / 750). A model
+  that cannot reason ignores the effort field.
+
+The chat's own photo looking (`view_asset`, which attaches pictures to the chat model itself) is unchanged and still follows the
+chat's model: moving it would change what every chat turn costs, which is a decision for its own change.
+
+### What the second independent check found (merge with `main`, then the phone check)
+
+- A `.lattice` export dropped a photo a deck still named by an OLD name, because the pack and restore code matched on the current
+  name only. Both halves now match `namesOf(photo)` and the row's `aliases`; `lattice-media.test.ts` round-trips it.
+- `asset-refs.ts` rewrote a code span inside a table cell: markdown-it gives a cell's inline token no line range, so the cell now
+  reads with its row's (`tr_open`).
+- The chat's photo intake named new photos against current names only; it now treats an alias as a taken name.
+- The format dialog from `main` had a branch that built the record without the file's own details; fixed and e2e-guarded.
+- **Left as is, deliberately.** The chat can replace a description the person typed, but only when the person asks it to look
+  again (`view_asset … again`), and it is the same field by design. A HEIC photo gives no credit, date or location flag (the reader
+  knows JPEG, PNG and WebP); nothing is stored from it either way, since the photo is re-encoded.
+- `<code>asset:x</code>` and TeX are rewritten by the "everything not code" rule; only Markdown code, raw-text blocks and
+  inline code spans are exempt.
 
 ### Rename can rewrite the decks
 
@@ -487,14 +524,14 @@ so a refused name never leaves the edit half saved.
 
 ### Verified, and what is not
 
-**Verified** in real Chromium (`docs/e2e/library-image-metadata.spec.ts`, 13 tests, OpenRouter mocked per HARD RULE #24): edit,
+**Verified** in real Chromium (`docs/e2e/library-image-metadata.spec.ts`, 21 tests, OpenRouter mocked per HARD RULE #24): edit,
 save and read the record back from IndexedDB at 1440, 820 and 390 px; an alias keeps a deck's slide painting; the description
 fills alt in the preview, live on edit, and in the exported page; EXIF read at import (credit, date, the suggestion, the location
 flag, no EXIF left in the stored bytes); Use new name on the open deck and on a stored deck, and its honest failure when storage refuses the undo entry; Suggest with a vision model, a model
-without vision, and no model; keyboard open, tab containment, Enter to save, Escape and focus return. The export sign-off artifacts
+without vision, and no model; keyboard open, tab containment, Enter to save, Escape and focus return; at 390 px nothing in the dialog is wider than the dialog, the date field is short, the Edit button opens it, and the picture is still painted after a save; the suggested name, the image model and the look from the workspace settings. The export sign-off artifacts
 above were produced from the real Studio in both modes.
 
-**UNVERIFIED:** Firefox and WebKit (only Chromium is installed here; the engine-sensitive tests are tagged for the nightly's
+**UNVERIFIED:** the sideways pan itself (it was seen on an iPhone; Chromium does not reproduce it, so the spec pins the layout that prevents it), Firefox and WebKit (only Chromium is installed here; the engine-sensitive tests are tagged for the nightly's
 `@webkit-tablet @gecko` projects), real touch input, a screen reader, and **how a real model words a description** (the model is mocked).
 
 ## Options not taken

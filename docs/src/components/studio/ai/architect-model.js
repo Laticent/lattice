@@ -385,7 +385,7 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
       writeCachedCatalog(catalogCache);
       return catalogCache;
     },
-    async complete({ messages, json, onToken, signal, onUsage, onGenerationId, onFinishReason, maxTokens, plugins, cacheTtl, tools, toolChoice, onToolCalls, onToolStart, cacheTail }) {
+    async complete({ messages, json, onToken, signal, onUsage, onGenerationId, onFinishReason, maxTokens, plugins, cacheTtl, tools, toolChoice, onToolCalls, onToolStart, cacheTail, model: modelOverride, reasoningEffort }) {
       const key = readLS(OR_KEY_LS);
       if (!key) throw new Error('OpenRouter not connected');
       // usage:{include:true} guarantees the authoritative per-request `usage.cost`
@@ -404,8 +404,12 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
       // with its reasoning from the Drawing Board's chat, which set it explicitly.
       // `cacheTail` (the chat agent's tool loop) adds a rolling breakpoint on the newest
       // message so each round reads the previous rounds from cache; see withCachedTail.
-      const cached = cacheOn ? withCachedSystem(messages, this.getModel(), cacheTtl) : messages;
-      const body = { model: this.getModel(), messages: cacheOn && cacheTail ? withCachedTail(cached, this.getModel()) : cached, stream: !!onToken, usage: { include: true } };
+      // `model` lets ONE call run on a different model than the chat's (the Library's photo description uses the image model
+      // the author picked); `reasoningEffort` asks a reasoning-capable model to think harder. Neither is set by any other caller.
+      const modelId = modelOverride || this.getModel();
+      const cached = cacheOn ? withCachedSystem(messages, modelId, cacheTtl) : messages;
+      const body = { model: modelId, messages: cacheOn && cacheTail ? withCachedTail(cached, modelId) : cached, stream: !!onToken, usage: { include: true } };
+      if (reasoningEffort) body.reasoning = { effort: reasoningEffort };
       // Optional plugins (e.g. the file-parser plugin that extracts an inlined
       // reference PDF server-side, #640). Passed through verbatim when present.
       if (plugins?.length) body.plugins = plugins;

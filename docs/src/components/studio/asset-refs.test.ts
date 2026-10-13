@@ -75,6 +75,8 @@ const SHAPES: Record<string, string> = {
 	'a definition destination on the next line': '![r][r]\n\n[r]:\n  asset:hero\n',
 	'a destination on the line after the bracket': '![](\nasset:hero)\n',
 	'a link destination': '[download](asset:hero) and ![](asset:hero)\n',
+	'a code sample in a table cell, a reference in the next': '| a | b |\n|---|---|\n| ![](asset:hero) | `asset:hero` |\n| `asset:hero` | ![](asset:hero) |\n',
+	'a code sample in a table header': '| `asset:hero` | b |\n|---|---|\n| ![](asset:hero) | x |\n',
 	'a link title and an escaped bracket': '[x](http://e.com "](asset:hero") x \\](asset:hero) ![](asset:hero)\n',
 	'a css url in a tag': '<div style="background:url(asset:hero)"></div>\n\n![](asset:hero)\n',
 };

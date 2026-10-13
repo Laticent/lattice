@@ -619,19 +619,20 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	}
 	/** A draft description for one photo, from the connected model. The model and the budget live in the Architect
 	 *  bridge, loaded only now: a Library that never asks for a suggestion never pays for it. */
-	async function suggestDescription(a: MediaRecord): Promise<{ text: string } | { note: string }> {
-		const thumb = await createAgentAssets().thumbnail(a.name);
+	async function suggestDescription(a: MediaRecord): Promise<{ text: string; name?: string } | { note: string }> {
+		const { suggestPhotoDescription, imageSettings } = await import('./suggest-photo-description');
+		const { IMAGE_LOOKS } = await import('./image-look');
+		const thumb = await createAgentAssets().thumbnail(a.name, IMAGE_LOOKS[imageSettings().look].edge);
 		if (!thumb) return { note: "This photo couldn't be read to describe it." };
-		const { suggestPhotoDescription } = await import('./suggest-photo-description');
 		const { deckOutputLang } = await import('./studio-language');
 		const r = await suggestPhotoDescription(thumb, activeDeckSource ? deckOutputLang(activeDeckSource) : undefined);
 		switch (r.status) {
 			case 'ok':
-				return { text: r.text };
+				return { text: r.text, ...(r.name ? { name: r.name } : {}) };
 			case 'offline':
-				return { note: 'Connect your OpenRouter account in Setup to suggest descriptions. Until then you can type one.' };
+				return { note: 'Connect your OpenRouter account in Setup to get suggestions. Until then you can type them.' };
 			case 'novision':
-				return { note: "The model you picked can't read images. Choose one that can in Setup, or type a description." };
+				return { note: "The image model you picked can't read images. Choose another in Workspace → Model → Image model, or type a description." };
 			case 'blocked':
 				return { note: r.note };
 			default:

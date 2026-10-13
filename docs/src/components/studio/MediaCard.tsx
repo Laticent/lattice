@@ -1,4 +1,4 @@
-import { Image as ImageIcon, Layers, Lock } from 'lucide-react';
+import { Image as ImageIcon, Layers, Lock, Pencil } from 'lucide-react';
 import * as React from 'react';
 import { DeleteBtn } from './delete-btn';
 import { LIBRARY_SCOPE, type MediaRecord } from './media-store';
@@ -8,14 +8,25 @@ import { formatBytes } from './reference-doc';
 // not a lattice-asset, so there is no select box and no zip share. The thumbnail is an object
 // URL minted for the card's lifetime and revoked on unmount (a leaked URL pins the Blob).
 
-export function useObjectUrl(blob: Blob | undefined): string | null {
+/** An object URL for `blob`, minted for as long as it is shown. A reload hands back a NEW Blob object for the same stored photo
+ *  (the Library re-reads after every save), and swapping the URL under a mounted picture used to paint a broken image until the
+ *  new one decoded: so the URL follows `key` (the photo's id and stored bytes) rather than the Blob's identity, and a URL that is
+ *  replaced is revoked a moment AFTER its successor is in place. */
+export function useObjectUrl(blob: Blob | undefined, key?: string): string | null {
 	const [url, setUrl] = React.useState<string | null>(null);
+	const blobRef = React.useRef(blob);
+	blobRef.current = blob;
+	const stable = key ?? blob;
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `stable` is the photo's identity; the Blob itself is read through the ref on purpose
 	React.useEffect(() => {
-		if (!blob) return setUrl(null);
-		const u = URL.createObjectURL(blob);
+		const b = blobRef.current;
+		if (!b) return setUrl(null);
+		const u = URL.createObjectURL(b);
 		setUrl(u);
-		return () => URL.revokeObjectURL(u);
-	}, [blob]);
+		return () => {
+			setTimeout(() => URL.revokeObjectURL(u), 2000);
+		};
+	}, [stable]);
 	return url;
 }
 
@@ -36,7 +47,7 @@ export function MediaCard({ m, activeDeckId, usedIn, usedElsewhere, armed, confi
 	/** Open the detail view: the picture large, and its description, credit, date and name to edit. */
 	onOpen: (opener: HTMLElement) => void;
 }) {
-	const url = useObjectUrl(m.blob);
+	const url = useObjectUrl(m.blob, `${m.id}:${m.bytes}:${m.width}x${m.height}`);
 	const shared = m.scope === LIBRARY_SCOPE;
 	// The scope flip is offered only where it can be named: a shared asset can become this deck's (needs an
 	// open deck, and no OTHER deck naming it: keeping it to one deck would turn the rest into placeholders),
@@ -80,6 +91,9 @@ export function MediaCard({ m, activeDeckId, usedIn, usedElsewhere, armed, confi
 					) : (
 						<span className="flex-1 truncate px-1 font-mono text-[10.5px] text-muted-foreground">{pinned ? `Used by ${usedElsewhere} other deck${usedElsewhere === 1 ? '' : 's'}, so it stays shared` : shared ? 'Open a deck to scope it' : 'Belongs to another deck'}</span>
 					)}
+					<button type="button" onClick={(e) => onOpen(e.currentTarget)} aria-label={`Edit ${m.name}`} title="Edit name, description and details" className="grid place-items-center rounded-lg border border-border bg-card px-2.5 py-1.5 text-muted-foreground hover:text-[var(--text-heading)]">
+						<Pencil className="size-3.5" aria-hidden />
+					</button>
 					<DeleteBtn labelClass={confirmLabel} armed={armed} onArm={onArm} onConfirm={onDelete} onCancel={onCancel} label={m.name} />
 				</div>
 			</div>

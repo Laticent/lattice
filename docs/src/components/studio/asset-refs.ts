@@ -93,9 +93,14 @@ export function renameAssetRefsOutsideCode(source: string, from: string, to: str
 	// What each line is, as the parser sees it. Default `prose`: a line no block claimed (a link reference definition) is a reference.
 	const kind: ('prose' | 'code' | 'group')[] = lines.map(() => 'prose');
 	const groups = new Map<string, Group>();
+	// markdown-it gives a table CELL's inline token no line range of its own; the row (`tr_open`) has one. A cell reads with its row's.
+	let rowMap: [number, number] | null = null;
 	for (const t of tokens) {
-		if (!t.map) continue;
-		const [a, b] = t.map;
+		if (t.type === 'tr_open') rowMap = t.map;
+		else if (t.type === 'tr_close') rowMap = null;
+		const range = t.map ?? (t.type === 'inline' ? rowMap : null);
+		if (!range) continue;
+		const [a, b] = range;
 		if (t.type === 'fence' || t.type === 'code_block') for (let l = a; l < b; l++) kind[l] = 'code';
 		else if (t.type === 'html_block') for (let l = a; l < b; l++) kind[l] = RAW_TEXT_BLOCK.test(t.content) ? 'code' : 'prose';
 		else if (t.type === 'inline') {

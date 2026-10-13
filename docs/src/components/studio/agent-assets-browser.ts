@@ -43,9 +43,9 @@ export function createAgentAssets(): AgentAssets {
 		async list() {
 			return (await shelf()).map(infoOf);
 		},
-		async thumbnail(name) {
+		async thumbnail(name, edge = MAX_THUMB_EDGE) {
 			const rec = (await shelf()).find((m) => m.name === name && m.kind === 'image');
-			return rec ? thumbOf(rec.blob, MAX_THUMB_EDGE) : null;
+			return rec ? thumbOf(rec.blob, edge) : null;
 		},
 		async setCaption(name, caption) {
 			const rec = (await shelf()).find((m) => m.name === name && m.kind === 'image');

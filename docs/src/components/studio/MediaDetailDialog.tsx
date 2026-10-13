@@ -18,6 +18,11 @@ import { formatBytes } from './reference-doc';
 // Pixel size, bytes and file name are facts about the stored file and are shown, not edited.
 // Decision note: engineering/decisions/2026-10-12-library-media-assets.md §Editing a photo's metadata.
 
+/** A name a camera or a phone made: `img-4568`, `dsc0042`, `pxl-20260101`, `screenshot-3`, or bare digits. It says nothing about
+ *  the picture, so a suggested name may replace it without asking; a name the person typed is only ever offered. */
+const GENERATED_NAME = /^(?:img|image|dsc|dscn|dscf|pxl|mvimg|photo|pic|picture|screenshot|screen-shot|capture|scan|whatsapp-image|signal)?[-_]?\d{2,}(?:[-_]\d+)*$|^(?:img|image|dsc|dscn|dscf|pxl|mvimg|photo|pic|picture|screenshot|screen-shot|capture|scan|whatsapp-image|signal)(?:[-_]\d+)*$/;
+export const generatedName = (n: string): boolean => GENERATED_NAME.test(n);
+
 /** Today as `YYYY-MM-DD` on THIS device's calendar. `toISOString` is UTC, which is already tomorrow (or still yesterday) for most of the world part of the day, and would grey out today's date. */
 function localToday(): string {
 	const d = new Date();
@@ -41,7 +46,7 @@ export function MediaDetailDialog({ m: incoming, open, onOpenChange, usedIn, ali
 	/** Rewrite the decks that write `asset:<alias>` to the photo's current name. Resolves an error line, or null. */
 	onUseNewName: (alias: string) => Promise<string | null>;
 	/** Ask the connected model for a description of this photo. Resolves the text for the field, or a line saying why not. */
-	onSuggest: () => Promise<{ text: string } | { note: string }>;
+	onSuggest: () => Promise<{ text: string; name?: string } | { note: string }>;
 	/** The control that opened the dialog. Closing returns keyboard focus to it, so a person who opened the dialog
 	 *  with Enter is back where they were. Left out, the dialog's own default applies. */
 	returnFocusTo?: () => HTMLElement | null;
@@ -51,7 +56,7 @@ export function MediaDetailDialog({ m: incoming, open, onOpenChange, usedIn, ali
 	const lastRecord = React.useRef<MediaRecord | null>(null);
 	if (incoming) lastRecord.current = incoming;
 	const m = incoming ?? lastRecord.current;
-	const url = useObjectUrl(m?.blob);
+	const url = useObjectUrl(m?.blob, m ? `${m.id}:${m.bytes}:${m.width}x${m.height}` : undefined);
 	const [name, setName] = React.useState('');
 	const [caption, setCaption] = React.useState('');
 	const [credit, setCredit] = React.useState('');
@@ -60,6 +65,8 @@ export function MediaDetailDialog({ m: incoming, open, onOpenChange, usedIn, ali
 	const [busy, setBusy] = React.useState(false);
 	const [suggesting, setSuggesting] = React.useState(false);
 	const [suggestNote, setSuggestNote] = React.useState<string | null>(null);
+	// A name the model proposed that was NOT applied (the photo already has a name the person chose): offered, never forced.
+	const [suggestedName, setSuggestedName] = React.useState<string | null>(null);
 	const uid = React.useId();
 	// The form starts over every time the dialog OPENS, and when a different photo is shown: a draft from a cancelled visit is
 	// gone, and a refresh of the same photo (the Library reloads while the dialog is open) does not wipe what is being typed.
@@ -78,6 +85,7 @@ export function MediaDetailDialog({ m: incoming, open, onOpenChange, usedIn, ali
 		setTaken(start.taken);
 		setError(null);
 		setSuggestNote(null);
+		setSuggestedName(null);
 		setSuggesting(false);
 	}, [id, open]);
 	// A Suggest answer belongs to the visit that asked: the counter moves every time the dialog opens, closes or shows another
@@ -105,8 +113,19 @@ export function MediaDetailDialog({ m: incoming, open, onOpenChange, usedIn, ali
 			const r = await onSuggest();
 			// The answer belongs to the photo that asked. If the dialog was closed or shows another photo by now, drop it.
 			if (visit.current !== asked) return;
-			if ('text' in r) setCaption(r.text);
-			else setSuggestNote(r.note);
+			if ('text' in r) {
+				setCaption(r.text);
+				// A camera's file name (`img-4568`) says nothing, so the model's name replaces it; a name the person chose is only offered.
+				if (r.name && r.name !== name) {
+					if (generatedName(name)) {
+						setName(r.name);
+						setSuggestNote(`Suggested the name “${r.name}” and a description. Nothing is saved until you press Save.`);
+					} else {
+						setSuggestedName(r.name);
+						setSuggestNote('Suggested a description. Nothing is saved until you press Save.');
+					}
+				} else setSuggestNote('Suggested a description. Nothing is saved until you press Save.');
+			} else setSuggestNote(r.note);
 		} catch {
 			if (visit.current === asked) setSuggestNote("Couldn't reach the model. Check your connection and try again.");
 		} finally {
@@ -151,7 +170,7 @@ export function MediaDetailDialog({ m: incoming, open, onOpenChange, usedIn, ali
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent
-				className="max-h-[90dvh] overflow-y-auto sm:max-w-xl"
+				className="max-h-[90dvh] touch-pan-y overflow-y-auto overflow-x-hidden sm:max-w-xl"
 				data-media-detail={m.name}
 				onCloseAutoFocus={(e) => {
 					const back = returnFocusTo?.();
@@ -180,25 +199,23 @@ export function MediaDetailDialog({ m: incoming, open, onOpenChange, usedIn, ali
 					{url && <img src={url} alt={m.caption ?? ''} className="max-h-[40dvh] w-auto max-w-full object-contain" draggable={false} />}
 				</div>
 				<div className="grid gap-3 text-[13px]">
-					<div className="grid gap-1">
-						<div className="flex items-center justify-between gap-2">
-							<label htmlFor={`${uid}-caption`} className="font-semibold">Description</label>
-							<Button type="button" size="sm" variant="ghost" disabled={suggesting || busy} onClick={() => void suggest()} data-suggest>
-								<Sparkles className="size-3.5" aria-hidden />
-								{suggesting ? 'Looking…' : 'Suggest'}
-							</Button>
-						</div>
-						<Textarea id={`${uid}-caption`} value={caption} maxLength={140} rows={2} onChange={(e) => setCaption(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); e.currentTarget.form?.requestSubmit(); } }} placeholder="What the picture shows. The chat reads it." />
-					{suggestNote && <p role="status" className="text-[11.5px] text-muted-foreground">{suggestNote}</p>}
+					<div className="grid min-w-0 gap-1.5">
+						<label htmlFor={`${uid}-caption`} className="font-semibold">Description</label>
+						<Textarea id={`${uid}-caption`} value={caption} maxLength={140} rows={2} onChange={(e) => setCaption(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); e.currentTarget.form?.requestSubmit(); } }} placeholder="What the picture shows. It becomes the alt text, and the chat reads it." />
+						<Button type="button" variant="outline" size="sm" className="w-full justify-center" disabled={suggesting || busy} onClick={() => void suggest()} data-suggest>
+							<Sparkles className="size-3.5" aria-hidden />
+							{suggesting ? 'Looking at the photo…' : 'Suggest a name and description'}
+						</Button>
+						<p role="status" className="text-[11.5px] text-muted-foreground">{suggestNote ?? 'Your image model looks at the photo and drafts both. You choose the model in Workspace → Model.'}</p>
 					</div>
-					<div className="grid gap-3 sm:grid-cols-2">
+					<div className="grid min-w-0 gap-3 sm:grid-cols-2">
 						<div className="grid gap-1">
 							<label htmlFor={`${uid}-credit`} className="font-semibold">Credit</label>
 							<Input id={`${uid}-credit`} value={credit} maxLength={100} onChange={(e) => setCredit(e.target.value)} placeholder="Photographer or source" />
 						</div>
 						<div className="grid gap-1">
 							<label htmlFor={`${uid}-taken`} className="font-semibold">Date taken</label>
-							<Input id={`${uid}-taken`} type="date" value={taken} max={localToday()} onChange={(e) => setTaken(e.target.value)} aria-invalid={!takenOk} />
+							<Input id={`${uid}-taken`} type="date" value={taken} max={localToday()} onChange={(e) => setTaken(e.target.value)} aria-invalid={!takenOk} className="min-w-0 max-w-[12rem] [&::-webkit-date-and-time-value]:text-left" />
 						</div>
 					</div>
 					<div className="grid gap-1">
@@ -207,6 +224,12 @@ export function MediaDetailDialog({ m: incoming, open, onOpenChange, usedIn, ali
 						<span className="text-[11.5px] text-muted-foreground">
 							{nameOk ? 'Renaming keeps the old name working in every deck.' : 'Use lowercase letters, digits, - and _.'}
 						</span>
+						{suggestedName && suggestedName !== name && (
+							<span className="flex flex-wrap items-center gap-2 text-[12px]" data-suggested-name>
+								<span className="text-muted-foreground">Suggested name: <code className="font-mono">{suggestedName}</code></span>
+								<Button type="button" size="sm" variant="outline" onClick={() => { setName(suggestedName); setSuggestedName(null); }}>Use this name</Button>
+							</span>
+						)}
 					</div>
 					{(m.fileCaption || m.hadLocation) && (
 						<div className="grid gap-1.5 rounded-lg border border-border bg-[var(--bg-alt)] p-3 text-[12.5px]" data-from-file>

@@ -414,20 +414,25 @@ test('@smoke "Use new name" also rewrites a deck that is not open, and says how 
 // and a missing connection or a model that cannot read images gets a plain line, not a silent button.
 const MOCK_MODEL = '~anthropic/claude-sonnet-latest';
 
-async function mockOpenRouter(page: Page, opts: { key: boolean; vision: boolean; reply?: string }): Promise<{ bodies: { messages: { role: string; content: unknown }[] }[] }> {
-	await page.addInitScript((withKey) => {
-		try {
-			if (withKey) localStorage.setItem('lattice-db-or-key', 'sk-e2e-mock-not-a-real-key');
-			localStorage.setItem('lattice-db-dedup', 'off');
-		} catch {
-			/* storage unavailable: the spec fails loudly on the missing control */
-		}
-	}, opts.key);
-	const seen: { bodies: { messages: { role: string; content: unknown }[] }[] } = { bodies: [] };
+type OrBody = { model?: string; reasoning?: { effort?: string }; messages: { role: string; content: unknown }[] };
+async function mockOpenRouter(page: Page, opts: { key: boolean; vision: boolean; reply?: string; settings?: Record<string, unknown> }): Promise<{ bodies: OrBody[] }> {
+	await page.addInitScript(
+		({ withKey, settings }) => {
+			try {
+				if (withKey) localStorage.setItem('lattice-db-or-key', 'sk-e2e-mock-not-a-real-key');
+				localStorage.setItem('lattice-db-dedup', 'off');
+				if (settings) localStorage.setItem('lattice-studio-settings', JSON.stringify(settings));
+			} catch {
+				/* storage unavailable: the spec fails loudly on the missing control */
+			}
+		},
+		{ withKey: opts.key, settings: opts.settings ?? null },
+	);
+	const seen: { bodies: OrBody[] } = { bodies: [] };
 	await page.route('https://openrouter.ai/**', async (route) => {
 		const url = route.request().url();
 		if (url.includes('/chat/completions')) {
-			const body = route.request().postDataJSON() as { stream?: boolean; messages: { role: string; content: unknown }[] };
+			const body = route.request().postDataJSON() as OrBody & { stream?: boolean };
 			seen.bodies.push(body);
 			const usage = { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20, cost: 0 };
 			const text = opts.reply ?? 'a team on a roof';
@@ -441,8 +446,9 @@ async function mockOpenRouter(page: Page, opts: { key: boolean; vision: boolean;
 				await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 'gen-1', choices: [{ index: 0, message: { role: 'assistant', content: text }, finish_reason: 'stop' }], usage }) });
 			}
 		} else if (url.endsWith('/models') || url.includes('/models?')) {
-			const model = { id: MOCK_MODEL, name: 'Mock model', pricing: { prompt: '0.000003', completion: '0.000015' }, context_length: 200000, architecture: { input_modalities: opts.vision ? ['text', 'image'] : ['text'] } };
-			await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [model] }) });
+			const entry = (id: string, name: string, vision: boolean) => ({ id, name, pricing: { prompt: '0.000003', completion: '0.000015' }, context_length: 200000, architecture: { input_modalities: vision ? ['text', 'image'] : ['text'] } });
+			const data = [entry(MOCK_MODEL, 'Mock model', opts.vision), entry('openai/gpt-5', 'OpenAI: GPT-5', true), entry('deepseek/deepseek-chat', 'DeepSeek: Chat', false)];
+			await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data }) });
 		} else {
 			await route.fulfill({ status: 200, contentType: 'application/json', body: '{"data":{}}' });
 		}
@@ -463,21 +469,27 @@ async function openPhotoDialog(page: Page, name: string): Promise<ReturnType<Pag
 
 test('@smoke Suggest drafts a description from the real thumbnail; it is not saved until Save', async ({ page }) => {
 	test.slow();
-	const seen = await mockOpenRouter(page, { key: true, vision: true, reply: '"A team standing on a roof at sunset."' });
+	const seen = await mockOpenRouter(page, { key: true, vision: true, reply: JSON.stringify({ name: 'Team on the Roof', description: '"A team standing on a roof at sunset."' }) });
 	await gotoStudio(page);
 	const dialog = await openPhotoDialog(page, 'suggest-me');
-	await dialog.getByRole('button', { name: 'Suggest' }).click();
+	await dialog.getByRole('button', { name: 'Suggest a name and description' }).click();
 	await expect(dialog.getByLabel('Description')).toHaveValue('A team standing on a roof at sunset.', { timeout: 30_000 });
 
 	// What went to the model: an image part carrying a small JPEG thumbnail, and the no-guessing contract.
 	expect(seen.bodies).toHaveLength(1);
+	// The default image model is the latest Sonnet, at the Careful look: no reasoning asked for.
+	expect(seen.bodies[0].model).toBe('~anthropic/claude-sonnet-latest');
+	expect(seen.bodies[0].reasoning).toBeUndefined();
 	const [sys, user] = seen.bodies[0].messages;
 	// The system message may arrive as cache-wrapped text parts, so read its text whichever shape it has.
 	expect(JSON.stringify(sys.content)).toMatch(/Never guess names, places, brands/);
 	const parts = user.content as { type: string; image_url?: { url: string } }[];
 	const img = parts.find((p) => p.type === 'image_url')?.image_url?.url ?? '';
 	expect(img.startsWith('data:image/jpeg;base64,')).toBe(true);
-	expect(img.length, 'a thumbnail, not the stored photo').toBeLessThan(200_000);
+	expect(img.length, 'a thumbnail, not the stored photo').toBeLessThan(400_000);
+	// The name is offered, not applied: `suggest-me` is a name the person chose.
+	await expect(dialog.getByLabel('Name')).toHaveValue('suggest-me');
+	await expect(dialog.locator('[data-suggested-name]')).toContainText('team-on-the-roof');
 
 	// A draft only: the record holds no description until Save.
 	const before = await page.evaluate(async () => {
@@ -503,7 +515,7 @@ test('@smoke Suggest says plainly when the model cannot read images, and when no
 	await mockOpenRouter(page, { key: true, vision: false });
 	await gotoStudio(page);
 	const dialog = await openPhotoDialog(page, 'no-vision');
-	await dialog.getByRole('button', { name: 'Suggest' }).click();
+	await dialog.getByRole('button', { name: 'Suggest a name and description' }).click();
 	await expect(dialog.getByText(/can't read images/)).toBeVisible({ timeout: 30_000 });
 	await expect(dialog.getByLabel('Description')).toHaveValue('');
 });
@@ -513,7 +525,7 @@ test('@smoke Suggest with no model connected points to Setup and sends nothing',
 	const seen = await mockOpenRouter(page, { key: false, vision: true });
 	await gotoStudio(page);
 	const dialog = await openPhotoDialog(page, 'no-key');
-	await dialog.getByRole('button', { name: 'Suggest' }).click();
+	await dialog.getByRole('button', { name: 'Suggest a name and description' }).click();
 	await expect(dialog.getByText(/Connect your OpenRouter account in Setup/)).toBeVisible({ timeout: 30_000 });
 	expect(seen.bodies, 'no photo left the browser').toHaveLength(0);
 });
@@ -610,4 +622,108 @@ test('@smoke "Use new name" says so when the browser has no room, and rewrites n
 	expect(stored).toHaveLength(1);
 	expect(stored[0]).toContain('asset:full-disk');
 	expect(stored[0]).not.toContain('asset:roomy');
+});
+
+// ── Polish found on a phone: layout, the edit button, the picture after a save, the name, and the image model ─────────────────
+
+test('@smoke a camera-made name is replaced by the suggested one, and the old name stays as an alias', async ({ page }) => {
+	test.slow();
+	await mockOpenRouter(page, { key: true, vision: true, reply: JSON.stringify({ name: 'Black Suede Brogue', description: 'Black suede and polished leather dress shoe on a dark surface.' }) });
+	await gotoStudio(page);
+	const dialog = await openPhotoDialog(page, 'img-4568');
+	await dialog.getByRole('button', { name: 'Suggest a name and description' }).click();
+	await expect(dialog.getByLabel('Name')).toHaveValue('black-suede-brogue', { timeout: 30_000 });
+	await expect(dialog.getByLabel('Description')).toHaveValue('Black suede and polished leather dress shoe on a dark surface.');
+	await expect(dialog.getByRole('status')).toContainText('Nothing is saved until you press Save');
+	await dialog.getByRole('button', { name: 'Save' }).click();
+	await expect(dialog).toBeHidden();
+	const [row] = await mediaRows(page);
+	expect(row).toMatchObject({ name: 'black-suede-brogue', aliases: ['img-4568'] });
+});
+
+test('@smoke the image model and the look come from the workspace settings', async ({ page }) => {
+	test.slow();
+	const seen = await mockOpenRouter(page, { key: true, vision: true, reply: JSON.stringify({ name: 'x-ray', description: 'A chest x-ray on a light box.' }), settings: { imageModel: 'openai/gpt-5', imageLook: 'thorough' } });
+	await gotoStudio(page);
+	const dialog = await openPhotoDialog(page, 'scan-me');
+	await dialog.getByRole('button', { name: 'Suggest a name and description' }).click();
+	await expect(dialog.getByLabel('Description')).toHaveValue('A chest x-ray on a light box.', { timeout: 30_000 });
+	expect(seen.bodies[0].model).toBe('openai/gpt-5');
+	expect(seen.bodies[0].reasoning).toEqual({ effort: 'medium' });
+	const parts = seen.bodies[0].messages[1].content as { type: string; image_url?: { url: string } }[];
+	expect(parts.find((p) => p.type === 'image_url')?.image_url?.url.startsWith('data:image/jpeg;base64,')).toBe(true);
+});
+
+test('@smoke Suggest says plainly when the chosen image model cannot read images', async ({ page }) => {
+	test.slow();
+	await mockOpenRouter(page, { key: true, vision: true, settings: { imageModel: 'deepseek/deepseek-chat' } });
+	await gotoStudio(page);
+	const dialog = await openPhotoDialog(page, 'blind-model');
+	await dialog.getByRole('button', { name: 'Suggest a name and description' }).click();
+	await expect(dialog.getByText(/image model you picked can't read images/)).toBeVisible({ timeout: 30_000 });
+});
+
+test('@smoke Workspace → Model has an Image model picker (vision models only, the latest Sonnet by default) and a Look closer dial', async ({ page }) => {
+	test.slow();
+	await mockOpenRouter(page, { key: true, vision: true });
+	await gotoStudio(page);
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await page.getByRole('button', { name: CHROME.workspaceSettings, exact: true }).first().click();
+	const panel = page.locator('[data-image-model-settings]');
+	await panel.scrollIntoViewIfNeeded();
+	await expect(panel.getByText('Latest Claude Sonnet')).toBeVisible({ timeout: 30_000 });
+	await expect(panel.getByRole('button', { name: 'Careful' })).toHaveAttribute('aria-pressed', 'true');
+
+	await panel.getByRole('button', { name: 'Thorough' }).click();
+	await expect(panel.getByRole('button', { name: 'Thorough' })).toHaveAttribute('aria-pressed', 'true');
+	await expect(panel).toContainText('the model thinks before it answers');
+
+	await panel.getByRole('button', { name: /Latest Claude Sonnet/ }).click();
+	await expect(panel.getByText('GPT-5', { exact: true })).toBeVisible({ timeout: 30_000 });
+	await expect(panel.getByText('Chat', { exact: true }), 'a model that cannot read pictures is not offered').toHaveCount(0);
+	await panel.getByText('GPT-5', { exact: true }).click();
+
+	const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}'));
+	expect(saved).toMatchObject({ imageModel: 'openai/gpt-5', imageLook: 'thorough' });
+	await panel.getByRole('button', { name: /GPT-5/ }).click();
+	await panel.getByRole('button', { name: 'Use the latest Claude Sonnet again' }).click();
+	expect(await page.evaluate(() => JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}').imageModel)).toBe('~anthropic/claude-sonnet-latest');
+});
+
+test('@smoke @mobile on a phone the dialog does not pan sideways, the date field is short, and the picture survives a save', async ({ page }) => {
+	test.slow();
+	await gotoStudio(page);
+	await page.setViewportSize({ width: 390, height: 844 });
+	await openLibraryImages(page, 390);
+	await addPhoto(page, 'IMG_4568.png');
+	const card = page.locator('[data-media-card="img-4568"]');
+	await expect(card).toBeVisible();
+
+	// An Edit button sits beside Delete, so the way in is not a guess at the thumbnail.
+	await card.getByRole('button', { name: 'Edit img-4568' }).click();
+	const dialog = page.locator('[data-media-detail="img-4568"]');
+	await expect(dialog).toBeVisible();
+	await settled(dialog);
+
+	const fit = await dialog.evaluate((el) => {
+		const date = el.querySelector('input[type="date"]') as HTMLInputElement;
+		const box = el.getBoundingClientRect();
+		const wide = [...el.querySelectorAll('*')].filter((n) => getComputedStyle(n).display !== 'contents').filter((n) => n.getBoundingClientRect().right > box.right + 0.5 || n.getBoundingClientRect().left < box.left - 0.5).map((n) => `${n.tagName}.${(n as HTMLElement).className}`.slice(0, 80));
+		return { scrollW: el.scrollWidth, clientW: el.clientWidth, dateW: date.getBoundingClientRect().width, touch: getComputedStyle(el).touchAction, overflowX: getComputedStyle(el).overflowX, wide };
+	});
+	expect(fit.scrollW, `nothing is wider than the dialog: ${fit.wide.join(' | ')}`).toBeLessThanOrEqual(fit.clientW);
+	expect(fit.wide, 'no control pokes out of the dialog').toEqual([]);
+	expect(fit.dateW, 'the date field is short').toBeLessThanOrEqual(200);
+	expect(fit.overflowX).toBe('hidden');
+	expect(fit.touch).toContain('pan-y');
+
+	// Save a change; the picture is still a picture, in the dialog's place on the shelf and on reopening.
+	await dialog.getByLabel('Description').fill('A shoe');
+	await dialog.getByRole('button', { name: 'Save' }).click();
+	await expect(dialog).toBeHidden();
+	const loaded = (sel: string) => page.evaluate((s) => { const i = document.querySelector(s) as HTMLImageElement | null; return !!i && i.complete && i.naturalWidth > 0; }, sel);
+	await expect.poll(() => loaded('[data-media-card="img-4568"] img'), { message: 'the card picture is still painted after a save' }).toBe(true);
+	await card.getByRole('button', { name: 'Edit img-4568' }).click();
+	await expect(dialog).toBeVisible();
+	await expect.poll(() => loaded('[data-media-detail="img-4568"] img'), { message: 'the dialog picture is painted' }).toBe(true);
 });
