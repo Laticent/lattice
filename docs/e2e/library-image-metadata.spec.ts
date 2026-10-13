@@ -24,6 +24,12 @@ async function addPhoto(page: Page, name: string) {
 		input.files = dt.files;
 		input.dispatchEvent(new Event('change', { bubbles: true }));
 	}, name);
+	await confirmFormat(page);
+}
+
+/** The format dialog asks how to store the photo; these tests take its default. */
+async function confirmFormat(page: Page) {
+	await page.getByRole('dialog').getByRole('button', { name: /^Add photo/ }).click();
 }
 
 type Row = { name: string; aliases?: string[]; caption?: string; credit?: string; taken?: string };
@@ -192,7 +198,7 @@ test('@smoke a photo\'s description is its alt text: in the preview, live when e
 	const pending = page.waitForEvent('download', { timeout: 240_000 });
 	await shareExport(page, 'webpage');
 	const html = readFileSync((await (await pending).path()) as string, 'utf8');
-	const tags = [...html.matchAll(/<img\b[^>]*>/g)].map((m) => m[0]).filter((t) => /src="data:image\/png/.test(t));
+	const tags = [...html.matchAll(/<img\b[^>]*>/g)].map((m) => m[0]).filter((t) => /src="data:image\/(?:png|jpeg|webp)/.test(t));
 	// The page shows each photo more than once (the slide and its reading view): every one must carry its alt.
 	const alts = tags.map((t) => /\salt="([^"]*)"/.exec(t)?.[1]);
 	expect(alts.length).toBeGreaterThanOrEqual(2);
@@ -250,6 +256,7 @@ async function addExifPhoto(page: Page, name: string) {
 		input.files = dt.files;
 		input.dispatchEvent(new Event('change', { bubbles: true }));
 	}, name);
+	await confirmFormat(page);
 }
 
 test('@smoke a photo\'s own description, artist and date are read at import; its location is flagged and gone @crosswidth @webkit-tablet @gecko', async ({ page }) => {

@@ -307,7 +307,7 @@ export async function importImage(file: File, scope: string, format?: PhotoForma
 		if (format) {
 			const e = await encodeAs(file, bitmap, mime, format);
 			if (e.blob.size > MAX_MEDIA_FILE_BYTES) throw new MediaImportError(`${file.name} is still ${Math.round(e.blob.size / 1_048_576)} MB after it was converted; a photo may be at most ${Math.floor(MAX_MEDIA_FILE_BYTES / 1_048_576)} MB.`);
-			return { kind: 'image', name: mediaNameFromFile(file.name, 'image'), scope, blob: e.blob, mime: e.mime, bytes: e.blob.size, width: e.width, height: e.height, sourceName: file.name, original: e.original };
+			return { kind: 'image', name: mediaNameFromFile(file.name, 'image'), scope, blob: e.blob, mime: e.mime, bytes: e.blob.size, width: e.width, height: e.height, sourceName: file.name, original: e.original, ...fromFile };
 		}
 		const plan = planImage(mime, bitmap.width, bitmap.height);
 		const scrub = !plan.reencode ? scrubberFor(mime) : undefined;
