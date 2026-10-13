@@ -107,7 +107,8 @@ export function ChatAttach({
 	);
 
 	return (
-		<>
+		// `relative`, so the device input below can sit exactly over the paperclip: see the comment on the input.
+		<span className="relative inline-grid shrink-0">
 			<Popover open={open} onOpenChange={onOpenChange}>
 				<PopoverTrigger asChild>
 					<button
@@ -275,13 +276,19 @@ export function ChatAttach({
 				</PopoverContent>
 			</Popover>
 			{/* No `capture` attribute: on a phone the picker then offers Photo Library, Take Photo or Video and Choose Files,
-			    which is the point. The files are COPIED OUT before anything awaits: a FileList is live and WebKit empties it. */}
+			    which is the point. The files are COPIED OUT before anything awaits: a FileList is live and WebKit empties it.
+			    NOT `hidden`. iOS anchors its sheet to the input element, and a `display:none` input has no box, so the sheet
+			    floated mid-screen and to one side, nowhere near the paperclip (seen on a real iPhone). The input is laid out
+			    over the paperclip instead, invisible and untouchable (the tap lands on the button beneath), so the sheet has
+			    the paperclip to attach to. */}
 			<input
 				ref={inputRef}
 				type="file"
 				accept={deviceAccept}
 				multiple
-				hidden
+				tabIndex={-1}
+				aria-hidden="true"
+				className="pointer-events-none absolute inset-0 size-full opacity-0"
 				data-testid="chat-attach-device"
 				onChange={(e) => {
 					const picked = Array.from(e.target.files ?? []);
@@ -289,6 +296,6 @@ export function ChatAttach({
 					if (picked.length) onDeviceFiles(picked);
 				}}
 			/>
-		</>
+		</span>
 	);
 }

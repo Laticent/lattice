@@ -450,6 +450,14 @@ test('the paperclip offers exactly two paths, and the device path opens the nati
 	expect(accept).toContain('image/*');
 	expect(accept).toContain('video/*');
 	expect(accept).toContain('.pdf');
+	// iOS anchors its native sheet to the input element. A `hidden` input has no box, so the sheet floated mid-screen and
+	// to one side (seen on a real iPhone). The input must be LAID OUT over the paperclip, invisible and untouchable.
+	const inputBox = await page.getByTestId('chat-attach-device').boundingBox();
+	const clipBox = await attachButton(page).boundingBox();
+	expect(inputBox, 'the device input has no box').not.toBeNull();
+	expect(Math.abs((inputBox?.x ?? 0) - (clipBox?.x ?? 99)) < 1.5 && Math.abs((inputBox?.y ?? 0) - (clipBox?.y ?? 99)) < 1.5 && Math.abs((inputBox?.width ?? 0) - (clipBox?.width ?? 99)) < 1.5, `input ${JSON.stringify(inputBox)} vs paperclip ${JSON.stringify(clipBox)}`).toBe(true);
+	await expect(page.getByTestId('chat-attach-device')).toHaveCSS('pointer-events', 'none');
+	await expect(page.getByTestId('chat-attach-device')).toHaveCSS('opacity', '0');
 	const chooser = page.waitForEvent('filechooser');
 	await menu.getByRole('menuitem', { name: /From this device/ }).click();
 	expect((await chooser).isMultiple()).toBe(true);
