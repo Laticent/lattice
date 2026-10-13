@@ -7,10 +7,14 @@ summary: Give Compose point-and-click editors for the inline notation (pills, sp
 
 > Status: **decided; phase 1 built** (2026-10-13). The owner confirmed four forks in §11, then
 > **revised the first one the same day**: Compose shows the pill as the slide draws it, not a chip
-> beside its grammar. §11 records both answers, and §12 says what phase 1 built and how.
+> beside its grammar. A first build of that (decorations over text) failed on a real iPhone, and the
+> owner chose the sustainable form instead: **the pill is one inline object in the document**, with
+> deck-wide Undo and Redo. §11 records the answers, and §12 says what phase 1 built and how.
 
-**The answer first.** Compose should draw a small, clickable chip next to every pill, spark
-and avatar. A click opens one shared editor with the controls that notation allows: shape
+**The answer first.** *(This section is the first draft. It said a small chip beside each pill,
+spark and avatar; §11 and §12 record why the shipped form is the drawn object itself, one node in the
+document.)* Compose should draw every pill, spark and avatar as the slide draws it. A tap opens one
+shared editor with the controls that notation allows: shape
 thumbnails, color swatches, a number grid, trait swatches. The editor rewrites **only the
 words the author changed** inside the existing inline-code span, so everything it does not
 understand stays exactly as written. We build it once, on the host, and add one panel per
@@ -110,8 +114,14 @@ vocabulary match the readers use, the way `withSparkSize` does for the size word
   pane bar is the precedent for a clickable widget decoration.
 - *A2. Replace the raw text with the drawn thing* while the caret is elsewhere, and show the
   text when the caret touches it (a live preview). The nicest result, and the riskiest: hiding
-  text inside an editable range is where caret, selection and IME bugs live. **Chosen, on the
-  owner's revision of 2026-10-13** (§11, §12): show what is rendered, not the grammar.
+  text inside an editable range is where caret, selection and IME bugs live. The owner's revision
+  of 2026-10-13 chose this look (§11): show what is rendered, not the grammar. Built first as
+  decorations over the text, it failed on a real iPhone (§12) and was replaced by A5.
+- *A5. The object IS the node.* The pill is one atom inline node in the document, carrying its
+  source text verbatim and writing back the exact code span it came from. A tap selects it and
+  opens the editor, an arrow key steps over it, Backspace takes all of it, and nothing in the page
+  has a caret inside it. **Chosen** (§11, row 5): it gives A2's look without hiding text inside an
+  editable range, and it makes the next kind (a spark, an avatar) a registry entry.
 - *A3. A toolbar button only.* Cheap, but nothing on the page shows an author that a pill is
   editable. Rejected as the only door.
 - *A4. An insert door* ("+ Pill", "+ Spark", "+ Avatar" on the slide's divider bar). Needed
@@ -254,61 +264,109 @@ paste into a table) are candidates for their own small PRs.
 | 3 | What the editor opens in | **A popover anchored to the pill on desktop and tablet, a `PanelSheet` on the phone.** | differs: the recommendation was the sheet at every width |
 | 4 | The write path | **C1**, replace only the changed words. | matches |
 
+| 5 | After the first real-phone test (same day) | The decoration build was rejected as janky: a tap put the caret in the pill, which showed its text and raised the keyboard, and iOS's own undo was greyed out. The owner asked for a sustainable, holistic solution and chose **A5, the inline object node with a registry of kinds**, **a deck-wide Undo and Redo pair in Compose's chrome**, and **reworking the open PR in place**. | matches the recommendation on all three |
+
 Nothing is left open for phase 1. Phases 3 to 5 each get their own note before they are built (§9).
 
 ## 12. Phase 1 as built
 
-What shipped, in the order an author meets it, and where it differs from the design above.
+**Why there is a rework.** The first build drew each pill with decorations over its text. On a real
+iPhone the same day, a tap put the caret inside the pill, which showed its `{…}` text and raised the
+keyboard; the editor did not hold; and iOS's own undo was greyed out, because ProseMirror's edits are
+not in the browser's undo stack. Three symptoms with one cause: the pill was text that was dressed up,
+so every touch behavior was a patch on text editing, and each new kind (a spark, an avatar) would have
+repeated it. The design model that replaced it, in five axes: what a pill IS in the document (an
+object, not a text span), what a tap does (select it and open its editor), where undo lives (one
+visible pair for the deck), how the next kind plugs in (a registry), and how an author reaches the text
+(an explicit "Edit as text").
 
-**The pill is drawn by the engine's own rules.** The Studio page does not carry the deck's CSS, so
-`lib/compose/pill-sheet.ts` copies two things out of the live preview frame at runtime: every rule
-whose selector names `.lat-pill`, and the current value of every custom property those rules read
-(`--pill-*`, `--cat-N-fill`, ...). They go into one constructable stylesheet, the rules inside
-`@scope (.cs-pill-scope)` and the tokens on `.cs-pill-scope`, so nothing restyles Compose's own
-chrome. The engine writes every pill rule under `article.lattice > section …`, so each drawn pill
-sits inside a pair of `display: contents` wrappers with that ancestry. There is no second copy of
-the pill's look: a shape or token the engine changes reaches Compose with no edit. The sheet is
-rebuilt when the site palette or mode changes, when the preview frame reloads, and when the deck
-source changes (a `theme:` edit restyles the preview without touching either of those).
+**What shipped.**
 
-**When the text is hidden.** The span's text is hidden (`display: none`, by an inline decoration)
-and a widget draws the pill in its place. The text comes back, with the tag button after it,
-whenever the selection touches the span: a caret inside it or at either edge, or a range that
-cuts into it. A range that swallows the whole pill draws it selected. That rule is why nothing is
-ever edited unseen: typing at the edge of a pill extends its code mark, so the author must see the
-braces when they are there. A browser without constructable stylesheets or `@scope`, or a pill the
-engine cannot draw here, keeps the text and the tag button, which is the first form of the editor.
+- **The node** (`docs/src/lib/compose/inline-object.ts`). One atom inline node, `inline_object`, with
+  one attribute, `src`: the code span's text verbatim. It writes back through the same backtick fencing
+  the `code` mark uses, so it adds no bytes of its own. It knows nothing about pills, so a new kind
+  needs no schema change. The schema widens `heading` to admit it, because prosemirror-markdown's
+  heading takes only `text | image` and a pill in a heading (`examples/inline-pills.md` has one) was
+  pushed out into its own paragraph on write. The corpus test found that, not a review.
+- **Paste cannot forge one.** An object survives a paste only from this editor (the per-session
+  provenance token, as a slide's directives and a comment's text do), and only when its `src` is one
+  braced line with no backtick. A foreign `<code data-inline-object>` stays plain code. A source with a
+  line break is written back on one line whatever built the node, because a line break would end the
+  code span and let what follows parse as deck structure.
+- **One rule keeps text and objects in step** (`normalizeObjects`): a code-marked run the engine's
+  kernel reads as an object is a node, and anything else is text. It runs when the kernels load, after
+  a resync, and as an edit completes a span the author was typing. It skips a span the selection
+  touches (so "Edit as text" works and typing at an edge is never edited unseen), a locked slide, a
+  deck or slide set to `inline-code: literal`, and adjacent spans that merged into one run. Other marks
+  (bold, italic) stay on the node. It does not run after an undo or redo, so it cannot cost the author
+  their redo stack.
+- **Opening a deck rewrites nothing.** The load and resync passes are silent: they change how a slide is
+  represented, not what it says, so Compose re-points its emit baseline at the new slide nodes
+  (`rebaselineSlides`) and keeps every cached byte. Without that, an untouched slide would be
+  re-serialized the first time any slide changed. A test runs every deck, gallery and baseline in the
+  repo: the emitted deck is byte-identical with and without the objects. Measured at the time of
+  writing: 116 kernel-readable pills in 7 decks, 112 converted in 6 (4 more sit in a literal deck).
+  Sparks and avatars are not objects yet, so they are not in those numbers.
+- **Two pills never touch.** Two code spans cannot touch in Markdown: `` `{A}``{B}` `` is ONE span, so a
+  pill beside another (reached by tapping "+ Pill" right after Done, or by deleting the text between two)
+  was written as one span and both stopped being pills on the next load. The same rule that makes
+  objects keeps a single space between an object and a neighboring object or code span, "+ Pill" adds
+  it, and the serializer adds it as a last resort. Inside the author's own code span, "+ Pill" declines.
+- **The edit-time pass is narrow on purpose.** It looks only at the slides the author changed or moved
+  through, so it cannot give an untouched slide new nodes (a slide with new nodes is re-serialized, not
+  re-emitted from its cached bytes). It does not run after an undo or redo until the author makes a
+  change of their own: a pass there is a new edit in the history and a plain click would clear the redo
+  stack. The load and resync passes ignore the selection, because a fresh state's selection sits at the
+  start of the document, where a pill would otherwise stay text and convert, unsilenced, on the first click.
+- **The registry** (`OBJECT_KINDS` in `inline-objects.ts`): how to read, draw and edit one source, and
+  its accessible name. The editor host (`InlineObjectEditor.tsx`) looks the kind up and hands the
+  matching panel the fields (`PANELS`); a spark or an avatar adds an entry to each and nothing else.
+- **The open editor is a position, validated against what sits there.** Plugin state holds the node's
+  position, maps it through every transaction, and closes when the node is gone or the selection
+  leaves it. A pick replaces the node and re-selects it, because a replaced node is a deleted one to the
+  selection's mapping. **Done** puts the caret after the object, because a selected node would be
+  replaced by the next keystroke. A pick first closes the open history group, so it undoes alone and
+  not together with the typing before it. On a touch device the editor lowers the keyboard when it
+  opens.
+- **Deck-wide Undo and Redo** sit first in the slide bar, driving the one history, disabled when there is
+  nothing to do. They never take focus, so no keyboard rises.
+- **The bar on a narrow pane.** At 390px the widest bar (a caret in body text: history, the Format
+  group, four insert doors, settings) was about 320px against 266px between the slide's two end caps.
+  Measured, not guessed. Scrolling hid the insert doors and covering the caps hid delete, and an Insert
+  menu on its own still left the bar about 50px too wide, so the bar wraps below a pane width of 520px:
+  history and the doors on row one, the contextual Format group on row two. Row two is reserved on every
+  slide, so switching the active slide moves nothing (every bar measured 70px tall, before and after).
+  Wide panes keep the single row.
+- **The pill follows the deck's color scheme, not the page's.** The deck's tokens are `light-dark(a, b)`,
+  which resolves from the `color-scheme` of the element using it, and the Studio themes through
+  `data-mode` while its own `color-scheme` stays `light`. With the real mode toggle the preview's pill was
+  `rgb(0, 114, 37)` and Compose's was `rgb(210, 220, 189)`. The sheet now copies the preview frame's
+  `color-scheme` onto the pill scope, and a test uses the real toggle.
+- **The pill's look** is still borrowed from the preview frame at runtime (`pill-sheet.ts`: the engine's
+  `.lat-pill` rules and the tokens they read, in one `@scope`d stylesheet), so there is no second copy
+  to drift. Until the sheet is ready, an object shows its source in the code face and is still one
+  tappable thing.
 
-**One range, mapped through every edit.** The open editor's range lives in the notation plugin's
-state and is mapped through each transaction, so it always names the pill it was opened on. An
-earlier version kept the range in React state; the independent checker found that a deletion
-before the pill left the range pointing into the wrong bytes, and the next click spliced there.
-The fix has three parts: `pillAt` requires the range to start at the pill (`textOffset` 0), the
-range is mapped by the plugin and closes when an edit deletes into the pill, and a resync, which
-rebuilds the plugin state, closes the editor. Both of the checker's repros are regression tests.
+**What the independent checker found, and what changed.** A checker with no stake in the build ran the
+diff and broke three promises with concrete inputs: two pills touching wrote one code span (the existing
+test certified the bug); a pill at the caret on load stayed text, then converted unsilenced on the first
+click and rewrote its slide (a `* one` list became `- one`) with a phantom undo step; and a plain click
+after an undo cleared the redo stack. All three are fixed above, each with a test that fails when the fix
+is removed (mutation-checked). It also found the editor's "was driven on a real phone" claim had no
+artifact behind it, and that claim is gone.
 
-**The insert door declines where it would damage the author's text.** "+ Pill" does nothing, and
-says why, inside or against an inline code span (a new code-marked run would merge into it), on a
-selection that crosses blocks, in a fence, and in a locked slide.
+**Not in phase 1.** The `icon=` axis (an icon-only pill has no label to edit, and the panel says so), a
+crowding warning for a circle or diamond with a long label, and a pill in a locked slide (the slide
+keeps its text; drawing it there needs the structural guard's agreement). The pill is drawn in
+Compose's font, not the deck's. The slide preview beside Compose is still the exact drawing.
 
-**The writer.** `editPill` in `lib/core/inline-pills.js` applies one axis at a time, re-parsing
-between steps, and reads the result back: it returns null unless the pill reads as the old fields
-plus the requested change. It keeps the author's casing and order for every word it does not
-touch (named words too). A property test runs it over every readable pill in the shipped decks and
-galleries, and the checker fuzzed it with about 2.1 million edits over about 8,700 distinct pills
-without a violation.
-
-**Not in phase 1.** The `icon=` axis (an icon-only pill has no label to edit, and the panel says
-so), and a crowding warning for a circle or diamond with a long label. Both go in with phase 2.
-The pill is drawn in Compose's text size and the Compose font stack; the deck's own fonts are not
-loaded in the Studio page, so a theme with a distinctive pill face will differ slightly from the
-slide. The slide preview beside Compose is still the exact drawing.
-
-**Verified.** On the real Studio at 1440, 820 and 390, light and dark: the pills drawn with the
-deck's own fill and shape, the grammar hidden and back when the caret arrives, every pick landing
-in the persisted source with every other byte untouched, undo, "Edit as text", the insert door,
-the locked slide's disabled pill, and a literal deck. Not verified: a real phone's touch and
-keyboard, and Safari's handling of `@scope` (the fallback is the first form of the editor).
+**Verified.** On the real Studio: the spec drives tap, pick, Done, Edit as text, the insert door,
+Undo and Redo, the literal deck and the locked slide (10 tests on desktop), alongside the stress and
+fenced-code specs that exercise the same bar (34 in all). At 390px with touch enabled, light and dark,
+the sheet, the two-row bar and the Undo and Redo buttons were driven and photographed. The unit tests
+include the corpus byte check and the regressions for stale positions. **Not verified:** a real phone's
+touch and keyboard (this was emulation, not a device), and Safari's `@scope` (the fallback shows the
+source in the code face).
 
 ## 13. References
 
