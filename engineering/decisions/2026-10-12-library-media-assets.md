@@ -451,6 +451,21 @@ chat's model: moving it would change what every chat turn costs, which is a deci
   reads with its row's (`tr_open`).
 - The chat's photo intake named new photos against current names only; it now treats an alias as a taken name.
 - The format dialog from `main` had a branch that built the record without the file's own details; fixed and e2e-guarded.
+- **Third check (the phone-feedback commit), all fixed.** The image and chat model lists shared one radio-group name, so an arrow
+  key in one could change the CHAT model (each list now has its own name); a Suggest answer overwrote a name typed while it was
+  on its way (the field is read live); an auto-applied name could clash with another photo and make the save refuse the
+  description too (the name is made unique first); the budget hard stop priced a Suggest at the chat model's price (it now prices
+  the image model, and a `~…-latest` alias at its family's dearest member); a model that reasons could spend its whole
+  `max_tokens` thinking and return nothing (ceilings raised to 600 / 800 / 3000, and a cut-off reply says so instead of "no
+  suggestion"); a backup file could choose which provider receives the photos (`imageModel`, like the chat's model, is not
+  restored from a file; the look dial is); `generatedName` missed real camera and chat-app names; `cleanPhotoName` now folds
+  accents (`école` → `ecole`) instead of dropping letters; the dialog keeps pinch-zoom (`touch-pinch-zoom`).
+- **The picture after a save, and what is not verified.** The picture's object URL used to be minted again whenever the Library
+  re-read the photo (a new Blob object), and the old URL was revoked at once, so the picture could point at nothing. A first
+  version kept the first Blob's URL for good, which would break if the browser drops an overwritten record's Blob data (not
+  observable here). The hook now mints a URL for each new Blob, keeps showing the old one until the new one has decoded, then
+  revokes the old one two seconds later. The Chromium test proves the picture is painted after a save; whether it fixes the
+  iPhone report is **UNVERIFIED** until it runs on that device.
 - **Left as is, deliberately.** The chat can replace a description the person typed, but only when the person asks it to look
   again (`view_asset … again`), and it is the same field by design. A HEIC photo gives no credit, date or location flag (the reader
   knows JPEG, PNG and WebP); nothing is stored from it either way, since the photo is re-encoded.
@@ -528,7 +543,7 @@ so a refused name never leaves the edit half saved.
 save and read the record back from IndexedDB at 1440, 820 and 390 px; an alias keeps a deck's slide painting; the description
 fills alt in the preview, live on edit, and in the exported page; EXIF read at import (credit, date, the suggestion, the location
 flag, no EXIF left in the stored bytes); Use new name on the open deck and on a stored deck, and its honest failure when storage refuses the undo entry; Suggest with a vision model, a model
-without vision, and no model; keyboard open, tab containment, Enter to save, Escape and focus return; at 390 px nothing in the dialog is wider than the dialog, the date field is short, the Edit button opens it, and the picture is still painted after a save; the suggested name, the image model and the look from the workspace settings. The export sign-off artifacts
+without vision, and no model; keyboard open, tab containment, Enter to save, Escape and focus return; at 390 px nothing in the dialog is wider than the dialog, the date field is short, the Edit button opens it, and the picture is still painted after a save (Chromium only); the suggested name, the image model and the look from the workspace settings. The export sign-off artifacts
 above were produced from the real Studio in both modes.
 
 **UNVERIFIED:** the sideways pan itself (it was seen on an iPhone; Chromium does not reproduce it, so the spec pins the layout that prevents it), Firefox and WebKit (only Chromium is installed here; the engine-sensitive tests are tagged for the nightly's

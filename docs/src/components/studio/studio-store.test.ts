@@ -518,6 +518,13 @@ describe('studio-store — settings', () => {
 		expect(loadSettings().imageModel).toBe('~anthropic/claude-sonnet-latest');
 	});
 
+	it('a backup file cannot choose which provider receives the photos, but its look dial restores', () => {
+		saveSettings({ imageModel: 'openai/gpt-5' });
+		const snap = exportStudioState();
+		importStudioState({ ...snap, settings: { ...snap.settings, imageModel: 'evil/model', imageLook: 'quick' } }, 1000);
+		expect(loadSettings()).toMatchObject({ imageModel: 'openai/gpt-5', imageLook: 'quick' });
+	});
+
 	it('derives the boot posture, and drops the legacy flag', () => {
 		// (1) A legacy engaged user (onboarded:true) reached the full surface → keep it → Craft.
 		localStorage.setItem('lattice-studio-settings', JSON.stringify({ onboarded: true }));

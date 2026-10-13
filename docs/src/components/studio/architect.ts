@@ -218,7 +218,7 @@ export type ArchitectModel = {
 	openRouterAccount: () => Promise<ORAccount | null> | ORAccount | null;
 	openRouterCredits: () => Promise<ORCredits | null> | ORCredits | null;
 	openRouterKeySettingsUrl: () => string;
-	openRouterModelPrice: () => ORPrice | null;
+	openRouterModelPrice: (id?: string) => ORPrice | null;
 	openRouterModelName: () => string | null;
 	// The catalog + selection the Workspace model picker drives.
 	listOpenRouterModels: () => Promise<ORModel[]>;
@@ -1735,14 +1735,14 @@ export function estimateUsd(promptText: string, price: ORPrice | null, maxOut = 
 // The cloud budget gate, shared by every architect action: blocks when already over
 // the cap/balance, AND — in hard-stop mode — refuses a call whose ESTIMATE would
 // breach the self-cap, so a single large request can't overshoot. Returns a note, or null.
-export function cloudBudgetBlock(model: ArchitectModel, promptText: string, extraTokens = 0, maxOut = CHAT_OUTPUT_EST): string | null {
+export function cloudBudgetBlock(model: ArchitectModel, promptText: string, extraTokens = 0, maxOut = CHAT_OUTPUT_EST, priceModelId?: string): string | null {
 	const s = architectSpend();
 	if (s.status.blocked) return 'Budget cap reached — raise it in Workspace → Spend, or switch tier.';
 	if (s.mode === 'stop' && s.cap > 0) {
 		// The hard stop prices THIS call's ceiling — its job is to refuse a call that could
 		// overshoot, so it assumes the reply runs to the end. `maxOut` defaults to the shared
 		// ceiling; only the chat, which lifts its own, passes the larger figure.
-		const est = estimateUsd(promptText, model.openRouterModelPrice?.() ?? null, maxOut, extraTokens);
+		const est = estimateUsd(promptText, model.openRouterModelPrice?.(priceModelId) ?? null, maxOut, extraTokens);
 		if (est != null && s.session + est > s.cap) {
 			return `Estimated ~$${est.toFixed(2)} — that would exceed your $${s.cap.toFixed(2)} cap. Raise it in Workspace → Spend, pick a cheaper model, or switch to On-device (free).`;
 		}

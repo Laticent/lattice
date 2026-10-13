@@ -1121,6 +1121,9 @@ export function importStudioState(data: StudioExport, ts: number): ImportSummary
 	// standing, because `saveSettings` merges over `loadSettings()`.
 	const importedSettings: Partial<StudioSettings> = { ...data.settings };
 	delete importedSettings.crashReports;
+	// The model that looks at the person's photos is a consent too: it decides which provider receives them. Like the chat's model
+	// (never in a backup), it is not restorable from a file; the local choice stands. The look dial is only a cost knob and does restore.
+	delete importedSettings.imageModel;
 	saveSettings(importedSettings);
 	saveInstructions(data.instructions);
 	saveOnDeviceInstructions(data.onDeviceInstructions ?? ''); // absent in a pre-split backup — restores empty, never throws

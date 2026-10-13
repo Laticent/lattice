@@ -37,6 +37,9 @@ export function useModelCatalog(
 	const [view, setView] = React.useState<string>('featured');
 	const [query, setQuery] = React.useState('');
 	const wanted = opts.currentId !== undefined ? opts.currentId : status.modelId;
+	// Each picker's radios are their own group: two lists sharing a name make the browser treat them as one, so an arrow key in one
+	// moved the check (and fired the pick) in the other.
+	const groupName = React.useId();
 	const [selectedId, setSelectedId] = React.useState<string | null>(wanted);
 
 	// Load the catalog once, only when OpenRouter is connected (no fetch on the
@@ -67,12 +70,12 @@ export function useModelCatalog(
 		opts.onPicked?.(m);
 		notify(`${opts.label ?? 'Model'} set to ${shortName(m)}.`);
 	};
-	return { models, view, setView, query, setQuery, selectedId, current, groups, pick };
+	return { models, view, setView, query, setQuery, selectedId, current, groups, pick, groupName };
 }
 
 /** Search, the Featured/Value/Free/All lens, and the vendor-grouped priced list. */
 export function ModelList({ catalog, searchRef, maxHeight = 280 }: { catalog: ReturnType<typeof useModelCatalog>; searchRef?: React.Ref<HTMLInputElement>; maxHeight?: number }) {
-	const { models, view, setView, query, setQuery, selectedId, groups, pick } = catalog;
+	const { models, view, setView, query, setQuery, selectedId, groups, pick, groupName } = catalog;
 	return (
 		<>
 			<input
@@ -112,7 +115,7 @@ export function ModelList({ catalog, searchRef, maxHeight = 280 }: { catalog: Re
 								const sel = m.id === selectedId;
 								return (
 									<label key={m.id} title={rowTitle(m) || undefined} className={cn('flex cursor-pointer items-start gap-2.5 rounded-lg px-2 py-2', sel ? 'bg-[var(--accent-soft)]' : 'hover:bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]')}>
-										<input type="radio" name="studio-or-model" value={m.id} checked={sel} onChange={() => pick(m)} className="mt-1 size-3.5 shrink-0 accent-[var(--accent)]" />
+										<input type="radio" name={groupName} value={m.id} checked={sel} onChange={() => pick(m)} className="mt-1 size-3.5 shrink-0 accent-[var(--accent)]" />
 										<span className="min-w-0 flex-1">
 											<span className="flex items-center gap-1.5">
 												<span className="truncate text-[13px] font-semibold text-[var(--text-heading)]">{shortName(m)}</span>

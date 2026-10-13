@@ -8,25 +8,47 @@ import { formatBytes } from './reference-doc';
 // not a lattice-asset, so there is no select box and no zip share. The thumbnail is an object
 // URL minted for the card's lifetime and revoked on unmount (a leaked URL pins the Blob).
 
-/** An object URL for `blob`, minted for as long as it is shown. A reload hands back a NEW Blob object for the same stored photo
- *  (the Library re-reads after every save), and swapping the URL under a mounted picture used to paint a broken image until the
- *  new one decoded: so the URL follows `key` (the photo's id and stored bytes) rather than the Blob's identity, and a URL that is
- *  replaced is revoked a moment AFTER its successor is in place. */
-export function useObjectUrl(blob: Blob | undefined, key?: string): string | null {
+/** An object URL for `blob`, minted for as long as it is shown. The Library re-reads after every save and hands back a NEW Blob
+ *  object for the same stored photo, and the old Blob's backing data may be gone once the record is rewritten. So a changed Blob
+ *  gets a fresh URL, but the picture keeps showing the OLD URL until the new one has decoded, and the old URL is revoked a moment
+ *  after the swap: the picture is never left pointing at nothing, and never flashes broken. The first URL is shown at once. */
+export function useObjectUrl(blob: Blob | undefined): string | null {
 	const [url, setUrl] = React.useState<string | null>(null);
-	const blobRef = React.useRef(blob);
-	blobRef.current = blob;
-	const stable = key ?? blob;
-	// biome-ignore lint/correctness/useExhaustiveDependencies: `stable` is the photo's identity; the Blob itself is read through the ref on purpose
+	const shown = React.useRef<string | null>(null);
 	React.useEffect(() => {
-		const b = blobRef.current;
-		if (!b) return setUrl(null);
-		const u = URL.createObjectURL(b);
-		setUrl(u);
-		return () => {
-			setTimeout(() => URL.revokeObjectURL(u), 2000);
+		if (!blob) {
+			shown.current = null;
+			return setUrl(null);
+		}
+		const next = URL.createObjectURL(blob);
+		let live = true;
+		const show = () => {
+			if (!live) return;
+			const old = shown.current;
+			shown.current = next;
+			setUrl(next);
+			if (old) setTimeout(() => URL.revokeObjectURL(old), 2000);
 		};
-	}, [stable]);
+		if (!shown.current) show();
+		else {
+			const probe = new Image();
+			probe.src = next;
+			(probe.decode ? probe.decode() : Promise.resolve()).then(show, show);
+		}
+		return () => {
+			live = false;
+			// A URL that never became the shown one is revoked now; the shown one is revoked by its successor or on unmount below.
+			if (shown.current !== next) URL.revokeObjectURL(next);
+		};
+	}, [blob]);
+	React.useEffect(
+		() => () => {
+			const last = shown.current;
+			shown.current = null;
+			if (last) setTimeout(() => URL.revokeObjectURL(last), 2000);
+		},
+		[],
+	);
 	return url;
 }
 
@@ -47,7 +69,7 @@ export function MediaCard({ m, activeDeckId, usedIn, usedElsewhere, armed, confi
 	/** Open the detail view: the picture large, and its description, credit, date and name to edit. */
 	onOpen: (opener: HTMLElement) => void;
 }) {
-	const url = useObjectUrl(m.blob, `${m.id}:${m.bytes}:${m.width}x${m.height}`);
+	const url = useObjectUrl(m.blob);
 	const shared = m.scope === LIBRARY_SCOPE;
 	// The scope flip is offered only where it can be named: a shared asset can become this deck's (needs an
 	// open deck, and no OTHER deck naming it: keeping it to one deck would turn the rest into placeholders),

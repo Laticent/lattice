@@ -556,6 +556,8 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	React.useEffect(() => {
 		if (needsRefs && !refsModule && !refsFailed) void import('./asset-refs').then(setRefsModule, () => setRefsFailed(true));
 	}, [needsRefs, refsModule, refsFailed]);
+	// Every name and alias on the shelf except the open photo's own: a suggested name is made unique against these before it is applied.
+	const detailTaken = React.useMemo(() => new Set(media.filter((a) => a.id !== detail?.id).flatMap(namesOf)), [media, detail?.id]);
 	const detailAliasUse = React.useMemo(() => {
 		if (!detail || !refsModule) return null;
 		const sources = liveSource === undefined ? otherSources : [...otherSources, liveSource];
@@ -635,6 +637,8 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 				return { note: "The image model you picked can't read images. Choose another in Workspace → Model → Image model, or type a description." };
 			case 'blocked':
 				return { note: r.note };
+			case 'short':
+				return { note: 'The image model ran out of room before it answered. Try Quick in Workspace → Model → Look closer, or pick another image model.' };
 			default:
 				return { note: 'No suggestion came back. Try again, or type one.' };
 		}
@@ -1190,6 +1194,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 				usedIn={detail ? mediaUse[detail.name] || 0 : 0}
 				aliasUse={detailAliasUse}
 				aliasUseFailed={refsFailed}
+				takenNames={detailTaken}
 				onSave={(c) => changeMedia(() => updateMediaDetails(detail?.id as string, c))}
 				onRemoveAlias={(al) => changeMedia(() => removeMediaAlias(detail?.id as string, al))}
 				onUseNewName={(al) => adoptNewName(detail as MediaRecord, al)}

@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useObjectUrl } from './MediaCard';
 import { isIsoDate, type MediaMetaPatch } from './media-edit';
-import { isMediaName, type MediaRecord } from './media-store';
+import { isMediaName, type MediaRecord, uniqueName } from './media-store';
 import { formatBytes } from './reference-doc';
 
 // The detail view behind a Library photo card: see the picture, read what is known about it, and edit
@@ -18,10 +18,21 @@ import { formatBytes } from './reference-doc';
 // Pixel size, bytes and file name are facts about the stored file and are shown, not edited.
 // Decision note: engineering/decisions/2026-10-12-library-media-assets.md §Editing a photo's metadata.
 
-/** A name a camera or a phone made: `img-4568`, `dsc0042`, `pxl-20260101`, `screenshot-3`, or bare digits. It says nothing about
- *  the picture, so a suggested name may replace it without asking; a name the person typed is only ever offered. */
-const GENERATED_NAME = /^(?:img|image|dsc|dscn|dscf|pxl|mvimg|photo|pic|picture|screenshot|screen-shot|capture|scan|whatsapp-image|signal)?[-_]?\d{2,}(?:[-_]\d+)*$|^(?:img|image|dsc|dscn|dscf|pxl|mvimg|photo|pic|picture|screenshot|screen-shot|capture|scan|whatsapp-image|signal)(?:[-_]\d+)*$/;
-export const generatedName = (n: string): boolean => GENERATED_NAME.test(n);
+/** A name a camera, a phone or a chat app made: `img-4568`, `dsc0042`, `pxl-20231014-123456789-mp`, `img-20231014-wa0003`,
+ *  `whatsapp-image-2026-10-13-at-10-30-00`, `screenshot-3`, `img-e4568`, or a long run of digits. It says nothing about the
+ *  picture, so a suggested name may replace it without asking; a name the person typed is only ever offered. */
+const CAMERA_WORDS = new Set(['img', 'image', 'dsc', 'dscn', 'dscf', 'pxl', 'mvimg', 'photo', 'pic', 'picture', 'screenshot', 'screen', 'shot', 'capture', 'scan', 'whatsapp', 'signal', 'at', 'am', 'pm', 'mp', 'copy', 'jpg', 'jpeg', 'png']);
+export function generatedName(n: string): boolean {
+	const parts = n.split(/[-_]+/).filter(Boolean);
+	if (!parts.length) return false;
+	const digits = (n.match(/\d/g) ?? []).length;
+	// Every piece is a camera word, a number, or a short tag with a number (`wa0003`, `e4568`, `dsc0042`).
+	const made = parts.every((p) => CAMERA_WORDS.has(p) || /^\d+$/.test(p) || /^[a-z]{1,4}\d+$/.test(p));
+	if (!made) return false;
+	// A bare number is a camera's only from five digits up: a name the person typed may well be `2026`.
+	if (parts.every((p) => /^\d+$/.test(p))) return digits >= 5;
+	return parts.some((p) => CAMERA_WORDS.has(p)) || digits >= 4;
+}
 
 /** Today as `YYYY-MM-DD` on THIS device's calendar. `toISOString` is UTC, which is already tomorrow (or still yesterday) for most of the world part of the day, and would grey out today's date. */
 function localToday(): string {
@@ -29,7 +40,7 @@ function localToday(): string {
 	return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-export function MediaDetailDialog({ m: incoming, open, onOpenChange, usedIn, aliasUse, onSave, aliasUseFailed, onRemoveAlias, onUseNewName, onSuggest, returnFocusTo }: {
+export function MediaDetailDialog({ m: incoming, open, onOpenChange, usedIn, aliasUse, onSave, aliasUseFailed, takenNames, onRemoveAlias, onUseNewName, onSuggest, returnFocusTo }: {
 	m: MediaRecord | null;
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
@@ -40,6 +51,8 @@ export function MediaDetailDialog({ m: incoming, open, onOpenChange, usedIn, ali
 	aliasUse: Record<string, number> | null;
 	/** The deck reader failed to load, so `aliasUse` will stay null: say so, and keep removal off since uses are unknown. */
 	aliasUseFailed?: boolean;
+	/** Every other photo's name and alias: a name Suggest proposes is made unique against these before it is applied. */
+	takenNames?: ReadonlySet<string>;
 	/** Resolves an error line to show, or null on success. */
 	onSave: (change: MediaMetaPatch & { name?: string }) => Promise<string | null>;
 	onRemoveAlias: (alias: string) => Promise<string | null>;
@@ -56,8 +69,11 @@ export function MediaDetailDialog({ m: incoming, open, onOpenChange, usedIn, ali
 	const lastRecord = React.useRef<MediaRecord | null>(null);
 	if (incoming) lastRecord.current = incoming;
 	const m = incoming ?? lastRecord.current;
-	const url = useObjectUrl(m?.blob, m ? `${m.id}:${m.bytes}:${m.width}x${m.height}` : undefined);
+	const url = useObjectUrl(m?.blob);
 	const [name, setName] = React.useState('');
+	// The Name field as it is NOW: a Suggest answer can arrive after the person has typed their own, and must not replace it.
+	const nameNow = React.useRef('');
+	nameNow.current = name;
 	const [caption, setCaption] = React.useState('');
 	const [credit, setCredit] = React.useState('');
 	const [taken, setTaken] = React.useState('');
@@ -107,6 +123,7 @@ export function MediaDetailDialog({ m: incoming, open, onOpenChange, usedIn, ali
 	 *  is a line under the field, never a silent no-op. */
 	async function suggest() {
 		const asked = visit.current;
+		const askedName = name;
 		setSuggesting(true);
 		setSuggestNote(null);
 		try {
@@ -116,12 +133,15 @@ export function MediaDetailDialog({ m: incoming, open, onOpenChange, usedIn, ali
 			if ('text' in r) {
 				setCaption(r.text);
 				// A camera's file name (`img-4568`) says nothing, so the model's name replaces it; a name the person chose is only offered.
-				if (r.name && r.name !== name) {
-					if (generatedName(name)) {
-						setName(r.name);
-						setSuggestNote(`Suggested the name “${r.name}” and a description. Nothing is saved until you press Save.`);
+				// Made unique first (two photos of one shoe would otherwise both be "black-suede-brogue" and the save would be refused),
+				// and applied only if the field still holds what it held when Suggest was pressed.
+				const proposed = r.name ? uniqueName(r.name, new Set(takenNames ?? [])) : '';
+				if (proposed && proposed !== nameNow.current) {
+					if (generatedName(askedName) && nameNow.current === askedName) {
+						setName(proposed);
+						setSuggestNote(`Suggested the name “${proposed}” and a description. Nothing is saved until you press Save.`);
 					} else {
-						setSuggestedName(r.name);
+						setSuggestedName(proposed);
 						setSuggestNote('Suggested a description. Nothing is saved until you press Save.');
 					}
 				} else setSuggestNote('Suggested a description. Nothing is saved until you press Save.');
@@ -170,7 +190,7 @@ export function MediaDetailDialog({ m: incoming, open, onOpenChange, usedIn, ali
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent
-				className="max-h-[90dvh] touch-pan-y overflow-y-auto overflow-x-hidden sm:max-w-xl"
+				className="max-h-[90dvh] touch-pan-y touch-pinch-zoom overflow-y-auto overflow-x-hidden sm:max-w-xl"
 				data-media-detail={m.name}
 				onCloseAutoFocus={(e) => {
 					const back = returnFocusTo?.();

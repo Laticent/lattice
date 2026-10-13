@@ -321,9 +321,16 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
     },
     // The active model's per-MILLION price pair, for the pre-send estimate + display.
     // Null until the catalog has loaded (listModels) — callers degrade gracefully.
-    modelPrice() {
-      const id = readLS(OR_MODEL_LS) || defaultModel;
-      const m = catalogCache?.find((x) => x.id === id);
+    modelPrice(forId) {
+      const id = forId || readLS(OR_MODEL_LS) || defaultModel;
+      let m = catalogCache?.find((x) => x.id === id);
+      // A `~vendor/name-latest` alias is not itself listed: price it at its family's dearest member, so a spending cap errs on the
+      // safe side.
+      if (!m && id.startsWith('~')) {
+        const family = id.slice(1).replace(/-latest$/, '');
+        const kin = (catalogCache || []).filter((x) => x.id.startsWith(family) && x.promptPerM != null);
+        m = kin.sort((a, b) => (b.completionPerM ?? 0) - (a.completionPerM ?? 0))[0];
+      }
       return m ? { promptPerM: m.promptPerM, completionPerM: m.completionPerM } : null;
     },
     disconnect() { writeLS(OR_KEY_LS, null); writeLS(OR_VERIFIER_LS, null); },
@@ -946,7 +953,7 @@ export function createArchitectModel({ getSettings, explicitTierWins = false, de
     openRouterAccount() { return openrouter.accountInfo(); },
     openRouterCredits() { return openrouter.creditsInfo(); }, // the account wallet (balance)
     openRouterKeySettingsUrl() { return openrouter.keySettingsUrl(); }, // where to set a hard per-key cap
-    openRouterModelPrice() { return openrouter.modelPrice(); }, // active model's per-M price (for estimates)
+    openRouterModelPrice(id) { return openrouter.modelPrice(id); }, // active model's per-M price (for estimates)
     openRouterGenerationCost(id) { return openrouter.generationCost(id); }, // authoritative cost of one generation (aborted-turn reconciliation)
     // Snapshot/restore the stored key so the settings UI can offer an Undo on
     // Disconnect (mirroring the deck-deletion guardrail) without re-running OAuth.

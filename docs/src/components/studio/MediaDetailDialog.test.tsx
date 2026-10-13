@@ -90,6 +90,25 @@ describe('a suggested name', () => {
 		expect(screen.getByRole('status').textContent).toMatch(/Nothing is saved until you press Save/);
 	});
 
+	it('makes the suggested name unique against the other photos, so the save is not refused', async () => {
+		render(<MediaDetailDialog m={rec('img-4569')} open onOpenChange={() => {}} usedIn={0} aliasUse={{}} takenNames={new Set(['black-suede-brogue', 'img-4568'])} onSave={async () => null} onRemoveAlias={async () => null} onUseNewName={async () => null} onSuggest={async () => ({ text: 'A brogue', name: 'black-suede-brogue' })} />);
+		await ask();
+		await waitFor(() => expect(field('Name').value).toBe('black-suede-brogue-2'));
+	});
+
+	it('never replaces a name the person typed while the answer was on its way', async () => {
+		let answer: (v: { text: string; name: string }) => void = () => {};
+		const slow = new Promise<{ text: string; name: string }>((r) => {
+			answer = r;
+		});
+		render(<Host m={rec('img-4568')} onSuggest={() => slow} />);
+		await ask();
+		fireEvent.change(field('Name'), { target: { value: 'my-shoe' } });
+		await act(async () => answer({ text: 'A brogue', name: 'black-suede-brogue' }));
+		expect(field('Name').value).toBe('my-shoe');
+		expect(screen.getByText('Use this name')).toBeTruthy();
+	});
+
 	it('only OFFERS a name when the person already chose one', async () => {
 		render(<Host m={rec('shop-floor')} onSuggest={async () => ({ text: 'A shop floor', name: 'machine-shop' })} />);
 		await ask();
@@ -103,8 +122,8 @@ describe('a suggested name', () => {
 
 describe('names a camera makes', () => {
 	it('knows img-4568, dsc0042, pxl-20260101 and bare digits, and leaves a chosen name alone', () => {
-		for (const n of ['img-4568', 'img_0042', 'dsc0042', 'pxl-20260101', 'screenshot-3', '20260101', 'photo', 'image-12-3']) expect(generatedName(n), n).toBe(true);
-		for (const n of ['hero', 'shop-floor', 'team-offsite', 'img-hero', 'logo-2x']) expect(generatedName(n), n).toBe(false);
+		for (const n of ['img-4568', 'img_0042', 'dsc0042', 'pxl-20260101', 'screenshot-3', '20260101', 'photo', 'image-12-3', 'pxl-20231014-123456789-mp', 'img-20231014-wa0003', 'whatsapp-image-2026-10-13-at-10-30-00', 'img-e4568', 'screenshot-2026-10-13-at-10-30-00']) expect(generatedName(n), n).toBe(true);
+		for (const n of ['hero', 'shop-floor', 'team-offsite', 'img-hero', 'logo-2x', '2026', 'q3-results', 'floor-3']) expect(generatedName(n), n).toBe(false);
 	});
 });
 

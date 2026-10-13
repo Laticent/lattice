@@ -31,6 +31,7 @@ export type PhotoSuggestOutcome =
 	| { status: 'offline' }
 	| { status: 'novision' }
 	| { status: 'blocked'; note: string }
+	| { status: 'short' }
 	| { status: 'nochange' };
 
 /** The (pure) message list for a photo description. Exported for testing. */
@@ -62,6 +63,8 @@ export function cleanPhotoDescription(reply: string): string {
 /** A model's suggested name made into one the Library accepts, or '' when nothing usable is left. */
 export function cleanPhotoName(reply: unknown): string {
 	const n = cleanLine(String(reply ?? ''), 80)
+		.normalize('NFD')
+		.replace(/\p{M}+/gu, '')
 		.toLowerCase()
 		.replace(/\.(?:jpe?g|png|webp|gif|avif|heic)$/, '')
 		.replace(/[^a-z0-9_-]+/g, '-')
@@ -106,9 +109,10 @@ export async function suggestPhotoDescription(thumbDataUrl: string, deckLang?: s
 	}
 	if (!sees) return { status: 'novision' };
 	const how = IMAGE_LOOKS[look];
-	const blk = cloudBudgetBlock(model, PHOTO_DESCRIBE_SYSTEM, lookTokens(look), how.maxTokens);
+	const blk = cloudBudgetBlock(model, PHOTO_DESCRIBE_SYSTEM, lookTokens(look), how.maxTokens, imageModel);
 	if (blk) return { status: 'blocked', note: blk };
 	let out: unknown = null;
+	let cutOff = false;
 	try {
 		out = await model.complete({
 			messages: buildPhotoDescriptionPrompt(thumbDataUrl, deckLang),
@@ -116,6 +120,9 @@ export async function suggestPhotoDescription(thumbDataUrl: string, deckLang?: s
 			fallback: {} as unknown as string,
 			maxTokens: how.maxTokens,
 			model: imageModel,
+			onFinishReason: (r: string) => {
+				cutOff = r === 'length';
+			},
 			...(how.effort ? { reasoningEffort: how.effort } : {}),
 			onUsage: (u: { cost?: number; total_tokens?: number; prompt_tokens?: number; completion_tokens?: number }) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0)),
 		});
@@ -125,5 +132,6 @@ export async function suggestPhotoDescription(thumbDataUrl: string, deckLang?: s
 	const reply = (out && typeof out === 'object' ? out : {}) as { name?: unknown; description?: unknown };
 	const text = cleanPhotoDescription(typeof reply.description === 'string' ? reply.description : '');
 	const name = cleanPhotoName(reply.name);
-	return text ? { status: 'ok', text, ...(name ? { name } : {}) } : { status: 'nochange' };
+	if (text) return { status: 'ok', text, ...(name ? { name } : {}) };
+	return { status: cutOff ? 'short' : 'nochange' };
 }
