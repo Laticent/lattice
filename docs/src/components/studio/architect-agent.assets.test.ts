@@ -90,16 +90,53 @@ describe('view_asset', () => {
 });
 
 describe('caption_asset', () => {
-	it('saves a caption only for a photo the model was shown this turn', async () => {
+	it('saves a caption only for a photo whose picture was delivered', async () => {
 		const { assets, calls } = fakeAssets([info('a'), info('b')]);
 		const t = box(assets);
 		await t.run('view_asset', JSON.stringify({ names: ['a'] }));
+		t.takeImages(); // the loop delivers the picture message between the two rounds
 		const out = await t.run('caption_asset', JSON.stringify({ captions: [{ name: 'a', caption: 'A "red" door' }, { name: 'b', caption: 'Invented' }] }));
 		expect(out).toContain('a: saved.');
-		expect(out).toContain('b: not saved — you have not looked at this photo this turn');
+		expect(out).toContain('b: not saved — you have not been shown this photo yet');
 		expect(calls.captions).toEqual([['a', 'A "red" door']]);
 		// The same turn now reads the cleaned caption back from the list.
 		expect(await t.run('list_assets', JSON.stringify({ query: 'red' }))).toContain("A 'red' door");
+	});
+});
+
+describe('a caption needs a picture that was actually delivered', () => {
+	it('refuses view_asset and caption_asset sent in the SAME assistant message', async () => {
+		const { assets, calls } = fakeAssets([info('a')]);
+		const t = box(assets);
+		const call = (name: string, args: unknown): ToolCall => ({ id: `c-${name}`, function: { name, arguments: JSON.stringify(args) } });
+		let round = 0;
+		const complete: AgentComplete = async () => {
+			round++;
+			return round === 1 ? { text: '', toolCalls: [call('view_asset', { names: ['a'] }), call('caption_asset', { captions: [{ name: 'a', caption: 'INVENTED' }] })], truncated: false } : { text: 'ok', toolCalls: [], truncated: false };
+		};
+		await runAgentLoop({ complete, messages: [{ role: 'user', content: 'x' }], toolbox: t });
+		expect(calls.captions).toEqual([]);
+		// After delivery the same caption is accepted.
+		expect(await t.run('caption_asset', JSON.stringify({ captions: [{ name: 'a', caption: 'A door' }] }))).toContain('a: saved.');
+		expect(calls.captions).toEqual([['a', 'A door']]);
+	});
+
+	it('does not queue pictures when the next round is the last, which has no tools to caption with', async () => {
+		const { assets, calls } = fakeAssets([info('a')]);
+		const t = box(assets);
+		t.setLastRoundNext(true);
+		const out = await t.run('view_asset', JSON.stringify({ names: ['a'] }));
+		expect(out).toContain('last round');
+		expect(calls.thumbnails).toEqual([]);
+		expect(t.takeImages()).toEqual([]);
+	});
+
+	it('tells the loop the next round is the last one', async () => {
+		const flags: boolean[] = [];
+		const call: ToolCall = { id: 'c', function: { name: 'list_assets', arguments: '{}' } };
+		const complete: AgentComplete = async () => ({ text: '', toolCalls: [call], truncated: false });
+		await runAgentLoop({ complete, messages: [{ role: 'user', content: 'x' }], maxRounds: 3, toolbox: { run: async () => 'r', setLastRoundNext: (v) => flags.push(v) } });
+		expect(flags).toEqual([false, true]);
 	});
 });
 

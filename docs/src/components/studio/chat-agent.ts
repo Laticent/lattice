@@ -127,7 +127,9 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 	const last = history[history.length - 1];
 	// The Library is read once per turn. A failed read is an empty Library, never a failed turn.
 	const library = await agentAssets.list().catch(() => []);
-	const { staticPrefix, dynamicTail } = agentSystemParts(source, grounding, opts?.constrainFacts ? FACT_GUARD : '', assetManifest(library));
+	// Asked only when there is something to look at: a model that cannot read images is not nudged to try.
+	const sees = library.length ? await modelSeesImages(model) : false;
+	const { staticPrefix, dynamicTail } = agentSystemParts(source, grounding, opts?.constrainFacts ? FACT_GUARD : '', assetManifest(library, undefined, sees));
 	const systemContent = [
 		{ type: 'text', text: staticPrefix },
 		{ type: 'text', text: dynamicTail },
@@ -149,7 +151,7 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 		check: withFit(grounding),
 		slideWordBudget: agentBudget(grounding).slideWordBudget,
 		assets: library.length ? agentAssets : undefined,
-		canSee: () => modelSeesImages(model),
+		canSee: async () => sees,
 	});
 	const systemTokens = estTokens(staticPrefix) + estTokens(dynamicTail);
 	const docTokens = refDocsTokens(docs);
@@ -159,6 +161,8 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 	const done: string[] = [];
 	let streamed = '';
 	let roundPrompt = '';
+	// The pictures in the round in flight, so a Stop prices them too.
+	let roundPictureTokens = 0;
 	let genId: string | null = null;
 	// A request is in flight: set when a round is sent, cleared when it returns. A Stop
 	// prices only an open round — a finished one already reported its exact cost.
@@ -172,6 +176,7 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 		const priced = msgs.slice(1).map(budgetText);
 		const convo = priced.map((p) => p.text).join('\n');
 		const pictureTokens = priced.reduce((n, p) => n + p.images, 0) * THUMB_TOKENS;
+		roundPictureTokens = pictureTokens;
 		if (streamed.trim()) done.push(streamed);
 		streamed = '';
 		genId = null;
@@ -250,7 +255,7 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 			// prompt plus the prose seen; the generation id, when it arrived, replaces it with the
 			// exact figure.
 			if (roundOpen && (streamed || genId)) {
-				const est = estimateUsd(roundPrompt, model.openRouterModelPrice?.() ?? null, Math.ceil(streamed.length / 4), docTokens + systemTokens) ?? 0;
+				const est = estimateUsd(roundPrompt, model.openRouterModelPrice?.() ?? null, Math.ceil(streamed.length / 4), docTokens + systemTokens + roundPictureTokens) ?? 0;
 				if (est) recordSpend(est, Math.ceil(streamed.length / 4));
 				if (genId && model.openRouterGenerationCost) {
 					void model

@@ -454,6 +454,12 @@ export function createToolbox(opts: {
 	// actually shown this turn, so it cannot invent a description for one it never saw.
 	let shelfCache: AssetInfo[] | null = null;
 	const looked = new Set<string>();
+	// Shown to the model only once the picture message is SENT (takeImages), never when it is merely
+	// queued: a model that calls view_asset and caption_asset in one message has not seen anything yet.
+	const awaiting = new Set<string>();
+	// True once the next round is the last (it goes out without tools), so a picture queued now could
+	// never be captioned.
+	let lastRoundNext = false;
 	const sent = new Set<string>();
 	let queuedImages: { name: string; url: string }[] = [];
 	const shelf = async (): Promise<AssetInfo[]> => (shelfCache ??= await (opts.assets?.list() ?? Promise.resolve([])).catch(() => []));
@@ -483,7 +489,9 @@ export function createToolbox(opts: {
 			else if (sent.has(name)) out.push(`${name}: already shown to you this turn.`);
 			else wantLook.push(a);
 		}
-		if (wantLook.length) {
+		if (wantLook.length && lastRoundNext) {
+			out.push(`${wantLook.map((a) => a.name).join(', ')}: not shown — this is your last round and you could not save a caption. Choose from names and shapes, or look next turn.`);
+		} else if (wantLook.length) {
 			if (!(await opts.canSee?.().catch(() => false))) {
 				out.push(`The selected model cannot read images, so ${wantLook.map((a) => a.name).join(', ')} stay unseen. Choose from their names and shapes, or ask the author to pick an image-capable model in Workspace → AI.`);
 			} else {
@@ -495,7 +503,7 @@ export function createToolbox(opts: {
 						continue;
 					}
 					sent.add(a.name);
-					looked.add(a.name);
+					awaiting.add(a.name);
 					queuedImages.push({ name: a.name, url });
 					out.push(`${a.name}: shown in the next message.`);
 				}
@@ -517,7 +525,7 @@ export function createToolbox(opts: {
 			const name = String((c as { name?: unknown })?.name ?? '').trim().toLowerCase().replace(/^asset:/, '');
 			const a = all.find((x) => x.name === name);
 			if (!a) out.push(unknownAsset(name, all));
-			else if (!looked.has(name)) out.push(`${name}: not saved — you have not looked at this photo this turn. Call view_asset first.`);
+			else if (!looked.has(name)) out.push(`${name}: not saved — you have not been shown this photo yet. Call view_asset, wait for the pictures, then caption it in your next call.`);
 			else {
 				const stored = await opts.assets.setCaption(name, String((c as { caption?: unknown }).caption ?? '')).catch(() => null);
 				if (stored === null) out.push(`${name}: could not be saved.`);
@@ -750,7 +758,15 @@ export function createToolbox(opts: {
 		takeImages(): { name: string; url: string }[] {
 			const out = queuedImages;
 			queuedImages = [];
+			for (const i of out) {
+				awaiting.delete(i.name);
+				looked.add(i.name);
+			}
 			return out;
+		},
+		/** The loop says whether the NEXT round is the last one (no tools). */
+		setLastRoundNext(v: boolean): void {
+			lastRoundNext = v;
 		},
 		/** The checker's verdict after the most recent edit call (null before any). */
 		get verdict(): EditVerdict | null {
@@ -886,7 +902,7 @@ export type AgentTurn = { reply: string; rounds: number; truncated: boolean; hit
 export async function runAgentLoop(opts: {
 	complete: AgentComplete;
 	messages: AgentMsg[];
-	toolbox: { run(name: string, args: string): Promise<string>; settled?(): boolean; takeImages?(): { name: string; url: string }[] };
+	toolbox: { run(name: string, args: string): Promise<string>; settled?(): boolean; takeImages?(): { name: string; url: string }[]; setLastRoundNext?(v: boolean): void };
 	onToken?: (t: string) => void;
 	onTool?: (name: string) => void;
 	signal?: AbortSignal;
@@ -927,6 +943,8 @@ export async function runAgentLoop(opts: {
 			break;
 		}
 		msgs.push({ role: 'assistant', content: out.text || null, tool_calls: out.toolCalls });
+		// After this round the next one may be the last, which goes out without tools.
+		opts.toolbox.setLastRoundNext?.(rounds === max - 1);
 		let clean = !!opts.toolbox.settled && !out.truncated;
 		const summaries: string[] = [];
 		for (const call of out.toolCalls) {

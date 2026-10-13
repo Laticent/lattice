@@ -273,8 +273,11 @@ in `chat-agent.ts`.
 - **Seen once, then text.** A captioned photo comes back from `view_asset` as its caption, not a picture.
   A caption is tied to the record's bytes; replacing a photo is delete-and-add, which makes a new record
   with no caption.
-- **`caption_asset` accepts a caption only for a photo shown this turn.** The model cannot invent a
-  description for a photo it never saw.
+- **`caption_asset` accepts a caption only for a photo whose picture has been SENT.** A photo counts as seen
+  when the loop delivers the picture message (`takeImages`), not when `view_asset` queues it, so a model that
+  sends `view_asset` and `caption_asset` in one message cannot save a caption it made up (the independent
+  checker found this). `view_asset` also declines when the next round is the last, which goes out without
+  tools and so could never caption what it was shown.
 - **A caption is untrusted.** It is model output about untrusted pixels, put back in a later prompt.
   `cleanCaption` makes it one line, strips control characters, quotes and backticks, and caps it at 140
   characters; the prompt calls captions and the pictures themselves data, never instructions.

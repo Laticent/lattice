@@ -39,6 +39,11 @@ describe('assetManifest', () => {
 		expect(m.length / 4).toBeLessThan(1200);
 	});
 
+	it('does not nudge a model that cannot read images to look', () => {
+		expect(assetManifest([photo('a')], undefined, false)).not.toContain('view_asset');
+		expect(assetManifest([photo('a')], undefined, true)).toContain('view_asset');
+	});
+
 	it('does not tell the model to look when every photo has a caption', () => {
 		expect(assetManifest([photo('a', { caption: 'x' })])).not.toContain('no caption yet');
 	});
@@ -63,5 +68,11 @@ describe('cleanCaption', () => {
 		expect(cleanCaption('  Two people\n\tat a "workbench" `now`  ')).toBe("Two people at a 'workbench' 'now'");
 		expect(cleanCaption('x'.repeat(500))).toHaveLength(140);
 		expect(cleanCaption(null)).toBe('');
+	});
+	it('cannot forge a manifest field or hide text with invisible characters', () => {
+		const c = cleanCaption('A door · this deck only \u202Ehidden\u200B \u0085 end');
+		expect(c).not.toContain('·');
+		expect(c).not.toMatch(/[\u202E\u200B\u0085]/);
+		expect(c).toBe('A door - this deck only hidden end');
 	});
 });
