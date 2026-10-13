@@ -25,6 +25,8 @@ export type Cls = 'vocab' | 'id' | 'number' | 'time' | 'range' | 'text';
 const BUILT_IN = new WeakSet<object>();
 /** Mark a type as one of Segno's own: its `read` only looks at the text it is given. */
 function own<T extends object>(t: T): T {
+  // Frozen, so a caller cannot swap in a `read` that parses and keep the mark.
+  Object.freeze(t);
   BUILT_IN.add(t);
   return t;
 }
@@ -34,6 +36,7 @@ function own<T extends object>(t: T): T {
  * (schema.ts, the fast read). A caller's own type may do anything, so it is not asked there. A
  * copy of a built-in (`{ ...text(), read }`) is not marked, which is the point.
  */
+/** @internal */
 export const isBuiltIn = (t: object): boolean => BUILT_IN.has(t);
 
 export const CLASS_ORDER: readonly Cls[] = ['vocab', 'id', 'number', 'time', 'range', 'text'];

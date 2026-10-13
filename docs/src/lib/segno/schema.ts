@@ -284,7 +284,7 @@ class Binding {
   }
 }
 
-/** Test hook, not public: `fast: false` makes every record slot take the full bind, so a test can
+/** @internal Test hook, not public: `fast: false` makes every record slot take the full bind, so a test can
  *  hold the fast read equal to it; `hits` counts the binds the fast read made. */
 export const bindMode = { fast: true, hits: 0 };
 

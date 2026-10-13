@@ -431,4 +431,10 @@ describe('the fast read', () => {
     expect(a).toEqual(b);
     expect(a.ok && a.spellings.map((s) => s.written)).toEqual(['tag', 'c4']);
   });
+
+  it('a built-in type cannot be given a read that parses, so the mark stays honest', () => {
+    const t = text();
+    expect(Object.isFrozen(t)).toBe(true);
+    expect(() => Object.assign(t, { read: () => 'x' })).toThrow();
+  });
 });

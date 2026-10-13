@@ -151,6 +151,7 @@ function bindKinds(kinds: readonly string[]) {
 export const FLAT_KIND = { bare: -1, word: -1, record: -1 };
 
 /**
+ * @internal for schema.ts; not part of the published API.
  * The generated parser's flat tree (flat.ts) for `text`, or null when the text does not parse.
  * schema.ts binds a plain `{…}` record straight from it, without building the Item and Scalar
  * objects `parse` returns; whatever that cannot bind it hands back to `parse`, which alone words
@@ -158,6 +159,10 @@ export const FLAT_KIND = { bare: -1, word: -1, record: -1 };
  */
 export function flatTree(text: string): Int32Array | null {
   const r = parseGenerated(text);
+  // Kept for `parseRaw`: when the caller cannot bind this span it parses the same text next, and
+  // parsing it twice cost every quoted label and every error span 40-50% more than before.
+  handedText = text;
+  handedResult = r;
   if (!r.ok) return null;
   bindKinds(r.tree.kinds);
   return r.tree.buf;
@@ -315,8 +320,16 @@ export function parse(text: string): Parsed {
   return { ok: false, diagnostic: progresses(text, r.diagnostic) ? r.diagnostic : withoutFix(r.diagnostic) };
 }
 
+/** The last result `flatTree` produced, still valid only while nothing else has parsed. */
+let handedText: string | null = null;
+let handedResult: ReturnType<typeof parseGenerated> | null = null;
+
 function parseRaw(text: string): Parsed {
-  const r = parseGenerated(text);
+  // Every parse goes through here or `flatTree`, and each replaces or clears the handed-over result,
+  // so a match means the buffer still holds this text's tree.
+  const r = handedResult !== null && handedText === text ? handedResult : parseGenerated(text);
+  handedText = null;
+  handedResult = null;
   if (!r.ok) return { ok: false, diagnostic: syntaxDiagnostic(text, r.error) };
   bindKinds(r.tree.kinds);
   try {
