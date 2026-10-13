@@ -5,7 +5,8 @@
 // the text instead of its grammar (owner, 2026-10-13), this module copies out of that frame, at
 // runtime, exactly two things, so there is no second copy of the pill's look to drift:
 //
-//   1. every rule whose selector names `.lat-pill` (shape geometry, sizes, the icon slot), and
+//   1. every rule whose selector names `.lat-pill` or `.lat-spark` (shape geometry, sizes, the icon
+//      slot, a spark's frame, marks and dots), and
 //   2. the current value of every custom property those rules read (`--pill-*`, `--cat-N-fill`,
 //      `--text-body`, ...), taken from the first slide's computed style.
 //
@@ -21,7 +22,7 @@ export const PILL_SCOPE = 'cs-pill-scope';
 
 const VAR = /var\(\s*(--[\w-]+)/g;
 
-/** The rules of `sheets` that style a pill, as CSS text, with their `@media`-style wrappers kept. */
+/** The rules of `sheets` that style a pill or a spark, as CSS text, with their `@media`-style wrappers kept. */
 export function collectPillRules(sheets: Iterable<CSSStyleSheet>): string[] {
 	const out: string[] = [];
 	for (const sheet of sheets) {
@@ -40,7 +41,7 @@ function collectFrom(rules: CSSRuleList, out: string[]): void {
 	for (const rule of Array.from(rules)) {
 		// Duck-typed: the preview frame is another realm, so `instanceof CSSStyleRule` is false for its rules.
 		if ('selectorText' in rule) {
-			if ((rule as CSSStyleRule).selectorText.includes('lat-pill')) out.push(rule.cssText);
+			if ((rule as CSSStyleRule).selectorText.includes('lat-pill') || (rule as CSSStyleRule).selectorText.includes('lat-spark')) out.push(rule.cssText);
 			continue;
 		}
 		const inner = (rule as CSSGroupingRule).cssRules;
