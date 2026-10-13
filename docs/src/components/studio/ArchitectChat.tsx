@@ -15,8 +15,8 @@ import { ChatLiveStatus } from './ChatLiveStatus';
 import { MessagePhotos, PhotoStrip } from './ChatPhotos';
 import { isFigureLang } from './chat-figures';
 import { type ChatSegment, renderMessageSegments, renderMessageSegmentsStreaming } from './chat-markdown';
-import { photoNote } from './chat-photo-parts';
-import { addChatPhotos, MAX_CHAT_PHOTOS, photoDataUrl } from './chat-photos';
+import { photoNote, videoNote } from './chat-photo-parts';
+import { addChatPhotos, heldVideo, MAX_CHAT_PHOTOS, photoDataUrl, readChatVideo } from './chat-photos';
 import { THINKING } from './chat-status';
 import { DiffCard } from './diff-card';
 import { frontMatterBlock, getFrontMatter } from './front-matter';
@@ -25,7 +25,7 @@ import { refreshAssetUrls, setActiveAssetDeck } from './media-urls';
 import { CHAT_COMPOSER_FIELD, CHAT_COMPOSER_ROW, CHAT_COMPOSER_TOOLS, ChatEmptyCard } from './panel-shells';
 import { PreviewPool } from './preview-pool';
 import { useReferenceDoc } from './reference-doc-ui';
-import { type ChatMessage, type ChatPhoto, type ChatProposal, loadChat, loadChatDraft, saveChat, saveChatDraft } from './studio-store';
+import { type ChatMessage, type ChatPhoto, type ChatProposal, type ChatVideo, loadChat, loadChatDraft, saveChat, saveChatDraft } from './studio-store';
 
 // The Architect chat (Converse) — a real conversational thread. Replies STREAM in
 // token-by-token (rAF-coalesced), render as on-brand Markdown (prose sanitized with
@@ -190,11 +190,12 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 	// Photos picked for the NEXT message. Ephemeral like the draft's attachments: the bytes live in the
 	// Library, and a sent message keeps only the reference (studio-store `ChatPhoto`).
 	const [pendingPhotos, setPendingPhotos] = React.useState<ChatPhoto[]>([]);
+	const [pendingVideos, setPendingVideos] = React.useState<ChatVideo[]>([]);
 	const [addingPhotos, setAddingPhotos] = React.useState(false);
 	// The picker is built before `status` exists, so it calls through a ref to the handler below.
 	const addPhotosRef = React.useRef<(files: File[]) => void>(() => {});
 	const addingRef = React.useRef(false);
-	const refDoc = useReferenceDoc(onManageDocs, { accept: MEDIA_ACCEPT, onFiles: (f) => addPhotosRef.current(f) });
+	const refDoc = useReferenceDoc(onManageDocs, { accept: `${MEDIA_ACCEPT},video/*`, label: 'Add a photo or video…', onFiles: (f) => addPhotosRef.current(f) });
 	const status = useArchitectStatus(pulse);
 
 	// What a figure in a reply needs to draw as the open deck would: the render context the shell
@@ -232,7 +233,10 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 	// Photos picked for the next message belong to the deck they were picked on (they are saved to its
 	// shelf); carrying them to another deck sent pixels the new deck cannot name.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `deckId` is the trigger; the body reads nothing from it.
-	React.useEffect(() => setPendingPhotos([]), [deckId]);
+	React.useEffect(() => {
+		setPendingPhotos([]);
+		setPendingVideos([]);
+	}, [deckId]);
 	React.useEffect(() => {
 		saveChat(deckId, messages);
 		scrollRef.current?.scrollTo?.({ top: scrollRef.current.scrollHeight });
@@ -292,14 +296,17 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 			// An EARLIER turn's photos are named in its text (the model can refer to asset:<name>) but not
 			// re-sent: each image is billed as input every time it travels. Only the LAST turn's go as pixels.
 			const lastIdx = history.length - 1;
-			const turns: ChatTurn[] = history.map((m, i) => ({ role: m.role, content: m.role === 'user' && m.photos?.length && i !== lastIdx ? `${m.content}${photoNote(m.photos.map((p) => p.name), false)}` : m.content }));
+			const turns: ChatTurn[] = history.map((m, i) => ({ role: m.role, content: m.role === 'user' && i !== lastIdx && (m.photos?.length || m.videos?.length) ? `${m.content}${photoNote((m.photos ?? []).map((p) => p.name), false)}${videoNote(m.videos?.length ?? 0, false)}` : m.content }));
+			const sentVideos = history[lastIdx]?.role === 'user' ? (history[lastIdx].videos ?? []) : [];
+			const clips = sentVideos.map((v) => ({ dataUrl: heldVideo(v.name) })).filter((x): x is { dataUrl: string } => !!x.dataUrl);
+			if (clips.length < sentVideos.length) notify('That video is no longer held in this tab, so the model did not see it. Attach it again to resend.');
 			const sent = history[lastIdx]?.role === 'user' ? (history[lastIdx].photos ?? []) : [];
 			const seen = (await Promise.all(sent.map(async (p) => ({ name: p.name, dataUrl: await photoDataUrl(p.name).catch(() => null) })))).filter((x): x is { name: string; dataUrl: string } => !!x.dataUrl);
 			if (seen.length < sent.length) notify(sent.length === 1 ? 'That photo is no longer in the Library, so the model did not see it.' : `${sent.length - seen.length} of those photos are no longer in the Library, so the model did not see them.`);
 			const onActivity = (label: string) => {
 				if (mountedRef.current) setLiveActivity(label);
 			};
-			const out = await chatComplete(turns, source, refDoc.docs, { onToken, onActivity, signal: controller.signal, constrainFacts: factsLocked, grounding: groundingRef.current, ...(seen.length ? { photos: seen } : {}) });
+			const out = await chatComplete(turns, source, refDoc.docs, { onToken, onActivity, signal: controller.signal, constrainFacts: factsLocked, grounding: groundingRef.current, ...(seen.length ? { photos: seen } : {}), ...(clips.length ? { videos: clips } : {}) });
 			if (out.status === 'offline') {
 				raiseTurnNotice(sendDeckId, turnSeq, 'offline', 'Connect a model in Workspace → AI and I can answer and edit your deck.');
 				// THE NOTICE IS DECK STATE; THIS IS AN ACTION ON THE SHELL — and the shell has
@@ -360,13 +367,15 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 	const send = () => {
 		const text = input.trim();
 		// A photo alone is a message: the model is told what was attached either way.
-		if ((!text && !pendingPhotos.length) || busy || addingPhotos) return;
+		if ((!text && !pendingPhotos.length && !pendingVideos.length) || busy || addingPhotos) return;
 		const sendDeckId = deckId;
 		const photos = pendingPhotos;
+		const videos = pendingVideos;
 		setInput('');
 		setPendingPhotos([]);
+		setPendingVideos([]);
 		saveChatDraft(sendDeckId, '');
-		const history: ChatMessage[] = [...messages, { role: 'user', content: text || (photos.length === 1 ? 'Here is a photo.' : 'Here are some photos.'), ...(photos.length ? { photos } : {}) }];
+		const history: ChatMessage[] = [...messages, { role: 'user', content: text || (videos.length ? 'Here is a short video.' : photos.length === 1 ? 'Here is a photo.' : 'Here are some photos.'), ...(photos.length ? { photos } : {}), ...(videos.length ? { videos } : {}) }];
 		saveChat(sendDeckId, history);
 		if (deckIdRef.current === sendDeckId) setMessages(history);
 		void run(history, sendDeckId);
@@ -379,23 +388,35 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 		// One add at a time: `room` is read from the last render, so overlapping adds (five quick pastes)
 		// each saw room for four and saved all five to the shelf.
 		if (addingRef.current) {
-			notify('Still adding the last photo — one moment.');
+			notify('Still adding the last attachment — one moment.');
 			return;
 		}
 		const forDeck = deckId;
 		if (status.generation !== 'openrouter') {
-			notify('Photos need a cloud model that can see — connect one in Workspace → AI.');
+			notify('Photos and video need a cloud model that can see — connect one in Workspace → AI.');
 			return;
 		}
+		const clips = files.filter((f) => f.type.startsWith('video/'));
+		const images = files.filter((f) => !f.type.startsWith('video/'));
 		const room = MAX_CHAT_PHOTOS - pendingPhotos.length;
-		if (room <= 0) {
+		if (images.length && room <= 0) {
 			notify(`A message can carry ${MAX_CHAT_PHOTOS} photos — remove one first.`);
+			return;
+		}
+		if (clips.length && pendingVideos.length) {
+			notify('A message can carry one video — remove it first.');
 			return;
 		}
 		try {
 			const known = (await listStudioModels()).find((m) => m.id === status.modelId);
-			if (known && known.vision === false) {
+			if (images.length && known && known.vision === false) {
 				notify(`${known.name || 'This model'} can't read photos — pick one marked "vision" in the model menu.`);
+				return;
+			}
+			// `video` is absent on a catalog cached before the field existed: unknown, so allowed, and the
+			// model's own refusal is turned into the same advice (describeModelError).
+			if (clips.length && known && known.video === false) {
+				notify(`${known.name || 'This model'} can't read video — pick one marked "video" in the model menu.`);
 				return;
 			}
 		} catch {
@@ -404,17 +425,25 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 		addingRef.current = true;
 		setAddingPhotos(true);
 		try {
-			const res = await addChatPhotos(files.slice(0, room), forDeck);
-			if (res.photos.length) {
-				// The preview, the Library and the editor's completion learn of the new shelf entry.
-				await setActiveAssetDeck(forDeck);
-				await refreshAssetUrls();
-				// Only if the author is still on the deck the photo was saved for.
-				if (deckIdRef.current === forDeck) setPendingPhotos((cur) => [...cur, ...res.photos].slice(0, MAX_CHAT_PHOTOS));
+			if (images.length) {
+				const res = await addChatPhotos(images.slice(0, room), forDeck);
+				if (res.photos.length) {
+					// The preview, the Library and the editor's completion learn of the new shelf entry.
+					await setActiveAssetDeck(forDeck);
+					await refreshAssetUrls();
+					// Only if the author is still on the deck the photo was saved for.
+					if (deckIdRef.current === forDeck) setPendingPhotos((cur) => [...cur, ...res.photos].slice(0, MAX_CHAT_PHOTOS));
+				}
+				if (images.length > room) notify(`Only the first ${room} photo${room === 1 ? '' : 's'} fit — a message carries ${MAX_CHAT_PHOTOS}.`);
+				if (res.renamed.length) notify(`${res.renamed.slice(0, 2).join('; ')}.`);
+				if (res.failed.length) notify(res.failed.slice(0, 2).join(' '));
 			}
-			if (files.length > room) notify(`Only the first ${room} photo${room === 1 ? '' : 's'} fit — a message carries ${MAX_CHAT_PHOTOS}.`);
-			if (res.renamed.length) notify(`${res.renamed.slice(0, 2).join('; ')}.`);
-			if (res.failed.length) notify(res.failed.slice(0, 2).join(' '));
+			if (clips.length) {
+				if (clips.length > 1) notify('A message can carry one video — using the first.');
+				const got = await readChatVideo(clips[0]);
+				if ('error' in got) notify(got.error);
+				else if (deckIdRef.current === forDeck) setPendingVideos([got.video]);
+			}
 		} finally {
 			addingRef.current = false;
 			setAddingPhotos(false);
@@ -510,7 +539,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 						// biome-ignore lint/suspicious/noArrayIndexKey: append-only chat log — index is stable identity.
 						<div key={i} className="flex justify-end">
 							<div className="flex max-w-[92%] flex-col items-end gap-1.5">
-								{m.photos?.length ? <MessagePhotos photos={m.photos} deckId={deckId} /> : null}
+								{m.photos?.length || m.videos?.length ? <MessagePhotos photos={m.photos ?? []} videos={m.videos} deckId={deckId} /> : null}
 								<div className="whitespace-pre-wrap rounded-2xl bg-primary px-3 py-2 text-[12.5px] leading-relaxed text-primary-foreground">{m.content}</div>
 							</div>
 						</div>
@@ -560,7 +589,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 
 			<div className="flex flex-col gap-1.5 border-t border-border p-2.5">
 				{refDoc.chip}
-				<PhotoStrip photos={pendingPhotos} deckId={deckId} busy={addingPhotos} onRemove={(name) => setPendingPhotos((cur) => cur.filter((p) => p.name !== name))} />
+				<PhotoStrip photos={pendingPhotos} videos={pendingVideos} onRemoveVideo={(name) => setPendingVideos((cur) => cur.filter((v) => v.name !== name))} deckId={deckId} busy={addingPhotos} onRemove={(name) => setPendingPhotos((cur) => cur.filter((p) => p.name !== name))} />
 				{/* PADDING. One value on every side (p-2) rather than a 10/6 split, and it has to
 					    clear the `rounded-xl` corner — content inset closer than the radius reads as
 					    crowding into the curve. The buttons are `shrink-0` and the field is the only
@@ -633,7 +662,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 							<Square className="size-3.5" />
 						</button>
 					) : (
-						<button type="button" onClick={send} disabled={(!input.trim() && !pendingPhotos.length) || addingPhotos} aria-label="Send" className="grid size-7 shrink-0 place-items-center rounded-lg bg-primary text-primary-foreground disabled:opacity-40">
+						<button type="button" onClick={send} disabled={(!input.trim() && !pendingPhotos.length && !pendingVideos.length) || addingPhotos} aria-label="Send" className="grid size-7 shrink-0 place-items-center rounded-lg bg-primary text-primary-foreground disabled:opacity-40">
 							<ArrowUp className="size-4" />
 						</button>
 					)}

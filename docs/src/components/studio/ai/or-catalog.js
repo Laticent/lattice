@@ -84,6 +84,7 @@ export const rowTitle = (m) => [
 	m.contextLength ? `Context ${m.contextLength.toLocaleString()} tokens` : null,
 	m.maxOutput ? `Max output ${m.maxOutput.toLocaleString()}` : null,
 	m.vision ? 'Accepts images' : null,
+	m.video ? 'Accepts video' : null,
 ].filter(Boolean).join(' · ');
 
 // A USD figure for the spend readout: 3-dp for sub-dollar amounts (so $0.046 is

@@ -1,8 +1,8 @@
-import { ImageOff, X } from 'lucide-react';
+import { ImageOff, Play, X } from 'lucide-react';
 import * as React from 'react';
 import { cn } from '@/lib/utils';
 import { ensureAssetUrls, onAssetUrlsChanged, setActiveAssetDeck } from './media-urls';
-import type { ChatPhoto } from './studio-store';
+import type { ChatPhoto, ChatVideo } from './studio-store';
 
 // Photos in the chat, as thumbnails: the strip above the composer (removable) and the row inside a
 // sent message. Both read the Library's own name -> object-URL map (`media-urls.ts`), the same one
@@ -54,32 +54,58 @@ function Thumb({ photo, url, size, onRemove }: { photo: ChatPhoto; url?: string;
 	);
 }
 
-/** The photos waiting to be sent, above the composer. */
-export function PhotoStrip({ photos, deckId, onRemove, busy }: { photos: ChatPhoto[]; deckId: string; onRemove: (name: string) => void; busy?: boolean }) {
+const clock = (ms: number) => `${Math.floor(ms / 60000)}:${String(Math.round(ms / 1000) % 60).padStart(2, '0')}`;
+
+/** A clip: its first frame, a play mark and its length. */
+function VideoThumb({ video, size, onRemove }: { video: ChatVideo; size: number; onRemove?: () => void }) {
+	return (
+		<span className="relative inline-block shrink-0 overflow-hidden rounded-lg border border-border bg-[var(--bg-alt)]" style={{ width: size, height: size }} title={`Video, ${clock(video.durationMs)}`}>
+			<img src={video.poster} alt={`Video ${video.name}`} className="size-full object-cover" draggable={false} />
+			<span className="absolute inset-0 grid place-items-center text-white" aria-hidden>
+				<Play className="size-5 drop-shadow" fill="currentColor" />
+			</span>
+			<span className="absolute bottom-0.5 left-0.5 rounded bg-black/60 px-1 font-mono text-[9px] text-white">{clock(video.durationMs)}</span>
+			{onRemove && (
+				<button type="button" onClick={onRemove} aria-label={`Remove ${video.name}`} className="absolute right-0.5 top-0.5 grid size-5 place-items-center rounded-full bg-black/60 text-white hover:bg-black/80">
+					<X className="size-3" />
+				</button>
+			)}
+		</span>
+	);
+}
+
+/** The photos and video waiting to be sent, above the composer. */
+export function PhotoStrip({ photos, videos = [], deckId, onRemove, onRemoveVideo, busy }: { photos: ChatPhoto[]; videos?: ChatVideo[]; deckId: string; onRemove: (name: string) => void; onRemoveVideo?: (name: string) => void; busy?: boolean }) {
 	const urls = useAssetUrls(deckId);
-	if (!photos.length && !busy) return null;
+	if (!photos.length && !videos.length && !busy) return null;
 	return (
 		<div className="flex flex-wrap items-center gap-1.5" data-testid="chat-photo-strip">
 			{photos.map((p) => (
 				<Thumb key={p.name} photo={p} url={urls[p.name]} size={52} onRemove={() => onRemove(p.name)} />
+			))}
+			{videos.map((v) => (
+				<VideoThumb key={v.name} video={v} size={52} onRemove={() => onRemoveVideo?.(v.name)} />
 			))}
 			{busy && (
 				<span className="grid size-[52px] place-items-center rounded-lg border border-dashed border-border text-[10px] text-muted-foreground" role="status">
 					Adding…
 				</span>
 			)}
-			{photos.length > 0 && <span className="text-[10px] text-muted-foreground">billed each time they are sent</span>}
+			{photos.length + videos.length > 0 && <span className="text-[10px] text-muted-foreground">billed each time they are sent</span>}
 		</div>
 	);
 }
 
 /** The photos a sent message carried, above its text. */
-export function MessagePhotos({ photos, deckId, className }: { photos: ChatPhoto[]; deckId: string; className?: string }) {
+export function MessagePhotos({ photos, videos = [], deckId, className }: { photos: ChatPhoto[]; videos?: ChatVideo[]; deckId: string; className?: string }) {
 	const urls = useAssetUrls(deckId);
 	return (
 		<div className={cn('flex flex-wrap justify-end gap-1.5', className)} data-testid="chat-message-photos">
 			{photos.map((p) => (
-				<Thumb key={p.name} photo={p} url={urls[p.name]} size={photos.length === 1 ? 128 : 76} />
+				<Thumb key={p.name} photo={p} url={urls[p.name]} size={photos.length + videos.length === 1 ? 128 : 76} />
+			))}
+			{videos.map((v) => (
+				<VideoThumb key={v.name} video={v} size={photos.length + videos.length === 1 ? 128 : 76} />
 			))}
 		</div>
 	);

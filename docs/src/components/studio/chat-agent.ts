@@ -16,7 +16,7 @@
 import { agentLibrary } from './agent-library';
 import type { ArchitectModel, ChatGrounding, ChatOptions, ChatResult, ChatTurn, ORPrice, ProposedEdit } from './architect';
 import { AGENT_TOOLS, type AgentComplete, type AgentComponent, type AgentRawEdit, bindKernel, buildAgentSystem, createToolbox, type DeckCheck, deckBrief, deckForTurn, describeEdit, type KernelDeps, runAgentLoop, type ToolCall } from './architect-agent';
-import { contentForBudget, PHOTO_TOKENS, withPhotos } from './chat-photo-parts';
+import { contentForBudget, PHOTO_TOKENS, VIDEO_TOKENS, withPhotos } from './chat-photo-parts';
 import { THINKING } from './chat-status';
 import { FRONT_MATTER_KEYS } from './front-matter-keys';
 import type { ContentPart, MsgContent, ReferenceDoc } from './reference-doc';
@@ -118,8 +118,9 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 	// This turn's photos ride the last user message as image parts, so every round of the tool loop
 	// re-sends them (and the cache breakpoint on the tail makes that a read, not a write).
 	const photos = opts?.photos ?? [];
-	ground.messages = withPhotos(ground.messages, photos) as typeof ground.messages;
-	const photoTokens = photos.length * PHOTO_TOKENS;
+	const videos = opts?.videos ?? [];
+	ground.messages = withPhotos(ground.messages, photos, videos) as typeof ground.messages;
+	const photoTokens = photos.length * PHOTO_TOKENS + videos.length * VIDEO_TOKENS;
 	const toolbox = createToolbox({
 		source,
 		catalog: (grounding?.catalog ?? []) as AgentComponent[],
@@ -410,6 +411,8 @@ export function describeModelError(message: string): string {
 	if (status === 401 || status === 403) return `OpenRouter rejected the connection — reconnect in Workspace → AI.${tail}`;
 	if (status === 402) return `Your OpenRouter account is out of credits — add credits at openrouter.ai, or switch to On-device in Workspace → AI.${tail}`;
 	if (status === 400 && /context length|maximum context|too many tokens/i.test(detail || raw)) return `The deck and its attachments are too long for this model — detach a reference document, or pick a model with a longer context in Workspace → AI.${tail}`;
+	// A model that cannot read video refuses a request that carries a clip.
+	if ((status === 400 || status === 404 || status === 422) && /video/i.test(detail || raw)) return `The selected model can't read video — pick one marked "video" in the model menu, or remove the clip and ask again.${tail}`;
 	// A model that cannot read images refuses a request that carries one; say so, and say the way out.
 	if ((status === 400 || status === 404 || status === 422) && /image|vision|multimodal|modalit/i.test(detail || raw)) return `The selected model can't read photos — pick one marked "vision" in the model menu, or remove the photo and ask again.${tail}`;
 	if (status === 404 || status === 400) return `The selected model could not take this request — pick another model in Workspace → AI.${tail}`;

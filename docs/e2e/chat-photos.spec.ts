@@ -40,10 +40,10 @@ function makePng(w: number, h: number): Buffer {
 }
 const PNG = makePng(160, 120);
 
-const MODELS = (vision: boolean) => [{ id: 'test/model', name: 'Test Model', context_length: 100000, pricing: { prompt: '0.000003', completion: '0.000015' }, architecture: { input_modalities: vision ? ['text', 'image'] : ['text'] }, top_provider: { max_completion_tokens: 8000 } }];
+const MODELS = (vision: boolean, video = false) => [{ id: 'test/model', name: 'Test Model', context_length: 100000, pricing: { prompt: '0.000003', completion: '0.000015' }, architecture: { input_modalities: [...(vision ? ['text', 'image'] : ['text']), ...(video ? ['video'] : [])] }, top_provider: { max_completion_tokens: 8000 } }];
 const sse = (frames: unknown[]) => `${frames.map((f) => `data: ${JSON.stringify(f)}\n\n`).join('')}data: [DONE]\n\n`;
 
-async function seed(page: import('@playwright/test').Page, vision: boolean) {
+async function seed(page: import('@playwright/test').Page, vision: boolean, video = false) {
 	await page.addInitScript(() => {
 		try {
 			localStorage.setItem('lattice-db-or-key', 'sk-e2e-mock-not-a-real-key');
@@ -57,7 +57,7 @@ async function seed(page: import('@playwright/test').Page, vision: boolean) {
 	await page.route('https://openrouter.ai/**', async (route) => {
 		const url = route.request().url();
 		if (!url.includes('/chat/completions')) {
-			await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(url.includes('/models') ? { data: MODELS(vision) } : { data: [] }) });
+			await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(url.includes('/models') ? { data: MODELS(vision, video) } : { data: [] }) });
 			return;
 		}
 		bodies.push(route.request().postDataJSON());
@@ -74,9 +74,9 @@ async function seed(page: import('@playwright/test').Page, vision: boolean) {
 }
 
 async function pickPhoto(page: import('@playwright/test').Page) {
-	await page.getByRole('button', { name: 'Attach a photo or reference document' }).click();
+	await page.getByRole('button', { name: 'Attach a photo, video or reference document' }).click();
 	const chooser = page.waitForEvent('filechooser');
-	await page.getByRole('button', { name: 'Add a photo…' }).click();
+	await page.getByRole('button', { name: 'Add a photo or video…' }).click();
 	await (await chooser).setFiles({ name: 'Team Offsite.png', mimeType: 'image/png', buffer: PNG });
 }
 
@@ -134,4 +134,94 @@ test('a model that cannot read images refuses the photo before anything is sent'
 	await expect(page.getByTestId('chat-photo-strip')).toHaveCount(0);
 	// Nothing was sent: the refusal happens at attach time, before any message exists.
 	expect(bodies).toHaveLength(0);
+});
+
+// A real clip, recorded in the page (canvas -> MediaRecorder), so the browser's own decoder reads it.
+async function recordClip(page: import('@playwright/test').Page, seconds: number): Promise<Buffer> {
+	const b64 = await page.evaluate(async (secs) => {
+		const c = document.createElement('canvas');
+		c.width = 160;
+		c.height = 90;
+		const ctx = c.getContext('2d') as CanvasRenderingContext2D;
+		const rec = new MediaRecorder(c.captureStream(15), { mimeType: 'video/webm' });
+		const chunks: Blob[] = [];
+		rec.ondataavailable = (e) => chunks.push(e.data);
+		const done = new Promise<void>((r) => {
+			rec.onstop = () => r();
+		});
+		rec.start();
+		const t0 = performance.now();
+		await new Promise<void>((resolve) => {
+			const tick = () => {
+				ctx.fillStyle = `hsl(${((performance.now() - t0) / 8) % 360} 70% 50%)`;
+				ctx.fillRect(0, 0, 160, 90);
+				if (performance.now() - t0 < secs * 1000) requestAnimationFrame(tick);
+				else resolve();
+			};
+			tick();
+		});
+		rec.stop();
+		await done;
+		const buf = new Uint8Array(await new Blob(chunks, { type: 'video/webm' }).arrayBuffer());
+		let s = '';
+		for (const x of buf) s += String.fromCharCode(x);
+		return btoa(s);
+	}, seconds);
+	return Buffer.from(b64, 'base64');
+}
+
+async function pickFile(page: import('@playwright/test').Page, file: { name: string; mimeType: string; buffer: Buffer }) {
+	await page.getByRole('button', { name: 'Attach a photo, video or reference document' }).click();
+	const chooser = page.waitForEvent('filechooser');
+	await page.getByRole('button', { name: 'Add a photo or video…' }).click();
+	await (await chooser).setFiles(file);
+}
+
+test('a short clip is attached with a poster and a length, and goes to a video model as a video part', async ({ page }) => {
+	test.setTimeout(90_000);
+	const bodies = await seed(page, true, true);
+	await gotoStudio(page);
+	await openChatAtWidth(page, 1440);
+	const clip = await recordClip(page, 2);
+	await pickFile(page, { name: 'Walkthrough.webm', mimeType: 'video/webm', buffer: clip });
+
+	const strip = page.getByTestId('chat-photo-strip');
+	const poster = strip.getByRole('img', { name: 'Video walkthrough', exact: true });
+	await expect(poster).toBeVisible({ timeout: 20_000 });
+	await expect.poll(() => poster.evaluate((el: HTMLImageElement) => el.naturalWidth), { message: 'the poster never decoded' }).toBeGreaterThan(0);
+	await expect(strip.getByText(/^0:0[1-3]$/)).toBeVisible();
+	await page.screenshot({ path: test.info().outputPath('chat-video-strip.png') });
+
+	await page.getByRole('textbox', { name: 'Message the Architect' }).fill('what happens in this clip?');
+	await page.getByRole('button', { name: 'Send', exact: true }).click();
+	await expect(page.getByText('I can see a small striped image.')).toBeVisible({ timeout: 30_000 });
+	await expect(page.getByTestId('chat-message-photos').getByRole('img', { name: 'Video walkthrough', exact: true })).toBeVisible();
+
+	const sent = bodies.at(-1)?.messages.filter((m) => m.role === 'user').at(-1)?.content as { type: string; text?: string; video_url?: { url: string } }[];
+	expect(Array.isArray(sent), 'the clip was sent as plain text').toBe(true);
+	expect(sent.find((p) => p.type === 'video_url')?.video_url?.url).toMatch(/^data:video\/webm;base64,/);
+	expect(sent.find((p) => p.type === 'text')?.text).toContain('short video');
+	await page.screenshot({ path: test.info().outputPath('chat-video-sent.png') });
+});
+
+test('a clip over the size cap is refused before it is read, and nothing is attached', async ({ page }) => {
+	test.setTimeout(60_000);
+	const bodies = await seed(page, true, true);
+	await gotoStudio(page);
+	await openChatAtWidth(page, 1440);
+	await pickFile(page, { name: 'Long.mp4', mimeType: 'video/mp4', buffer: Buffer.alloc(16 * 1024 * 1024) });
+	await expect(page.getByText(/at most 15 MB/)).toBeVisible({ timeout: 20_000 });
+	await expect(page.getByTestId('chat-photo-strip')).toHaveCount(0);
+	expect(bodies).toHaveLength(0);
+});
+
+test('a model that reads images but not video refuses a clip up front', async ({ page }) => {
+	test.setTimeout(60_000);
+	await seed(page, true, false);
+	await gotoStudio(page);
+	await openChatAtWidth(page, 1440);
+	const clip = await recordClip(page, 1);
+	await pickFile(page, { name: 'Clip.webm', mimeType: 'video/webm', buffer: clip });
+	await expect(page.getByText(/can't read video/)).toBeVisible({ timeout: 20_000 });
+	await expect(page.getByTestId('chat-photo-strip')).toHaveCount(0);
 });

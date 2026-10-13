@@ -59,6 +59,8 @@ by a pool of frames the chat owns, in the open deck's theme, with a Source toggl
 numbers are in `2026-10-12-chat-figures-bakeoff.md`. `PreviewPool` gained a `baseSlots` floor (default
 unchanged).
 
+**Video.** The same door takes one clip of at most 15 seconds and 15 MB, to a model whose catalog entry lists video input (`ORModel.video`; absent on an older cached catalog means unknown and allowed, and a model's own refusal is turned into the same advice). It is read once, measured (a header with no length is found by seeking past the end), refused in words when over a cap, shown as a poster with its length, and sent inline as a `video_url` part, priced flat at 4,500 tokens by the budget gate. One per message.
+
 **Photos.** The paperclip's "Add a photo…" opens the device's own picker (no `capture` attribute), and a
 pasted image is taken too. A photo goes through the Library's intake (`importImage`: EXIF and GPS
 removed, capped at 2560 px) to **this deck's shelf**, shows as a thumbnail, and travels to the model as
@@ -70,7 +72,7 @@ one it does not list answers for itself, and a rejection reads "pick one marked 
 
 ### Decisions that were mine to make, and the one that was not
 
-- **A photo is a deck-scoped Library asset, not a shared one.** It stays usable as `asset:<name>` in
+- **A photo is a deck-scoped Library asset, not a shared one** (confirmed as the default by the author, 2026-10-13). It stays usable as `asset:<name>` in
   this deck, it does not clutter the shared Library, and "This deck → All decks" in the Library moves it.
   Reversible by one scope flag.
 - **The pool's floor is 4, not 10.** The cap still grows to cover what is on screen.
@@ -108,7 +110,7 @@ reworded. Not fixed, and not new: the `§N§` placeholder in `inline()` and its 
   phone *width*, not a phone. The native picker (Photo Library, Take Photo) is the browser's own and was
   driven through Playwright's file chooser, which stands in for the choice, not for the picker. The pool's
   WebKit behavior is the reason it exists and is not measured here.
-- **Video is not attached.** The Library's video slice is not built, and most models cannot read video.
+- **Video is held for one turn, not stored.** The Library's video slice is not built, so a clip cannot be an `asset:`; the chat keeps a poster and a length and holds the bytes in memory until it is sent. Regenerate after a reload therefore loses the clip, and says so.
 - **The status line was verified at the DOM, not by eye over time.** A fulfilled mock cannot stream, so
   the phases are held open with delays; their real cadence on a live model is unmeasured.
 - **The streaming bubble hands off to the committed message with one re-point** of a figure's frame.
@@ -116,5 +118,6 @@ reworded. Not fixed, and not new: the `§N§` placeholder in `inline()` and its 
 ## 6. Open
 
 - A phone check of the native photo picker, the pool and the status line on a real device.
-- Video, when the Library's video slice lands.
+- Storing a chat video in the Library, when its video slice lands (it would then be an `asset:` like a photo).
+- Video was exercised with a clip recorded in Chromium (WebM). A phone's H.264 MP4, and the cap on a real 15-second phone clip, are untested.
 - Dropping a photo onto the composer (paste and the picker are in; drag is not).

@@ -43,7 +43,7 @@ function fmtAdded(ts: number): string {
  * files over; what a photo becomes (a Library asset, an image sent to the model) is the caller's.
  * `accept` is the caller's too, so this module does not import the image pipeline.
  */
-export function useReferenceDoc(onManage?: () => void, photos?: { accept: string; onFiles: (files: File[]) => void }) {
+export function useReferenceDoc(onManage?: () => void, photos?: { accept: string; label?: string; onFiles: (files: File[]) => void }) {
 	// Multiple docs can ground ONE generation (#656). `docs` is the active set the
 	// caller feeds to generate*/chatComplete; the picker toggles membership.
 	const [docs, setDocs] = React.useState<ReferenceDoc[]>([]);
@@ -102,8 +102,8 @@ export function useReferenceDoc(onManage?: () => void, photos?: { accept: string
 				<PopoverTrigger asChild>
 					<button
 						type="button"
-						aria-label={photos ? 'Attach a photo or reference document' : 'Attach a reference document'}
-						title={photos ? 'Add a photo, or attach a reference doc (.txt, .md, .pdf) to ground the reply' : 'Attach or reuse a reference doc (.txt, .md, .pdf) to ground generation'}
+						aria-label={photos ? 'Attach a photo, video or reference document' : 'Attach a reference document'}
+						title={photos ? 'Add a photo or a short video, or attach a reference doc (.txt, .md, .pdf) to ground the reply' : 'Attach or reuse a reference doc (.txt, .md, .pdf) to ground generation'}
 						className={cn(
 							'grid size-7 shrink-0 place-items-center rounded-md hover:bg-[color-mix(in_srgb,var(--accent)_10%,transparent)]',
 							docs.length ? 'text-[var(--accent)]' : 'text-muted-foreground',
@@ -128,7 +128,7 @@ export function useReferenceDoc(onManage?: () => void, photos?: { accept: string
 								className="flex w-full items-center gap-2 border-b border-border px-3 py-2 text-left text-[12.5px] font-semibold text-[var(--accent)] hover:bg-[var(--accent-soft)]"
 							>
 								<ImagePlus className="size-4 shrink-0" />
-								Add a photo…
+								{photos.label ?? 'Add a photo…'}
 							</button>
 						)}
 						<button

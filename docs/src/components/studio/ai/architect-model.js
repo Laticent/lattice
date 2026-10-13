@@ -379,6 +379,8 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
         contextLength: m.context_length || m.top_provider?.context_length || null,
         maxOutput: m.top_provider?.max_completion_tokens || null,
         vision: Array.isArray(m.architecture?.input_modalities) && m.architecture.input_modalities.includes('image'),
+        // Absent on a catalog cached before this field existed: callers read `undefined` as unknown.
+        video: Array.isArray(m.architecture?.input_modalities) && m.architecture.input_modalities.includes('video'),
       }));
       writeCachedCatalog(catalogCache);
       return catalogCache;

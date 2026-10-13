@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
-import { contentForBudget, PHOTO_TOKENS, photoNote, withPhotos } from './chat-photo-parts';
+import { contentForBudget, MAX_VIDEO_BYTES, MAX_VIDEO_SECONDS, PHOTO_TOKENS, photoNote, VIDEO_TOKENS, videoNote, videoRefusal, withPhotos } from './chat-photo-parts';
 import { isMediaName } from './media-store';
 
 const URL1 = 'data:image/jpeg;base64,AAAA';
@@ -75,5 +75,33 @@ describe('photoNote for an earlier turn', () => {
 		const n = photoNote(['a'], false);
 		expect(n).toContain('not shown again');
 		expect(n).not.toContain('shown to you below');
+	});
+});
+
+describe('video', () => {
+	it('accepts a clip at the limits and refuses past them, in words', () => {
+		expect(videoRefusal(MAX_VIDEO_SECONDS, MAX_VIDEO_BYTES)).toBeNull();
+		expect(videoRefusal(MAX_VIDEO_SECONDS + 0.5, 1000)).toMatch(/at most 15/);
+		expect(videoRefusal(5, MAX_VIDEO_BYTES + 1)).toMatch(/MB/);
+		expect(videoRefusal(Number.NaN, 1000)).toMatch(/could not be read/);
+		expect(videoRefusal(Number.POSITIVE_INFINITY, 1000)).toMatch(/could not be read/);
+		expect(videoRefusal(0, 1000)).toMatch(/could not be read/);
+	});
+	it('adds a clip to the last user message as a video part, and says it is not in the deck media', () => {
+		const out = withPhotos([{ role: 'user', content: 'what happens here' }], [], [{ dataUrl: 'data:video/mp4;base64,AAAA' }]);
+		const parts = out[0].content as unknown as { type: string; text?: string; video_url?: { url: string } }[];
+		expect(parts.find((p) => p.type === 'video_url')?.video_url?.url).toBe('data:video/mp4;base64,AAAA');
+		expect(parts[0].text).toContain('short video');
+		expect(parts[0].text).toContain('cannot go on a slide');
+	});
+	it('prices a clip flat and keeps its base64 out of the budget text', () => {
+		const big = `data:video/mp4;base64,${'A'.repeat(1_000_000)}`;
+		expect(contentForBudget([{ type: 'text', text: 'q' }, { type: 'video_url', video_url: { url: big } }]).length).toBeLessThan(100);
+		expect(VIDEO_TOKENS).toBeGreaterThan(0);
+	});
+	it('an earlier turn\'s note never says the clip is shown', () => {
+		expect(videoNote(1, false)).toContain('not shown again');
+		expect(videoNote(1, false)).not.toContain('shown to you below');
+		expect(videoNote(0)).toBe('');
 	});
 });

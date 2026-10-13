@@ -27,7 +27,8 @@
 export type ContentPart =
 	| { type: 'text'; text: string }
 	| { type: 'file'; file: { filename: string; file_data: string } }
-	| { type: 'image_url'; image_url: { url: string } };
+	| { type: 'image_url'; image_url: { url: string } }
+	| { type: 'video_url'; video_url: { url: string } };
 
 /** A chat message whose content is either plain text or an array of content-parts. */
 export type MsgContent = string | ContentPart[];
