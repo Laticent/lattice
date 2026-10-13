@@ -16,7 +16,7 @@
 // string and never markup, and a malformed block ends that block, never the import. This module never
 // throws: a file it cannot read gives `{}`.
 
-import { isIsoDate } from './media-store';
+import { isIsoDate } from './media-edit';
 
 export type FileMeta = {
 	/** A description the file carried: XMP description, IPTC caption, EXIF ImageDescription, or a title. */

@@ -21,8 +21,9 @@
 // the restore itself wrote are rewritten once, from one name map, to match (studio-store.ts
 // `importStudioState` does the same "beside, never over" for a deck that diverged).
 
+import { cleanLine, isIsoDate } from './media-edit';
 import { scrubberFor } from './media-scrub';
-import { cleanLine, isIsoDate, isMediaName, LIBRARY_SCOPE, listMedia, MAX_ALIASES, MAX_MEDIA_FILE_BYTES, type MediaRecord, namesOf, saveMedia, setMediaScope, sniffImageMime, uniqueName } from './media-store';
+import { isMediaName, LIBRARY_SCOPE, listMedia, MAX_ALIASES, MAX_MEDIA_FILE_BYTES, type MediaRecord, namesOf, saveMedia, setMediaScope, sniffImageMime, uniqueName } from './media-store';
 import { declaredInflatedBytes, jsonGuard, readBudget, readBytesBudget } from './zip-limits';
 
 export const MEDIA_INDEX = 'media.json';

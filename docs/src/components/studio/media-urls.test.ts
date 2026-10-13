@@ -4,7 +4,8 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { deleteAsset, listAssets } from './library/asset-store.js';
-import { LIBRARY_SCOPE, type NewMedia, renameMedia, saveMedia, setMediaScope, updateMediaMeta } from './media-store';
+import { renameMedia, updateMediaMeta } from './media-edit';
+import { LIBRARY_SCOPE, type NewMedia, saveMedia, setMediaScope } from './media-store';
 import { altsFor, assetNamesIn, assetStamp, dataUrlsFor, ensureAssetAlts, ensureAssetUrls, missingAssetNames, onAssetUrlsChanged, refreshAssetUrls, resetAssetUrlsForTests, setActiveAssetDeck, sourceUsesAssets } from './media-urls';
 
 const make = (over: Partial<NewMedia> = {}): NewMedia => ({

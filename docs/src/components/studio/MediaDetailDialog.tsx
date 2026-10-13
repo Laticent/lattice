@@ -5,7 +5,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useObjectUrl } from './MediaCard';
-import { isIsoDate, isMediaName, type MediaMetaPatch, type MediaRecord } from './media-store';
+import { isIsoDate, type MediaMetaPatch } from './media-edit';
+import { isMediaName, type MediaRecord } from './media-store';
 import { formatBytes } from './reference-doc';
 
 // The detail view behind a Library photo card: see the picture, read what is known about it, and edit

@@ -7,7 +7,7 @@
 import { recordSpend } from '@/components/studio/ai/spend.js';
 import { THUMB_TOKENS } from './agent-assets';
 import { architectModel, cloudBudgetBlock, withStudioVoice } from './architect';
-import { cleanLine } from './media-store';
+import { cleanLine } from './media-edit';
 import type { GroundMsg as Msg } from './reference-doc';
 
 // ── A photo's description: "Suggest" in the Library's photo view ─────────────────────────────────────────────

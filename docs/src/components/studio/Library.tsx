@@ -22,8 +22,9 @@ import { listAllAssetVersions, pruneOrphanVersions } from './library/asset-histo
 import { listAssets } from './library/asset-store.js';
 import { MediaCard } from './MediaCard';
 import { MediaDetailDialog } from './MediaDetailDialog';
+import { decksUsingRecord, removeMediaAlias, updateMediaDetails } from './media-edit';
 import { classifyMedia, importImage, MEDIA_ACCEPT, MediaImportError, uniqueName } from './media-import';
-import { decksUsing, decksUsingRecord, deleteMedia, LIBRARY_SCOPE, listMedia, MEDIA_REFUSAL_PREFIX, type MediaRecord, namesOf, removeMediaAlias, saveMedia, setMediaScope, updateMediaDetails, visibleMedia } from './media-store';
+import { decksUsing, deleteMedia, LIBRARY_SCOPE, listMedia, MEDIA_REFUSAL_PREFIX, type MediaRecord, namesOf, saveMedia, setMediaScope, visibleMedia } from './media-store';
 import { MOTION_PALETTE_STYLE } from './motion/palette-fallback';
 import { LIBRARY_FILTERS, LIBRARY_HEADER, type LibraryFilter } from './panel-shells';
 import { formatBytes, REF_DOC_ACCEPT, readReferenceDoc } from './reference-doc';

@@ -6,30 +6,8 @@ import 'fake-indexeddb/auto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { openDB, reqAsPromise } from './library/asset-db.js';
 import { deleteAsset, listAssets } from './library/asset-store.js';
-import {
-	cleanLine,
-	decksUsing,
-	decksUsingRecord,
-	deleteDeckMedia,
-	isIsoDate,
-	isMediaName,
-	LIBRARY_SCOPE,
-	listMedia,
-	MAX_ALIASES,
-	MEDIA_REFUSAL_PREFIX,
-	mediaNameFromFile,
-	type NewMedia,
-	namesOf,
-	removeMediaAlias,
-	renameMedia,
-	saveMedia,
-	setMediaCaption,
-	setMediaScope,
-	sniffImageMime,
-	updateMediaDetails,
-	updateMediaMeta,
-	visibleMedia,
-} from './media-store';
+import { cleanLine, decksUsingRecord, isIsoDate, removeMediaAlias, renameMedia, updateMediaDetails, updateMediaMeta } from './media-edit';
+import { decksUsing, deleteDeckMedia, isMediaName, LIBRARY_SCOPE, listMedia, MAX_ALIASES, MEDIA_REFUSAL_PREFIX, mediaNameFromFile, type NewMedia, namesOf, saveMedia, setMediaCaption, setMediaScope, sniffImageMime, visibleMedia } from './media-store';
 
 async function emptyShelf() {
 	for (const a of await listAssets()) await deleteAsset(a.id);

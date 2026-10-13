@@ -7,7 +7,8 @@ import JSZip from 'jszip';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { openDB } from './library/asset-db.js';
 import { deleteAsset, listAssets } from './library/asset-store.js';
-import { LIBRARY_SCOPE, listMedia, MAX_MEDIA_FILE_BYTES, type NewMedia, renameMedia, saveMedia, updateMediaMeta } from './media-store';
+import { renameMedia, updateMediaMeta } from './media-edit';
+import { LIBRARY_SCOPE, listMedia, MAX_MEDIA_FILE_BYTES, type NewMedia, saveMedia } from './media-store';
 import { jpeg, jpegSegment, png, pngChunk, webp } from './test-images';
 import { MAX_MEDIA_ROWS, MEDIA_INDEX, packMedia, renameAssetRefs, restoreMedia } from './workspace-media';
 
