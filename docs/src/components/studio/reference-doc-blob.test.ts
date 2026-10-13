@@ -5,7 +5,7 @@ import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { deleteAsset, listAssets } from './library/asset-store.js';
 import { blobToDataUrl, dataUrlToBlob } from './reference-doc';
-import { listRefDocs, migrateLegacyRefDocs, recordToDoc, refDocBlob, saveRefDoc } from './reference-doc-store';
+import { listRefDocs, migrateLegacyRefDocs, recordToDoc, refDocBlob, saveRefDoc, swapLegacyRefDoc } from './reference-doc-store';
 
 const PDF = new Uint8Array(Array.from({ length: 3000 }, (_, i) => (i * 37 + 11) % 256));
 const urlOf = (bytes: Uint8Array) => `data:application/pdf;base64,${Buffer.from(bytes).toString('base64')}`;
@@ -76,6 +76,38 @@ describe('records written before PDFs were binary', () => {
 		await putAsset({ kind: 'refdoc', name: 'odd.pdf', docKind: 'pdf', dataUrl: 'data:application/pdf;base64,@@@', bytes: 3, addedAt: 6 });
 		expect(await migrateLegacyRefDocs()).toBe(0);
 		expect((await rawRows())[0].dataUrl).toBe('data:application/pdf;base64,@@@');
+	});
+});
+
+describe('the rewrite of a legacy record is a compare-and-swap', () => {
+	const seed = async (name: string) => {
+		const { putAsset } = await import('./library/asset-store.js');
+		await putAsset({ kind: 'refdoc', name, docKind: 'pdf', dataUrl: urlOf(PDF), bytes: PDF.length, addedAt: 5 });
+		return (await listRefDocs()).find((r) => r.name === name) as Awaited<ReturnType<typeof listRefDocs>>[number];
+	};
+	const NEWER = new Uint8Array([1, 2, 3]);
+
+	it('does not overwrite a PDF the author saved over the old one after the list was read', async () => {
+		const stale = await seed('d.pdf');
+		await saveRefDoc({ name: 'd.pdf', kind: 'pdf', dataUrl: urlOf(NEWER), bytes: 3 }, 100);
+		expect(await swapLegacyRefDoc(stale, dataUrlToBlob(urlOf(PDF)))).toBe(false);
+		const [now] = await listRefDocs();
+		expect(now.addedAt).toBe(100);
+		expect(new Uint8Array(await (now.blob as Blob).arrayBuffer())).toEqual(NEWER);
+	});
+
+	it('does not bring back a PDF deleted after the list was read', async () => {
+		const stale = await seed('gone.pdf');
+		const { deleteAsset: del } = await import('./library/asset-store.js');
+		await del(stale.id);
+		expect(await swapLegacyRefDoc(stale, dataUrlToBlob(urlOf(PDF)))).toBe(false);
+		expect(await listRefDocs()).toEqual([]);
+	});
+
+	it('writes when the record is still the one that was read', async () => {
+		const rec = await seed('same.pdf');
+		expect(await swapLegacyRefDoc(rec, dataUrlToBlob(urlOf(PDF)))).toBe(true);
+		expect(await swapLegacyRefDoc(rec, dataUrlToBlob(urlOf(PDF)))).toBe(false); // already binary
 	});
 });
 

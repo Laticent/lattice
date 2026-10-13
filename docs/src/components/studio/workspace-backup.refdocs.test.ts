@@ -32,7 +32,7 @@ vi.hoisted(() => {
 import { deleteAsset, listAssets } from './library/asset-store.js';
 import { listRefDocs, saveRefDoc } from './reference-doc-store';
 import { exportStudioState, importStudioState, loadSource, saveSource } from './studio-store';
-import { packWorkspace, restoreWorkspace } from './workspace-backup';
+import { backupRestoreGaps, type PackReport, packWorkspace, restoreWorkspace } from './workspace-backup';
 import { MAX_INFLATED_BYTES } from './zip-limits';
 
 const T0 = 1_700_000_000_000;
@@ -88,5 +88,41 @@ describe('restoreWorkspace — a backup with reference PDFs', () => {
 		expect(back.name).toBe('good.pdf');
 		expect(back.dataUrl).toBeUndefined();
 		expect(new Uint8Array(await (back.blob as Blob).arrayBuffer())).toEqual(new Uint8Array(bytes));
+	});
+
+	it('names a PDF it cannot read instead of failing the whole backup, and restores an empty PDF', async () => {
+		saveSource('deck-aaa', '# Plan');
+		const state = exportStudioState();
+		state.index.push({ id: 'deck-aaa', title: 'Plan', builtin: false });
+		importStudioState(state, T0);
+		await saveRefDoc({ name: 'ok.pdf', kind: 'pdf', dataUrl: 'data:application/pdf;base64,AAEC', bytes: 3 }, T0);
+		await saveRefDoc({ name: 'lost.pdf', kind: 'pdf', dataUrl: 'data:application/pdf;base64,AAEC', bytes: 3 }, T0 + 1);
+		await saveRefDoc({ name: 'empty.pdf', kind: 'pdf', dataUrl: 'data:application/pdf;base64,', bytes: 0 }, T0 + 2);
+		// The browser lost the file behind one stored Blob: reading it rejects.
+		const real = Blob.prototype.arrayBuffer;
+		let calls = 0;
+		Blob.prototype.arrayBuffer = function (this: Blob) {
+			calls++;
+			return this.size === 3 && calls === 2 ? Promise.reject(new DOMException('gone', 'NotReadableError')) : real.call(this);
+		};
+		const report = {} as PackReport;
+		let packed: Blob;
+		try {
+			packed = await packWorkspace(T0, report);
+		} finally {
+			Blob.prototype.arrayBuffer = real;
+		}
+		expect(report.refdocsUnreadable).toHaveLength(1);
+		expect(backupRestoreGaps(report).join(' ')).toContain('could not be read from this browser');
+		const { default: JSZip } = await import('jszip');
+		const zip = await JSZip.loadAsync(new Uint8Array(await packed.arrayBuffer()));
+		const rows = JSON.parse(await (zip.file('refdocs.json') as { async: (t: 'string') => Promise<string> }).async('string')) as Array<{ name: string }>;
+		expect(rows.map((r) => r.name).sort()).toEqual(['empty.pdf', 'ok.pdf', 'lost.pdf'].filter((n) => n !== report.refdocsUnreadable?.[0]).sort());
+
+		for (const a of await listAssets()) await deleteAsset(a.id);
+		const summary = await restoreWorkspace(new Uint8Array(await packed.arrayBuffer()) as unknown as Blob, T0 + 9);
+		expect(summary.refused).toEqual([]);
+		expect(summary.refdocs).toBe(2);
+		expect((await listRefDocs()).map((r) => r.name).sort()).toContain('empty.pdf');
 	});
 });

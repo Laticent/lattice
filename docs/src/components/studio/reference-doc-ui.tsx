@@ -78,7 +78,12 @@ export function useReferenceDoc(onManage?: () => void, photos?: { accept: string
 
 	// Toggle a saved doc in/out of the grounding set; the popover stays open so you
 	// can pick several.
+	const toggling = React.useRef(new Set<string>());
+	const removedWhileLoading = React.useRef(new Set<string>());
 	const toggleSaved = async (rec: RefDocRecord) => {
+		// Building a saved PDF's base64 takes a moment; a second tap on the same row while it runs is ignored,
+		// not read as "off" against a list that has not changed yet.
+		if (toggling.current.has(rec.id)) return;
 		if (docs.some((d) => d.id === rec.id)) {
 			setDocs((cur) => cur.filter((d) => d.id !== rec.id));
 			return;
@@ -88,17 +93,24 @@ export function useReferenceDoc(onManage?: () => void, photos?: { accept: string
 			return;
 		}
 		// A saved PDF is binary at rest; its base64 text is made here, for the one doc being attached.
-		const doc = await recordToDoc(rec).catch(() => null);
-		if (!doc) {
-			notify('Could not read that doc.');
-			return;
+		toggling.current.add(rec.id);
+		try {
+			const doc = await recordToDoc(rec).catch(() => null);
+			if (removedWhileLoading.current.delete(rec.id)) return; // deleted from the library while its text was being built
+			if (!doc) {
+				notify('Could not read that doc.');
+				return;
+			}
+			setDocs((cur) => (cur.some((d) => d.id === rec.id) || cur.length >= MAX_GROUND_DOCS ? cur : [...cur, doc]));
+		} finally {
+			toggling.current.delete(rec.id);
 		}
-		setDocs((cur) => (cur.some((d) => d.id === rec.id) || cur.length >= MAX_GROUND_DOCS ? cur : [...cur, doc]));
 	};
 
 	const removeSaved = async (rec: RefDocRecord, e: React.MouseEvent) => {
 		e.preventDefault();
 		e.stopPropagation();
+		if (toggling.current.has(rec.id)) removedWhileLoading.current.add(rec.id);
 		await deleteRefDoc(rec.id);
 		refresh();
 		setDocs((cur) => cur.filter((d) => d.id !== rec.id)); // also drop from the active set

@@ -56,7 +56,8 @@ export type WorkspaceManifest = {
 /** Does this `data:` URL decode? A backup row is untrusted, so the answer is found out, not assumed. */
 function canDecode(dataUrl: string): boolean {
 	try {
-		return dataUrlToBlob(dataUrl).size > 0;
+		dataUrlToBlob(dataUrl); // an empty PDF is a valid row: old backups hold them
+		return true;
 	} catch {
 		return false;
 	}
@@ -89,6 +90,8 @@ export type PackReport = {
 	refdocsBytes: number;
 	/** Rows in it, one per reference doc. */
 	refdocRows?: number;
+	/** Names of saved PDFs this browser could not read back, so they are not in the file. */
+	refdocsUnreadable?: string[];
 	/** Bytes and entries of the nested `library.zip`, and what its files inflate to. */
 	libraryBytes?: number;
 	libraryEntries?: number;
@@ -166,14 +169,23 @@ export async function packWorkspace(now: number, report?: PackReport): Promise<B
 	// etc.) — as much "the workspace" as the decks are.
 	if (refdocs.length) {
 		// A PDF is binary in the Library but base64 text in this file: the format older versions read, so a backup
-		// made now still restores there. The text is made one doc at a time and deflates back to about the PDF's size.
-		const rows = await Promise.all(
-			refdocs.map(async (r) => {
-				const { blob: _blob, data: _data, ...rest } = r;
-				const bytes = refDocBlob(r);
-				return bytes ? { ...rest, dataUrl: r.dataUrl ?? (await blobToDataUrl(bytes)) } : rest;
-			}),
-		);
+		// made now still restores there. The text is made one doc at a time, so only one PDF is ever held twice, and it
+		// deflates back to about the PDF's size. A PDF the browser can no longer read (IndexedDB lost the file behind
+		// the Blob) is left out and named in the report: it must not cost the whole backup.
+		const rows: unknown[] = [];
+		for (const r of refdocs) {
+			const { blob: _blob, data: _data, ...rest } = r;
+			const bytes = refDocBlob(r);
+			if (!bytes) {
+				rows.push(rest);
+				continue;
+			}
+			try {
+				rows.push({ ...rest, dataUrl: r.dataUrl ?? (await blobToDataUrl(bytes)) });
+			} catch {
+				if (report) (report.refdocsUnreadable ??= []).push(r.name);
+			}
+		}
 		const json = JSON.stringify(rows, null, 2);
 		zip.file('refdocs.json', json);
 		// In UTF-8 bytes: the restore's first check reads the size the zip declares, which is UTF-8,
@@ -289,6 +301,7 @@ export function backupRestoreGaps(report: PackReport): string[] {
 	if ((report.stateBytes ?? 0) > MAX_INFLATED_BYTES) gaps.push(`your decks, chats and settings (${mb(report.stateBytes ?? 0)}) are over the ${limit(MAX_INFLATED_BYTES)} a restore reads, so this backup will not restore at all`);
 	if (report.refdocsBytes > MAX_REFDOCS_BYTES) gaps.push(`your reference docs (${mb(report.refdocsBytes)}) are over the ${limit(MAX_REFDOCS_BYTES)} a restore reads, so they will not come back from it`);
 	else if ((report.refdocRows ?? 0) > MAX_BACKUP_ROWS) gaps.push(`you have more than ${MAX_BACKUP_ROWS.toLocaleString('en-US')} reference docs, more than a restore reads, so they will not come back from it`);
+	if (report.refdocsUnreadable?.length) gaps.push(`${report.refdocsUnreadable.length} saved PDF${report.refdocsUnreadable.length === 1 ? '' : 's'} (${report.refdocsUnreadable.slice(0, 3).join(', ')}) could not be read from this browser, so ${report.refdocsUnreadable.length === 1 ? 'it is' : 'they are'} not in this file`);
 	if ((report.mediaSkipped ?? 0) > 0) gaps.push(`${report.mediaSkipped} of your photos are in a type a backup does not carry, so they are not in this file`);
 	if ((report.mediaBytes ?? 0) > MAX_MEDIA_RESTORE_BYTES) gaps.push(`your photos (${mb(report.mediaBytes ?? 0)}) are over the ${limit(MAX_MEDIA_RESTORE_BYTES)} a restore reads, so some will not come back from it`);
 	else if ((report.mediaRows ?? 0) > MAX_MEDIA_ROWS) gaps.push(`you have more than ${MAX_MEDIA_ROWS.toLocaleString('en-US')} photos, more than a restore reads, so they will not come back from it`);

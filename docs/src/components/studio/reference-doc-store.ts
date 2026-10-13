@@ -6,6 +6,7 @@
 // Privacy: stored locally in the browser (IndexedDB), NEVER uploaded to us — the
 // bytes are only ever inlined into a call the user's own key pays for (the
 // inline-only decision, engineering/decisions/2026-06-29-studio-spend-budget.md).
+import { ASSET_STORE, openDB } from '@/components/studio/library/asset-db.js';
 import { deleteAsset, listAssets, putAsset, REFUSAL_PREFIX } from '@/components/studio/library/asset-store.js';
 import { blobToDataUrl, dataUrlToBlob, type ReferenceDoc } from './reference-doc';
 
@@ -83,14 +84,37 @@ export async function migrateLegacyRefDocs(): Promise<number> {
 	for (const rec of await listRefDocs()) {
 		if (!rec.dataUrl || rec.blob) continue;
 		try {
-			const { dataUrl: _legacy, ...rest } = rec;
-			await putAsset({ ...rest, blob: dataUrlToBlob(rec.dataUrl) });
-			n++;
+			if (await swapLegacyRefDoc(rec, dataUrlToBlob(rec.dataUrl))) n++;
 		} catch {
 			/* undecodable text, or a browser that will not store the Blob: the legacy record keeps working */
 		}
 	}
 	return n;
+}
+
+/**
+ * Rewrite ONE legacy record as binary, only if it is still exactly the record that was read: same id, same
+ * base64 text, no blob. The list is read once and the rewrites happen later, so a doc the author saved over,
+ * deleted or cleared in between must not be overwritten with the old bytes or brought back. The check and the
+ * write share one transaction. Resolves whether it wrote.
+ */
+export async function swapLegacyRefDoc(rec: RefDocRecord, blob: Blob): Promise<boolean> {
+	const db = await openDB();
+	return new Promise<boolean>((resolve, reject) => {
+		const t = db.transaction(ASSET_STORE, 'readwrite');
+		const store = t.objectStore(ASSET_STORE);
+		let wrote = false;
+		t.oncomplete = () => resolve(wrote);
+		t.onabort = t.onerror = () => reject(t.error || new Error('swapLegacyRefDoc: the change failed'));
+		const get = store.get(rec.id);
+		get.onsuccess = () => {
+			const now = get.result as RefDocRecord | undefined;
+			if (!now || now.dataUrl !== rec.dataUrl || now.blob || now.data) return;
+			const { dataUrl: _legacy, ...rest } = now;
+			store.put({ ...rest, blob });
+			wrote = true;
+		};
+	});
 }
 
 /** Every saved reference doc, newest first (asset-store sorts by addedAt). */
