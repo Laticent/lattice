@@ -53,18 +53,21 @@ export const MAX_CAPTION_CHARS = 140;
 export function cleanCaption(raw: unknown): string {
 	// Strings only: `String({})` would store the text "[object Object]" as a caption.
 	if (typeof raw !== 'string') return '';
-	return raw
+	const t = raw
 		// biome-ignore lint/suspicious/noControlCharactersInRegex: stripping them is the point
 		.replace(/[\u0000-\u001f\u007f-\u009f]+/g, ' ')
-		// Format and line/paragraph separators (bidi overrides, zero-width characters) and the manifest's
-		// own field separator, which would let a caption forge a `· this deck only` field inside its quotes.
-		.replace(/[\p{Cf}\p{Zl}\p{Zp}]+/gu, '')
-		.replace(/·/g, '-')
-		.replace(/["`]+/g, "'")
+		// Invisible characters: format and line/paragraph separators (bidi overrides, zero-width), the Hangul
+		// filler and braille blank (blank-looking letters), and variation selectors and tag characters (the
+		// channels used to smuggle hidden text). A caption of only these cleans to '' and is refused.
+		.replace(/(?:[\p{Cf}\p{Zl}\p{Zp}\u3164\u2800]|[\uFE00-\uFE0F]|[\u{E0000}-\u{E01EF}])+/gu, '')
+		// The manifest's own field separator and its look-alikes, so a caption cannot forge `· this deck only`.
+		.replace(/[·⋅•]/g, '-')
+		// Straight and curly quotes and backticks all become an apostrophe: none can close a surrounding span.
+		.replace(/["`“”„‘’«»]+/g, "'")
 		.replace(/\s+/g, ' ')
-		.trim()
-		.slice(0, MAX_CAPTION_CHARS)
 		.trim();
+	// Cut by whole characters, not UTF-16 units, so an emoji at the limit is kept or dropped whole.
+	return Array.from(t).slice(0, MAX_CAPTION_CHARS).join('').trim();
 }
 
 const RATIOS: [number, string][] = [

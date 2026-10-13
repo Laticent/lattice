@@ -239,6 +239,17 @@ describe('photo captions in a backup', () => {
 		expect(await captionOf('uncaptioned')).toBeUndefined();
 	});
 
+	it('are NOT written onto an identical photo already on the device, which a restore never overwrites', async () => {
+		const blob = await backupFromA(async () => {
+			const rec = await saveMedia(photo('shop-floor', X), 1);
+			await setMediaCaption(rec.id, 'Two people at a workbench');
+		});
+		await saveMedia(photo('shop-floor', X), 1); // device B holds the same bytes, uncaptioned
+		await restoreWorkspace(blob, T0 + 1);
+		expect((await listMedia()).filter((m) => m.name === 'shop-floor')).toHaveLength(1);
+		expect(await captionOf('shop-floor')).toBeUndefined();
+	});
+
 	it('are cleaned on the way in: a backup file is untrusted and its caption goes back into a prompt', async () => {
 		const blob = await backupFromA(async () => {
 			await saveMedia(photo('shop-floor', X), 1);

@@ -71,6 +71,17 @@ describe('cleanCaption', () => {
 		expect(cleanCaption({ evil: true })).toBe('');
 		expect(cleanCaption(42)).toBe('');
 	});
+	it('cuts by whole characters, so an emoji at the limit is not split in half', () => {
+		const c = cleanCaption(`${'a'.repeat(139)}😀 more`);
+		expect(c).toBe(`${'a'.repeat(139)}😀`);
+		expect(Array.from(c)).toHaveLength(140);
+		expect(c).not.toMatch(/[\ud800-\udbff](?![\udc00-\udfff])/);
+	});
+	it('reads blank-looking and smuggling characters as empty, and curly quotes as the straight ones', () => {
+		expect(cleanCaption('\u3164\u2800')).toBe('');
+		expect(cleanCaption('\ufe0f\u{e0100}\u{e0041}')).toBe('');
+		expect(cleanCaption('A door” ⋅ this deck only “x')).toBe("A door' - this deck only 'x");
+	});
 	it('cannot forge a manifest field or hide text with invisible characters', () => {
 		const c = cleanCaption('A door · this deck only \u202Ehidden\u200B \u0085 end');
 		expect(c).not.toContain('·');
