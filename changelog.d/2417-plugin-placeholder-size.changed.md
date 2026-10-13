@@ -1,0 +1,1 @@
+- **The plugin placeholder is the size of the block it stands for.** It was a thin strip; it now takes the proportions of the plugin's last drawn output (remembered in this browser), else the plugin's declared `contributes.fences.<fence>.placeholder.aspect` (new in `plugin.schema.json`, `W/H`), else a wide default, at the body type size.

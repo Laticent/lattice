@@ -8,11 +8,11 @@ import DOMPurify from 'dompurify';
 import { doorFinish, doorFinishFence } from '../../../../lib/core/door-attr.mjs';
 import { createSlideSanitizer } from '../../../../lib/core/sanitize-slide-html.mjs';
 import { captureHook, claimKey, engineClaimsOf, SLIDE_MS, slideInput, spliced, substituteHook, withFailureNote } from '../../../../lib/packages/code-door-core.mjs';
-import { activePluginNames, captureFences, fenceCaptureNotes, fenceInput, fenceKey, fenceMarkup, fenceNamespace, fenceOutputNote, fencePlaceholder, planFencePlugins, rebuiltFromAlternatives, substituteFences, withFenceNote } from '../../../../lib/packages/code-door-fence.mjs';
+import { activePluginNames, aspectOfOutput, captureFences, fenceCaptureNotes, fenceInput, fenceKey, fenceMarkup, fenceNamespace, fenceOutputNote, fencePlaceholder, planFencePlugins, rebuiltFromAlternatives, substituteFences, withFenceNote } from '../../../../lib/packages/code-door-fence.mjs';
 import FENCE_DOOR from '../../../../lib/packages/fence-door.generated.json';
 import SHIPPED from '../../../../lib/packages/packages.generated.json';
 import { deckPluginList } from '../../../../lib/plugins/deck-plugins.mjs';
-import { type CodePackagesStatus, codePackages, isApproved, isPluginApproved, type Renderer, report, type StudioCodePackage, type StudioPlugin, studioPlugins } from './door';
+import { type CodePackagesStatus, codePackages, isApproved, isPluginApproved, type Renderer, rememberAspect, rememberedAspect, report, type StudioCodePackage, type StudioPlugin, studioPlugins } from './door';
 import { openPackageFrame, type PackageFrame } from './runner';
 
 // The palette token names every theme defines, handed to a package in its slide's facts. The theme
@@ -224,7 +224,7 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 		if (sections.has(key)) continue;
 		if (!declared.has(p.name)) {
 			// Not in the deck's `plugins:`: nothing runs, and a drawn placeholder stands where the block is.
-			sections.set(key, fencePlaceholder(p.name));
+			sections.set(key, fencePlaceholder(p.name, rememberedAspect(p.sha256) ?? p.aspect ?? null));
 			unlisted.add(p.name);
 			continue;
 		}
@@ -253,6 +253,7 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 				if ('error' in done) why = done.error;
 				else {
 					out = fenceMarkup(c.pkg, done.html);
+					rememberAspect(p.sha256, aspectOfOutput(done.html));
 					// Serialization expands text (a non-breaking space is six characters): the cap counts what is spliced in too.
 					if (out.length > raw.length) {
 						fenceTotal += out.length - raw.length;

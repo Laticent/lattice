@@ -349,6 +349,13 @@ describe('asset-bundle — package zips from elsewhere', () => {
 			expect([...round.themes, ...round.components, ...round.finishes, ...round.scenes]).toHaveLength(0);
 		});
 
+		it('reads a declared placeholder aspect, and ignores one that is not W/H', async () => {
+			const ok = await unpackBundle(await zipOf({ manifest: { contributes: { fences: { glow: { placeholder: { aspect: '16/9' } } } } } }), { plugins: true });
+			expect(ok.plugins?.[0].aspect).toBe('16/9');
+			const bad = await unpackBundle(await zipOf({ manifest: { contributes: { fences: { glow: { placeholder: { aspect: '16:9;x' } } } } } }), { plugins: true });
+			expect(bad.plugins?.[0]?.aspect).toBeUndefined();
+		});
+
 		it('is refused by name inside a project or a backup, which say where to import it', async () => {
 			const { PLUGIN_PROJECT_REFUSAL } = (await import('../../../../lib/packages/plugin-refusal.js')).default;
 			const round = await unpackBundle(await zipOf());

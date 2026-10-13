@@ -344,6 +344,19 @@
             }
           }
         },
+        "placeholder": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["aspect"],
+          "description": "How much room a block of this fence takes, as DATA, for the placeholder a deck shows where the plugin has not been listed or approved and its code may not run (plugin-system §9 decision 11). The host sizes the placeholder from it; once the plugin has drawn, the host remembers the real output's proportions and uses those instead. A zip plugin may declare it; a shipped plugin draws at once and has no use for one.",
+          "properties": {
+            "aspect": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]{0,2}/[1-9][0-9]{0,2}$",
+              "description": "Width over height of a drawn block, as `W/H` (`16/9`, `4/1`). Whole numbers up to 999."
+            }
+          }
+        },
         "body": {
           "enum": ["json", "tex", "text", "mermaid"],
           "description": "The language of the fence body, for the editor's highlighter and the docs."

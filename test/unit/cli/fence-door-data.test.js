@@ -109,6 +109,31 @@ describe('fenceCaptureNotes', () => {
   });
 });
 
+describe('placeholder size: remembered from output, declared in the manifest', () => {
+  test('aspectOfOutput reads the first svg’s viewBox or width and height, reduced, in range, else null', async () => {
+    const { aspectOfOutput } = await load();
+    assert.equal(aspectOfOutput('<div><svg class="x" viewBox="0 0 520 130">'), '4/1');
+    assert.equal(aspectOfOutput('<svg width="400" height="100">'), '4/1');
+    assert.equal(aspectOfOutput('<svg viewBox="0 0 1e9 2">'), '999/1', 'clamped into the schema’s range');
+    for (const none of ['<p>x</p>', '<svg>', '<svg viewBox="0 0 0 10">', '<svg viewBox="a b c d">', '']) assert.equal(aspectOfOutput(none), null, none);
+  });
+
+  test('the placeholder carries the aspect only when it is W/H', async () => {
+    const { fencePlaceholder } = await load();
+    assert.match(fencePlaceholder('g', '16/9'), /style="--lp-aspect:16 \/ 9"/);
+    for (const bad of ['16:9', '0/5', '1000/2', '4/1;color:red', 'x"><script>', null, undefined, 5]) assert.doesNotMatch(fencePlaceholder('g', bad), /style=/, String(bad));
+  });
+
+  test('the schema accepts a placeholder.aspect and refuses anything else on it', () => {
+    const schema = JSON.parse(fs.readFileSync(path.join(__dirname, '../../../lib/plugins/plugin.schema.json'), 'utf8'));
+    const ph = schema.$defs.fence.properties.placeholder;
+    assert.equal(ph.additionalProperties, false);
+    const re = new RegExp(ph.properties.aspect.pattern);
+    for (const ok of ['16/9', '4/1', '999/999']) assert.ok(re.test(ok), ok);
+    for (const no of ['16:9', '0/5', '1000/1', '4 / 1', '4/']) assert.ok(!re.test(no), no);
+  });
+});
+
 describe('fencePlaceholder: what stands where a plugin the deck did not list would draw', () => {
   test('names the plugin, carries none of the author’s text, and escapes the name', async () => {
     const { fencePlaceholder } = await load();

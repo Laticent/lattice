@@ -495,7 +495,11 @@ section div[data-lattice-plugin-off] {
   align-items:center;
   gap:0.9em;
   box-sizing:border-box;
-  min-height:4.2em;
+  /* The room the block will take: `--lp-aspect` (W / H) is the plugin's own proportions, remembered from its last drawn
+   * output or declared in its manifest; the default is a wide, short block. Capped so a tall one cannot fill the slide. */
+  aspect-ratio:var(--lp-aspect, 16 / 5);
+  width:100%;
+  max-height:18em;
   padding:0.9em 1.2em;
   position:relative;
   overflow:hidden;
@@ -504,7 +508,7 @@ section div[data-lattice-plugin-off] {
   border-radius:0.6em;
   color:var(--text-body);
   font-family:var(--font-label);
-  font-size:var(--fs-meta);
+  font-size:var(--fs-body);
   line-height:1.25;
   background-color:var(--bg-alt, var(--bg));
   background-image:
@@ -542,6 +546,7 @@ section div[data-lattice-plugin-off] .lattice-plugin-words strong {
 section div[data-lattice-plugin-off] .lattice-plugin-words span {
   /* Body ink, not muted: the Nacre tones sit behind it, and the muted ink read at 2:1 on a dark deck. */
   color:var(--text-body);
+  font-size:var(--fs-meta);
 }
 
 /* Marp Core converts unicode emoji in source markdown to twemoji <img class="emoji">.

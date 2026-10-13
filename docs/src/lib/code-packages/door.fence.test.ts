@@ -242,6 +242,39 @@ describe('rules whose removal no test used to notice', () => {
 	});
 });
 
+describe('the placeholder is the size the block will be', () => {
+	const style = (html: string) => /<div data-lattice-plugin-off="gantt-plugin"( style="--lp-aspect:([^"]*)")?/.exec(html)?.[2] ?? null;
+
+	it('with nothing declared or remembered it carries no size (the stylesheet’s default)', async () => {
+		await approve();
+		expect(style(await draw(DECK_UNLISTED))).toBeNull();
+	});
+
+	it('a manifest hint sizes it', async () => {
+		await setPlugins([{ name: 'gantt-plugin', fence: 'gantt', code, aspect: '3/1' }]);
+		await approve();
+		expect(style(await draw(DECK_UNLISTED))).toBe('3 / 1');
+	});
+
+	it('the proportions of the last drawn output win over the hint, and are remembered by the code’s digest', async () => {
+		await setPlugins([{ name: 'gantt-plugin', fence: 'gantt', code, aspect: '3/1' }]);
+		await approve();
+		renderer = () => '<svg viewBox="0 0 400 100" width="400"><rect width="4" height="4"></rect></svg>';
+		await draw(DECK);
+		expect(style(await draw(DECK_UNLISTED))).toBe('4 / 1');
+		// A different version of the code is a different plugin: it does not inherit the size.
+		await setPlugins([{ name: 'gantt-plugin', fence: 'gantt', code: `${code}\n/* v2 */`, aspect: '5/1' }]);
+		expect(style(await draw(DECK_UNLISTED))).toBe('5 / 1');
+	});
+
+	it('an output with no intrinsic proportions remembers nothing', async () => {
+		await approve();
+		renderer = () => '<p>plain</p>';
+		await draw(DECK);
+		expect(style(await draw(DECK_UNLISTED))).toBeNull();
+	});
+});
+
 describe('a refused plugin', () => {
 	it('is never offered or approvable, and a listed one says why even though nothing runs', async () => {
 		await setPlugins([{ name: 'py-plugin', fence: 'python', code }]);

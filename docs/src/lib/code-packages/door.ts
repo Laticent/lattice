@@ -22,7 +22,7 @@
 // running half is door-run.ts, loaded only once a render meets a code package, so a Studio with no
 // code package never downloads the kernel, the sanitizer or the runner.
 
-import { planFencePlugins } from '../../../../lib/packages/code-door-fence.mjs';
+import { ASPECT_RE, planFencePlugins } from '../../../../lib/packages/code-door-fence.mjs';
 import { pluginConsentText } from '../../../../lib/packages/code-shape.mjs';
 import FENCE_DOOR from '../../../../lib/packages/fence-door.generated.json';
 import { deckPluginList } from '../../../../lib/plugins/deck-plugins.mjs';
@@ -37,7 +37,7 @@ export type StudioCodePackage = { name: string; code: string; sha256: string; by
  * renderer whose file began with a byte-order mark or held an invalid byte has a different digest here
  * than the CLI's (which hashes the file's bytes): an approval never crosses between them either way.
  */
-export type StudioPlugin = { kind: 'plugin'; name: string; fence: string; code: string; sha256: string; bytes: number };
+export type StudioPlugin = { kind: 'plugin'; name: string; fence: string; code: string; sha256: string; bytes: number; /** The manifest's declared proportions of a block (`W/H`), for the placeholder. */ aspect?: string };
 /** What the notice above the preview shows: the code this deck uses that is not approved. `notes` are the door's own warnings (a slide it left alone, and why). */
 export type CodePackagesStatus = { unapproved: (StudioCodePackage | StudioPlugin)[]; failed: { name: string; slide: number; why: string }[]; /** Installed plugins whose fence the deck writes but whose name its `plugins:` list does not (a placeholder stands there). */ offered?: StudioPlugin[]; notes?: string[] };
 
@@ -150,13 +150,43 @@ export async function setCodePackages(list: { name: string; code: string; facts?
  * only draws in a deck that lists it under `plugins:` (decision 11), and only once approved.
  */
 let setPluginsSeq = 0;
-export async function setPlugins(list: { name: string; fence: string; code: string }[]): Promise<void> {
+export async function setPlugins(list: { name: string; fence: string; code: string; aspect?: string }[]): Promise<void> {
 	const mine = ++setPluginsSeq;
 	const next = new Map<string, StudioPlugin>();
-	for (const p of list) next.set(p.name, { kind: 'plugin', name: p.name, fence: p.fence, code: p.code, sha256: await pluginDigest(p.code, p.fence), bytes: new TextEncoder().encode(p.code).length });
+	for (const p of list) next.set(p.name, { kind: 'plugin', name: p.name, fence: p.fence, code: p.code, sha256: await pluginDigest(p.code, p.fence), bytes: new TextEncoder().encode(p.code).length, ...(p.aspect ? { aspect: p.aspect } : {}) });
 	if (mine !== setPluginsSeq) return;
 	plugins.clear();
 	for (const [k, v] of next) plugins.set(k, v);
+}
+
+const ASPECTS_KEY = 'lattice-plugin-aspects';
+
+/**
+ * The proportions a plugin's block last had when it DREW (`aspectOfOutput`), by the code's digest. The placeholder a
+ * deck shows before the plugin is listed or approved uses it, so it stands where the real block will be. Browser-local,
+ * like the approval: nothing a deck or a backup carries.
+ */
+export function rememberedAspect(sha256: string): string | null {
+	try {
+		const v = (JSON.parse(localStorage.getItem(ASPECTS_KEY) || '{}') as Record<string, unknown>)[sha256];
+		return typeof v === 'string' && ASPECT_RE.test(v) ? v : null;
+	} catch {
+		return null;
+	}
+}
+
+export function rememberAspect(sha256: string, aspect: string | null): void {
+	if (!aspect || rememberedAspect(sha256) === aspect) return;
+	try {
+		const all = JSON.parse(localStorage.getItem(ASPECTS_KEY) || '{}') as Record<string, string>;
+		const keys = Object.keys(all);
+		// Bounded: the oldest forgotten past 200 plugin versions.
+		if (keys.length >= 200) delete all[keys[0]];
+		all[sha256] = aspect;
+		localStorage.setItem(ASPECTS_KEY, JSON.stringify(all));
+	} catch {
+		/* storage unavailable: the placeholder falls back to the manifest's hint, then the default */
+	}
 }
 
 /** The plugins the Studio knows, for door-run.ts. */

@@ -1765,6 +1765,17 @@ through `node lattice.js`, end to end (`test/integration/export/plugin-cli.test.
   are ignored today (decision 10), so the field stays free to define. The Studio's editor passes the same
   vocabulary (`externalFences`).
 
+**2026-10-13 — the placeholder takes the size of the block it stands for.** The first placeholder was sized in
+`em` of the smallest content size, so it read as a thin chip. It cannot ask the plugin how big it will be (its code
+may not run before the deck lists it and the user approves it), so the size comes from DATA, in this order: the
+proportions of the plugin's last DRAWN output (`aspectOfOutput`: the first `<svg>`'s `viewBox` or `width`/`height`,
+reduced, within 1 to 999), remembered in this browser by the code's digest (`lattice-plugin-aspects`, bounded at 200,
+never in a deck or a backup); else the manifest's `contributes.fences.<fence>.placeholder.aspect` (`W/H`,
+`plugin.schema.json`, a new additive field a zip plugin may declare); else a wide default (`16 / 5`). The
+placeholder is `aspect-ratio: var(--lp-aspect, 16 / 5)` at the full content width, capped at 18em of height, with
+its text at the body size. Plain-markup output has no intrinsic proportions and remembers nothing. The value is
+validated (`ASPECT_RE`) before it reaches the `style` attribute at every hop (import, store, kernel).
+
 ## References
 
 - [`2026-06-14-plugin-extension-system.md`](2026-06-14-plugin-extension-system.md) — LPM.

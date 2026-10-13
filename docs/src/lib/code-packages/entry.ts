@@ -43,7 +43,7 @@ export async function setCodePackages(list: { name: string; code: string; facts?
  * The Library's zip plugins (door.ts `setPlugins`), under the same rule as `setCodePackages`: an empty
  * list loads nothing unless a load is under way, so the latest list always wins.
  */
-export async function setPlugins(list: { name: string; fence: string; code: string }[]): Promise<void> {
+export async function setPlugins(list: { name: string; fence: string; code: string; aspect?: string }[]): Promise<void> {
 	if (!list.length && !door && !loading) return;
 	await (await load()).setPlugins(list);
 }

@@ -18,15 +18,17 @@ export type StudioPluginRecord = {
 	css: string;
 	title: string;
 	description: string;
+	/** The manifest's declared proportions of a block (`W/H`), for the placeholder. */
+	aspect?: string;
 };
 
-type PluginAssetRecord = { id: string; kind: 'plugin'; name: string; fence?: string; text?: string; css?: string; title?: string; description?: string; addedAt?: number };
+type PluginAssetRecord = { id: string; kind: 'plugin'; name: string; fence?: string; text?: string; css?: string; title?: string; description?: string; aspect?: string; addedAt?: number };
 
-const toRecord = (a: PluginAssetRecord): StudioPluginRecord => ({ id: a.id, name: a.name, fence: a.fence ?? '', code: a.text ?? '', css: a.css ?? '', title: a.title ?? a.name, description: a.description ?? '' });
+const toRecord = (a: PluginAssetRecord): StudioPluginRecord => ({ id: a.id, name: a.name, fence: a.fence ?? '', code: a.text ?? '', css: a.css ?? '', title: a.title ?? a.name, description: a.description ?? '', ...(a.aspect ? { aspect: a.aspect } : {}) });
 
 /** Save a plugin; re-saving the same name replaces it in place (the store keys on kind + name, with a history snapshot). */
-export async function saveStudioPlugin(input: { name: string; fence: string; code: string; css?: string; title?: string; description?: string }, opts?: { historyLabel?: string }): Promise<StudioPluginRecord> {
-	const stored = (await putAsset({ kind: 'plugin', name: input.name, fence: input.fence, text: input.code, css: input.css ?? '', title: input.title ?? input.name, description: input.description ?? '', addedAt: Date.now() }, opts)) as PluginAssetRecord;
+export async function saveStudioPlugin(input: { name: string; fence: string; code: string; css?: string; title?: string; description?: string; aspect?: string }, opts?: { historyLabel?: string }): Promise<StudioPluginRecord> {
+	const stored = (await putAsset({ kind: 'plugin', name: input.name, fence: input.fence, text: input.code, css: input.css ?? '', title: input.title ?? input.name, description: input.description ?? '', ...(input.aspect ? { aspect: input.aspect } : {}), addedAt: Date.now() }, opts)) as PluginAssetRecord;
 	return toRecord(stored);
 }
 
