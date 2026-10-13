@@ -383,6 +383,8 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
         vision: Array.isArray(m.architecture?.input_modalities) && m.architecture.input_modalities.includes('image'),
         // Absent on a catalog cached before this field existed: callers read `undefined` as unknown.
         video: Array.isArray(m.architecture?.input_modalities) && m.architecture.input_modalities.includes('video'),
+        // The model a `~…-latest` alias currently points at (OpenRouter's `alias_target.slug`); null for a plain id, and absent on a catalog cached before this field.
+        aliasSlug: m.alias_target?.slug || null,
       }));
       writeCachedCatalog(catalogCache);
       return catalogCache;

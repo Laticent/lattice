@@ -1,0 +1,79 @@
+import data from './picture-tokens.data.json';
+
+/** What the budget gate charges for one picture, in prompt tokens: the agent's own 512 px thumbnail
+ *  (`view_asset`), and a 1568 px attached photo. The token count follows the model, not the file:
+ *  a 512 px 3:2 picture is 212 tokens on GPT-5 mini, 250 on Claude, 1,290 on Gemini 2.5 and 8,500 on
+ *  GPT-4o mini. Measured per model by `tools/probe-picture-tokens.mjs` into `picture-tokens.data.json`,
+ *  times a 1.55 shape factor (pictures keep their shape, and a square costs up to 1.51x a 3:2 one).
+ *  The file lists only the models that cost more than the default, because the default covers the rest:
+ *  it sits at or above the 90th percentile of the 192 models measured on 2026-10-13. */
+export type PictureTokens = { thumb: number; photo: number };
+
+const DEFAULT: PictureTokens = data.defaults;
+const EXCEPTIONS = data.exceptions as unknown as Record<string, [number, number]>;
+
+/** The id OpenRouter lists a model under: no `:variant` suffix (`:free`, `:nitro`). A `~` alias is not one; see resolvePictureTokens. */
+function catalogId(id: string): string {
+	return id.replace(/:[^/]+$/, '');
+}
+
+/** The slice of the model the lookup needs: its id, and the catalog that says where a `~…-latest` alias points. */
+type PictureModel = { openRouterModel?: () => string; listOpenRouterModels?: () => Promise<{ id: string; aliasSlug?: string | null }[]> };
+
+/** Tokens one picture costs on the model in use. A `~anthropic/claude-sonnet-latest` style alias is not a model the
+ *  table measured; the catalog says which model it points at today (`alias_target.slug`), and that one is looked up.
+ *  A catalog that cannot be read, or that predates the field, falls back to the alias id itself: the default. */
+export async function resolvePictureTokens(model: PictureModel): Promise<PictureTokens> {
+	const id = model.openRouterModel?.();
+	if (!id) return DEFAULT;
+	if (!id.startsWith('~')) return pictureTokensFor(id);
+	try {
+		const hit = (await model.listOpenRouterModels?.())?.find((m) => m.id === id);
+		return pictureTokensFor(hit?.aliasSlug ?? id);
+	} catch {
+		return pictureTokensFor(id);
+	}
+}
+
+/** Tokens one picture costs on `modelId`. A model the table does not list is charged the default, which a
+ *  future model with an unusual image scheme (GPT-4o mini was one) can exceed: rerun the probe tool then. */
+export function pictureTokensFor(modelId: string | null | undefined): PictureTokens {
+	const hit = modelId ? EXCEPTIONS[catalogId(modelId)] : undefined;
+	return hit ? { thumb: hit[0], photo: hit[1] } : DEFAULT;
+}
+
+/** Models that list `pricing.image` price it as a per-token rate equal to their prompt rate (all 18 of the
+ *  212 vision models checked on 2026-10-13), but OpenRouter does not say so, and an older listing was
+ *  dollars per picture. A rate within this multiple of the prompt rate is read as per-token; a larger one,
+ *  or any price on a free-prompt model, as dollars per picture (read per-token it would price one picture
+ *  in dollars). Above it the gate picks a possible under-charge over a certain absurd over-charge. */
+export const IMAGE_RATE_MAX_MULTIPLE = 10;
+
+/** What the budget gate adds, in USD, for pictures the model prices itself: for each group of `count`
+ *  pictures at `tokens` each, the gap between that and `tokens` at the prompt rate, never negative. Zero
+ *  unless the model lists `pricing.image`. */
+export function pictureSurchargeUsd(price: { promptPerM: number | null; imagePerM?: number | null } | null, groups: { count: number; tokens: number }[]): number {
+	const image = price?.imagePerM;
+	if (!price || image == null || !(image > 0)) return 0;
+	const prompt = price.promptPerM ?? 0;
+	let usd = 0;
+	for (const { count, tokens } of groups) {
+		if (!(count > 0)) continue;
+		const flat = (tokens * prompt) / 1e6;
+		const priced = prompt > 0 && image <= prompt * IMAGE_RATE_MAX_MULTIPLE ? (tokens * image) / 1e6 : image / 1e6;
+		usd += count * Math.max(0, priced - flat);
+	}
+	return usd;
+}
+
+/** What one round's pictures add to the gate: `images` pictures in the conversation, of which `attached` are the
+ *  author's photos (they ride the last user message and are re-sent every round); every other one is a
+ *  `view_asset` thumbnail. Tokens at the model's figure for each kind, plus the model's own image-price surcharge. */
+export function priceRound(cost: PictureTokens, price: { promptPerM: number | null; imagePerM?: number | null } | null, images: number, attached: number): { tokens: number; usd: number } {
+	const photos = Math.max(0, Math.min(images, attached));
+	const groups = [
+		{ count: Math.max(0, images) - photos, tokens: cost.thumb },
+		{ count: photos, tokens: cost.photo },
+	];
+	return { tokens: groups.reduce((n, g) => n + g.count * g.tokens, 0), usd: pictureSurchargeUsd(price, groups) };
+}

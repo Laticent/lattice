@@ -41,10 +41,16 @@ export function orSupportsCache(id) {
 }
 
 // The vendors whose prompt caching needs an EXPLICIT `cache_control` breakpoint to
-// fire. Anthropic + Google cache only the prefix you mark; OpenAI / DeepSeek / x-ai
-// cache automatically (no breakpoint, so we leave their messages untouched — a plain
-// string, which they prefer). Subset of OR_CACHE_VENDORS.
-const OR_CACHE_BREAKPOINT_VENDORS = new Set(['anthropic', 'google']);
+// fire. Only Anthropic: it caches just the prefix you mark. OpenAI / DeepSeek / x-ai cache
+// automatically, and so does Google (implicit caching), so we leave their messages
+// untouched — a plain string, which they prefer. Google was in this set until
+// 2026-10-13, on the belief that it needs a marker; measured through OpenRouter on the
+// chat agent's real three-round turn, a marker made Gemini cost MORE on every model tried
+// (cold turn, marked vs unmarked: 2.5 Flash Lite $0.0047 vs $0.0026, 2.5 Flash $0.0099 vs
+// $0.0079, 3.5 Flash Lite $0.0073 vs $0.0063, 3.8 Flash $0.0187 vs $0.0176, 3.1 Pro $0.0666
+// vs $0.0422) and report every prompt token twice; a warm repeat turn billed $0.0014
+// unmarked against $0.0056 marked on 2.5 Flash. Subset of OR_CACHE_VENDORS.
+const OR_CACHE_BREAKPOINT_VENDORS = new Set(['anthropic']);
 
 // Mark the static SYSTEM block for prompt caching so a repeated, byte-identical
 // system prompt (our authoring canon is ~7K tokens, re-sent on EVERY call) is paid in

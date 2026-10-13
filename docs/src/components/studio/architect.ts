@@ -169,6 +169,8 @@ export type ORModel = {
 	vision: boolean;
 	/** Accepts video input. `undefined` on a catalog cached before the field existed: unknown, not no. */
 	video?: boolean;
+	/** The model a `~…-latest` alias resolves to; null for a plain id. Absent on a catalog cached before the field existed. */
+	aliasSlug?: string | null;
 };
 
 /** This key's readout from /auth/key — usage + (optional) per-key spend limit. */
@@ -1448,14 +1450,20 @@ export async function chatComplete(history: ChatTurn[], source: string, docs?: R
 	// alone would under-count a chat turn several-fold and let a hard-stop cap sail past the
 	// ceiling it exists to hold. The tally itself was always authoritative (recordSpend uses
 	// the returned `usage.cost`) — this is the pre-send ESTIMATE catching up to the prompt.
+	let photoTokens = 0;
+	let photoUsd = 0;
 	if (generation === 'openrouter') {
 		// Same arithmetic the readout uses (estTokens), uncached: the GATE prices the worst
 		// case, so it must not assume a cache hit it can't guarantee.
 		const systemTokens = estTokens(staticPrefix) + estTokens(dynamicTail);
-		// A photo is priced at a flat 1,500 tokens, a clip at 4,500 (chat-photo-parts PHOTO_TOKENS / VIDEO_TOKENS; literals here because
-		// that module is loaded on demand and this one is startup code).
-		// No picture surcharge here (agent-assets' pictureSurchargeUsd): this one-shot path runs only when the model refuses tools, and importing it would enter the startup bundle.
-		const blk = cloudBudgetBlock(model, `${last?.content ?? ''}\n${source}`, refDocsTokens(docs) + systemTokens + (opts?.photos?.length ?? 0) * 1500 + (opts?.videos?.length ?? 0) * 4500, CHAT_MAX_TOKENS);
+		// Photos and clips are priced per model (picture-tokens.ts) and a clip at a flat 4,500 tokens (chat-photo-parts VIDEO_TOKENS);
+		// those modules load on demand and this one is startup code, so they are imported only when a photo is attached.
+		const nPhotos = opts?.photos?.length ?? 0;
+		if (nPhotos) {
+			const { priceRound, resolvePictureTokens } = await import('./picture-tokens');
+			({ tokens: photoTokens, usd: photoUsd } = priceRound(await resolvePictureTokens(model), model.openRouterModelPrice?.() ?? null, nPhotos, nPhotos));
+		}
+		const blk = cloudBudgetBlock(model, `${last?.content ?? ''}\n${source}`, refDocsTokens(docs) + systemTokens + photoTokens + (opts?.videos?.length ?? 0) * 4500, CHAT_MAX_TOKENS, photoUsd);
 		if (blk) return { status: 'blocked', reply: blk };
 	}
 	// Ground the final user turn in the reference doc (#640).
@@ -1518,7 +1526,7 @@ export async function chatComplete(history: ChatTurn[], source: string, docs?: R
 		// turn. Best-effort — on any failure the estimate simply stands.
 		if ((e as { name?: string })?.name === 'AbortError') {
 			if (generation === 'openrouter' && streamed) {
-				const est = estimateUsd(`${last?.content ?? ''}\n${source}`, model.openRouterModelPrice?.() ?? null, Math.ceil(streamed.length / 4), refDocsTokens(docs)) ?? 0;
+				const est = estimateUsd(`${last?.content ?? ''}\n${source}`, model.openRouterModelPrice?.() ?? null, Math.ceil(streamed.length / 4), refDocsTokens(docs) + photoTokens, photoUsd) ?? 0;
 				if (est) recordSpend(est, Math.ceil(streamed.length / 4));
 				if (genId && model.openRouterGenerationCost) {
 					void model.openRouterGenerationCost(genId)

@@ -13,14 +13,15 @@
 // over its soft budget; importing them DYNAMICALLY instead made the bundler re-split shared
 // chunks and cost more. So everything the startup code already holds is passed in through
 // `init(deps)` by `architect.ts`, and only this feature's own modules are imported.
-import { assetManifest, libraryPromptTokens, pictureSurchargeUsd, THUMB_TOKENS } from './agent-assets';
+import { assetManifest, libraryPromptTokens } from './agent-assets';
 import { createAgentAssets } from './agent-assets-browser';
 import { agentLibrary } from './agent-library';
 import type { ArchitectModel, ChatGrounding, ChatOptions, ChatResult, ChatTurn, ORPrice, ProposedEdit } from './architect';
 import { AGENT_TOOLS, type AgentComplete, type AgentComponent, type AgentRawEdit, ASSET_TOOLS, bindKernel, buildAgentSystem, createToolbox, type DeckCheck, deckBrief, deckForTurn, describeEdit, type KernelDeps, runAgentLoop, type ToolCall } from './architect-agent';
-import { PHOTO_TOKENS, VIDEO_TOKENS, withPhotos } from './chat-photo-parts';
+import { VIDEO_TOKENS, withPhotos } from './chat-photo-parts';
 import { THINKING } from './chat-status';
 import { FRONT_MATTER_KEYS } from './front-matter-keys';
+import { priceRound, resolvePictureTokens } from './picture-tokens';
 import type { ContentPart, MsgContent, ReferenceDoc } from './reference-doc';
 
 type Arch = typeof import('./architect');
@@ -113,8 +114,8 @@ async function modelSeesImages(model: ArchitectModel): Promise<boolean> {
 	}
 }
 
-/** A message's text for the budget gate. A picture counts as a fixed charge, not as the base64
- *  that carries it (one thumbnail is ~40K characters and ~800 tokens). */
+/** A message's text for the budget gate. A picture counts as a per-model charge (picture-tokens.ts), not as the
+ *  base64 that carries it (one thumbnail is ~40K characters). */
 function budgetText(m: { content?: unknown; tool_calls?: unknown }): { text: string; images: number } {
 	let images = 0;
 	const c = m.content;
@@ -153,11 +154,10 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 	const photos = opts?.photos ?? [];
 	const videos = opts?.videos ?? [];
 	ground.messages = withPhotos(ground.messages, photos, videos) as typeof ground.messages;
-	// What the author's own attachments cost ABOVE what the per-round picture count already charges: every
-	// `image_url` in the conversation is priced at THUMB_TOKENS (budgetText), which is right for the
-	// 512 px views the agent takes and low for a 1568 px attachment; a clip is priced flat (its base64 is
-	// skipped by budgetText).
-	const attachedTokens = photos.length * Math.max(0, PHOTO_TOKENS - THUMB_TOKENS) + videos.length * VIDEO_TOKENS;
+	// A clip is priced flat (its base64 is skipped by budgetText). Pictures are priced per round, by the model:
+	// the agent's 512 px views and the author's 1568 px attachments cost different amounts on every model.
+	const attachedTokens = videos.length * VIDEO_TOKENS;
+	const pictureCost = await resolvePictureTokens(model);
 	const toolbox = createToolbox({
 		source,
 		catalog: (grounding?.catalog ?? []) as AgentComponent[],
@@ -191,10 +191,9 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 		// whole conversation so far, and a hard-stop cap has to hold across all of them.
 		const priced = msgs.slice(1).map(budgetText);
 		const convo = priced.map((p) => p.text).join('\n');
-		const pictureCount = priced.reduce((n, p) => n + p.images, 0);
-		const pictureTokens = pictureCount * THUMB_TOKENS;
-		// A model that lists its own image price may charge more than THUMB_TOKENS at the prompt rate; the gap rides as dollars.
-		const pictureUsd = pictureSurchargeUsd(model.openRouterModelPrice?.() ?? null, pictureCount);
+		// The author's photos ride the last user message and are re-sent every round; every other picture is a view_asset thumbnail.
+		// A model that lists its own image price may charge more than the token figure at the prompt rate; the gap rides as dollars.
+		const { tokens: pictureTokens, usd: pictureUsd } = priceRound(pictureCost, model.openRouterModelPrice?.() ?? null, priced.reduce((n, p) => n + p.images, 0), photos.length);
 		roundPictureTokens = pictureTokens;
 		roundPictureUsd = pictureUsd;
 		if (streamed.trim()) done.push(streamed);

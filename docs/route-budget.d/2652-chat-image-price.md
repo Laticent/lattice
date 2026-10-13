@@ -1,3 +1,3 @@
-studio: +32
-The chat's budget gate takes an `extraUsd` argument on `estimateUsd` and `cloudBudgetBlock` (architect.ts), so a model's own image price can ride into the hard stop. CI measured +9 bytes against main; +32 leaves room for gzip spread. `pictureSurchargeUsd` and the catalog's `imagePerM` field live in lazy chunks (agent-assets.ts, architect-model.js), not in eager JS.
-Given back first: the new `ORPrice.imagePerM` is a type only, and the surcharge helper stays out of architect.ts so the startup bundle gains no pricing logic.
+studio: +200
+The chat's budget gate prices a picture by model. Startup code (architect.ts) gains an `extraUsd` argument on `estimateUsd` and `cloudBudgetBlock`, two hoisted variables, and a dynamic import of `picture-tokens` that runs only when a photo is attached to a tool-refusing model's one-shot turn. The table (picture-tokens.data.json), `pictureTokensFor` and `pictureSurchargeUsd` live in that lazy chunk and in the chat agent's, not in eager JS. +200 is an estimate to be read against CI's measurement.
+Given back first: the old 1,500-token photo literal and its comment left architect.ts, and `PHOTO_TOKENS` was removed from the bundle.

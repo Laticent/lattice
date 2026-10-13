@@ -18,8 +18,8 @@ const USER = { role: 'user', content: 'a grid of cards' };
 const NEIGHBORS = { role: 'assistant', content: 'near-neighbors: capability-cards' };
 
 describe('architect-model — prompt-cache breakpoint (#610)', () => {
-	it('marks the system block for vendors that need an explicit breakpoint (anthropic/google)', () => {
-		for (const id of ['anthropic/claude-sonnet-4.5', 'google/gemini-2.5-pro']) {
+	it('marks the system block for vendors that need an explicit breakpoint (anthropic)', () => {
+		for (const id of ['anthropic/claude-sonnet-4.5']) {
 			const out = withCachedSystem([SYS, USER], id);
 			expect(Array.isArray(out[0].content)).toBe(true);
 			expect(out[0].content).toEqual([{ type: 'text', text: SYS.content, cache_control: { type: 'ephemeral' } }]);
@@ -28,8 +28,9 @@ describe('architect-model — prompt-cache breakpoint (#610)', () => {
 		}
 	});
 
-	it('leaves auto-caching vendors (openai/deepseek/x-ai) untouched — plain string content', () => {
-		for (const id of ['openai/gpt-5', 'deepseek/deepseek-r1', 'x-ai/grok-4']) {
+	it('leaves auto-caching vendors (openai/deepseek/x-ai/google) untouched — plain string content', () => {
+		// Google caches implicitly; a marker made Gemini bill more on every model measured (or-cache.js).
+		for (const id of ['openai/gpt-5', 'deepseek/deepseek-r1', 'x-ai/grok-4', 'google/gemini-2.5-pro', '~google/gemini-flash-latest']) {
 			const out = withCachedSystem([SYS, USER], id);
 			expect(out).toEqual([SYS, USER]);
 			expect(typeof out[0].content).toBe('string');
@@ -59,7 +60,9 @@ describe('architect-model — prompt-cache breakpoint (#610)', () => {
 
 	it('the breakpoint vendor set is a subset of the cache-capable vendor set', () => {
 		// every vendor we mark must be one OpenRouter reports as cache-capable
-		for (const id of ['anthropic/x', 'google/x']) expect(orSupportsCache(id)).toBe(true);
+		for (const id of ['anthropic/x']) expect(orSupportsCache(id)).toBe(true);
+		// Google still caches (implicitly), so the Prompt-caching switch stays offered for it.
+		expect(orSupportsCache('google/x')).toBe(true);
 	});
 
 	// A canon/voice split (withStudioVoice's cloud path): the system arrives as
@@ -98,7 +101,7 @@ describe('architect-model — prompt-cache breakpoint (#610)', () => {
 // you mark: the entire static-prefix seam was inert for the default model while every test
 // here passed against a bare `anthropic/…` id nobody is served. Test the shipped ids.
 describe('architect-model — the alias prefix does not defeat caching', () => {
-	for (const id of ['~anthropic/claude-haiku-latest', '~anthropic/claude-sonnet-latest', '~google/gemini-2.5-pro']) {
+	for (const id of ['~anthropic/claude-haiku-latest', '~anthropic/claude-sonnet-latest']) {
 		it(`marks the system block for the shipped alias ${id}`, () => {
 			const out = withCachedSystem([SYS, USER], id);
 			expect(Array.isArray(out[0].content)).toBe(true);

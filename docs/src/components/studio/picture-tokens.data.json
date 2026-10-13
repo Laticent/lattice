@@ -1,0 +1,104 @@
+{
+	"measured": "2026-10-13",
+	"models": 192,
+	"unmeasured": 20,
+	"defaults": {
+		"thumb": 2000,
+		"photo": 3600
+	},
+	"shape": 1.55,
+	"p50": [
+		250,
+		1620
+	],
+	"p90": [
+		1107,
+		2316
+	],
+	"max": [
+		8500,
+		36835
+	],
+	"exceptions": {
+		"amazon/nova-lite-v1": [
+			2850,
+			3600
+		],
+		"amazon/nova-pro-v1": [
+			2850,
+			3600
+		],
+		"cohere/command-a-plus": [
+			2000,
+			5200
+		],
+		"google/lyria-3-pro-preview": [
+			2250,
+			3600
+		],
+		"minimax/minimax-01": [
+			3350,
+			13100
+		],
+		"openai/gpt-4.1-mini": [
+			2000,
+			3700
+		],
+		"openai/gpt-4.1-nano": [
+			2000,
+			5600
+		],
+		"openai/gpt-4o-mini": [
+			13200,
+			57100
+		],
+		"openai/gpt-4o-mini-2024-07-18": [
+			13200,
+			57100
+		],
+		"openai/gpt-5-nano": [
+			2000,
+			3800
+		],
+		"openai/gpt-5.6-luna-pro": [
+			2000,
+			9050
+		],
+		"openai/gpt-5.6-sol-pro": [
+			2000,
+			9100
+		],
+		"openai/gpt-5.6-terra-pro": [
+			2000,
+			9050
+		],
+		"openai/gpt-6-astra-pro": [
+			2000,
+			6050
+		],
+		"openai/gpt-6-luna-pro": [
+			2000,
+			6050
+		],
+		"openai/gpt-6-sol-pro": [
+			2000,
+			6050
+		],
+		"openai/gpt-6.1-sol-pro": [
+			2000,
+			6050
+		],
+		"openai/o4-mini": [
+			2000,
+			3900
+		],
+		"openai/o4-mini-high": [
+			2000,
+			3900
+		],
+		"sakana/fugu-max": [
+			2150,
+			8750
+		]
+	}
+}

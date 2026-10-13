@@ -8388,7 +8388,9 @@ const OPENROUTER_KEY_NAME = /OPEN_ROUTER_KEY/; // the bare name catches bracket/
 // files) — exempt them so the scan doesn't flag itself, same as the US-English dictionary.
 const OPENROUTER_SCAN_EXEMPT = new Set(['test/unit/cli/check-ownership.test.js']);
 // The ONLY paths allowed to spend our key — on-demand, opt-in, cost-printing (rule #24).
-const SANCTIONED_OPENROUTER_SPENDERS = ['tools/component-gen-eval.mjs', 'tools/generate-voice-samples.mjs', 'tools/intent-bakeoff/judge-eval.mjs'];
+// tools/probe-picture-tokens.mjs: measures what one picture costs per vision model (the Studio chat's budget gate table);
+// opt-in (OPENROUTER_ALLOW_SPEND=1), prints its planned call count first, --limit and --cap bound it; ~$1.4 for the whole catalog.
+const SANCTIONED_OPENROUTER_SPENDERS = ['tools/component-gen-eval.mjs', 'tools/generate-voice-samples.mjs', 'tools/intent-bakeoff/judge-eval.mjs', 'tools/probe-picture-tokens.mjs'];
 
 // Workflows allowed to spend the key: sanctioned, budgeted, self-skipping when the secret is
 // unset, and — critically — OFF the PR/commit critical path (nightly schedule / workflow_dispatch,

@@ -1,0 +1,160 @@
+import { describe, expect, it } from 'vitest';
+import { DEFAULTS, SHAPE, summarize } from '../../../../tools/probe-picture-tokens.mjs';
+import { IMAGE_RATE_MAX_MULTIPLE, pictureSurchargeUsd, pictureTokensFor, priceRound, resolvePictureTokens } from './picture-tokens';
+import data from './picture-tokens.data.json';
+
+describe('pictureTokensFor — what one picture costs, by model', () => {
+	it('charges the default to a model the table does not list, and to no model at all', () => {
+		expect(pictureTokensFor('anthropic/claude-sonnet-5.5')).toEqual(data.defaults);
+		expect(pictureTokensFor('some-new/model')).toEqual(data.defaults);
+		expect(pictureTokensFor(null)).toEqual(data.defaults);
+		expect(pictureTokensFor(undefined)).toEqual(data.defaults);
+		expect(pictureTokensFor('')).toEqual(data.defaults);
+	});
+	it('charges a listed model its measured figure, whatever variant the id carries', () => {
+		// Measured 2026-10-13: a 512 px 3:2 picture is 8,500 tokens and a 1568 px one 36,835 on GPT-4o mini; times the 1.55 shape factor.
+		expect(pictureTokensFor('openai/gpt-4o-mini')).toEqual({ thumb: 13200, photo: 57100 });
+				expect(pictureTokensFor('openai/gpt-4o-mini:nitro')).toEqual({ thumb: 13200, photo: 57100 });
+		expect(pictureTokensFor('minimax/minimax-01').photo).toBeGreaterThan(13000);
+	});
+	it('never charges a listed model less than the default at either size', () => {
+		for (const [id, [thumb, photo]] of Object.entries(data.exceptions as unknown as Record<string, [number, number]>)) {
+			expect(thumb, id).toBeGreaterThanOrEqual(data.defaults.thumb);
+			expect(photo, id).toBeGreaterThanOrEqual(data.defaults.photo);
+			expect(thumb > data.defaults.thumb || photo > data.defaults.photo, `${id} is listed but costs no more than the default`).toBe(true);
+		}
+	});
+	it('keeps the probe tool, the data file and the module on one set of defaults', () => {
+		expect(data.defaults).toEqual(DEFAULTS);
+		expect(data.shape).toBe(SHAPE);
+	});
+	it('covers every measured model: the default is at or above the 90th percentile, and exceptions take the rest', () => {
+		// Claude (250 / 2,131), Gemini 2.5 (1,290 / 1,806) and GPT-5 mini (212 / 1,941), the models the Studio is used with, sit under the default.
+		for (const id of ['anthropic/claude-sonnet-5.5', 'google/gemini-2.5-flash-lite', 'openai/gpt-5-mini']) expect(pictureTokensFor(id)).toEqual(data.defaults);
+		expect(data.p50[0]).toBeLessThan(data.defaults.thumb);
+		expect(data.p90[0] * data.shape).toBeLessThanOrEqual(data.defaults.thumb);
+		expect(data.p90[1] * data.shape).toBeLessThanOrEqual(data.defaults.photo);
+	});
+});
+
+describe('resolvePictureTokens — a ~…-latest alias is priced as the model it points at', () => {
+	const catalog = [
+		{ id: '~openai/gpt-6-astra-latest', aliasSlug: 'openai/gpt-6-astra-pro' },
+		{ id: '~anthropic/claude-sonnet-latest', aliasSlug: 'anthropic/claude-sonnet-5.5' },
+		{ id: 'openai/gpt-4o-mini' },
+	];
+	const model = (id: string, cat: typeof catalog | Error = catalog) => ({ openRouterModel: () => id, listOpenRouterModels: async () => (cat instanceof Error ? Promise.reject(cat) : cat) });
+	it('looks up the alias target, so an alias for an exception model is charged the exception', async () => {
+		expect(await resolvePictureTokens(model('~openai/gpt-6-astra-latest'))).toEqual(pictureTokensFor('openai/gpt-6-astra-pro'));
+		expect((await resolvePictureTokens(model('~openai/gpt-6-astra-latest'))).photo).toBeGreaterThan(data.defaults.photo);
+	});
+	it('charges the default to the shipped default model (an alias whose target is under the default)', async () => {
+		expect(await resolvePictureTokens(model('~anthropic/claude-sonnet-latest'))).toEqual(data.defaults);
+	});
+	it('prices a plain id without the catalog, and falls back to the default when the catalog is unreadable or stale', async () => {
+		expect(await resolvePictureTokens(model('openai/gpt-4o-mini', new Error('offline')))).toEqual(pictureTokensFor('openai/gpt-4o-mini'));
+		expect(await resolvePictureTokens(model('~openai/gpt-6-astra-latest', new Error('offline')))).toEqual(data.defaults);
+		// A catalog cached before the aliasSlug field existed.
+		expect(await resolvePictureTokens(model('~openai/gpt-6-astra-latest', [{ id: '~openai/gpt-6-astra-latest' }]))).toEqual(data.defaults);
+		expect(await resolvePictureTokens({})).toEqual(data.defaults);
+	});
+});
+
+describe('summarize — the probe tool’s pure half', () => {
+	it('lists only a model that costs more than a default at either size, after the shape factor, rounded up to 50', () => {
+		const out = summarize(
+			[
+				{ id: 'a/small', t512: 250, t1568: 2131 },
+				{ id: 'b/big-thumb', t512: 1362, t1568: 2000 },
+				{ id: 'c/big-photo', t512: 200, t1568: 3343 },
+				{ id: 'd/gemini-2.5', t512: 1290, t1568: 1806 }, // 1,290 x 1.55 = 1,999.5: at the default, not over it
+			],
+			'2026-10-13',
+		);
+		expect(out.exceptions).toEqual({ 'b/big-thumb': [2150, 3600], 'c/big-photo': [2000, 5200] });
+		expect(out.models).toBe(4);
+		expect(out.shape).toBe(1.55);
+	});
+	it('treats an error, a timeout and a negative reading as unmeasured, never as an exception', () => {
+		const out = summarize(
+			[
+				{ id: 'a/ok', t512: 250, t1568: 2131 },
+				{ id: 'b/429', t512: 'ERR 429', t1568: 'ERR 429' },
+				{ id: 'c/timeout', t512: 22027, t1568: 'ERR TimeoutError' },
+				{ id: 'd/negative', t512: -47, t1568: 1082 },
+			],
+			'2026-10-13',
+		);
+		expect(out.models).toBe(1);
+		expect(out.unmeasured).toBe(3);
+		expect(out.exceptions).toEqual({});
+	});
+	it('writes a finite file for an empty probe, never a null', () => {
+		const out = summarize([], '2026-10-13');
+		expect(JSON.parse(JSON.stringify(out)).max).toEqual([0, 0]);
+	});
+});
+
+describe('pictureSurchargeUsd — a model that lists its own image price', () => {
+	const flat = (tokens: number, promptPerM: number) => (tokens * promptPerM) / 1e6;
+	const group = (count: number, tokens = 1300) => [{ count, tokens }];
+	it('adds nothing without an image price, so a model without one is charged the token figure as before', () => {
+		expect(pictureSurchargeUsd({ promptPerM: 3, imagePerM: null }, group(5))).toBe(0);
+		expect(pictureSurchargeUsd({ promptPerM: 3 }, group(5))).toBe(0); // a catalog cached before the field existed
+		expect(pictureSurchargeUsd(null, group(5))).toBe(0);
+		expect(pictureSurchargeUsd({ promptPerM: 3, imagePerM: 9 }, group(0))).toBe(0);
+		expect(pictureSurchargeUsd({ promptPerM: 3, imagePerM: 9 }, [])).toBe(0);
+	});
+	it('adds nothing when the image price equals the prompt price (all 18 models that list one)', () => {
+		expect(pictureSurchargeUsd({ promptPerM: 0.75, imagePerM: 0.75 }, group(5))).toBe(0);
+	});
+	it('charges the gap when the image rate is a multiple of the prompt rate', () => {
+		// $3/M prompt, $9/M image: 1,300 tokens at $9/M is $0.0117 a picture, against $0.0039 at the prompt rate.
+		expect(pictureSurchargeUsd({ promptPerM: 3, imagePerM: 9 }, group(2))).toBeCloseTo(2 * (flat(1300, 9) - flat(1300, 3)), 9);
+	});
+	it('prices each group at its own token figure: thumbnails and attached photos', () => {
+		const price = { promptPerM: 3, imagePerM: 9 };
+		const both = pictureSurchargeUsd(price, [
+			{ count: 2, tokens: 1300 },
+			{ count: 1, tokens: 2400 },
+		]);
+		expect(both).toBeCloseTo(2 * (flat(1300, 9) - flat(1300, 3)) + (flat(2400, 9) - flat(2400, 3)), 9);
+	});
+	it('reads a price more than 10x the prompt rate as dollars per picture', () => {
+		// $1.5/M prompt, image $4,800/M (raw $0.0048): 3,200x the prompt rate, so dollars per picture, not a token rate.
+		expect(pictureSurchargeUsd({ promptPerM: 1.5, imagePerM: 4800 }, group(3))).toBeCloseTo(3 * (0.0048 - flat(1300, 1.5)), 9);
+	});
+	it('never prices a picture below the token figure, and reads a free-prompt model’s image price as dollars', () => {
+		expect(pictureSurchargeUsd({ promptPerM: 3, imagePerM: 0.5 }, group(2))).toBe(0);
+		expect(pictureSurchargeUsd({ promptPerM: 0, imagePerM: 2000 }, group(1))).toBeCloseTo(0.002, 9);
+	});
+	it('sits on the boundary: ten times the prompt rate is still a token rate', () => {
+		expect(IMAGE_RATE_MAX_MULTIPLE).toBe(10);
+		expect(pictureSurchargeUsd({ promptPerM: 3, imagePerM: 30 }, group(1))).toBeCloseTo(flat(1300, 30) - flat(1300, 3), 9);
+		// Past it the number is dollars: $0.000031 a picture, below the $0.0039 token figure, so that stands.
+		expect(pictureSurchargeUsd({ promptPerM: 3, imagePerM: 31 }, group(1))).toBe(0);
+	});
+});
+
+describe('priceRound — one round’s pictures: thumbnails and the author’s attached photos', () => {
+	const cost = { thumb: 2000, photo: 3600 };
+	it('prices a thumbnail at the thumb figure and an attached photo at the photo figure', () => {
+		expect(priceRound(cost, null, 3, 0).tokens).toBe(3 * 2000);
+		expect(priceRound(cost, null, 1, 1).tokens).toBe(3600);
+	});
+	it('prices a round that holds both: the attached photos, then every other picture as a thumbnail', () => {
+		// Two attached photos and two view_asset thumbnails in the same conversation.
+		expect(priceRound(cost, null, 4, 2).tokens).toBe(2 * 3600 + 2 * 2000);
+	});
+	it('never counts an attached photo that is not in the round, or a negative picture', () => {
+		expect(priceRound(cost, null, 1, 4).tokens).toBe(3600); // one picture in the conversation, however many the author attached
+		expect(priceRound(cost, null, 0, 2).tokens).toBe(0);
+		expect(priceRound(cost, null, -1, 0).tokens).toBe(0);
+	});
+	it('adds the model’s image-price surcharge per kind, in dollars', () => {
+		const price = { promptPerM: 3, imagePerM: 9 };
+		const both = priceRound(cost, price, 3, 1);
+		expect(both.usd).toBeCloseTo(2 * ((2000 * 6) / 1e6) + (3600 * 6) / 1e6, 9);
+		expect(priceRound(cost, { promptPerM: 3, imagePerM: null }, 3, 1).usd).toBe(0);
+	});
+});

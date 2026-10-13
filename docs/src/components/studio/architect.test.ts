@@ -224,11 +224,11 @@ describe('setBudget — the cap the architect honors', () => {
 });
 
 describe('cloudBudgetBlock — a picture on a model with its own image price', () => {
-	// Five 800-token pictures at $3/M is $0.012 flat. At a $9/M image rate they cost $0.036.
+	// Five 800-token pictures at $3/M is $0.012 at the prompt rate. At a $9/M image rate they cost $0.036.
 	const modelAt = (imagePerM: number | null) => ({ openRouterModelPrice: () => ({ promptPerM: 3, completionPerM: 0, imagePerM }) }) as unknown as Parameters<typeof cloudBudgetBlock>[0];
 	const flatTokens = 5 * 800;
 	it('refuses the round the model price would breach, and lets the flat figure through', async () => {
-		const { pictureSurchargeUsd } = await import('./agent-assets');
+		const { pictureSurchargeUsd } = await import('./picture-tokens');
 		setBudget(0.02, 'stop');
 		try {
 			const price = { promptPerM: 3, imagePerM: 9 };
@@ -236,9 +236,9 @@ describe('cloudBudgetBlock — a picture on a model with its own image price', (
 			expect(cloudBudgetBlock(modelAt(null), '', flatTokens, 0)).toBeNull();
 			expect(cloudBudgetBlock(modelAt(9), '', flatTokens, 0)).toBeNull();
 			// After: the model's own rate is charged, $0.036 > the cap, so the gate stops it.
-			expect(cloudBudgetBlock(modelAt(9), '', flatTokens, 0, pictureSurchargeUsd(price, 5))).toMatch(/exceed your \$0\.02 cap/);
+			expect(cloudBudgetBlock(modelAt(9), '', flatTokens, 0, pictureSurchargeUsd(price, [{ count: 5, tokens: 800 }]))).toMatch(/exceed your \$0\.02 cap/);
 			// A model with no image price is unchanged by the new argument.
-			expect(cloudBudgetBlock(modelAt(null), '', flatTokens, 0, pictureSurchargeUsd({ promptPerM: 3, imagePerM: null }, 5))).toBeNull();
+			expect(cloudBudgetBlock(modelAt(null), '', flatTokens, 0, pictureSurchargeUsd({ promptPerM: 3, imagePerM: null }, [{ count: 5, tokens: 800 }]))).toBeNull();
 		} finally {
 			setBudget(null, 'alert');
 		}
