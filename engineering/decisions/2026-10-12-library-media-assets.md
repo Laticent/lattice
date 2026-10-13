@@ -329,16 +329,75 @@ edited. Rules:
   name to the restored photo (a `renames` entry), so they do not quietly show the other photo. A restore that
   reuses an identical photo gets the same rewrite for the old names the backup listed.
 
-**Not built yet** (the order the work was agreed in): reading description, credit and date from the file's
-EXIF/XMP at import (never GPS), the engine filling an empty alt from the description (an export change, so it
-needs the dark and light demo-deck sign-off), a "Suggest description" button that reuses the chat's captioning,
-and a button that rewrites decks to a photo's new name.
+### What a photo's own file gives us (read once, at import)
 
-**Verified:** `docs/e2e/library-image-metadata.spec.ts` drives the real Studio in Chromium at 1440, 820 and
-390 px: edit, save, read the record back from IndexedDB, remove an alias, and a deck that still writes the old
-name paints the photo inside the sandboxed preview frame. Firefox, WebKit, real touch and screen-reader
-behavior are **UNVERIFIED**.
+`media-exif.ts` reads the file BEFORE the scrub or the canvas re-encode, because the stored bytes keep none of it. It
+reads JPEG (EXIF, XMP, IPTC), PNG (`eXIf`, uncompressed XMP `iTXt`, `tEXt`) and WebP (`EXIF`, `XMP `), and never
+throws: a file it cannot read gives nothing and the import goes on.
 
+| What | Where it comes from | What we keep |
+|---|---|---|
+| Credit | XMP creator, IPTC byline, EXIF Artist, else a copyright line | `credit`, filled in at import |
+| Date taken | EXIF DateTimeOriginal, XMP, IPTC date, EXIF DateTimeDigitized. Never EXIF DateTime (the modified date). | `taken`, filled in at import |
+| Description | XMP description, IPTC caption, EXIF ImageDescription, then a title | `fileCaption`, **a suggestion**: shown in the detail view with **Use as description**, never used as alt text until the person takes it. A file's own text can be a private note. A camera default (`SONY DSC`, `IMG_2041`), a file name or a bare number is not offered. |
+| Location | EXIF GPS coordinates, or XMP GPS text | `hadLocation: true` only. The coordinates are never read into a value. The detail view says "This photo carried a location. Lattice removed it when the photo was added." |
+| Camera, lens, exposure, software, everything else | | Ignored. A deck has no use for them. |
+
+The reader treats the file as hostile: every read is bounds-checked, block sizes and IFD entry counts are capped, text is a
+plain string and never markup, a compressed XMP packet is skipped rather than inflated, and an IFD that points back at
+itself cannot loop. `media-exif.test.ts` builds real JPEG, PNG and WebP bytes, truncates them at every length, and feeds
+it overrunning offsets, a lying segment length and a pathological XMP packet.
+
+### The description is the alt text
+
+The Studio hands the engine a second map beside `assetUrls`: `assetAlts` (name → description, aliases included).
+`lattice_sample_images` in `lib/engine/background-image.js` fills an **empty** alt on an `asset:` image from it, at the
+token, so a component that reads alt text later (a collage's lightbox caption and narration) sees what a prose image sees.
+
+- An alt the author wrote is never replaced. `![bg …]` is never an empty alt. A name with no description leaves alt empty.
+- A deck that names no described photo renders **byte-identical** to before (pinned in `asset-images.test.js`).
+- The description is escaped as text: it cannot add an attribute or markup (also pinned).
+- A description edit changes the preview's asset stamp, so the slides that show the photo re-render with no deck edit.
+- An export gets the descriptions for the photos the deck names (`altsFor`), beside its data-URI map.
+- **Export sign-off:** this is a change to the bytes of the exported page, so it needed the dark and light review. The
+  whole difference, in both modes, is `alt=""` becoming the description on each photo, a `data-label` on each collage
+  tile (the lightbox caption), and the embedded generation timestamp. The author's own alt and every other byte are unchanged.
+
+### Suggest
+
+**Suggest** in the detail view sends one 512 px thumbnail to the author's own OpenRouter model, on their own key, only
+when they press it, and puts a one-sentence draft in the Description field. It saves nothing until Save. It reuses the chat's
+thumbnail (`agentAssets.thumbnail`), the budget gate (`cloudBudgetBlock`) and the model's `vision` flag from the catalog. No
+connected model, a model that cannot read images (unknown reads as no), a budget block and an unusable reply each give a plain line,
+never a silent button. `architect.ts` `suggestPhotoDescription` is the call; its prompt forbids guessing names, places, brands
+and unreadable text.
+
+### Rename can rewrite the decks
+
+The alias list in the detail view shows how many decks still write each old name (outside code), and **Use new name**
+rewrites them (`asset-refs.ts`). It skips fenced code and inline code, so a deck that teaches the syntax keeps its sample, and
+it skips `asset:hero.jpg`, which is not a valid reference. Each deck gets a Version history entry first (`Before using
+asset:<new>`), the open deck is replaced through the shell (`onReplaceSource`) and every other deck in storage. The old name
+keeps working either way, so nothing needs to be rewritten for a deck to keep showing its photo.
+
+### Keyboard and focus
+
+The detail view is a real form: Enter in a field saves, and the Save button is disabled until something changed. Enter on a card
+opens it, Tab stays inside, and Escape closes it and returns focus to the card (an explicit `returnFocusTo`, because the Library
+clears the record the moment the dialog asks to close). A rename and the edit save in ONE transaction (`updateMediaDetails`),
+so a refused name never leaves the edit half saved.
+
+### Verified, and what is not
+
+**Verified** in real Chromium (`docs/e2e/library-image-metadata.spec.ts`, 15 tests, OpenRouter mocked per HARD RULE #24): edit,
+save and read the record back from IndexedDB at 1440, 820 and 390 px; an alias keeps a deck's slide painting; the description
+fills alt in the preview, live on edit, and in the exported page; EXIF read at import (credit, date, the suggestion, the location
+flag, no EXIF left in the stored bytes); Use new name on the open deck and on a stored deck; Suggest with a vision model, a model
+without vision, and no model; keyboard open, tab containment, Enter to save, Escape and focus return. The export sign-off artifacts
+above were produced from the real Studio in both modes.
+
+**UNVERIFIED:** Firefox and WebKit (only Chromium is installed here; the engine-sensitive tests are tagged for the nightly's
+`@webkit-tablet @gecko` projects), real touch input, a screen reader, and **how a real model words a description** (the model is mocked).
 
 ## Options not taken
 
