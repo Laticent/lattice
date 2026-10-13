@@ -211,7 +211,7 @@ describe('marp-bundle spec', () => {
     assert.match(r, /markdown\.marp\.themes/);
     assert.match(r, /npm run pdf/);
     // By hand: the config, never `--html`, which would replace the config's allowlist.
-    assert.match(r, /--config-file marp\.config\.cjs \\\n {2}--allow-local-files/);
+    assert.match(r, /--config-file marp\.config\.cjs \\\n  --allow-local-files/);
     assert.doesNotMatch(r, /--html --allow/);
     assert.match(r, /markdown\.marp\.enableHtml/);
     // Honest about the one route whose fidelity we cannot confirm. Deliberately
