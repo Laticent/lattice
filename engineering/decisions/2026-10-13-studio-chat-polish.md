@@ -111,7 +111,6 @@ reworded. Not fixed, and not new: the `§N§` placeholder in `inline()` and its 
 - **Video is not attached.** The Library's video slice is not built, and most models cannot read video.
 - **The status line was verified at the DOM, not by eye over time.** A fulfilled mock cannot stream, so
   the phases are held open with delays; their real cadence on a live model is unmeasured.
-- **A bare `math` fence is not centered** (its layout reserves a legend column); see the bake-off note.
 - **The streaming bubble hands off to the committed message with one re-point** of a figure's frame.
 
 ## 6. Open

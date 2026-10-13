@@ -191,6 +191,43 @@ section.math.form.feature > .cell-stage > :is(ul, ol) {
   grid-column: 2;
   align-self: center;
 }
+/* NO LEGEND, NO SPLIT. A hero equation with nothing beside it — no `ul`/`ol` in the stage — has no
+ * legend column to make room for, so the 3fr/2fr split and the divider rule were an empty half and a
+ * line pointing at nothing (the chat draws a bare `math` fence this way, and so does any author who
+ * writes just the equation). It takes the whole stage instead, centered by default.
+ *
+ * ALIGNMENT STAYS THE AUTHOR'S. The default is centered on both axes (what a lone equation wants), and
+ * the universal modifiers move it: `align-left` / `align-center` / `align-right` and `align-top` /
+ * `align-middle` / `align-bottom`, deck-wide through `class:` or on one slide, exactly as on any other
+ * layout (`stage.css` §Universal ALIGNMENT). Note the universal contract's own default is top-left, so
+ * naming one axis puts the other back at its default; name both to place it. The `headline:` register
+ * moves the framing text only and never touched this block.
+ *
+ * `:has()` on the STAGE'S children, not a class, so a legend added later brings the split back with
+ * no author action. The `tall`/`strip` arm below already makes this single column for a legend too;
+ * this one is for the landscape frames where the split used to apply. */
+section.math.form:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)):not(:has(> .cell-stage > :is(ul, ol))) > .cell-stage,
+section.math.form.feature:not(:has(> .cell-stage > :is(ul, ol))) > .cell-stage {
+  grid-template-columns: 1fr;
+}
+section.math.form:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)):not(:has(> .cell-stage > :is(ul, ol))) > .cell-stage > p:has(> :is(.katex-display, mjx-container[display="true"])),
+section.math.form.feature:not(:has(> .cell-stage > :is(ul, ol))) > .cell-stage > p:has(> :is(.katex-display, mjx-container[display="true"])) {
+  grid-column: 1 / -1;
+  border-right: none;
+  padding-right: 0;
+  min-width: 0;
+}
+/* The block shrink-wraps, and `align-self` is released (the left-column arm pins it to `center`).
+ * Both matter once an alignment modifier turns this stage into a flex column: `align-items` then
+ * places the block, but only if the block is narrower than the stage and does not carry its own
+ * `align-self`. Pinned, `align-left` and `align-right` changed nothing sideways. Without a modifier
+ * the stage stays a grid and `justify-self` centers it. */
+section.math.form:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)):not(:has(> .cell-stage > :is(ul, ol))) > .cell-stage > p:has(> :is(.katex-display, mjx-container[display="true"])) {
+  width: fit-content;
+  max-width: 100%;
+  justify-self: center;
+  align-self: auto;
+}
 /* The hanging indent and the `where` label, carried over verbatim from the
  * sovereign arm — same rules, one box further in. The scope note above the
  * unmigrated copy applies unchanged: this is the LEGEND list only, because an

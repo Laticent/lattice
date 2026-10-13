@@ -156,10 +156,7 @@ matter, so a plugin the author turned off for the deck stays off in the chat.
 
 ### Known limits
 
-- **A bare `math` fence sits left of an empty legend column.** The `math` layout is a hero equation
-  plus a legend, and a chat equation has no legend. It reads, and it is not centered. A model that
-  wants a legend writes a `lattice` fence holding a full `math` slide. A centered, legend-free
-  equation figure is a layout decision, not a measurement, and is left open.
+- **A bare `math` fence** used to sit left of an empty legend column. Fixed in the `math` layout itself (2026-10-13): with no legend the equation takes the whole stage, centered, and the universal alignment modifiers move it (`examples/math-bare-equation.md`).
 - **A figure flashes when its reply commits.** The streaming bubble unmounts and the committed
   message mounts a new tile, so the pool re-points the frame once. Not measured.
 - **Not drawn: `anima`, video, and anything the engine admits only per deck.** A figure follows the
