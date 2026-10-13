@@ -283,3 +283,105 @@ test('@smoke a photo\'s own description, artist and date are read at import; its
 	await expect(dialog).toBeHidden();
 	await expect(page.locator('[data-media-card="sunset-roof"]')).toContainText('The team on the roof at sunset');
 });
+
+test('@smoke "Use new name" rewrites the decks that write an old name, leaves code samples as written, and keeps an undo', async ({ page }) => {
+	test.slow();
+	await gotoStudio(page);
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await openLibraryImages(page, 1440);
+	await addPhoto(page, 'Old Name.png');
+	await expect(page.locator('[data-media-card="old-name"]')).toBeVisible();
+	await setEditorContent(page, '# Names\n\n![A probe](asset:old-name)\n\nWrite `asset:old-name` in a deck.\n');
+	const img = livePreview(page).locator('img[alt="A probe"]').first();
+	await expect(img).toBeVisible({ timeout: 30_000 });
+
+	await page.locator('[data-media-card="old-name"]').getByRole('button', { name: 'Details for old-name' }).click();
+	const dialog = page.locator('[data-media-detail="old-name"]');
+	await dialog.getByLabel('Name').fill('new-name');
+	await dialog.getByRole('button', { name: 'Save' }).click();
+	await expect(dialog).toBeHidden();
+
+	await page.locator('[data-media-card="new-name"]').getByRole('button', { name: 'Details for new-name' }).click();
+	const again = page.locator('[data-media-detail="new-name"]');
+	await expect(again.locator('li').getByText('in 1 deck')).toBeVisible({ timeout: 15_000 });
+	await again.getByRole('button', { name: 'Use new name in the deck' }).click();
+
+	// The deck text: the reference that renders is renamed, the sample inside code is not.
+	const editor = page.locator('.cm-content[aria-label="Deck source"]');
+	await expect(editor).toContainText('![A probe](asset:new-name)', { timeout: 15_000 });
+	await expect(editor).toContainText('Write `asset:old-name` in a deck.');
+	await expect(again.locator('li').getByText('not used in a deck')).toBeVisible({ timeout: 15_000 });
+	// The picture is still there, now under its current name.
+	await expect(livePreview(page).locator('img[alt="A probe"]').first()).toHaveAttribute('src', /^blob:/, { timeout: 30_000 });
+	await expect(page.getByText(/Updated 1 deck to asset:new-name/)).toBeVisible();
+
+	// The way back: the deck's Version history holds the text from before.
+	const stored = await page.evaluate(() => {
+		const out: string[] = [];
+		for (let i = 0; i < localStorage.length; i++) {
+			const k = localStorage.key(i) as string;
+			if (/snap|checkpoint/i.test(k)) out.push(localStorage.getItem(k) ?? '');
+		}
+		return out.join('\n');
+	});
+	expect(stored).toContain('Before using asset:new-name');
+	expect(stored).toContain('![A probe](asset:old-name)');
+});
+
+test('@smoke "Use new name" also rewrites a deck that is not open, and says how many it changed', async ({ page }) => {
+	test.slow();
+	await gotoStudio(page);
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await openLibraryImages(page, 1440);
+	await addPhoto(page, 'Shared Probe.png');
+	await expect(page.locator('[data-media-card="shared-probe"]')).toBeVisible();
+	await setEditorContent(page, '# Deck A\n\n![A probe](asset:shared-probe)\n');
+	await expect(livePreview(page).locator('img[alt="A probe"]').first()).toBeVisible({ timeout: 30_000 });
+	// The shell saves the source on a short debounce; give it time to land before the second deck opens.
+	await page.waitForTimeout(1500);
+
+	// A second deck, which becomes the open one. Deck A is then a stored deck.
+	await page.locator('header').getByRole('button', { name: /slides?$|Untitled deck|Markdown for the boardroom/ }).first().click();
+	await page.getByRole('menuitem', { name: 'New deck' }).click();
+	const craft = page.locator('header').getByText('Craft', { exact: true });
+	if (await craft.isVisible().catch(() => false)) await craft.click();
+	await setEditorContent(page, '# Deck B\n\n![B probe](asset:shared-probe)\n');
+	await expect(livePreview(page).locator('img[alt="B probe"]').first()).toBeVisible({ timeout: 30_000 });
+	await page.waitForTimeout(1500);
+
+	// The docked Library may already be open from the first deck: the toolbar button toggles it, so only press it when closed.
+	const imagesTab = page.getByRole('tab', { name: 'Images' });
+	if (!(await imagesTab.isVisible().catch(() => false))) await page.getByRole('button', { name: CHROME.library }).click();
+	await imagesTab.click();
+	await page.locator('[data-media-card="shared-probe"]').getByRole('button', { name: 'Details for shared-probe' }).click();
+	const dialog = page.locator('[data-media-detail="shared-probe"]');
+	await dialog.getByLabel('Name').fill('team-probe');
+	await dialog.getByRole('button', { name: 'Save' }).click();
+	await expect(dialog).toBeHidden();
+	await page.locator('[data-media-card="team-probe"]').getByRole('button', { name: 'Details for team-probe' }).click();
+	const again = page.locator('[data-media-detail="team-probe"]');
+	await expect(again.locator('li').getByText('in 2 decks')).toBeVisible({ timeout: 15_000 });
+	await again.getByRole('button', { name: 'Use new name in decks' }).click();
+	await expect(page.getByText(/Updated 2 decks to asset:team-probe/)).toBeVisible({ timeout: 15_000 });
+
+	// Both decks now say the new name: the open one in the editor, the other in storage.
+	await expect(page.locator('.cm-content[aria-label="Deck source"]')).toContainText('![B probe](asset:team-probe)');
+	// The open deck reaches storage on the shell's short save debounce, so wait for it.
+	await expect
+		.poll(
+			async () => {
+				const stored = await page.evaluate(() => {
+					const out: string[] = [];
+					for (let i = 0; i < localStorage.length; i++) {
+						const k = localStorage.key(i) as string;
+						if (k.startsWith('lattice-studio-src-')) out.push(localStorage.getItem(k) ?? '');
+					}
+					return out;
+				});
+				const probes = stored.filter((t) => /probe/.test(t));
+				return probes.length === 2 && probes.every((t) => t.includes('asset:team-probe') && !t.includes('asset:shared-probe'));
+			},
+			{ message: 'both decks, the open one and the stored one, name the photo by its new name', timeout: 15_000 },
+		)
+		.toBe(true);
+});

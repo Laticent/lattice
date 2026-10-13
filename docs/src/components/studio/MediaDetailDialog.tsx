@@ -23,7 +23,7 @@ function localToday(): string {
 	return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-export function MediaDetailDialog({ m, open, onOpenChange, usedIn, aliasUse, onSave, onRemoveAlias }: {
+export function MediaDetailDialog({ m, open, onOpenChange, usedIn, aliasUse, onSave, onRemoveAlias, onUseNewName }: {
 	m: MediaRecord | null;
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
@@ -34,6 +34,8 @@ export function MediaDetailDialog({ m, open, onOpenChange, usedIn, aliasUse, onS
 	/** Resolves an error line to show, or null on success. */
 	onSave: (change: MediaMetaPatch & { name?: string }) => Promise<string | null>;
 	onRemoveAlias: (alias: string) => Promise<string | null>;
+	/** Rewrite the decks that write `asset:<alias>` to the photo's current name. Resolves an error line, or null. */
+	onUseNewName: (alias: string) => Promise<string | null>;
 }) {
 	const url = useObjectUrl(m?.blob);
 	const [name, setName] = React.useState('');
@@ -59,6 +61,18 @@ export function MediaDetailDialog({ m, open, onOpenChange, usedIn, aliasUse, onS
 	const dirty = caption !== (m.caption ?? '') || credit !== (m.credit ?? '') || taken !== (m.taken ?? '') || name !== m.name;
 	const takenOk = taken === '' || isIsoDate(taken);
 	const canSave = dirty && nameOk && takenOk && !busy;
+
+	/** One of the alias actions: busy while it runs, its refusal shown in the dialog. */
+	async function run(action: () => Promise<string | null>) {
+		setBusy(true);
+		setError(null);
+		try {
+			const e = await action();
+			if (e) setError(e);
+		} finally {
+			setBusy(false);
+		}
+	}
 
 	async function save() {
 		if (!m) return;
@@ -142,20 +156,27 @@ export function MediaDetailDialog({ m, open, onOpenChange, usedIn, aliasUse, onS
 						</div>
 					)}
 					{(m.aliases?.length ?? 0) > 0 && (
-						<div className="grid gap-1">
+						<div className="grid gap-1.5">
 							<span className="font-semibold">Also known as</span>
-							<ul className="flex flex-wrap gap-1.5">
+							<ul className="grid gap-1.5">
 								{m.aliases?.map((a) => (
-									<li key={a} className="flex items-center gap-1 rounded-full border border-border px-2 py-0.5 font-mono text-[11px]">
-										asset:{a}
-										{aliasUse[a] ? <span className="text-muted-foreground">· {aliasUse[a]} deck{aliasUse[a] === 1 ? '' : 's'}</span> : null}
-										<button type="button" aria-label={`Remove the alias ${a}`} className="text-muted-foreground hover:text-foreground" onClick={() => void onRemoveAlias(a).then((e) => e && setError(e))}>
-											<X className="size-3" aria-hidden />
-										</button>
+									<li key={a} className="flex flex-wrap items-center gap-2 rounded-lg border border-border px-2.5 py-1.5 text-[12px]">
+										<code className="font-mono">asset:{a}</code>
+										<span className="text-muted-foreground">{aliasUse[a] ? `in ${aliasUse[a]} deck${aliasUse[a] === 1 ? '' : 's'}` : 'not used in a deck'}</span>
+										<span className="ml-auto flex items-center gap-1.5">
+											{aliasUse[a] ? (
+												<Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => void run(() => onUseNewName(a))}>
+													Use new name in {aliasUse[a] === 1 ? 'the deck' : 'decks'}
+												</Button>
+											) : null}
+											<button type="button" aria-label={`Remove the alias ${a}`} className="text-muted-foreground hover:text-foreground" disabled={busy} onClick={() => void run(() => onRemoveAlias(a))}>
+												<X className="size-3.5" aria-hidden />
+											</button>
+										</span>
 									</li>
 								))}
 							</ul>
-							<span className="text-[11.5px] text-muted-foreground">Removing one frees the name. A deck that still writes it will show a placeholder.</span>
+							<span className="text-[11.5px] text-muted-foreground">The old name keeps working in every deck. Removing one frees the name, and a deck that still writes it will show a placeholder.</span>
 						</div>
 					)}
 				</div>

@@ -10,6 +10,7 @@ import { useBreakpoint, useLandscapePhone } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
 import { AssetVersionsDialog, type VersionedAsset } from './AssetVersions';
 import { componentZipName, finishZipName, packBundle, packComponent, packFinish, packTheme, themeZipName, unpackBundle } from './asset-bundle';
+import { decksUsingOutsideCode, renameAssetRefsOutsideCode } from './asset-refs';
 import { deleteStudioComponent, listStudioComponents, type StudioComponent } from './component-library';
 import { DeleteBtn } from './delete-btn';
 import { downloadBlob, iosNeedsShareSheet } from './download';
@@ -29,7 +30,7 @@ import { deleteRefDoc, listRefDocs, type RefDocRecord, saveRefDoc } from './refe
 import { deleteStudioScene, listStudioScenes, type StudioScene } from './scene-library';
 import { renderThemeShowcase } from './share-export';
 import { listShippedScenes, type ShippedScene, shippedDrawing } from './shipped-scenes';
-import { loadDeckList, loadSource } from './studio-store';
+import { loadDeckList, loadSource, saveCheckpoint, saveSource } from './studio-store';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
 
 // The unified Library — one shelf for every saved theme + component + finish + the
@@ -171,7 +172,7 @@ function LibraryFrame({ docked, open, onOpenChange, dropProps, children }: { doc
 	);
 }
 
-export function Library({ open, onOpenChange, docked, options, activePalette, activeFinish, initialFilter, activeDeckId = null, activeDeckSource, onApplyTheme, onApplyFinish, onInsert, onEditTheme, onEditComponent, onEditFinish, onEditMotion, onChanged }: {
+export function Library({ open, onOpenChange, docked, options, activePalette, activeFinish, initialFilter, activeDeckId = null, activeDeckSource, onReplaceSource, onApplyTheme, onApplyFinish, onInsert, onEditTheme, onEditComponent, onEditFinish, onEditMotion, onChanged }: {
 	open: boolean;
 	onOpenChange: (o: boolean) => void;
 	/** Desktop-Craft: render as a docked left column (plain div, no Sheet portal),
@@ -202,6 +203,8 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	onEditFinish?: (f: StudioFinish) => void;
 	onEditMotion?: (m: StudioScene) => void;
 	onChanged: () => void;
+	/** Replace the open deck's markdown (the shell owns it live). Used when a photo's decks are rewritten to its new name. */
+	onReplaceSource: (source: string) => void;
 }) {
 	// A phone docks the search field at the bottom; the docked column and the tablet
 	// sheet keep it in the header. Same predicate `PanelSheet` uses to pick its edge.
@@ -534,7 +537,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	const detailAliasUse = React.useMemo(() => {
 		if (!detail) return {};
 		const sources = liveSource === undefined ? otherSources : [...otherSources, liveSource];
-		return Object.fromEntries((detail.aliases ?? []).map((n) => [n, decksUsing(n, sources)]));
+		return Object.fromEntries((detail.aliases ?? []).map((n) => [n, decksUsingOutsideCode(n, sources)]));
 	}, [detail, otherSources, liveSource]);
 	/** Run a metadata change, refresh the shelf and the open deck's previews, and turn a refusal into a line to show. */
 	async function changeMedia(run: () => Promise<unknown>): Promise<string | null> {
@@ -545,6 +548,32 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 			return null;
 		} catch (e) {
 			return String((e as Error)?.message || 'That did not save. Try again.').replace(/^Can't add — /, '');
+		}
+	}
+	/** Rewrite every deck that writes `asset:<alias>` to the photo's current name. Each deck gets a Version history entry
+	 *  first, so the change can be undone from there. The open deck goes through the shell (its text is live in the
+	 *  editor); every other deck is rewritten in storage. Code samples that mention the name are left as written. */
+	async function adoptNewName(a: MediaRecord, alias: string): Promise<string | null> {
+		try {
+			const stamp = Date.now();
+			let changed = 0;
+			for (const dk of loadDeckList()) {
+				const isActive = dk.id === activeDeckIdRef.current;
+				const src = isActive ? (activeDeckSource ?? loadSource(dk.id)) : loadSource(dk.id);
+				if (src == null) continue;
+				const next = renameAssetRefsOutsideCode(src, alias, a.name);
+				if (next === src) continue;
+				saveCheckpoint(dk.id, src, `Before using asset:${a.name}`, stamp);
+				if (isActive) onReplaceSource(next);
+				else saveSource(dk.id, next);
+				changed++;
+			}
+			readOtherSources();
+			onChanged();
+			notify(changed ? `Updated ${changed} deck${changed === 1 ? '' : 's'} to asset:${a.name}. The earlier text is in Version history.` : `No deck writes asset:${alias} any more.`);
+			return null;
+		} catch {
+			return 'Could not update the decks. Nothing was lost; try again.';
 		}
 	}
 	function moveMedia(a: MediaRecord, scope: string) {
@@ -1097,6 +1126,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 				aliasUse={detailAliasUse}
 				onSave={(c) => changeMedia(() => updateMediaDetails(detail?.id as string, c))}
 				onRemoveAlias={(al) => changeMedia(() => removeMediaAlias(detail?.id as string, al))}
+				onUseNewName={(al) => adoptNewName(detail as MediaRecord, al)}
 			/>
 			<AssetVersionsDialog
 				asset={historyFor}
