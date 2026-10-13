@@ -140,6 +140,19 @@ describe('a caption needs a picture that was actually delivered', () => {
 	});
 });
 
+describe('a caption that is not a string', () => {
+	it('is refused, never stored as "[object Object]", and never clears an existing caption', async () => {
+		const { assets, calls } = fakeAssets([info('a', { caption: 'Keep me' })]);
+		const t = box(assets);
+		await t.run('view_asset', JSON.stringify({ names: ['a'], again: true }));
+		t.takeImages();
+		const out = await t.run('caption_asset', JSON.stringify({ captions: [{ name: 'a', caption: { evil: true } }, { name: 'a', caption: '   ' }] }));
+		expect(out.match(/non-empty string/g)).toHaveLength(2);
+		expect(calls.captions).toEqual([]);
+		expect(await t.run('list_assets', '{}')).toContain('"Keep me"');
+	});
+});
+
 describe('with no Library', () => {
 	it('answers that there is none instead of failing', async () => {
 		const t = box(undefined);

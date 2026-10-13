@@ -526,8 +526,9 @@ export function createToolbox(opts: {
 			const a = all.find((x) => x.name === name);
 			if (!a) out.push(unknownAsset(name, all));
 			else if (!looked.has(name)) out.push(`${name}: not saved — you have not been shown this photo yet. Call view_asset, wait for the pictures, then caption it in your next call.`);
+			else if (typeof (c as { caption?: unknown }).caption !== 'string' || !(c as { caption: string }).caption.trim()) out.push(`${name}: not saved — send the caption as a non-empty string.`);
 			else {
-				const stored = await opts.assets.setCaption(name, String((c as { caption?: unknown }).caption ?? '')).catch(() => null);
+				const stored = await opts.assets.setCaption(name, (c as { caption: string }).caption).catch(() => null);
 				if (stored === null) out.push(`${name}: could not be saved.`);
 				else {
 					// The stored (cleaned) text, so this turn's list shows what the next turn will read.

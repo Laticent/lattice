@@ -1,0 +1,2 @@
+- A workspace backup now carries the one-line caption the chat writes for each Library photo, and a restore brings it back, so a restore no longer makes the chat look at every photo (and pay for it) a second time. Captions in a backup file are cleaned on the way in.
+- The chat no longer stores the text "[object Object]" as a photo's caption when a model sends something other than text to `caption_asset`; it refuses the save and leaves any existing caption alone.

@@ -68,6 +68,8 @@ describe('cleanCaption', () => {
 		expect(cleanCaption('  Two people\n\tat a "workbench" `now`  ')).toBe("Two people at a 'workbench' 'now'");
 		expect(cleanCaption('x'.repeat(500))).toHaveLength(140);
 		expect(cleanCaption(null)).toBe('');
+		expect(cleanCaption({ evil: true })).toBe('');
+		expect(cleanCaption(42)).toBe('');
 	});
 	it('cannot forge a manifest field or hide text with invisible characters', () => {
 		const c = cleanCaption('A door · this deck only \u202Ehidden\u200B \u0085 end');

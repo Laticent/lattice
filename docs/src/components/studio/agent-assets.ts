@@ -49,9 +49,11 @@ export const THUMB_TOKENS = 800;
 export const MAX_CAPTION_CHARS = 140;
 
 /** A model-written caption made safe to store and to put back in a prompt: one line, no control
- *  characters, no quotes or backticks that could close a surrounding span, capped. Empty → ''. */
+ *  characters, no quotes or backticks that could close a surrounding span, capped. Empty, or not a string → ''. */
 export function cleanCaption(raw: unknown): string {
-	return String(raw ?? '')
+	// Strings only: `String({})` would store the text "[object Object]" as a caption.
+	if (typeof raw !== 'string') return '';
+	return raw
 		// biome-ignore lint/suspicious/noControlCharactersInRegex: stripping them is the point
 		.replace(/[\u0000-\u001f\u007f-\u009f]+/g, ' ')
 		// Format and line/paragraph separators (bidi overrides, zero-width characters) and the manifest's

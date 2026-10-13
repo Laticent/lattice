@@ -88,7 +88,7 @@ async function closeWorkspace(page: Page) {
 	await expect(page.getByRole('dialog', { name: /Workspace/ })).toBeHidden();
 }
 
-async function shelf(page: Page): Promise<{ name: string; scope: string; bytes: number }[]> {
+async function shelf(page: Page): Promise<{ name: string; scope: string; bytes: number; caption: string | null }[]> {
 	return page.evaluate(async () => {
 		const db: IDBDatabase = await new Promise((res, rej) => {
 			const r = indexedDB.open('lattice-workbench');
@@ -103,9 +103,36 @@ async function shelf(page: Page): Promise<{ name: string; scope: string; bytes: 
 		return rows
 			.filter((x) => x.kind === 'image')
 			// A row holds its bytes as a Blob, or as an ArrayBuffer where the engine refuses to store a Blob.
-			.map((x) => ({ name: x.name as string, scope: x.scope as string, bytes: (x.blob as Blob | undefined)?.size ?? (x.data as ArrayBuffer).byteLength }))
+			.map((x) => ({ name: x.name as string, scope: x.scope as string, bytes: (x.blob as Blob | undefined)?.size ?? (x.data as ArrayBuffer).byteLength, caption: (x.caption as string | undefined) ?? null }))
 			.sort((a, b) => a.name.localeCompare(b.name));
 	});
+}
+
+/** Put a caption on a stored photo the way the chat's `caption_asset` does (media-store `setMediaCaption`):
+ *  one readwrite put on the same row. The chat's own path is proven against a real model elsewhere. */
+async function captionPhoto(page: Page, name: string, caption: string) {
+	await page.evaluate(
+		async ([n, c]) => {
+			const db: IDBDatabase = await new Promise((res, rej) => {
+				const r = indexedDB.open('lattice-workbench');
+				r.onsuccess = () => res(r.result);
+				r.onerror = () => rej(r.error);
+			});
+			await new Promise<void>((res, rej) => {
+				const t = db.transaction('assets', 'readwrite');
+				const store = t.objectStore('assets');
+				const all = store.getAll();
+				all.onsuccess = () => {
+					const row = (all.result as Record<string, unknown>[]).find((x) => x.kind === 'image' && x.name === n);
+					if (row) store.put({ ...row, caption: c });
+				};
+				t.oncomplete = () => res();
+				t.onerror = () => rej(t.error);
+			});
+			db.close();
+		},
+		[name, caption],
+	);
 }
 
 async function openWorkspaceData(page: Page) {
@@ -122,8 +149,11 @@ test('a backup carries the photos and a restore puts them back where they were @
 	await page.getByRole('tab', { name: 'This deck' }).click();
 	await addPhoto(page, 'Keep Deck.png');
 	await expect(page.locator('[data-media-card="keep-deck"]')).toBeVisible();
+	// One photo has been looked at by the chat and captioned; the other has not.
+	await captionPhoto(page, 'keep-shared', 'Two flat colored squares side by side');
 	const before = await shelf(page);
 	expect(before.map((r) => r.name)).toEqual(['keep-deck', 'keep-shared']);
+	expect(before.find((r) => r.name === 'keep-shared')?.caption).toBe('Two flat colored squares side by side');
 	const deckScope = before.find((r) => r.name === 'keep-deck')?.scope as string;
 	expect(deckScope, 'a deck-only photo is scoped to a deck id').not.toBe('library');
 	await closeLibrary(page);
@@ -143,8 +173,10 @@ test('a backup carries the photos and a restore puts them back where they were @
 	await page.getByRole('button', { name: 'Download backup' }).click();
 	const backupPath = (await (await pending).path()) as string;
 	const zip = await JSZip.loadAsync(fs.readFileSync(backupPath));
-	const index = JSON.parse(await (zip.file('media.json') as JSZip.JSZipObject).async('string')) as { name: string; scope: string; file: string }[];
+	const index = JSON.parse(await (zip.file('media.json') as JSZip.JSZipObject).async('string')) as { name: string; scope: string; file: string; caption?: string }[];
 	expect(index.map((r) => r.name).sort(), 'both photos are in the index').toEqual(['keep-deck', 'keep-shared']);
+	expect(index.find((r) => r.name === 'keep-shared')?.caption, 'the caption is in the backup file').toBe('Two flat colored squares side by side');
+	expect(index.find((r) => r.name === 'keep-deck')?.caption, 'an uncaptioned photo carries no caption key').toBeUndefined();
 	for (const r of index) expect(zip.file(`media/${r.file}`), `media/${r.file} holds the bytes`).toBeTruthy();
 	const manifest = JSON.parse(await (zip.file('manifest.json') as JSZip.JSZipObject).async('string'));
 	expect(manifest.counts.media).toBe(2);
@@ -174,6 +206,8 @@ test('a backup carries the photos and a restore puts them back where they were @
 	expect(after.find((r) => r.name === 'keep-shared')?.scope).toBe('library');
 	expect(after.find((r) => r.name === 'keep-deck')?.scope, 'the deck-only photo came back to the same deck').toBe(deckScope);
 	expect(after.map((r) => r.bytes)).toEqual(before.map((r) => r.bytes));
+	expect(after.find((r) => r.name === 'keep-shared')?.caption, 'the caption came back with the photo').toBe('Two flat colored squares side by side');
+	expect(after.find((r) => r.name === 'keep-deck')?.caption, 'the uncaptioned photo is still uncaptioned').toBeNull();
 	// And on the slide: the same deck, after the reload, paints the shared photo instead of the stand-in.
 	if (wide) {
 		await expect(slidePic('shared pic')).toHaveAttribute('src', /^blob:/, { timeout: 60_000 });

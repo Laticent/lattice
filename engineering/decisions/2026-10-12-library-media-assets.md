@@ -291,8 +291,7 @@ in `chat-agent.ts`.
 Chromium: photos added through the Library's file input, the real thumbnail code (512 px, under 150 KB of
 base64), the real agent loop, and the caption read back from IndexedDB. The model is mocked (HARD RULE #24),
 so **how a real model chooses between photos is UNVERIFIED.** The spec fails if the thumbnail edge grows.
-A backup does not carry captions yet (a followup), so a restore re-captions a photo the first time the
-chat needs to see it.
+A workspace backup carries each photo's caption and a restore reads it back through `cleanCaption`, so a restore does not make the chat look at every photo again. A backup file is untrusted and the caption re-enters a prompt, which is why it is cleaned on the way in; a caption that is not a string is dropped.
 
 ## Options not taken
 
