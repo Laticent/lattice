@@ -29,11 +29,14 @@ import { reference } from './reference.mjs';
 
 const require = createRequire(import.meta.url);
 const esbuild = require('esbuild');
-// The dispatcher Lattice SHIPS, as the markdown-it path asks it per span: the escape first,
-// then "does any kind render this?" (lib/integrations/markdown-it/plugins.js). The arm's own
-// `segnoInline` below is a copy written for the race, and the kernel column is the retired
-// pre-Segno kernel; neither says how fast the shipped path is. Building the HTML is not timed,
-// so the column is the same job as the other two: decide what the span is.
+// The dispatcher Lattice SHIPS, timed on the job the other two columns do: DECIDE what the span is.
+// That is the escape first, then `dispatches` ("does any kind render this?"). The markdown-it path
+// (lib/integrations/markdown-it/plugins.js) asks the escape, then `renderHtml`, which builds the
+// result, then `offPlugin` (which calls `dispatches` again, only when a plugin is off); the
+// runtime asks `renderElement`. So this column is the decision and not the render, and it does
+// not move when a kind gets faster at building its HTML. The arm's own `segnoInline` below is a
+// copy written for the race, and the kernel column is the retired pre-Segno kernel; neither says
+// how fast the shipped path is.
 const shipped = require('../../lib/core/inline-code-directives.js');
 const shippedInline = (s) => shipped.escapedText(s) !== null || shipped.dispatches(s, null);
 // SEGNO_LIB points the arm at another copy of the library — a checkout of the previous commit —
