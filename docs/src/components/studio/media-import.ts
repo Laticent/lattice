@@ -230,8 +230,8 @@ export type FormatSizes = {
 };
 
 /** How big the picked files would be in each format, MEASURED by running the import's own encoder on the
- *  files (up to `SAMPLE`; a larger batch is scaled by file size). `isCancelled` stops it early when the dialog closes. */
-export async function measureFormats(files: File[], isCancelled: () => boolean = () => false): Promise<FormatSizes> {
+ *  files (up to `SAMPLE`; a larger batch is scaled by file size). `isCanceled` stops it early when the dialog closes. */
+export async function measureFormats(files: File[], isCanceled: () => boolean = () => false): Promise<FormatSizes> {
 	const SAMPLE = 4;
 	const pickedBytes = files.reduce((n, f) => n + f.size, 0);
 	const bytes: Record<PhotoFormat, number | null> = { original: 0, jpeg: 0, webp: webpSupported() ? 0 : null, png: 0 };
@@ -239,7 +239,7 @@ export async function measureFormats(files: File[], isCancelled: () => boolean =
 	let sampled = 0;
 	let skipped = 0;
 	for (const file of files) {
-		if (sampled >= SAMPLE || isCancelled()) break;
+		if (sampled >= SAMPLE || isCanceled()) break;
 		let bitmap: ImageBitmap | undefined;
 		try {
 			const mime = await sniffedMime(file);
