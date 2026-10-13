@@ -690,7 +690,7 @@ test('@smoke Workspace → Model has an Image model picker (vision models only, 
 	expect(await page.evaluate(() => JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}').imageModel)).toBe('~anthropic/claude-sonnet-latest');
 });
 
-test('@smoke @mobile on a phone the dialog does not pan sideways, the date field is short, and the picture survives a save', async ({ page }) => {
+test('@smoke @mobile @webkit-phone on a phone the dialog does not pan sideways, the date field is short, and the picture survives a save', async ({ page }) => {
 	test.slow();
 	await gotoStudio(page);
 	await page.setViewportSize({ width: 390, height: 844 });
