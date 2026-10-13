@@ -495,11 +495,18 @@ section div[data-lattice-plugin-off] {
   align-items:center;
   gap:0.9em;
   box-sizing:border-box;
-  /* The room the block will take: `--lp-aspect` (W / H) is the plugin's own proportions, remembered from its last drawn
-   * output or declared in its manifest; the default is a wide, short block. Capped so a tall one cannot fill the slide. */
-  aspect-ratio:var(--lp-aspect, 16 / 5);
-  width:100%;
-  max-height:18em;
+  /* The room the block will take. `--lp-w` and `--lp-h` are the plugin's own proportions (remembered from its last
+   * drawn output, or declared in its manifest); the default is a wide, short block. The HEIGHT is capped (below) and the width
+   * follows it, so a square block is a square and not a bar across the slide, and a wide one still fills the width.
+   * The minimums keep the name and its line readable on a very small or very flat block. */
+  --lp-w:16;
+  --lp-h:5;
+  /* Height 9em for a square, growing with the square root of the ratio (a 16:9 block is 12em tall, a 4:1 one fills the width). */
+  width:min(100%, calc(9em * var(--lp-w) / var(--lp-h) * sqrt(var(--lp-w) / var(--lp-h))));
+  aspect-ratio:var(--lp-w) / var(--lp-h);
+  min-width:min(100%, 14em);
+  min-height:3.4em;
+  flex:none;
   padding:0.9em 1.2em;
   position:relative;
   overflow:hidden;

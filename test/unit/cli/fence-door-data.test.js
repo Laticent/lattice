@@ -120,7 +120,7 @@ describe('placeholder size: remembered from output, declared in the manifest', (
 
   test('the placeholder carries the aspect only when it is W/H', async () => {
     const { fencePlaceholder } = await load();
-    assert.match(fencePlaceholder('g', '16/9'), /style="--lp-aspect:16 \/ 9"/);
+    assert.match(fencePlaceholder('g', '16/9'), /style="--lp-w:16;--lp-h:9"/);
     for (const bad of ['16:9', '0/5', '1000/2', '4/1;color:red', 'x"><script>', null, undefined, 5]) assert.doesNotMatch(fencePlaceholder('g', bad), /style=/, String(bad));
   });
 

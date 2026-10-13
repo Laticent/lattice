@@ -1772,8 +1772,12 @@ proportions of the plugin's last DRAWN output (`aspectOfOutput`: the first `<svg
 reduced, within 1 to 999), remembered in this browser by the code's digest (`lattice-plugin-aspects`, bounded at 200,
 never in a deck or a backup); else the manifest's `contributes.fences.<fence>.placeholder.aspect` (`W/H`,
 `plugin.schema.json`, a new additive field a zip plugin may declare); else a wide default (`16 / 5`). The
-placeholder is `aspect-ratio: var(--lp-aspect, 16 / 5)` at the full content width, capped at 18em of height, with
-its text at the body size. Plain-markup output has no intrinsic proportions and remembers nothing. The value is
+placeholder takes `--lp-w` / `--lp-h` (the ratio as two numbers, so the stylesheet can do arithmetic), its
+height is 9em for a square and grows with the square root of the ratio, and its width follows the height up to the
+content width, so a square block is a square and a 4:1 one fills the row (`flex: none`, or a crowded slide's flex
+column shrinks it to its label). Tried against four realistic blocks (1:1, 6:1, 4:1, 16:9) in the real Studio: the
+first cut, full width at every ratio, drew an avatar as a bar across the slide. A ratio does not carry SCALE: a
+real avatar is smaller than 9em and a real map larger, and only the plugin's own output knows. Text is at the body size. Plain-markup output has no intrinsic proportions and remembers nothing. The value is
 validated (`ASPECT_RE`) before it reaches the `style` attribute at every hop (import, store, kernel).
 
 ## References

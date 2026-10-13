@@ -243,7 +243,10 @@ describe('rules whose removal no test used to notice', () => {
 });
 
 describe('the placeholder is the size the block will be', () => {
-	const style = (html: string) => /<div data-lattice-plugin-off="gantt-plugin"( style="--lp-aspect:([^"]*)")?/.exec(html)?.[2] ?? null;
+	const style = (html: string) => {
+		const m = /<div data-lattice-plugin-off="gantt-plugin"( style="--lp-w:(\d+);--lp-h:(\d+)")?/.exec(html);
+		return m?.[2] ? `${m[2]} / ${m[3]}` : null;
+	};
 
 	it('with nothing declared or remembered it carries no size (the stylesheet’s default)', async () => {
 		await approve();
