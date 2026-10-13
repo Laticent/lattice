@@ -1708,7 +1708,9 @@ and opens its editor.
 
 A pill stays as text on a slide that is edited in Markdown, in a deck set to `inline-code: literal`,
 and where the engine would not draw it (a reserved label, an unknown icon). Opening a deck never
-rewrites it: a drawn pill writes back the exact code span it came from. The editor does not touch a
+rewrites it: a drawn pill writes back the exact code span it came from. Two code spans cannot touch in
+Markdown (`` `{A}``{B}` `` is one span, and both would stop being pills), so Compose keeps a single space
+between a pill and a neighboring pill or code span, and **+ Pill** adds that space itself. The editor does not touch a
 pill's `icon=`; that word is kept exactly as written. Design:
 `engineering/decisions/2026-10-13-compose-inline-notation-editors.md`.
 

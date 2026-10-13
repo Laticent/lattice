@@ -2005,7 +2005,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 		let live = true;
 		let tries = 0;
 		let retry: number | undefined;
-		let debounce: number | undefined;
+		let debounce: number[] = [];
 		// Objects already on the page redraw with the new sheet.
 		const repaint = () => {
 			if (live) repaintObjects();
@@ -2021,9 +2021,13 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			retry = window.setTimeout(waitForFrame, 500);
 		};
 		waitForFrame();
+		// The preview frame switches a moment AFTER the page does (a mode or palette change reaches it
+		// asynchronously), so one read at 300ms can still see the old tokens. Measured on the real Studio:
+		// one read left the pill light for good after a switch to dark. Reading again as the frame settles
+		// is cheap (`syncPillSheet` rebuilds only when what it was built from changed).
 		const later = () => {
-			window.clearTimeout(debounce);
-			debounce = window.setTimeout(sync, 300);
+			for (const t of debounce) window.clearTimeout(t);
+			debounce = [300, 1000, 2500].map((ms) => window.setTimeout(sync, ms));
 		};
 		const mo = new MutationObserver(later);
 		mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-palette', 'data-mode'] });
@@ -2035,7 +2039,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 		return () => {
 			live = false;
 			window.clearTimeout(retry);
-			window.clearTimeout(debounce);
+			for (const t of debounce) window.clearTimeout(t);
 			mo.disconnect();
 			document.removeEventListener('load', onFrameLoad, true);
 			releasePillSheet();

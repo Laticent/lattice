@@ -103,25 +103,79 @@ const code = () => deckSchema.marks.code;
 
 // ── Text → object ────────────────────────────────────────────────────────────
 
+/** Is this inline node a code span in the deck source: an object, or text carrying the code mark? */
+function isCodeish(node: PMNode | null | undefined): boolean {
+	return Boolean(node && (node.type === objectType() || (node.isText && code().isInSet(node.marks))));
+}
+
+/** Where a `<pos>` lies in `doc` as indexes of the slides it touches. */
+function slidesTouching(doc: PMNode, ranges: readonly { from: number; to: number }[]): Set<number> {
+	const out = new Set<number>();
+	doc.forEach((slide, offset, index) => {
+		const from = offset;
+		const to = offset + slide.nodeSize;
+		if (ranges.some((r) => r.from <= to && r.to >= from)) out.add(index);
+	});
+	return out;
+}
+
 /**
- * The transaction that turns every code span the engine reads as an object into a node, or null
- * when there is nothing to turn. A span is skipped when:
- *   · the selection touches it (the author is in it: typing at an edge extends the code mark, so
- *     they must see the text);
+ * The slides a batch of transactions touched: where they changed the document, and where the selection
+ * was and is. An edit-time pass looks only there, so it can never re-serialize a slide the author did
+ * not touch (a slide that gets new nodes is re-serialized, not re-emitted from its cached bytes).
+ */
+function touchedSlides(trs: readonly Transaction[], oldState: EditorState, state: EditorState): Set<number> {
+	let ranges: { from: number; to: number }[] = [{ from: oldState.selection.from, to: oldState.selection.to }];
+	for (const tr of trs) {
+		for (const map of tr.mapping.maps) {
+			ranges = ranges.map((r) => ({ from: map.map(r.from, -1), to: map.map(r.to, 1) }));
+			map.forEach((_a, _b, from, to) => {
+				ranges.push({ from, to });
+			});
+		}
+	}
+	ranges.push({ from: state.selection.from, to: state.selection.to });
+	return slidesTouching(state.doc, ranges);
+}
+
+export interface NormalizeOptions {
+	/**
+	 * Leave a span alone while the selection touches it (default). An edit-time pass wants that: the author
+	 * is in the span, and typing at an edge extends the code mark. The silent passes (kernels loaded,
+	 * deck resynced) do NOT: a fresh editor state has its selection at the start of the document, and a
+	 * pill sitting there would stay text and then convert, unsilenced, on the first click.
+	 */
+	sparing?: boolean;
+	/** Only these slides (by index). Default: every slide. */
+	slides?: ReadonlySet<number>;
+}
+
+/**
+ * The transaction that turns every code span the engine reads as an object into a node, and keeps
+ * two code spans from touching, or null when there is nothing to do. A span is skipped when:
+ *   · the selection touches it and `sparing` is on (see NormalizeOptions);
  *   · its slide is locked (edited in Markdown; the structural guard would refuse, and a locked
  *     slide must keep its node identity so `emitDeck` re-emits its `raw` bytes);
  *   · the deck or the slide turned the inline grammar off (`inline-code: literal`);
- *   · it carries anything but the code mark and plain formatting around it.
+ *   · it is not one whole code-marked run (two spans that merged into one run stay text).
  * Other marks (bold, italic) stay on the node, so `**`{X}`**` round-trips.
+ *
+ * KEEPING SPANS APART. Two code spans cannot touch in Markdown: `` `{A}``{B}` `` is ONE span, so an
+ * object beside another object (or beside code text) would be written as one span and both would stop
+ * being pills on the next load. Reached by inserting a pill after one, or by deleting the text between
+ * two. A single space goes between them (carrying the object's own marks), and `serializeInlineObject`
+ * does the same as a last resort.
  */
-export function normalizeObjects(state: EditorState, kernels: InlineKernels, deckLiteral: boolean): Transaction | null {
+export function normalizeObjects(state: EditorState, kernels: InlineKernels, deckLiteral: boolean, opts: NormalizeOptions = {}): Transaction | null {
 	if (deckLiteral) return null;
+	const sparing = opts.sparing ?? true;
 	const codeMark = code();
 	const type = objectType();
 	const sel = state.selection;
 	const found: { from: number; to: number; src: string; marks: readonly Mark[] }[] = [];
-	state.doc.forEach((slide, offset) => {
+	state.doc.forEach((slide, offset, index) => {
 		if (slide.type.name !== 'slide' || slide.attrs.locked) return;
+		if (opts.slides && !opts.slides.has(index)) return;
 		if (((slide.attrs.directives as string[]) || []).some((d) => d.includes(kernels.INLINE_CODE_LITERAL))) return;
 		slide.descendants((node, pos) => {
 			if (!node.isText || !node.text || !codeMark.isInSet(node.marks)) return;
@@ -130,19 +184,38 @@ export function normalizeObjects(state: EditorState, kernels: InlineKernels, dec
 			if (c !== 0x7b && c !== 0x7e && c !== 0x21) return;
 			const from = offset + 1 + pos;
 			const to = from + node.nodeSize;
-			if (sel.from <= to && sel.to >= from) return;
+			if (sparing && sel.from <= to && sel.to >= from) return;
 			if (!kindOf(node.text, kernels)) return;
 			found.push({ from, to, src: node.text, marks: node.marks.filter((m) => m.type !== codeMark) });
 		});
 	});
-	if (!found.length) return null;
 	const tr = state.tr;
 	// Back to front, so each replacement leaves the positions of the ones before it alone.
 	for (let i = found.length - 1; i >= 0; i--) {
 		const f = found[i];
 		tr.replaceWith(f.from, f.to, type.create({ src: f.src }, null, f.marks));
 	}
-	return tr;
+	// Then keep code spans apart, on the document as it now stands, back to front for the same reason.
+	const gaps: { pos: number; marks: readonly Mark[] }[] = [];
+	tr.doc.forEach((slide, offset, index) => {
+		if (slide.type.name !== 'slide' || slide.attrs.locked || (opts.slides && !opts.slides.has(index))) return;
+		slide.descendants((block, pos) => {
+			if (!block.isTextblock) return;
+			let at = offset + 1 + pos + 1;
+			let prev: PMNode | null = null;
+			block.forEach((child) => {
+				if (prev && isCodeish(prev) && isCodeish(child) && (prev.type === type || child.type === type)) {
+					const owner = child.type === type ? child : prev;
+					gaps.push({ pos: at, marks: owner.marks.filter((m) => m.type !== codeMark) });
+				}
+				at += child.nodeSize;
+				prev = child;
+			});
+			return false;
+		});
+	});
+	for (let i = gaps.length - 1; i >= 0; i--) tr.insert(gaps[i].pos, deckSchema.text(' ', gaps[i].marks));
+	return tr.docChanged ? tr : null;
 }
 
 // ── The open editor ──────────────────────────────────────────────────────────
@@ -163,6 +236,12 @@ export interface OpenObject {
 interface ObjectsState {
 	open: OpenObject | null;
 	nextId: number;
+	/**
+	 * Was the document's last change an undo or a redo? While it was, the edit-time pass stays out: a pass
+	 * after an undo is a NEW edit in the history, and it would clear the redo stack on a plain click.
+	 * The next change the author makes themselves clears the flag.
+	 */
+	afterHistory: boolean;
 }
 
 type ObjectsMeta = { open: number } | { close: true } | { edited: true } | { silent: true };
@@ -207,7 +286,7 @@ export function isSilentPass(tr: Transaction): boolean {
  * (the caller re-points its emit baseline at the new slide nodes). Returns whether anything changed.
  */
 export function normalizeDeck(view: EditorView, kernels: InlineKernels, deckLiteral: boolean): boolean {
-	const tr = normalizeObjects(view.state, kernels, deckLiteral);
+	const tr = normalizeObjects(view.state, kernels, deckLiteral, { sparing: false });
 	if (!tr) return false;
 	view.dispatch(tr.setMeta('addToHistory', false).setMeta(objectsKey, { silent: true } satisfies ObjectsMeta));
 	return true;
@@ -267,13 +346,24 @@ export function insertObject(getKernels: () => InlineKernels | null, sample = 'S
 		// A selection across blocks would be replaced with one object and merge the paragraphs.
 		if (!$from.sameParent($to)) return false;
 		if (!$from.parent.canReplaceWith($from.index(), $to.index(), objectType())) return false;
+		// Inside the author's own code span the new object would split it in two; decline, and the
+		// caller says why. At a span's EDGE, or beside another object, a space keeps the two code spans
+		// apart (they cannot touch in Markdown: `{A}``{B}` is one span).
+		const before = $from.nodeBefore;
+		const after = $to.nodeAfter;
+		if (!empty ? false : isCodeish(before) && isCodeish(after) && before?.isText && after?.isText) return false;
 		const picked = empty ? '' : state.doc.textBetween(from, to, ' ').trim();
 		const label = picked && picked.length <= 40 && !/\n/.test(picked) ? picked : sample;
 		const src = kernels.pill.edit('{X}', { label });
 		if (!src || !isObjectSource(src) || !kindOf(src, kernels)) return false;
 		if (dispatch) {
-			const tr = state.tr.replaceWith(from, to, objectType().create({ src }));
-			tr.setSelection(NodeSelection.create(tr.doc, from)).setMeta(objectsKey, { open: from } satisfies ObjectsMeta);
+			const lead = isCodeish(before);
+			const trail = isCodeish(after);
+			const space = () => deckSchema.text(' ');
+			const parts = [...(lead ? [space()] : []), objectType().create({ src }), ...(trail ? [space()] : [])];
+			const at = from + (lead ? 1 : 0);
+			const tr = state.tr.replaceWith(from, to, parts);
+			tr.setSelection(NodeSelection.create(tr.doc, at)).setMeta(objectsKey, { open: at } satisfies ObjectsMeta);
 			dispatch(tr.scrollIntoView());
 		}
 		return true;
@@ -406,12 +496,16 @@ export function inlineObjectsPlugin(opts: ObjectsPluginOptions): Plugin<ObjectsS
 	return new Plugin<ObjectsState>({
 		key: objectsKey,
 		state: {
-			init: () => ({ open: null, nextId: 1 }),
-			apply(tr, value, _old, next) {
+			init: () => ({ open: null, nextId: 1, afterHistory: false }),
+			apply(tr, prev, _old, next) {
+				// An undo or redo sets the flag; the author's own next change clears it. The silent passes
+				// change representation only, so they leave it alone.
+				const afterHistory = tr.docChanged && !isSilentPass(tr) ? isHistoryTransaction(tr) : prev.afterHistory;
+				const value = afterHistory === prev.afterHistory ? prev : { ...prev, afterHistory };
 				const meta = tr.getMeta(objectsKey) as ObjectsMeta | undefined;
 				if (meta && 'open' in meta) {
 					const src = next.doc.nodeAt(meta.open)?.attrs.src;
-					return typeof src === 'string' ? { open: { pos: meta.open, src, id: value.nextId }, nextId: value.nextId + 1 } : value;
+					return typeof src === 'string' ? { ...value, open: { pos: meta.open, src, id: value.nextId }, nextId: value.nextId + 1 } : value;
 				}
 				if (meta && 'close' in meta) return value.open ? { ...value, open: null } : value;
 				let open = value.open;
@@ -439,13 +533,18 @@ export function inlineObjectsPlugin(opts: ObjectsPluginOptions): Plugin<ObjectsS
 				return openObjectEditor(view, sel.from);
 			},
 		},
-		appendTransaction(trs, _old, state) {
+		appendTransaction(trs, old, state) {
 			if (!trs.some((t) => t.docChanged || t.selectionSet)) return null;
-			// An undo or redo restores a state the history already holds; a pass after it would be a new
-			// edit and cost the author their redo stack.
-			if (trs.some((t) => isHistoryTransaction(t) || isSilentPass(t))) return null;
+			// The silent passes are not the author's edits.
+			if (trs.some((t) => isSilentPass(t))) return null;
+			// After an undo or redo the document holds a state the history already knows. A pass now would
+			// be a NEW edit in it, and a plain click would cost the author their redo stack. Spans left as
+			// text wait for the author's next change of their own.
+			if (objectsKey.getState(state)?.afterHistory) return null;
 			const kernels = opts.getKernels();
-			return kernels ? normalizeObjects(state, kernels, opts.getDeckLiteral()) : null;
+			if (!kernels) return null;
+			// Only where the author was and what they changed: a slide that gets new nodes is re-serialized.
+			return normalizeObjects(state, kernels, opts.getDeckLiteral(), { slides: touchedSlides(trs, old, state) });
 		},
 		view() {
 			return {

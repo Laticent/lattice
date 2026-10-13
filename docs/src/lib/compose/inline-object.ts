@@ -68,9 +68,26 @@ function fenceFor(src: string, side: -1 | 1): string {
 	return out;
 }
 
-/** Write an object back as the code span it came from. */
-export function serializeInlineObject(state: { write(s: string): void }, node: PMNode): void {
+/** Is this sibling a code span in the written deck: another object, or text with the code mark? */
+function isCodeSpan(node: PMNode | null | undefined): boolean {
+	return Boolean(node && (node.type.name === 'inline_object' || (node.isText && node.marks.some((m) => m.type.name === 'code'))));
+}
+
+/**
+ * Write an object back as the code span it came from.
+ *
+ * Two code spans cannot touch in Markdown (`{A}``{B}` is ONE span, so both would stop being pills on
+ * the next load), so an object that touches another code span is separated from it by a space. The
+ * editor already keeps them apart (`normalizeObjects`); this is the last resort for a document that
+ * got past it, and it writes the space on the object's side only: an object that follows another
+ * object leads with it, one that precedes code text trails with it.
+ */
+export function serializeInlineObject(state: { write(s: string): void }, node: PMNode, parent?: PMNode, index?: number): void {
 	// Defense in depth: no source reaches the deck with a line break in it, whatever built the node.
 	const src = (node.attrs.src as string).replace(/[\r\n]+/g, ' ');
-	state.write(fenceFor(src, -1) + src + fenceFor(src, 1));
+	const prev = parent && index !== undefined && index > 0 ? parent.child(index - 1) : null;
+	const next = parent && index !== undefined && index + 1 < parent.childCount ? parent.child(index + 1) : null;
+	const lead = isCodeSpan(prev) ? ' ' : '';
+	const trail = isCodeSpan(next) && next?.type.name !== 'inline_object' ? ' ' : '';
+	state.write(lead + fenceFor(src, -1) + src + fenceFor(src, 1) + trail);
 }

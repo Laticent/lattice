@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
-import { history, undo } from 'prosemirror-history';
+import { closeHistory, history, redo, redoDepth, undo, undoDepth } from 'prosemirror-history';
 import { DOMParser as PMDOMParser } from 'prosemirror-model';
 import { EditorState, NodeSelection, type Plugin, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
@@ -75,6 +75,13 @@ function objects(doc: ReturnType<typeof deckToDoc>) {
 }
 
 const texts = (view: EditorView) => objects(view.state.doc).map((o) => o.src);
+
+/** The objects a fresh load of the deck this document writes would have: the round trip an author's next visit makes. */
+function reparsed(view: EditorView): string[] {
+	const doc = deckToDoc(docToDeck(view.state.doc));
+	const tr = normalizeObjects(EditorState.create({ doc }), kernels, false, { sparing: false });
+	return objects(tr?.doc ?? doc).map((o) => o.src);
+}
 
 describe('the inline object node', () => {
 	it('turns the code spans the engine reads as pills into nodes, and nothing else', () => {
@@ -420,17 +427,166 @@ describe('insertObject', () => {
 		expect(view.state.doc).toBe(before);
 	});
 
-	it('works against the author\'s own inline code: it splits the span, it does not merge into it', () => {
+	it('declines inside the author\'s own code span, which it would split in two', () => {
 		const view = mount('<!-- _class: content -->\n\n## T\n\nA `some code` here.');
+		const before = view.state.doc;
+		caretIn(view, 'some', true);
+		expect(door()(view.state, view.dispatch)).toBe(false);
+		expect(view.state.doc).toBe(before);
+	});
+
+	it('at the edge of the author\'s code span, or beside a pill, a space keeps the two spans apart', () => {
+		// The two cases that used to write ONE code span: `some``{Status}` and `{SHIPPED, c2}``{Status}`.
+		const view = mount('<!-- _class: content -->\n\n## T\n\nA `some` and `{SHIPPED, c2}` here.');
 		caretIn(view, 'some', true);
 		expect(door()(view.state, view.dispatch)).toBe(true);
-		expect(docToDeck(view.state.doc)).toBe('<!-- _class: content -->\n\n## T\n\nA `some``{Status}`` code` here.');
+		expect(docToDeck(view.state.doc)).toContain('`some` `{Status}` and');
+		// Next to the pill: put the caret right after it (what Done does), then insert.
+		const pill = objects(view.state.doc).find((o) => o.src === '{SHIPPED, c2}');
+		view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, (pill?.pos as number) + 1)));
+		expect(door()(view.state, view.dispatch)).toBe(true);
+		expect(docToDeck(view.state.doc)).toContain('`{SHIPPED, c2}` `{Status}`');
+		// And what was written reads back as the same objects.
+		expect(reparsed(view)).toEqual(texts(view));
 	});
 
 	it('declines until the kernels have loaded', () => {
 		const view = mount(DECK);
 		caretIn(view, 'Plain slide', true);
 		expect(insertObject(() => null)(view.state, view.dispatch)).toBe(false);
+	});
+});
+
+describe('two pills never touch (the checker\'s first finding)', () => {
+	const two = '<!-- _class: content -->\n\n## T\n\nA `{ONE, c2}` `{TWO, c4}` B';
+
+	it('deleting the text between two pills leaves them apart, and both are still pills on the next load', () => {
+		const view = mount(two);
+		const [a, b] = objects(view.state.doc);
+		expect(b.pos).toBe(a.pos + 2); // one object, one space, the other object
+		view.dispatch(view.state.tr.delete(a.pos + 1, b.pos));
+		// The DOCUMENT keeps them apart (the serializer's own space is only a last resort).
+		expect(view.state.doc.nodeAt(a.pos + 1)?.text).toBe(' ');
+		expect(texts(view)).toEqual(['{ONE, c2}', '{TWO, c4}']);
+		expect(docToDeck(view.state.doc)).toContain('`{ONE, c2}` `{TWO, c4}`');
+		expect(reparsed(view)).toEqual(['{ONE, c2}', '{TWO, c4}']);
+	});
+
+	it('as a last resort the serializer separates two objects that reached it touching', () => {
+		const obj = (src: string) => deckSchema.nodes.inline_object.create({ src });
+		const para = deckSchema.nodes.paragraph.create(null, [obj('{ONE, c2}'), obj('{TWO, c4}')]);
+		const doc = deckSchema.nodes.doc.create(null, [deckSchema.nodes.slide.create(null, [para])]);
+		expect(docToDeck(doc)).toBe('`{ONE, c2}` `{TWO, c4}`');
+	});
+
+	it('an object beside code text is separated too', () => {
+		const view = mount('<!-- _class: content -->\n\n## T\n\nA `{ONE, c2}` `code` B');
+		const [a] = objects(view.state.doc);
+		view.dispatch(view.state.tr.delete(a.pos + 1, a.pos + 2));
+		expect(view.state.doc.nodeAt(a.pos + 1)?.text).toBe(' ');
+		expect(docToDeck(view.state.doc)).toContain('`{ONE, c2}` `code`');
+		expect(reparsed(view)).toEqual(['{ONE, c2}']);
+	});
+});
+
+describe('opening a deck, then clicking, writes nothing (the checker\'s second finding)', () => {
+	const SRC = '<!-- _class: content -->\n\n`{DRAFT, c2}` Quarterly review\n\n* one\n* two\n\n---\n\n<!-- _class: content -->\n\n## Two\n\nMore.';
+
+	function open() {
+		const doc = deckToDoc(SRC);
+		const base = initBaseline(doc);
+		const before = emitDeck(doc, base);
+		const view = mount(SRC, undefined, [history()]);
+		return { view, base, before };
+	}
+
+	it('converts a pill that sits at the start of the document, where a fresh selection is', () => {
+		const { view } = open();
+		expect(texts(view)).toEqual(['{DRAFT, c2}']);
+	});
+
+	it('then a click into another slide changes nothing, and leaves no undo step', () => {
+		const { view, base, before } = open();
+		rebaselineSlides(view.state.doc, base);
+		const docBefore = view.state.doc;
+		let at = -1;
+		view.state.doc.descendants((n, pos) => {
+			if (at < 0 && n.isText && n.text === 'More.') at = pos + 2;
+		});
+		view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, at)));
+		expect(view.state.doc).toBe(docBefore);
+		expect(undoDepth(view.state)).toBe(0);
+		expect(emitDeck(view.state.doc, base)).toBe(before);
+		expect(before).toContain('* one\n* two');
+	});
+});
+
+describe('undo and redo (the checker\'s third finding)', () => {
+	it('a plain click after an undo does not clear the redo stack', () => {
+		const view = mount(DECK);
+		const [first] = objects(view.state.doc);
+		editObjectAsText(view, first.pos);
+		// Separate history groups, as real typing with pauses makes them.
+		view.dispatch(closeHistory(view.state.tr));
+		view.dispatch(view.state.tr.insertText('X', view.state.selection.from));
+		view.dispatch(closeHistory(view.state.tr));
+		view.dispatch(view.state.tr.setSelection(TextSelection.atStart(view.state.doc)));
+		expect(texts(view)).toContain('{XSHIPPED, c2}');
+		undo(view.state, view.dispatch);
+		// The undo left the span as text with the caret in it, and a redo to go to.
+		expect(view.state.doc.nodeAt(first.pos)?.isText).toBe(true);
+		expect(redoDepth(view.state)).toBeGreaterThan(0);
+		const depth = redoDepth(view.state);
+		// A plain click somewhere else.
+		let at = -1;
+		view.state.doc.descendants((n, pos) => {
+			if (at < 0 && n.isText && n.text?.includes('Plain slide')) at = pos + 2;
+		});
+		view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, at)));
+		expect(redoDepth(view.state)).toBe(depth);
+		redo(view.state, view.dispatch);
+		expect(texts(view)).toContain('{XSHIPPED, c2}');
+	});
+
+	it('the author\'s next edit after an undo converts what the undo left as text', () => {
+		const view = mount(DECK);
+		const [first] = objects(view.state.doc);
+		editObjectAsText(view, first.pos);
+		view.dispatch(view.state.tr.setSelection(TextSelection.atStart(view.state.doc)));
+		undo(view.state, view.dispatch);
+		view.dispatch(view.state.tr.insertText('!', 1));
+		view.dispatch(view.state.tr.setSelection(TextSelection.atEnd(view.state.doc)));
+		expect(texts(view)).toContain('{SHIPPED, c2}');
+	});
+});
+
+describe('an edit-time pass stays on the slides the author touched', () => {
+	it('an edit on slide 1 converts slide 1\'s span and leaves slide 2\'s text span, and slide 2 keeps its node', () => {
+		// No load pass: both slides still hold their pills as text.
+		const doc = deckToDoc('<!-- _class: content -->\n\nOne `{ONE, c2}`\n\n---\n\n<!-- _class: content -->\n\nTwo `{TWO, c4}`');
+		const plugin = inlineObjectsPlugin({ getKernels: () => kernels, getDeckLiteral: () => false, onOpenChange: () => {} });
+		const view = new EditorView(document.createElement('div'), { state: EditorState.create({ doc, plugins: [plugin, history()] }) });
+		const slide2 = view.state.doc.child(1);
+		view.dispatch(view.state.tr.insertText('!', 2));
+		expect(texts(view)).toEqual(['{ONE, c2}']);
+		expect(view.state.doc.child(1)).toBe(slide2);
+	});
+
+	it('turning one pill back into text and leaving it does not give any other slide new nodes', () => {
+		const view = mount(DECK);
+		const slidesBefore = [] as unknown[];
+		view.state.doc.forEach((slide) => {
+			slidesBefore.push(slide);
+		});
+		const [first] = objects(view.state.doc);
+		editObjectAsText(view, first.pos);
+		view.dispatch(view.state.tr.setSelection(TextSelection.atStart(view.state.doc)));
+		const slidesAfter = [] as unknown[];
+		view.state.doc.forEach((slide) => {
+			slidesAfter.push(slide);
+		});
+		expect(slidesAfter[1]).toBe(slidesBefore[1]);
+		expect(slidesAfter[2]).toBe(slidesBefore[2]);
 	});
 });
 

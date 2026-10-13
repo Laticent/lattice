@@ -17,7 +17,7 @@ import type { EditorView } from 'prosemirror-view';
 import * as React from 'react';
 import { PanelBody, PanelHeader, PanelSheet } from '@/components/ui/panel';
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover';
-import { editObject, editObjectAsText, type InlineKernels, kindOf, leaveObject, type OpenObject } from '@/lib/compose/inline-objects';
+import { closeObjectEditor, editObject, editObjectAsText, type InlineKernels, kindOf, leaveObject, type OpenObject } from '@/lib/compose/inline-objects';
 import { hasFinePointer, useIsPhone } from '@/lib/use-breakpoint';
 import { PillPanel, readSlotColors } from './PillEditor';
 
@@ -78,8 +78,12 @@ export function InlineObjectEditorHost({
 
 	// An object the document no longer reads as one (an undo, an edit elsewhere) closes the editor.
 	React.useEffect(() => {
-		if (!entry) onClose();
-	}, [entry, onClose]);
+		if (!entry) {
+			// Close the plugin's open state too, or the node stays selected with nothing open on it.
+			closeObjectEditor(view);
+			onClose();
+		}
+	}, [entry, onClose, view]);
 
 	const anchorRef = React.useRef<Anchor>({
 		getBoundingClientRect: () => {

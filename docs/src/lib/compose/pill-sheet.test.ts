@@ -52,6 +52,16 @@ describe('buildSheetText', () => {
 		expect(text).not.toContain('--empty');
 		expect(text).toContain(`@scope (.${PILL_SCOPE}){.lat-pill{display:inline-block}}`);
 	});
+
+	it('carries the preview frame\'s color scheme, so light-dark() resolves as it does in the slide', () => {
+		expect(buildSheetText([], { '--a': 'light-dark(#fff, #000)' }, 'dark')).toBe(`.${PILL_SCOPE}{--a:light-dark(#fff, #000);color-scheme:dark}\n@scope (.${PILL_SCOPE}){}`);
+		expect(buildSheetText([], {}, 'light dark')).toContain('color-scheme:light dark');
+	});
+
+	it('writes no scheme it does not recognize, so a stray value can never reach the stylesheet', () => {
+		expect(buildSheetText([], {}, 'dark; background:red')).not.toContain('color-scheme');
+		expect(buildSheetText([], {}, '')).not.toContain('color-scheme');
+	});
 });
 
 describe('syncPillSheet', () => {

@@ -59,13 +59,22 @@ export function tokenNames(rules: readonly string[]): string[] {
 	return [...seen];
 }
 
-/** The sheet text: tokens on the scope, then the pill rules inside `@scope`. */
-export function buildSheetText(rules: readonly string[], tokens: Readonly<Record<string, string>>): string {
+/**
+ * The sheet text: tokens on the scope, then the pill rules inside `@scope`.
+ *
+ * `scheme` is the preview frame's own `color-scheme`. The deck's tokens are `light-dark(a, b)`, a string
+ * that is the same in both modes and resolves from the `color-scheme` of the element it is used on. The
+ * Studio page themes through `data-mode`, so its own `color-scheme` stays `light` and the pill came out
+ * light on a dark deck. Measured on the real Studio with the real mode toggle: the preview's pill was
+ * rgb(0, 114, 37) and Compose's rgb(210, 220, 189). Setting the frame's scheme on the scope makes
+ * `light-dark()` resolve here exactly as it does in the slide.
+ */
+export function buildSheetText(rules: readonly string[], tokens: Readonly<Record<string, string>>, scheme = ''): string {
 	const decls = Object.entries(tokens)
 		.filter(([, v]) => v)
-		.map(([k, v]) => `${k}:${v}`)
-		.join(';');
-	return `.${PILL_SCOPE}{${decls}}\n@scope (.${PILL_SCOPE}){${rules.join('\n')}}`;
+		.map(([k, v]) => `${k}:${v}`);
+	if (/^(light|dark)( (light|dark))?$|^normal$/.test(scheme)) decls.push(`color-scheme:${scheme}`);
+	return `.${PILL_SCOPE}{${decls.join(';')}}\n@scope (.${PILL_SCOPE}){${rules.join('\n')}}`;
 }
 
 let adopted: CSSStyleSheet | null = null;
@@ -101,7 +110,7 @@ export function syncPillSheet(onChange?: () => void): boolean {
 			const v = cs.getPropertyValue(name).trim();
 			if (v) tokens[name] = v;
 		}
-		const text = buildSheetText(rules, tokens);
+		const text = buildSheetText(rules, tokens, cs.colorScheme.trim());
 		// The text IS the key: a theme, mode or engine change alters a token or a rule, and nothing else does.
 		if (text === builtKey && adopted) return true;
 		const sheet = new CSSStyleSheet();

@@ -24,8 +24,9 @@ async function savedDeck(page: Page): Promise<string> {
  * gate. The rest (undo, "Edit as text", the locked slide, the literal deck) run nightly.
  *
  * The oracle for "only that word" is the PERSISTED SOURCE, not the screen: the whole deck, byte
- * for byte, with one substitution. `desktop` only: the phone's sheet is covered by the unit tests
- * and was driven on the real Studio, and the touch projects reach Compose through different chrome.
+ * for byte, with one substitution. `desktop` only. The phone's sheet and two-row bar were driven by
+ * hand in a desktop browser at 390px with touch enabled (emulation: not a device), and the touch
+ * projects reach Compose through different chrome, so nothing here claims a phone.
  */
 
 const COMPOSE = 'Compose — rich editor';
@@ -187,6 +188,73 @@ test.describe('compose pill editor', () => {
 		await expect(drawnPills(page)).toHaveCount(3);
 		await page.keyboard.press('ArrowDown');
 		await expect(drawnPills(page)).toHaveCount(4);
+	});
+
+	test('the keyboard steps over a pill as one thing, Enter opens its editor, and Escape closes it', async ({ page }) => {
+		await openDeckInCompose(page);
+		await page.locator('.cs-slide').first().locator('.cs-slide-content p').first().click({ position: { x: 3, y: 8 } });
+		await page.keyboard.press('Home');
+		// "Shipped" and a space are eight steps; the ninth lands on the pill itself.
+		for (let i = 0; i < 9; i++) await page.keyboard.press("ArrowRight");
+		await expect(page.locator('.ProseMirror-selectednode')).toHaveCount(1);
+		await page.keyboard.press('Enter');
+		await expect(editor(page)).toBeVisible();
+		await page.keyboard.press('Escape');
+		await expect(editor(page)).toBeHidden();
+		await expect(drawnPills(page)).toHaveCount(4);
+		await expect.poll(() => savedDeck(page)).toBe(DECK);
+	});
+
+	test('copying a pill to another slide pastes the exact span, drawn', async ({ page, context }) => {
+		await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+		await openDeckInCompose(page);
+		await page.locator('.cs-slide').first().locator('.cs-slide-content p').first().click({ position: { x: 3, y: 8 } });
+		await page.keyboard.press('Home');
+		for (let i = 0; i < 9; i++) await page.keyboard.press("ArrowRight");
+		await expect(page.locator('.ProseMirror-selectednode')).toHaveCount(1);
+		await page.keyboard.press('ControlOrMeta+c');
+		await page.locator('.cs-slide').nth(1).locator('.cs-slide-content p').first().click();
+		await page.keyboard.press('End');
+		await page.keyboard.press('ControlOrMeta+v');
+		await expect.poll(() => savedDeck(page)).toContain('Nothing here yet.`{SHIPPED, c2}`');
+		await expect(drawnPills(page)).toHaveCount(5);
+	});
+
+	test('the drawn pill follows the site into dark mode, matching the preview', async ({ page }) => {
+		await openDeckInCompose(page);
+		const fills = () =>
+			page.evaluate(() => {
+				const el = document.querySelector('.cs-npill .lat-pill') as HTMLElement;
+				const frame = document.querySelector('#studio-preview iframe.live') as HTMLIFrameElement;
+				const pv = frame.contentDocument?.querySelector('.lat-pill') as HTMLElement | null;
+				return { compose: getComputedStyle(el).backgroundColor, preview: pv && frame.contentWindow ? frame.contentWindow.getComputedStyle(pv).backgroundColor : null };
+			});
+		const before = await fills();
+		expect(before.compose).toBe(before.preview);
+		// The real toggle, not an attribute: the pill's tokens are `light-dark()`, which resolve from the page's color scheme.
+		await page.getByRole('button', { name: 'Switch to dark mode' }).first().click();
+		// The preview frame switches a moment after the page; Compose must catch up with it, not stay light.
+		await expect.poll(async () => (await fills()).preview, { timeout: 8000 }).not.toBe(before.preview);
+		await expect.poll(async () => {
+			const f = await fills();
+			return f.compose === f.preview;
+		}, { timeout: 8000 }).toBe(true);
+	});
+
+	test('a pill inserted right after another is kept apart from it, and both survive a reload', async ({ page }) => {
+		await openDeckInCompose(page);
+		await chip(page, 'SHIPPED').click();
+		await editor(page).getByRole('button', { name: 'Done' }).click();
+		// Done puts the caret directly after the pill: the case that used to write ONE code span.
+		await bar(page).getByRole('button', { name: 'Insert pill' }).click();
+		await expect(editor(page)).toBeVisible();
+		await expect.poll(() => savedDeck(page)).toContain('`{SHIPPED, c2}` `{Status}`');
+		await editor(page).getByRole('button', { name: 'Done' }).click();
+		await page.reload();
+		await page.getByRole('button', { name: COMPOSE, exact: true }).first().click();
+		await page.locator('.cs-host .ProseMirror').waitFor();
+		await expect(chip(page, 'Status')).toHaveCount(1);
+		await expect(chip(page, 'SHIPPED')).toHaveCount(1);
 	});
 
 	test('a deck that turned the inline grammar off draws no pills', async ({ page }) => {
