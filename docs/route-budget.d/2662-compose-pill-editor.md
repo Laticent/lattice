@@ -1,4 +1,3 @@
-studio: +1122
-playground: +1
-Compose gains the pill editor: the notation plugin that draws pills and owns the open editor's range, the pill-sheet that copies the engine's pill rules from the preview frame, the insert door, and `editPill` plus its helpers in the authoring-core bundle (the Playground page imports that bundle too, +1 B gz). The popover and phone sheet (`PillEditor`) load lazily and are not in these figures. CI measured +1122 B gz on the studio route and +1 B on the playground against main.
-Given back first: the editor host is a lazy chunk, and the pill drawing reuses the engine's own `lat-pill` rules instead of a second copy of the pill's CSS.
+studio: +1128
+Compose gains the inline object: the schema node and its serializer and paste guard (`inline-object.ts`), the kinds registry, the text-to-object rule, the node view and the open-editor state (`inline-objects.ts`), the pill sheet that copies the engine's pill rules from the preview frame, the deck-wide Undo and Redo buttons, and the two-row bar CSS for narrow panes. CI measured +1128 B gz on the studio route against main; the playground route is -2 B.
+Given back first: the editor host and the pill panel (`InlineObjectEditor`, `PillEditor`) are one lazy chunk and are not in this figure, the pill drawing reuses the engine's own `lat-pill` rules instead of a second copy, and the registry is a list of two-line adapters rather than a class per kind.
