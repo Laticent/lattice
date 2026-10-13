@@ -23,7 +23,7 @@ function localToday(): string {
 	return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-export function MediaDetailDialog({ m, open, onOpenChange, usedIn, aliasUse, onSave, onRemoveAlias, onUseNewName, onSuggest }: {
+export function MediaDetailDialog({ m: incoming, open, onOpenChange, usedIn, aliasUse, onSave, onRemoveAlias, onUseNewName, onSuggest, returnFocusTo }: {
 	m: MediaRecord | null;
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
@@ -38,7 +38,15 @@ export function MediaDetailDialog({ m, open, onOpenChange, usedIn, aliasUse, onS
 	onUseNewName: (alias: string) => Promise<string | null>;
 	/** Ask the connected model for a description of this photo. Resolves the text for the field, or a line saying why not. */
 	onSuggest: () => Promise<{ text: string } | { note: string }>;
+	/** The control that opened the dialog. Closing returns keyboard focus to it, so a person who opened the dialog
+	 *  with Enter is back where they were. Left out, the dialog's own default applies. */
+	returnFocusTo?: () => HTMLElement | null;
 }) {
+	// The record stays on screen while the dialog closes. The Library clears it the moment the dialog asks to close, and
+	// unmounting then would skip the close sequence: no exit animation, and focus would not return to the card that opened it.
+	const lastRecord = React.useRef<MediaRecord | null>(null);
+	if (incoming) lastRecord.current = incoming;
+	const m = incoming ?? lastRecord.current;
 	const url = useObjectUrl(m?.blob);
 	const [name, setName] = React.useState('');
 	const [caption, setCaption] = React.useState('');
@@ -121,7 +129,17 @@ export function MediaDetailDialog({ m, open, onOpenChange, usedIn, aliasUse, onS
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-xl" data-media-detail={m.name}>
+			<DialogContent
+				className="max-h-[90dvh] overflow-y-auto sm:max-w-xl"
+				data-media-detail={m.name}
+				onCloseAutoFocus={(e) => {
+					const back = returnFocusTo?.();
+					if (back?.isConnected) {
+						e.preventDefault();
+						back.focus();
+					}
+				}}
+			>
 				<DialogHeader>
 					<DialogTitle>asset:{m.name}</DialogTitle>
 					<DialogDescription>

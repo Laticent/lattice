@@ -10,3 +10,4 @@
 - Saving a photo's name and details together is one step: a refused name leaves the details unsaved too, and Enter in a field saves.
 - A photo's detail view lists its old names with how many decks still write each, and **Use new name** rewrites those decks to the current name. Each deck gets a Version history entry first, and a code sample that mentions the old name is left as written.
 - **Suggest** in a photo's detail view asks the model you connected in Setup for a one-sentence description of that photo, and puts it in the Description field for you to edit. It sends a small thumbnail only when you press it, to your own OpenRouter account, and saves nothing until you press Save. With no model connected, or a model that cannot read images, it says so instead of doing nothing.
+- The photo detail view is fully keyboard-driven: Enter on a card opens it, Tab stays inside, Enter in a field saves, and Escape closes it and returns focus to the card.

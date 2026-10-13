@@ -534,6 +534,8 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	}
 	// The photo whose detail dialog is open. Held by id and read from `media`, so a save shows at once.
 	const [detailId, setDetailId] = React.useState<string | null>(null);
+	// The control that opened the detail dialog, so closing it returns keyboard focus there.
+	const openerRef = React.useRef<HTMLElement | null>(null);
 	const detail = media.find((a) => a.id === detailId) ?? null;
 	const detailAliasUse = React.useMemo(() => {
 		if (!detail) return {};
@@ -1043,7 +1045,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 								);
 							})}
 							{vMedia.map((a) => (
-								<MediaCard key={`media:${a.id}`} m={a} activeDeckId={activeDeckId} usedIn={mediaUse[a.name] || 0} usedElsewhere={usedElsewhere[a.name] || 0} armed={armed === `media:${a.id}`} confirmLabel={confirmLabel} onArm={() => setArmed(`media:${a.id}`)} onCancel={() => setArmed(null)} onDelete={() => { setArmed(null); removeMedia(a); }} onScope={(s) => moveMedia(a, s)} onOpen={() => setDetailId(a.id)} />
+								<MediaCard key={`media:${a.id}`} m={a} activeDeckId={activeDeckId} usedIn={mediaUse[a.name] || 0} usedElsewhere={usedElsewhere[a.name] || 0} armed={armed === `media:${a.id}`} confirmLabel={confirmLabel} onArm={() => setArmed(`media:${a.id}`)} onCancel={() => setArmed(null)} onDelete={() => { setArmed(null); removeMedia(a); }} onScope={(s) => moveMedia(a, s)} onOpen={(opener) => { openerRef.current = opener; setDetailId(a.id); }} />
 							))}
 							{vDocs.map((d) => (
 								// Reference doc — manage-only card (no select/share; docs aren't lattice assets).
@@ -1152,6 +1154,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 				onRemoveAlias={(al) => changeMedia(() => removeMediaAlias(detail?.id as string, al))}
 				onUseNewName={(al) => adoptNewName(detail as MediaRecord, al)}
 				onSuggest={() => suggestDescription(detail as MediaRecord)}
+				returnFocusTo={() => openerRef.current}
 			/>
 			<AssetVersionsDialog
 				asset={historyFor}

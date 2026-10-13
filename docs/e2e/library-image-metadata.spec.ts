@@ -124,7 +124,7 @@ for (const vw of [1440, 820, 390]) {
 	});
 }
 
-test('@smoke a deck that writes the OLD name still paints after a rename, and a new upload cannot take the old name', async ({ page }) => {
+test('@smoke a deck that writes the OLD name still paints after a rename, and a new upload cannot take the old name @webkit-tablet @gecko', async ({ page }) => {
 	test.slow();
 	await gotoStudio(page);
 	await page.setViewportSize({ width: 1440, height: 900 });
@@ -157,7 +157,7 @@ test('@smoke a deck that writes the OLD name still paints after a rename, and a 
 	await expect(page.getByText(/“probe-old” was taken/)).toBeVisible();
 });
 
-test('@smoke a photo\'s description is its alt text: in the preview, live when edited, never over an author\'s own, and in the exported page', async ({ page }) => {
+test('@smoke a photo\'s description is its alt text: in the preview, live when edited, never over an author\'s own, and in the exported page @webkit-tablet @gecko', async ({ page }) => {
 	test.slow();
 	await gotoStudio(page);
 	await page.setViewportSize({ width: 1440, height: 900 });
@@ -252,7 +252,7 @@ async function addExifPhoto(page: Page, name: string) {
 	}, name);
 }
 
-test('@smoke a photo\'s own description, artist and date are read at import; its location is flagged and gone', async ({ page }) => {
+test('@smoke a photo\'s own description, artist and date are read at import; its location is flagged and gone @webkit-tablet @gecko', async ({ page }) => {
 	test.slow();
 	await gotoStudio(page);
 	await page.setViewportSize({ width: 1440, height: 900 });
@@ -509,4 +509,43 @@ test('@smoke Suggest with no model connected points to Setup and sends nothing',
 	await dialog.getByRole('button', { name: 'Suggest' }).click();
 	await expect(dialog.getByText(/Connect your OpenRouter account in Setup/)).toBeVisible({ timeout: 30_000 });
 	expect(seen.bodies, 'no photo left the browser').toHaveLength(0);
+});
+
+test('@smoke the detail view works from the keyboard: Enter opens it, Tab stays inside, Enter saves, Escape closes and returns focus', async ({ page }) => {
+	test.slow();
+	await gotoStudio(page);
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await openLibraryImages(page, 1440);
+	await addPhoto(page, 'Keys.png');
+	const thumb = page.locator('[data-media-card="keys"]').getByRole('button', { name: 'Details for keys' });
+	await expect(thumb).toBeVisible();
+
+	// Open it with the keyboard.
+	await thumb.focus();
+	await page.keyboard.press('Enter');
+	const dialog = page.locator('[data-media-detail="keys"]');
+	await expect(dialog).toBeVisible();
+	await expect(dialog.getByRole('button', { name: 'Save' })).toBeDisabled();
+
+	// Focus never leaves the dialog while tabbing around it.
+	for (let i = 0; i < 14; i++) {
+		await page.keyboard.press('Tab');
+		expect(await page.evaluate(() => !!document.activeElement?.closest('[data-media-detail]')), `Tab ${i + 1} stays inside the dialog`).toBe(true);
+	}
+
+	// Enter in the description saves it (the description is one line), and the dialog closes.
+	await dialog.getByLabel('Description').fill('Pressed Enter to save');
+	await page.keyboard.press('Enter');
+	await expect(dialog).toBeHidden();
+	expect((await mediaRows(page))[0].caption).toBe('Pressed Enter to save');
+
+	// Escape closes without saving, and focus goes back to the control that opened it.
+	await thumb.focus();
+	await page.keyboard.press('Enter');
+	await expect(dialog).toBeVisible();
+	await dialog.getByLabel('Credit').fill('Not saved');
+	await page.keyboard.press('Escape');
+	await expect(dialog).toBeHidden();
+	await expect(thumb).toBeFocused();
+	expect((await mediaRows(page))[0].credit).toBeUndefined();
 });

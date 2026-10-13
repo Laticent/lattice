@@ -34,7 +34,7 @@ export function MediaCard({ m, activeDeckId, usedIn, usedElsewhere, armed, confi
 	onDelete: () => void;
 	onScope: (scope: string) => void;
 	/** Open the detail view: the picture large, and its description, credit, date and name to edit. */
-	onOpen: () => void;
+	onOpen: (opener: HTMLElement) => void;
 }) {
 	const url = useObjectUrl(m.blob);
 	const shared = m.scope === LIBRARY_SCOPE;
@@ -48,7 +48,7 @@ export function MediaCard({ m, activeDeckId, usedIn, usedElsewhere, armed, confi
 			{/* The image is ABSOLUTE inside a fixed box. As a `h-full` grid item it was sized by its own
 			    row, not by the 88px: a 1920×2560 photo painted 351px tall, `object-cover` had nothing to
 			    crop to, and `overflow-hidden` showed only the top strip (measured in Chromium). */}
-			<button type="button" onClick={onOpen} aria-label={`Details for ${m.name}`} className="relative block h-[88px] w-full overflow-hidden bg-[var(--bg-alt)]">
+			<button type="button" onClick={(e) => onOpen(e.currentTarget)} aria-label={`Details for ${m.name}`} className="relative block h-[88px] w-full overflow-hidden bg-[var(--bg-alt)]">
 				{url ? (
 					<img src={url} alt={m.caption ?? ''} className="absolute inset-0 h-full w-full object-cover" loading="lazy" draggable={false} />
 				) : (
