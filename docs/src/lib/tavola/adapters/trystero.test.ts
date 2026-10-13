@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { audioStatsFrom, candidateKind, capBitrate, describeCandidate, RECOVER_AFTER_MS, restartsIce } from './trystero';
+import { audioStatsFrom, candidateKind, capBitrate, describeCandidate, installPcSpy } from './trystero';
 
 // Trystero's addTrack resolves before the offer and answer, and a browser may have no encodings to
 // set until negotiation is done (checker, PR #2594). The cap must land once it settles, not never.
@@ -71,23 +71,15 @@ describe('audioStatsFrom', () => {
 	});
 });
 
-describe('restartsIce (who offers an ICE restart)', () => {
-	it('exactly one of two peers restarts, whichever way round they are asked', () => {
-		for (const [a, b] of [['aaa', 'bbb'], ['zzz', 'aaa'], ['Q1', 'q1']]) expect(restartsIce(a, b) !== restartsIce(b, a)).toBe(true);
-	});
-	it('nobody restarts a connection to itself, and the blip allowance stays under Trystero\'s 5 s close', () => {
-		expect(restartsIce('same', 'same')).toBe(false);
-		expect(RECOVER_AFTER_MS).toBeLessThan(5000);
-	});
-});
-
 describe('describeCandidate (a candidate as log text)', () => {
-	it('hides the last octet of an address, names mDNS and IPv6, and says when the browser hides it', () => {
-		expect(describeCandidate({ candidateType: 'host', protocol: 'udp', address: '192.168.1.42' })).toBe('host/udp 192.168.1.x');
+	it('names the kind of address and never shows the address itself', () => {
+		expect(describeCandidate({ candidateType: 'host', protocol: 'udp', address: '192.168.1.42' })).toBe('host/udp ipv4');
+		expect(describeCandidate({ candidateType: 'srflx', protocol: 'udp', address: '203.0.113.9' })).toBe('srflx/udp ipv4');
 		expect(describeCandidate({ candidateType: 'host', protocol: 'udp', address: 'a1b2-c3d4.local' })).toBe('host/udp mdns');
 		expect(describeCandidate({ candidateType: 'srflx', protocol: 'udp', address: '2001:db8::1' })).toBe('srflx/udp ipv6');
 		expect(describeCandidate({ candidateType: 'srflx', protocol: 'udp' })).toBe('srflx/udp hidden');
 		expect(describeCandidate(undefined)).toBe('?');
+		expect(describeCandidate({ candidateType: 'srflx', protocol: 'udp', address: '203.0.113.9' })).not.toMatch(/203/);
 	});
 });
 
@@ -99,4 +91,48 @@ describe('candidateKind (what an ICE candidate line is)', () => {
 		expect(candidateKind('candidate:4 1 udp 33562623 198.51.100.7 3478 typ relay raddr 0.0.0.0 rport 0')).toBe('relay');
 		expect(candidateKind('garbage')).toBe('?');
 	});
+});
+
+describe('installPcSpy (the one RTCPeerConnection wrapper)', () => {
+	/** A stand-in browser: `window.RTCPeerConnection` is a class we can compare by identity. */
+	function withFakeWindow<T>(fn: (win: { RTCPeerConnection: unknown }, Native: unknown) => T): T {
+		class Native {
+			listeners: Record<string, Array<(e?: unknown) => void>> = {};
+			addEventListener(t: string, cb: (e?: unknown) => void) {
+				(this.listeners[t] ??= []).push(cb);
+			}
+		}
+		const win = { RTCPeerConnection: Native as unknown };
+		const g = globalThis as unknown as { window?: unknown };
+		const had = g.window;
+		g.window = win;
+		try {
+			return fn(win, Native);
+		} finally {
+			g.window = had;
+		}
+	}
+	it('reports a new connection to every open transport, and still hands back an instance of the original class', () =>
+		withFakeWindow((win, Native) => {
+			const a: string[] = [];
+			const b: string[] = [];
+			const stopA = installPcSpy((p, w) => a.push(`${p} ${w}`));
+			const stopB = installPcSpy((p, w) => b.push(`${p} ${w}`));
+			const pc = new (win.RTCPeerConnection as new () => object)();
+			expect(pc instanceof (Native as new () => object)).toBe(true);
+			expect(a).toEqual(['pc1 created']);
+			expect(b).toEqual(['pc1 created']);
+			stopA();
+			stopB();
+		}));
+	it('puts the original class back whichever order two transports close in', () =>
+		withFakeWindow((win, Native) => {
+			const stopA = installPcSpy(() => {});
+			const stopB = installPcSpy(() => {});
+			expect(win.RTCPeerConnection).not.toBe(Native);
+			stopA(); // the first to open closes first: the case that leaked a wrapper before
+			expect(win.RTCPeerConnection).not.toBe(Native); // B is still open and still being served
+			stopB();
+			expect(win.RTCPeerConnection).toBe(Native);
+		}));
 });

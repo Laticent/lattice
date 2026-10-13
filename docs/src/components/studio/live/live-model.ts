@@ -48,8 +48,6 @@ export function qualityLine(q: NonNullable<LivePerson['quality']>): string {
  *  (the panel says how to allow it). `devices`: the microphones to pick from (labels appear once
  *  permission is given). */
 /** What this person lets the others see of them. All on by default. */
-/** Connection resilience, per browser. `recover` restarts a dropped connection's ICE sooner (experimental, off by default). */
-export type LiveConnection = { recover: boolean };
 export type LiveShare = { cursor: boolean; slide: boolean; typing: boolean };
 
 export type LiveCall = { inCall: boolean; muted: boolean; denied: boolean; devices: Array<{ id: string; label: string }>; device: string | null; highFidelity: boolean;
@@ -101,7 +99,6 @@ export type LiveView = {
 	call: LiveCall;
 	/** What you let the others see of you. */
 	share: LiveShare;
-	connection: LiveConnection;
 	/** View-only members read the chat but cannot post (their document changes are never sent). */
 	canChat: boolean;
 	/** Names of the people typing a chat message right now (never this browser). */
@@ -130,8 +127,6 @@ export type LiveActions = {
 	setMicLevel: (level: number) => void;
 	/** Choose what the others see of you: your cursor, your slide, when you are typing. Kept for this tab. */
 	setShare: (patch: Partial<LiveShare>) => void;
-	/** Turn faster recovery of dropped connections on or off (experimental; kept in this browser). */
-	setRecover: (on: boolean) => void;
 	/** Copy the connection timeline (state changes, restarts, paths) for a bug report. Resolves whether it reached the clipboard. */
 	copyLog: () => Promise<boolean>;
 	/** Change the name others see (the host cleans it and may ignore a rapid second change). */
@@ -185,7 +180,6 @@ export const IDLE_VIEW: LiveView = {
 	heir: null,
 	audio: false,
 	share: { cursor: true, slide: true, typing: true },
-	connection: { recover: false },
 	call: { inCall: false, muted: false, denied: false, devices: [], device: null, highFidelity: false, micLevel: 1, canShapeMic: false, stalled: false, masterVolume: 1, outputs: [], output: null, canPickOutput: false },
 	canChat: true,
 	typing: [],

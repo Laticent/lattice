@@ -1091,30 +1091,43 @@ could wipe what you were still typing, so the field only follows the roster whil
 on the real two-browser call: the guest renamed "Amina" to "Amina Okafor", the host's roster showed it, and
 the guest renamed back.
 
-**Connection resilience, first cut (2026-10-12).** The owner ran a phone (host, and the hotspot) and a tablet on
-that hotspot and reported a slow or stuck first connect, drops that came back, and audio gaps after a reconnect.
-What the code does today, read from Trystero 0.26: a connection that stays `disconnected` for 5 s is closed
-(`disconnectedCloseDelayMs`), Trystero never calls its own ICE restart, and Tavola then treats the peer as left
-and re-admits it by token once the relays rediscover it; the call's audio comes back only after that whole chain
-(measured on loopback with both links closed: the link re-forms in about 2 s and audio flows about 6 s after the
-close, so a real network, with relay announce intervals and STUN, is slower). Built, **off by default**: **Your
-settings → Connection → Recover dropped connections faster** (`TrysteroOptions.recover`). When on, a link that stays
-`disconnected` for 1 s, a browser `online` event, or a tab coming back to the foreground restarts that link's ICE
-(`RTCPeerConnection.restartIce`, which Trystero's own `negotiationneeded` handler signals), and only the side with the
-smaller id offers, so two sides never offer at once (`restartsIce`). An `online` event restarts even a link that
-still reads `connected`, since a changed network can leave a dead address under a healthy-looking link. Always on:
-**Copy connection log** in the same section, a bounded timeline (link up, every state change, restarts, browser
-online/offline, tab visible) plus the path each link took, for the next real-network run. Measured on a real
-two-browser call (Chromium, loopback): with the switch on, an `online` event on both sides made the smaller-id side
-restart and the other defer, the connected link count stayed 1, and the guest's received audio kept growing
-(414,833 to 464,260 bytes over 6 s). UNVERIFIED: a real network change (a hotspot reconnecting, wifi to cellular), iOS
-backgrounding, and whether the restart is faster than the 5 s close in practice; that is the owner's A/B run with the
-switch and the log. The owner's first logs (iPhone host, then wifi to wifi) showed `srflx→srflx (udp)` on a shared network, clean links, and jank only wifi-to-wifi, never cellular-to-wifi: on one LAN the connection went out through the router's public side and back instead of directly, so the log now also lists every candidate pair with its state and samples each link's round-trip time every 10 s (`pairs()`, `SAMPLE_EVERY_MS`), and names the role. Then the owner's tablet could not get in at all on the new build ("Nobody answered", same wifi as the phone host), which the join log could not explain: it only records connections that OPEN. So the log now records every RTCPeerConnection from creation (`spyPeerConnections`: ICE state changes with elapsed time, candidates gathered by kind, STUN/TURN errors), and two causes found in the code are addressed: a guest waited only 12 s for the host's hello while Trystero allows 15 s for ICE, so a slow path was cut off before it could finish (now 25 s, `DEFAULT_LOBBY_TIMEOUT`), and nothing kept a host phone's screen on, so a locked phone's suspended page left the room (a screen wake lock is now held while a session is live, re-taken when the page returns). Neither is verified on the owner's network yet. The owner then found that two devices on the same HOTEL wifi cannot connect at all while cellular to wifi works, which fits client isolation and blocked direct connections on such networks: only a relay (TURN, P5, the owner's decision) would fix that, so the "Nobody answered" text now names this case and the fix a person can make (put one device on mobile data). Not done: the slow first connect (no data yet), and the 20 s handoff grace when the phone is the host.
-Found while verifying, and fixed here: the popover scroll fix had portaled the popover INTO the panel, and on the
-real Studio a tap on a switch near the panel's edge reached react-resizable-panels' document handler, which focuses
-the resize handle, and that focus change closed the popover. The popover now goes into the modal dialog only when the
-panel sits in one (the phone's Sheet, where the scroll lock is) and stays in `<body>` otherwise. The Name field is not
-focused on open (it would open the phone keyboard each time).
+**Connection diagnostics, and what the owner's hotspot runs found (2026-10-12).** The owner ran a phone (host) and a tablet and
+reported a slow or stuck first connect, drops that came back, and audio gaps afterward. Read from Trystero 0.26: a
+connection that stays `disconnected` for 5 s is closed (`disconnectedCloseDelayMs`) and Trystero never restarts ICE itself,
+so a dropped link is rediscovered over the relays and re-admitted by token, and the call's audio returns only after that
+chain (loopback, both links closed: link back in about 2 s, audio about 6 s after the close). What was built: **Your
+settings → Connection → Copy connection log**, a bounded timeline (`TrysteroOptions` has no switch for it; it is always on)
+of every RTCPeerConnection from creation (`installPcSpy`: ICE state changes with elapsed time, candidates gathered by kind,
+STUN/TURN errors), peer joins and leaves, browser online/offline, tab visible, a round-trip sample every 10 s
+(`SAMPLE_EVERY_MS`, its own ring so samples never push out the first connection attempt), every candidate pair with its
+state (`pairs()`), the role, and whether the screen wake lock is held. **Addresses are never in the log**, only the kind
+(`describeCandidate`: ipv4, ipv6, mdns, hidden), because a public address names an ISP and a city and the log is pasted into
+bug reports. The copy starts inside the tap with a promise for the text (`ClipboardItem`), because Safari refuses a write that
+begins after an `await`. The owner's runs: an iPhone host and an iPad on the same wifi connected over `srflx→srflx (udp)`
+(out through the router and back, not directly) with clean links; jank only wifi to wifi, never cellular to wifi; then the
+tablet could not get in at all on **hotel wifi** ("Nobody answered"), which fits client isolation and blocked direct
+connections there. The final check: **phone on cellular, tablet on wifi works perfectly**. Same-wifi on such networks needs a
+relay (TURN, P5, the owner's decision); the "Nobody answered" text now names that case and the fix a person can make (put one
+device on mobile data). Also added: a **screen wake lock** while a session is live (`live-wake.ts`, tested: one request
+however often it is asked, released on every teardown path including a guest `leave()`, which moves no stage), because a locked
+phone suspends the page and a suspended host is gone from the room.
+**A recovery switch was built and then removed.** An experimental, default-off switch restarted ICE (`restartIce`) on a link
+that stayed `disconnected`, on an `online` event and on tab-visible, with the smaller peer id offering. The independent
+checker (2026-10-13) showed it can **deadlock a link that carries no call**: Trystero's `signal()` drops an offer with no
+`a=rtpmap` once the data channel is open, so the restarting side stays in `have-local-offer` and can never negotiate audio
+later (reproduced in real Chromium 131 with Trystero's own `peer.mjs`), and that while ICE is really `disconnected` the
+restart offer cannot reach the other side anyway (it rides the peer's own data channel), so it gains almost nothing where it
+was aimed. With no demonstrated benefit and a way to break calls, it was removed; it is in git history at `07e0e5d1` if a
+real-network need appears (restricting it to links already in a call is the only shape that was seen to work). Findings fixed
+from the same review: wake-lock requests stacked and a guest's leave never released it; a second transport closing out of
+order left a stale RTCPeerConnection wrapper (now one shared wrapper with a set of listeners); the log showed public /24
+addresses. Not done: the slow first connect (no data yet), the 20 s handoff grace with the phone as host, and a guest's wait
+for the host stays 12 s (it was raised to 25 s briefly on a reading of Trystero's ICE timeout that the checker showed does not
+apply: that timeout is for non-trickle ICE only). UNVERIFIED: iOS wake-lock behavior, and the iOS clipboard write.
+Found while verifying, and fixed: portaling the popover INTO the panel (the phone scroll fix) made a tap on a switch near the
+panel's edge reach react-resizable-panels' document handler, which focuses the resize handle and closed the popover on the real
+Studio. The popover now goes into the modal dialog only when the panel sits in one (the phone's Sheet) and stays in `<body>`
+otherwise. The Name field is not focused on open (it would open the phone keyboard each time).
 
 **Sequence.** The per-person popover ships with #2633 (it is that PR's Volume decision). The "Me"
 controls are a separate PR after #2633 merges, because they build on its call controls and one

@@ -11,6 +11,7 @@ import { CALL_BITRATE, HIGH_FIDELITY_BITRATE, LiveAudio } from './live-audio';
 import { LIVE_TURN } from './live-ice';
 import { IDLE_VIEW, type LiveActions, type LiveChatLine, type LiveColor, type LivePerson, type LiveShare, type LiveView, type LobbyActions, type LobbyView, liveColor, liveColorLight } from './live-model';
 import { clearJoinIntent, HOST_KEY, hasFreshJoin, type LiveCollab, type LiveDeps, type LiveHost, readSealedJoin, saveName, scrubLiveFragment, storedLiveName, storeSealedJoin, takeFreshJoin } from './live-store';
+import { WakeKeeper } from './live-wake';
 import { deleteHostPrivateKey, getHostPrivateKey, putHostPrivateKey, seal, unseal } from './secret-box';
 
 // The Studio's side of a live session, loaded only when a session starts or a link is opened
@@ -32,15 +33,6 @@ import { deleteHostPrivateKey, getHostPrivateKey, putHostPrivateKey, seal, unsea
 /** localStorage: room → { deckId, token }, so a guest's linked copy and rejoin token survive a
  *  reload. The token is a credential, so it is stored SEALED (secret-box.ts). */
 const LINKS_KEY = 'lattice-live-links';
-/** localStorage: whether faster recovery of dropped connections is on (experimental; absent = off). */
-const RECOVER_KEY = 'lattice-live-recover';
-const readRecover = (): boolean => {
-	try {
-		return localStorage.getItem(RECOVER_KEY) === '1';
-	} catch {
-		return false;
-	}
-};
 const TYPING_MS = 2500;
 const CHAT_MAX = 1000;
 /** Lines a browser keeps, and the host hands a newcomer. */
@@ -403,41 +395,9 @@ export class LiveController {
 	/** The host name the lobby invite last carried, so a rename reaches the lobby too. */
 	private invitedAs: string | undefined;
 	private share: LiveShare = { cursor: true, slide: true, typing: true };
-	/** Faster recovery of dropped connections (experimental): kept in this browser, off until chosen. */
-	private recover = readRecover();
 	private timeline: () => LinkEvent[] = () => [];
-	/** The screen wake lock held while a session is live: a phone that locks its screen suspends the page, and a host
-	 *  that is suspended is gone from the room (the guest sees "Nobody answered"). */
-	private wake: WakeLockSentinel | null = null;
-	private wakeWanted = false;
-	private wakeBound = false;
-	private keepAwake(on: boolean) {
-		this.wakeWanted = on;
-		if (!on) {
-			void this.wake?.release().catch(() => {});
-			this.wake = null;
-			return;
-		}
-		if (typeof navigator === 'undefined' || !navigator.wakeLock) return;
-		if (!this.wakeBound) {
-			this.wakeBound = true;
-			// A hidden page loses its lock; take it again when the page is back.
-			document.addEventListener('visibilitychange', () => {
-				if (document.visibilityState === 'visible' && this.wakeWanted) this.keepAwake(true);
-			});
-		}
-		if (this.wake) return;
-		navigator.wakeLock
-			.request('screen')
-			.then((lock) => {
-				if (!this.wakeWanted) return void lock.release().catch(() => {});
-				this.wake = lock;
-				lock.addEventListener('release', () => {
-					if (this.wake === lock) this.wake = null;
-				});
-			})
-			.catch(() => {});
-	}
+	/** The screen wake lock held while a session is live (live-wake.ts). */
+	private readonly wake = new WakeKeeper();
 	private pairs: () => Promise<string[]> = () => Promise.resolve([]);
 	private outDevices: Array<{ id: string; label: string }> = [];
 	private micDevices: Array<{ id: string; label: string }> = [];
@@ -612,7 +572,7 @@ export class LiveController {
 		const key = args.key ?? null;
 		const audio = new LiveAudio(() => this.host.rerender());
 		this.audio = audio;
-		const transport = trysteroTransport(args.room, args.secret, { turnConfig: LIVE_TURN, recover: () => this.recover });
+		const transport = trysteroTransport(args.room, args.secret, { turnConfig: LIVE_TURN });
 		this.timeline = () => transport.timeline?.() ?? [];
 		this.pairs = () => transport.pairs?.().catch(() => []) ?? Promise.resolve([]);
 		const session = createSession({
@@ -651,7 +611,7 @@ export class LiveController {
 		r.disposers.push(
 			session.subscribe(() => {
 				const s = session.getState();
-				this.keepAwake(s.stage === 'live');
+				this.wake.keep(s.stage === 'live');
 				const before = new Map(prev.members.map((m) => [m.id, m]));
 				if (prev.stage === 'live' && s.stage === 'live') {
 					for (const m of s.members) {
@@ -821,6 +781,8 @@ export class LiveController {
 	}
 
 	private teardownNow(r: Runtime, how: 'leave' | 'end', linger: boolean) {
+		// `leave()` moves no stage, so the subscribe tick never says "not live": release the screen here (checker, 2026-10-13).
+		this.wake.keep(false);
 		// `end()` owns its own shutdown (it leaves the transport a beat later so the `end` messages get
 		// out). Running `leave()` here too would close the connections first — red-team finding 2.
 		if (how === 'end') r.session.end();
@@ -879,7 +841,7 @@ export class LiveController {
 	}
 
 	dispose(): void {
-		this.keepAwake(false);
+		this.wake.keep(false);
 		const r = this.rt;
 		if (!r) return;
 		// An unload does not wait for WebCrypto, so write the save NOW from the last sealed blob (the
@@ -1594,7 +1556,6 @@ export class LiveController {
 			hostAway: s.hostAway,
 			audio: !!this.audio && r.session.hasMedia && LiveAudio.supported(),
 			share: this.share,
-			connection: { recover: this.recover },
 			call: { inCall: !!this.audio?.inCall, muted: !!this.audio?.isMuted, denied: this.micDenied, devices: this.micDevices, device: this.audio?.device ?? null, highFidelity: !!this.audio?.highFidelity, micLevel: this.audio?.micLevel ?? 1, canShapeMic: !!this.audio?.canShapeMic, stalled: this.stalledShown, masterVolume: this.audio?.masterVolume ?? 1, outputs: this.outDevices, output: this.audio?.output || null, canPickOutput: LiveAudio.canPickOutput() },
 			canChat: s.me?.role !== 'view',
 			typing,
@@ -1610,16 +1571,27 @@ export class LiveController {
 		return { stage, title: s?.invite?.title ?? null, hostName: s?.invite?.hostName ?? null, slides: s?.invite?.slides ?? null, theme: s?.invite?.theme ?? null, name: this.lobbyName };
 	}
 
-	/** The connection timeline as text, for a bug report: what this browser is, the switch, each event, the paths. */
-	private async copyLog(): Promise<boolean> {
-		const lines = [`Lattice Live connection log · ${new Date().toISOString()}`, `browser: ${navigator.userAgent}`, `role: ${this.rt?.session.getState().isHost ? 'host' : 'guest'}`, `screen wake lock: ${this.wake ? 'held' : typeof navigator !== 'undefined' && navigator.wakeLock ? 'not held' : 'unsupported'}`, `recover (experimental): ${this.recover ? 'on' : 'off'}`, `online: ${navigator.onLine} · visible: ${document.visibilityState}`];
+	/** The connection timeline as text, for a bug report: what this browser is, the wake lock, each event, the paths. */
+	private async logText(): Promise<string> {
+		const lines = [`Lattice Live connection log · ${new Date().toISOString()}`, `browser: ${navigator.userAgent}`, `role: ${this.rt?.session.getState().isHost ? 'host' : 'guest'}`, `screen wake lock: ${this.wake.state}`, `online: ${navigator.onLine} · visible: ${document.visibilityState}`];
 		const paths: Record<string, LinkPath> = (await this.rt?.session.paths().catch(() => ({}))) ?? {};
 		for (const [id, p] of Object.entries(paths)) lines.push(`path ${id.slice(0, 6)}: ${p.local}→${p.remote} (${p.protocol})`);
 		const pairs = await this.pairs();
 		if (pairs.length) lines.push('candidate pairs (every connection check each link tried):', ...pairs.map((p) => `  ${p}`));
 		for (const e of this.timeline()) lines.push(`${(e.at / 1000).toFixed(1).padStart(7)}s  ${e.peer.padEnd(6)}  ${e.what}`);
-		if (!navigator.clipboard) return false;
-		return navigator.clipboard.writeText(lines.join('\n')).then(
+		return lines.join('\n');
+	}
+
+	/** Copies the log. The clipboard write starts in the tap itself, holding a promise for the text: Safari refuses a
+	 *  write that begins after an `await`, because the tap's permission to write is gone by then (checker, 2026-10-13). */
+	private copyLog(): Promise<boolean> {
+		if (!navigator.clipboard) return Promise.resolve(false);
+		const text = this.logText();
+		const write =
+			typeof ClipboardItem !== 'undefined' && navigator.clipboard.write
+				? navigator.clipboard.write([new ClipboardItem({ 'text/plain': text.then((t) => new Blob([t], { type: 'text/plain' })) })])
+				: text.then((t) => navigator.clipboard.writeText(t));
+		return write.then(
 			() => {
 				this.host.notify('Connection log copied.');
 				return true;
@@ -1728,13 +1700,6 @@ export class LiveController {
 		setVolume: (id, v) => this.audio?.setVolume(id, v),
 		setMicLevel: (v) => this.audio?.setMicLevel(v),
 		setMasterVolume: (v) => this.audio?.setMasterVolume(v),
-		setRecover: (on) => {
-			this.recover = on;
-			try {
-				localStorage.setItem(RECOVER_KEY, on ? '1' : '0');
-			} catch {}
-			this.host.rerender();
-		},
 		copyLog: () => this.copyLog(),
 		setShare: (patch) => {
 			this.share = { ...this.share, ...patch };

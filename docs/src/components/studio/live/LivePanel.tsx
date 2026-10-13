@@ -269,13 +269,6 @@ function YourSettings({ view, actions }: { view: LiveView; actions: LiveActions 
 				</div>
 				<div className="mt-3 flex flex-col gap-3 border-t border-border pt-3" data-live-connection>
 					<div className="font-mono text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Connection</div>
-					<ShareRow
-						id="live-recover"
-						label="Recover dropped connections faster"
-						note="Experimental. When the link drops, restart it right away instead of waiting for it to time out. Try it on a weak network; turn it off if calls get worse."
-						checked={view.connection.recover}
-						onChange={(on) => actions.setRecover(on)}
-					/>
 					<CopyLog onCopy={actions.copyLog} />
 				</div>
 			</LivePopoverContent>

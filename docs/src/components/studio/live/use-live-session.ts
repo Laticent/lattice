@@ -109,7 +109,6 @@ export function useLiveSession(deps: LiveDeps & ShellCallbacks) {
 		setMicLevel: NOOP,
 		setMasterVolume: NOOP,
 		setShare: NOOP,
-		setRecover: NOOP,
 		copyLog: () => Promise.resolve(false),
 		rename: NOOP,
 		pickOutput: NOOP,

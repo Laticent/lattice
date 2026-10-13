@@ -20,30 +20,24 @@ export type TrysteroOptions = {
 	/** TURN servers, added after Trystero's public STUN servers (an `rtcConfig.iceServers` would
 	 *  replace those instead). Empty by default: the Studio's slot is `live-ice.ts`. */
 	turnConfig?: Array<{ urls: string | string[]; username?: string; credential?: string }>;
-	/** Asked each time a connection could be recovered: restart its ICE when it goes `disconnected`, when the
-	 *  browser comes back online, and when the tab returns to the foreground, instead of waiting for Trystero
-	 *  to close it (it does after 5 s `disconnected`) and rediscover the peer over the relays. Off unless this
-	 *  returns true. Experimental: first tried on a phone hotspot (2026-10-12). */
-	recover?: () => boolean;
 };
 
-/** How long a connection may stay `disconnected` before this asks it to restart (a blip heals itself first). */
-export const RECOVER_AFTER_MS = 1000;
 const TIMELINE_MAX = 300;
-
-/**
- * Who restarts a connection's ICE: the side with the smaller id, so two sides never offer at once. Either side's
- * restart renegotiates both sides' candidates. Pure, exported for its test.
- */
+/** Samples keep their own ring, so a long session's samples never push out the first connection attempt. */
+const SAMPLES_MAX = 60;
 /** How often a connected link's round-trip time is sampled into the timeline. */
 export const SAMPLE_EVERY_MS = 10_000;
 
-/** One candidate as text: its type, protocol and an address with the last octet hidden (`hidden` when the browser hides it, `mdns` for a .local name). Pure, exported for its test. */
+/**
+ * One candidate as text: its type, protocol and which kind of address it has (`ipv4`, `ipv6`, `mdns` for a hidden
+ * .local name, or `hidden`), and NEVER the address itself: the log is pasted into bug reports, and a public address
+ * (a server-reflexive candidate is one) names an ISP and a city. Pure, exported for its test.
+ */
 export function describeCandidate(c: Record<string, string | number | boolean | undefined> | undefined): string {
 	if (!c) return '?';
 	const addr = String(c.address ?? c.ip ?? '');
-	const shown = !addr ? 'hidden' : addr.endsWith('.local') ? 'mdns' : addr.includes(':') ? 'ipv6' : addr.replace(/\.\d+$/, '.x');
-	return `${c.candidateType ?? '?'}/${c.protocol ?? '?'} ${shown}`;
+	const family = !addr ? 'hidden' : addr.endsWith('.local') ? 'mdns' : addr.includes(':') ? 'ipv6' : 'ipv4';
+	return `${c.candidateType ?? '?'}/${c.protocol ?? '?'} ${family}`;
 }
 
 /** What kind of candidate an ICE candidate line is: `host` (and `mdns` when its address is a hidden .local name), `srflx`, `relay` or `prflx`. Pure, exported for its test. */
@@ -52,13 +46,14 @@ export function candidateKind(line: string): string {
 	return typ === 'host' && /\.local\b/.test(line) ? 'mdns' : typ;
 }
 
+type Note = (peer: string, what: string) => void;
+
 /**
- * Record every RTCPeerConnection made while a transport is open, from creation: the connections that NEVER open are
- * exactly the ones the peer-join log cannot see ("Nobody answered"). Per connection it notes each ICE state change, how
- * many candidates of each kind it gathered, and any STUN/TURN error. Logging only: it hands the browser the real
- * connection object. Returns the function that puts the original constructor back.
+ * Wrap `window.RTCPeerConnection` so every connection made from now on reports to `note`, from creation: the
+ * connections that NEVER open are exactly the ones the peer-join log cannot see ("Nobody answered"). Logging only: it
+ * hands the browser the real connection object. Returns the function that puts the original constructor back.
  */
-function spyPeerConnections(note: (peer: string, what: string) => void): () => void {
+function wrapPeerConnection(note: Note): () => void {
 	const Native = typeof window !== 'undefined' ? window.RTCPeerConnection : undefined;
 	if (!Native) return () => {};
 	let n = 0;
@@ -92,7 +87,26 @@ function spyPeerConnections(note: (peer: string, what: string) => void): () => v
 	};
 }
 
-export const restartsIce = (selfId: string, peerId: string): boolean => selfId < peerId;
+/** Every open transport's `note`. ONE wrapper serves them all, so two transports closing in either order cannot leave a stale wrapper behind. */
+const spyNotes = new Set<Note>();
+let spyRestore: (() => void) | null = null;
+
+/** Start reporting every new RTCPeerConnection to `note`; returns the function that stops. Exported for its test. */
+export function installPcSpy(note: Note): () => void {
+	spyNotes.add(note);
+	if (!spyRestore) {
+		spyRestore = wrapPeerConnection((peer, what) => {
+			for (const n of spyNotes) n(peer, what);
+		});
+	}
+	return () => {
+		spyNotes.delete(note);
+		if (spyNotes.size === 0 && spyRestore) {
+			spyRestore();
+			spyRestore = null;
+		}
+	};
+}
 
 /** Cap the bitrate `track` is sent at on `pc` (best-effort: a browser that refuses keeps its default). */
 /**
@@ -160,8 +174,10 @@ export function trysteroTransport(room: string, secret: string, opts: TrysteroOp
 	const wire = r.makeAction<Uint8Array>('tavola');
 	const started = Date.now();
 	const events: LinkEvent[] = [];
+	const samples: LinkEvent[] = [];
+	const stamp = (peer: string, what: string): LinkEvent => ({ at: Date.now() - started, peer: peer.slice(0, 6), what });
 	const note = (peer: string, what: string) => {
-		events.push({ at: Date.now() - started, peer: peer.slice(0, 6), what });
+		events.push(stamp(peer, what));
 		if (events.length > TIMELINE_MAX) events.shift();
 	};
 	/** Sample each connected link's round-trip time, so a slow stretch shows in the log as numbers. */
@@ -175,62 +191,18 @@ export function trysteroTransport(room: string, secret: string, opts: TrysteroOp
 				const rtt = typeof pair.currentRoundTripTime === 'number' ? `${Math.round(pair.currentRoundTripTime * 1000)} ms` : '?';
 				const loc = stats.find((s) => s.id === pair.localCandidateId);
 				const rem = stats.find((s) => s.id === pair.remoteCandidateId);
-				note(id, `sample rtt ${rtt} · ${loc?.candidateType ?? '?'}→${rem?.candidateType ?? '?'}`);
+				samples.push(stamp(id, `sample rtt ${rtt} · ${loc?.candidateType ?? '?'}→${rem?.candidateType ?? '?'}`));
+				if (samples.length > SAMPLES_MAX) samples.shift();
 			} catch {}
 		}
 	};
 	const sampler = typeof setInterval === 'function' ? setInterval(() => void sample(), SAMPLE_EVERY_MS) : null;
-	const unspy = spyPeerConnections(note);
-	const watched = new Set<string>();
-	const timers = new Map<string, ReturnType<typeof setTimeout>>();
-	/** Ask one connection to restart its ICE, if recovery is on and this side is the one that offers. A
-	 *  connection that reads `connected` is left alone unless `healthyToo` (the network itself changed). */
-	const kick = (id: string, why: string, healthyToo = false) => {
-		const pc = r.getPeers()[id] as RTCPeerConnection | undefined;
-		if (!pc || pc.connectionState === 'closed' || (!healthyToo && pc.connectionState === 'connected') || typeof pc.restartIce !== 'function') return;
-		if (!opts.recover?.()) return note(id, `${why}: recovery off`);
-		if (!restartsIce(selfId, id)) return note(id, `${why}: the other side restarts`);
-		note(id, `${why}: restart ICE`);
-		pc.restartIce();
-	};
-	const watch = (id: string) => {
-		const pc = r.getPeers()[id] as RTCPeerConnection | undefined;
-		if (!pc || watched.has(id)) return;
-		watched.add(id);
-		note(id, `link up (${pc.connectionState}, ice ${pc.iceConnectionState})`);
-		let last = '';
-		const onState = () => {
-			const s = `${pc.connectionState}/${pc.iceConnectionState}`;
-			if (s === last) return;
-			last = s;
-			note(id, `state ${s}`);
-			const t = timers.get(id);
-			if (t) clearTimeout(t);
-			if (pc.connectionState === 'disconnected' || pc.iceConnectionState === 'disconnected') {
-				timers.set(id, setTimeout(() => kick(id, `still disconnected after ${RECOVER_AFTER_MS} ms`), RECOVER_AFTER_MS));
-			} else if (pc.connectionState === 'closed' || pc.connectionState === 'failed') {
-				watched.delete(id);
-			}
-		};
-		pc.addEventListener('connectionstatechange', onState);
-		pc.addEventListener('iceconnectionstatechange', onState);
-	};
-	const kickAll = (why: string, healthyToo = false) => {
-		for (const id of Object.keys(r.getPeers())) kick(id, why, healthyToo);
-	};
-	// The network changed (a hotspot reconnecting, wifi to cellular), or the tab came back from the background.
-	const onOnline = () => {
-		note('-', 'browser online');
-		// The network changed under every link: even one that still reads `connected` may hold a dead address.
-		setTimeout(() => kickAll('online', true), 500);
-		setTimeout(() => kickAll('online (retry)'), 3500);
-	};
-	const onVisible = () => {
-		if (document.visibilityState !== 'visible') return;
-		note('-', 'tab visible');
-		kickAll('tab visible');
-	};
+	const unspy = installPcSpy(note);
+	const onOnline = () => note('-', 'browser online');
 	const onOffline = () => note('-', 'browser offline');
+	const onVisible = () => {
+		if (document.visibilityState === 'visible') note('-', 'tab visible');
+	};
 	if (typeof window !== 'undefined') {
 		window.addEventListener('online', onOnline);
 		window.addEventListener('offline', onOffline);
@@ -247,29 +219,27 @@ export function trysteroTransport(room: string, secret: string, opts: TrysteroOp
 		onPeerJoin(cb) {
 			r.onPeerJoin = (id) => {
 				note(id, 'joined');
-				watch(id);
 				cb(id);
 			};
 		},
 		onPeerLeave(cb) {
 			r.onPeerLeave = (id) => {
 				note(id, 'left');
-				watched.delete(id);
-				const t = timers.get(id);
-				if (t) clearTimeout(t);
 				cb(id);
 			};
 		},
-		timeline: () => events.slice(),
+		timeline: () => [...events, ...samples].sort((a, b) => a.at - b.at),
 		async pairs() {
 			const out: string[] = [];
 			for (const [id, pc] of Object.entries(r.getPeers())) {
-				const stats = [...(await pc.getStats()).values()] as Array<Record<string, string | number | boolean | undefined>>;
-				const byId = new Map(stats.map((s) => [String(s.id), s]));
-				for (const p of stats.filter((s) => s.type === 'candidate-pair')) {
-					const rtt = typeof p.currentRoundTripTime === 'number' ? ` rtt ${Math.round(p.currentRoundTripTime * 1000)} ms` : '';
-					out.push(`${id.slice(0, 6)}  ${String(p.state).padEnd(11)}${p.nominated ? ' nominated' : '          '}  ${describeCandidate(byId.get(String(p.localCandidateId)))} → ${describeCandidate(byId.get(String(p.remoteCandidateId)))}${rtt}`);
-				}
+				try {
+					const stats = [...(await pc.getStats()).values()] as Array<Record<string, string | number | boolean | undefined>>;
+					const byId = new Map(stats.map((s) => [String(s.id), s]));
+					for (const p of stats.filter((s) => s.type === 'candidate-pair')) {
+						const rtt = typeof p.currentRoundTripTime === 'number' ? ` rtt ${Math.round(p.currentRoundTripTime * 1000)} ms` : '';
+						out.push(`${id.slice(0, 6)}  ${String(p.state).padEnd(11)}${p.nominated ? ' nominated' : '          '}  ${describeCandidate(byId.get(String(p.localCandidateId)))} → ${describeCandidate(byId.get(String(p.remoteCandidateId)))}${rtt}`);
+					}
+				} catch {}
 			}
 			return out;
 		},
@@ -279,8 +249,6 @@ export function trysteroTransport(room: string, secret: string, opts: TrysteroOp
 				window.removeEventListener('offline', onOffline);
 				document.removeEventListener('visibilitychange', onVisible);
 			}
-			for (const t of timers.values()) clearTimeout(t);
-			timers.clear();
 			if (sampler) clearInterval(sampler);
 			unspy();
 			return r.leave();

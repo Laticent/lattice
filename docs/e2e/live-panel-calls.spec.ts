@@ -258,18 +258,9 @@ test('@crosswidth @webkit-phone inside the modal sheet a phone uses, a tall popo
 	await expect(page.getByText(/speaker/i).last()).toBeInViewport();
 });
 
-test('@crosswidth @webkit-phone Your settings has a Connection section: the recovery switch, and a log to copy', async ({ page }) => {
+test('@crosswidth @webkit-phone Your settings has a Connection section with a log to copy', async ({ page }) => {
 	await open(page);
 	await yourSettings(page).click();
-	const sw = page.locator('#live-recover');
-	await expect(sw).toHaveRole('switch');
-	await expect(sw).toHaveAccessibleName('Recover dropped connections faster');
-	await expect(sw).toHaveAttribute('aria-checked', 'false'); // experimental: off until chosen
-	expect(await sw.boundingBox()).toMatchObject({ width: 38, height: 22 });
-	await sw.click();
-	expect((await calls(page)).filter((c) => c[0] === 'setRecover')).toEqual([['setRecover', true]]);
-	await live(page, (l) => l.set({ connection: { recover: true } }));
-	await expect(sw).toHaveAttribute('aria-checked', 'true');
 	const copy = page.getByRole('button', { name: 'Copy connection log' });
 	expect((await copy.boundingBox())?.height).toBeGreaterThanOrEqual(24);
 	await copy.click();
