@@ -93,75 +93,80 @@ function openTilesOnChartSlide(page: Page) {
 	}, PHOTOS);
 }
 
-test('a digit with the lightbox open jumps the photo and marks no chart point; after close it marks again', async ({ page }) => {
-	await presentFunnel(page);
-	expect(await openTilesOnChartSlide(page)).toBe(true);
-	await expect(lightbox(page)).toBeVisible({ timeout: 15_000 });
-	await expect(counter(page)).toHaveText('1 / 3');
+// `@gecko` runs on desktop (Chromium) AND Firefox; `@webkit-tablet` runs only on WebKit (desktop's
+// grepInvert drops it). A test cannot carry both without `@crosswidth`, which would also run it at
+// phone width, where the Present button is not on screen. So each arm registers once per tag.
+for (const tag of ['@gecko', '@webkit-tablet']) {
+	test(`${tag} a digit with the lightbox open jumps the photo and marks no chart point; after close it marks again`, async ({ page }) => {
+		await presentFunnel(page);
+		expect(await openTilesOnChartSlide(page)).toBe(true);
+		await expect(lightbox(page)).toBeVisible({ timeout: 15_000 });
+		await expect(counter(page)).toHaveText('1 / 3');
 
-	// 2 and 3 jump the photo. A chart-detail card on either would be the collision.
-	await page.keyboard.press('2');
-	await expect(counter(page)).toHaveText('2 / 3');
-	await page.keyboard.press('3');
-	await expect(counter(page)).toHaveText('3 / 3');
-	// Give a (wrongly) delivered keydown time to open a card before asserting there is none.
-	await page.waitForTimeout(400);
-	await expect(popover(page)).toHaveCount(0);
+		// 2 and 3 jump the photo. A chart-detail card on either would be the collision.
+		await page.keyboard.press('2');
+		await expect(counter(page)).toHaveText('2 / 3');
+		await page.keyboard.press('3');
+		await expect(counter(page)).toHaveText('3 / 3');
+		// Give a (wrongly) delivered keydown time to open a card before asserting there is none.
+		await page.waitForTimeout(400);
+		await expect(popover(page)).toHaveCount(0);
 
-	// A digit naming no photo (4 of 3) is swallowed too: it must not fall through to mark 4.
-	await page.keyboard.press('4');
-	await page.waitForTimeout(400);
-	await expect(counter(page)).toHaveText('3 / 3');
-	await expect(popover(page)).toHaveCount(0);
+		// A digit naming no photo (4 of 3) is swallowed too: it must not fall through to mark 4.
+		await page.keyboard.press('4');
+		await page.waitForTimeout(400);
+		await expect(counter(page)).toHaveText('3 / 3');
+		await expect(popover(page)).toHaveCount(0);
 
-	// Escape closes the lightbox and ONLY the lightbox: Present stays open.
-	await page.keyboard.press('Escape');
-	await expect(lightbox(page)).toHaveCount(0);
-	await expect(dialog(page)).toBeVisible();
+		// Escape closes the lightbox and ONLY the lightbox: Present stays open.
+		await page.keyboard.press('Escape');
+		await expect(lightbox(page)).toHaveCount(0);
+		await expect(dialog(page)).toBeVisible();
 
-	// The digit is the chart's again.
-	await page.keyboard.press('2');
-	await expect(popover(page)).toBeVisible({ timeout: 5000 });
-});
+		// The digit is the chart's again.
+		await page.keyboard.press('2');
+		await expect(popover(page)).toBeVisible({ timeout: 5000 });
+	});
 
-test('with the lightbox open, a digit moves nothing in Present beneath it', async ({ page }) => {
-	await presentFunnel(page);
-	const slide = dialog(page).getByText(/^\d+ \/ \d+$/).first();
-	const before = await slide.innerText();
-	expect(await openTilesOnChartSlide(page)).toBe(true);
-	await expect(lightbox(page)).toBeVisible({ timeout: 15_000 });
-	for (const k of ['1', '2', '3', '0']) await page.keyboard.press(k);
-	await page.waitForTimeout(400);
-	await expect(popover(page)).toHaveCount(0);
-	await expect(slide).toHaveText(before);
-	await expect(dialog(page)).toBeVisible();
-});
+	test(`${tag} with the lightbox open, a digit moves nothing in Present beneath it`, async ({ page }) => {
+		await presentFunnel(page);
+		const slide = dialog(page).getByText(/^\d+ \/ \d+$/).first();
+		const before = await slide.innerText();
+		expect(await openTilesOnChartSlide(page)).toBe(true);
+		await expect(lightbox(page)).toBeVisible({ timeout: 15_000 });
+		for (const k of ['1', '2', '3', '0']) await page.keyboard.press(k);
+		await page.waitForTimeout(400);
+		await expect(popover(page)).toHaveCount(0);
+		await expect(slide).toHaveText(before);
+		await expect(dialog(page)).toBeVisible();
+	});
 
-test('a person cannot open the lightbox from inside Present (the slide card is pointer-events-none)', async ({ page }) => {
-	await presentFunnel(page);
-	// Tiles on the chart slide, NOT opened: the attempt below is a real click on the photo.
-	await page.evaluate((photos) => {
-		const fr = document.querySelector('[role="dialog"][aria-label="Present"] iframe.live') as HTMLIFrameElement;
-		const d = fr.contentDocument as Document;
-		const wrap = d.createElement('div');
-		wrap.setAttribute('data-collage', '');
-		wrap.style.cssText = 'position:fixed;left:0;top:0;width:100%;height:100%;z-index:9';
-		for (const [alt, src] of photos as string[][]) {
-			const tile = d.createElement('div');
-			tile.className = 'collage-tile';
-			tile.style.cssText = 'width:100%;height:100%';
-			const img = d.createElement('img');
-			img.src = src;
-			img.alt = alt;
-			img.style.cssText = 'width:100%;height:100%';
-			tile.appendChild(img);
-			wrap.appendChild(tile);
-		}
-		d.body.appendChild(wrap);
-	}, PHOTOS);
-	const box = await dialog(page).locator('iframe.live').boundingBox();
-	if (!box) throw new Error('no Present frame');
-	await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
-	await page.waitForTimeout(600);
-	await expect(lightbox(page)).toHaveCount(0);
-});
+	test(`${tag} a person cannot open the lightbox from inside Present (the slide card is pointer-events-none)`, async ({ page }) => {
+		await presentFunnel(page);
+		// Tiles on the chart slide, NOT opened: the attempt below is a real click on the photo.
+		await page.evaluate((photos) => {
+			const fr = document.querySelector('[role="dialog"][aria-label="Present"] iframe.live') as HTMLIFrameElement;
+			const d = fr.contentDocument as Document;
+			const wrap = d.createElement('div');
+			wrap.setAttribute('data-collage', '');
+			wrap.style.cssText = 'position:fixed;left:0;top:0;width:100%;height:100%;z-index:9';
+			for (const [alt, src] of photos as string[][]) {
+				const tile = d.createElement('div');
+				tile.className = 'collage-tile';
+				tile.style.cssText = 'width:100%;height:100%';
+				const img = d.createElement('img');
+				img.src = src;
+				img.alt = alt;
+				img.style.cssText = 'width:100%;height:100%';
+				tile.appendChild(img);
+				wrap.appendChild(tile);
+			}
+			d.body.appendChild(wrap);
+		}, PHOTOS);
+		const box = await dialog(page).locator('iframe.live').boundingBox();
+		if (!box) throw new Error('no Present frame');
+		await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+		await page.waitForTimeout(600);
+		await expect(lightbox(page)).toHaveCount(0);
+	});
+}
