@@ -1691,6 +1691,8 @@ ordering that makes it work.
    closed the card with a fifth item, added by comment, silently unaddressed.
 4. **Only off-path findings go in.** On-path defects get fixed in the change that
    found them (#18). A handoff issue is not a place to park a window you created.
+   "On the path" includes the surface the change teaches or lints and anything the
+   owner hits while testing the PR; when unsure, it is on the path (#18).
 5. **Name the base — the sha, the branch, AND any open PR the work sits on.** The
    sha alone is not enough, and this is the rule a live cold-start test broke
    hardest against. If the work the card describes is on an unmerged PR, say so

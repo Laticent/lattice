@@ -4,6 +4,10 @@
 an issue.** The brief on a PR comment and in chat still gets posted. This file is the copy
 that lives in the repo, so the work survives the session that found it.
 
+**Only off-path work comes here** (HARD RULE #18). A defect on the path of the change that
+found it is fixed in that change, and "on the path" includes the surface the change teaches
+or lints and anything the owner hits while testing the PR. When unsure, it is on the path.
+
 ## Why this exists
 
 A continuation brief tagged an unticketed item `[no ticket]` and treated the brief itself

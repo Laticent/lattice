@@ -424,6 +424,14 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
     diff — that boundary keeps #8 (gallery isolation) and #17 (one feature, one PR)
     intact. The follow-up-issue path is **exclusively** for these; it is never a
     home for something you broke.
+    **On the path** means the surface the change touches, teaches or lints, and
+    any defect the owner or a reviewer hits while exercising the PR. When unsure,
+    it is on the path. A follow-up is never the home for a defect in a surface this
+    PR tells authors to use: a lint that steers authors into a broken form ships the
+    form's fix, not a warning and a follow-up. (Born from #2690: the owner's preview
+    test found that an indented `>` under a chart row, the very form the PR's new
+    lint taught, dropped the row; it was first logged as phase-2 work and had to be
+    pulled back in.)
   *(discipline — no automated gate; the test is whether a reviewer can point at a
   surface that regressed across your change, or a known defect you walked past and
   left unrecorded. Born from #1181: a `--cat-on-mark` re-tune silently broke the
