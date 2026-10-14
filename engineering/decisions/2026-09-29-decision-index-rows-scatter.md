@@ -1,5 +1,6 @@
 ---
-status: shipped
+status: superseded
+superseded-by: 2026-10-09-generated-indexes-uncommitted.md
 summary: >
   The decision index sorted rows newest-first, so every new note inserted at the top of its
   group and two PRs that each added a note to the same group conflicted on GitHub, which ignores the file's
@@ -160,6 +161,12 @@ conflicting.
   order would not help. `docs/route-budget.json` (50 of the last 300 commits) is a hand-set
   budget, not a generated file. These stay in
   `followups.d/2466-p2-committed-generated-files-conflict-across-prs.md`.
+
+**Update 2026-10-14.** Re-measured in `2026-09-28-rebase-only-on-conflict.md` §6. One real
+index-only conflict happened after this change, on 2026-10-06: a new row inserted beside a row
+that `main` moved to another status group, the second case above. Since 2026-10-09 the index
+is not committed at all (`2026-10-09-generated-indexes-uncommitted.md`), so neither case can
+recur, and that note supersedes this one.
 
 ## 6. The harness
 
