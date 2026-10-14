@@ -199,9 +199,14 @@ const MAGNITUDE: Readonly<Record<string, number>> = { k: 1e3, K: 1e3, m: 1e6, M:
 // The older, looser pattern let a typo become a different number with no warning: `--5` read -5,
 // `(5` and `5)` read 5, `1,2,3` read 1.2 with the unit `.3`, and `1.2.3.4x` read 1234
 // (followups.d/2609-p2). Those are not numbers now; `malformedNumber` says why, and lint names it.
-// A dash (U+2010 to U+2015, the small and fullwidth hyphen-minus U+FE58, U+FE63, U+FF0D) is not a symbol: `\u20135`
+// A sign look-alike is not a symbol: the dashes U+2010 to U+2015, the small and fullwidth
+// hyphen-minus (U+FE58, U+FE63, U+FF0D), the emoji minus U+2796, the katakana long-vowel mark U+30FC
+// a Japanese IME types for a minus, the modifier, superscript and subscript minus (U+02D7, U+207B,
+// U+208B), and the fullwidth and small plus (U+FF0B, U+FE62). `\u20135`
 // read as +5 with the dash taken for a currency. It is refused, and `malformedNumber` says so.
-const SYM = '[^\\w\\s+\\-\\u2212\\u2010-\\u2015\\ufe58\\ufe63\\uff0d().,]';
+const SIGN_LOOKALIKES = '\\u2010-\\u2015\\ufe58\\ufe62\\ufe63\\uff0b\\uff0d\\u2796\\u30fc\\u02d7\\u207b\\u208b';
+const SIGN_LOOKALIKE = new RegExp(`[${SIGN_LOOKALIKES}]`);
+const SYM = '[^\\w\\s+\\-\\u2212' + SIGN_LOOKALIKES + '().,]';
 const CORE = '(?:\\d{1,3}(?:,\\d{3})+(?:\\.\\d+)?|\\d{1,3}(?:\\.\\d{3})+(?:,\\d+)?|\\d+(?:[.,]\\d+)?|\\.\\d+)';
 const TAIL = '\\s*(?:(?:%|\\u2030|[A-Za-z]{1,6})\\s*)?';
 export const NUMERIC = new RegExp(
@@ -372,7 +377,7 @@ export function malformedNumber(raw: string): string | undefined {
   if (!t || t.includes('..') || !NUMBER_SHAPED.test(t) || readNumber(t) !== undefined) return undefined;
   const at = t.search(/\d/);
   const before = t.slice(0, at);
-  if (/[\u2010-\u2015\ufe58\ufe63\uff0d]/.test(before)) return 'it has a dash where a minus sign goes: type `-`';
+  if (SIGN_LOOKALIKE.test(before)) return 'it has a look-alike where a sign goes: type `-` or `+`';
   const signs = (before.match(/[+\-\u2212]/g) || []).length;
   const inner = /\(/.test(before.slice(1)) && t.endsWith(')');
   if (signs + (t.startsWith('(') && t.endsWith(')') ? 1 : 0) + (inner ? 1 : 0) > 1) return 'it has two signs';

@@ -52,9 +52,11 @@ const MALFORMED: Array<[string, string]> = [
   ['1,234,5678', 'digits'], // was 12,345,678
   ['1,2.3', 'digits'], // was 12.3
   ['5.', 'digits'], // was 5 with the unit `.`
-  ['\u20135', 'dash'], // was +5: an en dash taken for a currency symbol
-  ['$\u20145M', 'dash'], // was +5,000,000
-  ['\u20155', 'dash'], ['\uff0d5', 'dash'], ['\ufe635', 'dash'], ['$\uff0d5', 'dash'], // all read +5
+  ['\u20135', 'look-alike'], // was +5: an en dash taken for a currency symbol
+  ['$\u20145M', 'look-alike'], // was +5,000,000
+  ['\u20155', 'look-alike'], ['\uff0d5', 'look-alike'], ['\ufe635', 'look-alike'], ['$\uff0d5', 'look-alike'], ['\ufe585', 'look-alike'], // all read +5
+  ['\u27965', 'look-alike'], ['\u30fc5', 'look-alike'], ['\u02d75', 'look-alike'], ['\u207b5', 'look-alike'], ['\u208b5', 'look-alike'], // read +5
+  ['\uff0b5', 'look-alike'], ['\ufe625', 'look-alike'], // read 5 unsigned, so a waterfall drew a level, not a step
 ];
 // The spellings that stay numbers, with the value each reads: every separator and sign form.
 const WELL_FORMED: Array<[string, number]> = [
