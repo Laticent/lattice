@@ -414,6 +414,17 @@ test('spoken value — a European `1.234,5` is said, and its change measured, as
   assert.doesNotMatch(said, /1\.234,5/);
 });
 
+test('spoken value — a decimal comma is said as the decimal the chart plots, so a change sentence agrees with itself', () => {
+  // `1,5` plots at 1.5. It was said "fifteen", so once the change was measured on the plotted
+  // values the sentence read "rose zero point seven five, from fifteen to two hundred twenty-five".
+  assert.equal(say('1,5'), 'one point five');
+  assert.equal(say('12,5%'), 'twelve point five percent');
+  assert.equal(say('12,000'), 'twelve thousand', 'a US group is unchanged');
+  const { narrateChart } = require('../../../lib/core/chart-narration.js');
+  const said = narrateChart('<!-- _class: line -->\n\n## A\n\n- Q1 `1,5`\n- Q2 `2,25`\n');
+  assert.match(said, /rose zero point seven five overall, from one point five to two point two five/);
+});
+
 test('spoken value — it says it the way a person would', () => {
   assert.equal(say('0.9M'), 'nine hundred thousand', 'not "zero point nine million"');
   assert.equal(say('1200k'), 'one point two million', 'not "one thousand two hundred thousand"');
