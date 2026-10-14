@@ -1,8 +1,13 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { setBudget } from './architect';
 import { IMAGE_LOOKS, lookTokens } from './image-look';
 import { pictureTokensFor } from './picture-tokens';
 import { languageFor } from './studio-language';
+import { saveSettings } from './studio-store';
 import { buildPhotoDescriptionPrompt, cleanPhotoDescription, cleanPhotoName, lookCharge, modelSees, suggestPhotoDescription } from './suggest-photo-description';
+
+const fake = vi.hoisted(() => ({ model: null as unknown }));
+vi.mock('./architect', async (importOriginal) => ({ ...(await importOriginal<typeof import('./architect')>()), architectModel: async () => fake.model }));
 
 // The call itself needs a connected cloud model, so its states (no key, a model that cannot read images, a reply) are
 // driven on the real Studio with OpenRouter mocked (docs/e2e/library-image-metadata.spec.ts). What is pure and
@@ -118,5 +123,38 @@ describe('lookCharge — a Suggest picture is priced by the model that reads it'
 	it('adds the model’s own image-price surcharge in dollars, and none without one', () => {
 		expect(lookCharge('quick', claude, { promptPerM: 3, imagePerM: null }).usd).toBe(0);
 		expect(lookCharge('quick', claude, { promptPerM: 3, imagePerM: 9 }).usd).toBeCloseTo((claude.thumb * 6) / 1e6, 9);
+	});
+});
+
+describe('suggestPhotoDescription — the budget gate prices the picture by the image model', () => {
+	// $10/M and no output cost, so the whole estimate is the picture and the system prompt: a 512 px look is 2,000 tokens ($0.02) on a default
+	// model and 13,200 ($0.13) on GPT-4o mini. A $0.08 cap sits between them.
+	const PRICE = { promptPerM: 10, completionPerM: 0 };
+	const fakeModel = (complete: ReturnType<typeof vi.fn>) => ({
+		availability: () => ({ generation: 'openrouter' }),
+		listOpenRouterModels: async () => ['anthropic/claude-sonnet-5.5', 'openai/gpt-4o-mini'].map((id) => ({ id, vision: true })),
+		openRouterModelPrice: () => PRICE,
+		complete,
+	});
+	afterEach(() => {
+		setBudget(null, 'alert');
+		localStorage.clear();
+	});
+	const run = async (imageModel: string) => {
+		const complete = vi.fn(async () => ({ description: 'Two people at a bench', name: 'bench' }));
+		fake.model = fakeModel(complete);
+		saveSettings({ imageModel, imageLook: 'quick' });
+		setBudget(0.08, 'stop');
+		return { out: await suggestPhotoDescription('data:image/jpeg;base64,AAAA'), complete };
+	};
+	it('lets a model whose pictures cost the default through', async () => {
+		const { out, complete } = await run('anthropic/claude-sonnet-5.5');
+		expect(complete).toHaveBeenCalledTimes(1);
+		expect(out.status).toBe('ok');
+	});
+	it('refuses GPT-4o mini, whose 512 px picture is thousands of tokens, before sending it', async () => {
+		const { out, complete } = await run('openai/gpt-4o-mini');
+		expect(complete).not.toHaveBeenCalled();
+		expect(out).toMatchObject({ status: 'blocked' });
 	});
 });

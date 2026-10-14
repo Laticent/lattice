@@ -1461,7 +1461,8 @@ export async function chatComplete(history: ChatTurn[], source: string, docs?: R
 		// those modules load on demand and this one is startup code, so they are imported only when a photo is attached.
 		const nPhotos = opts?.photos?.length ?? 0;
 		if (nPhotos) {
-			const { priceRound, resolvePictureTokens } = await import('./picture-tokens');
+			const { boundedCatalog, priceRound, resolvePictureTokens } = await import('./picture-tokens');
+			await boundedCatalog(model); // the surcharge needs the price, and the price needs the catalog (immediate when it is cached)
 			({ tokens: photoTokens, usd: photoUsd } = priceRound(await resolvePictureTokens(model), model.openRouterModelPrice?.() ?? null, nPhotos, nPhotos));
 		}
 		const blk = await cloudBudgetBlock(model, `${last?.content ?? ''}\n${source}`, refDocsTokens(docs) + systemTokens + photoTokens + (opts?.videos?.length ?? 0) * 4500, CHAT_MAX_TOKENS, photoUsd);

@@ -292,6 +292,34 @@ describe('cloudBudgetBlock — a price that has not loaded yet', () => {
 	});
 });
 
+describe('cloudBudgetBlock — which model’s price', () => {
+	// The Library's Suggest sends its picture to the author's image model, not the chat model: the gate prices THAT model, before and after any wait.
+	it('prices the model it is told to, in the first lookup and again after the catalog loads', async () => {
+		let loaded = false;
+		const asked: (string | undefined)[] = [];
+		const model = {
+			openRouterModelPrice: (id?: string) => {
+				asked.push(id);
+				if (id !== 'openai/gpt-4o-mini') return { promptPerM: 0.0001, completionPerM: 0 }; // the chat model: nearly free
+				return loaded ? { promptPerM: 10, completionPerM: 0 } : null; // the image model: dear, once the catalog is in
+			},
+			listOpenRouterModels: async () => {
+				loaded = true;
+				return [];
+			},
+		} as unknown as Parameters<typeof cloudBudgetBlock>[0];
+		setBudget(0.001, 'stop');
+		try {
+			expect(await cloudBudgetBlock(model, 'x'.repeat(40_000), 0, 0, 0, 'openai/gpt-4o-mini')).toMatch(/exceed your \$0\.00 cap/);
+			expect(asked.every((id) => id === 'openai/gpt-4o-mini')).toBe(true);
+			expect(asked.length).toBeGreaterThanOrEqual(2); // the lookup, the wait, the lookup again
+			expect(await cloudBudgetBlock(model, 'x'.repeat(40_000), 0, 0)).toBeNull(); // no id: the chat model's near-free price
+		} finally {
+			setBudget(null, 'alert');
+		}
+	});
+});
+
 describe('runArchitect — honest offline degradation', () => {
 	it('returns `offline` when no model is connected (the floor)', async () => {
 		// No OpenRouter key, no on-device model in the test env → the floor. The

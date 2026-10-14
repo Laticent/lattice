@@ -83,8 +83,16 @@ describe('the OpenRouter model catalog', () => {
 		expect(calls.filter((u) => u.includes('/models'))).toHaveLength(1);
 	});
 
-	it('abandons a catalog fetch that never answers, so the next call can try again', async () => {
+	it('abandons a catalog fetch that never answers (after 15 s), so the next call can try again', async () => {
 		let n = 0;
+		const timeouts: number[] = [];
+		// The abort timer is the platform's, which fake timers do not drive: stand in a short one and assert the duration asked for.
+		vi.spyOn(AbortSignal, 'timeout').mockImplementation((ms: number) => {
+			timeouts.push(ms);
+			const c = new AbortController();
+			setTimeout(() => c.abort(new Error('aborted')), 5);
+			return c.signal;
+		});
 		vi.stubGlobal(
 			'fetch',
 			vi.fn(async (_url: unknown, init?: { signal?: AbortSignal }) => {
@@ -93,16 +101,46 @@ describe('the OpenRouter model catalog', () => {
 				return new Response(JSON.stringify(CATALOG), { status: 200 });
 			}),
 		);
-		vi.useFakeTimers();
-		try {
-			const m = createArchitectModel({ getSettings: () => ({}) }) as unknown as { listOpenRouterModels: () => Promise<unknown[]> };
-			const first = m.listOpenRouterModels();
-			const settled = expect(first).rejects.toThrow('aborted');
-			await vi.advanceTimersByTimeAsync(15_100);
-			await settled;
-			expect(await m.listOpenRouterModels()).toHaveLength(1);
-		} finally {
-			vi.useRealTimers();
-		}
+		const m = createArchitectModel({ getSettings: () => ({}) }) as unknown as { listOpenRouterModels: () => Promise<unknown[]> };
+		await expect(m.listOpenRouterModels()).rejects.toThrow('aborted');
+		expect(timeouts).toEqual([15000]);
+		expect(await m.listOpenRouterModels()).toHaveLength(1);
+	});
+
+	it('does not let a fetch that predates a self-heal overwrite the fresh catalog, or clear the fresh fetch’s slot', async () => {
+		// Fetch A (the prefetch) starts, the cache is invalidated as a dead-model self-heal does, fetch B starts and lands, then A lands late.
+		const gate: ((r: Response) => void)[] = [];
+		vi.stubGlobal(
+			'fetch',
+			vi.fn((url: unknown) => (String(url).includes('/models') ? new Promise<Response>((resolve) => gate.push(resolve)) : Promise.resolve(new Response('{}', { status: 200 })))),
+		);
+		localStorage.setItem('lattice-db-or-key', 'sk-test-not-real');
+		localStorage.setItem('lattice-db-or-model', 'fresh/model');
+		const m = createArchitectModel({ getSettings: () => ({}) }) as unknown as { openRouterModelPrice: () => { promptPerM: number } | null; listOpenRouterModels: () => Promise<unknown[]>; __invalidateCatalog: () => void };
+		expect(gate).toHaveLength(1);
+		m.__invalidateCatalog();
+		const b = m.listOpenRouterModels();
+		await vi.waitFor(() => expect(gate).toHaveLength(2));
+		const body = (id: string, prompt: string) => new Response(JSON.stringify({ data: [{ id, name: id, pricing: { prompt, completion: prompt }, architecture: { input_modalities: ['text'] } }] }), { status: 200 });
+		gate[1](body('fresh/model', '0.000001'));
+		await b;
+		expect(m.openRouterModelPrice()?.promptPerM).toBe(1);
+		// A lands late: it must not replace the cache, and a caller now must not start a third fetch.
+		gate[0](body('stale/model', '0.000009'));
+		await new Promise((r) => setTimeout(r, 10));
+		expect(m.openRouterModelPrice()?.promptPerM).toBe(1);
+		await m.listOpenRouterModels();
+		expect(gate).toHaveLength(2);
+	});
+
+	it('prices a ~…-latest alias that is not itself listed at its family’s dearest member, and carries an image price through', async () => {
+		localStorage.setItem('lattice-db-or-key', 'sk-test-not-real');
+		const entry = (id: string, prompt: string, completion: string, image?: string) => ({ id, name: id, pricing: { prompt, completion, ...(image ? { image } : {}) }, architecture: { input_modalities: ['text', 'image'] } });
+		vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ data: [entry('vendor/gpt-1', '0.000001', '0.000002'), entry('vendor/gpt-2-pro', '0.000003', '0.000012', '0.000003'), entry('other/x', '0.1', '0.1')] }), { status: 200 })));
+		const m = createArchitectModel({ getSettings: () => ({}) }) as unknown as { openRouterModelPrice: (id?: string) => { promptPerM: number; completionPerM: number; imagePerM: number | null } | null; listOpenRouterModels: () => Promise<unknown[]> };
+		await m.listOpenRouterModels();
+		expect(m.openRouterModelPrice('~vendor/gpt-latest')).toEqual({ promptPerM: 3, completionPerM: 12, imagePerM: 3 }); // the dearest of vendor/gpt-*
+		expect(m.openRouterModelPrice('vendor/gpt-1')?.imagePerM).toBeNull();
+		expect(m.openRouterModelPrice('~nobody/gpt-latest')).toBeNull();
 	});
 });

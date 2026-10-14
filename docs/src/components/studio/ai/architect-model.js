@@ -46,6 +46,8 @@ const OPENROUTER_GENERATION_URL = 'https://openrouter.ai/api/v1/generation'; // 
 // resolving to the current latest). Verified callable; resolves e.g. to
 // anthropic/claude-4.5-haiku-*. See engineering/decisions/2026-06-29-studio-model-liveness.md.
 const DEFAULT_OR_MODEL = '~anthropic/claude-sonnet-latest';
+// A catalog fetch that has not answered in this long is abandoned, so the next call can try again.
+const CATALOG_FETCH_TIMEOUT_MS = 15000;
 const OR_KEY_LS = 'lattice-db-or-key'; // the user's OpenRouter API key (persists)
 const OR_MODEL_LS = 'lattice-db-or-model'; // chosen model id
 const OR_VERIFIER_LS = 'lattice-db-or-verifier'; // transient PKCE verifier (deleted after exchange)
@@ -368,9 +370,20 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
     },
     // The model catalog with pricing normalized to per-MILLION tokens (the API
     // gives per-token USD strings). Public endpoint; the key is not required.
+    // Forget the catalog (memo and stored copy): the next listModels() refetches, and a fetch already out cannot write its answer back.
+    invalidateCatalog() {
+      catalogCache = null;
+      catalogGen++;
+      catalogInflight = null;
+      writeLS(OR_CATALOG_LS, null);
+    },
     listModels() {
       if (catalogCache) return Promise.resolve(catalogCache);
-      catalogInflight ??= this.loadCatalog().finally(() => { catalogInflight = null; });
+      if (!catalogInflight) {
+        // Cleared only if still ours: a fetch that predates a self-heal must not clear the slot of the fresh one that replaced it.
+        const p = this.loadCatalog().finally(() => { if (catalogInflight === p) catalogInflight = null; });
+        catalogInflight = p;
+      }
       return catalogInflight;
     },
     async loadCatalog() {
@@ -382,14 +395,14 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
       const gen = catalogGen;
       let res;
       // A fetch that never answers would pin every caller to this one in-flight promise, so it is abandoned after 15 s (the next call tries again).
-      try { res = await fetch(OPENROUTER_MODELS_URL, typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? { signal: AbortSignal.timeout(15000) } : undefined); }
+      try { res = await fetch(OPENROUTER_MODELS_URL, typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? { signal: AbortSignal.timeout(CATALOG_FETCH_TIMEOUT_MS) } : undefined); }
       catch (e) { if (catalogCache) return catalogCache; throw e; } // serve stale rather than break the picker
       if (!res.ok) {
         if (catalogCache) return catalogCache;
         throw new Error('OpenRouter models failed (' + res.status + ')');
       }
       const j = await res.json();
-      catalogCache = (j.data || []).map((m) => ({
+      const list = (j.data || []).map((m) => ({
         id: m.id,
         name: m.name || m.id,
         promptPerM: m.pricing ? orPricePerM(m.pricing.prompt) : null,
@@ -404,10 +417,11 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
         // The model a `~…-latest` alias currently points at (OpenRouter's `alias_target.slug`); null for a plain id, and absent on a catalog cached before this field.
         aliasSlug: m.alias_target?.slug || null,
       }));
-      // The cache was invalidated while this fetch was out: hand back what it got, but leave the cache for the refetch the invalidation asked for.
-      if (gen !== catalogGen) { const stale = catalogCache; catalogCache = null; return stale; }
-      writeCachedCatalog(catalogCache);
-      return catalogCache;
+      // The cache was invalidated while this fetch was out: hand back what it got, but touch neither the cache nor the stored copy, which belong to the refetch the invalidation asked for.
+      if (gen !== catalogGen) return list;
+      catalogCache = list;
+      writeCachedCatalog(list);
+      return list;
     },
     async complete({ messages, json, onToken, signal, onUsage, onGenerationId, onFinishReason, maxTokens, plugins, cacheTtl, tools, toolChoice, onToolCalls, onToolStart, cacheTail, model: modelOverride, reasoningEffort }) {
       const key = readLS(OR_KEY_LS);
@@ -477,10 +491,7 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
         // model; any other failure, a retired id included, it shows with its cause ("pick
         // another model") instead of healing silently. Callers without tools still heal here.
         if (isDeadModelError(res.status, errText) && body.model !== defaultModel && !body.tools) {
-          catalogCache = null;
-          catalogGen++;
-          catalogInflight = null;
-          writeLS(OR_CATALOG_LS, null);
+          this.invalidateCatalog();
           res = await send(defaultModel);
         }
         if (!res.ok) {
@@ -1006,6 +1017,7 @@ export function createArchitectModel({ getSettings, explicitTierWins = false, de
     __setPromptAvailability(a) { promptAvail = a; },
     __setUniversal(b) { universal = b; },
     __setOpenRouter(b) { openrouter = b; },
+    __invalidateCatalog() { openrouter.invalidateCatalog(); }, // test hook: the dead-model self-heal's invalidation, without a dead model
   };
 }
 
