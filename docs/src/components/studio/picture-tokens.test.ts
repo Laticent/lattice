@@ -42,6 +42,19 @@ describe('pictureTokensFor — what one picture costs, by model', () => {
 	});
 });
 
+describe('variants and empty aliases', () => {
+	it('keys an exception by the base id, so the lookup that strips :free finds it, and keeps the dearer variant', () => {
+		const out = summarize([{ id: 'x/y:free', t512: 3000, t1568: 9000 }, { id: 'x/y', t512: 4000, t1568: 8000 }], '2026-10-14');
+		expect(Object.keys(out.exceptions)).toEqual(['x/y']);
+		expect(out.exceptions['x/y' as keyof typeof out.exceptions]).toEqual([7600, 17100]);
+	});
+	it('prices an alias whose slug is empty as the alias itself, not as the default', async () => {
+		const floor = data.vendorFloor.openai;
+		const tokens = await resolvePictureTokens({ openRouterModel: () => '~openai/gpt-6-astra-latest' }, [{ id: '~openai/gpt-6-astra-latest', aliasSlug: '' }]);
+		expect(tokens).toEqual({ thumb: floor[0], photo: floor[1] });
+	});
+});
+
 describe('the no-spend catalog check', () => {
 	const table = { measuredIds: ['a/one', 'a/two'], unmeasuredIds: ['a/failed'] };
 	it('reports a live vision model the table never saw, and one that is gone, but not one the probe already failed on', () => {

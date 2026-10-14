@@ -94,7 +94,10 @@ export function summarize(rows, measured, defaults = DEFAULTS, shape = SHAPE) {
 	for (const r of ok.sort((a, b) => a.id.localeCompare(b.id))) {
 		const thumb = r.t512 * shape;
 		const photo = r.t1568 * shape;
-		if (thumb > defaults.thumb || photo > defaults.photo) exceptions[r.id] = [up50(Math.max(thumb, defaults.thumb)), up50(Math.max(photo, defaults.photo))];
+		// The lookup strips a `:free` / `:nitro` variant, so the entry is keyed by the base id; two variants keep the dearer figure.
+		const base = r.id.replace(/:[^/]+$/, '');
+		const next = [up50(Math.max(thumb, defaults.thumb)), up50(Math.max(photo, defaults.photo))];
+		if (thumb > defaults.thumb || photo > defaults.photo) exceptions[base] = exceptions[base] ? [Math.max(exceptions[base][0], next[0]), Math.max(exceptions[base][1], next[1])] : next;
 	}
 	const byVendor = {};
 	for (const r of ok) {
@@ -177,7 +180,9 @@ async function probe(args) {
 		return i >= 0 ? args[i + 1] : null;
 	};
 	const cap = Number(flag('--cap') ?? 1.5);
-	const limit = flag('--limit') == null ? Infinity : Number(flag('--limit'));
+	const limitArg = args.includes('--limit') ? flag('--limit') : null;
+	if (args.includes('--limit') && (limitArg == null || limitArg.startsWith('--'))) throw new Error('probe-picture-tokens: --limit needs a whole number of at least 1');
+	const limit = limitArg == null ? Infinity : Number(limitArg);
 	if (Number.isNaN(limit) || limit < 1) throw new Error('probe-picture-tokens: --limit needs a whole number of at least 1');
 	const only = flag('--model');
 	const cat = (await (await fetch('https://openrouter.ai/api/v1/models')).json()).data;

@@ -11,7 +11,7 @@ export type PictureTokens = { thumb: number; photo: number };
 
 const DEFAULT: PictureTokens = data.defaults;
 const EXCEPTIONS = data.exceptions as unknown as Record<string, [number, number]>;
-const MEASURED = new Set<string>(data.measuredIds);
+const MEASURED = new Set<string>(data.measuredIds.map((id: string) => id.replace(/:[^/]+$/, '')));
 const VENDOR_FLOOR = data.vendorFloor as unknown as Record<string, [number, number]>;
 
 /** The id OpenRouter lists a model under: no `:variant` suffix (`:free`, `:nitro`). A `~` alias is not one; see resolvePictureTokens. */
@@ -45,7 +45,7 @@ export async function resolvePictureTokens(model: PictureModel, catalog?: Catalo
 	if (!id) return DEFAULT;
 	if (!id.startsWith('~')) return pictureTokensFor(id);
 	const hit = (catalog ?? (await boundedCatalog(model))).find((m) => m.id === id);
-	return pictureTokensFor(typeof hit?.aliasSlug === 'string' ? hit.aliasSlug : id);
+	return pictureTokensFor(typeof hit?.aliasSlug === 'string' && hit.aliasSlug ? hit.aliasSlug : id);
 }
 
 /** Tokens one picture costs on `modelId`. A measured model is charged its figure, or the default when it sits under it. A model the

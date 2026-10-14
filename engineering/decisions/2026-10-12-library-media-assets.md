@@ -361,11 +361,11 @@ in `chat-agent.ts`.
     tool to run before a release, not a CI step (a new CI job is the owner's call).
   - **Aliases.** `~anthropic/claude-sonnet-latest` style ids are not measured models. The catalog says which model each points
     at today (`alias_target.slug`; `listModels` keeps it as `aliasSlug`), and that one is looked up. All 15 vision aliases
-    point at measured models. A catalog cached before the field, or one that cannot be read, prices the alias as the default.
-  - **Not measured, so charged the default:** 20 of the 212 vision models: 404 or 403 (not served to our key), 400,
+    point at measured models. A catalog cached before the field, or one that cannot be read, prices the alias as an unmeasured model: its vendor's floor, else the default.
+  - **Not measured, so charged the vendor floor (else the default):** 20 of the 212 vision models: 404 or 403 (not served to our key), 400,
     rate-limited after a retry (429), a timeout, or a reading that made no sense (`gemini-4-argon` read -47 tokens for its 512 px
     picture; `grok-4.20-multi-agent` read 25,336 once and 1,509 on a retry, because its own prompt changes between calls).
-    A model released after 2026-10-13 is the default until the tool is rerun
+    A model released after 2026-10-13 pays its vendor's floor (else the default) until the tool is rerun
     (`OPENROUTER_ALLOW_SPEND=1 node tools/probe-picture-tokens.mjs --write`, about $1.4; it refuses `--write` on a partial run).
 - **A model's own image price raises that figure, never lowers it.** `listModels` keeps OpenRouter's `pricing.image` as
   `ORPrice.imagePerM`, and `pictureSurchargeUsd` adds the gap over the token figure to the gate (`cloudBudgetBlock`'s
