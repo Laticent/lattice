@@ -21,6 +21,8 @@
  *   ... --write [--date YYYY-MM-DD] [--allow-lost]
  *       Rewrite picture-tokens.data.json from this run. Refused on a partial run (--model, --limit, a --cap stop), and when it
  *       would drop a model the current table lists unless --allow-lost. Rows are saved first (--out, or a temp file).
+ *   node tools/probe-picture-tokens.mjs --check
+ *       No key, no spend: list the live vision models the table has never seen (exit 1 if any) and the ones it lists that are gone.
  *   node tools/probe-picture-tokens.mjs --from rows.json [--date YYYY-MM-DD] [--allow-lost]
  *       No spend: rebuild the data file from a saved probe (the rows file of an earlier run).
  * The key is read only from the environment and never printed. (HARD RULE #24, workflow.md §OpenRouter budget.)
@@ -51,6 +53,27 @@ const quantile = (xs, p) => {
 	return a[Math.min(a.length - 1, Math.floor(p * a.length))];
 };
 
+/** The vendor half of an OpenRouter id (`anthropic/claude-sonnet-5.5` -> `anthropic`); a `~` alias and a `:variant` are not part of it. */
+export function vendorOf(id) {
+	const m = /^~?([^/]+)\//.exec(String(id));
+	return m && m[1] !== '__proto__' ? m[1] : null;
+}
+
+/** Pure: the ids of the catalog's vision models, the set the probe measures and `--check` compares against. */
+export function visionIds(catalog) {
+	return catalog
+		.filter((m) => (m.architecture?.input_modalities || []).includes('image') && !m.id.endsWith(':batch') && !m.id.startsWith('~') && Number(m.pricing?.prompt) >= 0)
+		.map((m) => m.id);
+}
+
+/** Pure: how the live catalog differs from the table. `added` are vision models the table has never seen (charged their vendor's floor
+ *  until the probe is rerun); `gone` are ids the table lists that the catalog no longer carries. */
+export function checkCatalog(data, ids) {
+	const known = new Set([...(data.measuredIds ?? []), ...(data.unmeasuredIds ?? [])]);
+	const live = new Set(ids);
+	return { added: ids.filter((id) => !known.has(id)).sort(), gone: [...(data.measuredIds ?? [])].filter((id) => !live.has(id)).sort() };
+}
+
 /**
  * Pure: probe rows `{ id, t512, t1568 }` (token cost of one picture, or an `ERR …` string) into the
  * data file. Every reading is multiplied by `shape` (see SHAPE). A model is listed only when that costs MORE than a
@@ -73,8 +96,24 @@ export function summarize(rows, measured, defaults = DEFAULTS, shape = SHAPE) {
 		const photo = r.t1568 * shape;
 		if (thumb > defaults.thumb || photo > defaults.photo) exceptions[r.id] = [up50(Math.max(thumb, defaults.thumb)), up50(Math.max(photo, defaults.photo))];
 	}
+	const byVendor = {};
+	for (const r of ok) {
+		const v = vendorOf(r.id);
+		if (v) (byVendor[v] ??= []).push(r);
+	}
+	// A model not measured (a probe error, or released since) is charged its vendor's 90th percentile, never less than the default:
+	// vendors tend to share an image scheme. Only a vendor with three or more readings gets a floor, and only when it beats a default.
+	const vendorFloor = {};
+	for (const [v, rs] of Object.entries(byVendor).sort(([a], [b]) => a.localeCompare(b))) {
+		if (rs.length < 3) continue;
+		const thumb = up50(Math.max(quantile(rs.map((r) => r.t512 * shape), 0.9), defaults.thumb));
+		const photo = up50(Math.max(quantile(rs.map((r) => r.t1568 * shape), 0.9), defaults.photo));
+		if (thumb > defaults.thumb || photo > defaults.photo) vendorFloor[v] = [thumb, photo];
+	}
 	return {
 		measured,
+		measuredIds: ok.map((r) => r.id).sort(),
+		unmeasuredIds: rows.filter((r) => !ok.includes(r)).map((r) => r.id).sort(),
 		models: ok.length,
 		unmeasured: rows.length - ok.length,
 		defaults,
@@ -83,6 +122,7 @@ export function summarize(rows, measured, defaults = DEFAULTS, shape = SHAPE) {
 		p90: ok.length ? [quantile(ok.map((r) => r.t512), 0.9), quantile(ok.map((r) => r.t1568), 0.9)] : [0, 0],
 		max: ok.length ? [Math.max(...ok.map((r) => r.t512)), Math.max(...ok.map((r) => r.t1568))] : [0, 0],
 		exceptions,
+		vendorFloor,
 	};
 }
 
@@ -141,7 +181,7 @@ async function probe(args) {
 	if (Number.isNaN(limit) || limit < 1) throw new Error('probe-picture-tokens: --limit needs a whole number of at least 1');
 	const only = flag('--model');
 	const cat = (await (await fetch('https://openrouter.ai/api/v1/models')).json()).data;
-	let models = cat.filter((m) => (m.architecture?.input_modalities || []).includes('image') && !m.id.endsWith(':batch') && !m.id.startsWith('~') && Number(m.pricing?.prompt) >= 0).map((m) => m.id);
+	let models = visionIds(cat);
 	if (only) models = models.filter((id) => id === only);
 	models = models.slice(0, limit);
 	console.log(`probe-picture-tokens: ${models.length} model(s), ${models.length * 3} calls, at most $${cap} (typically ~$0.007 a model).`);
@@ -212,6 +252,16 @@ async function probe(args) {
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
 	const args = process.argv.slice(2);
+	if (args.includes('--check')) {
+		// No key, no spend: one GET of the public model list. Exit 1 when a vision model the table has never seen is live.
+		const cat = (await (await fetch('https://openrouter.ai/api/v1/models')).json()).data;
+		const { added, gone } = checkCatalog(JSON.parse(fs.readFileSync(DATA_FILE, 'utf8')), visionIds(cat));
+		console.log(`probe-picture-tokens --check: ${added.length} vision model(s) not in the table, ${gone.length} in the table no longer listed.`);
+		for (const id of added) console.log(`  new   ${id}`);
+		for (const id of gone) console.log(`  gone  ${id}`);
+		if (added.length) console.error('Each new model is charged its vendor floor (else the default) until the table is rerun: OPENROUTER_ALLOW_SPEND=1 node tools/probe-picture-tokens.mjs --write');
+		process.exit(added.length ? 1 : 0);
+	}
 	const from = args.indexOf('--from');
 	const rows = from >= 0 ? JSON.parse(fs.readFileSync(args[from + 1], 'utf8')) : await probe(args);
 	if (from >= 0 || args.includes('--write')) {

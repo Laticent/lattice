@@ -1732,12 +1732,12 @@ export function chatSystemTokens(generation: string, grounding?: ChatGrounding, 
  *  lives with the agent (chat-agent.ts `agentTurnUsd`), not in startup JavaScript; until that
  *  module lands this returns null and starts loading it, and the readout re-prices on
  *  `lattice-chat-agent-ready`. */
-export function agentTurnUsd(price: ORPrice | null, grounding: ChatGrounding | undefined, primed: boolean, source: string, extraTokens = 0, libraryCount = 0): { question: number; edit: number } | null {
+export function agentTurnUsd(price: ORPrice | null, grounding: ChatGrounding | undefined, primed: boolean, source: string, extraTokens = 0, libraryCount = 0, explicitCache = true): { question: number; edit: number } | null {
 	if (!chatAgentMod) {
 		loadChatAgent().catch(() => {});
 		return null;
 	}
-	return chatAgentMod.agentTurnUsd(price, grounding, primed, source, extraTokens, libraryCount);
+	return chatAgentMod.agentTurnUsd(price, grounding, primed, source, extraTokens, libraryCount, explicitCache);
 }
 
 /** Estimate a cloud call's USD cost: prompt tokens × in-price + an output ceiling ×

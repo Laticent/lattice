@@ -754,6 +754,20 @@ describe('agentTurnUsd — the readout quotes a question AND an edit, at the typ
 		expect(cold?.question).toBeGreaterThan(warm?.question ?? Infinity);
 		expect(agentTurnUsd(null, grounding, true, deck)).toBeNull();
 	});
+
+	it('applies cache write premiums and read discounts only when explicit breakpoints are sent', () => {
+		const cached = agentTurnUsd(price, grounding, true, deck, 0, 0, true);
+		const cold = agentTurnUsd(price, grounding, false, deck, 0, 0, true);
+		const plain = agentTurnUsd(price, grounding, true, deck, 0, 0, false);
+		const plainCold = agentTurnUsd(price, grounding, false, deck, 0, 0, false);
+		// No breakpoint: no 0.1x read, no 2x / 1.25x write, so a first turn and a later one cost the same and sit above the warm cached quote.
+		expect(plain).toEqual(plainCold);
+		expect(plain?.question).toBeGreaterThan(cached?.question ?? Infinity);
+		// A cold explicit-cache turn pays the write premium, which plain input does not.
+		expect(cold?.question).toBeGreaterThan(plain?.question ?? Infinity);
+		// The default is the Anthropic quote.
+		expect(agentTurnUsd(price, grounding, true, deck)).toEqual(cached);
+	});
 });
 
 // The trio's headline finding: "couldn't check" must never render as "checked, clean".

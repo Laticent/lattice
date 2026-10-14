@@ -256,9 +256,10 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 
 	// After the first turn of a thread the cached prefix is a READ, not a write — the cost
 	// readout weights it accordingly. Chat state, so it is resolved here and handed down.
-	// The switch only governs Anthropic's breakpoint, so on any other model it cannot unprime the readout: it prices the prefix as a read after the
-	// first turn, as it already did with the switch on. That is right for the vendors that cache on their own (OpenAI, Google, DeepSeek, x-ai) and
-	// optimistic for one that does not cache at all (the readout only; the budget gate prices every round uncached).
+	// Only a request that carries Anthropic's explicit breakpoint is billed at cache rates (2x / 1.25x writes, 0.1x reads). With the switch off,
+	// or on any other vendor, `explicitCache` is false and the readout prices every token at the base rate: an upper bound for the vendors that
+	// cache on their own (OpenAI, Google, DeepSeek, x-ai), exact for one that does not cache at all.
+	const explicitCache = status.generation === 'openrouter' && readCachingEnabled() && orSupportsCache(status.modelId ?? '');
 	const primed = status.generation === 'openrouter' && (readCachingEnabled() || !orSupportsCache(status.modelId ?? '')) && messages.length > 0;
 	// The money readout lives in the PANEL HEADER now (ChatCost), not in a strip of its
 	// own between the transcript and the composer — that row cost a whole line of a narrow
@@ -505,7 +506,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 
 	// One element, two destinations (this panel's own header row, or a host header's actions
 	// slot via a portal) — built once so the two can't drift.
-	const costReadout = <ChatCost source={source} grounding={grounding} docs={refDoc.docs} primed={primed} />;
+	const costReadout = <ChatCost source={source} grounding={grounding} docs={refDoc.docs} primed={primed} explicitCache={explicitCache} />;
 
 	// WHAT IS ON SCREEN, as opposed to what is in flight. The buffer belongs to the deck that
 	// asked for it; on any other deck this panel shows that deck's transcript and nothing of

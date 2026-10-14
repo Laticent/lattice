@@ -372,7 +372,7 @@ function withFit(grounding?: ChatGrounding): ((source: string) => Promise<DeckCh
  * 4,096-token output CEILING, which is the budget gate's worst case and quoted every turn at
  * ~3x a question's real cost. The ceiling stays in the gate; this is the typical turn.
  */
-export function agentTurnUsd(price: ORPrice | null, grounding: ChatGrounding | undefined, primed: boolean, source: string, extraTokens = 0, libraryCount = 0): { question: number; edit: number } | null {
+export function agentTurnUsd(price: ORPrice | null, grounding: ChatGrounding | undefined, primed: boolean, source: string, extraTokens = 0, libraryCount = 0, explicitCache = true): { question: number; edit: number } | null {
 	if (!price || price.promptPerM == null || price.completionPerM == null) return null;
 	const inUsd = price.promptPerM / 1e6;
 	const outUsd = price.completionPerM / 1e6;
@@ -385,9 +385,13 @@ export function agentTurnUsd(price: ORPrice | null, grounding: ChatGrounding | u
 	// Round one: the static prefix at the cache-read rate once a turn has written it, and
 	// at the 1-hour write rate (2x) on the turn that writes it; the rest is written to the
 	// 5-minute cache for the next round (1.25x).
-	const firstIn = stat * (primed ? CACHE_READ_RATE : CACHE_WRITE_1H_RATE) + rest * CACHE_WRITE_RATE;
+	// The 2x / 1.25x writes and the 0.1x read belong to a request that carries explicit cache breakpoints (Anthropic, with the
+	// Workspace switch on). Without them nothing is written at a premium and no discount is promised: a vendor that caches on its
+	// own (Google) may bill less than this, so the readout is an upper bound there, never an under-quote.
+	const [readRate, write1h, write5m] = explicitCache ? [CACHE_READ_RATE, CACHE_WRITE_1H_RATE, CACHE_WRITE_RATE] : [1, 1, 1];
+	const firstIn = stat * (primed ? readRate : write1h) + rest * write5m;
 	const question = firstIn * inUsd + AGENT_TURN.questionOut * outUsd;
-	const second = ((stat + rest) * CACHE_READ_RATE + AGENT_TURN.editDocTokens * CACHE_WRITE_RATE) * inUsd + AGENT_TURN.editOut * outUsd;
+	const second = ((stat + rest) * readRate + AGENT_TURN.editDocTokens * write5m) * inUsd + AGENT_TURN.editOut * outUsd;
 	const edit = firstIn * inUsd + AGENT_TURN.editFirstOut * outUsd + second;
 	return { question, edit };
 }

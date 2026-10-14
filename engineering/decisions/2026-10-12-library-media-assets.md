@@ -353,7 +353,12 @@ in `chat-agent.ts`.
     all 192; a tiled model outside those eight with a worse thin-picture ratio would still be under-charged.
   - **Table.** A default (`thumb` 2,150, `photo` 4,450, at or above the 90th percentile of the 192 models measured, after the
     shape factor) plus the 28 models that cost more, each rounded up to 50. `resolvePictureTokens(model)` (`picture-tokens.ts`)
-    reads it; a model not in the table is charged the default.
+    reads it. The file also lists the ids it measured (`measuredIds`) and the ones the probe failed on (`unmeasuredIds`), so a model
+    outside both is known to be new. A model that was not measured is charged its vendor's 90th percentile (`vendorFloor`: five
+    vendors today, each with three or more readings and a figure above the default), else the default. This is the answer to table
+    rot: Gemini 2.5 Flash showed a vendor's models share a scheme. `node tools/probe-picture-tokens.mjs --check` needs no key and
+    spends nothing: it fetches the public model list and exits 1 when a vision model is live that the table has never seen. It is a
+    tool to run before a release, not a CI step (a new CI job is the owner's call).
   - **Aliases.** `~anthropic/claude-sonnet-latest` style ids are not measured models. The catalog says which model each points
     at today (`alias_target.slug`; `listModels` keeps it as `aliasSlug`), and that one is looked up. All 15 vision aliases
     point at measured models. A catalog cached before the field, or one that cannot be read, prices the alias as the default.
@@ -707,9 +712,10 @@ marked first call costs 1.25x ($0.003156 against $0.002526) and a repeat 0.1x ($
 **Everything that follows from Google not taking markers.** The Coach's per-finding Fix sent its own marker (`architect-fix.js`
 `buildFixMessages`) whenever the switch was on, whatever the vendor; it now follows `orSupportsCache`. The Workspace "Reuse the
 cached prompt" switch is disabled for a model that caches on its own, with the reason in its copy (OpenAI, Google, DeepSeek, x-ai).
-The cost readout treats such a model as primed after the first turn whatever the stored switch says, because the switch only
-governs Anthropic's breakpoint (`ArchitectChat.tsx`). The readout's cache rates (2x write, 0.1x read) are still Anthropic's for every
-vendor; they overstate a cold Google or OpenAI turn and are untouched here.
+The cost readout applies Anthropic's cache rates (2x write, 0.1x read) only to a request that carries an explicit breakpoint, meaning
+an Anthropic model with the switch on (`explicitCache` in `ArchitectChat.tsx`, `agentTurnUsd`). Any other request is priced at the base
+rate: exact for a model that does not cache, and an upper bound for a vendor that caches on its own (Google, OpenAI, DeepSeek, x-ai),
+whose discount the readout does not promise because the hit rate is the vendor's.
 
 **The price must be known before the first spend.** The budget gate compares an estimate against the cap, and the estimate needs the
 model's price from the catalog, which loaded only when something asked for it (the Workspace model tab, an alias lookup). With no price

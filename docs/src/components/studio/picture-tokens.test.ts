@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { DEFAULTS, lostExceptions, pictureCost, SHAPE, summarize } from '../../../../tools/probe-picture-tokens.mjs';
+import { checkCatalog, DEFAULTS, lostExceptions, pictureCost, SHAPE, summarize, vendorOf, visionIds } from '../../../../tools/probe-picture-tokens.mjs';
 import { boundedCatalog, IMAGE_RATE_MAX_MULTIPLE, pictureSurchargeUsd, pictureTokensFor, priceRound, resolvePictureTokens } from './picture-tokens';
 import data from './picture-tokens.data.json';
 
@@ -11,6 +11,63 @@ describe('pictureTokensFor — what one picture costs, by model', () => {
 		expect(pictureTokensFor(undefined)).toEqual(data.defaults);
 		expect(pictureTokensFor('')).toEqual(data.defaults);
 	});
+	it('charges a model the table never measured its vendor floor, and a measured one the default', () => {
+		const floor = data.vendorFloor.openai;
+		expect(floor[1]).toBeGreaterThan(data.defaults.photo);
+		expect(pictureTokensFor('openai/gpt-9-not-yet-measured')).toEqual({ thumb: floor[0], photo: floor[1] });
+		expect(pictureTokensFor('openai/gpt-9-not-yet-measured:nitro')).toEqual({ thumb: floor[0], photo: floor[1] });
+		expect(pictureTokensFor('openai/gpt-5-mini')).toEqual(data.defaults); // measured, under the default
+		expect(pictureTokensFor('brand-new-vendor/model')).toEqual(data.defaults); // no readings for the vendor
+		for (const id of ['__proto__/x', 'constructor/x', '~constructor/x']) expect(pictureTokensFor(id)).toEqual(data.defaults);
+	});
+	it('records every model it saw, and floors only a vendor with three readings that beats a default', () => {
+		const rows = [
+			{ id: 'v/a', t512: 1000, t1568: 3000 },
+			{ id: 'v/b', t512: 1100, t1568: 3100 },
+			{ id: 'v/c', t512: 1200, t1568: 3200 },
+			{ id: 'v/d', t512: 5000, t1568: 20000 },
+			{ id: 'w/a', t512: 5000, t1568: 20000 },
+			{ id: 'w/b', t512: 5000, t1568: 20000 },
+			{ id: 'x/a', t512: 100, t1568: 100 },
+			{ id: 'x/b', t512: 100, t1568: 100 },
+			{ id: 'x/c', t512: 100, t1568: 100 },
+			{ id: 'y/err', t512: 'ERR 429', t1568: 'ERR 429' },
+		];
+		const out = summarize(rows, '2026-10-14');
+		expect(out.measuredIds).toEqual(['v/a', 'v/b', 'v/c', 'v/d', 'w/a', 'w/b', 'x/a', 'x/b', 'x/c']);
+		expect(out.unmeasuredIds).toEqual(['y/err']);
+		expect(Object.keys(out.vendorFloor)).toEqual(['v']); // w has two readings, x is under the default
+		const [vThumb] = (out.vendorFloor as Record<string, number[]>).v;
+		expect(vThumb).toBeGreaterThanOrEqual((out.exceptions as Record<string, number[]>)['v/c'][0]);
+	});
+});
+
+describe('the no-spend catalog check', () => {
+	const table = { measuredIds: ['a/one', 'a/two'], unmeasuredIds: ['a/failed'] };
+	it('reports a live vision model the table never saw, and one that is gone, but not one the probe already failed on', () => {
+		expect(checkCatalog(table, ['a/one', 'a/failed', 'a/new'])).toEqual({ added: ['a/new'], gone: ['a/two'] });
+		expect(checkCatalog(table, ['a/one', 'a/two', 'a/failed'])).toEqual({ added: [], gone: [] });
+	});
+	it('picks vision models the way the probe does, and finds a vendor without trusting the id', () => {
+		const cat = [
+			{ id: 'a/vis', architecture: { input_modalities: ['text', 'image'] }, pricing: { prompt: '0.000001' } },
+			{ id: 'a/text', architecture: { input_modalities: ['text'] }, pricing: { prompt: '0.000001' } },
+			{ id: 'a/vis:batch', architecture: { input_modalities: ['image'] }, pricing: { prompt: '0.000001' } },
+			{ id: '~a/alias', architecture: { input_modalities: ['image'] }, pricing: { prompt: '0.000001' } },
+		];
+		expect(visionIds(cat)).toEqual(['a/vis']);
+		expect(vendorOf('anthropic/claude-sonnet-5.5')).toBe('anthropic');
+		expect(vendorOf('~anthropic/claude-sonnet-latest')).toBe('anthropic');
+		expect(vendorOf('__proto__/x')).toBeNull();
+		expect(vendorOf('noslash')).toBeNull();
+	});
+	it('matches the committed table: no model is both measured and unmeasured, and every exception is measured', () => {
+		expect(data.measuredIds.filter((id: string) => data.unmeasuredIds.includes(id))).toEqual([]);
+		for (const id of Object.keys(data.exceptions)) expect(data.measuredIds, id).toContain(id);
+	});
+});
+
+describe('the table, continued', () => {
 	it('charges a listed model its measured figure, whatever variant the id carries', () => {
 		// Measured 2026-10-13: a 512 px 3:2 picture is 8,500 tokens and a 1568 px one 36,835 on GPT-4o mini; times the 1.9 shape factor.
 		expect(pictureTokensFor('openai/gpt-4o-mini')).toEqual({ thumb: 16150, photo: 70000 });
@@ -58,9 +115,11 @@ describe('resolvePictureTokens — a ~…-latest alias is priced as the model it
 	});
 	it('prices a plain id without the catalog, and falls back to the default when the catalog is unreadable or stale', async () => {
 		expect(await resolvePictureTokens(model('openai/gpt-4o-mini', new Error('offline')))).toEqual(pictureTokensFor('openai/gpt-4o-mini'));
-		expect(await resolvePictureTokens(model('~openai/gpt-6-astra-latest', new Error('offline')))).toEqual(data.defaults);
+		// An alias the catalog cannot resolve is an unmeasured model: it pays its vendor's floor.
+		const openaiFloor = { thumb: data.vendorFloor.openai[0], photo: data.vendorFloor.openai[1] };
+		expect(await resolvePictureTokens(model('~openai/gpt-6-astra-latest', new Error('offline')))).toEqual(openaiFloor);
 		// A catalog cached before the aliasSlug field existed.
-		expect(await resolvePictureTokens(model('~openai/gpt-6-astra-latest', [{ id: '~openai/gpt-6-astra-latest' }]))).toEqual(data.defaults);
+		expect(await resolvePictureTokens(model('~openai/gpt-6-astra-latest', [{ id: '~openai/gpt-6-astra-latest' }]))).toEqual(openaiFloor);
 		expect(await resolvePictureTokens({})).toEqual(data.defaults);
 	});
 });

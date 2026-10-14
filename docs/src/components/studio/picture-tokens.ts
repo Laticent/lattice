@@ -11,6 +11,8 @@ export type PictureTokens = { thumb: number; photo: number };
 
 const DEFAULT: PictureTokens = data.defaults;
 const EXCEPTIONS = data.exceptions as unknown as Record<string, [number, number]>;
+const MEASURED = new Set<string>(data.measuredIds);
+const VENDOR_FLOOR = data.vendorFloor as unknown as Record<string, [number, number]>;
 
 /** The id OpenRouter lists a model under: no `:variant` suffix (`:free`, `:nitro`). A `~` alias is not one; see resolvePictureTokens. */
 function catalogId(id: string): string {
@@ -46,12 +48,18 @@ export async function resolvePictureTokens(model: PictureModel, catalog?: Catalo
 	return pictureTokensFor(typeof hit?.aliasSlug === 'string' ? hit.aliasSlug : id);
 }
 
-/** Tokens one picture costs on `modelId`. A model the table does not list is charged the default, which a
- *  future model with an unusual image scheme (GPT-4o mini was one) can exceed: rerun the probe tool then. */
+/** Tokens one picture costs on `modelId`. A measured model is charged its figure, or the default when it sits under it. A model the
+ *  table has never measured (one released since, or one whose probe failed) is charged its vendor's 90th percentile where the
+ *  vendor has three or more readings, since a vendor tends to keep one image scheme, and the default otherwise.
+ *  `probe-picture-tokens.mjs --check` lists the live models the table has not seen. */
 export function pictureTokensFor(modelId: string | null | undefined): PictureTokens {
 	const key = modelId ? catalogId(modelId) : '';
-	const hit = key && Object.hasOwn(EXCEPTIONS, key) ? EXCEPTIONS[key] : undefined;
-	return hit ? { thumb: hit[0], photo: hit[1] } : DEFAULT;
+	if (!key) return DEFAULT;
+	if (Object.hasOwn(EXCEPTIONS, key)) return { thumb: EXCEPTIONS[key][0], photo: EXCEPTIONS[key][1] };
+	if (MEASURED.has(key)) return DEFAULT;
+	const vendor = key.replace(/^~/, '').split('/')[0];
+	const floor = vendor && Object.hasOwn(VENDOR_FLOOR, vendor) ? VENDOR_FLOOR[vendor] : null;
+	return floor ? { thumb: floor[0], photo: floor[1] } : DEFAULT;
 }
 
 /** Models that list `pricing.image` price it as a per-token rate equal to their prompt rate (all 18 of the
