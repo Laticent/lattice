@@ -29,11 +29,25 @@ why now   — the author wants the chat to "do things" in Lattice, and asked wha
             3. Cost. Each tool round re-sends the conversation; more tools mean more rounds and a longer cached prefix.
             4. Confident and wrong. A tool that acts skips the moment where the author reads the change.
             5. The on-device models cannot drive tools at all (§3.3), so a tool-only feature is cloud-only.
+            THE PROPOSED CONTROL (the author, 2026-10-14): a person approves tool use by default, and chooses how
+            much to allow from a mode button on the composer bar, beside the paperclip, in the spirit of Claude
+            Code's permission modes (Auto / Accept edits / Plan) without copying their semantics. A first cut:
+              Talk     — reads only; the edit tools are not sent at all, so the model cannot edit, whatever it decides.
+              Review   — the default and today's behavior: reads run, edits stage on the draft for the diff card,
+                         any action (export, share, delete, spend) asks each time in a confirm the model cannot press.
+              Auto     — edits apply straight away (undoable from History); actions still ask, unless the person has
+                         allowed that one action by name. Irreversible actions never auto-approve as a class.
+            Rules: the mode is enforced in code (which tools a request carries, and a host gate on each call), never
+            by the prompt; the model can neither press the confirm nor change the mode; the current mode is always
+            shown on the button. Open: room on the 390 px bar, which already holds paperclip, Library, the facts lock
+            and regenerate (check with tools/screenshot.js at 1440/820/390), and keeping the facts lock a separate
+            control. Talk alone would have prevented the #2691 bug structurally, not through the prompt.
 where     — engineering/decisions/2026-10-05-studio-chat-agent.md (§3.2 tools, §5.1 threat model, §10 what it does not do);
             docs/src/components/studio/architect-agent.ts (AGENT_TOOLS, createToolbox, EDIT_TOOLS);
             design/skills/README.md.
 done when — a decision note that sorts candidate tools into three tiers (read freely; stage on the draft for the
-            diff card; act only after an explicit confirm in the chat UI that the model cannot press), names the first
+            diff card; act only after an explicit confirm in the chat UI that the model cannot press), settles the mode
+            control above (modes, default, placement, per-deck or per-conversation), names the first
             two or three tools worth building and why, states the injection rule for each tier, and is put to the
             author in one round (CLAUDE.md "Design-before-code").
 evidence  — the note, with a measured cost per extra tool round from a real turn (the author's key), and a red-team
