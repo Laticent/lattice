@@ -37,8 +37,13 @@ export type MediaRecord = {
 	height: number;
 	/** The file name the person picked, before it was turned into `name`. */
 	sourceName: string;
-	/** False once the importer downscaled a photo; the stored pixels are not the camera's. */
+	/** False once the importer downscaled a photo; the stored pixels are not the camera's. A video is stored as given. */
 	original: boolean;
+	/** Video only: the length in milliseconds. */
+	durationMs?: number;
+	/** Video only: a small JPEG data URL of an early frame. A string, not a Blob, because it is a few KB and
+	 *  a string stores in every engine, including a Safari private window that refuses a Blob. */
+	poster?: string;
 	/** A one-line description of what the picture shows, written by the chat the first time it
 	 *  looked at the photo (agent-assets.ts). Tied to this record's bytes: replacing a photo is
 	 *  delete-and-add, which makes a new record and so drops the caption. Optional and never
@@ -112,6 +117,31 @@ export function sniffImageMime(b: Uint8Array): string | null {
 	return null;
 }
 
+/** Does this MIME type name an ISO box file (MP4 or QuickTime), the kind `video-scrub.ts` can clean? WebM is not one. */
+export const isIsoVideo = (mime: string): boolean => mime === 'video/mp4' || mime === 'video/quicktime';
+
+/** The most a stored poster may be, in characters: a 160 px JPEG is a few KB. */
+export const MAX_POSTER_CHARS = 120_000;
+/** Is this a poster Lattice may put in an `<img src>`: a plain JPEG data URL of a sane size, and nothing else (no
+ *  `https:` address that would fetch from a stranger's server, no SVG, no `javascript:`)? A poster in a backup or a
+ *  saved chat thread is text from a file, so this is asked at every place it is read. */
+export function isPosterDataUrl(v: unknown): v is string {
+	return typeof v === 'string' && v.length <= MAX_POSTER_CHARS && /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(v);
+}
+
+/** What the leading bytes say a video is: MP4 or QuickTime (`ftyp`) and WebM (EBML header). Null for anything
+ *  else. A video file's own `type` comes from its extension or the recorder, so the bytes decide, as for photos. */
+export function sniffVideoMime(b: Uint8Array): string | null {
+	const at = (i: number, s: string) => s.split('').every((ch, k) => b[i + k] === ch.charCodeAt(0));
+	if (b[0] === 0x1a && b[1] === 0x45 && b[2] === 0xdf && b[3] === 0xa3) return 'video/webm';
+	if (at(4, 'ftyp')) {
+		// AVIF and HEIC pictures share the `ftyp` box; they are images, never clips.
+		if (['avif', 'avis', 'heic', 'heix', 'hevc', 'hevx', 'heim', 'heis', 'mif1', 'msf1'].some((brand) => at(8, brand))) return null;
+		return at(8, 'qt') ? 'video/quicktime' : 'video/mp4';
+	}
+	return null;
+}
+
 function newId(): string {
 	return `m_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -133,7 +163,7 @@ export async function saveMedia(input: NewMedia, addedAt: number): Promise<Media
 		if (isRefusal(first)) throw first;
 		// A full disk is not a Blob problem, and a second attempt would only copy the bytes into memory
 		// and fail the same way. Say what is true.
-		if (isQuota(first)) throw new Error(`${MEDIA_REFUSAL_PREFIX} this browser has no room left to store photos. Delete some photos or other saved items and try again.`);
+		if (isQuota(first)) throw new Error(`${MEDIA_REFUSAL_PREFIX} this browser has no room left to store photos or videos. Delete some photos, videos or other saved items and try again.`);
 		// Some engines refuse to store a Blob at all: Safari in a private window answers
 		// "UnknownError: Error preparing Blob/File data to be stored in object store" (reproduced on real
 		// WebKit), while an ArrayBuffer stores fine. So the bytes go in as an ArrayBuffer and are rebuilt
@@ -143,8 +173,8 @@ export async function saveMedia(input: NewMedia, addedAt: number): Promise<Media
 			return await putMedia(input, id, addedAt, true);
 		} catch (second) {
 			if (isRefusal(second)) throw second;
-			if (isQuota(second)) throw new Error(`${MEDIA_REFUSAL_PREFIX} this browser has no room left to store photos. Delete some photos or other saved items and try again.`);
-			throw new Error(`${MEDIA_REFUSAL_PREFIX} this browser would not store the photo. A private window often cannot; open Lattice in a normal window and try again.`);
+			if (isQuota(second)) throw new Error(`${MEDIA_REFUSAL_PREFIX} this browser has no room left to store photos or videos. Delete some photos, videos or other saved items and try again.`);
+			throw new Error(`${MEDIA_REFUSAL_PREFIX} this browser would not store that file. A private window often cannot; open Lattice in a normal window and try again.`);
 		}
 	}
 }

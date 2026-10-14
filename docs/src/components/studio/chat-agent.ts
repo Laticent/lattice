@@ -140,7 +140,10 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 	const library = await agentAssets.list().catch(() => []);
 	// Asked only when there is something to look at: a model that cannot read images is not nudged to try.
 	const sees = library.length ? await modelSeesImages(model, await catalog()) : false;
-	const { staticPrefix, dynamicTail } = agentSystemParts(source, grounding, opts?.constrainFacts ? FACT_GUARD : '', assetManifest(library, undefined, sees));
+	// The clips riding this message, by Library name: the prompt says so, because the Library lists them as videos and
+	// `view_asset` cannot show a video, and a model told both reasonably answers that it cannot watch it.
+	const attachedVideos = new Set((opts?.videos ?? []).map((v) => v.name).filter((n): n is string => !!n));
+	const { staticPrefix, dynamicTail } = agentSystemParts(source, grounding, opts?.constrainFacts ? FACT_GUARD : '', assetManifest(library, undefined, sees, attachedVideos));
 	const systemContent = [
 		{ type: 'text', text: staticPrefix },
 		{ type: 'text', text: dynamicTail },
@@ -173,6 +176,7 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 		slideWordBudget: agentBudget(grounding).slideWordBudget,
 		assets: library.length ? agentAssets : undefined,
 		canSee: async () => sees,
+		attachedVideos,
 	});
 	const systemTokens = estTokens(staticPrefix) + estTokens(dynamicTail);
 	const docTokens = refDocsTokens(docs);

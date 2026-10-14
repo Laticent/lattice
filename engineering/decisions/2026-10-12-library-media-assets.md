@@ -5,7 +5,7 @@ summary: Photos and videos in the Library — one `asset:<name>` namespace, a sc
 
 # Library media assets — photos and videos, shared or per deck (2026-10-12)
 
-**Where this stands:** images (slices 1 to 4) are built in #2640; video (slice 5) and the open questions below are still proposals.
+**Where this stands:** images (slices 1 to 4) are built in #2640. Video (slice 5) is built in part: a `video` record, intake, a Videos tab, backup and restore, and the chat's clips (see "Slice 5 as built" below). A slide still cannot show a video, no export carries one, and the open questions below are unsettled.
 
 **Owner rulings (2026-10-12):** one `asset:<name>` namespace with a `scope` flag rather than two
 prefixes; images and video in the same line of work; one Images tab with a "This deck / All
@@ -156,7 +156,8 @@ shows its file dialog and a drag-and-drop onto the Library accepts the same type
 - **HEIC** (iPhone's native format): iOS Safari converts to JPEG when `accept` names `image/*`
   and `image/heic` is not requested. Other browsers that hand back raw HEIC get a clear
   "this browser can't read HEIC; export as JPEG" refusal, not a silent broken picture.
-- **Video** is stored as given (no transcoding in the browser). Import captures a poster frame
+- **Video** is stored without re-encoding (none in the browser), but an MP4 or QuickTime clip has its metadata boxes
+  overwritten first ("Clip location data" below). Import captures a poster frame
   at 0.5 s onto a canvas, and reads duration.
 - **"Files"** (the third word in the ask) is already the reference-doc tab. It stays the home of
   `.txt/.md/.pdf`; nothing else is accepted, and the Images tab does not grow a "any file"
@@ -615,6 +616,159 @@ above were produced from the real Studio in both modes.
 **UNVERIFIED:** the sideways pan itself (it was seen on an iPhone; Chromium does not reproduce it, so the spec pins the layout that prevents it), Firefox and WebKit (only Chromium is installed here; the engine-sensitive tests are tagged for the nightly's
 `@webkit-tablet @gecko` projects), real touch input, a screen reader, and **how a real model words a description** (the model is mocked).
 
+## Slice 5 as built (2026-10-13)
+
+What shipped, and where it differs from the proposal in §1:
+
+- **Record.** `kind: 'video'` in the same store, bytes as a `Blob`, plus `durationMs` and a `poster`. The poster
+  is a **data-URL string**, not a `Blob` as §1 proposed: it is a 160 px JPEG of a few KB, and a string stores in
+  every engine, including a Safari private window that refuses a `Blob`. One name still means one asset
+  across both kinds and both scopes (`saveMedia` is unchanged).
+- **Intake.** `importVideo` (`media-import.ts`) refuses a file over 50 MB (`MAX_MEDIA_FILE_BYTES`), reads the
+  type from the bytes (`sniffVideoMime`: MP4, QuickTime, WebM; an AVIF or HEIC picture shares the `ftyp` box
+  and is refused as a video), overwrites an MP4 or QuickTime clip's metadata boxes (`video-scrub.ts`, see "Clip
+  location data" below), and plays the first frame to get the length, size and poster. The Library picker accepts `video/*` as §3 said; a clip goes straight in (there is no
+  format to choose), a photo still goes through the format dialog.
+- **Tab.** A **Videos** tab beside Images. "All" shows both kinds. The card shows the poster and length, and
+  plays the clip inline on a tap; the clip gets an object URL only while it plays, so a shelf of videos does
+  not pin its bytes.
+- **Backup and restore.** `media.json` rows carry `kind: 'video'`, `durationMs` and `poster`; the file is
+  written as `.mp4`, `.webm` or `.mov`. A restore checks the row's kind against its type, the bytes against the
+  sniffer, and keeps a poster only if it is a plain JPEG data URL of a sane size (it goes into an `<img src>`).
+  A restored MP4 or QuickTime clip is run through the same scrubber, and refused when its boxes cannot be read.
+- **Not built.** Rendering a video on a slide, the HTML-player embed cap, and the poster in PDF, PNG and PPTX
+  exports. A deck that writes `asset:<video name>` resolves to the missing-image stand-in, because the
+  name → URL map and editor completion list photos only, and the chat's manifest does not offer a video as
+  something to put on a slide. **No export carries a clip, so no exported byte changed**: `.lattice` export and its Share summary pack photos only (`lattice-media.ts` filters on kind; a checker found the first version packed a clip when deck text named it, and a test now pins it), and the image exports never saw one (the name → URL map is photos only) and the
+  export sign-off in "Gates" is still owed by whoever builds the slide side.
+
+Known limits of what shipped, found by an independent review and left as they are:
+
+- **Safari's private-window fallback keeps bytes in memory.** Where the browser refuses to store a `Blob`, `saveMedia`
+  stores an `ArrayBuffer` and `listMedia` rebuilds a `Blob` from it on every read, so a shelf of clips is held in
+  memory there (up to 50 MB each). The normal path stays file-backed. A photo shelf has the same trait at smaller sizes.
+- **The restore sniff is a magic-number check.** A clip needs `ftyp` at byte 4 or the EBML header, so a non-video
+  `ftyp` file (M4A) passes as `video/mp4`, and nothing decodes it at restore. The player refuses it later.
+- **Chat clips take fewer formats than before.** The old in-memory path took anything the browser could play; the
+  Library stores MP4, MOV and WebM, so an Ogg clip is refused with a message.
+- **A chat clip's name carries a random suffix** so a clip deleted from the Library and a later `video.mp4` cannot be
+  mistaken for each other when Regenerate re-reads the thread. A clip removed from the strip before sending, or left
+  behind by leaving the deck, is deleted; a sent clip stays until the author deletes it.
+
+## How binary content is stored (2026-10-13)
+
+The rule is **bytes stay bytes, and a codec is chosen by what the bytes already are.** Nothing here uses protobuf,
+Avro or a second compressor, and the measurements below are why.
+
+| Where | Format | Why |
+|---|---|---|
+| Photos and videos in IndexedDB | A `Blob`, as given | IndexedDB stores a Blob natively and hands it back file-backed, so a list read holds no bytes in memory. No base64, no wrapper. |
+| Reference PDFs in IndexedDB | Base64 text today; a `Blob` from the next release (read now, written next; see below) | A build from before this change reads only the text, so the writer waits one release. |
+| Photos and videos, in a browser that refuses a `Blob` (Safari private window) | An `ArrayBuffer`, rebuilt into a `Blob` on read | A fallback, tried only after the Blob write fails for a reason other than a full disk. |
+| Entries in a backup zip (`media/`) | `STORE`, no compression | A JPEG, WebP, PNG, MP4 or WebM is already compressed. |
+| JSON in a zip (`media.json`, decks, `refdocs.json`) | `DEFLATE` | Text compresses to a fraction of its size. |
+| A clip's or photo's thumbnail (`poster`) | A JPEG `data:` string, 160 px, a few KB | A string stores in every engine; the cost is a third of a few KB per clip, which is not worth a second code path. |
+| What goes to a model (photo, clip, PDF) | Base64 in the request body | The API takes JSON. Built at the moment of sending from the stored bytes and never stored. |
+| `refdocs.json` in a backup | PDFs as base64 text | Kept so a backup made now still restores in an older version. It deflates back to about the PDF's size. |
+
+**Measured** (JSZip, level 6, three runs on one machine; the files are real, not synthetic). The JPEG is
+`engineering/decisions/2026-09-25-flowchart-authoring/05-elk-comparison.jpg` and the PDF is
+`exemplars/academic/course-overview.pdf`. The WebM is a 10-second clip recorded by Playwright's video capture (VP8) and is
+not committed; any WebM or MP4 you hold gives the same shape. There is no bench script in the tree, so re-measure with
+a few lines of JSZip (`file(name, bytes, { compression: 'STORE' | 'DEFLATE' })`, then `generateAsync`):
+
+| File | Size | Deflate result | Deflate time | Store time |
+|---|---|---|---|---|
+| WebM (VP8, Playwright capture) | 296 KB | 95.6% of original | 59 ms | 12 ms |
+| JPEG (a diagram) | 127 KB | 91.6% | 12 ms | 1 ms |
+| PDF | 452 KB | 26.5% | 19 ms | 4 ms |
+
+So deflate is the right call for a PDF or JSON and the wrong one for a clip or photo: about five times the CPU for 0 to 9%
+(a phone-recorded H.264 clip was not available to measure, and should be closer to 0%). Base64 is exactly 4/3 (1.333) of the bytes; a stored PDF was a third larger than the
+file and `listRefDocs` loaded every PDF's whole string into memory on each Library open.
+
+**This release reads binary PDFs and still writes base64 text. The writer flips next release.** A build from before this
+change reads a PDF only through `dataUrl`. If this release wrote binary, anyone who rolled back, or kept a tab open across
+the deploy, would lose sight of every PDF saved in the meantime: chat grounding says a cloud model is needed when one is
+connected, download says "Could not download", and a backup writes an empty row. So the order is expand, then contract:
+
+1. **This release (the expand).** The reader handles a record with a `blob`, a record with `dataUrl`, and (for a browser that
+   refuses Blobs) an ArrayBuffer. The writer (`saveRefDoc`) still writes base64, but a restore or an add now stores it typed
+   as a PDF and sized from the decoded bytes. The binary writer, the one-time rewrite of old records
+   (`migrateLegacyRefDocs`, a compare-and-swap) and their tests are in the tree and switched off by one constant,
+   `WRITE_PDFS_AS_BINARY`.
+2. **The next release (the contract).** Flip the constant and call the rewrite from the Library
+   (`followups.d/2654-p3-write-pdfs-as-binary.md`). Rolling that release back lands on this one, which reads binary.
+
+What this costs: the third of extra disk and the in-memory string stay for PDFs for one more release. What it buys: the
+change can be rolled back at every step. The backup file keeps PDFs as base64 rows throughout, so a backup restores in any
+version.
+
+A restored PDF row is checked before it is stored: valid base64, within 5 MB, stored typed as `application/pdf` whatever
+its text claimed, and sized from what was decoded, never from the row's own `bytes` (the spend guard reads that number).
+
+**Why not protobuf, Avro or a custom container.** They are for structured records that cross a language or version
+boundary. Our records are a handful of fields (a name, a scope, two sizes) beside a payload, and IndexedDB's structured
+clone already stores them without a text layer. The payload is already compressed, so a second codec cannot shrink it.
+A schema format would add a decoder, a version to migrate and a new way to fail on a restore, to save bytes that are
+not there. The place a codec earns its keep is text, and `DEFLATE` on the JSON already covers it.
+
+**A backup reads each item on its own.** One photo, clip or PDF the browser cannot read (IndexedDB lost the file behind a
+Blob, or a 50 MB clip does not fit in memory on a phone) is left out and named in the backup's warnings; it does not cost
+the rest of the media or the decks.
+
+## Clip location data (2026-10-13)
+
+A phone writes its location into a clip's metadata, and a clip that kept it would carry it into the Library, into every
+workspace backup and into anything a person shares that backup with. Photos have always been scrubbed for this reason, so
+a clip is too: `video-scrub.ts`, at import (`importVideo`, before the clip is probed or stored, so nothing downstream holds
+the original) and at restore (`restoreMedia`).
+
+**How.** A clip cannot be rebuilt from the blocks it needs the way a photo is: dropping a box shifts every box after it,
+and the sample tables in `moov` hold absolute byte offsets into `mdat`. So each metadata box is **overwritten in place**
+with a `free` box of the same size and a zeroed payload. Every size and offset stays exactly where it was, so a `moov` at
+the front (faststart) or the back (what an iPhone writes) is safe, and a player skips `free`. The file is walked by reading
+box headers through `Blob.slice`, so a 50 MB clip is never loaded to be cleaned.
+
+**What is overwritten.** The walk opens every standard container (`moov`, `trak`, `mdia`, `minf`, `edts`, `mvex`, `meco`, and
+`moof`/`traf` in a fragmented file) and clears, at any depth, `udta`, `meta`, `loci` and `©xyz`: Apple's
+`com.apple.quicktime.location.ISO6709` (in `meta`), Android's and QuickTime's `©xyz` and 3GPP's `loci` (in `udta`), with the
+make, model, software and creation date beside them. It also clears a `uuid` box at the top level or directly under `moov`
+(XMP packets, Canon's CMT records, one of which holds GPS), top-level `XMP_` and `xml ` boxes, and **any data after the
+last box**: a vendor trailer is not a box, players ignore it, and some carry a track log. That trailer is overwritten only
+once both `moov` and `mdat` have been read whole, because a box that does not fit before that is a truncated clip, and
+zeroing it would destroy real media; a truncated or corrupt clip is refused with a message, not stored unread. A `uuid`
+inside a `trak` (a spherical-video projection) or a `moof` (a streaming header) is left alone because a player needs it.
+
+**What it costs.** Whole boxes go, not single keys, so more than location goes: a track's `udta` roles and loudness boxes,
+Nero chapters (`chpl`), Apple's playback-intent keys (slow-motion hints, the Live Photo pairing ID). None is needed to
+decode the picture; a vendor gallery may lose a hint. A single metadata box over 8 MB, or a file of more than 50,000
+top-level boxes, is refused.
+
+**What is not.** Anything that lives in the **samples**, which sit in `mdat` and are addressed by tables in `moov`, so
+clearing it means rewriting those tables: a timed-metadata track (a GoPro's GPMF, an Insta360's camm, a Sony's `rtmd`,
+some phones' `mebx`), and a **text or subtitle track whose captions hold coordinates** (a DJI drone with captions on; this
+was reproduced on a real ffmpeg-built file). Such a clip keeps a position per frame, and the scrub reports success on it.
+**A WebM is not scrubbed**: it is not an ISO box file, and a browser's recorder writes no location into one. iPhone and
+Android phone clips keep their location in exactly the places that are cleared (`moov/meta` keys, `moov/udta/©xyz`). This
+removes the standard static location boxes; it does not promise that no clip carries a location.
+
+**Verified.** Synthetic files in both layouts and at every depth above (`video-scrub.test.ts`: coordinates gone, length
+and every offset unchanged, media data byte-for-byte, a 64-bit size, a metadata box that runs to the end, a trailer starting
+with 0 or with other bytes, a truncated clip refused, the depth bound, hostile sizes refused); a restore test; and
+`docs/e2e/chat-photos.spec.ts`, which records a real MP4 in Chromium, injects both location shapes into its `moov`, adds it
+through the Library and reads the stored bytes back from IndexedDB: same length, no coordinates, still plays. That test
+fails with the scrub off (observed). An independent review also ran six real ffmpeg-built clips carrying coordinates
+(MP4 with `moov` last and first, fragmented, MOV with `©xyz`, MOV with Apple location keys, MOV with a track `udta`):
+after the scrub each had no coordinates and decoded to identical frames (`ffmpeg -f framemd5`). **Not verified on a real
+phone file with real location boxes**, nor in a browser playing a `moov`-last QuickTime layout. To check a clip by hand, add
+it in Library → Videos, make a workspace backup, extract `media/<name>.mov`, and run `ffprobe -show_entries
+format_tags:stream_tags` on it and search it for the digits of the place you recorded it at. Searching for the key
+`com.apple.quicktime.location` alone is not enough: a per-frame position is numbers, not that string.
+
+**Not changed.** A video is not re-encoded; transcoding in the browser would cost minutes of CPU on a phone for a smaller
+file the author did not ask for.
+
 ## Options not taken
 
 - **Capturing metadata (capture date, caption) on the record.** An earlier draft of this note (§7) read the
@@ -675,9 +829,8 @@ commit builds and tests against `main` alone.
    playable in the presenter.
 3. Whether Markdown and Marp exports should carry the photos a deck names (a Marp bundle already copies
    `sample:` art). They keep the reference only. `.lattice` now carries them (§6).
-4. Whether a video export that keeps the original bytes should strip the GPS atom (a small
-   rewrite of the file's header boxes, no re-encode) or fall back to the poster frame whenever
-   location is present. The atom rewrite is cheap but is a byte change to a user's video.
+4. ~~Whether a video should have its GPS atom stripped.~~ Settled 2026-10-13: yes, at import and at restore, by overwriting
+   the metadata boxes in place ("Clip location data" above).
 5. Whether camera capture ("Take Photo") warrants its own button, or `accept="image/*"` is
    enough. On iOS it is enough; on some Android browsers the picker hides the camera unless
    `capture` is set. Slice 1 checks.

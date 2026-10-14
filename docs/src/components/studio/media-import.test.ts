@@ -14,9 +14,11 @@ describe('mimeOf', () => {
 });
 
 describe('classifyMedia', () => {
-	it('takes images, refuses everything else', () => {
+	it('takes images and videos, refuses everything else', () => {
 		expect(classifyMedia({ name: 'a.jpg', type: 'image/jpeg' })).toBe('image');
 		expect(classifyMedia({ name: 'a.heic', type: '' })).toBe('image');
+		expect(classifyMedia({ name: 'a.mp4', type: 'video/mp4' })).toBe('video');
+		expect(classifyMedia({ name: 'clip.MOV', type: '' })).toBe('video');
 		expect(classifyMedia({ name: 'a.pdf', type: 'application/pdf' })).toBeNull();
 		expect(classifyMedia({ name: 'a.zip', type: '' })).toBeNull();
 	});

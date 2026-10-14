@@ -1402,7 +1402,7 @@ export function buildChatSystem(generation: string, grounding?: ChatGrounding, f
  * resulting source + a line diff for a review-then-apply card (nothing is applied
  * here). Degrades to `offline`/`blocked` honestly — never a fabricated answer.
  */
-export type ChatOptions = { onToken?: (t: string) => void; onActivity?: (label: string) => void; signal?: AbortSignal; constrainFacts?: boolean; grounding?: ChatGrounding; /** This turn's photos, as data URLs the model can see (cloud tier only; see chat-photos.ts). */ photos?: { name: string; dataUrl: string }[]; /** This turn's short video, as a data URL (cloud tier, a model that reads video). */ videos?: { dataUrl: string }[] };
+export type ChatOptions = { onToken?: (t: string) => void; onActivity?: (label: string) => void; signal?: AbortSignal; constrainFacts?: boolean; grounding?: ChatGrounding; /** This turn's photos, as data URLs the model can see (cloud tier only; see chat-photos.ts). */ photos?: { name: string; dataUrl: string }[]; /** This turn's short video, as a data URL (cloud tier, a model that reads video). `name` is its Library name, so the prompt can say this clip is the one in the message. */ videos?: { name?: string; dataUrl: string }[] };
 
 // "Facts locked" — a tone/clarity-only constraint (Munger's content-truth point): the
 // model may improve wording/structure but must not alter any number, date, name, or

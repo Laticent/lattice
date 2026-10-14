@@ -277,7 +277,7 @@ test('deleting a deck takes the photos kept to that deck, and only those @crossw
 	});
 	await row.getByRole('button', { name: /^Delete Untitled deck/ }).click();
 	await expect.poll(() => asked.length, { timeout: 15_000 }).toBe(1);
-	expect(asked[0]).toMatch(/1 photo kept to it.*can't be undone/);
+	expect(asked[0]).toMatch(/1 photo or video kept to it.*can't be undone/);
 	expect((await shelf(page)).map((r) => r.name)).toEqual(['goes-with-deck', 'shared-stays']);
 	// Now confirm.
 	answer = true;

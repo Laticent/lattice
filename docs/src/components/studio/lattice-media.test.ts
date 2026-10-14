@@ -26,6 +26,17 @@ async function exportWith(source: string, deckId?: string) {
 describe('a .lattice carries the photos the deck names', () => {
 	beforeEach(wipe);
 
+	it('never carries a video, even when the deck text names one: it is a missing stand-in, not a photo', async () => {
+		await saveMedia(photo('team', png(1)), 1);
+		await saveMedia({ ...photo('clip', new Uint8Array([0, 0, 0, 24, 0x66, 0x74, 0x79, 0x70, 1, 2])), kind: 'video', mime: 'video/mp4', durationMs: 1000 }, 2);
+		const text = '![](asset:team)\n\nasset:clip';
+		const { packed, bytes } = await exportWith(text, 'deck-a');
+		expect(packed.included).toEqual(['team']);
+		expect(packed.missing).toEqual(['clip']);
+		expect(Object.keys((await JSZip.loadAsync(bytes)).files).filter((f) => f.startsWith('media/') && f !== 'media/')).toEqual(['media/team.png']);
+		expect(await latticePhotoSummary(text, 'deck-a')).toMatchObject({ count: 1, missing: ['clip'] });
+	});
+
 	it('packs only what the deck names and the deck can see, and says what is missing', async () => {
 		await saveMedia(photo('team', png(1)), 1);
 		await saveMedia(photo('logo', png(2)), 2);

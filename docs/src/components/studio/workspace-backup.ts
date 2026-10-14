@@ -28,7 +28,8 @@ import { listStudioComponents, saveStudioComponent, toMeta } from './component-l
 import { listStudioFinishes, saveStudioFinish } from './finish-library';
 import type { ImportRefusal } from './import-gate';
 import { LIBRARY_SCOPE } from './media-store';
-import { listRefDocs, type RefDocRecord, recordToDoc, saveRefDoc } from './reference-doc-store';
+import { blobToDataUrl, dataUrlToBlob, MAX_DOC_BYTES } from './reference-doc';
+import { listRefDocs, type RefDocRecord, refDocBlob, saveRefDoc } from './reference-doc-store';
 import { listStoredScenes, putUnreadableScene, type StudioScene, saveStudioScene, type UnreadableScene, unreadableSceneShelf } from './scene-library';
 import { exportStudioState, type ImportSummary, importStudioState, loadSource, mapCheckpointSources, requestSourceFlush, resolvedSources, type StudioExport, saveSource, titleFromSource } from './studio-store';
 import { listStudioThemes, saveStudioTheme } from './theme-library';
@@ -52,6 +53,16 @@ export type WorkspaceManifest = {
 };
 
 /** `refused`: library packages the backup held that could not be read back, each with the reason. */
+/** Does this `data:` URL decode? A backup row is untrusted, so the answer is found out, not assumed. */
+function canDecode(dataUrl: string): boolean {
+	try {
+		dataUrlToBlob(dataUrl); // an empty PDF is a valid row: old backups hold them
+		return true;
+	} catch {
+		return false;
+	}
+}
+
 export type RestoreSummary = ImportSummary & { themes: number; components: number; finishes: number; scenes: number; unreadableScenes: number; refdocs: number; media: number; mediaRenamed: number; refused: { name: string; why: string }[] };
 
 // biome-ignore lint/suspicious/noExplicitAny: JSZip is dynamically imported.
@@ -75,10 +86,14 @@ export type PackReport = {
 	/** Photos the Library holds in a type a backup does not carry. Always 0 for photos added by this
 	 *  version, which stores only types it can write; non-zero means one from before. */
 	mediaSkipped?: number;
+	/** Names of photos or videos this browser could not read back, so they are not in the file. */
+	mediaUnreadable?: string[];
 	/** UTF-8 bytes of the `refdocs.json` written. */
 	refdocsBytes: number;
 	/** Rows in it, one per reference doc. */
 	refdocRows?: number;
+	/** Names of saved PDFs this browser could not read back, so they are not in the file. */
+	refdocsUnreadable?: string[];
 	/** Bytes and entries of the nested `library.zip`, and what its files inflate to. */
 	libraryBytes?: number;
 	libraryEntries?: number;
@@ -155,7 +170,29 @@ export async function packWorkspace(now: number, report?: PackReport): Promise<B
 	// Reference docs are user-imported content (the Architect's brand guidelines
 	// etc.) — as much "the workspace" as the decks are.
 	if (refdocs.length) {
-		const json = JSON.stringify(refdocs, null, 2);
+		// A PDF is binary in the Library but base64 text in this file: the format older versions read, so a backup
+		// made now still restores there. The text is made one doc at a time, so only one PDF is ever held twice, and it
+		// deflates back to about the PDF's size. A PDF the browser can no longer read (IndexedDB lost the file behind
+		// the Blob) is left out and named in the report: it must not cost the whole backup.
+		const rows: unknown[] = [];
+		for (const r of refdocs) {
+			const { blob: _blob, data: _data, ...rest } = r;
+			if (r.dataUrl) {
+				rows.push({ ...rest, dataUrl: r.dataUrl });
+				continue;
+			}
+			const bytes = refDocBlob(r);
+			if (!bytes) {
+				rows.push(rest);
+				continue;
+			}
+			try {
+				rows.push({ ...rest, dataUrl: await blobToDataUrl(bytes) });
+			} catch {
+				if (report) (report.refdocsUnreadable ??= []).push(r.name);
+			}
+		}
+		const json = JSON.stringify(rows, null, 2);
 		zip.file('refdocs.json', json);
 		// In UTF-8 bytes: the restore's first check reads the size the zip declares, which is UTF-8,
 		// and a UTF-8 length is never shorter than the UTF-16 one its read budget counts.
@@ -167,11 +204,12 @@ export async function packWorkspace(now: number, report?: PackReport): Promise<B
 
 	// Photos: `media/` holds the bytes and `media.json` indexes them (workspace-media.ts). A shelf that
 	// cannot be read yields none, like a browser with no IndexedDB, and never aborts the backup.
-	const media = await packMedia(zip).catch(() => ({ rows: 0, bytes: 0, skipped: 0 }));
+	const media = await packMedia(zip).catch(() => ({ rows: 0, bytes: 0, skipped: 0, unreadable: [] as string[] }));
 	if (report) {
 		report.mediaRows = media.rows;
 		report.mediaBytes = media.bytes;
 		report.mediaSkipped = media.skipped;
+		if (media.unreadable.length) report.mediaUnreadable = media.unreadable;
 	}
 
 	const manifest: WorkspaceManifest = {
@@ -270,6 +308,8 @@ export function backupRestoreGaps(report: PackReport): string[] {
 	if ((report.stateBytes ?? 0) > MAX_INFLATED_BYTES) gaps.push(`your decks, chats and settings (${mb(report.stateBytes ?? 0)}) are over the ${limit(MAX_INFLATED_BYTES)} a restore reads, so this backup will not restore at all`);
 	if (report.refdocsBytes > MAX_REFDOCS_BYTES) gaps.push(`your reference docs (${mb(report.refdocsBytes)}) are over the ${limit(MAX_REFDOCS_BYTES)} a restore reads, so they will not come back from it`);
 	else if ((report.refdocRows ?? 0) > MAX_BACKUP_ROWS) gaps.push(`you have more than ${MAX_BACKUP_ROWS.toLocaleString('en-US')} reference docs, more than a restore reads, so they will not come back from it`);
+	if (report.refdocsUnreadable?.length) gaps.push(`${report.refdocsUnreadable.length} saved PDF${report.refdocsUnreadable.length === 1 ? '' : 's'} (${report.refdocsUnreadable.slice(0, 3).join(', ')}) could not be read from this browser, so ${report.refdocsUnreadable.length === 1 ? 'it is' : 'they are'} not in this file`);
+	if (report.mediaUnreadable?.length) gaps.push(`${report.mediaUnreadable.length} of your photos or videos (${report.mediaUnreadable.slice(0, 3).join(', ')}) could not be read from this browser, so ${report.mediaUnreadable.length === 1 ? 'it is' : 'they are'} not in this file`);
 	if ((report.mediaSkipped ?? 0) > 0) gaps.push(`${report.mediaSkipped} of your photos are in a type a backup does not carry, so they are not in this file`);
 	if ((report.mediaBytes ?? 0) > MAX_MEDIA_RESTORE_BYTES) gaps.push(`your photos (${mb(report.mediaBytes ?? 0)}) are over the ${limit(MAX_MEDIA_RESTORE_BYTES)} a restore reads, so some will not come back from it`);
 	else if ((report.mediaRows ?? 0) > MAX_MEDIA_ROWS) gaps.push(`you have more than ${MAX_MEDIA_ROWS.toLocaleString('en-US')} photos, more than a restore reads, so they will not come back from it`);
@@ -463,8 +503,15 @@ export async function restoreWorkspace(file: Blob, now: number): Promise<Restore
 	for (const rec of refdocRecords as RefDocRecord[]) {
 		// A row that is not a named record is junk, not a doc: skip it without a write.
 		if (!rec || typeof rec !== 'object' || typeof rec.name !== 'string' || !rec.name) continue;
-		// saveRefDoc upserts by name — the same path Library import uses.
-		await saveRefDoc(recordToDoc(rec), rec.addedAt ?? now);
+		// A backup is a file from anyone. A PDF row must be base64 and within what intake allows: text that does not
+		// decode, or is over the cap, is skipped (and named), never stored for a request to send later.
+		const pdf = rec.docKind === 'pdf';
+		if (pdf && !(typeof rec.dataUrl === 'string' && rec.dataUrl.length <= Math.ceil((MAX_DOC_BYTES * 4) / 3) + 64 && canDecode(rec.dataUrl))) {
+			summary.refused.push({ name: `reference doc ${rec.name.slice(0, 60)}`, why: 'its PDF is not readable base64 data, or is over the size a reference doc may be' });
+			continue;
+		}
+		// saveRefDoc upserts by name — the same path Library import uses; it stores the PDF as binary.
+		await saveRefDoc({ id: rec.id, name: rec.name, kind: pdf ? 'pdf' : 'text', text: rec.text, dataUrl: rec.dataUrl, bytes: rec.bytes }, rec.addedAt ?? now);
 		summary.refdocs++;
 	}
 

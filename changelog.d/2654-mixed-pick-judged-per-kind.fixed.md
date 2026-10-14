@@ -1,0 +1,1 @@
+- The Studio chat now judges photos and video in a mixed pick separately. Before, one refusal (a full photo shelf, a clip already pending, a model that reads only one kind) dropped the whole pick, so the part that would have been accepted was lost too. Now the accepted kind attaches and the refused kind is explained in words.

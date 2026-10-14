@@ -33,7 +33,12 @@ export async function latticePhotoSummary(source: string, deckId: string | undef
 	const named = assetNamesIn(source);
 	if (!named.length) return { count: 0, bytes: 0, missing: [] };
 	// A deck may still write a photo's OLD name (an alias): it resolves in the Studio, so the file must carry it.
-	const seen = new Map(visibleMedia(await listMedia(), deckId ?? null).flatMap((m) => namesOf(m).map((n) => [n, m] as const)));
+	// Photos only: a clip is not part of a `.lattice` (a slide cannot show one, so the file would carry bytes nothing uses).
+	const seen = new Map(
+		visibleMedia(await listMedia(), deckId ?? null)
+			.filter((m) => m.kind === 'image')
+			.flatMap((m) => namesOf(m).map((n) => [n, m] as const)),
+	);
 	const have = [...new Set(named.filter((n) => seen.has(n)).map((n) => seen.get(n)))];
 	return { count: have.length, bytes: have.reduce((sum, m) => sum + (m?.blob.size ?? 0), 0), missing: named.filter((n) => !seen.has(n)) };
 }
@@ -53,8 +58,12 @@ export async function packLatticePhotos(source: string, deckId: string | undefin
 	const named = assetNamesIn(source);
 	if (!named.length) return { included: [], omitted: [], missing: [] };
 	try {
-		// Name or alias: a deck that still writes an old name is carried by the photo's current one.
-		const canonical = new Map(visibleMedia(await listMedia(), deckId ?? null).flatMap((m) => namesOf(m).map((n) => [n, m.name] as const)));
+		// Name or alias: a deck that still writes an old name is carried by the photo's current one. Photos only.
+		const canonical = new Map(
+			visibleMedia(await listMedia(), deckId ?? null)
+				.filter((m) => m.kind === 'image')
+				.flatMap((m) => namesOf(m).map((n) => [n, m.name] as const)),
+		);
 		const names = new Set(named.filter((n) => canonical.has(n)));
 		const missing = named.filter((n) => !canonical.has(n));
 		const files: Record<string, Uint8Array> = {};
@@ -69,7 +78,7 @@ export async function packLatticePhotos(source: string, deckId: string | undefin
 		};
 		// The count stays well under the 2000 entries a reader allows in the whole archive.
 		const packed = await packMedia(collector, { names, scope: 'library', maxBytes, maxCount: MAX_LATTICE_PHOTOS });
-		const included = Object.keys(files).map((p) => p.replace(/^media\//, '').replace(/\.[a-z]+$/, ''));
+		const included = Object.keys(files).map((p) => p.replace(/^media\//, '').replace(/\.[a-z0-9]+$/, ''));
 		// A visible photo that is in neither list (a legacy record of a type the file cannot hold) is missing too,
 		// never dropped without a word.
 		const placed = new Set([...included, ...packed.omitted]);
@@ -82,7 +91,7 @@ export async function packLatticePhotos(source: string, deckId: string | undefin
 /** Put a `.lattice`'s photos in this browser's Library, and rewrite `source` for any that had to take a
  *  new name. Never throws and never overwrites a photo already here (workspace-media.ts says why). */
 export async function restoreLatticePhotos(zip: { file: (path: string) => object | null }, source: string, now: number): Promise<{ source: string; restored: number; refused: { name: string; why: string }[] }> {
-	const r = await restoreMedia(zip as Parameters<typeof restoreMedia>[0], now, { backupDeckIds: new Set(), copies: {} }, { maxTotalBytes: MAX_LATTICE_MEDIA_BYTES, only: new Set(assetNamesIn(source)) });
+	const r = await restoreMedia(zip as Parameters<typeof restoreMedia>[0], now, { backupDeckIds: new Set(), copies: {} }, { maxTotalBytes: MAX_LATTICE_MEDIA_BYTES, only: new Set(assetNamesIn(source)), imagesOnly: true });
 	const map = new Map(r.renames.map((x) => [x.from, x.to]));
 	return { source: map.size ? renameAssetRefs(source, map) : source, restored: r.restored, refused: r.refused };
 }

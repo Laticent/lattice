@@ -21,13 +21,13 @@ import { listAllAssetVersions, pruneOrphanVersions } from './library/asset-histo
 import { listAssets } from './library/asset-store.js';
 import { MediaCard } from './MediaCard';
 import { decksUsingRecord, removeMediaAlias, updateMediaDetails } from './media-edit';
-import { classifyMedia, importImage, MEDIA_ACCEPT, MediaImportError, type PhotoFormat, uniqueName } from './media-import';
+import { classifyMedia, importImage, importVideo, LIBRARY_MEDIA_ACCEPT, MediaImportError, type PhotoFormat, uniqueName } from './media-import';
 import { deleteMedia, LIBRARY_SCOPE, listMedia, MEDIA_REFUSAL_PREFIX, type MediaRecord, namesOf, saveMedia, setMediaScope, visibleMedia } from './media-store';
 import { MOTION_PALETTE_STYLE } from './motion/palette-fallback';
 import { PhotoFormatDialog } from './PhotoFormatDialog';
 import { LIBRARY_FILTERS, LIBRARY_HEADER, type LibraryFilter } from './panel-shells';
 import { formatBytes, REF_DOC_ACCEPT, readReferenceDoc } from './reference-doc';
-import { deleteRefDoc, listRefDocs, type RefDocRecord, saveRefDoc } from './reference-doc-store';
+import { deleteRefDoc, listRefDocs, type RefDocRecord, refDocBlob, saveRefDoc } from './reference-doc-store';
 import { deleteStudioScene, listStudioScenes, type StudioScene } from './scene-library';
 import { renderThemeShowcase } from './share-export';
 import { listShippedScenes, type ShippedScene, shippedDrawing } from './shipped-scenes';
@@ -53,16 +53,6 @@ function download(blob: Blob, filename: string) {
 // second toast claiming a save that still waits on a tap.
 function sharedNotice(message: string) {
 	if (!iosNeedsShareSheet()) notify(message);
-}
-
-// Rebuild a Blob from a `data:…;base64,…` URL (a stored PDF's original bytes).
-function dataUrlToBlob(dataUrl: string): Blob {
-	const [head, b64] = dataUrl.split(',');
-	const mime = /:(.*?);/.exec(head)?.[1] || 'application/octet-stream';
-	const bin = atob(b64 || '');
-	const bytes = new Uint8Array(bin.length);
-	for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-	return new Blob([bytes], { type: mime });
 }
 
 // Honest, free date label for a reference-doc card (the record's addedAt).
@@ -113,7 +103,7 @@ export function classifyDropped(files: File[]): { zips: File[]; docs: File[]; im
 export function rejectedMessage(names: string[]): string {
 	const shown = names.slice(0, 3).join(', ');
 	const rest = names.length > 3 ? ` and ${names.length - 3} more` : '';
-	return `Can't add ${shown}${rest} — drop a .zip, an image, or ${REF_DOC_ACCEPT}.`;
+	return `Can't add ${shown}${rest} — drop a .zip, an image, a video, or ${REF_DOC_ACCEPT}.`;
 }
 
 /**
@@ -328,7 +318,10 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 		const sources = liveSource === undefined ? otherSources : [...otherSources, liveSource];
 		return Object.fromEntries(media.map((a) => [a.name, decksUsingRecord(a, sources)]));
 	}, [media, otherSources, liveSource]);
-	const vMedia = filter === 'all' || filter === 'media' ? shownMedia.filter((a) => !q || a.name.includes(q) || a.sourceName.toLowerCase().includes(q)) : [];
+	// The Images tab holds photos and the Videos tab clips; "All" shows both.
+	const vMedia = filter === 'all' || filter === 'media' || filter === 'video' ? shownMedia.filter((a) => (filter === 'all' || a.kind === (filter === 'video' ? 'video' : 'image')) && (!q || a.name.includes(q) || a.sourceName.toLowerCase().includes(q))) : [];
+	const mediaTab = filter === 'media' || filter === 'video';
+	const videoCount = shownMedia.filter((a) => a.kind === 'video').length;
 	const vDocs = filter === 'all' || filter === 'refdoc' ? docs.filter((d) => !q || d.name.toLowerCase().includes(q)) : [];
 	// The shipped scenes show on the Motion tab only. "All" is the user's own shelf, and four
 	// read-only cards there would bury what they saved under what they did not.
@@ -442,8 +435,9 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	// lattice assets), so refdoc cards carry no selection checkbox.
 	function downloadDoc(d: RefDocRecord) {
 		try {
-			if (d.docKind === 'pdf' && !d.dataUrl) { notify('Could not download that doc.'); return; } // don't ship a 0-byte .pdf
-			const blob = d.docKind === 'pdf' && d.dataUrl ? dataUrlToBlob(d.dataUrl) : new Blob([d.text ?? ''], { type: 'text/plain' });
+			const pdfBytes = refDocBlob(d);
+			if (d.docKind === 'pdf' && !pdfBytes) { notify('Could not download that doc.'); return; } // don't ship a 0-byte .pdf
+			const blob = d.docKind === 'pdf' && pdfBytes ? pdfBytes : new Blob([d.text ?? ''], { type: 'text/plain' });
 			download(blob, d.name);
 		} catch {
 			notify('Could not download that doc.');
@@ -485,7 +479,41 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 		// nothing and said nothing), and the drop path hands over a DataTransfer's list that dies with it.
 		const picked = Array.from(files ?? []);
 		if (!picked.length) return;
-		setPendingPhotos(picked);
+		// Photos wait for the format dialog; a clip is stored as given, so it goes straight in.
+		const clips = picked.filter((f) => classifyMedia(f) === 'video');
+		const photos = picked.filter((f) => classifyMedia(f) !== 'video');
+		if (clips.length) void importClips(clips);
+		if (photos.length) setPendingPhotos(photos);
+		else if (mediaFileRef.current) mediaFileRef.current.value = '';
+	}
+	async function importClips(picked: File[]) {
+		const scope = addScope === 'deck' && activeDeckId ? activeDeckId : LIBRARY_SCOPE;
+		setBusy('Adding…');
+		const taken = new Set((await listMedia()).map((a) => a.name));
+		let n = 0;
+		const failed: string[] = [];
+		try {
+			for (const file of picked) {
+				try {
+					const rec = await importVideo(file, scope);
+					rec.name = uniqueName(rec.name, taken);
+					await saveMedia(rec, Date.now());
+					taken.add(rec.name);
+					n++;
+				} catch (e) {
+					console.warn('lattice: could not add a video', file.name, e);
+					const msg = String((e as Error)?.message ?? '');
+					failed.push(e instanceof MediaImportError || msg.startsWith(MEDIA_REFUSAL_PREFIX) ? msg : `${file.name}: could not be added.`);
+				}
+			}
+			reload();
+			if (n) void navigator.storage?.persist?.().catch(() => {});
+			if (n) notify(`Added ${n} video${n === 1 ? '' : 's'}${scope === LIBRARY_SCOPE ? ' to all decks' : ' to this deck'}.`);
+			if (failed.length) notify(failed.slice(0, 2).join(' ') + (failed.length > 2 ? ` (+${failed.length - 2} more)` : ''));
+		} finally {
+			setBusy(null);
+			if (mediaFileRef.current) mediaFileRef.current.value = '';
+		}
 	}
 	async function importPicked(picked: File[], format: PhotoFormat) {
 		const scope = addScope === 'deck' && activeDeckId ? activeDeckId : LIBRARY_SCOPE;
@@ -498,7 +526,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 		try {
 			for (const file of picked) {
 				try {
-					if (!classifyMedia(file)) throw new MediaImportError(`${file.name} isn't an image.`);
+					if (classifyMedia(file) !== 'image') throw new MediaImportError(`${file.name} isn't an image.`);
 					const rec = await importImage(file, scope, format);
 					const wanted = rec.name;
 					rec.name = uniqueName(rec.name, taken);
@@ -915,8 +943,8 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 			{phone ? null : searchField}
 					{/* Contextual add: the Files tab attaches .txt/.md/.pdf reference files; every
 					    other tab imports a lattice-asset .zip — one button, meaning by tab. */}
-					{filter === 'media' ? (
-							<Tip label="Add photos or images"><Button variant="outline" size="sm" className="shrink-0 gap-1.5" onClick={() => mediaFileRef.current?.click()} aria-label="Add images"><Plus className="size-3.5" /><span className={cn('hidden', docked ? '@[20rem]:inline' : 'sm:inline')}>Add image</span></Button></Tip>
+					{mediaTab ? (
+							<Tip label={filter === 'video' ? 'Add videos' : 'Add photos or images'}><Button variant="outline" size="sm" className="shrink-0 gap-1.5" onClick={() => mediaFileRef.current?.click()} aria-label={filter === 'video' ? 'Add videos' : 'Add images'}><Plus className="size-3.5" /><span className={cn('hidden', docked ? '@[20rem]:inline' : 'sm:inline')}>{filter === 'video' ? 'Add video' : 'Add image'}</span></Button></Tip>
 						) : filter === 'refdoc' ? (
 						<Tip label="Add a .txt/.md/.pdf reference doc"><Button variant="outline" size="sm" className="shrink-0 gap-1.5" onClick={() => docFileRef.current?.click()} aria-label="Add a reference doc"><Plus className="size-3.5" /><span className={cn('hidden', docked ? '@[20rem]:inline' : 'sm:inline')}>Add file</span></Button></Tip>
 					) : (
@@ -924,7 +952,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 					)}
 					<input ref={fileRef} type="file" accept=".zip" multiple hidden onChange={(e) => importFiles(e.target.files)} />
 					<input ref={docFileRef} type="file" accept={REF_DOC_ACCEPT} multiple hidden onChange={(e) => addDocFiles(e.target.files)} />
-						<input ref={mediaFileRef} type="file" accept={MEDIA_ACCEPT} multiple hidden onChange={(e) => addMediaFiles(e.target.files)} />
+						<input ref={mediaFileRef} type="file" accept={LIBRARY_MEDIA_ACCEPT} multiple hidden onChange={(e) => addMediaFiles(e.target.files)} />
 		</>
 	);
 
@@ -983,20 +1011,20 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 						</div>
 					) : (
 						<>
-						{filter === 'media' && (
+						{mediaTab && (
 							<div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1.5">
 								<span className="font-mono text-[10.5px] uppercase tracking-wide text-muted-foreground">Add to</span>
 								{activeDeckId ? (
-									<PillTabs ariaLabel="Where new images go" value={addScope} onValueChange={(v) => setAddScope(v as 'library' | 'deck')} tabs={[{ value: 'library', label: 'All decks' }, { value: 'deck', label: 'This deck' }]} />
+									<PillTabs ariaLabel="Where new media goes" value={addScope} onValueChange={(v) => setAddScope(v as 'library' | 'deck')} tabs={[{ value: 'library', label: 'All decks' }, { value: 'deck', label: 'This deck' }]} />
 								) : (
 									<span className="text-[12px] text-foreground">All decks <span className="text-muted-foreground">(open a deck to add to just that one)</span></span>
 								)}
 							</div>
 						)}
-						{filter === 'media' && vMedia.length === 0 && (
+						{mediaTab && vMedia.length === 0 && (
 							<div className="grid place-items-center py-10">
-								<PanelEmpty icon={<FileBox />} title={q ? 'No images match' : 'No images yet'}>
-									{q ? 'Try a different search.' : <>Add photos from your camera roll or files, or <button type="button" className="font-semibold text-[var(--accent)]" onClick={() => mediaFileRef.current?.click()}>choose images</button>. Drop them on this panel too.</>}
+								<PanelEmpty icon={<FileBox />} title={q ? `No ${filter === 'video' ? 'videos' : 'images'} match` : `No ${filter === 'video' ? 'videos' : 'images'} yet`}>
+									{q ? 'Try a different search.' : filter === 'video' ? <>Add a clip from your camera roll or files, or <button type="button" className="font-semibold text-[var(--accent)]" onClick={() => mediaFileRef.current?.click()}>choose videos</button>. A clip you send in the chat lands here too.</> : <>Add photos from your camera roll or files, or <button type="button" className="font-semibold text-[var(--accent)]" onClick={() => mediaFileRef.current?.click()}>choose images</button>. Drop them on this panel too.</>}
 								</PanelEmpty>
 							</div>
 						)}
@@ -1168,7 +1196,8 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 							themes.length && `${themes.length} theme${themes.length === 1 ? '' : 's'}`,
 							components.length && `${components.length} component${components.length === 1 ? '' : 's'}`,
 							finishes.length && `${finishes.length} finish${finishes.length === 1 ? '' : 'es'}`,
-							shownMedia.length && `${shownMedia.length} image${shownMedia.length === 1 ? '' : 's'}`,
+							shownMedia.length - videoCount && `${shownMedia.length - videoCount} image${shownMedia.length - videoCount === 1 ? '' : 's'}`,
+							videoCount && `${videoCount} video${videoCount === 1 ? '' : 's'}`,
 							docs.length && `${docs.length} file${docs.length === 1 ? '' : 's'}`,
 						].filter(Boolean).join(' · ') || 'nothing saved yet'}
 					</span>

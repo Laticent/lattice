@@ -41,7 +41,9 @@ export function createAgentAssets(): AgentAssets {
 	};
 	return {
 		async list() {
-			return (await shelf()).map(infoOf);
+			// Photos only. The manifest tells the model "a deck shows one as `asset:<name>`", and a slide cannot show
+			// a video yet, so a clip the author sent in the chat must not be offered as something to put on one.
+			return (await shelf()).filter((m) => m.kind === 'image').map(infoOf);
 		},
 		async thumbnail(name, edge = MAX_THUMB_EDGE) {
 			const rec = (await shelf()).find((m) => m.name === name && m.kind === 'image');

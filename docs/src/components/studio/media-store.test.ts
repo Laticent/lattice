@@ -7,7 +7,25 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { openDB, reqAsPromise } from './library/asset-db.js';
 import { deleteAsset, listAssets } from './library/asset-store.js';
 import { cleanLine, decksUsingRecord, isIsoDate, removeMediaAlias, renameMedia, updateMediaDetails, updateMediaMeta } from './media-edit';
-import { decksUsing, deleteDeckMedia, isMediaName, LIBRARY_SCOPE, listMedia, MAX_ALIASES, MEDIA_REFUSAL_PREFIX, mediaNameFromFile, type NewMedia, namesOf, saveMedia, setMediaCaption, setMediaScope, sniffImageMime, visibleMedia } from './media-store';
+import {
+	decksUsing,
+	deleteDeckMedia,
+	isMediaName,
+	isPosterDataUrl,
+	LIBRARY_SCOPE,
+	listMedia,
+	MAX_ALIASES,
+	MEDIA_REFUSAL_PREFIX,
+	mediaNameFromFile,
+	type NewMedia,
+	namesOf,
+	saveMedia,
+	setMediaCaption,
+	setMediaScope,
+	sniffImageMime,
+	sniffVideoMime,
+	visibleMedia,
+} from './media-store';
 
 async function emptyShelf() {
 	for (const a of await listAssets()) await deleteAsset(a.id);
@@ -188,7 +206,7 @@ describe('an engine that will not store a Blob', () => {
 
 	it('says plainly why when the engine will store neither, and leaves the shelf alone', async () => {
 		refuse('blob-and-buffer');
-		await expect(saveMedia(png(), 1)).rejects.toThrow(/would not store the photo.*private window/s);
+		await expect(saveMedia(png(), 1)).rejects.toThrow(/would not store that file.*private window/s);
 		await expect(saveMedia(png(), 1)).rejects.toThrow(MEDIA_REFUSAL_PREFIX);
 		vi.restoreAllMocks();
 		expect(await listMedia()).toHaveLength(0);
@@ -199,6 +217,29 @@ describe('an engine that will not store a Blob', () => {
 		const put = refuse('blob');
 		await expect(saveMedia(png(), 2)).rejects.toThrow(/already another saved image/);
 		expect(put).not.toHaveBeenCalled();
+	});
+});
+
+describe('isPosterDataUrl', () => {
+	it('lets a plain JPEG data URL through and nothing else', () => {
+		expect(isPosterDataUrl('data:image/jpeg;base64,/9j/4AAQ')).toBe(true);
+		for (const bad of ['https://attacker.example/beacon.png', 'javascript:alert(1)', 'data:image/svg+xml;base64,PHN2Zy8+', 'data:image/jpeg;base64,AAAA" onerror="x', `data:image/jpeg;base64,${'A'.repeat(130_000)}`, '', 7, null, undefined]) expect(isPosterDataUrl(bad), String(bad).slice(0, 30)).toBe(false);
+	});
+});
+
+describe('sniffVideoMime', () => {
+	const b = (...n: number[]) => new Uint8Array(n);
+	const str = (t: string) => [...t].map((c) => c.charCodeAt(0));
+	it('names MP4, QuickTime and WebM by their bytes', () => {
+		expect(sniffVideoMime(b(0, 0, 0, 24, ...str('ftypisom')))).toBe('video/mp4');
+		expect(sniffVideoMime(b(0, 0, 0, 20, ...str('ftypqt  ')))).toBe('video/quicktime');
+		expect(sniffVideoMime(b(0x1a, 0x45, 0xdf, 0xa3, 1))).toBe('video/webm');
+	});
+	it('refuses a picture in the same container, and anything else', () => {
+		expect(sniffVideoMime(b(0, 0, 0, 24, ...str('ftypavif')))).toBeNull();
+		expect(sniffVideoMime(b(0, 0, 0, 24, ...str('ftypheic')))).toBeNull();
+		expect(sniffVideoMime(b(0xff, 0xd8, 0xff, 0xe1))).toBeNull();
+		expect(sniffVideoMime(new Uint8Array(32))).toBeNull();
 	});
 });
 

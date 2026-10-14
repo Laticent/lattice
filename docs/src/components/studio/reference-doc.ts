@@ -34,13 +34,14 @@ export type ContentPart =
 export type MsgContent = string | ContentPart[];
 export type GroundMsg = { role: string; content: MsgContent };
 
-/** A parsed, in-memory reference document. Never persisted (sensitive + large). */
+/** A parsed, in-memory reference document. */
 export type ReferenceDoc = {
 	name: string;
 	kind: 'text' | 'pdf';
 	/** Extracted text for text/Markdown docs (already sanitized). */
 	text?: string;
-	/** `data:application/pdf;base64,…` for PDFs (inlined as a file content-part). */
+	/** `data:application/pdf;base64,…` for PDFs (inlined as a file content-part). In memory only: a saved doc
+	 *  keeps its PDF as binary (`RefDocRecord.blob`) and gets this text when it is attached or sent. */
 	dataUrl?: string;
 	/** Raw file size in bytes — for the honest size/cost readout. */
 	bytes: number;
@@ -134,6 +135,29 @@ export function formatBytes(n: number): string {
 	if (n < 1024 * 1024) return `${(n / 1024).toFixed(n < 10 * 1024 ? 1 : 0)} KB`;
 	if (n < 1024 * 1024 * 1024) return `${(n / 1024 / 1024).toFixed(1)} MB`;
 	return `${(n / 1024 / 1024 / 1024).toFixed(2)} GB`;
+}
+
+/** The bytes inside a `data:<type>;base64,<…>` URL, as a Blob. Throws on anything that is not base64, so a
+ *  caller that reads an untrusted row can refuse it instead of storing text it cannot decode. */
+export function dataUrlToBlob(dataUrl: string): Blob {
+	const comma = dataUrl.indexOf(',');
+	const head = comma < 0 ? '' : dataUrl.slice(0, comma);
+	const b64 = comma < 0 ? '' : dataUrl.slice(comma + 1);
+	if (!/;base64$/i.test(head) || !/^[A-Za-z0-9+/]*={0,2}$/.test(b64)) throw new Error('not a base64 data URL');
+	const mime = /^data:([^;,]*)/i.exec(head)?.[1] || 'application/octet-stream';
+	const bin = atob(b64);
+	const bytes = new Uint8Array(bin.length);
+	for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+	return new Blob([bytes], { type: mime });
+}
+
+/** A Blob as a `data:` URL: base64 text for a request body, made at the moment of sending and never stored. */
+export async function blobToDataUrl(blob: Blob): Promise<string> {
+	const bytes = new Uint8Array(await blob.arrayBuffer());
+	// Chunked: String.fromCharCode(...bytes) on a 5 MB array overflows the call stack.
+	let bin = '';
+	for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+	return `data:${blob.type || 'application/octet-stream'};base64,${btoa(bin)}`;
 }
 
 const readAs = (file: File, how: 'text' | 'dataURL'): Promise<string> =>

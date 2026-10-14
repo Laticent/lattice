@@ -114,14 +114,112 @@ random name suffixes and release on remove and deck switch); a 15.0x-second phon
 (now before the first); poster height is capped. Not changed: a mixed photo-and-video pick drops the lot
 when one part is refused (minor), and the one-shot fallback re-sends a refused clip once.
 
+## 4d. Attaching to a message: two paths, two controls (2026-10-13)
+
+The paperclip used to open one popover that mixed three ideas: a search box over saved docs, an "Add a photo or video…" row
+that opened the phone's own sheet on top of it, and an "Add a file…" row. A tester on an iPhone called it janky. It is now
+two paths and two controls in the composer (`ChatAttach.tsx`):
+
+- **The paperclip: from this device.** One tap and the browser's own picker is open; there is no menu of ours in between.
+  The paperclip IS a file input (invisible, over the icon, `multiple`), so on a phone its native sheet offers Photo Library,
+  Take Photo or Video and Choose Files, and on a computer the OS file dialog opens. Each file goes where its type says: a photo
+  or clip through the media path (saved to the Library, attached to this message), a `.pdf`, `.md` or `.txt` as a
+  reference document.
+- **The Library button: from your Library.** A popover with tabs for Photos, Videos and Files, with counts. Tapping an item
+  attaches it at once and checks it, and a second tap takes it off, so what is attached is always visible and there is no
+  "Attach" button to forget.
+
+**Why two controls, and what was wrong with one.** The first version put both paths behind one paperclip menu and opened the
+input with `click()` from the "From this device" row. On a real iPhone the native sheet then floated mid-screen, well above
+the paperclip. Two screen recordings, one with the input `hidden` and one with it laid over the paperclip, show the sheet at
+the **same position**, so its position follows the TAP that opened it, not the input's box. My first diagnosis (the hidden
+input had no box to anchor to) was wrong, and the fix built on it changed nothing. A tap that lands on the input itself is the
+pattern iOS anchors correctly, and it takes our menu out of the device path altogether. **That is a reading of two recordings
+and a known pattern, not something Chromium can show: whether the sheet now opens at the paperclip is checked on a phone.**
+
+What an attachment is: a photo or clip belongs to **this message** (a message carries 4 photos and 1 clip); a file is a
+reference document that **grounds every reply** until it is removed, billed each run. A Library photo is already a Library
+asset, so nothing is imported. A Library clip is checked against the same 15 MB and 15 s limits as one from the device and
+refused in words, in the list, when it is over. Taking a clip **from the device** off the message deletes it (it was saved
+only for this message); taking one **from the Library** off leaves it there. The same media gate applies to both paths: a
+cloud model that can see, and a catalog entry that does not say otherwise.
+
+Gone: the search box in the chat (the Library's own search is the place to find things), the "Add a file…" row, and the
+"Stored in your browser · never uploaded" line, which was true of documents and read as a claim about photos and clips,
+which are sent to the model. Fabricate keeps its documents-only paperclip: it takes nothing else, so the old list is
+coherent there. `useReferenceDoc` serves both and returns the state the chat needs (`saved`, `toggleSaved`, `addFiles`).
+
+**Layout, and a second report from the phone (2026-10-14).** With the two controls in the one-row composer, a 390 px phone
+gave the text field about 215 px: five buttons shared its line, and the Library button sat 2 px from the paperclip. The tester
+reported two things: the field lost width, and a tap on the Library button opened the native sheet too. I could not reproduce
+the second in Chromium (no WebKit here). Two causes are plausible and both are cheap to remove: iOS moves a tap toward the
+nearest clickable thing (so a 28 px target 2 px from an invisible file input can hand its tap to the input), and a file input
+can paint its inner button past its own box. So the two attach buttons are now 32 px with 8 px between them, the paperclip's
+wrapper clips the input to its box (`overflow-hidden`), and the Library button sits above it (`z-10`). The composer is now
+the field on its own full-width line with the controls on a bar beneath it (`CHAT_COMPOSER_STACK` / `_BAR` in
+`panel-shells.tsx`, shared with the `ChatShell` skeleton so the skeleton is the same height): the field is 352 px on a 390 px
+phone, and 161 px in the docked desktop column, where the old row wrapped its buttons to a second line anyway. The Live
+panel keeps its one-row composer. **Unverified: on a real iPhone, that a Library tap no longer opens the native sheet.** The
+spec checks the geometry and the hit test in Chromium; it cannot show iOS's tap adjustment.
+
+**Light and dark disagreed (2026-10-14).** In light mode the composer's text field blended into the composer's border; in
+dark mode it showed a faint filled box inside it. Cause: the shadcn `Textarea` ships `dark:bg-input/30`, and a consumer's plain
+`bg-transparent` does not beat a `dark:` variant (tailwind-merge keeps both), so only dark mode filled. It is not site-wide: the
+other transparent fields in the Studio are raw `<input>`s, not the primitive, and the two that use it (the Architect chat and
+the Live panel) share the field classes in `panel-shells.tsx`, which now carry `dark:bg-transparent`. The primitives keep
+their dark fill for the places that want it. The composer is one bordered box (`px-3 py-2.5`) with a bare field inside, in
+both modes; a spec reads the field's computed background in each mode and fails without the fix.
+
+**A model that said it could not see the clip, and why (2026-10-14).** The tester sent an iPhone clip to Google Gemini Pro
+Latest three times and got "I can't see the video" each time, after each of two fixes aimed at the wrong causes. The cause
+was the clip: it was 0.13 s long (4 frames; `IMG_3905.mov`, 10-bit HLG HEVC, 1920x1080, with its location tag still in it).
+A video model reads about one frame a second, so the request carried a video that gave it no frame. Measured with a
+throwaway script (`.scratch/clip-probe/`, OpenRouter, our key, about $0.02 in all, rule #24) on real footage of that one
+scene, cut to length and sent as `video_url` data URLs to Gemini 3.8 Flash:
+
+| clip | tokens the video added | what the model said |
+|---|---|---|
+| 0.13 s, the original | 0 | a kitchen, a park at night, an aurora (invented) |
+| 0.5 s and 1 s, H.264 | about 65 (one frame) | a player scoring, a ball off the crossbar (invented) |
+| 1.5 s and 2 s, H.264 | about 130 (two frames) | the goal, the turf, the trees (right) |
+| 3 s, H.264 and 10-bit HEVC `.mov` | about 197 | right, under `video/mov` and under `video/quicktime` |
+
+So `MIN_VIDEO_SECONDS = 1.5` (`chat-photo-parts.ts`): a chat clip shorter than that is refused at the door in words
+("That video is 0.13 seconds long. A model reads about one frame a second… Record at least 2 seconds"), in the device path
+and in the Library picker. It is the shortest length that was right twice, measured on one model family and one scene.
+The Library still stores any clip. `Gemini Pro Latest` on the 3 s clips also returned frames-worth of tokens (209) and a
+correct start of an answer (the reply was cut by the 200-token cap of the probe).
+
+Two changes made on the way stay, because each removes a real defect, but neither was the cause. (1) `videoWireType`
+sends QuickTime as `video/mov`, the name OpenRouter's guide and Google use; Gemini read a clip under either name. (2) Once a
+chat clip is a Library video, the Architect's prompt listed it as an asset and `view_asset` answered "videos cannot be
+viewed", which contradicts the clip in the message. The prompt now marks the clip that rides the message and `view_asset`
+points to it (`ChatOptions.videos[].name`). `chat-agent-clip.test.ts` follows the clip from the chat agent to
+`model.complete` and finds the `video_url` part.
+
+**A refusal a person could not read (2026-10-14).** A real iPhone clip (9 s, 16.4 MB) was refused in the Library picker
+in 10px red text, inside a row faded to half opacity, and the message ("A phone clip is large for its length, so trim it to a
+few seconds") did not say how much to cut. The row no longer fades over the reason: the thumbnail and name fade, the reason
+does not; it is 12px in the strong text color with a warning mark in the failure color. Each refusal now says what is wrong,
+then what to do, with the number that matters: "This video is 16.4 MB and the limit is 15 MB. Trim it to about 7 seconds or
+less, then add it again" (the length that fits at the clip's own rate, with a tenth to spare). A spec seeds that clip and
+checks the wording, the size, that nothing over the reason is faded, and the color, in light and in dark.
+
+**Verified:** `docs/e2e/chat-photos.spec.ts` in real Chromium at 1440, 820 and 390 px: the composer has the two controls and
+no menu; the paperclip is a real, tappable input (not `hidden`, not `pointer-events: none`) that accepts images, video and
+`.pdf` and opens the browser's chooser in one tap; a `.md` and a photo picked together become a chip and a thumbnail; from the
+Library, a photo, a clip and a file each attach by one tap and show a check; taking the clip off keeps it in the Library;
+the popover stays clear of the screen edge. **Not verified: the iOS native sheet's position on a real iPhone after this
+change.**
+
 ## 5. What this does not claim
 
-- **Not verified on a physical phone** (HARD RULE #23). The chat specs' 390 px cases (status line, table,
+- **The chat is not verified on a physical phone** (HARD RULE #23); the Library video shelf is, in part (see §6). The chat specs' 390 px cases (status line, table,
   list numbering, model switch, figures, photo) also pass on real WebKit with the iPhone 15 Pro profile
   (`webkit-phone`, WebKit 26): the engine the pool exists for, not the device. The native picker is the
   browser's own and was driven through Playwright's file chooser, which stands in for the choice, not for
   the picker. Video was not run on WebKit (it records WebM, which WebKit does not).
-- **Video is held for one turn, not stored.** The Library's video slice is not built, so a clip cannot be an `asset:`; the chat keeps a poster and a length and holds the bytes in memory until it is sent. The tab holds at most the two latest clips (the pending one and the one just sent, for a same-tab Regenerate); older ones are released, so memory is bounded. After a reload the clip is gone, and Regenerate says so. A clip over 15 s plus half a second of slack is refused.
+- **A chat clip is a Library video.** (Changed after the first version, which held the bytes in memory for one turn.) `addChatVideo` saves it to the open deck's shelf through `importVideo`, so it has a name, shows in Library → Videos, survives a reload, and Regenerate re-reads it from the shelf (`videoDataUrl`). The thread keeps only the name and length; the poster is read from the shelf, so thumbnails no longer share the browser's `localStorage` quota with deck sources (a thread saved before this change keeps its own poster). The chat's caps stay tighter than the Library's: 15 seconds and 15 MB, checked before anything is saved. A clip the author deletes from the Library is reported when Regenerate cannot find it. A slide cannot play it yet.
 - **The status line was verified at the DOM, not by eye over time.** A fulfilled mock cannot stream, so
   the phases are held open with delays; their real cadence on a live model is unmeasured.
 - **The streaming bubble hands off to the committed message with one re-point** of a figure's frame.
@@ -129,6 +227,15 @@ when one part is refused (minor), and the one-shot fallback re-sends a refused c
 ## 6. Open
 
 - A phone check of the native photo picker, the pool and the status line on a real device.
-- Storing a chat video in the Library, when its video slice lands (it would then be an `asset:` like a photo).
-- Video was exercised with a clip recorded in Chromium (WebM). A phone's H.264 MP4, and the cap on a real 15-second phone clip, are untested.
+- **Real-phone evidence for the Library video shelf (2026-10-13, from the PR's docs preview on an iPhone).** The author added a
+  camera-roll clip through the Library's picker: 1080×1920, 9.0 s, 16.4 MB, named `img-4526`. The Videos tab read its poster,
+  length, size and dimensions correctly, and the clip played in place with the browser's native controls. Two screenshots are in
+  the PR conversation. This covers the importer, the probe and playback on a real device with a real phone clip. It does **not**
+  cover the chat's attach path, a reload and Regenerate on the phone, a model reading the clip, or which codec or container
+  the file was (not shown).
+- **The chat's 15 MB cap is smaller than the 15-second cap it was meant to match.** That clip is about 1.8 MB a second, so a phone
+  clip reaches 15 MB at roughly 8 seconds. One sample, one phone. The cap exists to keep the base64 request body near 20 MB,
+  and it moves only after a real model has accepted a larger body; until then the refusal says so in words and does not
+  promise "about 15 seconds" (`chat-photo-parts.ts`).
 - Dropping a photo onto the composer (paste and the picker are in; drag is not).
+- Math arm, checked 2026-10-13 on 4b0eef0 in the sandbox: `check:family-conformance` ran to the end without a Chrome drop. The `math` row fires at portrait, story and mobile and is not among the 39 differences from `test/oracle/family-conformance.json`, which are all other components. `overflow:check` found four decks that clip more than the baseline, none with a math slide (follow-up filed). Not confirmed: a nightly run after the merge.

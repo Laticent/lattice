@@ -55,9 +55,40 @@ describe('a round trip', () => {
 		expect(await bytesOf(back[0])).toEqual(WEBP);
 	});
 
+	it('stores media entries as they are and deflates the index, so a clip is not recompressed for nothing', async () => {
+		await saveMedia(photo({ name: 'shared' }), 1);
+		const z = new JSZip();
+		await packMedia(z);
+		const packed = await JSZip.loadAsync(await z.generateAsync({ type: 'uint8array', compression: 'DEFLATE' }));
+		const method = (path: string) => (packed.files[path] as unknown as { _data: { compression: { magic: string } } })._data.compression.magic;
+		expect(method('media/shared.png')).toBe('\x00\x00'); // STORE
+		expect(method('media.json')).toBe('\x08\x00'); // DEFLATE
+	});
+
+	it('leaves out one photo the browser cannot read, names it, and still writes the rest', async () => {
+		await saveMedia(photo({ name: 'fine' }), 1);
+		await saveMedia(photo({ name: 'lost' }, OTHER), 2);
+		const real = Blob.prototype.arrayBuffer;
+		let reads = 0;
+		Blob.prototype.arrayBuffer = function (this: Blob) {
+			// The shelf lists newest first, so `lost` (saved second) is read first.
+			return ++reads === 1 ? Promise.reject(new DOMException('gone', 'NotReadableError')) : real.call(this);
+		};
+		const z = new JSZip();
+		let out: Awaited<ReturnType<typeof packMedia>>;
+		try {
+			out = await packMedia(z);
+		} finally {
+			Blob.prototype.arrayBuffer = real;
+		}
+		expect(out).toMatchObject({ rows: 1, unreadable: ['lost'] });
+		expect(Object.keys(z.files).filter((f) => f.startsWith('media/') && f !== 'media/')).toEqual(['media/fine.png']);
+		expect(JSON.parse(String(await z.file('media.json')?.async('string'))).map((r: { name: string }) => r.name)).toEqual(['fine']);
+	});
+
 	it('writes nothing for an empty shelf, and restoring a backup with no photos is a no-op', async () => {
 		const z = new JSZip();
-		expect(await packMedia(z)).toEqual({ rows: 0, bytes: 0, skipped: 0, omitted: [] });
+		expect(await packMedia(z)).toEqual({ rows: 0, bytes: 0, skipped: 0, omitted: [], unreadable: [] });
 		expect(Object.keys(z.files)).toEqual([]);
 		expect(await restoreMedia(z as never, 1, ctx())).toEqual({ restored: 0, shared: 0, refused: [], renames: [] });
 	});
@@ -310,9 +341,9 @@ describe('hostile rows', () => {
 	});
 
 	it('a type the Library never stores is refused, even when the extension looks right', async () => {
-		expect(await refusedWith([row({ mime: 'text/html' })])).toEqual(['its type is not an image Lattice stores']);
-		expect(await refusedWith([row({ mime: 'image/png', file: 'hero.jpg' })], { 'hero.jpg': PNG })).toEqual(['its type is not an image Lattice stores']);
-		expect(await refusedWith([row({ mime: 'application/javascript' })])).toEqual(['its type is not an image Lattice stores']);
+		expect(await refusedWith([row({ mime: 'text/html' })])).toEqual(['its type is not an image or video Lattice stores']);
+		expect(await refusedWith([row({ mime: 'image/png', file: 'hero.jpg' })], { 'hero.jpg': PNG })).toEqual(['its type is not an image or video Lattice stores']);
+		expect(await refusedWith([row({ mime: 'application/javascript' })])).toEqual(['its type is not an image or video Lattice stores']);
 	});
 
 	it('an SVG is refused by name, because opened as a document it runs its script on the site’s origin', async () => {
@@ -388,6 +419,102 @@ describe('hostile rows', () => {
 	it('a hostile sourceName is truncated, not trusted', async () => {
 		await restoreMedia(await craft([row({ sourceName: 'x'.repeat(5000) })]), 1, ctx());
 		expect((await listMedia())[0].sourceName).toHaveLength(200);
+	});
+});
+
+describe('video in a backup', () => {
+	// A minimal MP4 head: a 'ftyp' box is what the sniffer reads, and the rest is filler a player would never open.
+	const MP4 = new Uint8Array([0, 0, 0, 24, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d, 0, 0, 0, 0, 0x69, 0x73, 0x6f, 0x6d, 0x6d, 0x70, 0x34, 0x31, 1, 2, 3]);
+	const WEBM = new Uint8Array([0x1a, 0x45, 0xdf, 0xa3, 1, 2, 3, 4]);
+	const POSTER = 'data:image/jpeg;base64,/9j/4AAQSkZJRg==';
+	const clip = (over: Partial<NewMedia> = {}, bytes: Uint8Array = MP4): NewMedia => ({
+		kind: 'video', name: 'walk', scope: LIBRARY_SCOPE, blob: new Blob([bytes as BlobPart], { type: 'video/mp4' }), mime: 'video/mp4',
+		bytes: bytes.length, width: 640, height: 360, sourceName: 'Walk.mp4', original: true, durationMs: 4200, poster: POSTER, ...over,
+	});
+	const vrow = (over: Record<string, unknown> = {}) => row({ name: 'walk', kind: 'video', mime: 'video/mp4', file: 'walk.mp4', durationMs: 4200, poster: POSTER, ...over });
+	const refusedWith = async (rows: unknown, files: Record<string, Uint8Array>) => (await restoreMedia(await craft(rows, files), 1, ctx())).refused.map((r) => r.why);
+
+	it('a clip round-trips with its length, poster and bytes', async () => {
+		await saveMedia(clip(), 10);
+		const z = new JSZip();
+		expect(await packMedia(z)).toMatchObject({ rows: 1, skipped: 0 });
+		const packed = await JSZip.loadAsync(await z.generateAsync({ type: 'uint8array' }));
+		expect(Object.keys(packed.files)).toContain('media/walk.mp4');
+		await emptyShelf();
+		expect(await restoreMedia(packed, 99, ctx())).toEqual({ restored: 1, shared: 0, refused: [], renames: [] });
+		const [back] = await listMedia();
+		expect(back).toMatchObject({ kind: 'video', name: 'walk', mime: 'video/mp4', durationMs: 4200, poster: POSTER, addedAt: 10 });
+		expect(await bytesOf(back)).toEqual(MP4);
+	});
+
+	it('a WebM restores under its own type', async () => {
+		const out = await restoreMedia(await craft([vrow({ mime: 'video/webm', file: 'walk.webm' })], { 'walk.webm': WEBM }), 1, ctx());
+		expect(out.refused).toEqual([]);
+		expect((await listMedia())[0]).toMatchObject({ kind: 'video', mime: 'video/webm' });
+	});
+
+	it('refuses image bytes behind a video row, and a kind that disagrees with the type', async () => {
+		expect(await refusedWith([vrow()], { 'walk.mp4': PNG })).toEqual(['its bytes are not MP4 video data']);
+		expect(await refusedWith([vrow({ kind: 'image' })], { 'walk.mp4': MP4 })).toEqual(['its kind does not match its type']);
+		expect(await refusedWith([row({ kind: 'video' })], { 'hero.png': PNG })).toEqual(['its kind does not match its type']);
+	});
+
+	it('overwrites a restored clip\'s location boxes, and refuses a clip whose boxes cannot be read', async () => {
+		const enc = (t: string) => new TextEncoder().encode(t);
+		const u32 = (n: number) => new Uint8Array([(n >>> 24) & 255, (n >>> 16) & 255, (n >>> 8) & 255, n & 255]);
+		const box = (type: string, ...payload: Uint8Array[]) => {
+			const body = new Uint8Array(payload.reduce((n, p) => n + p.length, 0));
+			let at = 0;
+			for (const p of payload) {
+				body.set(p, at);
+				at += p.length;
+			}
+			const out = new Uint8Array(8 + body.length);
+			out.set(u32(8 + body.length), 0);
+			out.set(enc(type), 4);
+			out.set(body, 8);
+			return out;
+		};
+		const join = (...parts: Uint8Array[]) => {
+			const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
+			let at = 0;
+			for (const p of parts) {
+				out.set(p, at);
+				at += p.length;
+			}
+			return out;
+		};
+		const COORDS = '+37.7749-122.4194/';
+		const dirty = join(box('ftyp', enc('isom'), u32(0), enc('isom')), box('moov', box('mvhd', new Uint8Array(100)), box('udta', box('\u00a9xyz', new Uint8Array([0, 18, 0, 0]), enc(COORDS)))), box('mdat', new Uint8Array(64)));
+		const broken = join(box('ftyp', enc('isom'), u32(0), enc('isom')), u32(99_999), enc('moov'), new Uint8Array(16));
+		const out = await restoreMedia(await craft([vrow(), vrow({ name: 'bad', file: 'bad.mp4' })], { 'walk.mp4': dirty, 'bad.mp4': broken }), 1, ctx());
+		expect(out.restored).toBe(1);
+		expect(out.refused.map((r) => r.why)).toEqual(['its video data could not be checked for location data']);
+		const [back] = await listMedia();
+		const stored = new Uint8Array(await back.blob.arrayBuffer());
+		expect(new TextDecoder('latin1').decode(stored)).not.toContain('37.7749');
+		expect(stored.length).toBe(dirty.length);
+	});
+
+	it('keeps only a plain JPEG data URL as the poster', async () => {
+		for (const poster of ['javascript:alert(1)', 'data:image/svg+xml;base64,PHN2Zy8+', 'data:image/jpeg;base64,AAAA" onerror="x', `data:image/jpeg;base64,${'A'.repeat(130_000)}`]) {
+			await emptyShelf();
+			const out = await restoreMedia(await craft([vrow({ poster })], { 'walk.mp4': MP4 }), 1, ctx());
+			expect(out.restored, poster.slice(0, 30)).toBe(1);
+			expect((await listMedia())[0].poster, poster.slice(0, 30)).toBeUndefined();
+		}
+	});
+});
+
+describe('a .lattice carries photos only', () => {
+	it('refuses a video row, and still restores the photo beside it', async () => {
+		const MP4 = new Uint8Array([0, 0, 0, 24, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d, 1, 2, 3, 4]);
+		const rows = [row({ name: 'hero' }), row({ name: 'walk', kind: 'video', mime: 'video/mp4', file: 'walk.mp4', durationMs: 1000 })];
+		const zip = await craft(rows, { 'hero.png': PNG, 'walk.mp4': MP4 });
+		const out = await restoreMedia(zip, 1, ctx(), { imagesOnly: true });
+		expect(out.restored).toBe(1);
+		expect(out.refused.map((r) => r.why)).toEqual(['a .lattice carries photos only']);
+		expect((await listMedia()).map((m) => m.name)).toEqual(['hero']);
 	});
 });
 

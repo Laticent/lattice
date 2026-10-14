@@ -11,9 +11,9 @@
 // What is sent to the model is a DOWNSCALED copy (`VISION_EDGE`): a vision model reads at roughly
 // 1.5 megapixels, so the 2560 px Library original would cost the same tokens and carry more bytes.
 
-import { MAX_VIDEO_BYTES, VISION_EDGE, videoRefusal } from './chat-photo-parts';
-import { classifyMedia, importImage, MediaImportError } from './media-import';
-import { listMedia, MEDIA_REFUSAL_PREFIX, mediaNameFromFile, namesOf, saveMedia, uniqueName } from './media-store';
+import { MAX_VIDEO_BYTES, VISION_EDGE, videoRefusal, videoWireType } from './chat-photo-parts';
+import { classifyMedia, importImage, importVideo, MediaImportError } from './media-import';
+import { deleteMedia, listMedia, MEDIA_REFUSAL_PREFIX, namesOf, saveMedia, uniqueName } from './media-store';
 import type { ChatPhoto, ChatVideo } from './studio-store';
 
 export { MAX_CHAT_PHOTOS, MAX_VIDEO_SECONDS, VIDEO_TOKENS, VISION_EDGE } from './chat-photo-parts';
@@ -34,7 +34,7 @@ export async function addChatPhotos(files: FileList | File[] | null, deckId: str
 	const taken = new Set((await listMedia()).flatMap(namesOf));
 	for (const file of picked) {
 		try {
-			if (!classifyMedia(file)) throw new MediaImportError(`${file.name} isn't an image.`);
+			if (classifyMedia(file) !== 'image') throw new MediaImportError(`${file.name} isn't an image.`);
 			const rec = await importImage(file, deckId);
 			const wanted = rec.name;
 			rec.name = uniqueName(rec.name, taken);
@@ -91,89 +91,48 @@ export async function photoDataUrl(name: string): Promise<string | null> {
 
 // ── Video ───────────────────────────────────────────────────────────────────
 //
-// A clip is held in MEMORY for the turn it is sent on, never stored: the Library has no video shelf
-// yet (engineering/decisions/2026-10-12-library-media-assets.md, slice 5), and a stored 15 MB clip per
-// message would fill the browser's quota. The thread keeps a poster and a length (`ChatVideo`). A clip
-// is read once, measured, refused when it is over the cap, and sent inline as a data URL.
+// A chat clip is a LIBRARY ASSET too: `importVideo` reads it, the open deck's shelf keeps it (Library →
+// Videos), and the thread stores only its name and length. It survives a reload and Regenerate re-reads
+// it from the shelf. The chat's caps are tighter than the Library's (15 seconds, 15 MB): video is billed
+// by the second, so a longer clip is refused here, before anything is saved.
 
-/** At most this many clips are held: the pending one and the one just sent (a same-tab Regenerate
- *  re-sends it). Older ones are released, so memory is bounded however many are attached. */
-const MAX_HELD_VIDEOS = 2;
-const heldVideos = new Map<string, string>();
-/** The clip's data URL while this tab holds it, or null (a reload, or it was released). */
-export const heldVideo = (name: string): string | null => heldVideos.get(name) ?? null;
-export const forgetVideo = (name: string): void => {
-	heldVideos.delete(name);
-};
-
-const once = (el: HTMLVideoElement, ok: string, ms: number): Promise<void> =>
-	new Promise((resolve, reject) => {
-		const t = setTimeout(() => reject(new Error('timeout')), ms);
-		el.addEventListener(
-			ok,
-			() => {
-				clearTimeout(t);
-				resolve();
-			},
-			{ once: true },
-		);
-		el.addEventListener(
-			'error',
-			() => {
-				clearTimeout(t);
-				reject(new Error('decode'));
-			},
-			{ once: true },
-		);
-	});
-
-/**
- * Read a clip, measure it and make its poster. Returns the refusal in words when it cannot be
- * attached (too big, too long, unreadable). The size is checked BEFORE the file is read.
- */
-export async function readChatVideo(file: File): Promise<{ video: ChatVideo; dataUrl: string } | { error: string }> {
-	if (file.size > MAX_VIDEO_BYTES) return { error: videoRefusal(1, file.size) as string };
-	let dataUrl: string;
+/** Save a clip to the open deck's shelf and hand back what the thread keeps of it, or the refusal in
+ *  words. The size is checked BEFORE the file is read; the length BEFORE it is saved, so a refused clip
+ *  leaves nothing on the shelf. */
+export async function addChatVideo(file: File, deckId: string): Promise<{ video: ChatVideo } | { error: string }> {
+	if (file.size > MAX_VIDEO_BYTES) return { error: videoRefusal(Number.NaN, file.size) as string };
 	try {
-		dataUrl = await blobToDataUrl(file);
-	} catch {
-		return { error: `${file.name} could not be read.` };
-	}
-	const el = document.createElement('video');
-	el.muted = true;
-	el.playsInline = true;
-	el.preload = 'metadata';
-	try {
-		el.src = dataUrl;
-		await once(el, 'loadedmetadata', 10_000);
-		// A recording some browsers write has no length in its header (`Infinity`); seeking far past the
-		// end makes the browser find it.
-		if (!Number.isFinite(el.duration)) {
-			el.currentTime = 1e101;
-			await once(el, 'durationchange', 5_000).catch(() => {});
-			await new Promise((r) => setTimeout(r, 0));
-		}
-		const refusal = videoRefusal(el.duration, file.size);
+		const rec = await importVideo(file, deckId);
+		const refusal = videoRefusal((rec.durationMs ?? 0) / 1000, rec.bytes);
 		if (refusal) return { error: refusal };
-		el.currentTime = Math.min(0.1, el.duration / 2);
-		await once(el, 'seeked', 5_000).catch(() => {});
-		const w = 160;
-		const canvas = document.createElement('canvas');
-		canvas.width = w;
-		// Height capped: an extreme aspect ratio must not make a large poster (it is stored in the thread).
-		canvas.height = Math.min(240, Math.max(1, Math.round((w * (el.videoHeight || 90)) / (el.videoWidth || 160))));
-		canvas.getContext('2d')?.drawImage(el, 0, 0, canvas.width, canvas.height);
-		const poster = canvas.toDataURL('image/jpeg', 0.7);
-		// A random suffix, not a counter: the held map is empty after a reload while a persisted thread
-		// still names `clip`, and a new `clip.webm` must not be mistaken for the old turn's clip.
-		const name = `${mediaNameFromFile(file.name, 'video')}-${Math.random().toString(36).slice(2, 7)}`;
-		heldVideos.set(name, dataUrl);
-		while (heldVideos.size > MAX_HELD_VIDEOS) heldVideos.delete(heldVideos.keys().next().value as string);
-		return { video: { name, durationMs: Math.round(el.duration * 1000), poster }, dataUrl };
+		const taken = new Set((await listMedia()).map((a) => a.name));
+		// A random suffix, not just a free name: the thread names its clip, and a clip deleted from the Library
+		// and a new `video.mp4` attached later must not be mistaken for the old turn's clip on Regenerate.
+		rec.name = uniqueName(`${rec.name.slice(0, 40)}-${Math.random().toString(36).slice(2, 7)}`, taken);
+		await saveMedia(rec, Date.now());
+		void navigator.storage?.persist?.().catch(() => {});
+		return { video: { name: rec.name, durationMs: rec.durationMs ?? 0 } };
+	} catch (e) {
+		console.warn('lattice: could not add a chat video', file.name, e);
+		const msg = String((e as Error)?.message ?? '');
+		return { error: e instanceof MediaImportError || msg.startsWith(MEDIA_REFUSAL_PREFIX) ? msg : `${file.name}: could not be added.` };
+	}
+}
+
+/** The clip as a data URL for the model, or `null` when it is no longer on the shelf (deleted since). */
+export async function videoDataUrl(name: string): Promise<string | null> {
+	const rec = (await listMedia()).find((m) => m.name === name && m.kind === 'video');
+	// The bytes are untouched; only the type the data URL declares is the one the provider accepts (`videoWireType`).
+	return rec ? blobToDataUrl(rec.blob.slice(0, rec.blob.size, videoWireType(rec.blob.type))) : null;
+}
+
+/** Remove a clip that was attached but never sent (taken out of the strip, or its deck was left). A photo
+ *  stays in the Library as a keepsake; a clip is up to 15 MB and the author never chose to keep it. */
+export async function discardChatVideo(name: string): Promise<void> {
+	try {
+		const rec = (await listMedia()).find((m) => m.name === name && m.kind === 'video');
+		if (rec) await deleteMedia(rec.id);
 	} catch {
-		return { error: `${file.name} couldn't be read as a video. It may be a format this browser can't play.` };
-	} finally {
-		el.removeAttribute('src');
-		el.load();
+		/* the Library lists it; the author can delete it there */
 	}
 }

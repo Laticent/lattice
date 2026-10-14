@@ -56,7 +56,9 @@ export async function refreshAssetUrls(): Promise<void> {
 	const next: Record<string, string> = {};
 	const nextAlts: Record<string, string> = {};
 	blobByName.clear();
-	const seen = visibleMedia(all, activeDeckId);
+	// Photos only: a deck cannot show a video through `![](asset:x)` yet, so a video name resolves to the
+	// missing-image stand-in rather than a broken <img> (and is not offered by editor completion).
+	const seen = visibleMedia(all, activeDeckId).filter((m) => m.kind === 'image');
 	choices = seen.map((m) => ({ name: m.name, scope: m.scope, width: m.width, height: m.height, sourceName: m.sourceName }));
 	for (const m of seen) {
 		// Aliases resolve to the same bytes: a renamed photo keeps working under every name it has had.

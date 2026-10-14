@@ -415,6 +415,8 @@ export function createToolbox(opts: {
 	assets?: AgentAssets;
 	/** Whether the selected model accepts images. Absent or false → `view_asset` declines. */
 	canSee?: () => Promise<boolean>;
+	/** Names of the clips sent to the model inside the author's message this turn. */
+	attachedVideos?: ReadonlySet<string>;
 }) {
 	const original = String(opts.source ?? '');
 	let draft = original;
@@ -485,7 +487,7 @@ export function createToolbox(opts: {
 		for (const name of names) {
 			const a = all.find((x) => x.name === name);
 			if (!a) out.push(unknownAsset(name, all));
-			else if (a.kind === 'video') out.push(`${name}: a video; videos cannot be viewed. Use its name and shape.`);
+			else if (a.kind === 'video') out.push(opts.attachedVideos?.has(name) ? `${name}: this video is attached to the author's message; it was sent to you there as a video. Watch it in that message and answer from what it shows; this tool shows photos only.` : `${name}: a video from the Library that is not attached to this message; view_asset shows photos only, so use its name and shape.`);
 			else if (a.caption && !again) out.push(`${name}: already captioned — "${a.caption}"`);
 			else if (sent.has(name)) out.push(`${name}: already shown to you this turn.`);
 			else wantLook.push(a);

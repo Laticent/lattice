@@ -651,15 +651,20 @@ export type ChatProposal = {
 export type ChatPhoto = { name: string; width: number; height: number };
 
 /** A short video attached to a user turn: what the thread keeps of it. */
-export type ChatVideo = { name: string; durationMs: number; /** A small JPEG data URL of the first frame. */ poster: string };
+export type ChatVideo = {
+	/** The clip's name in the Library (Videos). The poster is read from there, so the thread stays small. */
+	name: string;
+	durationMs: number;
+	/** Only on a thread saved before clips lived in the Library: a small JPEG data URL of the first frame. */
+	poster?: string;
+};
 
 export type ChatMessage = {
 	role: 'user' | 'assistant';
 	content: string;
 	/** User turn only: the photos attached to it. */
 	photos?: ChatPhoto[];
-	/** User turn only: the video attached to it — a poster and a length, never the bytes (the clip goes
-	 *  to the model on the turn it is sent and is not stored). */
+	/** User turn only: the video attached to it — its Library name and length, never the bytes. */
 	videos?: ChatVideo[];
 	/** Assistant turn only: the edits it proposes (reviewable per-slide diffs). */
 	proposed?: ChatProposal[];
