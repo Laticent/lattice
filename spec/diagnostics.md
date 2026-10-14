@@ -116,6 +116,7 @@ distinct, stable ID.
 | `list-modifier-inert` | warning | — | On a list slide, a counter modifier its register never reads: `numbered` without `takeaway`, or `lettered`/`roman`/`bullet` without `principles`. Also `principles` over `-` bullets (it numbers an ordered list only), and `takeaway` over a `1.` list without `numbered` (the numbers are hidden). |
 | `card-style-inline-title` | error | ✓ | `- **Title.** body` (or ordered `1. **Title.** body`) on a card-style layout — the body inherits the parent `li` bold. Fix: nested `- Title` / `  - body`. |
 | `ledger-inline-title` | error | ✓ | The unordered inline-bold shape on a ledger/numbered layout — autofixes to the ordered `1. Name` / `   - body` shape the layout wants. |
+| `chart-list-split-quote` | warning | ✓ | A `>` at the left margin between two items of a chart's list. It ends the list, so every row after it drops out of the chart. Autofixes a one-line quote by indenting it under the item above. |
 | `statement-ol-bold` | error | — | A `**bold**` span inside an ordered-list statement, which splits the counter-grid row (e.g. `principles`). |
 | `split-bodyless-item` | error | ✓ | A right-panel item with no nested body on a split layout — the title won't lift to bold. |
 | `split-missing-headline` | warning | — | An h2-anchored split slide (`split-panel`/`split-compare`) with no `## ` headline — the left panel renders empty. |

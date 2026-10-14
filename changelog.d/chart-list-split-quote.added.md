@@ -1,0 +1,1 @@
+- `lint:deck` warns with `chart-list-split-quote` when a `>` written at the left margin sits between two items of a chart's list. The quote ends the list, so every row after it dropped out of the chart without a word. A one-line quote gets a fix that indents it under the item above.
