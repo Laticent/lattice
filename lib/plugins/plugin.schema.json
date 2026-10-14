@@ -85,20 +85,30 @@
         },
         "inline": {
           "type": "object",
-          "description": "Inline-code KINDS: a record behind one tag character, written in Segno's notation (`^{database, c3}`), keyed by the kind's name. The host owns one dispatch table (lib/core/inline-code-directives.js) whose first rows are its own marks, pills and sparks; it keeps the dispatch order and the backslash escape. The plugin's `<name>.inline.js` exports an `inline` object with the same keys, each `{ resolve, html, element, diagnose }`: text → fields, an HTML string, a DOM element, or why an attempt does not render. `resolve(text, off, probe)` may return `true` instead of building its fields when `probe` is true, and `diagnose(text, off, explain)` may return `true` instead of the reason when `explain` is false: the dispatcher asks only whether a span renders, or is a broken attempt, far more often than it needs the answer. A kind that ignores both flags is still right, only slower. Bundled wherever the dispatcher is (the linter, the runtime), so the module must stay light: no data it can load later. A sigil another row claims (`~` is the spark's) fails the build by name. In-tree only.",
+          "description": "Inline-code KINDS, keyed by the kind's name; an author calls one as `@kind{…}` (2026-10-14-plugin-inline-door.md). IN-TREE: a kind also has a one-character `sigil` alias (`^{database, c3}` is `@icon{database, c3}`), and the plugin's `<name>.inline.js` exports an `inline` object with the same keys, each `{ resolve, html, element, diagnose }`, which the host's dispatch table (lib/core/inline-code-directives.js) calls; it keeps the dispatch order and the backslash escape. `resolve(text, off, probe)` may return `true` instead of building its fields when `probe` is true, and `diagnose(text, off, explain)` may return `true` instead of the reason when `explain` is false. Bundled wherever the dispatcher is (the linter, the runtime), so the module must stay light. A sigil another row claims fails the build by name. ZIP: no sigil (refused); the plugin's one `render.js` draws the kind in the sandbox, handed `{ type: \"inline\", kind, text, record, fields, id }`, where `fields` is the record read by the kind's `slot`. A kind Lattice draws itself, or one two listed plugins claim, is not drawn.",
           "minProperties": 1,
           "propertyNames": {"pattern": "^[a-z][a-z0-9-]*$"},
           "additionalProperties": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["sigil"],
             "properties": {
               "sigil": {
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 1,
-                "description": "The tag character before `{`: one of Segno's TAGS (docs/src/lib/segno/notation-grammar.ts)."
-              }
+                "description": "In-tree only, and required there: the tag character before `{`, one of Segno's TAGS (docs/src/lib/segno/notation-grammar.ts), the kind's short alias. A zip plugin's kind declares none."
+              },
+              "slot": {
+                "type": "object",
+                "description": "Zip: the kind's fields as a Segno slot spec (the shape a component's `segno` block uses, lib/core/segno-spec.js). The host reads each span's record with it and hands the renderer `fields`; lint, autocomplete and Compose read it without running code. A span whose record does not read is not drawn. Bounded (code-shape.mjs `slotRefusal`) and compiled at import; pinned in the plugin's approval."
+              },
+              "placeholder": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "Zip: the inline chip that stands where a span is while the deck does not list the plugin.",
+                "properties": {"size": {"enum": ["sm", "md", "lg", "xl"], "description": "The avatar size scale; default `sm`, one line of text."}}
+              },
+              "title": {"type": "string", "description": "Zip: a short name for the kind, shown in the editor's `@` menu."}
             }
           }
         },

@@ -458,6 +458,11 @@ describe('lint-core: auto-fix', () => {
     const deck = (list) => `---\nmarp: true\n${list}---\n\n## G\n\n- A \`@gantt-bar{Design, 2}\`\n`;
     assert.equal(core.lintTextWith(deck('plugins: [gantt-plugin]\n'), zip).some((x) => x.rule === 'unknown-inline-kind'), false);
     assert.equal(core.lintTextWith(deck(''), zip).some((x) => x.rule === 'unknown-inline-kind'), true);
+    // A deck that lists a plugin not installed here: no fix to the nearest built-in, only which plugin is missing.
+    const absent = core.lintTextWith(`---\nmarp: true\nplugins: [stage-plugin]\n---\n\n## S\n\n- A \`@stage{x}\`\n`, vocab).find((x) => x.rule === 'unknown-inline-kind');
+    assert.ok(absent, 'still a warning');
+    assert.equal(absent.autofixable, undefined, 'never rewritten to @state');
+    assert.match(absent.message, /lists stage-plugin, which is not installed here/);
   });
 
   test('retiredQuadrantAxis rewrites every shipped retired shape; null for an ordinary eyebrow', () => {

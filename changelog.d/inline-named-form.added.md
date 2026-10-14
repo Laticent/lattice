@@ -7,3 +7,8 @@
   offers what the short form offers (spark types, pill shapes, icon names).
 - `lint:deck` warns on `@name{…}` when no kind is called `name` (`unknown-inline-kind`), with a one-click fix to
   the nearest kind, and its pill, spark, icon and spelling checks read the `@kind{…}` spelling too.
+- A plugin from a zip can bring its own inline kinds: its manifest declares them under `contributes.inline`, and a deck
+  that lists the plugin calls one as `` `@kind{…}` ``. The plugin's code draws each span in the same sandbox as its
+  fence, after you approve it (`lattice packages trust`, or Approve in the Studio). Until the deck lists the plugin, the
+  Studio shows a small chip where each span is; a span that cannot draw stays as code, and the Studio or the CLI says
+  why.

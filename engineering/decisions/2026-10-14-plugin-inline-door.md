@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: in-progress
 summary: >
   A plugin brings inline syntax through `@kind{…}`, one form for every inline kind: the word after `@` names
   the kind the plugin declares (`@avatar{Ada Okafor}`), the built-in sigils stay as aliases (`!{…}` is
@@ -10,7 +10,7 @@ summary: >
 
 # The plugin inline door: `@kind{…}` (2026-10-14)
 
-Status: proposed. The owner's decisions are in §3; nothing is built yet. Parent:
+Status: in progress. The owner's decisions are in §3; steps 1 to 3 are built (§11), step 4 (Compose) is not. Parent:
 `2026-09-27-plugin-system.md` (the plugin contract; its 2026-10-13 progress entry said inline syntax was not a zip
 plugin's to contribute, which this note reverses). Siblings: `2026-09-28-segno-unified-inline-notation.md` (the
 notation, whose decision 11 was amended today to retire journey's `@`), `2026-09-29-inline-icons.md` §6a (the
@@ -63,6 +63,9 @@ Measured on 2026-10-14:
   built-in kinds draw 383 of them (5.6%).
 
 ## 3. Decisions (owner, 2026-10-14)
+
+(Two more, taken after the trio: the zip half of `inline` is provisional, outside the LPM 1.0 freeze; and there is no
+declarative template tier, because a plugin is live code. Both in §10.)
 
 1. **Plugins may bring inline syntax.** Avatars and icons already are inline plugins in-tree, and a zip plugin gets
    the same door.
@@ -139,21 +142,30 @@ The fence door from phase E carries inline kinds with three changes. The flow is
 2. **Capture:** after the first render, the door finds every `<code>` whose text is `@<kind>{…}` for an active
    kind, outside slides a shipped pass rebuilds, as `claimedFences` does for fences. A `<code>` the engine stamped
    escaped (`data-lat-escaped`) is never claimed.
-3. **Run:** the sandbox calls the plugin's `inline[kind](input)`, where `input` is `{ fields, text, id }`. `fields`
-   is the record read by the kind's `slot`, or null when the kind declares none; `text` is the span as written; `id`
-   is the namespaced id that `fenceId` builds.
-4. **Splice:** the output is sanitized to PHRASING content (text, `<span>`, `<svg>` and its children; no block
-   element, no `<style>`) and wrapped in `<span data-lattice-plugin="<plugin>" data-kind="<kind>">`. The splice
-   happens where a fence's does, before the preview builder sanitizes the document, so it adds no new markup sink
-   (HARD RULE #22). That is a claim for the trio to check against `checkPreviewHtmlSinks`, not a given.
+3. **Run:** a zip plugin has ONE render function (its `render.js` default export), for its fence and its kinds alike.
+   The sandbox hands it `{ type: "inline", kind, text, record, fields, id }` for a span, and `{ type: "fence", body, id }`
+   for a fence; `type` says which. `text` is the span as written (`@kind{…}`), `record` the `{…}` after the kind's
+   name, `fields` the record read by the kind's `slot` (null when it declares none), and `id` the namespaced id that
+   `fenceId` builds. A kind that declares a slot is never handed a record the slot does not read: that span stays code,
+   and the door says why.
+4. **Splice:** the output goes through `doorFinishInline` (lib/core/door-attr.mjs): everything the fence sanitizer
+   does, then PHRASING content only (text, `<span>`, `<svg>` and its children; no block element, no `<a>`, no `<code>`,
+   no SVG `foreignObject`), with bidi controls stripped from its text and any style that moves it out of its line
+   dropped. It is wrapped in `<span data-lattice-plugin="<plugin>" data-kind="<kind>">`, whose CSS isolates its text's
+   direction and contains its paint. The splice happens where a fence's does, before the preview builder sanitizes the
+   document, so it adds no new markup sink (HARD RULE #22; `check:ownership` agrees).
+5. **Escape:** the engine strips an escape's backslash only before a span it draws itself, and it does not know a zip
+   kind, so the door finishes `\@kind{…}` for the kinds of the plugins the deck lists, as `<code data-lat-escaped>`:
+   no run, no budget.
 
 Limits: inline spans and fences share one pool of claims per render (`MAX_FENCES_PER_PASS`, 400) and one output cap
 (`FENCE_OUTPUT_MAX`). A span longer than a set cap (proposed 2,000 characters) stays code with a warning, as a fence
 too long for its plugin does. The deck that holds the most spans, 290, holds them all in one pool. Only claimed spans
 count, and the built-ins draw about 6% of spans.
 
-**The placeholder.** A listed but unapproved plugin, or an installed plugin the deck does not list, shows an inline
-chip: `<span data-lattice-plugin-off data-placement="chip" data-inline>`. It carries the plugin's mark and its name as
+**What stands where a span is when it does not draw.** A listed but unapproved plugin's span, and a span that failed,
+keeps its code (a note is a block, and a block in a sentence breaks it); the consent strip and the CLI say why. An
+installed plugin the deck does not list shows an inline chip in the Studio: `<span data-lattice-plugin-off data-placement="chip" data-inline>`. It carries the plugin's mark and its name as
 the accessible name, sized by `placeholder.size`, and never the author's text. It uses the same Nacre paint as the
 fence placeholder (`lib/base/base.modifiers.css`). The consent strip (`CodePackagesNotice`) counts a plugin once,
 whether the deck uses its fences, its kinds or both.
@@ -238,6 +250,14 @@ untrusted plugins. The red team's brief includes the phrasing-content sanitizer 
 
 ## 10. Open
 
+- **Decided (owner, 2026-10-14): the zip half of `inline` is PROVISIONAL, outside LPM 1.0's freeze.** It freezes once
+  #2686's reader settles how a record reads (it decides `fields`) and the shadowing on rebuilt layouts is decided
+  (`followups.d/2687-p4-…`, `2687-p5-…`). The built-in `@kind{…}` form is not provisional.
+- **Decided (owner, 2026-10-14): no declarative "template" tier.** The inversion lens proposed kinds drawn from a
+  manifest template with no code. Rejected: a plugin is live code that acts on change (an avatar redraws when its
+  traits change), and a template is a fill-in that cannot. The trust model stays as built: once the author approves
+  the plugin and the deck lists it, it runs on every render; the sandbox is where approved code runs, not a second
+  approval. The shadowing on rebuilt layouts is solved for code kinds or not at all (`followups.d/2687-p4-…`).
 - The per-span length cap (2,000 characters proposed) and whether inline spans get their own share of the 400-claim
   pool, so a fence-heavy deck cannot starve them.
 - Whether the alias spelling is the one autocomplete inserts for built-ins (shorter) or the `@` form (one rule to
@@ -287,3 +307,34 @@ in step 3.
 - **The lint gaps the checker named are closed.** `mixed-spelling` reads `@icon{db}` as `^{db}` and shifts its fix
   past the longer prefix, and the crowded-pill and stray-bracket checks read the named form. Every one gives its
   advice in the author's spelling, through one helper (`viaAlias`).
+
+**2026-10-14 — step 3, the door, and the adversarial trio on it.** A zip plugin may declare `contributes.inline` kinds,
+with or without its one fence, and both doors draw them (§4.3-§4.4). Proved through real Chromium on both surfaces: the
+CLI (`test/integration/export/plugin-cli.test.js`: add, refused before trust, unlisted, drawn from slot fields, block
+output refused, the escape) and the Studio (`docs/e2e/plugin-inline-ui.spec.ts`, at 1440, 820 and 390: the chip in its
+line on a `columns` slide, Approve, then drawn spans in a `cards-grid` slide's cards). Built on the fence door: one plan
+(`planFencePlugins` takes kinds), one claim pass (`claimedFences` claims spans beside fences, one budget), one memo key
+space (`fenceKey` tags a span), and one consent digest (`pluginConsentText` pins the kinds only when there are some, so
+every fence-only approval kept its digest).
+
+The trio (red team, inversion, checker) read the commits; what each found and what changed:
+- **Red team.** A kind's `slot` was outside the approval and compiled on the host unbounded: a 682 KB slot took 21.9 s,
+  outside any sandbox. Now each slot is pinned in the digest (canonical JSON), bounded by shape (`slotRefusal`: 20,000
+  characters, 1,000 names and values, 6 levels, 32 parameters, 8 one-character sigils) and compiled once at import, in
+  both gates. Bidi controls in a span's text reversed the author's words after it ("to account 1234-5678" read
+  backwards in the export); they are stripped, and the root isolates. An `<a>` in output inside the author's link
+  re-parsed out of the root and emptied the link; `<a>` and `<code>` (which the runtime would redraw) are refused. A
+  `style` could lift a span over the slide (`position:fixed`); styles keep paint and type only, and the root contains
+  its paint. The fence door keeps `style` as it did, recorded as a followup.
+- **Checker.** A failed span's reason vanished after one keystroke (the memo kept the bare code); the reason is kept
+  beside it and told again. The Plugins tab showed a bare ```` ``` ```` for a plugin of kinds only; it lists what the
+  plugin draws. A malformed `fences` value passed the CLI gate beside a kind; refused. An escape of an unlisted plugin's
+  kind differed by surface; escapes are finished only for listed plugins. `@k{a} and {b}` read as a call; a record must
+  close the span. A slot-only re-import served the old fields in the Studio until reload; the slot is in the digest now.
+- **Inversion.** A kind Lattice gains later would have switched off a whole installed plugin; now only that kind is left
+  out, with a note, and the dispatcher's internal row name (`named`) left the reserved list. `lint:deck --fix` could
+  rewrite a working call into a built-in on a machine without the plugin (`@stage` to `@state`); with a listed plugin
+  missing, the warning names it and offers no fix. The worker input gained an explicit `type` and the `record`. The
+  schema (`plugin.schema.json`), `spec/LPM.md` §3.3, §10 and §12, and this note now say what was built. Its two larger
+  points, freezing and a declarative tier, went to the owner (§10: provisional; no template tier); shadowing on rebuilt layouts and the
+  versioning of the consent text are followups that block phase G.

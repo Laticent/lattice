@@ -243,7 +243,6 @@
   "shippedKinds": [
     "avatar",
     "icon",
-    "named",
     "pill",
     "spark",
     "state"

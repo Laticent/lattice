@@ -34,8 +34,9 @@ describe('the generated fence-door data', () => {
   });
 
   test('the shipped inline kinds are the live dispatcher table\'s, so a zip plugin cannot take one', () => {
-    const { KINDS } = require('../../../lib/core/inline-code-directives.js');
-    assert.deepEqual(DATA.shippedKinds, [...new Set(KINDS.map((k) => k.name))].sort());
+    const { FIRST_PARTY, KINDS } = require('../../../lib/core/inline-code-directives.js');
+    assert.deepEqual(DATA.shippedKinds, [...new Set([...FIRST_PARTY, ...KINDS.filter((k) => k.plugin)].map((k) => k.name))].sort());
+    assert.equal(DATA.shippedKinds.includes('named'), false, 'the dispatcher\'s own row is not a kind');
     for (const k of ['state', 'pill', 'spark', 'icon', 'avatar']) assert.ok(DATA.shippedKinds.includes(k), k);
   });
 
@@ -93,9 +94,12 @@ describe('planFencePlugins: which plugins a door runs', () => {
     assert.deepEqual([...shared.kinds], []);
     assert.deepEqual([...shared.fences], [['aa', 'a-plug']]);
     assert.ok(shared.notes.some((n) => /a-plug and b-plug both declare the inline kind `@tag\{…\}`/.test(n)), shared.notes.join('\n'));
-    const taken = planFencePlugins([{ name: 'my-icons', fence: '', kinds: ['icon'] }], kindHost);
-    assert.deepEqual(taken.run, []);
-    assert.ok(taken.notes.some((n) => /my-icons is not run: `@icon\{…\}` is an inline kind Lattice already draws/.test(n)), taken.notes.join('\n'));
+    // A kind Lattice draws (it gained it after the plugin was installed): only that kind is left out; the rest runs.
+    const taken = planFencePlugins([{ name: 'my-icons', fence: 'iconfence', kinds: ['icon', 'glyph'] }], kindHost);
+    assert.deepEqual(taken.run.map((p) => p.name), ['my-icons']);
+    assert.deepEqual([...taken.kinds], [['glyph', 'my-icons']]);
+    assert.deepEqual([...taken.fences], [['iconfence', 'my-icons']]);
+    assert.ok(taken.notes.some((n) => /my-icons's inline kind `@icon\{…\}` is one Lattice now draws itself/.test(n)), taken.notes.join('\n'));
   });
 
   test('two plugins on one fence name run for neither, and one line names both', async () => {

@@ -73,8 +73,8 @@ export async function codeDigest(code: string): Promise<string> {
  * `pluginConsentText`, from the renderer's bytes as they are held here. The two share the text's shape
  * (head, code, tail), so a change to what the digest covers changes both.
  */
-export async function pluginDigest(code: string, fence: string, kinds: readonly string[] = []): Promise<string> {
-	const [head, tail] = pluginConsentText('\u0001', fence, [...kinds]).split('\u0001');
+export async function pluginDigest(code: string, fence: string, kinds: readonly (string | { name: string; slot?: unknown })[] = []): Promise<string> {
+	const [head, tail] = pluginConsentText('\u0001', fence, [...kinds] as Parameters<typeof pluginConsentText>[2]).split('\u0001');
 	const enc = new TextEncoder();
 	const parts = [enc.encode(head), enc.encode(code), enc.encode(tail)];
 	const all = new Uint8Array(parts.reduce((n, a) => n + a.length, 0));
@@ -174,7 +174,7 @@ export async function setPlugins(list: { name: string; fence: string; code: stri
 			name: p.name,
 			fence: p.fence ?? '',
 			code: p.code,
-			sha256: await pluginDigest(p.code, p.fence ?? '', kinds.map((k) => k.name)),
+			sha256: await pluginDigest(p.code, p.fence ?? '', kinds.map((k) => ({ name: k.name, ...(k.slot ? { slot: k.slot } : {}) }))),
 			bytes: new TextEncoder().encode(p.code).length,
 			...(p.placeholder ? { placeholder: p.placeholder } : {}),
 			...(kinds.length ? { kinds } : {}),

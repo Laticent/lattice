@@ -55,6 +55,8 @@ const RENDER_OUTPUT_MAX = 4_000_000;
 const MEMO_MAX = 400;
 
 const memo = new Map<string, string>();
+/** Why a remembered inline span did not draw, by its memo key: told again whenever the memo is reused. */
+const spanFailures = new Map<string, string>();
 /** The RAW length of each remembered fence result, so a remembered result counts against the cap as a fresh one did. */
 const rawLength = new Map<string, number>();
 /** Code that failed to load, by digest, with why: not retried on every render. */
@@ -142,6 +144,7 @@ function remember(key: string, section: string) {
 		memoChars -= memo.get(k)?.length ?? 0;
 		memo.delete(k);
 		rawLength.delete(k);
+		spanFailures.delete(k);
 	};
 	if (memo.has(key)) drop(key);
 	while (memo.size && (memo.size >= MEMO_MAX || memoChars + section.length > MEMO_CHARS_MAX)) drop(memo.keys().next().value as string);
@@ -174,7 +177,10 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 	const drawsAny = fences.size > 0 || kinds.size > 0;
 	const declared = drawsAny ? activePluginNames(source, installed.keys()) : new Set<string>();
 	const cap = captureHook(names, { baseUrl, engineClaims: ENGINE_CLAIMS }) as { hook: Hook; claims: Claim[] };
-	const capFences = captureFences(fences, { names, engineClaims: ENGINE_CLAIMS, rebuilt: REBUILT, kinds });
+	// An escape (`\@kind{…}`) is finished only for the kinds of plugins the deck lists, as the CLI (which runs only
+	// those) does: an unlisted plugin's escape is code the engine left, on every surface alike (the checker, the red team).
+	const escapeKinds = [...kinds].filter(([, pkg]) => declared.has(pkg)).map(([k]) => k);
+	const capFences = captureFences(fences, { names, engineClaims: ENGINE_CLAIMS, rebuilt: REBUILT, kinds, escapeKinds });
 	// Every installed plugin's name goes to the engine, refused or not, so a deck that lists one is not told no plugin has that name.
 	const externalPlugins = [...installed.keys()];
 	const first = PG.render(source, theme, { ...engineOpts, codePackages: cap.hook, ...(externalPlugins.length ? { externalPlugins } : {}), ...(drawsAny ? { codeFences: capFences } : {}) }) as R;
@@ -281,6 +287,12 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 			continue;
 		}
 		const known = memo.get(key);
+		const knownWhy = kindOf ? spanFailures.get(key) : undefined;
+		if (known && knownWhy) {
+			failed.push({ name: c.pkg, slide: c.slide + 1, why: knownWhy });
+			sections.set(key, known);
+			continue;
+		}
 		if (known) {
 			fenceTotal += rawLength.get(key) ?? known.length;
 			sections.set(key, fenceTotal > RENDER_OUTPUT_MAX ? notDrawn(fenceOutputNote(RENDER_OUTPUT_MAX)) : known);
@@ -292,7 +304,10 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 		if (Date.now() - started > RENDER_BUDGET_MS) why = `the render's ${RENDER_BUDGET_MS / 1000} s budget for code packages ran out`;
 		else {
 			try {
-				const input = kindOf ? inlineInput(c as Parameters<typeof inlineInput>[0], inlineFields(p, kindOf, c.body)) : fenceInput(c);
+				const fields = kindOf ? inlineFields(p, kindOf, c.body) : null;
+				// A kind that declares a slot is handed only a record the slot reads (the CLI door's rule, code-door.js).
+				if (kindOf && !fields && p.kinds?.find((k) => k.name === kindOf)?.slot) throw new Error(`\`${c.body.slice(0, 60)}\` does not read as the kind's declared slot`);
+				const input = kindOf ? inlineInput(c as Parameters<typeof inlineInput>[0], fields) : fenceInput(c);
 				const raw = await (await frameFor(p, frames, true)).runFence(input, SLIDE_MS);
 				fenceTotal += raw.length;
 				rawLen = raw.length;
@@ -317,7 +332,12 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 			failed.push({ name: c.pkg, slide: c.slide + 1, why: kindOf ? `@${kindOf}{…}: ${why}` : why });
 			const noted = notDrawn(why);
 			sections.set(key, noted);
-			if (!/budget|was stopped|did not finish|not loaded|in all/.test(why)) remember(key, noted);
+			if (!/budget|was stopped|did not finish|not loaded|in all/.test(why)) {
+				remember(key, noted);
+				// A span's failure leaves no note on the slide (it keeps its code), so the reason is kept beside it and told
+				// again on every render that reuses it: remembered alone, the strip lost it after one keystroke (the checker).
+				if (kindOf) spanFailures.set(key, failed[failed.length - 1].why);
+			}
 		} else {
 			remember(key, out);
 			rawLength.set(key, rawLen);
@@ -330,6 +350,6 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 		...engineOpts,
 		codePackages: substituteHook(names, sections, digestOf, { baseUrl, engineClaims: ENGINE_CLAIMS }),
 		...(externalPlugins.length ? { externalPlugins } : {}),
-		...(drawsAny ? { codeFences: substituteFences(fences, sections, pluginDigestOf, { names, engineClaims: ENGINE_CLAIMS, rebuilt: REBUILT, kinds }) } : {}),
+		...(drawsAny ? { codeFences: substituteFences(fences, sections, pluginDigestOf, { names, engineClaims: ENGINE_CLAIMS, rebuilt: REBUILT, kinds, escapeKinds }) } : {}),
 	}) as R;
 }

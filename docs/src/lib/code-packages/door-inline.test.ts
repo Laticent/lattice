@@ -7,9 +7,18 @@ import { describe, expect, it } from 'vitest';
 import { doorFinishInline } from '../../../../lib/core/door-attr.mjs';
 import { createSlideSanitizer } from '../../../../lib/core/sanitize-slide-html.mjs';
 
+// As door-run.ts `doorSanitizer` builds it: the door hands its attribute rule in with each call.
 const sanitize = (() => {
-	const s = createSlideSanitizer(DOMPurify, window, { filterAttr: () => false });
-	return (html: string) => s(html);
+	let current: unknown = () => false;
+	const s = createSlideSanitizer(DOMPurify, window, { filterAttr: (t: string, n: string, v: string) => (current as (a: string, b: string, c: string) => boolean | string)(t, n, v) });
+	return (html: string, filter?: unknown) => {
+		current = filter ?? (() => false);
+		try {
+			return s(html);
+		} finally {
+			current = () => false;
+		}
+	};
 })();
 const finish = (html: string) => doorFinishInline(document, sanitize, html, 'lp-gantt-plugin') as { html: string } | { error: string };
 
@@ -38,5 +47,26 @@ describe('doorFinishInline — phrasing content only', () => {
 		expect('error' in finish('<section>x</section>')).toBe(true);
 		expect('html' in finish('<span>ok</span><script>alert(1)</script>') && !(finish('<span>ok</span><script>alert(1)</script>') as { html: string }).html.includes('<script')).toBe(true);
 		expect('error' in finish('<script>alert(1)</script>')).toBe(true);
+	});
+
+	it('takes no <a> and no <code> (a link in link text re-parses; a <code> is redrawn as a host kind)', () => {
+		for (const tag of ['a', 'code']) {
+			const out = finish(`<span>x</span><${tag}>y</${tag}>`);
+			expect('error' in out, tag).toBe(true);
+		}
+	});
+
+	it('strips bidi controls, so a span cannot reverse the author\'s words after it (the red team)', () => {
+		const out = finish('<span>\u202Etotal\u2066\u200F</span>') as { html: string };
+		expect(out.html).toBe('<span>total</span>');
+	});
+
+	it('keeps paint, drops anything that lifts the span out of its line', () => {
+		const out = finish('<span style="color:red;position:fixed;inset:0;z-index:9;display:block;width:100vw;padding:0 0.3em;display:inline-flex">x</span>') as { html: string };
+		expect(out.html).toBe('<span style="color:red;padding:0 0.3em;display:inline-flex">x</span>');
+		const gone = finish('<span style="position:fixed">x</span>') as { html: string };
+		expect(gone.html).toBe('<span>x</span>');
+		// An address in a style never survives: the slide sanitizer drops the whole attribute first.
+		expect((finish('<span style="color:red;background:url(x)">x</span>') as { html: string }).html).toBe('<span>x</span>');
 	});
 });
