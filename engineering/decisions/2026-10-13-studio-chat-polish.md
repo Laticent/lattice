@@ -170,28 +170,32 @@ the Live panel) share the field classes in `panel-shells.tsx`, which now carry `
 their dark fill for the places that want it. The composer is one bordered box (`px-3 py-2.5`) with a bare field inside, in
 both modes; a spec reads the field's computed background in each mode and fails without the fix.
 
-**A model that said it could not see the clip (2026-10-14).** The tester sent an iPhone clip to Google Gemini Pro Latest,
-which has `video` in its catalog `input_modalities`, and it answered that it only saw that a video file was attached. No
-error came back. The request does carry a `video_url` part, so the clip left the app. The likely cause is the type on the
-data URL: an iPhone recording is QuickTime, the Library stores it as `video/quicktime`, and OpenRouter's video guide lists
-`video/mp4`, `video/mpeg`, `video/mov` and `video/webm`. A part with an unlisted type is not rejected, it is dropped, which
-is what the model described. `videoWireType` (`chat-photo-parts.ts`) now sends QuickTime as `video/mov`; the stored bytes
-and type are unchanged, and `chat-clip-wire.test.ts` checks both and fails without the change. **This is a diagnosis from
-the docs and the symptom, not a reproduction: whether Gemini now reads an iPhone clip is checked by sending one.** Every
-earlier end-to-end spec sent a WebM clip, which is why none could have caught it. If it still fails, the next suspects are
-the provider OpenRouter routed to and the clip's codec (iPhones record HEVC).
+**A model that said it could not see the clip, and why (2026-10-14).** The tester sent an iPhone clip to Google Gemini Pro
+Latest three times and got "I can't see the video" each time, after each of two fixes aimed at the wrong causes. The cause
+was the clip: it was 0.13 s long (4 frames; `IMG_3905.mov`, 10-bit HLG HEVC, 1920x1080, with its location tag still in it).
+A video model reads about one frame a second, so the request carried a video that gave it no frame. Measured with a
+throwaway script (`.scratch/clip-probe/`, OpenRouter, our key, about $0.02 in all, rule #24) on real footage of that one
+scene, cut to length and sent as `video_url` data URLs to Gemini 3.8 Flash:
 
-**The same clip, a second report (2026-10-14).** After the type change the same model still said it could not watch the
-clip ("my tools only let me look at still images"), so the type was not the whole cause and may not have been one at all.
-The second cause is ours: once a chat clip is a Library video, the Architect's prompt lists it as an asset, and
-`view_asset` answered any video with "videos cannot be viewed". A model reading "a video you may not view" beside a clip
-in the message reasonably says it cannot watch it, and the cost jump on that turn fits a tool round. The prompt now marks
-the clip that rides the message (`ATTACHED TO THE AUTHOR'S MESSAGE: watch it there`), says `view_asset` shows photos only,
-and `view_asset` answers for an attached clip "watch it in that message". The clip's name now travels with the clip
-(`ChatOptions.videos[].name`) so the prompt can tell the two apart. Unit tests cover the manifest and the tool answer.
-**Still unverified: that a model now describes the clip.** If it does not, the remaining suspects are the provider
-OpenRouter routed to (AI Studio and Vertex both serve Gemini; OpenRouter's guide only promises base64 video, not which
-provider honors it), the clip's size against a provider's inline limit, and its HEVC codec.
+| clip | tokens the video added | what the model said |
+|---|---|---|
+| 0.13 s, the original | 0 | a kitchen, a park at night, an aurora (invented) |
+| 0.5 s and 1 s, H.264 | about 65 (one frame) | a player scoring, a ball off the crossbar (invented) |
+| 1.5 s and 2 s, H.264 | about 130 (two frames) | the goal, the turf, the trees (right) |
+| 3 s, H.264 and 10-bit HEVC `.mov` | about 197 | right, under `video/mov` and under `video/quicktime` |
+
+So `MIN_VIDEO_SECONDS = 1.5` (`chat-photo-parts.ts`): a chat clip shorter than that is refused at the door in words
+("That video is 0.13 seconds long. A model reads about one frame a second… Record at least 2 seconds"), in the device path
+and in the Library picker. It is the shortest length that was right twice, measured on one model family and one scene.
+The Library still stores any clip. `Gemini Pro Latest` on the 3 s clips also returned frames-worth of tokens (209) and a
+correct start of an answer (the reply was cut by the 200-token cap of the probe).
+
+Two changes made on the way stay, because each removes a real defect, but neither was the cause. (1) `videoWireType`
+sends QuickTime as `video/mov`, the name OpenRouter's guide and Google use; Gemini read a clip under either name. (2) Once a
+chat clip is a Library video, the Architect's prompt listed it as an asset and `view_asset` answered "videos cannot be
+viewed", which contradicts the clip in the message. The prompt now marks the clip that rides the message and `view_asset`
+points to it (`ChatOptions.videos[].name`). `chat-agent-clip.test.ts` follows the clip from the chat agent to
+`model.complete` and finds the `video_url` part.
 
 **Verified:** `docs/e2e/chat-photos.spec.ts` in real Chromium at 1440, 820 and 390 px: the composer has the two controls and
 no menu; the paperclip is a real, tappable input (not `hidden`, not `pointer-events: none`) that accepts images, video and

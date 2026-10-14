@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
-import { contentForBudget, MAX_VIDEO_BYTES, MAX_VIDEO_SECONDS, photoNote, VIDEO_TOKENS, videoNote, videoRefusal, withPhotos } from './chat-photo-parts';
+import { contentForBudget, MAX_VIDEO_BYTES, MAX_VIDEO_SECONDS, MIN_VIDEO_SECONDS, photoNote, VIDEO_TOKENS, videoNote, videoRefusal, withPhotos } from './chat-photo-parts';
 import { isMediaName } from './media-store';
 
 const URL1 = 'data:image/jpeg;base64,AAAA';
@@ -86,6 +86,14 @@ describe('video', () => {
 		expect(videoRefusal(Number.NaN, 1000)).toMatch(/could not be read/);
 		expect(videoRefusal(Number.POSITIVE_INFINITY, 1000)).toMatch(/could not be read/);
 		expect(videoRefusal(0, 1000)).toMatch(/could not be read/);
+	});
+	it('refuses a clip too short for a model to see, and says how long to record', () => {
+		// The real clip that failed: an iPhone clip of 0.13 s (4 frames). A video model reads about a frame a second.
+		expect(videoRefusal(0.1317, 306_275)).toMatch(/0\.13 seconds long.*at least 2 seconds/);
+		expect(videoRefusal(1, 1000)).toMatch(/1\.0 seconds long.*under 1\.5 seconds/);
+		expect(videoRefusal(MIN_VIDEO_SECONDS - 0.01, 1000)).not.toBeNull();
+		expect(videoRefusal(MIN_VIDEO_SECONDS, 1000)).toBeNull();
+		expect(videoRefusal(2, 1000)).toBeNull();
 	});
 	it('adds a clip to the last user message as a video part, and says it is not in the deck media', () => {
 		const out = withPhotos([{ role: 'user', content: 'what happens here' }], [], [{ dataUrl: 'data:video/mp4;base64,AAAA' }]);

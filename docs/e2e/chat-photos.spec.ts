@@ -213,12 +213,27 @@ test('a clip over the size cap is refused before it is read, and nothing is atta
 	expect(bodies).toHaveLength(0);
 });
 
+test('a clip too short for a model to see is refused in words, and nothing is attached', async ({ page }) => {
+	test.setTimeout(60_000);
+	const bodies = await seed(page, true, true);
+	await gotoStudio(page);
+	await openChatAtWidth(page, 1440);
+	// A clip under a second gives a video model no frame to read (it samples about one a second); a real iPhone clip of
+	// 0.13 s made Gemini describe a kitchen. So it is refused at the door instead of sent.
+	const clip = await recordClip(page, 0.5);
+	await pickFile(page, { name: 'Blink.webm', mimeType: 'video/webm', buffer: clip });
+	await expect(page.getByText(/seconds long\. A model reads about one frame a second/)).toBeVisible({ timeout: 20_000 });
+	await expect(page.getByText(/Record at least 2 seconds/)).toBeVisible();
+	await expect(page.getByTestId('chat-photo-strip')).toHaveCount(0);
+	expect(bodies).toHaveLength(0);
+});
+
 test('a model that reads images but not video refuses a clip up front', async ({ page }) => {
 	test.setTimeout(60_000);
 	await seed(page, true, false);
 	await gotoStudio(page);
 	await openChatAtWidth(page, 1440);
-	const clip = await recordClip(page, 1);
+	const clip = await recordClip(page, 2);
 	await pickFile(page, { name: 'Clip.webm', mimeType: 'video/webm', buffer: clip });
 	await expect(page.getByText(/can't read video/)).toBeVisible({ timeout: 20_000 });
 	await expect(page.getByTestId('chat-photo-strip')).toHaveCount(0);
@@ -229,7 +244,7 @@ test('a mixed pick judges each kind on its own: the photo attaches, the refused 
 	await seed(page, true, false);
 	await gotoStudio(page);
 	await openChatAtWidth(page, 1440);
-	const clip = await recordClip(page, 1);
+	const clip = await recordClip(page, 2);
 	const chooser = page.waitForEvent('filechooser');
 	await page.getByTestId('chat-attach-device').click();
 	await (
@@ -289,7 +304,7 @@ test('the Library adds a clip from its own picker, and the Images tab does not l
 	test.setTimeout(90_000);
 	await seed(page, true, true);
 	await gotoStudio(page);
-	const clip = await recordClip(page, 1);
+	const clip = await recordClip(page, 2);
 	await page.getByRole('button', { name: CHROME.library }).click();
 	await page.getByRole('tab', { name: 'Videos' }).click();
 	await page.getByRole('button', { name: 'Add videos' }).click().catch(() => {});
@@ -306,7 +321,7 @@ test('a clip taken out of the strip before it is sent is not left in the Library
 	await seed(page, true, true);
 	await gotoStudio(page);
 	await openChatAtWidth(page, 1440);
-	const clip = await recordClip(page, 1);
+	const clip = await recordClip(page, 2);
 	await pickFile(page, { name: 'Draft.webm', mimeType: 'video/webm', buffer: clip });
 	const strip = page.getByTestId('chat-photo-strip');
 	await expect(strip.getByRole('img', { name: /^Video draft-[a-z0-9]+$/ })).toBeVisible({ timeout: 20_000 });
@@ -555,7 +570,7 @@ for (const [w, h] of [
 		await gotoStudio(page);
 
 		// One of each already in the Library (written the way the importers write them), before the chat opens.
-		const clip = await recordClip(page, 1);
+		const clip = await recordClip(page, 2);
 		await page.evaluate(
 			async ({ png, webm }) => {
 				const bytes = (b64: string) => Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
@@ -568,7 +583,7 @@ for (const [w, h] of [
 					const t = db.transaction('assets', 'readwrite');
 					const st = t.objectStore('assets');
 					st.put({ id: 'm_img', kind: 'image', name: 'team-offsite', scope: 'library', blob: new Blob([bytes(png)], { type: 'image/png' }), mime: 'image/png', bytes: bytes(png).length, width: 160, height: 120, sourceName: 'Team Offsite.png', original: true, addedAt: 3 });
-					st.put({ id: 'm_vid', kind: 'video', name: 'walk', scope: 'library', blob: new Blob([bytes(webm)], { type: 'video/webm' }), mime: 'video/webm', bytes: bytes(webm).length, width: 160, height: 90, sourceName: 'Walk.webm', original: true, durationMs: 1000, addedAt: 2 });
+					st.put({ id: 'm_vid', kind: 'video', name: 'walk', scope: 'library', blob: new Blob([bytes(webm)], { type: 'video/webm' }), mime: 'video/webm', bytes: bytes(webm).length, width: 160, height: 90, sourceName: 'Walk.webm', original: true, durationMs: 2000, addedAt: 2 });
 					st.put({ id: 'r_doc', kind: 'refdoc', name: 'Guide.md', docKind: 'text', text: '# Guide', bytes: 7, addedAt: 1 });
 					t.oncomplete = () => resolve();
 					t.onerror = () => reject(t.error);

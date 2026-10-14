@@ -17,6 +17,13 @@ export const VISION_EDGE = 1568;
 /** A clip longer than this is refused: video is billed by the second (about 260 tokens each on the
  *  models that read it), and a long one is the expensive mistake. */
 export const MAX_VIDEO_SECONDS = 15;
+/** A clip shorter than this is refused: a video model reads about one frame a second, so a clip under a second shows
+ *  it nothing and one under two shows it a frame or two, and it answers from guesses. Measured 2026-10-14 against
+ *  Gemini 3.8 Flash on real footage of one scene, cut to length: 0.13 s added no tokens and the reply described a
+ *  kitchen; 0.5 s and 1 s added one frame and the replies were invented (a player scoring); 1.5 s and 2 s added two
+ *  frames and both were right; 3 s was right as H.264 and as 10-bit HEVC. 1.5 is the shortest length that was right
+ *  twice. One model family, one scene. A real iPhone clip taken for the soccer-goal test was 0.13 s long. */
+export const MIN_VIDEO_SECONDS = 1.5;
 /** A clip larger than this is refused before it is read. It travels inline as base64 (a third larger), so 15 MB of
  *  video is a 20 MB request body, and the cap is there to keep a request in a size a provider will take (a limit
  *  some video-capable providers document for inline data; not checked against every model Lattice offers).
@@ -35,14 +42,17 @@ export function videoRefusal(seconds: number, bytes: number): string | null {
 	if (!Number.isFinite(seconds) || seconds <= 0) return "That video's length could not be read, so it was not attached.";
 	// Half a second of slack: a phone's "15 second" clip decodes at 15.0x, and refusing it with a message
 	// that says "15 seconds" contradicts itself. The cap is a cost guard, not a stopwatch.
+	if (seconds < MIN_VIDEO_SECONDS) return `That video is ${seconds.toFixed(seconds < 1 ? 2 : 1)} seconds long. A model reads about one frame a second, so a clip under ${MIN_VIDEO_SECONDS} seconds shows it little or nothing and it would answer from guesses. Record at least 2 seconds.`;
 	if (seconds > MAX_VIDEO_SECONDS + 0.5) return `That video is ${seconds.toFixed(1)} seconds; a message can carry at most ${MAX_VIDEO_SECONDS}. Trim it and try again.`;
 	return null;
 }
 
-/** The media type a clip travels under. A phone's recording is QuickTime (`video/quicktime`), which is the name the
- *  browser and the Library give it, but OpenRouter lists `video/mov` (with `mp4`, `mpeg` and `webm`) as the types it
- *  accepts, and Google names the same container `video/mov`. A part with a type outside that list is not an error: it
- *  is dropped, and the model answers that it only saw a note that a video was attached. */
+/** The media type a clip travels under. A phone's recording is QuickTime (`video/quicktime`), the name the browser and
+ *  the Library give it; OpenRouter's video guide lists `video/mov` (with `mp4`, `mpeg` and `webm`), and Google names the
+ *  same container `video/mov`. Gemini read a clip under either name (measured 2026-10-14), so this was not the cause of
+ *  a model saying it could not see a clip (that was a clip 0.13 s long, see `MIN_VIDEO_SECONDS`); it is kept because the
+ *  documented list names `mov`, and a provider that follows the list to the letter would otherwise be handed a type
+ *  outside it. */
 export function videoWireType(mime: string): string {
 	return mime === 'video/quicktime' ? 'video/mov' : mime;
 }
