@@ -24,7 +24,7 @@ growth visible in the PR that caused it, but it put every Studio PR on one share
 - **14 of 49 commits** on `main` edited the file, all of them in 2026-09-27 23:28 to
   09-29 12:15, and the Studio's `eagerJsGz` went 623,460 → 637,490 (+14KB in about
   36 hours, roughly 9KB/day). The window is this clone's 50-commit depth, not a choice.
-  [#2466's follow-up](../../followups.d/2466-p2-committed-generated-files-conflict-across-prs.md)
+  #2466's follow-up (closed; see [conflict reduction §5](2026-10-06-conflict-reduction.md))
   counted 50 of the last 300 commits.
 - **Every raise also prepended to `_eagerJsGzNote`**, a single JSON string that had reached
   48KB. Two PRs raising at once always conflicted in git.

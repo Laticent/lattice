@@ -5,7 +5,7 @@ summary: >
   GitHub's terms: 28 catch-ups, 19 real conflicts, 9 clean. 2 of the 9 were the backlog bot's
   nightly re-sync, so 7 of 26 agent catch-ups were needless. The decision index and route
   budget, fixed on 09-29, caused none. Of the 19 real conflicts, 11 touched committed PDFs, 6
-  committed generated JS, 14 hand-written source. A Claude Code hook now warns before a needless catch-up; two blocking designs were refuted.
+  committed generated JS, 14 hand-written source. A Claude Code hook now warns before a needless catch-up; two blocking designs were refuted. §5 (2026-10-14) lists every committed artifact and its fix: generated-only conflicts per 1,000 PR runs went 94 → 31 → 0.
 ---
 
 # Conflict reduction: what still conflicts, and what each fix buys
@@ -208,6 +208,11 @@ This closes `followups.d/2466-p2-committed-generated-files-conflict-across-prs.m
 "done when" asked for this list: each committed artifact that two unrelated PRs can both
 change is built by a bot on `main`, no longer committed, or shown not to conflict.
 
+One row meets none of the three. The owner deferred the generated JS (§3), so it moves to
+its own follow-up rather than staying open here. And the follow-up's verify step asked for
+two concurrent PRs replayed on a scratch branch. The table below replays every real
+catch-up in three windows instead, which covers the same question with real PRs.
+
 | Artifact | Fix | Where it is recorded |
 |---|---|---|
 | `engineering/decisions/README.md`, the decision index | Not committed: built into `dist/` by `npm install` (#2622, 2026-10-09). Before that, rows sorted by topic slug (#2480) | `2026-10-09-generated-indexes-uncommitted.md` |
@@ -228,6 +233,9 @@ replayed with `git --attr-source=<empty tree> merge-tree`. A conflict counts as
 | 2026-09-29T02:05Z to 10-08T17:05Z, before #2614 | 587 | 69 | 18 | 51 |
 | 2026-10-08T17:05Z to 10-14T12:00Z, after #2614 | 248 | **5** | **0** | 5 |
 
+The split uses #2614's commit time (17:05Z). It merged at 17:26Z, and no PR run started
+between the two, so the split is the same either way.
+
 Per 1,000 PR runs, generated-only conflicts went 94 → 31 → 0. In the first window the
 route budget was in 80 of the 141 conflicts and the decision index in 38. In the last
 window no conflict touched a PDF, a WebP, generated JS, the route budget or an index. The
@@ -236,8 +244,8 @@ waits on the desktop app.
 
 **The price of the PDF fix.** Committed goldens on `main` now change only when a person
 merges the nightly bless PR, which is still a dry run that never merges itself. The bless
-PR open on 2026-10-14 (#2624) was opened on 10-09 and is refreshed each night, so
-committed PDFs on `main` have not moved since the 10-08 bless (#2598).
+PR open on 2026-10-14 (#2624) was opened on 10-09, and its head is that morning's bless.
+Committed PDFs on `main` have not moved since the 10-08 bless (#2598).
 
 **A correction to §1.** §1 says every index conflict in its PR set came from a head made
 before #2480. One outside that set did not: on 2026-10-06 at 05:33Z,
