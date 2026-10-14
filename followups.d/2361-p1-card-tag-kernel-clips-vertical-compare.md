@@ -2,6 +2,9 @@
 origin: 2361
 priority: P1
 recorded: 2026-09-27
+area: engine
+severity: high
+swimlane: engineering/decisions/2026-09-27-card-tag-register.md
 ---
 
 # The card-tag kernel (#2428) clips every `compare-prose vertical` slide that has an insight box
@@ -15,6 +18,9 @@ why now   — after #2428 merged, six slides of the agentic-practices talk clip 
             insight box, which is why its re-bless did not show it.
 where     — lib/base/base.card-tag.css (the tag reserve and padding, in em of the tag text) and
             the `vertical` rules in lib/components/comparison/compare-prose/.
+progress  — 2026-10-14: still clips on main (b06fb1a40), after #2493 rewrote the card-tag
+            rules: a one-slide `compare-prose vertical chosen insight-key` deck at venue: laptop
+            reports OVERFLOW on page 1.
 done when — a `compare-prose vertical insight-so-what` slide with two one-line cards fits at
             16:9 4k with the same room it had before #2428, the talk renders with an empty
             OVERFLOW line, and the compare-prose gallery gains a vertical-plus-insight slide so

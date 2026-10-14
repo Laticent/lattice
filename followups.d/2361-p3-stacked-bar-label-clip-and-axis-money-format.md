@@ -2,6 +2,9 @@
 origin: 2361
 priority: P3
 recorded: 2026-09-25
+area: chart
+severity: low
+swimlane: engineering/chart-styling.md
 ---
 
 # Stacked-bar clips wrapped category labels and drops cents on money values

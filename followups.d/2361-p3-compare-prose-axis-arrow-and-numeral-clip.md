@@ -2,6 +2,9 @@
 origin: 2361
 priority: P3
 recorded: 2026-09-26
+area: comparison
+severity: medium
+swimlane: lib/components/comparison/compare-prose/compare-prose.docs.md
 ---
 
 # compare-prose `axis` draws an arrow and clips its numerals and body

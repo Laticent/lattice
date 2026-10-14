@@ -2,6 +2,9 @@
 origin: 2361
 priority: P3
 recorded: 2026-09-26
+area: chart
+severity: low
+swimlane: engineering/chart-styling.md
 ---
 
 # Line charts leave the slide's sides empty; chart slides color their eyebrow differently

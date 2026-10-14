@@ -2,6 +2,9 @@
 origin: 2361
 priority: P3
 recorded: 2026-09-26
+area: engine
+severity: medium
+swimlane: engineering/development.md
 ---
 
 # lint:deck passes a deck with an empty slide
