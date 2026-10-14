@@ -4,5 +4,6 @@
   - A bullet row keeps the value in its actual slot and prints it as typed, instead of promoting its target to the actual.
   - The narration says the value as typed and binds it to no mark.
   - The new lint warning `chart-value-malformed` names each one and why.
+- A minus sign (U+2212) after a currency, as in `$−5`, now reads as negative; it read +5. A dash where a minus goes (`–5`, an en dash) is refused and named, instead of reading +5.
 - Well-formed numbers in every spelling read as before. None of the 427 shipped decks renders or narrates differently.
 - Segno's `@laticent/segno/values` adds `malformedNumber`, which says why a string shaped like a number is not one.

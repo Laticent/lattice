@@ -52,12 +52,15 @@ const MALFORMED: Array<[string, string]> = [
   ['1,234,5678', 'digits'], // was 12,345,678
   ['1,2.3', 'digits'], // was 12.3
   ['5.', 'digits'], // was 5 with the unit `.`
+  ['\u20135', 'dash'], // was +5: an en dash taken for a currency symbol
+  ['$\u20145M', 'dash'], // was +5,000,000
 ];
 // The spellings that stay numbers, with the value each reads: every separator and sign form.
 const WELL_FORMED: Array<[string, number]> = [
   ['5', 5], ['-5', -5], ['+5', 5], ['\u22125', -5], ['(5)', -5], ['($1.2M)', -1.2e6], ['-$0.8M', -8e5], ['$-0.8M', -8e5],
   ['1,234', 1234], ['1,234.5', 1234.5], ['1.234,5', 1234.5], ['1.234.567', 1234567], ['1,25M', 1.25e6], ['900.000', 900],
   ['12 000', 12000], ['1 234,5', 1234.5], ['.5', 0.5], ['$.5', 0.5], ['62%', 62], ['4 beds', 4], ['~$18M', 1.8e7], ['- 5', -5],
+  ['$\u22125', -5], ['$\u22120.8M', -8e5], // U+2212 after the currency read +5 before this PR
 ];
 
 describe('a malformed number is not a number (followups.d/2609-p2)', () => {

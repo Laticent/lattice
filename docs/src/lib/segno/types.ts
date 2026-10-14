@@ -199,7 +199,9 @@ const MAGNITUDE: Readonly<Record<string, number>> = { k: 1e3, K: 1e3, m: 1e6, M:
 // The older, looser pattern let a typo become a different number with no warning: `--5` read -5,
 // `(5` and `5)` read 5, `1,2,3` read 1.2 with the unit `.3`, and `1.2.3.4x` read 1234
 // (followups.d/2609-p2). Those are not numbers now; `malformedNumber` says why, and lint names it.
-const SYM = '[^\\w\\s+\\-\\u2212().,]';
+// A dash (hyphen U+2010, non-breaking hyphen, figure dash, en dash, em dash) is not a symbol: `\u20135`
+// read as +5 with the dash taken for a currency. It is refused, and `malformedNumber` says so.
+const SYM = '[^\\w\\s+\\-\\u2212\\u2010-\\u2014().,]';
 const CORE = '(?:\\d{1,3}(?:,\\d{3})+(?:\\.\\d+)?|\\d{1,3}(?:\\.\\d{3})+(?:,\\d+)?|\\d+(?:[.,]\\d+)?|\\.\\d+)';
 const TAIL = '\\s*(?:(?:%|\\u2030|[A-Za-z]{1,6})\\s*)?';
 export const NUMERIC = new RegExp(
@@ -308,7 +310,7 @@ export function readNumberFast(t: string): NumberValue | null | undefined {
   const lead = t.charCodeAt(p);
   if (p < digitsFrom && (lead === 45 || lead === 0x2212)) { neg = !neg; p++; }
   let x = Number.parseFloat(t.slice(digitsFrom, digitsTo));
-  if (digitsFrom > p && t.charCodeAt(digitsFrom - 1) === 45) x = -x;
+  if (digitsFrom > p && (t.charCodeAt(digitsFrom - 1) === 45 || t.charCodeAt(digitsFrom - 1) === 0x2212)) x = -x;
   if (!Number.isFinite(x)) return undefined;
   const unit = t.slice(unitFrom, unitTo);
   const mag = unit === 'bn' || (unit.length === 1 && 'kKmMBbT'.includes(unit)) ? unit : '';
@@ -345,7 +347,8 @@ export function readNumberFull(t: string): NumberValue | undefined {
   if (/^\(.*\)$/.test(s)) { neg = true; s = s.slice(1, -1).trim(); }
   const lead = s.match(/^[-\u2212]\s*/);
   if (lead) { neg = !neg; s = s.slice(lead[0].length); }
-  const m = s.match(/-?\d*\.?\d+/);
+  // U+2212 right before the digits (`$\u22125`) is a minus like `-`; it read as +5.
+  const m = s.replace(/\u2212(?=[\d.])/, '-').match(/-?\d*\.?\d+/);
   if (!m || m.index === undefined) return undefined;
   const n = Number.parseFloat(m[0]);
   if (!Number.isFinite(n)) return undefined;
@@ -369,6 +372,7 @@ export function malformedNumber(raw: string): string | undefined {
   if (!t || t.includes('..') || !NUMBER_SHAPED.test(t) || readNumber(t) !== undefined) return undefined;
   const at = t.search(/\d/);
   const before = t.slice(0, at);
+  if (/[\u2010-\u2014]/.test(before)) return 'it has a dash where a minus sign goes: type `-`';
   const signs = (before.match(/[+\-\u2212]/g) || []).length;
   const inner = /\(/.test(before.slice(1)) && t.endsWith(')');
   if (signs + (t.startsWith('(') && t.endsWith(')') ? 1 : 0) + (inner ? 1 : 0) > 1) return 'it has two signs';
