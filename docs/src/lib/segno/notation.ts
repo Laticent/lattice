@@ -21,7 +21,7 @@
 
 import { compile, type Grammar, MAX_DEPTH, type ParseError } from './grammar.js';
 import { parse as parseGenerated } from './notation.generated.js';
-import { notationSpec, TAGS } from './notation-grammar.js';
+import { notationSpec } from './notation-grammar.js';
 
 let compiled: Grammar | null = null;
 /** The closure-compiled notation grammar — the reference the generated parser must match. */
@@ -371,8 +371,11 @@ export function isDirective(text: string): 'directive' | 'escaped' | null {
   let escaped = false;
   if (text.charCodeAt(0) === 0x5c /* \ */) { escaped = true; i = 1; }
   // A `{` is the common opener and needs no tag test; only another first character asks TAGS.
-  if (text.charCodeAt(i) !== 0x7b /* { */) {
-    if (!TAGS.includes(text[i] ?? '\0')) return null;
+  // The three tags are compared as char codes: `TAGS.includes(text[i])` cost about 15 ns on every
+  // span that does not open with `{`, which is nearly all ordinary code. A test holds this to TAGS.
+  const ch = text.charCodeAt(i);
+  if (ch !== 0x7b /* { */) {
+    if (ch !== 0x7e /* ~ */ && ch !== 0x5e /* ^ */ && ch !== 0x21 /* ! */) return null;
     i++;
     if (text.charCodeAt(i) !== 0x7b /* { */) return null;
   }

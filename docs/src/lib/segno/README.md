@@ -293,6 +293,9 @@ fastest of seven long rounds per column; one machine):
 | bracket lists, split into parts (the kernel's job) | 767 ns | 828 ns | 1.1x |
 | quadrant axes, typed numbers and ranges | 721 ns | 1.02 µs | 1.4x |
 
+On 2026-10-14, after the `isDirective` fix below, the arm reads 1.41x to 1.54x every span and 1.36x
+to 1.45x on ordinary code (three runs, the slice-paired method), in line with this table.
+
 **Against the dispatcher Lattice ships.** The table above times the arm's own copy of the
 dispatcher. Lattice renders with `lib/core/inline-code-directives.js`, so the arm times that too:
 the escape, then `dispatches` ("does any kind render this?"). That is the decision, not the render;
@@ -301,11 +304,26 @@ a cloud sandbox, so the absolute figures are about half what a laptop gives:
 
 | job | kernel (retired) | arm's dispatcher | shipped | shipped/kernel |
 |---|---|---|---|---|
-| inline dispatch, every span both read alike | 34 ns | 65 ns | 46 ns | 1.36x |
-| &nbsp;&nbsp;ordinary code (code to both) | 28 ns | 54 ns | 32 ns | 1.14x |
-| &nbsp;&nbsp;state marks `[x]` | 56 ns | 35 ns | 93 ns | 1.77x |
-| &nbsp;&nbsp;pills `{BETA, tag, c4}` | 241 ns | 732 ns | 706 ns | 2.98x |
-| Segno syntax the kernel reads as code (482 spans) | — | 1.49 µs | 3.11 µs | — |
+| inline dispatch, every span both read alike | 30 ns | 45 ns | 41 ns | 1.33x |
+| &nbsp;&nbsp;ordinary code (code to both) | 28 ns | 39 ns | 32 ns | 1.16x |
+| &nbsp;&nbsp;state marks `[x]` | 63 ns | 36 ns | 100 ns | 1.69x |
+| &nbsp;&nbsp;pills `{BETA, tag, c4}` | 221 ns | 676 ns | 639 ns | 2.91x |
+| Segno syntax the kernel reads as code (482 spans) | — | 1.47 µs | 3.02 µs | — |
+
+The middle of three runs, after the `isDirective` fix below; the shipped every-span ratio read 1.32x,
+1.33x and 1.39x.
+
+**A regression the bakeoff caught, and its fix (2026-10-14).** From #2513 (2026-10-05) the arm's
+column read about 2.0x the kernel where phase 1 read 1.5x. Bisected over the twelve library commits
+between, on today's corpus, one machine: Segno's reader took 38 to 41 ns on ordinary code up to
+#2513, and 50 to 54 ns from it on. #2513 added tagged records (`~{…}`, `^{…}`, `!{…}`), and with them
+a `TAGS.includes(text[i])` in `isDirective` that ran on every span not opening with `{`, nearly all
+ordinary code. In one process the two `isDirective` bodies read 28 and 43 ns a span. A 128-entry
+lookup table did not recover it (45 ns); comparing the three tags as char codes did (31 ns), and a
+test now holds that comparison to `TAGS`. The arm's every-span ratio went from 1.89x to 2.09x before
+the fix to 1.41x to 1.54x after. The shipped dispatcher never paid it: its first-character table
+sends ordinary code to no kind, so `isDirective` runs only on spans that open with `{` or a tag.
+Callers of the published `@laticent/segno` did pay it.
 
 **How the bakeoff times a row, and why.** The columns of a row take turns in short slices: one
 pass over about 5,000 spans, about 150 µs here, with the first column rotating each slice. A
@@ -329,7 +347,7 @@ Pairing whole rounds did not help: a single ~70 ms round's own ratio read anythi
 1.27x before, 1.14x to 1.21x now). A change that moves the every-span ratio by less than about 0.1
 is still within run-to-run noise, so compare a before and an after over several runs each.
 
-The 35 pills (and 18 other directives) of 4,766 spans are about 0.13 of the ratio, so halving a
+The 35 pills (and 18 other directives) of 4,766 spans are about 0.13 of the shipped ratio, so halving a
 pill's cost would move it by about that much. Pills are still the slowest thing per span (about 3x
 the kernel) and the design note accepts them above the bar (§ The engine). What #2683's parse change
 moved: a pill's grammar stage went from about 270 ns to about 225 ns (`parse()` no longer allocates

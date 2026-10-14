@@ -305,6 +305,11 @@ the median of the per-slice ratios: five runs of unchanged code read the shipped
 every-span ratio at 1.32x to 1.40x, a spread of 0.08. The readings and the method are in the
 library README's § Speed.
 
+The paired method also exposed a regression. From #2513 the arm's own dispatcher read about 2.0x,
+not the 1.5x above. A bisect over twelve library commits put it in #2513's tagged-record guard in
+`isDirective`: a `TAGS.includes` call on every span not opening with `{`, about 15 ns. Char-code
+compares restore 1.41x to 1.54x (three runs). The shipped dispatcher never ran that path.
+
 ### Three additions for document-sized grammars (decision 21)
 
 Phase 1's engine is built for short spans, and a probe on 2026-10-04 asked whether it could read
