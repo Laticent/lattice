@@ -29,7 +29,7 @@ Use for a pipeline that narrows — a sales / conversion funnel, a hiring or gra
 ### Data shape
 
 - Stage values must be monotonically non-increasing in authored order (top to bottom) — the taper and every printed conversion percentage assume each stage is a strict subset of the one before it.
-- The trailing value is read the way every chart reads a number (lib/core/chart-values.js): thousands commas (`4,800`), a decimal comma (`1,25M`), a magnitude suffix (`$12k` is 12,000) and a currency sign all mean what they say, so `$12k` and `12,000` draw the same stage. A unit after the number (`240,000 views`) is fine; text before it is not a value.
+- The trailing value is read the way every chart reads a number (lib/core/chart-values.js): thousands commas (`4,800`), a decimal comma (`1,25M`), a magnitude suffix (`$12k` is 12,000) and a currency sign all mean what they say, so `$12k` and `12,000` draw the same stage. A unit after the number (`240,000 views`) is fine; text before it is not a value. Neither is a pill that is not one number (`--5`, `(5`, `1,2,3`): the stage reads as zero, and lint's `chart-value-malformed` names it.
 
 ## When to use
 

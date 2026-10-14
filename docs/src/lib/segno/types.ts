@@ -187,12 +187,27 @@ export interface NumberValue {
 }
 
 const MAGNITUDE: Readonly<Record<string, number>> = { k: 1e3, K: 1e3, m: 1e6, M: 1e6, b: 1e9, B: 1e9, bn: 1e9, T: 1e12 };
-// A WHOLLY numeric pill: optional sign or `(`, up to three symbol characters (a currency),
-// an optional inner sign, a digit run, an optional short unit, an optional `)`.
-// The same language as chart-values.js's pattern, written so no two `\s*` runs are separated
-// only by an optional piece: there, a failing match on a long run of tabs tried every way to
-// split it, and 20,000 tabs took 420 ms. Each optional piece now carries its own trailing space.
-const NUMERIC = /^[(+\-\u2212]?\s*(?:[^\w\s]{1,3}\s*)?[-\u2212]?\d[\d,.]*\s*(?:(?:%|\u2030|[A-Za-z]{1,6})\s*)?\)?$/;
+// A WHOLLY numeric pill, in one of three shapes: `(…)` around an unsigned number, the accounting
+// negative; one sign before an optional symbol prefix (`-$0.8M`); or one sign after it (`$-0.8M`).
+// The symbol prefix is up to three characters that are not a sign, a parenthesis or a separator
+// (`$`, `€`, `~`). The digits are one well-formed number: US groups (`1,234.5`), EU groups
+// (`1.234,5`), one decimal point or comma (`12.5`, `1,25`), or a bare fraction (`.5`). Then an
+// optional unit (`%`, U+2030, or one to six letters). The same language as chart-values.js's
+// pattern, written so no two `\s*` runs are separated only by an optional piece: there, a failing
+// match on a long run of tabs tried every way to split it, and 20,000 tabs took 420 ms.
+//
+// The older, looser pattern let a typo become a different number with no warning: `--5` read -5,
+// `(5` and `5)` read 5, `1,2,3` read 1.2 with the unit `.3`, and `1.2.3.4x` read 1234
+// (followups.d/2609-p2). Those are not numbers now; `malformedNumber` says why, and lint names it.
+const SYM = '[^\\w\\s+\\-\\u2212().,]';
+const CORE = '(?:\\d{1,3}(?:,\\d{3})+(?:\\.\\d+)?|\\d{1,3}(?:\\.\\d{3})+(?:,\\d+)?|\\d+(?:[.,]\\d+)?|\\.\\d+)';
+const TAIL = '\\s*(?:(?:%|\\u2030|[A-Za-z]{1,6})\\s*)?';
+export const NUMERIC = new RegExp(
+  `^(?:\\(\\s*(?:${SYM}{1,3}\\s*)?${CORE}${TAIL}\\)|[+\\-\\u2212]?\\s*(?:${SYM}{1,3}\\s*)?${CORE}${TAIL}|${SYM}{1,3}\\s*[+\\-\\u2212]${CORE}${TAIL})$`,
+);
+// The older pattern: what LOOKS like an attempt at a number. A string it accepts and NUMERIC does
+// not is a malformed number, which a chart must not read as prose with a figure in it.
+export const NUMBER_SHAPED = /^[(+\-\u2212]?\s*(?:[^\w\s]{1,3}\s*)?[-\u2212]?\d[\d,.]*\s*(?:(?:%|\u2030|[A-Za-z]{1,6})\s*)?\)?$/;
 
 // A European number: dot-grouped thousands, then ONE decimal comma, as the whole string (`1.234,5`,
 // `€1.234.567,89M`, `(1.234,5)`). Only this shape swaps the two separators. Anything looser keeps
@@ -245,13 +260,23 @@ function normalizeSeparators(s: string): string {
 export function readNumberFast(t: string): NumberValue | null | undefined {
   const n = t.length;
   let i = 0;
-  // Prefix: at most three symbol characters from the everyday set, no spaces.
+  // Prefix: at most three symbol characters from the everyday set, no spaces. Anything the full
+  // reader refuses (a second sign, a `(` that is not first, a sign inside `(…)`) goes to it.
+  let signs = 0;
+  let symBeforeSign = false;
   while (i < n && i < 4) {
     const c = t.charCodeAt(i);
-    if (c === 40 || c === 43 || c === 45 || c === 0x2212 || c === 36 || c === 0x20ac || c === 0xa3 || c === 0xa5) i++;
+    const sym = c === 36 || c === 0x20ac || c === 0xa3 || c === 0xa5;
+    if (c === 43 || c === 45 || c === 0x2212) signs++;
+    else if (c === 40 && i > 0) return null;
+    // A sign sits before the symbols (`-$0.8M`) or after them (`$-0.8M`), never between two
+    // (`$-$2`): that shape goes to the full reader, which refuses it.
+    else if (sym && signs && symBeforeSign) return null;
+    else if (sym && !signs) symBeforeSign = true;
+    if (c === 40 || c === 43 || c === 45 || c === 0x2212 || sym) i++;
     else break;
   }
-  if (i > 3) return null;
+  if (i > 3 || signs > 1) return null;
   const digitsFrom = i;
   while (i < n && t.charCodeAt(i) >= 48 && t.charCodeAt(i) <= 57) i++;
   if (i === digitsFrom) return null;
@@ -275,6 +300,7 @@ export function readNumberFast(t: string): NumberValue | null | undefined {
   if (i !== n) return null;
 
   const opens = t.charCodeAt(0) === 40;
+  if (opens !== closes || (opens && signs)) return null;
   const paren = opens && closes;
   // With the parenthesis pair gone, a leading sign flips; the digits' own `-` is what is left.
   let p = paren ? 1 : 0;
@@ -330,6 +356,28 @@ export function readNumberFull(t: string): NumberValue | undefined {
   const signed = /^\(.*\)$/.test(t) || /[+\-\u2212]/.test(beforeDigits);
   const unit = mag ? after.slice(mag[1].length).trim() : after.replace(/\)$/, '').trim();
   return { value: neg ? -Math.abs(value) : value, signed, unit };
+}
+
+const CORE_ONLY = new RegExp(`^${CORE}$`);
+/**
+ * Why a string that LOOKS like a number (NUMBER_SHAPED) is not one, or undefined when it is a
+ * number or plainly not an attempt at one. Lint quotes this, so an author learns why `--5` did not
+ * plot instead of watching the chart draw something else.
+ */
+export function malformedNumber(raw: string): string | undefined {
+  const t = collapseIsoGroups(raw.trim());
+  if (!t || t.includes('..') || !NUMBER_SHAPED.test(t) || readNumber(t) !== undefined) return undefined;
+  const at = t.search(/\d/);
+  const before = t.slice(0, at);
+  const signs = (before.match(/[+\-\u2212]/g) || []).length;
+  const inner = /\(/.test(before.slice(1)) && t.endsWith(')');
+  if (signs + (t.startsWith('(') && t.endsWith(')') ? 1 : 0) + (inner ? 1 : 0) > 1) return 'it has two signs';
+  // `$(1,234)`: a paired accounting negative, but the `(` must come first, as in `($1,234)`.
+  if (inner) return 'its `(` must come first, before any symbol';
+  if (t.startsWith('(') !== t.endsWith(')') || /\(/.test(before.slice(1))) return 'its parentheses do not pair';
+  const digits = /\d[\d,.]*/.exec(t.slice(at))?.[0] ?? '';
+  if (!CORE_ONLY.test(digits)) return 'its digits are not one number (group thousands in threes, with one decimal mark)';
+  return 'it is not written as one number';
 }
 
 export const number = (): Type<NumberValue> => own({

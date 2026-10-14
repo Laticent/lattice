@@ -103,6 +103,7 @@ function walk(dir, out = []) {
 const relFromRoot = (file) => path.relative(ROOT, file).split(path.sep).join('/');
 
 // Read the linter's own exemption list rather than repeating it (HARD RULE #1).
+const { isSubjectFinding } = require('./lint-subject-decks');
 let glyphExemptCache = null;
 function glyphExemptDecks() {
   if (glyphExemptCache) return glyphExemptCache;
@@ -155,7 +156,8 @@ function makeScorer() {
     const exempt = glyphExemptDecks().has(rel);
     const lintFindings = lintText(source, { vocab }).filter(
       (f) => (f.severity === 'error' || f.severity === 'warning')
-        && !(f.rule === 'typed-shape-glyph' && exempt),
+        && !(f.rule === 'typed-shape-glyph' && exempt)
+        && !isSubjectFinding(rel, f.rule),
     );
     const reviewFindings = [...reviewText(source, { bucketOf, densityOf })];
     return { deck: scoreDeck({ source, lintFindings, reviewFindings }), lintFindings, reviewFindings };

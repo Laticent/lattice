@@ -92,7 +92,7 @@ lenses found the same thing, both IDs are listed.
 | SEGNO-I2 | About 60 exports, including engine internals and the unratified notation. | **Fixed in the README:** a "What is stable" section marks the grammar engine and the notation grammar experimental and points at LFM 1.1 §3.6 as the notation's spec. Un-exporting is in the 0.2 follow-up. |
 | SEGNO-3 | A newline is not whitespace in the notation. | **Ruled and documented:** the notation is one line, as Markdown inline code is. |
 | SEGNO-I5 | "Never a stack overflow" overstated the guarantee. | **Fixed:** the README says it returns an error. |
-| SEGNO-2 · SEG-R2 | `1.234,5` reads 1,000 times too small; `--5`, `(5`, `1,2,3` read as numbers. | **Deferred, with a reason:** Segno mirrors `lib/core/chart-values.js` on purpose and a parity test holds them together, so the fix changes how every chart reads values. That is a rendered-surface change owing its own demo deck (HARD RULE #9). `followups.d/2609-p2-segno-number-reader-misreads.md`. |
+| SEGNO-2 · SEG-R2 | `1.234,5` reads 1,000 times too small; `--5`, `(5`, `1,2,3` read as numbers. | **Deferred, with a reason:** Segno mirrors `lib/core/chart-values.js` on purpose and a parity test holds them together, so the fix changes how every chart reads values. That is a rendered-surface change owing its own demo deck (HARD RULE #9). **Done since:** the chart-authoring phase 2 PR made both readers refuse them, with lint's `chart-value-malformed`. |
 | SEG-R4 | An alias error is a plain `Error`, not a `SchemaError`. | **Ruled: correct as is.** It is a type-builder argument error, the same style as `lit('')`; `SchemaError` is for an ambiguous schema. |
 | SEG-R5 | `parse()` returns `diagnostic`, `record().read()` returns `diagnostics`. | **Ruled: correct as is.** The names follow the cardinality: a parse stops at one problem, a record read collects several. |
 | SEGNO-4 | The parity fuzz's alphabet lacked some characters. | **Ruled: coverage only.** The checker's own fuzz with them found nothing. |
@@ -115,7 +115,7 @@ lenses found the same thing, both IDs are listed.
 
 ## 4. What is left, and where it is tracked
 
-- `followups.d/2609-p2-segno-number-reader-misreads.md`: the two number-reader defects.
+- The two number-reader defects: both done, `1.234,5` in #2690 and the malformed spellings in the chart-authoring phase 2 PR, which deleted their followup.
 - `followups.d/2609-p2-trama-route-wall-clock.md`: the route solver's time bound.
 - `followups.d/2609-p3-library-api-revisit-0-2.md`: everything ruled fine for 0.x.
 
