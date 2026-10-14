@@ -146,6 +146,13 @@ removes both disagreements; §6's `check-ownership` rule keeps them from coming 
   `>` sits between two chart list items anywhere in the corpus**, so the lint that follow-up
   2686-p2 asked for (`chart-list-split-quote`, added by the same PR) catches new mistakes and fixes no
   shipped deck.
+- **An indented `>` under a row breaks 12 list charts today.** Measured on 2026-10-14, after the
+  owner tried `> Hi` under a bar row in the PR #2690 preview Studio expecting hover detail: bar, map,
+  scatter and bullet drop the mark, waterfall the chart, piechart and funnel the value. Only
+  flowchart and state-chart read the quote. Phase 2's reader is what makes `>` the description;
+  until then `chart-row-quote-unread` names it and rewrites it as a nested bullet, which those 12
+  charts show as hover detail, and `chart-list-split-quote` offers the same form instead of the
+  indent on those charts.
 - **Progress's visible nested note is used on no slide.** §3 decision 7 turns it into a named
   visible field; no deck in the corpus loses content to that.
 - **Heatmap: 134 empty cells and no cell a strict reader would refuse.** The `$1.2M to $1.5M`
