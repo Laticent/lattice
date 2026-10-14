@@ -6,6 +6,14 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-10-14 — measured on the built tree at b06fb1a
+
+Playground: the 16 curated Galleries decks are fetched on demand from galleries/curated/ instead of riding in the route props (htmlRaw 555.5KB -> 429.9KB)
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| playground | htmlRaw | 551935 | 440187 | -111748 | 484206 |
+
 ### 2026-10-06 — measured on the built tree at 9b46f54
 
 Owner-approved raise (2026-10-06), soft targets only; every ceiling stays where it is. Since the 2026-09-29 reset, 36 PRs declared their growth in route-budget.d, about 48.7 KB gz on the Studio alone. Three quarters of the Studio's is its live lint: HARD RULE #7 makes the browser run the same lint-core as the CLI and validate(), so each grammar and rule that landed (Segno phase 2 13.3 KB, hub-spoke 8.6 KB, inline icons 7.0 KB, flowchart and list rows 4.3 KB, and smaller rules) is the price of the Studio showing the same warnings the CLI does. The rest is lessons, plugin admission and the chat agent. #2540 gave back 17.4 KB, which did not cover it. The other routes are 0.5 to 7.6 KB over, from the plugin grammar and lint-core every deck-rendering route carries. Keeping each ceiling where it was turns this into a squeeze: the Studio's headroom drops from about 10% to 6%, so the next 40 KB has to be given back, not declared.

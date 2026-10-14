@@ -70,7 +70,6 @@ export type PlaygroundData = {
 	catalog: Catalog;
 	components: CatalogItem[];
 	lenses: Lens[];
-	gallerySources: Record<string, string>;
 	galleryGroups: GalleryGroup[];
 	themeBase: string;
 	runtimeUrl: string;
@@ -290,7 +289,7 @@ function adoptBootSeed(view: 'read' | 'edit', pane: 'edit' | 'preview') {
  * the config panel (DeckSetupSheet). None are reimplemented.
  */
 export function PlaygroundApp({ data }: { data: PlaygroundData }) {
-	const { catalog, components, lenses, gallerySources, galleryGroups, themeBase, runtimeUrl, engineUrl, dagreUrl, katexUrl, palettes, finishes, lintVocab, starter, plansBase, galleriesBase } = data;
+	const { catalog, components, lenses, galleryGroups, themeBase, runtimeUrl, engineUrl, dagreUrl, katexUrl, palettes, finishes, lintVocab, starter, plansBase, galleriesBase } = data;
 
 	// Two component states, one rule each (2026-07-05 decision §4): `draftComponent`
 	// is DERIVED — what detectComponent reads out of the live editor, possibly '' when
@@ -1470,18 +1469,8 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	// Bumped by EVERY pick that replaces the explored deck (curated deck, example, component), so a
 	// slow example fetch that resolves after a later pick cannot replace what the reader chose next.
 	const deckPickSeqRef = React.useRef(0);
-	const onLoadGallery = React.useCallback(
-		(id: string) => {
-			deckPickSeqRef.current++;
-			const src = gallerySources[id];
-			if (src == null) {
-				setStatusLine('Gallery unavailable.', true);
-				return;
-			}
-			openGalleryDeck(id, src);
-		},
-		[gallerySources, setStatusLine, openGalleryDeck],
-	);
+	// A curated deck and an example are both static files under `galleriesBase`, fetched when chosen
+	// (`loadDeck`, below); the route's props carry only their id, label and slide count.
 
 	// The "All examples" list: the index is fetched once (the sheet asks when it first opens), a
 	// deck when it is chosen. A failed fetch says "Gallery unavailable." like a missing curated
@@ -1501,15 +1490,15 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		}
 		return exampleIndexRef.current;
 	}, [galleriesBase]);
-	const onLoadExample = React.useCallback(
-		async (slug: string) => {
+	const loadDeck = React.useCallback(
+		async (id: string, path: string) => {
 			const seq = ++deckPickSeqRef.current;
 			const viewAtPick = viewRef.current;
 			// The same stale-tab path a plan fetch has: a 404 means a deploy replaced the staged tree
 			// while this tab sat open, and retrying can never succeed.
 			const stale = () => notifySticky('This page is out of date — the site was updated while it sat open.', { label: 'Reload', onClick: () => window.location.reload() });
 			try {
-				const res = await fetch(`${galleriesBase}${encodeURIComponent(slug)}.md`);
+				const res = await fetch(`${galleriesBase}${path}.md`);
 				if (!res.ok) {
 					if (res.status === 404 && seq === deckPickSeqRef.current) stale();
 					else if (seq === deckPickSeqRef.current) setStatusLine('Gallery unavailable.', true);
@@ -1519,13 +1508,15 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				// Drop the result if the reader picked something else, or left Explore for Edit,
 				// while it was in flight.
 				if (seq !== deckPickSeqRef.current || (viewAtPick === 'read' && viewRef.current !== 'read')) return;
-				openGalleryDeck(slug, src);
+				openGalleryDeck(id, src);
 			} catch {
 				if (seq === deckPickSeqRef.current) setStatusLine('Gallery unavailable.', true);
 			}
 		},
 		[galleriesBase, setStatusLine, openGalleryDeck],
 	);
+	const onLoadGallery = React.useCallback((id: string) => loadDeck(id, `curated/${encodeURIComponent(id)}`), [loadDeck]);
+	const onLoadExample = React.useCallback((slug: string) => loadDeck(slug, encodeURIComponent(slug)), [loadDeck]);
 
 	// Reset reads the DRAFT's component at click time; when the draft holds none
 	// (exactly the state the honest clear case creates) it falls back to the

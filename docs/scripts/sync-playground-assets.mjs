@@ -47,7 +47,7 @@ import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync,
 import { createRequire } from 'node:module';
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { collectGalleryAssets, loadExampleDecks } from '../src/playground/galleries.mjs';
+import { collectGalleryAssets, loadExampleDecks, loadGalleries } from '../src/playground/galleries.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(here, '..', '..');
@@ -273,7 +273,10 @@ for (const { slug } of exampleDecks) {
   if (prior) throw new Error(`sync-playground-assets: examples/${prior}.md and examples/${slug}.md differ only in case; they stage to one galleries/ file on a case-insensitive filesystem. Rename one.`);
   slugsSeen.set(slug.toLowerCase(), slug);
 }
+// The curated showcase + family decks stage the same way, under galleries/curated/ so an
+// example slug can never collide with a curated id. The route's props carry only id/label/slides.
 generated.push(
+  ...loadGalleries(repoRoot).map((g) => [`galleries/curated/${g.id}.md`, g.source]),
   ['galleries/index.json', JSON.stringify(exampleDecks.map(({ slug, title, slides }) => ({ id: slug, title, slides })))],
   ...exampleDecks.map((d) => [`galleries/${d.slug}.md`, d.source]),
 );

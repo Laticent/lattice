@@ -122,7 +122,6 @@ const galleryGroups = GALLERY_GROUPS.map((grp) => ({
 		.filter((g) => g.group === grp.key)
 		.map((g) => ({ id: g.id, label: g.label, slides: g.slides })),
 })).filter((grp) => grp.items.length);
-const gallerySources = Object.fromEntries(galleries.map((g) => [g.id, g.source]));
 
 // The full data payload for the React island. Passed as a prop (Astro
 // serializes it); the deck sources can contain a literal `</script>` (the jargon
@@ -165,7 +164,6 @@ const pgData = {
 	catalog,
 	components,
 	lenses,
-	gallerySources,
 	galleryGroups,
 	themeBase: url(pg + 'themes/'),
 	runtimeUrl: url(pg + 'lattice-runtime.js'),
