@@ -54,6 +54,7 @@ const MALFORMED: Array<[string, string]> = [
   ['5.', 'digits'], // was 5 with the unit `.`
   ['\u20135', 'dash'], // was +5: an en dash taken for a currency symbol
   ['$\u20145M', 'dash'], // was +5,000,000
+  ['\u20155', 'dash'], ['\uff0d5', 'dash'], ['\ufe635', 'dash'], ['$\uff0d5', 'dash'], // all read +5
 ];
 // The spellings that stay numbers, with the value each reads: every separator and sign form.
 const WELL_FORMED: Array<[string, number]> = [

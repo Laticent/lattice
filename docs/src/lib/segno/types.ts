@@ -199,9 +199,9 @@ const MAGNITUDE: Readonly<Record<string, number>> = { k: 1e3, K: 1e3, m: 1e6, M:
 // The older, looser pattern let a typo become a different number with no warning: `--5` read -5,
 // `(5` and `5)` read 5, `1,2,3` read 1.2 with the unit `.3`, and `1.2.3.4x` read 1234
 // (followups.d/2609-p2). Those are not numbers now; `malformedNumber` says why, and lint names it.
-// A dash (hyphen U+2010, non-breaking hyphen, figure dash, en dash, em dash) is not a symbol: `\u20135`
+// A dash (U+2010 to U+2015, the small and fullwidth hyphen-minus U+FE58, U+FE63, U+FF0D) is not a symbol: `\u20135`
 // read as +5 with the dash taken for a currency. It is refused, and `malformedNumber` says so.
-const SYM = '[^\\w\\s+\\-\\u2212\\u2010-\\u2014().,]';
+const SYM = '[^\\w\\s+\\-\\u2212\\u2010-\\u2015\\ufe58\\ufe63\\uff0d().,]';
 const CORE = '(?:\\d{1,3}(?:,\\d{3})+(?:\\.\\d+)?|\\d{1,3}(?:\\.\\d{3})+(?:,\\d+)?|\\d+(?:[.,]\\d+)?|\\.\\d+)';
 const TAIL = '\\s*(?:(?:%|\\u2030|[A-Za-z]{1,6})\\s*)?';
 export const NUMERIC = new RegExp(
@@ -255,7 +255,7 @@ function normalizeSeparators(s: string): string {
  * token, and a number is read for every value in every chart.
  *
  * The rules it mirrors, each from `chart-values.js`: `(…)` is negative; a leading `-` or
- * U+2212 flips the sign; a `-` directly before the digits that the lead did not take is the
+ * U+2212 flips the sign; a `-` or U+2212 directly before the digits that the lead did not take is the
  * number's own sign; a magnitude letter (`k` `M` `B` `bn` `T`) must end the word; the sign is
  * "written" when the part before the digits holds `+`, `-` or U+2212, or the whole is `(…)`.
  */
@@ -372,7 +372,7 @@ export function malformedNumber(raw: string): string | undefined {
   if (!t || t.includes('..') || !NUMBER_SHAPED.test(t) || readNumber(t) !== undefined) return undefined;
   const at = t.search(/\d/);
   const before = t.slice(0, at);
-  if (/[\u2010-\u2014]/.test(before)) return 'it has a dash where a minus sign goes: type `-`';
+  if (/[\u2010-\u2015\ufe58\ufe63\uff0d]/.test(before)) return 'it has a dash where a minus sign goes: type `-`';
   const signs = (before.match(/[+\-\u2212]/g) || []).length;
   const inner = /\(/.test(before.slice(1)) && t.endsWith(')');
   if (signs + (t.startsWith('(') && t.endsWith(')') ? 1 : 0) + (inner ? 1 : 0) > 1) return 'it has two signs';

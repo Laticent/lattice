@@ -32,6 +32,10 @@ describe('chart-values reads a malformed number as no number', () => {
       assert.equal(spokenValue(s, () => 'CONVERTED'), s);
     });
   }
+  test('U+2212 behind a currency is a minus on the lenient path too (#2287)', () => {
+    assert.equal(parseValue('$\u22120.8M approx'), -800000);
+    assert.equal(signedValue('$\u22120.8M approx').negative, true);
+  });
   test('the lenient read of prose with a figure in it is unchanged', () => {
     assert.equal(parseValue('grew 3.5%, margin 12%'), 3.5);
     assert.equal(parseValue('240,000 views'), 240000);
