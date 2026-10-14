@@ -1386,14 +1386,14 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 ## A team's first month runs from pain to belief, in that order, twice.
 
 - Onboard
-  - Kickoff workshop `{who=team, mood=2}` `@strategy`
+  - Kickoff workshop `{who=team, mood=2}` `{who=strategy}`
   - Taxonomy training `{who=team, mood=2}`
-  - Intake setup `{who=team, mood=1}` `@platform`
+  - Intake setup `{who=team, mood=1}` `{who=platform}`
 - Operate
   - First signal scored `{who=team, mood=4}`
   - First decision logged `{who=team, mood=4}`
 - Believe
-  - First calibration review `{who=team, mood=5}` `@strategy`
+  - First calibration review `{who=team, mood=5}` `{who=strategy}`
 
 ---
 

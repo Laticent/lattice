@@ -163,6 +163,14 @@ describe('avatars — in a team-profile roster', () => {
     assert.doesNotMatch(out, /!\{Ada/);
   });
 
+  test('the named form `@avatar{…}` is the same portrait: off is a monogram, broken is a note', () => {
+    const off = tp.applyToRenderedHtml(wrap('<li><code data-lattice-off="avatars">@avatar{Ada Okafor}</code></li><li><code>Sponsor</code></li>'));
+    assert.match(off, /<span class="person-initials">AO<\/span>/);
+    assert.match(off, /<span class="person-role">Sponsor<\/span>/);
+    const broken = tp.applyToRenderedHtml(wrap('<li><code>@avatar{Ada, hair=nope}</code></li><li><code>Sponsor</code></li>'));
+    assert.match(broken, /<span class="person-note"><code>@avatar\{Ada, hair=nope\}<\/code><\/span>/);
+  });
+
   const OFF = (t) => `<code data-lattice-off="avatars">${t}</code>`;
 
   test('plugin off, beside the role: a monogram AND the role — nothing dropped', () => {

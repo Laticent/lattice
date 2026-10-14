@@ -37,7 +37,21 @@ export type StudioCodePackage = { name: string; code: string; sha256: string; by
  * renderer whose file began with a byte-order mark or held an invalid byte has a different digest here
  * than the CLI's (which hashes the file's bytes): an approval never crosses between them either way.
  */
-export type StudioPlugin = { kind: 'plugin'; name: string; fence: string; code: string; sha256: string; bytes: number; /** The manifest's `placeholder` hint (placement, aspect, size), reduced by `placeholderHint`. */ placeholder?: { placement?: string; aspect?: string; size?: string } };
+export type StudioPlugin = {
+	kind: 'plugin';
+	name: string;
+	/** The one fence it owns, or '' for a plugin of inline kinds only. */
+	fence: string;
+	code: string;
+	sha256: string;
+	bytes: number;
+	/** The manifest's `placeholder` hint (placement, aspect, size), reduced by `placeholderHint`. */
+	placeholder?: { placement?: string; aspect?: string; size?: string };
+	/** The inline kinds it draws (`@kind{…}`, 2026-10-14-plugin-inline-door.md), with each kind's declared slot and placeholder. */
+	kinds?: StudioPluginKind[];
+};
+/** One inline kind a zip plugin declares: its name, its fields as a Segno slot spec, and its placeholder's size. */
+export type StudioPluginKind = { name: string; slot?: unknown; placeholder?: { size?: string }; title?: string };
 /** What the notice above the preview shows: the code this deck uses that is not approved. `notes` are the door's own warnings (a slide it left alone, and why). */
 export type CodePackagesStatus = { unapproved: (StudioCodePackage | StudioPlugin)[]; failed: { name: string; slide: number; why: string }[]; /** Installed plugins whose fence the deck writes but whose name its `plugins:` list does not (a placeholder stands there). */ offered?: StudioPlugin[]; notes?: string[] };
 
@@ -59,8 +73,8 @@ export async function codeDigest(code: string): Promise<string> {
  * `pluginConsentText`, from the renderer's bytes as they are held here. The two share the text's shape
  * (head, code, tail), so a change to what the digest covers changes both.
  */
-export async function pluginDigest(code: string, fence: string): Promise<string> {
-	const [head, tail] = pluginConsentText('\u0001', fence).split('\u0001');
+export async function pluginDigest(code: string, fence: string, kinds: readonly (string | { name: string; slot?: unknown })[] = []): Promise<string> {
+	const [head, tail] = pluginConsentText('\u0001', fence, [...kinds] as Parameters<typeof pluginConsentText>[2]).split('\u0001');
 	const enc = new TextEncoder();
 	const parts = [enc.encode(head), enc.encode(code), enc.encode(tail)];
 	const all = new Uint8Array(parts.reduce((n, a) => n + a.length, 0));
@@ -150,10 +164,22 @@ export async function setCodePackages(list: { name: string; code: string; facts?
  * only draws in a deck that lists it under `plugins:` (decision 11), and only once approved.
  */
 let setPluginsSeq = 0;
-export async function setPlugins(list: { name: string; fence: string; code: string; placeholder?: { placement?: string; aspect?: string; size?: string } }[]): Promise<void> {
+export async function setPlugins(list: { name: string; fence: string; code: string; placeholder?: { placement?: string; aspect?: string; size?: string }; kinds?: StudioPluginKind[] }[]): Promise<void> {
 	const mine = ++setPluginsSeq;
 	const next = new Map<string, StudioPlugin>();
-	for (const p of list) next.set(p.name, { kind: 'plugin', name: p.name, fence: p.fence, code: p.code, sha256: await pluginDigest(p.code, p.fence), bytes: new TextEncoder().encode(p.code).length, ...(p.placeholder ? { placeholder: p.placeholder } : {}) });
+	for (const p of list) {
+		const kinds = (p.kinds ?? []).filter((k) => k && typeof k.name === 'string');
+		next.set(p.name, {
+			kind: 'plugin',
+			name: p.name,
+			fence: p.fence ?? '',
+			code: p.code,
+			sha256: await pluginDigest(p.code, p.fence ?? '', kinds.map((k) => ({ name: k.name, ...(k.slot ? { slot: k.slot } : {}) }))),
+			bytes: new TextEncoder().encode(p.code).length,
+			...(p.placeholder ? { placeholder: p.placeholder } : {}),
+			...(kinds.length ? { kinds } : {}),
+		});
+	}
 	if (mine !== setPluginsSeq) return;
 	plugins.clear();
 	for (const [k, v] of next) plugins.set(k, v);
@@ -196,12 +222,16 @@ export function studioPlugins(): ReadonlyMap<string, StudioPlugin> {
 
 /** The installed plugins the door will run at all: the rules both doors share (a refused plugin is never offered or approvable). */
 function runnablePlugins(): StudioPlugin[] {
-	const ok = new Set(planFencePlugins([...plugins.values()].map((p) => ({ name: p.name, fence: p.fence })), { shipped: FENCE_DOOR.shippedFences, isLanguage: (n: string) => FENCE_DOOR.highlightLanguages.includes(n) }).run.map((p: { name: string }) => p.name));
+	const ok = new Set(planFencePlugins([...plugins.values()].map((p) => ({ name: p.name, fence: p.fence, kinds: (p.kinds ?? []).map((k) => k.name) })), { shipped: FENCE_DOOR.shippedFences, isLanguage: (n: string) => FENCE_DOOR.highlightLanguages.includes(n), shippedKinds: FENCE_DOOR.shippedKinds }).run.map((p: { name: string }) => p.name));
 	return [...plugins.values()].filter((p) => ok.has(p.name));
 }
 
 /** Does `source` hold a fenced block whose info string starts with `fence`? A superset (a quoted fence counts); the render's own claims are exact. */
-const writesFence = (source: string, fence: string) => new RegExp(`^[ \\t]*(?:\`{3,}|~{3,})[ \\t]*${fence.replace(/[^a-z0-9-]/g, '')}(?![\\w-])`, 'm').test(source);
+const writesFence = (source: string, fence: string) => !!fence && new RegExp(`^[ \\t]*(?:\`{3,}|~{3,})[ \\t]*${fence.replace(/[^a-z0-9-]/g, '')}(?![\\w-])`, 'm').test(source);
+/** Does `source` hold an `@kind{` span? A superset, as `writesFence` is (2026-10-14-plugin-inline-door.md). */
+const writesKind = (source: string, kind: string) => source.includes(`\`@${kind.replace(/[^a-z0-9-]/g, '')}{`);
+/** Does `source` use the plugin at all: its fence, or any of its inline kinds? */
+const usesPlugin = (source: string, p: StudioPlugin) => writesFence(source, p.fence) || (p.kinds ?? []).some((k) => writesKind(source, k.name));
 
 /**
  * The code packages a deck names that this browser has not approved: read from the SOURCE, so the
@@ -209,8 +239,8 @@ const writesFence = (source: string, fence: string) => new RegExp(`^[ \\t]*(?:\`
  * `_class:` / `class:` comment, and each `pane:` marker, outside fenced code.
  */
 export function unapprovedIn(source: string): (StudioCodePackage | StudioPlugin)[] {
-	// A plugin counts once the deck lists it AND writes its fence: that is when the preview needs the code.
-	const pluginsWanted: StudioPlugin[] = plugins.size ? runnablePlugins().filter((p) => !isPluginApproved(p) && deckPluginList(source).includes(p.name) && writesFence(source, p.fence)) : [];
+	// A plugin counts once the deck lists it AND writes its fence or one of its `@kind{…}` spans: that is when the preview needs the code.
+	const pluginsWanted: StudioPlugin[] = plugins.size ? runnablePlugins().filter((p) => !isPluginApproved(p) && deckPluginList(source).includes(p.name) && usesPlugin(source, p)) : [];
 	if (!packages.size) return pluginsWanted;
 	const tokens = new Set<string>();
 	const add = (raw: string) => {
@@ -236,7 +266,7 @@ export function unapprovedIn(source: string): (StudioCodePackage | StudioPlugin)
 export function offeredIn(source: string): StudioPlugin[] {
 	if (!plugins.size) return [];
 	const listed = deckPluginList(source);
-	return runnablePlugins().filter((p) => !listed.includes(p.name) && writesFence(source, p.fence));
+	return runnablePlugins().filter((p) => !listed.includes(p.name) && usesPlugin(source, p));
 }
 
 /** Hear what the last render found: unapproved packages the deck uses, and slides that failed. */

@@ -145,7 +145,7 @@ async function main(argv) {
 
   // Build the catalog vocabulary once, reuse across all files.
   const vocab = buildVocab();
-  // The zip plugins installed here (their names and fences): a deck that lists one is not wrong, and attributes
+  // The zip plugins installed here (their names, fences and inline kinds): a deck that lists one is not wrong, and attributes
   // after one's fence name are ignored today. Read from the package store, as a render reads it.
   try {
     const home = require('../lib/packages/home.js');
@@ -154,7 +154,10 @@ async function main(argv) {
     const shipped = require('../lib/plugins/registry.generated.js').PLUGINS.map((g) => g.name);
     const plugins = home.listInstalled(home.packagesRoot()).filter((p) => p.type === 'plugin' && p.ok && !shipped.includes(p.name) && !refusePackage(p.pkg, { forRender: true }));
     vocab.externalPlugins = plugins.map((p) => p.name);
-    vocab.externalFenceOf = Object.fromEntries(plugins.map((p) => [p.name, Object.keys(p.pkg.manifest.contributes.fences)[0]]));
+    vocab.externalFenceOf = Object.fromEntries(plugins.map((p) => [p.name, Object.keys(p.pkg.manifest.contributes.fences ?? {})[0]]).filter(([, f]) => f));
+    // Their inline kinds (`@kind{…}`, 2026-10-14-plugin-inline-door.md): a listed plugin's kind is not unknown.
+    const { pluginInlineKinds } = require('../lib/packages/code-shape.mjs');
+    vocab.externalInlineKinds = Object.fromEntries(plugins.map((p) => [p.name, pluginInlineKinds(p.pkg.manifest)]).filter(([, k]) => k.length));
   } catch {
     /* no store: no external plugins */
   }

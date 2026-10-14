@@ -1554,7 +1554,7 @@ test('narrateXychart: accessibility statements and comments carry nothing; negat
 // onboarding. Pain. 1. 2. 3. 4. 5. Delight." — the legend and the mood axis read as a list,
 // with no step attached to any score.
 test('narrateJourneyMood: reads each task with its actors and its mood, by section', () => {
-  const md = ['<!-- _class: journey -->', '', '## The path.', '', '- Evaluate', '  - Read case study `{who=prospect, mood=5}`', '  - Live demo `@prospect` `{who=sales, mood=4}`', '- Trial', '  - Signup `{who=user, mood=3}`'].join('\n');
+  const md = ['<!-- _class: journey -->', '', '## The path.', '', '- Evaluate', '  - Read case study `{who=prospect, mood=5}`', '  - Live demo `{who=prospect}` `{who=sales, mood=4}`', '- Trial', '  - Signup `{who=user, mood=3}`'].join('\n');
   const out = narrateJourneyMood(md);
   // The scale once, in its own words; a stage by its size; a step per sentence, naming who.
   assert.ok(out.includes('Each step is scored for how it feels, from one, pain, to five, delight.'), out);
@@ -1575,7 +1575,7 @@ test('narrateJourneyMood: stands down for the weighted variant, which has its ow
 test('narrateJourneyMood: leaves an omitted mood UNSAID rather than reporting the plotted default', () => {
   // journey.docs.md: an omitted `:N` silently defaults to a neutral 3 and still plots.
   // Narrating that default would state an affect the author never claimed.
-  const md = ['<!-- _class: journey -->', '', '## X.', '', '- Evaluate', '  - Read case study `@prospect`'].join('\n');
+  const md = ['<!-- _class: journey -->', '', '## X.', '', '- Evaluate', '  - Read case study `{who=prospect}`'].join('\n');
   const out = narrateJourneyMood(md);
   assert.ok(out.includes('Read case study, by the prospect.'), out);
   assert.ok(!out.includes('out of five'), out);

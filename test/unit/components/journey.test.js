@@ -1,7 +1,7 @@
 /**
  * Unit: lib/components/chart/journey/journey.transform.js — user-journey diagram transforms.
  *
- * Parser:    nested <ul> with inline `@actor`/`:mood`/`+volume` <code> tokens
+ * Parser:    nested <ul> with one `{who=…, mood=…, volume=…}` step record per <code> token
  *            → { sections: [{ name, tasks: [{ label, actors, mood, volume }] }] }
  * Emitter:   data model → .journey-board DOM (one shape; CSS varies per variant)
  * Dispatch:  applyToRenderedHtml walks <section class="journey ..."> blocks only
@@ -73,13 +73,18 @@ describe('journey', () => {
   });
 
   test('parseTask: handles multiple actors in appearance order', () => {
-    const t = parseTask('Do work <code>{who=me, mood=1}</code> <code>@cat</code>');
+    const t = parseTask('Do work <code>{who=me, mood=1}</code> <code>{who=cat}</code>');
     assert.deepEqual(t.actors, ['me', 'cat']);
     assert.equal(t.mood, 1);
   });
 
+  test('parseTask: the retired `@cat` shortcut is code, not an actor (lint:deck journey-actor-shortcut says so)', () => {
+    const t = parseTask('Do work <code>{who=me, mood=1}</code> <code>@cat</code>');
+    assert.deepEqual(t.actors, ['me']);
+  });
+
   test('parseTask: default mood is 3 (neutral) when no `mood=` is given', () => {
-    const t = parseTask('Stand up <code>@me</code>');
+    const t = parseTask('Stand up <code>{who=me}</code>');
     assert.equal(t.mood, 3);
   });
 
@@ -106,7 +111,7 @@ describe('journey', () => {
       '<ul>' +
         '<li>Make tea <code>{who=me, mood=5}</code></li>' +
         '<li>Go upstairs <code>{who=me, mood=3}</code></li>' +
-        '<li>Do work <code>{who=me, mood=1}</code> <code>@cat</code></li>' +
+        '<li>Do work <code>{who=me, mood=1}</code> <code>{who=cat}</code></li>' +
       '</ul>' +
     '</li>' +
     '<li>Go home' +

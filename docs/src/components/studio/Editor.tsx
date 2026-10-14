@@ -9,7 +9,7 @@ import { closeHoverTooltips, EditorView, hasHoverTooltips, keymap, lineNumbers, 
 import * as React from 'react';
 import { followDeckAdmission } from '@/lib/plugin-admission';
 import type { SparkFitReport } from '@/lib/spark-fit';
-import { buildVocabSets, findingsToDiagnostics } from '@/playground/editor-diagnostics.js';
+import { buildVocabSets, externalInlineKinds, findingsToDiagnostics } from '@/playground/editor-diagnostics.js';
 import { type AssetChoice, type CompletionComponent, type CompletionVocab, type InlineNext, makeAssetCompletion, makeStudioCompletion, registerValueLists } from './editor-complete';
 import { editorTheme, studioHighlight } from './editor-theme';
 import { iconPreviewOption } from './icon-preview';
@@ -440,7 +440,8 @@ export const Editor = React.forwardRef<EditorHandle, {
 	const lintComp = React.useRef(new Compartment());
 	// What may come next in a spark or pill, from the lint core once it has loaded (read at
 	// completion time, so the menu works the moment the core arrives, without a reconfigure).
-	const inlineNext = (span: string): InlineNext | null => lintCoreMod?.inlineCodeCompletions?.(span) ?? null;
+	// The `@` menu also lists the zip plugins' kinds the Studio holds (2026-10-14-plugin-inline-door.md).
+	const inlineNext = (span: string): InlineNext | null => lintCoreMod?.inlineCodeCompletions?.(span, externalInlineKinds()) ?? null;
 	// The latest measured sparks, read by the lint pass; a new measurement re-runs it.
 	const measuredRef = React.useRef(measuredSparks);
 	measuredRef.current = measuredSparks;

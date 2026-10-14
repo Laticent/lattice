@@ -14,7 +14,7 @@
 import type { Scene } from '@/lib/anima';
 // The JSON value cap (lib/packages/json-guard.js). A static import is fine here: this module is
 // only ever loaded on demand (asset-bundle.ts, share-export.ts), never on the Studio's eager path.
-import { refuseCode, refusePluginCode } from '../../../../lib/packages/code-shape.mjs';
+import { pluginKindPins, refuseCode, refusePluginCode } from '../../../../lib/packages/code-shape.mjs';
 import jsonGuard from '../../../../lib/packages/json-guard.js';
 // The plugin refusal, one string shared with `lattice packages add` (a CommonJS leaf, read as a default import).
 import pluginRefusal from '../../../../lib/packages/plugin-refusal.js';
@@ -206,7 +206,23 @@ async function pluginRefusal_(pkg: Parameters<typeof refusePluginCode>[0]): Prom
 	const shape = refusePluginCode(pkg);
 	if (shape) return shape;
 	const { codeSyntaxRefusal } = await import('../../../../lib/packages/code-syntax.mjs');
-	return codeSyntaxRefusal(String(pkg.files[pkg.roles['render.js']] ?? ''), { fence: true });
+	const syntax = codeSyntaxRefusal(String(pkg.files[pkg.roles['render.js']] ?? ''), { fence: true });
+	if (syntax) return syntax;
+	// Each inline kind's slot, compiled once here as `lattice packages add` does (gate.js `inlineSlotCompileRefusal`).
+	const pins = pluginKindPins(pkg.manifest);
+	if (!pins.some((k) => k.slot)) return null;
+	// Require-free, with Segno's ESM reader (the dev server serves only a CJS file that requires nothing).
+	const [{ default: segnoSpecCore }, segnoRead] = await Promise.all([import('../../../../lib/core/segno-spec-core.js'), import('@laticent/segno/read')]);
+	const { compileSlot } = segnoSpecCore.specCompiler(segnoRead);
+	for (const { name, slot } of pins) {
+		if (!slot) continue;
+		try {
+			compileSlot(slot as Parameters<typeof compileSlot>[0], `${name}.slot`);
+		} catch (e) {
+			return `its inline kind ${name}'s slot does not compile: ${String((e as Error)?.message ?? e).slice(0, 200)}`;
+		}
+	}
+	return null;
 }
 
 /**

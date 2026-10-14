@@ -21,3 +21,24 @@ export const BARS_RENDERER = `function render(fence) {
 }
 export { render as default };
 `;
+
+/** A zip plugin of INLINE kinds only (2026-10-14-plugin-inline-door.md): `@tag-chip{Label, hot}`, read by its declared slot. */
+export async function chipZip(code: string = CHIP_RENDERER, name = 'chip-plugin'): Promise<Buffer> {
+	const zip = new JSZip();
+	const inline = { 'tag-chip': { title: 'Tag chip', slot: { label: 'a tag chip', positional: [{ name: 'label', type: 'text' }], params: { tone: { type: 'oneOf', values: ['hot', 'cold'] } } }, placeholder: { size: 'sm' } } };
+	zip.file(`${name}/${name}.manifest.json`, JSON.stringify({ name, type: 'plugin', format: 1, api: 1, title: 'Tag chips (zip)', description: 'Draws `@tag-chip{…}` as a small tag.', contributes: { inline } }));
+	zip.file(`${name}/${name}.docs.md`, '# Tag chips\n');
+	zip.file(`${name}/${name}.fixtures.md`, '- `@tag-chip{Launch, hot}`\n');
+	zip.file(`${name}/${name}.render.js`, code);
+	return zip.generateAsync({ type: 'nodebuffer' });
+}
+
+/** An inline renderer: a small tag from the fields its slot read, in the deck's own colors. */
+export const CHIP_RENDERER = `function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;"); }
+function render(input) {
+  var f = input.fields || {};
+  var hot = f.tone === "hot";
+  return '<span class="lp-chip-plugin-tag" data-tone="' + esc(f.tone || "none") + '" style="padding:0 0.4em;border-radius:0.3em;background:' + (hot ? "var(--accent)" : "var(--bg-alt)") + ';color:' + (hot ? "var(--bg)" : "var(--text-body)") + '">' + esc(f.label || input.text) + '</span>';
+}
+export { render as default };
+`;

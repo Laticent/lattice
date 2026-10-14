@@ -33,6 +33,13 @@ describe('the generated fence-door data', () => {
     assert.deepEqual(DATA.shippedFences, [...live].sort());
   });
 
+  test('the shipped inline kinds are the live dispatcher table\'s, so a zip plugin cannot take one', () => {
+    const { FIRST_PARTY, KINDS } = require('../../../lib/core/inline-code-directives.js');
+    assert.deepEqual(DATA.shippedKinds, [...new Set([...FIRST_PARTY, ...KINDS.filter((k) => k.plugin)].map((k) => k.name))].sort());
+    assert.equal(DATA.shippedKinds.includes('named'), false, 'the dispatcher\'s own row is not a kind');
+    for (const k of ['state', 'pill', 'spark', 'icon', 'avatar']) assert.ok(DATA.shippedKinds.includes(k), k);
+  });
+
   test('a function built from the generated list answers as the live one does, on every class set the registry names', async () => {
     const { rebuiltFromAlternatives } = await load();
     const studio = rebuiltFromAlternatives(DATA.rebuilt);
@@ -69,7 +76,30 @@ describe('planFencePlugins: which plugins a door runs', () => {
 
   test('an ordinary plugin runs and says nothing', async () => {
     const { planFencePlugins } = await load();
-    assert.deepEqual(planFencePlugins([{ name: 'gantt-plugin', fence: 'gantt' }], host), { run: [{ name: 'gantt-plugin', fence: 'gantt' }], notes: [] });
+    const plan = planFencePlugins([{ name: 'gantt-plugin', fence: 'gantt' }], host);
+    assert.deepEqual({ run: plan.run, notes: plan.notes }, { run: [{ name: 'gantt-plugin', fence: 'gantt' }], notes: [] });
+    assert.deepEqual([...plan.fences], [['gantt', 'gantt-plugin']]);
+    assert.deepEqual([...plan.kinds], []);
+  });
+
+  test('inline kinds (the inline door): a kinds-only plugin runs, a shared kind draws for neither, a shipped kind is refused', async () => {
+    const { planFencePlugins } = await load();
+    const kindHost = { ...host, shippedKinds: ['icon', 'pill'] };
+    const alone = planFencePlugins([{ name: 'mentions', fence: '', kinds: ['mention'] }], kindHost);
+    assert.deepEqual(alone.run.map((p) => p.name), ['mentions']);
+    assert.deepEqual([...alone.kinds], [['mention', 'mentions']]);
+    // Two plugins on one kind: neither draws it, one line names both; a plugin with a fence of its own still runs that.
+    const shared = planFencePlugins([{ name: 'a-plug', fence: 'aa', kinds: ['tag'] }, { name: 'b-plug', fence: '', kinds: ['tag'] }], kindHost);
+    assert.deepEqual(shared.run.map((p) => p.name), ['a-plug']);
+    assert.deepEqual([...shared.kinds], []);
+    assert.deepEqual([...shared.fences], [['aa', 'a-plug']]);
+    assert.ok(shared.notes.some((n) => /a-plug and b-plug both declare the inline kind `@tag\{…\}`/.test(n)), shared.notes.join('\n'));
+    // A kind Lattice draws (it gained it after the plugin was installed): only that kind is left out; the rest runs.
+    const taken = planFencePlugins([{ name: 'my-icons', fence: 'iconfence', kinds: ['icon', 'glyph'] }], kindHost);
+    assert.deepEqual(taken.run.map((p) => p.name), ['my-icons']);
+    assert.deepEqual([...taken.kinds], [['glyph', 'my-icons']]);
+    assert.deepEqual([...taken.fences], [['iconfence', 'my-icons']]);
+    assert.ok(taken.notes.some((n) => /my-icons's inline kind `@icon\{…\}` is one Lattice now draws itself/.test(n)), taken.notes.join('\n'));
   });
 
   test('two plugins on one fence name run for neither, and one line names both', async () => {

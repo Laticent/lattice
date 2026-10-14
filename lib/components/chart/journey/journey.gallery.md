@@ -23,10 +23,10 @@ Native user-journey chart — sections of tasks, each tagged with actor(s) and a
 - Evaluate
   - Read case study `{who=prospect, mood=5}`
   - Book demo `{who=prospect, mood=4}`
-  - Live demo `{who=prospect, mood=4}` `@sales`
+  - Live demo `{who=prospect, mood=4}` `{who=sales}`
 - Trial
   - Trial signup `{who=prospect, mood=3}`
-  - Workspace setup `{who=user, mood=1}` `@onboarding`
+  - Workspace setup `{who=user, mood=1}` `{who=onboarding}`
 - Activate
   - First report `{who=user, mood=3}`
   - Daily use `{who=user, mood=5}`
@@ -77,10 +77,10 @@ Native user-journey chart — sections of tasks, each tagged with actor(s) and a
 
 - Evaluate
   - Read case study `{who=prospect, mood=5}`
-  - Live demo `{who=prospect, mood=4}` `@sales`
+  - Live demo `{who=prospect, mood=4}` `{who=sales}`
 - Trial
   - Trial signup `{who=prospect, mood=3}`
-  - Workspace setup `{who=user, mood=1}` `@onboarding`
+  - Workspace setup `{who=user, mood=1}` `{who=onboarding}`
 - Activate
   - First report `{who=user, mood=3}`
   - Daily use `{who=user, mood=5}`
@@ -118,7 +118,7 @@ Native user-journey chart — sections of tasks, each tagged with actor(s) and a
 - Evaluate
   - Read the case `{who=prospect, mood=4}`
   - Book a demo `{who=prospect, mood=3}`
-  - Sit the demo `{who=prospect, mood=4}` `@sales`
+  - Sit the demo `{who=prospect, mood=4}` `{who=sales}`
 - Trial
   - Sign up `{who=prospect, mood=3}`
   - First setup `{who=user, mood=1}`
@@ -141,10 +141,10 @@ Native user-journey chart — sections of tasks, each tagged with actor(s) and a
 - Evaluate
   - Read case study `{who=prospect, mood=5}`
   - Book demo `{who=prospect, mood=4}`
-  - Live demo `{who=prospect, mood=4}` `@sales`
+  - Live demo `{who=prospect, mood=4}` `{who=sales}`
 - Trial
   - Trial signup `{who=prospect, mood=3}`
-  - Workspace setup `{who=user, mood=1}` `@onboarding`
+  - Workspace setup `{who=user, mood=1}` `{who=onboarding}`
 - Activate
   - First report `{who=user, mood=3}`
   - Daily use `{who=user, mood=5}`
@@ -160,10 +160,10 @@ Native user-journey chart — sections of tasks, each tagged with actor(s) and a
 - Evaluate
   - Read case study `{who=prospect, mood=5}`
   - Book demo `{who=prospect, mood=4}`
-  - Live demo `{who=prospect, mood=4}` `@sales`
+  - Live demo `{who=prospect, mood=4}` `{who=sales}`
 - Trial
   - Trial signup `{who=prospect, mood=3}`
-  - Workspace setup `{who=user, mood=1}` `@onboarding`
+  - Workspace setup `{who=user, mood=1}` `{who=onboarding}`
 - Activate
   - First report `{who=user, mood=3}`
   - Daily use `{who=user, mood=5}`
@@ -179,10 +179,10 @@ Native user-journey chart — sections of tasks, each tagged with actor(s) and a
 - Evaluate
   - Read case study `{who=prospect, mood=5}`
   - Book demo `{who=prospect, mood=4}`
-  - Live demo `{who=prospect, mood=4}` `@sales`
+  - Live demo `{who=prospect, mood=4}` `{who=sales}`
 - Trial
   - Trial signup `{who=prospect, mood=3}`
-  - Workspace setup `{who=user, mood=1}` `@onboarding`
+  - Workspace setup `{who=user, mood=1}` `{who=onboarding}`
 - Activate
   - First report `{who=user, mood=3}`
   - Daily use `{who=user, mood=5}`

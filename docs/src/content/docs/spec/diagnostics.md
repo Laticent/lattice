@@ -179,6 +179,7 @@ distinct, stable ID.
 | `pill-literal` | warning | — | A span that opens like a pill (`{…}`) but does not parse, so it renders as code. |
 | `spark-literal` | warning | — | A span that opens like a spark (`~{…}`) but does not parse, so it renders as code. |
 | `<inline kind>-literal` | warning | — | A family: one ID per plugin inline kind (for example `icon-literal`). A span that opens like the kind but renders as code; the plugin supplies the reason. |
+| `unknown-inline-kind` | warning | ✓ | A named span `@name{…}` whose name no kind has: neither the host's, a shipped plugin's, nor a listed plugin's. It renders as code; the autofix takes the nearest kind name when one is close. |
 | `spark-too-big` | warning | ✓ | A spark too tall or too wide for its line; the autofix resizes it. Reported by the Studio from a measured render (`sparkFitFindings`), not by `lintTextWith` or the CLI. |
 | `pill-shape-crowded` | warning | — | A shaped pill (`{X, circle}`) holding more than the shape can, so it stretches out of shape. |
 | `bracket-list-closed-early` | warning | — | An extra `]` that closes a bracketed list early, so it shows as plain text. |
@@ -245,7 +246,7 @@ distinct, stable ID.
 | `unterminated-comment` | error | — | A `<!--` that is never closed: everything after it disappears, and its text ships inside any export that carries the source. |
 | `author-script-defers` | warning | — | A `<script>` that runs later; PDF, PPTX and PNG exports capture before it runs. |
 
-### 3.6 Charts: gantt and quadrant
+### 3.6 Charts: gantt, journey and quadrant
 
 | Rule ID | Severity | Autofix | What it catches |
 |---|---|---|---|
@@ -255,6 +256,7 @@ distinct, stable ID.
 | `gantt-mixed-time` | warning | — | A gantt mixing dates with quarters or months. |
 | `gantt-dangling-after` | error | — | A gantt `after=` naming no task on the slide. |
 | `gantt-inverted-dependency` | warning | — | A gantt task that starts before the task it depends on. |
+| `journey-actor-shortcut` | warning | ✓ | A journey actor in the retired `@sales` shortcut, which renders as code and drops the actor. Autofixes to `{who=sales}`. |
 | `quadrant-axis-part` | warning | — | A quadrant axis list with the wrong number of members, or a member part the chart ignores. |
 | `quadrant-retired-axis` | error | ✓ | The retired quadrant axis format. Autofixes to the bracketed list. |
 

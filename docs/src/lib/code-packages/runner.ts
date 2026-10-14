@@ -23,7 +23,10 @@ import { checkedWorkerScript } from '../../../../lib/packages/code-syntax.mjs';
 export type CodeSlide = { html: string; facts?: unknown; index: number; idPrefix?: string; baseUrl?: string };
 // A plugin's fence renderer is handed the fence's text and one id, and nothing else (plugin-system §9 decision 10).
 export type CodeFence = { body: string; id: string };
-export type PackageFrame = { run: (slide: CodeSlide, ms: number) => Promise<string>; runFence: (fence: CodeFence, ms: number) => Promise<string>; close: () => void; readonly closed: boolean };
+// An inline span (`@kind{…}`, 2026-10-14-plugin-inline-door.md) reaches the same renderer as its kind, its text, the
+// fields its declared slot read (or null) and an id: `kind` is what tells it from a fence.
+export type CodeInline = { type?: string; kind: string; text: string; record?: string; fields: unknown; id: string };
+export type PackageFrame = { run: (slide: CodeSlide, ms: number) => Promise<string>; runFence: (fence: CodeFence | CodeInline, ms: number) => Promise<string>; close: () => void; readonly closed: boolean };
 
 let frameDocLoad: Promise<string> | null = null;
 
@@ -131,7 +134,14 @@ export async function openPackageFrame(code: string, { loadMs = 5000, fence = fa
 		runFence(fence, ms) {
 			// A fence frame takes fences only, and a slide frame slides only: the worker's script differs.
 			if (!fenceFrame) return Promise.reject(new Error('this frame runs slides, not fences'));
-			const next = queue.then(() => runOne({ body: String(fence.body), id: String(fence.id) }, ms));
+			const next = queue.then(() =>
+				runOne(
+					'kind' in fence
+						? { kind: String(fence.kind), text: String(fence.text), record: String(fence.record ?? ''), fields: fence.fields && typeof fence.fields === 'object' ? fence.fields : null, id: String(fence.id) }
+						: { body: String(fence.body), id: String(fence.id) },
+					ms,
+				),
+			);
 			queue = next.catch(() => {});
 			return next;
 		},

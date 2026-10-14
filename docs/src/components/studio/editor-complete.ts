@@ -194,11 +194,23 @@ export function inlineCodeCompletion(
 	if (((before.match(/`/g) || []).length & 1) === 0) return null;
 	const inside = before.slice(before.lastIndexOf('`') + 1);
 	if (/^~\{?$/.test(inside)) return { typed: inside, options: SPARK_TEMPLATES, validFor: (t) => /^~\{?[^`]*$/.test(t) };
+	// The named form (2026-10-14-plugin-inline-door.md): `@` then a kind's name lists every kind the deck can
+	// call, each with its alias; `@spark{` offers the starter sparks in the named spelling.
+	if (/^@spark\{$/.test(inside)) {
+		const named = SPARK_TEMPLATES.map((o) => ({ ...o, label: `@spark${o.label.slice(1)}` }));
+		return { typed: inside, options: named, validFor: (t) => /^@spark\{[^`]*$/.test(t) };
+	}
+	if (/^@[a-z0-9-]*$/.test(inside)) {
+		const got = next ? next(inside) : null;
+		if (!got) return null;
+		const options = got.words.map((w, i): Completion => ({ label: w.label, type: 'keyword', detail: 'kind', info: w.info || undefined, boost: 99 - i }));
+		return { typed: inside, options, validFor: (t) => /^@[a-z0-9-]*$/.test(t) };
+	}
 	// An icon NAME: `^{da`, or `icon=da` inside a pill or a chart record. The lint core answers
 	// with the names that START with what is typed (aliases too: `db` offers `database`), so the
 	// menu is that list exactly (`filter: false`) and is asked again on every keystroke. Each row
 	// is `detail: 'icon'`, which the editor's picker (icon-preview.ts) draws.
-	if (/^\^\{[\w-]*$/.test(inside) || /^\{(?:[^{}`]*,)?\s*icon\s*=\s*[\w-]*$/.test(inside)) {
+	if (/^(?:\^|@icon)\{[\w-]*$/.test(inside) || /^(?:@pill)?\{(?:[^{}`]*,)?\s*icon\s*=\s*[\w-]*$/.test(inside)) {
 		const got = next ? next(inside) : null;
 		if (!got) return null;
 		const typed = /[\w-]*$/.exec(inside)?.[0] ?? '';
@@ -207,7 +219,7 @@ export function inlineCodeCompletion(
 	}
 	// The record so far, up to the last comma: its first item, then complete words. The kernel
 	// is asked about that record CLOSED (`{LIVE, tag}`), which is what it can judge.
-	const m = /^(~?\{[^{}`,]+(?:,\s*[\w-]+)*),\s*([\w-]*)$/.exec(inside);
+	const m = /^((?:~|@spark|@pill)?\{[^{}`,]+(?:,\s*[\w-]+)*),\s*([\w-]*)$/.exec(inside);
 	const got = m && next ? next(`${m[1]}}`) : null;
 	if (!m || !got) return null;
 	const typed = m[2];

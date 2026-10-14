@@ -36,10 +36,10 @@ The landscape board is three parallel column-grids; you can't make a stage label
 - Evaluate
   - Read case study `{who=prospect, mood=5}`
   - Book demo `{who=prospect, mood=4}`
-  - Live demo `{who=prospect, mood=4}` `@sales`
+  - Live demo `{who=prospect, mood=4}` `{who=sales}`
 - Trial
   - Trial signup `{who=prospect, mood=3}`
-  - Workspace setup `{who=user, mood=1}` `@onboarding`
+  - Workspace setup `{who=user, mood=1}` `{who=onboarding}`
 - Activate
   - First report `{who=user, mood=3}`
   - Daily use `{who=user, mood=5}`
@@ -57,7 +57,7 @@ The landscape board is three parallel column-grids; you can't make a stage label
 - Work
   - First reply `{who=agent, mood=4}`
   - Investigation `{who=agent, mood=3}`
-  - Fix shipped `{who=agent, mood=4}` `@eng`
+  - Fix shipped `{who=agent, mood=4}` `{who=eng}`
 - Close
   - Confirmation `{who=customer, mood=5}`
 

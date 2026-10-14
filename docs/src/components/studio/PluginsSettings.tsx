@@ -46,7 +46,7 @@ export function reasonLabel(r: Reason, titleOf: (name: string) => string): strin
 }
 
 /** A plugin that came from a zip (plugin-library.ts): the Library holds it in this browser only. */
-export type InstalledPlugin = { id: string; name: string; fence: string; title: string; description: string };
+export type InstalledPlugin = { id: string; name: string; fence: string; title: string; description: string; /** Its inline kinds (`@kind{…}`, 2026-10-14-plugin-inline-door.md). */ kinds?: { name: string }[] };
 
 export function PluginsSettings({ source, onWrite, installed = [], stamp = '', onRemove }: { source: string; onWrite: (label: string, updater: (s: string) => string) => void; installed?: InstalledPlugin[]; stamp?: string; onRemove?: (id: string) => void }) {
 	// A name in the list that an installed zip plugin owns is not unknown (`external`).
@@ -115,7 +115,9 @@ function PluginRow({ grammar: g, on, listed, reasons, titleOf, onListed, last }:
 
 /** One zip plugin: what it is, whether this browser has approved its code, the deck's list, and Remove. */
 function InstalledRow({ plugin: p, listed, stamp, last, onListed, onRemove }: { plugin: InstalledPlugin; listed: boolean; stamp: string; last: boolean; onListed: (on: boolean) => void; onRemove: () => void }) {
-	const hit = useSettingsHit(p.title, p.name, `\`\`\`${p.fence}`);
+	// What it draws, each as the author writes it: its fence (if it has one) and its `@kind{…}` spans.
+	const draws = [...(p.fence ? [`\`\`\`${p.fence}`] : []), ...(p.kinds ?? []).map((k) => `@${k.name}{…}`)];
+	const hit = useSettingsHit(p.title, p.name, ...draws);
 	const id = React.useId();
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `stamp` is the signal that an approval changed.
 	const approved = React.useMemo(() => {
@@ -132,9 +134,13 @@ function InstalledRow({ plugin: p, listed, stamp, last, onListed, onRemove }: { 
 					<span className={cn('text-[11px] font-semibold', approved ? 'text-[var(--accent)]' : 'text-muted-foreground')}>{approved ? 'Approved in this browser' : 'Not approved'}</span>
 				</div>
 				<div className="mt-0.5 flex min-w-0 flex-wrap gap-1">
-					<code className="rounded bg-muted px-1 py-px font-mono text-[10.5px] text-muted-foreground">{`\`\`\`${p.fence}`}</code>
+					{draws.map((d) => (
+						<code key={d} className="rounded bg-muted px-1 py-px font-mono text-[10.5px] text-muted-foreground">
+							{d}
+						</code>
+					))}
 				</div>
-				<p className="mt-1 text-[11px] leading-snug text-muted-foreground">{p.description || 'Draws its fence in a sandbox once you approve its code. It lives in this browser only: never in a deck, a project or a backup.'}</p>
+				<p className="mt-1 text-[11px] leading-snug text-muted-foreground">{p.description || `Draws its ${p.fence && p.kinds?.length ? 'fence and spans' : p.fence ? 'fence' : 'spans'} in a sandbox once you approve its code. It lives in this browser only: never in a deck, a project or a backup.`}</p>
 				<div className="mt-1.5 flex items-center gap-3">
 					<span className="flex items-center gap-1.5">
 						<Checkbox id={id} checked={listed} onCheckedChange={(v) => onListed(v === true)} aria-label={`List ${p.title} in this deck's plugins`} />

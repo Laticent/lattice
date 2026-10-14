@@ -116,8 +116,7 @@
         "who": { "type": "text", "named": true },
         "mood": { "type": "number", "named": true },
         "volume": { "type": "number", "named": true }
-      },
-      "sigils": { "@": "who" }
+      }
     }
   },
   "slots": {
@@ -134,15 +133,15 @@
     "sections": {
       "selector": "ul > li",
       "required": true,
-      "description": "Top-level li per section. Lead with the section name; nested ul carries tasks. Each task carries one step record, `{who=actor, mood=N, volume=N}`: `who` the actor (`@actor` is the shortcut, and a second actor is a second `@` pill), `mood` 1-5, optional `volume` (used by .weighted)."
+      "description": "Top-level li per section. Lead with the section name; nested ul carries tasks. Each task carries one step record, `{who=actor, mood=N, volume=N}`: `who` the actor (a second actor is a second record, `{who=sales}`), `mood` 1-5, optional `volume` (used by .weighted)."
     }
   },
   "skeleton": "<!-- _class: journey -->\n\n## Walking through my Tuesday morning.\n\n- Wake up\n  - Hit snooze `{who=me, mood=2}`\n  - Make coffee `{who=me, mood=4}`\n- Commute\n  - Subway `{who=me, mood=1}`\n  - Walk `{who=me, mood=5}`\n- Work\n  - Standup `{who=team, mood=3}`\n  - Deep work `{who=me, mood=5}`\n",
   "anatomyBlock": "journey",
-  "sample": "<!-- _class: journey -->\n\n## The journey scores each stage of the path.\n\n- Evaluate\n  - Read case study `{who=prospect, mood=5}`\n  - Book demo `{who=prospect, mood=4}`\n  - Live demo `{who=prospect, mood=4}` `@sales`\n- Trial\n  - Trial signup `{who=prospect, mood=3}`\n  - Workspace setup `{who=user, mood=1}` `@onboarding`\n- Activate\n  - First report `{who=user, mood=3}`\n  - Daily use `{who=user, mood=5}`\n",
+  "sample": "<!-- _class: journey -->\n\n## The journey scores each stage of the path.\n\n- Evaluate\n  - Read case study `{who=prospect, mood=5}`\n  - Book demo `{who=prospect, mood=4}`\n  - Live demo `{who=prospect, mood=4}` `{who=sales}`\n- Trial\n  - Trial signup `{who=prospect, mood=3}`\n  - Workspace setup `{who=user, mood=1}` `{who=onboarding}`\n- Activate\n  - First report `{who=user, mood=3}`\n  - Daily use `{who=user, mood=5}`\n",
   "stressDoc": {
     "summary": "Five stages, twelve tasks — the ceiling.",
-    "sample": "<!-- _class: journey -->\n\n## Five stages of twelve tasks is the ceiling.\n\n- Discover\n  - Hear of it `{who=prospect, mood=3}`\n  - First visit `{who=prospect, mood=4}`\n- Evaluate\n  - Read the case `{who=prospect, mood=4}`\n  - Book a demo `{who=prospect, mood=3}`\n  - Sit the demo `{who=prospect, mood=4}` `@sales`\n- Trial\n  - Sign up `{who=prospect, mood=3}`\n  - First setup `{who=user, mood=1}`\n  - Invite the team `{who=user, mood=2}`\n- Adopt\n  - First report `{who=user, mood=4}`\n  - Weekly habit `{who=user, mood=5}`\n- Expand\n  - Add seats `{who=buyer, mood=4}`\n  - Renew early `{who=buyer, mood=5}`\n"
+    "sample": "<!-- _class: journey -->\n\n## Five stages of twelve tasks is the ceiling.\n\n- Discover\n  - Hear of it `{who=prospect, mood=3}`\n  - First visit `{who=prospect, mood=4}`\n- Evaluate\n  - Read the case `{who=prospect, mood=4}`\n  - Book a demo `{who=prospect, mood=3}`\n  - Sit the demo `{who=prospect, mood=4}` `{who=sales}`\n- Trial\n  - Sign up `{who=prospect, mood=3}`\n  - First setup `{who=user, mood=1}`\n  - Invite the team `{who=user, mood=2}`\n- Adopt\n  - First report `{who=user, mood=4}`\n  - Weekly habit `{who=user, mood=5}`\n- Expand\n  - Add seats `{who=buyer, mood=4}`\n  - Renew early `{who=buyer, mood=5}`\n"
   },
   "whenToUse": [
     {
@@ -155,7 +154,7 @@
     },
     {
       "title": "Actors share the trail",
-      "body": "Use when multiple actors hand off through the sequence — customer, sales, onboarding, support. The `@actor` tokens make the handoff visible on every task chip."
+      "body": "Use when multiple actors hand off through the sequence — customer, sales, onboarding, support. A second `{who=…}` record on a task makes the handoff visible on every task chip."
     },
     {
       "title": "One source, five lenses",
@@ -204,7 +203,7 @@
     "swimlane": {
       "label": "swimlane",
       "summary": "One lane per actor.",
-      "sample": "<!-- _class: journey swimlane -->\n\n## swimlane splits the journey by actor.\n\n- Evaluate\n  - Read case study `{who=prospect, mood=5}`\n  - Live demo `{who=prospect, mood=4}` `@sales`\n- Trial\n  - Trial signup `{who=prospect, mood=3}`\n  - Workspace setup `{who=user, mood=1}` `@onboarding`\n- Activate\n  - First report `{who=user, mood=3}`\n  - Daily use `{who=user, mood=5}`\n"
+      "sample": "<!-- _class: journey swimlane -->\n\n## swimlane splits the journey by actor.\n\n- Evaluate\n  - Read case study `{who=prospect, mood=5}`\n  - Live demo `{who=prospect, mood=4}` `{who=sales}`\n- Trial\n  - Trial signup `{who=prospect, mood=3}`\n  - Workspace setup `{who=user, mood=1}` `{who=onboarding}`\n- Activate\n  - First report `{who=user, mood=3}`\n  - Daily use `{who=user, mood=5}`\n"
     },
     "weighted": {
       "label": "weighted",

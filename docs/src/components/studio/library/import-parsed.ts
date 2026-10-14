@@ -177,10 +177,15 @@ export async function importParsedBundle(parsed: ParsedBundle, opts: { keepMine?
 				continue;
 			}
 			// The saved set AND the siblings this zip already added: two plugins in one zip can conflict with each other.
-			const others = mine.filter((m) => m.name !== pl.name).map((m) => ({ name: m.name, fence: m.fence }));
-			const plan = planFencePlugins([...others, { name: pl.name, fence: pl.fence }], { shipped: fenceDoor.shippedFences, isLanguage: (n: string) => fenceDoor.highlightLanguages.includes(n) });
-			if (!plan.run.some((r: { name: string }) => r.name === pl.name)) {
-				t.refused.push({ name: pl.name, why: plan.notes.filter((n: string) => n.includes(pl.name) || n.includes(`\`${pl.fence}\``)).map((n: string) => n.replace(/^warning: /, '')).join('; ') || 'the door would not run it' });
+			const kindNames = (k?: { name: string }[]) => (k ?? []).map((x) => x.name);
+			const others = mine.filter((m) => m.name !== pl.name).map((m) => ({ name: m.name, fence: m.fence, kinds: kindNames(m.kinds) }));
+			const plan = planFencePlugins([...others, { name: pl.name, fence: pl.fence, kinds: kindNames(pl.kinds) }], { shipped: fenceDoor.shippedFences, isLanguage: (n: string) => fenceDoor.highlightLanguages.includes(n), shippedKinds: fenceDoor.shippedKinds });
+			// Refused when it would not run at all, or when one of its kinds or its fence would be left out because another plugin claims it.
+			const mineDraws = (plan.fences as Map<string, string>).get(pl.fence) === pl.name || !pl.fence;
+			const lostKinds = kindNames(pl.kinds).filter((k) => (plan.kinds as Map<string, string>).get(k) !== pl.name);
+			if (!plan.run.some((r: { name: string }) => r.name === pl.name) || !mineDraws || lostKinds.length) {
+				const mentions = (n: string) => n.includes(pl.name) || (pl.fence && n.includes(`\`${pl.fence}\``)) || lostKinds.some((k) => n.includes(`\`@${k}{…}\``));
+				t.refused.push({ name: pl.name, why: plan.notes.filter(mentions).map((n: string) => n.replace(/^warning: /, '')).join('; ') || 'the door would not run it' });
 				continue;
 			}
 			const saved = await saveStudioPlugin(pl, history);

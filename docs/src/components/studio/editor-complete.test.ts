@@ -503,6 +503,29 @@ describe('inlineCodeCompletion — only what comes next, in a spark or a pill', 
 	});
 });
 
+describe('inlineCodeCompletion — the named form, `@kind{…}` (2026-10-14-plugin-inline-door.md)', () => {
+	const req = createRequire(import.meta.url);
+	const core = req('../../../../lib/authoring/lint-core.js');
+	const next = (span: string) => core.inlineCodeCompletions(span);
+	const labels = (before: string) => inlineCodeCompletion(before, next)?.options.map((o) => o.label);
+
+	it('`@` lists every kind with its open brace, and typing narrows it', () => {
+		expect(labels('Status `@')).toEqual(['@pill{', '@spark{', '@avatar{', '@icon{']);
+		expect(labels('Status `@ic')).toEqual(['@icon{']);
+		expect(inlineCodeCompletion('Status `@zz', next)).toBeNull();
+		// Outside a code span `@` is prose (a mention, an email): no menu.
+		expect(inlineCodeCompletion('Ping @', next)).toBeNull();
+	});
+
+	it('a named record offers what its alias offers', () => {
+		expect(labels('`@spark{1 2 3, ')).toEqual(labels('`~{1 2 3, '));
+		expect(labels('`@pill{LIVE, ')).toEqual(labels('`{LIVE, '));
+		expect(labels('`@icon{data')).toEqual(labels('`^{data'));
+		expect(labels('`@pill{S3, icon=buck')).toEqual(labels('`{S3, icon=buck'));
+		expect(labels('`@spark{')?.every((l) => l.startsWith('@spark{'))).toBe(true);
+	});
+});
+
 describe('inlineCodeCompletion — an icon name, from the icon set', () => {
 	// The icons note § 10, phase 3: the names come from the lint core's vocabulary (no drawing).
 	const req = createRequire(import.meta.url);

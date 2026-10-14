@@ -240,7 +240,7 @@ state.read('{yes}'); // { state: 'done' }
 ```
 
 A **shortcut** is an exact whole-span token that stands for a record; a **sigil** is a leading
-character that names a parameter (`sigils: { '@': 'who' }` makes `@Customer` mean `who=Customer`).
+character that names a parameter (`sigils: { '@': 'who' }` makes `@Customer` mean `who=Customer`). No shipped component declares one: journey, the only user, moved to standard records on 2026-10-14.
 Both are checked when the schema is built, and a sigil that starts one of the schema's declared
 words or could start a number (`$`, `-`, a digit) is refused, because that word or number could
 then never bind bare. A shortcut is bound once, at build time, and every read of it returns the

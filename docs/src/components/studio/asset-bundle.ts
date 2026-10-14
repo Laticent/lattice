@@ -20,7 +20,7 @@
 
 import { parseScene, type Scene } from '@/lib/anima';
 import { normalizeSourceText } from '@/lib/normalize-source-text';
-import { placeholderHint } from '../../../../lib/packages/code-door-fence.mjs';
+import { inlineKindsOf, placeholderHint } from '../../../../lib/packages/code-door-fence.mjs';
 import type { StudioComponent } from './component-library';
 import { coerceRecipe, type FinishRecipe } from './finish-generate';
 import type { StudioFinish } from './finish-library';
@@ -66,7 +66,7 @@ export type ParsedTheme = { name: string; label: string; essentials: Record<stri
 export type ParsedComponent = { name: string; bucket: string | null; css: string; skeleton: string; manifest?: Record<string, unknown>; pkg?: PackageCarry };
 export type ParsedFinish = { name: string; label: string; css: string; recipe: FinishRecipe; pkg?: PackageCarry };
 /** A zip plugin, ready to save: its one fence, its renderer's text and its CSS (kept; delivered by a later step). */
-export type ParsedPlugin = { name: string; fence: string; code: string; css: string; title: string; description: string; placeholder?: { placement?: string; aspect?: string; size?: string } };
+export type ParsedPlugin = { name: string; fence: string; code: string; css: string; title: string; description: string; placeholder?: { placement?: string; aspect?: string; size?: string }; /** Its inline kinds (`@kind{…}`, 2026-10-14-plugin-inline-door.md), as `inlineKindsOf` keeps them. */ kinds?: ReturnType<typeof inlineKindsOf> };
 export type ParsedScene = { name: string; label: string; description?: string; spec: Scene; poster?: string; art?: string; pkg?: PackageCarry };
 /** `notes`: what the reader changed or left out (a renamed file, a dropped README).
  *  `refused`: packages it would not import, each with the reason. */
@@ -325,11 +325,13 @@ export async function unpackPackages(zip: any, read: (path: string | undefined) 
 		}
 		if (p.type === 'plugin') {
 			const code = p.roles['render.js'];
-			const fence = Object.keys(((p.manifest.contributes ?? {}) as { fences?: Record<string, unknown> }).fences ?? {})[0];
-			if (typeof code !== 'string' || !fence) out.refused.push({ name: p.name, why: 'it carries no renderer for its fence' });
+			const fence = Object.keys(((p.manifest.contributes ?? {}) as { fences?: Record<string, unknown> }).fences ?? {})[0] ?? '';
+			// A plugin may draw a fence, inline kinds (`@kind{…}`), or both: the gate already refused one that draws neither.
+			const kinds = inlineKindsOf(p.manifest);
+			if (typeof code !== 'string' || (!fence && !kinds.length)) out.refused.push({ name: p.name, why: 'it carries no renderer for its fence or its inline kinds' });
 			else {
-				const declared = ((p.manifest.contributes as { fences?: Record<string, { placeholder?: unknown }> } | undefined)?.fences?.[fence]?.placeholder) as unknown;
-				out.plugins?.push({ name: p.name, fence, code, css: p.roles['styles.css'] ?? '', title: typeof p.manifest.title === 'string' ? p.manifest.title : p.name, description: typeof p.manifest.description === 'string' ? p.manifest.description : '', ...(declared && typeof declared === 'object' ? { placeholder: placeholderHint(declared) } : {}) });
+				const declared = (fence ? (p.manifest.contributes as { fences?: Record<string, { placeholder?: unknown }> } | undefined)?.fences?.[fence]?.placeholder : undefined) as unknown;
+				out.plugins?.push({ name: p.name, fence, code, css: p.roles['styles.css'] ?? '', title: typeof p.manifest.title === 'string' ? p.manifest.title : p.name, description: typeof p.manifest.description === 'string' ? p.manifest.description : '', ...(declared && typeof declared === 'object' ? { placeholder: placeholderHint(declared) } : {}), ...(kinds.length ? { kinds } : {}) });
 			}
 		} else if (p.type === 'theme') out.themes.push(themeFromPackage(p));
 		else if (p.type === 'component') {

@@ -78,20 +78,31 @@ export function chunkStartLines(src) {
 const EXTERNAL_PLUGINS = [];
 /** @type {Record<string, string>} plugin name -> the fence it owns */
 const EXTERNAL_FENCE_OF = {};
+/** @type {Record<string, string[]>} plugin name -> the inline kinds it draws (`@kind{…}`, 2026-10-14-plugin-inline-door.md) */
+const EXTERNAL_INLINE_KINDS = {};
+
+/** Every zip plugin's inline kinds, for the editor's `@` menu: `{ name, plugin }`, listed or not (lint says which a deck may call). */
+export function externalInlineKinds() {
+	return Object.entries(EXTERNAL_INLINE_KINDS).flatMap(([plugin, kinds]) => kinds.map((name) => ({ name, plugin })));
+}
 
 /**
  * Tell the linter which plugins the host holds that are not in the shipped registry, and the fence each owns.
  * @param {Iterable<string>} names
  * @param {Iterable<string>} [fences]  parallel to `names`
+ * @param {Iterable<string[]>} [kinds]  parallel to `names`: each plugin's inline kinds
  */
-export function setExternalPlugins(names, fences = []) {
+export function setExternalPlugins(names, fences = [], kinds = []) {
 	const list = [...names];
 	const owned = [...fences];
+	const drawn = [...kinds];
 	EXTERNAL_PLUGINS.length = 0;
 	EXTERNAL_PLUGINS.push(...list);
 	for (const k of Object.keys(EXTERNAL_FENCE_OF)) delete EXTERNAL_FENCE_OF[k];
+	for (const k of Object.keys(EXTERNAL_INLINE_KINDS)) delete EXTERNAL_INLINE_KINDS[k];
 	list.forEach((n, i) => {
 		if (owned[i]) EXTERNAL_FENCE_OF[n] = owned[i];
+		if (Array.isArray(drawn[i]) && drawn[i].length) EXTERNAL_INLINE_KINDS[n] = [...drawn[i]];
 	});
 }
 
@@ -104,6 +115,7 @@ export function buildVocabSets(vocab) {
 		modifiers: new Set(v.modifiers || []),
 		externalPlugins: EXTERNAL_PLUGINS,
 		externalFenceOf: EXTERNAL_FENCE_OF,
+		externalInlineKinds: EXTERNAL_INLINE_KINDS,
 	};
 	// Map region/group vocabulary — { us, world }, each { valid, names }.
 	if (v.mapRegions) {

@@ -414,6 +414,57 @@ describe('lint-core: auto-fix', () => {
     assert.equal(core.lintTextWith(fixed, vocab).some((x) => x.rule === 'gantt-retired-delimiter'), false);
   });
 
+  test('a journey actor in the retired `@` shortcut warns, autofixes to a who record, and re-lints clean', () => {
+    const src = `${FM}<!-- _class: journey -->\n\n## Path\n\n- Evaluate\n  - Demo \`{who=prospect, mood=4}\` \`@sales\`\n`;
+    const f = ruleFor(src, 'journey-actor-shortcut');
+    assert.equal(f.severity, 'warning');
+    assert.equal(f.autofixable, true);
+    const fixed = core.applyFix(src, f);
+    assert.ok(fixed.includes('  - Demo `{who=prospect, mood=4}` `{who=sales}`'));
+    assert.equal(core.lintTextWith(fixed, vocab).some((x) => x.rule === 'journey-actor-shortcut'), false);
+    // An `@` span off a journey slide, or in a fence on one, is someone's npm scope, not an actor.
+    const elsewhere = `${FM}## Install\n\n- Run \`@laticent\`\n\n---\n\n<!-- _class: journey -->\n\n## Path\n\n\`\`\`\n- Demo \`@sales\`\n\`\`\`\n`;
+    assert.equal(core.lintTextWith(elsewhere, vocab).some((x) => x.rule === 'journey-actor-shortcut'), false);
+    // The fixed `{who=sales}` is the journey's own record, not a broken pill; off a journey it still is one.
+    assert.equal(core.lintTextWith(fixed, vocab).some((x) => x.rule === 'pill-literal'), false);
+    assert.equal(core.lintTextWith(`${FM}## Plain\n\n- A \`{who=sales}\`\n`, vocab).some((x) => x.rule === 'pill-literal'), true);
+  });
+
+  test('a named span keeps its own spelling in lint advice: a spark resize, a pill-literal fix', () => {
+    const src = `${FM}## S\n\n- A \`@spark{1 2 3 4, lg}\`\n`;
+    const [fit] = core.sparkFitFindings(src, [{ src: '@spark{1 2 3 4, lg}', why: 'wide', to: 'sm', over: 10, stillOver: false }]);
+    assert.deepEqual(fit.replace, { from: '`@spark{1 2 3 4, lg}`', to: '`@spark{1 2 3 4, sm}`' });
+    const pill = core.lintTextWith(`${FM}## P\n\n- A \`@pill{A|B, tag}\`\n`, vocab).find((x) => x.rule === 'pill-literal');
+    assert.ok(pill, 'a broken named pill warns');
+    assert.match(pill.fix, /\\@pill\{A\|B, tag\}/);
+    assert.doesNotMatch(pill.fix, /`\\\{A\|B/);
+    // mixed-spelling reads a named icon as its alias and fixes it in place, offsets past the longer prefix.
+    const mixed = `${FM}## M\n\n- \`@icon{database}\` \`^{database}\` \`@icon{db}\`\n`;
+    const m = core.lintTextWith(mixed, vocab).find((x) => x.rule === 'mixed-spelling');
+    assert.ok(m, 'a named icon competes with its alias spellings');
+    assert.ok(core.applyFix(mixed, m).includes('`^{database}` `@icon{database}`'));
+    const crowded = core.lintTextWith(`${FM}## C\n\n- \`@pill{ABC, circle}\`\n`, vocab).find((x) => x.rule === 'pill-shape-crowded');
+    assert.match(crowded.fix, /`@pill\{ABC, tag\}`/);
+  });
+
+  test('an unknown `@kind{…}` warns with the nearest kind; a mention, a scope, an escape and a listed zip kind do not', () => {
+    const src = `${FM}## K\n\n- A \`@icn{database}\` and \`@ada\` and \`@laticent/segno\` and \`\\@icn{x}\`\n`;
+    const hits = core.lintTextWith(src, vocab).filter((x) => x.rule === 'unknown-inline-kind');
+    assert.equal(hits.length, 1);
+    assert.equal(hits[0].didYouMean, '@icon');
+    assert.ok(core.applyFix(src, hits[0]).includes('`@icon{database}`'));
+    // A zip plugin's kind is known only when the deck lists the plugin.
+    const zip = { ...vocab, externalInlineKinds: { 'gantt-plugin': ['gantt-bar'] } };
+    const deck = (list) => `---\nmarp: true\n${list}---\n\n## G\n\n- A \`@gantt-bar{Design, 2}\`\n`;
+    assert.equal(core.lintTextWith(deck('plugins: [gantt-plugin]\n'), zip).some((x) => x.rule === 'unknown-inline-kind'), false);
+    assert.equal(core.lintTextWith(deck(''), zip).some((x) => x.rule === 'unknown-inline-kind'), true);
+    // A deck that lists a plugin not installed here: no fix to the nearest built-in, only which plugin is missing.
+    const absent = core.lintTextWith(`---\nmarp: true\nplugins: [stage-plugin]\n---\n\n## S\n\n- A \`@stage{x}\`\n`, vocab).find((x) => x.rule === 'unknown-inline-kind');
+    assert.ok(absent, 'still a warning');
+    assert.equal(absent.autofixable, undefined, 'never rewritten to @state');
+    assert.match(absent.message, /lists stage-plugin, which is not installed here/);
+  });
+
   test('retiredQuadrantAxis rewrites every shipped retired shape; null for an ordinary eyebrow', () => {
     assert.equal(core.retiredQuadrantAxis('Effort 0–10 → Reach 0–100'), '[{Effort, 0..10}, {Reach, 0..100}]');
     // The detached `targets` blob moves INTO the axis each number constrains.

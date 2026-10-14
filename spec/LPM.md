@@ -173,6 +173,7 @@ is marked too.
 |---|---|---|
 | `syntax` | markdown-it rules, keyed by the TOKEN TYPE each emits: `{ kind: "inline" \| "block", anchor: { before \| after: <host rule> }, triggers: [<char>…], opaque? }` | a rule export per key in `syntax.mjs`, `detect`, and a renderer per key in `render.js` `renderers` |
 | `fences` | fenced blocks, keyed by NAME: `{ body: "json" \| "tex" \| "text" \| "mermaid", aliases?: [{ name, deprecated? }], as?: "code" }` | a renderer per name in `render.js` `fences` — except a fence `as: "code"`, which the engine renders as the highlighted code block every other fence becomes, and which has no renderer and no aliases (the plugin draws it later: by `bake`, or by its hydrate pass in a browser) |
+| `inline` | inline-code KINDS, keyed by NAME (the zip half is PROVISIONAL, outside the 1.0 freeze; §12): an author calls one as `` `@name{…}` `` (2026-10-14-plugin-inline-door.md). In-tree: `{ sigil }`, a one-character alias (`^{…}` is `@icon{…}`). Zip: `{ slot?, placeholder?: { size }, title? }`, never a `sigil` — `slot` is a Segno slot spec the host reads each span's record with, bounded, compiled at import, and pinned in the approval. A kind Lattice draws itself, or one two listed plugins claim, is not drawn; the rest of the plugin is | in-tree: `inline.js` exporting `inline` with a `{ resolve, html, element, diagnose }` per key. Zip: the one `render.js`, handed `{ type: "inline", kind, text, record, fields, id }` in the sandbox; its output MUST be phrasing content (no block, no `<a>`, no `<code>`), and the host strips bidi controls and any style that moves it out of its line |
 | `bake` | `true` — the plugin draws its figures into the deck's Markdown on the CLI, before the engine renders | `bake.js` exporting `bake`, and `render.exec.bake` |
 | `hydrate` | a browser half: `{ budgetMs? }` — an integer 100–30000, default 4000 (ignored by a pass) | `hydrate.js` exporting `hydrate` — or, with `render.exec.hydrate: "pass"`, exporting `createPass` |
 | `highlight` | `true` — a highlight.js grammar for the plugin's code fences | `highlight.js` exporting `highlight`, and at least one fence `as: "code"` |
@@ -430,7 +431,7 @@ leaves its fences as code blocks.
 | Channel | May carry |
 |---|---|
 | In-tree (`lib/plugins/`) | every contribution |
-| Zip — the Studio Library, `lattice packages add` (later phase) | `styles`, `diagnostics`; fence code only through the code-package door (consent pinned to the code's hash, then a sandbox). Never `syntax`, `hydrate` (a pass least of all), `highlight`, `bake`, `payload` or `extensionPoints` — and a zip COMPONENT cannot fill a slot either, because a filler is code — a `bake` runs with full Node privileges in the CLI's process, which no sandbox the door has can hold |
+| Zip — the Studio Library, `lattice packages add` (later phase) | `styles`, `diagnostics`; fence code and `inline` kinds only through the code-package door (consent pinned to the code's hash, its fence and its kinds with their slots, then a sandbox). Never `syntax`, `hydrate` (a pass least of all), `highlight`, `bake`, `payload` or `extensionPoints` — and a zip COMPONENT cannot fill a slot either, because a filler is code — a `bake` runs with full Node privileges in the CLI's process, which no sandbox the door has can hold |
 | npm, by an explicit list (later phase) | every contribution, after the license grant |
 
 A shipped plugin's name is reserved.
@@ -448,6 +449,13 @@ manifest (`lib/core/marp-fidelity.js`). The name must be free: not a plugin, a p
 highlight.js language or alias, and at most 64 characters.
 
 ## 12. Changes
+
+- **0.6-draft, inline kinds and the `@name{…}` form (2026-10-14).** §3.3 gains `inline`: every
+  inline kind is called `@name{…}`, an in-tree kind keeps its one-character `sigil` as an alias,
+  and a zip plugin may declare kinds that its one renderer draws through the code-package door
+  (§10), handed `{ type, kind, text, record, fields, id }`; a fence's input gains `type: "fence"`.
+  The zip half of `inline` is PROVISIONAL: it is outside LPM 1.0's freeze until the record reader it
+  hands `fields` from settles (2026-10-14-plugin-inline-door.md §10).
 
 - **0.5-draft, the Marp bundle refuses author markup (2026-10-07).** §3.2.1's refusal reaches the
   one render the engine does not do: the Export-to-Marp producer refuses forged markers and an

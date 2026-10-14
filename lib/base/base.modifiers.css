@@ -487,7 +487,7 @@ section [data-lattice-painting="done"]::after {
  * atmosphere (the underpainting above, held still: an export capture must not move) so it reads as "a
  * plugin goes here" and not as a missing picture. Every paint is a deck token, so it follows the theme
  * and the mode; the mark is the `--shape-spark` mask in the element's own ink, never a typed glyph. */
-section div[data-lattice-plugin-off] {
+section :is(div, span)[data-lattice-plugin-off] {
   --lp-a: var(--accent);
   --lp-b: color-mix(in oklab, var(--accent) 70%, var(--text-heading));
   --lp-c: color-mix(in oklab, var(--accent) 60%, var(--bg-alt, var(--bg)));
@@ -517,14 +517,14 @@ section div[data-lattice-plugin-off] {
     repeating-linear-gradient(90deg, color-mix(in srgb, var(--text-muted) 7%, transparent) 0 1px, transparent 1px 5px);
 }
 @supports (color: oklch(from red l c h)) {
-  section div[data-lattice-plugin-off] {
+  section :is(div, span)[data-lattice-plugin-off] {
     --lp-b: oklch(from var(--accent) l c calc(h + 34));
     --lp-c: oklch(from var(--accent) l c calc(h - 28));
   }
 }
 /* figure (the default): the content width at the plugin's own proportions (remembered from its last drawn output, else
  * the manifest's `aspect`, else 16 / 9: the web-image placeholder's), never taller than a slide's stage can hold. */
-section div[data-lattice-plugin-off][data-placement="figure"] {
+section :is(div, span)[data-lattice-plugin-off][data-placement="figure"] {
   /* Height at most 30cqi (the slide's own container unit, as the type tokens use), the width following it, so a 16:9
    * figure fits the stage instead of running past the foot of the slide; a wide one still fills the row. */
   width:min(100%, calc(30cqi * var(--lp-w, 16) / var(--lp-h, 9)));
@@ -532,14 +532,14 @@ section div[data-lattice-plugin-off][data-placement="figure"] {
   min-height:3.4em;
 }
 /* stage: the stage box itself, the way `section.diagram > .cell-stage > .mermaid` fills it. */
-section div[data-lattice-plugin-off][data-placement="stage"] {
+section :is(div, span)[data-lattice-plugin-off][data-placement="stage"] {
   flex:1 1 auto;
   width:100%;
   min-height:8em;
 }
 /* chip: a square in the avatar size scale (avatars.styles.css `--avatar-size`: 1.1, 1.45, 2.4, 4em), mark only; the
  * name rides in its title and accessible name. */
-section div[data-lattice-plugin-off][data-placement="chip"] {
+section :is(div, span)[data-lattice-plugin-off][data-placement="chip"] {
   --lp-chip:1.45em;
   width:var(--lp-chip);
   height:var(--lp-chip);
@@ -547,11 +547,29 @@ section div[data-lattice-plugin-off][data-placement="chip"] {
   justify-content:center;
   border-radius:0.35em;
 }
-section div[data-lattice-plugin-off][data-placement="chip"][data-size="sm"] { --lp-chip:1.1em; }
-section div[data-lattice-plugin-off][data-placement="chip"][data-size="lg"] { --lp-chip:2.4em; }
-section div[data-lattice-plugin-off][data-placement="chip"][data-size="xl"] { --lp-chip:4em; }
-section div[data-lattice-plugin-off][data-placement="chip"] .lattice-plugin-mark { width:100%; height:100%; }
-section div[data-lattice-plugin-off] .lattice-plugin-mark {
+section :is(div, span)[data-lattice-plugin-off][data-placement="chip"][data-size="sm"] { --lp-chip:1.1em; }
+section :is(div, span)[data-lattice-plugin-off][data-placement="chip"][data-size="lg"] { --lp-chip:2.4em; }
+section :is(div, span)[data-lattice-plugin-off][data-placement="chip"][data-size="xl"] { --lp-chip:4em; }
+section :is(div, span)[data-lattice-plugin-off][data-placement="chip"] .lattice-plugin-mark { width:100%; height:100%; }
+/* A zip plugin's DRAWN inline span (`@kind{…}`, 2026-10-14-plugin-inline-door.md): the root is ours, and it keeps
+ * what the plugin draws inside the word it stands for. `unicode-bidi: isolate` stops a direction change in its text
+ * from reordering the author's sentence; an inline-block with contained paint, no wider than its line and no taller
+ * than the largest chip (4em, the avatar scale's xl), holds anything a style the door's filter missed could paint
+ * (the red team, 2026-10-14). The door also strips bidi controls and moving styles (door-attr.mjs `doorFinishInline`). */
+section span[data-lattice-plugin][data-kind] {
+  display:inline-block;
+  unicode-bidi:isolate;
+  contain:paint;
+  max-width:100%;
+  max-height:4em;
+}
+/* An INLINE kind's chip (`@kind{…}` of an unlisted plugin, 2026-10-14-plugin-inline-door.md): a `<span>` that stands
+ * where a word stood, so it sits in the line, on the text's baseline, and takes no more room than the size it asked for. */
+section span[data-lattice-plugin-off][data-inline] {
+  display:inline-flex;
+  vertical-align:-0.2em;
+}
+section :is(div, span)[data-lattice-plugin-off] .lattice-plugin-mark {
   flex:none;
   width:1.9em;
   height:1.9em;
@@ -559,19 +577,19 @@ section div[data-lattice-plugin-off] .lattice-plugin-mark {
   -webkit-mask:var(--shape-spark) center / contain no-repeat;
           mask:var(--shape-spark) center / contain no-repeat;
 }
-section div[data-lattice-plugin-off] .lattice-plugin-words {
+section :is(div, span)[data-lattice-plugin-off] .lattice-plugin-words {
   display:flex;
   flex-direction:column;
   gap:0.15em;
   min-width:0;
 }
-section div[data-lattice-plugin-off] .lattice-plugin-words strong {
+section :is(div, span)[data-lattice-plugin-off] .lattice-plugin-words strong {
   color:var(--text-heading);
   font-size:var(--fs-body);
   font-weight:600;
   overflow-wrap:anywhere;
 }
-section div[data-lattice-plugin-off] .lattice-plugin-words span {
+section :is(div, span)[data-lattice-plugin-off] .lattice-plugin-words span {
   /* Body ink, not muted: the Nacre tones sit behind it, and the muted ink read at 2:1 on a dark deck. */
   color:var(--text-body);
   font-size:var(--fs-meta);

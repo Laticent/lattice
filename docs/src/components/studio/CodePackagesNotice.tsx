@@ -14,6 +14,13 @@ import { approveCodePackage, approvePlugin, type CodePackagesStatus, offeredIn, 
 import { deckPluginList, writeDeckPlugins } from '../../../../lib/plugins/deck-plugins.mjs';
 
 const isPlugin = (p: { name: string }): p is StudioPlugin => 'fence' in p;
+/** What a plugin draws, in the words the strip uses: its fence and its `@kind{…}` spans (2026-10-14-plugin-inline-door.md). */
+const drawsWhat = (p: StudioPlugin): string => {
+	const parts = [...(p.fence ? ['```' + p.fence + ' block'] : []), ...(p.kinds ?? []).map((k) => `@${k.name}{…} spans`)];
+	return parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}` : (parts[0] ?? 'nothing');
+};
+/** The renderer's role in the details line: a fence-only plugin reads as it always has. */
+const codeRole = (p: StudioPlugin): string => (p.kinds?.length ? `it draws ${drawsWhat(p)}` : `the \`\`\`${p.fence} fence`);
 
 /**
  * `source` is the deck; `stamp` is the code-package state (door.ts `codePackagesStamp`), which
@@ -65,7 +72,7 @@ export function CodePackagesNotice({ source, stamp, onApproved, onWrite }: { sou
 				</Button>
 				{open && (
 					<p data-slot="code-packages-detail" className="basis-full pb-1 text-muted-foreground">
-						{p.name}.{plugin ? 'render.js (the ```' + p.fence + ' fence)' : 'transform.js'}, {p.bytes.toLocaleString('en-US')} bytes, sha256 <code className="break-all">{p.sha256}</code>. It runs in a sandbox with no network and no access to this page or your saved work, and it sees only {plugin ? 'the text of the block it draws' : 'the slide it draws'}; what it draws is cleaned like any slide and keeps no web address the slide did not already have. Run code only from someone you trust: a flaw in the browser could let it out. Changed code asks again. The approval stays in this browser even if you undo the line.
+						{p.name}.{plugin ? `render.js (${codeRole(p)})` : 'transform.js'}, {p.bytes.toLocaleString('en-US')} bytes, sha256 <code className="break-all">{p.sha256}</code>. It runs in a sandbox with no network and no access to this page or your saved work, and it sees only {plugin ? 'the text of what it draws' : 'the slide it draws'}; what it draws is cleaned like any slide and keeps no web address the slide did not already have. Run code only from someone you trust: a flaw in the browser could let it out. Changed code asks again. The approval stays in this browser even if you undo the line.
 					</p>
 				)}
 			</div>
@@ -79,7 +86,7 @@ export function CodePackagesNotice({ source, stamp, onApproved, onWrite }: { sou
 				<Sparkles className="size-3.5 shrink-0 text-[var(--accent)]" aria-hidden />
 				<span className="min-w-0 flex-1">
 					<span className="font-semibold">
-						The plugin “{p.name}” can draw the {`\`\`\`${p.fence}`} block in this deck.{more ? ` ${more} more plugin${more > 1 ? 's are' : ' is'} offered after it.` : ''}
+						The plugin “{p.name}” can draw the {drawsWhat(p)} in this deck.{more ? ` ${more} more plugin${more > 1 ? 's are' : ' is'} offered after it.` : ''}
 					</span>{' '}
 					<button type="button" className="underline underline-offset-2" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
 						{open ? 'Hide details' : 'What it is'}
@@ -103,7 +110,7 @@ export function CodePackagesNotice({ source, stamp, onApproved, onWrite }: { sou
 				</Button>
 				{open && (
 					<p data-slot="code-packages-detail" className="basis-full pb-1 text-muted-foreground">
-						{p.name}.render.js (the {`\`\`\`${p.fence}`} fence), {p.bytes.toLocaleString('en-US')} bytes, sha256 <code className="break-all">{p.sha256}</code>. This deck does not list it under <code>plugins:</code>, so its block shows a placeholder. Approving adds <code>{p.name}</code> to the deck's <code>plugins:</code> line and lets its code run in this browser: in a sandbox with no network and no access to this page or your saved work, seeing only the text of the block it draws. Run code only from someone you trust. Changed code asks again.
+						{p.name}.render.js ({codeRole(p)}), {p.bytes.toLocaleString('en-US')} bytes, sha256 <code className="break-all">{p.sha256}</code>. This deck does not list it under <code>plugins:</code>, so what it draws shows a placeholder. Approving adds <code>{p.name}</code> to the deck's <code>plugins:</code> line and lets its code run in this browser: in a sandbox with no network and no access to this page or your saved work, seeing only the text of what it draws. Run code only from someone you trust. Changed code asks again.
 					</p>
 				)}
 			</div>

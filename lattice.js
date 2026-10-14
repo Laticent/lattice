@@ -1728,13 +1728,19 @@ function withInstalledPlugins(source) {
   if (!installed.length) return [];
   const active = activePluginNames(source, installed.map((p) => p.name));
   const approvals = readTrust();
-  const fenceOf = (p) => Object.keys(p.pkg.manifest.contributes.fences)[0];
+  const { inlineKindsOf } = require('./lib/packages/code-door-fence.mjs');
+  const fenceOf = (p) => Object.keys(p.pkg.manifest.contributes.fences ?? {})[0] ?? '';
   for (const p of installed.filter((x) => !active.has(x.name))) {
-    if (new RegExp(`^[ \\t>]*(?:\`{3,}|~{3,})[ \\t]*${fenceOf(p)}(?![\\w-])`, 'm').test(source) && !flags.quiet) {
-      console.error(`warning: the installed plugin ${p.name} draws \`\`\`${fenceOf(p)} blocks, and this deck does not list it, so they stay code. To draw them, add it to the deck's front matter: plugins: [${p.name}]`);
+    if (flags.quiet) continue;
+    const fence = fenceOf(p);
+    if (fence && new RegExp(`^[ \\t>]*(?:\`{3,}|~{3,})[ \\t]*${fence}(?![\\w-])`, 'm').test(source)) {
+      console.error(`warning: the installed plugin ${p.name} draws \`\`\`${fence} blocks, and this deck does not list it, so they stay code. To draw them, add it to the deck's front matter: plugins: [${p.name}]`);
     }
+    // Its inline kinds (2026-10-14-plugin-inline-door.md): the same line, for an `@kind{…}` span the deck writes.
+    const written = inlineKindsOf(p.pkg.manifest).filter((k) => source.includes(`\`@${k.name}{`));
+    if (written.length) console.error(`warning: the installed plugin ${p.name} draws ${written.map((k) => `\`@${k.name}{…}\``).join(', ')} spans, and this deck does not list it, so they stay code. To draw them, add it to the deck's front matter: plugins: [${p.name}]`);
   }
-  return installed.filter((p) => active.has(p.name)).map((p) => ({ name: p.name, fence: fenceOf(p), code: p.pkg.files[p.pkg.roles['render.js']], layer: approvals[`plugin/${p.name}`]?.layer ?? null }));
+  return installed.filter((p) => active.has(p.name)).map((p) => ({ name: p.name, fence: fenceOf(p), kinds: inlineKindsOf(p.pkg.manifest), code: p.pkg.files[p.pkg.roles['render.js']], layer: approvals[`plugin/${p.name}`]?.layer ?? null }));
 }
 // The installed component packages this render USES — `--reopenable` carries them in the
 // `.lattice`, so the deck opens styled for a recipient who never installed them. Filled by
