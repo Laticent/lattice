@@ -62,14 +62,12 @@ function readable(row: RefDocRecord): RefDocRecord {
 /**
  * Does a saved PDF go to disk as binary (`true`) or as base64 text (`false`)?
  *
- * The READER understands both and ships now; the WRITER is held one release. A build from before this change reads a
- * PDF only through `dataUrl`, so a person who rolls back, or keeps a tab open across the deploy, would lose sight of every
- * PDF saved as binary in the meantime (the chat says a cloud model is needed when one is connected, "Could not download",
- * an empty row in a backup). Shipping the reader first means the release that starts writing binary can be rolled back to
- * this one, which reads it. Flip this and call `migrateLegacyRefDocs` from the Library in that next release
- * (`followups.d/2654-p3-write-pdfs-as-binary.md`); the binary path below is built and tested through the `binary` option.
+ * Binary. #2672 shipped the reader with the writer held back, so a rollback or a tab left open across the deploy could
+ * still see every PDF. The Studio has no outside users yet (pre-GA), so that guard protected nobody and the writer is on
+ * (2026-10-12-library-media-assets.md "How binary content is stored"). `false` still writes the base64 every build reads;
+ * the reader handles both, and the Library rewrites old records once per open (`migrateLegacyRefDocs`).
  */
-export const WRITE_PDFS_AS_BINARY = false;
+export const WRITE_PDFS_AS_BINARY = true;
 
 /** Persist a doc to the shared library (dedups by name — re-adding replaces in
  *  place). `addedAt` is passed in so callers own the clock (tests stay deterministic). */

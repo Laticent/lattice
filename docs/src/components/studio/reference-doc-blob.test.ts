@@ -15,10 +15,10 @@ const wipe = async () => {
 };
 beforeEach(wipe);
 
-describe('by default a saved PDF is written as base64 text, the format every build reads', () => {
+describe('with the writer off, a saved PDF is written as base64 text, the format every build reads', () => {
 	it('stores the text typed as a PDF, sized from what was decoded, with no Blob', async () => {
-		await saveRefDoc({ name: 'a.pdf', kind: 'pdf', dataUrl: `data:text/html;base64,${Buffer.from(PDF).toString('base64')}`, bytes: -1e15 }, 1);
-		await saveRefDoc({ name: 'b.pdf', kind: 'pdf', dataUrl: `data:application/octet-stream;base64,${Buffer.from(PDF).toString('base64')}`, bytes: 1 }, 2);
+		await saveRefDoc({ name: 'a.pdf', kind: 'pdf', dataUrl: `data:text/html;base64,${Buffer.from(PDF).toString('base64')}`, bytes: -1e15 }, 1, { binary: false });
+		await saveRefDoc({ name: 'b.pdf', kind: 'pdf', dataUrl: `data:application/octet-stream;base64,${Buffer.from(PDF).toString('base64')}`, bytes: 1 }, 2, { binary: false });
 		for (const raw of await rawRows()) {
 			expect(raw.dataUrl).toBe(urlOf(PDF));
 			expect(raw.blob).toBeUndefined();
@@ -31,10 +31,11 @@ describe('by default a saved PDF is written as base64 text, the format every bui
 		expect(await rawRows()).toEqual([]);
 	});
 
-	it('a build that reads only dataUrl sees every PDF saved now: that is why the writer waits', async () => {
+	it('is not the default: the writer is on (pre-GA, no older build to protect)', async () => {
 		await saveRefDoc({ name: 'c.pdf', kind: 'pdf', dataUrl: urlOf(PDF), bytes: PDF.length }, 1);
 		const [raw] = await rawRows();
-		expect(typeof raw.dataUrl).toBe('string'); // what a pre-change build's recordToDoc and downloadDoc read
+		expect(raw.blob).toBeInstanceOf(Blob);
+		expect(raw.dataUrl).toBeUndefined();
 	});
 });
 
@@ -129,7 +130,7 @@ describe('the rewrite of a legacy record is a compare-and-swap', () => {
 
 	it('does not overwrite a PDF the author saved over the old one after the list was read', async () => {
 		const stale = await seed('d.pdf');
-		await saveRefDoc({ name: 'd.pdf', kind: 'pdf', dataUrl: urlOf(NEWER), bytes: 3 }, 100);
+		await saveRefDoc({ name: 'd.pdf', kind: 'pdf', dataUrl: urlOf(NEWER), bytes: 3 }, 100, { binary: false });
 		expect(await swapLegacyRefDoc(stale, dataUrlToBlob(urlOf(PDF)))).toBe(false);
 		const [now] = await listRefDocs();
 		expect(now.addedAt).toBe(100);

@@ -663,7 +663,7 @@ Avro or a second compressor, and the measurements below are why.
 | Where | Format | Why |
 |---|---|---|
 | Photos and videos in IndexedDB | A `Blob`, as given | IndexedDB stores a Blob natively and hands it back file-backed, so a list read holds no bytes in memory. No base64, no wrapper. |
-| Reference PDFs in IndexedDB | Base64 text today; a `Blob` from the next release (read now, written next; see below) | A build from before this change reads only the text, so the writer waits one release. |
+| Reference PDFs in IndexedDB | A `Blob` (since 2026-10-14; older base64 records are rewritten when the Library opens) | Base64 is a third larger and a list read held every PDF as a string. See below for why the writer did not wait a release. |
 | Photos and videos, in a browser that refuses a `Blob` (Safari private window) | An `ArrayBuffer`, rebuilt into a `Blob` on read | A fallback, tried only after the Blob write fails for a reason other than a full disk. |
 | Entries in a backup zip (`media/`) | `STORE`, no compression | A JPEG, WebP, PNG, MP4 or WebM is already compressed. |
 | JSON in a zip (`media.json`, decks, `refdocs.json`) | `DEFLATE` | Text compresses to a fraction of its size. |
@@ -687,22 +687,25 @@ So deflate is the right call for a PDF or JSON and the wrong one for a clip or p
 (a phone-recorded H.264 clip was not available to measure, and should be closer to 0%). Base64 is exactly 4/3 (1.333) of the bytes; a stored PDF was a third larger than the
 file and `listRefDocs` loaded every PDF's whole string into memory on each Library open.
 
-**This release reads binary PDFs and still writes base64 text. The writer flips next release.** A build from before this
-change reads a PDF only through `dataUrl`. If this release wrote binary, anyone who rolled back, or kept a tab open across
-the deploy, would lose sight of every PDF saved in the meantime: chat grounding says a cloud model is needed when one is
-connected, download says "Could not download", and a backup writes an empty row. So the order is expand, then contract:
+**The writer is on (2026-10-14), and it did not wait a release.** #2672 shipped the reader (a record with a `blob`, with
+`dataUrl`, or with an ArrayBuffer for a browser that refuses Blobs) and held the writer back one release, so that a
+rollback, or a tab left open across the deploy, would still see every PDF: a build from before #2672 reads a PDF only
+through `dataUrl`. That plan was written as if the Studio had users on older builds. It has none: it is pre-GA, and the
+site deploys on every merge to `main` (`docs.yml`), not on an npm release, so "one release" was the wrong clock as well.
+The author's call, recorded here: flip it now.
 
-1. **This release (the expand).** The reader handles a record with a `blob`, a record with `dataUrl`, and (for a browser that
-   refuses Blobs) an ArrayBuffer. The writer (`saveRefDoc`) still writes base64, but a restore or an add now stores it typed
-   as a PDF and sized from the decoded bytes. The binary writer, the one-time rewrite of old records
-   (`migrateLegacyRefDocs`, a compare-and-swap) and their tests are in the tree and switched off by one constant,
-   `WRITE_PDFS_AS_BINARY`.
-2. **The next release (the contract).** Flip the constant and call the rewrite from the Library
-   (`followups.d/2654-p3-write-pdfs-as-binary.md`). Rolling that release back lands on this one, which reads binary.
+- `WRITE_PDFS_AS_BINARY` is `true`, so `saveRefDoc` (an add, a chat attachment saved to the Library, a backup restore)
+  stores the PDF's bytes as a `Blob` with no base64 text. `{ binary: false }` still writes the text every build reads.
+- The Library calls `migrateLegacyRefDocs` once each time it opens. Each old record is rewritten by a compare-and-swap
+  inside one transaction, so a doc saved over or deleted between the read and the write is left alone, and a record that
+  cannot be decoded keeps its text.
+- **Measured** in real Chromium (`docs/e2e/library-refdoc-binary.spec.ts`): a 600,000-byte PDF added in the Library is
+  stored as a 600,000-byte Blob with no text (as base64 it was an 800,000-character string, 4/3 of the file), and a
+  seeded base64 record is rewritten as a Blob of its own size the next time the Library opens.
+- **What a rollback now costs.** A build from before #2672 cannot see a PDF stored this way. With no users on older
+  builds, that is a developer's own browser at most; their backup still carries every PDF as base64.
 
-What this costs: the third of extra disk and the in-memory string stay for PDFs for one more release. What it buys: the
-change can be rolled back at every step. The backup file keeps PDFs as base64 rows throughout, so a backup restores in any
-version.
+The backup file keeps PDFs as base64 rows, so a backup restores in any version.
 
 A restored PDF row is checked before it is stored: valid base64, within 5 MB, stored typed as `application/pdf` whatever
 its text claimed, and sized from what was decoded, never from the row's own `bytes` (the spend guard reads that number).
