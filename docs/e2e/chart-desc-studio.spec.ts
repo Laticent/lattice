@@ -11,6 +11,11 @@ import { expect, gotoStudio, LIVE_PREVIEW, setEditorContent, test, waitForStudio
 const DECK = `---
 marp: true
 theme: indaco
+paginate: true
+---
+
+# Title
+
 ---
 
 <!-- _class: bar -->
@@ -80,6 +85,21 @@ for (const width of [1440, 390]) {
 		expect(rich!.items).toBe(2);
 		expect(rich!.pillPainted, 'the pill takes the deck\'s styling').toBe(true);
 		expect(rich!.sparkStroked, 'the spark is a stroked line').toBe(true);
+		// The slide's page number is `section::after`; the card copies the section, and on a
+		// paginated deck it drew a stray "2" (the owner's phone test).
+		expect(rich!.text).not.toMatch(/\b2\b/);
+		const chrome = await page.evaluate(() => {
+			const host = [...document.querySelectorAll('[data-slot="popover-content"] div')].find((d) => d.shadowRoot);
+			const sec = host?.shadowRoot?.querySelector('section');
+			return sec ? getComputedStyle(sec, '::after').content : 'missing';
+		});
+		expect(chrome, 'the page number does not reach the card').toBe('none');
 		await page.screenshot({ path: testInfo.outputPath(`studio-bar-desc-${width}.png`) });
+		// The card belongs to the preview: leaving it (Source at 390, as the owner did) closes it, so
+		// it never floats over the editor.
+		if (width === 390) {
+			await page.getByRole('button', { name: 'Markdown source' }).first().click();
+			await expect(card).toBeHidden({ timeout: 5_000 });
+		}
 	});
 }

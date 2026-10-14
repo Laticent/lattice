@@ -1,1 +1,2 @@
 - Compose writes a list inside a quote as a tight list, with no blank lines between its items, as the source had it. Before, saving from Compose turned it into a loose list. A list the paragraph above cannot hold (an ordered list that starts after 1) keeps its blank line, so it stays a list.
+- On a chart slide, Compose saves the chart's rows as a tight list even when an older save left blank lines between them. A blank line between chart rows changes nothing on the chart, and those blank lines made every later save keep them. A slide you do not edit keeps its bytes.

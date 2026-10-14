@@ -80,6 +80,9 @@ function deckSheetFor(doc: Document): CSSStyleSheet | null {
     parts.push(
       '.lat-desc-chain{all:unset!important;display:block!important;color:inherit!important;' +
         'font:inherit!important;line-height:1.45!important;}' +
+        // The slide's own chrome hangs off its pseudo-elements: the page number is `section::after`,
+        // and it drew a stray "2" in the card on a paginated deck (the owner's phone test).
+        '.lat-desc-chain::before,.lat-desc-chain::after{content:none!important;display:none!important}' +
         'section.lat-desc>:first-child{margin-top:0}section.lat-desc>:last-child{margin-bottom:0}' +
         // A list in a description reads as a plain list: the deck's own list rules are scoped
         // `article.lattice > section ul` and outrank these, and on a slide they draw a column of
@@ -308,6 +311,20 @@ export const ChartDetailLayer = React.forwardRef<ChartDetailHandle, ChartDetailL
       setDetail(null);
     }
   }, [enabled, ensureMounted]);
+
+  // The card belongs to the preview it came from. It lives in the page, not the frame, so when the
+  // preview is hidden (the Studio's Source or Compose tab, a closed pane) it would stay on top of
+  // whatever replaced it (the owner's phone test). Close it the moment the frame leaves the screen.
+  React.useEffect(() => {
+    if (!detail || typeof IntersectionObserver === 'undefined') return;
+    const target = cfg.current.getFrame() ?? cfg.current.getStage();
+    if (!target) return;
+    const io = new IntersectionObserver((entries) => {
+      if (entries.some((e) => !e.isIntersecting)) setDetail(null);
+    });
+    io.observe(target);
+    return () => io.disconnect();
+  }, [detail]);
 
   if (!enabled) return null;
   // READABLE-FIRST sizing. This is a detail TOOLTIP — an on-demand readout whose whole job is to be

@@ -2,3 +2,4 @@
 - The hover card in the Playground and the Studio renders a row's description and nested bullets as rich content in the deck's own styling: several lines, lists, bold, code, pills and sparks. Before, it showed them as flattened plain text.
 - A word cloud with a nested bullet under one of its words keeps every word. Before, the first nested list ended the cloud, so it collapsed to that one word. A nested bullet is now the word's hover detail.
 - A description cannot break its slide: an unclosed tag in it (`<!--`, `<div>`, `<textarea>`) stays inside the row instead of hiding the chart or the slides after it, and the hover card keeps it inside the card.
+- The hover card closes when its preview leaves the screen, such as on a switch to the Studio's Source or Compose tab, instead of staying on top of the editor. It no longer shows the slide's page number.
