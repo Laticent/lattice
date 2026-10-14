@@ -1380,6 +1380,7 @@ each found the thing under test broken, and this one did not.
   tracked as #2287. `$−0.8M` plots POSITIVE while `$-0.8M` plots negative. It is the shared
   parser every chart in the family uses, so fixing it moves rendered bytes; filed,
   and pinned in `chart-facts.test.js` so the voice can never disagree with the bar.
+  **Fixed since (#2699):** `$−0.8M` reads -800,000 and is spoken "down"; the pin flipped.
 - **A state chart still reads its metadata tokens aloud** — tracked as #2288.
   "Draft start. In Review at-risk. Published end." is the state list reaching the flatten with `start`,
   `end` and the status keywords in it — a closed vocabulary the chart draws as a
