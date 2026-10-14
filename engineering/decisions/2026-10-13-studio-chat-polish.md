@@ -181,6 +181,18 @@ the docs and the symptom, not a reproduction: whether Gemini now reads an iPhone
 earlier end-to-end spec sent a WebM clip, which is why none could have caught it. If it still fails, the next suspects are
 the provider OpenRouter routed to and the clip's codec (iPhones record HEVC).
 
+**The same clip, a second report (2026-10-14).** After the type change the same model still said it could not watch the
+clip ("my tools only let me look at still images"), so the type was not the whole cause and may not have been one at all.
+The second cause is ours: once a chat clip is a Library video, the Architect's prompt lists it as an asset, and
+`view_asset` answered any video with "videos cannot be viewed". A model reading "a video you may not view" beside a clip
+in the message reasonably says it cannot watch it, and the cost jump on that turn fits a tool round. The prompt now marks
+the clip that rides the message (`ATTACHED TO THE AUTHOR'S MESSAGE: watch it there`), says `view_asset` shows photos only,
+and `view_asset` answers for an attached clip "watch it in that message". The clip's name now travels with the clip
+(`ChatOptions.videos[].name`) so the prompt can tell the two apart. Unit tests cover the manifest and the tool answer.
+**Still unverified: that a model now describes the clip.** If it does not, the remaining suspects are the provider
+OpenRouter routed to (AI Studio and Vertex both serve Gemini; OpenRouter's guide only promises base64 video, not which
+provider honors it), the clip's size against a provider's inline limit, and its HEVC codec.
+
 **Verified:** `docs/e2e/chat-photos.spec.ts` in real Chromium at 1440, 820 and 390 px: the composer has the two controls and
 no menu; the paperclip is a real, tappable input (not `hidden`, not `pointer-events: none`) that accepts images, video and
 `.pdf` and opens the browser's chooser in one tap; a `.md` and a photo picked together become a chip and a thumbnail; from the

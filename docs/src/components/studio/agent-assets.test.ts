@@ -30,6 +30,15 @@ describe('assetManifest', () => {
 		expect(m).toContain('1 photo has no caption yet');
 	});
 
+	it('marks a clip that rides the message, and says to watch it there and not to call view_asset for a video', () => {
+		const m = assetManifest([photo('clip', { kind: 'video' }), photo('reel', { kind: 'video' })], undefined, true, new Set(['clip']));
+		expect(m).toContain("- clip · video · landscape 3:2 · all decks · ATTACHED TO THE AUTHOR'S MESSAGE: watch it there");
+		expect(m).toContain('- reel · video · landscape 3:2 · all decks');
+		expect(m).not.toContain('- reel · video · landscape 3:2 · all decks · ATTACHED');
+		expect(m).toContain('do not call it for a video');
+		expect(assetManifest([photo('reel', { kind: 'video' })])).not.toContain('ATTACHED');
+	});
+
 	it('stays small: a capped list that points at list_assets for the rest', () => {
 		const many = Array.from({ length: 120 }, (_, i) => photo(`p-${i}`, { caption: 'A caption of average length for a photo' }));
 		const m = assetManifest(many);

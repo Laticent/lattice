@@ -51,6 +51,17 @@ describe('view_asset', () => {
 		expect(t.takeImages()).toEqual([]);
 	});
 
+	it('tells the model a clip in the author\'s message is watched there, and that any other video cannot be shown', async () => {
+		const { assets, calls } = fakeAssets([info('clip', { kind: 'video' }), info('old-reel', { kind: 'video' })]);
+		const t = createToolbox({ source: DECK, catalog: [], frontMatterKeys: [], library: LIB, assets, canSee: async () => true, attachedVideos: new Set(['clip']) });
+		const out = await t.run('view_asset', JSON.stringify({ names: ['clip', 'old-reel'] }));
+		expect(out).toContain('clip: this video is attached to the author\'s message');
+		expect(out).toContain('Watch it in that message');
+		expect(out).toContain('old-reel: a video from the Library that is not attached to this message');
+		expect(out).not.toContain('videos cannot be viewed');
+		expect(calls.thumbnails).toEqual([]);
+	});
+
 	it('answers a captioned photo with its caption and spends no picture on it', async () => {
 		const { assets, calls } = fakeAssets([info('a', { caption: 'Two people at a workbench' })]);
 		const t = box(assets);

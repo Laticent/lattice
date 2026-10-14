@@ -1,1 +1,2 @@
 - A clip recorded on an iPhone (QuickTime) is now sent to the model under the video type OpenRouter and Google accept. Before, a model that can read video could answer that it only saw a note that a video was attached, because the clip's type was not on the accepted list and the clip was dropped without an error.
+- The Architect is now told that the clip attached to your message is one it can watch, instead of seeing it listed in your Library as a video it cannot view. Before, a model that can read video could answer that it was unable to watch the clip you had just sent.

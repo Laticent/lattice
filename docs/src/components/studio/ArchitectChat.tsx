@@ -304,7 +304,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 			const lastIdx = history.length - 1;
 			const turns: ChatTurn[] = history.map((m, i) => ({ role: m.role, content: m.role === 'user' && i !== lastIdx && (m.photos?.length || m.videos?.length) ? `${m.content}${photoNote((m.photos ?? []).map((p) => p.name), false)}${videoNote(m.videos?.length ?? 0, false)}` : m.content }));
 			const sentVideos = history[lastIdx]?.role === 'user' ? (history[lastIdx].videos ?? []) : [];
-			const clips = (await Promise.all(sentVideos.map(async (v) => ({ dataUrl: await videoDataUrl(v.name).catch(() => null) })))).filter((x): x is { dataUrl: string } => !!x.dataUrl);
+			const clips = (await Promise.all(sentVideos.map(async (v) => ({ name: v.name, dataUrl: await videoDataUrl(v.name).catch(() => null) })))).filter((x): x is { name: string; dataUrl: string } => !!x.dataUrl);
 			if (clips.length < sentVideos.length) notify('That video is no longer in the Library, so the model did not see it.');
 			const sent = history[lastIdx]?.role === 'user' ? (history[lastIdx].photos ?? []) : [];
 			const seen = (await Promise.all(sent.map(async (p) => ({ name: p.name, dataUrl: await photoDataUrl(p.name).catch(() => null) })))).filter((x): x is { name: string; dataUrl: string } => !!x.dataUrl);
