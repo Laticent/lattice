@@ -226,8 +226,9 @@ One PR, the owner's choice, one commit per step, each leaving the tree green:
 1. **The named form and the aliases.** The `@` row in the dispatch table, and the alias test: every shipped `~{…}`,
    `^{…}`, `!{…}` and pill span in the repo renders byte-identically in its `@kind{…}` spelling, on the markdown-it
    path and the DOM path. **Done** (§11).
-2. **The manifest, the resolver and lint.** `slot` and `placeholder` on inline kinds, the claim checks in §6,
-   `unknown-inline-kind`, slot validation, and autocomplete after `@`.
+2. **Lint and autocomplete.** `unknown-inline-kind`, every inline lint check reading the named form, and
+   autocomplete after `@`. **Done** (§11). The manifest's `slot` and `placeholder` for inline kinds, the claim
+   checks of §6 and slot validation move to step 3, because only a zip plugin's kind uses them.
 3. **The door.** Capture, run, splice and placeholder for zip kinds, in the Studio and the CLI, with a test plugin
    in `docs/e2e/` and `test/integration/export/plugin-cli.test.js` (real Chromium), seen at 1440, 820 and 390.
 4. **Compose.** A kind with a `slot` opens the generated panel.
@@ -272,3 +273,17 @@ in step 3.
     2 and 4; the three lint checks join step 2.
 - **Not yet:** autocomplete after `@`, the manifest's `slot` and `placeholder`, `unknown-inline-kind`, the door and
   Compose (steps 2 to 4).
+
+**2026-10-14 — step 2, lint and autocomplete.**
+- **Autocomplete.** lint-core's `inlineCodeCompletions` answers `@` and `@ic` with the kinds (`NAMED_KINDS`, exported
+  by the dispatcher: name, plugin, alias), each labeled with what it draws and its alias, and takes an `external`
+  list for step 3's zip kinds. Inside `@kind{` it answers what the alias would, so the two spellings cannot offer
+  different words. The Studio's `inlineCodeCompletion` (`docs/src/components/studio/editor-complete.ts`) opens the
+  kind menu after `` `@ ``, offers the starter sparks after `@spark{`, and reads `@icon{`, `@spark{` and `@pill{`
+  wherever it read the sigil. `@` outside a code span opens nothing, so a mention in prose stays prose.
+- **`unknown-inline-kind`** (a warning; `spec/diagnostics.md` §3.3). A span `@name{…}` whose name no kind has: the
+  host's, a shipped plugin's, or a listed zip plugin's (`vocab.externalInlineKinds`, plugin name to kind names, which
+  step 3 fills). The fix offers the nearest kind name.
+- **The lint gaps the checker named are closed.** `mixed-spelling` reads `@icon{db}` as `^{db}` and shifts its fix
+  past the longer prefix, and the crowded-pill and stray-bracket checks read the named form. Every one gives its
+  advice in the author's spelling, through one helper (`viaAlias`).

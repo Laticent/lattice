@@ -438,6 +438,26 @@ describe('lint-core: auto-fix', () => {
     assert.ok(pill, 'a broken named pill warns');
     assert.match(pill.fix, /\\@pill\{A\|B, tag\}/);
     assert.doesNotMatch(pill.fix, /`\\\{A\|B/);
+    // mixed-spelling reads a named icon as its alias and fixes it in place, offsets past the longer prefix.
+    const mixed = `${FM}## M\n\n- \`@icon{database}\` \`^{database}\` \`@icon{db}\`\n`;
+    const m = core.lintTextWith(mixed, vocab).find((x) => x.rule === 'mixed-spelling');
+    assert.ok(m, 'a named icon competes with its alias spellings');
+    assert.ok(core.applyFix(mixed, m).includes('`^{database}` `@icon{database}`'));
+    const crowded = core.lintTextWith(`${FM}## C\n\n- \`@pill{ABC, circle}\`\n`, vocab).find((x) => x.rule === 'pill-shape-crowded');
+    assert.match(crowded.fix, /`@pill\{ABC, tag\}`/);
+  });
+
+  test('an unknown `@kind{…}` warns with the nearest kind; a mention, a scope, an escape and a listed zip kind do not', () => {
+    const src = `${FM}## K\n\n- A \`@icn{database}\` and \`@ada\` and \`@laticent/segno\` and \`\\@icn{x}\`\n`;
+    const hits = core.lintTextWith(src, vocab).filter((x) => x.rule === 'unknown-inline-kind');
+    assert.equal(hits.length, 1);
+    assert.equal(hits[0].didYouMean, '@icon');
+    assert.ok(core.applyFix(src, hits[0]).includes('`@icon{database}`'));
+    // A zip plugin's kind is known only when the deck lists the plugin.
+    const zip = { ...vocab, externalInlineKinds: { 'gantt-plugin': ['gantt-bar'] } };
+    const deck = (list) => `---\nmarp: true\n${list}---\n\n## G\n\n- A \`@gantt-bar{Design, 2}\`\n`;
+    assert.equal(core.lintTextWith(deck('plugins: [gantt-plugin]\n'), zip).some((x) => x.rule === 'unknown-inline-kind'), false);
+    assert.equal(core.lintTextWith(deck(''), zip).some((x) => x.rule === 'unknown-inline-kind'), true);
   });
 
   test('retiredQuadrantAxis rewrites every shipped retired shape; null for an ordinary eyebrow', () => {

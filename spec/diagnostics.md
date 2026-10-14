@@ -170,6 +170,7 @@ distinct, stable ID.
 | `pill-literal` | warning | — | A span that opens like a pill (`{…}`) but does not parse, so it renders as code. |
 | `spark-literal` | warning | — | A span that opens like a spark (`~{…}`) but does not parse, so it renders as code. |
 | `<inline kind>-literal` | warning | — | A family: one ID per plugin inline kind (for example `icon-literal`). A span that opens like the kind but renders as code; the plugin supplies the reason. |
+| `unknown-inline-kind` | warning | ✓ | A named span `@name{…}` whose name no kind has: neither the host's, a shipped plugin's, nor a listed plugin's. It renders as code; the autofix takes the nearest kind name when one is close. |
 | `spark-too-big` | warning | ✓ | A spark too tall or too wide for its line; the autofix resizes it. Reported by the Studio from a measured render (`sparkFitFindings`), not by `lintTextWith` or the CLI. |
 | `pill-shape-crowded` | warning | — | A shaped pill (`{X, circle}`) holding more than the shape can, so it stretches out of shape. |
 | `bracket-list-closed-early` | warning | — | An extra `]` that closes a bracketed list early, so it shows as plain text. |
