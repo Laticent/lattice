@@ -478,7 +478,10 @@ export function createChartInteract({ stage, getFrame, lift = true, onReveal, on
     // chart in the doc. See infoFor().
     const { label, value, dot } = infoFor(i);
     const tpl = detailsEl?.querySelector(`template.chart-detail[data-mark="${i}"]`);
-    const lis = tpl ? [...tpl.content.querySelectorAll('li')].map((n) => n.innerHTML.trim()) : [];
+    // The template's OWN items only. A row's `>` description (the first item) is rich Markdown
+    // and may hold a list; `querySelectorAll('li')` also took that list's items and spread them
+    // into the meta line. lib/components/chart/_chart-family/mark-detail.js writes the payload.
+    const lis = tpl ? [...tpl.content.children].filter((n) => n.tagName === 'LI').map((n) => n.innerHTML.trim()) : [];
     const body = lis[0] || '';
     const meta = lis.slice(1).join(' · ');
     // Two reveal depths (the data-viz "details-on-demand" model). Every mark is
@@ -499,7 +502,9 @@ export function createChartInteract({ stage, getFrame, lift = true, onReveal, on
     if (onDetail) {
       // The host owns the popover UI (Playground → shadcn Popover). Hand it the content + the cursor
       // anchor (parent-viewport coords); the host renders a readable, collision-aware tooltip there.
-      try { onDetail({ label, value, dot, body, meta, lean, x: anchorPt?.x, y: anchorPt?.y }); } catch { /* host hook */ }
+      // `section`: the slide the chart sits on, so the host can draw the rich body with the
+      // deck's own CSS (its stylesheets and the slide's custom properties); chart-detail-layer.tsx.
+      try { onDetail({ label, value, dot, body, meta, lean, section: curSection, x: anchorPt?.x, y: anchorPt?.y }); } catch { /* host hook */ }
       return;
     }
     pop.classList.toggle('db-pp-chartpop--lean', lean);
@@ -508,7 +513,7 @@ export function createChartInteract({ stage, getFrame, lift = true, onReveal, on
       (dot ? `<span class="db-pp-chartpop-dot" style="background:${dot}"></span>` : '') +
       `<span class="db-pp-chartpop-l">${label}</span>` +
       (value ? `<span class="db-pp-chartpop-v">${value}</span>` : '') + `</div>` +
-      (body ? `<p>${body}</p>` : '') + (meta ? `<div class="db-pp-chartpop-m">${meta}</div>` : '');
+      (body ? `<div class="db-pp-chartpop-b">${body}</div>` : '') + (meta ? `<div class="db-pp-chartpop-m">${meta}</div>` : '');
     pop.classList.add('show');
     reflow();   // re-pin the Present hit-surface
     startPop(); // Floating UI owns the popover position from here

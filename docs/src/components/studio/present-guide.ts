@@ -724,8 +724,16 @@ export function findDetailTarget(root: Document | Element | null, text: string):
 	if (needle.length < 8 || !/[\p{L}\p{N}]/u.test(needle)) return null;
 	for (const tpl of root.querySelectorAll('template.chart-detail[data-mark]')) {
 		const content = (tpl as HTMLTemplateElement).content;
-		const items = content ? [...content.querySelectorAll('li')] : [];
-		const texts = items.length ? items.map((li) => li.textContent ?? '') : [content?.textContent ?? ''];
+		// Each item and each paragraph on its own, a sublist cut away: a row's `>` description is
+		// one `<li>` holding paragraphs and a list, and the narrator speaks each as a sentence, so
+		// the whole item's text was too long for the half floor below and the pointer hid.
+		const ownText = (el: Element) => {
+			const copy = el.cloneNode(true) as Element;
+			for (const sub of copy.querySelectorAll('ul, ol')) sub.remove();
+			return copy.textContent ?? '';
+		};
+		const items = content ? [...content.querySelectorAll('li, p')] : [];
+		const texts = items.length ? items.map(ownText) : [content?.textContent ?? ''];
 		// Most of the note, not a word of it: a short cue that merely APPEARS in a note ("Enterprise.")
 		// is not that note being read. Half is the floor because Cadenza may split a long note into
 		// two sentences, and each half must still find its mark.

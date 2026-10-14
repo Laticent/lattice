@@ -106,7 +106,7 @@ describe('line kernel', () => {
       );
       assert.deepEqual(m.series, ['Product'], 'a non-numeric pill is not a series');
       assert.match(m.marks[0].detail, /Closed two weeks early/);
-      assert.match(m.marks[0].detail, /Best quarter in EMEA/);
+      assert.match(m.marks[0].detail, /Best quarter in <code>EMEA<\/code>/);
     });
   });
 

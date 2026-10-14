@@ -343,7 +343,7 @@ slot (`c1` … `c12`), and the frame, look and corner words of the `spark:` regi
 **Icon words.** A color slot, a size (`sm` `md` `lg`), the frame, look and corner words of the
 `icon:` register (§2.3), and `label="…"` for what a screen reader says.
 
-Three rules hold for every form:
+Four rules hold for every form:
 
 1. **All or nothing.** A span that does not parse, or that names a word the form does not
    know or names one twice, renders as the code it is. A renderer MUST NOT draw a partial
@@ -355,6 +355,25 @@ Three rules hold for every form:
    left alone.
 3. **Only inline code.** A fenced or indented code block is never read as notation, and
    neither is any span when the deck sets `inline-code: literal` (§2.3).
+4. **A data slot owns its spans.** A component MAY declare a **data slot**: a place in its
+   content, today its list rows, where a span is that component's data rather than inline
+   notation. A span in a declared data slot MUST NOT render as a pill, mark, spark or icon,
+   even when it would parse as one: on a flowchart, `` - Start `{diamond, c2}` `` styles the
+   node and draws no pill. The slot's grammar reads the span, and a span it cannot read is
+   that grammar's finding, not a `pill-literal` one. A span the component does not consume
+   stays the code it is. A span outside every declared slot is notation as above. Rule 2
+   still applies first: an escaped span is code in a data slot too.
+   `grammar.json` publishes each component's slots as `dataSlots` (§4). `sits` names where
+   the slot reads: `list-rows` is every list item on the slide, at any depth. An optional
+   `rowDepth` narrows that: the slot owns only the slide's first list, and only to the depth
+   it names, counting a top-level item as depth 1. `rowDepth` gives a `default` and may give
+   a depth per modifier (`{ "default": 2, "tiered": 3 }`); a modifier present on the slide
+   wins over the default. A row below that depth is not in the slot, so its spans are
+   notation. Which components declare a slot, and what each slot reads, belongs to the
+   component grammar, which `grammar.json` publishes from the reference implementation's
+   manifests. Declaring a slot on a component that already ships changes what existing spans
+   render, so the engine's changelog carries it as `**Breaking:**`; LFM's own rules do not
+   change.
 
 The full behavior of each form is documented in `lib/base/base.docs.md` (§ Inline pills,
 § Inline sparks, § Inline state marks) and `lib/plugins/icons/icons.docs.md`.
@@ -371,7 +390,8 @@ is generated, not enumerated here, so it cannot drift:
   the per-component entries) and the human catalog `dist/docs/components.md`.
 - **Per-component grammar** — `dist/docs/grammar.json`: for each component, its
   `_class` token, its required and optional **slots** (CSS selector +
-  description), its **skeleton**, and the **fences/state-markers** it reads.
+  description), its **skeleton**, the **fences/state-markers** it reads, and its
+  **data slots** (`dataSlots`, §3.6 rule 4).
 - **Modifiers** — recognized by set membership or by these prefix families:
   `tint-`, `mark-`, `with-`, `at-`, `no-`, `tone-`, `treatment-`, `checks-`,
   plus the universal/semi-universal variant sets. The authoritative prefix list
@@ -532,6 +552,7 @@ LFM 1.1 deliberately does **not**:
 | 1.0-draft | 2026-09-24 | §3.2 state markers: six answers, one meaning each in every component. Adds `[!]` (no) and `[?]` (unknown); `[ ]` is "open" everywhere, where verdict-grid used to read it as "not met". §5.1 lists the new non-GFM markers. A breaking change to a normative meaning, landed in the pre-ratification draft per §7; the engine's changelog carries the `Breaking:` line. Record: `engineering/decisions/2026-09-24-six-state-marks.md`. |
 | **1.0** | 2026-10-08 | **Ratified** as the core it describes, with an owner. §2.3 now matches the engine: `boardroom`, `sketch` and `sketch-clean` are `mode:` values (they moved off `finish:` before ratification), and `finish:` names a backdrop. §2.2 notes that a renderer may also divide at headings, as the reference implementation does by default. §3.3 lists the `math` fence, which `grammar.json` already recorded. §8: the shared test cases ship in `spec/conformance/lfm/`. Owner ruling: `engineering/decisions/2026-10-08-spec-audit.md` §8.2. |
 | 1.1-draft | 2026-10-08 | §2.3 lists every front-matter register the reference implementation reads, each with its values and its `unknown-<key>` diagnostic, plus the settings (`logo:`, `plugins:`) and the delivery keys (`pace:`, `delivery:`, `greeting:`, `closing:`). §2.2 specifies the heading split. §2.4 adds the `_lens` tag. §3.6 adds the inline notation: pills, marks, sparks and icons. Each has shared test cases in `spec/conformance/lfm/`. Additive (a minor version, §7). Waits on the owner's sign-off. |
+| 1.1-draft | 2026-10-14 | §3.6 rule 4: a span in a declared data slot belongs to that slot and never renders as a pill, mark, spark or icon; `grammar.json` publishes the slots as `dataSlots` (§4). This writes down what the reference implementation already does for flowchart, hub-spoke and state-chart rows, and it keeps `` `{4.2}` `` on a chart row from becoming a pill once a chart declares its rows. A change to a normative meaning, landed before ratification (§7). Shared case: `spec/conformance/lfm/data-slots.json`. Record: `engineering/decisions/2026-10-14-chart-authoring-uniform-model.md` §3 decision 12, §6. |
 
 ## Appendix A — A worked example (informative)
 

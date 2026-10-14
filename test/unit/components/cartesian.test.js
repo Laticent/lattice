@@ -873,6 +873,45 @@ describe('cartesian — defects the adversarial trio confirmed', () => {
     assert.equal(C.isValuePill('1.234.567'), true);
   });
 
+  test('a whole European number reads its comma as the decimal (followups.d/2686-p3)', () => {
+    // `1.234,5` (EU for 1234.5) read as 1.2345, a thousandfold misread: both separators present
+    // used to mean "delete the commas", which is right only for the US order.
+    assert.equal(C.parseValue('1.234,5'), 1234.5);
+    assert.equal(C.parseValue('1,234.5'), 1234.5);
+    assert.equal(C.parseValue('1.234.567,89'), 1234567.89);
+    assert.equal(C.parseValue('€1.234,5M'), 1234500000);
+    assert.equal(C.parseValue('12,000'), 12000);
+    // Only a WHOLE European number swaps: prose the lenient fallback scans, and malformed input,
+    // keep the US reading, so a list comma after a decimal never multiplies the number by ten.
+    assert.equal(C.parseValue('grew 3.5%, margin 12%'), 3.5);
+    assert.equal(C.parseValue('$1.2M, 40%'), 1200000);
+    assert.equal(C.parseValue('v2.1, beta'), 2.1);
+    assert.equal(C.parseValue('1.2,3'), 1.23);
+    assert.equal(C.parseValue('1,234.567,89'), 1234.56789);
+    // A lone `12.000` is still US-first, 12; phase 2's ISO reader decides it
+    // (engineering/decisions/2026-10-14-chart-authoring-uniform-model.md §5).
+    assert.equal(C.parseValue('12.000'), 12);
+  });
+
+  test('ISO space grouping reads as one number, not its first group', () => {
+    // `1 234` used to fail the value test, and the lenient fallback plotted 1.
+    for (const [raw, want] of [['12 000', 12000], ['1 234', 1234], ['1 234,5', 1234.5], ['1 234.5', 1234.5],
+      ['€12 000k', 12000000], ['12 000 000', 12000000], ['1\u202F234', 1234], ['1\u00A0234', 1234], ['-1 234', -1234]]) {
+      assert.equal(C.parseValue(raw), want, raw);
+      assert.equal(C.isValuePill(raw), true, raw);
+    }
+    // Only exact three-digit groups: a label, a year or a doubled space keeps its old reading.
+    assert.equal(C.parseValue('4 beds'), 4);
+    assert.equal(C.isValuePill('Q1 2025'), false);
+    assert.equal(C.isValuePill('12  000'), false);
+    assert.equal(C.isValuePill('1 2345'), false);
+    // A whole value only: a word before the number is a label, not a currency sign.
+    assert.equal(C.parseValue('Q1 120'), 1);
+    assert.equal(C.parseValue('Top 100 500'), 100);
+    // With space grouping the comma is the decimal mark (ISO 80000-1), never a third separator.
+    assert.equal(C.parseValue('1 000,000'), 1000);
+  });
+
   test('signedValue finds a sign wherever it sits before the digits', () => {
     // A waterfall's whole claim is direction, and there are four spellings.
     // Re-deriving this in the member found three: `($0.8M)` — what every

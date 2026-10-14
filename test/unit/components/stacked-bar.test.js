@@ -96,7 +96,7 @@ describe('stacked-bar kernel', () => {
       );
       assert.deepEqual(m.series, ['Product']);
       assert.equal(m.groups[0].segs.length, 1);
-      assert.deepEqual(m.groups[0].detail, ['Best quarter in EMEA', 'Closed two weeks early']);
+      assert.deepEqual(m.groups[0].detail, ['Best quarter in <code>EMEA</code>', 'Closed two weeks early']);
     });
 
     test('an empty list is null — the kernels\' pass-through signal', () => {
@@ -144,7 +144,7 @@ describe('stacked-bar kernel', () => {
       const m = parseStackedBar(ul([['Q1', [['Product', '4'], ['Tracked as', 'PROJ-42']]]]));
       assert.deepEqual(m.series, ['Product']);
       assert.equal(m.negMin, 0);
-      assert.deepEqual(m.groups[0].detail, ['Tracked as PROJ-42']);
+      assert.deepEqual(m.groups[0].detail, ['Tracked as <code>PROJ-42</code>']);
     });
 
     test('the authored total is kept when it agrees with the parts, dropped when it does not', () => {

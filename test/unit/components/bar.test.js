@@ -107,7 +107,8 @@ describe('bar kernel', () => {
         '<li>Q1 <code>4.2</code><ul><li>Closed two weeks early</li>' +
         '<li>Best quarter in <code>EMEA</code></li></ul></li><li>Q2 <code>5.1</code></li>');
       assert.equal(m.flat, true, 'a non-numeric pill must not mint a series');
-      assert.deepEqual(m.groups[0].detail, ['Closed two weeks early', 'Best quarter in EMEA']);
+      // Detail is HTML now, so the popover can draw it (the inline code stays code).
+      assert.deepEqual(m.groups[0].detail, ['Closed two weeks early', 'Best quarter in <code>EMEA</code>']);
       assert.equal(m.groups[0].num, 4.2);
     });
 

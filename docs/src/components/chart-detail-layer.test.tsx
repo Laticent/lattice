@@ -79,7 +79,9 @@ describe('ChartDetailLayer', () => {
     // Radix Popover portals its content to document.body when open.
     await waitFor(() => {
       expect(document.body.textContent).toContain('Cloud');
-      expect(document.body.textContent).toContain('Mostly AWS reserved instances.');
+      // The body renders in a shadow root (`DeckHtml`), so read through it.
+      const shadowText = [...document.querySelectorAll('div')].map((d) => d.shadowRoot?.textContent ?? '').join(' ');
+      expect(shadowText).toContain('Mostly AWS reserved instances.');
     });
   });
 });

@@ -82,6 +82,8 @@
 	font-variant-numeric: tabular-nums;
 	color: var(--text-body);
 }
+.db-pp-chartpop-b > :first-child { margin-top: 0; }
+.db-pp-chartpop-b > :last-child { margin-bottom: 0; }
 .db-pp-chartpop p {
 	margin: 0.4rem 0 0;
 }

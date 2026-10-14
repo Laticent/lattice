@@ -79,7 +79,7 @@ theme: indaco
 - Paid \`864\`
 `;
 
-async function openPlayground(page: import('@playwright/test').Page, deck: string, chartSel: string) {
+async function openPlayground(page: import('@playwright/test').Page, deck: string, chartSel: string, view = 'edit') {
 	await page.addInitScript(
 		([k, s]) => {
 			try {
@@ -91,7 +91,10 @@ async function openPlayground(page: import('@playwright/test').Page, deck: strin
 		[SOURCE_KEY, deck],
 	);
 	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
-	const preview = page.frameLocator('#preview');
+	// Narrow widths show ONE pane, the editor; Explore (the eye button) shows the draft's slides,
+	// the way a tablet or phone user gets to them.
+	if (view === 'read') await page.locator('button[data-pg-mode="read"]').click();
+	const preview = page.frameLocator('iframe').first();
 	await expect(preview.locator(chartSel)).toBeVisible({ timeout: 40_000 });
 	// The chart re-fits after its first paint, so hovering the first painted box aims at
 	// a rectangle that is about to move. This waits for the box to hold across two
@@ -164,11 +167,24 @@ async function revealText(page: import('@playwright/test').Page, sel: string) {
 		)
 		.catch(() => null);
 	if (!placed) return null;
-	return page.evaluate(() =>
-		(document.querySelector('[data-slot="popover-content"]') as HTMLElement).innerText
-			.replace(/\n+/g, ' | ')
-			.trim(),
-	);
+	// The card's text INCLUDING its shadow roots: the body and meta are drawn inside one so the
+	// deck's own CSS styles them (chart-detail-layer.tsx `DeckHtml`), and `innerText` stops at a
+	// shadow boundary.
+	return page.evaluate(() => {
+		const text = (n: Node): string => {
+			if (n.nodeType === Node.TEXT_NODE) return n.textContent ?? '';
+			const el = n as Element;
+			const kids = [...(el.shadowRoot ? el.shadowRoot.childNodes : []), ...el.childNodes];
+			const inner = kids.map(text).join('');
+			return /^(DIV|P|LI|SECTION|UL|OL)$/.test(el.tagName ?? '') ? `\n${inner}\n` : inner;
+		};
+		return text(document.querySelector('[data-slot="popover-content"]') as HTMLElement)
+			.replace(/[ \t]+/g, ' ')
+			.split(/\n+/)
+			.map((l) => l.trim())
+			.filter(Boolean)
+			.join(' | ');
+	});
 }
 
 test('every heatmap cell holds its reveal, and an annotated one carries its prose', async ({ page }) => {
@@ -224,4 +240,113 @@ test('the shared reveal still works for a chart that authors its detail as a sub
 	expect(first).toContain('Visitors');
 	expect(first).toContain('Two-thirds arrive from inbound');
 	expect(await revealText(page, '[data-mark="3"]')).toContain('Paid');
+});
+
+// ── A row's `>` description: rich, and drawn with the deck's own CSS ─────────────
+//
+// The owner's slide from #2690's preview test. An indented `>` under a bar row used to drop
+// the row (the reader missed its value); it is now the row's description, the first detail
+// entry, and it keeps its Markdown. The popover draws it inside a shadow root that adopts the
+// frame's stylesheets and the slide's custom properties (chart-detail-layer.tsx `DeckHtml`), so
+// a pill and a spark look as they do on the slide. At 1440, 820 and 390, with a shot of each.
+const BAR_DESC = `---
+marp: true
+theme: indaco
+---
+
+<!-- _class: bar -->
+
+## The European spelling draws the same bars.
+
+- Germany \`1.234,5\`
+  > Hi **bold** \`{LIVE, tag}\` \`~{1 3 2 5}\`
+  > - we
+  > - us
+- France \`987,6\`
+- Italy \`2.345,8\`
+`;
+
+test('a bar row\'s `>` description reveals as a rich card, drawn with the deck\'s CSS', async ({ page }, testInfo) => {
+	// 1440: the two-pane editor. 820 and 390: Explore (`view=read`), the full-pane deck a tablet or
+	// a phone shows, because the editor at those widths is one pane and the preview sits behind it.
+	for (const [width, view] of [[1440, 'edit'], [820, 'read'], [390, 'read']] as const) {
+		await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+		await openPlayground(page, BAR_DESC, 'svg:not(.latt-a11y-defs)', view);
+		// ANTI-VACUITY: Germany's bar exists. Before the fix the quote dropped it.
+		const bars = await page.evaluate(
+			() =>
+				(document.querySelector('iframe') as HTMLIFrameElement).contentDocument!.querySelectorAll(
+					'[data-mark]:not(template)',
+				).length,
+		);
+		expect(bars, `bars at ${width}`).toBe(3);
+		const text = await revealText(page, '[data-mark="0"]');
+		expect(text, `card at ${width}`).toContain('Germany');
+		const card = await page.evaluate(() => {
+			const hosts = [...document.querySelectorAll('[data-slot="popover-content"] div')].filter((d) => d.shadowRoot);
+			const root = hosts[0]?.shadowRoot;
+			if (!root) return null;
+			const pill = root.querySelector('.lat-pill') as HTMLElement | null;
+			const path = root.querySelector('.lat-spark path') as SVGElement | null;
+			const spark = root.querySelector('.lat-spark svg') as SVGElement | null;
+			const ps = pill ? getComputedStyle(pill) : null;
+			return {
+				text: root.textContent?.replace(/\s+/g, ' ').trim(),
+				pillPainted: !!ps && ps.display === 'inline-block' && ps.borderTopStyle !== 'none',
+				sparkStroked: !!path && getComputedStyle(path).fill === 'none',
+				sparkW: spark ? spark.getBoundingClientRect().width : 0,
+				items: root.querySelectorAll('li').length,
+				sheets: root.adoptedStyleSheets.length,
+			};
+		});
+		expect(card, `shadow root at ${width}`).not.toBeNull();
+		expect(card!.sheets).toBe(1);
+		expect(card!.text).toContain('Hi bold LIVE');
+		expect(card!.items).toBe(2);
+		expect(card!.pillPainted, `the pill takes the deck's styling at ${width}`).toBe(true);
+		expect(card!.sparkStroked, `the spark is a stroked line, not a filled blob, at ${width}`).toBe(true);
+		expect(card!.sparkW, 'the spark draws at a real size').toBeGreaterThan(8);
+		await page.screenshot({ path: testInfo.outputPath(`bar-desc-${width}.png`) });
+	}
+});
+
+// The red team's overlay: a description's inline style tried to paint a 9000px fixed link over
+// the app. The card strips author `style`, and its light-DOM wrapper has paint containment that
+// the adopted deck CSS cannot reach, so nothing in the card paints or takes a click outside it.
+const BAR_OVERLAY = `---
+theme: indaco
+---
+
+<!-- _class: bar -->
+
+## A description cannot cover the page.
+
+- Germany \`12\`
+  > <a href="https://example.invalid" style="position:fixed;left:-3000px;top:-3000px;width:9000px;height:9000px;z-index:2147483647;background:red">Session expired</a>
+- France \`9\`
+`;
+
+test('a description\'s inline style stays inside the card', async ({ page }) => {
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await openPlayground(page, BAR_OVERLAY, 'svg:not(.latt-a11y-defs)', 'edit');
+	const text = await revealText(page, '[data-mark="0"]');
+	expect(text).toContain('Session expired');
+	const probe = await page.evaluate(() => {
+		const content = document.querySelector('[data-slot="popover-content"]') as HTMLElement;
+		const host = [...content.querySelectorAll('div')].find((d) => d.shadowRoot)!;
+		const link = host.shadowRoot!.querySelector('a') as HTMLElement;
+		const box = content.getBoundingClientRect();
+		// A point well outside the card: before the fix it hit the overlay.
+		const far = document.elementFromPoint(5, 5);
+		return {
+			styled: link.hasAttribute('style'),
+			position: getComputedStyle(link).position,
+			farInCard: !!far && (content.contains(far) || far === host),
+			cardW: box.width,
+		};
+	});
+	expect(probe.styled, 'the author style is stripped').toBe(false);
+	expect(probe.position).not.toBe('fixed');
+	expect(probe.farInCard, 'nothing in the card covers the page').toBe(false);
+	expect(probe.cardW).toBeLessThan(800);
 });

@@ -1,0 +1,27 @@
+{
+ "title": "A span in a declared data slot belongs to that slot: it is never notation, the slot's own grammar reports it, and outside every slot it is notation again",
+ "spec": "LFM-1.1",
+ "section": "3.6",
+ "rows": [
+  { "name": "a flowchart row's record is the node's style, not a pill",
+    "source": "<!-- _class: flowchart -->\n\n## A\n\n- Start `{diamond, c2}`\n  - End\n- End `{done}`\n",
+    "L0": { "visible": ["Start {diamond, c2}", "End {done}"] },
+    "L1": { "absent": ["lat-pill"], "slides": [{ "component": "flowchart", "inline": [] }] } },
+  { "name": "a record the slot cannot read is the slot's finding, not a pill's",
+    "source": "<!-- _class: flowchart -->\n\n## A\n\n- Start `{A|B}`\n  - End\n- End\n",
+    "L2": { "findings": [{ "rule": "flowchart-unknown-modifier", "severity": "warning", "slide": 1 }] } },
+  { "name": "the same row on a state chart",
+    "source": "<!-- _class: state-chart -->\n\n## A\n\n- Idle `{A|B}`\n  - Busy\n- Busy\n",
+    "L2": { "findings": [{ "rule": "flowchart-unknown-modifier", "severity": "warning", "slide": 1 }] } },
+  { "name": "with no data slot the same rows are pills, and the bad one is a pill finding",
+    "source": "## A\n\n- Start `{diamond, c2}`\n- End `{done}`\n- Other `{A|B}`\n",
+    "L1": { "slides": [{ "component": null, "inline": [{ "kind": "pill", "label": "diamond", "shape": "pill", "color": "c2" }, { "kind": "pill", "label": "done", "shape": "pill", "color": null }, { "kind": "code", "text": "{A|B}" }] }] },
+    "L2": { "findings": [{ "rule": "pill-literal", "severity": "warning", "slide": 1 }] } },
+  { "name": "a slot with no row depth owns every list: a span it does not consume stays code",
+    "source": "<!-- _class: flowchart -->\n\n## A\n\n- Start\n  - End\n- End\n\nAfter\n\n- Other `{LIVE}`\n",
+    "L1": { "slides": [{ "component": "flowchart", "inline": [{ "kind": "code", "text": "{LIVE}" }] }] } },
+  { "name": "a slot with a row depth reads only the first list: a later list's span is a pill",
+    "source": "<!-- _class: hub-spoke -->\n\n## A\n\n- Hub `{icon=database}`\n  - Spoke `{icon=user}`\n\nAfter\n\n- Other `{LIVE}`\n",
+    "L1": { "slides": [{ "component": "hub-spoke", "inline": [{ "kind": "pill", "label": "LIVE", "shape": "pill", "color": null }] }] } }
+ ]
+}

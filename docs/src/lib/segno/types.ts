@@ -194,13 +194,38 @@ const MAGNITUDE: Readonly<Record<string, number>> = { k: 1e3, K: 1e3, m: 1e6, M:
 // split it, and 20,000 tabs took 420 ms. Each optional piece now carries its own trailing space.
 const NUMERIC = /^[(+\-\u2212]?\s*(?:[^\w\s]{1,3}\s*)?[-\u2212]?\d[\d,.]*\s*(?:(?:%|\u2030|[A-Za-z]{1,6})\s*)?\)?$/;
 
-/** `1,234` groups; `1,25` is a decimal comma; two or more dots group; one dot is a decimal point. */
+// A European number: dot-grouped thousands, then ONE decimal comma, as the whole string (`1.234,5`,
+// `€1.234.567,89M`, `(1.234,5)`). Only this shape swaps the two separators. Anything looser keeps
+// the US reading, so prose the lenient fallback scans (`grew 3.5%, margin 12%`) is not multiplied.
+const EU_NUMBER = /^[^\d,.]*\d{1,3}(?:\.\d{3})+,\d+[^\d,.]*$/;
+
+// ISO 80000-1 digit grouping: a whole number whose thousands are separated by single spaces
+// (`12 000`, `1 234,5`, `€12 000k`), a no-break, narrow no-break or thin space as well. The spaces
+// are removed before anything else reads the number, so it plots, speaks and lints as one value:
+// before this it was not a value at all, and the lenient fallback read its first group (`1 234` → 1).
+// Only exact three-digit groups after the first, and only on a whole value: a sign or currency
+// before it, a unit after it, as a value pill allows, so `4 beds`, `Q1 2025`, `Q1 120` and
+// `Top 100 500` keep their reading. With space grouping the comma can only be the decimal mark
+// (ISO 80000-1), so `1 000,000` is 1000, not a million.
+const ISO_GROUPED = /^([(+\-\u2212]?\s*(?:[^\w\s]{1,3}\s*)?[-\u2212]?)(\d{1,3}(?:[ \u00A0\u202F\u2009]\d{3})+)(?:([.,])(\d+))?(\s*(?:(?:%|\u2030|[A-Za-z]{1,6})\s*)?\)?)$/;
+function collapseIsoGroups(s: string): string {
+  const m = ISO_GROUPED.exec(s);
+  return m ? m[1] + m[2].replace(/[ \u00A0\u202F\u2009]/g, '') + (m[4] ? `.${m[4]}` : '') + m[5] : s;
+}
+
+/**
+ * `1,234` groups; `1,25` is a decimal comma; two or more dots group; one dot is a decimal point.
+ * With both, a whole European number (`1.234,5`, see EU_NUMBER) reads its comma as the decimal, and
+ * anything else deletes the commas (`1,234.5`): both read 1234.5. Deleting the commas from `1.234,5`
+ * read it as 1.2345, a thousandfold misread.
+ */
 function normalizeSeparators(s: string): string {
+  s = collapseIsoGroups(s);
   const dots = (s.match(/\./g) || []).length;
   const commas = (s.match(/,/g) || []).length;
   if (commas && !dots) return /,\d{3}(?!\d)/.test(s) && !/,\d{1,2}(?!\d)/.test(s) ? s.replace(/,/g, '') : s.replace(/,/g, '.');
   if (dots > 1 && !commas) return s.replace(/\./g, '');
-  if (commas && dots) return s.replace(/,/g, '');
+  if (commas && dots) return EU_NUMBER.test(s) ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, '');
   return s;
 }
 
@@ -286,6 +311,8 @@ export function readNumber(raw: string): NumberValue | undefined {
 export function readNumberFull(t: string): NumberValue | undefined {
   // `..` is the range delimiter and never part of a number. Without this, the separator rule
   // (two or more dots group) read `0..10` as 10 — a range silently became its upper end.
+  // An ISO-grouped number (`12 000`) is one value; NUMERIC has no room for its spaces.
+  t = collapseIsoGroups(t);
   if (!t || t.includes('..') || !NUMERIC.test(t)) return undefined;
   let s = normalizeSeparators(t);
   let neg = false;

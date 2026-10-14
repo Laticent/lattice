@@ -1155,13 +1155,26 @@ function renderFences(manifests) {
 }
 
 /**
+ * The component's DATA SLOTS (LFM 1.1 §3.6, rule 4): each Segno slot its manifest declares with
+ * `sits: "list-rows"`. An inline-code span on such a component's list rows is read by the slot,
+ * never by the slide-wide pill / mark / spark pass. `rowDepth` (when declared) bounds the list
+ * depth the slot reads, and a slot with it reads only the slide's first list. The engine reads
+ * the same declarations through lib/core/resolve-inline-code.js, so the two cannot disagree.
+ */
+function dataSlotsOf(m) {
+  return Object.entries(m.segno || {})
+    .filter(([, s]) => s && s.sits === 'list-rows')
+    .map(([name, s]) => (s.rowDepth ? { name, sits: s.sits, rowDepth: s.rowDepth } : { name, sits: s.sits }));
+}
+
+/**
  * Project the component manifests into dist/docs/grammar.json — the
  * machine-readable per-component grammar for LFM (Lattice-Flavored Markdown).
  * A third projection of the same manifest source that backs components.json
  * (catalog) and the linter vocabulary. For each component it records the
  * `_class` token, its slots (selector + required + description), which slots
- * are required, the modifier tokens it accepts, and whether it reads the shared
- * state-marker / fence sub-grammars. Deterministic and idempotent.
+ * are required, the modifier tokens it accepts, whether it reads the shared
+ * state-marker / fence sub-grammars, and the data slots that own its list rows. Deterministic and idempotent.
  * See spec/LFM-1.0.md §4 and spec/diagnostics.md.
  */
 function renderGrammarJson(manifests) {
@@ -1182,6 +1195,7 @@ function renderGrammarJson(manifests) {
       modifiers: effectiveVariants(m),
       familyModifiers: familyModifiersFor(m),
       readsStateMarkers: stateSet.has(m.name),
+      dataSlots: dataSlotsOf(m),
     };
   });
   const doc = {
