@@ -21,3 +21,10 @@ where     — docs/e2e/inline-pill-grammar.spec.ts, inline-grammar-marp-mirror.s
 done when — the four specs pass on the device, or the PR says UNVERIFIED and moves on.
 evidence  — the run output or screenshots from the device.
 verify    — tier 0 gates: no code change is expected, and a failure becomes its own item.
+
+Checked 2026-10-13 (#2669 follow-up session): still open. This sandbox has Chromium only
+(`/opt/pw-browsers` holds `chromium-1194` and nothing for WebKit or Firefox) and the environment
+forbids `playwright install`, so the `webkit-*` and `gecko` projects could not run here; #2669's
+specs passed on desktop Chromium only (21 passed). Nothing in this item has changed since #2650's
+Linux WebKit and Firefox runs: the device run is still owed, and it is UNVERIFIED on iOS Safari
+(HARD RULE #23).

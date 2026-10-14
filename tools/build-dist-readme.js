@@ -56,11 +56,11 @@ const GROUPS = [
   {
     prefix: 'palettes/',
     purpose:
-      'One file per shipped palette: its tokens with every `@import` resolved (a dark variant '
-      + 'carries its base), for a bundler or your own UI, since a bundler cannot resolve the Marp '
-      + 'theme file\'s `@import \'lattice\'`. Not a slide renderer: to show slides, use `render()` '
-      + 'from `@laticent/lattice/engine`.',
-    consume: '`import \'@laticent/lattice/palette/<name>.css\';`',
+      'Two files per shipped palette. `<name>.css` is its tokens with every `@import` resolved (a dark '
+      + 'variant carries its base), for a bundler or your own UI, since a bundler cannot resolve the Marp '
+      + 'theme file\'s `@import \'lattice\'`; it is not a slide renderer. `<name>.slides.css` is the same '
+      + 'tokens scoped to each slide, the second half of the packed slide form (with `slides.css`).',
+    consume: '`import \'@laticent/lattice/palette/<name>.css\';` · `import \'@laticent/lattice/palette/<name>.slides.css\';`',
   },
   {
     prefix: 'engineering/',
@@ -88,6 +88,10 @@ const GROUPS = [
 // Keyed by dist-relative POSIX path. `consume` is the public entry point or
 // a short note on how the file is used.
 const DESCRIPTIONS = {
+  'slides.css': {
+    purpose: 'The packed slide form, engine half: the engine scaffold and CSS scoped to `article.lattice > section`, plus the 16:9 slide box. Pair it with one `palette/<name>.slides.css` around the markup `render()` returns. 16:9 only, no panes.',
+    consume: '`@laticent/lattice/slides.css`',
+  },
   'lattice.css': {
     purpose: 'Engine bundle — the palette-blind layout system (layouts + modifiers, no color tokens).',
     consume: '`@laticent/lattice/css`',

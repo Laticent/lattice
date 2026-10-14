@@ -70,8 +70,9 @@ output contract ~2.8K); the user turn is ~7 tokens. A 20-prompt fan-out re-paid 
 
 `withCachedSystem(messages, modelId)` (`architect-model.js`) now marks the leading `system`
 block with a `cache_control:{type:"ephemeral"}` breakpoint for the vendors that need an
-explicit one (**anthropic, google** — `OR_CACHE_BREAKPOINT_VENDORS`; openai/deepseek/x-ai
-auto-cache, so their messages stay plain strings). The breakpoint sits ON the system message,
+explicit one (**anthropic** — `OR_CACHE_BREAKPOINT_VENDORS`; openai/deepseek/x-ai
+auto-cache, so their messages stay plain strings; google was in this set until 2026-10-13 and is not any more, because a marker made
+Gemini cost more: `2026-10-12-library-media-assets.md` § Google cache markers). The breakpoint sits ON the system message,
 so the varying user turn and any per-request dedup-neighbor `assistant` block stay OUTSIDE the
 cached prefix. Within the ~5-min TTL: call 1 writes the prefix (~1.25×), calls 2..N read it at
 ~0.1× — **roughly 85% off input on a fan-out**, with zero quality loss (we keep the full canon

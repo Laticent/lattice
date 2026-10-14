@@ -16,7 +16,7 @@ import { classifyMedia, importImage, importVideo, MediaImportError } from './med
 import { deleteMedia, listMedia, MEDIA_REFUSAL_PREFIX, namesOf, saveMedia, uniqueName } from './media-store';
 import type { ChatPhoto, ChatVideo } from './studio-store';
 
-export { MAX_CHAT_PHOTOS, MAX_VIDEO_SECONDS, PHOTO_TOKENS, VIDEO_TOKENS, VISION_EDGE } from './chat-photo-parts';
+export { MAX_CHAT_PHOTOS, MAX_VIDEO_SECONDS, VIDEO_TOKENS, VISION_EDGE } from './chat-photo-parts';
 export type { ChatPhoto, ChatVideo };
 
 /** What `addChatPhotos` hands back: the photos that landed, and a sentence per file that did not. */

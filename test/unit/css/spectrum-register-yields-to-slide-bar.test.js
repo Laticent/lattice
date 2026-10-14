@@ -47,3 +47,24 @@ test('a semantic tone-edge recolors each split frame\'s ribbon with --tone-color
   assert.ok(toneEdge('section\\.split-panel:is').some((r) => /--_ribbon:\s*linear-gradient\(var\(--tone-color\)/.test(r)));
   assert.ok(toneEdge('section\\.split-compare:is').some((r) => /\.compare-right\s*\{[^}]*linear-gradient\(var\(--tone-color\)/.test(r)));
 });
+
+// The tone RAIL and GLOW styles on an auto-split page: the semantic and the style ride as
+// `data-split-mods` (the style tokens stay classes), so each rule keyed on the semantic matches both forms.
+test('every semantic tone supplies --tone-color from data-split-mods, with or without tone-edge', () => {
+  for (const t of ['pass', 'warn', 'fail', 'skip']) {
+    assert.match(CSS, new RegExp(`\\nsection\\[data-split-mods~="tone-${t}"\\]\\s*\\{\\s*--tone-color:`), `tone-${t}`);
+  }
+});
+
+test('the default rail and the glow ring match the split-page semantic; the style stays a class', () => {
+  const rail = CSS.match(/section:is\([^{]*\)\s*\{\s*--tone-rail:\s*inset calc\(0\.55[^}]*box-shadow/)?.[0] ?? '';
+  assert.match(rail, /\[data-split-mods~="tone-warn"\]/);
+  assert.match(CSS, /\nsection\.tone-rail\s*\{/);
+  assert.match(CSS, /\[data-split-mods~="tone-skip"\]\)\.tone-glow\s*\{/);
+});
+
+test('the finish backdrop inset matches the split-page semantic too', () => {
+  const fin = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'lib', 'base', 'base.finish.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  const sel = fin.match(/section:is\([^{]*\)\.finish > \.backdrop \{/)?.[0] ?? '';
+  assert.match(sel, /\[data-split-mods~="tone-warn"\]/);
+});

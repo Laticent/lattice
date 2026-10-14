@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
-import { contentForBudget, MAX_VIDEO_BYTES, MAX_VIDEO_SECONDS, PHOTO_TOKENS, photoNote, VIDEO_TOKENS, videoNote, videoRefusal, withPhotos } from './chat-photo-parts';
+import { contentForBudget, MAX_VIDEO_BYTES, MAX_VIDEO_SECONDS, photoNote, VIDEO_TOKENS, videoNote, videoRefusal, withPhotos } from './chat-photo-parts';
 import { isMediaName } from './media-store';
 
 const URL1 = 'data:image/jpeg;base64,AAAA';
@@ -49,12 +49,11 @@ describe('photoNote', () => {
 });
 
 describe('contentForBudget', () => {
-	it('prices a photo as nothing here — the gate adds PHOTO_TOKENS for it — so base64 cannot block a turn', () => {
+	it('prices a photo as nothing here — the gate prices it per model — so base64 cannot block a turn', () => {
 		const big = `data:image/jpeg;base64,${'A'.repeat(2_000_000)}`;
 		const text = contentForBudget([{ type: 'text', text: 'hello' }, { type: 'image_url', image_url: { url: big } }]);
 		expect(text.length).toBeLessThan(200);
 		expect(text).toContain('hello');
-		expect(PHOTO_TOKENS).toBeGreaterThan(0);
 	});
 	it('passes strings through and treats null as empty', () => {
 		expect(contentForBudget('abc')).toBe('abc');

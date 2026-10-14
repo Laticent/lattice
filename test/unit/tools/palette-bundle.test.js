@@ -82,3 +82,38 @@ test('the published subpath resolves through the package exports, from Node', ()
     assert.equal(path.relative(ROOT, resolved).split(path.sep).join('/'), `dist/palettes/${name}.css`);
   }
 });
+
+// THE PACKED SLIDE FORM: slides.css + palette/<name>.slides.css (followups.d/2580). Measured against
+// the CLI by tools/palette-slide-parity.js (51/51 slides, indaco and cuoio-dark, linked and through Vite).
+test('packedSlides: one slide-scoped palette per shipped theme, and the engine sheet sizes the slide', () => {
+  const { packedSlides } = require('../../../tools/build-default-bundle.js');
+  const { slides, palettes: packed } = packedSlides();
+  assert.deepEqual(Object.keys(packed).sort(), shipped);
+  assert.match(slides, /article\.lattice\s*>\s*section/);
+  assert.match(slides, /@font-face/);
+  assert.doesNotMatch(stripCssComments(slides), /@import\b/);
+  for (const [name, css] of Object.entries(packed)) {
+    const body = stripCssComments(css);
+    assert.doesNotMatch(body, /(^|\n)\s*:root\b/, `${name} still declares tokens on :root, so a second palette could not sit beside it`);
+    assert.match(body, /article\.lattice\s*>/, `${name} is not scoped to a slide`);
+    assert.doesNotMatch(body, /@import\b/, `${name} imports something a bundler would read as a file`);
+  }
+});
+
+test('packedSlides: a light palette pins color-scheme on the slide itself, not only its descendants', () => {
+  // `:where(:root) { color-scheme: light }` packs onto a slide's descendants. A bundler's minifier lowers
+  // `light-dark()` to a toggle that color-scheme must set on the slide, so a light palette came out of Vite as
+  // `#f2f5fa#002847` and drew white cards (indaco: 19 of 51 slides matched the CLI).
+  const { packedSlides } = require('../../../tools/build-default-bundle.js');
+  for (const name of ['indaco', 'cuoio', 'cuoio-dark']) {
+    const body = stripCssComments(packedSlides().palettes[name]);
+    assert.match(body, /article\.lattice\s*>\s*:where\(section\):not\(\[\\20 root\]\)\s*\{\s*color-scheme:\s*(light|dark)/, name);
+    assert.doesNotMatch(body, /section\s+:where\(:where\(section\)/, `${name} has the descendant-only color-scheme rule`);
+  }
+});
+
+test('the packed slides.css and palettes resolve through the package exports, from Node', () => {
+  assert.equal(path.relative(ROOT, require.resolve('@laticent/lattice/slides.css')).split(path.sep).join('/'), 'dist/slides.css');
+  const resolved = require.resolve('@laticent/lattice/palette/indaco.slides.css');
+  assert.equal(path.relative(ROOT, resolved).split(path.sep).join('/'), 'dist/palettes/indaco.slides.css');
+});

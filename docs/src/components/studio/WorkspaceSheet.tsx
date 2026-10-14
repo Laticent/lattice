@@ -286,9 +286,9 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 	// Bump on open so the live status (incl. the authoritative account spend) re-fetches.
 	const [pulse, setPulse] = React.useState(0);
 	const ai = useArchitectStatus(pulse);
-	// Only a connected model whose vendor takes an EXPLICIT cache breakpoint can honor the
-	// switch — `withCachedSystem` no-ops for everyone else, and the auto-caching vendors
-	// cache server-side whatever this says. Gate the control rather than lie about it.
+	// Only a connected model whose vendor takes an EXPLICIT cache breakpoint (Anthropic) can honor the
+	// switch — `withCachedSystem` no-ops for everyone else, and the auto-caching vendors (OpenAI,
+	// Google, DeepSeek, x-ai) cache server-side whatever this says. Gate the control rather than lie about it.
 	const cacheUsable = ai.openRouterReady && orSupportsCache(ai.modelId ?? '');
 	const [genView, setGenView] = React.useState<GenView>('cloud');
 	const userPickedView = React.useRef(false);
@@ -1236,7 +1236,7 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 												{cacheUsable
 													? 'Chat re-sends a large, unchanging preamble every turn. Caching it bills that part at about a tenth on later turns, for a small surcharge the first time — worth leaving on for any real conversation.'
 													: ai.openRouterReady
-														? 'This model does not take a cache breakpoint, so the setting has no effect on it. Anthropic and Google models do.'
+														? 'This model caches on its own, so the setting has no effect on it. Only Anthropic models take a cache breakpoint.'
 														: 'Connect a cloud model in Model above and this applies to it.'}
 											</span>
 										</span>

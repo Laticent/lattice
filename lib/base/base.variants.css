@@ -102,18 +102,20 @@ section.tone-warn { --tone-color: var(--warn); }
 section.tone-fail { --tone-color: var(--fail); }
 section.tone-skip { --tone-color: var(--muted-mark); }
 /* An auto-split page swaps the layout class for the split role's, so the semantic tone rides as
-   `data-split-mods` (lib/core/split-envelope.js) while `tone-edge` rides as a class. Without a
-   `--tone-color` here the `tone-edge` rule below never matched and a `size: story` split page kept the
-   deck's rainbow bar. Scoped to `.tone-edge`: the tone-less rail style keeps its split-page behavior. */
-section.tone-edge[data-split-mods~="tone-pass"] { --tone-color: var(--pass); }
-section.tone-edge[data-split-mods~="tone-warn"] { --tone-color: var(--warn); }
-section.tone-edge[data-split-mods~="tone-fail"] { --tone-color: var(--fail); }
-section.tone-edge[data-split-mods~="tone-skip"] { --tone-color: var(--muted-mark); }
+   `data-split-mods` (lib/core/split-envelope.js) while the tone STYLES (`tone-rail`, `tone-edge`,
+   `tone-glow`) stay classes (TONE_STYLE_TOKENS ride as classes). Every rule keyed on the semantic
+   therefore matches BOTH forms; with a class-only selector a `size: story` split page lost the rail and
+   glow on its cover and `decision` pages, and `tone-edge` never matched
+   (engineering/decisions/2026-08-18-split-frame-edge-ownership.md addenda). */
+section[data-split-mods~="tone-pass"] { --tone-color: var(--pass); }
+section[data-split-mods~="tone-warn"] { --tone-color: var(--warn); }
+section[data-split-mods~="tone-fail"] { --tone-color: var(--fail); }
+section[data-split-mods~="tone-skip"] { --tone-color: var(--muted-mark); }
 /* The tone STYLE axis (orthogonal to the semantic tone above) sets the box-shadow
    SHAPE, so `tone-fail tone-edge` composes. Default (no style) = the left rail; a
    `tone-<style>` token overrides --tone-rail's value. All box-shadow so it never
    collides with the state ::before or the pagination ::after, and prints in the PDF. */
-section:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip) {
+section:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip, [data-split-mods~="tone-pass"], [data-split-mods~="tone-warn"], [data-split-mods~="tone-fail"], [data-split-mods~="tone-skip"]) {
   --tone-rail: inset calc(0.55 * var(--_sec-1cqi, 1cqi)) 0 0 0 var(--tone-color); /* rail (default) */
   box-shadow: var(--tone-rail);
   /* The rail is the left edge, so the engine keyline yields there (base.modifiers.css). */
@@ -122,7 +124,7 @@ section:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip) {
 /* `tone-rail` is the default shape; it is ALSO a first-class token so a per-slide (or
    drawer) pick of "rail" restores the left rail even over a deck-wide `tone: edge`. */
 section.tone-rail { --tone-rail: inset calc(0.55 * var(--_sec-1cqi, 1cqi)) 0 0 0 var(--tone-color); }  /* left rail (explicit) */
-section:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-glow { --tone-rail: inset 0 0 0 calc(0.35 * var(--_sec-1cqi, 1cqi)) var(--tone-color); --_edge-t: 0; --_edge-r: 0; --_edge-b: 0; }  /* full inset ring — it is the edge on every side, so no keyline draws */
+section:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip, [data-split-mods~="tone-pass"], [data-split-mods~="tone-warn"], [data-split-mods~="tone-fail"], [data-split-mods~="tone-skip"]).tone-glow { --tone-rail: inset 0 0 0 calc(0.35 * var(--_sec-1cqi, 1cqi)) var(--tone-color); --_edge-t: 0; --_edge-r: 0; --_edge-b: 0; }  /* full inset ring — it is the edge on every side, so no keyline draws */
 
 /* `tone: edge` RECOLORS the spectrum brand bar (the top border) with the tone color,
    rather than painting a SEPARATE top band that would fight it — the same move the

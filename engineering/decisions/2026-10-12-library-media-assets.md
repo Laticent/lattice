@@ -305,7 +305,7 @@ in `chat-agent.ts`.
 |---|---|---|
 | The list | One line per asset in the prompt tail: name, photo or video, shape (`landscape 3:2`), scope, caption. Capped at 40 lines, then "…and N more". | About 15 tokens an asset. Nothing for an empty Library. |
 | `list_assets` | Name, shape, pixel size, bytes, scope and caption for a filtered slice (words match name, caption and shape). | Only when called. |
-| `view_asset`, then `caption_asset` | A JPEG thumbnail, 512 px on the long edge, labeled by name, for a photo with no caption. The model writes a caption of under 20 words and the store keeps it on the record (`MediaRecord.caption`). | About 800 tokens a picture, at most 6 a turn, once per photo ever. |
+| `view_asset`, then `caption_asset` | A JPEG thumbnail, 512 px on the long edge, labeled by name, for a photo with no caption. The model writes a caption of under 20 words and the store keeps it on the record (`MediaRecord.caption`). | From about 250 to 1,300 tokens a picture on most models (8,500 on GPT-4o mini), at most 6 a turn, once per photo ever. |
 
 **Decisions, and why**
 - **The list rides in the dynamic tail, not the cached prefix.** It changes whenever a photo is added or
@@ -339,8 +339,43 @@ in `chat-agent.ts`.
   known before the turn.
 - **One shelf read per turn.** `createAgentAssets()` reads the shelf once and serves the list, every thumbnail
   and every caption from that read; it was one full read of every photo's bytes per call.
-- **The budget gate prices a picture as a fixed `THUMB_TOKENS`**, not as the ~40K characters of base64 that
-  carry it, which would have overstated a round's cost about twelve times.
+- **The budget gate prices a picture per model, from a measured table** (2026-10-13; it was a flat 800 tokens, which
+  was too low for most of the catalog and wrong by 40x at the ends). A picture is never charged as its base64 (a
+  thumbnail is ~40K characters). What it costs is the model's: for one 3:2 picture at 512 px, 212 tokens on GPT-5 mini, 250
+  on Claude, 1,290 on Gemini 2.5, 8,500 on GPT-4o mini; at 1568 px, 258 to 36,835. `tools/probe-picture-tokens.mjs`
+  measures it (the same short prompt with no picture, a 512 px and a 1568 px one; the difference in `usage.prompt_tokens`),
+  and `docs/src/components/studio/picture-tokens.data.json` holds the result.
+  - **Shape.** Pictures keep their shape, and the probe's are 3:2. A second probe on 18 models from 14 vendors measured
+    square and portrait: portrait costs the same as landscape; a square costs 1.45 to 1.51x as much on the models that price
+    by area (Claude, GPT-5, Qwen, Mistral, Kimi, GLM) and from 0.37x to 1.43x on the tiled ones. A third probe on 2026-10-14
+    (1568x64 strip, 1568x392 panorama, 64x1568 tall, on eight models) found one outlier: Gemini 2.5 Flash and Flash-Lite
+    cost 3,354 tokens for any thin or tall picture against 1,806 for the 3:2 one, 1.86x. Every figure in the table is the
+    measured one times `SHAPE` = 1.9, so no measured shape is under-charged. The strip probe covered eight models, not
+    all 192; a tiled model outside those eight with a worse thin-picture ratio would still be under-charged.
+  - **Table.** A default (`thumb` 2,150, `photo` 4,450, at or above the 90th percentile of the 192 models measured, after the
+    shape factor) plus the 28 models that cost more, each rounded up to 50. `resolvePictureTokens(model)` (`picture-tokens.ts`)
+    reads it. The file also lists the ids it measured (`measuredIds`) and the ones the probe failed on (`unmeasuredIds`), so a model
+    outside both is known to be new. A model that was not measured is charged its vendor's 90th percentile (`vendorFloor`: five
+    vendors today, each with three or more readings and a figure above the default), else the default. This is the answer to table
+    rot: Gemini 2.5 Flash showed a vendor's models share a scheme. `node tools/probe-picture-tokens.mjs --check` needs no key and
+    spends nothing: it fetches the public model list and exits 1 when a vision model is live that the table has never seen. It is a
+    tool to run before a release, not a CI step (a new CI job is the owner's call).
+  - **Aliases.** `~anthropic/claude-sonnet-latest` style ids are not measured models. The catalog says which model each points
+    at today (`alias_target.slug`; `listModels` keeps it as `aliasSlug`), and that one is looked up. All 15 vision aliases
+    point at measured models. A catalog cached before the field, or one that cannot be read, prices the alias as an unmeasured model: its vendor's floor, else the default.
+  - **Not measured, so charged the vendor floor (else the default):** 20 of the 212 vision models: 404 or 403 (not served to our key), 400,
+    rate-limited after a retry (429), a timeout, or a reading that made no sense (`gemini-4-argon` read -47 tokens for its 512 px
+    picture; `grok-4.20-multi-agent` read 25,336 once and 1,509 on a retry, because its own prompt changes between calls).
+    A model released after 2026-10-13 pays its vendor's floor (else the default) until the tool is rerun
+    (`OPENROUTER_ALLOW_SPEND=1 node tools/probe-picture-tokens.mjs --write`, about $1.4; it refuses `--write` on a partial run).
+- **A model's own image price raises that figure, never lowers it.** `listModels` keeps OpenRouter's `pricing.image` as
+  `ORPrice.imagePerM`, and `pictureSurchargeUsd` adds the gap over the token figure to the gate (`cloudBudgetBlock`'s
+  `extraUsd`). 18 of the 212 vision models list it, all Google, and on every one it equals the prompt price, so today the
+  surcharge is $0 and the measured token table does the work. OpenRouter does not say what the number counts, so a rate
+  within 10x the prompt rate is read as per-token and a larger one as dollars per picture; above that line the gate
+  picks a possible under-charge over a certain absurd over-charge, and no listed model is there.
+- **Attached photos are priced the same way** (`photo`, not the old flat 1,500), by the chat agent and by the one-shot
+  chat path a tool-refusing model falls back to; a clip stays a flat `VIDEO_TOKENS`.
 - **Videos are listed but cannot be viewed.** There is no poster frame yet.
 
 **What is verified, and what is not.** `docs/e2e/chat-library-assets.spec.ts` drives the real Studio in
@@ -799,3 +834,69 @@ commit builds and tests against `main` alone.
 5. Whether camera capture ("Take Photo") warrants its own button, or `accept="image/*"` is
    enough. On iOS it is enough; on some Android browsers the picker hides the camera unless
    `capture` is set. Slice 1 checks.
+
+**What the measurements were, and what a first live turn got wrong (2026-10-13; owner-directed key spend, about $1.9 in all).**
+A first live turn of the real Studio on `google/gemini-2.5-flash-lite` read 7,554 prompt tokens with no picture and 18,927 with one,
+which looked like an 11x under-charge. It was not the picture. Replaying that turn's exact second request with parts removed
+read 17,899 as sent, 8,949 with the `cache_control` markers removed, 7,662 with the picture replaced by text, and 6,917 with
+the tools removed too: the picture is about 1,300 tokens, as the direct probe said, and the marked request reports every
+prompt token twice. The marker was the finding:
+
+**Google cache markers cost money, so Google no longer gets them.** `or-cache.js` marked the system block and a rolling tail for
+Google as well as Anthropic, on the belief that Google caches only what you mark. On the chat agent's real three-round turn,
+replayed through OpenRouter with and without the markers, marked cost more on every Google model tried:
+
+| model | marked, cold turn | unmarked, cold turn |
+|---|---|---|
+| gemini-2.5-flash-lite | $0.004695 | $0.002569 |
+| gemini-2.5-flash | $0.009914 | $0.007863 |
+| gemini-3.5-flash-lite | $0.007344 | $0.006302 |
+| gemini-3.8-flash | $0.018744 | $0.017574 |
+| gemini-3.1-pro-preview | $0.066578 | $0.042178 |
+
+Repeating the same turn within the cache lifetime (three turns, same prefix): 2.5 Flash Lite $0.00324 / $0.00174 / $0.00175
+marked against $0.00184 / $0.00108 / $0.00042 unmarked; 2.5 Flash $0.01013 / $0.00756 / $0.00559 against $0.00556 / $0.00336 /
+$0.00140; 3.5 Flash Lite $0.00737 / $0.00598 / $0.00595 against $0.00420 / $0.00419 / $0.00213. Unmarked requests earn Google's
+implicit-cache discount; marked ones pay for an explicit cache and do not. The breakpoint set is now Anthropic only
+(`or-cache.js`, pinned in `or-cache.test.ts`). The gate prices a round uncached, which is now also right for Google; before,
+a marked Gemini round billed up to 1.8x what the gate assumed. Anthropic was checked the other way on `claude-haiku-5.5`: a
+marked first call costs 1.25x ($0.003156 against $0.002526) and a repeat 0.1x ($0.000258), as designed.
+
+**Everything that follows from Google not taking markers.** The Coach's per-finding Fix sent its own marker (`architect-fix.js`
+`buildFixMessages`) whenever the switch was on, whatever the vendor; it now follows `orSupportsCache`. The Workspace "Reuse the
+cached prompt" switch is disabled for a model that caches on its own, with the reason in its copy (OpenAI, Google, DeepSeek, x-ai).
+The cost readout applies Anthropic's cache rates (2x write, 0.1x read) only to a request that carries an explicit breakpoint, meaning
+an Anthropic model with the switch on (`explicitCache` in `ArchitectChat.tsx`, `agentTurnUsd`). Any other request is priced at the base
+rate: exact for a model that does not cache, and an upper bound for a vendor that caches on its own (Google, OpenAI, DeepSeek, x-ai),
+whose discount the readout does not promise because the hit rate is the vendor's.
+
+**The price must be known before the first spend.** The budget gate compares an estimate against the cap, and the estimate needs the
+model's price from the catalog, which loaded only when something asked for it (the Workspace model tab, an alias lookup). With no price
+`openRouterModelPrice()` is `null`, `estimateUsd` returns `null`, and the call goes through: on a fresh browser profile the first chat turn,
+and the Coach's Fix and the refine and generate actions on any profile that had not opened the model tab, ran past a hard-stop cap (13
+call sites of `cloudBudgetBlock`). Three changes close it, each pinned by a test that fails without it:
+- `cloudBudgetBlock` is async and, in stop mode with a cap and no price, waits for the catalog (at most 4 seconds, timer cleared) before it
+  compares. Every spending action goes through it. It does not wait in alert mode or with no cap, where nothing could use the price.
+- The catalog is fetched as soon as a key exists: when a connected model is created, and when a key is written during the session (the OAuth
+  return, Undo after Disconnect), so it is normally loaded before anything can spend. Concurrent callers share one in-flight fetch
+  (`listModels` memoizes it), a fetch that never answers is abandoned after 15 seconds so the next call can try again, and a fetch that
+  started before the self-heal invalidated the cache cannot write its stale answer back.
+- The chat reads the catalog at most once a turn (`boundedCatalog`, 4 seconds, failure reads as empty) and only when the vision check or an
+  alias lookup needs it. On a hung network a turn with photos, an alias model and a cap can still wait about 8 seconds once (the catalog
+  read, then the gate's own wait) before the fetch aborts at 15.
+A call that starts in the first moments after a key is written, before the fetch returns, waits for it in the gate. Verified on the real
+Studio (the final build, a fresh profile, the real key, a $0.0001 stop-mode cap, `~anthropic/claude-haiku-latest`): no request left the page,
+the chat said "Estimated ~$0.01 — that would exceed your $0.00 cap", and the page made exactly one catalog request; the same setup before
+the change sent the chat request. The Coach's Fix, refine and generate are verified in unit tests against the real gate, not driven on a real Studio.
+
+**Real Studio, final build, one turn each (2026-10-13).** A Library photo, the agent calling `view_asset` then `caption_asset`.
+`google/gemini-2.5-flash-lite`: no request carried `cache_control`, prompt tokens read 7,554 / 8,949 / 8,989 (not doubled), three
+rounds cost $0.00076 + $0.00091 + $0.00016 = $0.0018; the first live turn, with markers, cost $0.0048 for the same work.
+`~anthropic/claude-haiku-latest`: every request carried `cache_control`, the alias resolved, rounds two and three read 12,168 and
+12,605 prompt tokens from cache. Not driven on a real Studio: the Coach's Fix (pinned by `architect-agent.chat.test.ts` against the real wiring),
+an attached photo through the chat's attach control, and any WebKit or phone surface.
+
+**The Library's "Suggest" is priced the same way** (merged from #2668, 2026-10-14). It sent a picture to the author's image model with a flat
+`edge² / 750` estimate, which is Claude's formula; it now charges the model's measured figure for the look's size (`lookCharge`: the 512 px
+figure for Quick, the 1568 px one for Careful and Thorough, never below the old formula) plus the model's own image-price surcharge, through the
+same gate, and its `cloudBudgetBlock` call gained the `await` and the `priceModelId` argument that PR introduced, after `extraUsd`.

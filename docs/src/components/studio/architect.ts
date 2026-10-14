@@ -8,6 +8,7 @@ import { applyEdit, applyEditChecked, diffLines, EDIT_PROTOCOL, numberSlides, pa
 import { requestSlideFix } from '@/components/studio/ai/architect-fix.js';
 import { AUTHORING_RULES, buildLatticePrimer, layoutBlock } from '@/components/studio/ai/architect-knowledge.js';
 import { cosineRank } from '@/components/studio/ai/architect-retrieval.js';
+import { orSupportsCache } from '@/components/studio/ai/or-cache.js';
 import { buildCanonContext } from '@/components/studio/ai/presentation-canon.js';
 import { buildRefinePrompt, cleanRewrite, REFINE_ACTIONS } from '@/components/studio/ai/refine.js';
 import { adjustSpend, budgetStatus, readBudgetCap, readBudgetFloor, readBudgetMode, readCachingEnabled, readDedupEnabled, readSpend, recordSpend } from '@/components/studio/ai/spend.js';
@@ -169,6 +170,8 @@ export type ORModel = {
 	vision: boolean;
 	/** Accepts video input. `undefined` on a catalog cached before the field existed: unknown, not no. */
 	video?: boolean;
+	/** The model a `~…-latest` alias resolves to; null for a plain id. Absent on a catalog cached before the field existed. */
+	aliasSlug?: string | null;
 };
 
 /** This key's readout from /auth/key — usage + (optional) per-key spend limit. */
@@ -185,7 +188,12 @@ export type ORAccount = {
 export type ORCredits = { credits: number; usage: number; balance: number };
 
 /** A per-million price pair for the active model (for the pre-send estimate). */
-export type ORPrice = { promptPerM: number | null; completionPerM: number | null };
+export type ORPrice = {
+	promptPerM: number | null;
+	completionPerM: number | null;
+	/** OpenRouter's `pricing.image` ×1e6, when the model lists one; absent or null otherwise (and on a catalog cached before this field). */
+	imagePerM?: number | null;
+};
 
 /** The generation-ladder availability flags `architect-model.js` reports. */
 export type ModelAvailability = {
@@ -351,7 +359,7 @@ export async function runArchitect(source: string, instruction: string, docs?: R
 	// Respect the budget on the paid cloud tier — blocks when over, and (hard-stop mode)
 	// refuses a call whose estimate would breach the cap. Local tiers are free.
 	if (generation === 'openrouter') {
-		const blk = cloudBudgetBlock(model, `${instruction}\n${source}`, refDocsTokens(docs));
+		const blk = await cloudBudgetBlock(model, `${instruction}\n${source}`, refDocsTokens(docs));
 		if (blk) return { status: 'blocked', note: blk };
 	}
 	// Ground in the user's reference doc (#640) — e.g. "rewrite this in the style of
@@ -408,7 +416,7 @@ export async function refineSelection(action: RefineActionId, text: string, deck
 	const generation = model.availability().generation;
 	if (generation === 'floor') return { status: 'offline' };
 	if (generation === 'openrouter') {
-		const blk = cloudBudgetBlock(model, text);
+		const blk = await cloudBudgetBlock(model, text);
 		if (blk) return { status: 'blocked', note: blk };
 	}
 	let out = '';
@@ -470,7 +478,7 @@ export async function generateDescription(slideSource: string, deckLang?: string
 	// Accuracy matters (a wrong alt is worse than none), so require the cloud tier —
 	// the deterministic floor and tiny on-device model are not trusted to describe.
 	if (generation !== 'openrouter') return { status: 'offline' };
-	const blk = cloudBudgetBlock(model, slideSource);
+	const blk = await cloudBudgetBlock(model, slideSource);
 	if (blk) return { status: 'blocked', note: blk };
 	let out = '';
 	try {
@@ -534,7 +542,7 @@ export async function generateTheme(current: ThemeEssentials, prompt: string, do
 	const generation = model.availability().generation;
 	if (generation === 'floor') return { status: 'offline' };
 	if (generation === 'openrouter') {
-		const blk = cloudBudgetBlock(model, prompt, refDocsTokens(docs));
+		const blk = await cloudBudgetBlock(model, prompt, refDocsTokens(docs));
 		if (blk) return { status: 'blocked', note: blk };
 	}
 	const tc = await loadThemeCore();
@@ -625,7 +633,7 @@ export async function generateFinish(prompt: string): Promise<FinishGenOutcome> 
 	const generation = model.availability().generation;
 	if (generation === 'floor') return { status: 'offline' };
 	if (generation === 'openrouter') {
-		const blk = cloudBudgetBlock(model, prompt);
+		const blk = await cloudBudgetBlock(model, prompt);
 		if (blk) return { status: 'blocked', note: blk };
 	}
 	let reply = '';
@@ -697,7 +705,7 @@ export async function generateDrawing(prompt: string): Promise<DrawingGenOutcome
 	const generation = model.availability().generation;
 	if (generation === 'floor') return { status: 'offline' };
 	if (generation === 'openrouter') {
-		const blk = cloudBudgetBlock(model, prompt);
+		const blk = await cloudBudgetBlock(model, prompt);
 		if (blk) return { status: 'blocked', note: blk };
 	}
 	let reply = '';
@@ -913,7 +921,7 @@ async function repairToClean(
 	let refined = 0;
 	for (let pass = 1; pass <= MAX_REPAIR_PASSES && errorCount > 0; pass++) {
 		if (generation === 'openrouter') {
-			const blk = cloudBudgetBlock(model, JSON.stringify(draft));
+			const blk = await cloudBudgetBlock(model, JSON.stringify(draft));
 			if (blk) break; // out of budget → keep the best draft so far
 		}
 		onRefining?.(pass, errorCount);
@@ -970,7 +978,7 @@ async function improveDesign(
 	let improved = 0;
 	for (let round = 1; round <= rounds; round++) {
 		if (generation === 'openrouter') {
-			const blk = cloudBudgetBlock(model, JSON.stringify(best.draft));
+			const blk = await cloudBudgetBlock(model, JSON.stringify(best.draft));
 			if (blk) break; // out of budget → keep the best so far
 		}
 		onImproving?.(round, rounds);
@@ -1053,7 +1061,7 @@ export async function generateComponent(
 	const generation = model.availability().generation;
 	if (generation === 'floor') return { status: 'offline' };
 	if (generation === 'openrouter') {
-		const blk = cloudBudgetBlock(model, prompt, refDocsTokens(docs));
+		const blk = await cloudBudgetBlock(model, prompt, refDocsTokens(docs));
 		if (blk) return { status: 'blocked', note: blk };
 	}
 	// Dedup-first (§5/§8): unless the author turned it off, rank the request against
@@ -1156,7 +1164,7 @@ export async function refineComponent(
 	const generation = model.availability().generation;
 	if (generation === 'floor') return { status: 'offline' };
 	if (generation === 'openrouter') {
-		const blk = cloudBudgetBlock(model, `${instruction}\n${JSON.stringify(current)}`);
+		const blk = await cloudBudgetBlock(model, `${instruction}\n${JSON.stringify(current)}`);
 		if (blk) return { status: 'blocked', note: blk };
 	}
 	opts?.onStatus?.({ phase: 'generating' });
@@ -1218,13 +1226,13 @@ export async function requestFindingFix(source: string, finding: Finding, catalo
 	const generation = model.availability().generation;
 	if (generation === 'floor') return { status: 'offline' };
 	if (generation === 'openrouter') {
-		const blk = cloudBudgetBlock(model, source);
+		const blk = await cloudBudgetBlock(model, source);
 		if (blk) return { status: 'blocked', note: blk };
 	}
 	try {
 		const res = await requestSlideFix({
 			model: voicedModel(model, generation, deckOutputLang(source)),
-			gate: { cache: () => generation === 'openrouter' && readCachingEnabled(), onUsage: (u: Usage) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0)) },
+			gate: { cache: () => generation === 'openrouter' && readCachingEnabled() && orSupportsCache(model.openRouterModel?.() ?? ''), onUsage: (u: Usage) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0)) },
 			source,
 			finding,
 			catalog,
@@ -1443,13 +1451,21 @@ export async function chatComplete(history: ChatTurn[], source: string, docs?: R
 	// alone would under-count a chat turn several-fold and let a hard-stop cap sail past the
 	// ceiling it exists to hold. The tally itself was always authoritative (recordSpend uses
 	// the returned `usage.cost`) — this is the pre-send ESTIMATE catching up to the prompt.
+	let photoTokens = 0;
+	let photoUsd = 0;
 	if (generation === 'openrouter') {
 		// Same arithmetic the readout uses (estTokens), uncached: the GATE prices the worst
 		// case, so it must not assume a cache hit it can't guarantee.
 		const systemTokens = estTokens(staticPrefix) + estTokens(dynamicTail);
-		// A photo is priced at a flat 1,500 tokens, a clip at 4,500 (chat-photo-parts PHOTO_TOKENS / VIDEO_TOKENS; literals here because
-		// that module is loaded on demand and this one is startup code).
-		const blk = cloudBudgetBlock(model, `${last?.content ?? ''}\n${source}`, refDocsTokens(docs) + systemTokens + (opts?.photos?.length ?? 0) * 1500 + (opts?.videos?.length ?? 0) * 4500, CHAT_MAX_TOKENS);
+		// Photos and clips are priced per model (picture-tokens.ts) and a clip at a flat 4,500 tokens (chat-photo-parts VIDEO_TOKENS);
+		// those modules load on demand and this one is startup code, so they are imported only when a photo is attached.
+		const nPhotos = opts?.photos?.length ?? 0;
+		if (nPhotos) {
+			const { boundedCatalog, priceRound, resolvePictureTokens } = await import('./picture-tokens');
+			await boundedCatalog(model); // the surcharge needs the price, and the price needs the catalog (immediate when it is cached)
+			({ tokens: photoTokens, usd: photoUsd } = priceRound(await resolvePictureTokens(model), model.openRouterModelPrice?.() ?? null, nPhotos, nPhotos));
+		}
+		const blk = await cloudBudgetBlock(model, `${last?.content ?? ''}\n${source}`, refDocsTokens(docs) + systemTokens + photoTokens + (opts?.videos?.length ?? 0) * 4500, CHAT_MAX_TOKENS, photoUsd);
 		if (blk) return { status: 'blocked', reply: blk };
 	}
 	// Ground the final user turn in the reference doc (#640).
@@ -1512,7 +1528,7 @@ export async function chatComplete(history: ChatTurn[], source: string, docs?: R
 		// turn. Best-effort — on any failure the estimate simply stands.
 		if ((e as { name?: string })?.name === 'AbortError') {
 			if (generation === 'openrouter' && streamed) {
-				const est = estimateUsd(`${last?.content ?? ''}\n${source}`, model.openRouterModelPrice?.() ?? null, Math.ceil(streamed.length / 4), refDocsTokens(docs)) ?? 0;
+				const est = estimateUsd(`${last?.content ?? ''}\n${source}`, model.openRouterModelPrice?.() ?? null, Math.ceil(streamed.length / 4), refDocsTokens(docs) + photoTokens, photoUsd) ?? 0;
 				if (est) recordSpend(est, Math.ceil(streamed.length / 4));
 				if (genId && model.openRouterGenerationCost) {
 					void model.openRouterGenerationCost(genId)
@@ -1716,33 +1732,42 @@ export function chatSystemTokens(generation: string, grounding?: ChatGrounding, 
  *  lives with the agent (chat-agent.ts `agentTurnUsd`), not in startup JavaScript; until that
  *  module lands this returns null and starts loading it, and the readout re-prices on
  *  `lattice-chat-agent-ready`. */
-export function agentTurnUsd(price: ORPrice | null, grounding: ChatGrounding | undefined, primed: boolean, source: string, extraTokens = 0, libraryCount = 0): { question: number; edit: number } | null {
+export function agentTurnUsd(price: ORPrice | null, grounding: ChatGrounding | undefined, primed: boolean, source: string, extraTokens = 0, libraryCount = 0, explicitCache = true): { question: number; edit: number } | null {
 	if (!chatAgentMod) {
 		loadChatAgent().catch(() => {});
 		return null;
 	}
-	return chatAgentMod.agentTurnUsd(price, grounding, primed, source, extraTokens, libraryCount);
+	return chatAgentMod.agentTurnUsd(price, grounding, primed, source, extraTokens, libraryCount, explicitCache);
 }
 
 /** Estimate a cloud call's USD cost: prompt tokens × in-price + an output ceiling ×
  *  out-price. `extraTokens` folds in an attached reference doc's contribution (#640)
  *  so the pre-send guard and readout include the doc the user pays for. */
-export function estimateUsd(promptText: string, price: ORPrice | null, maxOut = 4096, extraTokens = 0): number | null {
+export function estimateUsd(promptText: string, price: ORPrice | null, maxOut = 4096, extraTokens = 0, extraUsd = 0): number | null {
 	if (!price || price.promptPerM == null || price.completionPerM == null) return null;
-	return ((estTokens(promptText) + extraTokens) / 1e6) * price.promptPerM + (maxOut / 1e6) * price.completionPerM;
+	const usd = ((estTokens(promptText) + extraTokens) / 1e6) * price.promptPerM + (maxOut / 1e6) * price.completionPerM + extraUsd;
+	return Number.isFinite(usd) ? usd : null; // a NaN would compare false against the cap and wave the call through
 }
 
 // The cloud budget gate, shared by every architect action: blocks when already over
 // the cap/balance, AND — in hard-stop mode — refuses a call whose ESTIMATE would
 // breach the self-cap, so a single large request can't overshoot. Returns a note, or null.
-export function cloudBudgetBlock(model: ArchitectModel, promptText: string, extraTokens = 0, maxOut = CHAT_OUTPUT_EST, priceModelId?: string): string | null {
+export async function cloudBudgetBlock(model: ArchitectModel, promptText: string, extraTokens = 0, maxOut = CHAT_OUTPUT_EST, extraUsd = 0, priceModelId?: string): Promise<string | null> {
 	const s = architectSpend();
 	if (s.status.blocked) return 'Budget cap reached — raise it in Workspace → Spend, or switch tier.';
 	if (s.mode === 'stop' && s.cap > 0) {
 		// The hard stop prices THIS call's ceiling — its job is to refuse a call that could
 		// overshoot, so it assumes the reply runs to the end. `maxOut` defaults to the shared
 		// ceiling; only the chat, which lifts its own, passes the larger figure.
-		const est = estimateUsd(promptText, model.openRouterModelPrice?.(priceModelId) ?? null, maxOut, extraTokens);
+		let price = model.openRouterModelPrice?.(priceModelId) ?? null;
+		if (!price) {
+			// The price comes from the model catalog, which loads on demand; with none the cap has nothing to hold the call to. Wait for it, at most 4 s.
+			let timer: ReturnType<typeof setTimeout> | undefined;
+			await Promise.race([Promise.resolve(model.listOpenRouterModels?.()).catch(() => undefined), new Promise((r) => (timer = setTimeout(r, 4000)))]);
+			clearTimeout(timer);
+			price = model.openRouterModelPrice?.(priceModelId) ?? null;
+		}
+		const est = estimateUsd(promptText, price, maxOut, extraTokens, extraUsd);
 		if (est != null && s.session + est > s.cap) {
 			return `Estimated ~$${est.toFixed(2)} — that would exceed your $${s.cap.toFixed(2)} cap. Raise it in Workspace → Spend, pick a cheaper model, or switch to On-device (free).`;
 		}

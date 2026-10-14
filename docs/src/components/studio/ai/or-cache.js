@@ -15,15 +15,14 @@
 // to the eager Studio bundle, and the seam stops paying for itself.
 //
 // Both halves of the policy live here together on purpose —
-// OR_CACHE_BREAKPOINT_VENDORS is documented as a SUBSET of OR_CACHE_VENDORS, and
-// splitting the pair across files is how that relationship rots.
+// OR_CACHE_BREAKPOINT_VENDORS is the one vendor set, shared by the switch's gate and the marks.
 
-// Does this OpenRouter model support prompt caching (the `cache_control` breakpoint)?
-// OpenRouter applies caching automatically and silently ignores the breakpoint on
-// models that don't support it, so this is a UI-honesty gate (don't offer a toggle
-// that does nothing) rather than a correctness one. Keyed on the vendor prefix —
-// the providers OpenRouter documents as supporting prompt caching.
-const OR_CACHE_VENDORS = new Set(['anthropic', 'openai', 'deepseek', 'google', 'x-ai']);
+// Does this OpenRouter model take an EXPLICIT cache breakpoint (`cache_control`)? Only Anthropic
+// does. OpenAI, DeepSeek, x-ai and Google cache on their own, whatever a request says, so the
+// Workspace "Reuse the cached prompt" switch does nothing for them. This is a UI-honesty gate
+// (don't offer a toggle that does nothing) and the single source of the vendor set `withCachedSystem`
+// and `withCachedTail` mark for. Keyed on the vendor prefix.
+//
 // The vendor prefix, with OpenRouter's ALIAS marker stripped. Both Studio defaults are
 // aliases (`~anthropic/claude-haiku-latest`, `~anthropic/claude-sonnet-latest`) so that the
 // id can't rot as models are superseded — but `'~anthropic/…'.split('/')[0]` is
@@ -37,14 +36,20 @@ const OR_CACHE_VENDORS = new Set(['anthropic', 'openai', 'deepseek', 'google', '
 // so the two can't be confused at an import site.
 const cacheVendorOf = (id) => String(id || '').replace(/^~/, '').split('/')[0];
 export function orSupportsCache(id) {
-  return OR_CACHE_VENDORS.has(cacheVendorOf(id));
+  return OR_CACHE_BREAKPOINT_VENDORS.has(cacheVendorOf(id));
 }
 
 // The vendors whose prompt caching needs an EXPLICIT `cache_control` breakpoint to
-// fire. Anthropic + Google cache only the prefix you mark; OpenAI / DeepSeek / x-ai
-// cache automatically (no breakpoint, so we leave their messages untouched — a plain
-// string, which they prefer). Subset of OR_CACHE_VENDORS.
-const OR_CACHE_BREAKPOINT_VENDORS = new Set(['anthropic', 'google']);
+// fire. Only Anthropic: it caches just the prefix you mark. OpenAI / DeepSeek / x-ai cache
+// automatically, and so does Google (implicit caching), so we leave their messages
+// untouched — a plain string, which they prefer. Google was in this set until
+// 2026-10-13, on the belief that it needs a marker; measured through OpenRouter on the
+// chat agent's real three-round turn, a marker made Gemini cost MORE on every model tried
+// (cold turn, marked vs unmarked: 2.5 Flash Lite $0.0047 vs $0.0026, 2.5 Flash $0.0099 vs
+// $0.0079, 3.5 Flash Lite $0.0073 vs $0.0063, 3.8 Flash $0.0187 vs $0.0176, 3.1 Pro $0.0666
+// vs $0.0422) and report every prompt token twice; a warm repeat turn billed $0.0014
+// unmarked against $0.0056 marked on 2.5 Flash.
+const OR_CACHE_BREAKPOINT_VENDORS = new Set(['anthropic']);
 
 // Mark the static SYSTEM block for prompt caching so a repeated, byte-identical
 // system prompt (our authoring canon is ~7K tokens, re-sent on EVERY call) is paid in

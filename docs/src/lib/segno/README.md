@@ -172,7 +172,7 @@ block pass. Those take code on top.
 
 **Two outputs.** `compile` builds a parser from closures, for a grammar that arrives at runtime.
 `generate(spec)` writes the same parser as TypeScript source — straight-line code, character tests
-inlined, the tree in one reused integer buffer (`flat.ts`) — for a grammar that ships. The inline
+inlined, the tree in one reused integer buffer (`flat.ts`), returned in one reused result object — for a grammar that ships. The inline
 notation ships generated (`notation.generated.ts`), and a test holds the two to identical output on
 20,000 fuzzed spans.
 
@@ -300,24 +300,33 @@ a cloud sandbox, so the absolute figures are about half what a laptop gives:
 
 | job | kernel (retired) | arm's dispatcher | shipped | shipped/kernel |
 |---|---|---|---|---|
-| inline dispatch, every span both read alike | 27 ns | 52 ns | 38 ns | 1.4x |
-| &nbsp;&nbsp;ordinary code (code to both) | 28 ns | 49 ns | 43 ns | 1.6x |
-| &nbsp;&nbsp;state marks `[x]` | 49 ns | 29 ns | 86 ns | 1.8x |
-| &nbsp;&nbsp;pills `{BETA, tag, c4}` | 182 ns | 536 ns | 503 ns | 2.8x |
-| Segno syntax the kernel reads as code (482 spans) | — | 1.68 µs | 2.36 µs | — |
+| inline dispatch, every span both read alike | 26 ns | 50 ns | 32 ns | 1.2x |
+| &nbsp;&nbsp;ordinary code (code to both) | 23 ns | 42 ns | 27 ns | 1.2x |
+| &nbsp;&nbsp;state marks `[x]` | 42 ns | 22 ns | 71 ns | 1.7x |
+| &nbsp;&nbsp;pills `{BETA, tag, c4}` | 166 ns | 496 ns | 482 ns | 2.9x |
+| Segno syntax the kernel reads as code (482 spans) | — | 987 ns | 2.10 µs | — |
 
-This is the middle of three runs. The same code reads differently from run to run in this sandbox,
-and the ordinary-code row shows it: it is 99% of spans and unchanged code, and it read 1.0x, 1.6x
-and 1.4x the kernel across those three runs (31, 43 and 33 ns shipped against 31, 28 and 23 ns).
-The every-span ratio read 1.65x, 1.37x and 1.29x; before the pill work it read 1.34x, 1.71x and
-1.41x. So it sits on the 1.5x line and the noise decides which side a run lands on. What the pill
-work moved is the part that is not noise. The 35 pills (and 18 other directives) of 4,742 spans
-cost the shipped path 933, 678 and 702 ns each before and 563, 503 and 521 ns after, which is
-5.1x, 3.5x and 3.8x the kernel and then 3.0x, 2.8x and 2.7x. Closing the rest is a faster Segno
-parse (about 290 ns of the 503) rather than a faster dispatcher; the design note accepts pills
-above the bar (§ The engine). Before the first-character table the same run read 174 ns for every
-span and 149 ns for ordinary code (5.2x the kernel), because every kind ran its own check on every
-span.
+This is the middle of five runs. The every-span ratio read 1.21x, 1.22x, 1.21x, 1.18x and 1.37x. The
+retired harness, which timed the three columns one after another, read 1.26x, 1.38x and 1.21x on the same
+quiet machine, and 1.46x, 1.24x and 1.19x in an independent re-run: the same band. So the 1.4x line is
+met on a quiet machine by either harness, and run-to-run spread (about 0.25 across both) straddles it;
+the readings of 1.29x to 1.71x in earlier sessions came from a busy sandbox, not from the code. The
+bakeoff now times the three columns of a row alternately, round by round, with a timer function of its
+own per column. That removes an order bias (the first column timed had a monomorphic call site, the
+later ones did not) but does not tame the noise: the ordinary-code row still swings 1.06x to 1.29x
+between runs, because each column keeps its own fastest round and the ratio divides two minimums.
+A paired per-round ratio would be steadier (followups.d/2669-p4-paired-round-ratio.md).
+The 35 pills (and 18 other directives) of 4,766 spans are about 0.13 of the ratio, so halving a pill's
+cost would move it by less than that spread. Pills are still the slowest thing per span (2.7x to 2.9x
+the kernel, unchanged within noise) and the design note accepts them above the bar (§ The engine). What
+the parse change did move: a pill's grammar stage went from about 270 ns to about 225 ns (`parse()` no
+longer allocates a result and a tree object per call, and skips the rule-table lookup for the default
+rule), and the shipped decision from about 500 ns to about 480 ns. The grammar's own time also depends
+on what V8 has already seen: a parse of the 268 pills alone reads about 165 ns in a fresh process and
+230 to 370 ns after the process has parsed the shipped decks' other spans, because the generated rule
+functions are re-optimized with the wider type feedback.
+Before the first-character table the same run read 174 ns for every span and 149 ns for ordinary
+code (5.2x the kernel), because every kind ran its own check on every span.
 
 What moved it:
 

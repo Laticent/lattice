@@ -6073,6 +6073,22 @@ function listSourceFiles(dir, out = []) {
 //   · a COUNT that drifted — e.g. a 24th `settle(page)` call, which no text grep would see.
 const SANCTIONED_E2E_SLEEPS = [
   {
+    file: 'docs/e2e/collage-lightbox-present.spec.ts', ms: 400, count: 3,
+    why: 'THREE ABSENCE ASSERTIONS: with the collage lightbox open, a digit must NOT also mark a chart '
+       + 'point behind it (#2648 P1). Present\'s window listener would open the chart-detail card on '
+       + 'the same keydown if the lightbox\'s capture-phase swallow failed, and there is no signal '
+       + 'for a card that must not open; a poll of the unchanged DOM goes green on its first tick. '
+       + '400ms covers the key dispatch, the chart-detail reveal and the popover mount; the same '
+       + 'file\'s POSITIVE arm shows that card mounts inside 1s once Escape closes the lightbox.',
+  },
+  {
+    file: 'docs/e2e/collage-lightbox-present.spec.ts', ms: 600, count: 1,
+    why: 'AN ABSENCE ASSERTION: a click on a photo inside Present opens no lightbox, because the slide '
+       + 'card is pointer-events-none (PresentOverlay.tsx). There is no signal for an open that must '
+       + 'not happen. 600ms covers the click dispatch and the 400ms open glide the other arms wait '
+       + 'out, so a lightbox that was going to open would already be mounted.',
+  },
+  {
     file: 'docs/e2e/deck-drop-import.spec.ts', ms: 1000, count: 3,
     why: 'THREE ABSENCE ASSERTIONS: a PDF dropped on the code editor, on the compose editor and '
        + 'while presenting must import NOTHING and leave the tab on the Studio. There is no signal '
@@ -8388,7 +8404,9 @@ const OPENROUTER_KEY_NAME = /OPEN_ROUTER_KEY/; // the bare name catches bracket/
 // files) — exempt them so the scan doesn't flag itself, same as the US-English dictionary.
 const OPENROUTER_SCAN_EXEMPT = new Set(['test/unit/cli/check-ownership.test.js']);
 // The ONLY paths allowed to spend our key — on-demand, opt-in, cost-printing (rule #24).
-const SANCTIONED_OPENROUTER_SPENDERS = ['tools/component-gen-eval.mjs', 'tools/generate-voice-samples.mjs', 'tools/intent-bakeoff/judge-eval.mjs'];
+// tools/probe-picture-tokens.mjs: measures what one picture costs per vision model (the Studio chat's budget gate table);
+// opt-in (OPENROUTER_ALLOW_SPEND=1), prints its planned call count first, --limit and --cap bound it; ~$1.4 for the whole catalog.
+const SANCTIONED_OPENROUTER_SPENDERS = ['tools/component-gen-eval.mjs', 'tools/generate-voice-samples.mjs', 'tools/intent-bakeoff/judge-eval.mjs', 'tools/probe-picture-tokens.mjs'];
 
 // Workflows allowed to spend the key: sanctioned, budgeted, self-skipping when the secret is
 // unset, and — critically — OFF the PR/commit critical path (nightly schedule / workflow_dispatch,

@@ -28,7 +28,7 @@ import { type ReferenceDoc, refDocsTokens } from './reference-doc';
 // moved INTO the dropdown, where it has room to say which end is a question and which an
 // edit — the dropdown is also where you are when the price should change your choice.
 
-export function ChatCost({ source, grounding, docs, primed, className }: { source: string; grounding?: ChatGrounding; docs?: ReferenceDoc[] | null; primed?: boolean; className?: string }) {
+export function ChatCost({ source, grounding, docs, primed, explicitCache = true, className }: { source: string; grounding?: ChatGrounding; docs?: ReferenceDoc[] | null; primed?: boolean; explicitCache?: boolean; className?: string }) {
 	const [spend, setSpend] = React.useState(() => architectSpend());
 	const [pulse, setPulse] = React.useState(0);
 	const status = useArchitectStatus(pulse);
@@ -63,7 +63,7 @@ export function ChatCost({ source, grounding, docs, primed, className }: { sourc
 	// takes a second model call and costs about half again as much, so one figure would
 	// mislead about one of them. Memoized because building the prompt walks the catalog.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `agentReady` is the intentional re-price trigger once the lazy agent module lands.
-	const turnEst = React.useMemo(() => (cloud && status.price ? agentTurnUsd(status.price, grounding, !!primed, source, refDocsTokens(docs), libraryCount) : null), [cloud, grounding, primed, docs, source, status.price, agentReady, libraryCount]);
+	const turnEst = React.useMemo(() => (cloud && status.price ? agentTurnUsd(status.price, grounding, !!primed, source, refDocsTokens(docs), libraryCount, explicitCache) : null), [cloud, grounding, primed, explicitCache, docs, source, status.price, agentReady, libraryCount]);
 	const usd = (n: number) => `$${n.toFixed(n < 0.1 ? 3 : 2)}`;
 
 	if (!cloud) return null;
