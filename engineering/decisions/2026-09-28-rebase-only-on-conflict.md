@@ -256,8 +256,8 @@ minutes, 8 index-only), so the two columns compare like with like.
 
 The 3 agent rebases ran on 09-29, 10-05 and 10-06, all before the hook merged.
 Dependabot rebases its own branches, so HARD RULE #16 cannot reach it. Its 16 cost ~1% of
-the window's CI minutes, and `followups.d/2466-p3-dependabot-rebases-clean-prs.md` tracks
-them. The backlog bot regenerates its branch from current issues each night, which is new
+the window's CI minutes. They are Dependabot refreshing its lockfile, and the larger cost
+is that its PRs never merge (`2026-10-14-dependabot-prs-never-merge.md`). The backlog bot regenerates its branch from current issues each night, which is new
 content (`2026-10-06-conflict-reduction.md` §1).
 
 **A wider count.** The same-message proxy misses a merge from `main` and a rebase pushed
