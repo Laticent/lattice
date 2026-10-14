@@ -111,6 +111,11 @@ export function fenceFor(marker: string, body: string): string {
 	return char.repeat(len);
 }
 
+/** A list node spec whose `tight` attribute defaults to true. */
+function withTightDefault(spec: NodeSpec): NodeSpec {
+	return { ...spec, attrs: { ...spec.attrs, tight: { default: true } } };
+}
+
 /** The prose schema — prosemirror-markdown's block/mark set PLUS the table nodes and the
  *  authoring-comment atom and the inline-object atom (`inline-object.ts`). `deckSchema` (deck-doc) is built by wrapping THIS schema's nodes in a
  *  slide node, so every node spec is identical on both sides of the JSON bridge. */
@@ -121,6 +126,12 @@ export const proseSchema = new Schema({
 		// (`## A pill sizes itself `{LIVE, c2}``, which examples/inline-pills.md ships) was pushed out into a
 		// paragraph of its own on write. A heading takes the object too.
 		.update('heading', { ...(mdSchema.spec.nodes.get('heading') as NodeSpec), content: '(text | image | inline_object)*' })
+		// A list made IN Compose (typing `- ` or the toolbar) starts TIGHT, the shape every Lattice
+		// deck writes. prosemirror-markdown's default is loose, so a list typed into a chart row's
+		// `>` description came back with a blank `>` line between its items (#2690). A list parsed
+		// from Markdown still takes the tightness it was written with.
+		.update('bullet_list', withTightDefault(mdSchema.spec.nodes.get('bullet_list') as NodeSpec))
+		.update('ordered_list', withTightDefault(mdSchema.spec.nodes.get('ordered_list') as NodeSpec))
 		.append(composeTableNodes)
 		.addToEnd('comment', commentNodeSpec)
 		.addToEnd('inline_object', inlineObjectSpec),
@@ -216,13 +227,40 @@ function serializeTable(state: SerializerState, node: PMNode) {
 	state.closeBlock(node);
 }
 
+/**
+ * A TIGHT list that follows a paragraph INSIDE a quote (`> Note` / `> - we`) follows it with no
+ * blank line, as written. A tight list after a top-level paragraph keeps its blank line: that is
+ * how every deck is written, and changing it would rewrite every list a Compose edit touches.
+ */
+function tightAfterParagraph(state: SerializerState, node: PMNode) {
+	// biome-ignore lint/suspicious/noExplicitAny: `closed`, `delim` and `flushClose` are serializer internals.
+	const st = state as any;
+	if (node.attrs.tight && st.closed?.type?.name === 'paragraph' && /\S/.test(st.delim ?? '')) st.flushClose(1);
+}
+
 const latticeNodes = {
 	...defaultMarkdownSerializer.nodes,
 	// Bullet lists use `-` (Lattice), not the default `*`. Same 2-space continuation
 	// indent, so nesting under an ordered item stays at the `   - ` depth the engine
 	// reads. (renderList's second arg is the child-line indent.)
 	bullet_list(state: SerializerState, node: PMNode) {
+		tightAfterParagraph(state, node);
 		state.renderList(node, '  ', () => `${(node.attrs.bullet as string) || '-'} `);
+	},
+	ordered_list(state: SerializerState, node: PMNode) {
+		tightAfterParagraph(state, node);
+		// biome-ignore lint/suspicious/noExplicitAny: prosemirror-markdown's node serializers are loosely typed upstream.
+		(defaultMarkdownSerializer.nodes.ordered_list as any)(state, node);
+	},
+	// A quote INSIDE a tight list item (a chart row's `>` description) follows the item's text with
+	// no blank line: a blank there makes the whole list loose, so every row renders as a paragraph,
+	// and it is not what the author wrote.
+	blockquote(state: SerializerState, node: PMNode) {
+		// biome-ignore lint/suspicious/noExplicitAny: `inTightList` and `flushClose` are serializer internals.
+		const st = state as any;
+		if (st.inTightList && st.closed) st.flushClose(1);
+		// biome-ignore lint/suspicious/noExplicitAny: prosemirror-markdown's node serializers are loosely typed upstream.
+		(defaultMarkdownSerializer.nodes.blockquote as any)(state, node);
 	},
 	// A thematic break serializes as `***`, never the default `---` — but the REASON given
 	// here was wrong, and correcting it matters more than the choice it justified.

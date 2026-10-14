@@ -1,0 +1,1 @@
+- Compose writes a list as a tight list, with no blank lines between its items, including a list inside a quote or under a paragraph. Before, saving from Compose turned the source's tight list into a loose one.
