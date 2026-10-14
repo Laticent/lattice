@@ -1,6 +1,6 @@
 ---
 status: proposed
-summary: One authoring model for chart data - one field is a list row, several fields or a true grid is a table, every record is a braced Segno span, every description is `{> text}` (blockquote form in lists) - so one manifest schema drives the grid editor, autocomplete, lint and reshaping.
+summary: One authoring model for chart data - one field is a list row, several fields or a true grid is a table, every record and description is an inline-code `{…}` span (`{> text}`, blockquote form in lists) - so one manifest schema drives the grid editor, autocomplete, lint and reshaping.
 ---
 
 # Chart authoring, one model (2026-10-14)
@@ -48,6 +48,17 @@ and the structure charts (flowchart, state-chart, hub-spoke, journey, roadmap, t
 | 6 | **Inside `{> …}` the text is prose** up to the first unescaped `}`; commas do not split it; `\}` is the escape. |
 | 7 | **The retired spellings:** a nested bullet as detail on a list chart, and heatmap's ``note=…`` span, become `>` / `{> …}`. |
 | 8 | Reshaping is a projection between field sets: one field to many adds columns in the grid; many to one asks which field to keep; a missing required field (pie to bullet needs a target) is refused with the name. |
+| 9 | **The container is `` `{…}` ``: braces inside an inline-code span, everywhere, including table cells and descriptions** (`` 62 `{> Dipped after onboarding}` ``, `` Jan `{> Onboarding changed}` ``, a `` `{>}` `` header for the row-description column). Owner, 2026-10-14, after weighing three options (§3a). The typing cost is carried by Compose's custom editors (as for pills and sparks) and by autocomplete in the editor, not by changing the notation. |
+
+
+### 3a. Why `` `{…}` `` and not `` `…` `` or bare `{…}` (2026-10-14)
+
+Measured over 392 shipped decks and galleries, fenced code removed: 10,825 inline-code spans, 630 start with `{`, 236 are tagged records, 2,355 are bare numbers. Outside code, 79 lines hold a brace, in 13 files: 52 are LaTeX math and the rest are CSS in `<style>` blocks and JSON fixtures; none is ordinary prose. The docs site has 32 `.mdx` pages, where a bare `{…}` is a JavaScript expression.
+
+- **`` `{…}` `` (chosen).** Markdown does not parse inside a code span, so `_`, `*`, `[`, `<`, `\` and quotes reach Segno byte for byte, on every render path and in every other Markdown tool (GitHub, MDX, export-to-Marp). Plain code stays literal unless it starts with a marker (decision 6 of `2026-05-11-inline-code-directives.md`). It degrades to a visible monospace chip. Costs: four wrapping characters per value, a backtick that is a dead key on many European layouts, prose inside a code chip in a plain preview, and a `|` that still splits a GFM table cell.
+- **`` `…` `` (rejected).** Works only where position fixes the meaning; in free prose `` `SHIPPED, c2` `` is a pill or code by guess, autocomplete has no trigger, and the kinds still need a marker, which is a brace under another name.
+- **Bare `{…}` (rejected).** Shortest, but Markdown processes the inside first (`\}` is consumed as an escape, `_` and `*` start emphasis, `[x]` is a link candidate, `<` opens HTML), so Segno would have to run ahead of the inline parser on every path; math regions would need carving out; MDX pages fail to compile; Pandoc and markdown-it-attrs read `{.class}` as attributes; and a deck shared as a `.md` file shows raw braces everywhere else.
+- **Rejected middle ground:** bare braces only in table cells and chart row slots. It saves the most characters where data is dense, at the price of two rules instead of one.
 
 ## 4. What must be proved before a chart depends on it
 
