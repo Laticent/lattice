@@ -1,83 +1,200 @@
 ---
 status: proposed
-summary: One authoring model for chart data - one field is a list row, several fields or a true grid is a table, every record and description is an inline-code `{…}` span (`{> text}`, blockquote form in lists) - so one manifest schema drives the grid editor, autocomplete, lint and reshaping.
+summary: One authoring model for chart data - a list row is a label plus one `{…}` record, a table holds series columns or a grid, descriptions are a `>` blockquote in lists and `{> text}` in tables, numbers are ISO in and locale out, and one manifest schema drives the reader, editor, lint and reshaping.
 ---
 
 # Chart authoring, one model (2026-10-14)
 
-Status: proposed. Owner decisions are in §3, taken in conversation on 2026-10-14. No code yet.
-Parent notes: `2026-09-28-segno-unified-inline-notation.md` (the inline notation; decisions 3, 6, 7, 10, 11, 17, 25),
-`2026-10-13-compose-inline-notation-editors.md` (the editors), `2026-10-14-compose-chart-series-grid.md` (the phase 3 census this replaces as the plan).
+Status: proposed, revised the same day after the adversarial trio (§8). Owner decisions are in §3. No code yet.
+
+Parent notes: `2026-09-28-segno-unified-inline-notation.md` (the inline notation), `2026-10-13-compose-inline-notation-editors.md`
+(the editors), `2026-10-14-compose-chart-series-grid.md` (the earlier phase 3 note, which this replaces as the plan),
+`2026-06-13-lfm-standard.md` (LFM, which this must join).
 
 ## 1. The problem
 
-Segno unified the inline spans. The chart bodies around the spans are not uniform. Each chart's
-manifest describes its rows in prose (`"selector": "ul > li"` plus a paragraph), so nothing
-machine-readable says what a row holds. An author learns three things per chart:
+Segno unified the inline spans. The chart bodies around them are not uniform. Four chart manifests (flowchart,
+hub-spoke, journey, state-chart) declare a row schema in their `segno` block; every other chart describes its rows
+only in prose (`"selector": "ul > li"` plus a paragraph). An author learns three things per chart:
 
-1. the container (flat list, nested list, a dash-separated number row for radar, a table);
-2. the row's cell grammar (one pill, two ordered pills for bullet and progress, a signed value for waterfall, a record for scatter);
-3. where extras go (status, size, a hidden description). Nested bullets mean data on one chart and detail on another.
+1. **The container.** A flat list, a nested list (radar is series, then axis; slope is entity, then two points), or a table.
+2. **The row's grammar.** One pill; a value plus a marker (waterfall's `total` / `step`); two ordered pills plus
+   status words and a keyword sublist (bullet); a percent plus a status word (progress); a record (scatter, quadrant).
+3. **Where extras go.** A nested bullet is data on one chart (a series in grouped bar) and hidden detail on another
+   (pie, funnel), decided by whether its trailing pill parses as a number. On progress it is a visible note.
 
-The cost: authors forget the shapes, reshaping a chart (bar to line to pie) has no shared data
-model, and every editor, linter and prompt re-learns the shapes by hand.
+The cost: authors forget the shapes, reshaping a chart has no shared data model, and every editor, linter, narrator
+and prompt re-learns the shapes by hand.
 
 ## 2. The model
 
-Every chart's data is rows of named fields. Each chart's manifest declares the fields it reads (`rows`),
-in Segno's types. One reader, one writer, one grid editor, autocomplete and lint all read that schema.
+**A chart's data is a table. A list is the same table with one data column.** The reader normalizes a list to that
+table before binding, so the reader, reshape and conformance tests all target one structure.
 
-| Row has | Written as | Charts (from the component docs; the census confirms) |
+| Written as | One row is | Charts |
 |---|---|---|
-| one field | a list row, ``- EMEA `{4.2}` `` | bar, line, piechart, funnel, waterfall, word-cloud |
-| several fields | a table: the header names the fields, the first column is the label | grouped and stacked bar, multi-series line, slope, bullet, progress, scatter, quadrant, radar |
-| a true 2-D grid | a table, as today | heatmap, matrix-grid |
+| **A list** | a label plus ONE `{…}` record: its first item is the data, the rest are parameters bound by the chart's schema | bar (one series), line (one series), piechart, funnel, waterfall (`{+2.1M, total}`), word-cloud, map, scatter (`{$420k, 18%, size=140}`), quadrant (points nested under its four named groups) |
+| **A table, series shape** | a label column, then one column per series; the header row is data (series names, axes, points) | grouped bar, multi-series line, stacked-bar, slope, radar |
+| **A table, grid shape** | a label column, then one column per category; every crossing is a value | heatmap, matrix-grid |
 
-Not data-shaped, so outside this model: gantt, kanban, map (region names resolve against a basemap),
-and the structure charts (flowchart, state-chart, hub-spoke, journey, roadmap, timeline-list).
+Open (owner, §7): bullet and progress. Each row is one measure plus named parameters (`{4.2M, target=5.0M}`,
+`{68%, at-risk}`), which fits the list form under the rule above; an earlier draft put them in tables.
 
-## 3. Decisions
+Outside this model, by choice: gantt (spans and `after=` dependencies), kanban (cards in columns), journey (its own
+record, Segno decision 11), and the structure charts (flowchart, state-chart, hub-spoke, roadmap, timeline-list). They
+still adopt §3's description and number rules.
+
+**The schema has three shapes**, so no chart needs a private flag: `fields` (a fixed set of named parameters),
+`series` (open columns whose header is data, with reserved names that cannot be series), and `grid`. A field has a
+type (number, signed number, percent, status, text), a nullability and a meaning for an empty cell, because an empty
+cell means "not measured" in heatmap and nothing yet in grouped bar. The schema owns what one row holds; the chart's
+transform owns what rows mean together (waterfall's running total, radar's shared scale, stacked sums).
+
+**A nested list is a group, never data and never detail.** Quadrant's four named groups are the case.
+
+## 3. Decisions (owner, 2026-10-14)
 
 | | decision |
 |---|---|
-| 1 | **Data container: list for one field, table for several fields or a grid.** The test an author asks is "one number per row, or several?" |
-| 2 | **`{…}` is the container for a record. No bare values in lists:** ``- EMEA `{4.2}` ``. Table cells are plain values (the header names the field). |
-| 3 | **`[ ]` wraps a list of records** (an axis line, a label set). A leading `[x]`, `[-]`, `[ ]` marker is a cell state in matrix-grid, verdict-grid, pricing badges and the roadmap, and stays as it is. |
-| 4 | **Position decides meaning.** A paragraph above the content describes its axes or kicker; a paragraph below is the key, caption or legend. Unchanged. |
-| 5 | **A description is `{> text}`, everywhere a span can sit, and it travels with the data.** In a table cell it describes the cell; in a header cell, the column; a column whose header is `{>}` holds one plain-text description per row. In a list row, the declared block form is a `>` blockquote under the item (what flowchart and state-chart already do). Same meaning, one spelling per document (Segno decisions 6 and 7). Descriptions are hidden detail: hover and tap on screen, the speaker note in print, never on the slide face. |
-| 6 | **Inside `{> …}` the text is prose** up to the first unescaped `}`; commas do not split it; `\}` is the escape. |
-| 7 | **The retired spellings:** a nested bullet as detail on a list chart, and heatmap's ``note=…`` span, become `>` / `{> …}`. |
-| 8 | Reshaping is a projection between field sets: one field to many adds columns in the grid; many to one asks which field to keep; a missing required field (pie to bullet needs a target) is refused with the name. |
-| 9 | **The container is `` `{…}` ``: braces inside an inline-code span, everywhere, including table cells and descriptions** (`` 62 `{> Dipped after onboarding}` ``, `` Jan `{> Onboarding changed}` ``, a `` `{>}` `` header for the row-description column). Owner, 2026-10-14, after weighing three options (§3a). The typing cost is carried by Compose's custom editors (as for pills and sparks) and by autocomplete in the editor, not by changing the notation. |
+| 1 | **List or table.** A list row is a label plus one record of data and parameters; a table holds series columns or a grid. |
+| 2 | **`` `{…}` `` is the container for a record, and lists have no bare values:** ``- EMEA `{4.2}` ``. A table cell's value is plain; anything else in a cell is a `` `{…}` `` span. |
+| 3 | **`[ ]` wraps a list of records** (an axis line, a label set). A leading state marker (`[x]`, `[-]`, `[ ]`, and obligation-matrix's `[!]`, `[?]`, `[/]`) is a cell state in matrix-grid, obligation-matrix, verdict-grid, checklist, pricing badges and the roadmap, and stays as it is. |
+| 4 | **Position decides meaning.** A paragraph above the content holds the axes or kicker; a paragraph below holds the key, caption or legend. Unchanged. |
+| 5 | **Descriptions: one form per container.** In a list, a `>` blockquote indented under the item, which keeps rich Markdown (bold, links, several paragraphs); flowchart and state-chart already do this. In a table, `` `{> text}` ``: after a cell's value it describes the cell, in a header cell the column, and a column whose header is `` `{>}` `` holds one plain-text description per row. There is one form per position, so there is nothing for a lint to arbitrate. Descriptions are hidden detail: hover and tap on screen, the speaker note in print, never the slide face. A list-to-table reshape that would flatten a rich description warns first. |
+| 6 | **Inside `{> …}` the text is prose** to the first unescaped `}`; commas do not split it; `\}` and `\\` are the escapes. |
+| 7 | **Retired:** a nested bullet as detail on every chart that uses the shared detail substrate (`lib/components/chart/_chart-family/mark-detail.js`), and heatmap's ``note=…`` span (Segno migration row 20). Progress's visible nested note is not detail: it becomes a named visible field, so no slide loses content it shows today. |
+| 8 | **Reshaping is a projection between schemas.** One data column to many adds columns in the grid; many to one asks which to keep; a required field that is missing (pie to bullet needs a target) or a type that would change meaning (an unsigned bar value is a level in waterfall) is refused by name, never guessed. |
+| 9 | **The container is `` `{…}` `` inside inline code**, not plain backticks and not bare braces (§4). Compose's custom editors and the editor's autocomplete carry the typing cost. |
+| 10 | **Numbers are ISO in, locale out.** See §5. |
+| 11 | **Scatter and quadrant stay list records** (Segno decision 10 stands), after the owner compared both forms written out. |
+| 12 | **LFM is amended now, and phase 4 is gated** (§6, §7). |
 
+## 4. Why `` `{…}` `` and not `` `…` `` or bare `{…}`
 
-### 3a. Why `` `{…}` `` and not `` `…` `` or bare `{…}` (2026-10-14)
+Measured over 392 shipped decks and galleries, fenced code removed: 10,825 inline-code spans, 630 start with `{`, 236
+are tagged records, 2,355 are bare numbers (markdown-it's own tokenizer gives 10,847 spans and 2,387 bare numbers; the
+conclusions do not change). Outside code, 79 lines hold a brace, in 13 files: about 75 are LaTeX math (52 inline or
+single-line, 23 continuation lines of display math), 3 are JSON fixtures and 1 is a MathML annotation; `<style>`
+blocks were removed before counting. None is ordinary prose. The docs site has 32 `.mdx` pages, where a bare `{…}` in
+prose is a JavaScript expression.
 
-Measured over 392 shipped decks and galleries, fenced code removed: 10,825 inline-code spans, 630 start with `{`, 236 are tagged records, 2,355 are bare numbers. Outside code, 79 lines hold a brace, in 13 files: 52 are LaTeX math and the rest are CSS in `<style>` blocks and JSON fixtures; none is ordinary prose. The docs site has 32 `.mdx` pages, where a bare `{…}` is a JavaScript expression.
+- **`` `{…}` `` (chosen).** Markdown does not parse inside a code span, so `_`, `*`, `[`, `<`, `\` and quotes reach
+  Segno unchanged, on every render path and in every other Markdown tool. Plain code stays literal unless it starts
+  with a marker (decision 6 of `2026-05-11-inline-code-directives.md`). It degrades to a visible monospace chip.
+  Costs: four wrapping characters per value, a backtick that is a dead key on many European layouts, and a `|` that
+  still splits a GFM table cell (a `\|` there reaches Segno as `|`).
+- **`` `…` `` (rejected).** Works only where position fixes the meaning; in free prose `` `SHIPPED, c2` `` is a pill
+  or code by guess, autocomplete has no trigger, and the kinds still need a marker.
+- **Bare `{…}` (rejected).** Shortest, but Markdown processes the inside first (`\}` is consumed as an escape, `_` and
+  `*` start emphasis, `[x]` is a link candidate, `<` opens HTML), so Segno would have to run ahead of the inline
+  parser on every path; math needs carving out; MDX pages fail to compile; Pandoc and markdown-it-attrs read
+  `{.class}` as attributes; and a deck shared as a `.md` file shows raw braces everywhere else.
+- **Rejected middle ground:** bare braces only in table cells and chart row slots. It saves the most characters where
+  data is dense, at the price of two rules instead of one.
 
-- **`` `{…}` `` (chosen).** Markdown does not parse inside a code span, so `_`, `*`, `[`, `<`, `\` and quotes reach Segno byte for byte, on every render path and in every other Markdown tool (GitHub, MDX, export-to-Marp). Plain code stays literal unless it starts with a marker (decision 6 of `2026-05-11-inline-code-directives.md`). It degrades to a visible monospace chip. Costs: four wrapping characters per value, a backtick that is a dead key on many European layouts, prose inside a code chip in a plain preview, and a `|` that still splits a GFM table cell.
-- **`` `…` `` (rejected).** Works only where position fixes the meaning; in free prose `` `SHIPPED, c2` `` is a pill or code by guess, autocomplete has no trigger, and the kinds still need a marker, which is a brace under another name.
-- **Bare `{…}` (rejected).** Shortest, but Markdown processes the inside first (`\}` is consumed as an escape, `_` and `*` start emphasis, `[x]` is a link candidate, `<` opens HTML), so Segno would have to run ahead of the inline parser on every path; math regions would need carving out; MDX pages fail to compile; Pandoc and markdown-it-attrs read `{.class}` as attributes; and a deck shared as a `.md` file shows raw braces everywhere else.
-- **Rejected middle ground:** bare braces only in table cells and chart row slots. It saves the most characters where data is dense, at the price of two rules instead of one.
+## 5. Numbers: ISO in, locale out
 
-## 4. What must be proved before a chart depends on it
+Today `chart-values.js` and Segno's `number` type read `12K`, `12.5M`, `1.2B`, `bn` and `T` correctly, but a deck's
+`lang:` is ignored and separators are guessed: a comma followed by exactly three digits groups, anything else is a
+decimal, US wins a tie. Measured on 2026-10-14: `12.000` reads as 12, `1.234,5` reads as 1.2345 (a pre-existing
+misread, logged in `followups.d/`), and `12 000` is not read at all. Inside a record the comma is Segno's only
+separator, so `{12,000}` is two items, `12` and `000`, and `{"12,000"}` is text. 122 shipped chart rows use a
+comma-grouped value.
 
-- **`{> …}` is a new Segno production** (a `>` after `{` makes the rest prose to the closing `}`). It must keep the LL(1) linear bound, pass the grammar fuzz and the scaling ladder, and not collide with the reserved `|` (decision 4 of the Segno note). Phase 2 proves this first.
-- **Does the existing corpus use a `{>`, a `>` cell, or a blockquote in a chart list that this would read differently?** The census counts them.
-- **Detail on multi-field charts.** The census counts shipped slides that carry detail under scatter, quadrant and radar, which become tables.
-- **The slide counts a rewrite would touch.** About 500 chart slides exist in `examples/`, the baseline decks and `lib/components`; the census gives the per-chart rewrite count.
+- **What an author types, in records and table cells alike:** a decimal point, optional digit grouping by a space (a
+  no-break or thin space counts, Segno decision 23), and the magnitude suffixes `k`/`K`, `M`, `B`/`bn`, `T`, with `%`,
+  a currency sign and a trailing unit as today. A comma is never part of a number. This is ISO 80000-1's rule: digit
+  groups are separated by a space, never by a dot or a comma, because those two mean opposite things in different
+  countries.
+- **What the slide shows:** the number formatted for the deck's `lang:`. A French deck shows `12 000` and `1,25 M`; a
+  US deck shows `12,000` and `1.25M`. This changes what some slides display, so it goes through the visual review
+  path with screenshots.
+- **Pasted locale numbers** (`1 234,5`, `12,000`): the linter and Compose's grid recognize them and offer the fix to
+  the standard form. A conversion is never silent.
+- **A typed table cell is read strictly** with Segno's whole-value reader. A cell that is not wholly a number is an
+  error, never a partial read (today a heatmap cell `$1.2M to $1.5M` is painted as 12,000,000).
 
-## 5. Phases (one PR each; none changes what an author types until phase 4)
+## 6. Where each piece belongs, and how it joins LFM
 
-1. **Census.** Each chart against §2: the exact disagreements, detail usage, and the rewrite counts. No behavior change.
-2. **Schemas and reader.** `rows` in the manifests, one reader that takes the old and the new forms, and the `{> …}` production, proven first.
-3. **Editor.** The Insert menu (decided 2026-10-14), the schema-driven grid for lists and tables, the description fields, and reshape.
-4. **Normalize.** A codemod moves the charts that change to the new forms and deletes the old readers, with no dual-syntax period (Segno decision 9). The owner signs off after seeing the census list.
+- **Segno** owns a general production: `>` after `{` makes the rest of the record prose (§9). Nothing in Segno names
+  hover, speaker notes or charts (Segno decision 13).
+- **Lattice manifests** own each chart's schema, in the existing `segno` block, not a new `rows` key (`rows` already
+  means line geometry for capacity lint in 15 manifests). They also own what a description means.
+- **LFM** owns the shapes and how they degrade, and references the Segno notation; it never names a chart's fields
+  normatively.
+  - **Amend LFM 1.1 §3.6 before it is ratified:** a span in a declared data slot is read by that slot's schema, not
+    as a pill. As drafted, §3.6 makes `{4.2}` a pill wherever it sits.
+  - **An LFM 1.2 section** for the list-as-one-column-table rule, header binding, the grid shape, where descriptions
+    go and how they degrade, and a normative number grammar (§5), with conformance cases in the existing JSON shape
+    (`spec/conformance/lfm/`): L0 for `{4.2}`, `{> …}` and a `{>}` column; L1 for bound rows; L2 for a refused reshape.
+  - **Per-chart fields** stay generated in `grammar.json`, stamped with the LFM version; renaming a field is
+    `**Breaking:**`.
+- **One reader.** A `check-ownership` rule that chart transforms and narrators read rows only through the shared
+  reader, as `checkSegnoBoundary` does for Segno, keeps private readers from coming back. It is a `build:check` rule,
+  not a new CI step.
 
-Phase 4 changes what authors type, so it needs the owner's sign-off, and it gets the full adversarial trio before merge (HARD RULE #25) because it touches the shared chart kernel.
+## 7. Open, for the owner
 
-## 6. What this note does not decide
+- **Bullet and progress:** list records (`{4.2M, target=5.0M}`, `{68%, at-risk}`) or tables. Bullet has zero to three
+  bands and an optional floor, which a record names more easily than a fixed set of columns.
+- **Radar's `quadrant` variant** (series, then group, then axis) does not fit a GFM table: it stays a nested list, or
+  gets a group spelling.
+- **The cross-chart field vocabulary** (`value`, `target`, `status`, `x`, `y`, `size`, `group`) is decided in phase
+  2's note, before any manifest gains a schema, so reshaping has shared names to project between.
+- **A `|` inside a description.** Segno reserves `|` inside a record (decision 4). The recommendation is that prose is
+  exempt, so a table description can hold `\|`.
+- **Phase 4 goes ahead only on evidence from phases 2 and 3** (how many schema exceptions today's shapes need, what
+  authors mis-type in the new editor), the bar Segno decision 17 sets, and with the owner's sign-off.
 
-- The exact field names per chart (the census proposes them).
-- Whether an axis line stays a bracket list of records or folds into the table header for any chart.
+## 8. What the trio found, and what changed
+
+The adversarial trio (red team, inversion, checker) reviewed the first draft. What it changed:
+
+- **`{4.2}` is a pill today**, and the chart did not render (verified by two lenses through `lib/engine`). Fixed by
+  §9's ownership step and the LFM amendment.
+- **`{> …}` already parses**, as a record whose scalar starts with `>`, and on a bar slide it paints into the label.
+  Fixed by §9's production.
+- **Comma numbers cannot be written in a record.** Fixed by §5.
+- **The census was wrong in places** (radar's shape, bullet's bands, waterfall's marker, map being data-shaped, the
+  chart count is 24). Fixed in §1 and §2; `2026-10-14-compose-chart-series-grid.md` carries the same corrections.
+- **"A header names the fields" was false** for 7 of the 9 multi-field charts. Fixed by the three schema shapes.
+- **Moving scatter and quadrant to tables reversed Segno decision 10.** The owner kept them as lists.
+- **The description had four forms of different power.** Now one per container.
+- **A column-0 `>` under a list item ends the list** in markdown-it, and flowchart already loses a node to it with no
+  warning (pre-existing, logged in `followups.d/`). Fixed by a lint that flags a blockquote between chart list items
+  that is not indented under one.
+
+## 9. What must be proved before a chart depends on it
+
+- **Ownership on every path.** Chart rows and table cells claim their spans before the pill pass, in the engine's
+  markdown-it plugin (`lib/integrations/markdown-it/plugins.js`, which today owns only list rows, and only for
+  flowchart, hub-spoke and state-chart), the runtime mirror (`lib/core/resolve-inline-code.js`, `isOwnedElement`),
+  Compose's `normalizeObjects`, the narrators (`lib/core/chart-narration.js`), lint, the read-along core and
+  export-to-Marp, pinned by the engine-vs-runtime fidelity probe. Nothing shipped puts a pill in a chart row today.
+- **The `{> …}` production.** `>` is excluded from the first character of a record's first bare item, so `{>5}` and
+  `{>a}` stop being values (the corpus has no `` `{>`` span). The prose runs to the first unescaped `}`, linear and
+  unbounded like a quoted string; decision 21's `until()` is not used because it cannot see an escape. It must keep
+  Segno's LL(1) bound and pass the grammar fuzz and the scaling ladder.
+- **Readers scope to direct children**, so a code span inside a blockquote description never becomes a row's value.
+- **A `{>}` column is removed before a chart's column caps** (heatmap's `MAX_COLS`), and a description on an empty
+  heatmap cell is kept, not dropped as it is today.
+- **The rewrite counts.** 617 chart-class slides across all 24 charts, 338 in the charts in scope (regex count, `.docs.md`
+  excluded). Phase 1 counts by chart and by slot, including `.docs.md`, because a codemod keyed on spans alone would
+  wrap eyebrows and prose code.
+
+## 10. Phases (one PR each)
+
+1. **Census.** Each chart against §2, the exact disagreements, and the rewrite counts by chart and slot. No behavior change.
+2. **Ownership, schema and reader.** The field vocabulary note, each chart's schema in its `segno` block, data-slot
+   ownership on every path, the `{> …}` production, ISO number reading, and one reader that takes the old and the new
+   forms. The old-form branch is transitional and is deleted in phase 4, so nothing reads the old spellings after it
+   (Segno decisions 9 and 24).
+3. **Editor.** The Insert menu, the schema-driven grid for lists and tables, the description fields, and reshape.
+4. **Normalize.** The codemod, kept runnable as a migrator because it is the last clean break before GA, the old
+   branch deleted, locale display on, and a `**Breaking:**` fragment. Gated by §7, and it gets the full adversarial
+   trio before merge (HARD RULE #25) because it changes the shared chart kernel.
+
+## 11. Not decided here
+
+- Whether any axis line folds into a table header for a series-shape chart.
 - Locked slides keep their descriptions as text until the structural guard agrees to draw them.

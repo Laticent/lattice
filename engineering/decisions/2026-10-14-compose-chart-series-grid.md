@@ -1,11 +1,16 @@
 ---
-status: in-progress
-summary: Phase 3 of the Compose inline editors. Of the 25 chart components, label-plus-number lists (bar, line, pie, funnel, waterfall, word-cloud) and nested-series lists (grouped and stacked bar, slope) get one shared number grid; gantt, kanban and map do not; bullet, progress, radar, scatter and heatmap wait. Door decided - one Insert menu.
+status: superseded
+summary: Phase 3 of the Compose inline editors. Of the 24 chart components, label-plus-number lists (bar, line, pie, funnel, waterfall, word-cloud) and nested-series lists (grouped and stacked bar, slope) get one shared number grid; gantt, kanban and map do not; bullet, progress, radar, scatter and heatmap wait. Door decided - one Insert menu.
 ---
 
 # Compose chart series grid — which charts are list-shaped (phase 3 note)
 
-Status: note, written before any code. Source of every claim below: the `Slots` table of each
+Status: **superseded** the same day by `2026-10-14-chart-authoring-uniform-model.md`, which carries the plan.
+The adversarial trio found three errors in the census below: radar is a nested list (series, then axis), not
+`- Series — v1, v2, v3`; bullet has a measure, a target, trailing status words and zero to three bands plus a
+floor, not just two pills; and waterfall carries an optional `total`/`step` marker. Kept as the record of the first pass.
+
+Original status: note, written before any code. Source of every claim below: the `Slots` table of each
 `lib/components/chart/<name>/<name>.docs.md`. Nothing here was checked against the kernels yet;
 the writer's tests will do that (see §4).
 
@@ -16,7 +21,7 @@ Spec: `followups.d/2649-p1-compose-inline-notation-editors.md`.
 
 Phase 3 puts a number grid in front of chart data, so an author stops typing `- Q1 \`4.2\`` by
 hand. A grid fits a chart only if its data is a list of rows, each row a label plus numbers.
-Which of the 25 chart-bucket components are that shape?
+Which of the 24 chart-bucket components are that shape?
 
 ## 2. The census
 
