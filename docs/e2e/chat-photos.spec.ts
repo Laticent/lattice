@@ -193,7 +193,7 @@ test('a short clip is attached with a poster and a length, and goes to a video m
 	await page.getByRole('textbox', { name: 'Message the Architect' }).fill('what happens in this clip?');
 	await page.getByRole('button', { name: 'Send', exact: true }).click();
 	await expect(page.getByText('I can see a small striped image.')).toBeVisible({ timeout: 30_000 });
-	await expect(page.getByTestId('chat-message-photos').getByRole('img', { name: /^Video walkthrough-[a-z0-9]+$/ })).toBeVisible();
+	await expect(page.getByTestId('chat-message-photos').getByRole('button', { name: /^Play video walkthrough-[a-z0-9]+, 0:0\d$/ })).toBeVisible();
 
 	const sent = bodies.at(-1)?.messages.filter((m) => m.role === 'user').at(-1)?.content as { type: string; text?: string; video_url?: { url: string } }[];
 	expect(Array.isArray(sent), 'the clip was sent as plain text').toBe(true);
@@ -276,9 +276,17 @@ test('a sent clip lives in Library → Videos, survives a reload, and Regenerate
 	// A reload empties every in-memory copy: what is left is what the shelf and the thread kept.
 	await page.reload();
 	await openChatAtWidth(page, 1440);
-	const poster = page.getByTestId('chat-message-photos').getByRole('img', { name: /^Video walkthrough-[a-z0-9]+$/ });
+	const playBtn = page.getByTestId('chat-message-photos').getByRole('button', { name: /^Play video walkthrough-[a-z0-9]+, 0:0\d$/ });
+	const poster = playBtn.locator('img');
 	await expect(poster).toBeVisible({ timeout: 20_000 });
 	await expect.poll(() => poster.evaluate((el: HTMLImageElement) => el.naturalWidth), { message: 'the poster never decoded' }).toBeGreaterThan(0);
+
+	// The clip on a sent message plays in place: the tile was a poster with a play mark that did nothing (#2691).
+	await playBtn.click();
+	const player = page.getByTestId('chat-message-video');
+	await expect(player).toBeVisible();
+	await expect.poll(() => player.evaluate((v: HTMLVideoElement) => v.readyState), { message: 'the clip never loaded' }).toBeGreaterThanOrEqual(2);
+	await page.screenshot({ path: test.info().outputPath('chat-video-playing.png') });
 
 	await page.getByRole('button', { name: 'Regenerate last reply' }).click();
 	await expect.poll(() => bodies.length, { timeout: 30_000 }).toBe(2);

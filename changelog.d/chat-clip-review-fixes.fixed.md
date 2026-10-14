@@ -4,3 +4,4 @@
 - Regenerating a turn whose photo or video was deleted from the Library tells the model it could not be sent, so it says so instead of describing a clip it never saw.
 - A video in the Library list that cannot be attached can be reached with the keyboard, and its reason is read with its name.
 - A clip just under a minute shows as 1:00, not 0:00.
+- A video on a sent chat message now plays when you tap it, in place and with the browser's controls. It showed a play mark that did nothing.

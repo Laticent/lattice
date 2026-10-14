@@ -285,6 +285,14 @@ found, and what happened to each:
 | 10 | A Library clip picked while a device clip saves is silently replaced. | Fixed: the Library toggle waits on `addingRef`. |
 | 11 | A 59.6 s clip showed 0:00. | Fixed in both `clock` helpers. |
 
+**Found after the review, on a real iPhone (2026-10-14).** The clip on a SENT message was a poster with a play mark that
+did nothing: `VideoThumb` drew a `Play` icon on a `<span>`. A sent clip is now a button (`MessageVideo`, `ChatPhotos.tsx`):
+a tap reads the clip from the Library's Videos shelf and plays it in place at its own proportions, capped, with the
+browser's controls; its object URL is made on play and revoked when the message leaves the screen, and a clip deleted
+from the Library says so in words. The strip above the composer keeps the static tile, since a pending clip has a remove
+button there. `docs/e2e/chat-photos.spec.ts` taps it after a reload and waits for the video to load. **Not verified on the
+phone yet.**
+
 **Verified:** the unit tests above, `biome check`, and the Studio vitest slice. **Not verified:** findings 3, 4 and 10 at
 runtime in a browser (traced in code; the e2e spec was not run in this pass), and nothing here on a real phone.
 

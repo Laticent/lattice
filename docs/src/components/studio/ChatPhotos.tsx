@@ -101,6 +101,54 @@ function VideoThumb({ video, poster, size, onRemove }: { video: ChatVideo; poste
 	);
 }
 
+/** A clip on a SENT message: the same tile, but a button. Tapping it reads the clip from the Library's Videos shelf and
+ *  plays it in place, at the clip's own proportions (capped), with the browser's controls. The tile was a poster with a
+ *  play mark that did nothing (found on a real iPhone, #2691). The bytes get a URL only once played, and it is revoked
+ *  when the message leaves the screen; a clip deleted from the Library since says so instead. */
+function MessageVideo({ video, poster, size }: { video: ChatVideo; poster?: string; size: number }) {
+	const [state, setState] = React.useState<{ url: string; w: number; h: number } | 'loading' | 'gone' | null>(null);
+	const urlRef = React.useRef<string | null>(null);
+	React.useEffect(
+		() => () => {
+			if (urlRef.current) URL.revokeObjectURL(urlRef.current);
+		},
+		[],
+	);
+	const play = async () => {
+		setState('loading');
+		const rec = (await listMedia().catch(() => [])).find((m) => m.name === video.name && m.kind === 'video');
+		if (!rec?.blob) return setState('gone');
+		urlRef.current = URL.createObjectURL(rec.blob);
+		setState({ url: urlRef.current, w: rec.width || 9, h: rec.height || 16 });
+	};
+	if (state && typeof state === 'object')
+		return (
+			// A pixel width, capped by the column: a percentage resolved against the message row, which sizes to its
+			// content, and the player collapsed to nothing (measured in Chromium).
+			<span className="relative inline-block shrink-0 overflow-hidden rounded-lg border border-border bg-black" style={{ width: state.w >= state.h ? 320 : 220, maxWidth: '100%', aspectRatio: `${state.w} / ${state.h}`, maxHeight: 'min(60vh, 420px)' }}>
+				{/* biome-ignore lint/a11y/useMediaCaption: the author's own clip; there is no caption track to offer. */}
+				<video src={state.url} controls autoPlay playsInline className="absolute inset-0 h-full w-full object-contain" aria-label={`Video ${video.name}`} data-testid="chat-message-video" />
+			</span>
+		);
+	if (state === 'gone')
+		return (
+			<span className="inline-grid shrink-0 place-items-center rounded-lg border border-border bg-[var(--bg-alt)] p-2 text-center text-[11px] leading-snug text-muted-foreground" style={{ width: size, height: size }} role="status">
+				This video is no longer in the Library.
+			</span>
+		);
+	return (
+		<button type="button" onClick={() => void play()} disabled={state === 'loading'} aria-label={`Play video ${video.name}, ${clock(video.durationMs)}`} className="relative inline-block shrink-0 overflow-hidden rounded-lg border border-border bg-[var(--bg-alt)]" style={{ width: size, height: size }}>
+			{poster ? <img src={poster} alt="" className="size-full object-cover" draggable={false} /> : <span className="block size-full" />}
+			<span className="absolute inset-0 grid place-items-center text-white" aria-hidden>
+				<Play className="size-5 drop-shadow" fill="currentColor" />
+			</span>
+			<span className="absolute bottom-0.5 left-0.5 rounded bg-black/60 px-1 font-mono text-[9px] text-white" aria-hidden>
+				{clock(video.durationMs)}
+			</span>
+		</button>
+	);
+}
+
 /** The photos and video waiting to be sent, above the composer. */
 export function PhotoStrip({ photos, videos = [], deckId, onRemove, onRemoveVideo, busy }: { photos: ChatPhoto[]; videos?: ChatVideo[]; deckId: string; onRemove: (name: string) => void; onRemoveVideo?: (name: string) => void; busy?: boolean }) {
 	const urls = useAssetUrls(deckId);
@@ -134,7 +182,7 @@ export function MessagePhotos({ photos, videos = [], deckId, className }: { phot
 				<Thumb key={p.name} photo={p} url={urls[p.name]} size={photos.length + videos.length === 1 ? 128 : 76} />
 			))}
 			{videos.map((v) => (
-				<VideoThumb key={v.name} video={v} poster={posters[v.name] ?? (isPosterDataUrl(v.poster) ? v.poster : undefined)} size={photos.length + videos.length === 1 ? 128 : 76} />
+				<MessageVideo key={v.name} video={v} poster={posters[v.name] ?? (isPosterDataUrl(v.poster) ? v.poster : undefined)} size={photos.length + videos.length === 1 ? 128 : 76} />
 			))}
 		</div>
 	);
