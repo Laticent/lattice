@@ -314,8 +314,8 @@ What the week shows:
 - **`themes/palette-audit.pdf` does not render the same way twice.** It flips between two
   states, unchanged or exactly 6.58% moved. Of the two runs that rendered `6592eaa`, one saw
   each state, and so did 10-10 and 10-11, which rendered the same commit (`3bea7eb`). On a
-  night with no other change, rule 2 would hold that night back for nothing. Recorded as a
-  follow-up in `followups.d/`.
+  night with no other change, rule 2 would hold that night back for nothing. Recorded as
+  `followups.d/2689-p2-palette-audit-nondeterministic.md`.
 - **Nothing in the week moves the guesses**, so rule 2 stays at 1% and rule 3 at 10. No
   person has labeled a night (item (a) of the step 4 follow-up). Only two deltas carried a
   re-blessed golden a person had seen: the logo galleries at 0.11–0.12% (#2628), and the
