@@ -2,6 +2,7 @@
 // The inline notation: three shapes, one separator, one escape, quotes that must close.
 import { describe, expect, it } from 'vitest';
 import { isDirective, isName, MAX_NESTING, parse, type Value } from './notation';
+import { TAGS } from './notation-grammar';
 
 const shape = (v: Value | null): unknown => {
   if (v === null) return null;
@@ -103,6 +104,13 @@ describe('isDirective — what may dispatch in prose', () => {
     expect(isDirective('^{database}')).toBe('directive');
     expect(isDirective('\\~{12 14}')).toBe('escaped');
     for (const code of ['~/projects/deck.md', '~ {12}', '~{ 12}', '~{}', '^', '~', '^x', '~~{1}']) expect(isDirective(code)).toBe(null);
+  });
+  it('dispatches on every tag in TAGS and on no other character, since isDirective spells them as char codes', () => {
+    for (const tag of TAGS) expect(isDirective(`${tag}{a}`), tag).toBe('directive');
+    for (let c = 0x21; c < 0x7f; c++) {
+      const ch = String.fromCharCode(c);
+      if (ch !== '{' && ch !== '\\' && !TAGS.includes(ch)) expect(isDirective(`${ch}{a}`), ch).toBe(null);
+    }
   });
 });
 

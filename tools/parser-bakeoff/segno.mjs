@@ -94,39 +94,62 @@ function translatePill(s) {
 }
 
 /**
- * Best of several rounds, each long enough to be JIT-warm, and the columns of a row timed
- * ALTERNATELY. This sandbox's timing moves by up to 2x from run to run, and noise only ever ADDS
- * time, so the fastest round is the closest to the code's real cost. But the columns of one row
- * (kernel, the arm's copy, the shipped path) used to be timed one after another, seconds apart,
- * so a slow stretch of the machine landed on one column and not the others: the kernel's own
- * figure for the same 4,766 spans read 27 and 32 ns across runs of unchanged code, and the
- * every-span ratio read 1.2x to 1.7x. Round-robin means every column sees the same stretches,
- * and a ratio of fastest rounds compares like with like.
+ * The columns of a row are timed in SHORT SLICES, ALTERNATELY. A slice is one pass over about
+ * 5,000 spans (about 150 µs here); the columns take turns slice by slice, and which column goes
+ * first rotates each slice. Each column's figure is the MEDIAN of its slices, and each ratio is the
+ * median of the per-slice ratios: slice i of the shipped path over slice i of the kernel, timed
+ * back to back.
+ *
+ * Why so fine. This sandbox's speed moves on two scales. Between processes, the kernel's median
+ * for the same 4,766 spans read anything from 29 to 54 ns. Inside a process it moves within a
+ * fraction of a second: the previous harness timed seven ~70 ms rounds per column and divided the
+ * two fastest, and the shipped/kernel ratio of a single round read anything from 0.69x to 2.29x.
+ * Neither that ratio (1.34x to 1.54x over five runs) nor the median of per-round ratios (tried,
+ * no steadier: 1.35x to 1.60x) can cancel noise that lands inside one round.
+ * Pairing back-to-back slices does: both halves of a pair see the same few hundred microseconds of
+ * the machine. Five runs of unchanged code read the every-span ratio within 0.1 of each other
+ * (the README's § Speed has the readings). The ns columns still move with the machine; the ratios
+ * are the figure to compare.
  *
  * Each column also gets a timer function of its own (`new Function`). One shared timer has ONE
  * `fn(s)` call site, and V8 keeps type feedback per function: after the first column it has seen
  * every dispatcher, so later columns would be timed through a megamorphic call.
  */
+const SLICE = 5000; // spans per timed slice
+const SLICES = 3000; // slices per column: about the work of the old seven 2M-span rounds
 const TIMER = `(fn, inputs, reps) => {
   const t = process.hrtime.bigint();
   for (let r = 0; r < reps; r++) for (const s of inputs) fn(s);
   return Number(process.hrtime.bigint() - t) / (reps * inputs.length);
 }`;
 let timers = 0;
-/** columns: [[fn, inputs], …] → the fastest per-span time of each, in ns. A column may be null. */
-function timeSet(columns, target = 2e6) {
+/**
+ * columns: [[fn, inputs], …] → per column, `mid` (the median per-span time of its slices, in ns)
+ * and `slices` (every slice's per-span time, in slice order). A column may be null.
+ */
+function timeSet(columns) {
   const live = columns.map((c) => (c === null ? null : {
-    fn: c[0], inputs: c[1], reps: Math.max(1, Math.round(target / c[1].length)),
-    run: new Function(`return ${TIMER} // timer ${timers++}`)(), best: Infinity,
+    fn: c[0], inputs: c[1], reps: Math.max(1, Math.round(SLICE / c[1].length)),
+    run: new Function(`return ${TIMER} // timer ${timers++}`)(), slices: [],
   }));
-  for (const c of live) if (c) c.run(c.fn, c.inputs, c.reps); // warm
-  for (let round = 0; round < 7; round++) for (const c of live) if (c) c.best = Math.min(c.best, c.run(c.fn, c.inputs, c.reps));
-  return live.map((c) => (c === null ? NaN : c.best));
+  const on = live.filter(Boolean);
+  for (const c of on) c.run(c.fn, c.inputs, c.reps * 400); // warm: about 2M spans
+  for (let slice = 0; slice < SLICES; slice++) {
+    for (let i = 0; i < on.length; i++) { const c = on[(slice + i) % on.length]; c.slices.push(c.run(c.fn, c.inputs, c.reps)); }
+  }
+  return live.map((c) => (c === null ? { mid: NaN, slices: [] } : { mid: median(c.slices), slices: c.slices }));
 }
-const time = (fn, inputs) => timeSet([[fn, inputs]])[0];
+const median = (xs) => { const v = [...xs].sort((a, b) => a - b); const m = v.length >> 1; return v.length % 2 ? v[m] : (v[m - 1] + v[m]) / 2; };
+/** The median of a/b taken slice by slice: both figures of a pair were timed back to back. */
+const paired = (a, b) => median(a.slices.map((t, i) => t / b.slices[i]));
 
 const rows = [];
-const row = (job, n, kernel, segno, live = NaN) => rows.push({ job, n, kernel, segno, shipped: live });
+/** kernel, segno, live: timeSet results (or null). The ns columns are medians; the ratios are paired. */
+const row = (job, n, kernel, segno, live = null) => rows.push({
+  job, n, kernel: kernel ? kernel.mid : NaN, segno: segno.mid, shipped: live ? live.mid : NaN,
+  segnoRatio: kernel ? paired(segno, kernel) : NaN, shippedRatio: kernel && live ? paired(live, kernel) : NaN,
+});
+const solo = (job, n, fn, inputs) => row(job, n, null, timeSet([[fn, inputs]])[0]);
 /** One row timed in all three columns, alternately: kernel on `k` (today's spelling), the arm's copy and the shipped path on `s` (Segno's). */
 const trio = (job, n, k, s) => {
   const [kernel, segno, live] = timeSet([[reference.inline, k], [segnoInline, s], [shippedInline, s]]);
@@ -158,19 +181,19 @@ const trio = (job, n, k, s) => {
   trio('  state marks [x]', marks.length, ...as(marks));
   trio('  pills {BETA, tag, c4}', pills.length, ...as(pills));
   const p = pills.map(([, b]) => b);
-  row('    stage: grammar (flat tree)', p.length, NaN, time((s) => parseFlat(s), p));
-  row('    stage: + tree to values', p.length, NaN, time((s) => parseTree(s), p));
-  { const sIn = segnoOnly.map(([, b]) => b); const [seg, live] = timeSet([[segnoInline, sIn], [shippedInline, sIn]]); row('  Segno syntax the kernel reads as code', segnoOnly.length, NaN, seg, live); }
+  solo('    stage: grammar (flat tree)', p.length, (s) => parseFlat(s), p);
+  solo('    stage: + tree to values', p.length, (s) => parseTree(s), p);
+  { const sIn = segnoOnly.map(([, b]) => b); const [seg, live] = timeSet([[segnoInline, sIn], [shippedInline, sIn]]); row('  Segno syntax the kernel reads as code', segnoOnly.length, null, seg, live); }
 }
 {
   const lists = inputsFor('axis').real.filter((s) => s.trim().startsWith('['));
   const axes = lists.filter((s) => axis.read(s).ok);
   { const [k, g] = timeSet([[reference.axis, lists], [(s) => parseTree(s), lists]]); row('bracket lists, same job: split into parts', lists.length, k, g); }
   { const [k, g] = timeSet([[reference.axis, axes], [(s) => axis.read(s), axes]]); row('quadrant axes, axis job: typed numbers, ranges', axes.length, k, g); }
-  row('    stage: grammar (flat tree)', axes.length, NaN, time((s) => parseFlat(s), axes));
-  row('    stage: + tree to values', axes.length, NaN, time((s) => parseTree(s), axes));
+  solo('    stage: grammar (flat tree)', axes.length, (s) => parseFlat(s), axes);
+  solo('    stage: + tree to values', axes.length, (s) => parseTree(s), axes);
   const failing = lists.filter((s) => !axis.read(s).ok);
-  row('error path: non-axis lists bound as axes', failing.length, NaN, time((s) => axis.read(s), failing));
+  solo('error path: non-axis lists bound as axes', failing.length, (s) => axis.read(s), failing);
 }
 
 const ladder = [];
@@ -206,10 +229,11 @@ if (process.argv.includes('--json')) {
   console.log(JSON.stringify({ rows, ladder }, null, 2));
 } else {
   const ns = (v) => (Number.isNaN(v) ? '' : v >= 1000 ? `${(v / 1000).toFixed(2)} us` : `${v.toFixed(0)} ns`);
-  const x = (a, b) => (Number.isNaN(a) || Number.isNaN(b) ? '' : `${(a / b).toFixed(2)}x`);
-  console.log('per span: kernel | segno | shipped | segno/kernel | shipped/kernel   (best of seven long rounds)');
+  const x = (v) => (Number.isNaN(v) ? '' : `${v.toFixed(2)}x`);
+  console.log(`per span: kernel | segno | shipped | segno/kernel | shipped/kernel   (${SLICES} alternating slices)`);
   console.log('  kernel = the retired pre-Segno kernel; segno = this arm\'s dispatcher; shipped = lib/core/inline-code-directives.js');
-  for (const r of rows) console.log(`  ${r.job.padEnd(50)} n=${String(r.n).padStart(5)}  ${ns(r.kernel).padStart(9)} | ${ns(r.segno).padStart(9)} | ${ns(r.shipped).padStart(9)} | ${x(r.segno, r.kernel).padStart(6)} | ${x(r.shipped, r.kernel).padStart(6)}`);
+  console.log('  ns columns: each column\'s median slice (they move with the machine). ratios: the median of the per-slice ratios (the figure to compare).');
+  for (const r of rows) console.log(`  ${r.job.padEnd(50)} n=${String(r.n).padStart(5)}  ${ns(r.kernel).padStart(9)} | ${ns(r.segno).padStart(9)} | ${ns(r.shipped).padStart(9)} | ${x(r.segnoRatio).padStart(6)} | ${x(r.shippedRatio).padStart(6)}`);
   console.log('\nhostile ladder, Segno (ms at 2k / 8k / 32k chars; 32k/8k near 4 is linear)');
   for (const l of ladder) console.log(`  ${l.target.padEnd(7)} ${l.shape.padEnd(20)} ${l.ms.map((m) => m.toFixed(2)).join(' / ')}  x${l.ratio.toFixed(1)}`);
 }

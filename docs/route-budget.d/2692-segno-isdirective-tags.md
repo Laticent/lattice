@@ -1,0 +1,2 @@
+studio: +32
+Segno's `isDirective` now compares its three record tags (`~`, `^`, `!`) as char codes instead of calling `TAGS.includes(text[i])`, which cost about 15 ns on every ordinary inline span. The three compares minify a little longer than the one call: CI measured +24 B gz on the Studio's eager JS, and +32 leaves room for gzip spread. Nothing to give back: the function is otherwise unchanged.
