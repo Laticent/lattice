@@ -39,7 +39,8 @@ jobs:
     # Pinned, not ubuntu-latest, and ci.yml's golden-diff job is pinned to the same image:
     # the bot blesses what PRs render, so a new OS image (its fonts, its poppler) must land
     # as a reviewed PR that moves both, not as one night where every golden drifts. The image
-    # still takes GitHub's weekly patch updates within 24.04.
+    # still takes GitHub's weekly patch updates within 24.04. integration-nightly.yml's
+    # report-only `regress` arm also compares against the goldens and is NOT pinned.
     runs-on: ubuntu-24.04
     # A full check of ~350 goldens measured 78 min in the 4-core sandbox
     # (2026-08-18-inspection-oracle-catalog.md); GitHub's runners are not faster.

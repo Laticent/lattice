@@ -105,6 +105,9 @@ export function goldenRows(report) {
         pages: t.pages ?? 0,
         worstFraction: unreadable ? 1 : (t.worstFraction ?? 0),
         pageShapeChanged: negative.some((p) => !/no readable/.test(p.note || '')),
+        // Each drifted page and its pixel count: two nights compare equal only if every page
+        // moved by the same amount (tools/lib/golden-bless-nights.mjs).
+        drifted: (t.drifted || []).map((p) => [p.page, p.pixels]),
       });
     }
   }

@@ -25,6 +25,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { affectedGoldens } from './lib/golden-affected.mjs';
 import { nightRows, nightsMarkdown } from './lib/golden-bless-nights.mjs';
 import { parseShownGoldens, prNumber, seenFromPrs } from './lib/golden-bless-verdict.mjs';
 
@@ -93,25 +94,91 @@ function artifactFiles(runId) {
   };
 }
 
+// Every run is fetched, and --since only trims what is printed: a night's delta needs the
+// night before it.
 const runs = api(`repos/${repo}/actions/workflows/golden-bless.yml/runs?per_page=100`)
   .flatMap((p) => p.workflow_runs || p)
-  .filter((r) => r.status === 'completed' && r.created_at.slice(0, 10) >= since)
+  .filter((r) => r.status === 'completed')
   .sort((a, b) => a.created_at.localeCompare(b.created_at));
 
+// Could anything that renders this first-time golden have changed between two commits?
+// golden-affected's own classification: the deck's markdown, its component directory, or
+// any shared input (which golden-diff answers by rendering galleries, never decks).
+function movedBetween(from, to, created) {
+  if (from === to) return () => false;
+  const files = run('git', ['diff', '--name-only', from, to]).split('\n').filter(Boolean);
+  const galleryMd = (pdf) => pdf.replace(/\.gallery\.(light|dark)\.pdf$/, '.gallery.md');
+  const galleries = created.filter((g) => /\.gallery\.(light|dark)\.pdf$/.test(g)).map(galleryMd);
+  const decks = created.filter((g) => !/\.gallery\.(light|dark)\.pdf$/.test(g));
+  const plan = affectedGoldens(files, { galleries, deckGoldens: decks, cap: Number.POSITIVE_INFINITY });
+  return (g) => plan.scope === 'shared' || plan.decks.includes(g) || plan.galleries.includes(galleryMd(g));
+}
+
+// Each night's bless commit, by the main commit it rendered from (its parent: the bless
+// branch is main plus one commit). The branch is force-pushed nightly, so the older heads
+// come from each bless PR's force-push events; GitHub keeps those commits fetchable.
+function blessCommits() {
+  const heads = [];
+  for (const p of api(`repos/${repo}/pulls?head=${repo.split('/')[0]}:chore/golden-bless&state=all&per_page=100`)) {
+    heads.push(p.head.sha);
+    for (const e of api(`repos/${repo}/issues/${p.number}/events?per_page=100`)) {
+      if (e.event === 'head_ref_force_pushed' && e.commit_id) heads.push(e.commit_id);
+    }
+  }
+  const byParent = new Map();
+  for (const sha of heads) {
+    try {
+      run('git', ['cat-file', '-e', `${sha}^{commit}`], { stdio: 'ignore' });
+    } catch {
+      try {
+        run('git', ['fetch', '-q', '--filter=blob:none', 'origin', sha], { stdio: 'ignore' });
+      } catch {
+        continue; // gone from GitHub: that night's uncertain goldens stay uncertain
+      }
+    }
+    byParent.set(run('git', ['rev-parse', `${sha}^1`]).trim(), sha);
+  }
+  return byParent;
+}
+const blob = (commit, path) => {
+  try {
+    return run('git', ['rev-parse', `${commit}:${path}`], { stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+  } catch {
+    return null;
+  }
+};
+const blessed = blessCommits();
+
+// A first-time golden is re-rendered from scratch every night until a bless merges, so when
+// both nights' bless commits are in hand, identical bytes settle it: it did not move.
+function mayHaveMoved(prevV, v) {
+  const inputs = movedBetween(prevV.renderedFrom, v.renderedFrom, v.created || []);
+  const a = blessed.get(prevV.renderedFrom);
+  const b = blessed.get(v.renderedFrom);
+  return (g) => inputs(g) && !(a && b && blob(a, g) && blob(a, g) === blob(b, g));
+}
+
 const nights = [];
+let prev = null;
 for (const r of runs) {
   const files = artifactFiles(r.id);
   if (!files) continue;
+  const v = files.verdict;
+  const sameWindow = prev && prev.windowFrom === v.windowFrom;
   nights.push({
     date: r.created_at.slice(0, 10),
     runUrl: r.html_url,
     ...files,
-    seen: seenFor(files.verdict.windowFrom, files.verdict.renderedFrom),
+    seen: seenFor(v.windowFrom, v.renderedFrom),
+    // Had the previous night's bless merged, rule 4's window would start at its render commit.
+    deltaSeen: sameWindow ? seenFor(prev.renderedFrom, v.renderedFrom) : undefined,
+    mayHaveMoved: sameWindow ? mayHaveMoved(prev, v) : undefined,
   });
+  prev = v;
 }
 writeFileSync(prCacheFile, JSON.stringify(prCache));
 
-const rows = nightRows(nights);
+const rows = nightRows(nights).filter((r) => r.date >= since);
 if (asJson) {
   console.log(JSON.stringify(rows.map(({ rowsByGolden, ...r }) => r), null, 2));
 } else {

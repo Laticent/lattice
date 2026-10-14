@@ -27,11 +27,12 @@ source: engineering/decisions/2026-10-06-goldens-bot-blessed.md
                    and any night that straddles step 3. (b) The nightly force-push
                    overwrites a person's edit to the bless branch, and closing the PR
                    does not stop the same goldens returning; decide how a rejection
-                   sticks. (c) DONE 2026-10-14: `runs-on` pinned to ubuntu-24.04 for
-                   golden-bless.yml and the golden-diff job. (d) design/*.gallery.md decks: golden-affected
-                   renders them as decks since step 3, but the CI `code` filter has no
-                   design/**, so a design-only PR runs no golden-diff and its deck counts
-                   as unseen (a CI-contract change, put to the owner on #2614).
+                   sticks. (c) DONE 2026-10-14: `runs-on` pinned to ubuntu-24.04
+                   for golden-bless.yml and the golden-diff job. (d) design/*.gallery.md
+                   decks: golden-affected renders them as decks since step 3, but the
+                   CI `code` filter has no design/**, so a design-only PR runs no
+                   golden-diff and its deck counts as unseen (a CI-contract change, put
+                   to the owner on #2614).
        also (e)  — CLAUDE.md rule 7: name the bless bot as the fourth machine PR class
                    that merges itself, with the hybrid rules, in the same PR that
                    switches auto-merge on (moved here from step 3: until then it does not).
@@ -49,7 +50,8 @@ source: engineering/decisions/2026-10-06-goldens-bot-blessed.md
                    bless #2598 all said no, because bless PR #2624 sat unmerged and carried
                    10-09's unseen goldens into every later night; scored alone, 10-12 would
                    have merged. No night is labeled yet, so the thresholds stay at 1% / 10.
-                   First merge or close #2624, then label a week of nights in the table
+                   First a person MERGES #2624 (closing it does not move rule 4's window),
+                   then labels a week of nights in the table that
                    `node tools/golden-bless-nights.mjs` prints (decision doc §5, "Step 4,
                    the dry-run week as measured").
 ```
