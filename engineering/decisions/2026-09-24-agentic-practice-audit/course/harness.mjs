@@ -57,15 +57,22 @@ export function splitSlides(text) {
   return slides.filter((s) => s.trim()).map(parseSlide);
 }
 
-/** Drop HTML comments, repeating until none are left so a nested one can't survive. */
+/** Drop HTML comments. An unclosed `<!--` drops everything after it. */
 function stripComments(text) {
-  let prev;
-  let out = text;
-  do {
-    prev = out;
-    out = out.replace(/<!--[\s\S]*?-->/g, '');
-  } while (out !== prev);
-  return out.replace(/<!--/g, '');
+  let out = '';
+  let i = 0;
+  while (i < text.length) {
+    const open = text.indexOf('<!--', i);
+    if (open === -1) {
+      out += text.slice(i);
+      break;
+    }
+    out += text.slice(i, open);
+    const close = text.indexOf('-->', open + 4);
+    if (close === -1) break;
+    i = close + 3;
+  }
+  return out;
 }
 
 /** Pull out what the checks need from one slide's Markdown. */
