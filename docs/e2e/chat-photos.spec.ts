@@ -74,9 +74,8 @@ async function seed(page: import('@playwright/test').Page, vision: boolean, vide
 }
 
 async function pickPhoto(page: import('@playwright/test').Page) {
-	await page.getByRole('button', { name: 'Attach photos, videos or files' }).click();
 	const chooser = page.waitForEvent('filechooser');
-	await page.getByRole('menuitem', { name: /From this device/ }).click();
+	await page.getByTestId('chat-attach-device').click();
 	await (await chooser).setFiles({ name: 'Team Offsite.png', mimeType: 'image/png', buffer: PNG });
 }
 
@@ -171,9 +170,8 @@ async function recordClip(page: import('@playwright/test').Page, seconds: number
 }
 
 async function pickFile(page: import('@playwright/test').Page, file: { name: string; mimeType: string; buffer: Buffer }) {
-	await page.getByRole('button', { name: 'Attach photos, videos or files' }).click();
 	const chooser = page.waitForEvent('filechooser');
-	await page.getByRole('menuitem', { name: /From this device/ }).click();
+	await page.getByTestId('chat-attach-device').click();
 	await (await chooser).setFiles(file);
 }
 
@@ -232,9 +230,8 @@ test('a mixed pick judges each kind on its own: the photo attaches, the refused 
 	await gotoStudio(page);
 	await openChatAtWidth(page, 1440);
 	const clip = await recordClip(page, 1);
-	await page.getByRole('button', { name: 'Attach photos, videos or files' }).click();
 	const chooser = page.waitForEvent('filechooser');
-	await page.getByRole('menuitem', { name: /From this device/ }).click();
+	await page.getByTestId('chat-attach-device').click();
 	await (
 		await chooser
 	).setFiles([
@@ -429,39 +426,42 @@ test("a clip's location data is overwritten before it is stored, and the clip st
 
 // ── The attach control: two paths, from this device and from the Library ─────────────────────────────────────────────
 
-const attachButton = (page: import('@playwright/test').Page) => page.getByRole('button', { name: 'Attach photos, videos or files' });
+const libraryButton = (page: import('@playwright/test').Page) => page.getByRole('button', { name: 'Attach from your Library' });
 
-test('the paperclip offers exactly two paths, and the device path opens the native picker with nothing else in between', async ({ page }) => {
+test('the composer has two attach controls, and the paperclip is the native picker itself with no menu of ours in between', async ({ page }) => {
 	test.setTimeout(60_000);
 	await seed(page, true, true);
 	await gotoStudio(page);
 	await openChatAtWidth(page, 1440);
-	await attachButton(page).click();
-	const menu = page.getByRole('menu', { name: 'Attach' });
-	await expect(menu.getByRole('menuitem')).toHaveCount(2);
-	await expect(menu.getByRole('menuitem', { name: /From this device/ })).toBeVisible();
-	await expect(menu.getByRole('menuitem', { name: /From your Library/ })).toBeVisible();
-	// The old layered picker is gone: no search box, no "Add a file…" row, no "never uploaded" line.
+	const device = page.getByTestId('chat-attach-device');
+	await expect(device).toHaveAttribute('aria-label', 'Attach from this device');
+	await expect(libraryButton(page)).toBeVisible();
+	// The old one-menu paperclip is gone: no menu, no docs search, no "Add a file…" row.
+	await expect(page.getByRole('menu')).toHaveCount(0);
 	await expect(page.getByPlaceholder('Search your docs…')).toHaveCount(0);
-	await expect(page.getByText('Add a file…')).toHaveCount(0);
 
-	// The device path opens the browser's own picker straight away, offering photos, videos and the document types.
-	const accept = await page.getByTestId('chat-attach-device').getAttribute('accept');
+	// iOS anchors its native sheet to the input that was TAPPED. So the input is the paperclip's own box (invisible, over the
+	// icon), real and receiving the tap, not `hidden` and not reached by a `click()` from a menu of ours (on a real iPhone
+	// the sheet then floated mid-screen, above the tap, in two recordings).
+	const box = await device.boundingBox();
+	expect(box && box.width >= 24 && box.height >= 24, JSON.stringify(box)).toBe(true);
+	await expect(device).toHaveCSS('opacity', '0');
+	await expect(device).not.toHaveCSS('pointer-events', 'none');
+	const accept = await device.getAttribute('accept');
 	expect(accept).toContain('image/*');
 	expect(accept).toContain('video/*');
 	expect(accept).toContain('.pdf');
-	// iOS anchors its native sheet to the input element. A `hidden` input has no box, so the sheet floated mid-screen and
-	// to one side (seen on a real iPhone). The input must be LAID OUT over the paperclip, invisible and untouchable.
-	const inputBox = await page.getByTestId('chat-attach-device').boundingBox();
-	const clipBox = await attachButton(page).boundingBox();
-	expect(inputBox, 'the device input has no box').not.toBeNull();
-	expect(Math.abs((inputBox?.x ?? 0) - (clipBox?.x ?? 99)) < 1.5 && Math.abs((inputBox?.y ?? 0) - (clipBox?.y ?? 99)) < 1.5 && Math.abs((inputBox?.width ?? 0) - (clipBox?.width ?? 99)) < 1.5, `input ${JSON.stringify(inputBox)} vs paperclip ${JSON.stringify(clipBox)}`).toBe(true);
-	await expect(page.getByTestId('chat-attach-device')).toHaveCSS('pointer-events', 'none');
-	await expect(page.getByTestId('chat-attach-device')).toHaveCSS('opacity', '0');
+
+	// One tap, and the browser's own chooser is open (multiple files allowed). Nothing of ours opens first.
 	const chooser = page.waitForEvent('filechooser');
-	await menu.getByRole('menuitem', { name: /From this device/ }).click();
+	await device.click();
 	expect((await chooser).isMultiple()).toBe(true);
-	await expect(page.getByTestId('chat-attach')).toHaveCount(0); // and our menu is out of the way
+	await expect(page.getByTestId('chat-attach')).toHaveCount(0);
+
+	// The Library is the other control, and it opens straight onto the Library picker.
+	await libraryButton(page).click();
+	await expect(page.getByTestId('chat-attach').getByText('From your Library')).toBeVisible();
+	await expect(page.getByTestId('chat-attach').getByRole('tab')).toHaveCount(3);
 });
 
 test('a document picked from the device becomes a grounding chip, and a photo picked beside it a thumbnail', async ({ page }) => {
@@ -469,9 +469,8 @@ test('a document picked from the device becomes a grounding chip, and a photo pi
 	await seed(page, true, true);
 	await gotoStudio(page);
 	await openChatAtWidth(page, 1440);
-	await attachButton(page).click();
 	const chooser = page.waitForEvent('filechooser');
-	await page.getByRole('menuitem', { name: /From this device/ }).click();
+	await page.getByTestId('chat-attach-device').click();
 	await (await chooser).setFiles([
 		{ name: 'Brief.md', mimeType: 'text/markdown', buffer: Buffer.from('# Brief\n\nCobalt, restrained.') },
 		{ name: 'Team Offsite.png', mimeType: 'image/png', buffer: PNG },
@@ -515,9 +514,8 @@ for (const [w, h] of [
 		);
 		await openChatAtWidth(page, w);
 
-		await attachButton(page).click();
-		await page.screenshot({ path: test.info().outputPath(`chat-attach-menu-${w}.png`) });
-		await page.getByRole('menuitem', { name: /From your Library/ }).click();
+		await page.screenshot({ path: test.info().outputPath(`chat-composer-${w}.png`) });
+		await libraryButton(page).click();
 		const panel = page.getByTestId('chat-attach');
 		await expect(panel.getByText('From your Library')).toBeVisible();
 		// The popover stays inside the screen at every width.

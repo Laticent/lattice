@@ -1,4 +1,4 @@
-import { Check, ChevronLeft, FileBox, FileText, Film, Paperclip, Smartphone } from 'lucide-react';
+import { Check, FileBox, FileText, Film, Paperclip } from 'lucide-react';
 import * as React from 'react';
 import { PillTabs } from '@/components/ui/pill-tabs';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -9,12 +9,18 @@ import { listMedia, type MediaRecord, visibleMedia } from './media-store';
 import { formatBytes, MAX_GROUND_DOCS } from './reference-doc';
 import type { RefDocRecord } from './reference-doc-store';
 
-// The chat's attach control. Two paths, and only two:
+// The chat's attach control. Two paths, and only two, each its own control in the composer:
 //
-//   FROM THIS DEVICE   the phone's or computer's own picker, opened directly: photos, videos, take one now, or choose
-//                      files. One `<input>` takes all of it and each file goes where its type says.
-//   FROM YOUR LIBRARY  what the person already saved: photos, videos and files. It replaces the menu inside the SAME
-//                      popover (a back arrow returns), so nothing is ever stacked on the native sheet.
+//   THE PAPERCLIP      "From this device": the phone's or computer's own picker, opened by a tap that lands ON the file
+//                      input, so the browser shows its sheet (Photo Library, Take Photo or Video, Choose Files) right there.
+//                      One `<input>` takes it all and each file goes where its type says.
+//   THE LIBRARY BUTTON "From your Library": what the person already saved (photos, videos, files) in a popover.
+//
+// Why two controls and not one menu. A first version put both behind one paperclip menu and opened the input with
+// `click()` from the menu row. iOS puts its sheet next to the tap that opened it, so on a real iPhone the native sheet
+// floated mid-screen, well above the paperclip, whether the input was `hidden` or laid over the paperclip (two screen
+// recordings, identical position). A tap that lands on the input itself is the pattern iOS anchors correctly, and it
+// removes our menu from the device path altogether: nothing is stacked on the native sheet.
 //
 // A photo or a clip is attached to THIS message. A file is a reference document: it grounds every reply until it is
 // removed. Tapping a Library item attaches it at once and shows a check, so what is attached is always visible and a
@@ -23,7 +29,6 @@ import type { RefDocRecord } from './reference-doc-store';
 type Tab = 'images' | 'videos' | 'files';
 
 const clock = (ms: number) => `${Math.floor(ms / 60000)}:${String(Math.round(ms / 1000) % 60).padStart(2, '0')}`;
-const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 /** Why a saved clip cannot go in this message, in words, or null when it can. The same rule the device path applies. */
 function clipRefusal(m: MediaRecord): string | null {
@@ -63,93 +68,78 @@ export function ChatAttach({
 	hasAttachments: boolean;
 }) {
 	const [open, setOpen] = React.useState(false);
-	const [view, setView] = React.useState<'menu' | 'library'>('menu');
 	const [tab, setTab] = React.useState<Tab>('images');
 	const [media, setMedia] = React.useState<MediaRecord[]>([]);
-	const inputRef = React.useRef<HTMLInputElement>(null);
 	const urls = useAssetUrls(deckId);
 
 	const images = media.filter((m) => m.kind === 'image');
 	const videos = media.filter((m) => m.kind === 'video');
 
-	// Re-read the shelf each time the menu opens, so something saved from another surface shows up without a remount.
+	// Re-read the shelf each time the Library opens, so something saved from another surface shows up without a remount,
+	// and land on the first tab that has something so the view is never an empty grid while another tab is full.
 	const onOpenChange = (next: boolean) => {
 		setOpen(next);
 		if (!next) return;
-		setView('menu');
 		onRefreshDocs();
-		void listMedia().then((all) => setMedia(visibleMedia(all, deckId)));
-	};
-
-	// The device picker is opened FROM THE TAP ITSELF, not from a timer after it: a browser only lets a tap open a file
-	// picker, and on iOS a delayed `click()` can be dropped. The native sheet (Photo Library, Take Photo or Video, Choose
-	// Files) is then the only thing on screen.
-	const openDevice = () => {
-		inputRef.current?.click();
-		setOpen(false);
-	};
-
-	const openLibrary = () => {
-		// Land on the first tab that has something, so the view is never an empty grid when another tab is full.
-		setTab(images.length ? 'images' : videos.length ? 'videos' : savedDocs.length ? 'files' : 'images');
-		setView('library');
+		void listMedia().then((all) => {
+			const seen = visibleMedia(all, deckId);
+			setMedia(seen);
+			setTab(seen.some((m) => m.kind === 'image') ? 'images' : seen.some((m) => m.kind === 'video') ? 'videos' : savedDocs.length ? 'files' : 'images');
+		});
 	};
 
 	const roomForPhotos = photoNames.size < MAX_CHAT_PHOTOS;
 
 	const empty = (what: string) => (
-		<div className="grid gap-2 px-4 py-6 text-center">
+		<div className="grid gap-1 px-4 py-6 text-center">
 			<p className="text-[12px] text-muted-foreground">No {what} in your Library yet.</p>
-			<button type="button" onClick={openDevice} className="mx-auto text-[12px] font-semibold text-[var(--accent)]">
-				Add one from this device
-			</button>
+			<p className="text-[11.5px] text-muted-foreground">Add some from this device with the paperclip, or in the Library panel.</p>
 		</div>
 	);
 
 	return (
-		// `relative`, so the device input below can sit exactly over the paperclip: see the comment on the input.
-		<span className="relative inline-grid shrink-0">
+		<span className="flex shrink-0 items-center gap-0.5">
+			{/* FROM THIS DEVICE. The tap lands on the input itself (its own box, invisible, over the icon), so iOS shows its
+			    sheet anchored here. No `capture` attribute: on a phone the picker then offers Photo Library, Take Photo or
+			    Video and Choose Files, which is the point. The files are COPIED OUT before anything awaits: a FileList is
+			    live and WebKit empties it. */}
+			<span
+				className={cn(
+					'relative grid size-7 shrink-0 place-items-center rounded-md hover:bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] focus-within:ring-2 focus-within:ring-[var(--accent)]',
+					hasAttachments ? 'text-[var(--accent)]' : 'text-muted-foreground',
+				)}
+				title="Attach photos, videos or files from this device"
+			>
+				<Paperclip className="size-4" aria-hidden />
+				<input
+					type="file"
+					accept={deviceAccept}
+					multiple
+					aria-label="Attach from this device"
+					className="absolute inset-0 size-full cursor-pointer opacity-0"
+					data-testid="chat-attach-device"
+					onChange={(e) => {
+						const picked = Array.from(e.target.files ?? []);
+						e.target.value = '';
+						if (picked.length) onDeviceFiles(picked);
+					}}
+				/>
+			</span>
+			{/* FROM YOUR LIBRARY. */}
 			<Popover open={open} onOpenChange={onOpenChange}>
 				<PopoverTrigger asChild>
 					<button
 						type="button"
-						aria-label="Attach photos, videos or files"
-						title="Attach photos, videos or files, from this device or your Library"
-						className={cn('grid size-7 shrink-0 place-items-center rounded-md hover:bg-[color-mix(in_srgb,var(--accent)_10%,transparent)]', hasAttachments ? 'text-[var(--accent)]' : 'text-muted-foreground')}
+						aria-label="Attach from your Library"
+						title="Attach photos, videos or files from your Library"
+						className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-[color-mix(in_srgb,var(--accent)_10%,transparent)]"
 					>
-						<Paperclip className="size-4" />
+						<FileBox className="size-4" aria-hidden />
 					</button>
 				</PopoverTrigger>
-				<PopoverContent align="start" collisionPadding={12} className="w-[min(92vw,22rem)] overflow-hidden p-0" data-testid="chat-attach">
-					{view === 'menu' ? (
-						<div className="grid p-1.5" role="menu" aria-label="Attach">
-							<button type="button" role="menuitem" onClick={openDevice} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-[var(--accent-soft)]">
-								<span className="grid size-9 shrink-0 place-items-center rounded-lg bg-[var(--accent-soft)] text-[var(--accent)]">
-									<Smartphone className="size-[18px]" aria-hidden />
-								</span>
-								<span className="min-w-0">
-									<span className="block text-[13px] font-semibold text-[var(--text-heading)]">From this device</span>
-									<span className="block text-[11.5px] leading-snug text-muted-foreground">Photo Library, take a photo or video, or choose files</span>
-								</span>
-							</button>
-							<button type="button" role="menuitem" onClick={openLibrary} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-[var(--accent-soft)]">
-								<span className="grid size-9 shrink-0 place-items-center rounded-lg bg-[var(--accent-soft)] text-[var(--accent)]">
-									<FileBox className="size-[18px]" aria-hidden />
-								</span>
-								<span className="min-w-0">
-									<span className="block text-[13px] font-semibold text-[var(--text-heading)]">From your Library</span>
-									<span className="block text-[11.5px] leading-snug text-muted-foreground">
-										{images.length + videos.length + savedDocs.length === 0 ? 'Nothing saved yet' : [images.length && plural(images.length, 'photo'), videos.length && plural(videos.length, 'video'), savedDocs.length && plural(savedDocs.length, 'file')].filter(Boolean).join(' · ')}
-									</span>
-								</span>
-							</button>
-						</div>
-					) : (
+				<PopoverContent align="end" collisionPadding={12} className="w-[min(92vw,22rem)] overflow-hidden p-0" data-testid="chat-attach">
 						<div className="flex max-h-[min(70vh,28rem)] flex-col">
-							<div className="flex items-center gap-1 border-b border-border px-1.5 py-1.5">
-								<button type="button" onClick={() => setView('menu')} aria-label="Back" className="grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground hover:text-foreground">
-									<ChevronLeft className="size-4" />
-								</button>
+							<div className="flex items-center gap-1 border-b border-border px-3 py-2">
 								<span className="text-[13px] font-semibold text-[var(--text-heading)]">From your Library</span>
 								{onManage && (
 									<button type="button" onClick={() => { setOpen(false); onManage(); }} className="ml-auto shrink-0 pr-2 text-[11.5px] font-semibold text-[var(--accent)]">
@@ -272,30 +262,8 @@ export function ChatAttach({
 									))}
 							</div>
 						</div>
-					)}
 				</PopoverContent>
 			</Popover>
-			{/* No `capture` attribute: on a phone the picker then offers Photo Library, Take Photo or Video and Choose Files,
-			    which is the point. The files are COPIED OUT before anything awaits: a FileList is live and WebKit empties it.
-			    NOT `hidden`. iOS anchors its sheet to the input element, and a `display:none` input has no box, so the sheet
-			    floated mid-screen and to one side, nowhere near the paperclip (seen on a real iPhone). The input is laid out
-			    over the paperclip instead, invisible and untouchable (the tap lands on the button beneath), so the sheet has
-			    the paperclip to attach to. */}
-			<input
-				ref={inputRef}
-				type="file"
-				accept={deviceAccept}
-				multiple
-				tabIndex={-1}
-				aria-hidden="true"
-				className="pointer-events-none absolute inset-0 size-full opacity-0"
-				data-testid="chat-attach-device"
-				onChange={(e) => {
-					const picked = Array.from(e.target.files ?? []);
-					e.target.value = '';
-					if (picked.length) onDeviceFiles(picked);
-				}}
-			/>
 		</span>
 	);
 }
