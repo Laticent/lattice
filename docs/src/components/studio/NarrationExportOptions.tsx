@@ -676,11 +676,12 @@ function Line({ term, detail }: { term: string; detail: string }) {
  * narrated examples. Kilobytes either way; the point of the line is that it is not megabytes.
  */
 /** What the Guide adds to an exported webpage: its bundle (`lib/export/guide-player-bundle.generated.mjs`),
- *  its switch and its focus rules. MEASURED, not imported, so the Studio does not load 110 KB to say
- *  so: the bundle is 112,827 characters with each component's gesture, the three delivery styles and the
- *  scene path in it (main's was 85,675 before them), plus ~4 KB for the switch and the focus rules.
- *  `NarrationExportOptions.test.tsx` holds it to the bundle's real length, so it cannot drift. */
-export const GUIDE_EXPORT_BYTES = 117_000;
+ *  its switch and its focus rules. MEASURED, not imported, so the Studio does not load 120 KB to say
+ *  so: the bundle is 119,910 characters with each component's gesture, the three delivery styles, the
+ *  scene path and the strict number reader in it (85,675 before the gestures), plus ~4 KB for the switch
+ *  and the focus rules. `NarrationExportOptions.test.tsx` holds it to the bundle's real length, so it
+ *  cannot drift. */
+export const GUIDE_EXPORT_BYTES = 124_000;
 
 function captionBytes(m: NarrationMeasure): number {
 	return Math.round(m.totalChars * 2.2);
