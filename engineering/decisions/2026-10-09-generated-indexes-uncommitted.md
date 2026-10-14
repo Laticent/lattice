@@ -120,7 +120,7 @@ The same shape exists elsewhere, and each is a follow-up rather than part of thi
   (`parity:transforms`) whose unknown group had silently dropped it from the catalog.
 - **The 42 committed `lib/**/*.generated.*` registries** (plugin registry, chart registry,
   package index and others). The owner deferred these until the desktop app lands
-  (`followups.d/2554-p3-uncommit-generated-js-after-desktop-app.md`). Under this contract the
+  (`followups.d/2554-p1-uncommit-generated-js.md`). Under this contract the
   question that deferral turns on is concrete: the desktop app's build must run the engine's
   `npm run build` first.
 - **`derive-cat-ink.js` and `derive-chart-cat-ink.js` write generated values into the

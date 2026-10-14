@@ -221,8 +221,8 @@ slug instead of date, so two PRs that each add a note no longer share an inserti
 
 **Answer.** Needless agent-session rebases fell from 50 to 3, and pure catch-ups (a catch-up
 that carried no new work) fell from 53 to 4. Only 1 of those 4 came after the catch-up
-warning hook merged (#2561, 2026-10-07T01:28Z). The queue's red rate rose from 2.6% to 5.5%,
-but drift caused none of the rise: cross-PR breaks stayed at 2 per window. One real index-only conflict happened after #2480. It was the residual case that
+warning hook merged (#2561, 2026-10-07T01:28Z). Queue ejections went from 3 in 152 runs to 5 in
+199, and drift caused none of them: cross-PR breaks stayed at 2 per window. One real index-only conflict happened after #2480. It was the residual case that
 note predicted, and the class is now gone, because #2622 stopped committing the index.
 
 **Windows.** The source is the same as §3: `ci.yml` runs, read from the Actions API on
@@ -256,8 +256,8 @@ minutes, 8 index-only), so the two columns compare like with like.
 
 The 3 agent rebases ran on 09-29, 10-05 and 10-06, all before the hook merged.
 Dependabot rebases its own branches, so HARD RULE #16 cannot reach it. Its 16 cost ~1% of
-the window's CI minutes, and `followups.d/2466-p3-dependabot-rebases-clean-prs.md` tracks
-them. The backlog bot regenerates its branch from current issues each night, which is new
+the window's CI minutes. They are Dependabot refreshing its lockfile, and the larger cost
+is that its PRs never merge (`2026-10-14-dependabot-prs-never-merge.md`). The backlog bot regenerates its branch from current issues each night, which is new
 content (`2026-10-06-conflict-reduction.md` §1).
 
 **A wider count.** The same-message proxy misses a merge from `main` and a rebase pushed
@@ -276,20 +276,43 @@ confidence call below rests on.
 |---|---|---|
 | All | 152 | 199 |
 | Green | 146 | 173 |
-| Red | 4 (2.6%) | **11 (5.5%)** |
+| Red (any job failed) | 4 (2.6%) | 11 (5.5%) |
 | Canceled (`cancelled`) | 2 | 15 |
 
-The red rate doubled, which is the condition the #2466 raise path said would reopen the
-rule. Each of the 11 red runs was read job by job:
+A red or canceled run is not the same as an ejection. The required check is the `ci` job
+alone, and a group merges when `ci` passes, whatever happened to a job outside its `needs`.
+So each of the 11 red and 15 canceled runs was read twice: which jobs did not succeed, and
+whether the PR merged on that run (`merged_at` within two minutes of the run ending; a
+group of PRs merges together).
 
-| Cause | Red runs | PRs | Would a pre-queue rebase have prevented it? |
+**Corrected 2026-10-14.** The first version of this section read the 11 red runs as 11
+ejections and said 5 smoke-test PRs "re-entered unchanged". They did not: each merged on
+the red run itself, because `studio-smoke` is advisory and not in `ci`'s `needs`
+(`ci.yml`, "ADVISORY, deliberately"). The table below replaces that reading.
+
+| What happened | Before | After | PRs (after) |
 |---|---|---|---|
-| One flaky smoke test, `playground-first-paint.spec.ts:198`, 10-04 to 10-05 10:30Z | 4 | #2492, #2424, #2508, #2515 | No. Each PR re-entered unchanged and merged. #2519 fixed the test's seed (merged 10-05 13:04Z), and it has not failed in the queue since |
-| A second smoke flake, a click timeout in `library-image-metadata.spec.ts:598` | 1 | #2681 | No. It re-entered unchanged and merged 10 minutes later |
-| The `changes` job ran 15 minutes with no steps against a 5-minute timeout and was canceled, so every test tier was skipped | 2 | #2525, #2535 | No. Runner-side, 10-05 evening |
-| Collateral: GitHub canceled the tiers when #2525, ahead in the same group, failed | 1 | #2534 | No |
-| The backlog bot's PR failed an integration test | 1 | #2499 | No. The next night's re-sync merged |
-| **A real cross-PR break** | **2** | #2548, #2606 | See below |
+| **Ejected:** `ci` failed, so the PR left the queue | **3** | **5** | see below |
+| Merged; an advisory job failed or was canceled (`studio-smoke`, `golden-diff`) | 1 | 6 | #2492, #2424, #2508, #2515, #2681 (smoke flakes); #2586 (smoke timeout) |
+| Merged with a gating tier cut off at its time cap, which the gate then accepted | 2 | 13 | integration timeouts on 10-05 and 10-06, #2498 to #2539 |
+| Merged with every test tier skipped: the `changes` job was canceled, and the gate passed | 0 | 2 | #2525, #2535 (10-05 evening) |
+
+The two gate holes in the last two rows are real, and both are fixed. #2524 (merged
+2026-10-05T22:04Z) made the gate fail a canceled tier on `merge_group` and raised
+`integration`'s cap from 25 to 45 minutes. #2543 (merged 2026-10-06T03:33Z) made the gate
+fail when `changes` did not succeed. Every run in those rows was built on a base without the
+matching fix, and no PR has merged with a gating tier incomplete since. Neither hole has
+anything to do with rebasing.
+
+The 5 ejections after the rule:
+
+| Ejection | Cause | Would a pre-queue rebase have prevented it? |
+|---|---|---|
+| #2499 | The backlog bot's PR failed an integration test; the next night's re-sync merged | No |
+| #2534 | Collateral: GitHub canceled its tiers when #2525, ahead in the same group, failed | No |
+| #2637 | The `changes` job was canceled (runner-side); the gate failed, as #2543 intends, and the PR merged on its next run | No |
+| **#2548** | **A real cross-PR break** | No, see below |
+| **#2606** | **A real cross-PR break** | No, see below |
 
 - **#2548** pinned message wording in a test, and #2551 changed that wording. #2551 was
   ahead of #2548 in the queue: the group #2548 was tested in was built on #2551's commit
@@ -304,11 +327,11 @@ rule. Each of the 11 red runs was read job by job:
 Both are the same kind of break: a test that lands on `main` rejects content in a PR
 running beside it. It is a real and ongoing class, and catching it is the queue's job.
 
-Read the same way, the before window's 4 red runs hold 2 cross-PR breaks (#2417 and #2439
-pushed a fix after their ejection) and 2 that re-entered unchanged (#2365, #2453). So
-cross-PR breaks went from 2 in 152 queue runs to 2 in 199. The rise in red runs is flakes
-and runner trouble, both since fixed or one-off. The 15 canceled runs were not read one
-by one.
+Read the same way, the before window's 3 ejections were #2417 and #2439, which pushed a fix
+afterwards (cross-PR breaks), and #2453, which re-entered unchanged and merged. Its other
+red run (#2365) and its 2 canceled runs merged on the run. So ejections went from 3 in 152
+queue runs to 5 in 199, and cross-PR breaks stayed at 2 against 2. None of the 5 was
+caused by a PR being behind `main`.
 
 **Confidence moves from `high` to `very high`.** The raise path asked for a week of data.
 Two weeks show the targeted waste down about nine-tenths (~857 → ~78 minutes of agent

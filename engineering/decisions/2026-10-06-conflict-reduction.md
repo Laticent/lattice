@@ -184,9 +184,9 @@ run no repo code or run scripts that import none of them (`labels.yml` and
 `sync-backlog.yml` run `tools/*`; three more run `.github/scripts/*.js`). It would add up to ~27s to `npm install`: the full build takes 39s,
 against 12.5s for the steps already uncommitted.
 
-**The owner deferred it until the Tauri desktop app lands.** That app embeds the engine,
+**The owner deferred it until the Tauri desktop app lands** (and undeferred it on 2026-10-14; see §5). That app embeds the engine,
 and nothing in this repo shows whether its build runs `npm install`. Tracked in
-`followups.d/2554-p3-uncommit-generated-js-after-desktop-app.md`.
+`followups.d/2554-p1-uncommit-generated-js.md`.
 
 ## 4. Splitting `lint-core.js`: dropped
 
@@ -220,7 +220,7 @@ catch-up in three windows instead, which covers the same question with real PRs.
 | `docs/route-budget.json` | Off the per-PR path: a PR declares its growth in its own `docs/route-budget.d/` file, and the ledger moves only through owner-approved resets (#2500) | `2026-09-29-route-budget-soft-hard.md` |
 | Gallery and demo PDFs, the deck goldens | Built by a bot on `main`: pull requests stop committing PDFs, and the nightly bless PR renders them (#2614, 2026-10-08) | `2026-10-06-goldens-bot-blessed.md` |
 | Showcase WebPs (`docs/public/showcase/`) | Built by a bot on `main`, in the same bless commit, because they are cut from the gallery PDFs | same note; `.github/workflows/golden-bless.yml` |
-| Committed generated JS under `lib/`, including the speech-projection bundle | **Deferred by the owner** until the Tauri desktop app lands (§3) | `followups.d/2554-p3-uncommit-generated-js-after-desktop-app.md` |
+| Committed generated JS under `lib/`, including the speech-projection bundle | Deferred by the owner until the Tauri desktop app lands (§3); **undeferred 2026-10-14**, next up | `followups.d/2554-p1-uncommit-generated-js.md` |
 
 **Before and after.** Measured as `2026-09-28-rebase-only-on-conflict.md` §6 measured it:
 every push in a `ci.yml` `pull_request` run whose merge base with `main` moved forward,
@@ -239,8 +239,9 @@ between the two, so the split is the same either way.
 Per 1,000 PR runs, generated-only conflicts went 94 → 31 → 0. In the first window the
 route budget was in 80 of the 141 conflicts and the decision index in 38. In the last
 window no conflict touched a PDF, a WebP, generated JS, the route budget or an index. The
-generated JS last conflicted on 10-06, so the deferred item costs little while the owner
-waits on the desktop app.
+generated JS last conflicted on 10-06. That looked cheap until 2026-10-14, when the same
+files turned out to block every Dependabot bump of a bundled package, the DOMPurify security
+fix among them (`2026-10-14-dependabot-prs-never-merge.md`). The owner then moved the item up.
 
 **The price of the PDF fix.** Committed goldens on `main` now change only when a person
 merges the nightly bless PR, which is still a dry run that never merges itself. The bless
