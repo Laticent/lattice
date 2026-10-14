@@ -19,12 +19,14 @@ for (const [label, width, height] of [
 	['tablet', 820, 1180],
 	['mobile', 390, 844],
 ] as const) {
-	test(`a plugin's inline kind: the chip in the line, then Approve draws the span, at ${label} (${width}px)`, async ({ page }) => {
+	test(`a plugin's inline kind: the chip in the line, then Approve draws the span, at ${label} (${width}px) @crosswidth @webkit-tablet @gecko`, async ({ page }) => {
 		const shot = async (name: string) => {
 			if (!EVIDENCE) return;
 			fs.mkdirSync(EVIDENCE, { recursive: true });
 			await page.screenshot({ path: path.join(EVIDENCE, `plugin-inline-${name}-${width}.png`) });
 		};
+		// Start wide on every project (the `mobile` project opens at 390px): the test drives its own widths.
+		await page.setViewportSize({ width: 1440, height: 900 });
 		await gotoStudio(page);
 		const docked = page.getByRole('button', { name: 'Open Library' });
 		await ((await docked.count()) ? docked : page.getByRole('button', { name: 'Library', exact: true })).click();
@@ -112,7 +114,9 @@ for (const [label, width, height] of [
 // ── The BUILT-IN kinds in the named spelling, in the real Studio ──
 // `@icon{…}` and `@avatar{…}` are the same rows as `^{…}` and `!{…}` (inline-code-directives.js `NAMED_ROW`), so the
 // preview draws the same SVG, and the root keeps the author's spelling in `data-src`. The `@` menu lists the kinds.
-test('the built-in kinds in the named form: `@icon{…}` and `@avatar{…}` draw in the preview at three widths, and `@` lists the kinds', async ({ page }) => {
+test('the built-in kinds in the named form: `@icon{…}` and `@avatar{…}` draw in the preview at three widths, and `@` lists the kinds @crosswidth @webkit-tablet @gecko', async ({ page }) => {
+	// Start wide on every project (the `mobile` project opens at 390px): the test drives its own widths.
+	await page.setViewportSize({ width: 1440, height: 900 });
 	await gotoStudio(page);
 	await setEditorContent(page, '## The data team\n\nThe store is `@icon{database}` and the lead is `@avatar{Ada Okafor}` this quarter.\n\n');
 	const preview = livePreview(page);
