@@ -57,11 +57,22 @@ export function splitSlides(text) {
   return slides.filter((s) => s.trim()).map(parseSlide);
 }
 
+/** Drop HTML comments, repeating until none are left so a nested one can't survive. */
+function stripComments(text) {
+  let prev;
+  let out = text;
+  do {
+    prev = out;
+    out = out.replace(/<!--[\s\S]*?-->/g, '');
+  } while (out !== prev);
+  return out.replace(/<!--/g, '');
+}
+
 /** Pull out what the checks need from one slide's Markdown. */
 export function parseSlide(md) {
   const cls = (md.match(/<!--\s*_class:\s*([^>]*?)\s*-->/) || [])[1] ?? '';
   const notes = [...md.matchAll(/<!--(?!\s*_)([\s\S]*?)-->/g)].map((m) => m[1].trim()).join('\n');
-  let visible = md.replace(/<!--[\s\S]*?-->/g, '');
+  let visible = stripComments(md);
   const code = /```[\s\S]*?```/g;
   const hasCode = code.test(visible);
   visible = visible.replace(/```[\s\S]*?```/g, '');
@@ -84,7 +95,7 @@ export function parseSlide(md) {
     hasCode,
     notes,
     teaches,
-    listLeads: [...md.replace(/<!--[\s\S]*?-->/g, '').matchAll(/^[-*]\s+(.+)$/gm)].map((m) => m[1].trim()),
+    listLeads: [...stripComments(md).matchAll(/^[-*]\s+(.+)$/gm)].map((m) => m[1].trim()),
   };
 }
 
