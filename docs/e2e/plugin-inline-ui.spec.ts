@@ -112,21 +112,28 @@ for (const [label, width, height] of [
 // ── The BUILT-IN kinds in the named spelling, in the real Studio ──
 // `@icon{…}` and `@avatar{…}` are the same rows as `^{…}` and `!{…}` (inline-code-directives.js `NAMED_ROW`), so the
 // preview draws the same SVG, and the root keeps the author's spelling in `data-src`. The `@` menu lists the kinds.
-test('the built-in kinds in the named form: `@icon{…}` and `@avatar{…}` draw in the preview, and `@` lists the kinds', async ({ page }) => {
+test('the built-in kinds in the named form: `@icon{…}` and `@avatar{…}` draw in the preview at three widths, and `@` lists the kinds', async ({ page }) => {
 	await gotoStudio(page);
 	await setEditorContent(page, '## The data team\n\nThe store is `@icon{database}` and the lead is `@avatar{Ada Okafor}` this quarter.\n\n');
 	const preview = livePreview(page);
 	const icon = preview.locator('span.lat-icon[data-icon="database"]');
-	await expect(icon.locator('svg.lat-icon-svg path').first()).toBeAttached({ timeout: 30_000 });
-	await expect(icon).toHaveAttribute('data-src', '@icon{database}');
 	const avatar = preview.locator('span.lat-avatar[aria-label="Ada Okafor"]');
-	await expect(avatar.locator('svg.lat-avatar-svg path').first()).toBeAttached();
-	await expect(avatar).toHaveAttribute('data-src', '@avatar{Ada Okafor}');
-	// Both draw in the line, at a real size.
-	for (const el of [icon, avatar]) {
-		const box = await el.boundingBox();
-		expect(box && box.width > 4 && box.height > 4).toBe(true);
+	// At each width the Studio ships (CLAUDE.md QUALITY BAR), both draw in the line, at a real size.
+	for (const [width, height] of [
+		[1440, 900],
+		[820, 1180],
+		[390, 844],
+	] as const) {
+		await page.setViewportSize({ width, height });
+		await expect(icon.locator('svg.lat-icon-svg path').first(), `${width}px`).toBeAttached({ timeout: 30_000 });
+		await expect(icon).toHaveAttribute('data-src', '@icon{database}');
+		await expect(avatar.locator('svg.lat-avatar-svg path').first(), `${width}px`).toBeAttached();
+		await expect(avatar).toHaveAttribute('data-src', '@avatar{Ada Okafor}');
+		for (const el of [icon, avatar]) {
+			await expect.poll(async () => ((await el.boundingBox())?.height ?? 0) > 4, `${width}px`).toBe(true);
+		}
 	}
+	await page.setViewportSize({ width: 1440, height: 900 });
 	// The `@` menu: typing a kind's first letters inside a code span offers it.
 	await typeInEditor(page, 'Owner: `@ava');
 	const menu = page.locator('.cm-tooltip-autocomplete');
