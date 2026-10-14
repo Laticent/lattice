@@ -5,16 +5,16 @@
     "studio": {
       "html": "studio/index.html",
       "eagerJsGz": {
-        "soft": 659716,
-        "hard": 700467
+        "soft": 504833,
+        "hard": 555316
       },
       "htmlRaw": {
         "soft": 206840,
         "hard": 227524
       },
       "engineJsGz": {
-        "soft": 934189,
-        "hard": 1027608
+        "soft": 707731,
+        "hard": 778504
       }
     },
     "playground": {
@@ -28,8 +28,8 @@
         "hard": 484206
       },
       "engineJsGz": {
-        "soft": 934189,
-        "hard": 1027608
+        "soft": 707731,
+        "hard": 778504
       }
     },
     "home": {
@@ -43,8 +43,8 @@
         "hard": 111320
       },
       "engineJsGz": {
-        "soft": 934189,
-        "hard": 1027608
+        "soft": 707731,
+        "hard": 778504
       }
     },
     "components": {
@@ -58,8 +58,8 @@
         "hard": 602657
       },
       "engineJsGz": {
-        "soft": 934189,
-        "hard": 1027608
+        "soft": 707731,
+        "hard": 778504
       }
     },
     "getting-started": {
@@ -73,8 +73,8 @@
         "hard": 89100
       },
       "engineJsGz": {
-        "soft": 550941,
-        "hard": 606035
+        "soft": 324483,
+        "hard": 356931
       }
     }
   }
