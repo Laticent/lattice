@@ -208,7 +208,7 @@ test('a clip over the size cap is refused before it is read, and nothing is atta
 	await gotoStudio(page);
 	await openChatAtWidth(page, 1440);
 	await pickFile(page, { name: 'Long.mp4', mimeType: 'video/mp4', buffer: Buffer.alloc(16 * 1024 * 1024) });
-	await expect(page.getByText(/at most 15 MB/)).toBeVisible({ timeout: 20_000 });
+	await expect(page.getByText(/limit is 15 MB/)).toBeVisible({ timeout: 20_000 });
 	await expect(page.getByTestId('chat-photo-strip')).toHaveCount(0);
 	expect(bodies).toHaveLength(0);
 });
@@ -222,8 +222,8 @@ test('a clip too short for a model to see is refused in words, and nothing is at
 	// 0.13 s made Gemini describe a kitchen. So it is refused at the door instead of sent.
 	const clip = await recordClip(page, 0.5);
 	await pickFile(page, { name: 'Blink.webm', mimeType: 'video/webm', buffer: clip });
-	await expect(page.getByText(/seconds long\. A model reads about one frame a second/)).toBeVisible({ timeout: 20_000 });
-	await expect(page.getByText(/Record at least 2 seconds/)).toBeVisible();
+	await expect(page.getByText(/seconds long\. A model looks at about one frame a second/)).toBeVisible({ timeout: 20_000 });
+	await expect(page.getByText(/record at least 2 seconds/)).toBeVisible();
 	await expect(page.getByTestId('chat-photo-strip')).toHaveCount(0);
 	expect(bodies).toHaveLength(0);
 });
@@ -584,6 +584,7 @@ for (const [w, h] of [
 					const st = t.objectStore('assets');
 					st.put({ id: 'm_img', kind: 'image', name: 'team-offsite', scope: 'library', blob: new Blob([bytes(png)], { type: 'image/png' }), mime: 'image/png', bytes: bytes(png).length, width: 160, height: 120, sourceName: 'Team Offsite.png', original: true, addedAt: 3 });
 					st.put({ id: 'm_vid', kind: 'video', name: 'walk', scope: 'library', blob: new Blob([bytes(webm)], { type: 'video/webm' }), mime: 'video/webm', bytes: bytes(webm).length, width: 160, height: 90, sourceName: 'Walk.webm', original: true, durationMs: 2000, addedAt: 2 });
+					st.put({ id: 'm_big', kind: 'video', name: 'img-4526', scope: 'library', blob: new Blob([bytes(webm)], { type: 'video/webm' }), mime: 'video/webm', bytes: 17_195_008, width: 160, height: 90, sourceName: 'IMG_4526.mov', original: true, durationMs: 9000, addedAt: 1 });
 					st.put({ id: 'r_doc', kind: 'refdoc', name: 'Guide.md', docKind: 'text', text: '# Guide', bytes: 7, addedAt: 1 });
 					t.oncomplete = () => resolve();
 					t.onerror = () => reject(t.error);
@@ -604,6 +605,26 @@ for (const [w, h] of [
 
 		await panel.getByRole('button', { name: /^Attach team-offsite/ }).click();
 		await panel.getByRole('tab', { name: /^Videos/ }).click();
+		// A clip that is too big says so in plain words with the number that matters, at full strength: the reason is not
+		// inside the faded part of the row, not red-on-dark, and not tiny (a real iPhone clip, 9 s and 16.4 MB, was refused
+		// in 10px red text under a half-faded row, and a tester could not read it).
+		const why = panel.getByTestId('clip-refusal');
+		await expect(why).toHaveText('This video is 16.4 MB and the limit is 15 MB. Trim it to about 7 seconds or less, then add it again.');
+		for (const mode of ['light', 'dark']) {
+			await page.evaluate((m) => document.documentElement.setAttribute('data-mode', m), mode);
+			const look = await why.evaluate((el) => {
+				let faded = 1;
+				for (let n: Element | null = el; n && n.tagName !== 'BODY'; n = n.parentElement) faded *= Number(getComputedStyle(n).opacity);
+				const name = el.closest('li')?.querySelector('span.truncate');
+				return { size: Number.parseFloat(getComputedStyle(el).fontSize), faded, color: getComputedStyle(el).color, nameColor: name ? getComputedStyle(name).color : '' };
+			});
+			expect(look.size, `${mode} ${JSON.stringify(look)}`).toBeGreaterThanOrEqual(12);
+			expect(look.faded, `${mode} ${JSON.stringify(look)}`).toBeGreaterThanOrEqual(0.99);
+			expect(look.color, `${mode}: the reason reads in the same strong color as the clip name`).toBe(look.nameColor);
+			await page.screenshot({ path: test.info().outputPath(`chat-attach-refusal-${mode}-${w}.png`) });
+		}
+		await expect(panel.getByRole('button', { name: /^Attach img-4526/ })).toBeDisabled();
+		await page.evaluate(() => document.documentElement.setAttribute('data-mode', 'light'));
 		await panel.getByRole('button', { name: /^Attach walk/ }).click();
 		await panel.getByRole('tab', { name: /^Files/ }).click();
 		await panel.getByRole('button', { name: /^Attach Guide\.md/ }).click();

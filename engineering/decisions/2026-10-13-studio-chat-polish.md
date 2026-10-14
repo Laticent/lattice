@@ -197,6 +197,14 @@ viewed", which contradicts the clip in the message. The prompt now marks the cli
 points to it (`ChatOptions.videos[].name`). `chat-agent-clip.test.ts` follows the clip from the chat agent to
 `model.complete` and finds the `video_url` part.
 
+**A refusal a person could not read (2026-10-14).** A real iPhone clip (9 s, 16.4 MB) was refused in the Library picker
+in 10px red text, inside a row faded to half opacity, and the message ("A phone clip is large for its length, so trim it to a
+few seconds") did not say how much to cut. The row no longer fades over the reason: the thumbnail and name fade, the reason
+does not; it is 12px in the strong text color with a warning mark in the failure color. Each refusal now says what is wrong,
+then what to do, with the number that matters: "This video is 16.4 MB and the limit is 15 MB. Trim it to about 7 seconds or
+less, then add it again" (the length that fits at the clip's own rate, with a tenth to spare). A spec seeds that clip and
+checks the wording, the size, that nothing over the reason is faded, and the color, in light and in dark.
+
 **Verified:** `docs/e2e/chat-photos.spec.ts` in real Chromium at 1440, 820 and 390 px: the composer has the two controls and
 no menu; the paperclip is a real, tappable input (not `hidden`, not `pointer-events: none`) that accepts images, video and
 `.pdf` and opens the browser's chooser in one tap; a `.md` and a photo picked together become a chip and a thumbnail; from the

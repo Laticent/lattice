@@ -1,4 +1,4 @@
-import { Check, FileBox, FileText, Film, Paperclip } from 'lucide-react';
+import { Check, FileBox, FileText, Film, Paperclip, TriangleAlert } from 'lucide-react';
 import * as React from 'react';
 import { PillTabs } from '@/components/ui/pill-tabs';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -209,18 +209,27 @@ export function ChatAttach({
 															aria-label={`${on ? 'Remove' : 'Attach'} ${m.name}`}
 															disabled={!!why}
 															onClick={() => onToggleVideo(m)}
-															className={cn('flex w-full items-center gap-2.5 rounded-lg border p-1.5 text-left disabled:opacity-50', on ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-border')}
+															className={cn('flex w-full items-start gap-2.5 rounded-lg border p-1.5 text-left', on ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-border')}
 														>
-															<span className="relative grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-md bg-[var(--bg-alt)]">
+															<span className={cn('relative grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-md bg-[var(--bg-alt)]', why && 'opacity-60')}>
 																{m.poster ? <img src={m.poster} alt="" className="size-full object-cover" draggable={false} /> : <Film className="size-4 text-muted-foreground" aria-hidden />}
 															</span>
 															<span className="min-w-0 flex-1">
-																<span className="block truncate text-[12.5px] font-medium text-[var(--text-heading)]">{m.name}</span>
-																<span className="block font-mono text-[10px] text-muted-foreground">
-																	{m.durationMs ? `${clock(m.durationMs)} · ` : ''}
-																	{formatBytes(m.bytes)}
+																<span className={cn('block', why && 'opacity-60')}>
+																	<span className="block truncate text-[12.5px] font-medium text-[var(--text-heading)]">{m.name}</span>
+																	<span className="block font-mono text-[10px] text-muted-foreground">
+																		{m.durationMs ? `${clock(m.durationMs)} · ` : ''}
+																		{formatBytes(m.bytes)}
+																	</span>
 																</span>
-																{why && <span className="block text-[10.5px] leading-snug text-[var(--fail,#b3261e)]">{why}</span>}
+																{/* Why it cannot be attached: full-strength text (the row is not dimmed over it), with the warning mark in the failure
+																    color. Red text on the dark card at 10px, under a half-faded row, was unreadable. */}
+																{why && (
+																	<span className="mt-1 flex items-start gap-1.5 text-[12px] leading-snug text-[var(--text-heading)]" data-testid="clip-refusal">
+																		<TriangleAlert className="mt-0.5 size-3.5 shrink-0 text-[var(--fail,#b3261e)]" aria-hidden />
+																		<span>{why}</span>
+																	</span>
+																)}
 															</span>
 															{on && <Check className="size-4 shrink-0 text-[var(--accent)]" aria-hidden />}
 														</button>

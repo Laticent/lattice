@@ -81,16 +81,19 @@ describe('video', () => {
 	it('accepts a clip at the limits and refuses past them, in words', () => {
 		expect(videoRefusal(MAX_VIDEO_SECONDS, MAX_VIDEO_BYTES)).toBeNull();
 		expect(videoRefusal(MAX_VIDEO_SECONDS + 0.4, 1000)).toBeNull(); // a phone's "15 s" clip decodes at 15.0x
-		expect(videoRefusal(MAX_VIDEO_SECONDS + 0.6, 1000)).toMatch(/15\.6 seconds; a message can carry at most 15/);
-		expect(videoRefusal(5, MAX_VIDEO_BYTES + 1)).toMatch(/MB/);
-		expect(videoRefusal(Number.NaN, 1000)).toMatch(/could not be read/);
+		expect(videoRefusal(MAX_VIDEO_SECONDS + 0.6, 1000)).toMatch(/15\.6 seconds and the limit is 15\. Trim it to 15 seconds or less/);
+		expect(videoRefusal(5, MAX_VIDEO_BYTES + 1)).toMatch(/MB and the limit is 15 MB/);
+		// The real iPhone clip that was refused: 9 s, 16.4 MB. 7 s is what fits at its own rate with a tenth to spare.
+		expect(videoRefusal(9, Math.round(16.4 * 1_048_576))).toBe('This video is 16.4 MB and the limit is 15 MB. Trim it to about 7 seconds or less, then add it again.');
+		expect(videoRefusal(Number.NaN, 16 * 1_048_576)).toBe('This video is 16.0 MB and the limit is 15 MB. Trim it to a few seconds, then add it again.');
+		expect(videoRefusal(Number.NaN, 1000)).toMatch(/could not be read, so it was not attached\. Try another file/);
 		expect(videoRefusal(Number.POSITIVE_INFINITY, 1000)).toMatch(/could not be read/);
 		expect(videoRefusal(0, 1000)).toMatch(/could not be read/);
 	});
 	it('refuses a clip too short for a model to see, and says how long to record', () => {
 		// The real clip that failed: an iPhone clip of 0.13 s (4 frames). A video model reads about a frame a second.
-		expect(videoRefusal(0.1317, 306_275)).toMatch(/0\.13 seconds long.*at least 2 seconds/);
-		expect(videoRefusal(1, 1000)).toMatch(/1\.0 seconds long.*under 1\.5 seconds/);
+		expect(videoRefusal(0.1317, 306_275)).toMatch(/only 0\.13 seconds long.*record at least 2 seconds/);
+		expect(videoRefusal(1, 1000)).toMatch(/only 1\.0 seconds long.*one frame a second/);
 		expect(videoRefusal(MIN_VIDEO_SECONDS - 0.01, 1000)).not.toBeNull();
 		expect(videoRefusal(MIN_VIDEO_SECONDS, 1000)).toBeNull();
 		expect(videoRefusal(2, 1000)).toBeNull();

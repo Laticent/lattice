@@ -100,7 +100,7 @@ export async function photoDataUrl(name: string): Promise<string | null> {
  *  words. The size is checked BEFORE the file is read; the length BEFORE it is saved, so a refused clip
  *  leaves nothing on the shelf. */
 export async function addChatVideo(file: File, deckId: string): Promise<{ video: ChatVideo } | { error: string }> {
-	if (file.size > MAX_VIDEO_BYTES) return { error: videoRefusal(1, file.size) as string };
+	if (file.size > MAX_VIDEO_BYTES) return { error: videoRefusal(Number.NaN, file.size) as string };
 	try {
 		const rec = await importVideo(file, deckId);
 		const refusal = videoRefusal((rec.durationMs ?? 0) / 1000, rec.bytes);
