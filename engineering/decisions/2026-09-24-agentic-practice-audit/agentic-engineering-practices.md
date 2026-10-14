@@ -839,6 +839,27 @@ A hook is a small script Claude Code runs at a fixed moment, whether or not the 
 
 ---
 
+<!-- _class: split-panel -->
+
+`Verification · Three test gates`
+
+## Each test gate catches what the one before it can't.
+
+Rebase only on a real conflict. The merge queue already tests your change against the latest code.
+
+- On your machine
+  - Lint and the tests your change touches, in seconds, before every commit.
+- On the pull request
+  - The full suite on a clean machine, on every push.
+- In the merge queue
+  - Your change retested on top of everything merging ahead of it.
+
+<!--
+Testing happens in three places, and each one catches something the one before it can't. On your machine, the checks are fast: lint and the tests your change touches, run by a hook before every commit, so the agent hears about a mistake in seconds. On the pull request, the full suite runs on a clean machine on every push. That catches "it works on my machine": a missing file, a different setting, a test nobody thought to run. And in the merge queue, if your platform has one, your change is tested again on top of everything that will merge before it. That's the only gate that catches two changes that each pass on their own and break together, which is the emergence problem we'll come to later. If you don't have a queue, run the full suite against the latest main just before you merge. One habit follows from this. Don't rebase just because main moved. The queue already tests against the latest code, so a rebase without a conflict re-runs every check for nothing. On my own project, agents rebased every time main moved, and over eight days that came to sixty-seven unneeded rebases and about fifteen hours of CI time. Rebase when there's a real conflict, and let the queue do the rest.
+-->
+
+---
+
 <!-- _class: list-steps insight-bottom-line -->
 
 `Verification · Leave the room`
@@ -968,19 +989,23 @@ Here's an example of what we call an evidence card. The agent posts one before i
 
 ---
 
-<!-- _class: compare-prose vertical chosen -->
+<!-- _class: q-and-a grid -->
 
 `Learning · Pending work`
 
 ## Keep pending work in the repository, one file per item.
 
-- In chat
-  - Gone when the session ends, and nobody can tell which ones are still real.
-- In the repository
-  - One small file per item, with a priority and a "done when." Any session can pick it up cold.
+- Why not just the issue tracker?
+  - The agent reads the repository with no extra access, and the item ships in the pull request that found it.
+- Why one file per item?
+  - Two changes never edit the same lines, so they never collide when they merge.
+- What stops the list going stale?
+  - Add a check that fails the build when an item has no priority or "done when."
+- Where do people plan the work?
+  - In the tracker. Promote an item to an issue when people need to plan around it.
 
 <!--
-When an agent session ends, anything that lived only in the chat goes with it. So every piece of unfinished work gets its own small file in the repository, with a priority and a clear "done when." Use one file per item instead of one shared list, and the reason is practical. Two changes in progress never edit the same lines, so they never collide when they merge. A changelog works the same way: every change adds its own small entry file instead of editing one shared file.
+When an agent session ends, anything that lived only in the chat goes with it, and nobody can tell later which of those loose ends were real. So every piece of unfinished work gets its own small file in the repository, with a priority and a clear "done when." People ask why not just use the issue tracker. The agent can read the repository without any extra access, and the item ships in the same pull request that found it, so the reviewer sees it next to the change. Why one file per item instead of one list? Two changes in progress never edit the same lines, so they never collide when they merge; more on that in the orchestration section. What keeps it honest is a check: if an item is missing its priority or its "done when," the build fails. And the tracker still has a job. It's where people plan together, so promote an item to an issue when people need to schedule around it. One more habit: at the end of a session, have the agent write a short handoff note listing everything still pending, so the next session can start cold.
 -->
 
 ---
@@ -1146,6 +1171,32 @@ So which model should do which work? Don't route by the calendar. The start of a
 
 <!--
 Each extra agent costs money, and it doesn't always make the result better. So budget agents like money. Estimate before you start. Count across the whole session, because a lot of small runs add up. Past about ten agents, a person signs off. Stop refining once a round changes nothing, which usually happens by the third round. And write down what it cost. That last one is the easiest to skip. If a big run doesn't record its cost, you can't tell later whether it was worth it.
+-->
+
+---
+
+<!-- _class: split-compare -->
+<!-- _header: 'Agentic engineering' -->
+
+`Orchestration · Parallel work`
+
+## Many agents, one shared file, endless conflicts.
+
+Each agent finishes its own change, then collides with the others on the one file they all edit.
+
+- One shared file
+  - Every change appends to the changelog, the index or the task list
+  - Any two changes in flight collide
+  - Generated files, committed by hand, go stale and conflict too
+- One file per entry
+  - Each change adds its own small file to a folder
+  - A script stitches them together when someone needs the whole
+  - Generated files are built, never committed
+
+> Design the repository so parallel changes touch different files.
+
+<!--
+This one only shows up when several agents work at once. Each agent finishes its own change and opens a pull request. Then they all collide, not in the code they meant to change, but in the one file every change touches: the changelog, an index of documents, a shared task list. Two changes in flight, two edits to the same lines, one conflict. Multiply by a dozen agents and conflicts become the main thing you do all day. On my own project, one shared changelog knocked seven pull requests out of the merge queue in a single evening. And rendered files that every change regenerated were part of eleven of the nineteen real merge conflicts in one week. The fix was boring, and it worked. Each change adds its own small file to a folder, one per changelog entry or task, and a script stitches them together when someone needs the whole, like at release time. Generated files stop being committed by hand; a build or a nightly job produces them. Data teams hit the same thing with a shared schema registry or a numbered list of migrations. The rule is simple: design the repository so parallel changes touch different files.
 -->
 
 ---
@@ -1522,19 +1573,19 @@ If you try three things this week, try these. Rewrite your agent's instruction f
 
 `Script drafted with Claude Opus 5.5, by Anthropic`
 
-1. 71%
+1. 72%
    - ideas from Sharmarke
-2. 3,833
+2. 3,993
    - words typed
-3. 12,093
+3. 12,844
    - words drafted
 4. 3
    - drafts sent back
-5. $478
+5. $519
    - model usage
 
 <!--
-One last thing before questions: the credits. This deck was made the way it describes, and I counted, because the one rule applies to us too. About seventy percent of the ideas came from me: forty-nine of the sixty-nine slides, either raised while we built it or pulled from the system I'd already built. That one is a judgment call, slide by slide. The rest are counts. I typed about thirty-eight hundred words to direct it, two pasted briefs included. Claude drafted about twelve thousand, every slide and every speaker note. I sent back three whole drafts before this one. And the model time came to about four hundred eighty dollars at list price. That figure covers the whole working session, including a written audit that sits behind this talk, so the deck alone cost less. So who made it? I did the thinking, set the bar, and made every call. Claude did the takes. That's the job now.
+One last thing before questions: the credits. This deck was made the way it describes, and I counted, because the one rule applies to us too. About seventy-two percent of the ideas came from me: fifty-one of the seventy-one slides, either raised while we built it or pulled from the system I'd already built. That one is a judgment call, slide by slide. The rest are counts. I typed about four thousand words to direct it, two pasted briefs included. Claude drafted nearly thirteen thousand, every slide and every speaker note. I sent back three whole drafts before this one. And the model time came to about five hundred twenty dollars at list price. That figure covers the whole working session, including a written audit that sits behind this talk, so the deck alone cost less. So who made it? I did the thinking, set the bar, and made every call. Claude did the takes. That's the job now.
 
 How each number was counted, as of October fourteenth. Words typed: every message I sent in the session, split on spaces, including two briefs I pasted in. Words drafted: every word on the slides and in the speaker notes, from the title to the closing slide, leaving out code blocks. Model usage: every model call in the session, including helper agents, priced at five dollars per million input tokens and twenty-five per million output, with cache writes and reads at their listed rates.
 -->
@@ -1614,6 +1665,8 @@ For anyone reading this later, here are the terms we leaned on, in plain words.
   - A tool that flags style slips and simple mistakes without running the code.
 - Merge
   - Fold an approved change into the main line of the code.
+- Merge queue
+  - A line of approved changes, each retested on top of the ones ahead before it merges.
 - Pull request
   - A proposed change, waiting for review before it merges.
 
