@@ -258,6 +258,65 @@ and the hook, because several things assumed every deck already had a committed 
   showcase fails docs-build until its first bless, because the showcase image is cut from
   the gallery PDF. Set the flag in a follow-up PR (`design/skills/component.md`).
 
+**Step 4, the dry-run week as measured (2026-10-14).** Step 4 is **not switched on**, and
+the week cannot set the thresholds yet. The six nights since the first bless merged, rebuilt
+from each run's `golden-bless` artifact by `node tools/golden-bless-nights.mjs --since 2026-10-09`:
+
+| Night | Rendered from | Changed (new) | Worst page | Rules 1234 | Would merge | Delta (new to the night) | Delta worst | Delta rules 1234 | Delta would merge | Person: accept unseen? |
+|---|---|---|---|---|---|---|---|---|---|---|
+| [2026-10-09](https://github.com/Laticent/lattice/actions/runs/37898391359) | `b88174e7d094` | 6 (1) | 6.58% | ynyn | no | 6 | 6.58% | ynyn | no | |
+| [2026-10-10](https://github.com/Laticent/lattice/actions/runs/38032839661) | `3bea7ebf6321` | 6 (1) | 6.58% | ynyn | no | 0 | 0.00% | yyyy | nothing new | |
+| [2026-10-11](https://github.com/Laticent/lattice/actions/runs/38120190315) | `3bea7ebf6321` | 5 (1) | 1.06% | ynyn | no | 0 | 0.00% | yyyy | nothing new | |
+| [2026-10-12](https://github.com/Laticent/lattice/actions/runs/38216907527) | `0daeed46d2b9` | 10 (4) | 1.06% | ynyn | no | 5 | 0.12% | yyyy | yes | |
+| [2026-10-13](https://github.com/Laticent/lattice/actions/runs/38364025485) | `4b0eef099312` | 22 (12) | 1.06% | ynnn | no | 12 | 0.45% | yynn | no | |
+| [2026-10-14](https://github.com/Laticent/lattice/actions/runs/38520115577) | `2cd68f6aef15` | 25 (13) | 88.11% | nnnn | no | 3 | 88.11% | nnyy | no | |
+
+The DELTA columns score only the goldens a night added to the open bless PR. That is what
+the night would have said had the previous bless been merged (`tools/lib/golden-bless-nights.mjs`).
+
+What the week shows:
+
+- **No night could have merged, and the cause is the unmerged PR, not the rules.** The bless
+  PR #2624 opened on 10-09 and was still open on 10-14. Until a bless merges, rule 4's window
+  stays at `6592eaa` (bless #2598) and each night re-blesses every earlier night's goldens.
+  So the four goldens that went unseen on 10-09 failed every later night too. Scored alone,
+  10-12 would have merged: 5 goldens, worst page 0.12%, all shown on #2625, #2628 and #2632.
+  10-10 and 10-11 added nothing.
+- **Goldens went unseen in three ways, each traced to its PR.**
+  1. *A deck edit that golden-diff could not compare.* #2601 changed the text of
+     `fluid-box`, `html-player`, `palette-cascade-flip` and `present-mode`. Its golden-diff
+     rendered 47 goldens, failed 23 base renders, and reported "No visual changes" with an
+     empty marker. That was before step 3, and golden-diff now posts the decks a PR moves:
+     #2625, #2628, #2632, #2645, #2656 and #2674 each listed theirs.
+  2. *A shared change that moves a deck the PR never touched.* `hub-spoke`, `hub-spoke-icons`,
+     `hub-spoke-sketch` and `marp-export-fidelity` moved between `0daeed4` and `4b0eef0`.
+     The window holds two shared changes whose golden-diff rendered galleries only and listed
+     nothing: #2638 and #2651. That matches the design, because `golden-affected` never
+     renders a deck whose only change is a shared input. Such a night always needs a person.
+  3. *A first-time component gallery.* The collage gallery (#2635, #2658) was in neither
+     PR's marker. Step 3 shows a PR's new DECK, but not its new gallery, so every new
+     component makes one night wait for a person.
+- **`themes/palette-audit.pdf` does not render the same way twice.** It flips between two
+  states, unchanged or exactly 6.58% moved: one of the two runs that rendered `6592eaa` saw
+  each, and so did 10-10 and 10-11, which rendered the same commit (`3bea7eb`). On a night with no other change, rule 2 would hold that night back
+  for nothing. Recorded as `followups.d/2570-p2-palette-audit-nondeterministic.md`.
+- **Nothing in the week moves the guesses**, so rule 2 stays at 1% and rule 3 at 10. No
+  person has labeled a night (item (a) of the step 4 follow-up). Only two deltas carried a
+  re-blessed golden a person had seen: the logo galleries at 0.11–0.12% (#2628), and the
+  imagery gallery, which gained a page (88%, #2658) and fails rule 1 anyway. Rule 3 counts
+  first-time goldens too. On 10-13 the delta was 12, and 10 of them were new decks a person
+  had seen, so on a busy day rule 3 will say no to work that is new rather than changed.
+- **Runner pinned (item (c)).** `golden-bless.yml` and ci.yml's `golden-diff` job now run on
+  `ubuntu-24.04`, which is what `ubuntu-latest` resolved to on 10-14. So a new OS image has to
+  land as a PR that moves both jobs. GitHub's weekly patch updates within 24.04 still apply.
+
+**What step 4 needs before it can finish:** a person merges #2624 (or closes it, and the
+next night opens a fresh one), so that the nights become independent. Then a week of nights,
+each labeled in the table's last column. `golden-bless-nights.mjs` rebuilds the table at any
+time while the artifacts last (90 days). Items (b), (d), (e), (f) and (g) of
+`followups.d/2570-p2-goldens-step-4-switch-on-auto-merge.md` stay open for the PR that
+switches auto-merge on.
+
 ## 6. Decisions (owner, 2026-10-07)
 
 | Question | Decision |

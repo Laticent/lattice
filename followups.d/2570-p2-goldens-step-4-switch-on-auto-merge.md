@@ -27,9 +27,8 @@ source: engineering/decisions/2026-10-06-goldens-bot-blessed.md
                    and any night that straddles step 3. (b) The nightly force-push
                    overwrites a person's edit to the bless branch, and closing the PR
                    does not stop the same goldens returning; decide how a rejection
-                   sticks. (c) Pin `runs-on` for golden-bless.yml and the golden-diff
-                   job, so a runner image change is a deliberate PR, not a night where
-                   everything moves. (d) design/*.gallery.md decks: golden-affected
+                   sticks. (c) DONE 2026-10-14: `runs-on` pinned to ubuntu-24.04 for
+                   golden-bless.yml and the golden-diff job. (d) design/*.gallery.md decks: golden-affected
                    renders them as decks since step 3, but the CI `code` filter has no
                    design/**, so a design-only PR runs no golden-diff and its deck counts
                    as unseen (a CI-contract change, put to the owner on #2614).
@@ -46,4 +45,11 @@ source: engineering/decisions/2026-10-06-goldens-bot-blessed.md
                    no-PDF check does not exempt. Decide the path (a revert pushed to
                    chore/golden-bless, or an exemption for revert-*-chore/golden-bless).
        blocked   — after a week of dry-run nights. Adding a label is shared state: ask first.
+       state     — 2026-10-14: (c) done (both jobs on ubuntu-24.04). The six nights since
+                   bless #2598 all said no, because bless PR #2624 sat unmerged and carried
+                   10-09's unseen goldens into every later night; scored alone, 10-12 would
+                   have merged. No night is labeled yet, so the thresholds stay at 1% / 10.
+                   First merge or close #2624, then label a week of nights in the table
+                   `node tools/golden-bless-nights.mjs` prints (decision doc §5, "Step 4,
+                   the dry-run week as measured").
 ```

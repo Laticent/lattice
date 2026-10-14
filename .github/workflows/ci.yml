@@ -561,7 +561,9 @@ jobs:
   golden-diff:
     needs: changes
     if: github.event_name == 'pull_request' && needs.changes.outputs.code == 'true'
-    runs-on: ubuntu-latest
+    # Pinned to the image golden-bless.yml blesses on: what a PR is shown must be what the
+    # bot will commit. Move both together, in one PR.
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     permissions:
       contents: write # push before/after PNGs to the orphan ci-drift-images branch
