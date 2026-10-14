@@ -12,10 +12,13 @@ describe('pictureTokensFor — what one picture costs, by model', () => {
 		expect(pictureTokensFor('')).toEqual(data.defaults);
 	});
 	it('charges a listed model its measured figure, whatever variant the id carries', () => {
-		// Measured 2026-10-13: a 512 px 3:2 picture is 8,500 tokens and a 1568 px one 36,835 on GPT-4o mini; times the 1.55 shape factor.
-		expect(pictureTokensFor('openai/gpt-4o-mini')).toEqual({ thumb: 13200, photo: 57100 });
-		expect(pictureTokensFor('openai/gpt-4o-mini:nitro')).toEqual({ thumb: 13200, photo: 57100 });
+		// Measured 2026-10-13: a 512 px 3:2 picture is 8,500 tokens and a 1568 px one 36,835 on GPT-4o mini; times the 1.9 shape factor.
+		expect(pictureTokensFor('openai/gpt-4o-mini')).toEqual({ thumb: 16150, photo: 70000 });
+		expect(pictureTokensFor('openai/gpt-4o-mini:nitro')).toEqual({ thumb: 16150, photo: 70000 });
 		expect(pictureTokensFor('minimax/minimax-01').photo).toBeGreaterThan(13000);
+	});
+	it('does not read an object prototype as a model', () => {
+		for (const id of ['__proto__', 'constructor', 'toString', 'hasOwnProperty']) expect(pictureTokensFor(id)).toEqual(data.defaults);
 	});
 	it('never charges a listed model less than the default at either size', () => {
 		for (const [id, [thumb, photo]] of Object.entries(data.exceptions as unknown as Record<string, [number, number]>)) {
@@ -29,8 +32,10 @@ describe('pictureTokensFor — what one picture costs, by model', () => {
 		expect(data.shape).toBe(SHAPE);
 	});
 	it('covers every measured model: the default is at or above the 90th percentile, and exceptions take the rest', () => {
-		// Claude (250 / 2,131), Gemini 2.5 (1,290 / 1,806) and GPT-5 mini (212 / 1,941), the models the Studio is used with, sit under the default.
-		for (const id of ['anthropic/claude-sonnet-5.5', 'google/gemini-2.5-flash-lite', 'openai/gpt-5-mini']) expect(pictureTokensFor(id)).toEqual(data.defaults);
+		// Claude (250 / 2,131) and GPT-5 mini (212 / 1,941) sit under the default. Gemini 2.5 (1,290 / 1,806) does not: a thin strip
+		// costs it 1.86x the 3:2 picture, so the 1.9 shape factor lifts its thumbnail over the default (measured 2026-10-14).
+		for (const id of ['anthropic/claude-sonnet-5.5', 'openai/gpt-5-mini']) expect(pictureTokensFor(id)).toEqual(data.defaults);
+		expect(pictureTokensFor('google/gemini-2.5-flash-lite')).toEqual({ thumb: 2500, photo: 4450 });
 		expect(data.p50[0]).toBeLessThan(data.defaults.thumb);
 		expect(data.p90[0] * data.shape).toBeLessThanOrEqual(data.defaults.thumb);
 		expect(data.p90[1] * data.shape).toBeLessThanOrEqual(data.defaults.photo);
@@ -67,13 +72,13 @@ describe('summarize — the probe tool’s pure half', () => {
 				{ id: 'a/small', t512: 250, t1568: 2131 },
 				{ id: 'b/big-thumb', t512: 1362, t1568: 2000 },
 				{ id: 'c/big-photo', t512: 200, t1568: 3343 },
-				{ id: 'd/gemini-2.5', t512: 1290, t1568: 1806 }, // 1,290 x 1.55 = 1,999.5: at the default, not over it
+				{ id: 'd/at-default', t512: 1130, t1568: 2300 }, // 1,130 x 1.9 = 2,147: under the thumb default, 2,300 x 1.9 = 4,370 under the photo one
 			],
 			'2026-10-13',
 		);
-		expect(out.exceptions).toEqual({ 'b/big-thumb': [2150, 3600], 'c/big-photo': [2000, 5200] });
+		expect(out.exceptions).toEqual({ 'b/big-thumb': [2600, 4450], 'c/big-photo': [2150, 6400] });
 		expect(out.models).toBe(4);
-		expect(out.shape).toBe(1.55);
+		expect(out.shape).toBe(1.9);
 	});
 	it('treats an error, a timeout and a negative reading as unmeasured, never as an exception', () => {
 		const out = summarize(
@@ -96,7 +101,7 @@ describe('summarize — the probe tool’s pure half', () => {
 });
 
 describe('lostExceptions — a rerun must not quietly send a listed model back to the default', () => {
-	const previous = { exceptions: { 'openai/gpt-4o-mini': [13200, 57100], 'amazon/nova-lite-v1': [2850, 3600] } };
+	const previous = { exceptions: { 'openai/gpt-4o-mini': [13200, 57100], 'amazon/nova-lite-v1': [2850, 4450] } };
 	it('names a listed model the new run did not measure (an error, a timeout, or no row)', () => {
 		const rows = [
 			{ id: 'openai/gpt-4o-mini', t512: 'ERR 429', t1568: 'ERR 429' },

@@ -346,10 +346,13 @@ in `chat-agent.ts`.
   and `docs/src/components/studio/picture-tokens.data.json` holds the result.
   - **Shape.** Pictures keep their shape, and the probe's are 3:2. A second probe on 18 models from 14 vendors measured
     square and portrait: portrait costs the same as landscape; a square costs 1.45 to 1.51x as much on the models that price
-    by area (Claude, GPT-5, Qwen, Mistral, Kimi, GLM) and from 0.69x to 1.43x on the tiled ones. Every figure in the table is
-    the measured one times `SHAPE` = 1.55, so no shape is under-charged.
-  - **Table.** A default (`thumb` 2,000, `photo` 3,600, at or above the 90th percentile of the 192 models measured, after the
-    shape factor) plus the 20 models that cost more, each rounded up to 50. `resolvePictureTokens(model)` (`picture-tokens.ts`)
+    by area (Claude, GPT-5, Qwen, Mistral, Kimi, GLM) and from 0.37x to 1.43x on the tiled ones. A third probe on 2026-10-14
+    (1568x64 strip, 1568x392 panorama, 64x1568 tall, on eight models) found one outlier: Gemini 2.5 Flash and Flash-Lite
+    cost 3,354 tokens for any thin or tall picture against 1,806 for the 3:2 one, 1.86x. Every figure in the table is the
+    measured one times `SHAPE` = 1.9, so no measured shape is under-charged. The strip probe covered eight models, not
+    all 192; a tiled model outside those eight with a worse thin-picture ratio would still be under-charged.
+  - **Table.** A default (`thumb` 2,150, `photo` 4,450, at or above the 90th percentile of the 192 models measured, after the
+    shape factor) plus the 28 models that cost more, each rounded up to 50. `resolvePictureTokens(model)` (`picture-tokens.ts`)
     reads it; a model not in the table is charged the default.
   - **Aliases.** `~anthropic/claude-sonnet-latest` style ids are not measured models. The catalog says which model each points
     at today (`alias_target.slug`; `listModels` keeps it as `aliasSlug`), and that one is looked up. All 15 vision aliases

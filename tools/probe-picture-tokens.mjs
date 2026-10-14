@@ -36,12 +36,13 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const DATA_FILE = path.join(ROOT, 'docs/src/components/studio/picture-tokens.data.json');
 /** What the gate charges a model the table does not list: a 512 px thumbnail, and a 1568 px attachment. Each sits at or
  *  above the 90th percentile of the models measured, after the shape factor below. */
-export const DEFAULTS = { thumb: 2000, photo: 3600 };
+export const DEFAULTS = { thumb: 2150, photo: 4450 };
 /** The pictures here are 3:2. A square one costs up to 1.51x as much on a model that prices by area (Claude, GPT-5,
  *  Qwen, Mistral, Kimi, GLM: 1.45 to 1.51 at both sizes, measured on 18 models spanning 14 vendors on 2026-10-13); a
- *  portrait one costs the same as a landscape one; the tiled models land from 0.69x to 1.43x. A photo and a thumbnail keep
+ *  portrait one costs the same as a landscape one on most models; the tiled models land from 0.37x to 1.43x, except Gemini 2.5,
+ *  where a thin or tall picture (1568x64) costs 1.86x the 3:2 one (measured 2026-10-14). A photo and a thumbnail keep
  *  their own shape, so every measured figure is multiplied by this before it is listed. */
-export const SHAPE = 1.55;
+export const SHAPE = 1.9;
 
 /** Round up to the next 50 so a table entry never sits just under what was measured. */
 const up50 = (n) => Math.ceil(n / 50) * 50;
@@ -136,7 +137,8 @@ async function probe(args) {
 		return i >= 0 ? args[i + 1] : null;
 	};
 	const cap = Number(flag('--cap') ?? 1.5);
-	const limit = Number(flag('--limit') ?? Infinity);
+	const limit = flag('--limit') == null ? Infinity : Number(flag('--limit'));
+	if (Number.isNaN(limit) || limit < 1) throw new Error('probe-picture-tokens: --limit needs a whole number of at least 1');
 	const only = flag('--model');
 	const cat = (await (await fetch('https://openrouter.ai/api/v1/models')).json()).data;
 	let models = cat.filter((m) => (m.architecture?.input_modalities || []).includes('image') && !m.id.endsWith(':batch') && !m.id.startsWith('~') && Number(m.pricing?.prompt) >= 0).map((m) => m.id);

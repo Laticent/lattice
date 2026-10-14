@@ -4,7 +4,7 @@ import data from './picture-tokens.data.json';
  *  (`view_asset`), and a 1568 px attached photo. The token count follows the model, not the file:
  *  a 512 px 3:2 picture is 212 tokens on GPT-5 mini, 250 on Claude, 1,290 on Gemini 2.5 and 8,500 on
  *  GPT-4o mini. Measured per model by `tools/probe-picture-tokens.mjs` into `picture-tokens.data.json`,
- *  times a 1.55 shape factor (pictures keep their shape, and a square costs up to 1.51x a 3:2 one).
+ *  times a 1.9 shape factor (a square costs up to 1.51x a 3:2 one, and a thin strip up to 1.86x on Gemini 2.5).
  *  The file lists only the models that cost more than the default, because the default covers the rest:
  *  it sits at or above the 90th percentile of the 192 models measured on 2026-10-13. */
 export type PictureTokens = { thumb: number; photo: number };
@@ -43,13 +43,14 @@ export async function resolvePictureTokens(model: PictureModel, catalog?: Catalo
 	if (!id) return DEFAULT;
 	if (!id.startsWith('~')) return pictureTokensFor(id);
 	const hit = (catalog ?? (await boundedCatalog(model))).find((m) => m.id === id);
-	return pictureTokensFor(hit?.aliasSlug ?? id);
+	return pictureTokensFor(typeof hit?.aliasSlug === 'string' ? hit.aliasSlug : id);
 }
 
 /** Tokens one picture costs on `modelId`. A model the table does not list is charged the default, which a
  *  future model with an unusual image scheme (GPT-4o mini was one) can exceed: rerun the probe tool then. */
 export function pictureTokensFor(modelId: string | null | undefined): PictureTokens {
-	const hit = modelId ? EXCEPTIONS[catalogId(modelId)] : undefined;
+	const key = modelId ? catalogId(modelId) : '';
+	const hit = key && Object.hasOwn(EXCEPTIONS, key) ? EXCEPTIONS[key] : undefined;
 	return hit ? { thumb: hit[0], photo: hit[1] } : DEFAULT;
 }
 

@@ -1745,7 +1745,8 @@ export function agentTurnUsd(price: ORPrice | null, grounding: ChatGrounding | u
  *  so the pre-send guard and readout include the doc the user pays for. */
 export function estimateUsd(promptText: string, price: ORPrice | null, maxOut = 4096, extraTokens = 0, extraUsd = 0): number | null {
 	if (!price || price.promptPerM == null || price.completionPerM == null) return null;
-	return ((estTokens(promptText) + extraTokens) / 1e6) * price.promptPerM + (maxOut / 1e6) * price.completionPerM + extraUsd;
+	const usd = ((estTokens(promptText) + extraTokens) / 1e6) * price.promptPerM + (maxOut / 1e6) * price.completionPerM + extraUsd;
+	return Number.isFinite(usd) ? usd : null; // a NaN would compare false against the cap and wave the call through
 }
 
 // The cloud budget gate, shared by every architect action: blocks when already over
