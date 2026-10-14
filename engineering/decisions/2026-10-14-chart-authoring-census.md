@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: Phase 1 of the chart authoring model, measured with markdown-it over 425 decks, 298 doc examples and 136 manifest snippets - 879 chart slides, 512 on the 16 charts the model covers; the codemod would wrap 1,351 row values, merge 227 two-span rows, move 143 detail bullets and turn 116 nested-list slides into tables, and a third of the rewrites sit outside the decks; today's number reader reads an ISO space-grouped `1 234` as 1, and every chart reads its rows with a private parser.
+summary: Phase 1 of the chart authoring model, measured with markdown-it over 425 decks, 298 doc examples and 136 manifest snippets - 879 chart slides, 512 on the 16 charts the model covers; the codemod would wrap 1,351 row values, merge 227 two-span rows, move 143 detail bullets and turn 116 nested-list slides into tables, and a third of the rewrites sit outside the decks; the number reader read an ISO space-grouped `1 234` as 1 (fixed in the same PR), and every chart reads its rows with a private parser.
 ---
 
 # Chart authoring census (2026-10-14)
@@ -16,6 +16,11 @@ references, `--json <path>` for the raw counts). It runs in under two seconds. T
 are its output on the commit that added this note.
 
 ## 1. How it counts
+
+The numbers below are the corpus as it stood before this PR's demo deck
+(`examples/chart-european-numbers.md`, 9 slides). That deck exists to show chart values, so
+re-running the tool now adds it as one more deck and its rows to the counts: 1,378 wraps instead
+of 1,351, and 131 comma numbers instead of 99. Every difference comes from that one deck.
 
 - **The corpus**, three kinds of source, each counted separately because a codemod has to reach
   all three:
@@ -132,13 +137,20 @@ removes both disagreements; §6's `check-ownership` rule keeps them from coming 
 
 ## 4. What phase 2 must know
 
-- **The number reader rejects ISO input today, and one path misreads it.** `isValuePill('1 234')`
-  is false, so a nested row written the ISO way becomes mark detail. `parseValue('1 234')` returns
-  **1**, so on pie, funnel, map, radar, word-cloud and progress (which call `parseValue` without the
-  guard) `1 234` plots as 1, silently. The same holds with a no-break space (U+00A0) or a narrow no-break space (U+202F) as the separator. `{4.2M}` is
-  refused by `isValuePill` but read by `parseValue` as 4,200,000. The ISO reader is phase 2's
-  first job. The PR that added this note fixes the EU case that shares the reader (`1.234,5`)
-  and logs the space misread as `followups.d/2690-p2-iso-space-grouping-reads-first-group.md`.
+- **The number reader misread ISO input when this census ran, and the PR that added this note
+  fixes it.** Measured on `main` then: `isValuePill('1 234')` was false, so a nested row written
+  the ISO way became mark detail, and `parseValue('1 234')` returned **1**, so on pie, funnel, map,
+  radar, word-cloud and progress (which call `parseValue` without the guard) `1 234` plotted as 1,
+  silently. The same held with a no-break space (U+00A0) or a narrow no-break space (U+202F). The
+  PR now collapses exact three-digit space groups before either reader runs (`collapseIsoGroups`
+  in `lib/core/chart-values.js` and `docs/src/lib/segno/types.ts`), and fixes the EU case that
+  shares the reader (`1.234,5`). The collapse takes a whole value only (a sign or currency
+  before, a unit after), and with space grouping the comma is the decimal mark, as ISO 80000-1
+  has it: `1 234,5` is 1234.5. That is not a new reading: today's reader already takes a bare
+  comma before anything but three digits as the decimal (`1234,5` → 1234.5), and the model
+  note's §5 policy (no silent conversion, a lint offer for pasted locale numbers) is phase 2's
+  to set over both. What is still phase 2's: `{4.2M}` is refused by `isValuePill`
+  but read by `parseValue` as 4,200,000, and a comma inside a record is still Segno's separator.
 - **No dot-grouped number (`12.000`) appears in the corpus**, so the pasted-locale lint fixes
   author input, not shipped decks.
 - **Descriptions start from zero on the 16 charts**: no `>` blockquote under an item, no
@@ -167,8 +179,19 @@ removes both disagreements; §6's `check-ownership` rule keeps them from coming 
   "the first table" reads the wrong one.
 - **A defect found on the way.** Word-cloud has no nesting model: a row `` - Alpha `5` `` with one
   nested bullet under it, then `` - Beta `3` ``, renders a one-word cloud (`data-count="1"`) and leaves Beta
-  as stray prose. No shipped deck nests under a word, so it is pre-existing and off this path;
-  it is logged as `followups.d/2690-p1-word-cloud-nested-bullet-drops-words.md`.
+  as stray prose. No shipped deck nests under a word. The PR that added this note fixes it: the
+  word-cloud reader takes the first list depth-aware, and a nested bullet becomes the word's
+  hover detail, as it is on the other detail charts.
+
+- **A row's `>` description has three readers until phase 2's one reader lands.** The engine
+  lifts it from the rendered HTML (`takeRowDescription`,
+  `lib/components/chart/_chart-family/mark-detail.js`); the narrator rewrites it into nested
+  bullets from the source (`rowQuotesAsBullets`, `lib/core/chart-row-detail.js`), following
+  markdown-it's list rules (the row's content column, tab stops, lazy lines) because the
+  narration bundle carries no markdown-it; and flowchart and state chart keep their own grammar.
+  Tests pin the engine and the narrator to the same reading
+  (`test/unit/authoring/chart-list-quote-split.test.js`). The narrator's scanner is transitional:
+  phase 2's schema-driven reader replaces it, and must keep the engine's HTML-level semantics.
 
 ## 5. Evidence for the owner's open questions (model note §7)
 

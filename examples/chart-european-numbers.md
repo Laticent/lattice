@@ -84,8 +84,37 @@ footer: "A European number plots at its own value"
 
 ## A lone dot group is still read the US way, as a decimal.
 
-`12.000` plots as 12. Write `12 000` once the ISO reader lands, or use a magnitude: `12k`.
+`12.000` plots as 12. For twelve thousand, write `12 000` with a space, or a magnitude: `12k`.
 
 - Basic `12.000`
 - Standard `18.500`
 - Premium `24.750`
+
+---
+
+<!-- _class: bar -->
+
+`Revenue · FY26 · € thousand`
+
+## A space between thousands groups is the ISO spelling, and it reads too.
+
+- Germany `1 234,5`
+- France `987,6`
+- Italy `2 345,8`
+- Spain `1 050,0`
+
+---
+
+<!-- _class: bar -->
+
+`Revenue · FY26 · € thousand`
+
+## A quote under a row is that bar's description.
+
+- Germany `1.234,5`
+  > Up on the year, led by **Bavaria** `{LIVE, tag}` `~{1 3 2 5}`
+  > - two new distributors
+  > - one plant reopened
+- France `987,6`
+- Italy `2.345,8`
+- Spain `1.050,0`

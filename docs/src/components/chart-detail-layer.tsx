@@ -32,9 +32,151 @@ export type ChartDetail = {
   body?: string;
   meta?: string;
   lean?: boolean;
+  /** The slide the chart sits on (in the preview frame): the body is drawn with its CSS. */
+  section?: Element | null;
   x?: number;
   y?: number;
 };
+
+/**
+ * THE DECK'S CSS, ONCE PER STYLESHEET STATE. A row's description is rich Markdown (pills, sparks,
+ * lists), and their styling lives in the deck's stylesheets inside the preview frame, not in this
+ * page. The popover draws the body inside a shadow root that adopts ONE constructed sheet built
+ * from the frame's own `<style>` text and same-origin `<link>` rules, so a pill or a spark looks as
+ * it does on the slide and the app's CSS cannot reach in.
+ *
+ * Cached per frame document AND the text of its `<style>` elements: the Playground restyles a
+ * theme or a light/dark flip IN PLACE (`deck-render.js` `restyleDocument` swaps the style text in
+ * the same document), so a cache keyed on the document alone kept the old theme's rules for the
+ * rest of the session (the inversion review). Comparing the text is one string compare per open;
+ * a rebuild is one `replaceSync`.
+ */
+const deckSheets = new WeakMap<Document, { key: string; sheet: CSSStyleSheet }>();
+function styleKey(doc: Document): string {
+  let key = '';
+  for (const el of doc.querySelectorAll('style, link[rel~="stylesheet"]')) {
+    key += el.tagName === 'LINK' ? `@${(el as HTMLLinkElement).href}\n` : `${el.textContent ?? ''}\n`;
+  }
+  return key;
+}
+function deckSheetFor(doc: Document): CSSStyleSheet | null {
+  const key = styleKey(doc);
+  const hit = deckSheets.get(doc);
+  if (hit && hit.key === key) return hit.sheet;
+  try {
+    const parts: string[] = [];
+    for (const sheet of [...doc.styleSheets]) {
+      try {
+        parts.push([...sheet.cssRules].map((r) => r.cssText).join('\n'));
+      } catch {
+        /* a cross-origin sheet (a webfont host) cannot be read; its fonts still load in the page */
+      }
+    }
+    // The body sits inside a copy of the slide's own ancestor chain (`DeckHtml`), so a deck rule
+    // scoped `article.lattice > section …` (4,485 of the Playground's 4,679) matches it. None of
+    // those wrappers may take a slide's box: size, padding, background, position. `all: unset`
+    // resets those and leaves custom properties alone, so the deck's tokens still paint the pills
+    // and sparks; the text takes the popover's own color, which keeps it legible on either theme.
+    parts.push(
+      '.lat-desc-chain{all:unset!important;display:block!important;color:inherit!important;' +
+        'font:inherit!important;line-height:1.45!important;}' +
+        'section.lat-desc>:first-child{margin-top:0}section.lat-desc>:last-child{margin-bottom:0}' +
+        // A list in a description reads as a plain list: the deck's own list rules are scoped
+        // `article.lattice > section ul` and outrank these, and on a slide they draw a column of
+        // dashes and pills laid out for a full-width row, not a card.
+        'section.lat-desc ul{list-style:disc outside!important;padding:0 0 0 1.2em!important;margin:0.25em 0 0!important}' +
+        'section.lat-desc ol{list-style:decimal outside!important;padding:0 0 0 1.4em!important;margin:0.25em 0 0!important}' +
+        'section.lat-desc li{display:list-item!important;padding:0!important;margin:0!important}' +
+        'section.lat-desc li::before{content:none!important}',
+    );
+    const sheet = new CSSStyleSheet();
+    sheet.replaceSync(parts.join('\n'));
+    deckSheets.set(doc, { key, sheet });
+    return sheet;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * An empty copy of `el` in this page: its tag, its classes and attributes (not its id or inline
+ * style), marked `lat-desc-chain` so the reset above takes its box away. `extra` adds a class.
+ */
+function shallowCopy(el: Element, extra: string): HTMLElement {
+  const copy = document.createElement(el.tagName.toLowerCase());
+  for (const { name, value } of [...el.attributes]) {
+    if (name === 'id' || name === 'style' || name.startsWith('on')) continue;
+    copy.setAttribute(name, value);
+  }
+  copy.classList.add('lat-desc-chain');
+  if (extra) copy.classList.add(extra);
+  return copy;
+}
+
+/** Every custom property the slide resolves, so `var(--…)` in the deck's rules finds a value. */
+function slideVars(section: Element): string {
+  const cs = section.ownerDocument.defaultView?.getComputedStyle(section);
+  if (!cs) return '';
+  const out: string[] = [];
+  for (let i = 0; i < cs.length; i++) {
+    const name = cs[i];
+    if (name.startsWith('--')) out.push(`${name}:${cs.getPropertyValue(name)}`);
+  }
+  return out.join(';');
+}
+
+/**
+ * Rich deck HTML in a shadow root styled by the deck.
+ *
+ * The detail left the sandboxed preview frame to get here, so it lands in the APP's origin, and
+ * three guards keep it a card (HARD RULE #22; the red team's repro painted a 9000px fixed link
+ * over the page):
+ *   - it is parsed inert (a `<template>`), and every `style` attribute in it is removed: the engine
+ *     writes none on a pill, a spark or a list, so any there is the author's, and an author style
+ *     is what positioned the overlay;
+ *   - it always renders in a shadow root, so an `id` or `name` in it cannot clobber page globals;
+ *   - the light-DOM wrapper this returns has paint containment, which the adopted deck CSS cannot
+ *     reach: whatever a `:host` rule or a fixed position does, nothing paints or takes a click
+ *     outside the card.
+ * The markup itself was sanitized by the render path that built the frame (`sanitizeSlideHtml`).
+ * Without the deck's CSS (no section, or no constructable stylesheets) it draws unstyled.
+ */
+function DeckHtml({ html, section, className }: { html: string; section?: Element | null; className?: string }) {
+  const host = React.useRef<HTMLDivElement>(null);
+  React.useLayoutEffect(() => {
+    const el = host.current;
+    if (!el) return;
+    const tpl = document.createElement('template');
+    tpl.innerHTML = html;
+    for (const styled of tpl.content.querySelectorAll('[style]')) styled.removeAttribute('style');
+    const root = el.shadowRoot ?? el.attachShadow({ mode: 'open' });
+    const sheet = section && 'adoptedStyleSheets' in Document.prototype ? deckSheetFor(section.ownerDocument) : null;
+    if (!sheet || !section) {
+      if ('adoptedStyleSheets' in root) root.adoptedStyleSheets = [];
+      root.replaceChildren(tpl.content);
+      return;
+    }
+    root.adoptedStyleSheets = [sheet];
+    const wrap = shallowCopy(section, 'lat-desc');
+    // The slide's resolved custom properties, so `var(--…)` finds the value it has on the slide.
+    wrap.setAttribute('style', slideVars(section));
+    wrap.append(tpl.content);
+    // The slide's ancestors up to <body>, as empty copies: the selector chain each surface scopes
+    // its deck CSS with (`article.lattice > section` on the Playground) then matches in the card.
+    let outer: Element = wrap;
+    for (let a = section.parentElement; a && a.tagName !== 'BODY' && a.tagName !== 'HTML'; a = a.parentElement) {
+      const copy = shallowCopy(a, '');
+      copy.appendChild(outer);
+      outer = copy;
+    }
+    root.replaceChildren(outer);
+  }, [html, section]);
+  return (
+    <div className={className} style={{ contain: 'paint', overflow: 'clip' }}>
+      <div ref={host} />
+    </div>
+  );
+}
 
 /** The imperative surface a host drives after each preview paint / slide change. */
 export interface ChartDetailHandle {
@@ -205,12 +347,10 @@ export const ChartDetailLayer = React.forwardRef<ChartDetailHandle, ChartDetailL
               {detail.value ? <span className="ml-auto tabular-nums text-muted-foreground">{detail.value}</span> : null}
             </div>
             {detail.body ? (
-              // biome-ignore lint/security/noDangerouslySetInnerHtml: deck-authored detail, sanitized upstream by the render path (#22).
-              <p className="mt-1.5 text-sm text-foreground/90" dangerouslySetInnerHTML={{ __html: detail.body }} />
+              <DeckHtml html={detail.body} section={detail.section} className="mt-1.5 text-sm text-foreground/90" />
             ) : null}
             {detail.meta ? (
-              // biome-ignore lint/security/noDangerouslySetInnerHtml: deck-authored detail, sanitized upstream by the render path (#22).
-              <div className="mt-1.5 text-xs uppercase tracking-wide text-muted-foreground" dangerouslySetInnerHTML={{ __html: detail.meta }} />
+              <DeckHtml html={detail.meta} section={detail.section} className="mt-1.5 text-xs uppercase tracking-wide text-muted-foreground" />
             ) : null}
           </>
         )}

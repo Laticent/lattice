@@ -5685,7 +5685,9 @@ const SANCTIONED_MARK_IDENTITY = [
   ['components/chart/flowchart/flowchart.layout.js', true, false],
   ['components/chart/timeline-list/timeline-list.transform.js', true, false],
   ['components/chart/waterfall/waterfall.transform.js', true, true],
-  ['components/chart/word-cloud/word-cloud.transform.js', true, false],
+  // A word with detail (a `>` description or nested bullets, #2690) also carries its weight as
+  // `data-value`, so the reveal popover shows the number beside the word as on every other chart.
+  ['components/chart/word-cloud/word-cloud.transform.js', true, true],
   // The player bundle is GENERATED from lib/export; it replays a deck's own attributes rather
   // than authoring them, so it is listed to keep the census total honest, not as an emitter.
   ['export/anima-player-bundle.generated.mjs', false, true],

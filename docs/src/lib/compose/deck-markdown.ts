@@ -235,7 +235,22 @@ function serializeTable(state: SerializerState, node: PMNode) {
 function tightAfterParagraph(state: SerializerState, node: PMNode) {
 	// biome-ignore lint/suspicious/noExplicitAny: `closed`, `delim` and `flushClose` are serializer internals.
 	const st = state as any;
-	if (node.attrs.tight && st.closed?.type?.name === 'paragraph' && /\S/.test(st.delim ?? '')) st.flushClose(1);
+	if (st.closed?.type?.name !== 'paragraph' || !/\S/.test(st.delim ?? '')) return;
+	// A list that cannot interrupt the paragraph keeps its blank line even inside a tight row,
+	// where the serializer would otherwise close every block with a single newline.
+	if (!interruptsParagraph(node)) st.flushClose(2);
+	else if (node.attrs.tight) st.flushClose(1);
+}
+
+/**
+ * Can this list start right under a paragraph line? CommonMark lets a list interrupt a paragraph
+ * only when its first item has content and, for an ordered list, when it starts at 1. Any other
+ * list keeps its blank line, or a re-read folds it into the paragraph: `> Note` / `> 2. x` is the
+ * paragraph "Note 2. x" (the checker's and the red team's repro on #2690).
+ */
+function interruptsParagraph(node: PMNode): boolean {
+	if (!node.firstChild?.textContent.trim()) return false;
+	return node.type.name !== 'ordered_list' || Number(node.attrs.order ?? 1) === 1;
 }
 
 const latticeNodes = {

@@ -98,7 +98,7 @@ prose is a JavaScript expression.
 Today `chart-values.js` and Segno's `number` type read `12K`, `12.5M`, `1.2B`, `bn` and `T` correctly, but a deck's
 `lang:` is ignored and separators are guessed: a comma followed by exactly three digits groups, anything else is a
 decimal, US wins a tie. Measured on 2026-10-14: `12.000` reads as 12, `1.234,5` read as 1.2345 (a pre-existing
-misread, fixed since: with both separators the last one is the decimal), and `12 000` is not a value (`isValuePill` refuses it), though `parseValue`, which six charts call without that test, reads it as 12 (measured by the census, `2026-10-14-chart-authoring-census.md` §4). Inside a record the comma is Segno's only
+misread, fixed since: a whole European number, dot-grouped thousands then one decimal comma, reads its comma as the decimal), and `12 000` was not a value though `parseValue`, which six charts call without that test, read it as 12 (fixed since: exact three-digit space groups collapse before either reader runs; `2026-10-14-chart-authoring-census.md` §4). Inside a record the comma is Segno's only
 separator, so `{12,000}` is two items, `12` and `000`, and `{"12,000"}` is text. 96 list rows on shipped chart slides use a
 comma-grouped value (funnel 64, hub-spoke 19, line 12, bar 1; 122 when `.docs.md` and non-chart lists are counted).
 

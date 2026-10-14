@@ -28,10 +28,11 @@ describe('chart-authoring-census', () => {
   });
 
   test('a list chart: a bare value is a wrap, a value-less sublist is detail, a comma number is a rewrite', async () => {
-    const s = await slide('funnel', '## A\n\n- Visitors `12,000`\n  - Mostly inbound\n- Signups `4 800`\n');
-    assert.equal(s.rows, 2);
-    assert.equal(s.rewrite.wrap, 2);
-    assert.equal(s.rewrite.wrapText, 1, '`4 800` is not a value today: it reads as text, and still needs its record');
+    const s = await slide('funnel', '## A\n\n- Visitors `12,000`\n  - Mostly inbound\n- Signups `4 800`\n- Paid `TBD`\n');
+    assert.equal(s.rows, 3);
+    assert.equal(s.rewrite.wrap, 3);
+    // `4 800` is ISO grouping, a value since #2690; `TBD` is text and still needs its record.
+    assert.equal(s.rewrite.wrapText, 1, '`TBD` reads as text');
     assert.equal(s.rewrite.detailToQuote, 1);
     assert.equal(s.rewrite.number, 1);
   });

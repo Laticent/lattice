@@ -26,4 +26,15 @@ describe('a list inside a quote under a list item keeps its shape', () => {
 		const md = '- one\n\n- two\n';
 		expect(rt(md)).toBe(md.trimEnd());
 	});
+	it('an ordered list from 2 keeps its blank line, or a re-read folds it into the paragraph', () => {
+		const md = '> Note\n>\n> 2. x\n> 3. y\n';
+		expect(rt(md)).toBe(md.trimEnd());
+		expect(rt(rt(md))).toBe(md.trimEnd());
+		const row = '- A `1`\n  > Note\n  >\n  > 2. x\n- B `2`\n';
+		expect(rt(row)).toBe(row.trimEnd());
+	});
+	it('an ordered list from 1 may sit right under the paragraph', () => {
+		const md = '> Note\n> 1. x\n> 2. y\n';
+		expect(rt(md)).toBe(md.trimEnd());
+	});
 });
