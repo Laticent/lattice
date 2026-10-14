@@ -21,7 +21,7 @@ function engineRequests(page: Page): string[] {
 	return seen;
 }
 
-test('@smoke @crosswidth @webkit-phone @gecko a chart slide loads its own kernel and draws, and no other chart kernel loads', async ({ page }) => {
+async function chartLoadsItsOwnKernel(page: Page) {
 	const requests = engineRequests(page);
 	await gotoStudio(page);
 	await setEditorContent(page, '<!-- _class: bar -->\n\n## Revenue by region\n\n- North `10`\n- South `20`\n- West `14`\n');
@@ -29,16 +29,27 @@ test('@smoke @crosswidth @webkit-phone @gecko a chart slide loads its own kernel
 	expect(requests).toContain('esm/engine.js');
 	expect(requests).toContain('esm/chart-bar.js');
 	expect(requests.filter((r) => r.startsWith('esm/chart-') && r !== 'esm/chart-bar.js')).toEqual([]);
-});
+}
 
-test('@crosswidth @webkit-phone @gecko math, an icon and an exotic fence still find their assets beside the ESM engine', async ({ page }) => {
+async function assetsResolveBesideTheEngine(page: Page) {
 	await gotoStudio(page);
 	await setEditorContent(page, '# Assets\n\n$$\nE = mc^2\n$$\n\nRaw files land in `^{bucket, c4}` S3.\n\n```powershell\nGet-ChildItem -Path C:\\ | Where-Object { $_.Length -gt 1kb }\n```\n');
 	const frame = live(page);
 	await expect(frame.locator('.katex').first()).toBeVisible({ timeout: 20_000 });
 	await expect(frame.locator('.lat-icon[data-icon="bucket"] svg')).toHaveCount(1, { timeout: 20_000 });
 	await expect(frame.locator('pre code [class^="hljs-"]').first()).toBeAttached({ timeout: 20_000 });
-});
+}
+
+test('@smoke a chart slide loads its own kernel and draws, and no other chart kernel loads', async ({ page }) => chartLoadsItsOwnKernel(page));
+test('math, an icon and an exotic fence still find their assets beside the ESM engine', async ({ page }) => assetsResolveBesideTheEngine(page));
+
+// The same two on Safari's engine and Firefox's. import() and module preloading are engine behavior,
+// so a Chromium pass cannot stand for either. iPad landscape, not the phone: the phone layout hides
+// the editor these tests type into, and the engine path is the same at both widths. The desktop
+// project excludes these copies (its grepInvert drops @webkit without @crosswidth), so each engine
+// runs each test once.
+test('@webkit-tablet @gecko a chart slide loads its own kernel and draws (WebKit, Gecko)', async ({ page }) => chartLoadsItsOwnKernel(page));
+test('@webkit-tablet @gecko math, an icon and an exotic fence find their assets (WebKit, Gecko)', async ({ page }) => assetsResolveBesideTheEngine(page));
 
 test('a chart kernel that will not load says so, rather than drawing the chart as a list', async ({ page }) => {
 	// What a tab that outlived a deploy sees: the old hash directory is gone at the origin.
