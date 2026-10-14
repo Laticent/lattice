@@ -239,7 +239,9 @@ describe('rules whose removal no test used to notice', () => {
 		// The first fence was evicted long ago (12 x 3M > the 24M bound): drawing it again runs the renderer again.
 		await draw(`---\ntheme: indaco\nplugins: [gantt-plugin]\n---\n\n## M0\n\n\`\`\`gantt\nunique-0\n\`\`\`\n`);
 		expect(opened.length).toBeGreaterThan(before);
-	});
+		// 13 renders of 3 MB each, sanitized: about 20 s of CPU on a loaded runner, which is the suite's default timeout. A bound that is
+		// right is not a reason for the test that pins it to fail on a slow machine, so it gets its own, generous one.
+	}, 120_000);
 });
 
 describe('the placeholder takes space the way the plugin says (plugin.schema.json placeholder)', () => {

@@ -9,6 +9,7 @@ import { architectModel, cloudBudgetBlock } from './architect';
 import { IMAGE_LOOKS, type ImageLook, lookTokens } from './image-look';
 import { cleanLine } from './media-edit';
 import { isMediaName } from './media-store';
+import { type PictureTokens, priceRound, resolvePictureTokens } from './picture-tokens';
 import type { GroundMsg as Msg } from './reference-doc';
 import { languageFor } from './studio-language';
 import { loadSettings } from './studio-store';
@@ -93,6 +94,14 @@ export function imageSettings(): { model: string; look: ImageLook } {
 	return { model: s.imageModel, look: s.imageLook };
 }
 
+/** What one Suggest picture adds to the budget gate: tokens (never below Claude's edge^2 / 750 for that look) and the model's own image-price
+ *  surcharge in dollars. A look at 512 px is charged the model's measured 512 px figure; a larger one has no measured figure of its own and is
+ *  charged the 1568 px one. */
+export function lookCharge(look: ImageLook, cost: PictureTokens, price: { promptPerM: number | null; imagePerM?: number | null } | null): { tokens: number; usd: number } {
+	const perPicture = Math.max(lookTokens(look), IMAGE_LOOKS[look].edge <= 512 ? cost.thumb : cost.photo);
+	return priceRound({ thumb: perPicture, photo: perPicture }, price, 1, 0);
+}
+
 export async function suggestPhotoDescription(thumbDataUrl: string, deckLang?: string): Promise<PhotoSuggestOutcome> {
 	if (!thumbDataUrl.startsWith('data:image/')) return { status: 'nochange' };
 	const model = await architectModel();
@@ -109,7 +118,11 @@ export async function suggestPhotoDescription(thumbDataUrl: string, deckLang?: s
 	}
 	if (!sees) return { status: 'novision' };
 	const how = IMAGE_LOOKS[look];
-	const blk = cloudBudgetBlock(model, PHOTO_DESCRIBE_SYSTEM, lookTokens(look), how.maxTokens, imageModel);
+	// The picture is priced by the model that reads it (picture-tokens.ts), not by Claude's edge^2 / 750 alone: a 512 px picture is 1,290 tokens on
+	// Gemini 2.5 and 8,500 on GPT-4o mini. The 1024 px look has no measured figure of its own, so it is charged the 1568 px one.
+	const cost = await resolvePictureTokens({ openRouterModel: () => imageModel, listOpenRouterModels: () => model.listOpenRouterModels() });
+	const { tokens, usd } = lookCharge(look, cost, model.openRouterModelPrice?.(imageModel) ?? null);
+	const blk = await cloudBudgetBlock(model, PHOTO_DESCRIBE_SYSTEM, tokens, how.maxTokens, usd, imageModel);
 	if (blk) return { status: 'blocked', note: blk };
 	let out: unknown = null;
 	let cutOff = false;

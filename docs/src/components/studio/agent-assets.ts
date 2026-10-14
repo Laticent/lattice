@@ -55,9 +55,6 @@ export function libraryPromptTokens(count: number): number {
 	return MANIFEST_HEADER_TOKENS + Math.min(count, MANIFEST_CAP) * MANIFEST_LINE_TOKENS;
 }
 
-/** Rough token charge for one thumbnail, for the budget gate (a base64 string is not tokens). */
-export const THUMB_TOKENS = 800;
-
 /** The most a caption may be. It rides in the chat's prompt once per photo, every turn. */
 export const MAX_CAPTION_CHARS = 140;
 

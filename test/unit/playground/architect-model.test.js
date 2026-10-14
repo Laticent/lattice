@@ -119,15 +119,17 @@ describe('orPricePerM (OpenRouter pricing parse)', () => {
 });
 
 describe('orSupportsCache (per-model caching gate)', () => {
-  test('caching-supported vendors return true; others false', async () => {
+  test('only a vendor that takes an explicit breakpoint returns true; the auto-caching vendors and the rest false', async () => {
     const { cache } = await load();
     const { orSupportsCache } = cache;
-    // documented prompt-caching providers
+    // Anthropic caches only what a request marks, so only there does the switch (and the mark) do anything.
     assert.equal(orSupportsCache('anthropic/claude-sonnet-4'), true);
-    assert.equal(orSupportsCache('openai/gpt-5'), true);
-    assert.equal(orSupportsCache('google/gemini-2.5-pro'), true);
-    assert.equal(orSupportsCache('deepseek/deepseek-r1'), true);
-    assert.equal(orSupportsCache('x-ai/grok-4'), true);
+    assert.equal(orSupportsCache('~anthropic/claude-sonnet-latest'), true);
+    // These cache on their own (Google implicitly: a marker made Gemini cost more on every model measured).
+    assert.equal(orSupportsCache('openai/gpt-5'), false);
+    assert.equal(orSupportsCache('google/gemini-2.5-pro'), false);
+    assert.equal(orSupportsCache('deepseek/deepseek-r1'), false);
+    assert.equal(orSupportsCache('x-ai/grok-4'), false);
     // not on the caching list, or junk input
     assert.equal(orSupportsCache('meta-llama/llama-3.3-70b-instruct'), false);
     assert.equal(orSupportsCache('mistralai/mistral-large'), false);

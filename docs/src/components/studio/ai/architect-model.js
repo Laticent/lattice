@@ -46,6 +46,8 @@ const OPENROUTER_GENERATION_URL = 'https://openrouter.ai/api/v1/generation'; // 
 // resolving to the current latest). Verified callable; resolves e.g. to
 // anthropic/claude-4.5-haiku-*. See engineering/decisions/2026-06-29-studio-model-liveness.md.
 const DEFAULT_OR_MODEL = '~anthropic/claude-sonnet-latest';
+// A catalog fetch that has not answered in this long is abandoned, so the next call can try again.
+const CATALOG_FETCH_TIMEOUT_MS = 15000;
 const OR_KEY_LS = 'lattice-db-or-key'; // the user's OpenRouter API key (persists)
 const OR_MODEL_LS = 'lattice-db-or-model'; // chosen model id
 const OR_VERIFIER_LS = 'lattice-db-or-verifier'; // transient PKCE verifier (deleted after exchange)
@@ -244,6 +246,8 @@ export function orPricePerM(raw) {
 function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0) {
   const referer = () => (typeof location !== 'undefined' ? location.origin : 'https://lattice.dev');
   let catalogCache = readCachedCatalog(); // id→{name,…} catalog; seeded from the TTL localStorage cache so price/name survive a reload
+  let catalogInflight = null; // the one catalog fetch in progress: concurrent callers (chat, picker, alias lookup) share it instead of each fetching
+  let catalogGen = 0; // bumped when the cache is invalidated: a fetch that started before must not write its stale answer back
   return {
     name: 'openrouter',
     ready() { return !!readLS(OR_KEY_LS); },
@@ -255,7 +259,7 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
     keySettingsUrl() { return OPENROUTER_KEYS_SETTINGS_URL; },
     setModel(id) { writeLS(OR_MODEL_LS, id || null); },
     keySnapshot() { return readLS(OR_KEY_LS); }, // for the Disconnect Undo (restore without re-OAuth)
-    restore(key) { writeLS(OR_KEY_LS, key || null); },
+    restore(key) { writeLS(OR_KEY_LS, key || null); if (key) this.listModels().catch(() => {}); },
     // This key's account readout: usage (always) + limit/remaining (when a per-key
     // limit is set). Best-effort, client-side, the user's own key — null on failure
     // so the UI just hides the strip. Pay-as-you-go keys report a null limit.
@@ -331,7 +335,7 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
         const kin = (catalogCache || []).filter((x) => x.id.startsWith(family) && x.promptPerM != null);
         m = kin.sort((a, b) => (b.completionPerM ?? 0) - (a.completionPerM ?? 0))[0];
       }
-      return m ? { promptPerM: m.promptPerM, completionPerM: m.completionPerM } : null;
+      return m ? { promptPerM: m.promptPerM, completionPerM: m.completionPerM, imagePerM: m.imagePerM ?? null } : null;
     },
     disconnect() { writeLS(OR_KEY_LS, null); writeLS(OR_VERIFIER_LS, null); },
     // OAuth step 1: stash a PKCE verifier and return the URL to redirect to. The
@@ -360,37 +364,64 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
       if (!j.key) throw new Error('OpenRouter returned no key');
       writeLS(OR_KEY_LS, j.key);
       writeLS(OR_VERIFIER_LS, null);
+      // A key was just written, so something can spend now: have the price list before it does (see the prefetch at model creation).
+      this.listModels().catch(() => {});
       return true;
     },
     // The model catalog with pricing normalized to per-MILLION tokens (the API
     // gives per-token USD strings). Public endpoint; the key is not required.
-    async listModels() {
+    // Forget the catalog (memo and stored copy): the next listModels() refetches, and a fetch already out cannot write its answer back.
+    invalidateCatalog() {
+      catalogCache = null;
+      catalogGen++;
+      catalogInflight = null;
+      writeLS(OR_CATALOG_LS, null);
+    },
+    listModels() {
+      if (catalogCache) return Promise.resolve(catalogCache);
+      if (!catalogInflight) {
+        // Cleared only if still ours: a fetch that predates a self-heal must not clear the slot of the fresh one that replaced it.
+        const p = this.loadCatalog().finally(() => { if (catalogInflight === p) catalogInflight = null; });
+        catalogInflight = p;
+      }
+      return catalogInflight;
+    },
+    async loadCatalog() {
       // Serve the cache (session memo → fresh localStorage) before any network. A
       // self-heal clears catalogCache + the LS entry, so the next call refetches.
       if (catalogCache) return catalogCache;
       const cached = readCachedCatalog();
       if (cached) { catalogCache = cached; return cached; }
+      const gen = catalogGen;
       let res;
-      try { res = await fetch(OPENROUTER_MODELS_URL); }
+      // A fetch that never answers would pin every caller to this one in-flight promise, so it is abandoned after 15 s (the next call tries again).
+      try { res = await fetch(OPENROUTER_MODELS_URL, typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? { signal: AbortSignal.timeout(CATALOG_FETCH_TIMEOUT_MS) } : undefined); }
       catch (e) { if (catalogCache) return catalogCache; throw e; } // serve stale rather than break the picker
       if (!res.ok) {
         if (catalogCache) return catalogCache;
         throw new Error('OpenRouter models failed (' + res.status + ')');
       }
       const j = await res.json();
-      catalogCache = (j.data || []).map((m) => ({
+      const list = (j.data || []).map((m) => ({
         id: m.id,
         name: m.name || m.id,
         promptPerM: m.pricing ? orPricePerM(m.pricing.prompt) : null,
         completionPerM: m.pricing ? orPricePerM(m.pricing.completion) : null,
+        // 30 of 461 models list it (19 without the :batch variants; all Google, 2026-10-13), each equal to its prompt price; null elsewhere.
+        imagePerM: m.pricing ? orPricePerM(m.pricing.image) : null,
         contextLength: m.context_length || m.top_provider?.context_length || null,
         maxOutput: m.top_provider?.max_completion_tokens || null,
         vision: Array.isArray(m.architecture?.input_modalities) && m.architecture.input_modalities.includes('image'),
         // Absent on a catalog cached before this field existed: callers read `undefined` as unknown.
         video: Array.isArray(m.architecture?.input_modalities) && m.architecture.input_modalities.includes('video'),
+        // The model a `~…-latest` alias currently points at (OpenRouter's `alias_target.slug`); null for a plain id, and absent on a catalog cached before this field.
+        aliasSlug: m.alias_target?.slug || null,
       }));
-      writeCachedCatalog(catalogCache);
-      return catalogCache;
+      // The cache was invalidated while this fetch was out: hand back what it got, but touch neither the cache nor the stored copy, which belong to the refetch the invalidation asked for.
+      if (gen !== catalogGen) return list;
+      catalogCache = list;
+      writeCachedCatalog(list);
+      return list;
     },
     async complete({ messages, json, onToken, signal, onUsage, onGenerationId, onFinishReason, maxTokens, plugins, cacheTtl, tools, toolChoice, onToolCalls, onToolStart, cacheTail, model: modelOverride, reasoningEffort }) {
       const key = readLS(OR_KEY_LS);
@@ -460,8 +491,7 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
         // model; any other failure, a retired id included, it shows with its cause ("pick
         // another model") instead of healing silently. Callers without tools still heal here.
         if (isDeadModelError(res.status, errText) && body.model !== defaultModel && !body.tools) {
-          catalogCache = null;
-          writeLS(OR_CATALOG_LS, null);
+          this.invalidateCatalog();
           res = await send(defaultModel);
         }
         if (!res.ok) {
@@ -820,6 +850,9 @@ export function createArchitectModel({ getSettings, explicitTierWins = false, de
   const prompt = promptApiBackend();
   const webllm = webllmBackend();
   let openrouter = openRouterBackend(defaultModel, defaultMaxTokens);
+  // A connected user's price list is wanted before their first spend (the budget gate compares an estimate against the cap, and
+  // with no price it lets the call through), so fetch it now rather than when something happens to ask. Cached for 24 h, public, best-effort.
+  if (readLS(OR_KEY_LS)) openrouter.listModels().catch(() => {});
   let universal = transformersGenBackend();
   let promptAvail = 'unknown';
   const embeddings = embeddingsBackend(); // bge-small, WORKER-ONLY (never the main thread)
@@ -984,6 +1017,7 @@ export function createArchitectModel({ getSettings, explicitTierWins = false, de
     __setPromptAvailability(a) { promptAvail = a; },
     __setUniversal(b) { universal = b; },
     __setOpenRouter(b) { openrouter = b; },
+    __invalidateCatalog() { openrouter.invalidateCatalog(); }, // test hook: the dead-model self-heal's invalidation, without a dead model
   };
 }
 

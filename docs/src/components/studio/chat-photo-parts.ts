@@ -14,18 +14,15 @@ const isMediaName = (name: string): boolean => MEDIA_NAME.test(name);
 export const MAX_CHAT_PHOTOS = 4;
 /** Long edge of the copy sent to the model. */
 export const VISION_EDGE = 1568;
-/** Tokens one photo is priced at by the budget gate. A flat figure on purpose: the gate must not read
- *  a base64 string as text (a 1 MB photo is ~250,000 "tokens" of characters and would block every turn). */
-export const PHOTO_TOKENS = 1500;
-
 /** A clip longer than this is refused: video is billed by the second (about 260 tokens each on the
  *  models that read it), and a long one is the expensive mistake. */
 export const MAX_VIDEO_SECONDS = 15;
 /** A clip larger than this is refused before it is read. It travels inline as base64 (a third larger),
  *  and 15 MB is what a 15-second phone clip at ordinary quality weighs. */
 export const MAX_VIDEO_BYTES = 15 * 1024 * 1024;
-/** What one clip is priced at by the budget gate: 15 s at ~260 tokens a second, rounded up. Flat for
- *  the same reason as `PHOTO_TOKENS`. */
+/** What one clip is priced at by the budget gate: 15 s at ~260 tokens a second, rounded up. A flat figure on
+ *  purpose: the gate must not read a base64 string as text (a 15 MB clip is millions of "tokens" of characters
+ *  and would block every turn). A photo is priced by the model instead (picture-tokens.ts). */
 export const VIDEO_TOKENS = 4500;
 
 /** Why a clip cannot be attached, in words, or null when it can. Pure: the caller measures. */
@@ -86,7 +83,7 @@ export function withPhotos<M extends { role: string; content: MsgContent | null 
 }
 
 /** A message's content as text for the budget gate: images (and their base64) count as nothing here
- *  because the gate prices them as `PHOTO_TOKENS` each, separately. */
+ *  because the gate prices them per model (picture-tokens.ts), separately. */
 export function contentForBudget(content: MsgContent | null | undefined): string {
 	if (content == null) return '';
 	if (typeof content === 'string') return content;

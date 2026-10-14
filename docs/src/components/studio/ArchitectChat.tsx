@@ -3,6 +3,7 @@ import { ArrowUp, Check, Lock, RotateCcw, Sparkles, Square, TriangleAlert, Unloc
 import * as React from 'react';
 import { createPortal } from 'react-dom';
 import { sliceSlide } from '@/components/studio/ai/architect-edits.js';
+import { orSupportsCache } from '@/components/studio/ai/or-cache.js';
 import { readCachingEnabled } from '@/components/studio/ai/spend.js';
 import { Textarea } from '@/components/ui/textarea';
 import { notify } from '@/lib/notify';
@@ -255,7 +256,11 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 
 	// After the first turn of a thread the cached prefix is a READ, not a write — the cost
 	// readout weights it accordingly. Chat state, so it is resolved here and handed down.
-	const primed = status.generation === 'openrouter' && readCachingEnabled() && messages.length > 0;
+	// Only a request that carries Anthropic's explicit breakpoint is billed at cache rates (2x / 1.25x writes, 0.1x reads). With the switch off,
+	// or on any other vendor, `explicitCache` is false and the readout prices every token at the base rate: an upper bound for the vendors that
+	// cache on their own (OpenAI, Google, DeepSeek, x-ai), exact for one that does not cache at all.
+	const explicitCache = status.generation === 'openrouter' && readCachingEnabled() && orSupportsCache(status.modelId ?? '');
+	const primed = status.generation === 'openrouter' && (readCachingEnabled() || !orSupportsCache(status.modelId ?? '')) && messages.length > 0;
 	// The money readout lives in the PANEL HEADER now (ChatCost), not in a strip of its
 	// own between the transcript and the composer — that row cost a whole line of a narrow
 	// panel to show two short numbers. ChatCost reads the spend gauge itself and refreshes
@@ -501,7 +506,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 
 	// One element, two destinations (this panel's own header row, or a host header's actions
 	// slot via a portal) — built once so the two can't drift.
-	const costReadout = <ChatCost source={source} grounding={grounding} docs={refDoc.docs} primed={primed} />;
+	const costReadout = <ChatCost source={source} grounding={grounding} docs={refDoc.docs} primed={primed} explicitCache={explicitCache} />;
 
 	// WHAT IS ON SCREEN, as opposed to what is in flight. The buffer belongs to the deck that
 	// asked for it; on any other deck this panel shows that deck's transcript and nothing of

@@ -13,14 +13,15 @@
 // over its soft budget; importing them DYNAMICALLY instead made the bundler re-split shared
 // chunks and cost more. So everything the startup code already holds is passed in through
 // `init(deps)` by `architect.ts`, and only this feature's own modules are imported.
-import { assetManifest, libraryPromptTokens, THUMB_TOKENS } from './agent-assets';
+import { assetManifest, libraryPromptTokens } from './agent-assets';
 import { createAgentAssets } from './agent-assets-browser';
 import { agentLibrary } from './agent-library';
 import type { ArchitectModel, ChatGrounding, ChatOptions, ChatResult, ChatTurn, ORPrice, ProposedEdit } from './architect';
 import { AGENT_TOOLS, type AgentComplete, type AgentComponent, type AgentRawEdit, ASSET_TOOLS, bindKernel, buildAgentSystem, createToolbox, type DeckCheck, deckBrief, deckForTurn, describeEdit, type KernelDeps, runAgentLoop, type ToolCall } from './architect-agent';
-import { PHOTO_TOKENS, VIDEO_TOKENS, withPhotos } from './chat-photo-parts';
+import { VIDEO_TOKENS, withPhotos } from './chat-photo-parts';
 import { THINKING } from './chat-status';
 import { FRONT_MATTER_KEYS } from './front-matter-keys';
+import { boundedCatalog, priceRound, resolvePictureTokens } from './picture-tokens';
 import type { ContentPart, MsgContent, ReferenceDoc } from './reference-doc';
 
 type Arch = typeof import('./architect');
@@ -104,17 +105,17 @@ export function agentSystemParts(source: string, grounding?: ChatGrounding, fact
 
 /** Can the selected OpenRouter model read images? From the model catalog, which the picker has
  *  already fetched; unknown reads as no, so the agent never promises a look it cannot take. */
-async function modelSeesImages(model: ArchitectModel): Promise<boolean> {
+function modelSeesImages(model: ArchitectModel, catalog: { id: string; vision?: boolean }[]): boolean {
 	try {
 		const id = model.openRouterModel();
-		return !!(await model.listOpenRouterModels()).find((m) => m.id === id)?.vision;
+		return !!catalog.find((m) => m.id === id)?.vision;
 	} catch {
 		return false;
 	}
 }
 
-/** A message's text for the budget gate. A picture counts as a fixed charge, not as the base64
- *  that carries it (one thumbnail is ~40K characters and ~800 tokens). */
+/** A message's text for the budget gate. A picture counts as a per-model charge (picture-tokens.ts), not as the
+ *  base64 that carries it (one thumbnail is ~40K characters). */
 function budgetText(m: { content?: unknown; tool_calls?: unknown }): { text: string; images: number } {
 	let images = 0;
 	const c = m.content;
@@ -127,13 +128,18 @@ function budgetText(m: { content?: unknown; tool_calls?: unknown }): { text: str
 export async function chatAgent(model: ArchitectModel, history: ChatTurn[], source: string, docs: ReferenceDoc[] | undefined, opts: ChatOptions | undefined): Promise<ChatResult | null> {
 	const grounding = opts?.grounding;
 	const last = history[history.length - 1];
+	// The model catalog, read at most once a turn and only when something needs it (the vision check, an alias lookup). It is fetched when a model
+	// connects (architect-model.js), so this normally finds it loaded; the wait is bounded (4 s) so a stalled fetch cannot hold the turn. The budget
+	// gate waits for the price itself (cloudBudgetBlock), in stop mode with a cap.
+	let catalogOnce: ReturnType<typeof boundedCatalog> | null = null;
+	const catalog = () => (catalogOnce ??= boundedCatalog(model));
 	// The Library is read once per turn. A failed read is an empty Library, never a failed turn.
 	// One instance per turn: it reads the shelf (every photo's bytes) once and serves list, thumbnails and
 	// captions from that read, instead of one full read per call.
 	const agentAssets = createAgentAssets();
 	const library = await agentAssets.list().catch(() => []);
 	// Asked only when there is something to look at: a model that cannot read images is not nudged to try.
-	const sees = library.length ? await modelSeesImages(model) : false;
+	const sees = library.length ? await modelSeesImages(model, await catalog()) : false;
 	const { staticPrefix, dynamicTail } = agentSystemParts(source, grounding, opts?.constrainFacts ? FACT_GUARD : '', assetManifest(library, undefined, sees));
 	const systemContent = [
 		{ type: 'text', text: staticPrefix },
@@ -149,15 +155,15 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 		true,
 	);
 	// This turn's photos ride the last user message as image parts, so every round of the tool loop
-	// re-sends them (and the cache breakpoint on the tail makes that a read, not a write).
+	// re-sends them (on a model that takes a cache breakpoint, the one on the tail makes that a read, not a write).
 	const photos = opts?.photos ?? [];
 	const videos = opts?.videos ?? [];
 	ground.messages = withPhotos(ground.messages, photos, videos) as typeof ground.messages;
-	// What the author's own attachments cost ABOVE what the per-round picture count already charges: every
-	// `image_url` in the conversation is priced at THUMB_TOKENS (budgetText), which is right for the
-	// 512 px views the agent takes and low for a 1568 px attachment; a clip is priced flat (its base64 is
-	// skipped by budgetText).
-	const attachedTokens = photos.length * Math.max(0, PHOTO_TOKENS - THUMB_TOKENS) + videos.length * VIDEO_TOKENS;
+	// A clip is priced flat (its base64 is skipped by budgetText). Pictures are priced per round, by the model:
+	// the agent's 512 px views and the author's 1568 px attachments cost different amounts on every model.
+	const attachedTokens = videos.length * VIDEO_TOKENS;
+	// Resolved on the first round that holds a picture: an alias id needs the model catalog, and a turn with no picture has no reason to wait for it.
+	let pictureCost: Promise<Awaited<ReturnType<typeof resolvePictureTokens>>> | null = null;
 	const toolbox = createToolbox({
 		source,
 		catalog: (grounding?.catalog ?? []) as AgentComponent[],
@@ -178,6 +184,7 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 	let roundPrompt = '';
 	// The pictures in the round in flight, so a Stop prices them too.
 	let roundPictureTokens = 0;
+	let roundPictureUsd = 0;
 	let genId: string | null = null;
 	// A request is in flight: set when a round is sent, cleared when it returns. A Stop
 	// prices only an open round — a finished one already reported its exact cost.
@@ -190,13 +197,18 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 		// whole conversation so far, and a hard-stop cap has to hold across all of them.
 		const priced = msgs.slice(1).map(budgetText);
 		const convo = priced.map((p) => p.text).join('\n');
-		const pictureTokens = priced.reduce((n, p) => n + p.images, 0) * THUMB_TOKENS;
+		// The author's photos ride the last user message and are re-sent every round; every other picture is a view_asset thumbnail.
+		// A model that lists its own image price may charge more than the token figure at the prompt rate; the gap rides as dollars.
+		const pictureCount = priced.reduce((n, p) => n + p.images, 0);
+		if (pictureCount && !pictureCost) pictureCost = catalog().then((c) => resolvePictureTokens(model, c));
+		const { tokens: pictureTokens, usd: pictureUsd } = pictureCount && pictureCost ? priceRound(await pictureCost, model.openRouterModelPrice?.() ?? null, pictureCount, photos.length) : { tokens: 0, usd: 0 };
 		roundPictureTokens = pictureTokens;
+		roundPictureUsd = pictureUsd;
 		if (streamed.trim()) done.push(streamed);
 		streamed = '';
 		genId = null;
 		roundPrompt = convo;
-		const blk = cloudBudgetBlock(model, convo, systemTokens + docTokens + pictureTokens + attachedTokens, CHAT_MAX_TOKENS);
+		const blk = await cloudBudgetBlock(model, convo, systemTokens + docTokens + pictureTokens + attachedTokens, CHAT_MAX_TOKENS, pictureUsd);
 		if (blk) {
 			blockedNote = blk;
 			const e = new Error(blk);
@@ -277,7 +289,7 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 			// prompt plus the prose seen; the generation id, when it arrived, replaces it with the
 			// exact figure.
 			if (roundOpen && (streamed || genId)) {
-				const est = estimateUsd(roundPrompt, model.openRouterModelPrice?.() ?? null, Math.ceil(streamed.length / 4), docTokens + systemTokens + roundPictureTokens + attachedTokens) ?? 0;
+				const est = estimateUsd(roundPrompt, model.openRouterModelPrice?.() ?? null, Math.ceil(streamed.length / 4), docTokens + systemTokens + roundPictureTokens + attachedTokens, roundPictureUsd) ?? 0;
 				if (est) recordSpend(est, Math.ceil(streamed.length / 4));
 				if (genId && model.openRouterGenerationCost) {
 					void model
@@ -360,7 +372,7 @@ function withFit(grounding?: ChatGrounding): ((source: string) => Promise<DeckCh
  * 4,096-token output CEILING, which is the budget gate's worst case and quoted every turn at
  * ~3x a question's real cost. The ceiling stays in the gate; this is the typical turn.
  */
-export function agentTurnUsd(price: ORPrice | null, grounding: ChatGrounding | undefined, primed: boolean, source: string, extraTokens = 0, libraryCount = 0): { question: number; edit: number } | null {
+export function agentTurnUsd(price: ORPrice | null, grounding: ChatGrounding | undefined, primed: boolean, source: string, extraTokens = 0, libraryCount = 0, explicitCache = true): { question: number; edit: number } | null {
 	if (!price || price.promptPerM == null || price.completionPerM == null) return null;
 	const inUsd = price.promptPerM / 1e6;
 	const outUsd = price.completionPerM / 1e6;
@@ -373,9 +385,13 @@ export function agentTurnUsd(price: ORPrice | null, grounding: ChatGrounding | u
 	// Round one: the static prefix at the cache-read rate once a turn has written it, and
 	// at the 1-hour write rate (2x) on the turn that writes it; the rest is written to the
 	// 5-minute cache for the next round (1.25x).
-	const firstIn = stat * (primed ? CACHE_READ_RATE : CACHE_WRITE_1H_RATE) + rest * CACHE_WRITE_RATE;
+	// The 2x / 1.25x writes and the 0.1x read belong to a request that carries explicit cache breakpoints (Anthropic, with the
+	// Workspace switch on). Without them nothing is written at a premium and no discount is promised: a vendor that caches on its
+	// own (Google) may bill less than this, so the readout is an upper bound there, never an under-quote.
+	const [readRate, write1h, write5m] = explicitCache ? [CACHE_READ_RATE, CACHE_WRITE_1H_RATE, CACHE_WRITE_RATE] : [1, 1, 1];
+	const firstIn = stat * (primed ? readRate : write1h) + rest * write5m;
 	const question = firstIn * inUsd + AGENT_TURN.questionOut * outUsd;
-	const second = ((stat + rest) * CACHE_READ_RATE + AGENT_TURN.editDocTokens * CACHE_WRITE_RATE) * inUsd + AGENT_TURN.editOut * outUsd;
+	const second = ((stat + rest) * readRate + AGENT_TURN.editDocTokens * write5m) * inUsd + AGENT_TURN.editOut * outUsd;
 	const edit = firstIn * inUsd + AGENT_TURN.editFirstOut * outUsd + second;
 	return { question, edit };
 }
