@@ -1,5 +1,5 @@
 playground: +877
-home: +1361
+home: +1364
 components: +599
 getting-started: +599
 The ESM engine's loaders ride the site shell: engine-base.ts (the one place that knows the engine's
