@@ -1,3 +1,4 @@
+import type { Page } from '@playwright/test';
 import { expect, test } from './studio-fixture';
 
 // ── The inline `{…}` / `[x]` grammar, on the REAL Playground ────────────────────────
@@ -46,7 +47,9 @@ marp: true
 - Hostile: \`{"<img src=x onerror=top.__pwned=1>"}\`
 `;
 
-test('the inline pill + mark grammar renders, escapes, and stays inert in the Playground', async ({ page }) => {
+// `phone`: on a phone the Playground shows Edit and Explore as tabs, and the preview lives
+// behind Explore, so the spec taps it before it looks. Everything after that is the same.
+async function drivesTheGrammar(page: Page, phone: boolean): Promise<void> {
 	await page.addInitScript(
 		([k, s]) => {
 			try {
@@ -58,6 +61,7 @@ test('the inline pill + mark grammar renders, escapes, and stays inert in the Pl
 		[SOURCE_KEY, DECK],
 	);
 	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
+	if (phone) await page.getByRole('tab', { name: 'Explore' }).tap();
 
 	const preview = page.frameLocator('#preview');
 	await expect(preview.locator('.lattice')).toBeVisible({ timeout: 40_000 });
@@ -148,4 +152,14 @@ test('the inline pill + mark grammar renders, escapes, and stays inert in the Pl
 	expect(await codeText()).toEqual(
 		expect.arrayContaining(['getUserId()', '[data-mark]', '{ ok, scene }', '{Alpha}', '[x]']),
 	);
+}
+
+test('the inline pill + mark grammar renders, escapes, and stays inert in the Playground', async ({ page }) => {
+	await drivesTheGrammar(page, false);
+});
+
+// The same claims on WebKit at an iPhone's size, by touch (the nightly `webkit-phone` project):
+// the engine iOS Safari runs, in the layout a phone gets.
+test('@webkit-phone the inline grammar renders, escapes, and stays inert on an iPhone', async ({ page }) => {
+	await drivesTheGrammar(page, true);
 });
