@@ -472,15 +472,8 @@ test.describe('the composer on a phone', () => {
 		await seed(page, true, true);
 		await gotoStudio(page);
 		await openChatAtWidth(page, 390);
-		// The phone's sheet slides in: measure once it has stopped moving.
-		await expect
-			.poll(async () => {
-				const first = await libraryButton(page).boundingBox();
-				await page.waitForTimeout(150);
-				const second = await libraryButton(page).boundingBox();
-				return !!first && !!second && first.y === second.y;
-			})
-			.toBe(true);
+		// The phone's sheet slides in: measure once its animation has finished.
+		await page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished.catch(() => null))));
 		const field = await page.getByLabel('Message the Architect').boundingBox();
 		const device = await page.getByTestId('chat-attach-device').boundingBox();
 		const library = await libraryButton(page).boundingBox();
