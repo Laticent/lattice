@@ -20,7 +20,7 @@ Use when a process or experience needs charting as a horizontal sequence of mome
 |---|---|---|---|
 | `key` | `p > code:only-child` | no | OPTIONAL label set renaming the mood scale's two POLES: `[{1, Friction}, {5, Flow}]`, one inline-code span alone in its paragraph, outside the journey list. Only `1` and `5` are keyable — the steps between them show their number, which is the scale itself. The defaults `Pain` and `Delight` are declared in this manifest's `labelSet`; naming one pole leaves the other on its default. The rename reaches the key's accessible name too, so a screen reader and the slide cannot disagree. |
 | `heading` | `h1, h2` | yes | Slide heading naming the journey or process. |
-| `sections` | `ul > li` | yes | Top-level li per section. Lead with the section name; nested ul carries tasks. Each task carries one step record, `{who=actor, mood=N, volume=N}`: `who` the actor (`@actor` is the shortcut, and a second actor is a second `@` pill), `mood` 1-5, optional `volume` (used by .weighted). |
+| `sections` | `ul > li` | yes | Top-level li per section. Lead with the section name; nested ul carries tasks. Each task carries one step record, `{who=actor, mood=N, volume=N}`: `who` the actor (a second actor is a second record, `{who=sales}`), `mood` 1-5, optional `volume` (used by .weighted). |
 
 ### Variant decision rule
 
@@ -40,7 +40,7 @@ Use when a process or experience needs charting as a horizontal sequence of mome
 
 - **Affect is part of the story.** When a process matters not just for its steps but for how each step feels. The 1-5 mood score makes the emotional contour part of the chart instead of buried in narration.
 - **The poles are a DEFAULT, not an assertion.** `Pain` and `Delight` are right for a customer journey and wrong for an ops, cost or risk one — a scale's polarity is not something the engine can derive. Write a label set outside the list — `[{1, Friction}, {5, Flow}]` — and the poles are renamed, on the slide and in the key's accessible name. Only the two poles take words; the steps between carry their number.
-- **Actors share the trail.** Use when multiple actors hand off through the sequence — customer, sales, onboarding, support. The `@actor` tokens make the handoff visible on every task chip.
+- **Actors share the trail.** Use when multiple actors hand off through the sequence — customer, sales, onboarding, support. A second `{who=…}` record on a task makes the handoff visible on every task chip.
 - **One source, five lenses.** Author the journey once and re-render under any variant. Heatmap for fastest scan, curve for trend, swimlane for actor load, weighted for traffic-mix — same data, different argument.
 
 ## When NOT to use
@@ -135,10 +135,10 @@ One lane per actor.
 
 - Evaluate
   - Read case study `{who=prospect, mood=5}`
-  - Live demo `{who=prospect, mood=4}` `@sales`
+  - Live demo `{who=prospect, mood=4}` `{who=sales}`
 - Trial
   - Trial signup `{who=prospect, mood=3}`
-  - Workspace setup `{who=user, mood=1}` `@onboarding`
+  - Workspace setup `{who=user, mood=1}` `{who=onboarding}`
 - Activate
   - First report `{who=user, mood=3}`
   - Daily use `{who=user, mood=5}`

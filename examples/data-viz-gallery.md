@@ -140,10 +140,10 @@ Bars are spans, diamonds are moments, color is status, and tasks that run at the
 - Evaluate
   - Read case study `{who=prospect, mood=5}`
   - Book demo `{who=prospect, mood=4}`
-  - Live demo `{who=prospect, mood=4}` `@sales`
+  - Live demo `{who=prospect, mood=4}` `{who=sales}`
 - Trial
   - Trial signup `{who=prospect, mood=3}`
-  - Workspace setup `{who=user, mood=1}` `@onboarding`
+  - Workspace setup `{who=user, mood=1}` `{who=onboarding}`
 - Activate
   - First report `{who=user, mood=3}`
   - Daily use `{who=user, mood=5}`

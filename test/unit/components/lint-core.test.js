@@ -414,6 +414,22 @@ describe('lint-core: auto-fix', () => {
     assert.equal(core.lintTextWith(fixed, vocab).some((x) => x.rule === 'gantt-retired-delimiter'), false);
   });
 
+  test('a journey actor in the retired `@` shortcut warns, autofixes to a who record, and re-lints clean', () => {
+    const src = `${FM}<!-- _class: journey -->\n\n## Path\n\n- Evaluate\n  - Demo \`{who=prospect, mood=4}\` \`@sales\`\n`;
+    const f = ruleFor(src, 'journey-actor-shortcut');
+    assert.equal(f.severity, 'warning');
+    assert.equal(f.autofixable, true);
+    const fixed = core.applyFix(src, f);
+    assert.ok(fixed.includes('  - Demo `{who=prospect, mood=4}` `{who=sales}`'));
+    assert.equal(core.lintTextWith(fixed, vocab).some((x) => x.rule === 'journey-actor-shortcut'), false);
+    // An `@` span off a journey slide, or in a fence on one, is someone's npm scope, not an actor.
+    const elsewhere = `${FM}## Install\n\n- Run \`@laticent\`\n\n---\n\n<!-- _class: journey -->\n\n## Path\n\n\`\`\`\n- Demo \`@sales\`\n\`\`\`\n`;
+    assert.equal(core.lintTextWith(elsewhere, vocab).some((x) => x.rule === 'journey-actor-shortcut'), false);
+    // The fixed `{who=sales}` is the journey's own record, not a broken pill; off a journey it still is one.
+    assert.equal(core.lintTextWith(fixed, vocab).some((x) => x.rule === 'pill-literal'), false);
+    assert.equal(core.lintTextWith(`${FM}## Plain\n\n- A \`{who=sales}\`\n`, vocab).some((x) => x.rule === 'pill-literal'), true);
+  });
+
   test('retiredQuadrantAxis rewrites every shipped retired shape; null for an ordinary eyebrow', () => {
     assert.equal(core.retiredQuadrantAxis('Effort 0–10 → Reach 0–100'), '[{Effort, 0..10}, {Reach, 0..100}]');
     // The detached `targets` blob moves INTO the axis each number constrains.

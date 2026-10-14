@@ -59,7 +59,7 @@ them, and the rest are ordinary code that must stay literal.
 | 8 | The library is named **Segno** ("sign, mark"; also the musical *dal segno* sign), with a **demo page and branding** | owner, after a scored shortlist |
 | 9 | **Clean break**: a codemod rewrites every shipped deck and doc, the old parsers are deleted, no dual-syntax period | owner — Lattice is not GA |
 | 10 | **Coordinates are one record** for quadrant and scatter alike: `{3, 70, size=12}` | owner |
-| 11 | **Journey is a record** `{who=Customer, mood=4, volume=120}`, with `@Customer` kept as a declared shortcut for `who=`; `:4` and `+120` are dropped | owner |
+| 11 | **Journey is a record** `{who=Customer, mood=4, volume=120}`, with `@Customer` kept as a declared shortcut for `who=`; `:4` and `+120` are dropped. **Amended 2026-10-14 (owner): the `@Customer` shortcut is retired too; journey reads standard Segno only** | owner |
 | 12 | **One `color` type**, `c1`–`c12`, and each slot declares its ceiling (the flowchart's is 8), so `c9` on a flowchart is an error that names the limit | owner |
 | 13 | **Segno is a general-purpose library; Lattice is its first user.** It is meant for non-Lattice uses too, so nothing in its API, messages or docs may assume Lattice: "per deck" is "per document", examples lead with general cases (a rollout rule, a retry policy), and Lattice is the documented first user. The phase-1 audit and what it left open: § General-purpose, not Lattice's | owner |
 | 14 | **The license stays `AGPL-3.0-only`**, as its sibling libraries are, with the adoption cost stated (§ General-purpose, not Lattice's) | owner, over Apache-2.0 and MIT |
@@ -203,7 +203,7 @@ So `{BETA, tag, c4}`, `{BETA, c4, tag}` and `{BETA, shape=tag, color=c4}` are th
 | 13–14 | `chart-values.js` + six private readers | one `number` type everywhere, so `1,25M` means 1.25M on every chart |
 | 15 | waterfall `total` / `step` must be last | a flag, order-free |
 | 17–18 | scatter: three pills; quadrant: one `` `3, 70` `` pill | `` `{3, 70, size=12}` `` for both (decision 10) |
-| 19 | journey `` `@Customer` `:4` `+120` `` | `` `{who=Customer, mood=4, volume=120}` ``, or the `` `@Customer` `` shortcut (decision 11) |
+| 19 | journey `` `@Customer` `:4` `+120` `` | `` `{who=Customer, mood=4, volume=120}` `` (decision 11; the `` `@Customer` `` shortcut retired 2026-10-14) |
 | 20 | heatmap `` `# why` `` | `` `note="why"` `` |
 | 21 | kanban `` `XL` `` | unchanged (a `size` enum) |
 | 22 | state-chart `` `approve => 2` `` | retired with state chart v1: v2 (#2424) reads the flowchart's rows, `-approve-> Approved`, so its styles are row 25 |
@@ -807,6 +807,12 @@ reads the slot.
 - **Journey (decision 11).** A record names `who` once, so a second actor is a second `@` pill:
   `{who=me, mood=1}` `@cat`. `mood=2.5` now rounds to 3 in both the chart and the voice, where
   `parseInt` truncated it to 2.
+  **Amended 2026-10-14 (owner):** journey is authored in standard Segno, so the `@` shortcut is
+  retired and a second actor is a second record, `{who=me, mood=1}` `{who=cat}`. Every shipped deck
+  moved and renders byte-identically; `lint:deck` warns on a leftover `@name` span
+  (`journey-actor-shortcut`) and `--fix` rewrites it. The shortcut had also taken `@` away from
+  any wider use: a `TAGS` character starts no bare word, so `@` could not later become a tag without
+  breaking every journey actor.
 - **Flowchart (row 25).** A single style word stands alone (`doc`, `fail`); two or more go in braces.
   The key's words drop their colons (`{dotted, Informal}`), and a channel color is `fill=c3`.
 - **Gantt (row 10).** Two dependencies are a list, `after=[Design, Build]`. The codemod reported, and did

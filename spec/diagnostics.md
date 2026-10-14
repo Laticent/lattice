@@ -236,7 +236,7 @@ distinct, stable ID.
 | `unterminated-comment` | error | — | A `<!--` that is never closed: everything after it disappears, and its text ships inside any export that carries the source. |
 | `author-script-defers` | warning | — | A `<script>` that runs later; PDF, PPTX and PNG exports capture before it runs. |
 
-### 3.6 Charts: gantt and quadrant
+### 3.6 Charts: gantt, journey and quadrant
 
 | Rule ID | Severity | Autofix | What it catches |
 |---|---|---|---|
@@ -246,6 +246,7 @@ distinct, stable ID.
 | `gantt-mixed-time` | warning | — | A gantt mixing dates with quarters or months. |
 | `gantt-dangling-after` | error | — | A gantt `after=` naming no task on the slide. |
 | `gantt-inverted-dependency` | warning | — | A gantt task that starts before the task it depends on. |
+| `journey-actor-shortcut` | warning | ✓ | A journey actor in the retired `@sales` shortcut, which renders as code and drops the actor. Autofixes to `{who=sales}`. |
 | `quadrant-axis-part` | warning | — | A quadrant axis list with the wrong number of members, or a member part the chart ignores. |
 | `quadrant-retired-axis` | error | ✓ | The retired quadrant axis format. Autofixes to the bracketed list. |
 
