@@ -236,6 +236,18 @@ export const CHAT_COMPOSER_TOOLS = 'flex shrink-0 items-center gap-2';
 export const CHAT_COMPOSER_FIELD =
 	'block min-h-7 min-w-0 grow basis-32 resize-none border-0 bg-transparent px-0 py-[5px] text-[12.5px] leading-[1.45] text-foreground shadow-none outline-none focus-visible:ring-0 placeholder:text-muted-foreground md:text-[12.5px]';
 
+/** The Architect chat's composer: the field on its own full-width line, the controls on a bar beneath it. One row
+ *  (`CHAT_COMPOSER_ROW`) spent a third of a phone's width on five buttons and left the field ~215px; here the field
+ *  never shares its line, so it is the same width at every panel size and nothing reflows as buttons appear (Regenerate,
+ *  Stop). `ArchitectChat.tsx` and the `ChatShell` skeleton both use it, so the skeleton is the same height as the real
+ *  thing. The Live panel keeps the one-row form. */
+export const CHAT_COMPOSER_STACK = 'flex flex-col gap-1 rounded-xl border border-border bg-background p-2';
+/** The stacked composer's field: full width, grows with the prompt (no `basis`, which would be a HEIGHT in a column). */
+export const CHAT_COMPOSER_TEXT =
+	'block min-h-7 w-full min-w-0 resize-none border-0 bg-transparent px-0 py-[5px] text-[12.5px] leading-[1.45] text-foreground shadow-none outline-none focus-visible:ring-0 placeholder:text-muted-foreground md:text-[12.5px]';
+/** The bar under the field: attach, Library, lock (and Regenerate) on the left, Send or Stop on the right. */
+export const CHAT_COMPOSER_BAR = 'flex items-center justify-between gap-2';
+
 /** The Chat's first-run card, shared with `ArchitectChat.tsx`: a deck with no chat yet opens on exactly this. */
 export function ChatEmptyCard({ aiReady }: { aiReady: boolean }) {
 	return (
@@ -276,18 +288,23 @@ export function ChatShell({ title, aiReady, deckId, children }: { title?: string
 			</div>
 			<div className="flex flex-col gap-1.5 border-t border-border p-2.5">
 				{/* The composer, built like the real one so its placeholder wraps to the same height. */}
-				<Inert className={CHAT_COMPOSER_ROW}>
+				<Inert className={CHAT_COMPOSER_STACK}>
 					{/* The same field, not a look-alike: a touch screen forces fields to 16px, and the
 					    placeholder wraps with the field's width, so only the real element sizes the same. */}
-					<Textarea autosize maxRows={4} rows={1} readOnly tabIndex={-1} value="" data-focus-ring="container" placeholder={aiReady ? 'Ask or instruct…' : 'Connect a model to chat…'} className={CHAT_COMPOSER_FIELD} />
-					<span className={CHAT_COMPOSER_TOOLS}>
-						<span className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground">
-							<Paperclip className="size-4" />
+					<Textarea autosize maxRows={4} rows={1} readOnly tabIndex={-1} value="" data-focus-ring="container" placeholder={aiReady ? 'Ask or instruct…' : 'Connect a model to chat…'} className={CHAT_COMPOSER_TEXT} />
+					<span className={CHAT_COMPOSER_BAR}>
+						<span className="flex items-center gap-2">
+							<span className="grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground">
+								<Paperclip className="size-4" />
+							</span>
+							<span className="grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground">
+								<FileBox className="size-4" />
+							</span>
+							<span className="grid size-8 shrink-0 place-items-center rounded-lg text-muted-foreground">
+								<Unlock className="size-3.5" />
+							</span>
 						</span>
-						<span className="grid size-7 shrink-0 place-items-center rounded-lg text-muted-foreground">
-							<Unlock className="size-3.5" />
-						</span>
-						<span className="grid size-7 shrink-0 place-items-center rounded-lg bg-primary text-primary-foreground opacity-40">
+						<span className="grid size-8 shrink-0 place-items-center rounded-lg bg-primary text-primary-foreground opacity-40">
 							<ArrowUp className="size-4" />
 						</span>
 					</span>

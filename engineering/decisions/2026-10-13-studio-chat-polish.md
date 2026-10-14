@@ -149,6 +149,19 @@ Gone: the search box in the chat (the Library's own search is the place to find 
 which are sent to the model. Fabricate keeps its documents-only paperclip: it takes nothing else, so the old list is
 coherent there. `useReferenceDoc` serves both and returns the state the chat needs (`saved`, `toggleSaved`, `addFiles`).
 
+**Layout, and a second report from the phone (2026-10-14).** With the two controls in the one-row composer, a 390 px phone
+gave the text field about 215 px: five buttons shared its line, and the Library button sat 2 px from the paperclip. The tester
+reported two things: the field lost width, and a tap on the Library button opened the native sheet too. I could not reproduce
+the second in Chromium (no WebKit here). Two causes are plausible and both are cheap to remove: iOS moves a tap toward the
+nearest clickable thing (so a 28 px target 2 px from an invisible file input can hand its tap to the input), and a file input
+can paint its inner button past its own box. So the two attach buttons are now 32 px with 8 px between them, the paperclip's
+wrapper clips the input to its box (`overflow-hidden`), and the Library button sits above it (`z-10`). The composer is now
+the field on its own full-width line with the controls on a bar beneath it (`CHAT_COMPOSER_STACK` / `_BAR` in
+`panel-shells.tsx`, shared with the `ChatShell` skeleton so the skeleton is the same height): the field is 352 px on a 390 px
+phone, and 161 px in the docked desktop column, where the old row wrapped its buttons to a second line anyway. The Live
+panel keeps its one-row composer. **Unverified: on a real iPhone, that a Library tap no longer opens the native sheet.** The
+spec checks the geometry and the hit test in Chromium; it cannot show iOS's tap adjustment.
+
 **Verified:** `docs/e2e/chat-photos.spec.ts` in real Chromium at 1440, 820 and 390 px: the composer has the two controls and
 no menu; the paperclip is a real, tappable input (not `hidden`, not `pointer-events: none`) that accepts images, video and
 `.pdf` and opens the browser's chooser in one tap; a `.md` and a photo picked together become a chip and a thumbnail; from the

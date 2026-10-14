@@ -24,7 +24,7 @@ import { frontMatterBlock, getFrontMatter } from './front-matter';
 import { classifyMedia, MEDIA_ACCEPT } from './media-import';
 import type { MediaRecord } from './media-store';
 import { refreshAssetUrls, setActiveAssetDeck } from './media-urls';
-import { CHAT_COMPOSER_FIELD, CHAT_COMPOSER_ROW, CHAT_COMPOSER_TOOLS, ChatEmptyCard } from './panel-shells';
+import { CHAT_COMPOSER_BAR, CHAT_COMPOSER_STACK, CHAT_COMPOSER_TEXT, ChatEmptyCard } from './panel-shells';
 import { PreviewPool } from './preview-pool';
 import { REF_DOC_ACCEPT } from './reference-doc';
 import { useReferenceDoc } from './reference-doc-ui';
@@ -670,25 +670,16 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 			<div className="flex flex-col gap-1.5 border-t border-border p-2.5">
 				{refDoc.chip}
 				<PhotoStrip photos={pendingPhotos} videos={pendingVideos} onRemoveVideo={removePendingVideo} deckId={deckId} busy={addingPhotos} onRemove={(name) => setPendingPhotos((cur) => cur.filter((p) => p.name !== name))} />
-				{/* PADDING. One value on every side (p-2) rather than a 10/6 split, and it has to
-					    clear the `rounded-xl` corner — content inset closer than the radius reads as
-					    crowding into the curve. The buttons are `shrink-0` and the field is the only
-					    flexible child, so the row reflows by changing the FIELD's width and nothing
-					    else. Gap matches the padding (both 8px) so the spacing keeps one rhythm
-					    instead of two nearly-equal values reading as a mistake. */}
-				<div className={cn(CHAT_COMPOSER_ROW, 'focus-within:border-[var(--accent)]')}>
-					{/* `block` is load-bearing: the shadcn base sets `display:flex` on the field,
-					    which wrecks a textarea's own text layout — with it, 800 characters
-					    measured as 67 wrapped lines against a ~72px-wide box. `min-w-0` lets it
-					    actually shrink inside the flex row instead of being floored by content.
-					    `min-h-7` matches the buttons' `size-7`, and `py-[5px]` centers a single
-					    line inside that box ((28 − 18.1) / 2). Without both, `items-end` pinned a
-					    22px field to the bottom of a 28px row and the first line sat 6px low —
-					    measured 13px above / 7px below, which is the asymmetry that reads as "off".
-					    Grows with the prompt, to FOUR rows, so a typical instruction is visible
-					    while it is being written instead of scrolling inside one line. The
-					    surrounding row is `items-end`, so the buttons stay pinned to the bottom
-					    edge as it grows rather than drifting to the middle. */}
+				{/* LAYOUT. The field takes its own full-width line and the controls sit on a bar under it
+					    (`CHAT_COMPOSER_STACK` / `_BAR` in `panel-shells.tsx`). In one row the five buttons took a third of a
+					    phone's width and left the field ~215px. Padding is p-2 on every side and clears the `rounded-xl`
+					    corner. The attach and Library buttons are 32px with 8px between them: two 28px targets 2px apart
+					    let iOS's tap adjustment hand a Library tap to the file input beside it. */}
+				<div className={cn(CHAT_COMPOSER_STACK, 'focus-within:border-[var(--accent)]')}>
+					{/* `block` is load-bearing: the shadcn base sets `display:flex` on the field, which wrecks a textarea's
+					    own text layout (800 characters measured as 67 wrapped lines against a ~72px-wide box).
+					    `min-h-7` + `py-[5px]` centers a single line in 28px. It grows with the prompt, to FOUR rows,
+					    so a typical instruction is visible while it is written. */}
 					<Textarea
 						autosize
 						maxRows={4}
@@ -718,9 +709,10 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 						rows={1}
 						placeholder={aiReady ? 'Ask or instruct…' : 'Connect a model to chat…'}
 						aria-label="Message the Architect"
-						className={CHAT_COMPOSER_FIELD}
+						className={CHAT_COMPOSER_TEXT}
 					/>
-					<div className={CHAT_COMPOSER_TOOLS}>
+					<div className={CHAT_COMPOSER_BAR}>
+					<div className="flex items-center gap-2">
 					<ChatAttach
 						deckId={deckId}
 						deviceAccept={`${MEDIA_ACCEPT},video/*,${REF_DOC_ACCEPT}`}
@@ -742,21 +734,22 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 						title={factsLocked ? 'Preserve facts: ON — asking the model to change wording only, not numbers or names. Best-effort — review the diff to confirm.' : 'Preserve facts — ask the model to improve wording without changing numbers or names (best-effort; review the diff).'}
 						aria-label="Preserve facts — ask the model not to change numbers or names"
 						aria-pressed={factsLocked}
-						className={cn('grid size-7 shrink-0 place-items-center rounded-lg', factsLocked ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'text-muted-foreground hover:text-foreground')}
+						className={cn('grid size-8 shrink-0 place-items-center rounded-lg', factsLocked ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'text-muted-foreground hover:text-foreground')}
 					>
 						{factsLocked ? <Lock className="size-3.5" /> : <Unlock className="size-3.5" />}
 					</button>
 					{messages.some((m) => m.role === 'assistant') && !busy && (
-						<button type="button" onClick={regenerate} aria-label="Regenerate last reply" className="grid size-7 shrink-0 place-items-center rounded-lg text-muted-foreground hover:text-foreground">
+						<button type="button" onClick={regenerate} aria-label="Regenerate last reply" className="grid size-8 shrink-0 place-items-center rounded-lg text-muted-foreground hover:text-foreground">
 							<RotateCcw className="size-3.5" />
 						</button>
 					)}
+					</div>
 					{busy ? (
-						<button type="button" onClick={stop} aria-label="Stop" className="grid size-7 shrink-0 place-items-center rounded-lg bg-[var(--fail-fill,#b3261e)] text-white">
+						<button type="button" onClick={stop} aria-label="Stop" className="grid size-8 shrink-0 place-items-center rounded-lg bg-[var(--fail-fill,#b3261e)] text-white">
 							<Square className="size-3.5" />
 						</button>
 					) : (
-						<button type="button" onClick={send} disabled={(!input.trim() && !pendingPhotos.length && !pendingVideos.length) || addingPhotos} aria-label="Send" className="grid size-7 shrink-0 place-items-center rounded-lg bg-primary text-primary-foreground disabled:opacity-40">
+						<button type="button" onClick={send} disabled={(!input.trim() && !pendingPhotos.length && !pendingVideos.length) || addingPhotos} aria-label="Send" className="grid size-8 shrink-0 place-items-center rounded-lg bg-primary text-primary-foreground disabled:opacity-40">
 							<ArrowUp className="size-4" />
 						</button>
 					)}

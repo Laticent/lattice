@@ -22,6 +22,10 @@ import type { RefDocRecord } from './reference-doc-store';
 // recordings, identical position). A tap that lands on the input itself is the pattern iOS anchors correctly, and it
 // removes our menu from the device path altogether: nothing is stacked on the native sheet.
 //
+// The two controls are 32px with 8px between them, and the paperclip's wrapper clips the input to its own box. iOS moves a
+// tap toward the nearest clickable thing, so two 28px targets 2px apart let a Library tap land on the input beside it, and a
+// file input can paint its inner button past its box. The Library button sits above the paperclip (`z-10`) as a last guard.
+//
 // A photo or a clip is attached to THIS message. A file is a reference document: it grounds every reply until it is
 // removed. Tapping a Library item attaches it at once and shows a check, so what is attached is always visible and a
 // second tap takes it off; there is no separate "attach" button to forget to press.
@@ -98,14 +102,14 @@ export function ChatAttach({
 	);
 
 	return (
-		<span className="flex shrink-0 items-center gap-0.5">
+		<span className="flex shrink-0 items-center gap-2">
 			{/* FROM THIS DEVICE. The tap lands on the input itself (its own box, invisible, over the icon), so iOS shows its
 			    sheet anchored here. No `capture` attribute: on a phone the picker then offers Photo Library, Take Photo or
 			    Video and Choose Files, which is the point. The files are COPIED OUT before anything awaits: a FileList is
 			    live and WebKit empties it. */}
 			<span
 				className={cn(
-					'relative grid size-7 shrink-0 place-items-center rounded-md hover:bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] focus-within:ring-2 focus-within:ring-[var(--accent)]',
+					'relative grid size-8 shrink-0 place-items-center overflow-hidden rounded-md hover:bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] focus-within:ring-2 focus-within:ring-[var(--accent)]',
 					hasAttachments ? 'text-[var(--accent)]' : 'text-muted-foreground',
 				)}
 				title="Attach photos, videos or files from this device"
@@ -132,7 +136,7 @@ export function ChatAttach({
 						type="button"
 						aria-label="Attach from your Library"
 						title="Attach photos, videos or files from your Library"
-						className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-[color-mix(in_srgb,var(--accent)_10%,transparent)]"
+						className="relative z-10 grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-[color-mix(in_srgb,var(--accent)_10%,transparent)]"
 					>
 						<FileBox className="size-4" aria-hidden />
 					</button>

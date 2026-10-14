@@ -464,6 +464,63 @@ test('the composer has two attach controls, and the paperclip is the native pick
 	await expect(page.getByTestId('chat-attach').getByRole('tab')).toHaveCount(3);
 });
 
+test.describe('the composer on a phone', () => {
+	test.use({ viewport: { width: 390, height: 844 } });
+
+	test('the field has its own full-width line, and a tap anywhere on the Library button never reaches the file input beside it @crosswidth @webkit-phone', async ({ page }) => {
+		test.setTimeout(60_000);
+		await seed(page, true, true);
+		await gotoStudio(page);
+		await openChatAtWidth(page, 390);
+		// The phone's sheet slides in: measure once it has stopped moving.
+		await expect
+			.poll(async () => {
+				const first = await libraryButton(page).boundingBox();
+				await page.waitForTimeout(150);
+				const second = await libraryButton(page).boundingBox();
+				return !!first && !!second && first.y === second.y;
+			})
+			.toBe(true);
+		const field = await page.getByLabel('Message the Architect').boundingBox();
+		const device = await page.getByTestId('chat-attach-device').boundingBox();
+		const library = await libraryButton(page).boundingBox();
+		if (!field || !device || !library) throw new Error('composer controls not laid out');
+		// The field is not squeezed beside the buttons: it is wider than the buttons' bar and sits above it.
+		expect(field.width, JSON.stringify(field)).toBeGreaterThan(280);
+		expect(field.y + field.height, JSON.stringify({ field, device, library })).toBeLessThanOrEqual(device.y);
+		expect(device.y).toBeCloseTo(library.y, 0);
+		// Tap targets: 32px, and 8px of clear space between the two attach controls (iOS adjusts a tap toward the nearest
+		// clickable thing, so a 2px gap lets a Library tap land on the input).
+		expect(device.width).toBeGreaterThanOrEqual(32);
+		expect(library.width).toBeGreaterThanOrEqual(32);
+		expect(library.x - (device.x + device.width)).toBeGreaterThanOrEqual(8);
+		// Hit-test the Library button's centre and the corners of its box (inset past the rounding): each resolves to the button, never the file input.
+		const hits = await page.evaluate(
+			({ x, y, w, h }) =>
+				[
+					[x + w / 2, y + h / 2],
+					[x + 5, y + 5],
+					[x + w - 5, y + 5],
+					[x + 5, y + h - 5],
+					[x + w - 5, y + h - 5],
+				].map(([px, py]) => {
+					const el = document.elementFromPoint(px, py);
+					return el?.closest('button')?.getAttribute('aria-label') ?? el?.getAttribute('data-testid') ?? el?.tagName;
+				}),
+			{ x: library.x, y: library.y, w: library.width, h: library.height },
+		);
+		expect(hits).toEqual(Array(5).fill('Attach from your Library'));
+		// And a real tap there opens the Library, not the browser's chooser.
+		let chooser = false;
+		page.on('filechooser', () => {
+			chooser = true;
+		});
+		await page.mouse.click(library.x + library.width / 2, library.y + library.height / 2);
+		await expect(page.getByTestId('chat-attach')).toBeVisible();
+		expect(chooser).toBe(false);
+	});
+});
+
 test('a document picked from the device becomes a grounding chip, and a photo picked beside it a thumbnail', async ({ page }) => {
 	test.setTimeout(60_000);
 	await seed(page, true, true);
