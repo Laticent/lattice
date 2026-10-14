@@ -459,6 +459,27 @@ Here's a small one that gets expensive. Decide your house style on day one and w
 
 ---
 
+<!-- _class: list-tabular -->
+
+`Context · A finished example`
+
+## Before a cheaper model takes over, leave one finished example.
+
+1. The rules
+   - A short decision record: what must stay true, and why.
+2. The checks
+   - Types, a linter and tests that fail the moment code drifts.
+3. One complete example
+   - A working feature, end to end, that the next one can copy.
+4. Kept flat
+   - Plain and explicit beats clever. Every extra layer costs the next agent a file to open.
+
+<!--
+Here's how to set a cheaper model up to succeed. Agents copy the nearest example, so give them a good one before you hand off. Four things. First, the rules: a short decision record, sometimes called an ADR, that says what must stay true and why. Second, the checks: types, a linter and tests that fail the moment the code drifts. An agent responds to a failing check more reliably than to a paragraph of prose. Third, one complete example: a real feature built end to end, from the request coming in to the data being saved, that the next feature can copy. Prose tells an agent what you want; a working example shows it. Fourth, keep it flat. Ask a strong model for an extensible foundation and its favorite mistake is too many layers: generic wrappers and indirection for futures that never come. Every extra layer is another file the next agent has to open to follow one value, and that fills its context with plumbing instead of the problem. Plain and explicit beats clever. One warning: the example will be copied, flaws and all, so review it harder than anything else in the project.
+-->
+
+---
+
 <!-- _class: list takeaway -->
 
 `Context · In Claude Code`
@@ -1090,6 +1111,27 @@ Here's what that looks like on a hundred hard tasks, about what a busy team runs
 
 ---
 
+<!-- _class: list-tabular insight-key -->
+
+`Orchestration · Cast the model`
+
+## Use the strongest model where the rules get set.
+
+1. Setting a rule
+   - A new schema, boundary or pattern, or retiring an old one: the strongest model.
+2. Following a rule
+   - A feature in an existing pattern, a test, a local fix: a cheaper model can do it, if the task fits in a small, clean context and the checks are strong.
+3. Not sure which
+   - The strongest model. A wrong guess here fails quietly and passes the tests.
+
+> Route by what the change decides, not by the calendar.
+
+<!--
+So which model should do which work? Don't route by the calendar. The start of a project does need your strongest model, but only because that's when most of the rules get set. Route by what the change decides. If it sets a rule, like a new schema, a new boundary between parts of the system, or a pattern everything else will copy, or if it retires an old one, use the strongest model you have. Six months in, retiring a core pattern is often harder than the first week, because the model has to weigh new tradeoffs against everything that depends on the old way. The reach test from the autonomy section is a good trigger: if the change is hard to undo or reaches other people, it's a rule change. If the change follows a rule that's already set, like a feature in an existing pattern, a test, or a local fix, a cheaper model can do it, on two conditions: everything it needs fits in a small, clean context, and the checks will catch it if it drifts. And when you aren't sure which kind of change it is, use the strongest model. A bug that looks local can turn out to be the distant cause from the hard-problems section, and a cheaper model on the wrong task doesn't fail loudly. It writes plausible code that passes the tests. On my own project we tried routing work by type, and went back to one strong model for exactly that reason. One practical note: switch models between tasks, not in the middle of one. Claude's prompt cache, for example, belongs to one model, so a switch mid-task pays to read everything again at full price.
+-->
+
+---
+
 <!-- _class: list takeaway -->
 
 `Orchestration · Budget`
@@ -1480,21 +1522,21 @@ If you try three things this week, try these. Rewrite your agent's instruction f
 
 `Script drafted with Claude Opus 5.5, by Anthropic`
 
-1. 70%
+1. 71%
    - ideas from Sharmarke
-2. 2,831
+2. 3,833
    - words typed
-3. 11,386
+3. 12,047
    - words drafted
 4. 3
    - drafts sent back
-5. $395
+5. $478
    - model usage
 
 <!--
-One last thing before questions: the credits. This deck was made the way it describes, and I counted, because the one rule applies to us too. About seventy percent of the ideas came from me: forty-seven of the sixty-seven slides, either raised while we built it or pulled from the system I'd already built. That one is a judgment call, slide by slide. The rest are counts. I typed about twenty-eight hundred words to direct it. Claude drafted about eleven thousand four hundred, every slide and every speaker note. I sent back three whole drafts before this one. And the model time came to about four hundred dollars at list price. That figure covers the whole working session, including a written audit that sits behind this talk, so the deck alone cost less. So who made it? I did the thinking, set the bar, and made every call. Claude did the takes. That's the job now.
+One last thing before questions: the credits. This deck was made the way it describes, and I counted, because the one rule applies to us too. About seventy percent of the ideas came from me: forty-nine of the sixty-nine slides, either raised while we built it or pulled from the system I'd already built. That one is a judgment call, slide by slide. The rest are counts. I typed about thirty-eight hundred words to direct it, two pasted briefs included. Claude drafted about twelve thousand, every slide and every speaker note. I sent back three whole drafts before this one. And the model time came to about four hundred eighty dollars at list price. That figure covers the whole working session, including a written audit that sits behind this talk, so the deck alone cost less. So who made it? I did the thinking, set the bar, and made every call. Claude did the takes. That's the job now.
 
-How each number was counted, as of September twenty-ninth. Words typed: every message I sent in the session, split on spaces. Words drafted: every word on the slides and in the speaker notes, from the title to the closing slide, leaving out code blocks. Model usage: every model call in the session, including helper agents, priced at five dollars per million input tokens and twenty-five per million output, with cache writes and reads at their listed rates.
+How each number was counted, as of October fourteenth. Words typed: every message I sent in the session, split on spaces, including two briefs I pasted in. Words drafted: every word on the slides and in the speaker notes, from the title to the closing slide, leaving out code blocks. Model usage: every model call in the session, including helper agents, priced at five dollars per million input tokens and twenty-five per million output, with cache writes and reads at their listed rates.
 -->
 
 ---
@@ -1543,6 +1585,8 @@ So here's the one thing to take with you. You're the director. Use agents howeve
   - A test that proves a component keeps its written promises.
 - Context window
   - Everything the model can see at one moment.
+- Decision record (ADR)
+  - A short note of a decision, why it was made, and what it rules out.
 - Deprecate
   - Mark something as on its way out, while it still works.
 - Dot folder
