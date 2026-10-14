@@ -162,6 +162,14 @@ phone, and 161 px in the docked desktop column, where the old row wrapped its bu
 panel keeps its one-row composer. **Unverified: on a real iPhone, that a Library tap no longer opens the native sheet.** The
 spec checks the geometry and the hit test in Chromium; it cannot show iOS's tap adjustment.
 
+**Light and dark disagreed (2026-10-14).** In light mode the composer's text field blended into the composer's border; in
+dark mode it showed a faint filled box inside it. Cause: the shadcn `Textarea` ships `dark:bg-input/30`, and a consumer's plain
+`bg-transparent` does not beat a `dark:` variant (tailwind-merge keeps both), so only dark mode filled. It is not site-wide: the
+other transparent fields in the Studio are raw `<input>`s, not the primitive, and the two that use it (the Architect chat and
+the Live panel) share the field classes in `panel-shells.tsx`, which now carry `dark:bg-transparent`. The primitives keep
+their dark fill for the places that want it. The composer is one bordered box (`px-3 py-2.5`) with a bare field inside, in
+both modes; a spec reads the field's computed background in each mode and fails without the fix.
+
 **Verified:** `docs/e2e/chat-photos.spec.ts` in real Chromium at 1440, 820 and 390 px: the composer has the two controls and
 no menu; the paperclip is a real, tappable input (not `hidden`, not `pointer-events: none`) that accepts images, video and
 `.pdf` and opens the browser's chooser in one tap; a `.md` and a photo picked together become a chip and a thumbnail; from the

@@ -467,6 +467,20 @@ test('the composer has two attach controls, and the paperclip is the native pick
 test.describe('the composer on a phone', () => {
 	test.use({ viewport: { width: 390, height: 844 } });
 
+	test('the field is bare inside the composer\'s one border, in light and in dark', async ({ page }) => {
+		test.setTimeout(60_000);
+		await seed(page, true, true);
+		await gotoStudio(page);
+		await openChatAtWidth(page, 390);
+		const field = page.getByLabel('Message the Architect');
+		for (const mode of ['light', 'dark']) {
+			await page.evaluate((m) => document.documentElement.setAttribute('data-mode', m), mode);
+			// The shadcn Textarea fills itself in dark mode (`dark:bg-input/30`); inside the composer's own border that read as a
+			// box in a box, in dark only.
+			await expect(field, mode).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+		}
+	});
+
 	test('the field has its own full-width line, and a tap anywhere on the Library button never reaches the file input beside it @crosswidth @webkit-phone', async ({ page }) => {
 		test.setTimeout(60_000);
 		await seed(page, true, true);
