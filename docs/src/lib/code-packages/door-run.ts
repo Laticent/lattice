@@ -182,7 +182,7 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 	const listedNames = installed.size ? new Set(deckPluginList(source)) : new Set<string>();
 	const planNotes = plan.notes.filter((n: string) => [...listedNames].some((name) => new RegExp(`(^|[^a-z0-9-])${name.replace(/[^a-z0-9-]/g, '')}([^a-z0-9-]|$)`).test(n)));
 	const notes = [...planNotes, ...(drawsAny ? fenceCaptureNotes(capFences, fences) : [])];
-	if (!cap.claims.length && !capFences.claims.length) {
+	if (!cap.claims.length && !capFences.claims.length && !capFences.escapes) {
 		if (reporting) report({ unapproved: [], failed: [], ...(notes.length ? { notes } : {}) });
 		return first;
 	}

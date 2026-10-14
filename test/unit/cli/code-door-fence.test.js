@@ -154,6 +154,20 @@ describe('the inline door: `@kind{…}` spans (2026-10-14-plugin-inline-door.md 
     assert.doesNotMatch(out, /data-package-error="gantt-plugin" role="note">[^<]*span/, 'a span with no result carries no block note');
   });
 
+  test('an escaped span of a door kind is finished as the literal, backslash off, and is never run', () => {
+    const cap = captureFences(fences, { ...slides, kinds });
+    render(md, cap);
+    assert.equal(cap.claims.some((c) => c.escaped), false, 'the doors never see an escape');
+    assert.equal(cap.escapes, 1);
+    const out = render(md, substituteFences(fences, new Map(), new Map([['gantt-plugin', 'sha']]), { ...slides, kinds }));
+    assert.match(out, /Escaped <code data-lat-escaped="">@gantt-bar\{x\}<\/code>/);
+    // A deck whose only span is an escape still gets the second render's finish.
+    const only = '---\ntheme: indaco\n---\n\n## E\n\n- `\\@gantt-bar{x}`\n';
+    const c2 = captureFences(fences, { ...slides, kinds });
+    render(only, c2);
+    assert.deepEqual([c2.claims.length, c2.escapes], [0, 1]);
+  });
+
   test('a span and a fence never share a memo key; the input says which kind it is', () => {
     const c = { pkg: 'p', id: 'i', body: 'x' };
     assert.notEqual(fenceKey({ ...c, inline: 'k' }, 's'), fenceKey(c, 's'));

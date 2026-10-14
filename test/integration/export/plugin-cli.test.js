@@ -107,3 +107,70 @@ describe('a zip plugin through the CLI', () => {
     assert.match(b.stdout, /refused\s+exec-plugin: it declares render\.exec/);
   });
 });
+
+// ── The inline door (2026-10-14-plugin-inline-door.md): a zip plugin's `@kind{…}` spans, through the same CLI ──
+//
+//   ADD        a plugin of inline kinds only installs; one that names a kind Lattice draws (`icon`) is refused
+//   REFUSED    a deck that writes its span before trust fails with the digest, as a fence does
+//   UNLISTED   a deck that does not list it keeps the span as code and says how to list it
+//   DRAWN      after trust, the span is drawn in a <span> root, from the fields its declared slot read
+//   PHRASING   output that would put a block in the line is refused, and the span stays code
+describe('a zip plugin of inline kinds through the CLI', () => {
+  const CHIP = 'function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;")}\nfunction render(i){if(i.kind==="tag-chip"){var f=i.fields||{};return "<span class=\\"lp-chip-plugin-tag\\" data-tone=\\"" + esc(f.tone||"none") + "\\">" + esc(f.label||i.text) + "</span>"}if(i.kind==="bad-chip"){return "<div>block</div>"}return "<p>no</p>"}\nexport { render as default };\n';
+  const inline = {
+    'tag-chip': { slot: { label: 'a tag chip', positional: [{ name: 'label', type: 'text' }], params: { tone: { type: 'oneOf', values: ['hot', 'cold'] } } }, placeholder: { size: 'sm' } },
+    'bad-chip': {},
+  };
+  function writeChip(dir, name, kinds) {
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, `${name}.manifest.json`), JSON.stringify({ name, type: 'plugin', format: 1, api: 1, contributes: { inline: kinds } }));
+    fs.writeFileSync(path.join(dir, `${name}.docs.md`), `# ${name}\n`);
+    fs.writeFileSync(path.join(dir, `${name}.fixtures.md`), '- `@tag-chip{x}`\n');
+    fs.writeFileSync(path.join(dir, `${name}.render.js`), CHIP);
+  }
+  const chipDeck = (listed) => `---\ntheme: indaco\n${listed ? 'plugins: [chip-plugin]\n' : ''}---\n\n## Launch\n\n- Status \`@tag-chip{Launch, hot}\` and \`@bad-chip{x}\`, with \`\\@tag-chip{kept}\`\n`;
+
+  before(() => {
+    writeChip(path.join(work, 'chip-plugin'), 'chip-plugin', inline);
+    writeChip(path.join(work, 'icon-plugin'), 'icon-plugin', { icon: {} });
+    fs.writeFileSync(path.join(work, 'chip-listed.md'), chipDeck(true));
+    fs.writeFileSync(path.join(work, 'chip-unlisted.md'), chipDeck(false));
+  });
+
+  test('ADD: a plugin of inline kinds installs; one that takes a kind Lattice draws is refused', () => {
+    const a = lattice('packages', 'add', path.join(work, 'chip-plugin'));
+    assert.equal(a.status, 0, a.stdout + a.stderr);
+    assert.match(a.stdout, /added\s+plugin\/chip-plugin/);
+    const b = lattice('packages', 'add', path.join(work, 'icon-plugin'));
+    assert.notEqual(b.status, 0);
+    assert.match(b.stdout, /refused\s+icon-plugin: its inline kind `@icon\{…\}` is one Lattice already draws/);
+  });
+
+  test('REFUSED: a listed deck that writes its span fails until the code is approved', () => {
+    const r = lattice(path.join(work, 'chip-listed.md'), '-o', path.join(work, 'chip-refused.html'));
+    assert.notEqual(r.status, 0);
+    assert.match(r.stderr, /the deck uses the plugin chip-plugin, and you have not approved its code \(sha256 [0-9a-f]{64}\)/);
+  });
+
+  test('UNLISTED: the span stays code and the warning names the kind and the line to add', () => {
+    const r = lattice(path.join(work, 'chip-unlisted.md'), '-o', path.join(work, 'chip-unlisted.html'));
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+    assert.match(r.stderr, /the installed plugin chip-plugin draws `@bad-chip\{…\}`, `@tag-chip\{…\}` spans, and this deck does not list it.*plugins: \[chip-plugin\]/);
+    const html = fs.readFileSync(path.join(work, 'chip-unlisted.html'), 'utf8');
+    assert.match(html, /<code>@tag-chip\{Launch, hot\}<\/code>/);
+  });
+
+  test('TRUST then DRAWN: the span is drawn in a <span> root from its slot\'s fields; block output stays code; an escape stays literal', () => {
+    const t = lattice('packages', 'trust', 'plugin/chip-plugin', '--yes');
+    assert.equal(t.status, 0, t.stdout + t.stderr);
+    assert.match(t.stdout, /`@tag-chip\{…\}` span/, 'the prompt names what it draws');
+    const r = lattice(path.join(work, 'chip-listed.md'), '-o', path.join(work, 'chip-drawn.html'));
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+    const html = fs.readFileSync(path.join(work, 'chip-drawn.html'), 'utf8');
+    assert.match(html, /Status <span data-lattice-plugin="chip-plugin" data-kind="tag-chip"><span class="lp-chip-plugin-tag" data-tone="hot">Launch<\/span><\/span> and/);
+    // A renderer that returns a block for a span: refused by the phrasing check, the span keeps its code, and the CLI says so.
+    assert.match(html, /<code>@bad-chip\{x\}<\/code>/);
+    assert.match(r.stderr, /chip-plugin did not draw 1 span \(on slide 1\); each stays code: the renderer returned a <div>/);
+    assert.match(html, /<code data-lat-escaped="">@tag-chip\{kept\}<\/code>/, 'the escaped span is the author\'s literal, backslash off');
+  });
+});
