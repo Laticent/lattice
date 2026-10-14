@@ -44,7 +44,7 @@
 const esbuild = require('esbuild');
 const path = require('path');
 const fs = require('fs');
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 
 const ROOT = path.resolve(__dirname, '..');
 const ENTRY = path.join(ROOT, 'lib', 'playground', 'index.js');
@@ -271,7 +271,7 @@ async function main() {
     try {
       await buildOnce(tmp);
       try {
-        execSync(`diff -q "${OUT_FILE}" "${tmp}"`, { stdio: 'pipe' });
+        execFileSync('diff', ['-q', OUT_FILE, tmp], { stdio: 'pipe' });
       } catch (_e) {
         console.error('✗ docs/public/playground/lattice-playground.js is stale relative to lib/playground/');
         console.error('  Run: npm run playground:build');
@@ -279,7 +279,7 @@ async function main() {
       }
       await buildEsm(`${ESM_DIR}.check.tmp`);
       try {
-        execSync(`diff -rq "${ESM_DIR}" "${ESM_DIR}.check.tmp"`, { stdio: 'pipe' });
+        execFileSync('diff', ['-rq', ESM_DIR, `${ESM_DIR}.check.tmp`], { stdio: 'pipe' });
       } catch (_e) {
         console.error('✗ docs/public/playground/esm/ is stale relative to lib/playground/');
         console.error('  Run: npm run playground:build');

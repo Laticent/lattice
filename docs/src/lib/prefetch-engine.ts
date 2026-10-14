@@ -21,7 +21,7 @@
 //   effectiveType 4g                 → eager (capped to intent off the funnel)
 //   unknown (no NetInfo API)         → viewport proxy: ≥768px eager, else intent
 
-import { ENGINE_ENTRY, engineBaseFor } from './engine-base';
+import { ENGINE_ENTRY, engineBaseFor, SAFE_CHUNK, sameOriginAsset } from './engine-base';
 export type Decision = 'eager' | 'intent' | 'off';
 
 export interface WarmSignals {
@@ -154,11 +154,11 @@ async function prefetchEngineChunks(base: string): Promise<void> {
 		return; // a warm-up is a hint; the engine's own load preloads what it needs
 	}
 	for (const file of chunks) {
-		const href = `${base}esm/${file}`;
-		if (document.querySelector(`link[rel="prefetch"][href="${cssEscape(href)}"]`)) continue;
+		const url = SAFE_CHUNK.test(file) ? sameOriginAsset(base, `esm/${file}`) : null;
+		if (!url || document.querySelector(`link[rel="prefetch"][href="${cssEscape(url.href)}"]`)) continue;
 		const link = document.createElement('link');
 		link.rel = 'prefetch';
-		link.href = href;
+		link.href = url.href;
 		document.head.appendChild(link);
 	}
 }

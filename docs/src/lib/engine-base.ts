@@ -39,6 +39,20 @@ export function engineBase(): string | null {
 	return src ? engineBaseFor(src) : null;
 }
 
+/** A shared chunk's file name, exactly as tools/build-playground.js writes it; nothing else is hinted. */
+export const SAFE_CHUNK = /^chunk-[A-Za-z0-9_-]+\.js$/;
+
+/** An asset beside the engine as a URL, or null when it would leave this page's origin. */
+export function sameOriginAsset(base: string, rel: string): URL | null {
+	if (typeof window === 'undefined') return null;
+	try {
+		const url = new URL(rel, new URL(base, window.location.href));
+		return url.origin === window.location.origin ? url : null;
+	} catch {
+		return null;
+	}
+}
+
 /** For tests: forget the recorded URL. */
 export function resetEngineBase(): void {
 	recorded = null;

@@ -11,7 +11,7 @@
 // ChunkLoadError, which the hosts already turn into "part of the app didn't load" with a reload offer.
 
 import { chunkLoadMessage } from './chunk-load';
-import { engineBase } from './engine-base';
+import { engineBase, SAFE_CHUNK, sameOriginAsset } from './engine-base';
 
 const loads = new Map<string, Promise<void>>();
 let chunkList: Promise<Record<string, string[]>> | null = null;
@@ -27,16 +27,23 @@ function chunksFor(base: string): Promise<Record<string, string[]>> {
 	return chunkList;
 }
 
-/** Hint every static chunk of `entry` at once, so the module graph is not discovered one level per round trip. */
+const preloaded = new Set<string>();
+
+/**
+ * Hint every static chunk of `entry` at once, so the module graph is not discovered one level per
+ * round trip. Each address is resolved as a URL and must stay on this page's origin, and each name
+ * must be a plain chunk file name, so nothing read from the page or from chunks.json can steer it.
+ */
 export async function preloadEntry(base: string, entry: string): Promise<void> {
 	if (typeof document === 'undefined') return;
 	const chunks = (await chunksFor(base))[entry] ?? [];
 	for (const file of chunks) {
-		const href = `${base}esm/${file}`;
-		if (document.querySelector(`link[rel="modulepreload"][href="${href}"]`)) continue;
+		const url = sameOriginAsset(base, `esm/${file}`);
+		if (!url || !SAFE_CHUNK.test(file) || preloaded.has(url.href)) continue;
+		preloaded.add(url.href);
 		const link = document.createElement('link');
 		link.rel = 'modulepreload';
-		link.href = href;
+		link.href = url.href;
 		document.head.appendChild(link);
 	}
 }
@@ -62,7 +69,8 @@ export function ensureCharts(layouts: readonly string[]): Promise<void> {
 			if (!p) {
 				const entry = `chart-${layout}.js`;
 				void preloadEntry(base, entry);
-				p = import(/* @vite-ignore */ `${base}esm/${entry}`).then(
+				const url = /^chart-[a-z0-9-]+\.js$/.test(entry) ? sameOriginAsset(base, `esm/${entry}`) : null;
+				p = (url ? import(/* @vite-ignore */ url.href) : Promise.reject(new Error(`not an engine asset: ${entry}`))).then(
 					() => undefined,
 					(e) => {
 						throw chunkLoadError(e);
@@ -78,5 +86,6 @@ export function ensureCharts(layouts: readonly string[]): Promise<void> {
 /** For tests. */
 export function resetChartLoads(): void {
 	loads.clear();
+	preloaded.clear();
 	chunkList = null;
 }
