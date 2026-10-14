@@ -873,6 +873,29 @@ describe('cartesian — defects the adversarial trio confirmed', () => {
     assert.equal(C.isValuePill('1.234.567'), true);
   });
 
+  test('a whole European number reads its comma as the decimal (followups.d/2686-p3)', () => {
+    // `1.234,5` (EU for 1234.5) read as 1.2345, a thousandfold misread: both separators present
+    // used to mean "delete the commas", which is right only for the US order.
+    assert.equal(C.parseValue('1.234,5'), 1234.5);
+    assert.equal(C.parseValue('1,234.5'), 1234.5);
+    assert.equal(C.parseValue('1.234.567,89'), 1234567.89);
+    assert.equal(C.parseValue('€1.234,5M'), 1234500000);
+    assert.equal(C.parseValue('12,000'), 12000);
+    // Only a WHOLE European number swaps: prose the lenient fallback scans, and malformed input,
+    // keep the US reading, so a list comma after a decimal never multiplies the number by ten.
+    assert.equal(C.parseValue('grew 3.5%, margin 12%'), 3.5);
+    assert.equal(C.parseValue('$1.2M, 40%'), 1200000);
+    assert.equal(C.parseValue('v2.1, beta'), 2.1);
+    assert.equal(C.parseValue('1.2,3'), 1.23);
+    assert.equal(C.parseValue('1,234.567,89'), 1234.56789);
+    // Still read as before, and phase 2's ISO reader decides them
+    // (engineering/decisions/2026-10-14-chart-authoring-uniform-model.md §5): a lone `12.000` is
+    // US-first, 12; ISO's space grouping is not a value, and the lenient fallback reads its first group.
+    assert.equal(C.parseValue('12.000'), 12);
+    assert.equal(C.isValuePill('12 000'), false);
+    assert.equal(C.parseValue('12 000'), 12);
+  });
+
   test('signedValue finds a sign wherever it sits before the digits', () => {
     // A waterfall's whole claim is direction, and there are four spellings.
     // Re-deriving this in the member found three: `($0.8M)` — what every

@@ -266,7 +266,7 @@ function countSlide(chart, tokens, src, s, ref) {
     if (b.type === 'blockquote') s.slot.quote += b.inlines.flatMap(codesOf).length;
   });
 
-  // A column-0 `>` between two lists ends the first one (followups.d/2686-p2-flowchart-lazy-blockquote-drops-node.md): list, quote, list.
+  // A column-0 `>` between two lists ends the first one (lint rule `chart-list-split-quote`): list, quote, list.
   for (let i = 1; i + 1 < bs.length; i++) {
     if (bs[i].type === 'blockquote' && bs[i - 1].type === 'list' && bs[i + 1].type === 'list') s.column0Quotes++;
   }

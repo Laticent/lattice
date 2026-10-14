@@ -194,13 +194,23 @@ const MAGNITUDE: Readonly<Record<string, number>> = { k: 1e3, K: 1e3, m: 1e6, M:
 // split it, and 20,000 tabs took 420 ms. Each optional piece now carries its own trailing space.
 const NUMERIC = /^[(+\-\u2212]?\s*(?:[^\w\s]{1,3}\s*)?[-\u2212]?\d[\d,.]*\s*(?:(?:%|\u2030|[A-Za-z]{1,6})\s*)?\)?$/;
 
-/** `1,234` groups; `1,25` is a decimal comma; two or more dots group; one dot is a decimal point. */
+// A European number: dot-grouped thousands, then ONE decimal comma, as the whole string (`1.234,5`,
+// `€1.234.567,89M`, `(1.234,5)`). Only this shape swaps the two separators. Anything looser keeps
+// the US reading, so prose the lenient fallback scans (`grew 3.5%, margin 12%`) is not multiplied.
+const EU_NUMBER = /^[^\d,.]*\d{1,3}(?:\.\d{3})+,\d+[^\d,.]*$/;
+
+/**
+ * `1,234` groups; `1,25` is a decimal comma; two or more dots group; one dot is a decimal point.
+ * With both, a whole European number (`1.234,5`, see EU_NUMBER) reads its comma as the decimal, and
+ * anything else deletes the commas (`1,234.5`): both read 1234.5. Deleting the commas from `1.234,5`
+ * read it as 1.2345, a thousandfold misread.
+ */
 function normalizeSeparators(s: string): string {
   const dots = (s.match(/\./g) || []).length;
   const commas = (s.match(/,/g) || []).length;
   if (commas && !dots) return /,\d{3}(?!\d)/.test(s) && !/,\d{1,2}(?!\d)/.test(s) ? s.replace(/,/g, '') : s.replace(/,/g, '.');
   if (dots > 1 && !commas) return s.replace(/\./g, '');
-  if (commas && dots) return s.replace(/,/g, '');
+  if (commas && dots) return EU_NUMBER.test(s) ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, '');
   return s;
 }
 

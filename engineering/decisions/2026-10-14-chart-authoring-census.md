@@ -143,9 +143,9 @@ removes both disagreements; §6's `check-ownership` rule keeps them from coming 
   author input, not shipped decks.
 - **Descriptions start from zero on the 16 charts**: no `>` blockquote under an item, no
   `{> …}` span. Flowchart and state-chart carry 15 between them, outside the model. **No column-0
-  `>` sits between two chart list items anywhere in the corpus**, so the lint that
-  `followups.d/2686-p2-flowchart-lazy-blockquote-drops-node.md` asked for catches new mistakes and
-  fixes no shipped deck.
+  `>` sits between two chart list items anywhere in the corpus**, so the lint that follow-up
+  2686-p2 asked for (`chart-list-split-quote`, added by this PR) catches new mistakes and fixes no
+  shipped deck.
 - **Progress's visible nested note is used on no slide.** §3 decision 7 turns it into a named
   visible field; no deck in the corpus loses content to that.
 - **Heatmap: 134 empty cells and no cell a strict reader would refuse.** The `$1.2M to $1.5M`
