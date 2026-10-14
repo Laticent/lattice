@@ -2,6 +2,10 @@ import { configure } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import { afterEach } from 'vitest';
 
+// Segno's fast record read is checked against the full bind on every read these tests make
+// (followups.d/2669-p3). Set before any test file loads the library, which reads it once.
+(globalThis as Record<symbol, unknown>)[Symbol.for('laticent.segno.checkBothPaths')] = true;
+
 // A CONSIDERED budget for Testing Library's OWN clock, replacing the library's generic
 // 1000ms default (#1806). This is a SECOND clock, one level inside `testTimeout`: a bare
 // `waitFor` / `findBy*` expires on `asyncUtilTimeout` and the outer 20s budget is never

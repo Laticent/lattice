@@ -382,13 +382,24 @@ function fail(expected: string): false {
 ${rules}${attemptFns.length ? `\n${attemptFns.map((a) => a.tryAndBody + (explained.has(a.k) ? a.explain : '')).join('\n')}` : ''}
 const RULES: Record<string, () => boolean> = { ${Object.keys(spec.rules).map((r) => `${q(r)}: r_${r}`).join(', ')} };
 
+// The result of a parse that succeeds. One object, reused: its tree is already valid only until the
+// next parse (the buffer is shared), so a caller holding it across parses was never safe, and
+// allocating a result and a tree object per span was measurable (~15% of a pill's parse). A caller
+// must not keep, compare or mutate a result across parses.
+const OK: { ok: true; tree: GenTree } = { ok: true, tree: { buf, top: 0, kinds: KINDS } };
+
 /**
  * Parse \`input\` against rule \`rule\` (default ${q(spec.start)}). Never throws on input. The tree
  * is a flat buffer that the NEXT call overwrites (flat.ts) — read it first.
  */
 export function parse(input: string, rule = ${q(spec.start)}): { ok: true; tree: GenTree } | { ok: false; error: GenError } {
-  const start = Object.hasOwn(RULES, rule) ? RULES[rule] : undefined;
-  if (!start) throw new Error('segno: no rule "' + rule + '"');
+  // The default rule skips the table lookup: every call from the notation reader is this one.
+  let start = r_${spec.start};
+  if (rule !== ${q(spec.start)}) {
+    const named = Object.hasOwn(RULES, rule) ? RULES[rule] : undefined;
+    if (!named) throw new Error('segno: no rule "' + rule + '"');
+    start = named;
+  }
   s = input;
   n = s.length;
   i = 0;
@@ -397,7 +408,7 @@ export function parse(input: string, rule = ${q(spec.start)}): { ok: true; tree:
   top = 0;
   // A tree that outgrew the first buffer is let go here rather than kept for the page's life: one
   // hostile 3M-character flowchart row held 67 MB through every later parse (phase 3b's red team).
-  if (buf.length > 65536) buf = new Int32Array(256);
+  if (buf.length > 65536) { buf = new Int32Array(256); OK.tree.buf = buf; } // the shared result must not keep the big one alive
   ${maxDepth > MAX_DEPTH ? `let ok: boolean;
   try {
     ok = start();
@@ -410,7 +421,9 @@ export function parse(input: string, rule = ${q(spec.start)}): { ok: true; tree:
   if (ok && i < n) fail('end of input');
   const e = err as GenError | null;
   if (!ok || e) return { ok: false, error: e ?? { at: i, expected: 'a valid input', found: null } };
-  return { ok: true, tree: { buf, top, kinds: KINDS } };
+  OK.tree.buf = buf;
+  OK.tree.top = top;
+  return OK;
 }
 `;
 }
