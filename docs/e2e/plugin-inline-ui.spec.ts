@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { chipZip } from './plugin-fence-fixture';
-import { expect, gotoStudio, livePreview, persistedSource, setEditorContent, test } from './studio-fixture';
+import { expect, gotoStudio, livePreview, persistedSource, setEditorContent, test, typeInEditor } from './studio-fixture';
 
 // ── A zip plugin's INLINE kind (`@kind{…}`, engineering/decisions/2026-10-14-plugin-inline-door.md) in the real Studio ──
 //
@@ -108,3 +108,27 @@ for (const [label, width, height] of [
 		await shot('drawn-cards');
 	});
 }
+
+// ── The BUILT-IN kinds in the named spelling, in the real Studio ──
+// `@icon{…}` and `@avatar{…}` are the same rows as `^{…}` and `!{…}` (inline-code-directives.js `NAMED_ROW`), so the
+// preview draws the same SVG, and the root keeps the author's spelling in `data-src`. The `@` menu lists the kinds.
+test('the built-in kinds in the named form: `@icon{…}` and `@avatar{…}` draw in the preview, and `@` lists the kinds', async ({ page }) => {
+	await gotoStudio(page);
+	await setEditorContent(page, '## The data team\n\nThe store is `@icon{database}` and the lead is `@avatar{Ada Okafor}` this quarter.\n\n');
+	const preview = livePreview(page);
+	const icon = preview.locator('span.lat-icon[data-icon="database"]');
+	await expect(icon.locator('svg.lat-icon-svg path').first()).toBeAttached({ timeout: 30_000 });
+	await expect(icon).toHaveAttribute('data-src', '@icon{database}');
+	const avatar = preview.locator('span.lat-avatar[aria-label="Ada Okafor"]');
+	await expect(avatar.locator('svg.lat-avatar-svg path').first()).toBeAttached();
+	await expect(avatar).toHaveAttribute('data-src', '@avatar{Ada Okafor}');
+	// Both draw in the line, at a real size.
+	for (const el of [icon, avatar]) {
+		const box = await el.boundingBox();
+		expect(box && box.width > 4 && box.height > 4).toBe(true);
+	}
+	// The `@` menu: typing a kind's first letters inside a code span offers it.
+	await typeInEditor(page, 'Owner: `@ava');
+	const menu = page.locator('.cm-tooltip-autocomplete');
+	await expect(menu.getByRole('option', { name: /@avatar/ })).toBeVisible();
+});
