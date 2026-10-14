@@ -35,7 +35,7 @@ export const BAR = {
   storySlidesMin: 2,
   newTermsPerSlide: 1,
 };
-const STORY = /\b(shop|cart|checkout|Sam)\b/i;
+const STORY = /\b(rooms?|book|booked|booking|bookings|calendar)\b/i;
 const WORD_EXEMPT = new Set(['code', 'compare-code', 'glossary', 'table']);
 
 /** Split a Marp deck into slides, ignoring `---` inside fenced code. */
@@ -219,7 +219,7 @@ export function judgeChapter(ch) {
   add('Reading level', grade <= BAR.gradeMax, `grade ${grade.toFixed(1)} (max ${BAR.gradeMax})`);
 
   const story = ch.slides.filter((s) => STORY.test(s.prose.join(' '))).length;
-  add('Running example', story >= BAR.storySlidesMin, `${story} slides use the shop story`);
+  add('Running example', story >= BAR.storySlidesMin, `${story} slides use the booking-app story`);
 
   const silent = ch.slides.filter((s) => !s.notes.replace(/^Teaches:.*$/im, '').trim()).map((s) => `p${s.page}`);
   add('Notes', silent.length === 0, silent.length ? `no notes: ${silent.join(', ')}` : '');
