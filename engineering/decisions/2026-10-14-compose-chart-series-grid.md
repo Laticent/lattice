@@ -1,3 +1,8 @@
+---
+status: in-progress
+summary: Phase 3 of the Compose inline editors. Of the 25 chart components, label-plus-number lists (bar, line, pie, funnel, waterfall, word-cloud) and nested-series lists (grouped and stacked bar, slope) get one shared number grid; gantt, kanban and map do not; bullet, progress, radar, scatter and heatmap wait. Door decided - one Insert menu.
+---
+
 # Compose chart series grid — which charts are list-shaped (phase 3 note)
 
 Status: note, written before any code. Source of every claim below: the `Slots` table of each
