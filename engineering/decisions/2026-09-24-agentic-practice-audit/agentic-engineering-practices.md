@@ -568,7 +568,7 @@ Two things decide the risk: how hard the change is to undo, and who else it affe
 - Shared state: labels, boards and settings other people read.
 - The build pipeline: every future change pays for a new step.
 - A number a person set: if they asked for about twelve, stop at twelve.
-- A core document's meaning: rewriting rules differs from following them.
+- What a core document says: rewriting the rules isn't the same as following them.
 - Anything irreversible or public: merges, releases, comments on others' work.
 
 <!--
@@ -704,7 +704,7 @@ So we gave the word "verified" rules. It has to say where the check ran: the rea
 %%{init: {'themeVariables': {'fontSize': '22px'}}}%%
 flowchart LR
   A["Routine change<br/>tests and linters"] --> B["Wide impact<br/>a second agent<br/>redoes the work"]
-  B --> C["Critical or new<br/>three reviewers,<br/>three jobs"]
+  B --> C["Critical or new<br/>three reviewers,<br/>each with one job"]
   C --> D["Can't be undone<br/>a person decides"]
 ```
 
@@ -888,7 +888,7 @@ Who has corrected the same agent mistake more than once? This section makes sure
 - Write it down
   - A dated note: what happened, why, what we decided.
 - Make a rule
-  - One line, marked with what enforces it.
+  - One line, plus what enforces it: a script, or just discipline.
 - Add a check
   - A script enforces the rule where it can.
 - Retest
@@ -1019,19 +1019,19 @@ Orchestration just means coordinating several agents. Instead of one general ass
 ---
 <!-- _class: compare-prose insight-why -->
 
-`Orchestration · Two trios`
+`Orchestration · Two kinds of review`
 
-## One trio finds your question. The other checks your answer.
+## One group finds the questions. Another attacks the answer.
 
-- The additive trio
-  - Map the joins, trace what breaks if a piece goes, and name the tradeoffs. It finds claims you don't have yet. Run it first.
-- The adversarial trio
-  - Red team, inversion and checker attack a claim you already have. Run it on what ships.
+- Explorers
+  - Map how the parts connect, what breaks if one is removed, and which tradeoffs you're making. They find questions you didn't know to ask. Run them first.
+- Critics
+  - One tries to break the answer, one asks how it could fail, one re-checks every claim. Run them on what you'll ship.
 
 > Checking a wrong answer harder only gives you a better-defended wrong answer.
 
 <!--
-Two kinds of review, and they do opposite jobs. The additive trio works before you have an answer. One agent maps the joins between the parts: what each connection does that neither side does alone. One asks, "if we delete this piece, what dies?" And one lists the tradeoffs the system refuses to make, and what that costs. The adversarial trio checks an answer you already have. A red team tries to break it. An inversion agent asks, "how would we guarantee this fails?", which catches the wrong-problem mistakes that bug hunting never finds. And a checker re-derives every claim from the source. Make that one mandatory for work that's risky and hard to undo, and we run it only on what will actually ship, never on every draft. Here's why you need both. Picture a full adversarial review on a briefing. Every claim comes back stronger, and the argument is still wrong, because the thesis is wrong. The adversarial trio can only check the claims you bring it. Finding the right thesis takes a different kind of search. Each trio is three agents, so it counts toward the budget on the next slide.
+Two kinds of review, and they do opposite jobs. The explorers work before you have an answer. One agent maps the joins between the parts: what each connection does that neither side does alone. One asks, "if we delete this piece, what dies?" And one lists the tradeoffs the system refuses to make, and what that costs. The critics check an answer you already have. One, often called a red team, tries to break it. One flips the question and asks, "how would we guarantee this fails?", which catches the wrong-problem mistakes that bug hunting never finds. And a checker re-derives every claim from the source. Make that one mandatory for work that's risky and hard to undo, and we run it only on what will actually ship, never on every draft. Here's why you need both. Picture the critics reviewing a briefing. Every claim comes back stronger, and the argument is still wrong, because the main idea is wrong. Critics can only check the claims you bring them. Finding the right idea takes a different kind of search. Each group is three agents, so it counts toward the budget a few slides from now.
 -->
 
 ---
@@ -1324,11 +1324,11 @@ That's the five practices, and what to do when a problem is hard. The rest of th
 
 | Practice | Week 1 | Month 1 | Quarter 1 |
 | --- | --- | --- | --- |
-| Context | A one-page index file | Linked detail docs | Measure what loads |
-| Autonomy | Allow and deny lists | A written stop list | Approval as a setting |
-| Verification | Tests on every change | A check that plants a bug | Review risky work twice |
+| Context | A one-page index file | Linked detail docs | Measure context use |
+| Autonomy | Allow and deny lists | A written stop list | Merges need a person |
+| Verification | Tests on every change | A check proven to fail | Review risky work twice |
 | Learning | A decision log | Pending work as files | Retest your oldest rules |
-| Orchestration | One reviewer agent | A named roster | A budget per session |
+| Orchestration | One reviewer agent | A team, one job each | A cap on agent spend |
 
 <!--
 You don't need all of this at once. In week one: a short index file, basic allow and deny lists, tests on every change, and a decision log. By the end of the first month: linked detail documents, a written stop list, one check that proves it can fail, and pending work kept as files. By the end of the quarter: measure what your sessions load, make merge approval a setting in your platform, add a second reviewing agent for risky work, and retest your oldest rules. Leave orchestration until these four are solid. For orchestration, start with one reviewer agent, name a small roster by the end of the month, and set a budget per session by the end of the quarter.
@@ -1344,11 +1344,11 @@ You don't need all of this at once. In week one: a short index file, basic allow
 
 | Work | The real thing to check | A check that proves it can fail |
 | --- | --- | --- |
-| Data science | A fixed, versioned evaluation set | Plant an input that leaks the answer |
-| Data engineering | The target warehouse | Insert a known-bad row |
-| Analytics and BI | The published dashboard | Plant a mismatch with the source |
-| Services | Staging, or a slice of live traffic | Break a contract on purpose |
-| Tools and CLIs | The built program's output | A saved expected output that must change |
+| Data science | A fixed, versioned test dataset | Slip in a column that gives away the answer |
+| Data engineering | The real target warehouse | Insert a row you know is bad |
+| Analytics and BI | The published dashboard | Make one number disagree with its source |
+| Services | Staging, or a small slice of live traffic | Send a request that breaks the API's rules |
+| Tools and CLIs | The built program's actual output | Change the output and see the saved copy flag it |
 
 <!--
 These practices came from a web application, but they travel. What changes is what counts as the real thing. In data science, it's a fixed, versioned evaluation set. In data engineering, it's the target warehouse. In analytics, it's the dashboard people actually open. For services, it's staging or a small slice of live traffic. In every case, you can plant a known problem to prove your check catches it. Two cautions for data work: give agents a safe copy instead of production data, and expect results to vary from run to run, so compare against a range.
@@ -1381,15 +1381,15 @@ Emergence is what a system does that none of its parts does alone, and agents ma
 ## Five guardrails an agent can't forget.
 
 1. Constraints
-   - A gate checks the rule on every build, so nobody has to remember it.
+   - An automated check enforces the rule on every build, so nobody has to remember it.
 2. Budgets
-   - A ceiling on size, speed and agent count, because agents rarely remove.
+   - A limit on size, speed and agent count, because agents add far more than they delete.
 3. Standards
-   - A contract per component, so "done" means the same thing every time.
+   - A written contract for each shared piece, so "done" means the same thing every time.
 4. Visibility
    - Benchmarks and image diffs turn "feels slower" into a number.
 5. Boundaries
-   - A library imports only itself, so a change stays where you made it.
+   - Each library may use only its own files, so a change stays where you made it.
 
 <!--
 Habits hold when they live in the build. Five kinds of guardrail. Constraints: a check that runs on every build, like "no hard-coded colors in the UI" or "every untrusted string goes through a sanitizer." Let each exception carry a written reason, and fail the build when an exception is no longer used, so the list can't quietly rot. Budgets: agents add far more than they remove, so give everything a ceiling: the instruction file, the bundle, the response time, the number of agents per session. Standards: a written contract for each shared piece, so the agent builds against it instead of guessing. Visibility: benchmarks, contrast checks, and a before-and-after image on every pull request, so "feels slower" becomes a number. And boundaries, which is the next slide. The short version: an agent forgets a rule. A gate doesn't.
@@ -1403,8 +1403,8 @@ Habits hold when they live in the build. Five kinds of guardrail. Constraints: a
 
 ## Treat shared code like a published library.
 
-- A small public API, and a gate that stops anyone reaching past it.
-- Deprecate, don't delete: alias the old name, and fail any build still using it.
+- A small public interface, and a check that blocks code from using its internals.
+- Deprecate, don't delete: keep the old name working, and fail any build that still uses it.
 - A written contract, and conformance tests that prove it holds.
 - A version and a changelog entry for every change.
 
@@ -1467,27 +1467,27 @@ Every film crew knows the phrase "we'll fix it in post." It's how shortcuts get 
 mindmap
   root)Reality matches the claim(
     You direct
-      {{You raise the ceiling}}
-      {{Set the bar}}
+      {{Know what good looks like}}
+      {{Set the bar before work starts}}
       {{Mentor, don't micromanage}}
     Context
-      {{Keep the index short}}
-      {{Route before work}}
+      {{Keep the always-loaded file short}}
+      {{Point the agent to the right doc}}
     Autonomy
-      {{Can it be undone?}}
-      {{Who else does it affect?}}
+      {{Ask: can it be undone?}}
+      {{Ask: who else does it affect?}}
     Verification
-      {{Proof from the real thing}}
-      {{Tests that can fail}}
+      {{Prove it where it really runs}}
+      {{Write tests that can fail}}
     Learning
-      {{Mistake to rule to retired}}
-      {{Write down why}}
+      {{Turn each mistake into a rule}}
+      {{Retire rules that stop being true}}
     Orchestration
-      {{One job per agent}}
-      {{Budget it like money}}
+      {{Give each agent one job}}
+      {{Budget agents like money}}
     Hard problems
-      {{Slow the loop}}
-      {{Ask the study and the veteran}}
+      {{Slow down, test small first}}
+      {{Ask the research and the veterans}}
 ```
 
 <!--
@@ -1526,7 +1526,7 @@ If you try three things this week, try these. Rewrite your agent's instruction f
    - ideas from Sharmarke
 2. 3,833
    - words typed
-3. 12,047
+3. 12,093
    - words drafted
 4. 3
    - drafts sent back
