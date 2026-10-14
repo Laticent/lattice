@@ -1,0 +1,3 @@
+studio: +850
+The Studio's live lint is lint-core itself, and it now carries `chart-list-split-quote` (a margin `>` that ends a chart's list and drops its rows, with the indent fix), and the Studio's chart readers carry the European-number guard in `normalizeSeparators` (Segno and lib/core/chart-values.js) and the narration's matching change to `spokenValue`. CI measured +701 B gz against main on cd9c332; +850 covers the follow-up speech fix on this PR and gzip spread.
+Given back first: nothing was cheaper to move. The rule must live in lint-core (HARD RULE #7, one lint kernel for the CLI, `validate()` and the Studio), and it reuses the boundary parser lint-core already loads rather than adding one.
