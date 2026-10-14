@@ -137,14 +137,14 @@ removes both disagreements; §6's `check-ownership` rule keeps them from coming 
   **1**, so on pie, funnel, map, radar, word-cloud and progress (which call `parseValue` without the
   guard) `1 234` plots as 1, silently. The same holds with a no-break space (U+00A0) or a narrow no-break space (U+202F) as the separator. `{4.2M}` is
   refused by `isValuePill` but read by `parseValue` as 4,200,000. The ISO reader is phase 2's
-  first job. This PR fixes the EU case that shares the reader (`1.234,5`) and logs the space
-  misread as its own follow-up.
+  first job. The PR that added this note fixes the EU case that shares the reader (`1.234,5`)
+  and logs the space misread as `followups.d/2690-p2-iso-space-grouping-reads-first-group.md`.
 - **No dot-grouped number (`12.000`) appears in the corpus**, so the pasted-locale lint fixes
   author input, not shipped decks.
 - **Descriptions start from zero on the 16 charts**: no `>` blockquote under an item, no
   `{> …}` span. Flowchart and state-chart carry 15 between them, outside the model. **No column-0
   `>` sits between two chart list items anywhere in the corpus**, so the lint that follow-up
-  2686-p2 asked for (`chart-list-split-quote`, added by this PR) catches new mistakes and fixes no
+  2686-p2 asked for (`chart-list-split-quote`, added by the same PR) catches new mistakes and fixes no
   shipped deck.
 - **Progress's visible nested note is used on no slide.** §3 decision 7 turns it into a named
   visible field; no deck in the corpus loses content to that.
@@ -161,7 +161,7 @@ removes both disagreements; §6's `check-ownership` rule keeps them from coming 
 - **A defect found on the way.** Word-cloud has no nesting model: a row `` - Alpha `5` `` with one
   nested bullet under it, then `` - Beta `3` ``, renders a one-word cloud (`data-count="1"`) and leaves Beta
   as stray prose. No shipped deck nests under a word, so it is pre-existing and off this path;
-  it is logged as a follow-up by this PR.
+  it is logged as `followups.d/2690-p1-word-cloud-nested-bullet-drops-words.md`.
 
 ## 5. Evidence for the owner's open questions (model note §7)
 
