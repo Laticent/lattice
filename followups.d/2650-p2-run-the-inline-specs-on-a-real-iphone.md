@@ -28,3 +28,9 @@ forbids `playwright install`, so the `webkit-*` and `gecko` projects could not r
 specs passed on desktop Chromium only (21 passed). Nothing in this item has changed since #2650's
 Linux WebKit and Firefox runs: the device run is still owed, and it is UNVERIFIED on iOS Safari
 (HARD RULE #23).
+
+Checked 2026-10-14 (Segno engine speed session): still open. `/opt/pw-browsers` still holds Chromium
+only, so WebKit, Gecko and the device remain UNVERIFIED (HARD RULE #23). The four specs passed on
+desktop Chromium after #2683 (`npx playwright test <the four files> --project=desktop`: 8 passed,
+1 evidence-mode skip, 1.5 min). This item needs a runner with WebKit and Firefox installed, and the
+owner's iPhone.
