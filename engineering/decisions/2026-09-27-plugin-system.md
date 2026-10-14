@@ -1781,8 +1781,9 @@ reduced, 1 to 999), remembered in this browser by the code's digest (`lattice-pl
 in a deck or a backup), override the declared `aspect`. `placeholderHint` reduces every value at import and again where the markup is made, so an attribute or a style never holds anything but a known placement, a `W/H` ratio or a size.
 Seen in the real Studio with five plugins (two chips, a wide and a default figure, a stage). A `stage` placeholder
 shows only on a slide the door draws on: a `diagram` slide is rebuilt by a shipped pass, so a fence there stays code.
-A `chip` is still a block (a fence is block syntax); inline syntax such as `!{Ada Okafor}` is a parser rule and not a
-zip plugin's to contribute.
+A `chip` is still a block (a fence is block syntax). **Amended 2026-10-14 (owner):** inline syntax such as `!{Ada Okafor}` is
+not a parser rule but an inline-code kind, and a zip plugin may now bring one, written `@kind{…}`, through this same door:
+`2026-10-14-plugin-inline-door.md`.
 
 ## References
 
