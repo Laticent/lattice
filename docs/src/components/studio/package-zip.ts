@@ -211,7 +211,9 @@ async function pluginRefusal_(pkg: Parameters<typeof refusePluginCode>[0]): Prom
 	// Each inline kind's slot, compiled once here as `lattice packages add` does (gate.js `inlineSlotCompileRefusal`).
 	const pins = pluginKindPins(pkg.manifest);
 	if (!pins.some((k) => k.slot)) return null;
-	const { compileSlot } = await import('../../../../lib/core/segno-spec.js');
+	// Require-free, with Segno's ESM reader (the dev server serves only a CJS file that requires nothing).
+	const [{ default: segnoSpecCore }, segnoRead] = await Promise.all([import('../../../../lib/core/segno-spec-core.js'), import('@laticent/segno/read')]);
+	const { compileSlot } = segnoSpecCore.specCompiler(segnoRead);
 	for (const { name, slot } of pins) {
 		if (!slot) continue;
 		try {
