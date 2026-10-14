@@ -6,6 +6,18 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-10-14 — measured on the built tree at 82c7247
+
+New metric. The engine (lattice-playground.js) and the preview runtime (lattice-runtime.js) load from /playground/v/<hash>/, outside /_astro/, so eagerJsGz never counted them; the runtime grew from 163KB gz (2026-08-17 audit) to 383KB gz unwatched. Adopted at today's measurement on main 82c7247 so the payload-diet PR that adds it records its own before -> after. Owner's OK: the 2026-10-14 session that asked for the engine to be budgeted.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | engineJsGz | 0 | 934189 | +934189 | 1027608 |
+| playground | engineJsGz | 0 | 934189 | +934189 | 1027608 |
+| home | engineJsGz | 0 | 934189 | +934189 | 1027608 |
+| components | engineJsGz | 0 | 934189 | +934189 | 1027608 |
+| getting-started | engineJsGz | 0 | 550941 | +550941 | 606035 |
+
 ### 2026-10-14 — measured on the built tree at b06fb1a
 
 Playground: the 16 curated Galleries decks are fetched on demand from galleries/curated/ instead of riding in the route props (htmlRaw 555.5KB -> 429.9KB)

@@ -20,6 +20,7 @@ import {
 	evaluateAllowance,
 	evaluateRoute,
 	freeBytes,
+	METRICS,
 	newestHistory,
 	PR_ALLOWANCE_BYTES,
 	parseDeclarations,
@@ -139,6 +140,14 @@ describe('rebaseline', () => {
 		const { changes } = rebaseline(routes, measured, { slackPct: SLACK_PCT, raise: true, ceiling: true });
 		expect(changes).toEqual([{ route: 'studio', metric: 'eagerJsGz', from: 660_000, to: 710_000, hardFrom: 700_000, hardTo: ceilingFor(710_000) }]);
 	});
+
+	it('adopts a metric the route has no budget for as a raise from 0, and skips one it does not ship', () => {
+		const measured = { studio: { eagerJsGz: 660_000, engineJsGz: 900_000, htmlRaw: 192_000 }, home: { eagerJsGz: 80_000, engineJsGz: 0, htmlRaw: 100_000 } };
+		expect(rebaseline(routes, measured, { slackPct: SLACK_PCT }).refused.map((c) => `${c.route}.${c.metric}`)).toEqual(['studio.engineJsGz']);
+		const { changes } = rebaseline(routes, measured, { slackPct: SLACK_PCT, raise: true, ceiling: true });
+		expect(changes).toEqual([{ route: 'studio', metric: 'engineJsGz', from: 0, to: 900_000, hardFrom: 0, hardTo: ceilingFor(900_000) }]);
+		expect(routes.studio.engineJsGz, 'rebaseline stays pure').toBeUndefined();
+	});
 });
 
 describe('route-budget.json', () => {
@@ -147,8 +156,8 @@ describe('route-budget.json', () => {
 
 	it('holds a soft target and a ceiling per metric, and nothing else', () => {
 		for (const [name, r] of Object.entries(ledger.routes)) {
-			expect(Object.keys(r).sort(), name).toEqual(['eagerJsGz', 'html', 'htmlRaw']);
-			for (const metric of ['eagerJsGz', 'htmlRaw']) {
+			expect(Object.keys(r).sort(), name).toEqual(['eagerJsGz', 'engineJsGz', 'html', 'htmlRaw']);
+			for (const metric of METRICS) {
 				expect(Object.keys(r[metric]).sort(), `${name}.${metric}`).toEqual(['hard', 'soft']);
 				expect(r[metric].hard, `${name}.${metric} ceiling`).toBeGreaterThanOrEqual(r[metric].soft);
 			}
@@ -161,7 +170,7 @@ describe('route-budget.json', () => {
 		// newest row that `route-budget:rebaseline` wrote.
 		const newest = newestHistory(history);
 		for (const [name, r] of Object.entries(ledger.routes)) {
-			for (const metric of ['eagerJsGz', 'htmlRaw']) {
+			for (const metric of METRICS) {
 				expect(r[metric], `${name}.${metric} vs route-budget.history.md`).toEqual(newest[`${name}.${metric}`]);
 			}
 		}
