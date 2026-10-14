@@ -111,6 +111,17 @@ once with the new:
   runs differ by the same amount when the new export is compared against itself
   (50–974 px), so the difference is animation timing.
 
+**Independent check.** A tier-1 checker re-verified the lockfiles (only `dompurify`, `esbuild`
+and the `@esbuild/*` binaries changed; both `npm ci --dry-run` pairs are in sync) and ran
+`createSlideSanitizer` with DOMPurify 3.4.11 and 3.4.16 over every section of the 425
+committed decks (4,300 sections), under jsdom and in Chromium 131: 0 differences. The
+sanitizer and caption suites pass (434 node tests, 131 docs vitest).
+
+**One DOMPurify copy this does not reach.** The vendored Mermaid
+(`lib/plugins/mermaid/vendor/mermaid.min.js`) carries its own DOMPurify 3.3.1, and Mermaid is
+upgraded by hand on purpose (`dependabot.yml` ignores it). Tracked in
+`followups.d/2466-p2-vendored-mermaid-dompurify-3-3-1.md`.
+
 **What is still red.** #2569 (docs: `sharp`, `esbuild`, `svgo`) fails `docs-build`, and
 #2582 (routine) fails the new Biome's lint rules. Both are ordinary upgrade work. Pushing to
 `main` on 2026-10-14, GitHub reported 122 open vulnerability alerts on the default branch
