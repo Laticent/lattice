@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: in-progress
 summary: >
   Dependabot's "needless" rebases are it refreshing its lockfile after main changes the
   same lockfile; leave rebase-strategy alone. The real defect is that no Dependabot PR has
@@ -87,3 +87,34 @@ CI or bot behavior.
 **Recommendation: A now, then C.** A is reversible and closes the security gap this week. C
 fixes the cause, and the cost the deferral weighed now includes blocked security updates.
 The routine group's Biome failure (#2582) is ordinary upgrade work in any case.
+
+## 5. Owner decision and option A (2026-10-14)
+
+**The owner picked A now, then C.**
+
+**A landed in the PR that added this note.** It makes the same bumps as #1497 (root
+`dompurify` ^3.4.16 and `esbuild` ^0.28.1), plus `dompurify` ^3.4.16 in `docs/` from #2569,
+and rebuilds the three bundles with `npm run build`:
+
+- `anima-player` and `guide-player` change only esbuild's CommonJS wrapper helper, which now
+  resets a module that throws while loading (+33 bytes each).
+- `speech-projection` carries DOMPurify 3.4.16 (+2.1 KB).
+
+**Export evidence.** Three player decks (`html-player`, `anima-scene`, `guide-storyboards`)
+were exported with `--player --captions`, in dark and light, once with the old bundles and
+once with the new:
+
+- All 52 caption files (`.vtt`) are byte-identical.
+- `anima-scene` grows by exactly the 33 bytes. The other two decks do not embed a changed
+  player.
+- 17 of 18 screenshots matched on the first pass. The animated frames that differed between
+  runs differ by the same amount when the new export is compared against itself
+  (50–974 px), so the difference is animation timing.
+
+**What is still red.** #2569 (docs: `sharp`, `esbuild`, `svgo`) fails `docs-build`, and
+#2582 (routine) fails the new Biome's lint rules. Both are ordinary upgrade work. Pushing to
+`main` on 2026-10-14, GitHub reported 122 open vulnerability alerts on the default branch
+(1 critical, 51 high). Most should clear as these groups land.
+
+**C is next.** `followups.d/2554-p1-uncommit-generated-js.md` now carries
+the owner's go-ahead.
