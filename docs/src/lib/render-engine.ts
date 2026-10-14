@@ -26,6 +26,7 @@
 import { appendAutoGlossary } from '../../../lib/core/glossary-auto.mjs';
 import { sourceHasMath } from '../../../lib/plugins/math/math.syntax.mjs';
 import { renderWithCodePackages } from './code-packages/entry';
+import { ensureCharts } from './ensure-charts';
 import { ensureFenceLanguages } from './ensure-hljs-language';
 import { deriveKatexProviderUrl, ensureKatexProvider } from './ensure-katex';
 import { ensurePluginData } from './ensure-plugin-data';
@@ -125,6 +126,10 @@ export async function renderMarkdown(
 	// A plugin's DATA (the icons plugin's drawings) is split out of the engine bundle the way KaTeX
 	// is, so a deck that writes an icon fetches it here, once, before it renders (ensure-plugin-data.ts).
 	await ensurePluginData(rendered);
+	// CHART KERNELS (ensure-charts.ts): the ESM engine carries none, so the ones this deck's directives
+	// name load here, before the synchronous render. The single-file engine answers none needed.
+	// A load that fails REJECTS (a ChunkLoadError): a chart drawn as its source list would be wrong.
+	await ensureCharts(PG.chartsNeeded?.(rendered) ?? []);
 	// CODE PACKAGES (contract note §9): with none saved this is exactly `PG.render`; with some, the
 	// render runs twice around the registry's code-packages slot, and each package runs sandboxed
 	// after the user approved it (code-packages/door.ts). One chokepoint, so every Studio surface
@@ -139,5 +144,13 @@ export async function renderMarkdown(
 			withHook = opts;
 		}
 	}
+	const out = await renderWithCodePackages<RenderMarkdownResult>(PG, rendered, theme, withHook);
+	// The scan reads directive comments, and over every tracked deck it has never missed a chart the
+	// render drew. Should one ever slip past it, the dispatch recorded it: load it and render once more.
+	// The record is engine-wide, so a miss from a concurrent render can land here too; that costs one
+	// extra render, never a wrong one, which is why nothing clears the record before rendering.
+	const missed = PG.takeMissingCharts?.() ?? [];
+	if (!missed.length) return out;
+	await ensureCharts(missed);
 	return renderWithCodePackages<RenderMarkdownResult>(PG, rendered, theme, withHook);
 }

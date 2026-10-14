@@ -69,9 +69,11 @@
 // THE ENGINE, `engineJsGz` (2026-10-14). The engine (`lattice-playground.js`) and the preview
 // runtime (`lattice-runtime.js`) are served from `/playground/v/<hash>/`, not `/_astro/`, so
 // `eagerJsGz` never saw them. Unwatched, the runtime grew from 163KB gz (2026-08-17 audit) to
-// 383KB gz by 2026-10-14. `engineJsGz` counts the two boot entries a route names, plus every
-// file they import statically; the lazy providers beside them (KaTeX, dagre, Mermaid, chart
-// modules) load on demand and are not counted, for the same reason `import()` is not. Bytes are a proxy for parse+hydrate,
+// 383KB gz by 2026-10-14. `engineJsGz` counts the boot entries a route names (the ESM engine
+// `esm/engine.js` since the same day, or the single-file `lattice-playground.js` before it, and
+// the runtime), plus every file they import statically; the lazy providers beside them (KaTeX,
+// dagre, Mermaid, the `esm/chart-*.js` kernels) load on demand and are not counted, for the same
+// reason `import()` is not. Bytes are a proxy for parse+hydrate,
 // which — because the service worker serves /_astro/ cache-first — is the cost that
 // actually RECURS per launch.
 //
@@ -161,7 +163,7 @@ function measure(routeHtml, dist = DIST) {
 }
 
 // The engine's boot entries. Everything else under /playground/v/<hash>/ is a lazy provider.
-const ENGINE_ENTRY = /\/playground\/v\/[a-f0-9]+\/lattice-(?:playground|runtime)\.js/g;
+const ENGINE_ENTRY = /\/playground\/v\/[a-f0-9]+\/(?:esm\/engine|lattice-playground|lattice-runtime)\.js/g;
 
 /** The engine a route names: its boot entries plus their static imports, gzipped. */
 function measureEngine(html, dist = DIST) {

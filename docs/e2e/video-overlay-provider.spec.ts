@@ -40,7 +40,7 @@ import { expect, gotoStudio, livePreview, setEditorContent, test } from './studi
 // That second mutation also found something about THIS FILE worth knowing: the two arms
 // are served by DIFFERENT bundles. The overlay is astro/vite-bundled from `docs/src`, so
 // `npm run build:e2e` refreshes it; the static video transform rides
-// `docs/public/playground/lattice-playground.js`, which the ROOT `npm run build`
+// `docs/public/playground/esm/` (the engine), which the ROOT `npm run build`
 // produces and `sync:playground` only copies. A kernel change verified with an astro
 // rebuild alone tests arm 1 and silently skips arm 2.
 

@@ -9,6 +9,7 @@
 // them for that pass, and a later render tries again.
 
 import { DATA_PLUGINS } from '../../../lib/plugins/data-probe.generated.mjs';
+import { engineBase } from './engine-base';
 
 declare global {
 	interface Window {
@@ -59,25 +60,24 @@ const SAFE_FILE = /^lattice-plugin-[a-z][a-z0-9-]*\.js$/;
 
 /**
  * The directory the engine bundle was loaded from, as a URL — only when it is on this page's own
- * origin and really is the engine (`…/lattice-playground.js`). The data scripts are staged beside
- * it; a script tag whose address says anything else is not ours to follow.
+ * origin and really is the engine (engine-base.ts recognizes only the engine's own file names). The
+ * data scripts are staged beside it; an address that says anything else is not ours to follow.
  */
 function dataBase(): URL | null {
-	const src = document.querySelector<HTMLScriptElement>('script[data-lattice-engine]')?.getAttribute('src');
-	if (!src) return null;
+	const base = engineBase();
+	if (base === null) return null;
 	let url: URL;
 	try {
-		url = new URL(src, document.baseURI);
+		url = new URL(base, document.baseURI);
 	} catch {
 		return null;
 	}
-	if (url.origin !== window.location.origin || !url.pathname.endsWith('/lattice-playground.js')) return null;
-	return new URL('./', url);
+	return url.origin === window.location.origin ? url : null;
 }
 
 /**
  * Fetch the data of every plugin this deck uses (its `detect`), from beside the engine bundle (the
- * engine's own URL with `lattice-playground.js` swapped for the plugin's file, as
+ * engine's asset directory (engine-base.ts), as
  * docs/scripts/sync-playground-assets.mjs stages them). Never rejects.
  */
 export async function ensurePluginData(source: string): Promise<void> {

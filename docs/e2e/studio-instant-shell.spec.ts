@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test';
 import { PREVIEW_CHROME, STUDIO_SPLIT_BUCKET, STUDIO_SPLIT_PANEL_IDS } from '../src/components/studio/preview-rect';
+import { ENGINE_GLOB } from './engine-glob';
 import { expect, test } from './studio-fixture';
 
 // The Studio's pre-paint INSTANT SHELL vs the app it hands off to (#1438).
@@ -263,7 +264,7 @@ for (const c of CASES) {
 			[c.stop, c.split ? splitLayout(c.split) : '', c.collapsed ?? ''] as const,
 		);
 		await page.setViewportSize({ width: c.w, height: c.h });
-		await page.route('**/lattice-playground.js', async (route) => {
+		await page.route(ENGINE_GLOB, async (route) => {
 			await new Promise((r) => setTimeout(r, ENGINE_HOLD_MS));
 			await route.continue();
 		});
@@ -397,7 +398,7 @@ test('a rect measured with a docked panel open is not replayed', async ({ page }
 	).toBeNull();
 
 	// And the next load must land on the boot geometry, not the docked one.
-	await page.route('**/lattice-playground.js', async (route) => {
+	await page.route(ENGINE_GLOB, async (route) => {
 		await new Promise((r) => setTimeout(r, ENGINE_HOLD_MS));
 		await route.continue();
 	});
@@ -429,7 +430,7 @@ test('a saved share below the collapse midpoint reserves the rail, not the minim
 		}
 	}, splitLayout(20));
 	await page.setViewportSize({ width: 820, height: 1180 });
-	await page.route('**/lattice-playground.js', async (route) => {
+	await page.route(ENGINE_GLOB, async (route) => {
 		await new Promise((r) => setTimeout(r, ENGINE_HOLD_MS));
 		await route.continue();
 	});
@@ -466,7 +467,7 @@ test.describe('rotation into cinema', () => {
 	test.use({ hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 } });
 
 	test('rotating a phone into landscape leaves no chrome behind', async ({ page }) => {
-		await page.route('**/lattice-playground.js', async (route) => {
+		await page.route(ENGINE_GLOB, async (route) => {
 			await new Promise((r) => setTimeout(r, ENGINE_HOLD_MS));
 			await route.continue();
 		});
@@ -513,7 +514,7 @@ test('a boot-shaped rect IS replayed, and lands where the app re-measures', asyn
 	// Registered BEFORE the first load: a reload can serve the engine from the memory cache,
 	// firing no request for a later-registered route to intercept — the shell would then be
 	// dismissed before it could be measured, and every comparison below would pass on zeros.
-	await page.route('**/lattice-playground.js', async (route) => {
+	await page.route(ENGINE_GLOB, async (route) => {
 		await new Promise((r) => setTimeout(r, ENGINE_HOLD_MS));
 		await route.continue();
 	});
@@ -563,7 +564,7 @@ test.describe('a rect from another orientation', () => {
 		// Held from the FIRST load: a reload can serve the engine from cache, so a route
 		// registered later never fires and the shell is gone before it can be measured.
 		const holdEngine = (p: Page) =>
-			p.route('**/lattice-playground.js', async (route) => {
+			p.route(ENGINE_GLOB, async (route) => {
 				await new Promise((r) => setTimeout(r, ENGINE_HOLD_MS));
 				await route.continue();
 			});
@@ -604,7 +605,7 @@ test.describe('cinema', () => {
 	test.use({ hasTouch: true, isMobile: true, viewport: { width: 844, height: 390 } });
 
 	test('the instant shell frames the app — landscape phone, the cinema morph', async ({ page }) => {
-		await page.route('**/lattice-playground.js', async (route) => {
+		await page.route(ENGINE_GLOB, async (route) => {
 			await new Promise((r) => setTimeout(r, ENGINE_HOLD_MS));
 			await route.continue();
 		});
@@ -707,7 +708,7 @@ test.describe('@minfont a raised browser minimum font size', () => {
 				}
 			});
 			await page.setViewportSize({ width: c.w, height: c.h });
-			await page.route('**/lattice-playground.js', async (route) => {
+			await page.route(ENGINE_GLOB, async (route) => {
 				await new Promise((r) => setTimeout(r, ENGINE_HOLD_MS));
 				await route.continue();
 			});
@@ -843,7 +844,7 @@ test('@smoke stage 1 stops the shell painting once the app has committed, withou
 	// Hold the engine so the preview never renders: that pins the window this is about — the
 	// app's chrome is up, the live preview is not, and the old code covered both until the
 	// second one arrived.
-	await page.route('**/lattice-playground.js', async (route) => {
+	await page.route(ENGINE_GLOB, async (route) => {
 		await new Promise((r) => setTimeout(r, 2500));
 		await route.continue();
 	});
@@ -902,7 +903,7 @@ test('changing the layout during the hand-off does not strand the shell over the
 	// the guard's `dismissSsrShell()` removed and a 9s hold against a 10s wait, this test still
 	// passed, in 13.0s against the guard's 4.8s. It was reading the engine, not the guard.
 	const HOLD = 60_000;
-	await page.route('**/lattice-playground.js', async (route) => {
+	await page.route(ENGINE_GLOB, async (route) => {
 		await new Promise((r) => setTimeout(r, HOLD));
 		await route.continue();
 	});
@@ -936,7 +937,7 @@ test('changing the layout during the hand-off does not strand the shell over the
 // disagreement there is.
 test('collapsing the preview during the hand-off does not strand the shell over the editor', async ({ page }) => {
 	const HOLD = 60_000;
-	await page.route('**/lattice-playground.js', async (route) => {
+	await page.route(ENGINE_GLOB, async (route) => {
 		await new Promise((r) => setTimeout(r, HOLD));
 		await route.continue();
 	});

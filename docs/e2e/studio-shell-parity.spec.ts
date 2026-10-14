@@ -1,3 +1,4 @@
+import { ENGINE_GLOB } from './engine-glob';
 import { expect, test } from './studio-fixture';
 
 // SHELL ↔ APP CONTROL PARITY (#1438 follow-up).
@@ -171,7 +172,7 @@ for (const c of CASES) {
 			[c.stop, c.toursOff ? '1' : ''] as const,
 		);
 		await page.setViewportSize({ width: c.w, height: c.h });
-		await page.route('**/lattice-playground.js', async (route) => {
+		await page.route(ENGINE_GLOB, async (route) => {
 			await new Promise((r) => setTimeout(r, ENGINE_HOLD_MS));
 			await route.continue();
 		});

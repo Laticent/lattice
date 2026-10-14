@@ -38,6 +38,7 @@
 import { readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { ENGINE_FILE } from './engine-file.mjs';
 
 // Candidate `v/` roots, most-reliable first: the cwd-anchored project root
 // (correct even after Vite relocates this module), then the legacy
@@ -101,4 +102,13 @@ export function assetBase() {
     );
   }
   return 'playground/';
+}
+
+/**
+ * The engine's URL path under the versioned asset directory, for a page to hand its islands.
+ * Every page names the engine through this, never by spelling the file.
+ * @returns {string}
+ */
+export function engineAsset() {
+  return assetBase() + ENGINE_FILE;
 }

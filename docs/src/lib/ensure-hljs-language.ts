@@ -16,6 +16,7 @@
 // missing (`missingLanguages`) and performs the registration (`drainLanguages`);
 // this module answers only HOW to fetch, because the asset base, the content hash
 // and the service worker are the host's business and not the engine's.
+import { engineBase, engineBaseFor } from './engine-base';
 
 /**
  * How long any single fetch here may hold up a render, in ms.
@@ -52,17 +53,14 @@ interface Manifest {
  * Returns null for a URL that isn't the expected engine bundle.
  */
 export function hljsBaseFor(engineUrl: string): string | null {
-	if (!engineUrl.includes('lattice-playground.js')) return null;
-	return engineUrl.replace('lattice-playground.js', 'hljs/');
+	const base = engineBaseFor(engineUrl);
+	return base === null ? null : `${base}hljs/`;
 }
 
-/** As `hljsBaseFor`, but reads the engine URL off the injected `<script>` tag. */
+/** As `hljsBaseFor`, for the engine this page loaded (engine-base.ts). */
 export function deriveHljsBase(): string | null {
-	if (typeof document === 'undefined') return null;
-	const src = document
-		.querySelector<HTMLScriptElement>('script[data-lattice-engine]')
-		?.getAttribute('src');
-	return src ? hljsBaseFor(src) : null;
+	const base = engineBase();
+	return base === null ? null : `${base}hljs/`;
 }
 
 /** An abort signal that fires after LOAD_TIMEOUT_MS, on browsers old enough to

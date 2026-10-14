@@ -39,7 +39,7 @@ import RestyleShowcase from '../components/landing/RestyleShowcase.tsx';
 import StudioPreview from '../components/landing/StudioPreview.tsx';
 import { DECKS } from '../components/studio/decks';
 import { librariesNav, specsNav } from '../lib/nav.mjs';
-import { assetBase } from '../playground/asset-version.mjs';
+import { assetBase, engineAsset } from '../playground/asset-version.mjs';
 import { joinBase } from '../lib/base-url.mjs';
 import ResourceHints from '../components/site/ResourceHints.astro';
 import EngineWarm from '../components/site/EngineWarm.astro';
@@ -122,7 +122,7 @@ const cardData = CARD_COMPONENTS.reduce((acc, n) => {
 // it first needs to render, so the static hero text paints first.
 const themeBase = url(pg + 'themes/');
 const runtimeUrl = url(pg + 'lattice-runtime.js');
-const engineUrl = url(pg + 'lattice-playground.js');
+const engineUrl = url(engineAsset());
 // Locally-vendored Mermaid + KaTeX, the same copies the Playground and the Studio
 // use, staged by sync-playground-assets. The landing page DOES render diagrams —
 // `needsDrawn` above gates the `diagram` field card on ```mermaid (via CARD_COMPONENTS) — so
