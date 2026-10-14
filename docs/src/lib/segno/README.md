@@ -281,7 +281,8 @@ Absolute times move with the machine; the ratios carry.
 **Against the parsers it replaces, in detail:**
 
 Measured against the hand-written parsers it replaces in Lattice, on the inline-code spans and
-bracket lists in Lattice's shipped decks (`npm run parser:bakeoff:segno`; best of seven long rounds, one machine):
+bracket lists in Lattice's shipped decks (`npm run parser:bakeoff:segno` in phase 1, when it took the
+fastest of seven long rounds per column; one machine):
 
 | job | kernel | Segno | ratio |
 |---|---|---|---|
@@ -295,37 +296,50 @@ bracket lists in Lattice's shipped decks (`npm run parser:bakeoff:segno`; best o
 **Against the dispatcher Lattice ships.** The table above times the arm's own copy of the
 dispatcher. Lattice renders with `lib/core/inline-code-directives.js`, so the arm times that too:
 the escape, then `dispatches` ("does any kind render this?"). That is the decision, not the render;
-the markdown-it path then calls `renderHtml`, which builds the result. Run 2026-10-13 on Node 22 in
+the markdown-it path then calls `renderHtml`, which builds the result. Run 2026-10-14 on Node 22 in
 a cloud sandbox, so the absolute figures are about half what a laptop gives:
 
 | job | kernel (retired) | arm's dispatcher | shipped | shipped/kernel |
 |---|---|---|---|---|
-| inline dispatch, every span both read alike | 26 ns | 50 ns | 32 ns | 1.2x |
-| &nbsp;&nbsp;ordinary code (code to both) | 23 ns | 42 ns | 27 ns | 1.2x |
-| &nbsp;&nbsp;state marks `[x]` | 42 ns | 22 ns | 71 ns | 1.7x |
-| &nbsp;&nbsp;pills `{BETA, tag, c4}` | 166 ns | 496 ns | 482 ns | 2.9x |
-| Segno syntax the kernel reads as code (482 spans) | — | 987 ns | 2.10 µs | — |
+| inline dispatch, every span both read alike | 34 ns | 65 ns | 46 ns | 1.36x |
+| &nbsp;&nbsp;ordinary code (code to both) | 28 ns | 54 ns | 32 ns | 1.14x |
+| &nbsp;&nbsp;state marks `[x]` | 56 ns | 35 ns | 93 ns | 1.77x |
+| &nbsp;&nbsp;pills `{BETA, tag, c4}` | 241 ns | 732 ns | 706 ns | 2.98x |
+| Segno syntax the kernel reads as code (482 spans) | — | 1.49 µs | 3.11 µs | — |
 
-This is the middle of five runs. The every-span ratio read 1.21x, 1.22x, 1.21x, 1.18x and 1.37x. The
-retired harness, which timed the three columns one after another, read 1.26x, 1.38x and 1.21x on the same
-quiet machine, and 1.46x, 1.24x and 1.19x in an independent re-run: the same band. So the 1.4x line is
-met on a quiet machine by either harness, and run-to-run spread (about 0.25 across both) straddles it;
-the readings of 1.29x to 1.71x in earlier sessions came from a busy sandbox, not from the code. The
-bakeoff now times the three columns of a row alternately, round by round, with a timer function of its
-own per column. That removes an order bias (the first column timed had a monomorphic call site, the
-later ones did not) but does not tame the noise: the ordinary-code row still swings 1.06x to 1.29x
-between runs, because each column keeps its own fastest round and the ratio divides two minimums.
-A paired per-round ratio would be steadier (followups.d/2669-p4-paired-round-ratio.md).
-The 35 pills (and 18 other directives) of 4,766 spans are about 0.13 of the ratio, so halving a pill's
-cost would move it by less than that spread. Pills are still the slowest thing per span (2.7x to 2.9x
-the kernel, unchanged within noise) and the design note accepts them above the bar (§ The engine). What
-the parse change did move: a pill's grammar stage went from about 270 ns to about 225 ns (`parse()` no
-longer allocates a result and a tree object per call, and skips the rule-table lookup for the default
-rule), and the shipped decision from about 500 ns to about 480 ns. The grammar's own time also depends
-on what V8 has already seen: a parse of the 268 pills alone reads about 165 ns in a fresh process and
-230 to 370 ns after the process has parsed the shipped decks' other spans, because the generated rule
+**How the bakeoff times a row, and why.** The columns of a row take turns in short slices: one
+pass over about 5,000 spans, about 150 µs here, with the first column rotating each slice. A
+column's figure is the median of its slices. A ratio is the median of the PER-SLICE ratios, slice
+*i* of the shipped path over slice *i* of the kernel, timed back to back. The ratio is the figure to
+compare; the ns columns move with the machine (the kernel's median for the same spans read 29 to
+54 ns in different processes of one session).
+
+This sandbox's speed moves within a fraction of a second, so anything coarser than a slice lets the
+noise land on one column and not the other. Five runs of unchanged code, one machine, every-span
+shipped/kernel:
+
+| harness | five readings | spread |
+|---|---|---|
+| fastest of seven ~70 ms rounds per column, ratio of the two fastest (before 2026-10-14) | 1.46, 1.34, 1.54, 1.40, 1.41x | 0.20 |
+| the same rounds, ratio taken inside each round, median across rounds (tried, not kept) | 1.42, 1.60, 1.40, 1.57, 1.35x | 0.25 |
+| **slices, ratio taken inside each slice, median across slices (now)** | **1.36, 1.38, 1.32, 1.33, 1.40x** | **0.08** |
+
+Pairing whole rounds did not help: a single ~70 ms round's own ratio read anything from 0.69x to
+2.29x, so the noise lands inside a round. The ordinary-code row tightened the same way (1.17x to
+1.27x before, 1.14x to 1.21x now). A change that moves the every-span ratio by less than about 0.1
+is still within run-to-run noise, so compare a before and an after over several runs each.
+
+The 35 pills (and 18 other directives) of 4,766 spans are about 0.13 of the ratio, so halving a
+pill's cost would move it by about that much. Pills are still the slowest thing per span (about 3x
+the kernel) and the design note accepts them above the bar (§ The engine). What #2683's parse change
+moved: a pill's grammar stage went from about 270 ns to about 225 ns (`parse()` no longer allocates
+a result and a tree object per call, and skips the rule-table lookup for the default rule), and the
+shipped decision from about 500 ns to about 480 ns. The grammar's own time also depends on what V8
+has already seen: a parse of the 268 pills alone reads about 165 ns in a fresh process and 230 to
+370 ns after the process has parsed the shipped decks' other spans, because the generated rule
 functions are re-optimized with the wider type feedback.
-Before the first-character table the same run read 174 ns for every span and 149 ns for ordinary
+
+Before the first-character table the earlier harness read 174 ns for every span and 149 ns for ordinary
 code (5.2x the kernel), because every kind ran its own check on every span.
 
 What moved it:

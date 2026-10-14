@@ -298,6 +298,13 @@ one JIT, so it stops here. In absolute terms a pill costs 0.7 µs, and the shipp
 of them. **Check-in:** phase 2 either accepts 2.0x on pills or binds straight off the flat tree,
 which removes the tree-to-values step (about 80 ns) and most of the binding allocations.
 
+**The harness, 2026-10-14.** The phase-1 figures above take each column's fastest round and divide
+them. On a cloud sandbox that ratio spread by 0.20 to 0.25 across runs of unchanged code, which
+straddles this bar. The bakeoff now times a row's columns in alternating ~150 µs slices and reports
+the median of the per-slice ratios: five runs of unchanged code read the shipped dispatcher's
+every-span ratio at 1.32x to 1.40x, a spread of 0.08. The readings and the method are in the
+library README's § Speed.
+
 ### Three additions for document-sized grammars (decision 21)
 
 Phase 1's engine is built for short spans, and a probe on 2026-10-04 asked whether it could read
