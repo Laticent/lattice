@@ -21,7 +21,7 @@ function engineRequests(page: Page): string[] {
 	return seen;
 }
 
-test('@smoke a chart slide loads its own kernel and draws, and no other chart kernel loads', async ({ page }) => {
+test('@smoke @crosswidth @webkit-phone @gecko a chart slide loads its own kernel and draws, and no other chart kernel loads', async ({ page }) => {
 	const requests = engineRequests(page);
 	await gotoStudio(page);
 	await setEditorContent(page, '<!-- _class: bar -->\n\n## Revenue by region\n\n- North `10`\n- South `20`\n- West `14`\n');
@@ -31,7 +31,7 @@ test('@smoke a chart slide loads its own kernel and draws, and no other chart ke
 	expect(requests.filter((r) => r.startsWith('esm/chart-') && r !== 'esm/chart-bar.js')).toEqual([]);
 });
 
-test('math, an icon and an exotic fence still find their assets beside the ESM engine', async ({ page }) => {
+test('@crosswidth @webkit-phone @gecko math, an icon and an exotic fence still find their assets beside the ESM engine', async ({ page }) => {
 	await gotoStudio(page);
 	await setEditorContent(page, '# Assets\n\n$$\nE = mc^2\n$$\n\nRaw files land in `^{bucket, c4}` S3.\n\n```powershell\nGet-ChildItem -Path C:\\ | Where-Object { $_.Length -gt 1kb }\n```\n');
 	const frame = live(page);
