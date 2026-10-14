@@ -18,12 +18,13 @@ export type RefDocRecord = {
 	docKind: 'text' | 'pdf';
 	text?: string;
 	/** A PDF's own bytes, stored as binary: base64 text would be a third larger on disk, and every list read
-	 *  would hold each PDF as a string. Read now; written once `WRITE_PDFS_AS_BINARY` is on. */
+	 *  would hold each PDF as a string. What a PDF is written as (`WRITE_PDFS_AS_BINARY`). */
 	blob?: Blob;
 	/** Only where an engine refused to store a `Blob` (Safari in a private window): the same bytes as an
 	 *  ArrayBuffer, rebuilt into `blob` on the way out. */
 	data?: ArrayBuffer;
-	/** A PDF as base64 text: what every build reads, and what is written until `WRITE_PDFS_AS_BINARY` is on. */
+	/** A PDF as base64 text: a record from before PDFs were binary (rewritten when the Library opens), or one written
+	 *  with `{ binary: false }`. Every build reads it. */
 	dataUrl?: string;
 	bytes: number;
 	addedAt: number;
@@ -62,14 +63,12 @@ function readable(row: RefDocRecord): RefDocRecord {
 /**
  * Does a saved PDF go to disk as binary (`true`) or as base64 text (`false`)?
  *
- * The READER understands both and ships now; the WRITER is held one release. A build from before this change reads a
- * PDF only through `dataUrl`, so a person who rolls back, or keeps a tab open across the deploy, would lose sight of every
- * PDF saved as binary in the meantime (the chat says a cloud model is needed when one is connected, "Could not download",
- * an empty row in a backup). Shipping the reader first means the release that starts writing binary can be rolled back to
- * this one, which reads it. Flip this and call `migrateLegacyRefDocs` from the Library in that next release
- * (`followups.d/2654-p3-write-pdfs-as-binary.md`); the binary path below is built and tested through the `binary` option.
+ * Binary. #2672 shipped the reader with the writer held back, so a rollback or a tab left open across the deploy could
+ * still see every PDF. The Studio has no outside users yet (pre-GA), so that guard protected nobody and the writer is on
+ * (2026-10-12-library-media-assets.md "How binary content is stored"). `false` still writes the base64 every build reads;
+ * the reader handles both, and the Library rewrites old records once per open (`migrateLegacyRefDocs`).
  */
-export const WRITE_PDFS_AS_BINARY = false;
+export const WRITE_PDFS_AS_BINARY = true;
 
 /** Persist a doc to the shared library (dedups by name — re-adding replaces in
  *  place). `addedAt` is passed in so callers own the clock (tests stay deterministic). */
@@ -108,8 +107,11 @@ export async function migrateLegacyRefDocs(): Promise<number> {
 		if (!rec.dataUrl || rec.blob) continue;
 		try {
 			if (await swapLegacyRefDoc(rec, dataUrlToBlob(rec.dataUrl))) n++;
-		} catch {
-			/* undecodable text, or a browser that will not store the Blob: the legacy record keeps working */
+		} catch (e) {
+			// Undecodable text, or a browser that will not store a Blob: the legacy record keeps working. A refused
+			// Blob (Safari in a private window) refuses every row the same way, so stop instead of decoding each
+			// PDF on the main thread for nothing (checker).
+			if ((e as { name?: string } | null)?.name === 'DataCloneError') break;
 		}
 	}
 	return n;
@@ -134,7 +136,9 @@ export async function swapLegacyRefDoc(rec: RefDocRecord, blob: Blob): Promise<b
 			const now = get.result as RefDocRecord | undefined;
 			if (!now || now.dataUrl !== rec.dataUrl || now.blob || now.data) return;
 			const { dataUrl: _legacy, ...rest } = now;
-			store.put({ ...rest, blob });
+			// Typed as a PDF and sized from the bytes, the way `saveRefDoc` stores one: a row written before #2672 may say
+			// `text/html` or claim any size, and this rewrite is the only pass that touches it (checker).
+			store.put({ ...rest, blob: blob.slice(0, blob.size, 'application/pdf'), bytes: blob.size });
 			wrote = true;
 		};
 	});

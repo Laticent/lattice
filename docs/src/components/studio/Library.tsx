@@ -27,7 +27,7 @@ import { MOTION_PALETTE_STYLE } from './motion/palette-fallback';
 import { PhotoFormatDialog } from './PhotoFormatDialog';
 import { LIBRARY_FILTERS, LIBRARY_HEADER, type LibraryFilter } from './panel-shells';
 import { formatBytes, REF_DOC_ACCEPT, readReferenceDoc } from './reference-doc';
-import { deleteRefDoc, listRefDocs, type RefDocRecord, refDocBlob, saveRefDoc } from './reference-doc-store';
+import { deleteRefDoc, listRefDocs, migrateLegacyRefDocs, type RefDocRecord, refDocBlob, saveRefDoc } from './reference-doc-store';
 import { deleteStudioScene, listStudioScenes, type StudioScene } from './scene-library';
 import { renderThemeShowcase } from './share-export';
 import { listShippedScenes, type ShippedScene, shippedDrawing } from './shipped-scenes';
@@ -297,6 +297,10 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	React.useEffect(() => {
 		if (open) {
 			reload();
+			// On open (and again when the effect re-runs on a deck switch, which is harmless: the rewrite is idempotent): a PDF saved as base64 text before PDFs were written as binary is rewritten as its
+			// bytes. A compare-and-swap, so a doc saved over or deleted meanwhile is left alone; a failure keeps
+			// the text record, which every build reads.
+			void migrateLegacyRefDocs().catch(() => {});
 			if (initialFilter) setFilter(initialFilter);
 		} else {
 			setSel(new Set());

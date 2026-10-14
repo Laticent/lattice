@@ -212,6 +212,90 @@ Library, a photo, a clip and a file each attach by one tap and show a check; tak
 the popover stays clear of the screen edge. **Not verified: the iOS native sheet's position on a real iPhone after this
 change.**
 
+## 4e. The Architect edits only when asked, and says what it did in plain words (2026-10-14)
+
+**What a tester saw.** Asked "what is in this video", the Architect answered and then edited slides 2, 5 and 7 "to clear
+out the checker's warnings about word counts and missing claims", with a diff card nobody asked for. The reply and the
+line under it were in our vocabulary, not the author's: "the checker", "referent", `big-number`, "Read big-number ·
+Edited slides · Checked the deck".
+
+**Why.** `deckBrief` (`architect-agent.ts`) puts the deck's review findings in the system turn on every turn, labeled
+only as data. The prompt said "not every message is a request for an edit", but nothing said the findings were not a
+to-do list, and a model that sees open warnings and an edit tool tends to use it. The words came from three places: the
+prompt's own name for its tool ("the checker's verdict"), `checkerNote` in `chat-agent.ts`, and one review message in
+`lib/authoring/review-core.js` ("a hero number with no referent").
+
+**What changed.**
+
+- The prompt gains a WHEN TO EDIT block: edit only when the latest message asks for a change or accepts one offered; a
+  question gets an answer and no edit tool call; the brief's findings are background and never a reason to edit unasked.
+  The check that rides an edit's result now lists findings and over-budget slides only for the slides the turn
+  changed, and counts the rest ("3 other findings are on slides this turn did not change — leave them unless the author
+  asks"). Before, it listed up to 20 findings for the whole deck with their rule ids, which handed the model the deck's
+  old problems as a to-do list on a one-slide request. An explicit `check_deck` call still lists everything, because
+  the author asked what to improve. (Found by the maker-checker pass on this change.)
+- The prompt gains a HOW YOU TALK block: no tool or process names ("the checker", "warnings", "findings", "the draft",
+  "referent", rule ids) and no layout class names in code; a slide is named by its number and what it says.
+- The brief now heads its findings "background only: act on them only when the author asks for edits or asks what to
+  improve".
+- The note under an edit that passed with things to look at reads "Worth a look before you apply this: …" instead of
+  "The checker found no errors in this change, and 2 warnings: …". The word-budget and legibility items it quotes are
+  plain sentences ("slide 5 has 92 words, over the 70 the deck allows"; "the text shrinks too small to read").
+- The activity line is one sentence (`chat-activity.ts`): "Read about the big number layout, drafted changes to the
+  slides and checked the deck." It was a dot-separated row of labels at 10.5 px; it is now 11.5 px. Chats saved before
+  this change fold into the same shape ("Read kpi and checked the deck.").
+- Three review messages lose their jargon: "a hero number with nothing to compare it to" (was "with no referent"), the
+  scorecard's "hero numbers with nothing to compare to", and "one item on this slide runs to 92 words" (was "a
+  cards-grid element runs to …", a class name the author never typed). The Coach shows the same messages.
+
+**How it was verified.** Unit tests pin the two prompt blocks, the brief's heading, the note's wording (no "checker" or
+"warning") and the sentence builder; `docs/e2e/chat-activity.spec.ts` drives a mocked question turn at 1440, 820 and 390 px.
+
+**On a real iPhone with a real model (2026-10-14, the #2691 preview at 04e93b1, Google Gemini Pro Latest, the author's
+own key; two screenshots in the PR).** On the demo deck:
+
+- "what is this video about", with a 6 s screen recording attached: the reply described the clip correctly (the chat's
+  attach menu being opened, then a screenshot taken), ended with an offer, and carried **no diff card** and none of "the
+  checker", "warnings" or "referent".
+- "let's add a video slide with this video to the deck": the reply said a slide cannot play a Library video yet and
+  offered a link-based video slide instead, with **no diff card**. The line under it read "Read about the video layout."
+- One slip: the second reply wrote "a `video` slide", the layout's name in code, which HOW YOU TALK says not to do.
+  Logged in `followups.d/2691-p3-architect-names-a-layout-in-code.md`.
+
+**Not verified:** an edit turn's wording on a real model, and any Android phone. Both stay in the real-device follow-up.
+
+## 4f. The independent read of #2672's chat commits (2026-10-14)
+
+#2672 merged with tests, screenshots and a real iPhone but no second reader. A checker agent read the squash diff's
+Studio chat slice (the attach rework, the stacked composer, the dark-mode field, the 1.5 s floor, the refusal wording,
+the prompt marking, the clip as a Library video). It found nothing that loses a video the author chose to keep. What it
+found, and what happened to each:
+
+| # | Finding | Outcome |
+|---|---|---|
+| 1 | The manifest's "ATTACHED TO THE AUTHOR'S MESSAGE" mark never runs: the browser Library lists photos only, so no line carries it, and the sentence explaining it pointed at nothing. The tests fed video records the real Library cannot produce. | Fixed: the sentence rides only with a marked line (`assetManifest`), with a test. `videoNote` on the message is what tells the model, and the changelog now says that. |
+| 2 | A 20 s, 16 MB Library clip was told to trim to "about 16 seconds", which the 15 s cap then refuses. | Fixed: the trim length is capped at `MAX_VIDEO_SECONDS`, with a test. |
+| 3 | A video with an empty file type (some Android and desktop pickers) went down the photo path and was refused as "isn't an image"; the chat's picker did not list `.mp4`/`.mov`/`.webm`/`.m4v`. | Fixed: split by `classifyMedia` (extension fallback); the picker takes `LIBRARY_MEDIA_ACCEPT`. |
+| 4 | Closing the chat with an unsent device clip left it in the Library (only a deck switch discarded it). | Fixed: an unmount cleanup discards unsent, non-Library clips through a ref. A clip still saving at the moment of close is not covered. |
+| 5 | Removing a pending device clip after the author re-scoped it in the Library to "all decks" deletes it. | Logged: `followups.d/2672-p3-discard-a-chat-clip-the-author-adopted.md`. Needs a recorded scope at save time. |
+| 6 | "Only 1.5 seconds long" for a 1.46 s clip, a length the check accepts. | Fixed: floored, with tests. |
+| 7 | Regenerating a turn whose clip was deleted sent the model "Here is a short video." and nothing else. | Fixed: the last turn says what could not be sent and tells the model not to describe it. |
+| 8 | The device path never gives "Trim it to about N seconds" (an oversize file is refused before it is read). | Changelog softened to say which path gives the number. Reading the length first is not worth a second decode. |
+| 9 | A refused Library clip's reason sat inside a `disabled` button, skipped by the keyboard. | Fixed: `aria-disabled`, and the accessible name carries the reason; the e2e spec asserts both. |
+| 10 | A Library clip picked while a device clip saves is silently replaced. | Fixed: the Library toggle waits on `addingRef`. |
+| 11 | A 59.6 s clip showed 0:00. | Fixed in both `clock` helpers. |
+
+**Found after the review, on a real iPhone (2026-10-14).** The clip on a SENT message was a poster with a play mark that
+did nothing: `VideoThumb` drew a `Play` icon on a `<span>`. A sent clip is now a button (`MessageVideo`, `ChatPhotos.tsx`):
+a tap reads the clip from the Library's Videos shelf and plays it in place at its own proportions, capped, with the
+browser's controls; its object URL is made on play and revoked when the message leaves the screen, and a clip deleted
+from the Library says so in words. The strip above the composer keeps the static tile, since a pending clip has a remove
+button there. `docs/e2e/chat-photos.spec.ts` taps it after a reload and waits for the video to load. **Not verified on the
+phone yet.**
+
+**Verified:** the unit tests above, `biome check`, and the Studio vitest slice. **Not verified:** findings 3, 4 and 10 at
+runtime in a browser (traced in code; the e2e spec was not run in this pass), and nothing here on a real phone.
+
 ## 5. What this does not claim
 
 - **The chat is not verified on a physical phone** (HARD RULE #23); the Library video shelf is, in part (see §6). The chat specs' 390 px cases (status line, table,

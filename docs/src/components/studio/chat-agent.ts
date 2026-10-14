@@ -333,11 +333,12 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 	return finalizeAgent(source, reply, toolbox.proposal(), toolbox.activity, notes);
 }
 
-/** The checker's warnings on a draft the turn ended on: no errors, but worth a look. */
+/** The checker's warnings on a draft the turn ended on: no errors, but worth a look. Said to
+ *  the author in their words — "the checker" and "warning" are this module's vocabulary, not theirs. */
 export function checkerNote(warnings: string[]): string {
 	const shown = warnings.slice(0, 3).map((w) => w.replace(/\s+/g, ' ').trim().slice(0, 120));
 	const more = warnings.length - shown.length;
-	return `The checker found no errors in this change, and ${warnings.length} warning${warnings.length === 1 ? '' : 's'}: ${shown.join('; ')}${more ? `; and ${more} more in the Coach` : ''}.`;
+	return `Worth a look before you apply this: ${shown.join('; ')}${more ? `; and ${more} more in the Coach` : ''}.`;
 }
 
 /** The host's check plus fit from a real render of the draft (draft-fit.ts). The render path

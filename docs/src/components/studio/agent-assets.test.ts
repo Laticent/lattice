@@ -37,6 +37,8 @@ describe('assetManifest', () => {
 		expect(m).not.toContain('- reel · video · landscape 3:2 · all decks · ATTACHED');
 		expect(m).toContain('do not call it for a video');
 		expect(assetManifest([photo('reel', { kind: 'video' })])).not.toContain('ATTACHED');
+		// The instruction rides only with a line that carries the mark; alone it pointed at nothing.
+		expect(assetManifest([photo('a')], undefined, true, new Set(['clip-not-listed']))).not.toContain('ATTACHED');
 	});
 
 	it('stays small: a capped list that points at list_assets for the rest', () => {

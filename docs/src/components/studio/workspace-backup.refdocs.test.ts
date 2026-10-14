@@ -86,9 +86,10 @@ describe('restoreWorkspace — a backup with reference PDFs', () => {
 		expect(summary.refused.map((r) => r.name).sort()).toEqual(['reference doc huge.pdf', 'reference doc junk.pdf', 'reference doc none.pdf']);
 		const [back] = (await listAssets('refdoc')) as Array<{ name: string; blob?: Blob; dataUrl?: string }>;
 		expect(back.name).toBe('good.pdf');
-		// Restored through `saveRefDoc` in its default format: base64 text, which every build reads.
-		expect(back.dataUrl).toBe(`data:application/pdf;base64,${bytes.toString('base64')}`);
-		expect(back.blob).toBeUndefined();
+		// Restored through `saveRefDoc` in its default format: the PDF's bytes, the same ones the backup carried.
+		expect(back.dataUrl).toBeUndefined();
+		expect(back.blob).toBeInstanceOf(Blob);
+		expect(Buffer.from(await (back.blob as Blob).arrayBuffer()).equals(bytes)).toBe(true);
 	});
 
 	it('names a PDF it cannot read instead of failing the whole backup, and restores an empty PDF', async () => {

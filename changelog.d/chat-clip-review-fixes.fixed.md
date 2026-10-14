@@ -1,0 +1,7 @@
+- A video picked on the device whose file carries no type (some Android and desktop pickers do this) attaches as a video in the chat instead of being refused as "isn't an image", and the chat's picker now offers `.mp4`, `.mov`, `.webm` and `.m4v` files by name.
+- Closing the chat with a clip from the device still waiting to be sent removes that clip from the Library, as switching decks already did.
+- A Library clip that is too large is never told to trim to a length the 15-second limit then refuses, and a clip that is too short never reads as a length the chat accepts ("1.5 seconds" for 1.46 s).
+- Regenerating a turn whose photo or video was deleted from the Library tells the model it could not be sent, so it says so instead of describing a clip it never saw.
+- A video in the Library list that cannot be attached can be reached with the keyboard, and its reason is read with its name.
+- A clip just under a minute shows as 1:00, not 0:00.
+- A video on a sent chat message now plays when you tap it, in place and with the browser's controls. It showed a play mark that did nothing.
