@@ -180,13 +180,13 @@ The adversarial trio (red team, inversion, checker) reviewed the first draft. Wh
 - **Readers scope to direct children**, so a code span inside a blockquote description never becomes a row's value.
 - **A `{>}` column is removed before a chart's column caps** (heatmap's `MAX_COLS`), and a description on an empty
   heatmap cell is kept, not dropped as it is today.
-- **The rewrite counts.** 617 chart-class slides across all 24 charts, 338 in the charts in scope (regex count, `.docs.md`
+- **The rewrite counts** (superseded by the census note, `2026-10-14-chart-authoring-census.md`). 617 chart-class slides across all 24 charts, 338 in the charts in scope (regex count, `.docs.md`
   excluded). Phase 1 counts by chart and by slot, including `.docs.md`, because a codemod keyed on spans alone would
   wrap eyebrows and prose code.
 
 ## 10. Phases (one PR each)
 
-1. **Census.** Each chart against §2, the exact disagreements, and the rewrite counts by chart and slot. No behavior change.
+1. **Census.** Each chart against §2, the exact disagreements, and the rewrite counts by chart and slot. No behavior change. Done: `2026-10-14-chart-authoring-census.md`, from `tools/chart-authoring-census.mjs`. It corrects §9's counts (879 chart slides, 512 on the 16 charts in scope, once `.docs.md` and manifest snippets are counted).
 2. **Ownership, schema and reader.** The field vocabulary note, each chart's schema in its `segno` block, data-slot
    ownership on every path, the `{> …}` production, ISO number reading, and one reader that takes the old and the new
    forms. The old-form branch is transitional and is deleted in phase 4, so nothing reads the old spellings after it.
