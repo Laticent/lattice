@@ -155,6 +155,13 @@ the hashed asset folder, and `PlaygroundApp` fetches the index when the sheet fi
 popover counts as an outside click and would dismiss it. Cost: +0.6 KB eager JS gz on the route
 (`docs/route-budget.d/2631-playground-examples-dropdown.md`).
 
+**The curated decks fetch the same way (2026-10-14).** They rode inline in the route's `gallerySources` prop, so every
+visitor downloaded 16 decks whether or not they opened the sheet. `sync-playground-assets.mjs` now stages each one as
+`galleries/curated/<id>.md` (a subfolder, so an example slug cannot collide with a curated id), the props keep only
+id, label and slide count, and `onLoadGallery` and `onLoadExample` share one `loadDeck` fetch path. Measured with
+`npm run build` in `docs/`: playground `htmlRaw` 555.5 KB to 429.9 KB (the soft target went 539.0 to 429.9 KB via
+`route-budget:rebaseline`). A curated deck opens as before; checked in a built site at 1440, 820 and 390 px.
+
 ## 5. Reuse map (HARD RULE #15)
 
 - `Popover` + `Command`/cmdk + `component-search.ts` ranking — picker (kept; only state lifting changes).

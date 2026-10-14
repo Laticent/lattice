@@ -109,8 +109,8 @@ const data: PlaygroundData = {
 	catalog,
 	components,
 	lenses,
-	gallerySources,
 	galleryGroups,
+	galleriesBase: '/galleries/',
 	themeBase: '/themes/',
 	runtimeUrl: '/runtime.js',
 	// engineUrl is read off data but absent from the published type; cast covers it.
@@ -125,10 +125,13 @@ const data: PlaygroundData = {
 beforeEach(() => {
 	vi.stubGlobal(
 		'fetch',
-		vi.fn(async () => ({
+		vi.fn(async (url: string) => ({
 			ok: true,
+			// Curated decks are static files under galleriesBase; everything else is a walk plan.
 			text: async () =>
-				JSON.stringify({
+				url.startsWith('/galleries/curated/')
+					? gallerySources[decodeURIComponent(url.slice('/galleries/curated/'.length, -'.md'.length))]
+					: JSON.stringify({
 					name: 'verdict-grid',
 					slides: [
 						{ kind: 'title', caption: 'c', md: '<!-- _class: title -->\n# t' },

@@ -1,0 +1,1 @@
+- Playground: the 16 curated Galleries decks (4 showcases, 12 families) load when you pick one instead of shipping inside the page, so the Playground HTML drops from 555.5 KB to 429.9 KB.
