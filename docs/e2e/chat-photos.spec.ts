@@ -623,7 +623,10 @@ for (const [w, h] of [
 			expect(look.color, `${mode}: the reason reads in the same strong color as the clip name`).toBe(look.nameColor);
 			await page.screenshot({ path: test.info().outputPath(`chat-attach-refusal-${mode}-${w}.png`) });
 		}
-		await expect(panel.getByRole('button', { name: /^Attach img-4526/ })).toBeDisabled();
+		// Refused, but still reachable by keyboard, and its name carries the reason (a disabled button is skipped by Tab).
+		const refused = panel.getByRole('button', { name: /^Attach img-4526\. This video is 16\.4 MB/ });
+		await expect(refused).toBeDisabled();
+		await expect(refused).not.toHaveAttribute('disabled', /.*/);
 		await page.evaluate(() => document.documentElement.setAttribute('data-mode', 'light'));
 		await panel.getByRole('button', { name: /^Attach walk/ }).click();
 		await panel.getByRole('tab', { name: /^Files/ }).click();

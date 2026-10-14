@@ -254,6 +254,30 @@ without editing needs a real model on the author's own key (HARD RULE #24), on a
 pass (`followups.d/2654-p1-real-device-pass-for-chat-photos-video-and-pool.md`). The prompt is a lever on the model, not
 a guarantee; the diff card still lets the author discard an edit they did not want.
 
+## 4f. The independent read of #2672's chat commits (2026-10-14)
+
+#2672 merged with tests, screenshots and a real iPhone but no second reader. A checker agent read the squash diff's
+Studio chat slice (the attach rework, the stacked composer, the dark-mode field, the 1.5 s floor, the refusal wording,
+the prompt marking, the clip as a Library video). It found nothing that loses a video the author chose to keep. What it
+found, and what happened to each:
+
+| # | Finding | Outcome |
+|---|---|---|
+| 1 | The manifest's "ATTACHED TO THE AUTHOR'S MESSAGE" mark never runs: the browser Library lists photos only, so no line carries it, and the sentence explaining it pointed at nothing. The tests fed video records the real Library cannot produce. | Fixed: the sentence rides only with a marked line (`assetManifest`), with a test. `videoNote` on the message is what tells the model, and the changelog now says that. |
+| 2 | A 20 s, 16 MB Library clip was told to trim to "about 16 seconds", which the 15 s cap then refuses. | Fixed: the trim length is capped at `MAX_VIDEO_SECONDS`, with a test. |
+| 3 | A video with an empty file type (some Android and desktop pickers) went down the photo path and was refused as "isn't an image"; the chat's picker did not list `.mp4`/`.mov`/`.webm`/`.m4v`. | Fixed: split by `classifyMedia` (extension fallback); the picker takes `LIBRARY_MEDIA_ACCEPT`. |
+| 4 | Closing the chat with an unsent device clip left it in the Library (only a deck switch discarded it). | Fixed: an unmount cleanup discards unsent, non-Library clips through a ref. A clip still saving at the moment of close is not covered. |
+| 5 | Removing a pending device clip after the author re-scoped it in the Library to "all decks" deletes it. | Logged: `followups.d/2672-p3-discard-a-chat-clip-the-author-adopted.md`. Needs a recorded scope at save time. |
+| 6 | "Only 1.5 seconds long" for a 1.46 s clip, a length the check accepts. | Fixed: floored, with tests. |
+| 7 | Regenerating a turn whose clip was deleted sent the model "Here is a short video." and nothing else. | Fixed: the last turn says what could not be sent and tells the model not to describe it. |
+| 8 | The device path never gives "Trim it to about N seconds" (an oversize file is refused before it is read). | Changelog softened to say which path gives the number. Reading the length first is not worth a second decode. |
+| 9 | A refused Library clip's reason sat inside a `disabled` button, skipped by the keyboard. | Fixed: `aria-disabled`, and the accessible name carries the reason; the e2e spec asserts both. |
+| 10 | A Library clip picked while a device clip saves is silently replaced. | Fixed: the Library toggle waits on `addingRef`. |
+| 11 | A 59.6 s clip showed 0:00. | Fixed in both `clock` helpers. |
+
+**Verified:** the unit tests above, `biome check`, and the Studio vitest slice. **Not verified:** findings 3, 4 and 10 at
+runtime in a browser (traced in code; the e2e spec was not run in this pass), and nothing here on a real phone.
+
 ## 5. What this does not claim
 
 - **The chat is not verified on a physical phone** (HARD RULE #23); the Library video shelf is, in part (see §6). The chat specs' 390 px cases (status line, table,

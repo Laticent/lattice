@@ -86,6 +86,8 @@ describe('video', () => {
 		// The real iPhone clip that was refused: 9 s, 16.4 MB. 7 s is what fits at its own rate with a tenth to spare.
 		expect(videoRefusal(9, Math.round(16.4 * 1_048_576))).toBe('This video is 16.4 MB and the limit is 15 MB. Trim it to about 7 seconds or less, then add it again.');
 		expect(videoRefusal(Number.NaN, 16 * 1_048_576)).toBe('This video is 16.0 MB and the limit is 15 MB. Trim it to a few seconds, then add it again.');
+		// Never a trim length the seconds cap then refuses: a 20 s, 16 MiB clip fits at 16 s by bytes, but the cap is 15.
+		expect(videoRefusal(20, 16 * 1_048_576)).toMatch(/Trim it to about 15 seconds or less/);
 		expect(videoRefusal(Number.NaN, 1000)).toMatch(/could not be read, so it was not attached\. Try another file/);
 		expect(videoRefusal(Number.POSITIVE_INFINITY, 1000)).toMatch(/could not be read/);
 		expect(videoRefusal(0, 1000)).toMatch(/could not be read/);
@@ -95,6 +97,9 @@ describe('video', () => {
 		expect(videoRefusal(0.1317, 306_275)).toMatch(/only 0\.13 seconds long.*record at least 2 seconds/);
 		expect(videoRefusal(1, 1000)).toMatch(/only 1\.0 seconds long.*one frame a second/);
 		expect(videoRefusal(MIN_VIDEO_SECONDS - 0.01, 1000)).not.toBeNull();
+		// Floored, so the message never names a length the check accepts.
+		expect(videoRefusal(1.46, 1000)).toMatch(/only 1\.4 seconds long/);
+		expect(videoRefusal(0.996, 1000)).toMatch(/only 0\.99 seconds long/);
 		expect(videoRefusal(MIN_VIDEO_SECONDS, 1000)).toBeNull();
 		expect(videoRefusal(2, 1000)).toBeNull();
 	});

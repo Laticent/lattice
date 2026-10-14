@@ -32,7 +32,11 @@ import type { RefDocRecord } from './reference-doc-store';
 
 type Tab = 'images' | 'videos' | 'files';
 
-const clock = (ms: number) => `${Math.floor(ms / 60000)}:${String(Math.round(ms / 1000) % 60).padStart(2, '0')}`;
+// Whole seconds first, then minutes: rounding the seconds alone showed a 59.6 s clip as 0:00 (checker).
+const clock = (ms: number) => {
+	const s = Math.round(ms / 1000);
+	return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+};
 
 /** Why a saved clip cannot go in this message, in words, or null when it can. The same rule the device path applies. */
 function clipRefusal(m: MediaRecord): string | null {
@@ -206,9 +210,13 @@ export function ChatAttach({
 														<button
 															type="button"
 															aria-pressed={on}
-															aria-label={`${on ? 'Remove' : 'Attach'} ${m.name}`}
-															disabled={!!why}
-															onClick={() => onToggleVideo(m)}
+															// aria-disabled, not disabled: a disabled button is skipped by the keyboard, so the reason it
+															// carries was never reached; the name says the reason too.
+															aria-label={`${on ? 'Remove' : 'Attach'} ${m.name}${why ? `. ${why}` : ''}`}
+															aria-disabled={!!why || undefined}
+															onClick={() => {
+																if (!why) onToggleVideo(m);
+															}}
 															className={cn('flex w-full items-start gap-2.5 rounded-lg border p-1.5 text-left', on ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-border')}
 														>
 															<span className={cn('relative grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-md bg-[var(--bg-alt)]', why && 'opacity-60')}>

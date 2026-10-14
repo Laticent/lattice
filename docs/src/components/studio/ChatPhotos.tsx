@@ -77,7 +77,11 @@ function Thumb({ photo, url, size, onRemove }: { photo: ChatPhoto; url?: string;
 	);
 }
 
-const clock = (ms: number) => `${Math.floor(ms / 60000)}:${String(Math.round(ms / 1000) % 60).padStart(2, '0')}`;
+// Whole seconds first, then minutes: rounding the seconds alone showed a 59.6 s clip as 0:00 (checker).
+const clock = (ms: number) => {
+	const s = Math.round(ms / 1000);
+	return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+};
 
 /** A clip: its first frame, a play mark and its length. */
 function VideoThumb({ video, poster, size, onRemove }: { video: ChatVideo; poster?: string; size: number; onRemove?: () => void }) {

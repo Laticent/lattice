@@ -23,7 +23,7 @@ import { addChatPhotos, addChatVideo, discardChatVideo, MAX_CHAT_PHOTOS, photoDa
 import { THINKING } from './chat-status';
 import { DiffCard } from './diff-card';
 import { frontMatterBlock, getFrontMatter } from './front-matter';
-import { classifyMedia, MEDIA_ACCEPT } from './media-import';
+import { classifyMedia, LIBRARY_MEDIA_ACCEPT } from './media-import';
 import type { MediaRecord } from './media-store';
 import { refreshAssetUrls, setActiveAssetDeck } from './media-urls';
 import { CHAT_COMPOSER_BAR, CHAT_COMPOSER_STACK, CHAT_COMPOSER_TEXT, ChatEmptyCard } from './panel-shells';
@@ -245,6 +245,16 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 			return [];
 		});
 	}, [deckId]);
+	// Closing the chat unmounts it and drops what was pending, so a clip added from the device and never sent goes with
+	// it, as on a deck switch above. Read through a ref: the cleanup runs once, with the state of the last render.
+	const pendingVideosRef = React.useRef(pendingVideos);
+	pendingVideosRef.current = pendingVideos;
+	React.useEffect(
+		() => () => {
+			for (const v of pendingVideosRef.current) if (!v.keep) void discardChatVideo(v.name);
+		},
+		[],
+	);
 	React.useEffect(() => {
 		saveChat(deckId, messages);
 		scrollRef.current?.scrollTo?.({ top: scrollRef.current.scrollHeight });
@@ -315,6 +325,14 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 			const sent = history[lastIdx]?.role === 'user' ? (history[lastIdx].photos ?? []) : [];
 			const seen = (await Promise.all(sent.map(async (p) => ({ name: p.name, dataUrl: await photoDataUrl(p.name).catch(() => null) })))).filter((x): x is { name: string; dataUrl: string } => !!x.dataUrl);
 			if (seen.length < sent.length) notify(sent.length === 1 ? 'That photo is no longer in the Library, so the model did not see it.' : `${sent.length - seen.length} of those photos are no longer in the Library, so the model did not see them.`);
+			// The model is told too: a regenerated turn whose clip was deleted otherwise reached it as only "Here is a short
+			// video." with nothing attached, which invites a made-up description (checker).
+			const lostClips = sentVideos.length - clips.length;
+			const lostPhotos = sent.length - seen.length;
+			if ((lostClips || lostPhotos) && turns[lastIdx]?.role === 'user') {
+				const what = [lostClips && `${lostClips} video${lostClips === 1 ? '' : 's'}`, lostPhotos && `${lostPhotos} photo${lostPhotos === 1 ? '' : 's'}`].filter(Boolean).join(' and ');
+				turns[lastIdx] = { ...turns[lastIdx], content: `${turns[lastIdx].content}\n\n(The author attached ${what} that could not be sent: deleted from the Library since. Say you could not see ${lostClips + lostPhotos === 1 ? 'it' : 'them'}; never describe ${lostClips + lostPhotos === 1 ? 'it' : 'them'}.)` };
+			}
 			const onActivity = (label: string) => {
 				if (mountedRef.current) setLiveActivity(label);
 			};
@@ -429,8 +447,10 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 	// next message.
 	const attachMedia = async (files: File[]) => {
 		const forDeck = deckId;
-		let clips = files.filter((f) => f.type.startsWith('video/'));
-		let images = files.filter((f) => !f.type.startsWith('video/'));
+		// By `classifyMedia`, which falls back to the extension: some pickers hand a `.mov` over with an empty type, and
+		// split on `type` it was sent down the photo path and refused as "isn't an image" (checker).
+		let clips = files.filter((f) => classifyMedia(f) === 'video');
+		let images = files.filter((f) => classifyMedia(f) !== 'video');
 		const room = MAX_CHAT_PHOTOS - pendingPhotos.length;
 		// Each kind is judged on its own: a refusal for one never drops the other (a full shelf of
 		// photos still lets the clip in, and a clip already pending still lets the photos in).
@@ -522,6 +542,8 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 	/** A Library clip on or off this message, under the same size and length rules as one from the device. One clip per
 	 *  message: picking another takes the first off. */
 	const toggleLibraryVideo = async (m: MediaRecord) => {
+		// A device clip still saving would replace this one when it lands; wait for it (checker).
+		if (addingRef.current) return;
 		if (pendingVideos.some((v) => v.name === m.name)) {
 			removePendingVideo(m.name);
 			return;
@@ -721,7 +743,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 					<div className="flex items-center gap-2">
 					<ChatAttach
 						deckId={deckId}
-						deviceAccept={`${MEDIA_ACCEPT},video/*,${REF_DOC_ACCEPT}`}
+						deviceAccept={`${LIBRARY_MEDIA_ACCEPT},${REF_DOC_ACCEPT}`}
 						onDeviceFiles={onDeviceFiles}
 						savedDocs={refDoc.saved}
 						activeDocIds={new Set(refDoc.docs.map((d) => d.id).filter((id): id is string => !!id))}

@@ -44,11 +44,13 @@ export function videoRefusal(seconds: number, bytes: number): string | null {
 	if (bytes > MAX_VIDEO_BYTES) {
 		// The length that fits at THIS clip's own rate, with a tenth to spare. A phone clip is about 1.8 MB a second, so
 		// "a few seconds" left a person guessing; with the length unknown it is all that can be said.
-		const fits = known ? Math.floor((seconds * MAX_VIDEO_BYTES * 0.9) / bytes) : 0;
+		// Never past the seconds cap: a 20 s, 16 MB clip told "about 16 seconds" was refused again at 16 (checker).
+		const fits = known ? Math.min(MAX_VIDEO_SECONDS, Math.floor((seconds * MAX_VIDEO_BYTES * 0.9) / bytes)) : 0;
 		return `This video is ${(bytes / 1_048_576).toFixed(1)} MB and the limit is ${limitMb} MB. ${fits >= MIN_VIDEO_SECONDS ? `Trim it to about ${fits} seconds or less` : 'Trim it to a few seconds'}, then add it again.`;
 	}
 	if (!known) return 'This video could not be read, so it was not attached. Try another file.';
-	if (seconds < MIN_VIDEO_SECONDS) return `This video is only ${seconds.toFixed(seconds < 1 ? 2 : 1)} seconds long. A model looks at about one frame a second, so record at least 2 seconds.`;
+	// Floored, not rounded: 1.46 s rounded to "1.5", a length this very check accepts (checker).
+	if (seconds < MIN_VIDEO_SECONDS) return `This video is only ${seconds < 1 ? (Math.floor(seconds * 100) / 100).toFixed(2) : (Math.floor(seconds * 10) / 10).toFixed(1)} seconds long. A model looks at about one frame a second, so record at least 2 seconds.`;
 	// Half a second of slack: a phone's "15 second" clip decodes at 15.0x, and refusing it with a message
 	// that says "15 seconds" contradicts itself. The cap is a cost guard, not a stopwatch.
 	if (seconds > MAX_VIDEO_SECONDS + 0.5) return `This video is ${seconds.toFixed(1)} seconds and the limit is ${MAX_VIDEO_SECONDS}. Trim it to ${MAX_VIDEO_SECONDS} seconds or less, then add it again.`;
