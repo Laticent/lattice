@@ -170,6 +170,17 @@ the Live panel) share the field classes in `panel-shells.tsx`, which now carry `
 their dark fill for the places that want it. The composer is one bordered box (`px-3 py-2.5`) with a bare field inside, in
 both modes; a spec reads the field's computed background in each mode and fails without the fix.
 
+**A model that said it could not see the clip (2026-10-14).** The tester sent an iPhone clip to Google Gemini Pro Latest,
+which has `video` in its catalog `input_modalities`, and it answered that it only saw that a video file was attached. No
+error came back. The request does carry a `video_url` part, so the clip left the app. The likely cause is the type on the
+data URL: an iPhone recording is QuickTime, the Library stores it as `video/quicktime`, and OpenRouter's video guide lists
+`video/mp4`, `video/mpeg`, `video/mov` and `video/webm`. A part with an unlisted type is not rejected, it is dropped, which
+is what the model described. `videoWireType` (`chat-photo-parts.ts`) now sends QuickTime as `video/mov`; the stored bytes
+and type are unchanged, and `chat-clip-wire.test.ts` checks both and fails without the change. **This is a diagnosis from
+the docs and the symptom, not a reproduction: whether Gemini now reads an iPhone clip is checked by sending one.** Every
+earlier end-to-end spec sent a WebM clip, which is why none could have caught it. If it still fails, the next suspects are
+the provider OpenRouter routed to and the clip's codec (iPhones record HEVC).
+
 **Verified:** `docs/e2e/chat-photos.spec.ts` in real Chromium at 1440, 820 and 390 px: the composer has the two controls and
 no menu; the paperclip is a real, tappable input (not `hidden`, not `pointer-events: none`) that accepts images, video and
 `.pdf` and opens the browser's chooser in one tap; a `.md` and a photo picked together become a chip and a thumbnail; from the

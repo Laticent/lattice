@@ -42,6 +42,14 @@ export function videoRefusal(seconds: number, bytes: number): string | null {
 	return null;
 }
 
+/** The media type a clip travels under. A phone's recording is QuickTime (`video/quicktime`), which is the name the
+ *  browser and the Library give it, but OpenRouter lists `video/mov` (with `mp4`, `mpeg` and `webm`) as the types it
+ *  accepts, and Google names the same container `video/mov`. A part with a type outside that list is not an error: it
+ *  is dropped, and the model answers that it only saw a note that a video was attached. */
+export function videoWireType(mime: string): string {
+	return mime === 'video/quicktime' ? 'video/mov' : mime;
+}
+
 /** The sentence that tells the model a clip came with the message. A clip is kept in the Library's Videos
  *  shelf, but a slide cannot play a video yet, so unlike a photo it has no `asset:` name to offer. */
 export function videoNote(count: number, shown = true): string {

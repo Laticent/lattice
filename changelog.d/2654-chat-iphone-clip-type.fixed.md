@@ -1,0 +1,1 @@
+- A clip recorded on an iPhone (QuickTime) is now sent to the model under the video type OpenRouter and Google accept. Before, a model that can read video could answer that it only saw a note that a video was attached, because the clip's type was not on the accepted list and the clip was dropped without an error.

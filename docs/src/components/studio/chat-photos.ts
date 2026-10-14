@@ -11,7 +11,7 @@
 // What is sent to the model is a DOWNSCALED copy (`VISION_EDGE`): a vision model reads at roughly
 // 1.5 megapixels, so the 2560 px Library original would cost the same tokens and carry more bytes.
 
-import { MAX_VIDEO_BYTES, VISION_EDGE, videoRefusal } from './chat-photo-parts';
+import { MAX_VIDEO_BYTES, VISION_EDGE, videoRefusal, videoWireType } from './chat-photo-parts';
 import { classifyMedia, importImage, importVideo, MediaImportError } from './media-import';
 import { deleteMedia, listMedia, MEDIA_REFUSAL_PREFIX, namesOf, saveMedia, uniqueName } from './media-store';
 import type { ChatPhoto, ChatVideo } from './studio-store';
@@ -122,7 +122,8 @@ export async function addChatVideo(file: File, deckId: string): Promise<{ video:
 /** The clip as a data URL for the model, or `null` when it is no longer on the shelf (deleted since). */
 export async function videoDataUrl(name: string): Promise<string | null> {
 	const rec = (await listMedia()).find((m) => m.name === name && m.kind === 'video');
-	return rec ? blobToDataUrl(rec.blob) : null;
+	// The bytes are untouched; only the type the data URL declares is the one the provider accepts (`videoWireType`).
+	return rec ? blobToDataUrl(rec.blob.slice(0, rec.blob.size, videoWireType(rec.blob.type))) : null;
 }
 
 /** Remove a clip that was attached but never sent (taken out of the strip, or its deck was left). A photo
