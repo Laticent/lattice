@@ -5,7 +5,7 @@ summary: >
   GitHub's terms: 28 catch-ups, 19 real conflicts, 9 clean. 2 of the 9 were the backlog bot's
   nightly re-sync, so 7 of 26 agent catch-ups were needless. The decision index and route
   budget, fixed on 09-29, caused none. Of the 19 real conflicts, 11 touched committed PDFs, 6
-  committed generated JS, 14 hand-written source. A Claude Code hook now warns before a needless catch-up; two blocking designs were refuted.
+  committed generated JS, 14 hand-written source. A Claude Code hook now warns before a needless catch-up; two blocking designs were refuted. §5 (2026-10-14) lists every committed artifact and its fix: generated-only conflicts per 1,000 PR runs went 94 → 31 → 0.
 ---
 
 # Conflict reduction: what still conflicts, and what each fix buys
@@ -201,3 +201,54 @@ in hand-written code from 09-30, most came from two lines of work that ran side 
 the plugin system and the Studio. The lever there is in how work is scheduled, for
 example at most one open PR per subsystem at a time. That is the owner's call, and it is
 not adopted here.
+
+## 5. Every committed artifact that conflicted, and the fix it got (2026-10-14)
+
+This closes `followups.d/2466-p2-committed-generated-files-conflict-across-prs.md`. Its
+"done when" asked for this list: each committed artifact that two unrelated PRs can both
+change is built by a bot on `main`, no longer committed, or shown not to conflict.
+
+One row meets none of the three. The owner deferred the generated JS (§3), so it moves to
+its own follow-up rather than staying open here. And the follow-up's verify step asked for
+two concurrent PRs replayed on a scratch branch. The table below replays every real
+catch-up in three windows instead, which covers the same question with real PRs.
+
+| Artifact | Fix | Where it is recorded |
+|---|---|---|
+| `engineering/decisions/README.md`, the decision index | Not committed: built into `dist/` by `npm install` (#2622, 2026-10-09). Before that, rows sorted by topic slug (#2480) | `2026-10-09-generated-indexes-uncommitted.md` |
+| The gotcha and capability indexes, once committed inside `engineering/gotchas.md` and `engineering/capabilities.md` | Not committed (#2622): the hand-written header stays, the generated rows moved to `dist/` | same note |
+| `docs/route-budget.json` | Off the per-PR path: a PR declares its growth in its own `docs/route-budget.d/` file, and the ledger moves only through owner-approved resets (#2500) | `2026-09-29-route-budget-soft-hard.md` |
+| Gallery and demo PDFs, the deck goldens | Built by a bot on `main`: pull requests stop committing PDFs, and the nightly bless PR renders them (#2614, 2026-10-08) | `2026-10-06-goldens-bot-blessed.md` |
+| Showcase WebPs (`docs/public/showcase/`) | Built by a bot on `main`, in the same bless commit, because they are cut from the gallery PDFs | same note; `.github/workflows/golden-bless.yml` |
+| Committed generated JS under `lib/`, including the speech-projection bundle | **Deferred by the owner** until the Tauri desktop app lands (§3) | `followups.d/2554-p3-uncommit-generated-js-after-desktop-app.md` |
+
+**Before and after.** Measured as `2026-09-28-rebase-only-on-conflict.md` §6 measured it:
+every push in a `ci.yml` `pull_request` run whose merge base with `main` moved forward,
+replayed with `git --attr-source=<empty tree> merge-tree`. A conflict counts as
+"generated only" when every file in it is one of the artifacts above.
+
+| Window | PR runs | Real conflicts | Generated only | Hand-written source involved |
+|---|---|---|---|---|
+| 2026-09-20 to 09-28, before any fix | 1,000 | 141 | 94 | 47 |
+| 2026-09-29T02:05Z to 10-08T17:05Z, before #2614 | 587 | 69 | 18 | 51 |
+| 2026-10-08T17:05Z to 10-14T12:00Z, after #2614 | 248 | **5** | **0** | 5 |
+
+The split uses #2614's commit time (17:05Z). It merged at 17:26Z, and no PR run started
+between the two, so the split is the same either way.
+
+Per 1,000 PR runs, generated-only conflicts went 94 → 31 → 0. In the first window the
+route budget was in 80 of the 141 conflicts and the decision index in 38. In the last
+window no conflict touched a PDF, a WebP, generated JS, the route budget or an index. The
+generated JS last conflicted on 10-06, so the deferred item costs little while the owner
+waits on the desktop app.
+
+**The price of the PDF fix.** Committed goldens on `main` now change only when a person
+merges the nightly bless PR, which is still a dry run that never merges itself. The bless
+PR open on 2026-10-14 (#2624) was opened on 10-09, and its head is that morning's bless.
+Committed PDFs on `main` have not moved since the 10-08 bless (#2598).
+
+**A correction to §1.** §1 says every index conflict in its PR set came from a head made
+before #2480. One outside that set did not: on 2026-10-06 at 05:33Z,
+`claude/lattice-p2p-collaboration-uy2h2l` conflicted on the index alone, with #2480 already
+in its history (`2026-09-28-rebase-only-on-conflict.md` §6). #2622 has since removed the
+file from the tree, so it cannot recur.

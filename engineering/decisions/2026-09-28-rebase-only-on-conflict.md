@@ -7,7 +7,9 @@ summary: >
   cleanly (33 of them already green), costing ~895 minutes of CI wall-clock time
   (6.0%). HARD RULE #16 now says rebase only on a real conflict, an ejection, or a
   need for code from `main`; `npm run queue:precheck` makes the call the way GitHub
-  does, which means ignoring `merge=union` — GitHub does not apply it.
+  does, which means ignoring `merge=union` — GitHub does not apply it. Re-measured
+  2026-10-14 (§6): agent-session needless rebases fell from 50 to 3, and drift caused no
+  queue ejection.
 ---
 
 # Rebase only on a conflict — the merge queue owns drift
@@ -207,9 +209,123 @@ speech-projection bundle, goldens, and the decision index, which conflicts on
 GitHub even though `merge=union` resolves it locally (§4b). The queue cannot fix
 a real conflict. On the table in §3 the conflict side costs less than the waste
 this note removes (~456 minutes of required rebases, plus the catch-up commits,
-against ~895), so the follow-up stays P2. It is tracked in
-`followups.d/2466-p2-committed-generated-files-conflict-across-prs.md`.
+against ~895), so the follow-up stays P2. It was tracked in
+`followups.d/2466-p2-committed-generated-files-conflict-across-prs.md`, closed on 2026-10-14
+by `2026-10-06-conflict-reduction.md` §5.
 
 **Update 2026-09-29.** The decision index is off that list: its rows now sort by topic
 slug instead of date, so two PRs that each add a note no longer share an insertion point
 (`2026-09-29-decision-index-rows-scatter.md`). The other files remain in the follow-up.
+
+## 6. Re-measured on 2026-10-14 — the rule holds
+
+**Answer.** Needless agent-session rebases fell from 50 to 3, and pure catch-ups (a catch-up
+that carried no new work) fell from 53 to 4. Only 1 of those 4 came after the catch-up
+warning hook merged (#2561, 2026-10-07T01:28Z). The queue's red rate rose from 2.6% to 5.5%,
+but drift caused none of the rise: cross-PR breaks stayed at 2 per window. One real index-only conflict happened after #2480. It was the residual case that
+note predicted, and the class is now gone, because #2622 stopped committing the index.
+
+**Windows.** The source is the same as §3: `ci.yml` runs, read from the Actions API on
+2026-10-14.
+
+- **Before:** the §3 window. 1,000 `pull_request` runs from 2026-09-20T21:28Z to
+  09-28T18:07Z (15,017 CI minutes), and 152 `merge_group` runs from 2026-09-21T23:37Z to
+  09-29T02:05:15Z. The queue window runs on to #2466's merge so the two windows meet, which
+  is why it holds 10 more runs than §3's 142, and one more red run (#2453).
+- **After:** every run created from 2026-09-29T02:05:15Z (#2466 merged) to
+  2026-10-14T12:00Z. That is 835 `pull_request` runs (13,883 CI minutes) and 199
+  `merge_group` runs.
+
+The classifier is §3's: a push is a rebase or an amend when the head SHA changed but the
+head commit's message and author did not, and the replay runs
+`git --attr-source=<empty tree> merge-tree --write-tree <old head> <new base>`. Run on the
+before window, it reproduces §3's table exactly (67 / 27 / 32 pushes, ~895 / ~456 / ~574
+minutes, 8 index-only), so the two columns compare like with like.
+
+### Same-message pushes, by who pushed
+
+| Push kind | Before: pushes (previous run green) · CI minutes | After |
+|---|---|---|
+| Needless rebase by an agent session — **what #16 targets** | **50 (27) · ~857** | **3 (0) · ~78** |
+| Needless rebase by Dependabot | 11 (0) · ~30 | 16 (0) · ~140 |
+| Backlog-bot re-sync (new content, not waste) | 6 (6) · ~8 | 7 (7) · ~48 |
+| **Needless total, as §3 counted it** | **67 · ~895 (6.0%)** | **26 · ~266 (1.9%)** |
+| Required rebase: a real conflict on GitHub's terms | 27 · ~456 (3.0%) | 20 · ~423 (3.0%) |
+| …on the decision index and nothing else | 8 | 0 |
+| Amend on the same base | 32 · ~574 | 18 · ~355 |
+
+The 3 agent rebases ran on 09-29, 10-05 and 10-06, all before the hook merged.
+Dependabot rebases its own branches, so HARD RULE #16 cannot reach it. Its 16 cost ~1% of
+the window's CI minutes, and `followups.d/2466-p3-dependabot-rebases-clean-prs.md` tracks
+them. The backlog bot regenerates its branch from current issues each night, which is new
+content (`2026-10-06-conflict-reduction.md` §1).
+
+**A wider count.** The same-message proxy misses a merge from `main` and a rebase pushed
+together with new work. Counting every push whose merge base with `main` moved forward:
+425 catch-ups before (284 clean on GitHub's terms, 141 real conflicts), and 141 after (67
+clean, 74 conflicts). Per 1,000 PR runs, that is 425 → 169 catch-ups and 284 → 80 clean
+ones. Most clean ones were pushed together with new work, which needs a CI run anyway. Counting
+only agent-session catch-ups whose new head carries no commit subject the old head lacked
+(a pure catch-up): 53 before, and 4 after, of which 3 came before the hook merged and 1
+after it. Those 4 are the waste the rule and the hook target, and they are what the
+confidence call below rests on.
+
+### The merge queue
+
+| `merge_group` runs | Before | After |
+|---|---|---|
+| All | 152 | 199 |
+| Green | 146 | 173 |
+| Red | 4 (2.6%) | **11 (5.5%)** |
+| Canceled (`cancelled`) | 2 | 15 |
+
+The red rate doubled, which is the condition the #2466 raise path said would reopen the
+rule. Each of the 11 red runs was read job by job:
+
+| Cause | Red runs | PRs | Would a pre-queue rebase have prevented it? |
+|---|---|---|---|
+| One flaky smoke test, `playground-first-paint.spec.ts:198`, 10-04 to 10-05 10:30Z | 4 | #2492, #2424, #2508, #2515 | No. Each PR re-entered unchanged and merged. #2519 fixed the test's seed (merged 10-05 13:04Z), and it has not failed in the queue since |
+| A second smoke flake, a click timeout in `library-image-metadata.spec.ts:598` | 1 | #2681 | No. It re-entered unchanged and merged 10 minutes later |
+| The `changes` job ran 15 minutes with no steps against a 5-minute timeout and was canceled, so every test tier was skipped | 2 | #2525, #2535 | No. Runner-side, 10-05 evening |
+| Collateral: GitHub canceled the tiers when #2525, ahead in the same group, failed | 1 | #2534 | No |
+| The backlog bot's PR failed an integration test | 1 | #2499 | No. The next night's re-sync merged |
+| **A real cross-PR break** | **2** | #2548, #2606 | See below |
+
+- **#2548** pinned message wording in a test, and #2551 changed that wording. #2551 was
+  ahead of #2548 in the queue: the group #2548 was tested in was built on #2551's commit
+  (12:48Z), and #2551 merged at 13:18Z. No rebase can pick up a PR that has not merged, so
+  the old rule would not have caught this either. The queue caught it, and `main` stayed
+  green.
+- **#2606** failed `test/unit/cli/retired-cli-name.test.js`, which #2601 added: the test
+  rejects the retired CLI name, and #2606 had added a follow-up file that used it. #2601
+  was ahead of #2606 in the queue, and #2606's last push (12:38Z) came before #2601 even
+  entered it. Its fix commit rebuilt the file with the renamed CLI.
+
+Both are the same kind of break: a test that lands on `main` rejects content in a PR
+running beside it. It is a real and ongoing class, and catching it is the queue's job.
+
+Read the same way, the before window's 4 red runs hold 2 cross-PR breaks (#2417 and #2439
+pushed a fix after their ejection) and 2 that re-entered unchanged (#2365, #2453). So
+cross-PR breaks went from 2 in 152 queue runs to 2 in 199. The rise in red runs is flakes
+and runner trouble, both since fixed or one-off. The 15 canceled runs were not read one
+by one.
+
+**Confidence moves from `high` to `very high`.** The raise path asked for a week of data.
+Two weeks show the targeted waste down about nine-tenths (~857 → ~78 minutes of agent
+rebases, over 835 runs against 1,000; pure catch-ups 53 → 4, and 1 after the hook), and
+no ejection that a rebase would have prevented.
+
+### The decision index after #2480
+
+Five catch-ups in the after window conflicted on `engineering/decisions/README.md`. Four
+came from heads created before #2480 merged (2026-09-29T08:56Z): that is the one-time
+conflict `2026-09-29-decision-index-rows-scatter.md` §4 predicted. The fifth is real. On
+2026-10-06 at 05:33Z, `claude/lattice-p2p-collaboration-uy2h2l` had inserted
+`studio-live-collaboration` directly below `studio-lessons` in the Active group, and #2540
+on `main` moved `studio-lessons` to the Shipped group. A new row beside an edited row is
+the residual case that note's §5 names. So the raise path for #2480 ("zero real index-only
+conflicts") is not met, and #2480 stays at `high`.
+
+That no longer matters: since #2622 (2026-10-09), the index is built into `dist/` and is
+not committed (`2026-10-09-generated-indexes-uncommitted.md`). Two PRs cannot conflict on
+a file neither of them commits.
