@@ -1091,5 +1091,9 @@ it is the record of what was wrong.
   - **Limits, stated in the files' banner, the README and the themes guide.** 16:9 only, no panes. The
     quote gallery at `size: story` (0/7) and the two-slide panes deck (0/2) did not match in the
     prototype and are not claimed. `render()`'s own `css` covers them.
-  - **Not measured:** the other 31 palettes (the harness ran indaco and cuoio-dark), webpack, and
-    a consumer's own markup. The sheet is 1.2 MB unpacked and the 33 palette files add about 350 KB.
+  - **Measured after the merge (2026-10-14).** The harness ran every shipped palette, 33 of 33, six
+    galleries and 51 slides each. `render()` css: 66/66 lines at 51/51. Packed, linked from `dist/`:
+    33/33 palettes at 51/51. Packed, through a Vite 8.2.2 build of each pair (`--bundled`, relative
+    asset URLs): 33/33 palettes at 51/51. The checker had also compared all 33 palettes against the
+    engine's own composition and found them equal apart from the `color-scheme` selector.
+  - **Not measured:** webpack, and a consumer's own markup (`followups.d/2678-p3-packed-form-webpack-and-ci-gate.md`). The sheet is 1.2 MB unpacked and the 33 palette files add about 350 KB.
