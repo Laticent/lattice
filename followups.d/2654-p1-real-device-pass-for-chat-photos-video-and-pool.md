@@ -20,9 +20,9 @@ why now   — every chat claim in #2654 is verified in Chromium and in WebKit at
             STILL OPEN: the chat attach, reload and Regenerate on the phone, an Android phone, a photo from the
             library and one just taken, the figure pool, and the status line, and a Location-ON clip taken through
             the whole path (add it in Library, make a workspace backup, extract `media/<name>.mov`, run `ffprobe`).
-            ADDED 2026-10-14: the Architect's edit-on-request prompt (decision note §4e) is unit-tested only. On the
-            same pass, ask the demo deck a question ("what is in this video") and check the reply has no diff card and
-            no "checker", "referent" or class names; then ask for one edit and check the reply and the line under it.
+            ADDED 2026-10-14: the Architect's edit-on-request prompt (decision note §4e). DONE on a real iPhone (#2691
+            preview, Gemini Pro Latest): a question about a clip and a request the deck cannot do both got answers
+            and no diff card. STILL OPEN: one edit turn on a real model, checked for plain words and the activity line.
 where     — the Studio chat on an iPhone and an Android phone, against a real OpenRouter key.
 done when — on each phone: a photo from the library and one just taken attach and send; a 15 second clip
             attaches (or is refused in words: a 9 s phone clip is already 16.4 MB, over the chat's 15 MB cap) and a

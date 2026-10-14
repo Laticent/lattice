@@ -249,10 +249,20 @@ prompt's own name for its tool ("the checker's verdict"), `checkerNote` in `chat
   cards-grid element runs to …", a class name the author never typed). The Coach shows the same messages.
 
 **How it was verified.** Unit tests pin the two prompt blocks, the brief's heading, the note's wording (no "checker" or
-"warning") and the sentence builder. **Not verified: a real model's behavior.** Whether a model now answers a question
-without editing needs a real model on the author's own key (HARD RULE #24), on a phone, and is part of the real-device
-pass (`followups.d/2654-p1-real-device-pass-for-chat-photos-video-and-pool.md`). The prompt is a lever on the model, not
-a guarantee; the diff card still lets the author discard an edit they did not want.
+"warning") and the sentence builder; `docs/e2e/chat-activity.spec.ts` drives a mocked question turn at 1440, 820 and 390 px.
+
+**On a real iPhone with a real model (2026-10-14, the #2691 preview at 04e93b1, Google Gemini Pro Latest, the author's
+own key; two screenshots in the PR).** On the demo deck:
+
+- "what is this video about", with a 6 s screen recording attached: the reply described the clip correctly (the chat's
+  attach menu being opened, then a screenshot taken), ended with an offer, and carried **no diff card** and none of "the
+  checker", "warnings" or "referent".
+- "let's add a video slide with this video to the deck": the reply said a slide cannot play a Library video yet and
+  offered a link-based video slide instead, with **no diff card**. The line under it read "Read about the video layout."
+- One slip: the second reply wrote "a `video` slide", the layout's name in code, which HOW YOU TALK says not to do.
+  Logged in `followups.d/2691-p3-architect-names-a-layout-in-code.md`.
+
+**Not verified:** an edit turn's wording on a real model, and any Android phone. Both stay in the real-device follow-up.
 
 ## 4f. The independent read of #2672's chat commits (2026-10-14)
 
