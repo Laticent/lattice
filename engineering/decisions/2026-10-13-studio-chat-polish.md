@@ -212,6 +212,48 @@ Library, a photo, a clip and a file each attach by one tap and show a check; tak
 the popover stays clear of the screen edge. **Not verified: the iOS native sheet's position on a real iPhone after this
 change.**
 
+## 4e. The Architect edits only when asked, and says what it did in plain words (2026-10-14)
+
+**What a tester saw.** Asked "what is in this video", the Architect answered and then edited slides 2, 5 and 7 "to clear
+out the checker's warnings about word counts and missing claims", with a diff card nobody asked for. The reply and the
+line under it were in our vocabulary, not the author's: "the checker", "referent", `big-number`, "Read big-number ·
+Edited slides · Checked the deck".
+
+**Why.** `deckBrief` (`architect-agent.ts`) puts the deck's review findings in the system turn on every turn, labeled
+only as data. The prompt said "not every message is a request for an edit", but nothing said the findings were not a
+to-do list, and a model that sees open warnings and an edit tool tends to use it. The words came from three places: the
+prompt's own name for its tool ("the checker's verdict"), `checkerNote` in `chat-agent.ts`, and one review message in
+`lib/authoring/review-core.js` ("a hero number with no referent").
+
+**What changed.**
+
+- The prompt gains a WHEN TO EDIT block: edit only when the latest message asks for a change or accepts one offered; a
+  question gets an answer and no edit tool call; the brief's findings are background and never a reason to edit unasked.
+  The check that rides an edit's result now lists findings and over-budget slides only for the slides the turn
+  changed, and counts the rest ("3 other findings are on slides this turn did not change — leave them unless the author
+  asks"). Before, it listed up to 20 findings for the whole deck with their rule ids, which handed the model the deck's
+  old problems as a to-do list on a one-slide request. An explicit `check_deck` call still lists everything, because
+  the author asked what to improve. (Found by the maker-checker pass on this change.)
+- The prompt gains a HOW YOU TALK block: no tool or process names ("the checker", "warnings", "findings", "the draft",
+  "referent", rule ids) and no layout class names in code; a slide is named by its number and what it says.
+- The brief now heads its findings "background only: act on them only when the author asks for edits or asks what to
+  improve".
+- The note under an edit that passed with things to look at reads "Worth a look before you apply this: …" instead of
+  "The checker found no errors in this change, and 2 warnings: …". The word-budget and legibility items it quotes are
+  plain sentences ("slide 5 has 92 words, over the 70 the deck allows"; "the text shrinks too small to read").
+- The activity line is one sentence (`chat-activity.ts`): "Read about the big number layout, drafted changes to the
+  slides and checked the deck." It was a dot-separated row of labels at 10.5 px; it is now 11.5 px. Chats saved before
+  this change fold into the same shape ("Read kpi and checked the deck.").
+- Three review messages lose their jargon: "a hero number with nothing to compare it to" (was "with no referent"), the
+  scorecard's "hero numbers with nothing to compare to", and "one item on this slide runs to 92 words" (was "a
+  cards-grid element runs to …", a class name the author never typed). The Coach shows the same messages.
+
+**How it was verified.** Unit tests pin the two prompt blocks, the brief's heading, the note's wording (no "checker" or
+"warning") and the sentence builder. **Not verified: a real model's behavior.** Whether a model now answers a question
+without editing needs a real model on the author's own key (HARD RULE #24), on a phone, and is part of the real-device
+pass (`followups.d/2654-p1-real-device-pass-for-chat-photos-video-and-pool.md`). The prompt is a lever on the model, not
+a guarantee; the diff card still lets the author discard an edit they did not want.
+
 ## 5. What this does not claim
 
 - **The chat is not verified on a physical phone** (HARD RULE #23); the Library video shelf is, in part (see §6). The chat specs' 390 px cases (status line, table,

@@ -677,7 +677,7 @@ export type ChatMessage = {
 	appliedCount?: number;
 	refused?: number;
 	/** Assistant turn only: what the chat agent read, changed and checked to produce it
-	 *  ("Read kpi", "Checked the deck") — shown under the reply so the author can see the
+	 *  ("read about the kpi layout", "checked the deck") — shown under the reply as one sentence (chat-activity.ts) so the author can see the
 	 *  answer was grounded, not guessed. Never sent back to the model. */
 	activity?: string[];
 };

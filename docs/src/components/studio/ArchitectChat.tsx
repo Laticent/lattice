@@ -15,6 +15,7 @@ import { ChatCost } from './ChatCost';
 import { ChatFigure, ChatFigureContext, type ChatFigureRender } from './ChatFigure';
 import { ChatLiveStatus } from './ChatLiveStatus';
 import { MessagePhotos, PhotoStrip } from './ChatPhotos';
+import { activitySentence } from './chat-activity';
 import { isFigureLang } from './chat-figures';
 import { type ChatSegment, renderMessageSegments, renderMessageSegmentsStreaming } from './chat-markdown';
 import { photoNote, videoNote, videoRefusal } from './chat-photo-parts';
@@ -637,7 +638,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 							<div className="text-[12.5px] leading-relaxed text-foreground">
 								<AssistantBody text={m.content} streaming={false} />
 							</div>
-							{m.activity?.length ? <div className="text-[10.5px] leading-snug text-muted-foreground">{m.activity.join(' · ')}</div> : null}
+							{m.activity?.length ? <p className="text-[11.5px] leading-snug text-muted-foreground">{activitySentence(m.activity)}</p> : null}
 							{m.proposed?.length && !m.applied ? <ProposalReview edits={m.proposed} liveSource={source} onApply={() => applyProposal(i)} onDiscard={() => discardProposal(i)} /> : null}
 							{m.applied && (
 								<span className="flex items-center gap-1 text-[11px] font-semibold text-[var(--pass)]">

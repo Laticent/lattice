@@ -33,7 +33,7 @@ describe('chatComplete — the cloud agent', () => {
 		expect(out.status).toBe('ok');
 		if (out.status !== 'ok') return;
 		expect(out.reply).toBe('Set the atrium finish.');
-		expect(out.activity).toContain('Set finish');
+		expect(out.activity).toContain('set the deck’s finish');
 		expect(out.proposed?.edits).toEqual([expect.objectContaining({ action: 'frontmatter', label: 'Front matter · finish' })]);
 		expect(out.proposed?.source).toContain('finish: atrium');
 		// Tools ride every round; the second round sees the tool result.
