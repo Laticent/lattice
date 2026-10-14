@@ -810,9 +810,9 @@ reads the slot.
   **Amended 2026-10-14 (owner):** journey is authored in standard Segno, so the `@` shortcut is
   retired and a second actor is a second record, `{who=me, mood=1}` `{who=cat}`. Every shipped deck
   moved and renders byte-identically; `lint:deck` warns on a leftover `@name` span
-  (`journey-actor-shortcut`) and `--fix` rewrites it. The shortcut had also taken `@` away from
-  any wider use: a `TAGS` character starts no bare word, so `@` could not later become a tag without
-  breaking every journey actor.
+  (`journey-actor-shortcut`) and `--fix` rewrites it. It also leaves `@` with one meaning in
+  inline code: `@kind{…}`, the plugin inline door (`2026-10-14-plugin-inline-door.md`), which the host
+  reads before Segno does, so the notation's grammar is unchanged.
 - **Flowchart (row 25).** A single style word stands alone (`doc`, `fail`); two or more go in braces.
   The key's words drop their colons (`{dotted, Informal}`), and a channel color is `fill=c3`.
 - **Gantt (row 10).** Two dependencies are a list, `after=[Design, Build]`. The codemod reported, and did

@@ -66,7 +66,9 @@ Measured on 2026-10-14:
 
 1. **Plugins may bring inline syntax.** Avatars and icons already are inline plugins in-tree, and a zip plugin gets
    the same door.
-2. **Journey reads standard Segno.** Its `@actor` shortcut is retired (`{who=sales}` instead), which frees `@`.
+2. **Journey reads standard Segno.** Its `@actor` shortcut is retired (`{who=sales}` instead), so `@` has one
+   meaning in inline code. (The host-side form of §4.1 would not have clashed with `@sales`, which has no `{`; the
+   retirement is an authoring decision, not a technical one.)
    Shipped as its own commit on this branch, with a `journey-actor-shortcut` lint and autofix.
 3. **`@` is the inline door.** It is the character that tells the editor's autocomplete and Compose that a kind
    is being written.
@@ -79,25 +81,25 @@ Measured on 2026-10-14:
 
 ## 4. The model
 
-### 4.1 The grammar
+### 4.1 The grammar: the host peels `@kind`, and Segno is unchanged
 
-One production joins Segno's notation: `@`, a kind name, then a record.
+The first draft of this note added `@` to Segno's tag set and a `named` production to its grammar. Building it showed
+a smaller way, which is what shipped: **the host recognizes `@kind` and hands Segno the plain `{…}` record.** Segno's
+grammar, its generated parser and its published package do not change, and Segno still names no kind (its decision
+13).
 
 ```
-span   := ws ( tagged | named | top )
-named  := '@' NAME record ws          NAME = [a-z][a-z0-9-]*, the manifest's propertyNames pattern
-tagged := ( '~' | '^' | '!' ) record ws    unchanged; the aliases
+@kind{…}    kind = [a-z][a-z0-9-]*, the manifest's propertyNames pattern; `{` directly after it
 ```
 
-- **`@` joins `TAGS`**, so a span's top-level bare word can no longer start with `@`. Such a span fails to parse,
-  and a span that fails to parse stays code, so `` `@ada` ``, `` `@laticent/segno` `` and `` `@Override` `` render
-  exactly as today. That was impossible while journey read `@sales` as a bare word, which is why decision 2 came
-  first.
+- **It is already code today.** Segno reads `@avatar` as a bare word and then fails at `{`, and a span that fails to
+  parse stays code. So `@kind{…}` changed no shipped deck before the host claimed it, and `` `@ada` ``,
+  `` `@laticent/segno` `` and `` `@Override` `` still render exactly as they do now.
 - **The `{` must follow the name directly.** `` `@avatar {Ada}` `` is code. The no-space rule keeps the kind name
   unambiguous, and it keeps a mention (`@ada`) from ever reading as a call.
-- **The grammar stays LL(1)**: after `@` the only path is a name, and the name ends at `{`, the one character a
-  name cannot hold. This is a claim until Segno's grammar compiler accepts it; the compiler refuses any grammar that
-  is not LL(1), and the fuzz and scaling ladder run on every change to it.
+- **No LL(1) question.** The host matches one anchored pattern (`NAMED_RE`, `lib/core/inline-code-directives.js`)
+  before Segno runs, and Segno then reads an ordinary record. That also removes the overlap with #2686, which edits
+  the grammar (§8).
 
 ### 4.2 One table, one more lead
 
@@ -201,8 +203,7 @@ door, and the manifest leaves room for it, because a new claim mode breaks no ex
 
 ## 7. What changes in the spec and the contract
 
-- **Segno:** `@` joins `TAGS`, and the `named` production joins the notation (§4.1). `notation-grammar.ts`, the
-  generated parser and the README.
+- **Segno:** no change (§4.1). The host owns the `@kind` prefix.
 - **LPM** (`spec/LPM.md`): `contributes.inline` opens to zip plugins, with `slot` and `placeholder`, and `sigil`
   stays in-tree only. The plugin-system note's trust table (§4.10) moves `inline` from in-tree-only to the code door.
   This is a contract change, so it lands before phase G freezes LPM 1.0.
@@ -210,11 +211,9 @@ door, and the manifest leaves room for it, because a new claim mode breaks no ex
 
 ## 8. Coordination with #2686
 
-The chart-authoring note (#2686, merging) also changes Segno's grammar: a `{> description}` production INSIDE a
-record. The two meet at different points (`@` before a record, `>` after its `{`), so they should compose, and a
-plugin record would get descriptions and ISO numbers for free. Both edit `notation-grammar.ts`, and both must keep
-the LL(1) bound. Whichever lands second reruns the grammar compiler, the fuzz and the scaling ladder over both
-productions, and rebases on a real conflict (HARD RULE #16).
+The chart-authoring note (#2686, merging) changes Segno's grammar: a `{> description}` production INSIDE a record.
+Since §4.1 leaves Segno's grammar alone, the two do not meet in `notation-grammar.ts` at all. The record inside
+`@kind{…}` is an ordinary Segno record, so it gets that production, and ISO numbers, for free once they land.
 
 Its phase 2 also plans that a span in a declared data slot is read by that slot's schema, not as a pill. The journey
 commit on this branch added a narrower, lint-only version (`componentReads`, `lib/core/segno-slots.js`). Phase 2 should
@@ -224,9 +223,9 @@ replace it rather than build beside it.
 
 One PR, the owner's choice, one commit per step, each leaving the tree green:
 
-1. **The grammar and the aliases.** `@` and `named` in Segno, the `@` row in the dispatch table, and the alias test:
-   every shipped `~{…}`, `^{…}` and `!{…}` span in the repo renders byte-identically in its `@kind{…}` spelling, on
-   the engine and the runtime paths (the fidelity probe).
+1. **The named form and the aliases.** The `@` row in the dispatch table, and the alias test: every shipped `~{…}`,
+   `^{…}`, `!{…}` and pill span in the repo renders byte-identically in its `@kind{…}` spelling, on the markdown-it
+   path and the DOM path. **Done** (§11).
 2. **The manifest, the resolver and lint.** `slot` and `placeholder` on inline kinds, the claim checks in §6,
    `unknown-inline-kind`, slot validation, and autocomplete after `@`.
 3. **The door.** Capture, run, splice and placeholder for zip kinds, in the Studio and the CLI, with a test plugin
@@ -242,3 +241,34 @@ untrusted plugins. The red team's brief includes the phrasing-content sanitizer 
   pool, so a fence-heavy deck cannot starve them.
 - Whether the alias spelling is the one autocomplete inserts for built-ins (shorter) or the `@` form (one rule to
   read). Proposed: insert the alias and show the `@` form beside it.
+
+## 11. Progress
+
+**2026-10-14 — step 1, the named form.** `lib/core/inline-code-directives.js` gains one row, led by `@`: it peels
+`@kind` off with `NAMED_RE`, looks the kind up among the rows that have an alias (`ALIASES`: `spark` `~`, `icon` `^`,
+`avatar` `!`, and `pill`, whose alias is the bare record), and asks that row with the alias text. So a kind needs no
+code for its named form, and the two spellings cannot drift. A kind whose plugin is off resolves to nothing, as its
+alias does, and `offPlugin` names the plugin. A name with no row (`@gantt-bar{…}`) stays `<code>` for the door to claim
+in step 3.
+- **Proved:** all 458 drawn alias spans in the repo's markdown render byte-identically in the named spelling, as an HTML
+  string and as a DOM element, with the icon and avatar drawings loaded, so an SVG is compared and not two empty
+  results (`test/unit/core/inline-code-table.test.js`). A full engine render of a deck written both ways is identical
+  apart from the escaped span, which shows what each author typed.
+- **Followed through:** `mark-off.mjs` marks an off kind's named spans, so the runtime leaves them as written;
+  team-profile reads `@avatar{…}` as a portrait when the plugin did not draw it; `lint:deck`'s per-kind diagnostics
+  (`spark-literal`, `pill-literal`, `icon-literal`, …) read a named span through its alias (`canonicalText`), so a
+  broken `@icon{nope}` warns as `^{nope}` does.
+- **The checker's pass** (maker-checker; it compared the old and new dispatcher over 167,264 spans under four
+  admission sets, and only the 18 named-form spans differed). It found what the alias test could not:
+  - **The data probes.** A browser surface fetches a data plugin's drawings only when the plugin's `detect` sees a
+    use, and the icons and avatars probes knew only `^{` and `!{`. `@icon{…}` stayed code in the Playground, and a
+    team-profile roster written with `@avatar{…}` waited for ever on data nobody fetched. Both probes now match
+    `@icon{` and `@avatar{`, and a test holds every data plugin's probe to both spellings of its kinds.
+  - **Lint advice in the author's spelling.** The `spark-too-big` resize returned a named spark unchanged (Segno
+    cannot parse `@spark{…}`); it now resizes and keeps `@spark`. A `pill-literal` fix named the alias; it now
+    names `@pill{…}`. `data-src` is replaced on the host element only, on both paths.
+  - **Gaps, not regressions** (a named span never drew before): `mixed-spelling`, the crowded-pill and stray-bracket
+    checks, completion, and Compose's object chips do not read the named form yet. Completion and Compose are steps
+    2 and 4; the three lint checks join step 2.
+- **Not yet:** autocomplete after `@`, the manifest's `slot` and `placeholder`, `unknown-inline-kind`, the door and
+  Compose (steps 2 to 4).

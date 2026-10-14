@@ -430,6 +430,16 @@ describe('lint-core: auto-fix', () => {
     assert.equal(core.lintTextWith(`${FM}## Plain\n\n- A \`{who=sales}\`\n`, vocab).some((x) => x.rule === 'pill-literal'), true);
   });
 
+  test('a named span keeps its own spelling in lint advice: a spark resize, a pill-literal fix', () => {
+    const src = `${FM}## S\n\n- A \`@spark{1 2 3 4, lg}\`\n`;
+    const [fit] = core.sparkFitFindings(src, [{ src: '@spark{1 2 3 4, lg}', why: 'wide', to: 'sm', over: 10, stillOver: false }]);
+    assert.deepEqual(fit.replace, { from: '`@spark{1 2 3 4, lg}`', to: '`@spark{1 2 3 4, sm}`' });
+    const pill = core.lintTextWith(`${FM}## P\n\n- A \`@pill{A|B, tag}\`\n`, vocab).find((x) => x.rule === 'pill-literal');
+    assert.ok(pill, 'a broken named pill warns');
+    assert.match(pill.fix, /\\@pill\{A\|B, tag\}/);
+    assert.doesNotMatch(pill.fix, /`\\\{A\|B/);
+  });
+
   test('retiredQuadrantAxis rewrites every shipped retired shape; null for an ordinary eyebrow', () => {
     assert.equal(core.retiredQuadrantAxis('Effort 0–10 → Reach 0–100'), '[{Effort, 0..10}, {Reach, 0..100}]');
     // The detached `targets` blob moves INTO the axis each number constrains.

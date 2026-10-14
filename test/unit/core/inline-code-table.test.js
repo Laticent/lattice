@@ -47,7 +47,9 @@ function corpusSpans() {
   // `^{o}` included — must come out exactly as before, with the plugin ON.
   const { KINDS } = require('../../../lib/core/inline-code-directives.js');
   const pluginReads = (t) => KINDS.some((k) => k.plugin && (k.resolve(t) || k.diagnose(t)));
-  return [...spans].filter((s) => !/\bicon\s*=/.test(s) && !pluginReads(s) && !pluginReads(s.replace(/^\\/, '')));
+  // The named form (`@spark{…}`, the inline door) is new too, and the alias test below pins it.
+  const named = (t) => table.canonicalText(t.replace(/^\\/, '')) !== t.replace(/^\\/, '');
+  return [...spans].filter((s) => !/\bicon\s*=/.test(s) && !pluginReads(s) && !pluginReads(s.replace(/^\\/, '')) && !named(s));
 }
 
 describe('the inline-code table — first-party rows are byte-identical to the hand list', () => {
@@ -299,5 +301,69 @@ describe('the inline-code table — plugin rows', () => {
     const { HOST_INLINE } = require('../../../lib/plugins/resolve');
     assert.deepEqual([...HOST_INLINE.kinds], table.FIRST_PARTY.map((k) => k.name));
     assert.deepEqual({ ...HOST_INLINE.sigils }, Object.fromEntries(table.FIRST_PARTY.filter((k) => k.sigil).map((k) => [k.sigil, k.name])));
+  });
+});
+
+describe('the named form — `@kind{…}` is its alias, on both paths (2026-10-14-plugin-inline-door.md)', () => {
+  const { window } = new JSDOM('<!doctype html><body></body>');
+  const doc = window.document;
+  // Every shipped span written with a sigil, or as an untagged pill, in the corpus: spelled the named way
+  // it must draw what its alias draws, byte for byte, on the markdown-it path and the DOM path alike.
+  const ALIAS = { '~': 'spark', '^': 'icon', '!': 'avatar' };
+  const files = execSync(`git ls-files '*.md' ${EXCLUDE_MIRRORS_SHELL}`, { cwd: ROOT }).toString().trim().split('\n');
+  const aliased = new Set();
+  for (const f of files) {
+    const text = fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/^[ \t]*(```|~~~)[\s\S]*?^[ \t]*\1/gm, '');
+    for (const m of text.matchAll(/(?<!`)`([~^!]?\{[^`\n]*)`(?!`)/g)) if (table.dispatches(m[1], null)) aliased.add(m[1]);
+  }
+  const named = (s) => (ALIAS[s[0]] ? `@${ALIAS[s[0]]}${s.slice(1)}` : `@pill${s}`);
+  // The icons and avatars draw nothing until their data is provided (an engine does it; a unit test
+  // that builds none does it itself), and nothing equals nothing: load both, and count real drawings.
+  const { provideData } = require('../../../lib/plugins/plugin-data.js');
+  provideData('icons', () => require('../../../lib/plugins/icons/icons.data.generated.js'));
+  provideData('avatars', () => require('../../../lib/plugins/avatars/avatars.data.generated.js'));
+
+  test(`every drawn alias span draws the same in its named spelling (${aliased.size} spans)`, () => {
+    assert.ok(aliased.size > 100, `expected a real corpus, got ${aliased.size} spans`);
+    for (const sig of ['~', '^', '!']) {
+      assert.ok([...aliased].some((s) => s[0] === sig && /<svg/.test(table.renderHtml(named(s), null) || '')), `a drawn ${ALIAS[sig]} in its named spelling`);
+    }
+    // Byte for byte, but for `data-src`: a drawn kind stamps the author's own span there, so an editor
+    // finds `@spark{…}` as written (the Studio's spark-fit fix keys on it), and that one attribute differs.
+    const esc = (v) => v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const src = (html, text) => (html || '').replace(` data-src="${esc(text)}"`, ' data-src=""');
+    for (const s of aliased) {
+      const a = table.renderHtml(s, null);
+      const n = table.renderHtml(named(s), null);
+      assert.equal(src(n, named(s)), src(a, s), named(s));
+      if (a?.includes(' data-src=')) assert.ok(n.includes(` data-src="${esc(named(s))}"`), `${named(s)} stamps the author's spelling`);
+      assert.equal(src(table.renderElement(doc, named(s), null)?.outerHTML, named(s)), src(table.renderElement(doc, s, null)?.outerHTML, s), `${named(s)} (DOM)`);
+      assert.equal(table.canonicalText(named(s)), s);
+    }
+  });
+
+  test('every data plugin\'s usage probe sees both spellings of its kinds, or a browser never fetches the drawings', () => {
+    const { DATA_PLUGINS } = require('../../../lib/plugins/data-probe.generated.mjs');
+    const rows = table.KINDS.filter((k) => k.plugin && k.sigil);
+    assert.ok(rows.length >= 2, 'the shipped inline kinds (icon, avatar)');
+    for (const k of rows) {
+      const probe = DATA_PLUGINS.find((d) => d.name === k.plugin);
+      if (!probe) continue;
+      assert.equal(probe.detect(`- A \`${k.sigil}{x}\``), true, `${k.plugin} probe: ${k.sigil}{`);
+      assert.equal(probe.detect(`- A \`@${k.name}{x}\``), true, `${k.plugin} probe: @${k.name}{`);
+    }
+  });
+
+  test('a named span follows its plugin: off with it, and the escape keeps it literal', () => {
+    assert.equal(table.dispatches('@icon{database}', new Set(['icons'])), false);
+    assert.equal(table.offPlugin('@icon{database}', new Set(['icons'])), 'icons');
+    assert.equal(table.escapedText('\\@icon{database}'), '@icon{database}');
+  });
+
+  test('only `@` + a known kind + `{` directly after it is a call: a mention, a scope, a spaced brace, a zip kind stay code', () => {
+    for (const t of ['@ada', '@laticent/segno', '@Override', '@avatar {Ada}', '@Icon{database}', '@gantt-bar{Design, 2}', '@state{x}', '@named{x}']) {
+      assert.equal(table.dispatches(t, null), false, t);
+      assert.equal(table.escapedText(`\\${t}`), null, `\\${t} keeps its backslash`);
+    }
   });
 });
