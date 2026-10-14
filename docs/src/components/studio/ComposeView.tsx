@@ -1991,7 +1991,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 	const closeObjEdit = React.useCallback(() => setObjEdit(null), []);
 	React.useEffect(() => {
 		let live = true;
-		import('@/playground/authoring-core.generated.js')
+		import('@/playground/authoring-door.js')
 			.then((m) => {
 				if (!live) return;
 				const kernels = (m as unknown as { inlineEditors: InlineKernels }).inlineEditors;

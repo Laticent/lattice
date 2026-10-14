@@ -248,16 +248,16 @@ describe('processEntry', () => {
 		expect(html).toContain('<link rel="modulepreload" href="/_astro/a.js">');
 	});
 
-	it('resolves the real Studio ENTRIES config end to end, including its eagerDynamicImportSuffixes', () => {
+	it('resolves the real Studio ENTRIES config end to end, and leaves the lint core to load after first paint', () => {
 		const studioEntry = ENTRIES.find((e) => e.page === 'studio/index.html');
-		expect(studioEntry.eagerDynamicImportSuffixes).toEqual(['src/playground/authoring-core.generated.js']);
+		// The lint core was the one eager-in-practice exception until 2026-10-14; it now loads after
+		// first paint through the lint door, and the build fails if it comes back to startup.
+		expect(studioEntry.eagerDynamicImportSuffixes).toBeUndefined();
+		expect(studioEntry.lazyOnlySuffixes).toEqual(expect.arrayContaining(['src/playground/authoring-core.generated.js', 'src/playground/authoring-door.js']));
 		writeDist(studioEntry.page, '<html><head></head><body></body></html>');
 		writeDist('_astro/StudioIsland.js', '// entry facade (StrictMode wrapper)');
 		writeDist('_astro/StudioShell.js', '// shell, statically imported by the wrapper');
 		writeDist('_astro/lint-kernel.js', '// lint kernel');
-		// The astro-island entry is now the StrictMode wrapper (StudioIsland),
-		// which statically imports StudioShell; the eager lint-kernel is reached
-		// via StudioShell's dynamic import, still inside the entry's static closure.
 		const graph = {
 			'_astro/StudioIsland.js': chunk({ facadeModuleId: '/repo/src/components/studio/StudioIsland.tsx', imports: ['_astro/StudioShell.js'] }),
 			'_astro/StudioShell.js': chunk({ facadeModuleId: '/repo/src/components/studio/StudioShell.tsx', dynamicImports: ['_astro/lint-kernel.js'] }),
@@ -265,7 +265,8 @@ describe('processEntry', () => {
 		};
 		processEntry(graph, studioEntry, tmp);
 		const html = fs.readFileSync(path.join(tmp, studioEntry.page), 'utf8');
-		expect(html).toContain('<link rel="modulepreload" href="/_astro/lint-kernel.js">');
+		expect(html).toContain('<link rel="modulepreload" href="/_astro/StudioShell.js">');
+		expect(html).not.toContain('lint-kernel.js');
 	});
 });
 

@@ -48,7 +48,8 @@ describe('plugin-admission — the Studio readers follow the deck', () => {
 		expect(rail(`---\nplugins: [math]\n---\n${DECK}`)).toBe(2);
 	});
 
-	it('the lint bundle\'s own parser copy is switched too', () => {
+	it('the lint bundle\'s own parser copy is switched too, once the lint door has loaded it', async () => {
+		await import('@/playground/authoring-door.js');
 		narrowTo(null);
 		followDeckAdmission(DECK);
 		const before = lintGeneration();

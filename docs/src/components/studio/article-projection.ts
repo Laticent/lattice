@@ -39,7 +39,7 @@ import { buildDeckRender, type DeckRender, type ExtraTheme, loadDeckRenderFonts 
 // `docs/e2e/studio-warm-offline.spec.ts` is the check.
 const loadDeckExport = () => import('./export/deck-export.js');
 const loadRemoteRef = () => import('../../../../lib/core/remote-ref.js');
-const loadAuthoringCore = () => import('@/playground/authoring-core.generated.js');
+const loadAuthoringCore = () => import('@/playground/authoring-door.js');
 const loadPlayerPrune = () => import('@/playground/player-prune.generated.js');
 const loadPlayerCore = () => import('@/playground/player-core.generated.js');
 const loadSanitizeStyle = () => import('../../../../lib/core/sanitize-style-text.mjs');

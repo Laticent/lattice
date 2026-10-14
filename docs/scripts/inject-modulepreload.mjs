@@ -19,11 +19,9 @@
 // set (never following dynamicImports by default — those are intentionally
 // lazy, e.g. Fabricate's React.lazy tab; eagerly preloading them would defeat
 // their own code-splitting) PLUS any explicitly allowlisted "eager in
-// practice" dynamic imports (see ENTRIES' `eagerDynamicImportSuffixes` —
-// Studio's lint-kernel chunk is reached only via a dynamic import() but
-// CodeMirror's `linter()` extension loads it automatically shortly after
-// every real mount, not gated by user action, so the blanket
-// dynamicImports-exclusion rationale doesn't hold for it), and injects
+// practice" dynamic imports (see ENTRIES' `eagerDynamicImportSuffixes`; no
+// entry uses one today — the Studio's lint core was the last, and it now
+// loads after first paint by design), and injects
 // <link rel="modulepreload"> for the flattened set into the built page's
 // <head>. The chunk-graph.json is an internal build artifact — deleted at
 // the end, never shipped.
@@ -51,13 +49,9 @@ const ENTRIES = [
 		// whose static closure we preload; it statically imports StudioShell, so
 		// the shell + its deps are still fully covered.
 		sourceSuffix: 'src/components/studio/StudioIsland.tsx',
-		// Editor.tsx's loadLintCore() dynamically imports this for CodeMirror's
-		// linter() extension, which fires automatically on/shortly after mount
-		// whenever build-time lintVocab resolves — true in every production
-		// Studio load (Editor.tsx: `useRealLint = !!lintVocab?.names`, and
-		// studio.astro always passes a real lintVocab). Not a conditional
-		// feature a user opts into, unlike Fabricate's lazy tab.
-		eagerDynamicImportSuffixes: ['src/playground/authoring-core.generated.js'],
+		// The lint core (authoring-core) was preloaded here as "eager in practice" until 2026-10-14.
+		// It now loads after first paint through the lint door, so it is listed in lazyOnlySuffixes
+		// below instead (engineering/decisions/2026-10-14-engine-spine.md §5).
 		// Modules that must NOT be in the Studio's startup closure. The six panels load on first
 		// open, and `read-along-core` marks the narration / text-to-speech stack whose last two
 		// startup holders were Share and Workspace (engineering/decisions/
@@ -73,6 +67,9 @@ const ENTRIES = [
 			'src/components/studio/SlideContext.tsx',
 			'src/components/studio/LensesPanel.tsx',
 			'src/playground/read-along-core.generated.js',
+			// The lint core and its door: after first paint, never at startup (spine note §5).
+			'src/playground/authoring-core.generated.js',
+			'src/playground/authoring-door.js',
 		],
 	},
 	// PlaygroundIsland is the StrictMode wrapper the astro-island loads; it
