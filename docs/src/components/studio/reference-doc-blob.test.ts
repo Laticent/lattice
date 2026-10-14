@@ -101,6 +101,17 @@ describe('records written before PDFs were binary', () => {
 		expect((await recordToDoc(rec)).dataUrl).toBe(urlOf(PDF));
 	});
 
+	it('are rewritten typed as a PDF and sized from the bytes, whatever the old row claimed', async () => {
+		const { putAsset } = await import('./library/asset-store.js');
+		await putAsset({ kind: 'refdoc', name: 'odd.pdf', docKind: 'pdf', dataUrl: `data:text/html;base64,${Buffer.from(PDF).toString('base64')}`, bytes: 1, addedAt: 5 });
+		expect(await migrateLegacyRefDocs()).toBe(1);
+		const [raw] = await rawRows();
+		expect((raw.blob as Blob).type).toBe('application/pdf');
+		expect((raw.blob as Blob).size).toBe(PDF.length);
+		expect(raw.bytes).toBe(PDF.length);
+		expect(raw.dataUrl).toBeUndefined();
+	});
+
 	it('are rewritten as binary once, keeping their id, name and date', async () => {
 		await legacy();
 		const [before] = await listRefDocs();

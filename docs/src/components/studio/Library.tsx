@@ -297,7 +297,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	React.useEffect(() => {
 		if (open) {
 			reload();
-			// Once per open: a PDF saved as base64 text before PDFs were written as binary is rewritten as its
+			// On open (and again when the effect re-runs on a deck switch, which is harmless: the rewrite is idempotent): a PDF saved as base64 text before PDFs were written as binary is rewritten as its
 			// bytes. A compare-and-swap, so a doc saved over or deleted meanwhile is left alone; a failure keeps
 			// the text record, which every build reads.
 			void migrateLegacyRefDocs().catch(() => {});

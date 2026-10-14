@@ -18,12 +18,13 @@ export type RefDocRecord = {
 	docKind: 'text' | 'pdf';
 	text?: string;
 	/** A PDF's own bytes, stored as binary: base64 text would be a third larger on disk, and every list read
-	 *  would hold each PDF as a string. Read now; written once `WRITE_PDFS_AS_BINARY` is on. */
+	 *  would hold each PDF as a string. What a PDF is written as (`WRITE_PDFS_AS_BINARY`). */
 	blob?: Blob;
 	/** Only where an engine refused to store a `Blob` (Safari in a private window): the same bytes as an
 	 *  ArrayBuffer, rebuilt into `blob` on the way out. */
 	data?: ArrayBuffer;
-	/** A PDF as base64 text: what every build reads, and what is written until `WRITE_PDFS_AS_BINARY` is on. */
+	/** A PDF as base64 text: a record from before PDFs were binary (rewritten when the Library opens), or one written
+	 *  with `{ binary: false }`. Every build reads it. */
 	dataUrl?: string;
 	bytes: number;
 	addedAt: number;
@@ -106,8 +107,11 @@ export async function migrateLegacyRefDocs(): Promise<number> {
 		if (!rec.dataUrl || rec.blob) continue;
 		try {
 			if (await swapLegacyRefDoc(rec, dataUrlToBlob(rec.dataUrl))) n++;
-		} catch {
-			/* undecodable text, or a browser that will not store the Blob: the legacy record keeps working */
+		} catch (e) {
+			// Undecodable text, or a browser that will not store a Blob: the legacy record keeps working. A refused
+			// Blob (Safari in a private window) refuses every row the same way, so stop instead of decoding each
+			// PDF on the main thread for nothing (checker).
+			if ((e as { name?: string } | null)?.name === 'DataCloneError') break;
 		}
 	}
 	return n;
@@ -132,7 +136,9 @@ export async function swapLegacyRefDoc(rec: RefDocRecord, blob: Blob): Promise<b
 			const now = get.result as RefDocRecord | undefined;
 			if (!now || now.dataUrl !== rec.dataUrl || now.blob || now.data) return;
 			const { dataUrl: _legacy, ...rest } = now;
-			store.put({ ...rest, blob });
+			// Typed as a PDF and sized from the bytes, the way `saveRefDoc` stores one: a row written before #2672 may say
+			// `text/html` or claim any size, and this rewrite is the only pass that touches it (checker).
+			store.put({ ...rest, blob: blob.slice(0, blob.size, 'application/pdf'), bytes: blob.size });
 			wrote = true;
 		};
 	});

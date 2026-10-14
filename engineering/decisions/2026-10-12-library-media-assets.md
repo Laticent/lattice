@@ -698,10 +698,14 @@ The author's call, recorded here: flip it now.
   stores the PDF's bytes as a `Blob` with no base64 text. `{ binary: false }` still writes the text every build reads.
 - The Library calls `migrateLegacyRefDocs` once each time it opens. Each old record is rewritten by a compare-and-swap
   inside one transaction, so a doc saved over or deleted between the read and the write is left alone, and a record that
-  cannot be decoded keeps its text.
+  cannot be decoded keeps its text. The rewrite stores the bytes typed as `application/pdf` and sized from what was
+  decoded, as `saveRefDoc` does: a row from before #2672 may say `text/html` or claim any size, and this is the only pass
+  that touches it (found by the checker on this change). A browser that refuses a Blob refuses every row, so the first
+  `DataCloneError` stops the pass.
 - **Measured** in real Chromium (`docs/e2e/library-refdoc-binary.spec.ts`): a 600,000-byte PDF added in the Library is
-  stored as a 600,000-byte Blob with no text (as base64 it was an 800,000-character string, 4/3 of the file), and a
-  seeded base64 record is rewritten as a Blob of its own size the next time the Library opens.
+  stored as a 600,000-byte Blob typed `application/pdf` with no text (as base64 it would be 800,000 characters, 4/3 of the
+  file, by arithmetic), and a seeded base64 record typed `octet-stream` and claiming 1 byte is rewritten as a 3,000-byte
+  `application/pdf` Blob the next time the Library opens.
 - **What a rollback now costs.** A build from before #2672 cannot see a PDF stored this way. With no users on older
   builds, that is a developer's own browser at most; their backup still carries every PDF as base64.
 
