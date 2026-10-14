@@ -7,12 +7,13 @@
 // siblings: with no IndexedDB a read returns an empty shelf and never throws.
 
 import { deleteAsset, listAssets, putAsset } from '@/components/studio/library/asset-store.js';
+import type { StudioPluginKind } from '@/lib/code-packages/door';
 
 /** A saved zip plugin as the Studio uses it. */
 export type StudioPluginRecord = {
 	id: string;
 	name: string; // lowercase slug: the name a deck writes in `plugins:`
-	fence: string; // the one fence it owns (```fence)
+	fence: string; // the one fence it owns (```fence), or '' for a plugin of inline kinds only
 	code: string; // its `render.js`, as text
 	/** The plugin's `styles.css`, kept for the data-layer step that delivers it; not yet applied. */
 	css: string;
@@ -20,15 +21,17 @@ export type StudioPluginRecord = {
 	description: string;
 	/** The manifest's `placeholder` hint, already reduced by `placeholderHint`. */
 	placeholder?: { placement?: string; aspect?: string; size?: string };
+	/** Its inline kinds (`@kind{…}`, 2026-10-14-plugin-inline-door.md): name, slot spec, placeholder size, title. */
+	kinds?: StudioPluginKind[];
 };
 
-type PluginAssetRecord = { id: string; kind: 'plugin'; name: string; fence?: string; text?: string; css?: string; title?: string; description?: string; placeholder?: { placement?: string; aspect?: string; size?: string }; addedAt?: number };
+type PluginAssetRecord = { id: string; kind: 'plugin'; name: string; fence?: string; text?: string; css?: string; title?: string; description?: string; placeholder?: { placement?: string; aspect?: string; size?: string }; kinds?: StudioPluginKind[]; addedAt?: number };
 
-const toRecord = (a: PluginAssetRecord): StudioPluginRecord => ({ id: a.id, name: a.name, fence: a.fence ?? '', code: a.text ?? '', css: a.css ?? '', title: a.title ?? a.name, description: a.description ?? '', ...(a.placeholder ? { placeholder: a.placeholder } : {}) });
+const toRecord = (a: PluginAssetRecord): StudioPluginRecord => ({ id: a.id, name: a.name, fence: a.fence ?? '', code: a.text ?? '', css: a.css ?? '', title: a.title ?? a.name, description: a.description ?? '', ...(a.placeholder ? { placeholder: a.placeholder } : {}), ...(Array.isArray(a.kinds) && a.kinds.length ? { kinds: a.kinds } : {}) });
 
 /** Save a plugin; re-saving the same name replaces it in place (the store keys on kind + name, with a history snapshot). */
-export async function saveStudioPlugin(input: { name: string; fence: string; code: string; css?: string; title?: string; description?: string; placeholder?: { placement?: string; aspect?: string; size?: string } }, opts?: { historyLabel?: string }): Promise<StudioPluginRecord> {
-	const stored = (await putAsset({ kind: 'plugin', name: input.name, fence: input.fence, text: input.code, css: input.css ?? '', title: input.title ?? input.name, description: input.description ?? '', ...(input.placeholder ? { placeholder: input.placeholder } : {}), addedAt: Date.now() }, opts)) as PluginAssetRecord;
+export async function saveStudioPlugin(input: { name: string; fence: string; code: string; css?: string; title?: string; description?: string; placeholder?: { placement?: string; aspect?: string; size?: string }; kinds?: StudioPluginKind[] }, opts?: { historyLabel?: string }): Promise<StudioPluginRecord> {
+	const stored = (await putAsset({ kind: 'plugin', name: input.name, fence: input.fence, text: input.code, css: input.css ?? '', title: input.title ?? input.name, description: input.description ?? '', ...(input.placeholder ? { placeholder: input.placeholder } : {}), ...(input.kinds?.length ? { kinds: input.kinds } : {}), addedAt: Date.now() }, opts)) as PluginAssetRecord;
 	return toRecord(stored);
 }
 

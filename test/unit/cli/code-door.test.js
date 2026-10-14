@@ -559,7 +559,7 @@ describe('codeSyntaxRefusal: a dynamic import(), parsed', () => {
     assert.match(refusePackage(plugin({}, { contributes: { fences: { python: {} } } })), /code language Lattice highlights/);
     assert.match(refusePackage(plugin({}, {}, 'chart')), /class Lattice uses/);
     assert.match(refusePackage(plugin({ files: { 'gantt-plugin.render.js': `import("x");\n${code}` } })), /dynamic `import\(\)`/);
-    assert.match(refusePackage({ type: 'plugin', name: 'glow', code: false, files: {}, roles: {} }), /declares 0 fences/);
+    assert.match(refusePackage({ type: 'plugin', name: 'glow', code: false, files: {}, roles: {} }), /no fence and no inline kind/);
   });
 
 });

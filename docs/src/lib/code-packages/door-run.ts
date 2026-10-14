@@ -5,10 +5,11 @@
 // the Playground's first load (docs/route-budget.json).
 
 import DOMPurify from 'dompurify';
-import { doorFinish, doorFinishFence } from '../../../../lib/core/door-attr.mjs';
+import { doorFinish, doorFinishFence, doorFinishInline } from '../../../../lib/core/door-attr.mjs';
 import { createSlideSanitizer } from '../../../../lib/core/sanitize-slide-html.mjs';
+import { compileSlot } from '../../../../lib/core/segno-spec.js';
 import { captureHook, claimKey, engineClaimsOf, SLIDE_MS, slideInput, spliced, substituteHook, withFailureNote } from '../../../../lib/packages/code-door-core.mjs';
-import { activePluginNames, aspectOfOutput, captureFences, fenceCaptureNotes, fenceInput, fenceKey, fenceMarkup, fenceNamespace, fenceOutputNote, fencePlaceholder, placeholderHint, planFencePlugins, rebuiltFromAlternatives, substituteFences, withFenceNote } from '../../../../lib/packages/code-door-fence.mjs';
+import { activePluginNames, aspectOfOutput, captureFences, fenceCaptureNotes, fenceInput, fenceKey, fenceMarkup, fenceNamespace, fenceOutputNote, fencePlaceholder, inlineInput, inlineMarkup, inlinePlaceholder, placeholderHint, planFencePlugins, rebuiltFromAlternatives, substituteFences, withFenceNote } from '../../../../lib/packages/code-door-fence.mjs';
 import FENCE_DOOR from '../../../../lib/packages/fence-door.generated.json';
 import SHIPPED from '../../../../lib/packages/packages.generated.json';
 import { deckPluginList } from '../../../../lib/plugins/deck-plugins.mjs';
@@ -42,6 +43,7 @@ const ENGINE_CLAIMS: readonly string[] = engineClaimsOf(SHIPPED);
 // and pinned to the CLI door's live reads by test/unit/cli/fence-door-data.test.js.
 const REBUILT = rebuiltFromAlternatives(FENCE_DOOR.rebuilt);
 const SHIPPED_FENCES: readonly string[] = FENCE_DOOR.shippedFences;
+const SHIPPED_KINDS: readonly string[] = FENCE_DOOR.shippedKinds;
 const HIGHLIGHT_LANGUAGES = new Set<string>(FENCE_DOOR.highlightLanguages);
 const RENDER_BUDGET_MS = 30_000;
 /**
@@ -88,6 +90,33 @@ async function frameFor(p: { code: string; sha256: string }, frames: Map<string,
 	return next;
 }
 
+/**
+ * The fields an inline span's record holds, read by its kind's declared slot (2026-10-14-plugin-inline-door.md §4.3),
+ * as plain data the worker can be handed; null when the kind declares no slot, the slot does not compile, or the
+ * record does not read. Compiled once per plugin version and kind. The renderer still gets the span's text, so a
+ * kind with no slot reads its own record.
+ */
+type InlineSlot = { read: (text: string) => { ok: boolean; value?: unknown } };
+const slots = new Map<string, InlineSlot | null>();
+function inlineFields(p: StudioPlugin, kind: string, text: string): Record<string, unknown> | null {
+	const key = `${p.sha256}\u0000${kind}`;
+	if (!slots.has(key)) {
+		const spec = p.kinds?.find((k) => k.name === kind)?.slot;
+		let compiled: InlineSlot | null = null;
+		try {
+			compiled = spec && typeof spec === 'object' ? (compileSlot(spec as Parameters<typeof compileSlot>[0], `${p.name}.inline.${kind}`) as unknown as InlineSlot) : null;
+		} catch {
+			compiled = null;
+		}
+		if (slots.size > 400) slots.clear();
+		slots.set(key, compiled);
+	}
+	const slot = slots.get(key);
+	if (!slot) return null;
+	const read = slot.read(text.slice(kind.length + 1));
+	return read.ok && read.value && typeof read.value === 'object' ? (JSON.parse(JSON.stringify(read.value)) as Record<string, unknown>) : null;
+}
+
 let sanitizeWith: ((html: string, filter: unknown) => string) | null = null;
 function doorSanitizer() {
 	if (!sanitizeWith) {
@@ -132,21 +161,27 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 	// THE PLUGINS' FENCES. Which plugins run, and a note for each that does not, are the CLI door's rules
 	// (planFencePlugins): a fence name two plugins claim, a shipped plugin's, a name whose prefix overlaps another's.
 	const installed = new Map(studioPlugins());
-	const plan = planFencePlugins([...installed.values()].map((p) => ({ name: p.name, fence: p.fence })), { shipped: SHIPPED_FENCES, isLanguage: (n: string) => HIGHLIGHT_LANGUAGES.has(n) });
-	const offered = new Map(plan.run.map((p) => [p.name, installed.get(p.name) as StudioPlugin]));
-	const fences = new Map([...offered.values()].map((p) => [p.fence, p.name]));
+	const plan = planFencePlugins(
+		[...installed.values()].map((p) => ({ name: p.name, fence: p.fence, kinds: (p.kinds ?? []).map((k) => k.name) })),
+		{ shipped: SHIPPED_FENCES, isLanguage: (n: string) => HIGHLIGHT_LANGUAGES.has(n), shippedKinds: SHIPPED_KINDS },
+	);
+	const offered = new Map(plan.run.map((p: { name: string }) => [p.name, installed.get(p.name) as StudioPlugin]));
+	// What runs by what it draws: a fence or a kind two plugins share is in neither map (planFencePlugins).
+	const fences = plan.fences as Map<string, string>;
+	const kinds = plan.kinds as Map<string, string>;
 	const pluginDigestOf = new Map([...offered.values()].map((p) => [p.name, p.sha256]));
 	// `plugins:` in the deck's front matter is what ACTIVATES a plugin (decision 11); the rest are offered.
-	const declared = fences.size ? activePluginNames(source, installed.keys()) : new Set<string>();
+	const drawsAny = fences.size > 0 || kinds.size > 0;
+	const declared = drawsAny ? activePluginNames(source, installed.keys()) : new Set<string>();
 	const cap = captureHook(names, { baseUrl, engineClaims: ENGINE_CLAIMS }) as { hook: Hook; claims: Claim[] };
-	const capFences = captureFences(fences, { names, engineClaims: ENGINE_CLAIMS, rebuilt: REBUILT });
+	const capFences = captureFences(fences, { names, engineClaims: ENGINE_CLAIMS, rebuilt: REBUILT, kinds });
 	// Every installed plugin's name goes to the engine, refused or not, so a deck that lists one is not told no plugin has that name.
 	const externalPlugins = [...installed.keys()];
-	const first = PG.render(source, theme, { ...engineOpts, codePackages: cap.hook, ...(externalPlugins.length ? { externalPlugins } : {}), ...(fences.size ? { codeFences: capFences } : {}) }) as R;
+	const first = PG.render(source, theme, { ...engineOpts, codePackages: cap.hook, ...(externalPlugins.length ? { externalPlugins } : {}), ...(drawsAny ? { codeFences: capFences } : {}) }) as R;
 	// Notes about plugins the deck lists (a refused plugin says why, even when no plugin runs); not about every installed one.
 	const listedNames = installed.size ? new Set(deckPluginList(source)) : new Set<string>();
 	const planNotes = plan.notes.filter((n: string) => [...listedNames].some((name) => new RegExp(`(^|[^a-z0-9-])${name.replace(/[^a-z0-9-]/g, '')}([^a-z0-9-]|$)`).test(n)));
-	const notes = [...planNotes, ...(fences.size ? fenceCaptureNotes(capFences, fences) : [])];
+	const notes = [...planNotes, ...(drawsAny ? fenceCaptureNotes(capFences, fences) : [])];
 	if (!cap.claims.length && !capFences.claims.length) {
 		if (reporting) report({ unapproved: [], failed: [], ...(notes.length ? { notes } : {}) });
 		return first;
@@ -222,6 +257,13 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 		if (!p) continue;
 		const key = fenceKey(c, p.sha256);
 		if (sections.has(key)) continue;
+		const kindOf = (c as { inline?: string }).inline;
+		if (!declared.has(p.name) && kindOf) {
+			// An inline span of an unlisted plugin: the inline chip, sized by the kind's declared placeholder.
+			sections.set(key, inlinePlaceholder(p.name, kindOf, p.kinds?.find((k) => k.name === kindOf)?.placeholder));
+			unlisted.add(p.name);
+			continue;
+		}
 		if (!declared.has(p.name)) {
 			// Not in the deck's `plugins:`: nothing runs, and a drawn placeholder stands where the block is.
 			// The plugin's declared placement; for a figure, the proportions it last DREW at win over the declared ones.
@@ -231,15 +273,17 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 			unlisted.add(p.name);
 			continue;
 		}
+		// A span that cannot draw keeps its code: a note is a block, and a block in a sentence breaks it. The strip says why.
+		const notDrawn = (why: string) => (kindOf ? c.block : withFenceNote(c.block, c.pkg, why));
 		if (!isPluginApproved(p)) {
 			unapproved.set(`plugin/${p.name}`, p);
-			sections.set(key, withFenceNote(c.block, c.pkg, 'its code has not been approved in this browser'));
+			sections.set(key, notDrawn('its code has not been approved in this browser'));
 			continue;
 		}
 		const known = memo.get(key);
 		if (known) {
 			fenceTotal += rawLength.get(key) ?? known.length;
-			sections.set(key, fenceTotal > RENDER_OUTPUT_MAX ? withFenceNote(c.block, c.pkg, fenceOutputNote(RENDER_OUTPUT_MAX)) : known);
+			sections.set(key, fenceTotal > RENDER_OUTPUT_MAX ? notDrawn(fenceOutputNote(RENDER_OUTPUT_MAX)) : known);
 			continue;
 		}
 		let why: string | null = null;
@@ -248,15 +292,16 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 		if (Date.now() - started > RENDER_BUDGET_MS) why = `the render's ${RENDER_BUDGET_MS / 1000} s budget for code packages ran out`;
 		else {
 			try {
-				const raw = await (await frameFor(p, frames, true)).runFence(fenceInput(c), SLIDE_MS);
+				const input = kindOf ? inlineInput(c as Parameters<typeof inlineInput>[0], inlineFields(p, kindOf, c.body)) : fenceInput(c);
+				const raw = await (await frameFor(p, frames, true)).runFence(input, SLIDE_MS);
 				fenceTotal += raw.length;
 				rawLen = raw.length;
 				if (fenceTotal > RENDER_OUTPUT_MAX) throw new Error(fenceOutputNote(RENDER_OUTPUT_MAX));
-				const done = (doorFinishFence as DoorFinishFence)(document, doorSanitizer(), raw, fenceNamespace(p.name));
+				const done = ((kindOf ? doorFinishInline : doorFinishFence) as DoorFinishFence)(document, doorSanitizer(), raw, fenceNamespace(p.name));
 				if ('error' in done) why = done.error;
 				else {
-					out = fenceMarkup(c.pkg, done.html);
-					rememberAspect(p.sha256, aspectOfOutput(done.html));
+					out = kindOf ? inlineMarkup(c.pkg, kindOf, done.html) : fenceMarkup(c.pkg, done.html);
+					if (!kindOf) rememberAspect(p.sha256, aspectOfOutput(done.html));
 					// Serialization expands text (a non-breaking space is six characters): the cap counts what is spliced in too.
 					if (out.length > raw.length) {
 						fenceTotal += out.length - raw.length;
@@ -269,8 +314,8 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 			}
 		}
 		if (why) {
-			failed.push({ name: c.pkg, slide: c.slide + 1, why });
-			const noted = withFenceNote(c.block, c.pkg, why);
+			failed.push({ name: c.pkg, slide: c.slide + 1, why: kindOf ? `@${kindOf}{…}: ${why}` : why });
+			const noted = notDrawn(why);
 			sections.set(key, noted);
 			if (!/budget|was stopped|did not finish|not loaded|in all/.test(why)) remember(key, noted);
 		} else {
@@ -285,6 +330,6 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 		...engineOpts,
 		codePackages: substituteHook(names, sections, digestOf, { baseUrl, engineClaims: ENGINE_CLAIMS }),
 		...(externalPlugins.length ? { externalPlugins } : {}),
-		...(fences.size ? { codeFences: substituteFences(fences, sections, pluginDigestOf, { names, engineClaims: ENGINE_CLAIMS, rebuilt: REBUILT }) } : {}),
+		...(drawsAny ? { codeFences: substituteFences(fences, sections, pluginDigestOf, { names, engineClaims: ENGINE_CLAIMS, rebuilt: REBUILT, kinds }) } : {}),
 	}) as R;
 }

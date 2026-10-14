@@ -1281,9 +1281,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	}, [localComponents]);
 	React.useEffect(() => {
 		// The editor's lint and the engine both know these names, so a deck that lists one is not called wrong.
-		setExternalPlugins(localPlugins.map((p) => p.name), localPlugins.map((p) => p.fence));
+		setExternalPlugins(
+			localPlugins.map((p) => p.name),
+			localPlugins.map((p) => p.fence),
+			localPlugins.map((p) => (p.kinds ?? []).map((k) => k.name)),
+		);
 		let live = true;
-		setPlugins(localPlugins.map((p) => ({ name: p.name, fence: p.fence, code: p.code, ...(p.placeholder ? { placeholder: p.placeholder } : {}) }))).then(
+		setPlugins(localPlugins.map((p) => ({ name: p.name, fence: p.fence, code: p.code, ...(p.placeholder ? { placeholder: p.placeholder } : {}), ...(p.kinds?.length ? { kinds: p.kinds } : {}) }))).then(
 			() => { if (live) setCodeStamp(codePackagesStamp()); },
 			(e) => console.warn('lattice: the plugin door did not load', e),
 		);

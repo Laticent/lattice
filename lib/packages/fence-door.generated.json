@@ -240,6 +240,14 @@
     "math",
     "mermaid"
   ],
+  "shippedKinds": [
+    "avatar",
+    "icon",
+    "named",
+    "pill",
+    "spark",
+    "state"
+  ],
   "highlightLanguages": [
     "1c",
     "abnf",

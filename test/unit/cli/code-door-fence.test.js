@@ -10,7 +10,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { fenceBlocks, claimedFences, fenceInput, fenceKey, fenceMarkup, fenceId, fenceNamespace, pluginNameConflicts, replaceFences, withFenceNote, captureFences, substituteFences, decodeFenceBody, MAX_FENCE_CHARS, MAX_FENCES_PER_PASS } = require('../../../lib/packages/code-door-fence.mjs');
+const { fenceBlocks, claimedFences, fenceInput, fenceKey, fenceMarkup, inlineSpans, inlineInput, inlineMarkup, inlinePlaceholder, MAX_INLINE_CHARS, fenceId, fenceNamespace, pluginNameConflicts, replaceFences, withFenceNote, captureFences, substituteFences, decodeFenceBody, MAX_FENCE_CHARS, MAX_FENCES_PER_PASS } = require('../../../lib/packages/code-door-fence.mjs');
 const { rebuiltAlternatives, rebuiltBy, GENERIC } = require('../../../lib/transformers/rebuilt-classes.js');
 const { refusePluginCode, workerScript, PLUGIN_DATA_CONTRIBUTIONS, pluginConsentText, FENCE_NAME_RE } = require('../../../lib/packages/code-shape.mjs');
 const { ENGINE_CLAIMS, untrustedCodePackages } = require('../../../lib/packages/code-door.js');
@@ -117,6 +117,66 @@ describe('what a renderer is handed', () => {
     const out = withFenceNote(pre('gantt', 'x'), 'gantt-plugin', 'it threw <b>\nboom');
     assert.ok(out.startsWith(pre('gantt', 'x')), 'the author’s block is still there');
     assert.match(out, /<p data-package-error="gantt-plugin" role="note">The plugin “gantt-plugin” did not draw this block: it threw &lt;b&gt;\?boom<\/p>$/);
+  });
+});
+
+describe('the inline door: `@kind{…}` spans (2026-10-14-plugin-inline-door.md §4.4)', () => {
+  const md = '---\ntheme: indaco\n---\n\n## One\n\n- Build `@gantt-bar{Design, 2}` then `@gantt-bar{Ship, 3}`\n- Escaped `\\@gantt-bar{x}`, prose `@gantt-bar{a} b`, a mention `@ada`\n\n```gantt\nA 1\n```\n\n```md\n`@gantt-bar{in a fence}`\n```\n\n---\n\n<!-- _class: tally -->\n\n## Claimed\n\n- `@gantt-bar{C}`\n';
+  const fences = new Map([['gantt', 'gantt-plugin']]);
+  const kinds = new Map([['gantt-bar', 'gantt-plugin']]);
+  const slides = { names: ['tally'], engineClaims: ENGINE_CLAIMS };
+  const render = (src, door) => engine.createEngine().render(src, 'indaco', { codeFences: door }).html;
+
+  test('the scanner takes a plain code span outside <pre>, decoded, and only a whole `@kind{…}`', () => {
+    const html = '<p><code>@k{a &amp; b}</code> <code data-lat-escaped>@k{x}</code> <code>@k{a} b</code> <code>@other{x}</code></p><pre><code>@k{in pre}</code></pre><p><code data-lattice-off="p">@k{off}</code><code><b>@k{x}</b></code></p>';
+    assert.deepEqual(inlineSpans(html, ['k']).map((x) => [x.kind, x.text]), [['k', '@k{a & b}']]);
+    assert.deepEqual(inlineSpans(html, []), []);
+  });
+
+  test('capture claims spans and fences in document order, on one budget, and leaves a claimed slide alone', () => {
+    const cap = captureFences(fences, { ...slides, kinds });
+    render(md, cap);
+    assert.deepEqual(cap.claims.map((c) => [c.pkg, c.inline ?? `fence:${c.fence}`, c.slide, c.body]), [
+      ['gantt-plugin', 'gantt-bar', 0, '@gantt-bar{Design, 2}'],
+      ['gantt-plugin', 'gantt-bar', 0, '@gantt-bar{Ship, 3}'],
+      ['gantt-plugin', 'fence:gantt', 0, 'A 1\n'],
+    ]);
+    assert.equal(new Set(cap.claims.map((c) => c.id)).size, 3);
+  });
+
+  test('substitute puts each result in its span, and a span with no result keeps its code', () => {
+    const cap = captureFences(fences, { ...slides, kinds });
+    render(md, cap);
+    const digestOf = new Map([['gantt-plugin', 'sha']]);
+    const results = new Map(cap.claims.filter((c) => c.inline).slice(0, 1).map((c) => [fenceKey(c, 'sha'), inlineMarkup(c.pkg, c.inline, '<b>bar</b>')]));
+    const out = render(md, substituteFences(fences, results, digestOf, { ...slides, kinds }));
+    assert.match(out, /Build <span data-lattice-plugin="gantt-plugin" data-kind="gantt-bar"><b>bar<\/b><\/span> then <code>@gantt-bar\{Ship, 3\}<\/code>/);
+    assert.doesNotMatch(out, /data-package-error="gantt-plugin" role="note">[^<]*span/, 'a span with no result carries no block note');
+  });
+
+  test('a span and a fence never share a memo key; the input says which kind it is', () => {
+    const c = { pkg: 'p', id: 'i', body: 'x' };
+    assert.notEqual(fenceKey({ ...c, inline: 'k' }, 's'), fenceKey(c, 's'));
+    assert.notEqual(fenceKey({ ...c, inline: 'k' }, 's'), fenceKey({ ...c, inline: 'j' }, 's'));
+    assert.deepEqual(inlineInput({ inline: 'k', body: '@k{x}', id: 'i' }, { who: 'x' }), { kind: 'k', text: '@k{x}', fields: { who: 'x' }, id: 'i' });
+    assert.deepEqual(inlineInput({ inline: 'k', body: '@k{x}', id: 'i' }), { kind: 'k', text: '@k{x}', fields: null, id: 'i' });
+  });
+
+  test('a span past the cap is reported, not claimed', () => {
+    const long = `---\ntheme: indaco\n---\n\n## L\n\n- \`@gantt-bar{${'x'.repeat(MAX_INLINE_CHARS)}}\`\n`;
+    const cap = captureFences(fences, { ...slides, kinds });
+    render(long, cap);
+    assert.equal(cap.claims.length, 0);
+    assert.deepEqual(cap.tooLong, [{ pkg: 'gantt-plugin', slide: 0, inline: 'gantt-bar' }]);
+  });
+
+  test('the root and the placeholder are spans: a word stays in its line, and the placeholder carries no author text', () => {
+    assert.equal(inlineMarkup('p', 'k', '<b>x</b>'), '<span data-lattice-plugin="p" data-kind="k"><b>x</b></span>');
+    assert.doesNotMatch(inlineMarkup('a"><script>', 'k', ''), /<script/i);
+    const ph = inlinePlaceholder('gantt-plugin', 'gantt-bar', { size: 'lg' });
+    assert.match(ph, /^<span data-lattice-plugin-off="gantt-plugin" data-placement="chip" data-inline data-size="lg" role="note"/);
+    assert.match(inlinePlaceholder('p', 'k', { size: 'huge' }), /data-size="sm"/);
+    assert.doesNotMatch(ph, /<div/);
   });
 });
 
@@ -336,7 +396,7 @@ describe('the gate for a plugin’s one script', () => {
   test('refuses the contribution points that run code outside the sandbox, naming each', () => {
     const why = refusePluginCode(plugin({}, { contributes: { fences: { gantt: {} }, syntax: {}, hydrate: {}, bake: {} } }));
     assert.match(why, /syntax, hydrate, bake/);
-    assert.deepEqual([...PLUGIN_DATA_CONTRIBUTIONS], ['fences', 'styles', 'diagnostics']);
+    assert.deepEqual([...PLUGIN_DATA_CONTRIBUTIONS], ['fences', 'inline', 'styles', 'diagnostics']);
   });
 
   test('refuses render.exec (hydrate "pass", a bake), payload and vendor by rule, not by prose', () => {
@@ -366,14 +426,35 @@ describe('the gate for a plugin’s one script', () => {
     assert.deepEqual(pluginNameConflicts(['ab', 'a']), [], 'a plain prefix is not an overlap: only `a-…` is');
   });
 
-  test('refuses no fence and two fences: the renderer has no way to be told which it was handed', () => {
-    assert.match(refusePluginCode(plugin({}, { contributes: { styles: true } })), /declares 0 fences/);
+  test('refuses nothing to draw and two fences: the renderer has no way to be told which fence it was handed', () => {
+    assert.match(refusePluginCode(plugin({}, { contributes: { styles: true } })), /no fence and no inline kind/);
     assert.match(refusePluginCode(plugin({}, { contributes: { fences: { a: {}, b: {} } } })), /declares 2 fences/);
+  });
+
+  test('takes inline kinds (the inline door), with a fence or alone, and refuses a sigil, a bad name or a bad slot', () => {
+    assert.equal(refusePluginCode(plugin({}, { contributes: { fences: { gantt: {} }, inline: { 'gantt-bar': {} } } })), null);
+    assert.equal(refusePluginCode(plugin({}, { contributes: { inline: { mention: { slot: { label: 'a mention', positional: [{ name: 'who', type: 'text' }] }, placeholder: { size: 'sm' }, title: 'Mention' } } } })), null);
+    assert.match(refusePluginCode(plugin({}, { contributes: { inline: { mention: { sigil: '%' } } } })), /declares a sigil.*`@mention\{…\}`/);
+    assert.match(refusePluginCode(plugin({}, { contributes: { inline: { Mention: {} } } })), /inline kind "Mention" is not lower-case/);
+    assert.match(refusePluginCode(plugin({}, { contributes: { inline: { mention: { slot: [] } } } })), /slot is not an object/);
+    assert.match(refusePluginCode(plugin({}, { contributes: { inline: { mention: { exec: 'x' } } } })), /declares exec, which an inline kind does not take/);
+    assert.match(refusePluginCode(plugin({}, { contributes: { inline: ['mention'] } })), /contributes\.inline is not an object/);
+    const many = Object.fromEntries(Array.from({ length: 17 }, (_, i) => [`k${i}`, {}]));
+    assert.match(refusePluginCode(plugin({}, { contributes: { inline: many } })), /17 inline kinds.*16 at most/);
+  });
+
+  test('the consent text pins the kinds only when there are some, so a fence-only approval keeps its digest', () => {
+    assert.equal(pluginConsentText('C', 'gantt'), 'lattice-plugin-fence:5:gantt\u0000C');
+    assert.equal(pluginConsentText('C', 'gantt', []), pluginConsentText('C', 'gantt'));
+    assert.notEqual(pluginConsentText('C', 'gantt', ['bar']), pluginConsentText('C', 'gantt'));
+    assert.equal(pluginConsentText('C', 'gantt', ['b', 'a']), pluginConsentText('C', 'gantt', ['a', 'b']), 'order does not matter');
+    assert.notEqual(pluginConsentText('C', 'gantt', ['a,b']), pluginConsentText('C', 'gantt', ['a', 'b']), 'lengths keep the split unambiguous');
+    assert.notEqual(pluginConsentText('C', '', ['bar']), pluginConsentText('C', 'bar'), 'a kind is not a fence');
   });
 
   test('refuses a script that is not <name>.render.js, a fences list that is an array, and a package with no files', () => {
     assert.match(refusePluginCode(plugin({ roles: { 'render.js': 'evil.js' }, files: { 'evil.js': code } })), /a plugin's one script is gantt-plugin\.render\.js/);
-    assert.match(refusePluginCode(plugin({}, { contributes: { fences: ['gantt'] } })), /declares 0 fences/);
+    assert.match(refusePluginCode(plugin({}, { contributes: { fences: ['gantt'] } })), /no fence and no inline kind/);
     assert.match(refusePluginCode({ type: 'plugin', name: 'x', manifest: {} }), /carries no files/);
   });
 
@@ -400,6 +481,12 @@ describe('the worker for a fence renderer', () => {
     assert.match(script, /a fence is a text body and an id/);
     assert.match(script, /__freeze\(\{body:f\.body,id:f\.id\}\)/);
     assert.doesNotMatch(script, /facts|baseUrl|idPrefix/, 'a fence renderer is never handed a slide');
+  });
+
+  test('the same handler takes an inline span as { kind, text, fields, id }, fields frozen all the way down', () => {
+    const script = workerScript(code, { fence: true });
+    assert.match(script, /an inline span is a kind, its text and an id/);
+    assert.match(script, /__freeze\(\{kind:f\.kind,text:f\.text,fields:f\.fields&&typeof f\.fields==="object"\?deepFreeze\(f\.fields\):null,id:f\.id\}\)/);
   });
 });
 

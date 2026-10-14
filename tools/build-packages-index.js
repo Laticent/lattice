@@ -232,8 +232,8 @@ function writeExportFlip(current) {
 }
 
 // What the plugin-fence door needs that the Studio cannot derive at runtime without the whole
-// registry: which slide classes a shipped pass rebuilds from their text, and the fence names the
-// shipped plugins own. The CLI door reads both LIVE (lib/transformers/rebuilt-classes.js,
+// registry: which slide classes a shipped pass rebuilds from their text, the fence names the
+// shipped plugins own, and the inline kinds Lattice draws. The CLI door reads both LIVE (lib/transformers/rebuilt-classes.js,
 // lib/plugins/host.js); the Studio's door reads this file; test/unit/cli/fence-door-data.test.js
 // pins the two to each other, so neither can drift (HARD RULE #1).
 const FENCE_DOOR_OUT = path.join(ROOT, 'lib', 'packages', 'fence-door.generated.json');
@@ -258,7 +258,11 @@ function renderFenceDoor() {
     for (const alias of hljs.getLanguage(lang)?.aliases || []) languages.add(alias);
   }
   const rebuilt = rebuiltAlternatives().map((a) => ({ pass: a.pass, classes: [...a.classes] }));
-  return `${JSON.stringify({ generated: 'tools/build-packages-index.js — DO NOT EDIT', rebuilt, shippedFences: [...shipped].sort(), highlightLanguages: [...languages].sort() }, null, 2)}\n`;
+  // The inline kinds Lattice draws itself (the host's rows and the shipped plugins'): a zip plugin's kind of the same
+  // name would be called by `@kind{…}` spans the host already draws (2026-10-14-plugin-inline-door.md §6).
+  const { KINDS } = require('../lib/core/inline-code-directives.js');
+  const shippedKinds = [...new Set(KINDS.map((k) => k.name))].sort();
+  return `${JSON.stringify({ generated: 'tools/build-packages-index.js — DO NOT EDIT', rebuilt, shippedFences: [...shipped].sort(), shippedKinds, highlightLanguages: [...languages].sort() }, null, 2)}\n`;
 }
 
 const OUTPUTS = [
