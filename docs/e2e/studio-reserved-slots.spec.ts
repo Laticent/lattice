@@ -1,3 +1,4 @@
+import { ENGINE_GLOB } from './engine-glob';
 import { expect, test } from './studio-fixture';
 
 // RESERVED SLOTS — the two places the pre-paint shell cannot know its content, and the
@@ -101,7 +102,7 @@ test('@smoke the shell and the app reserve the same slot, and the reservation ho
 	await page.setViewportSize(WIDE);
 	// Hold the engine so the shell is measurable before the island replaces it — the same
 	// device `studio-shell-parity` uses, for the same reason.
-	await page.route('**/lattice-playground.js', async (route) => {
+	await page.route(ENGINE_GLOB, async (route) => {
 		await new Promise((r) => setTimeout(r, 2500));
 		await route.continue();
 	});

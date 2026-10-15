@@ -6,6 +6,7 @@
 // a separate on-demand bundle at all.
 //
 // Idempotent: a module-level singleton keyed by URL, same as ensureEngine.
+import { engineBase, engineBaseFor } from './engine-base';
 
 const loaders = new Map<string, Promise<void>>();
 const POLL_MS = 50;
@@ -71,27 +72,23 @@ export function ensureKatexProvider(url: string): Promise<void> {
  * (docs/scripts/sync-playground-assets.mjs stages both into the same
  * content-hashed `playground/v/<hash>/` dir) — one filename swap away from an
  * `engineUrl`. Returns null for a URL that doesn't match the expected
- * `lattice-playground.js` filename (a caller running a bundle built before
- * this convention existed).
+ * engine filename — `esm/engine.js` or `lattice-playground.js` (engine-base.ts).
  */
 export function katexProviderUrlFor(engineUrl: string): string | null {
-	if (!engineUrl.includes('lattice-playground.js')) return null;
-	return engineUrl.replace('lattice-playground.js', 'lattice-katex.js');
+	const base = engineBaseFor(engineUrl);
+	return base === null ? null : `${base}lattice-katex.js`;
 }
 
 /**
- * Same as `katexProviderUrlFor`, but reads the engine URL off the
- * already-injected `<script>` tag load-engine.ts's `ensureEngine` left in the
- * DOM, for callers (renderMarkdown) that don't carry `engineUrl` themselves.
+ * Same as `katexProviderUrlFor`, but for the engine this page loaded
+ * (engine-base.ts records it), for callers (renderMarkdown) that don't carry
+ * `engineUrl` themselves.
  * Returns null if the engine script isn't present yet (renderMarkdown only
  * calls this after confirming `PG` is set, so in practice it always is).
  */
 export function deriveKatexProviderUrl(): string | null {
-	if (typeof document === 'undefined') return null;
-	const engineScript = document.querySelector<HTMLScriptElement>('script[data-lattice-engine]');
-	const engineSrc = engineScript?.getAttribute('src');
-	if (!engineSrc) return null;
-	return katexProviderUrlFor(engineSrc);
+	const base = engineBase();
+	return base === null ? null : `${base}lattice-katex.js`;
 }
 
 // Minimal attribute-selector escape for the URL (mirrors load-engine.ts).

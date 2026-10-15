@@ -63,9 +63,17 @@
 // import (183KB gz of 260KB on home). It deliberately does not follow dynamic `import()`
 // (that is the whole point of a lazy boundary), so code a page loads with `import()` at
 // startup is only counted when inject-modulepreload.mjs lists it. It cannot see a script
-// served from outside `/_astro/` (`docs/public/playground/lattice-playground.js` is 971KB and
-// invisible here), inline scripts except as HTML bytes, or CSS. So this is a deterministic
-// watch on the EAGER JS path, not a payload total. Bytes are a proxy for parse+hydrate,
+// served from outside `/_astro/` except the engine (below), inline scripts except as HTML
+// bytes, or CSS. So this is a deterministic watch on the EAGER JS path, not a payload total.
+//
+// THE ENGINE, `engineJsGz` (2026-10-14). The engine (`lattice-playground.js`) and the preview
+// runtime (`lattice-runtime.js`) are served from `/playground/v/<hash>/`, not `/_astro/`, so
+// `eagerJsGz` never saw them. Unwatched, the runtime grew from 163KB gz (2026-08-17 audit) to
+// 383KB gz by 2026-10-14. `engineJsGz` counts the boot entries a route names (the ESM engine
+// `esm/engine.js` since the same day, or the single-file `lattice-playground.js` before it, and
+// the runtime), plus every file they import statically; the lazy providers beside them (KaTeX,
+// dagre, Mermaid, the `esm/chart-*.js` kernels) load on demand and are not counted, for the same
+// reason `import()` is not. Bytes are a proxy for parse+hydrate,
 // which — because the service worker serves /_astro/ cache-first — is the cost that
 // actually RECURS per launch.
 //
@@ -112,7 +120,7 @@ export const CEILING_PCT = 0.1;
 // were under it (the two over were +2,220 and +5,202 bytes).
 export const PR_ALLOWANCE_BYTES = 2048;
 
-export const METRICS = ['eagerJsGz', 'htmlRaw'];
+export const METRICS = ['eagerJsGz', 'engineJsGz', 'htmlRaw'];
 
 const kb = (n) => `${(n / 1024).toFixed(1)}KB`;
 export const ceilingFor = (soft) => soft + Math.round(soft * CEILING_PCT);
@@ -151,7 +159,35 @@ function measure(routeHtml, dist = DIST) {
 			}
 		}
 	}
-	return { eagerJsGz, htmlRaw: Buffer.byteLength(html), chunks: seen.size };
+	return { eagerJsGz, engineJsGz: measureEngine(html, dist), htmlRaw: Buffer.byteLength(html), chunks: seen.size };
+}
+
+// The engine's boot entries. Everything else under /playground/v/<hash>/ is a lazy provider.
+const ENGINE_ENTRY = /\/playground\/v\/[a-f0-9]+\/(?:esm\/engine|lattice-playground|lattice-runtime)\.js/g;
+
+/** The engine a route names: its boot entries plus their static imports, gzipped. */
+function measureEngine(html, dist = DIST) {
+	const entries = [...new Set(html.match(ENGINE_ENTRY) || [])];
+	const seen = new Set(entries.map((u) => u.slice(1)));
+	const queue = [...seen];
+	let gz = 0;
+	while (queue.length) {
+		const rel = queue.pop();
+		const file = path.join(dist, rel);
+		if (!fs.existsSync(file)) {
+			throw new Error(`check-route-budget: the route names /${rel}, which is not in dist/ — the build is broken, not smaller.`);
+		}
+		const src = fs.readFileSync(file);
+		gz += zlib.gzipSync(src, { level: 6 }).length;
+		for (const m of src.toString('utf8').matchAll(STATIC_IMPORT)) {
+			const next = path.posix.join(path.posix.dirname(rel), m[1]);
+			if (!seen.has(next)) {
+				seen.add(next);
+				queue.push(next);
+			}
+		}
+	}
+	return gz;
 }
 
 /**
@@ -266,14 +302,18 @@ function pendingFragments() {
  * `raise` (the owner's OK), and never past the ceiling unless `ceiling` (also the owner's
  * OK) moves the ceiling to CEILING_PCT above the new soft target.
  */
-export function rebaseline(ledgerRoutes, measured, { slackPct = STALE_SLACK_PCT, raise = false, ceiling = false } = {}) {
+export function rebaseline(ledgerRoutes, measured, { slackPct = STALE_SLACK_PCT, raise = false, ceiling = false, metrics = METRICS } = {}) {
 	const changes = [];
 	const refused = [];
 	for (const [route, budget] of Object.entries(ledgerRoutes)) {
-		for (const metric of METRICS) {
-			const { soft, hard } = budget[metric] ?? {};
+		for (const metric of metrics) {
 			const got = measured[route]?.[metric];
-			if (typeof soft !== 'number' || typeof got !== 'number') continue;
+			if (typeof got !== 'number') continue;
+			// A metric the route has no budget for yet is adopted at its measurement: a raise
+			// from 0, so it needs --raise --ceiling like any other. A route that ships none of
+			// it (engineJsGz on a page with no engine) is not given a budget of zero.
+			if (!budget[metric] && got === 0) continue;
+			const { soft = 0, hard = 0 } = budget[metric] ?? {};
 			const change = { route, metric, from: soft, to: got, hardFrom: hard, hardTo: hard };
 			if (got > soft) {
 				if (!raise) refused.push({ ...change, why: 'a raise needs the owner\'s OK, then --raise' });
@@ -294,7 +334,7 @@ export function newestHistory(history) {
 	const end = history.indexOf('\n## ', at);
 	const section = history.slice(at, end === -1 ? undefined : end);
 	const out = {};
-	for (const m of section.matchAll(/^\| ([a-z][a-z0-9-]*) \| (eagerJsGz|htmlRaw) \| \d+ \| (\d+) \| [^|]+ \| (\d+) \|$/gm)) {
+	for (const m of section.matchAll(/^\| ([a-z][a-z0-9-]*) \| (eagerJsGz|engineJsGz|htmlRaw) \| \d+ \| (\d+) \| [^|]+ \| (\d+) \|$/gm)) {
 		const key = `${m[1]}.${m[2]}`;
 		if (!(key in out)) out[key] = { soft: Number(m[3]), hard: Number(m[4]) };
 	}
@@ -411,7 +451,14 @@ function main() {
 			process.stderr.write('route-budget:rebaseline: this branch is behind origin/main, so its numbers are stale. Rebase first.\n');
 			process.exit(1);
 		}
-		const { changes, refused } = rebaseline(ledger.routes, measured, { raise: args.includes('--raise'), ceiling: args.includes('--ceiling') });
+		// `--metric <name>` resets one metric only, e.g. adopting a new one without touching the rest.
+		const m = args.indexOf('--metric');
+		const metrics = m === -1 ? METRICS : [args[m + 1]];
+		if (!metrics.every((x) => METRICS.includes(x))) {
+			process.stderr.write(`route-budget:rebaseline: --metric must be one of ${METRICS.join(', ')}.\n`);
+			process.exit(1);
+		}
+		const { changes, refused } = rebaseline(ledger.routes, measured, { raise: args.includes('--raise'), ceiling: args.includes('--ceiling'), metrics });
 		for (const c of refused) process.stdout.write(`  NOT changed: ${c.route} ${c.metric} ${c.from} -> ${c.to}: ${c.why}.\n`);
 		if (!changes.length) {
 			const waiting = pendingFragments().length;

@@ -24,7 +24,7 @@ function iconsData(): IconsData | null {
 /** Aliases from the lint core's own completion words (`also db`), loaded with the core. */
 async function aliasInfo(): Promise<Map<string, string>> {
 	try {
-		const mod = (await import('@/playground/authoring-core.generated.js')) as unknown as {
+		const mod = (await import('@/playground/authoring-door.js')) as unknown as {
 			lintCore?: { inlineCodeCompletions?: (span: string) => { words?: Array<{ label: string; info?: string }> } | null };
 		};
 		const words = mod.lintCore?.inlineCodeCompletions?.('^{')?.words ?? [];

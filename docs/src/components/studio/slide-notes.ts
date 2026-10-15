@@ -13,7 +13,7 @@
 // was fence-blind (it ate `<!-- … -->` shown inside code fences). Both are fixed
 // by routing through `comments()` + `isDirectiveBody()`.
 
-import { notesCore } from '@/playground/authoring-core.generated.js';
+import { notesCore } from '@/playground/authoring-door.js';
 import { comments, isDescriptionBody, isDirectiveBody, isPaneMarkerBody, isSayBody, tidyOutsideFences } from './slide-directives';
 
 // A tooling comment (`markdownlint-capture`, `prettier-ignore`, …) is never a note: the engine's

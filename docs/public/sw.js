@@ -93,6 +93,13 @@ const CAP = { [PAGES]: 60, [ASSETS]: 800, [FONTS]: 40 };
 // accumulate forever in the ASSETS cache (the FIFO cap is the only bound, and
 // `activate` can't help: it runs on a SW-strategy VERSION bump, not per deploy).
 const VERSIONED = /\/playground\/v\/[0-9a-f]{8,}\/(.+)$/;
+// The ESM engine's shared chunks are named by their own content hash (`esm/chunk-<hash>.js`), so a
+// new deploy never caches the SAME suffix again and the eviction above would never reach an old one.
+// A fresh copy of any `esm/` file therefore also evicts every older-hash-dir chunk: those belong to an
+// engine the origin no longer serves (engineering/decisions/2026-10-14-engine-spine.md).
+const isEngineChunk = (suffix) => /^esm\/chunk-[A-Za-z0-9_-]+\.js$/.test(suffix);
+const HASH_DIR = /\/playground\/v\/([0-9a-f]{8,})\//;
+const sameHashDir = (a, b) => a.match(HASH_DIR)?.[1] === b.match(HASH_DIR)?.[1];
 
 self.addEventListener('install', (event) => {
 	event.waitUntil(
@@ -179,7 +186,7 @@ async function put(cacheName, request, response) {
 		for (const key of await cache.keys()) {
 			if (key.url === request.url) continue;
 			const stale = new URL(key.url).pathname.match(VERSIONED);
-			if (stale && stale[1] === cur[1]) await cache.delete(key);
+			if (stale && (stale[1] === cur[1] || (isEngineChunk(stale[1]) && cur[1].startsWith('esm/') && !sameHashDir(key.url, request.url)))) await cache.delete(key);
 		}
 	}
 

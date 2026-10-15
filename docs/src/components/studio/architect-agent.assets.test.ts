@@ -1,10 +1,13 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { type AgentAssets, type AssetInfo, cleanCaption, MAX_VIEWS_PER_TURN } from './agent-assets';
-import { chatAgentDeps } from './architect';
+import { chatAgentDeps, loadArchitectAuthoring } from './architect';
 import { AGENT_TOOLS, type AgentComplete, type AgentLibrary, ASSET_TOOLS, createToolbox, runAgentLoop, type ToolCall } from './architect-agent';
 import { init as initChatAgent } from './chat-agent';
 
-beforeAll(() => initChatAgent(chatAgentDeps()));
+beforeAll(async () => {
+	await loadArchitectAuthoring();
+	initChatAgent(chatAgentDeps());
+});
 
 const LIB: AgentLibrary = { componentDoc: async () => null, guide: async () => null, registersDoc: async () => null, universalsDoc: async () => null };
 const DECK = '---\ntheme: indaco\n---\n\n<!-- _class: title -->\n# Hi';

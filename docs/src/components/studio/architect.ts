@@ -12,7 +12,6 @@ import { orSupportsCache } from '@/components/studio/ai/or-cache.js';
 import { buildCanonContext } from '@/components/studio/ai/presentation-canon.js';
 import { buildRefinePrompt, cleanRewrite, REFINE_ACTIONS } from '@/components/studio/ai/refine.js';
 import { adjustSpend, budgetStatus, readBudgetCap, readBudgetFloor, readBudgetMode, readCachingEnabled, readDedupEnabled, readSpend, recordSpend } from '@/components/studio/ai/spend.js';
-import { deckCanon, deckProfiles } from '@/playground/authoring-core.generated.js';
 import type { AgentRawEdit, DeckCheck, ToolCall } from './architect-agent';
 import { FINISHES } from './finish-catalog';
 import { EDGE_TYPES, MARK_TYPES, PLACEMENTS, TEXTURE_TYPES, WASH_TYPES } from './finish-generate';
@@ -73,7 +72,34 @@ export type RefineActionId = 'polish' | 'formalize' | 'elaborate' | 'shorten';
 // load-bearing rules only. The persona + EDIT_PROTOCOL are IDENTICAL across tiers (the
 // parser needs the edit-block grammar regardless of tier).
 const SYSTEM_PERSONA = 'You are the Lattice Architect, a boardroom deck editor.\n\n';
+
+// The canon and the deck profiles live in the lint core, which loads after first paint through the
+// lint door (engineering/decisions/2026-10-14-engine-spine.md §5). This module is on the Studio's
+// startup path, so it loads them on demand: every model call awaits `loadArchitectAuthoring()`
+// first, and the token readout prices the canon by its measured size until they land.
+type AuthoringDoor = typeof import('@/playground/authoring-door.js');
+let authoring: AuthoringDoor | null = null;
+let authoringLoad: Promise<AuthoringDoor> | null = null;
+/** Load the canon and deck profiles. Every model call awaits this before building a prompt. */
+export function loadArchitectAuthoring(): Promise<AuthoringDoor> {
+	if (!authoringLoad) {
+		authoringLoad = import('@/playground/authoring-door.js').then((m) => (authoring = m));
+		authoringLoad.catch(() => {
+			authoringLoad = null; // let a later call retry
+		});
+	}
+	return authoringLoad;
+}
+function loadedAuthoring(): AuthoringDoor {
+	if (!authoring) throw new Error('architect: the deck canon is not loaded; await loadArchitectAuthoring() first');
+	return authoring;
+}
+// The canon's size in tokens, for the readout before the lint core lands (measured 2026-10-14 with
+// estTokens: DECK_CANON 1004, DECK_CANON_SHORT 283; architect.test.ts holds these to the real text).
+export const CANON_TOKENS_EST = { cloud: 1004, short: 283 };
+
 export function deckSystem(generation: string): string {
+	const { deckCanon } = loadedAuthoring();
 	const canon = generation === 'openrouter' ? deckCanon.DECK_CANON : deckCanon.DECK_CANON_SHORT;
 	return SYSTEM_PERSONA + canon + '\n\n' + EDIT_PROTOCOL;
 }
@@ -352,6 +378,7 @@ export type ArchitectOutcome =
  * honestly and never spends real credit past the guardrail.
  */
 export async function runArchitect(source: string, instruction: string, docs?: ReferenceDoc[]): Promise<ArchitectOutcome> {
+	await loadArchitectAuthoring();
 	const model = await architectModel();
 	if (!model) return { status: 'offline' };
 	const generation = model.availability().generation;
@@ -1411,6 +1438,7 @@ export const FACT_GUARD =
 	'\n\nCONSTRAINT — FACTS LOCKED: You may improve wording, structure, and clarity ONLY. Do NOT change, add, or remove any number, date, name, metric, currency amount, or factual claim. If a genuine improvement would require changing a fact, do NOT edit — explain what you would change and why, and let the author decide.';
 
 export async function chatComplete(history: ChatTurn[], source: string, docs?: ReferenceDoc[], opts?: ChatOptions): Promise<ChatResult> {
+	await loadArchitectAuthoring();
 	const model = await architectModel();
 	if (!model) return { status: 'offline' };
 	const generation = model.availability().generation;
@@ -1685,7 +1713,7 @@ let chatAgentLoad: Promise<ChatAgentModule> | null = null;
 export function chatAgentDeps(): import('./chat-agent').ChatAgentDeps {
 	return {
 		applyEditChecked, diffLines, sliceSlide, slideCount, splitTopLevel, AUTHORING_RULES, layoutBlock, getFrontMatter, innerFrontMatter, writeFrontMatterLine,
-		adjustSpend, recordSpend, deckCanon, deckProfiles,
+		adjustSpend, recordSpend, deckCanon: loadedAuthoring().deckCanon, deckProfiles: loadedAuthoring().deckProfiles,
 		applyEditsChecked, CHAT_MAX_TOKENS, cloudBudgetBlock, estimateUsd, estTokens, FACT_GUARD, TRUNCATION_NOTE, withStudioVoice,
 		groundMessages, refDocsTokens, FINISHES, BUILTIN_PALETTES, deckOutputLang,
 	};
@@ -1694,6 +1722,7 @@ export function chatAgentDeps(): import('./chat-agent').ChatAgentDeps {
 export function loadChatAgent(): Promise<ChatAgentModule> {
 	if (!chatAgentLoad)
 		chatAgentLoad = import('./chat-agent').then(async (m) => {
+			await loadArchitectAuthoring();
 			await m.init(chatAgentDeps());
 			chatAgentMod = m;
 			try {
@@ -1722,6 +1751,13 @@ export function chatSystemTokens(generation: string, grounding?: ChatGrounding, 
 		// itself awaits the load and reports a failure.
 		loadChatAgent().catch(() => {});
 		return (cached ? Math.ceil(AGENT_CORE_TOKENS * CACHE_READ_RATE) : AGENT_CORE_TOKENS) + Math.ceil(estTokens(source) / 4);
+	}
+	if (!authoring) {
+		// Same shape as the agent case above: start the load, price the canon by its measured size.
+		loadArchitectAuthoring().catch(() => {});
+		const canon = generation === 'openrouter' ? CANON_TOKENS_EST.cloud : CANON_TOKENS_EST.short;
+		const stat = estTokens(SYSTEM_PERSONA + EDIT_PROTOCOL) + canon;
+		return cached ? Math.ceil(stat * CACHE_READ_RATE) : stat;
 	}
 	const { staticPrefix, dynamicTail } = generation === 'openrouter' && chatAgentMod ? chatAgentMod.agentSystemParts(source, grounding) : buildChatSystem(generation, grounding);
 	const stat = estTokens(staticPrefix);

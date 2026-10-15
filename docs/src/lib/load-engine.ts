@@ -1,7 +1,15 @@
 // Shared on-demand loader for the irreducible Lattice render engine
-// (window.LatticePlayground, the ~1.8MB/554KB-gz `lattice-playground.js`
-// bundle). WRAP, DON'T REINVENT — this never reimplements the engine; it only
-// controls *when* the existing classic <script> is injected.
+// (window.LatticePlayground). WRAP, DON'T REINVENT — this never reimplements the
+// engine; it only controls *when* it loads.
+//
+// TWO SHAPES (2026-10-14, engineering/decisions/2026-10-14-engine-spine.md). The docs
+// site loads the ESM engine, `…/esm/engine.js`, with `import()`: its chart kernels are
+// separate modules (ensure-charts.ts), and it preloads its own static chunks from
+// `esm/chunks.json` so the module graph is not discovered one round trip per level.
+// The single-file `lattice-playground.js` still loads as a classic <script>, for the
+// tools and fixtures that hand it one. Either way the engine sets
+// `window.LatticePlayground`, and `engine-base.ts` records where it came from so its
+// sibling assets (KaTeX, grammars, plugin data, chart kernels) resolve beside it.
 //
 // The shadcn migration loaded this bundle EAGERLY via `<script defer src>` in
 // the <head> of every app page, so it competed with first paint and tanked
@@ -17,6 +25,9 @@
 // (e.g. another surface, or a re-mount) it resolves immediately.
 
 // `window.LatticePlayground` is declared once, canonically, in playground-global.d.ts.
+
+import { ENGINE_ENTRY, engineBaseFor, recordEngineUrl } from './engine-base';
+import { preloadEntry } from './ensure-charts';
 
 // One in-flight/settled promise per engine URL (URLs are content-hashed, so a
 // single page only ever sees one). Survives React StrictMode double-mounts and
@@ -38,10 +49,24 @@ const POLL_MS = 50;
  */
 export function ensureEngine(url: string): Promise<void> {
 	if (typeof window === 'undefined') return Promise.resolve();
+	recordEngineUrl(url);
 	if (window.LatticePlayground) return Promise.resolve();
 
 	const existing = loaders.get(url);
 	if (existing) return existing;
+
+	const base = engineBaseFor(url);
+	if (base && url.endsWith(ENGINE_ENTRY)) {
+		void preloadEntry(base, 'engine.js');
+		const m = import(/* @vite-ignore */ url).then(() => {
+			if (!window.LatticePlayground) throw new Error(`lattice engine loaded but did not register: ${url}`);
+		});
+		// A failed import() is cached by the browser for the page's lifetime, so a retry would replay
+		// the same rejection; un-caching keeps a later call from waiting on a settled failure anyway.
+		m.catch(() => loaders.delete(url));
+		loaders.set(url, m);
+		return m;
+	}
 
 	const p = new Promise<void>((resolve, reject) => {
 		let attempts = 0;

@@ -668,7 +668,7 @@ export async function measureDeckFit(render) {
  * @returns {Promise<{note: string|null, description: string|null, say: string|null}[]>}
  */
 async function slideChannelRecord(html) {
-	const { notesCore, splitSectionsCore } = await import('../../../playground/authoring-core.generated.js');
+	const { notesCore, splitSectionsCore } = await import('../../../playground/authoring-door.js');
 	const sections = splitSectionsCore(String(html || ''))
 		.filter((p) => p.type === 'section')
 		.map((p) => `${p.openTag}${p.inner}</section>`);

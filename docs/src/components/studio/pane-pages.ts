@@ -16,11 +16,11 @@
 //
 // The split rule is `lintCore.paneSplitLine`, the linter's reading of the SAME `arrangePanes`
 // call the engine makes (lib/core/pane-spec.js), so the map, `lint:deck` and the render cannot
-// disagree about where a slide ends. `authoring-core.generated.js` is already in the Studio's
-// eager chunk (architect.ts imports it statically), so this import adds no route bytes.
+// disagree about where a slide ends. This module loads lazily (StudioShell and PresentOverlay
+// `import()` it), so its static import of the lint door stays off the Studio's startup path.
 
 import { caretProbe } from '@/lib/caret-probe';
-import { lintCore } from '@/playground/authoring-core.generated.js';
+import { lintCore } from '@/playground/authoring-door.js';
 import { PANE_PROBE } from './pane-probe';
 
 const core = lintCore as unknown as {

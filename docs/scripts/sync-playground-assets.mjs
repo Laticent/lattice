@@ -13,8 +13,8 @@
 //        engine to render in the chosen palette. We stage the MINIFIED build —
 //        the same one the Export-to-Marp bundle ships — under the unversioned
 //        <name>.css dest, so the themeBase fetch sites are unchanged.)
-//   - public/playground/lattice-playground.js (committed engine bundle)
-//                               → public/playground/v/<hash>/lattice-playground.js
+//   - public/playground/esm/ (the ESM engine, its chart kernels and chunks; built, not committed)
+//                               → public/playground/v/<hash>/esm/
 //   - public/playground/lattice-katex.js (committed on-demand KaTeX bundle,
 //     tools/build-katex-provider.js — split out of the engine bundle above,
 //     see engineering/decisions/2026-07-10-landing-perf-katex-defer.md §4)
@@ -68,7 +68,6 @@ const runtimeJs = join(repoRoot, 'dist', 'lattice-runtime-min.js');
 // machine uses. See tools/build-dagre-bundle.js.
 const dagreJs = join(repoRoot, 'dist', 'lattice-dagre-min.js');
 const pgDir = join(here, '..', 'public', 'playground');
-const engineJs = join(pgDir, 'lattice-playground.js'); // committed engine bundle
 // KaTeX, split out of the engine bundle (tools/build-playground.js's `katex`
 // alias — see engineering/decisions/2026-07-10-landing-perf-katex-defer.md
 // §4) into its own committed bundle, staged as a SIBLING of lattice-
@@ -98,7 +97,6 @@ const assets = [
   ...Object.entries((await import(pathToFileURL(join(repoRoot, 'lib', 'plugins', 'drawn.generated.mjs')).href)).RUNTIME_DRAWN)
     .filter(([, d]) => d.payload)
     .map(([name, d]) => [d.payload.file, libraryPath(name)]),
-  ['lattice-playground.js', engineJs],
   ['lattice-katex.js', katexProviderJs],
   // Each plugin's data script (the icons plugin's drawings), split out of the engine bundle like
   // KaTeX and staged beside it, DERIVED from the plugin registry (lib/plugins/data.generated.js)
@@ -138,6 +136,18 @@ for (const { file } of TEXT_FACES) {
 // bundle so docs/src/lib/ensure-hljs-language.ts derives the directory with one
 // path swap, exactly like lattice-katex.js. 156 files, ~932 KB on disk, and the
 // page fetches only the ones a deck's fences actually name — median 1.9 KB.
+// THE ENGINE (engineering/decisions/2026-10-14-engine-spine.md): the ESM build tools/build-playground.js
+// writes to esm/ — the entry, one module per chart kernel, the chunks they share and chunks.json.
+// Staged whole, so each file is in the content hash and a changed chunk moves the directory. The
+// single-file lattice-playground.js beside it is no longer staged: no page loads it.
+const esmDir = join(pgDir, 'esm');
+if (!existsSync(join(esmDir, 'engine.js'))) {
+  throw new Error('sync-playground-assets: docs/public/playground/esm/engine.js is missing. Run `npm run playground:build` first.');
+}
+for (const file of readdirSync(esmDir)) {
+  if (file.endsWith('.js') || file === 'chunks.json') assets.push([`esm/${file}`, join(esmDir, file)]);
+}
+
 const hljsDir = join(pgDir, 'hljs');
 if (existsSync(hljsDir)) {
   for (const file of readdirSync(hljsDir)) {

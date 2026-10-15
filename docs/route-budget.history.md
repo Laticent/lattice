@@ -6,6 +6,31 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-10-14 — measured on the built tree at a08602c
+
+The payload-diet PR, measured on the built tree rebased on main 584af1d. studio eagerJsGz: the lint core (authoring-core, 176KB gz) loads after first paint through the lint door instead of at startup. engineJsGz on every route: the engine bundles one markdown-it instead of two, and the docs site loads the ESM engine, whose 24 chart kernels (178KB gz) load on demand instead of with the engine. engineering/decisions/2026-10-14-engine-spine.md §6.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | eagerJsGz | 659716 | 504833 | -154883 | 555316 |
+| studio | engineJsGz | 934189 | 707731 | -226458 | 778504 |
+| playground | engineJsGz | 934189 | 707731 | -226458 | 778504 |
+| home | engineJsGz | 934189 | 707731 | -226458 | 778504 |
+| components | engineJsGz | 934189 | 707731 | -226458 | 778504 |
+| getting-started | engineJsGz | 550941 | 324483 | -226458 | 356931 |
+
+### 2026-10-14 — measured on the built tree at 82c7247
+
+New metric. The engine (lattice-playground.js) and the preview runtime (lattice-runtime.js) load from /playground/v/<hash>/, outside /_astro/, so eagerJsGz never counted them; the runtime grew from 163KB gz (2026-08-17 audit) to 383KB gz unwatched. Adopted at today's measurement on main 82c7247 so the payload-diet PR that adds it records its own before -> after. Owner's OK: the 2026-10-14 session that asked for the engine to be budgeted.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | engineJsGz | 0 | 934189 | +934189 | 1027608 |
+| playground | engineJsGz | 0 | 934189 | +934189 | 1027608 |
+| home | engineJsGz | 0 | 934189 | +934189 | 1027608 |
+| components | engineJsGz | 0 | 934189 | +934189 | 1027608 |
+| getting-started | engineJsGz | 0 | 550941 | +550941 | 606035 |
+
 ### 2026-10-14 — measured on the built tree at b06fb1a
 
 Playground: the 16 curated Galleries decks are fetched on demand from galleries/curated/ instead of riding in the route props (htmlRaw 555.5KB -> 429.9KB)

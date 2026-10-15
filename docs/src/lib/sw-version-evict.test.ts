@@ -122,4 +122,24 @@ describe('sw.js — cross-deploy version eviction', () => {
 		expect(keys).toContain(`${ORIGIN}/playground/v/eeeeeeee5555/lattice-runtime.js`);
 		expect(keys).toHaveLength(1); // survived — the self-skip (key.url === request.url) held
 	});
+
+	// The ESM engine's chunks are named by their own content hash, so a redeploy never caches the same
+	// suffix and the same-suffix rule could never reach an old one (engineering/decisions/
+	// 2026-10-14-engine-spine.md). A fresh engine file evicts the old deploy's chunks instead.
+	it('a new-deploy engine file evicts the old deploy\'s engine chunks, and keeps its own', async () => {
+		await sw.asset('/playground/v/aaaaaaaa1111/esm/engine.js');
+		await sw.asset('/playground/v/aaaaaaaa1111/esm/chunk-OLD1.js');
+		await sw.asset('/playground/v/aaaaaaaa1111/esm/chunk-OLD2.js');
+		await sw.asset('/playground/v/bbbbbbbb2222/esm/chunk-NEW1.js'); // same deploy's chunks stay together
+		await sw.asset('/playground/v/bbbbbbbb2222/esm/engine.js');
+		expect(sw.assetKeys().sort()).toEqual([`${ORIGIN}/playground/v/bbbbbbbb2222/esm/chunk-NEW1.js`, `${ORIGIN}/playground/v/bbbbbbbb2222/esm/engine.js`]);
+	});
+
+	it('does not touch the current deploy\'s other chunks or a non-engine asset', async () => {
+		await sw.asset('/playground/v/cccccccc3333/esm/chunk-A.js');
+		await sw.asset('/playground/v/cccccccc3333/esm/chunk-B.js');
+		await sw.asset('/playground/v/cccccccc3333/themes/indaco.css');
+		await sw.asset('/playground/v/cccccccc3333/esm/chart-bar.js');
+		expect(sw.assetKeys()).toHaveLength(4);
+	});
 });

@@ -1,6 +1,6 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { deckCanon } from '@/playground/authoring-core.generated.js';
-import { agentTurnUsd, applyDeckEdit, applyProposedEditsChecked, architectModel, architectSpend, buildChatSystem, CHAT_MAX_TOKENS, CHAT_OUTPUT_EST, chatSystemTokens, cloudBudgetBlock, deckSystem, estimateUsd, generateComponent, generateTheme, loadChatAgent, normalizeGeneration, refineComponent, refineSelection, requestFindingFix, runArchitect, setBudget, withStudioVoice } from './architect';
+import { agentTurnUsd, applyDeckEdit, applyProposedEditsChecked, architectModel, architectSpend, buildChatSystem, CANON_TOKENS_EST, CHAT_MAX_TOKENS, CHAT_OUTPUT_EST, chatSystemTokens, cloudBudgetBlock, deckSystem, estimateUsd, estTokens, generateComponent, generateTheme, loadArchitectAuthoring, loadChatAgent, normalizeGeneration, refineComponent, refineSelection, requestFindingFix, runArchitect, setBudget, withStudioVoice } from './architect';
 import { suggestFor } from './Editor';
 import { saveInstructions, saveOnDeviceInstructions, saveSettings } from './studio-store';
 
@@ -134,6 +134,16 @@ describe('withStudioVoice — language + instructions injection', () => {
 // The deck system is TIERED: the cloud gets the full canon (cached in the prefix);
 // a small on-device model gets the SHORT canon so a long prompt doesn't drown it. The
 // persona + edit-block protocol are identical across tiers (the parser needs the grammar).
+// The canon lives in the lint core, which the Studio loads after first paint; every model call
+// awaits it, and these tests do the same.
+beforeAll(() => loadArchitectAuthoring());
+
+describe('the canon readout before the lint core loads', () => {
+	it('prices the canon by the size of the real text', () => {
+		expect(CANON_TOKENS_EST).toEqual({ cloud: estTokens(deckCanon.DECK_CANON), short: estTokens(deckCanon.DECK_CANON_SHORT) });
+	});
+});
+
 describe('deckSystem — tiered canon by model', () => {
 	it('cloud (openrouter) carries the FULL canon; on-device carries the SHORT one', () => {
 		const cloud = deckSystem('openrouter');

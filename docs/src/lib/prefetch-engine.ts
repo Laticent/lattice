@@ -1,5 +1,5 @@
 // Connection-first warming for the Lattice render engine bundle
-// (`lattice-playground.js`, ~1.8MB / ~554KB-gz). This is the ONLY heavy thing
+// (the ESM `esm/engine.js` and its chunks; see engine-base.ts). This is the ONLY heavy thing
 // on the site; the pages themselves are cheap (Astro's built-in `prefetch`
 // handles HTML hover-prefetch). WRAP, DON'T REINVENT — this never loads or
 // reimplements the engine, it only drops a `<link rel="prefetch">` so the
@@ -21,6 +21,7 @@
 //   effectiveType 4g                 → eager (capped to intent off the funnel)
 //   unknown (no NetInfo API)         → viewport proxy: ≥768px eager, else intent
 
+import { ENGINE_ENTRY, engineBaseFor, SAFE_CHUNK, sameOriginAsset } from './engine-base';
 export type Decision = 'eager' | 'intent' | 'off';
 
 export interface WarmSignals {
@@ -93,7 +94,7 @@ const handled = new Set<string>();
 /**
  * Warm the engine bundle per {@link decide}.
  *
- * @param engineUrl  the content-hashed `lattice-playground.js` URL (same string
+ * @param engineUrl  the content-hashed engine URL (`esm/engine.js`; the same string
  *                   the app pages load, so it shares one cache entry).
  * @param allowEager pass `true` only on the landing funnel; elsewhere the
  *                   decision is capped at `intent`.
@@ -138,6 +139,28 @@ export function injectPrefetch(engineUrl: string): void {
 	link.rel = 'prefetch';
 	link.href = engineUrl;
 	document.head.appendChild(link);
+	// The ESM engine is an entry plus the chunks it imports (esm/chunks.json lists them). Warm those
+	// too, at the same low priority; prefetching only the entry would leave most of it cold.
+	const base = engineBaseFor(engineUrl);
+	if (base && engineUrl.endsWith(ENGINE_ENTRY)) void prefetchEngineChunks(base);
+}
+
+async function prefetchEngineChunks(base: string): Promise<void> {
+	let chunks: string[] = [];
+	try {
+		const r = await fetch(`${base}esm/chunks.json`);
+		if (r.ok) chunks = ((await r.json()) as { entries?: Record<string, string[]> }).entries?.['engine.js'] ?? [];
+	} catch {
+		return; // a warm-up is a hint; the engine's own load preloads what it needs
+	}
+	for (const file of chunks) {
+		const url = SAFE_CHUNK.test(file) ? sameOriginAsset(base, `esm/${file}`) : null;
+		if (!url || document.querySelector(`link[rel="prefetch"][href="${cssEscape(url.href)}"]`)) continue;
+		const link = document.createElement('link');
+		link.rel = 'prefetch';
+		link.href = url.href;
+		document.head.appendChild(link);
+	}
 }
 
 // NOTE: links are snapshotted once, here, at warm time. These pages are static

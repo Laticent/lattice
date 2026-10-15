@@ -47,6 +47,11 @@ export interface LatticePlaygroundEngine {
 	missingLanguages?: (markdown: string) => string[];
 	/** Register everything queued on `window.__latticeHljs`; returns what took. */
 	drainLanguages?: () => string[];
+	/** The chart layouts this deck's directives name whose kernel is not loaded (ESM engine only;
+	 *  docs/src/lib/ensure-charts.ts loads them). Empty on the single-file engine. */
+	chartsNeeded?: (markdown: string) => string[];
+	/** The chart layouts a render met with no kernel loaded, since the last call. */
+	takeMissingCharts?: () => string[];
 	/** Tokenize one fence body → each token's range in `code`. For a surface that
 	 *  cannot take HTML — the Compose editor's ProseMirror `code_block`. Optional,
 	 *  because an engine bundle older than this feature does not carry it. */

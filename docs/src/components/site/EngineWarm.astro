@@ -10,7 +10,7 @@
 //     component reference) leaves it false so warming is intent-gated: it fires
 //     only when a pointer/focus/touch reaches for an app link. App pages
 //     (playground/studio) load the engine directly, so they don't render this.
-import { assetBase } from '../../playground/asset-version.mjs';
+import { engineAsset } from '../../playground/asset-version.mjs';
 import { joinBase } from '../../lib/base-url.mjs';
 
 interface Props {
@@ -19,7 +19,7 @@ interface Props {
 const { allowEager = false } = Astro.props;
 
 const base = import.meta.env.BASE_URL;
-const engineUrl = joinBase(base, assetBase() + 'lattice-playground.js');
+const engineUrl = joinBase(base, engineAsset());
 ---
 
 <script type="application/json" data-engine-warm set:html={JSON.stringify({ engineUrl, allowEager })}></script>
