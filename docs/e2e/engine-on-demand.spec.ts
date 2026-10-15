@@ -21,10 +21,25 @@ function engineRequests(page: Page): string[] {
 	return seen;
 }
 
+/** Below 700px the Studio shows one pane at a time (docs/src/lib/use-breakpoint.ts): the
+ *  `Markdown source` cell swaps the editor in and `Preview` swaps the slide back. On a wider
+ *  box both are on screen and this types straight in. Gated on the real viewport width, as
+ *  editor-lint.spec.ts explains. */
+const SINGLE_PANE_MAX_WIDTH = 699;
+const isPhone = (page: Page) => (page.viewportSize()?.width ?? Number.POSITIVE_INFINITY) <= SINGLE_PANE_MAX_WIDTH;
+async function typeDeck(page: Page, deck: string) {
+	if (isPhone(page)) {
+		await page.getByRole('button', { name: 'Markdown source', exact: true }).first().click();
+		await expect(page.getByLabel('Deck source')).toBeVisible();
+	}
+	await setEditorContent(page, deck);
+	if (isPhone(page)) await page.getByRole('button', { name: 'Preview', exact: true }).first().click();
+}
+
 async function chartLoadsItsOwnKernel(page: Page) {
 	const requests = engineRequests(page);
 	await gotoStudio(page);
-	await setEditorContent(page, '<!-- _class: bar -->\n\n## Revenue by region\n\n- North `10`\n- South `20`\n- West `14`\n');
+	await typeDeck(page, '<!-- _class: bar -->\n\n## Revenue by region\n\n- North `10`\n- South `20`\n- West `14`\n');
 	await expect(live(page).locator('section.chart-frame svg').first()).toBeVisible({ timeout: 20_000 });
 	expect(requests).toContain('esm/engine.js');
 	expect(requests).toContain('esm/chart-bar.js');
@@ -33,7 +48,7 @@ async function chartLoadsItsOwnKernel(page: Page) {
 
 async function assetsResolveBesideTheEngine(page: Page) {
 	await gotoStudio(page);
-	await setEditorContent(page, '# Assets\n\n$$\nE = mc^2\n$$\n\nRaw files land in `^{bucket, c4}` S3.\n\n```powershell\nGet-ChildItem -Path C:\\ | Where-Object { $_.Length -gt 1kb }\n```\n');
+	await typeDeck(page, '# Assets\n\n$$\nE = mc^2\n$$\n\nRaw files land in `^{bucket, c4}` S3.\n\n```powershell\nGet-ChildItem -Path C:\\ | Where-Object { $_.Length -gt 1kb }\n```\n');
 	const frame = live(page);
 	await expect(frame.locator('.katex').first()).toBeVisible({ timeout: 20_000 });
 	await expect(frame.locator('.lat-icon[data-icon="bucket"] svg')).toHaveCount(1, { timeout: 20_000 });
@@ -50,6 +65,12 @@ test('math, an icon and an exotic fence still find their assets beside the ESM e
 // runs each test once.
 test('@webkit-tablet @gecko a chart slide loads its own kernel and draws (WebKit, Gecko)', async ({ page }) => chartLoadsItsOwnKernel(page));
 test('@webkit-tablet @gecko math, an icon and an exotic fence find their assets (WebKit, Gecko)', async ({ page }) => assetsResolveBesideTheEngine(page));
+
+// And on the iPhone itself, as far as CI can reach one: WebKit with the iPhone 15 Pro profile,
+// through the phone's one-pane layout. Not a physical device (HARD RULE #23), but the same
+// engine at the same width a phone draws.
+test('@webkit-phone a chart slide loads its own kernel and draws (iPhone WebKit)', async ({ page }) => chartLoadsItsOwnKernel(page));
+test('@webkit-phone math, an icon and an exotic fence find their assets (iPhone WebKit)', async ({ page }) => assetsResolveBesideTheEngine(page));
 
 test('a chart kernel that will not load says so, rather than drawing the chart as a list', async ({ page }) => {
 	// What a tab that outlived a deploy sees: the old hash directory is gone at the origin.
