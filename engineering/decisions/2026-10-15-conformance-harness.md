@@ -1,6 +1,6 @@
 ---
 status: proposed
-summary: An audit of what every kind of thing in Lattice owes — components, themes, finishes, settings, render surfaces, exporters, plugins, libraries and 20 more — and how much of it is checked. 242 stated expectations, 112 classified fix commits and the cross-products between kinds show the gates leak in the same few ways. Proposes one conformance harness, a contract per kind run against every instance and every axis, with a phased build and stated limits.
+summary: An audit of what every kind of thing in Lattice owes — components, themes, finishes, settings, render surfaces, exporters, plugins, libraries and more — and how much of it is checked. 242 stated expectations, 112 classified fix commits and the joins between kinds show the gates leak in seven repeatable ways. Proposes conformance contracts per kind, built on the harnesses that already exist, ordered so each PR catches real defects, with stated limits and anti-gaming rules.
 ---
 
 # Conformance harnesses: what each kind of thing owes, checked for every instance
@@ -11,7 +11,8 @@ changes no code. The raw evidence is in the folder beside it:
 [`explicit.md`](2026-10-15-conformance-harness/explicit.md) (242 stated expectations),
 [`implicit.md`](2026-10-15-conformance-harness/implicit.md) (112 classified fix commits, 45
 incidents, 232 gotchas, 260 follow-ups) and
-[`joins.md`](2026-10-15-conformance-harness/joins.md) (axes and their coverage).
+[`joins.md`](2026-10-15-conformance-harness/joins.md) (25 axes and their coverage). Each was
+written by one agent and recounted, not re-judged, by a second (§11).
 
 ---
 
@@ -23,71 +24,75 @@ deck, follow card alignment if it has cards, pass contrast in dark mode, work on
 survive PPTX export, appear in autocomplete. Some checks catch some of it, but only when the
 component is on the right list or sets the right flag. When it is not, nothing complains.
 
-A **conformance harness** replaces remembering with a checklist that runs itself:
+A **conformance contract** replaces remembering with a checklist that runs itself:
 
 - **One checklist per kind of thing** (component, theme, finish, deck setting, exporter, …),
   written once, in code.
-- **The harness finds every instance itself.** `timeline-v2` is checked because its folder
-  exists, not because someone enrolled it.
-- **Each item on the checklist is one of three kinds:** always required; required *when it
-  applies*, where the harness detects that from what renders rather than from what the thing
-  claims; or checked *if present*.
-- **It checks the combinations too.** A component is checked in every theme, light and dark,
-  under every finish, on split pages, in every export format. Most real bugs live in a
-  combination, not in the thing alone (§4).
-- **Known failures go on a written list with a reason.** Nothing is silently accepted, and a
-  fixed item that stays on the list fails the build.
+- **The checks find every instance themselves.** `timeline-v2` is checked because its folder
+  exists, not because someone added it to a list.
+- **Each item is one of three kinds:** always required; required *when it applies*, detected
+  from what actually renders rather than from what the thing claims; or checked *if present*.
+- **The checks cover combinations too.** A component is checked in every theme, light and dark,
+  under every finish, on split pages, in every export format, because most real bugs live in a
+  combination (§4).
+- **Known failures go on a written list with a reason**, and the list is hard to grow (§6.3).
 - **The checklist doubles as the scaffold.** `npm run new:component` generates every required
   part, so most items pass on day one.
 
-The result is one table per kind, one row per instance and one column per checklist item,
-each cell pass, fail, not applicable, or known debt. A fail blocks the PR.
+The result is one table per kind: a row per instance, a column per checklist item, each cell
+pass, fail, not applicable, or known debt. Fast checks block every PR. The heavy rendered checks
+block a PR for what it touched and run in full overnight (§6.4); how much render time a PR may
+spend is your call (§10).
 
 ## 1. The answer
 
-Lattice does not lack tests: about 96 `check*` gates in `tools/check-ownership.js`, four
-nightly oracles, spec suites for LFM, the theme contract and the `.lattice` file, and one true
-per-instance harness (plugins). The audit found three things the gates do not do.
+Lattice does not lack tests. It has about 96 `check*` gates in `tools/check-ownership.js`, four
+nightly oracles, spec suites for LFM, the theme contract and the `.lattice` file, and **two real
+per-instance harnesses**: plugins (`test/unit/plugins/conformance.test.js`) and components
+(`test/integration/invariants/component-invariants.test.js`, which renders one sample of every
+component in a single batched deck and checks required slots, overflow and heading contrast; a
+new component "is covered the moment its manifest lands"). What is missing:
 
-1. **They are organized by rule, not by kind.** "No hex literal" walks every CSS file and
-   works. Nothing says "here is everything a component owes" and checks each component against
-   it. Of the **242 expectations the repo states** about its artifacts, 89 are enforced
-   automatically for every instance; **65 have no check at all, 24 run on a hand-written list,
-   and 8 apply only to instances that opt in** (the rest are partial, mixed, or unverified;
-   `explicit.md`).
-2. **They check things alone, not in combination.** Of 30-odd axes an instance is rendered
-   under (theme, light/dark, finish, size, render path, split page, export format, …), five
-   joins are checked across all their values (`joins.md`). The biggest single class of fix
-   commits, **30 of 112, is "a second path diverges"**: the PPTX export, the reader view, the
-   player or the Marp bundle drops something the main render had (`implicit.md`).
+1. **The gates are organized by rule, not by kind.** "No hex literal" walks every CSS file and
+   works. Nothing says "here is everything a component owes". Of the **242 expectations the
+   repo states** about its artifacts, 89 are enforced automatically for every instance; **65
+   have no blocking check, 24 run on a hand-written list, and 8 apply only to instances that
+   opt in**. The rest are partial or mixed, and 26 rows could not be confirmed by grep
+   (`explicit.md`).
+2. **Things are checked alone, or on one sample, not in combination.** Of the 25 axes an
+   instance is rendered under, about six or seven joins are checked across all their values
+   (`joins.md`). The component harness renders one sample per component, in one theme, light
+   only. The biggest class of fix commits, **30 of 112, is "a second path diverges"**: the PPTX
+   export, the reader view, the player or the Marp bundle drops what the main render had.
 3. **Nothing says what a new X owes.** A contributor reverse-engineers a sibling, and the
    checks they miss are the ones nobody runs.
 
-Measured against history: of the 68 engine-side fix commits in the last 600 commits, **a
-clause that walks every instance would have failed 36 of them (53%) before merge**, and 25
-more (37%) with an extra assertion the clause would need or with a real browser. The other 10%
-are taste or not instance-shaped. For app behavior in the Studio, the harness catches little,
-and §8 says so.
+**How much would this have caught?** An upper bound, graded by one agent: of the 68 engine-side
+fix commits in the last 600, a check that walked every instance on every axis would have failed
+36 (53%) before merge, and 25 more with an extra assertion or a real browser. Counting every
+kind the contracts claim (packages, generated files, parsers, gates), it is 39 of 92 (42%). The
+true per-PR figure is lower, because the heavy checks run in full only nightly. Phase 1 re-grades
+history against the actual clause list and each phase reports its real catches (§6.5).
 
-**Recommendation:** build one conformance harness on the registries Lattice already has
-(`KINDS` in `lib/packages/kinds.js`, `FAMILIES` in `tools/manifest-schemas.js`), reuse the
-existing gates as clause bodies rather than rewriting them, cover joins one axis at a time, and
-land it in the phases of §9.
+**Recommendation:** extend the two harnesses that exist into contracts for every kind, rather
+than building a new framework beside them. Order the work so **every PR catches defects that
+exist today**, and extract the shared contract shape early but thin. §9 has the order, and
+§10.1 asks you to confirm it, because it changes the order you approved earlier.
 
 ## 2. How the gates leak: seven failure modes
 
-Every finding in this note, and every "Y" or "P" commit in `implicit.md`, falls into one of
-these. The harness's design (§5) is one answer to each.
+Every finding in this note, and every "would catch" commit in `implicit.md`, falls into one of
+these. The design answers each.
 
 | # | Mode | What happens | Example |
 |---|---|---|---|
 | 1 | **Opt-in** | A contract governs only instances that declare it; nothing asks whether one *should* have | Card alignment: 18 of 75 components declare `cards`. `stats`, `actors`, `kpi` have card rows and never did, so a deck's `cards:` does nothing on them |
-| 2 | **Hand list** | A check runs on a list someone maintains, and nobody adds the new one | Contrast, palette and axe sweeps run on a hand-written gallery deck missing 18 of 75 components and most variants. Result: `list-steps converge` ships white text at 3.01:1 |
+| 2 | **Hand list** | A check runs on a list someone maintains, and nobody adds the new one | Contrast, palette and axe sweeps run on a hand-written gallery deck missing 18 of 75 components and most variants, so `list-steps converge` ships white text at 3.01:1 |
 | 3 | **No registry** | No single list says what the instances are, so no consumer can be checked against it | No list of front-matter keys: `finsh: halo` lints clean |
 | 4 | **One way** | Declared ⇒ implemented is checked; implemented ⇒ declared is not (or the reverse) | `checkVariantDeclaration` (`check-ownership.js:477`) leaves "declared but unimplemented" to manual review |
-| 5 | **Combination unchecked** | Each side passes alone; the join breaks | `tone-edge` missing on auto-split pages, fixed twice in two days (`ed9a233`, `7912dd7`); the Studio sanitizer stripped `vector-effect` from every exported chart while the unit suite stayed green (`sanitize-slide-html.test.js:55-61`) |
-| 6 | **Debt absorbed** | A ratchet baseline accepts existing failures without a reason, so they become permanent | The nightly player-contrast baseline accepts 242 sub-AA text runs, 123 below 2:1 (`test/oracle/player-contrast.json`) |
-| 7 | **Vacuous gate** | The check cannot fail, or measures the wrong thing | An overflow assertion that could not fire (`e7f58b87`); the contrast probe sampling the wrong background for `topic` (§3) |
+| 5 | **Combination unchecked** | Each side passes alone; the join breaks | `tone-edge` missing on auto-split pages, fixed twice the same day (`ed9a233`, `7912dd7`). The Studio sanitizer stripped `vector-effect` from every Studio artifact and exported player while the unit suite stayed green (`test/unit/core/sanitize-slide-html.test.js:54-61`) |
+| 6 | **Debt absorbed** | A ratchet baseline accepts existing failures without a reason, so they become permanent | The nightly player-contrast baseline accepts 242 sub-AA text runs, 123 below 2:1 |
+| 7 | **Vacuous gate** | The check cannot fail, or measures the wrong thing | An overflow assertion that could not fire (`e7f58b87`); the contrast probe reading the wrong background for `topic` (§3.1) |
 
 ## 3. What the audit measured
 
@@ -97,28 +102,29 @@ these. The harness's design (§5) is one answer to each.
 |---|---|---|
 | **Card alignment is opt-in with no reverse check.** `stats`, `actors`, `kpi` hard-code their own alignment | 1 | `lib/core/resolve-cards.js:31`; `stats.styles.css:142-147`; `actors.styles.css:19-24,48`; `kpi.styles.css:643-648`; none in `cards-catalog.generated.js` |
 | **18 of 75 components never reach a rendered contrast, palette or axe check** | 2 | bar, bullet, collage, columns, flowchart, heatmap, line, matrix-grid, premise, rows, scatter, scene, slope, stacked-bar, team-profile, topic, video, waterfall. Consumers: `slide-contrast.test.js:86-88`, `palette-sweep.suite.js`, `axe-a11y.test.js:75` |
-| **Variants are the same hole one level down.** I rendered all 75 generated galleries (947 slides) and ran the existing contrast probe: 14,196 text runs, 23 flagged, against 1,612 runs on the hand-written deck. `list-steps converge` sets white body text at **3.01:1** (AA is 4.5:1), confirmed on the rendered slide | 2 | `tools/check-slide-contrast.js` over every `*.gallery.md` |
-| The same run flagged `topic` at 1.02:1. **That is the probe's error**: the tab labels sit on a light band and the probe read the slide's dark background. Enrolling everything amplifies probe error, so the probe is fixed first | 7 | rendered `topic.gallery.md` slide 2 |
+| **Variants are the same hole one level down.** I rendered all 75 generated galleries (858 slides) and ran the existing contrast probe: 14,196 text runs, 23 flagged, against 1,612 runs on the hand-written deck. `list-steps converge` sets white body text at **3.01:1** (AA is 4.5:1). Confirmed on the rendered slide and re-measured by the checker | 2 | `tools/check-slide-contrast.js` over every `*.gallery.md` |
+| 11 of the 23 flags are `topic` at 1.02:1. **That is the probe's error**: the tab labels sit on a light band and the probe read the slide's dark background. Enrolling everything amplifies probe error, so the probe is fixed first | 7 | rendered `topic.gallery.md` slide 2 |
+| The component harness renders one sample per component, one theme, light only; body-text contrast is "phase 2" in its own header | 2 | `component-invariants.test.js` header and `:140` |
 | Frame conformance (render matches the declared Form) is opt-in | 1 | `conformance: "strict"` on 5 of 75 |
 | Capacity contracts are opt-in, and every capacity lint depends on them | 1 | 23 of 75 declare `capacity` + `escalateTo`; 22 of 24 charts declare none, so a seventh series silently cycles hue (`design/skills/chart-component.md:30`) |
 | Mutually exclusive variant axes must declare `exclusive`, or Reshape writes combinations that cannot render | 1 | 3 of 53 components with variants declare `variantAxes` (`design/design-system.md:425-431`) |
 | A manifest with no prose fields gets no docs and no gallery, and the docs check passes | 1 | `isEnriched`, `tools/build-component-docs.js:70,864` |
-| A missing `.styles.css`, or CSS with no manifest, passes every gate | 3 | `check-ownership.js:1475`; `manifest-schemas.js:222-248`; live: `lib/components/connect/_qr-card/` |
-| The anatomy block is never checked against the render, which the layout audit names its #1 recurring defect | none | `engineering/decisions/2026-06-06-layout-audit/README.md:71,349` |
+| A missing `.styles.css`, or CSS with no manifest, passes every gate | 3 | `check-ownership.js:1474`; `manifest-schemas.js:222-248`; live: `lib/components/connect/_qr-card/` |
+| The anatomy block is never checked against the render. The layout audit calls it the #1 "docs vs image" failure and one of its two highest-recurrence classes | none | `engineering/decisions/2026-06-06-layout-audit/README.md:71,347` |
 | The manifest's own autocomplete offers 9 of 58 schema keys | 3 | `docs/src/components/studio/manifest-complete.ts:11` |
 
 ### 3.2 Deck settings, slide settings, treatments
 
 | Finding | Mode | Evidence |
 |---|---|---|
-| **No unknown-key lint**: `finsh: halo`, `themee: x`, `size: huge` lint clean | 3 | `npm run lint:deck`, run for this note |
+| **No unknown-key lint**: `finsh: halo`, `themee: x`, `size: huge` lint clean (exit 0) | 3 | `npm run lint:deck`, run three times for this note |
 | Keys are listed in four hand-written places that check only each other | 3 | `FRONT_MATTER_KEYS`, LFM 1.1 §2.3, `base.registers.docs.md`, conformance JSON |
 | `icon`, `avatar` lack key autocomplete; `plugins`, `greeting`, `closing` are documented but not offered | 3 | `editor-complete.ts:59` never reads `pluginRegisters` |
 | Several keys are lint-silent on values: `theme: nosuchtheme`, `size: huge`, and 13 whose only value list is a docs-site file | 3 | `STATIC_VALUES`, `editor-complete.ts:94` |
 | `spectrum-card*`, `spectrum-trim`, `avatar` have no spec row and no conformance case | 2 | `SOURCES` map, `lfm-conformance.test.js:91-104` (26 keys) |
 | No JSON Schema for front matter; no hover docs | 3 | — |
-| Any `tint-*` / `mark-*` spelling passes lint; `tint-corner` without an `at-*` placement paints nothing, though `treatments.md` says a validator catches it | 3 | `lint-core.js:506`; `engineering/treatments.md:64,227`; the `follows` map feeds autocomplete only |
-| A register a component does not honor is silently inert, and `modifier-effects.generated.json`, which already knows, runs on demand only | 1 | `joins.md` §5 |
+| `tint-bogus`, `mark-nonsense`, and `tint-corner` without an `at-*` placement all lint clean, though `treatments.md` says a validator catches the last | 3 | `lint-core.js:506`; `engineering/treatments.md:64,227` |
+| A register a component does not honor is silently inert; `modifier-effects.generated.json` already knows, but runs on demand only | 1 | `joins.md` §5 |
 | Slide classes are **closed**: lint and autocomplete derive from manifests, 75 of 75 match | ✓ | `buildVocab`, `lib/authoring/lint.js:122` |
 
 ### 3.3 Themes, finishes, contrast
@@ -127,7 +133,7 @@ these. The harness's design (§5) is one answer to each.
 |---|---|---|
 | Token completeness passes: 33 of 33 themes, 118 tokens; manifests schema-valid | ✓ | `tools/theme-conformance.js` 19/19; `contrast-audit.js` 0 failures over 891 pairs |
 | **242 sub-AA runs accepted, 123 below 2:1**, nightly only | 6 | `test/oracle/player-contrast.json` |
-| **No check measures text over a finish**; only the nightly player sweep touches about 12 decks, mostly atrium on indaco | 3 | `finish-canvas-contract.test.js` checks the computed `--fin-canvas`, not contrast |
+| **No check measures text over a finish**; only the nightly player sweep touches finish decks at all | 3 | `finish-canvas-contract.test.js` checks the computed `--fin-canvas`, not contrast |
 | The a11y themes' dark side is never audited: 39 `light-dark()` dark branches in `a11y-base` | 4 | `tools/contrast-audit.js:69` decides dark per file |
 | Finish recipes have no schema; a typo is silently clamped to a default | 3 | `lib/finishes/finish-generate.js:110` |
 | Texture sets are not checked as all-12-or-none; `--muted-mark` used as text is not caught | 1, none | `accessibility-textures.test.js:218`; `design/skills/theme.md:350` |
@@ -137,290 +143,333 @@ these. The harness's design (§5) is one answer to each.
 
 | Finding | Mode | Evidence |
 |---|---|---|
-| **Render surfaces are not a kind anywhere.** The reader view, exported player, Present, Playground, Studio preview and dev server each project the deck their own way; 9 fix commits and 46 gotchas are about one dropping or changing content | 5 | `implicit.md` §3 |
-| Exporters share no deck × every-format run. Only `strip-notes` enumerates `OUT_FORMATS`; `export-coverage-deck.md` runs nightly through PDF only | 2 | `strip-notes-every-format.test.js:216`; `chart-export.spec.ts:18` |
+| **Render surfaces are not a kind anywhere.** The reader view, exported player, Present, Playground, Studio preview and dev server each project the deck their own way; 9 fix commits and 46 gotchas concern them | 5 | `implicit.md` §1, gotcha totals |
+| Exporters share no deck × every-format run. Only `strip-notes` enumerates `OUT_FORMATS` | 2 | `strip-notes-every-format.test.js:216`; `chart-export.spec.ts:18` |
 | An export run that prints OVERFLOW or palette warnings still exits 0 | none | `design/skills/cli.md:28-30` |
-| Export-to-Marp has 11 unmirrored constructs, and nothing checks a component against the ledger | 5 | `lib/core/marp-fidelity.js:46` |
-| Plugins: 7 of 7 enrolled and exercised — the model. Chart-family's 24 `kernel` members are not each exercised; a plugin's renderer escaping author text is unchecked | 2, none | `conformance.test.js:143-211`; `spec/LPM.md:221-222` |
-| Spin-off libraries (Cadenza, Trama, Calco, Tavola, Fuoco, Suono, LTT, Anima, Lente, Segno, Vetrina) each get a hand-written boundary check; a new library is unchecked until someone writes one | 2 | `check-ownership.js:8649-9271` |
-| Every slide surface owes keyboard, wheel and touch through the `present-transport` kernel; six hand-listed specs, no census | 2 | `2026-08-10-input-verb-parity.md:12,80` |
+| Export-to-Marp has 11 unmirrored constructs of 30, and nothing checks a component against that ledger | 5 | `lib/core/marp-fidelity.js:46` |
+| Plugins: 7 of 7 enrolled and exercised — the model. Chart-family's 24 `kernel` members are not each exercised; a plugin renderer escaping author text is unchecked | 2, none | `conformance.test.js:143-211`; `spec/LPM.md:221-222` |
+| Spin-off libraries (Cadenza, Trama, Calco, Tavola, Fuoco, Suono, LTT, Anima, Lente, Segno, Vetrina) each get a hand-written boundary check | 2 | `check-ownership.js:8649-9271` |
+| Every slide surface owes keyboard, wheel and touch through `present-transport`; six hand-listed specs, no census | 2 | `2026-08-10-input-verb-parity.md:12,80` |
 | "Any new preview surface owes the font gate"; one surface is tested | 2 | `engineering/jank.md:50` |
 | Markdown ingests normalize line endings by hand-list | 2 | `2026-08-04-line-endings-lf-boundaries.md:129-138` |
 | The deck-quality rubric is switched off under `lint:deck --all`, so it never runs on shipped examples | 2 | `tools/lint-deck.js:169` |
+| **Components that never enter the tree are never checked**: Studio-authored and AI-generated local components, `.latticepack` files, installed packages and user themes | 3 | `lib/layout/gate.js`, `lib/packages/gate.js` |
 
 ### 3.5 Docs that state something false
 
-Two canonical docs contradict the code, and an author following them does the wrong thing:
 `design/skills/theme.md:337` says to add a palette to `THEMES` in `token-parity.test.js` (it is
 derived now), and `design/design-principles.md:55` says fonts must be on Google Fonts
-(`tools/check-fonts.js` enforces self-hosting). Logged as follow-ups; a doc clause (§6, family
-F) is what would catch the class.
+(`tools/check-fonts.js` enforces self-hosting). Logged as follow-ups 2711-p2 and 2711-p3. Note
+that a "does every path the doc names exist" check would pass both: `token-parity.test.js`
+exists, and the font claim names no path. §6.2 family F says what would catch them.
 
 ## 4. Where bugs actually come from: the history
 
-`implicit.md` classifies the last 600 commits' 112 defect fixes (window 2026-08-18 to
-2026-10-15). By defect class:
+`implicit.md` classifies the 112 defect fixes in the last 600 commits (2026-08-18 to
+2026-10-15):
 
-| Class | Fixes | What a harness needs to catch it |
+| Class | Fixes | What a contract needs to catch it |
 |---|---|---|
 | A second path diverges (export format, reader, player, Marp bundle, dev server, installed package) | 30 | Surfaces and exporters as kinds; one coverage deck through every path |
-| App behavior or state (Studio) | 18 | Mostly out of reach (§8) |
+| App behavior or state (17 Studio, 1 surface) | 18 | Mostly out of reach (§8) |
 | Hand list or stale generated artifact | 11 | Discovery enrollment; generated files as a kind with a freshness clause |
 | Parse or grammar edge | 10 | One shared reader per grammar, with cases |
 | Dark-mode or palette contrast | 9 | Every variant × theme × scheme |
-| Gate blind or vacuous | 9 | Every clause carries a failing arm |
+| Gate blind or vacuous | 9 | Every clause proves it fails, and for the right reason |
 | Fit at a size, venue or long label | 8 | Every variant × size, at `capacity.soft` |
-| Untested combination (modifier × component, register × slide) | 6 | Declared-or-honored clauses per register; pairwise nightly |
+| Untested combination (modifier × component, register × slide) | 6 | A clause per register: honored, with a measured effect |
 | Split page loses something | 4 | Split as an axis, token *and* selector |
 | Taste | 4 | Out of reach (§8) |
 | Security or resource | 3 | Fuzzing, not enumeration (§8) |
 
-The incidents in decision notes say the same: of 45, an enumerating clause catches 15, catches
-23 more with an extra assertion, and misses 7.
+Decision-note incidents agree: of 45, an enumerating check catches 15, catches 23 more with an
+extra assertion, and misses 7.
 
-## 5. The design
+## 5. What the adversarial review changed
 
-### 5.1 Vocabulary
+The first version of this note proposed a new framework, `lib/conformance/`, with components
+first. A red team, a Munger inversion and an independent checker attacked it. Their findings
+that change the design, all verified:
 
-| Term | Means |
+| Finding | Was | Now |
+|---|---|---|
+| **A component harness already exists** (`component-invariants`, discovery-enrolled, batched into one render) and the note missed it | Build a second harness beside it | Extend it: it becomes the render tier of the component contract (§6.1) |
+| **The existing gates cannot be reused as-is.** All 96 `check*` gates push into a shared `errors` array, 40 take nothing else, and most walk the whole tree (`checkHexLiterals` walks `LIB_DIR` and decides stale sanctions globally); scoped to one component, every other file's sanction looks stale | "Gates become clause bodies, not rewrites" | A clause reads a gate's whole-tree output filtered by path. A gate is refactored into find-offenses + policy only when a clause needs it, one at a time (§6.1) |
+| **Phase 1 caught nothing that exists today**; the repo has stalled multi-phase plans before (`2026-06-22-the-fit-spine.md` is still in progress) | Framework first | Each phase must catch current defects; the shared shape is extracted thin, in the first phase that needs it (§9) |
+| **Restyling in place is unsound for modifiers and registers**: transforms read the class list (`lib/transformers/masthead-lift.js:49,83`; `resolve-mode.js`) | ~305 axis values toggled in place at 32 ms each | Only theme, scheme and finish restyle in place, and only with a per-PR native-render sample. Registers and modifiers re-render until traced (§6.4) |
+| **"Changed instances" misses shared code.** A diff to `lib/core`, `lattice.css` or `build-css.js` changes no instance, yet that is where split, cascade and export fixes landed | Per PR, changed instances only | Per PR: the reverse-dependency closure of the diff, plus a fixed covering sample across every axis whenever shared code changes (§6.4) |
+| **The escape hatches can be gamed**: free-text debt, one-line "does not honor" declarations, placeholder capacity numbers, fixtures that fail for the wrong reason, two exemption systems | Laws as stated | Anti-gaming rules (§6.3) |
+| **A detector is a probe and can be wrong.** `hasCardRow` was undefined and one fixture proves nothing about its miss rate | One failing fixture | Each trigger is measured against a hand-labeled corpus before it blocks (§6.3) |
+| **Per-PR render cost collides with a live cost effort** (`2026-08-18-inspection-oracle-catalog.md`, in progress: per-PR CI ≈ 11 min wall, lever A = fewer renders) | Measure after building | A render budget is set before phase 3 is designed, and every render clause uses lever A's one-deck batching (§10.2) |
+| **Missing kinds and axes**: font face; speaker note, `say:` line, review comment; docs-site page at three widths; sample assets; the VS Code Marp preview; the diagnostic-code registry; CLI options; out-of-tree components; color modes `system`/`inherited`, `lang`, lens, motion and reduced motion, notes, install path, pane | Absent | Added (§6.2, §7) |
+| Numbers: 858 slides, not 947 (947 counted front-matter delimiters); "65 with no *blocking* check"; 25 axes; the two split fixes landed the same day; the 53% is an upper bound | — | Corrected throughout |
+
+## 6. The design
+
+### 6.1 Build on what exists
+
+| Existing | Becomes |
 |---|---|
-| **Kind** | A type of thing: component, theme, finish, deck setting, exporter, render surface, … (§6) |
-| **Instance** | One of them: `kpi`, `indaco`, `finish: halo`, the `pptx` exporter |
-| **Axis** | A dimension an instance is rendered or consumed under: theme, scheme, finish, size, render path, split, export format, … (§7) |
-| **Clause** | One thing an instance owes, with an id: `component.cards.governed` |
-| **Level** | `required`; `conditional` (owed when a trigger fires); `optional` (checked if present) |
-| **Trigger** | The *evidence* that makes a conditional clause owed, read from the instance or its render, never from its own declaration |
-| **Verdict** | `pass`, `fail`, `n/a`, or `debt` (fails, and the ledger names it with a reason) |
+| `component-invariants.test.js` (render, discovery, batched) | The component contract's render tier, widened from one sample to every variant × the axes in §7 |
+| `test/unit/plugins/conformance.test.js` | The plugin contract, unchanged; the model for author-written cases |
+| `FAMILIES` (`tools/manifest-schemas.js`) | The pattern for the contract registry: fails on an uncovered instance and on a contract that governs nothing |
+| `gallery-contract.test.js` debt ledger | The pattern for the ledger |
+| `KINDS` (`lib/packages/kinds.js`) | The spine for package kinds. Kinds that are not packages (deck setting, surface, exporter, ingest, …) get new registries of the same shape |
+| The 32 `SANCTIONED_*` allowlists in `check-ownership.js` | Stay where they are; the ledger *reads* them, so there is one exemption system with two storage places, not two systems |
+| The 96 `check*` gates | Unchanged. A clause reads a gate's output filtered to its instance's paths. A gate is refactored into a pure `findX(files)` plus a policy wrapper only when a clause needs that, and the refactor rides that clause's PR |
+| `guide-handles.test.js` | The model for a trigger: derive the set from what renders, keep a sanctioned-exceptions list |
 
-### 5.2 Eight laws
-
-1. **Enrollment is discovery.** Instances come from the filesystem or a generated registry,
-   never a hand list. A check that needs a list derives it. *(answers mode 2)*
-2. **Conditional clauses fire on evidence, then demand the declaration.** A detected card row
-   with no `cards` declaration fails. Silence is a finding. *(mode 1)*
-3. **Both directions**, for every declaration a kind has. *(mode 4)*
-4. **One registry per kind, every consumer checked against it**: lint, autocomplete, docs,
-   spec table, JSON Schema and hover are each generated from it or have a completeness clause.
-   *(mode 3)*
-5. **Joins are clauses.** A clause names the axes it runs across, and a relationship between
-   kinds is a clause on one side: every component either honors register R or declares that it
-   does not, with a reason. *(mode 5)*
-6. **Debt is named, never silent.** A failing clause the tree cannot meet today goes in a
-   ledger with a reason; a stale entry fails; the ledger only shrinks. *(mode 6)*
-7. **Every clause proves it can fail.** Each clause ships a failing fixture, and the meta-check
-   fails a clause whose failing fixture passes. A probe is part of the clause and is validated
-   on known cases before it enrolls everything. *(mode 7)*
-8. **The contract is the scaffold and the docs.** `new:<kind>` generates what the contract
-   requires, and `dist/engineering/conformance.md` publishes what each kind owes and the live
-   matrix, so nobody reverse-engineers a sibling.
-
-### 5.3 Shape in the tree
+The new code is thin: a contract per kind (enumerate + clauses), one runner, one ledger, one
+generated checklist page.
 
 ```
 lib/conformance/
-  kinds/component.contract.js     one file per kind: enumerate() + clauses[]
-  kinds/theme.contract.js
-  kinds/deck-setting.contract.js
-  axes.js                         the axes, each with its value source and cost class
-  run.js                          instance × clause × axis-value → verdict
+  kinds/<kind>.contract.js        enumerate() + clauses[]
+  axes.js                         each axis: its value source, and restyle or re-render
+  run.js                          instance × clause × axis value → verdict
 test/conformance/
-  debt.json                       the ledger: { "kpi": { "component.cards.governed": "reason" } }
-  static.test.js                  every static clause; fails on fail or stale debt
-  render.test.js                  every render clause, on the integration tier
+  debt.json                       the ledger
+  static.test.js                  every static clause (npm test)
 dist/engineering/conformance.md   generated: what each kind owes, and the live matrix
 ```
 
-A clause is small and declarative:
+A clause:
 
 ```js
 {
   id: 'component.cards.governed',
   level: 'conditional',
-  tier: 'render',                               // 'static' (no browser) or 'render'
-  axes: ['theme', 'scheme'],                    // runs across every value of each, one at a time
-  trigger: (c, dom) => hasCardRow(dom),         // evidence, not declaration
+  tier: 'render',
+  axes: ['theme', 'scheme'],
+  trigger: (c, dom) => equalSiblingBoxesAlignedLocally(dom),   // geometry, not markup
   check:   (c) => Boolean(c.manifest.cards),
-  failingFixture: 'test/conformance/fixtures/undeclared-card-row/',
+  fails:   'test/conformance/fixtures/undeclared-card-row/',    // must fail with THIS id
+  passes:  'test/conformance/fixtures/declared-card-row/',      // its near-twin must pass
+  catches: ['ed9a233'],                                        // history it would have caught, or a reason
   why: 'engineering/decisions/2026-09-01-card-stack-vertical-alignment.md',
 }
 ```
 
-**Existing gates become clause bodies, not rewrites.** `checkHexLiterals` already walks every CSS
-file; the component contract calls it scoped to one component and reports the verdict in that
-row. The gate in `build:check` stays as it is. The harness adds the per-instance view, the joins
-and the clauses nobody runs today.
+### 6.2 Kinds, and what each owes
 
-**Where it plugs in.** `KINDS` (`lib/packages/kinds.js`) already says what a package kind's
-files are; the contract says what they must satisfy. Kinds that are not packages (deck setting,
-surface, exporter, library, ingest, …) get the same contract shape. A meta-clause fails when a
-`KINDS` row has no contract or a contract governs no instances, copying `FAMILIES`. The models to
-copy are the plugin harness (`conformance.test.js`), `FAMILIES`, the gallery debt ledger
-(`gallery-contract.test.js`) and `guide-handles.test.js`, which derives its set from what renders
-and keeps a sanctioned-exceptions list.
+Status: ✓ exists and finds its instances · ◐ opt-in, hand-listed, partial or nightly · ✗ no
+check. Full rows with sources are in `explicit.md`.
 
-### 5.4 Running joins without exploding CI
-
-A full matrix is about 947 gallery slides × 33 themes × 10 finish states × 4 size families,
-roughly 1.25M slide configurations, before registers. It cannot run on every PR, and it does not
-need to. `joins.md` §4 splits the axes by cost:
-
-- **Restyle axes** toggle in place on one render: theme, scheme, finish, backdrop, class-token
-  registers, modifiers, venue, print. The palette sweep already does this at about **32 ms per
-  slide-configuration** (`palette-sweep.suite.js:24-28`).
-- **Re-render axes** need a fresh render: size, split, render path, export format, plugins, fit,
-  browser engine.
-
-| When | What runs | Rough cost (from real counts) |
-|---|---|---|
-| Every PR, static | Every static clause, every instance | seconds, in `npm test` |
-| Every PR, render | **Changed instances × every axis, one axis at a time, all values.** A changed component: its ~13 gallery slides × ~305 restyle values, plus 8 canvas re-renders. A changed theme or finish: all 947 slides × 2 schemes | ~2.5 min per changed component; ~1 min per changed theme |
-| Nightly | Every instance × every axis, one at a time | ~2.6 h serial, ~40 min over 4 shards |
-| Nightly | Pairwise over the re-render axes, and over the restyle axes | ~288 renders; ≥330 restyle configurations |
-
-These are estimates built from measured unit costs, not a measured run. Phase 3 measures the
-real thing before anything is wired into CI (decision §10.3). Restyling in place was once wrong
-in both directions, so every restyle axis needs a native-render reconciler like
-`tools/palette-native.js`, and registers a transform fills in (`cards:` via `stampCardsAlign`)
-belong in the re-render group.
-
-## 6. The kinds, and what each owes
-
-Clause status: ✓ exists and finds its instances · ◐ opt-in, hand-listed, partial or nightly ·
-✗ no check. Full rows with sources are in `explicit.md`; this is the catalog.
-
-### Family A — what a deck is built from
+**Family A — what a deck is built from**
 
 | Kind (count) | Key clauses | Status |
 |---|---|---|
-| **Component** (75) | manifest present, schema-valid, both ways with its CSS · variants both ways · docs and gallery generated, one slide per variant · lint and autocomplete know it · anatomy matches render · capacity + `escalateTo` declared · exclusive variant axes declared · manifest skeleton renders, not only the gallery · every variant × every axis (§7): no overflow, AA contrast, axe clean · card row ⇒ `cards` · `[data-family]` ⇒ every tier fires · declared Form ⇒ render matches · honors each register or declares it does not | ✓ files; ◐ variants, contrast, axe, capacity, Form; ✗ anatomy, register honoring, card trigger |
-| **Chart** (24, also components) | ≤ 6 categories or `capacity` declared · labels on the canvas · marks emitted = marks declared · empty, single-row, long-label cases · shared vocabulary (status words) means the same in every member · chart-finish × theme · rasterizes without black paint | ◐ marks, a11y; ✗ edge cases, vocabulary, categories |
+| **Component** (75) | manifest present, schema-valid, both ways with its CSS · variants both ways · docs and gallery generated, one slide per variant · lint and autocomplete know it · anatomy matches render · capacity + `escalateTo` declared and *measured* · exclusive variant axes declared · manifest skeleton renders, not only the gallery · every variant × §7 axes: required slots, no overflow, AA contrast, axe · card row ⇒ `cards` · `[data-family]` ⇒ every tier fires · declared Form ⇒ render matches · each register honored (measured effect) or declared inert · every construct used has a Marp-ledger row | ✓ files, one-sample render; ◐ variants, contrast, axe, capacity, Form; ✗ anatomy, register honoring, card trigger |
+| **Chart** (24, also components) | ≤ 6 categories or `capacity` declared · labels on the canvas · marks emitted = marks declared · empty, single-row, long-label cases · shared vocabulary (status words) means the same in every member · chart-finish × theme · rasterizes without black paint in every theme | ◐ marks, a11y; ✗ edge cases, vocabulary, categories |
 | **Diagram / Mermaid** | scoped token selectors · ink and non-text contrast both schemes | ✓ |
-| **Form** frame/cell/tile (12/13/…) | manifest · cross-references · `accepts`/`fits` lint · `function.form` pair sanctioned | ✓ shape; ✗ lint, pair |
+| **Form** frame/cell/tile | manifest · cross-references · `accepts`/`fits` lint · `function.form` pair sanctioned | ✓ shape; ✗ lint, pair |
 | **Plugin** (7) | files, cases, detect ⊇ parser, fail-soft · every extension-point member exercised · renderer escapes author text · `--fs-*` in its CSS | ✓ harness; ✗ members, escaping, type |
-| **Motion / Anima scene** (4) | manifest, `order` unique, scene valid JSON · reduced-motion honored | ✓ manifest; reduced motion not audited for this note |
+| **Motion / Anima scene** (4) | manifest, `order` unique, valid JSON · reduced motion honored | ✓ manifest; reduced motion not audited |
+| **Sample asset** | every `sample:` picture resolves in every render path | ◐ |
+| **Font face** | self-hosted · metrics pinned · embedded in every export | ✓ hosting; ◐ embedding |
 
-### Family B — how it looks
+**Family B — how it looks**
 
 | Kind | Key clauses | Status |
 |---|---|---|
-| **Theme** (33 files = 19 palettes) | 118 tokens · manifest, identity, roles, modes · every color token in some contrast pair (non-text too) · AA in **both** schemes, both branches of every `light-dark()` · categorical and code roles distinct under color-vision deficiency · palette beats engine defaults in the export bundle · texture set all-12-or-none | ✓ tokens, pairs; ◐ dark; ✗ CVD, export precedence, texture set |
-| **Finish** (9) | manifest · generated rule matches · recipe schema · text contrast over the finish, every component × theme × scheme · one finish per slide | ✓ / ✗ contrast, recipe, one-per-slide |
+| **Theme** (33 files, 19 palettes) | 118 tokens · manifest, identity, roles, modes · every color token in some contrast pair, non-text too · AA in both schemes and both branches of every `light-dark()` · categorical and code roles distinct under color-vision deficiency · palette beats engine defaults in the export bundle · texture set all-12-or-none · `--muted-mark` never text | ✓ tokens, pairs; ◐ dark; ✗ CVD, export precedence, texture set |
+| **Finish** (9) | manifest · generated rule matches · recipe schema · text contrast, every component × theme × scheme · one finish per slide | ✓ / ✗ contrast, recipe, one-per-slide |
 | **Treatment** (`tint-*`, `mark-*`) | known spelling · required `at-*` placement · opacity budget | ✗ |
 | **Token** | no hex; role names; `--fs-*`; no dangling or phantom reads | ✓ |
 
-### Family C — what an author writes
+**Family C — what an author writes**
 
 | Kind | Key clauses | Status |
 |---|---|---|
-| **Deck setting** (front-matter key, ~68) | one registry entry · unknown key warns · unknown value warns · autocomplete key and values · documented · spec row + case · JSON Schema · hover · rides onto split pages (token *and* selector) | ✗ registry, key lint, schema; ◐ the rest |
-| **Slide modifier** (198 in 35 groups) | lint + autocomplete · documented · applying it changes the output · its effect on every component measured | ✓ lint; ◐ docs; ✗ effect |
-| **Lint rule** | registered in the Diagnostic Protocol · fires on a failing case · silent on a passing one · runs under `--all` | ◐ |
+| **Deck setting** (67 keys in the Studio list) | one engine-side registry entry · unknown key warns · unknown value warns · autocomplete key and values · hover · documented · spec row + case · JSON Schema · rides onto split pages, token *and* selector | ✗ registry, key lint, schema, hover; ◐ the rest |
+| **Slide modifier** (198 in 35 groups) | lint + autocomplete · documented · applying it changes the output | ✓ lint; ◐ docs; ✗ effect |
+| **Lint rule and diagnostic code** | registered in the Diagnostic Protocol · fires on a failing case · silent on a passing one · runs under `--all` | ◐ |
 | **Grammar** (section, class directive, fence, CSS comment, block scalar) | one shared reader per grammar · shared cases | ✗ |
+| **Speaker note, `say:` line, review comment** | kept or stripped as asked in every path · narration drops no content | ◐ notes ✓ |
 | **Lens** | `lensEligibility` fails closed · never changes the look · the read path never imports the suggester | ◐ |
 
-### Family D — where it is shown and shipped
+**Family D — where it is shown and shipped**
 
 | Kind | Key clauses | Status |
 |---|---|---|
-| **Render path** (engine, runtime mirror, export-to-Marp) | same output on a shared deck · every construct a component uses has a Marp-ledger row | ◐ |
-| **Render surface** (reader view, player, Present, Playground, Studio preview, dev server) | every component's prose, coda and charts projected and painted · keyboard, wheel and touch through `present-transport` · font gate · sanitizer keeps every attribute the engine emits | ✗ as a kind; ◐ per surface |
-| **Exporter** (6 formats + Marp, video) | one coverage deck through every format · fonts embedded · text filled and extractable · PPTX schema-valid · assets round-trip · notes kept or stripped as asked · no QA chrome · deterministic · a warning fails the run | ✓ notes; ✗ the rest as a matrix |
+| **Render path** (engine, runtime mirror, export-to-Marp) | same output on a shared deck · Marp-ledger completeness | ◐ |
+| **Render surface** (reader view, player, Present, Playground, Studio preview, dev server, VS Code Marp preview) | every component's prose, coda and charts projected and painted · keyboard, wheel and touch through `present-transport` · font gate · sanitizer keeps every attribute the engine emits (derived from engine output) | ✗ as a kind; ◐ per surface |
+| **Exporter** (6 formats + Marp, video) | one coverage deck through every format · fonts embedded · text filled and extractable · PPTX schema-valid · assets round-trip · no QA chrome · deterministic · a warning fails the run | ✓ notes; ✗ the rest |
+| **CLI option** | documented in `--help` · exercised by a case | ◐ |
 | **Ingest** (file read, import, model reply, zip) | line endings and BOM normalized | ◐ hand list |
 | **Sanitizer sink** (4 shapes, HARD RULE #22) | each sink guarded | ✓ |
-| **Package / `.lattice` file** | strict read · installed package runs and exports what it claims | ✓ / ✗ |
+| **Out-of-tree instance** (Studio/AI component, `.latticepack`, installed package, user theme) | the same contract, run by the install and Studio gates at runtime | ✗ |
+| **Docs-site page** | screenshot evidence at 1440, 820, 390 | ◐ discipline |
 
-### Family E — what we ship around it
-
-| Kind | Key clauses | Status |
-|---|---|---|
-| **Spin-off library** (11) | zero-dependency boundary · derived from a registry, not a hand-written function per library | ◐ |
-| **Generated artifact** (galleries, oracles, goldens, WebPs, bench counts) | fresh against its source | ◐ |
-| **Example / demo deck, exemplar, gallery** (6 subtypes) | lints clean under the full rubric · renders without warnings | ◐ |
-| **Gate** (every `check*`, every clause) | runs in some CI job · has a failing arm | ✗ |
-
-### Family F — what we write about it
+**Family E — what we ship around it**
 
 | Kind | Key clauses | Status |
 |---|---|---|
-| **Component and base docs** | every modifier and register named · examples lint clean | ◐ (54 modifiers unnamed) |
-| **Skill doc, canonical doc** | every file path, function and list it names exists and says what the code does | ✗ (the two false docs in §3.5) |
-| **Spec** | four parts present (`checkSpecParts`) · every instance it governs has a row | ✓ / ◐ |
+| **Spin-off library** (11) | zero-dependency boundary, derived from a registry rather than one hand-written function each | ◐ |
+| **Generated artifact** | fresh against its source | ◐ |
+| **Example deck, exemplar, gallery** (6 subtypes) | lints clean under the full rubric · renders without warnings | ◐ |
+| **Gate and clause** | runs in some CI job · fails, for the right reason, on its fixture | ✗ |
+
+**Family F — what we write about it**
+
+| Kind | Key clauses | Status |
+|---|---|---|
+| **Component and base docs** | every modifier and register named (about 47–54 of 198 modifiers are not; unverified) · examples lint clean | ◐ |
+| **Skill and canonical docs** | a list the doc states is generated from its registry, or the claim carries a quoted anchor a test asserts. Existence of a named path is not enough (§3.5) | ✗ |
+| **Spec** | four parts present (`checkSpecParts`) · every governed instance has a row | ✓ / ◐ |
+
+### 6.3 Rules that stop the harness being gamed
+
+Each answers a way a contributor, or an agent under pressure, could pass every clause and still
+ship something broken.
+
+1. **Debt is keyed to the commit that seeded it.** A new entry is allowed only in the commit
+   that adds its clause. A new instance can never carry debt: it conforms or it does not merge.
+   A stale entry fails. The ledger only shrinks.
+2. **An opt-out is a measured claim, not a line.** "Does not honor register R" is checked: the
+   rendered effect of R on that component must be zero. The count of opt-outs is ratcheted.
+3. **Declarations are measured.** A declared capacity is checked against the measured capacity
+   at `capacity.soft`, so a placeholder number from the scaffold fails.
+4. **A fixture must fail for the right reason.** The failing fixture must fail with the expected
+   clause id (not a crash or a schema error), and a near-identical twin must pass.
+5. **A clause asserts its own reach.** It states a minimum instance count per axis, so an axis
+   source that returns `[]` fails instead of passing vacuously.
+6. **A trigger is measured before it blocks.** Every trigger runs against a hand-labeled corpus
+   (all 75 components for "has a card row") and publishes its hit and miss rate. It reports
+   only, until both are acceptable. Triggers use geometry (equal sibling boxes that set their
+   own alignment), not markup, so a `<dl>` or a flex row cannot dodge them.
+7. **A probe is fixed before it enrolls everything** (the `topic` error).
+8. **Every clause names what it catches**: the fix commits it would have failed, or a reason.
+   A clause with neither is not added.
+
+### 6.4 Running combinations without exploding CI
+
+A full matrix is about 858 gallery slides × 33 themes × 10 finish states × 4 size families,
+roughly 1.13M slide configurations, before registers. It cannot run on every PR, and it does
+not need to.
+
+**Which axes may restyle in place.** Swapping the palette stylesheet on one render matches a
+native render byte for byte (`tools/palette-native.js`), at about 32 ms per
+slide-configuration (`palette-sweep.suite.js:24-28`). That holds for theme and scheme, and
+likely for finish. It does **not** hold for registers and modifiers: transforms read the class
+list (`masthead-lift.js:49,83`, `resolve-mode.js`), so toggling a class is not a native render.
+Those axes re-render until each is traced. An in-place axis keeps a per-PR native-render
+sample so the two cannot drift.
+
+| When | What runs |
+|---|---|
+| Every PR, static | Every static clause, every instance (seconds, `npm test`) |
+| Every PR, render | The **reverse-dependency closure** of the diff × every axis, one axis at a time, all values, batched into one deck per axis. When the diff touches shared code (`lib/core`, `lib/engine`, `lattice.css`, `build-css.js`, `lib/transformers`), add a **fixed covering sample**: one representative per bucket × every axis. Inside a render budget you set (§10.2) |
+| Nightly | Every instance × every axis, one at a time; then pairwise over the axes |
+
+Rough sizes from real counts, not a measured run: one changed component restyled across its in-place
+axes (33 theme files, 10 finish states, 16 backdrops: about 60 values) is about 11 slides ×
+60 × 32 ms ≈ 20 s; its re-render axes (8 sizes,
+split, 6 formats) add a batched render each. Axe's per-configuration cost is not measured yet.
+The full nightly is about 2.3 h serial. Phase 3 measures all of it before anything is wired
+into CI.
+
+### 6.5 How we know it works
+
+Each phase's PR reports, in its body, the defects its clauses caught on the day they landed
+(real ones in the tree, not fixtures). Phase 1 re-grades the 112 historical fixes against the
+actual clause list, split into per-PR and nightly catches. That replaces the 53% upper bound
+with a real number, and a clause family that catches nothing over two phases is a candidate for
+removal.
 
 ## 7. The axes
 
-An axis applies to the kinds it can vary. Value counts and sources are in `joins.md` §1.
-
 | Axis | Values | Class | Covered across all values today |
 |---|---|---|---|
-| Theme | 33 files, 19 palettes | restyle | palette sweep, on the hand-written deck only |
-| Scheme | light, dark (two implementations: `-dark` file and `section.dark`) | restyle | partly |
-| Finish | 9 + none; `backdrop:` 16 | restyle | ✗ for text |
-| Registers | mode 3, stamp 13, rule 5, cards 4, spectrum 5+5, … | restyle or re-render | split token-ride only |
-| Modifiers | 198 in 35 groups | restyle | on demand only |
+| Theme | 33 files, 19 palettes | restyle | palette sweep, hand-written deck only |
+| Scheme / color mode | light, dark, system, inherited (dark has two implementations) | restyle | partly |
+| Finish | 9 + none; `backdrop:` 16 | restyle (to verify) | ✗ for text |
+| Registers | mode 3, stamp 13, rule 5, cards 4, spectrum 5+5, … | re-render until traced | split token-ride only |
+| Modifiers | 198 in 35 groups | re-render until traced | on demand only |
 | Size and family | 8 canvases; 4 families | re-render | nightly, indaco light only |
 | Venue, print | 4; on/off | restyle | ✗ |
-| Split | auto-split, split-panel | re-render | split oracle ✓; selector match ✗ |
-| Render path | engine, runtime, Marp | re-render | partial parity |
+| Split | auto-split, split-panel | re-render | oracle ✓; selector match ✗ |
+| Render path | engine, runtime, Marp | re-render | partial |
 | Output format | 6, with sub-modes | re-render | strip-notes only |
-| Render target | default, player, read, fluid, present | re-render | ✗ as a matrix |
-| Browser engine | Chromium, WebKit, Gecko | re-render | PR gates are Chromium; WebKit nightly report-only |
-| Plugins on/off | per plugin | re-render | ✗ |
+| Render target | default, player, read, fluid, present | re-render | ✗ |
+| Browser engine | Chromium, WebKit, Gecko | re-render | PR gates Chromium; WebKit nightly report-only |
+| Plugins on/off, install path, hosted in a pane | per plugin; repo or installed; slide or pane | re-render | ✗ |
 | Density | at `capacity.soft` | re-render | on demand only |
+| Language, lens, motion | `lang`; lens on/off; motion and reduced motion | re-render | ✗ |
 
-Two axes do not exist yet and are out of scope until decided: **right-to-left text** (component
-CSS has 321 physical left/right declarations against 33 logical ones) and **reveal/build
-states**. §10.4 asks.
+Two axes do not exist yet: **right-to-left text** (component CSS has 321 physical left/right
+declarations against 33 logical ones) and **reveal/build states**. §10.3 asks whether either is
+in scope.
 
-## 8. What a harness will not catch
+## 8. What the contracts will not catch
 
-The harness is a necessary floor, not the whole bar. It will not catch:
+They are a floor, not the whole bar.
 
-- **Studio app behavior and state.** 19 fix commits, 15 of them out of reach. Undo crossing
-  decks and a chat reply shown twice are behavior bugs; they need app tests, not a contract.
+- **Studio app behavior and state.** 18 fix commits (17 Studio, 1 surface); undo crossing decks
+  and a chat reply shown twice need app tests, not a contract.
 - **Real devices and third-party viewers.** iOS audio, long-press, pinch, wake lock (31
-  follow-ups owe a real-device check), and PDF rendering in Quartz, PDFKit or PowerPoint. HARD
-  RULE #23 still applies: a clause passing in Chromium is not verification of Safari.
+  follow-ups owe a real-device check), and PDFs in Quartz, PDFKit or PowerPoint. A clause
+  passing in Chromium is not verification of Safari (HARD RULE #23).
 - **Taste.** A layout can conform and still be ugly. The 10/10 visual review stays.
-- **Adversarial input.** Malformed EXIF, fence closers, `</style>` in CSS, deflate bombs: these
+- **Adversarial input**: malformed EXIF, fence closers, `</style>` in CSS, deflate bombs. These
   need fuzzing.
-- **Content conserved but placement destroyed.** A count-based clause passes a slide where
-  everything is present and in the wrong place. Placement has no oracle today; `check:jank`
-  covers movement, not position. A placement oracle is future work, not phase 1.
-- **Its own bugs**, beyond what law 7 makes it prove.
+- **Content kept but placement destroyed.** A count-based clause passes a slide where everything
+  is present and in the wrong place. Placement has no oracle; `check:jank` covers movement, not
+  position. Future work.
+- **Its own bugs**, beyond what §6.3 makes it prove.
 
 ## 9. Order of work
 
-One PR per phase (HARD RULE #17), ordered by what each unblocks.
+One PR per phase (HARD RULE #17). **Each phase must catch defects that exist today**, listed in
+its "catches" column; the shared contract shape is extracted in phase 1, thin, because phase 1
+is its first consumer.
 
-| # | Phase | Why this order | Done when |
+| # | Phase | Catches on day one | Also delivers |
 |---|---|---|---|
-| 1 | **Harness skeleton and the component static contract.** `lib/conformance/`, runner, debt ledger, failing-fixture meta-check (law 7), generated checklist, contract-driven `new:component`. Static clauses: manifest and CSS both ways, variants both ways, `isEnriched`, capacity and exclusive-axis declarations, manifest autocomplete from the schema | Every later phase becomes "add a contract". Components are where the owner's examples live | `npm test` runs it; every component has a row; every clause has a failing fixture; debt seeded with reasons |
-| 2 | **Deck-setting and modifier registry.** One engine-side table; unknown key and value warn; autocomplete, docs, spec §2.3 and a front-matter JSON Schema derived from it; treatment spelling and placement; `STATIC_VALUES` moves into the engine | The widest silent failure, cheapest to close | `finsh: halo` warns; `icon:` completes; the schema ships in `dist/` |
-| 3 | **Render tier, axes one at a time.** Fix the probe first (law 7); every variant × theme × scheme for contrast and axe; the card-row trigger; size families crossed with scheme; finishes; split as token *and* selector. Measure, then bring the cost for decision | Closes the hand-deck hole and the owner's card example | `list-steps converge` fixed or named debt; `stats`, `actors`, `kpi` governed or exempt with a reason |
-| 4 | **Surfaces and exporters.** Render surface becomes a kind; one coverage deck through every format and every surface; export warnings fail; Marp ledger completeness | The largest defect class in history (30 of 112) | — |
-| 5 | **Themes, finishes, treatments, textures, charts.** Both `light-dark()` branches; CVD distinctness; recipe schema; texture sets; chart edge cases and vocabulary; chart-family members | — | — |
-| 6 | **Family E and F.** Libraries, generated artifacts, gates (every check runs in CI with a failing arm), docs whose claims are checked | — | — |
-| 7 | **Burn down debt.** The 242 player-contrast runs into the ledger with reasons, starting with the 123 below 2:1 | Last, because phases 3–5 stop new entries first | — |
+| 1 | **Deck-setting and modifier registry.** One engine-side table of keys and values; unknown key and value warn; autocomplete keys and values, hover, docs, spec §2.3 and a front-matter JSON Schema derived from it; treatment spelling and `at-*` placement; `STATIC_VALUES` moves into the engine. **Plus the thin contract core** (contract shape, runner, ledger, §6.3 fixture rules, generated checklist) with the deck-setting contract as its first user, and the re-grade of history (§6.5) | `finsh:`, `themee:`, `size: huge`, `theme: nosuchtheme`; `icon`/`avatar`/`plugins`/`greeting`/`closing` autocomplete; 4 spec gaps; `tint-bogus`, bare `tint-corner` | The contract core every later phase reuses |
+| 2 | **Component contract on `component-invariants`.** Fix the probe; widen from one sample to every variant × theme × scheme, batched; body-text contrast and axe; the card-row trigger (report-only until measured, §6.3); static component clauses (manifest and CSS both ways, variants both ways, `isEnriched`, capacity and exclusive-axis declarations, manifest autocomplete from the schema); anatomy matches render | `list-steps converge`; the 18 unchecked components; `stats`/`actors`/`kpi`; `_qr-card` | Render budget measured and set (§10.2) before the per-PR render tier is wired |
+| 3 | **Surfaces and exporters.** Render surface and exporter become kinds; one coverage deck through every format and every surface; export warnings fail; Marp-ledger completeness; sanitizer keeps what the engine emits | The largest historical class (30 of 112) | — |
+| 4 | **Joins.** Registers honored or measured-inert on every component; split as token *and* selector; size families × scheme; Form conformance from opt-in to evidence-triggered | Register and split regressions | — |
+| 5 | **Themes, finishes, treatments, textures, charts.** Both `light-dark()` branches; CVD distinctness; finish text contrast; recipe schema; texture sets; `--muted-mark`; chart edge cases, vocabulary, categories, members, black paint in every theme | a11y dark branches; finish contrast | — |
+| 6 | **Families E and F, out-of-tree instances, the rest.** Libraries, generated artifacts, gates with failing arms, docs claims anchored, plugin escaping, ingest census, lint rules under `--all`, grammars, lens, motion, CLI options, fonts; the same contracts run by the package-install and Studio gates | The two false docs | — |
+| 7 | **Burn down debt.** The 242 player-contrast runs into the ledger with reasons, starting with the 123 below 2:1 | — | — |
+
+Every gap in §3 now sits in a phase. Not phased, on purpose: Studio app behavior, real devices,
+taste, fuzzing and placement (§8).
 
 ## 10. Open decisions for the owner
 
-1. **The direction** — decided, §11.1.
-2. **Card governance** — decided, §11.2.
-3. **Render-tier cost.** Phase 3 adds per-PR render work for changed instances (estimated
-   ~2.5 min per changed component, §5.4). That changes what runs on every PR (CLAUDE.md's
-   second filter, row 2), so it comes back with a measured number.
-4. **Right-to-left text and reveal states.** Neither axis exists. Are they in scope for the
-   harness, or for later?
-5. **Studio app kinds.** The harness reaches little of the 18 Studio behavior fixes. Leave app
-   behavior to app tests (recommended), or define Studio panels as a kind?
+1. **Phase order.** You approved "components first" against the first version of this note. The
+   review found a better order (§5, §9): the registry first, because it catches live defects on
+   day one and is the thin core's first user, with the component contract built on the existing
+   harness second. Recommendation: the new order.
+2. **Per-PR render budget.** A number of minutes the per-PR render tier may spend, set before
+   phase 2 wires it, in line with the live CI-cost effort (`2026-08-18-inspection-oracle-catalog.md`).
+   Recommendation: measure in phase 2, then set it with you.
+3. **Right-to-left text and reveal states.** Neither axis exists. In scope, or later?
+4. **Studio app behavior.** Leave it to app tests (recommended), or make Studio panels a kind?
 
-## 11. Owner rulings (2026-10-15)
+## 11. Method and confidence
 
-1. **Direction: yes, components first.** Phase 1 is the first build PR.
+- **Audit (§3):** four read-only agents mapped components, themes and finishes, settings and
+  editor, and plugins, packages and exporters. I re-ran the key probes myself: the lint runs,
+  the 18-component diff, the all-gallery contrast run, and the rendered `list-steps` and
+  `topic` slides.
+- **Harvests (§1, §4, §6, §7):** three agents, one each for stated expectations, history, and
+  axes and joins. Their tables are in the folder beside this note. Classifications are one
+  agent's reading; a second recounted every number but did not re-judge rows.
+- **Adversarial review (§5):** red team, inversion and an independent checker attacked the
+  first full version; every change in §5 came from them and was verified.
+- **What stays uncertain:** the 53% / 42% catch rate (author-graded, upper bound; phase 1
+  re-grades); every cost in §6.4 (estimates from unit costs; phase 2 measures); about 47–54
+  undocumented modifiers; 26 unconfirmed rows in `explicit.md`.
+
+## 12. Owner rulings (2026-10-15)
+
+1. **Direction: yes.** Phase order re-opened by §10.1.
 2. **Cards: opt-in, plus an evidence trigger.** A detected card row with no `cards` declaration
    fails. `stats`, `actors` and `kpi` are each reviewed: each one either adopts `cards` (a visual
    change, shipped with a demo deck) or goes in the ledger as debt with a reason.
 3. **An unknown front-matter key is a warning**, like every other authoring rule.
-4. **This note holds for revision** before it merges. The owner asked for very high confidence
-   that every explicit and implicit expectation is covered; the three harvests behind §3–§7 are
-   that pass.
+4. **This note holds for revision** before it merges, and the owner asked for very high
+   confidence that every explicit and implicit expectation is covered. §11 is that pass.
