@@ -881,13 +881,14 @@ describe('cartesian — defects the adversarial trio confirmed', () => {
     assert.equal(C.parseValue('1.234.567,89'), 1234567.89);
     assert.equal(C.parseValue('€1.234,5M'), 1234500000);
     assert.equal(C.parseValue('12,000'), 12000);
-    // Only a WHOLE European number swaps: prose the lenient fallback scans, and malformed input,
-    // keep the US reading, so a list comma after a decimal never multiplies the number by ten.
+    // Only a WHOLE European number swaps: prose the lenient fallback scans keeps the US reading,
+    // so a list comma after a decimal never multiplies the number by ten.
     assert.equal(C.parseValue('grew 3.5%, margin 12%'), 3.5);
     assert.equal(C.parseValue('$1.2M, 40%'), 1200000);
     assert.equal(C.parseValue('v2.1, beta'), 2.1);
-    assert.equal(C.parseValue('1.2,3'), 1.23);
-    assert.equal(C.parseValue('1,234.567,89'), 1234.56789);
+    // Malformed input is no number at all (followups.d/2609-p2, now done): it read 1.23 and 1234.56789.
+    assert.ok(Number.isNaN(C.parseValue('1.2,3')));
+    assert.ok(Number.isNaN(C.parseValue('1,234.567,89')));
     // A lone `12.000` is still US-first, 12; phase 2's ISO reader decides it
     // (engineering/decisions/2026-10-14-chart-authoring-uniform-model.md §5).
     assert.equal(C.parseValue('12.000'), 12);

@@ -35,6 +35,7 @@ const ROOT = path.join(__dirname, '..');
 // Read lazily and defensively: check-ownership.js is a heavy module, and a
 // checkout that somehow cannot load it should still lint (the sanction only
 // ever REMOVES a finding, so an empty set is the strict, not the lax, default).
+const { isSubjectFinding } = require('./lint-subject-decks');
 let glyphExemptDecksCache = null;
 function glyphExemptDeckSet() {
   if (glyphExemptDecksCache) return glyphExemptDecksCache;
@@ -240,7 +241,9 @@ async function main(argv) {
       // three consumers now honor one list: the gate counts against it, the
       // deck-lint-clean unit test skips against it, and `--strict` here would
       // otherwise fail the pre-push hook on decks the gate itself sanctions.
-      .filter((f) => !(f.rule === 'typed-shape-glyph' && glyphExemptDeckSet().has(relFromRoot(file))));
+      .filter((f) => !(f.rule === 'typed-shape-glyph' && glyphExemptDeckSet().has(relFromRoot(file))))
+      // A deck whose warning is its subject (tools/lint-subject-decks.js) is exempt from that one rule.
+      .filter((f) => !isSubjectFinding(relFromRoot(file), f.rule));
     for (const f of findings) {
       // `info` / `suggestion` are the ADVISORY tier — they report something true about a
       // deliberate choice (a deck that opts into autosplit WILL have over-budget slides),

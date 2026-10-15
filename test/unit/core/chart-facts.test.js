@@ -460,14 +460,12 @@ test('spoken value — the sign rides in FRONT of a currency prefix', () => {
   // speech layer passed the whole thing through as glyphs.
   assert.equal(say('$-0.8M'), 'down eight hundred thousand dollars');
   assert.equal(say('$-0.8M'), say('-$0.8M'), 'the two spellings are one quantity');
-  // THE VOICE FOLLOWS THE PARSER, WHICH IS WHAT THE PICTURE PLOTS. `parseValue` reads
-  // a U+2212 in FRONT of a currency symbol and not behind it, so `$\u22120.8M` plots
-  // POSITIVE and is spoken positive. That asymmetry is the parser's and it is shared
-  // with every chart in the family, so it is filed rather than fixed from here — but
-  // it is pinned, because the one thing that must never drift is the voice saying
-  // "down" over a bar the chart drew up.
-  assert.equal(parseValue('$\u22120.8M') > 0, true);
-  assert.equal(say('$\u22120.8M'), 'eight hundred thousand dollars');
+  // THE VOICE FOLLOWS THE PARSER, WHICH IS WHAT THE PICTURE PLOTS. A U+2212 behind the
+  // currency symbol (`$\u22120.8M`) used to plot POSITIVE and was pinned here as a filed
+  // asymmetry; the parser now reads it as the minus it is (#2699), so the picture and the
+  // voice both say "down".
+  assert.equal(parseValue('$\u22120.8M') < 0, true);
+  assert.equal(say('$\u22120.8M'), 'down eight hundred thousand dollars');
 });
 
 test('spoken value — under the smallest magnitude the LETTER goes, not the rewrite', () => {

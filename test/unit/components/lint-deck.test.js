@@ -13,6 +13,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { SANCTIONED_GLYPH_DECKS } = require('../../../tools/check-ownership.js');
+const { SANCTIONED_SUBJECT_DECKS, isSubjectFinding } = require('../../../tools/lint-subject-decks.js');
 
 const REPO_ROOT = path.join(__dirname, '..', '..', '..');
 
@@ -655,17 +656,28 @@ describe('deck linter', () => {
     // HARD RULE #29 exists to prevent, and examples/gantt-component-redesign.md
     // quotes the retired gantt delimiter as the wrong input. The list is READ from
     // the gate rather than repeated here, so the two cannot drift (HARD RULE #1).
+    //
+    // The decks on tools/lint-subject-decks.js are exempt from their ONE sanctioned rule, for the
+    // same reason: the warning is their subject. Read from that list, never repeated.
     const glyphExempt = new Set(SANCTIONED_GLYPH_DECKS.map((d) => d.file));
     const offenders = [];
     for (const deck of discoverDecks()) {
       const rel = path.relative(REPO_ROOT, deck).split(path.sep).join('/');
       const findings = lintText(fs.readFileSync(deck, 'utf8'), { vocab })
         .filter((f) => f.severity !== 'info' && f.severity !== 'suggestion')
-        .filter((f) => !(f.rule === 'typed-shape-glyph' && glyphExempt.has(rel)));
+        .filter((f) => !(f.rule === 'typed-shape-glyph' && glyphExempt.has(rel)))
+        .filter((f) => !isSubjectFinding(rel, f.rule));
       if (findings.length) {
         offenders.push(`${deck}: ${findings.map((f) => `${f.severity}:${f.rule}[${f.classToken}]@${f.slide}`).join(', ')}`);
       }
     }
     assert.deepEqual(offenders, [], offenders.join('\n'));
+  });
+
+  test('every sanctioned subject deck still carries its sanctioned warning (no stale entry)', () => {
+    for (const { file, rule } of SANCTIONED_SUBJECT_DECKS) {
+      const fired = lintText(fs.readFileSync(path.join(REPO_ROOT, file), 'utf8'), { vocab }).some((f) => f.rule === rule);
+      assert.ok(fired, `tools/lint-subject-decks.js sanctions ${rule} on ${file}, which no longer fires it: delete the entry`);
+    }
   });
 });

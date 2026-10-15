@@ -224,7 +224,7 @@ fix is to make one positional, or to wrap it in `named(...)` so it must be writt
 | `flag(word)` | a word that switches something on: `milestone` |
 | `indexed(prefix, { max })` | `c1`…`c12`, `step1`…`step5`: a prefix and a number, the ceiling set per slot (`max` at most 1,000) |
 | `id()` | `#api` |
-| `number()` | numbers as people write them: `42` `-$0.8M` `12%` `($1.2M)` `1,25M` `1.234.567` |
+| `number()` | numbers as people write them: `42` `-$0.8M` `12%` `($1.2M)` `1,25M` `1.234.567`. One sign, paired parentheses and one well-formed digit run, so `--5`, `(5` and `1,2,3` are not numbers; `malformedNumber` says why |
 | `time()` | dates as people write them: `2026-03-15` `2026 Q1` `Q3` `Jan` |
 | `range(of)` | `a..b` over another type |
 
@@ -470,7 +470,7 @@ other takes the full bind: the results are the same and the saving is lost.
 
 `npm run segno-lib:build` regenerates `notation.generated.ts` and writes `dist/` (ESM + CJS +
 `.d.ts`); `npm run segno-lib:check` fails if either is stale. Three entries: `@laticent/segno`;
-`@laticent/segno/values` — `readNumber` and `readTime` alone, a few KB against the full library's
+`@laticent/segno/values` — `readNumber`, `malformedNumber` and `readTime` alone, a few KB against the full library's
 80, for a consumer that only reads values and cannot tree-shake a CommonJS `require`; and
 `@laticent/segno/read` — `parse`, the schema builders and the types without the grammar compiler
 (10KB gzipped against 23KB), which Lattice's `lib/` takes so its live lint does not carry the
