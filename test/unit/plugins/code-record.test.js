@@ -170,6 +170,7 @@ describe('lint rule 12c and formatting', () => {
     assert.deepEqual(found.map((f) => f.rule), ['code-record-orphan']);
     assert.match(found[0].message, /under a sentence/);
     assert.deepEqual(rules('# A\n\n## Setup\n`@code{numbers}`\n```ts\nx\n```\n'), [], 'a heading ends its block');
+    assert.deepEqual(rules('# A\n\n<!-- note --!>\n`@code{numbers}`\n```ts\nx\n```\n'), [], 'a comment closed with --!> ends its block');
   });
   test('an absurd line range is reported, not expanded', () => {
     const t0 = Date.now();
