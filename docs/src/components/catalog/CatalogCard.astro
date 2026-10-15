@@ -18,7 +18,7 @@ const pkg = d.facts.find((f) => f.k === 'Package')?.v;
 	<article class="cat-card">
 		<div class="cat-card-head">
 			<span class="cat-card-mark" aria-hidden="true">
-				{d.mark ? <CatalogMark mark={d.mark} size={26} /> : <span class="cat-mono">{d.name[0]}</span>}
+				{d.mark || d.kind === 'plugin' ? <CatalogMark entry={entry} size={26} /> : <span class="cat-mono">{d.name[0]}</span>}
 			</span>
 			<div class="cat-card-name">
 				<h3>{d.name}</h3>

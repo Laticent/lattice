@@ -4,7 +4,6 @@ name: Function plots
 order: 5
 promise: Write the function; the slide draws its graph in your theme.
 intro: A `functionplot` code block holds a small config — the function, like `1 / (1 + exp(-x))`, and the range to show — and the slide draws the curve as a crisp vector graph in the deck's palette. Put it beside its equation on a math slide, or on any slide at all.
-mark: /plugin-function-plot-mark.svg
 useWhen: You teach or explain a function — a logistic curve, a decay, a loss curve — and a pasted chart image would be the wrong font, the wrong colors and impossible to change.
 syntax: '```functionplot'
 facts:

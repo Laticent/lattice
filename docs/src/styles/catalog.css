@@ -292,18 +292,19 @@
 	width: 26px;
 	height: 26px;
 }
-/* The plugin marks, drawn inline (CatalogMark.astro): the lines take the heading ink and the
-   one highlight takes the accent, so a mark holds its contrast on every palette, light or
-   dark, whatever the device's own setting says. */
-.cat-mark-svg .mk-i {
+/* The plugin marks: each plugin manifest's `icon`, drawn inline by lib/plugins/plugin-icon.mjs.
+   The lines take the heading ink and the highlight takes the accent, so a mark holds its contrast
+   on every palette, light or dark, whatever the device's own setting says. The manifest carries
+   only path data; every color is decided here. */
+.plugin-icon .plugin-icon-line {
 	fill: none;
 	stroke: var(--text-heading);
 }
-.cat-mark-svg .mk-a {
+.plugin-icon .plugin-icon-accent {
 	fill: none;
 	stroke: var(--accent);
 }
-.cat-mark-svg .mk-f {
+.plugin-icon .plugin-icon-fill {
 	fill: var(--accent);
 }
 .cat-card-mark .cat-mono {

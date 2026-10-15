@@ -6,6 +6,13 @@
   "api": 1,
   "title": "Math",
   "description": "Typeset TeX on any slide: $…$ inline, and $$…$$ or a ```math fence for display, drawn by KaTeX at parse time. The math slide class is designed around it and declares it.",
+  "icon": {
+    "viewBox": "0 0 128 128",
+    "paths": [
+      {"ink": "line", "d": "M14 70L30 62L48 104L72 22L114 22", "width": 8},
+      {"ink": "accent", "d": "M78 48L104 82M104 48L78 82", "width": 8}
+    ]
+  },
   "contributes": {
     "syntax": {
       "math_inline": { "kind": "inline", "anchor": { "after": "escape" }, "triggers": ["$"] },

@@ -4,7 +4,6 @@ name: Icons
 order: 3
 promise: Icons the size of a word, drawn in your theme's colors.
 intro: Write `^{database, c3}` in a sentence and a crisp, single-color icon appears at text size, in the deck's own palette — never an emoji, never a font glyph. About 250 icons, chosen for architecture and business slides, also go inside labels and on Lattice's chart nodes.
-mark: /plugin-icons-mark.svg
 useWhen: Your slides show systems, pipelines or teams, and you want icons that match the deck instead of emoji or pasted vendor logos.
 syntax: '`^{database, c3}`'
 facts:

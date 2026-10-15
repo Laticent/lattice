@@ -36,7 +36,7 @@ const isExternal = (href) => /^https?:/.test(href);
 				{d.facts.find((f) => f.k === 'Package') && <code>{d.facts.find((f) => f.k === 'Package').v}</code>}
 			</p>
 			<div class="cat-learn-title">
-				{d.mark && <CatalogMark mark={d.mark} size={52} />}
+				<CatalogMark entry={entry} size={52} />
 				<h1 class="cat-h1">{d.name}</h1>
 			</div>
 			<p class="cat-promise">{d.promise}</p>

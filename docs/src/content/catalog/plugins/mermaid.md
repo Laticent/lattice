@@ -4,7 +4,6 @@ name: Mermaid
 order: 2
 promise: Type a diagram as text; get it drawn in your deck's colors.
 intro: Write a `mermaid` code block — a flowchart, a sequence, a state machine, a timeline — and Lattice draws it in the deck's palette, on the slide's own light or dark background. The Studio draws it as you type, and the export bakes it into a sharp vector drawing, not a screenshot.
-mark: /plugin-mermaid-mark.svg
 useWhen: You explain a flow, a system or a sequence of calls, and you want the diagram to live in the same file as the slide — and change color with the theme.
 syntax: '```mermaid'
 facts:

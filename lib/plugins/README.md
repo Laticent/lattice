@@ -18,6 +18,11 @@ fence no other plugin claims, syntax-highlighted; the `code` and `compare-code` 
 require it; see "The code renderer" below). The website introduces the six an author writes at
 /plugins/, from `docs/src/content/catalog/plugins/`.
 
+**A plugin's mark** is its manifest's optional `icon`: path data tagged `line`, `accent` or `fill`,
+drawn by `plugin-icon.mjs` in the active theme's colors (spec/LPM.md §3.1). It is data rather than
+an SVG file, so a mark can carry no color, element or script of its own and travels on every
+channel unchanged. The website's Plugins hub draws it from here.
+
 ## A plugin is a folder
 
 ```

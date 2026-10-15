@@ -4,7 +4,6 @@ name: Math
 order: 1
 promise: Write TeX in a slide; get a sharp equation in the deck's colors.
 intro: Type `$\pi r^2$` in a sentence, or a `$$…$$` block on its own line, and Lattice typesets it with KaTeX the moment the deck renders. The PDF, the HTML export and the Studio all draw the same equation, in the slide's text color — and "$400M" in a revenue bullet stays plain text.
-mark: /plugin-math-mark.svg
 useWhen: Your slides carry formulas — a model, a proof, a rate — and a screenshot of an equation won't do.
 syntax: '$\pi r^2$  ·  $$ E = mc^2 $$'
 facts:

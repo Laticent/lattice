@@ -4,7 +4,6 @@ name: Avatars
 order: 4
 promise: Type a name; get the same friendly portrait, every time.
 intro: Write `!{Ada Okafor}` and Lattice draws a head-and-shoulders portrait. The name alone picks every trait, so it's the same face on every render and every copy of the deck. Pin the few traits you care about, and drop it onto a team slide where the photo would go.
-mark: /plugin-avatars-mark.svg
 useWhen: A team, persona or customer slide needs faces before anyone has sent headshots — or for people who are fictional by design.
 syntax: '`!{Ada Okafor}`'
 facts:

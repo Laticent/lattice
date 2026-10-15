@@ -866,7 +866,9 @@ hub card and the demo's hero, its body is the Learn page, in a fixed teaching or
 (`REQUIRED_SECTIONS` in `docs/src/lib/catalog.mjs`, held by `catalog.test.ts`). A plugin's
 demo is generated from the file's `examples` (one slide each, through the live `Specimen`);
 a library's demo is its own hand-built page under `docs/src/pages/libraries/<slug>/`, which
-carries `<DemoBar>` and repeats the file's `promise` (the test checks it). Adding one: write
+carries `<DemoBar>` and repeats the file's `promise` (the test checks it). A plugin's mark is not in the
+catalog: it is the plugin manifest's `icon` (`lib/plugins/<name>/<name>.manifest.json`), drawn by
+`lib/plugins/plugin-icon.mjs`; a library's mark is the `mark:` image its catalog file names. Adding one: write
 the file, add the entry to `librariesNav` / `pluginsNav` in `nav.mjs` (same order — the nav
 test checks), and, for a library, build its demo page.
 

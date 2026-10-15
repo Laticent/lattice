@@ -1,25 +1,29 @@
 ---
-// A catalog entry's mark. The plugin marks (public/plugin-*-mark.svg) are drawn INLINE, so
-// their two inks come from the site's palette tokens (catalog.css .cat-mark-svg): an <img>
-// can't see the page's theme, and its own prefers-color-scheme follows the DEVICE — so on a
-// light-mode phone with the site set to dark it drew dark lines on a dark tile. The library
-// marks are multi-color drawings made for their own demo pages, and stay images.
+// A catalog entry's mark.
+//   • A PLUGIN's mark is its manifest's `icon` (lib/plugins/<name>/<name>.manifest.json), drawn
+//     inline by lib/plugins/plugin-icon.mjs. Its inks take the site's palette tokens
+//     (catalog.css `.plugin-icon`), so it holds contrast on every palette, light or dark,
+//     whatever the device's own color scheme says.
+//   • A LIBRARY's mark is the multi-color drawing made for its demo page (`mark:` in its catalog
+//     entry), shown as an image.
+// Renders nothing when an entry has neither; the caller shows a fallback.
 //
-// Props:  mark — the entry's `mark` path;  size — px
+// Props:  entry — a catalog entry;  size — px
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { joinBase } from '../../lib/base-url.mjs';
+import { slugOf } from '../../lib/catalog.mjs';
+import { pluginIconSvg } from '../../../../lib/plugins/plugin-icon.mjs';
 
-const { mark, size = 26 } = Astro.props;
+const { entry, size = 26 } = Astro.props;
 const url = (p) => joinBase(import.meta.env.BASE_URL, p);
-const file = mark.replace(/^\//, '');
-const inline = /^plugin-[a-z-]+-mark\.svg$/.test(file);
-// The file's own <style> is for anyone opening it on its own; inline, the page colors it.
-const svg = inline
-	? readFileSync(join(process.cwd(), 'public', file), 'utf8')
-			.replace(/<style>[\s\S]*?<\/style>/, '')
-			.replace('<svg ', `<svg class="cat-mark-svg" width="${size}" height="${size}" aria-hidden="true" focusable="false" `)
-	: null;
+const d = entry.data;
+let svg = '';
+if (d.kind === 'plugin') {
+	const slug = slugOf(entry);
+	const manifest = JSON.parse(readFileSync(join(process.cwd(), '..', 'lib', 'plugins', slug, `${slug}.manifest.json`), 'utf8'));
+	svg = pluginIconSvg(manifest.icon, { size });
+}
 ---
 
-{inline ? <Fragment set:html={svg} /> : <img src={url(file)} alt="" width={size} height={size} loading="lazy" />}
+{svg ? <Fragment set:html={svg} /> : d.mark ? <img src={url(d.mark.replace(/^\//, ''))} alt="" width={size} height={size} loading="lazy" /> : null}
