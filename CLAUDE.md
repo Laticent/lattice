@@ -722,6 +722,11 @@ after a squash-merge) and the browser-free PNG preview are documented in
 `engineering/development.md` (tooling) and `engineering/gotchas.md` (symptoms).
 **Don't re-discover them — read those.**
 
+**Nothing is "not installed here."** If a tool or browser is missing, install it and run the
+check; never report it as a reason something did not run. Playwright's WebKit and Firefox
+install themselves when the e2e suite needs them (about 30 s, once per sandbox); anything else,
+`apt-get` or `npx` it.
+
 Iterate visually with `npm run preview` + `SendUserFile` (no per-iteration
 commits; auto-detects scope + pixel-diffs). Lint drafts with
 `npm run lint:deck -- <file>`. Pull requests never commit PDFs: CI renders and links
