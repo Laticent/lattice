@@ -154,7 +154,7 @@ if (existsSync(hljsDir)) {
   }
 }
 
-// The code-format plugin's browser half — its entry, one chunk per formatter and the
+// The code formatter's browser half — its entry, one chunk per formatter and the
 // formatters' WebAssembly (tools/build-code-format.js). Beside the engine for the same
 // reason as the grammars: docs/src/lib/ensure-code-format.ts finds it by one path swap,
 // and a deck fetches only the formatter its blocks ask for.

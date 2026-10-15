@@ -244,7 +244,7 @@ for c in "\${COMPREPLY[@]}"; do printf '%s\\n' "$c"; done`;
       const p = t('lattice -p ', ['lattice', '-p', '']);
       assert.ok(p.includes('indaco') && p.includes('cuoio') && p.length >= 30, p.join(' '));
       assert.deepEqual(t('lattice pack', ['lattice', 'pack']), ['packages']);
-      assert.deepEqual(t('lattice ', ['lattice', '']), ['completion', 'deck.md', 'decks', 'my deck.md', 'packages', 'sp dir', 'video']);
+      assert.deepEqual(t('lattice ', ['lattice', '']), ['completion', 'deck.md', 'decks', 'fmt', 'my deck.md', 'packages', 'sp dir', 'video']);
       assert.deepEqual(t('lattice video ', ['lattice', 'video', '']), ['deck.md', 'decks', 'my deck.md', 'packages', 'sp dir', 'talk.html']);
     });
 

@@ -1,6 +1,6 @@
 /**
  * The Export-to-Marp bundle and the code plugin — real marp-cli: a shell command list is colored the
- * way Lattice colors it, and a block that asks to be formatted ships formatted, with no record line.
+ * way Lattice colors it, and a block's `@code{…}` record line does not print as text.
  *
  * marp-core highlights with its OWN highlight.js, whose stock bash knows POSIX built-ins and nothing
  * a command list is made of: `npm`, `docker`, `kubectl` and every flag came out as plain text (0
@@ -43,11 +43,11 @@ kubectl apply -f k8s/ --namespace prod
 
 ---
 
-# Formatted
+# Configured
 
-\`@code{format, numbers}\`
+\`@code{numbers}\`
 \`\`\`ts
-const a={b:1}
+const a = { b: 1 };
 \`\`\`
 `;
 
@@ -137,9 +137,9 @@ describe('Export to Marp and the code plugin — real marp-cli', () => {
     assert.notEqual(panel.bg, panel.slide, 'and that is not the slide background');
   });
 
-  // Not a marp-cli question, but this file already runs the CLI export: the bundle's deck carries the
-  // block formatted (the code-format bake) and no record line (withoutCodeRecords), since Marp reads neither.
-  test('the exported deck carries the formatted block and no record line', (t) => {
+  // Not a marp-cli question, but this file already runs the CLI export: the bundle's deck carries no
+  // record line (withoutCodeRecords), since Marp has no rule that reads one.
+  test('the exported deck carries the block and no record line', (t) => {
     if (skip) return t.skip(skip);
     assert.match(exported, /```ts\nconst a = \{ b: 1 \};\n```/);
     assert.doesNotMatch(exported, /@code\{/);

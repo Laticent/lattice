@@ -341,6 +341,24 @@ Proof:
    Python and sql-formatter for SQL. Everything is self-hosted and loaded per language. Go and the other
    languages stay unformatted, with a lint warning. The owner asked for no bloat; per-language loading means
    an unused adapter costs a deck nothing.
+5. **Formatting runs at authoring time, not render time** (owner, after the adversarial review). The
+   inversion lens showed the render-time design's costs: the Studio preview jumped between raw and formatted
+   code as the author typed, `focus=` and `mark=` counted lines the editor never showed (so their lint had to
+   be switched off), and a formatter upgrade would re-lay every deck that had ever asked. Formatting now
+   rewrites the source: `lattice fmt` and the Studio's **Format code blocks** command format every block a
+   formatter reads except `format=off`; a record's `format` (or `code: format`) means "keep this block
+   formatted", which the Studio does when the author leaves the editor. The render never formats, so
+   code-format stopped being a render plugin and moved to `lib/authoring/code-format/`.
+6. **The formatters are `optionalDependencies`, and Dependabot keeps upgrading them.** An install without
+   them still renders every deck. A style change in a minor release fails the golden tests in Dependabot's
+   routine group, and the fix is to re-bless the goldens; no shipped deck changes, because none is formatted
+   at render time.
+7. **Copy buttons on a code block, off by default** — slice 9 below. `@code{copy}` turns them on for one
+   block and `code: copy` in the front matter for every block. Two small on-brand icon buttons, top right of
+   the panel, each with a tooltip: copy as code (plain source) and copy as HTML (the highlighted block with
+   the theme's colors resolved inline, so it pastes colored into a document or an email). Only on surfaces
+   a person reads in a browser (the Studio, the Playground, the HTML player); never in a PDF, a PPTX or an
+   image, whose capture runs in a browser too.
 
 ## 10. Open
 
@@ -394,3 +412,12 @@ Proof:
   `:where()` so the engine's own match keeps its specificity (the engine PDF is pixel-identical). A drawn fence is
   left out by its `data-lattice-hydrate` / `data-lattice-settle` marker, so the code plugin names no other plugin.
   `wrap` also gained a two-column hanging indent, because without numbers a wrapped continuation read as a new line.
+- 2026-10-15: review and rework. The adversarial trio (red team, inversion, checker) ran on the branch. The
+  owner's calls on its forks are decisions 5–7 above. Formatting moved to authoring time: the bake, its worker,
+  the export's format step and the render-path await are gone, and the planner now reads the deck with the
+  engine's own parser (markdown-it plus `code_record`), which also closed four of the red team's findings — a
+  fence inside an HTML comment or block was formatted, a record under a sentence still formatted its block, a
+  closing fence indented four spaces closed, and a `diff` block's markers were fed to the formatter and fused
+  into one false line. SQL now defaults to PostgreSQL: the generic dialect rewrote `B'0101'` as `B '0101'`.
+  `parseIndexList` caps a range at 10,000 lines: `focus=1-20000000` took 7 s and then crashed the whole lint.
+

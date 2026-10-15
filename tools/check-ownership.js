@@ -4027,7 +4027,7 @@ function listRepoTextFiles(dir = ROOT, out = []) {
       // are third-party keywords no migration here could rename. (The US-English
       // ratchet that once counted them is gone; the walk now serves HARD RULE #29.)
       if (rel === path.join('docs', 'public', 'playground', 'hljs')) continue;
-      // And `playground/fmt/`: the code-format plugin's browser build
+      // And `playground/fmt/`: the code formatter's browser build
       // (tools/build-code-format.js), gitignored, minified Prettier/ruff/sql-formatter
       // chunks. Their words are third-party identifiers (a formatter's own option
       // names, a DOM property), which no one here can rename.
@@ -7229,6 +7229,12 @@ const SANCTIONED_EOL_BOUNDARIES = [
        + 'than the identical content in LF, and the tool exists to publish figures that other '
        + 'documents quote. A measurement instrument that reports differently by encoding is '
        + 'worse than no instrument.',
+  },
+  {
+    file: 'lib/authoring/code-format/fmt-cli.mjs',
+    why: 'formatDeck — `lattice fmt` reads an author\'s deck, folds CRLF to LF and strips the BOM so '
+       + 'the planner reads it as the engine does, then puts both back on write: a formatter must not '
+       + 'rewrite a file\'s line endings, only its code blocks.',
   },
   {
     file: 'tools/export-marp.js',

@@ -30,6 +30,13 @@ describe('withoutCodeRecords', () => {
     assert.equal(withoutCodeRecords('- item\n\n  `@code{numbers}`\n  ```ts\n  x\n  ```\n'), '- item\n\n  ```ts\n  x\n  ```\n');
   });
 
+  test('a record on a list item\'s first line goes, and the item keeps its marker and its fence', () => {
+    const md = '- one\n- `@code{title=app.js}`\n  ```js\n  x()\n  ```\n- three\n';
+    const out = withoutCodeRecords(md);
+    assert.equal(out, '- one\n-\n  ```js\n  x()\n  ```\n- three\n');
+    assert.equal((require('markdown-it')().render(out).match(/<li>/g) || []).length, 3, 'still three items');
+  });
+
   test('a record quoted inside a fence, or with no fence below it, stays text', () => {
     const quoted = '````md\n`@code{numbers}`\n```ts\nx\n```\n````\n';
     assert.equal(withoutCodeRecords(quoted), quoted);

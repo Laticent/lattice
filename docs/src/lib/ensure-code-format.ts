@@ -1,29 +1,41 @@
-// Code formatting above the render: the code-format plugin's browser half
-// (lib/plugins/code-format/, engineering/decisions/2026-10-15-code-plugin.md §6).
+// Code formatting in the Studio: the formatter's browser half (lib/authoring/code-format/,
+// engineering/decisions/2026-10-15-code-plugin.md §6 and §9).
 //
-// A deck whose `@code{format}` record, or `code: format` default, asks for it has
-// those blocks pretty-printed in its SOURCE before the synchronous render, exactly
-// as the CLI's bake does, through the same planner and formatters — so the preview
-// shows the formatted code the export prints. The formatters live beside the
-// engine in the content-hashed `playground/v/<hash>/fmt/` dir (built by
-// tools/build-code-format.js), and each loads only when a block in its language
-// asks: a deck that formats nothing fetches nothing, not even this module's entry.
+// Formatting is an AUTHORING step: it rewrites the deck's source in the editor, where the author
+// sees it, through the same planner and formatters as `lattice fmt`. The render never formats, so
+// the editor, the preview, `focus=`/`mark=` and the line-range lint all count the same lines.
+// Two callers, both in Editor.tsx: the "Format code" command (every block a formatter reads, except
+// `format=off`) and format-on-blur (only the blocks whose record, or the deck's `code:` default,
+// says `format`).
 //
-// NEVER REJECTS, and is bounded: a formatter that fails, or a fetch that stalls,
-// leaves the source as written. The render behind this await must not wait on the
-// network for longer than a fence grammar may (ensure-hljs-language.ts).
+// The formatters live beside the engine in the content-hashed `playground/v/<hash>/fmt/` dir (built
+// by tools/build-code-format.js), and each loads only when a block in its language is formatted: a
+// session that never formats fetches nothing, not even this module's entry.
+//
+// NEVER REJECTS, and is bounded: a formatter that fails, or a fetch that stalls, comes back as a
+// reason the caller can show, never as a changed block.
 import { engineBase } from './engine-base';
 
 const LOAD_TIMEOUT_MS = 10_000;
 
-/** The same cheap test the plugin's `detect` makes (lib/plugins/code-format/shared/detect.mjs). */
+/** The same cheap test the planner makes (lib/authoring/code-format/plan.mjs `wantsFormat`). */
 const WANTS_FORMAT = [/`@code\{[^`\n]*\bformat\b/, /^code:[^\n]*\bformat\b/m];
 export function wantsFormat(markdown: string): boolean {
 	return WANTS_FORMAT.some((re) => re.test(markdown));
 }
 
+/** One edit, in character offsets of the source that was formatted. */
+export type FormatChange = { from: number; to: number; insert: string };
+/** A block left as written, and why. `line` is 1-based, the block's first line. */
+export type FormatSkip = { lang: string; line: number; error: string };
+export type FormatResult = { changes: FormatChange[]; skipped: FormatSkip[]; failed?: string };
+
 type FormatModule = {
-	formatMarkdown: (markdown: string, env: { wasmUrl: (file: string) => string }) => Promise<{ markdown: string; skipped: Array<{ lang: string; line: number; error: string }> }>;
+	formatMarkdown: (
+		markdown: string,
+		env: { wasmUrl: (file: string) => string },
+		options: { all?: boolean },
+	) => Promise<{ markdown: string; changes: FormatChange[]; skipped: FormatSkip[] }>;
 };
 
 const modules = new Map<string, Promise<FormatModule | null>>();
@@ -37,7 +49,7 @@ function loadModule(dir: string): Promise<FormatModule | null> {
 	])
 		.catch(() => null)
 		.then((m) => {
-			if (!m) modules.delete(dir); // a failed load is retryable on the next render
+			if (!m) modules.delete(dir); // a failed load is retryable on the next format
 			return m;
 		});
 	modules.set(dir, p);
@@ -45,24 +57,27 @@ function loadModule(dir: string): Promise<FormatModule | null> {
 }
 
 /**
- * The deck's source with every block that asks formatted, or the source unchanged.
+ * The changes that format `markdown`'s code blocks, and the blocks left alone with why.
+ * @param all  every block a formatter reads (the command); otherwise only the blocks that ask
  * @param base the formatter directory; defaults to the engine's `fmt/` beside it
  */
-export async function formatDeckSource(markdown: string, base?: string | null): Promise<string> {
-	if (typeof window === 'undefined' || !wantsFormat(markdown)) return markdown;
+export async function formatCode(markdown: string, { all = false, base }: { all?: boolean; base?: string | null } = {}): Promise<FormatResult> {
+	const none: FormatResult = { changes: [], skipped: [] };
+	if (typeof window === 'undefined' || (!all && !wantsFormat(markdown))) return none;
 	const engine = engineBase();
 	const dir = base ?? (engine === null ? null : `${engine}fmt/`);
-	if (!dir) return markdown;
+	if (!dir) return { ...none, failed: 'the formatter is not available on this page' };
 	const mod = await loadModule(dir);
-	if (!mod) return markdown;
+	if (!mod) return { ...none, failed: 'the formatter did not load; try again' };
 	try {
 		const out = await Promise.race([
-			mod.formatMarkdown(markdown, { wasmUrl: (file) => new URL(file, new URL(dir, window.location.href)).href }),
+			mod.formatMarkdown(markdown, { wasmUrl: (file) => new URL(file, new URL(dir, window.location.href)).href }, { all }),
 			new Promise<null>((resolve) => setTimeout(() => resolve(null), LOAD_TIMEOUT_MS)),
 		]);
-		return out ? out.markdown : markdown;
-	} catch {
-		return markdown;
+		if (!out) return { ...none, failed: 'the formatter took too long; try again' };
+		return { changes: out.changes, skipped: out.skipped };
+	} catch (e) {
+		return { ...none, failed: String((e as Error)?.message || e) };
 	}
 }
 

@@ -162,8 +162,8 @@ describe('bakeDeck — the Node host', () => {
     assert.throws(() => bakeDeck(src, {}, { bakers: [baker('first', () => { throw new Error('boom'); })], grammar, strict: true }), /plugin "first": its bake failed: boom/);
     assert.throws(() => bakeDeck(src, {}, { bakers: [baker('first', () => 7)], grammar, strict: true }), /plugin "first": its bake returned no text/);
   });
-  test('the real registry bakes code-format then Mermaid, lazily, and skips a deck that uses neither without loading either', () => {
-    assert.deepEqual(BAKERS.map((b) => [b.name, b.exec]), [['code-format', 'subprocess'], ['mermaid', 'subprocess']]);
+  test('the real registry bakes Mermaid, lazily, and skips a deck with no diagram without loading it', () => {
+    assert.deepEqual(BAKERS.map((b) => [b.name, b.exec]), [['mermaid', 'subprocess']]);
     let loaded = false;
     const bakers = BAKERS.map((b) => ({ ...b, load: () => { loaded = true; return b.load(); } }));
     const { source, contexts } = bakeDeck('# No diagram\n\n```js\nx\n```\n', {}, { bakers });

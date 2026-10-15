@@ -153,7 +153,19 @@ describe('lint rule 12c and formatting', () => {
   test('a deck default passes an unsupported block over quietly', () => {
     assert.deepEqual(rules('---\ncode: format\n---\n\n# A\n\n```go\npackage main\n```\n'), []);
   });
-  test('a formatted block\'s line references are not checked: the formatter decides its lines', () => {
-    assert.deepEqual(rules('# A\n\n`@code{format, focus=9}`\n```ts\nconst a={b:1}\n```\n'), []);
+  test('a block that asks to be formatted is still range-checked: the source is what renders', () => {
+    assert.deepEqual(rules('# A\n\n`@code{format, focus=9}`\n```ts\nconst a={b:1}\n```\n').map((f) => f.rule), ['code-line-range']);
+  });
+  test('a record on the line under a sentence continues it, and is reported as configuring nothing', () => {
+    const found = rules('# A\n\nRun this:\n`@code{numbers}`\n```ts\nx\n```\n');
+    assert.deepEqual(found.map((f) => f.rule), ['code-record-orphan']);
+    assert.match(found[0].message, /under a sentence/);
+    assert.deepEqual(rules('# A\n\n## Setup\n`@code{numbers}`\n```ts\nx\n```\n'), [], 'a heading ends its block');
+  });
+  test('an absurd line range is reported, not expanded', () => {
+    const t0 = Date.now();
+    const found = rules('# A\n\n`@code{focus=1-20000000}`\n```ts\nx\n```\n');
+    assert.ok(Date.now() - t0 < 1000, 'returns at once');
+    assert.deepEqual(found.map((f) => f.rule), ['code-record']);
   });
 });

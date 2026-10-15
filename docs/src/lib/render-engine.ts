@@ -27,7 +27,6 @@ import { appendAutoGlossary } from '../../../lib/core/glossary-auto.mjs';
 import { sourceHasMath } from '../../../lib/plugins/math/math.syntax.mjs';
 import { renderWithCodePackages } from './code-packages/entry';
 import { ensureCharts } from './ensure-charts';
-import { formatDeckSource } from './ensure-code-format';
 import { ensureFenceLanguages } from './ensure-hljs-language';
 import { deriveKatexProviderUrl, ensureKatexProvider } from './ensure-katex';
 import { ensurePluginData } from './ensure-plugin-data';
@@ -113,9 +112,7 @@ export async function renderMarkdown(
 	// chokepoint every docs render surface passes through — so a `glossary: auto` deck grows its
 	// reference-appendix slide live in the Studio exactly as it does in the export (HARD RULE #1).
 	// A no-op unless the deck opts in and defines terms; idempotent (strips its own trigger).
-	// Code formatting rewrites fence bodies, so it runs first: the grammars, KaTeX and plugin data
-	// below are then asked about the source that renders (ensure-code-format.ts).
-	const rendered = await formatDeckSource(appendAutoGlossary(source));
+	const rendered = appendAutoGlossary(source);
 	if (sourceHasMath(rendered)) {
 		const katexUrl = deriveKatexProviderUrl();
 		if (katexUrl) await ensureKatexProvider(katexUrl).catch(() => {});

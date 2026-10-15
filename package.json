@@ -337,9 +337,6 @@
     "@laticent/trama": "^0.1.0",
     "@mediabunny/aac-encoder": "1.60.0",
     "@pdf-lib/fontkit": "^1.1.1",
-    "@prettier/plugin-php": "0.25.0",
-    "@prettier/plugin-xml": "3.4.2",
-    "@wasm-fmt/ruff_fmt": "0.15.20",
     "acorn": "^8.17.0",
     "dagre-d3-es": "^7.0.14",
     "dompurify": "^3.4.16",
@@ -352,12 +349,9 @@
     "parse5": "^8.0.1",
     "pdf-lib": "^1.17.1",
     "pptxgenjs": "^3.12.0",
-    "prettier": "3.9.10",
-    "prettier-plugin-java": "2.11.0",
     "puppeteer": "^23.0.0",
     "qrcode": "^1.5.4",
     "roughjs": "^4.6.6",
-    "sql-formatter": "15.9.0",
     "woff2-encoder": "^2.0.0"
   },
   "engines": {
@@ -395,7 +389,13 @@
     "zdog": "^1.1.3"
   },
   "optionalDependencies": {
+    "@prettier/plugin-php": "0.25.0",
+    "@prettier/plugin-xml": "3.4.2",
+    "@wasm-fmt/ruff_fmt": "0.15.20",
     "css-tree": "^3.2.1",
+    "prettier": "3.9.10",
+    "prettier-plugin-java": "2.11.0",
+    "sql-formatter": "15.9.0",
     "subset-font": "^2.5.0"
   }
 }

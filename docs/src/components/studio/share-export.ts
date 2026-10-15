@@ -8,7 +8,6 @@
 // renderer options + current palette, so Share hands off real artifacts rather
 // than a toast.
 
-import { formatDeckSource } from '@/lib/ensure-code-format';
 import { deriveKatexProviderUrl, ensureKatexProvider } from '@/lib/ensure-katex';
 import { ensureEngine } from '@/lib/load-engine';
 import type { LatticePlaygroundEngine } from '@/lib/playground-global';
@@ -1061,10 +1060,7 @@ export async function shareMarp(options: SingleSlideOptions, source: string, nam
 		const katexUrl = deriveKatexProviderUrl();
 		if (katexUrl) await ensureKatexProvider(katexUrl).catch(() => {});
 	}
-	// Blocks that ask to be formatted go out formatted (lib/plugins/code-format/): Marp runs no plugin,
-	// so the bundle carries the text the preview shows, as the CLI's export does through its bake.
-	const formatted = await formatDeckSource(photos?.source ?? source);
-	const removed = await ex.exportMarp(embedFinishInMarkdown(formatted, finishClass, finishCss), name, palette, options.themeBase, { includeAgent: true, files: photos?.files, overflowMarker: overflowMarker ?? loadSettings().overflowMarker, extraTheme: extra, components: [...components], pluginsOff: deckPluginsOff(source) });
+	const removed = await ex.exportMarp(embedFinishInMarkdown(photos?.source ?? source, finishClass, finishCss), name, palette, options.themeBase, { includeAgent: true, files: photos?.files, overflowMarker: overflowMarker ?? loadSettings().overflowMarker, extraTheme: extra, components: [...components], pluginsOff: deckPluginsOff(source) });
 	return [marpExportNote(removed), latticePhotoNote(named, true, photos)].filter(Boolean).join('; ') || undefined;
 }
 

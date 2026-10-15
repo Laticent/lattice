@@ -11,7 +11,7 @@ footer: "Laticent · code highlighting"
 
 `Feature · the code plugin`
 
-Highlighting is a plugin now. Any fence on any slide sits on the code panel, colored by the theme's syntax roles, and a one-line record above the fence turns on numbers, focus, diff bands and formatting.
+Highlighting is a plugin now. Any fence on any slide sits on the code panel, colored by the theme's syntax roles, and a one-line record above the fence turns on numbers, focus and diff bands.
 
 ---
 
@@ -35,7 +35,7 @@ export async function load(id: string): Promise<User> {
 
 `@code{title=src/session.ts, numbers, focus=4-6}`
 ```ts
-import { sign } from './keys';
+import { sign } from "./keys";
 
 export function issue(user: User): Session {
   const expires = Date.now() + TTL;
@@ -76,14 +76,16 @@ Stock highlight.js left this block gray. Lattice's shell grammar colors the comm
 
 ---
 
-## Formatting is one word in the record.
+## One command formats every block.
 
 `@code{format, width=48}`
 ```ts
-const total=items.filter(i=>i.active).reduce((sum,i)=>sum+i.price*i.qty,0)
+const total = items
+  .filter((i) => i.active)
+  .reduce((sum, i) => sum + i.price * i.qty, 0);
 ```
 
-The source is one minified line. Prettier breaks it at 48 columns before it is colored, so the slide, the PDF and an Export to Marp all show the same lines.
+This was one minified line. `lattice fmt`, or **Format code blocks** in the Studio, rewrote it at the record's 48 columns, so the source, the slide and every export show the same lines.
 
 ---
 
@@ -91,16 +93,24 @@ The source is one minified line. Prettier breaks it at 48 columns before it is c
 
 `@code{format, dialect=postgresql}`
 ```sql
-select region,sum(amount) as revenue from orders where placed_at>'2026-01-01' group by region
+select
+  region,
+  sum(amount) as revenue
+from
+  orders
+where
+  placed_at > '2026-01-01'
+group by
+  region
 ```
 
-Prettier formats the web languages, ruff formats Python, and sql-formatter formats SQL in the dialect you name. Each loads only when a block asks.
+Prettier formats the web languages, ruff formats Python, and sql-formatter formats SQL in the dialect you name. Each loads only when you format a block in its language.
 
 ---
 
 ## Mark a line without dimming the rest.
 
-`@code{mark=4, wrap}`
+`@code{mark=4, wrap, format=off}`
 ```yaml
 service: billing
 replicas: 3

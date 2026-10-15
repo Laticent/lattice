@@ -26,6 +26,7 @@ export type StudioCommandId =
 	| 'import-deck'
 	| 'coach'
 	| 'fix-all'
+	| 'format-code'
 	| 'toggle-mode'
 	| 'slide-settings';
 
@@ -49,3 +50,18 @@ export function runCommand(commands: readonly StudioCommand[], id: StudioCommand
 	c.run();
 	return true;
 }
+
+/** What the "Format code blocks" command says when it finishes: what changed, and the first block it
+ *  left alone, with why (lib/authoring/code-format/plan.mjs). Null: the deck changed while the
+ *  formatters ran, so nothing was applied. */
+export function formatCodeNotice(r: { changes: unknown[]; skipped: Array<{ lang: string; line: number; error: string }>; failed?: string } | null): string {
+	if (!r) return 'The deck changed while formatting; nothing was applied. Run it again.';
+	if (r.failed) return `Could not format: ${r.failed}.`;
+	const n = r.changes.length;
+	const done = n ? `Formatted ${n} code block${n === 1 ? '' : 's'}.` : 'Code blocks are already formatted.';
+	const first = r.skipped[0];
+	if (!first) return done;
+	const more = r.skipped.length > 1 ? ` (and ${r.skipped.length - 1} more)` : '';
+	return `${done} The ${first.lang} block at line ${first.line} keeps its text: ${first.error}${more}.`;
+}
+
