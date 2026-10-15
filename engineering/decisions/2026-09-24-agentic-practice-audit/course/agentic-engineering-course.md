@@ -2168,6 +2168,28 @@ Within months, other teams will build on your booking API: a mobile app, a lobby
 
 ---
 
+<!-- _class: diagram insight-key -->
+
+`Chapter 8 · From spec to checks`
+
+## Your spec doesn't stay a document. Each line becomes a check.
+
+```mermaid
+%%{init: {'themeVariables': {'fontSize': '22px'}}}%%
+flowchart LR
+  A["Day one: spec<br/>stored in UTC"] --> B["A rule<br/>instruction file"]
+  B --> C["A check<br/>two-zone test"]
+  C --> D["A guardrail<br/>UtcTime"]
+```
+
+> On a mature project, the checks are the spec.
+
+<!--
+Here's the arc the whole course has followed, using one line of the booking spec: "times are stored in UTC." On day one it's a sentence in a document, and the agent can only read it and hope. Then it becomes a rule in the instruction file, read by every session. After the double booking, it becomes a check, the two-zone test, which fails when anyone breaks it. Finally it becomes a guardrail, UtcTime, which makes breaking it hard to write at all. Each step makes the line harder to ignore. Starting from a spec is right on day one, because nothing else can say what correct means yet. But a project that's been running for years carries thousands of these lines, and most of them now live as checks rather than prose. The document shrinks; the checks grow. On a mature project, the checks are the spec.
+-->
+
+---
+
 <!-- _class: list-tabular -->
 
 `Chapter 8 · Common mistakes`
