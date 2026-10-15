@@ -210,6 +210,9 @@ const STEPS = [
   // Cadenza's dist/ must exist on disk BEFORE read-along-core bundles it in.
   { label: 'Cadenza library dist (CJS + .d.ts)', script: 'build-cadenza-lib.js', uncommitted: true },
   { label: 'Vetrina library dist (CJS + .d.ts)', script: 'build-vetrina-lib.js', uncommitted: true },
+  // Fuoco is a browser library (the Studio's focus hub); nothing at the root requires it, but it
+  // publishes ./dist like its siblings, so it builds like them.
+  { label: 'Fuoco library dist (ESM + CJS + .d.ts)', script: 'build-fuoco-lib.js', uncommitted: true },
   // Lente has no root CJS consumer today, but its package.json promises
   // ./dist/index.cjs (main/require) and it is a workspace member, so it must
   // build like its siblings or `require('@laticent/lente')` / publish break.

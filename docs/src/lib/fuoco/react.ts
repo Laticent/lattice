@@ -10,7 +10,7 @@
 // (The `frame` lane is for DOM work outside React, like an editor's scroll.)
 
 import * as React from 'react';
-import type { Focus, FocusHub, Lane } from './hub';
+import type { Focus, FocusHub, Lane } from './hub.js';
 
 export function useFocus<T>(hub: FocusHub, select: (f: Focus) => T, opts: { lane?: Lane; equals?: (a: T, b: T) => boolean } = {}): T {
 	const lane = opts.lane ?? 'sync';

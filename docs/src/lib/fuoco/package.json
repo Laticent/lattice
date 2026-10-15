@@ -1,0 +1,67 @@
+{
+  "name": "@laticent/fuoco",
+  "version": "0.1.0",
+  "description": "One focus for every view of a document: editors, outlines, previews and rails stay in step through a tiny, framework-free hub with stable unit ids, origin-aware delivery and frame-coalesced updates. An optional React adapter at ./react.",
+  "license": "AGPL-3.0-only",
+  "author": "Sharmarke Aden (Laticent) <sharmarke.aden@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Laticent/lattice.git",
+    "directory": "docs/src/lib/fuoco"
+  },
+  "homepage": "https://github.com/Laticent/lattice/tree/main/docs/src/lib/fuoco#readme",
+  "bugs": {
+    "url": "https://github.com/Laticent/lattice/issues"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "types": "./dist/index.d.ts",
+  "module": "./dist/index.mjs",
+  "main": "./dist/index.cjs",
+  "peerDependencies": {
+    "react": ">=18"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
+  },
+  "exports": {
+    ".": {
+      "@laticent/source": "./index.ts",
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./react": {
+      "@laticent/source": "./react.ts",
+      "import": {
+        "types": "./dist/react.d.ts",
+        "default": "./dist/react.mjs"
+      },
+      "require": {
+        "types": "./dist/react.d.ts",
+        "default": "./dist/react.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "*.ts",
+    "!*.test.ts",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "prepack": "node ../../../../tools/library-prepack.js"
+  }
+}

@@ -8936,6 +8936,40 @@ function checkTavolaBoundary(errors, dir = TAVOLA_DIR, adapter = TAVOLA_ADAPTER)
   }
 }
 
+// ── Fuoco (docs/src/lib/fuoco) — the focus hub ──────────────────────────────
+// Fuoco keeps every view of a document in step, and knows nothing about what the document is:
+// the host passes its document model in as an outliner (2026-10-15-fuoco-focus-sync.md §12).
+// Lattice's own slide outliner lives OUTSIDE the folder (docs/src/lib/deck-outline) for exactly
+// that reason. So the core imports nothing outside its folder, not even `node:`; ONE sanctioned
+// bare import, by exact name and exact file: `react` in the React adapter.
+const FUOCO_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'fuoco');
+const FUOCO_ADAPTER = path.join(FUOCO_DIR, 'react.ts');
+function checkFuocoBoundary(errors, dir = FUOCO_DIR, adapter = FUOCO_ADAPTER) {
+  checkStrictPackageImports(errors, dir, {
+    allowNode: false,
+    allowBare: new Set(['react']),
+    describe: (rel, spec) =>
+      `${rel} imports '${spec}', which escapes the Fuoco folder. Fuoco takes the document model ` +
+      `as an outliner, so every import must resolve inside docs/src/lib/fuoco/; a host's own ` +
+      `outliner (Lattice's is docs/src/lib/deck-outline) lives outside it ` +
+      `(engineering/decisions/2026-10-15-fuoco-focus-sync.md §12).`,
+  });
+  if (!fs.existsSync(dir)) return;
+  for (const file of listPackageSources(path.resolve(dir))) {
+    if (TEST_FILE.test(file) || path.resolve(file) === path.resolve(adapter)) continue;
+    const src = stripJsComments(fs.readFileSync(file, 'utf8'));
+    for (const pattern of SUONO_SPEC_PATTERNS) {
+      for (const m of src.matchAll(pattern)) {
+        if (m[1] !== 'react') continue;
+        errors.push(
+          `${path.relative(ROOT, file)} imports 'react'. Only ${path.relative(ROOT, adapter)} may: ` +
+          `the Fuoco core is framework-free, and the React adapter is the one sanctioned exception.`,
+        );
+      }
+    }
+  }
+}
+
 // ── Suono (docs/src/lib/suono) — the audio playback/sequencing engine ───────
 // The same self-containment antibody as Cadenza, plus a HARDER security invariant
 // baked into the design (engineering/decisions/2026-07-12-suono-audio-library.md):
@@ -13452,6 +13486,7 @@ function run() {
   checkTramaBoundary(errors);
   checkCalcoBoundary(errors);
   checkTavolaBoundary(errors);
+  checkFuocoBoundary(errors);
   checkAnimaBoundary(errors);
   checkSuonoBoundary(errors);
   checkLttBoundary(errors);
@@ -13518,6 +13553,7 @@ module.exports = {
   checkSpecParts,
   specPartProblems,
   checkTavolaBoundary,
+  checkFuocoBoundary,
   checkReadingRole,
   readingRoleCountsIn,
   readingRoleFindings,

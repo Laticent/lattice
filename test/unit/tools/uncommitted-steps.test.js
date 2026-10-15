@@ -76,6 +76,8 @@ const EXPECTED_UNCOMMITTED = new Set([
   // Calco's write set is docs/src/lib/calco/dist/, covered by docs/.gitignore's `dist/`.
   'build-calco-lib.js',
   'build-vetrina-lib.js',
+  // Its whole write set is docs/src/lib/fuoco/dist/, covered by docs/.gitignore's `dist/`.
+  'build-fuoco-lib.js',
   'build-lente-lib.js',
   // Measured 2026-09-28: its whole write set is docs/src/lib/segno/dist/ (docs/.gitignore's
   // `dist/`); the committed notation.generated.ts is written by build-segno-grammar.js.

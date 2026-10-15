@@ -90,6 +90,7 @@ const {
   checkAnimaBoundary,
   checkCadenzaBoundary,
   checkCalcoBoundary,
+  checkFuocoBoundary,
   checkTavolaBoundary,
   checkLttBoundary,
   ANIMA_DIR,
@@ -2032,6 +2033,44 @@ describe('check-ownership', () => {
       }
       // A test file may use its runner and Yjs.
       assert.deepEqual(run(tavola, { 'session.test.ts': "import * as Y from 'yjs';\nimport { it } from 'vitest';" }), []);
+    });
+  });
+
+  // Fuoco: the core takes its document model as an outliner, and ONE file — the React adapter —
+  // may import `react` (2026-10-15-fuoco-focus-sync.md §12).
+  describe('Fuoco import-boundary gate', () => {
+    const run = (files) => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fuoco-gate-'));
+      try {
+        for (const [name, body] of Object.entries(files)) {
+          fs.mkdirSync(path.dirname(path.join(dir, name)), { recursive: true });
+          fs.writeFileSync(path.join(dir, name), body);
+        }
+        const errors = [];
+        checkFuocoBoundary(errors, dir, path.join(dir, 'react.ts'));
+        return errors;
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    };
+    test('the live tree is clean', () => {
+      const errors = [];
+      checkFuocoBoundary(errors);
+      assert.deepEqual(errors, [], errors.join('\n'));
+    });
+    test('react in the adapter only; nothing from Lattice anywhere', () => {
+      assert.deepEqual(run({ 'react.ts': "import * as React from 'react';", 'hub.ts': "import { x } from './outline.js';" }), []);
+      assert.equal(run({ 'hub.ts': "import * as React from 'react';" }).length, 1, 'the core may not import react');
+      for (const src of [
+        "import { buildDeckIndex } from '../deck-outline';",
+        "import { parseSlideBoundaries } from '../../../../lib/core/slide-boundaries.mjs';",
+        "import { frontMatterBlock } from '@/components/studio/front-matter';",
+        "import fs from 'node:fs';",
+        "const m = await import('markdown-it');",
+      ]) {
+        assert.equal(run({ 'hub.ts': src }).length, 1, `not caught: ${src}`);
+      }
+      assert.deepEqual(run({ 'hub.test.ts': "import { it } from 'vitest';" }), []);
     });
   });
 

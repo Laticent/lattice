@@ -17,7 +17,8 @@
 
 import * as React from 'react';
 import DeckPreview, { type DeckPreviewProps } from '@/components/DeckPreview';
-import type { DeckIndex, FocusHub } from '@/lib/fuoco';
+import type { DeckIndex } from '@/lib/deck-outline';
+import type { FocusHub } from '@/lib/fuoco';
 import { useFocus } from '@/lib/fuoco/react';
 
 type PaneMod = typeof import('./pane-pages');
@@ -37,15 +38,15 @@ export type FocusedPreviewProps = Omit<DeckPreviewProps, 'slideIndex' | 'caretTe
 
 export function FocusedPreview({ hub, index, viewChunks, viewIndex, panePaneCounts, paneMod, slideText, sample, ...rest }: FocusedPreviewProps) {
 	const chunk = viewChunks[viewIndex] ?? -1;
-	const sections = index.chunks[chunk]?.sections.length ?? 1;
+	const sections = index.units[chunk]?.parts.length ?? 1;
 	const paneSplit = (panePaneCounts?.[viewIndex] ?? 1) > 1;
 	// Whether the caret line decides anything about the shown slide. Learned from the preview's own
 	// report (a structural split is known only once rendered at this size) or the pane map.
 	const [splits, setSplits] = React.useState(false);
 	const caretMatters = sections === 1 && (splits || paneSplit);
 	const line = useFocus(hub, (f) => (caretMatters ? f.line : ''));
-	const focusChunk = useFocus(hub, (f) => f.chunkIndex);
-	const section = useFocus(hub, (f) => f.section);
+	const focusChunk = useFocus(hub, (f) => f.unitIndex);
+	const section = useFocus(hub, (f) => f.part);
 	const page = useFocus(hub, (f) => f.page);
 	const onThis = focusChunk === chunk;
 
@@ -61,13 +62,13 @@ export function FocusedPreview({ hub, index, viewChunks, viewIndex, panePaneCoun
 	const onSplitPage = React.useCallback<NonNullable<DeckPreviewProps['onSplitPage']>>(
 		(report) => {
 			const c = viewChunks[report.slide];
-			const ch = c === undefined ? undefined : index.chunks[c];
-			const many = (ch?.sections.length ?? 1) > 1;
+			const ch = c === undefined ? undefined : index.units[c];
+			const many = (ch?.parts.length ?? 1) > 1;
 			setSplits(report.canSplit);
 			// A heading-split slide's "pages" are hub sections, so it reports a run of one.
 			hub.pages('preview', {
-				chunk: ch?.id ?? null,
-				section: many ? hub.get().section : 0,
+				unit: ch?.id ?? null,
+				part: many ? hub.get().part : 0,
 				count: many ? 1 : (report.page?.count ?? 1),
 				shown: many ? 0 : (report.page?.index ?? 0),
 				canSplit: report.canSplit || deckRuns,

@@ -4,7 +4,8 @@ import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import sectionSplit from '../../../../lib/core/section-source-split.js';
 import { splitSlides } from '../../components/studio/lint';
-import { buildDeckIndex, chunkText, type DeckIndex, flatSection, indexStats, sectionAt, sectionOfFlat, sectionText, updateDeckIndex } from './deck-index';
+import { flatPart, partAt, partOfFlat, partText, unitText } from '../fuoco/outline';
+import { buildDeckIndex, type DeckIndex, indexStats, updateDeckIndex } from './deck-outline';
 
 const { splitSourceToSections } = sectionSplit as { splitSourceToSections: (s: string) => string[] };
 const ROOT = path.resolve(__dirname, '../../../..');
@@ -18,7 +19,7 @@ function corpus(): Array<[string, string]> {
 }
 
 // The shape two snapshots must agree on; ids are compared separately.
-const shape = (ix: DeckIndex) => ({ bodyStart: ix.bodyStart, mode: ix.mode, seps: ix.seps, chunks: ix.chunks.map((c) => [c.from, c.start, c.end, [...c.sections]]) });
+const shape = (ix: DeckIndex) => ({ bodyStart: ix.bodyStart, mode: ix.mode, seps: ix.seps, chunks: ix.units.map((c) => [c.from, c.start, c.end, [...c.parts]]) });
 
 describe('DeckIndex — agrees with the derivations it replaces', () => {
 	const decks = corpus();
@@ -30,7 +31,7 @@ describe('DeckIndex — agrees with the derivations it replaces', () => {
 	it('chunk i is splitSlides(source)[i], on every committed deck', () => {
 		for (const [name, src] of decks) {
 			const ix = buildDeckIndex(src);
-			const got = ix.chunks.map((_, i) => chunkText(ix, i));
+			const got = ix.units.map((_, i) => unitText(ix, i));
 			expect(got, name).toEqual(splitSlides(src.slice(ix.bodyStart)));
 		}
 	});
@@ -40,12 +41,12 @@ describe('DeckIndex — agrees with the derivations it replaces', () => {
 		for (const [name, src] of decks) {
 			const ix = buildDeckIndex(src);
 			const mine: string[] = [];
-			ix.chunks.forEach((c, i) => {
-				for (let k = 0; k < c.sections.length; k++) mine.push(sectionText(ix, i, k));
+			ix.units.forEach((c, i) => {
+				for (let k = 0; k < c.parts.length; k++) mine.push(partText(ix, i, k));
 			});
 			const engine = splitSourceToSections(src).filter(Boolean);
 			expect(mine, name).toEqual(engine);
-			if (ix.chunks.some((c) => c.sections.length > 1)) headingSplitDecks++;
+			if (ix.units.some((c) => c.parts.length > 1)) headingSplitDecks++;
 		}
 		// The property means something only if some committed deck actually splits on headings.
 		expect(headingSplitDecks).toBeGreaterThan(0);
@@ -53,12 +54,12 @@ describe('DeckIndex — agrees with the derivations it replaces', () => {
 
 	it('an outline-style deck is three slides, not one (#1570)', () => {
 		const ix = buildDeckIndex('# Title\n\n## One\n\nbody\n\n## Two\n');
-		expect(ix.chunks.length).toBe(1);
-		expect(ix.sectionBase[1]).toBe(3);
-		expect(sectionText(ix, 0, 2)).toBe('## Two');
-		expect(sectionAt(ix, ix.source.indexOf('body'))).toEqual({ chunk: 0, section: 1 });
-		expect(sectionOfFlat(ix, 2)).toEqual({ chunk: 0, section: 2 });
-		expect(flatSection(ix, 0, 1)).toBe(1);
+		expect(ix.units.length).toBe(1);
+		expect(ix.partBase[1]).toBe(3);
+		expect(partText(ix, 0, 2)).toBe('## Two');
+		expect(partAt(ix, ix.source.indexOf('body'))).toEqual({ unit: 0, part: 1 });
+		expect(partOfFlat(ix, 2)).toEqual({ unit: 0, part: 2 });
+		expect(flatPart(ix, 0, 1)).toBe(1);
 	});
 
 	it('a body that opens with a separator is parsed once, as the engine parses it', () => {
@@ -66,7 +67,7 @@ describe('DeckIndex — agrees with the derivations it replaces', () => {
 		// as front matter: two slides became one for every slide operation (the checker's catch).
 		const src = '---\nmarp: true\n---\n\n---\n\n# A\n\n---\n\n# B\n';
 		const ix = buildDeckIndex(src);
-		expect(ix.chunks.map((_, i) => chunkText(ix, i))).toEqual(['# A', '# B']);
+		expect(ix.units.map((_, i) => unitText(ix, i))).toEqual(['# A', '# B']);
 		expect(splitSlides(src.slice(ix.bodyStart))).toEqual(['# A', '# B']);
 		expect(splitSourceToSections(src).filter(Boolean)).toEqual(['# A', '# B']);
 	});
@@ -80,7 +81,7 @@ describe('DeckIndex — agrees with the derivations it replaces', () => {
 			const next = updateDeckIndex(ix, src);
 			expect(next).not.toBe(ix);
 			expect(next.rev).toBe(ix.rev);
-			expect(next.chunks.length).not.toBe(ix.chunks.length);
+			expect(next.units.length).not.toBe(ix.units.length);
 		} finally {
 			setBoundaryPluginsOff([]);
 		}
@@ -89,13 +90,13 @@ describe('DeckIndex — agrees with the derivations it replaces', () => {
 	it('split: rule keeps one section per chunk', () => {
 		const ix = buildDeckIndex('---\nsplit: rule\n---\n\n# Title\n\n## One\n');
 		expect(ix.mode).toBe('rule');
-		expect(ix.sectionBase[ix.chunks.length]).toBe(1);
+		expect(ix.partBase[ix.units.length]).toBe(1);
 	});
 
 	it('an eyebrow and directives travel with their heading', () => {
 		const src = '# A\n\n<!-- _class: kpi -->\n\n`EYEBROW`\n\n## B\n';
 		const ix = buildDeckIndex(src);
-		expect(sectionText(ix, 0, 1).startsWith('<!-- _class: kpi -->')).toBe(true);
+		expect(partText(ix, 0, 1).startsWith('<!-- _class: kpi -->')).toBe(true);
 	});
 });
 
@@ -152,7 +153,7 @@ describe('DeckIndex — incremental update', () => {
 		expect(indexStats.full - before.full).toBe(0);
 		expect(indexStats.regionChars - before.regionChars).toBeLessThan(src.length / 20);
 		// Every chunk keeps its id across a keystroke.
-		expect(next.chunks.map((c) => c.id)).toEqual(ix.chunks.map((c) => c.id));
+		expect(next.units.map((c) => c.id)).toEqual(ix.units.map((c) => c.id));
 	});
 
 	it('a span that does not describe the edit is ignored, not trusted', () => {
@@ -174,28 +175,28 @@ describe('DeckIndex — stable ids', () => {
 		const at = deck.indexOf('# B') + 3;
 		const ins = '\n\n---\n\n# B2';
 		const next = updateDeckIndex(ix, `${deck.slice(0, at)}${ins}${deck.slice(at)}`, { span: { from: at, toA: at, toB: at + ins.length } });
-		expect(next.chunks.length).toBe(4);
-		expect(next.chunks[0].id).toBe(ix.chunks[0].id);
-		expect(next.chunks[1].id).toBe(ix.chunks[1].id);
-		expect(next.chunks[3].id).toBe(ix.chunks[2].id);
-		expect(new Set(next.chunks.map((c) => c.id)).size).toBe(4);
+		expect(next.units.length).toBe(4);
+		expect(next.units[0].id).toBe(ix.units[0].id);
+		expect(next.units[1].id).toBe(ix.units[1].id);
+		expect(next.units[3].id).toBe(ix.units[2].id);
+		expect(new Set(next.units.map((c) => c.id)).size).toBe(4);
 	});
 	it('a duplicated slide gets a new id; the original keeps its own', () => {
 		const ix = buildDeckIndex(deck);
 		const at = deck.indexOf('---\n\n# C');
 		const ins = '---\n\n# B\n\n';
 		const next = updateDeckIndex(ix, `${deck.slice(0, at)}${ins}${deck.slice(at)}`, { span: { from: at, toA: at, toB: at + ins.length } });
-		expect(next.chunks.map((c) => chunkText(next, next.chunks.indexOf(c)))).toEqual(['# A', '# B', '# B', '# C']);
-		expect(next.chunks[1].id).toBe(ix.chunks[1].id);
-		expect(next.chunks[2].id).not.toBe(ix.chunks[1].id);
-		expect(next.chunks[3].id).toBe(ix.chunks[2].id);
+		expect(next.units.map((c) => unitText(next, next.units.indexOf(c)))).toEqual(['# A', '# B', '# B', '# C']);
+		expect(next.units[1].id).toBe(ix.units[1].id);
+		expect(next.units[2].id).not.toBe(ix.units[1].id);
+		expect(next.units[3].id).toBe(ix.units[2].id);
 	});
 	it('deleting a separator merges into the slide above, which keeps its id', () => {
 		const ix = buildDeckIndex(deck);
 		const next = updateDeckIndex(ix, deck.replace('\n\n---\n\n# B', '\n\n# B'));
-		expect(next.chunks.length).toBe(2);
-		expect(next.chunks[0].id).toBe(ix.chunks[0].id);
-		expect(next.chunks[1].id).toBe(ix.chunks[2].id);
+		expect(next.units.length).toBe(2);
+		expect(next.units[0].id).toBe(ix.units[0].id);
+		expect(next.units[1].id).toBe(ix.units[2].id);
 	});
 });
 

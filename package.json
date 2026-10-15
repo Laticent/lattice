@@ -48,6 +48,7 @@
   "workspaces": [
     "docs/src/lib/cadenza",
     "docs/src/lib/calco",
+    "docs/src/lib/fuoco",
     "docs/src/lib/lente",
     "docs/src/lib/ltt",
     "docs/src/lib/segno",
@@ -170,6 +171,8 @@
     "engine-hash:build": "node tools/lib/timing-engine-hash.js",
     "vetrina-lib:build": "node tools/build-vetrina-lib.js",
     "vetrina-lib:check": "node tools/build-vetrina-lib.js --check",
+    "fuoco-lib:build": "node tools/build-fuoco-lib.js",
+    "fuoco-lib:check": "node tools/build-fuoco-lib.js --check",
     "lente-lib:build": "node tools/build-lente-lib.js",
     "lente-lib:check": "node tools/build-lente-lib.js --check",
     "segno-lib:build": "node tools/build-segno-grammar.js && node tools/build-segno-lib.js",

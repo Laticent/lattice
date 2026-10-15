@@ -1,6 +1,6 @@
 // THE SLIDE NAVIGATOR — one pill per RENDERED slide, the focused one highlighted and centered.
 //
-// One pill per rendered slide, not per authored chunk: a deck that splits on headings (the
+// One pill per rendered slide, not per authored unit: a deck that splits on headings (the
 // engine's default) renders `# Title` + two `##` as three slides, and the PDF numbers them
 // 1, 2, 3. The rail used to show one pill for the three and number every later slide one
 // short of the PDF (backlog #1570). The slide index (docs/src/lib/fuoco/deck-index.ts)
@@ -14,7 +14,8 @@
 // Labels are cached here by text, so a keystroke re-derives only the slide it touched.
 
 import * as React from 'react';
-import { type DeckIndex, type FocusHub, flatSection, sectionText } from '@/lib/fuoco';
+import type { DeckIndex } from '@/lib/deck-outline';
+import { type FocusHub, flatPart, partText } from '@/lib/fuoco';
 import { useFocus } from '@/lib/fuoco/react';
 import { cn } from '@/lib/utils';
 import { slideClass, slideTitle } from './lint';
@@ -49,25 +50,25 @@ export interface SlideRailProps {
 	readLabels: boolean;
 	/** People on each chunk (full-deck index), for the Live presence dots. */
 	liveBySlide: ReadonlyMap<number, readonly RailPerson[]>;
-	onPick: (chunkIndex: number, section: number) => void;
+	onPick: (unitIndex: number, section: number) => void;
 }
 
 export const SlideRail = React.memo(function SlideRail({ hub, index, view, readLabels, liveBySlide, onPick }: SlideRailProps) {
 	const flat = useFocus(hub, (f) => f.flat);
 	const pills = React.useMemo(() => {
-		const out: Array<{ chunk: number; section: number; flat: number; n: number; label: string; aria: string }> = [];
+		const out: Array<{ unit: number; section: number; flat: number; n: number; label: string; aria: string }> = [];
 		let n = 0;
 		for (const c of view) {
-			const ch = index.chunks[c];
+			const ch = index.units[c];
 			if (!ch) continue;
-			for (let k = 0; k < ch.sections.length; k++) {
+			for (let k = 0; k < ch.parts.length; k++) {
 				n++;
-				const text = sectionText(index, c, k);
+				const text = partText(index, c, k);
 				const title = cached(titleLabels, text, slideTitle);
 				const cls = cached(classLabels, text, slideClass);
 				const label = readLabels ? title || `Slide ${n}` : cls;
 				const aria = readLabels ? `Slide ${n}${title ? ` — ${title}` : ''}` : `Slide ${n} — ${cls}`;
-				out.push({ chunk: c, section: k, flat: flatSection(index, c, k), n, label, aria });
+				out.push({ unit: c, section: k, flat: flatPart(index, c, k), n, label, aria });
 			}
 		}
 		return out;
@@ -122,12 +123,12 @@ export const SlideRail = React.memo(function SlideRail({ hub, index, view, readL
 		<nav ref={navCallback} className="flex items-center gap-1.5 overflow-x-auto" aria-label="Slide navigator">
 			{pills.map((p) => {
 				const on = p.flat === flat;
-				const people = p.section === 0 ? liveBySlide.get(p.chunk) : undefined;
+				const people = p.section === 0 ? liveBySlide.get(p.unit) : undefined;
 				return (
 					<button
 						type="button"
-						key={`${index.chunks[p.chunk].id}:${p.section}`}
-						onClick={() => onPick(p.chunk, p.section)}
+						key={`${index.units[p.unit].id}:${p.section}`}
+						onClick={() => onPick(p.unit, p.section)}
 						aria-current={on}
 						aria-label={p.aria}
 						className={cn('flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-left transition-colors', on ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-border hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))]')}

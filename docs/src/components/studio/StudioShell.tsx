@@ -28,10 +28,11 @@ import { messageForFailure } from '@/lib/chunk-load';
 import { codePackagesStamp, setCodePackages, setPlugins } from '@/lib/code-packages/entry';
 import { type CrashReport, collectCrashReports, breadcrumb as crashCrumb, noteError as noteCrashError, OPEN_CRASH_REPORT_EVENT, setCrashContext } from '@/lib/crash-sentinel';
 import { shellKeyAction, zoomKeyAction } from '@/lib/deck-nav';
+import { type DeckIndex, deckOutliner } from '@/lib/deck-outline';
 import { pinnedMode, resolveDeckTheme } from '@/lib/deck-theme';
 import { DEFAULT_DELIVERY, DELIVERY_NAMES, frontMatterDelivery } from '@/lib/delivery-names';
 import { deriveKatexProviderUrl } from '@/lib/ensure-katex';
-import { chunkText, createFocusHub, type DeckIndex } from '@/lib/fuoco';
+import { createFocusHub, unitText } from '@/lib/fuoco';
 import { useFocus } from '@/lib/fuoco/react';
 import { applyTag, catalogFromComponents, type LensDef, type LensRegistry, lensIndices, parseLensRegistry, taggedLensIds, upsertLensRegistry } from '@/lib/lente';
 import { normalizeSourceText } from '@/lib/normalize-source-text';
@@ -466,7 +467,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// One hub per mounted shell. The hub is fed the source DURING render (the `deckIndex` memo
 	// below) with `duringRender`, so a focus that edit moves reaches React on a microtask, not
 	// inside this render.
-	const hub = React.useMemo(() => createFocusHub(), []);
+	const hub = React.useMemo(() => createFocusHub({ outliner: deckOutliner }), []);
 	const [composeLens, setComposeLens] = React.useState<PresentLens>('full'); // reader lens for the preview
 	// Persona posture — the always-visible, reversible density stop that replaced the
 	// one-way `onboarded` ratchet + welcome banner (2026-07-17-studio-persona-dial.md).
@@ -1523,11 +1524,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: pluginDefaultsTick is the re-read signal, not an input.
 	const deckIndex = React.useMemo(() => {
 		followDeckAdmission(source);
-		hub.source(source, undefined, 'shell', { duringRender: true });
-		return hub.index() as DeckIndex;
+		hub.update(source, { by: 'shell', duringRender: true });
+		return hub.outline() as DeckIndex;
 	}, [hub, source, pluginDefaultsTick]);
 	// The authored slides — exactly `splitSlides(body)`, read off the index rather than parsed again.
-	const slides = React.useMemo(() => deckIndex.chunks.map((_, i) => chunkText(deckIndex, i)), [deckIndex]);
+	const slides = React.useMemo(() => deckIndex.units.map((_, i) => unitText(deckIndex, i)), [deckIndex]);
 	// The deck's reader-lens registry (front-matter `lenses:` block). Empty (just the implicit
 	// `full`) for a deck with no block → the picker shows just "Full deck" (a static label + an
 	// "＋ Reader view" entry to the Lenses panel).
@@ -1617,8 +1618,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	viewChunksRef.current = viewChunks;
 	// THE FOCUSED SLIDE, as the hub has it. Selected narrowly: this shell re-renders when the
 	// focused chunk, heading section or page run changes, and never for the caret alone.
-	const focusChunk = useFocus(hub, (f) => f.chunkIndex);
-	const focusSection = useFocus(hub, (f) => f.section);
+	const focusChunk = useFocus(hub, (f) => f.unitIndex);
+	const focusSection = useFocus(hub, (f) => f.part);
 	// The page run the preview reported for the focused slide: whether ‹ and › stay on it.
 	const focusRun = useFocus(hub, (f) => (f.pages > 1 ? `${f.shown}/${f.pages}` : ''));
 	const [runShown, runCount] = focusRun ? focusRun.split('/').map(Number) : [0, 1];
@@ -1637,15 +1638,15 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// Rendered-slide numbering within the view: what the counter and the rail print.
 	const viewFlat = React.useMemo(() => {
 		let n = 0;
-		for (let i = 0; i < viewIndex; i++) n += deckIndex.chunks[viewChunks[i]]?.sections.length ?? 1;
+		for (let i = 0; i < viewIndex; i++) n += deckIndex.units[viewChunks[i]]?.parts.length ?? 1;
 		return n + viewSection;
 	}, [deckIndex, viewChunks, viewIndex, viewSection]);
-	const viewFlatTotal = React.useMemo(() => viewChunks.reduce((n, c) => n + (deckIndex.chunks[c]?.sections.length ?? 1), 0), [deckIndex, viewChunks]);
+	const viewFlatTotal = React.useMemo(() => viewChunks.reduce((n, c) => n + (deckIndex.units[c]?.parts.length ?? 1), 0), [deckIndex, viewChunks]);
 	/** Move the focus to FULL-deck chunk `chunkIndex` — once the hub holds `after`, when given: the
 	 *  text a deck switch or a slide operation is about to put in place. No frame to wait for. */
 	const goToChunk = React.useCallback(
 		(chunkIndex: number, o: { after?: string; section?: number; grab?: boolean; origin?: string } = {}) => {
-			hub.go(o.origin ?? 'shell', { chunkIndex, section: o.section, grab: o.grab }, o.after !== undefined ? { after: o.after } : undefined);
+			hub.go(o.origin ?? 'shell', { unitIndex: chunkIndex, part: o.section, grab: o.grab }, o.after !== undefined ? { after: o.after } : undefined);
 		},
 		[hub],
 	);
@@ -1804,7 +1805,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// The deck list as the switcher + ⌘K should SEE it: `decks` holds each deck's
 	// stored title/meta, which for the ACTIVE deck goes stale the moment you type —
 	// so the active row is projected from the live editor instead.
-	const deckList = React.useMemo(() => decks.map((d) => (d.id === deck.id ? { ...d, title: deckTitle, meta: slideCountLabel(deckIndex.sectionBase.at(-1) ?? 0) } : d)), [decks, deck.id, deckTitle, deckIndex]);
+	const deckList = React.useMemo(() => decks.map((d) => (d.id === deck.id ? { ...d, title: deckTitle, meta: slideCountLabel(deckIndex.partBase.at(-1) ?? 0) } : d)), [decks, deck.id, deckTitle, deckIndex]);
 
 	// WEB IMAGES (trio follow-up 11). A deck's images from the web stay blocked until the reader
 	// chooses to load them, per deck and per site. `webAllowed` is that choice (stored on the
@@ -2811,7 +2812,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		goToChunk(view[Math.max(0, Math.min(i, view.length - 1))], { section: opts.section, grab: opts.focus ?? hasFinePointer(), origin: opts.origin ?? 'rail' });
 	}
 	// COMPOSE'S HALF OF THE HUB. Compose still speaks slide indices and caret text, not offsets,
-	// so it reports the chunk its caret is in (`reportChunk`) and reveals a slide when another
+	// so it reports the chunk its caret is in (`reportUnit`) and reveals a slide when another
 	// pane navigates. Its own `lastSlideRef` edge-trigger stays until Compose moves onto the hub
 	// itself (phase 3 of the decision note); here it is only a source of reports, and the hub's
 	// equality check makes a repeated one free. `composeChunkRef` tracks the focus from every
@@ -2823,7 +2824,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// index of the text before the edit.
 	const onComposeChange = React.useCallback(
 		(src: string) => {
-			hub.source(src, undefined, 'compose');
+			hub.update(src, { by: 'compose' });
 			setSourceFromEditor(src);
 		},
 		[hub],
@@ -2831,14 +2832,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const onComposeCursorSlide = React.useCallback(
 		(full: number) => {
 			composeChunkRef.current = full;
-			hub.reportChunk('compose', { chunkIndex: full, line: composeLineRef.current });
+			hub.reportUnit('compose', { unitIndex: full, line: composeLineRef.current });
 		},
 		[hub],
 	);
 	const onComposeCursorText = React.useCallback(
 		(text: string) => {
 			composeLineRef.current = text;
-			hub.reportChunk('compose', { chunkIndex: composeChunkRef.current, line: text });
+			hub.reportUnit('compose', { unitIndex: composeChunkRef.current, line: text });
 		},
 		[hub],
 	);
@@ -2847,8 +2848,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			hub.subscribe(
 				(f) => f,
 				(f) => {
-					composeChunkRef.current = Math.max(0, f.chunkIndex);
-					if (f.cause === 'nav' || f.cause === 'pick') composeRef.current?.revealSlide(f.chunkIndex, { focus: f.grab });
+					composeChunkRef.current = Math.max(0, f.unitIndex);
+					if (f.cause === 'nav' || f.cause === 'pick') composeRef.current?.revealSlide(f.unitIndex, { focus: f.grab });
 				},
 				{ ignoreOrigin: 'compose', equals: (a, b) => a.seq === b.seq },
 			),
@@ -3996,7 +3997,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// to rendering the slide alone, and always showed its first section (backlog #1570).
 	const panePaneCounts = React.useMemo(() => paneMod?.paneSplitCounts(viewSlides, editorSample), [paneMod, viewSlides, editorSample]);
 	const editorPaneCounts = React.useMemo(() => {
-		const sections = viewChunks.map((c) => deckIndex.chunks[c]?.sections.length ?? 1);
+		const sections = viewChunks.map((c) => deckIndex.units[c]?.parts.length ?? 1);
 		if (!panePaneCounts && !sections.some((n) => n > 1)) return undefined;
 		return sections.map((n, i) => Math.max(n, panePaneCounts?.[i] ?? 1));
 	}, [panePaneCounts, viewChunks, deckIndex]);
@@ -4138,7 +4139,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// the wrong slide. The Inspector's slide scope owns the note + class controls (SlideContextBody),
 	// and its writes route through the Undo funnel (a user tuning a slide). The demo's plain,
 	// toast-free twin of this left with the tours that used it (2026-10-05-studio-lessons.md).
-	const mutateSlideFromPanel = React.useCallback((fn: (chunk: string) => string) => {
+	const mutateSlideFromPanel = React.useCallback((fn: (unit: string) => string) => {
 		settingsWrite('This slide', (s) => {
 			const chunk = splitSlides(stripFrontMatter(s))[activeFullIndex];
 			return chunk == null ? s : replaceSlide(s, activeFullIndex, fn(chunk)).source;
@@ -5961,7 +5962,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					    2.64:1 measured here at 11px, where 1.4.3 wants 4.5:1. Found while
 					    verifying the other two; same root cause, same header, so it is fixed
 					    here rather than logged. */}
-					<span data-shell-unknowable="deck-meta" className={cn('hidden font-mono text-[11px] text-[var(--text-body)] xl:inline', DECK_META_SLOT)}>{slideCountLabel(deckIndex.sectionBase.at(-1) ?? 0)}</span>
+					<span data-shell-unknowable="deck-meta" className={cn('hidden font-mono text-[11px] text-[var(--text-body)] xl:inline', DECK_META_SLOT)}>{slideCountLabel(deckIndex.partBase.at(-1) ?? 0)}</span>
 					<ChevronDown className="size-4 shrink-0 text-muted-foreground" />
 				</button>
 			</DropdownMenuTrigger>

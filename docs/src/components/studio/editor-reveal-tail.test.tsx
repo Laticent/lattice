@@ -2,6 +2,7 @@ import { EditorView } from '@codemirror/view';
 import { render } from '@testing-library/react';
 import * as React from 'react';
 import { describe, expect, it } from 'vitest';
+import { deckOutliner } from '@/lib/deck-outline';
 import { createFocusHub } from '@/lib/fuoco';
 import { Editor, type EditorHandle } from './Editor';
 
@@ -28,8 +29,8 @@ describe('the editor can reveal its tail without touching the document', () => {
 	it('scrolls only — no change, no selection, and no cursor→slide jump', () => {
 		const ref = React.createRef<EditorHandle>();
 		const changes: string[] = [];
-		const hub = createFocusHub({ scheduler: { frame: () => {}, idle: () => {} } });
-		hub.source(DECK);
+		const hub = createFocusHub({ outliner: deckOutliner, scheduler: { frame: () => {}, idle: () => {} } });
+		hub.update(DECK);
 		const { container } = render(<Editor ref={ref} value={DECK} onChange={(v) => changes.push(v)} focusHub={hub} />);
 		const published = hub.stats.published;
 		const view = viewOf(container.querySelector('.cm-content'));

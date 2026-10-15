@@ -7,7 +7,8 @@ import { type Diagnostic, forceLinting, linter, lintGutter } from '@codemirror/l
 import { Annotation, ChangeSet, Compartment, EditorState, type Extension, Transaction } from '@codemirror/state';
 import { closeHoverTooltips, EditorView, hasHoverTooltips, keymap, lineNumbers, scrollPastEnd, ViewPlugin } from '@codemirror/view';
 import * as React from 'react';
-import { buildDeckIndex, chunkAt, type Focus, type FocusHub, sectionAt, sectionEditableOffset } from '@/lib/fuoco';
+import { buildDeckIndex, deckEditableOffset } from '@/lib/deck-outline';
+import { type Focus, type FocusHub, partAt, unitAt } from '@/lib/fuoco';
 import { followDeckAdmission } from '@/lib/plugin-admission';
 import type { SparkFitReport } from '@/lib/spark-fit';
 import { buildVocabSets, externalInlineKinds, findingsToDiagnostics } from '@/playground/editor-diagnostics.js';
@@ -499,11 +500,11 @@ export const Editor = React.forwardRef<EditorHandle, {
 					const measuredFindings: Array<{ autofixable?: boolean }> = [];
 					if (m?.reports.length && core.sparkFitFindings) {
 						const text = view.state.doc.toString();
-						const live = hubRef.current?.index();
+						const live = hubRef.current?.outline();
 						const ix = live && live.source === text ? live : buildDeckIndex(text);
 						for (const f of core.sparkFitFindings(text, m.reports)) {
 							const [d] = findingsToDiagnostics(view.state.doc, [f], fixOpts) as Diagnostic[];
-							if (!d || Math.max(0, chunkAt(ix, d.from)) !== m.slideIndex) continue;
+							if (!d || Math.max(0, unitAt(ix, d.from)) !== m.slideIndex) continue;
 							measured.push(d);
 							// Counted, but NOT as bulk-fixable: "Fix all" runs applyAllFixes over the
 							// linted findings only and cannot see a measurement, so counting these as
@@ -546,22 +547,22 @@ export const Editor = React.forwardRef<EditorHandle, {
 	// NIGHTLY, off the PR gate, so changing where this scrolls means updating that spec in the
 	// same change (#1315).
 	const revealFocus = React.useCallback((v: EditorView, f: Focus, onlyIfElsewhere = false) => {
-		const ix = hubRef.current?.index();
-		if (!ix || f.chunkIndex < 0) return;
+		const ix = hubRef.current?.outline();
+		if (!ix || f.unitIndex < 0) return;
 		if (ix.source.length !== v.state.doc.length || ix.source !== v.state.doc.toString()) {
 			pendingRevealRef.current = f;
 			return;
 		}
 		pendingRevealRef.current = null;
 		if (onlyIfElsewhere) {
-			const here = sectionAt(ix, v.state.selection.main.head);
-			if (here && here.chunk === f.chunkIndex && here.section === f.section) return;
+			const here = partAt(ix, v.state.selection.main.head);
+			if (here && here.unit === f.unitIndex && here.part === f.part) return;
 		}
 		if (f.cause === 'pick' && f.anchor !== null && f.head !== null) {
 			// A preview pick selects the element's source span.
 			v.dispatch({ selection: { anchor: f.anchor, head: f.head }, effects: EditorView.scrollIntoView(f.anchor, { y: 'center' }) });
 		} else {
-			const caret = Math.min(sectionEditableOffset(ix, f.chunkIndex, f.section), v.state.doc.length);
+			const caret = Math.min(deckEditableOffset(ix, f.unitIndex, f.part), v.state.doc.length);
 			v.dispatch({ selection: { anchor: caret }, effects: EditorView.scrollIntoView(caret, { y: 'start', yMargin: 8 }) });
 		}
 		if (f.grab) v.focus();
@@ -786,7 +787,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 								// The hub first, with the editor's own account of what changed: a text diff
 								// cannot tell which of two equal-looking edits the author made, and the slide
 								// ids that keep the rail stable depend on it.
-								if (hub) revRef.current = hub.source(text, changedSpan(u.changes), isAuthorEdit(u) ? 'markdown' : 'sync');
+								if (hub) revRef.current = hub.update(text, { span: changedSpan(u.changes), by: isAuthorEdit(u) ? 'markdown' : 'sync' });
 								onChangeRef.current(text);
 								// A genuine authoring edit carries a userEvent annotation; the
 								// external value-sync dispatch (deck switch, AI apply, restore)
@@ -853,9 +854,9 @@ export const Editor = React.forwardRef<EditorHandle, {
 			// A view built without a dispatch — a deck switch — otherwise kept the PREVIOUS deck's
 			// revision, and the hub dropped every caret report as stale until the next keystroke.
 			const hub = hubRef.current;
-			revRef.current = hub ? hub.source(stripBom(view.state.doc.toString()), undefined, 'sync') : undefined;
+			revRef.current = hub ? hub.update(stripBom(view.state.doc.toString()), { by: 'sync' }) : undefined;
 			const f = hub?.get();
-			if (f && f.chunkIndex >= 0) revealFocus(view, f, true);
+			if (f && f.unitIndex >= 0) revealFocus(view, f, true);
 		} catch {
 			setFailed(true);
 		}

@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { buildDeckIndex } from '../src/lib/fuoco/deck-index';
+import { buildDeckIndex } from '../src/lib/deck-outline/deck-outline';
 import { expect, gotoStudio, persistedSource, railButtons, slideCount, test } from './studio-fixture';
 
 /**
@@ -621,7 +621,7 @@ test('a randomized walk over the compose ops holds the structural invariants', a
 			.poll(
 				async () => {
 					const ix = buildDeckIndex(await activeSource(page));
-					return `compose ${composeCount}/${ix.chunks.length} · rail ${await railButtons(page).count()}/${ix.sectionBase[ix.chunks.length]}`;
+					return `compose ${composeCount}/${ix.units.length} · rail ${await railButtons(page).count()}/${ix.partBase[ix.units.length]}`;
 				},
 				{ message: `after "${op}": compose vs rail vs source` },
 			)

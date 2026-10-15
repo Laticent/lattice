@@ -1,4 +1,4 @@
-import { buildDeckIndex } from '@/lib/fuoco';
+import { buildDeckIndex } from '@/lib/deck-outline';
 import { normalizeSourceText } from '@/lib/normalize-source-text';
 import { DECKS, deckSource, type StudioDeck } from './decks';
 import { frontMatterBlock, frontMatterKeySpan, frontMatterValue, getFrontMatter, stripFrontMatter } from './front-matter';
@@ -250,7 +250,7 @@ const metaMemo = new Map<string, string>();
 export function metaFor(source: string): string {
 	let m = metaMemo.get(source);
 	if (m === undefined) {
-		m = slideCountLabel(buildDeckIndex(source).sectionBase.at(-1) ?? 0);
+		m = slideCountLabel(buildDeckIndex(source).partBase.at(-1) ?? 0);
 		if (metaMemo.size >= META_MAX) metaMemo.delete(metaMemo.keys().next().value as string);
 		metaMemo.set(source, m);
 	}

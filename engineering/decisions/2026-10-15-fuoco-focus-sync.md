@@ -403,8 +403,54 @@ without the fix:
   one slide to every slide operation and two to the engine and the index. Every caller passes
   a stripped body; the second strip is gone.
 
-**Left for phases 3 and 4** (`followups.d/fuoco-phase-3.md`): Compose reports a chunk, not a
+**Left for phases 3 and 4** (one `followups.d/` file per item, filed with this PR): Compose reports a chunk, not a
 section, so a Compose caret under a heading shows the chunk's first section; Compose keeps its
 internal `lastSlideRef`; Present seeds from a chunk index and does not follow; Live awareness
 and the persisted boot slide are chunk indices, not ids; the Playground keeps its own scanner;
 preview element addresses (5.5) are not built.
+
+## 12. A generic core, and Lattice as one adapter
+
+The owner asked for a library that is not Lattice-specific, so the hub was split from the deck
+before the first merge rather than after.
+
+**The seam.** The core (`docs/src/lib/fuoco`, published as `@laticent/fuoco`) knows a document
+only as an `Outline`: text cut into UNITS with stable ids, each unit into PARTS, offsets
+absolute. An `Outliner` builds and maintains it (`update(prev, text, { span })`, returning
+`prev` for equal text). The hub speaks only that interface. Renames that followed: chunk →
+unit, section → part, `hub.source()` → `hub.update()`, `{ chunk, section }` → `{ unit, part }`
+in `pages()` and `go()`.
+
+**What stayed shared.** Id carrying (`carryIds`), the change span (`diffSpan`, `spanHolds`,
+`mapOffset`), revisions and every lookup (`unitAt`, `partAt`, `partOfFlat`, …) live in
+`outline.ts`, so an id or a revision means the same thing whichever outliner produced it.
+
+**The Lattice adapter** moved to `docs/src/lib/deck-outline`: `deckOutliner` is the
+incremental slide index of §11, now an `Outliner`, with `deckEditableOffset` beside it. Its
+tests are unchanged apart from the names.
+
+**The general outliner.** `createTextOutliner({ units, parts?, dropEmpty? })` re-runs a splitter
+over the whole text on each change, which is linear and fine into the hundreds of kilobytes;
+`byPattern`, `byHeadings` (ATX, fenced code skipped, a fence closes on a run of the same
+character at least as long as its opener) and `byBlankLines` cover the common shapes. A
+document too large to rescan writes its own outliner, as Lattice did.
+
+**The boundary is gated.** `checkFuocoBoundary` in `tools/check-ownership.js` fails a core file
+that imports outside the folder, a file other than `react.ts` that imports React, or any
+`node:` import. `docs/tsconfig.fuoco.json` typechecks the core alone, so an implicit
+dependency on the docs app's types fails there. The package builds with the shared library
+builder (`tools/build-fuoco-lib.js`, `npm run fuoco-lib:build`) like its siblings.
+
+**Brand and demo.** The mark is a viewfinder: four focus brackets around the family's ringed
+hub, the focused line either side in a warm accent (`2026-07-18-sibling-brand-system.md`, the
+Fuoco section). The demo page `/fuoco` runs the real library over three document types, a
+Markdown document, a timed transcript and a code file, through `createTextOutliner` alone, with
+the same four views and no change to them between domains. That is the test of the claim in
+this section: if the views had to change per domain, the core would still be deck-shaped.
+
+**Found by driving the demo.** A textarea fires `select` and `focus` after a programmatic
+`setSelectionRange`, so an adapter that clears its "this caret came from my reveal" mark on the
+first report sends the second one un-quiet, and the hub drops the page navigation chose. The
+demo's adapter keeps the mark until the selection moves away. The Studio's CodeMirror adapter
+is not affected: it marks a report quiet from the transaction itself (no `userEvent`
+annotation means no author did it), so it keeps no mark that a second event could clear.

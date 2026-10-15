@@ -15,3 +15,8 @@
 - Plugin block rules declare `scansAhead` in their manifest: whether the rule decides by reading
   lines past the block it opens. `math`'s `$$` block does. The plugin resolver refuses a block
   rule without it.
+- Fuoco is a standalone library, `@laticent/fuoco`, usable without Lattice: any text cut into
+  units and parts (Markdown sections, transcript cues, code symbols, slides) through an
+  outliner, with a general `createTextOutliner` and `byPattern` / `byHeadings` /
+  `byBlankLines` splitters built in. Lattice's slide outliner is one adapter
+  (`docs/src/lib/deck-outline`). A live demo with its own brand is at `/fuoco` on the docs site.

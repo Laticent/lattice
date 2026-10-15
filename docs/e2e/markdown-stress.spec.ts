@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
 import { usedComponents } from '../src/components/studio/lint';
-import { buildDeckIndex, sectionEditableOffset, sectionOfFlat, sectionStart, sectionText } from '../src/lib/fuoco/deck-index';
+import { buildDeckIndex, deckEditableOffset } from '../src/lib/deck-outline/deck-outline';
+import { partOfFlat, partStart, partText } from '../src/lib/fuoco/outline';
 import { expect, gotoStudio, persistedSource, railButtons, test, waitForStudioPaint } from './studio-fixture';
 
 /**
@@ -404,10 +405,10 @@ async function slideStartLine(page: Page, n: number): Promise<number> {
 	// `n` counts RENDERED slides, as the rail does (one pill per heading section).
 	const doc = await editorDoc(page);
 	const ix = buildDeckIndex(doc);
-	expect(ix.sectionBase[ix.chunks.length], `the deck has no slide ${n + 1}`).toBeGreaterThan(n);
-	const at = sectionOfFlat(ix, n);
+	expect(ix.partBase[ix.units.length], `the deck has no slide ${n + 1}`).toBeGreaterThan(n);
+	const at = partOfFlat(ix, n);
 	expect(at, `slide ${n + 1} was not locatable in the document`).not.toBeNull();
-	return doc.slice(0, sectionStart(ix, at!.chunk, at!.section)).split('\n').length;
+	return doc.slice(0, partStart(ix, at!.unit, at!.part)).split('\n').length;
 }
 
 async function toCompose(page: Page): Promise<void> {
@@ -987,8 +988,8 @@ test('a randomized walk over the markdown-pane ops holds the structural invarian
 					// The rail lists RENDERED slides (one pill per heading section since Fuoco), so the
 					// pill index names a section of the slide index, not a `splitSlides` chunk.
 					const ix = buildDeckIndex(await editorDoc(page));
-					const at = sectionOfFlat(ix, now.index);
-					const chunk = at ? sectionText(ix, at.chunk, at.section) : undefined;
+					const at = partOfFlat(ix, now.index);
+					const chunk = at ? partText(ix, at.unit, at.part) : undefined;
 					if (chunk === undefined) return 'ok'; // the deck moved under us; the next step re-checks
 					if (headingsIn(chunk) > 1) return 'ok'; // the chunk holds more than one engine slide — see above
 					const names = usedComponents(chunk);
@@ -1197,7 +1198,7 @@ test('an undo history does not cross decks WITHOUT a Compose detour', async ({ p
 			return v ? v.state.selection.main.head : -1;
 		}),
 		'witness: a rebuilt editor, its caret on the first line of the new deck\'s first slide',
-	).toBe(sectionEditableOffset(buildDeckIndex(template), 0, 0));
+	).toBe(deckEditableOffset(buildDeckIndex(template), 0, 0));
 
 	await focusEditor(page);
 	// ONE press, not two, and this cost a vacuous oracle to learn. `Ctrl+Shift+Z` redoes while

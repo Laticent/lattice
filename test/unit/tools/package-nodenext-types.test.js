@@ -32,6 +32,7 @@ const PACKAGES = {
 	suono: ['.'],
 	lente: ['.'],
 	vetrina: ['.', './react'],
+	fuoco: ['.', './react'],
 	segno: ['.', './values', './read'],
 	trama: ['.', './radial'],
 	calco: ['.'],
