@@ -1,9 +1,9 @@
 ---
 status: shipped
 summary: >
-  Record of the 2026-10-14 backlog cleanup. 25 finished issues closed with proof, 65 priorities
-  changed on quoted evidence, 26 missing priorities filled, 11 stray labels renamed, and a Swimlane
-  and Done when section appended to 194 issues. GitHub keeps no history of label edits, so this
+  Record of the 2026-10-14 backlog cleanup. 25 finished issues closed with proof, 65 priority labels
+  written on quoted evidence (26 first-time priorities and 39 changes to an existing one), 6 stray
+  label names renamed, and a Swimlane and Done when section appended to 194 issues. GitHub keeps no history of label edits, so this
   note is the audit trail and the undo list.
 ---
 
@@ -19,12 +19,15 @@ Status: applied. Issues stay the source of truth; `backlog.d/` is regenerated fr
 - **Priorities.** A first scoring pass read only the first few hundred characters of each issue; it was
   reverted in full. The second pass read each full body and every comment, and changed a label only when
   a sentence quoted from the issue proved the new class. A script checked each quote against the live
-  text. 65 changes landed, listed below. 45 other re-scored issues kept the owner label because
-  no sentence in the text proved a change. #2054 and #2182 went to medium on a reproduced bug, not on a quote.
-- **Labels.** 11 labels the repo does not define were renamed to the nearest defined one
+  text. 65 labels landed, listed below: 26 first-time priorities and 39 changes. 66 other re-scored
+  issues kept the owner label because no sentence in the text proved a change, and 3 more
+  (#1754, #1867, #2296) were held at the owner label because their quote did not prove the change. #2054 and #2182 went to medium on a reproduced bug, not on a quote.
+- **Labels.** 6 label names the repo does not define were renamed to the nearest defined one
   (`type:test` and `type:chore` to `type:infra`, `type:bug` to `type:fix`, `type:feature` to `type:feat`,
-  `area:theme` to `area:theming`, `area:components` to `area:engine`, `priority:p3` dropped). 32 missing
-  areas and types were filled from the per-issue check, and 3 issues got `status:backlog`.
+  `area:theme` to `area:theming`, `area:components` to `area:engine`), and `priority:p3` was dropped. Four
+  others were left alone because no defined label fits: `documentation`, `bug`, `security`, `type:perf`.
+  The 32 issues missing an area and the 32 missing a type were filled from the per-issue check, and 3
+  issues got `status:backlog`.
 - **Swimlane and Done when.** Appended to 194 issue bodies (append only; original text untouched).
   Issues that already had an acceptance section got a `Remaining scope` section instead where the check
   found part of the work shipped. Held back: 12 issues whose check was not high confidence, 6 bot-owned trackers, and #2275.
