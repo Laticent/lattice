@@ -79,7 +79,7 @@ failure modes in §1 it is.
 | Frame conformance (the rendered cell tree matches the declared Form) is opt-in | opt-in | `conformance: "strict"` on 5 of 75 (contact, diagram, math, video, wifi) |
 | A manifest with none of the prose fields generates **no docs and no gallery**, and the docs check passes | opt-in | `isEnriched`, `tools/build-component-docs.js:70`, `:864` |
 | A missing `.styles.css`, or a folder with CSS but no manifest, passes every gate | no registry | `checkComponentCss` `if (!cssPath) continue` (`check-ownership.js:1475`); `listFamilyManifests` skips silently (`manifest-schemas.js:222-248`) while `build-css.js:443` still bundles the CSS |
-| Variants are checked one way only: implemented ⇒ declared. Declared but unimplemented is "left to manual review" | one-way | `checkVariantDeclaration`, `check-ownership.js:467` |
+| Variants are checked one way only: implemented ⇒ declared. Declared but unimplemented is "left to manual review" | one-way | `checkVariantDeclaration`, `check-ownership.js:477` (comment at `:474`) |
 | The Studio's manifest-JSON autocomplete offers 9 of 58 schema keys, and its `mode` enum lacks `single-orientation` | no registry | `docs/src/components/studio/manifest-complete.ts:11` (hand-written) vs `manifest.schema.json` |
 | Rendered checks run on one theme per PR; size-family firing and gallery page counts run nightly only | tiering | `component-invariants.test.js`; `integration-nightly.yml:353`; `package.json:308` |
 
@@ -90,8 +90,8 @@ failure modes in §1 it is.
 | **No unknown-key lint.** A deck with `finsh: halo`, `themee: x`, `size: huge` lints with zero errors or warnings | no registry | `npm run lint:deck` on that front matter, run for this note |
 | The list of keys exists in four hand-maintained places that check nothing but each other: `FRONT_MATTER_KEYS`, the LFM 1.1 §2.3 table, `base.registers.docs.md`, the conformance JSON | no registry | `docs/src/components/studio/front-matter-keys.ts`; `front-matter-docs.test.ts:13-19` compares it only with another hand-written file |
 | `avatar` and `icon` have no key autocomplete; `plugins`, `greeting`, `closing` are documented but not offered | no registry | `editor-complete.ts:59` `VOCAB_VALUE_FIELDS` never reads `pluginRegisters` |
-| About 13 keys are lint-silent on values (`theme`, `size`, `motion*`, `logo-on`, `logo-style`, …): their only value list lives in a docs-site file the engine cannot import | no registry | `STATIC_VALUES`, `editor-complete.ts:94` |
-| `spectrum-card`, `spectrum-card-edge`, `spectrum-trim` and `avatar` are linted but have no spec row and no conformance case; the spec test misses them because it reads a hand-written map | hand list | `SOURCES`, `test/unit/spec/lfm-conformance.test.js:91-104` (24 keys) |
+| Several keys are lint-silent on values. `theme: nosuchtheme` and `size: huge` pass; 13 more (`motion*`, `logo-on`, `logo-style`, `glossary`, …) have their only value list in a docs-site file the engine cannot import | no registry | `STATIC_VALUES`, `editor-complete.ts:94` |
+| `spectrum-card`, `spectrum-card-edge`, `spectrum-trim` and `avatar` are linted but have no spec row and no conformance case; the spec test misses them because it reads a hand-written map | hand list | `SOURCES`, `test/unit/spec/lfm-conformance.test.js:91-104` (26 keys) |
 | There is no JSON Schema for front matter, and no hover documentation for keys | no registry | — |
 | Any `tint-*` / `mark-*` spelling passes lint | no registry | `lint-core.js:506` accepts the prefix |
 | Slide classes (`_class:` components and modifiers) are **closed**: lint and autocomplete both derive from manifests. 75 of 75 match | — | `buildVocab`, `lib/authoring/lint.js:122`; `autocomplete-parity.test.js` |
@@ -102,7 +102,7 @@ failure modes in §1 it is.
 |---|---|---|
 | Token completeness passes: 33 of 33 themes, 118 tokens, both theme and finish manifests schema-valid | — | `node tools/theme-conformance.js` 19/19; `tools/contrast-audit.js` 0 failures over 891 pairs |
 | **The rendered player contrast baseline accepts 242 sub-AA text runs, 123 of them below 2:1**, and runs nightly only. As a ratchet it stops things getting worse, and stops nothing that is already bad | ratchet absorbed debt | `test/oracle/player-contrast.json` (counted for this note). Example: the `a11y` deck's Mermaid pie labels after the dark toggle measure 1.00:1 |
-| **No check measures text over a finish.** 7 of 8 finishes never appear in a measured render | no registry | `finish-canvas-contract.test.js` checks source and the computed `--fin-canvas`, not contrast |
+| **No check measures text over a finish.** Of 9 finishes, the only rendered measurement is the nightly player sweep, which touches about 12 decks, mostly atrium on indaco | no registry | `finish-canvas-contract.test.js` checks source and the computed `--fin-canvas`, not contrast |
 | The a11y themes' dark side is missing from the token AA sweep: `contrast-audit` reads one mode per file and a11y has no `-dark` file | one-way | `tools/contrast-audit.js:69` |
 | Finish recipe files have no schema; `coerceRecipe` silently clamps a typo to a default | no registry | `lib/finishes/finish-generate.js:106` |
 | A theme declaring 7 of 12 `--cat-N-texture` tokens is not caught | conditional, unchecked | `accessibility-textures.test.js:218` checks referenced ids only |
@@ -113,8 +113,8 @@ failure modes in §1 it is.
 | Finding | Mode | Evidence |
 |---|---|---|
 | Plugins: 7 of 7 enrolled automatically, every declared token and fence exercised | — | `conformance.test.js:143-211` |
-| The chart family declares a `kernel` extension point, but the harness checks tokens and fences only, so its ~23 members are not each exercised | hand list | 6 fixture cases in `chart-family.fixtures.md` |
-| Charts share no edge contract (empty data, one row, a long label, every theme in both schemes). gantt, kanban, piechart, progress and timeline-list have no per-type unit file | no registry | — |
+| The chart family declares a `kernel` extension point, but the harness checks tokens and fences only, so its 24 members are not each exercised | hand list | 3 fixture cases in `chart-family.fixtures.md` |
+| Charts share no edge contract (empty data, one row, a long label, every theme in both schemes). Of 24 chart manifests, piechart and timeline-list have no test file named for them, and kanban and progress have only narrow ones | no registry | — |
 | **Exporters share no same-deck × every-format matrix.** `export-coverage-deck.md` is used by one nightly PDF-only Playwright spec. PPTX, ODP, HTML and image-set never see it | hand list | `docs/e2e/journeys/chart-export.spec.ts:18`; `export-formats.test.js` is hand-written per format on `preview-deck.md` |
 
 ## 4. Why rule gates leak in exactly these places
@@ -210,8 +210,10 @@ evidence, overflow, axe) run on the existing integration tier, per instance, bot
 
 ### 5.4 The contract is also the scaffold
 
-`npm run new:component <bucket>/<name>` (and `new:theme`, `new:finish`; `new-plugin.js`
-already exists in `lib/packages/`) generates every required part from the contract. The
+`npm run new:component` and `npm run new:theme` already exist (`tools/new-component.js`,
+`tools/new-theme.js`), as does `lib/packages/new-plugin.js`. The change is to make them
+contract-driven: each generates every required part the contract names, so a scaffold and
+its contract cannot disagree. `new:finish` is the one scaffold to add. The
 generated checklist in `dist/engineering/conformance.md` is what a contributor, human or
 agent, reads instead of reverse-engineering a sibling. This is the "quality out of the box"
 half: the harness catches a missing part, and the scaffold means the part is never missing.
