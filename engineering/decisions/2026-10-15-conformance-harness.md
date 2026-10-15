@@ -42,7 +42,7 @@ A **conformance contract** replaces remembering with a checklist that runs itsel
 The result is one table per kind: a row per instance, a column per checklist item, each cell
 pass, fail, not applicable, or known debt. Fast checks block every PR. The heavy rendered checks
 block a PR for what it touched and run in full overnight (§6.4); how much render time a PR may
-spend is your call (§10).
+spend is measured first, then set with you (§12.4).
 
 ## 1. The answer
 
@@ -76,8 +76,8 @@ history against the actual clause list and each phase reports its real catches (
 
 **Recommendation:** extend the two harnesses that exist into contracts for every kind, rather
 than building a new framework beside them. Order the work so **every PR catches defects that
-exist today**, and extract the shared contract shape early but thin. §9 has the order, and
-§10.1 asks you to confirm it, because it changes the order you approved earlier.
+exist today**, and extract the shared contract shape early but thin. §9 has the order, which the owner
+chose over the earlier one (§12.1).
 
 ## 2. How the gates leak: seven failure modes
 
@@ -200,7 +200,7 @@ that change the design, all verified:
 | **"Changed instances" misses shared code.** A diff to `lib/core`, `lattice.css` or `build-css.js` changes no instance, yet that is where split, cascade and export fixes landed | Per PR, changed instances only | Per PR: the reverse-dependency closure of the diff, plus a fixed covering sample across every axis whenever shared code changes (§6.4) |
 | **The escape hatches can be gamed**: free-text debt, one-line "does not honor" declarations, placeholder capacity numbers, fixtures that fail for the wrong reason, two exemption systems | Laws as stated | Anti-gaming rules (§6.3) |
 | **A detector is a probe and can be wrong.** `hasCardRow` was undefined and one fixture proves nothing about its miss rate | One failing fixture | Each trigger is measured against a hand-labeled corpus before it blocks (§6.3) |
-| **Per-PR render cost collides with a live cost effort** (`2026-08-18-inspection-oracle-catalog.md`, in progress: per-PR CI ≈ 11 min wall, lever A = fewer renders) | Measure after building | A render budget is set before phase 3 is designed, and every render clause uses lever A's one-deck batching (§10.2) |
+| **Per-PR render cost collides with a live cost effort** (`2026-08-18-inspection-oracle-catalog.md`, in progress: per-PR CI ≈ 11 min wall, lever A = fewer renders) | Measure after building | A render budget is measured and set in phase 2, before the per-PR render tier blocks, and every render clause uses lever A's one-deck batching (§12.4) |
 | **Missing kinds and axes**: font face; speaker note, `say:` line, review comment; docs-site page at three widths; sample assets; the VS Code Marp preview; the diagnostic-code registry; CLI options; out-of-tree components; color modes `system`/`inherited`, `lang`, lens, motion and reduced motion, notes, install path, pane | Absent | Added (§6.2, §7) |
 | Numbers: 858 slides, not 947 (947 counted front-matter delimiters); "65 with no *blocking* check"; 25 axes; the two split fixes landed the same day; the 53% is an upper bound | — | Corrected throughout |
 
@@ -359,7 +359,7 @@ sample so the two cannot drift.
 | When | What runs |
 |---|---|
 | Every PR, static | Every static clause, every instance (seconds, `npm test`) |
-| Every PR, render | The **reverse-dependency closure** of the diff × every axis, one axis at a time, all values, batched into one deck per axis. When the diff touches shared code (`lib/core`, `lib/engine`, `lattice.css`, `build-css.js`, `lib/transformers`), add a **fixed covering sample**: one representative per bucket × every axis. Inside a render budget you set (§10.2) |
+| Every PR, render | The **reverse-dependency closure** of the diff × every axis, one axis at a time, all values, batched into one deck per axis. When the diff touches shared code (`lib/core`, `lib/engine`, `lattice.css`, `build-css.js`, `lib/transformers`), add a **fixed covering sample**: one representative per bucket × every axis. Inside the render budget set in phase 2 (§12.4) |
 | Nightly | Every instance × every axis, one at a time; then pairwise over the axes |
 
 Rough sizes from real counts, not a measured run: one changed component restyled across its in-place
@@ -396,17 +396,20 @@ removal.
 | Plugins on/off, install path, hosted in a pane | per plugin; repo or installed; slide or pane | re-render | ✗ |
 | Density | at `capacity.soft` | re-render | on demand only |
 | Language, lens, motion | `lang`; lens on/off; motion and reduced motion | re-render | ✗ |
+| Text direction | `ltr`, `rtl` | re-render | ✗ (no RTL support exists yet) |
 
-Two axes do not exist yet: **right-to-left text** (component CSS has 321 physical left/right
-declarations against 33 logical ones) and **reveal/build states**. §10.3 asks whether either is
-in scope.
+Two axes do not exist yet. **Right-to-left text is in scope** (ruling §12.5): component CSS has
+321 physical left/right declarations against 33 logical ones, so the axis starts as a static
+ratchet (phase 2) and becomes a rendered `dir="rtl"` axis (phase 4). **Reveal/build states** stay
+out until a feature adds them.
 
 ## 8. What the contracts will not catch
 
 They are a floor, not the whole bar.
 
 - **Studio app behavior and state.** 18 fix commits (17 Studio, 1 surface); undo crossing decks
-  and a chat reply shown twice need app tests, not a contract.
+  and a chat reply shown twice need app tests, not a contract. The Studio gets its own harness
+  later, deliberately separate (§12.6).
 - **Real devices and third-party viewers.** iOS audio, long-press, pinch, wake lock (31
   follow-ups owe a real-device check), and PDFs in Quartz, PDFKit or PowerPoint. A clause
   passing in Chromium is not verification of Safari (HARD RULE #23).
@@ -427,9 +430,9 @@ is its first consumer.
 | # | Phase | Catches on day one | Also delivers |
 |---|---|---|---|
 | 1 | **Deck-setting and modifier registry.** One engine-side table of keys and values; unknown key and value warn; autocomplete keys and values, hover, docs, spec §2.3 and a front-matter JSON Schema derived from it; treatment spelling and `at-*` placement; `STATIC_VALUES` moves into the engine. **Plus the thin contract core** (contract shape, runner, ledger, §6.3 fixture rules, generated checklist) with the deck-setting contract as its first user, and the re-grade of history (§6.5) | `finsh:`, `themee:`, `size: huge`, `theme: nosuchtheme`; `icon`/`avatar`/`plugins`/`greeting`/`closing` autocomplete; 4 spec gaps; `tint-bogus`, bare `tint-corner` | The contract core every later phase reuses |
-| 2 | **Component contract on `component-invariants`.** Fix the probe; widen from one sample to every variant × theme × scheme, batched; body-text contrast and axe; the card-row trigger (report-only until measured, §6.3); static component clauses (manifest and CSS both ways, variants both ways, `isEnriched`, capacity and exclusive-axis declarations, manifest autocomplete from the schema); anatomy matches render | `list-steps converge`; the 18 unchecked components; `stats`/`actors`/`kpi`; `_qr-card` | Render budget measured and set (§10.2) before the per-PR render tier is wired |
+| 2 | **Component contract on `component-invariants`.** Fix the probe; widen from one sample to every variant × theme × scheme, batched; body-text contrast and axe; the card-row trigger (report-only until measured, §6.3); static component clauses (manifest and CSS both ways, variants both ways, `isEnriched`, capacity and exclusive-axis declarations, manifest autocomplete from the schema); anatomy matches render; logical CSS properties, with the 321 physical left/right declarations seeded as a shrinking ratchet | `list-steps converge`; the 18 unchecked components; `stats`/`actors`/`kpi`; `_qr-card` | Render budget measured and set with the owner (§12.4) before the per-PR render tier is wired |
 | 3 | **Surfaces and exporters.** Render surface and exporter become kinds; one coverage deck through every format and every surface; export warnings fail; Marp-ledger completeness; sanitizer keeps what the engine emits | The largest historical class (30 of 112) | — |
-| 4 | **Joins.** Registers honored or measured-inert on every component; split as token *and* selector; size families × scheme; Form conformance from opt-in to evidence-triggered | Register and split regressions | — |
+| 4 | **Joins.** Registers honored or measured-inert on every component; split as token *and* selector; size families × scheme; Form conformance from opt-in to evidence-triggered; every component rendered under `dir="rtl"` (mirrored layout, no clipped or overlapping text) | Register and split regressions | — |
 | 5 | **Themes, finishes, treatments, textures, charts.** Both `light-dark()` branches; CVD distinctness; finish text contrast; recipe schema; texture sets; `--muted-mark`; chart edge cases, vocabulary, categories, members, black paint in every theme | a11y dark branches; finish contrast | — |
 | 6 | **Families E and F, out-of-tree instances, the rest.** Libraries, generated artifacts, gates with failing arms, docs claims anchored, plugin escaping, ingest census, lint rules under `--all`, grammars, lens, motion, CLI options, fonts; the same contracts run by the package-install and Studio gates | The two false docs | — |
 | 7 | **Burn down debt.** The 242 player-contrast runs into the ledger with reasons, starting with the 123 below 2:1 | — | — |
@@ -439,15 +442,9 @@ taste, fuzzing and placement (§8).
 
 ## 10. Open decisions for the owner
 
-1. **Phase order.** You approved "components first" against the first version of this note. The
-   review found a better order (§5, §9): the registry first, because it catches live defects on
-   day one and is the thin core's first user, with the component contract built on the existing
-   harness second. Recommendation: the new order.
-2. **Per-PR render budget.** A number of minutes the per-PR render tier may spend, set before
-   phase 2 wires it, in line with the live CI-cost effort (`2026-08-18-inspection-oracle-catalog.md`).
-   Recommendation: measure in phase 2, then set it with you.
-3. **Right-to-left text and reveal states.** Neither axis exists. In scope, or later?
-4. **Studio app behavior.** Leave it to app tests (recommended), or make Studio panels a kind?
+None open. The four questions this section held were answered on 2026-10-15 (§12.1, §12.4–§12.6).
+One number stays to be set: the per-PR render budget, which phase 2 measures and brings back
+before the per-PR render tier blocks anything (§12.4).
 
 ## 11. Method and confidence
 
@@ -466,10 +463,20 @@ taste, fuzzing and placement (§8).
 
 ## 12. Owner rulings (2026-10-15)
 
-1. **Direction: yes.** Phase order re-opened by §10.1.
+1. **Direction: yes, in the revised order.** The owner first approved "components first", then,
+   shown the review's better order, chose it: the deck-setting registry with the thin contract
+   core first (phase 1), the component contract on `component-invariants` second (phase 2).
 2. **Cards: opt-in, plus an evidence trigger.** A detected card row with no `cards` declaration
    fails. `stats`, `actors` and `kpi` are each reviewed: each one either adopts `cards` (a visual
    change, shipped with a demo deck) or goes in the ledger as debt with a reason.
 3. **An unknown front-matter key is a warning**, like every other authoring rule.
-4. **This note holds for revision** before it merges, and the owner asked for very high
+4. **Per-PR render budget: measure, then set.** Phase 2 builds the render tier batched, runs it
+   nightly and report-only, measures the real minutes, and brings the number to the owner before
+   it blocks PRs.
+5. **Right-to-left text is in scope now.** A static logical-properties ratchet in phase 2, a
+   rendered `dir="rtl"` axis in phase 4. Reveal/build states stay out until a feature adds them.
+6. **Studio app behavior stays with app tests, and out of this harness.** The owner wants the
+   Studio to get its own test harness in future, kept separate from this one (follow-up
+   2711-p4).
+7. **This note holds for revision** before it merges, and the owner asked for very high
    confidence that every explicit and implicit expectation is covered. §11 is that pass.
