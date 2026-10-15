@@ -239,7 +239,7 @@ Ordered by how much each one unblocks: the number-format fix touches every chart
 the tower is on almost every reinsurance renewal deck.
 
 1. **Global number formats** (§7.3), in the shared chart kernel, plus the `waterfall`
-   polarity flip (§7.2) if the owner agrees to add it.
+   polarity flip (§7.2), which the owner added to the beta on 2026-10-15.
 2. **Reinsurance tower.** Layers stacked by attachment point and limit
    (`$10M xs $5M`), each layer split by reinsurer share. `stacked-bar` can fake a
    layer's limit as a segment height, but not the attachment notation or the shares.
@@ -252,8 +252,10 @@ the tower is on almost every reinsurance renewal deck.
 
 Each new component owes a demo deck (HARD RULE #9) and a design pass before code.
 
-**Caveat:** §2 rows were checked by rendering the SWOT (`matrix-2x2`), service tiers
-(`pricing`), cap table (`stacked-bar`), pipeline (`funnel`) and case study (`columns`
-with `quote` and `big-number` panes) to PDF, plus the competitive table in §7.1. All
-render as described. The rest of §2 rests on each component's docs. Every render used
-the `indaco` theme in light mode at the default wide size.
+**Caveat:** every §2 row was checked by rendering at least one of its components to PDF
+(`node lattice.js`) and inspecting the page: `matrix-2x2` (SWOT), `quadrant`, `scatter`,
+`pricing`, the competitive table (§7.1), `logo-wall`, `team-profile`, `q-and-a`, `funnel`,
+`waterfall`, `bullet`, `line`, `stacked-bar` (cap table), `piechart`, `kpi`, `stats`,
+`progress`, `flowchart tb` (org chart), `roadmap`, `gantt`, `heatmap`, and `columns` with
+`quote` and `big-number` panes. All render as described. Every render used the `indaco`
+theme in light mode at the default wide size; dark mode and the narrow sizes are unchecked.
