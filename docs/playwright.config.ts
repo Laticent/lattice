@@ -25,16 +25,13 @@ import { defineConfig, devices } from '@playwright/test';
 // explicitly (the version pin IS the browser pin). See the decision doc
 // §"Sandbox + CI browser provisioning".
 //
-// WEBKIT IS REACHABLE FROM THE SANDBOX — it is simply not preinstalled:
-//
-//   cd docs && npx playwright install-deps webkit && npx playwright install webkit
-//
-// (~2 min, lands in the same PLAYWRIGHT_BROWSERS_PATH.) This note used to read
-// "Chromium only / do NOT run playwright install here", which cost real time: it
-// stopped an investigation of #1554 — a WebKit-only duplicate-paint bug on
-// `math compare` — on the belief that the engine could not be run here at all. It
-// can, and the `webkit-phone` / `webkit-tablet` projects below are worth driving
-// locally before trusting a Chromium pass on anything engine-divergent.
+// EVERY ENGINE RUNS HERE. Only Chromium is baked into the sandbox, so `globalSetup`
+// (scripts/e2e-ensure-browsers.mjs) installs WebKit and Firefox the first time a selected
+// project needs one (about 30 s, then they persist for the life of the sandbox), and fails
+// the run if the install does not take. A missing browser is never a reason a test did not
+// run: sessions used to report the `webkit-*` and `gecko` projects as "could not run here"
+// off a launch error, and an older version of this note said "Chromium only / do NOT run
+// playwright install here", which once stopped an investigation of #1554, a WebKit-only bug.
 //
 // trace + video are ON by default (decision doc §"Watching a run") so every run
 // leaves an RPA-style, scrubable record — the same artifacts the nightly relies
@@ -46,6 +43,7 @@ const isCI = !!process.env.CI;
 
 export default defineConfig({
 	testDir: './e2e',
+	globalSetup: './scripts/e2e-ensure-browsers.mjs',
 	// One slow surface (engine paint inside a srcdoc iframe) sets the timeout floor.
 	timeout: 60_000,
 	expect: {

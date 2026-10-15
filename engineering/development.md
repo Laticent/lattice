@@ -1019,11 +1019,16 @@ npm run test:e2e -- e2e/inspector.spec.ts --project=desktop   # one spec
 npx playwright test --project=desktop --grep @perf             # preview render-path perf
 ```
 
-**WebKit and Firefox are not installed in the sandbox.** To run a spec on them, start the
+**Every project runs in the sandbox, WebKit and Firefox included.** Only Chromium is baked into
+the image, so the suite's `globalSetup` (`docs/scripts/e2e-ensure-browsers.mjs`) installs WebKit
+and Firefox the first time a selected project needs one: about 30 seconds, once per sandbox.
+If the install fails, the run fails with the command to fix it. **A missing browser is never a
+reason a test did not run**, and "WebKit is not installed here" is not a result to report: run
+the suite, and the browser installs itself. To run a spec on CI's runners instead, start the
 nightly by hand on your branch with its `spec` input (Actions → Studio E2E nightly → Run
 workflow, or `workflow_dispatch` with `spec: e2e/<name>.spec.ts`). It runs only those specs,
-across every project, in minutes instead of the whole suite's 45-plus, and it files nothing on
-the rolling issue (only a scheduled or unfiltered run on `main` does).
+across every project, and files nothing on the rolling issue (only a scheduled or unfiltered
+run on `main` does).
 
 **`@perf` — the preview render-path measurement** (`e2e/studio-preview-perf.spec.ts`). Reports
 raw per-render RENDER / FRAME / TOTAL for the two interactions that drive a preview render —
@@ -1177,22 +1182,19 @@ was UNVERIFIED because "Chromium cannot reach any external host through the agen
 proxy" — that is false and this is what it should have said; the correction is on that
 PR as comment 5387941880.
 
-**WebKit is not in the base image — check before you conclude a spec is broken.** Only
-Chromium is baked in (`/opt/pw-browsers/chromium-1194`). The `@webkit-phone` /
-`@webkit-tablet` projects (`back-gesture`, the tablet-divergence specs) need WebKit
-installed first, which is a *separate* action from the Chromium warning above and does
-not touch the Chromium pin:
+**WebKit and Firefox install themselves.** Only Chromium is baked in
+(`/opt/pw-browsers/chromium-1194`). The `@webkit-phone`, `@webkit-tablet` and `gecko` projects
+need WebKit or Firefox, and the suite's `globalSetup` installs whichever is missing after the
+site build and before the first test (UI mode selects every project, so it installs both) (`npx playwright install-deps` then `install`, into `PLAYWRIGHT_BROWSERS_PATH`; it
+never touches the Chromium pin). To install by hand, for a tool outside the suite:
 
 ```
-ls -d /opt/pw-browsers/webkit-*      # already there? a previous session may have installed it
-npx playwright install webkit        # if not — lands in PLAYWRIGHT_BROWSERS_PATH
-npx playwright install-deps webkit   # as root; the binary will not launch without these
+npx playwright install-deps webkit firefox   # as root; the binaries will not launch without these
+npx playwright install webkit firefox        # about 30 s together, measured 2026-10-15
 ```
 
-Once installed it persists for the life of the sandbox, so a later check will find it
-present — don't take that as evidence the base image ships it. Without it,
-`--project=webkit-phone` fails to launch, which reads as a broken spec rather than a
-missing browser.
+Once installed they persist for the life of the sandbox. A `browserType.launch: Executable
+doesn't exist` error from outside the suite means install it, not skip it.
 
 **Fixed sleeps are gated.** Every `page.waitForTimeout(...)` call under `docs/e2e/**` —
 whatever its argument — must carry an entry in `SANCTIONED_E2E_SLEEPS`
