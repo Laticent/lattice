@@ -95,12 +95,20 @@ and the boundary parser (`setBoundaryPluginsOff`). A host narrows the set with
   "contributes": {
     "syntax": {                                       // keyed by the TOKEN TYPE each rule emits
       "math_inline": { "kind": "inline", "anchor": { "after": "escape" }, "triggers": ["$"] },
-      "math_block":  { "kind": "block",  "anchor": { "before": "fence" }, "triggers": ["$"], "opaque": true }
+      "math_block":  { "kind": "block",  "anchor": { "before": "fence" }, "triggers": ["$"], "opaque": true,
+                       "scansAhead": "^[ \\t]*\\$\\$|\\$\\$[ \\t]*$" }
     }
   },
   "render": { "parity": "equivalent", "degradesTo": "source" }
 }
 ```
+
+**Every block rule declares `scansAhead`.** `false` when the rule decides from its own lines,
+as every CommonMark block rule does. Otherwise a pattern matching each line its decision
+depends on, opener and closer alike: `math_block` opens on `$$` only if some later line ends
+with `$$`, which can sit slides away. The Studio's incremental slide index re-parses only the
+region an edit touched, and rebuilds the whole deck when either version of that region holds
+such a line (`docs/src/lib/fuoco/deck-index.ts`). The build refuses a block rule without it.
 
 `<name>.syntax.mjs` exports each rule **under the token type it emits**
 (`export { mathBlockRule as math_block }`) plus `detect(source)`; `<name>.render.js` exports

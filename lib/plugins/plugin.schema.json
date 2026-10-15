@@ -302,6 +302,10 @@
         "opaque": {
           "type": "boolean",
           "description": "block only: the rule's body renders no inline Markdown, so lint-core skips it as it skips a code fence. (Every block rule, opaque or not, is also installed in the boundary parser, so the source-side slide splitter agrees with the render about where a slide starts.)"
+        },
+        "scansAhead": {
+          "oneOf": [{ "const": false }, { "type": "string", "minLength": 1 }],
+          "description": "block only, and REQUIRED for a block: whether the rule decides by reading lines PAST the block it would open, such as a closer it must find before it opens. false when it decides from its own lines, as every CommonMark block rule does. Otherwise a regular expression (multiline) matching every line that decision depends on, opener and closer alike: the Studio's incremental slide index (docs/src/lib/fuoco/deck-index.ts) re-parses only the region an edit touched, and rebuilds the whole deck when either version of that region holds such a line."
         }
       }
     },
