@@ -1,6 +1,6 @@
 ---
 status: proposed
-summary: An audit of the catalog against pitch, sales, board and marketing decks. Most business slides already have a component; four do not (a canvas grid, market-sizing circles, a native sankey, a pyramid), and the larger gap is a plugin, since every chart number is still typed by hand. Ranks them and recommends canvas and market sizing first.
+summary: An audit of the catalog against pitch, sales, board, marketing and reinsurance decks. Most business slides already have a component; four do not (a canvas grid, market-sizing circles, a native sankey, a pyramid), and the larger gap is a plugin, since every chart number is still typed by hand. The owner put a reinsurance beta first (§7): global number formats, a reinsurance tower, a risk matrix, a histogram with a log axis.
 ---
 
 # Business-deck gaps: what startups, sales and boards reach for that we lack
@@ -24,7 +24,9 @@ plugin matters more than any of them:
 | 4 | **Native `sankey`**: revenue flows, budget allocation, ARR movements | Finance, board decks | component (chart) |
 | 5 | **Pyramid**: strategy pyramids, hierarchy of needs, the value stack | Consulting, executive decks | variant or component |
 
-**Recommendation:** build canvas (2) and market sizing (3) first. They are the most
+**Superseded on order:** the owner put a reinsurance beta first; §7 has that build list.
+
+**Recommendation (for after §7):** build canvas (2) and market sizing (3) first. They are the most
 visible gaps in a pitch deck, each is a small self-contained component, and neither
 waits on anything. The data plugin (1) has the largest payoff but needs its own
 design note before code, because it adds a file ingest (§4).
@@ -165,6 +167,77 @@ those calls.
 4. A design note for the data plugin (§4) before any code.
 5. `sankey` and pyramid stay on the list. Revisit after 2–4 land.
 
-**Caveat:** this audit reads the catalog, the docs and the plugin README. It renders
-nothing, so "covered" in §2 means a component's docs claim the shape. A slide-level
-check of each row (for example, a SWOT with five items per quadrant) is UNVERIFIED.
+**Order changed by the owner on 2026-10-15:** a reinsurance / broking beta comes first,
+so §7's build list runs before items 2–5 here.
+
+## 7. Insurance and reinsurance: the beta build
+
+**Why:** the first beta tester is a VP in reinsurance and broking, with clients
+worldwide. The owner chose the build list below on 2026-10-15; it runs before §6.
+
+### 7.1 Covered, and rendered
+
+Each row was rendered through the CLI to PDF (`node lattice.js`) and inspected:
+
+| Insurance slide | Component | Rendered result |
+|---|---|---|
+| Loss development triangle | `heatmap` | blank cells draw as an unshaded, dashed "not measured" corner, so the triangle reads correctly |
+| Sensitivity / tornado | `bar diverging row` | signed bars off a centered zero |
+| Key risk indicators against appetite | `bullet` | measure, target tick and derived zones per row |
+| Combined-ratio bridge, plan to actual | `waterfall zoom` | readable only with `zoom`; the default zero-based axis squashes a 94 → 95.5 walk into slivers |
+| Bow-tie (causes → event → consequences) | `flowchart lr` | renders; a diamond marks the event |
+| Capability comparison against other brokers | `table state-cells` + `_focus: col 2` | drawn marks, "Us" column ringed |
+| Gross written premium trend | `line` | `$` and `B` carried onto the axis |
+
+### 7.2 Two defects the render surfaced
+
+- **A ratio walk colors backwards.** `waterfall` colors every increase with the pass hue
+  and every decrease with the fail hue. A combined or loss ratio is lower-is-better, so a
+  +4.5-point cat overrun draws green and a 2-point reserve release draws red.
+  `waterfall.docs.md` offers no way to flip it. Fix: a polarity modifier (working name
+  `lower-is-better`) that swaps the two hues. The same flip serves cost walks outside
+  insurance.
+- **A long step label is dropped.** "Prior-year release" printed as "Prior-ye…" and the
+  CLI reported `CHART LABELS DROPPED` with four steps (six bars) on a wide slide. Minor; a shorter
+  label avoids it.
+
+### 7.3 Number formats for global clients (measured)
+
+Values rendered through `lib/engine` in a `line` chart, three points each:
+
+| Authored value | Axis ticks | Verdict |
+|---|---|---|
+| `$4.2M` | `$4.5M $5M $5.5M $6M` | correct |
+| `€4.2M`, `£4.2M`, `¥420M` | `€4.5M …`, `£4.5M …`, `¥450M …` | correct |
+| `4.2M €` (currency after the number) | none: no chart draws, the values print as text | **fails** |
+| `4,2` (decimal comma) | `4.5 5 5.5 6` | parses, but the axis switches to a decimal point |
+| `1.234,5` (European thousands) | `1500 2000 2500 3000 3500` | parses, but the axis prints US style |
+
+Currency after the number is the common form in French, German and Italian decks, so a
+European client's chart silently fails to draw. The parse and the tick formatter both
+live in `lib/components/chart/_chart-family/cartesian.js` (`affixOf`, `axisFormatter`).
+
+### 7.4 The decided build, in order
+
+Ordered by how much each one unblocks: the number-format fix touches every chart, and
+the tower is on almost every reinsurance renewal deck.
+
+1. **Global number formats** (§7.3), in the shared chart kernel, plus the `waterfall`
+   polarity flip (§7.2) if the owner agrees to add it.
+2. **Reinsurance tower.** Layers stacked by attachment point and limit
+   (`$10M xs $5M`), each layer split by reinsurer share. `stacked-bar` can fake a
+   layer's limit as a segment height, but not the attachment notation or the shares.
+3. **Risk matrix.** 5 × 5 likelihood × impact, cells shaded by a severity rule, risk IDs
+   placed in the cells. `heatmap` shades by number but cannot place names; `matrix-grid`
+   places labels but shades by row category; `quadrant` splits only 2 × 2.
+4. **Histogram and log axis.** Loss distributions, and exceedance-probability curves
+   whose return periods (1-in-10 to 1-in-250) need a log scale. `line.docs.md` documents
+   no log axis.
+
+Each new component owes a demo deck (HARD RULE #9) and a design pass before code.
+
+**Caveat:** §2 rows were checked by rendering the SWOT (`matrix-2x2`), service tiers
+(`pricing`), cap table (`stacked-bar`), pipeline (`funnel`) and case study (`columns`
+with `quote` and `big-number` panes) to PDF, plus the competitive table in §7.1. All
+render as described. The rest of §2 rests on each component's docs. Every render used
+the `indaco` theme in light mode at the default wide size.
