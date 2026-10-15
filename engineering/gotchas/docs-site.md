@@ -479,7 +479,7 @@ owe nothing here. See
 - **Cause:** the two builds do not produce the same document. `build:e2e` (what
   `playwright.config.ts`'s `webServer` runs, and what CI runs) is
   `sync:portal → sync:playground → astro build` and stops there. `build` adds
-  four post-build steps, and **two of them rewrite the head of every page**:
+  five post-build steps, and **two of them rewrite the head of every page**:
   `inject-modulepreload.mjs` and `hoist-stylesheets.mjs`. Measured on the same
   commit: `/playground/index.html` carries **41** `<link rel="modulepreload">`
   after `npm run build` and **0** after `npm run build:e2e` (`/studio/` 74 vs 0);
@@ -492,8 +492,10 @@ owe nothing here. See
   spec, 3 runs in 3 green against one dist and 6 in 6 red against the other.
 - **Fix:** say which build produced the `dist` before believing a timing result,
   and re-run against the other shape before calling anything fixed —
-  `node scripts/inject-modulepreload.mjs && node scripts/hoist-stylesheets.mjs`
-  turns a `build:e2e` dist into a production-shaped one in a couple of seconds
+  `node scripts/inject-modulepreload.mjs && node scripts/hoist-stylesheets.mjs &&
+  node scripts/stable-island-uids.mjs` turns a `build:e2e` dist into a
+  production-shaped one in a couple of seconds (the last only renames island
+  uids, so it never moves a timing)
   (`astro build` leaves the `dist/chunk-graph.json` the injector needs, and
   deletes it on the way out, so it is a one-shot). Better, don't let a spec depend
   on it: measure a pre-hydration window from **inside** the page, per the entry

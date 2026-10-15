@@ -160,12 +160,19 @@ const CHART_KERNELS = Object.fromEntries(
 if (Object.keys(CHART_KERNELS).length !== chartRegistry.LAYOUTS.length || Object.values(CHART_KERNELS).some((f) => !f || !fs.existsSync(f))) {
   throw new Error(`build-playground: could not read every kernel file out of ${path.relative(ROOT, CHART_REGISTRY)}; its generated shape changed`);
 }
+// A plugin namespace's module path, repo-relative with `/` on every OS: esbuild hashes that text
+// into the chunk names, so it must not carry the checkout folder or the platform's separator.
+const repoPath = (p) => path.relative(ROOT, p).split(path.sep).join('/');
 const lazyChartRegistryPlugin = {
   name: 'lazy-chart-registry',
   setup(build) {
     build.onResolve({ filter: /chart-registry\.generated(\.js)?$/ }, (args) => {
       const resolved = path.resolve(args.resolveDir, args.path.endsWith('.js') ? args.path : `${args.path}.js`);
-      return resolved === CHART_REGISTRY ? { path: CHART_REGISTRY, namespace: 'lazy-chart-registry' } : undefined;
+      // The path is repo-relative: esbuild keys a module outside the `file` namespace by its path
+      // text as given, and that key feeds every `chunk-[hash]` name. An absolute path made the
+      // chunk names, the engine's asset version, and so the docs site's bytes depend on where the
+      // repo was checked out (followups.d/2708-p1). onLoad never reads it.
+      return resolved === CHART_REGISTRY ? { path: repoPath(CHART_REGISTRY), namespace: 'lazy-chart-registry' } : undefined;
     });
     build.onLoad({ filter: /.*/, namespace: 'lazy-chart-registry' }, () => ({
       contents: `module.exports = ${JSON.stringify({ LAYOUTS: chartRegistry.LAYOUTS, FIGURE_CLASSES: chartRegistry.FIGURE_CLASSES, KERNELS: {}, PLUGIN: chartRegistry.PLUGIN })};`,
@@ -209,20 +216,42 @@ const lintEntryPlugin = {
       if (!fromLint) return undefined;
       const resolved = path.resolve(args.resolveDir, args.path);
       if (![BOUNDARY_PARSER_MJS, BOUNDARY_PARSER_CJS, BOUNDARY_PARSER_CJS.slice(0, -3)].includes(resolved)) return undefined;
-      return { path: BOUNDARY_PARSER_MJS, namespace: 'lint-boundary-parser' };
+      // Repo-relative for the same reason as the lazy chart registry: an absolute path here names chunks by checkout.
+      return { path: repoPath(BOUNDARY_PARSER_MJS), namespace: 'lint-boundary-parser' };
     });
     build.onLoad({ filter: /.*/, namespace: 'lint-boundary-parser' }, (args) => ({
-      contents: fs.readFileSync(args.path, 'utf8'),
-      resolveDir: path.dirname(args.path),
+      contents: fs.readFileSync(path.join(ROOT, args.path), 'utf8'),
+      resolveDir: path.dirname(path.join(ROOT, args.path)),
       loader: 'js',
-      watchFiles: [args.path],
+      watchFiles: [path.join(ROOT, args.path)],
     }));
     // On every build, watch mode included.
     build.onEnd((result) => {
-      if (result.metafile) assertLintParserIsolated(result.metafile);
+      if (result.metafile) {
+        assertLintParserIsolated(result.metafile);
+        assertCheckoutIndependent(result.metafile);
+      }
     });
   },
 };
+
+/**
+ * No module key may name the checkout. esbuild keys a `file` module relative to absWorkingDir, but a
+ * plugin namespace keeps the path text it was given, and every key feeds the `chunk-[hash]` names.
+ * One absolute path renamed the chunks per checkout, which moved the engine's asset version and the
+ * docs site's bytes, so measure-route-base.sh charged PRs 2–3 bytes they did not add
+ * (followups.d/2708-p1). PURE over the metafile, so a test can hand it a fake one.
+ */
+function assertCheckoutIndependent(metafile) {
+  // Strip a plugin namespace, then ask whether the rest is absolute. Not a search for ROOT's text:
+  // a checkout at `/src` or `/code` would match `docs/src/…` and `lib/components/code/…`.
+  const leaks = Object.keys(metafile.inputs).filter((k) => path.isAbsolute(k.replace(/^[\w-]+:/, '')));
+  if (leaks.length) {
+    throw new Error(
+      `build-playground: ${leaks.length} module key(s) name the checkout, so chunk names depend on where the repo lives; return a repo-relative path from the plugin: ${leaks.slice(0, 3).join(', ')}`,
+    );
+  }
+}
 
 /**
  * The lint core and the engine must each reach only their own boundary-parser instance. Walks the
@@ -378,8 +407,9 @@ async function main() {
   }
 }
 
-// The ESM options and the isolation pin, for test/integration/lint-engine/, which builds its own copy.
-module.exports = { ESM_OPTIONS, assertLintParserIsolated };
+// The ESM options and the two metafile pins, for test/integration/lint-engine/ (which builds its own
+// copy) and test/unit/tools/build-playground-determinism.test.js.
+module.exports = { ESM_OPTIONS, assertLintParserIsolated, assertCheckoutIndependent };
 
 if (require.main === module) {
   main().catch((err) => {
