@@ -3,8 +3,8 @@ import path from 'node:path';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import sectionSplit from '../../../../lib/core/section-source-split.js';
-import { slideIndexAt, slideStartOffset, splitSlides } from '../../components/studio/lint';
-import { buildDeckIndex, chunkAt, chunkText, type DeckIndex, flatSection, indexStats, sectionAt, sectionOfFlat, sectionStart, sectionText, updateDeckIndex } from './deck-index';
+import { splitSlides } from '../../components/studio/lint';
+import { buildDeckIndex, chunkText, type DeckIndex, flatSection, indexStats, sectionAt, sectionOfFlat, sectionText, updateDeckIndex } from './deck-index';
 
 const { splitSourceToSections } = sectionSplit as { splitSourceToSections: (s: string) => string[] };
 const ROOT = path.resolve(__dirname, '../../../..');
@@ -35,14 +35,6 @@ describe('DeckIndex — agrees with the derivations it replaces', () => {
 		}
 	});
 
-	it('the caret → chunk answer is slideIndexAt, and the reveal offset is slideStartOffset', () => {
-		for (const [name, src] of decks.slice(0, 120)) {
-			const ix = buildDeckIndex(src);
-			for (let o = 0; o <= src.length; o += Math.max(1, Math.floor(src.length / 97))) expect(chunkAt(ix, o), `${name}@${o}`).toBe(slideIndexAt(src, o));
-			for (let i = 0; i < ix.chunks.length; i++) expect(sectionStart(ix, i, 0), `${name}#${i}`).toBe(slideStartOffset(src, i));
-		}
-	});
-
 	it("sections are the ENGINE's slides: the texts splitSourceToSections recovers, on every committed deck", () => {
 		let headingSplitDecks = 0;
 		for (const [name, src] of decks) {
@@ -67,6 +59,31 @@ describe('DeckIndex — agrees with the derivations it replaces', () => {
 		expect(sectionAt(ix, ix.source.indexOf('body'))).toEqual({ chunk: 0, section: 1 });
 		expect(sectionOfFlat(ix, 2)).toEqual({ chunk: 0, section: 2 });
 		expect(flatSection(ix, 0, 1)).toBe(1);
+	});
+
+	it('a body that opens with a separator is parsed once, as the engine parses it', () => {
+		// Before Fuoco, splitSlides stripped front matter a second time and read `---\n\n# A\n\n---`
+		// as front matter: two slides became one for every slide operation (the checker's catch).
+		const src = '---\nmarp: true\n---\n\n---\n\n# A\n\n---\n\n# B\n';
+		const ix = buildDeckIndex(src);
+		expect(ix.chunks.map((_, i) => chunkText(ix, i))).toEqual(['# A', '# B']);
+		expect(splitSlides(src.slice(ix.bodyStart))).toEqual(['# A', '# B']);
+		expect(splitSourceToSections(src).filter(Boolean)).toEqual(['# A', '# B']);
+	});
+
+	it('a re-split under new parser rules keeps the revision of the same text', async () => {
+		const { setBoundaryPluginsOff } = await import('../../../../lib/core/boundary-parser.mjs');
+		const src = '# A\n\n$$\n\n---\n\n$$\n';
+		const ix = buildDeckIndex(src);
+		try {
+			setBoundaryPluginsOff(['math']);
+			const next = updateDeckIndex(ix, src);
+			expect(next).not.toBe(ix);
+			expect(next.rev).toBe(ix.rev);
+			expect(next.chunks.length).not.toBe(ix.chunks.length);
+		} finally {
+			setBoundaryPluginsOff([]);
+		}
 	});
 
 	it('split: rule keeps one section per chunk', () => {

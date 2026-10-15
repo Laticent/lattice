@@ -108,6 +108,61 @@ describe('hub — basics', () => {
 		expect(hub.stats.queued).toBeGreaterThan(0);
 	});
 
+	it('a focus an edit moves during a render reaches sync subscribers after it, on a microtask', async () => {
+		const hub = createFocusHub({ scheduler: manualScheduler() });
+		hub.source(DECK);
+		hub.go('rail', { chunkIndex: 3 });
+		const heard: number[] = [];
+		hub.subscribe((f) => f.chunkIndex, (v) => heard.push(v), { lane: 'sync' });
+		hub.source(DECK.replace('# Three\n\n---\n\n', ''), undefined, 'shell', { duringRender: true });
+		expect(heard).toEqual([]);
+		await Promise.resolve();
+		expect(heard).toEqual([2]);
+	});
+
+	it('an editor without sections keeps the section and page navigation chose in its chunk', () => {
+		const hub = createFocusHub({ scheduler: manualScheduler() });
+		hub.source(DECK);
+		hub.go('rail', { chunkIndex: 1, section: 1, page: Number.POSITIVE_INFINITY });
+		// Compose reveals the chunk, and its own caret callback reports back.
+		hub.reportChunk('compose', { chunkIndex: 1, line: 'Two' });
+		expect([hub.get().section, hub.get().page, hub.get().origin]).toEqual([1, Number.POSITIVE_INFINITY, 'rail']);
+		// Into another chunk, it moves as usual.
+		hub.reportChunk('compose', { chunkIndex: 2, line: 'Three' });
+		expect([hub.get().chunkIndex, hub.get().section, hub.get().page]).toEqual([2, 0, null]);
+	});
+
+	it('a step never waits for a slide a reader lens hides (the preview never reports it)', () => {
+		const hub = createFocusHub({ scheduler: manualScheduler() });
+		hub.source(DECK);
+		hub.go('rail', { chunkIndex: 0 });
+		hub.pages('preview', { chunk: hub.get().chunk, section: 0, count: 1, shown: 0, canSplit: true });
+		hub.go('shell', { chunkIndex: 1 }); // a slide the lens below hides
+		hub.step('keys', 'next', { view: [0, 3] });
+		expect(hub.get().chunkIndex).toBe(3);
+	});
+
+	it('a waiting step is dropped when its surface goes away', () => {
+		const hub = createFocusHub({ scheduler: manualScheduler() });
+		hub.source(DECK);
+		hub.go('rail', { chunkIndex: 0 });
+		hub.pages('preview', { chunk: hub.get().chunk, section: 0, count: 1, shown: 0, canSplit: true });
+		hub.step('keys', 'next');
+		hub.step('keys', 'next'); // waits for slide 1's render
+		hub.cancelWaiting();
+		hub.pages('preview', { chunk: hub.get().chunk, section: 0, count: 1, shown: 0, canSplit: true });
+		expect([hub.get().chunkIndex, hub.get().section]).toEqual([1, 0]);
+	});
+
+	it('a page step does not ask the editors to reveal', () => {
+		const hub = createFocusHub({ scheduler: manualScheduler() });
+		hub.source(DECK);
+		hub.go('rail', { chunkIndex: 0 });
+		hub.pages('preview', { chunk: hub.get().chunk, section: 0, count: 2, shown: 0 });
+		hub.step('keys', 'next');
+		expect([hub.get().cause, hub.get().page]).toEqual(['page', 1]);
+	});
+
 	it('steps through pages, then heading sections, then slides', () => {
 		const hub = createFocusHub({ scheduler: manualScheduler() });
 		hub.source(DECK);
@@ -122,8 +177,42 @@ describe('hub — basics', () => {
 		hub.step('keys', 'prev');
 		expect([hub.get().chunkIndex, hub.get().section]).toEqual([1, 0]);
 		// A reader lens that shows only slides 0 and 3.
-		hub.step('keys', 'next', [0, 3]);
+		hub.step('keys', 'next', { view: [0, 3] });
 		expect(hub.get().chunkIndex).toBe(3);
+	});
+
+	it('a step into a slide whose render has not reported waits for it, on a deck that can split', () => {
+		const hub = createFocusHub({ scheduler: manualScheduler() });
+		hub.source(DECK);
+		hub.go('rail', { chunkIndex: 0 });
+		hub.pages('preview', { chunk: hub.get().chunk, section: 0, count: 1, shown: 0, canSplit: true });
+		hub.step('keys', 'next');
+		expect(hub.get().chunkIndex).toBe(1);
+		// A fast second press, before slide 1 rendered: it waits…
+		hub.step('keys', 'next');
+		expect([hub.get().chunkIndex, hub.get().section]).toEqual([1, 0]);
+		// …and runs when the render lands: slide 1 has two pages, so it pages.
+		hub.pages('preview', { chunk: hub.get().chunk, section: 0, count: 2, shown: 0, canSplit: true });
+		expect([hub.get().chunkIndex, hub.get().page]).toEqual([1, 1]);
+	});
+
+	it('with the preview hidden, steps move whole slides and never wait', () => {
+		const hub = createFocusHub({ scheduler: manualScheduler() });
+		hub.source(DECK);
+		hub.go('rail', { chunkIndex: 0 });
+		hub.pages('preview', { chunk: hub.get().chunk, section: 0, count: 3, shown: 0, canSplit: true });
+		hub.step('keys', 'next', { pages: false });
+		hub.step('keys', 'next', { pages: false });
+		expect([hub.get().chunkIndex, hub.get().section]).toEqual([1, 1]);
+	});
+
+	it('a navigation carries whether the editor should take focus', () => {
+		const hub = createFocusHub({ scheduler: manualScheduler() });
+		hub.source(DECK);
+		hub.go('rail', { chunkIndex: 2, grab: true });
+		expect(hub.get().grab).toBe(true);
+		hub.step('keys', 'next');
+		expect(hub.get().grab).toBe(false);
 	});
 
 	it('an edit that deletes the focused slide lands on the slide now in its place', () => {
@@ -181,7 +270,8 @@ function makeWorld(unsafe?: Unsafe): World {
 			const ix = hub.index();
 			if (!ix) return;
 			w.caret = revealOffset(ix, f);
-			hub.report('markdown', { head: w.caret, rev: w.rev });
+			// The real editor reports its own reveal as a QUIET move (not the author's).
+			hub.report('markdown', { head: w.caret, rev: w.rev, quiet: true });
 		},
 		{ ignoreOrigin: 'markdown', equals: (a, b) => (a as Focus).seq === (b as Focus).seq },
 	);
@@ -199,7 +289,7 @@ function makeWorld(unsafe?: Unsafe): World {
 		(f) => `${f.chunk}:${f.section}:${f.page}`,
 		(_v, f) => {
 			const count = f.chunk === null ? 1 : (f.chunk % 3) + 1;
-			hub.pages('preview', { chunk: f.chunk, section: f.section, count, shown: f.page === null ? 0 : Math.min(f.page, count - 1) });
+			hub.pages('preview', { chunk: f.chunk, section: f.section, count, shown: f.page === null ? 0 : Math.min(f.page, count - 1), canSplit: true });
 		},
 	);
 	return w;

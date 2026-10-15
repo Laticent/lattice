@@ -92,14 +92,14 @@ describe('resolvePlugins — scansAhead', () => {
     else rule.scansAhead = scansAhead;
     return p;
   };
-  it('a block rule must say whether it reads ahead', () => {
+  test('a block rule must say whether it reads ahead', () => {
     assert.match(resolvePlugins([block(undefined)]).errors.join('\n'), /must declare scansAhead/);
   });
-  it('false and a valid pattern are both accepted', () => {
+  test('false and a valid pattern are both accepted', () => {
     assert.deepEqual(resolvePlugins([block(false)]).errors, []);
     assert.deepEqual(resolvePlugins([block('^\\$\\$')]).errors, []);
   });
-  it('an invalid pattern is refused', () => {
+  test('an invalid pattern is refused', () => {
     assert.match(resolvePlugins([block('(')]).errors.join('\n'), /not a valid pattern/);
   });
 });

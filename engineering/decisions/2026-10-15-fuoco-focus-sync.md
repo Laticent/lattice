@@ -323,3 +323,88 @@ first few thousand runs. The index now rebuilds fully when either version of the
 holds a `$$` line, and a test fails on any plugin block rule that is not classified as
 forward-scanning or not, so the next plugin cannot slip past it.
 
+
+## 11. Phases 1 and 2 as shipped
+
+**What moved onto the hub.** The markdown editor reports every caret move and the text with
+its own change span; it reveals a slide when any other pane navigates. The shell holds no
+slide state of its own: it reads the focused chunk, heading section and page run back from the
+hub with `useFocus`. The rail is its own component, one pill per rendered slide, keyed by
+stable chunk id. The preview takes its slide and page from the hub through `FocusedPreview`.
+Slide operations, restores, AI edits, deck switches and lesson appends navigate with
+`go(…, { after })`, which waits for the hub to hold the new text; no `requestAnimationFrame`
+is left in front of a reveal.
+
+**Guards removed.** `lastSlideRef` and its mount-seeding rules (`builtForRef`), the
+value-sync's pre-seeding, `navigatingRef`, `waitingStepRef` and its 1.5 s window,
+`pageRequest`, `shownSplit`, `reportedRef`, `paneDeckRef`, `caretText` as shell state, and
+`slides.indexOf(text)` lens lookups. The editor's `revealSlide` handle is gone; so are
+`slideIndexAt`, `slideStartOffset` and `slideEditableOffset` (their test cases run against the
+index now).
+
+**Two things the design note did not foresee.**
+
+- A store notification inside a React render is an update React refuses, and the shell feeds
+  the hub from its render (so everything that render reads is the index of its own text). The
+  hub's `source(…, { duringRender: true })` delivers a focus that edit moved on a microtask.
+- The editor's reveal produces a caret move of its own. Reporting it as the author's undid the
+  page navigation had chosen ("previous" enters a split slide on its last page, and the reveal
+  then asked for the caret's page). The editor reports a move with no user event as `quiet`:
+  inside the focused slide it refreshes the caret without changing the page.
+
+**Measured, same machine, same time, `main` (7f36cab) against this branch**, production builds
+side by side, `tools/studio-sync-bench.mjs`, 123-slide gallery deck, two runs each, averaged:
+
+| Scenario | `main` | Fuoco |
+|---|---|---|
+| Arrow key at held-key pace, Event Timing median / p90 | 24 / 40 ms | **16** / 40 ms |
+| Arrow key, slow, Event Timing median / p90 | 24 / 36 ms | **16 / 24** ms |
+| Slide change → rail, median | 25 ms | **15** ms |
+| Slide change → preview, median / p90 | 49 / 64 ms | **36 / 44** ms |
+| Typing in a slide, Event Timing median / p90 | 72 / 92 ms | **60 / 80** ms |
+| Long-task time over those 35 keys | 966 ms | **405** ms |
+| Rail click, Event Timing median / p90 | 76 / 96 ms | **48 / 64** ms |
+| Rail click → preview, median | 62 ms | **37** ms |
+
+The slide index alone, in Node, per keystroke with the editor's span: 0.12 ms at 120 slides,
+0.14 ms at 360, 0.29 ms at 960, against 2.3 ms and 14.7 ms for the per-keystroke whole-deck
+parse it replaced. A caret lookup is under a microsecond at any size. That is under the 1 ms
+target in section 7, and nearly flat; the remaining growth is two native string compares over
+the deck and shifting the chunk records after the edit.
+
+**What still costs.** Typing is still 60 ms because the shell keeps the deck text in React
+state and re-renders on every keystroke; the profile shows `unknownComponents` /
+`usedComponents` re-parsing the deck three times per key and the preview's own deck-context
+scan. Neither is sync, and both are recorded as follow-ups rather than widened into this change.
+
+**Verified on the real Studio** (production build, headless Chromium) at 1440, 820 and 390 px:
+an outline deck (`# Quarterly review`, two `##`, then a `big-number` slide) shows four rail
+pills and "Slide 3 / 4" with the caret under the second `##`; the preview shows that section;
+a click on pill 2 shows "Revenue grew" and parks the editor's caret on `## Revenue grew`.
+
+**The checker round** (an independent agent drove the built Studio against the diff) found
+three regressions and three smaller holes, all fixed in this change with a test that fails
+without the fix:
+
+- After a deck switch, caret moves stopped reaching the rail until the next keystroke. The
+  rebuilt view kept the previous deck's revision and the hub dropped its reports as stale. A
+  new view now restates its revision, and an index re-split under new parser rules keeps the
+  revision of the same text.
+- Boot restored slide 1, not the slide you left on: the save effect wrote 0 before the boot
+  navigation ran. The boot slide is read on the first render and saving waits for a focus.
+- In Compose, a navigation was undone by Compose's own echo: its caret report carried no
+  section and reset the section and page navigation had chosen. A `reportChunk` without a
+  section now keeps them inside the focused chunk, the way a quiet editor report does.
+- A step waited forever when the focus sat on a slide a reader lens hides; a waiting step now
+  needs a viewed slide, and the shell drops it when the preview hides, Present opens or the
+  deck or lens changes. A page step publishes cause `page`, so it no longer moves the caret.
+  The resolver's `scansAhead` tests used `it` in a `test` file and never ran.
+- `splitSlides` stripped front matter a second time, so a body that opens with `---` read as
+  one slide to every slide operation and two to the engine and the index. Every caller passes
+  a stripped body; the second strip is gone.
+
+**Left for phases 3 and 4** (`followups.d/fuoco-phase-3.md`): Compose reports a chunk, not a
+section, so a Compose caret under a heading shows the chunk's first section; Compose keeps its
+internal `lastSlideRef`; Present seeds from a chunk index and does not follow; Live awareness
+and the persisted boot slide are chunk indices, not ids; the Playground keeps its own scanner;
+preview element addresses (5.5) are not built.

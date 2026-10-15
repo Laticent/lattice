@@ -1,8 +1,18 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
+import { buildDeckIndex, chunkAt, sectionStart } from '@/lib/fuoco';
 import { boundaryParser as md } from '../../../../lib/core/boundary-parser.js';
 import { stripFrontMatter } from './front-matter';
-import { presentationIndices, presentationSet, slideClass, slideIndexAt, slideStartOffset, slideTitle, splitSlides, unknownComponents, usedComponents } from './lint';
+import { presentationIndices, presentationSet, slideClass, slideTitle, splitSlides, unknownComponents, usedComponents } from './lint';
+
+// The caret ↔ slide locators moved into the slide index (docs/src/lib/fuoco); the cases below
+// keep their history, run against it. The old functions clamped (a caret before the first
+// slide names slide 0; an index past the end names the last slide), and these adapters say so.
+const slideIndexAt = (src: string, pos: number) => Math.max(0, chunkAt(buildDeckIndex(String(src ?? '')), Math.max(0, pos)));
+const slideStartOffset = (src: string, i: number) => {
+	const ix = buildDeckIndex(src);
+	return ix.chunks.length ? sectionStart(ix, Math.max(0, Math.min(i, ix.chunks.length - 1)), 0) : 0;
+};
 
 const KNOWN = ['title', 'kpi', 'quote', 'cards-grid', 'stats'];
 // Component-name-ish tokens (won't accidentally contain a `-->` or a fence).

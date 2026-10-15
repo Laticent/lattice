@@ -5,14 +5,15 @@
 // §4).
 //
 // Built on `useSyncExternalStore`, so a render always reads the hub's current focus and
-// cannot tear. The subscription defaults to the `frame` lane: several focus changes inside
-// one frame re-render once.
+// cannot tear. The subscription defaults to the `sync` lane: React batches the updates of one
+// event itself, and a navigation must show in the same commit as the input that made it.
+// (The `frame` lane is for DOM work outside React, like an editor's scroll.)
 
 import * as React from 'react';
 import type { Focus, FocusHub, Lane } from './hub';
 
 export function useFocus<T>(hub: FocusHub, select: (f: Focus) => T, opts: { lane?: Lane; equals?: (a: T, b: T) => boolean } = {}): T {
-	const lane = opts.lane ?? 'frame';
+	const lane = opts.lane ?? 'sync';
 	// The selector and comparison usually close over props: read the latest ones per call, so a
 	// new function identity each render never re-subscribes.
 	const selectRef = React.useRef(select);
