@@ -77,13 +77,13 @@ const SYSTEM_PERSONA = 'You are the Lattice Architect, a boardroom deck editor.\
 // lint door (engineering/decisions/2026-10-14-engine-spine.md §5). This module is on the Studio's
 // startup path, so it loads them on demand: every model call awaits `loadArchitectAuthoring()`
 // first, and the token readout prices the canon by its measured size until they land.
-type AuthoringDoor = typeof import('@/playground/authoring-door.js');
+type AuthoringDoor = Awaited<ReturnType<typeof import('@/playground/authoring-door.js')['loadAuthoring']>>;
 let authoring: AuthoringDoor | null = null;
 let authoringLoad: Promise<AuthoringDoor> | null = null;
 /** Load the canon and deck profiles. Every model call awaits this before building a prompt. */
 export function loadArchitectAuthoring(): Promise<AuthoringDoor> {
 	if (!authoringLoad) {
-		authoringLoad = import('@/playground/authoring-door.js').then((m) => (authoring = m));
+		authoringLoad = import('@/playground/authoring-door.js').then((door) => door.loadAuthoring()).then((m) => (authoring = m));
 		authoringLoad.catch(() => {
 			authoringLoad = null; // let a later call retry
 		});

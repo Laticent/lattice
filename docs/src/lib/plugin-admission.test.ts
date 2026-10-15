@@ -49,7 +49,7 @@ describe('plugin-admission — the Studio readers follow the deck', () => {
 	});
 
 	it('the lint bundle\'s own parser copy is switched too, once the lint door has loaded it', async () => {
-		await import('@/playground/authoring-door.js');
+		await (await import('@/playground/authoring-door.js')).loadAuthoring();
 		narrowTo(null);
 		followDeckAdmission(DECK);
 		const before = lintGeneration();

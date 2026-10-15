@@ -432,7 +432,7 @@ export async function shareHtmlPlayer(
 		import('@/playground/deck-preview.js'),
 		import('@/playground/player-core.generated.js') as Promise<PlayerCore>,
 		import('@/lib/sanitize-slide-html.js'),
-		import('@/playground/authoring-door.js'),
+		import('@/playground/authoring-door.js').then((door) => door.loadAuthoring()),
 	]);
 	const fontCss = await fontMod.buildFontEmbedCss();
 	const deck = deckMod as unknown as { A11Y_DEFS: string; splitSections: (html: string) => string[] };
@@ -1247,7 +1247,7 @@ export async function shareCaptions(
 
 	onStatus?.('Reading notes + projecting slides…');
 	const [authoringMod, readAlongCore, projectionMod, resolveNarrationMod, narrationResolve, lintMod, bookendsMod] = await Promise.all([
-		import('@/playground/authoring-door.js'),
+		import('@/playground/authoring-door.js').then((door) => door.loadAuthoring()),
 		import('@/playground/read-along-core.generated.js') as unknown as Promise<ReadAlongCore>,
 		import('./narration-projection'),
 		import('@/lib/resolve-narration'),

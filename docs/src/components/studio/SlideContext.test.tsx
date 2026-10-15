@@ -1,10 +1,15 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { loadAuthoring } from '@/playground/authoring-door.js';
 import { connectOpenRouter, generateDescription, useArchitectStatus } from './architect';
 import { SlideContextBody } from './SlideContext';
 import { listComments } from './slide-comments';
 import { getClassTokens } from './slide-directives';
+
+// The module under test reads the lint core synchronously; in the app, its loader awaits this first.
+beforeAll(() => loadAuthoring());
+
 
 // The architect module is a network/model boundary — mock it so the confirm-gate +
 // Connect tests drive state deterministically. `useArchitectStatus` defaults to a

@@ -20,13 +20,16 @@
 // `import()` it), so its static import of the lint door stays off the Studio's startup path.
 
 import { caretProbe } from '@/lib/caret-probe';
-import { lintCore } from '@/playground/authoring-door.js';
+// Read synchronously: every loader of this module awaits loadAuthoring() first (StudioShell,
+// PresentOverlay, narration-projection's projectDeckScript).
+import { authoring } from '@/playground/authoring-door.js';
 import { PANE_PROBE } from './pane-probe';
 
-const core = lintCore as unknown as {
+type PaneCore = {
 	paneSplitLine: (slide: string, source: string) => number;
 	paneStarts: (slide: string) => number[];
 };
+const core = (): PaneCore => authoring().lintCore as unknown as PaneCore;
 
 
 /** A pane marker alone on its line, either spelling (lib/core/pane-spec.js `parseMarker`): `[1]`
@@ -39,8 +42,10 @@ const PANE_MARKER = /^<!--\s*(?:_pane:\s*([a-z][\w-]*)?[^<>]*|pane:\s*([a-z][\w-
 export function paneSplitLineOf(chunk: string, deck: string): number {
 	const text = String(chunk ?? '');
 	if (!PANE_PROBE.test(text)) return -1; // the cheap reject every non-panes slide takes
+	// Outside the try: a caller whose loader skipped loadAuthoring() must throw, not read as "one page".
+	const lint = core();
 	try {
-		return core.paneSplitLine(text, String(deck ?? ''));
+		return lint.paneSplitLine(text, String(deck ?? ''));
 	} catch {
 		return -1; // an unreadable slide renders as whatever the engine makes of it; do not guess
 	}
@@ -84,7 +89,7 @@ export function panePageOfCaret(chunk: string, deck: string, caretText: string):
 	if (!raw) return undefined;
 	const lines = String(chunk).split('\n');
 	// Where the first pane starts: its marker, or its `###` on a slide with none.
-	const first = core.paneStarts(String(chunk))[0] ?? -1;
+	const first = core().paneStarts(String(chunk))[0] ?? -1;
 	const pages = new Set<number>();
 	lines.forEach((line, i) => {
 		if (first < 0 || i < first) return; // masthead: on every page

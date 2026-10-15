@@ -115,7 +115,7 @@ Breaking `engineBase()` on purpose fails two of its three tests.
 
 ## 7. What this does not do
 
-- **A shared lint/engine build.** Cut in review (§3). Tracked in `followups.d/`.
+- **A shared lint/engine build.** Cut in review (§3), audited (§9), shipped 2026-10-15 (§10).
 - **The runtime.** Unchanged, by the 2026-07-11 and 2026-07-19 records. It is now budgeted.
 - **A budget on lazy code.** `engineJsGz` does not follow `import()`, so a chart kernel or the
   lint core could grow without the gate seeing it. Shipped on 2026-10-15; see §8.
@@ -194,6 +194,80 @@ so it is the owner's:
    under a narrowed admission (it is arguably the correct output), so it needs its own parity
    evidence.
 
-Either one, then the door's static importers (`PrintOptionsPanel.tsx`, `pane-pages.ts`,
-`slide-notes.ts`) move to the async door, and the 277-deck parity run decides. Tracked in
-`followups.d/2694-p1-shared-lint-engine-build.md`.
+The owner picked option 1 on 2026-10-15; §10 is what shipped.
+
+## 10. The lint core as an entry of the ESM build (2026-10-15)
+
+The owner picked option 1 of §9: the lint gets its own parser instance. Shipped this way:
+
+- **One build, one extra module instance.** `tools/build-playground.js` adds `lint` as an entry of
+  the ESM build, from the same entry contents `tools/build-authoring-core.js` writes for vitest.
+  `lintEntryPlugin` resolves `boundary-parser` to a second module instance (namespace
+  `lint-boundary-parser`, same source file) for the three lint modules that reach it: the entry,
+  `lint-core.js` and `slide-boundaries.mjs`. Nothing in `lib/` changed. The rest of the lint core's
+  graph, markdown-it included, is the engine's own chunks.
+- **A build-time pin.** `assertLintParserIsolated` walks esbuild's module graph and fails the build if
+  the lint entry reaches the engine's `boundary-parser.mjs`, or if the engine or a chart kernel
+  reaches the lint's copy. Removing `slide-boundaries.mjs` from the redirect fails it.
+- **The door is a function, not a top-level await.** `authoring-door.js` exports `loadAuthoring()`,
+  which loads `esm/lint.js` from the engine's directory (`lint-core-source.js`), switches its parser
+  to the deck's admission and hands it over; and `authoring()`, a synchronous read that throws until
+  then. A top-level await was tried first and measured: Rolldown split the Studio's unchanged 493
+  startup modules into 167 chunks instead of 110, +12KB gz, even with nothing on the startup path
+  importing the door. The three synchronous readers (`pane-pages.ts`, `slide-notes.ts`,
+  `PrintOptionsPanel.tsx`) read `authoring()`, and every loader of them awaits `loadAuthoring()`:
+  the Share and Slide-settings panels, the Present overlay, both `pane-pages` loaders, and
+  `projectDeckScript`. A test holds the door free of `await`.
+- **vitest** aliases `lint-core-source.js` to `lint-core-source.vitest.js`, which loads
+  `authoring-core.generated.js` (built on install, not committed). Both are built from the same entry contents.
+
+Measured on the built tree (gzip level 6):
+
+| | Before | After |
+|---|---:|---:|
+| Lint core beyond what is already loaded (`lintCoreGz`) | 181.7KB (door chunk 137.3 + its own markdown-it 44.4, beyond startup) | 90.3KB (`esm/lint.js` and its chunks, beyond the engine) |
+| Studio startup JS (`eagerJsGz`) | 495.1KB, 127 files | 495.2KB, 127 files |
+| Engine + runtime (`engineJsGz`) | 694.6KB, engine in 13 files | 697.0KB, engine in 17 files |
+
+The engine's own modules are unchanged; esbuild now cuts them along the lint/engine boundary, and the
+four extra files cost 2.4KB gz of per-file compression on every route that loads the engine. The
+Vite copy of markdown-it still loads in the Studio when Compose or the Library opens, or when the
+idle warm-up fetches it, so in a session that reached any of those the lint core's real saving is
+137.3KB to 90.3KB, not 181.7KB.
+
+Equivalence:
+
+- **Lint.** Over 278 example and baseline decks, plus a perturbed copy of each (misspelled classes, a
+  renamed register, a `$$` block holding `---`), under the default admission and with math off:
+  1,112 runs, 6,854 findings, and `lintTextWith`, `reviewText`, `scoreDeck`, `extractSlideNotes` and
+  `splitSections` return the same results from `esm/lint.js` and from `authoring-core.generated.js`.
+  The math-off arm changed the result of all 278 perturbed decks, so it was live.
+- **Engine isolation.** `engine.js` and `lint.js` loaded in one realm, so their shared chunks are one
+  module each. Each of the 278 decks and a synthetic `$$`/`---` deck is rendered, split for preview
+  and baked for Marp; then the lint narrows its parser to math-off and lints every deck; then each
+  deck is rendered again. 0 of 279 changed. The same run against a control build whose lint SHARES
+  the engine's parser changed 2: the synthetic deck and `examples/slide-class-forms.md`.
+- **The real Studio.** First paint at 120ms; `esm/lint.js` requested at about 1.8s; the lint
+  underlines an unknown class. 75 Playwright specs over lint, panes, Present, Share, print, the
+  plugin admission, the Architect and engine loading pass on the desktop project.
+
+**Adversarial review (red team, inversion, checker).** No blocking defect. The red team audited every
+module-level `let`/`Map`/`Set` in the 61 shared repo modules and probed interleavings in one realm
+(lint after renders, engine after the lint narrowed, lint in the middle of a render): 0 of 279 decks
+changed. Folded in before merge:
+
+- `assertLintParserIsolated` runs on every build, watch mode included (`onEnd`), and the build pins
+  `absWorkingDir` so the engine-side check also holds from `cd docs`. It also fails if the lint core
+  reaches a module the engine build swaps for a browser stand-in (KaTeX, plugin data, the chart
+  registry, highlight.js's common build), since vitest runs the lint core without those stand-ins.
+- `pane-pages.ts` reads the lint core outside its `try`, so a caller that skipped `loadAuthoring()`
+  throws instead of reading as "one page".
+- `authoring-door.test.ts` forbids every way around the door: `authoring-core.generated.js`,
+  `lint-core-source.js` and the literal `esm/lint.js`, each outside the one module allowed to use it.
+
+Left as known limits: nothing statically catches a startup module calling `loadAuthoring()` (a
+runtime fetch has no static edge); a failed `esm/lint.js` load is retried on the next lint pass rather
+than cached; `__LATTICE_ASSET_BASE__` is read when the dev server starts, so re-running
+`sync:playground` under a live `astro dev` leaves it stale until the engine records its own URL; and
+the 2.4KB gz the extra engine chunk files cost is paid on every route that loads the engine,
+including routes that never lint.

@@ -22,7 +22,7 @@ import { tourChromeMargin } from './tour-chrome';
 // biome-ignore lint/suspicious/noExplicitAny: the bundled CJS lint kernel.
 let lintCoreMod: any = null;
 function loadLintCore() {
-	return import('@/playground/authoring-door.js')
+	return import('@/playground/authoring-door.js').then((door) => door.loadAuthoring())
 		.then((m) => {
 			lintCoreMod = m.lintCore;
 			return lintCoreMod;

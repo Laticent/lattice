@@ -157,7 +157,7 @@ describe('rebaseline', () => {
 // The lazy metrics on a fixture dist: small, built here, no real build needed.
 describe('the lazy metrics', () => {
 	const gz = (s) => zlib.gzipSync(Buffer.from(s), { level: 6 }).length;
-	function fixture({ door = 'authoring-door.abc.js', kernels = true } = {}) {
+	function fixture({ lint = true, kernels = true } = {}) {
 		const dist = fs.mkdtempSync(path.join(os.tmpdir(), 'route-budget-'));
 		const put = (rel, text) => {
 			fs.mkdirSync(path.dirname(path.join(dist, rel)), { recursive: true });
@@ -167,10 +167,11 @@ describe('the lazy metrics', () => {
 		put('studio/index.html', `<script type="module" src="/_astro/app.x.js"></script><script src="/${esm}/engine.js"></script>`);
 		put('_astro/app.x.js', 'import"./shared.x.js";');
 		put('_astro/shared.x.js', 'export const s="shared";');
-		if (door) put(`_astro/${door}`, 'import"./shared.x.js";import"./md.x.js";export const lint="door";');
-		put('_astro/md.x.js', 'export const md="only the lint core loads me";');
+
 		put(`${esm}/engine.js`, 'import"./chunk-core.js";');
 		put(`${esm}/chunk-core.js`, 'export const core="engine";');
+		if (lint) put(`${esm}/lint.js`, 'import"./chunk-core.js";import"./chunk-md.js";export const lint=1;');
+		put(`${esm}/chunk-md.js`, 'export const md="only the lint core loads me";');
 		if (kernels) {
 			put(`${esm}/chart-small.js`, 'import"./chunk-core.js";export const k=1;');
 			put(`${esm}/chart-big.js`, 'import"./chunk-core.js";import"./chunk-big.js";export const k=2;');
@@ -186,22 +187,22 @@ describe('the lazy metrics', () => {
 		const esm = 'playground/v/abc123/esm';
 		expect(m.chartKernel).toBe('chart-big.js');
 		expect(m.chartKernelGz).toBe(gz(read(`${esm}/chart-big.js`)) + gz(read(`${esm}/chunk-big.js`)));
-		expect(m.lintCoreGz).toBe(gz(read('_astro/authoring-door.abc.js')) + gz(read('_astro/md.x.js')));
+		expect(m.lintCoreGz).toBe(gz(read(`${esm}/lint.js`)) + gz(read(`${esm}/chunk-md.js`)));
 	});
 
 	it('measures them on the lazy budget route only', () => {
 		expect(measure('home', 'studio/index.html', fixture())).not.toHaveProperty('lintCoreGz');
 	});
 
-	it('throws, rather than reporting zero, when the lint door or the kernels are gone', () => {
-		expect(() => measure(LAZY_BUDGET_ROUTE, 'studio/index.html', fixture({ door: null }))).toThrow(/found 0/);
+	it('throws, rather than reporting zero, when the lint core or the kernels are gone', () => {
+		expect(() => measure(LAZY_BUDGET_ROUTE, 'studio/index.html', fixture({ lint: false }))).toThrow(/lint\.js is missing/);
 		expect(() => measure(LAZY_BUDGET_ROUTE, 'studio/index.html', fixture({ kernels: false }))).toThrow(/no chart-\*\.js kernels/);
 	});
 
-	it('throws when the lint door is on the startup path, rather than banking a fake win', () => {
+	it('throws when the engine imports the lint core statically, rather than banking a fake win', () => {
 		const dist = fixture();
-		fs.writeFileSync(path.join(dist, '_astro/app.x.js'), 'import"./shared.x.js";import"./authoring-door.abc.js";');
-		expect(() => measure(LAZY_BUDGET_ROUTE, 'studio/index.html', dist)).toThrow(/startup JS/);
+		fs.writeFileSync(path.join(dist, 'playground/v/abc123/esm/engine.js'), 'import"./chunk-core.js";import"./lint.js";');
+		expect(() => measure(LAZY_BUDGET_ROUTE, 'studio/index.html', dist)).toThrow(/back on startup/);
 	});
 });
 

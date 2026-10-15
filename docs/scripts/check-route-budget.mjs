@@ -173,7 +173,7 @@ export function measure(route, routeHtml, dist = DIST) {
 	const engine = measureEngine(html, dist);
 	const out = { eagerJsGz: eager.gz, engineJsGz: engine.gz, htmlRaw: Buffer.byteLength(html), chunks: eager.seen.size };
 	if (route === LAZY_BUDGET_ROUTE) {
-		Object.assign(out, measureCharts(engine, dist), measureLintCore(eager.seen, dist));
+		Object.assign(out, measureCharts(engine, dist), measureLintCore(engine, dist));
 	}
 	return out;
 }
@@ -190,9 +190,11 @@ function measureEngine(html, dist = DIST) {
 // ── The code that loads with import() (2026-10-15) ─────────────────────────────────────────
 //
 // eagerJsGz and engineJsGz stop at import(), on purpose, so two lazy payloads grew where no
-// gate looked: a chart kernel (map is ~78KB gz beyond the engine) and the lint core (~140KB gz
-// beyond the Studio's startup). These two metrics watch them. Both count only the bytes BEYOND
-// what the route already loaded, because that is what the lazy load costs a visitor.
+// gate looked: a chart kernel (map is ~78KB gz beyond the engine) and the lint core. These two
+// metrics watch them. Both count only the bytes BEYOND the engine the route already loaded,
+// because that is what the lazy load costs a visitor. (Since 2026-10-15 the lint core is an entry
+// of the ESM engine build, esm/lint.js, so it shares the engine's chunks; the door that loads it
+// is a few hundred bytes in /_astro/ and is not counted.)
 //
 // They are measured on ONE route. The chart kernels are the same files on every route that
 // loads the ESM engine, so a per-route copy would be the same number five times, and every
@@ -223,24 +225,23 @@ function measureCharts(engine, dist) {
 	return { chartKernelGz, chartKernel };
 }
 
-// The lint core's one door (docs/src/playground/authoring-door.js; a test holds it to one
-// importer), which Vite emits as `_astro/authoring-door.<hash>.js` with the core inside it.
-const LINT_DOOR = /^authoring-door\.[A-Za-z0-9_-]+\.js$/;
-
-/** lintCoreGz: the lint door's chunk plus its static imports, beyond the route's eager JS. */
-function measureLintCore(eager, dist) {
-	const doors = fs.readdirSync(path.join(dist, '_astro')).filter((f) => LINT_DOOR.test(f));
-	if (doors.length !== 1) {
-		throw new Error(
-			`check-route-budget: expected one _astro/authoring-door.<hash>.js, found ${doors.length}. The lint door moved or split; teach measureLintCore where the lint core lives now, or this metric measures nothing.`,
-		);
+/**
+ * lintCoreGz: the lint core, `esm/lint.js` beside the engine (engine-spine note §10), plus its static
+ * imports, beyond the engine's own closure: the chunks they share are already loaded.
+ */
+function measureLintCore(engine, dist) {
+	const esm = engine.entries.find((e) => e.endsWith('/esm/engine.js'));
+	if (!esm) throw new Error('check-route-budget: the studio route no longer names esm/engine.js, so lintCoreGz has no lint core to find beside it.');
+	const lint = `${path.posix.dirname(esm)}/lint.js`;
+	if (!fs.existsSync(path.join(dist, lint))) {
+		throw new Error(`check-route-budget: /${lint} is missing. The lint core moved; teach measureLintCore where it lives now, or this metric measures nothing.`);
 	}
-	// An eager door would measure as ~0 beyond the eager JS, and the gate would call that a win
-	// to bank. It is the opposite: the lint core is back on startup.
-	if (eager.has(`_astro/${doors[0]}`)) {
-		throw new Error('check-route-budget: the lint door is in the route\'s startup JS. It loads after first paint by design (engine-spine note §5); find the static import that pulled it in.');
+	// An engine that imports the lint core statically would measure as ~0 beyond the engine, and the
+	// gate would call that a win to bank. It is the opposite: the lint core is back on startup.
+	if (engine.seen.has(lint)) {
+		throw new Error('check-route-budget: the engine imports esm/lint.js statically, so the lint core is back on startup. It loads after first paint by design (engine-spine note §5).');
 	}
-	return { lintCoreGz: closure([`_astro/${doors[0]}`], dist, eager, 'the lint door').gz };
+	return { lintCoreGz: closure([lint], dist, engine.seen, `/${lint}`).gz };
 }
 
 /**

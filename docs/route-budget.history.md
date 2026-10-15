@@ -6,6 +6,14 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-10-15 — measured on the built tree at a5f6f36
+
+The lint core is an entry of the ESM engine build (esm/lint.js) instead of a Vite chunk of its own, with its own boundary-parser instance, so it shares every other chunk with the engine: one markdown-it, one copy of each lib/core reader. lintCoreGz drops from the lint door chunk plus its second markdown-it beyond the Studio's startup JS to esm/lint.js and its chunks beyond the engine. engineering/decisions/2026-10-14-engine-spine.md §10.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | lintCoreGz | 186019 | 92465 | -93554 | 101712 |
+
 ### 2026-10-15 — measured on the built tree at 47b4623
 
 New metrics, on the studio route only. eagerJsGz and engineJsGz stop at import() on purpose, so the code that loads with it grew where no gate looked. chartKernelGz is the largest esm/chart-<layout>.js closure beyond the engine (chart-map.js today); lintCoreGz is the lint door's chunk and its static imports beyond the Studio's startup JS (the lint core plus a second markdown-it, 45KB gz, that only the lint core loads). Adopted at today's measurement with the standard 10% ceiling. The owner's brief for this PR asked for both caps and named the numbers as the owner's call; the owner was away, so these are the measurement, put to the owner in the PR before merge. engineering/decisions/2026-10-14-engine-spine.md §8.

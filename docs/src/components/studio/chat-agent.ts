@@ -26,7 +26,7 @@ import type { ContentPart, MsgContent, ReferenceDoc } from './reference-doc';
 
 type Arch = typeof import('./architect');
 type Spend = typeof import('@/components/studio/ai/spend.js');
-type Core = typeof import('@/playground/authoring-door.js');
+type Core = Awaited<ReturnType<typeof import('@/playground/authoring-door.js')['loadAuthoring']>>;
 type Ref = typeof import('./reference-doc');
 
 /** What `architect.ts` hands over: everything the agent needs that startup code already loaded. */
