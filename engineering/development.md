@@ -1184,8 +1184,8 @@ PR as comment 5387941880.
 
 **WebKit and Firefox install themselves.** Only Chromium is baked in
 (`/opt/pw-browsers/chromium-1194`). The `@webkit-phone`, `@webkit-tablet` and `gecko` projects
-need WebKit or Firefox, and the suite's `globalSetup` installs whichever is missing before the
-first test (`npx playwright install-deps` then `install`, into `PLAYWRIGHT_BROWSERS_PATH`; it
+need WebKit or Firefox, and the suite's `globalSetup` installs whichever is missing after the
+site build and before the first test (UI mode selects every project, so it installs both) (`npx playwright install-deps` then `install`, into `PLAYWRIGHT_BROWSERS_PATH`; it
 never touches the Chromium pin). To install by hand, for a tool outside the suite:
 
 ```

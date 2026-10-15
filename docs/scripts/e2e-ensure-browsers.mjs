@@ -13,13 +13,17 @@
 
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
+import path from 'node:path';
 import { chromium, firefox, webkit } from '@playwright/test';
 
 /** @typedef {'chromium' | 'firefox' | 'webkit'} Engine */
 const ENGINES = { chromium, firefox, webkit };
 
 /**
- * The `--project` filters on the command line (`--project=x` or `--project x`); empty = all.
+ * The `--project` filters on the command line; empty = all. Playwright's flag is variadic
+ * (`--project <project-name...>`), so `--project a b` selects both, as does `--project=a`
+ * repeated.
  * @param {readonly string[]} argv
  * @returns {string[]}
  */
@@ -28,7 +32,7 @@ export function selectedProjects(argv) {
 	for (let i = 0; i < argv.length; i++) {
 		const a = argv[i];
 		if (a.startsWith('--project=')) out.push(a.slice('--project='.length));
-		else if (a === '--project' && i + 1 < argv.length) out.push(argv[++i]);
+		else if (a === '--project') while (i + 1 < argv.length && !argv[i + 1].startsWith('-')) out.push(argv[++i]);
 	}
 	return out;
 }
@@ -61,9 +65,14 @@ export function enginesFor(config, filters) {
 /** @param {Engine} e */
 const installed = (e) => fs.existsSync(ENGINES[e].executablePath());
 
+// The CLI of the Playwright this config runs on, not whatever `npx` resolves from the current
+// directory: from the repo root that would fetch another version and install another browser
+// revision than the one the check looks for.
+const PLAYWRIGHT_CLI = path.join(path.dirname(createRequire(import.meta.url).resolve('playwright/package.json')), 'cli.js');
+
 /** @param {string[]} args */
 function run(args) {
-	const r = spawnSync('npx', ['playwright', ...args], { stdio: 'inherit' });
+	const r = spawnSync(process.execPath, [PLAYWRIGHT_CLI, ...args], { stdio: 'inherit' });
 	return r.status ?? 1;
 }
 
@@ -76,7 +85,14 @@ export default async function ensureBrowsers(config) {
 		console.log(`[e2e] installing ${installable.join(', ')} for the selected projects (about 30 s, once per machine)…`);
 		// The system libraries first: without them the binary installs and then cannot launch.
 		// They need root on Linux; elsewhere (a developer's Mac) they are already there.
-		if (process.platform === 'linux') run(['install-deps', ...installable]);
+		if (process.platform === 'linux' && run(['install-deps', ...installable]) !== 0) {
+			// A binary without its libraries downloads fine and then cannot launch, which is the
+			// same dead end this step exists to remove: stop here and say how to fix it.
+			throw new Error(
+				`[e2e] installing the system libraries for ${installable.join(', ')} failed (it needs root). ` +
+					`Run: sudo npx playwright install-deps ${installable.join(' ')}. A missing browser is never a reason a test did not run.`,
+			);
+		}
 		// The CDN drops a transfer now and then ("server closed connection", seen 2026-10-15);
 		// a retry is what a person would do, so three attempts before the run fails.
 		for (let attempt = 1; attempt <= 3 && installable.some((e) => !installed(e)); attempt++) {
