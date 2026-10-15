@@ -1,6 +1,6 @@
 ---
 status: proposed
-summary: A bridge is a transpiler from Lattice to another engine (Marp first). Flattening a layered stylesheet for Marp is exact on every example deck, which lifts @layer's Marp veto, but activating @layer stays a separate call. Plugins shrink to what an author writes and how it draws; two hosts (Node, browser) own the rest; authors pick from export presets.
+summary: A bridge is a transpiler from Lattice to another engine (Marp first). Flattening a layered stylesheet for Marp is exact on 276 decks, which lifts @layer's Marp veto, but activating @layer stays a separate call. Plugins shrink to what an author writes and how it draws; two hosts (Node, browser) own the rest; authors pick from export presets.
 ---
 
 # Bridges, and two plugin hosts (2026-10-15)
@@ -14,7 +14,8 @@ every layered one. A bridge that **compiles** the stylesheet instead removes tha
 could write layered CSS, and the Marp bridge would flatten it into the plain CSS Marp expects.
 
 **Measured, through a real marp-cli:** the flattened stylesheet gives the same computed style
-as the layered one on every slide element of every example deck in the repo (§3.1). Without
+as the layered one on every slide element of every deck the census rendered: 275 of the 276
+example decks plus the gallery baseline (§3.1). Without
 flattening, the veto reproduces on every deck.
 
 **Removing the veto does not mean `@layer` should be turned on.** That is a separate decision
@@ -55,8 +56,11 @@ neither a host nor a format.
 
 ## 3. What was measured
 
-The scripts and raw results behind this section are committed next to this note, in
-`2026-10-15-bridges-and-two-hosts/`, with a README saying how to rerun them.
+The examples-wide census and the manifest count are committed next to this note, in
+`2026-10-15-bridges-and-two-hosts/`, with a README saying how to rerun them. The runtime-loaded
+gallery runs, the size figures, the author-CSS test, the micro-tests and the VS Code run were
+scratch runs and are not committed. Of those, the runtime-loaded 0 and 119 of 5,699 were
+reproduced by a second, independent run.
 
 ### 3.1 Flattening `@layer` for Marp
 
@@ -76,13 +80,13 @@ Marp renders exactly as the layered sheet means?
    - **A**, the reference: L, with Marp's own CSS moved into a `marp-base` layer below
      everything. This writes out by hand what "Marp's base sits under Lattice" means.
 3. Render each through `@marp-team/marp-cli` 4.2.3 (`--html=false`: CSS only, no runtime).
-4. In Chromium 1194, read `getComputedStyle` for every element of every slide, plus its
+4. In Playwright's Chromium (build 1194), read `getComputedStyle` for every element of every slide, plus its
    `::before` and `::after`, and compare.
 
 On the gallery deck, a fourth sheet, **D**, is today's unlayered bundle, to measure what
 layering itself changes. The gallery was run twice: with the spike's layer order and with the
 repo's declared order (`tools/build-css.js:259`, `base` before `root`). Both gave the same
-numbers. The red team then re-ran the gallery with the bundle's real HTML allowlist and the
+numbers. The examples-wide run used the spike's order only. The red team then re-ran the gallery with the bundle's real HTML allowlist and the
 runtime loaded, which renders the 139 spans, 8 KaTeX blocks and 8 background divs that
 `--html=false` escapes (5,699 elements instead of 2,016).
 
@@ -90,8 +94,8 @@ runtime loaded, which renders the 139 spans, 8 KaTeX blocks and 8 background div
 
 | Comparison | What it tests | Result |
 |---|---|---|
-| **A vs C**, every example deck | Does flattening reproduce the layered meaning inside Marp? | **0 differing elements** across **276 decks, 40,590 elements, 14 palettes** (4 of them dark). One more deck, `data-viz-gallery.md`, has no front matter, so Marp renders it in its own default theme; it is excluded |
-| A vs L, every example deck | The veto: layered Lattice next to unlayered Marp base | elements differ on **all 276** decks. On the gallery, 121 of 2,016: Marp's pagination `::after` wins position and padding |
+| **A vs C**, every deck rendered | Does flattening reproduce the layered meaning inside Marp? | **0 differing elements** across **276 decks** (275 example decks and the gallery baseline), **40,590 elements, 14 palettes** (4 of them dark). The 276th example, `data-viz-gallery.md`, has no front matter, so Marp renders it in its own default theme; it is excluded |
+| A vs L, every deck rendered | The veto: layered Lattice next to unlayered Marp base | elements differ on **all 276** decks. On the gallery, 121 of 2,016: Marp's pagination `::after` wins position and padding |
 | A vs C, gallery, real allowlist, runtime loaded | The same, on the DOM an author actually sees | **0 of 5,699** (also 0 with `mustard-dark` and with print media emulation) |
 | D vs A, gallery, CSS only | What layering changes in Lattice's own meaning, Marp aside | 20 of 2,016 |
 | D vs C, gallery, real allowlist, runtime loaded | The same, on the real DOM | **119 of 5,699** |
@@ -105,7 +109,7 @@ runtime loaded, which renders the 139 spans, 8 KaTeX blocks and 8 background div
   `2026-06-18-layer-activation-scope.md` (R-PATH) is real, and the bridge removes it **for the
   CSS Lattice ships**. Author CSS is outside that, and breaks (§4.4).
 - **Layering changes Lattice's own rendering, and not on a few elements.** On the gallery, 119
-  elements change with the runtime loaded, because a rule in an earlier file had higher
+  elements change with the runtime loaded, mostly because a rule in an earlier file had higher
   specificity than a rule in a later file and layers ignore specificity. Examples: inline
   `code` on the title slide switches from JetBrains Mono at 43.4px to Outfit at 81.2px; a title
   paragraph widens from 881px to 1,612px; a `div.cell-stage` gap halves from 48px to 24px; a
@@ -223,7 +227,7 @@ the 147 non-token CSS files in `lib/` and `themes/` (2026-10-15):
 | Measure | Count |
 |---|---|
 | Doubled-class selectors (`.x.x`), the Stage 1 technique for winning on specificity | 255, in 34 files |
-| Comment lines that discuss specificity | 211 |
+| Lines containing "specificity" (`grep -ci specificity`) | 167 |
 | Specificity entries in `engineering/gotchas/` | 35 lines |
 
 A sample of the comments shows both kinds of fight. Some are **cross-file**: a modifier against
@@ -253,7 +257,7 @@ needs its own measurement before it moves.
 
 | Environment | Raw HTML | Runs our scripts? | Runs engine plugins? | Comments become |
 |---|---|---|---|---|
-| marp-cli (`npm run pdf` / `html` in the bundle) | through the bundle's allowlist (`marp-bundle-html.js`) | yes (real headless browser) | yes (`marp.config.cjs`) | dropped by the config's engine (`marp-bundle.js:220-226`) |
+| marp-cli (`npm run pdf` / `html` in the bundle) | through the bundle's allowlist (`marp-bundle-html.js`) | yes (real headless browser) | yes (`marp.config.cjs`) | speaker notes, except the bundle's own trailer comments (`marp-bundle-html.js:187-196`) |
 | Marp for VS Code, untrusted workspace | **off** | no | no | speaker notes |
 | Marp for VS Code, trusted workspace, default level | **all of it, no allowlist** (`enableHtml: true`, `marp-bundle.js:508`) | **no** (Strict policy) | no (no custom engine) | speaker notes |
 | Marp for VS Code, trusted, at *Disable* | all of it | yes | no | speaker notes; Mermaid blank today |
@@ -280,8 +284,8 @@ of plugins × choices × environments does not ship untested cells.
 
 - **Inline SVG fails the allowlist.** Mermaid draws labels as HTML inside `<foreignObject>`
   (`htmlLabels: true`, `lib/plugins/mermaid/shared/init-directive.js:490`) and styles them with
-  an SVG `<style>`. The bundle's allowlist refuses both on purpose, because each can load or run
-  something (`lib/core/marp-bundle-html.js:46-53`), and its `safeUrl` refuses
+  an SVG `<style>`. The bundle's allowlist refuses both on purpose: `foreignObject` because it can
+  load or run something, `style` because Marp reads it before render (`lib/core/marp-bundle-html.js:46-53`), and its `safeUrl` refuses
   `data:image/svg+xml`. Rendered through the bundle's config, the frozen diagram came out with
   `&lt;foreignObject&gt;` escaped as text: no labels, no styling. Widening the allowlist reopens
   HARD RULE #22, and VS Code has no allowlist at all (§4.2).
@@ -315,7 +319,8 @@ offered. Stock needs an optional per-bridge translation the plugin may supply.
 deck's palette) into one theme and flattens them as one unit, because the layer order is
 declared once; flattening each file alone would rank their layers independently.
 
-**What the census settled** (§3.1): exact on every example deck in marp-cli, CSS only.
+**What the census settled** (§3.1): exact on all 276 decks it rendered, in marp-cli, CSS only, and on
+the gallery with the runtime loaded.
 
 **What it leaves open:**
 
@@ -399,7 +404,8 @@ back to its source, so a deck we exported can come back losslessly.
   one). P2 defines it before the contract freezes (D4).
 - **Where plugin code may run, by the channel it arrived through.** "The host decides when"
   never means "any host runs anything". In-tree plugins run on both hosts. A zip plugin carries
-  no code (phase E refuses `exec`, `hydrate`, `bake` and script files, `lib/packages/read.js`),
+  no code (phase E refuses `exec`, `hydrate` and `bake`, `lib/packages/code-shape.mjs:331-337`, and script
+  files, `lib/packages/read.js`),
   and a code-door fence runs only behind its consent and sandbox (`2026-09-27-plugin-system.md`
   §4.10). The Node host never runs third-party `render` in its own process.
 
@@ -465,7 +471,8 @@ PPTX, ODP, PDF and the rest are formats made after the hosts finish. Marp is a b
 Each phase ships on its own and leaves the tree green.
 
 - **P0. Fix what is wrong today.** The deprecated VS Code key, the bundle README's stale claim,
-  the a11y bundle that omits its base palette, and the blank Mermaid at Disable. Logged as
+  the five bundles that omit a palette they import (`bundleMissingPalettes` in
+  `layer-census-results.jsonl`), and the blank Mermaid at Disable. Logged as
   follow-ups by this note's PR.
 - **P1. The bridge and its presets.** Name the Marp exporter a bridge, add the environment table
   and the preset dialog over today's per-plugin behavior (§3.5). Starts with the frozen-Mermaid
@@ -477,7 +484,8 @@ Each phase ships on its own and leaves the tree green.
   and add the flattening step to the Marp bridge in the same PR, through `sanitizeStyleText` and
   registered with the #22 re-wrap gate.
 
-P0 and P1 depend on nothing else. P2+P3 do not depend on P1. P4 depends on D2 and on the open
+P0 and P1 depend on nothing else. P2+P3 do not depend on P1, except that `render.surfaces` stays
+until P1's presets replace it (§5.3), because the fidelity ledger reads it. P4 depends on D2 and on the open
 items in §4.4.
 
 ## 9. Owner decisions
@@ -525,8 +533,8 @@ The first draft went to the adversarial trio and a fact-checker on 2026-10-15. W
   Mermaid source (§4.3).
 - **Fact-checker.** 41 claims confirmed. Fixed: the math reason; the README line (667); that
   `gotchas/vscode.md` had already settled the VS Code question (§3.2 now says it reproduces
-  it); the spike's layer order differed from the repo's (rerun in the repo's order, same
-  numbers); the manifest "after" figure depended on an unstated method (now a committed script).
+  it); the spike's layer order differed from the repo's (the gallery rerun in the repo's order
+  gave the same numbers; the examples-wide run used the spike's order); the manifest "after" figure depended on an unstated method (now a committed script).
 - **Red team.** The flattening held under every attack: the real allowlist, the runtime loaded
   (0 of 5,699), a dark palette, print media, and micro-tests on `!important`, `@keyframes`,
   nested layers, `:where()` and `:has()`. What broke was around it, each demonstrated: the inline
@@ -538,6 +546,13 @@ The first draft went to the adversarial trio and a fact-checker on 2026-10-15. W
   and P4 (§7); the flattener is a #22 re-wrap sink (§4.4); VS Code's raw-HTML behavior by
   workspace trust (§4.2); the reference's `!important` gap (§3.1). I re-ran the red team's
   runtime-loaded comparison myself and got the same 0 and 119.
+- **Second round (a fresh checker on the revised note).** The census results, the manifest count
+  and every cited line reproduced. Fixed: P2+P3 keep `render.surfaces` until P1 lands (§8); in
+  marp-cli an author's comments still become speaker notes (§4.2); which results are committed and
+  which were scratch runs (§3); the examples-wide census ran in the spike's layer order (§3.1);
+  "every example deck" overstated the census (now 275 of 276 plus the gallery); five bundles, not
+  one, omit an imported palette (§8); the specificity comment count is 167, not 211 (§3.6); and
+  three smaller citations.
 
 ## References
 
