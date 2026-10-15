@@ -6,7 +6,7 @@
     "component": 75,
     "finish": 9,
     "motion": 4,
-    "plugin": 8
+    "plugin": 9
   },
   "packages": [
     {
@@ -1369,6 +1369,19 @@
         "manifest.json",
         "render.js",
         "styles.css",
+        "syntax.mjs"
+      ],
+      "code": true
+    },
+    {
+      "type": "plugin",
+      "name": "code-format",
+      "path": "lib/plugins/code-format",
+      "roles": [
+        "bake.js",
+        "docs.md",
+        "fixtures.md",
+        "manifest.json",
         "syntax.mjs"
       ],
       "code": true

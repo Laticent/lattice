@@ -55,6 +55,9 @@ const EXPECTED_UNCOMMITTED = new Set([
   // Measured 2026-10-05: writes only docs/public/playground/lattice-plugin-<name>.js, beside the
   // KaTeX provider and covered by the same ignore rule.
   'build-plugin-data-bundles.js',
+  // Measured 2026-10-15: writes only docs/public/playground/fmt/ (gitignored), the code-format
+  // plugin's browser entry, its formatter chunks and their WebAssembly.
+  'build-code-format.js',
   'build-hljs-languages.js',
   'build-theme-core.js',
   'build-layout-core.js',

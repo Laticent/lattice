@@ -150,7 +150,8 @@ distinct, stable ID.
 | `shell-fence-is-script` | info | — | A `shell` (or similar) fence holding a script; the language only colors terminal prompts, so it renders nearly plain. |
 | `code-record` | warning | — | An `@code{…}` record above a fence that does not read: an unknown word, a bad line range, a width out of range. The render ignores what it cannot read. |
 | `code-record-orphan` | warning | — | An `@code{…}` record line with no fence after it, so it configures nothing and renders as inline code. |
-| `code-line-range` | warning | — | A line reference past the end of its code block: `focus=` or `mark=` in a record, or a slide's `_focus: line` against its first fence. It marks nothing. |
+| `code-line-range` | warning | — | A line reference past the end of its code block: `focus=` or `mark=` in a record, or a slide's `_focus: line` against its first fence. It marks nothing. Not checked on a formatted block, whose lines the formatter decides. |
+| `code-format-unsupported` | warning | — | A block whose own `@code{…}` record asks for `format` in a language no formatter reads; it keeps its text. |
 
 ### 3.2 Fit and capacity
 

@@ -90,6 +90,60 @@ async function grammarsArriveWithTheirEmbeds(page: Page) {
 
 test('a deck fetches the grammars its fences name and the ones they embed, and none without code', async ({ page }) => grammarsArriveWithTheirEmbeds(page));
 
+/** Every file a page fetches from the code-format plugin's directory (tools/build-code-format.js). */
+function formatRequests(page: Page): string[] {
+	const seen: string[] = [];
+	page.on('request', (r: Request) => {
+		const m = r.url().match(/\/playground\/v\/[0-9a-f]+\/fmt\/([^?#/]+)/);
+		if (m) seen.push(m[1]);
+	});
+	return seen;
+}
+
+// The code-format plugin in the browser (engineering/decisions/2026-10-15-code-plugin.md §6): the
+// preview formats a block that asks, through the same formatters the CLI runs, and fetches them only
+// then. Python and Java run WebAssembly, so each is driven here rather than assumed to load.
+async function formattedBlocksInThePreview(page: Page) {
+	const fetched = formatRequests(page);
+	await gotoStudio(page);
+	await typeDeck(page, '# Unformatted\n\n```ts\nconst a={b:1}\n```\n');
+	await expect(live(page).locator('code.language-ts').first()).toContainText('const a={b:1}', { timeout: 20_000 });
+	expect(fetched, 'a deck that formats nothing fetches no formatter').toEqual([]);
+	await typeDeck(page, [
+		'# Formatted',
+		'',
+		'`@code{format}`',
+		'```ts',
+		'const a={b:1}',
+		'```',
+		'',
+		'`@code{format}`',
+		'```py',
+		'def f(a,b):',
+		'  return a+b',
+		'```',
+		'',
+		'`@code{format}`',
+		'```java',
+		'class A{void m(){int x=1;}}',
+		'```',
+		'',
+		'`@code{format}`',
+		'```php',
+		'<?php function f($a){return $a+1;}',
+		'```',
+		'',
+	].join('\n'));
+	const frame = live(page);
+	await expect(frame.locator('code.language-ts').first()).toContainText('const a = { b: 1 };', { timeout: 30_000 });
+	await expect(frame.locator('code.language-py').first()).toContainText('def f(a, b):', { timeout: 30_000 });
+	await expect(frame.locator('code.language-java').first()).toContainText('void m() {', { timeout: 30_000 });
+	await expect(frame.locator('code.language-php').first()).toContainText('return $a + 1;', { timeout: 30_000 });
+	expect(fetched).toEqual(expect.arrayContaining(['browser.mjs', 'ruff_fmt_bg.wasm', 'tree-sitter-java_orchard.wasm']));
+}
+
+test('a block that asks is formatted in the preview, and a deck that asks nothing fetches no formatter', async ({ page }) => formattedBlocksInThePreview(page));
+
 test('@smoke a chart slide loads its own kernel and draws, and no other chart kernel loads', async ({ page }) => chartLoadsItsOwnKernel(page));
 test('math, an icon and an exotic fence still find their assets beside the ESM engine', async ({ page }) => assetsResolveBesideTheEngine(page));
 

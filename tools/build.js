@@ -191,6 +191,9 @@ const STEPS = [
   // Per-language highlight.js grammars for on-demand preview loading. After the
   // playground bundle only for log ordering — it reads node_modules, not the bundle.
   { label: 'hljs grammars (docs site)', script: 'build-hljs-languages.js', uncommitted: true },
+  // The code-format plugin's browser half: an entry and one chunk per formatter, fetched only when a
+  // deck formats a block in that language (engineering/decisions/2026-10-15-code-plugin.md §6).
+  { label: 'code-format bundle (docs site)', script: 'build-code-format.js', uncommitted: true },
   { label: 'theme-core bundle (docs site)', script: 'build-theme-core.js', uncommitted: true },
   { label: 'layout-core bundle (docs site)', script: 'build-layout-core.js', uncommitted: true },
   // The package spine for the Studio's zip import/export (package-zip.ts).

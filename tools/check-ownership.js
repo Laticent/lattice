@@ -4027,6 +4027,11 @@ function listRepoTextFiles(dir = ROOT, out = []) {
       // are third-party keywords no migration here could rename. (The US-English
       // ratchet that once counted them is gone; the walk now serves HARD RULE #29.)
       if (rel === path.join('docs', 'public', 'playground', 'hljs')) continue;
+      // And `playground/fmt/`: the code-format plugin's browser build
+      // (tools/build-code-format.js), gitignored, minified Prettier/ruff/sql-formatter
+      // chunks. Their words are third-party identifiers (a formatter's own option
+      // names, a DOM property), which no one here can rename.
+      if (rel === path.join('docs', 'public', 'playground', 'fmt')) continue;
       // Same class, different producer: `release/` is the gitignored output of
       // a release run (tools/release.js). `notes-v<x.y.z>.md` is a verbatim
       // copy of a CHANGELOG section, so counting it double-charges a source that is

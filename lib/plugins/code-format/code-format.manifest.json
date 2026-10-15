@@ -1,0 +1,18 @@
+{
+  "$schema": "../plugin.schema.json",
+  "type": "plugin",
+  "format": 1,
+  "name": "code-format",
+  "api": 1,
+  "title": "Code formatting",
+  "description": "Pretty-prints a fenced code block before it is colored, when its `@code{format}` record or the deck's `code: format` default asks: Prettier for the web languages, PHP, XML and Java, ruff for Python, sql-formatter for SQL. Each formatter loads only when a block in its language asks, so a deck that formats nothing pays nothing.",
+  "requires": ["code"],
+  "contributes": {
+    "bake": true
+  },
+  "render": {
+    "parity": "equivalent",
+    "degradesTo": "source",
+    "exec": { "bake": "subprocess" }
+  }
+}

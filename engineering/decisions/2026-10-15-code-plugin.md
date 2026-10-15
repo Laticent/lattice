@@ -369,4 +369,11 @@ Proof:
   the spotlight treatment with a `<pre>` as its scope.
 - Pending, slice 8: the Compose editor for a fence's record (a popover beside the language picker that writes the
   `@code{…}` line, changing only the words edited).
+- 2026-10-15: slice 6 — the `code-format` plugin. The bake contract is synchronous and every formatter is async, so
+  the bake runs the formatters in one child process (Mermaid's shape, `render.exec.bake: "subprocess"`); the docs
+  site runs the same planner above its render (`ensure-code-format.ts`). Both rewrite the fence bodies in the
+  source, so every reader sees the formatted lines. `sql-formatter`'s exports map blocks importing one dialect, so the
+  SQL chunk carries all of them (about 80 KB gz, only for a deck that formats SQL); the planned per-dialect build was
+  not possible. HTML, Vue and Markdown format their own markup only (`embeddedLanguageFormatting: 'off'`), which keeps
+  each download to its own plugin.
 
