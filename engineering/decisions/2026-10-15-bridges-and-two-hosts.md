@@ -488,7 +488,7 @@ PPTX, ODP, PDF and the rest are formats made after the hosts finish. Marp is a b
 Each phase ships on its own and leaves the tree green.
 
 - **P0. Fix what is wrong today.** The five bundles that omit a palette they import
-  (`bundleMissingPalettes` in `layer-census-results.jsonl`), the deprecated VS Code key and the
+  (`bundleMissingPalettes` in `layer-census-results.json`), the deprecated VS Code key and the
   bundle README's stale claim. Separately, find out why Mermaid draws blank in the headless
   harness, so the harness can be trusted for the census in §7. Logged as
   follow-ups by this note's PR.

@@ -22,6 +22,6 @@ source: https://github.com/Laticent/lattice/pull/2712
                    producer tools/export-marp.js that copies it).
        done when — every palette a shipped palette @imports, transitively, is in themes/, and a
                    test exports a -dark and an a11y deck and asserts no unresolved @import.
-       evidence  — engineering/decisions/2026-10-15-bridges-and-two-hosts/layer-census-results.jsonl,
+       evidence  — engineering/decisions/2026-10-15-bridges-and-two-hosts/layer-census-results.json,
                    field bundleMissingPalettes.
 ```
