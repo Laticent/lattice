@@ -18,11 +18,12 @@ as the layered one on every slide element of every example deck in the repo (§3
 flattening, the veto reproduces on every deck.
 
 **Removing the veto does not mean `@layer` should be turned on.** That is a separate decision
-(D2) with its own costs. Lattice's meaning changes on a few elements per deck (§3.1), the
-flattened stylesheet is 62% larger, and CSS an author writes in VS Code after exporting loses
-to Lattice's rules (§4.4). The benefit is a real but partly measured cross-file specificity
-tax (§3.6). This note recommends adopting the bridge model now and deciding activation only
-after two measurements.
+(D2) with real costs. Layering changes Lattice's own rendering on at least 119 elements of the
+gallery deck alone (§3.1). And **an author's own CSS loses**: a deck's `style:` front matter and
+`<style>` blocks, which win today, lose to the flattened Lattice rules, at export and after it
+(§4.4). The benefit is a real specificity tax whose decisive part, the cross-file share, is
+not measured (§3.6). This note recommends adopting the bridge model now, and deciding
+activation only after those are measured and solved.
 
 **The same idea simplifies plugins.** A plugin says what an author writes (a fence, inline
 syntax) and how it draws (`render` anywhere, or `draw` in a browser), plus a few facts only it
@@ -81,33 +82,46 @@ Marp renders exactly as the layered sheet means?
 On the gallery deck, a fourth sheet, **D**, is today's unlayered bundle, to measure what
 layering itself changes. The gallery was run twice: with the spike's layer order and with the
 repo's declared order (`tools/build-css.js:259`, `base` before `root`). Both gave the same
-numbers.
+numbers. The red team then re-ran the gallery with the bundle's real HTML allowlist and the
+runtime loaded, which renders the 139 spans, 8 KaTeX blocks and 8 background divs that
+`--html=false` escapes (5,699 elements instead of 2,016).
 
 **Results.**
 
 | Comparison | What it tests | Result |
 |---|---|---|
-| **A vs C**, every example deck | Does flattening reproduce the layered meaning inside Marp? | **0 differing elements** on all **[MATRIX: n decks, total elements]** |
-| A vs L, every example deck | The veto: layered Lattice next to unlayered Marp base | elements differ on **[MATRIX: every]** deck. On the gallery, 121 of 2,016: Marp's pagination `::after` wins position and padding |
-| D vs A, gallery | What layering changes in Lattice's own meaning, Marp aside | 20 of 2,016 |
+| **A vs C**, every example deck | Does flattening reproduce the layered meaning inside Marp? | **0 differing elements** across **276 decks, 40,590 elements, 14 palettes** (4 of them dark). One more deck, `data-viz-gallery.md`, has no front matter, so Marp renders it in its own default theme; it is excluded |
+| A vs L, every example deck | The veto: layered Lattice next to unlayered Marp base | elements differ on **all 276** decks. On the gallery, 121 of 2,016: Marp's pagination `::after` wins position and padding |
+| A vs C, gallery, real allowlist, runtime loaded | The same, on the DOM an author actually sees | **0 of 5,699** (also 0 with `mustard-dark` and with print media emulation) |
+| D vs A, gallery, CSS only | What layering changes in Lattice's own meaning, Marp aside | 20 of 2,016 |
+| D vs C, gallery, real allowlist, runtime loaded | The same, on the real DOM | **119 of 5,699** |
 
 **Reading the results.**
 
-- **Flattening is exact** across the examples, in marp-cli, on CSS alone. The veto in
-  `2026-06-18-layer-activation-scope.md` (R-PATH) is real and the bridge removes it *for what
-  Lattice ships*. CSS written after export is the remaining hole (§4.4).
-- **Layering changes Lattice's own meaning in a few places.** On the gallery, 20 elements
-  change because a rule in an earlier file had higher specificity than a rule in a later file,
-  and layers ignore specificity. Examples: inline `code` on the title slide switches from
-  JetBrains Mono at 43.4px to Outfit at 81.2px; a title paragraph widens from 881px to 1,612px.
-  Each is a rule to move or re-scope before activation, by the protocol in `engineering/cascade.md`
-  §"What changing the cascade now would require".
-- **Flattening costs size.** The gallery's bridged theme is 4.28 MB raw and 1.22 MB gzipped,
-  against 2.66 MB and 0.75 MB today (+61% raw, +62% gzipped, unminified). The plugin repeats
-  `:not(#\#)` per selector to encode a layer's rank. Not measured minified.
+- **Flattening is exact.** Across the examples, and on the gallery with the runtime, the
+  flattened sheet means exactly what the layered sheet means. Micro-tests by the red team also
+  agreed on `!important` across layers, inline `!important`, `@keyframes` in reverse layer
+  order, nested layers, `@layer` inside `@media`, `:where()` and `:has()`. The veto in
+  `2026-06-18-layer-activation-scope.md` (R-PATH) is real, and the bridge removes it **for the
+  CSS Lattice ships**. Author CSS is outside that, and breaks (§4.4).
+- **Layering changes Lattice's own rendering, and not on a few elements.** On the gallery, 119
+  elements change with the runtime loaded, because a rule in an earlier file had higher
+  specificity than a rule in a later file and layers ignore specificity. Examples: inline
+  `code` on the title slide switches from JetBrains Mono at 43.4px to Outfit at 81.2px; a title
+  paragraph widens from 881px to 1,612px; a `div.cell-stage` gap halves from 48px to 24px; a
+  `div.masthead-lede` loses its centering. Each is a rule to move or re-scope before activation,
+  by the protocol in `engineering/cascade.md` §"What changing the cascade now would require".
+  The examples-wide count is not measured (the census ran CSS only).
+- **Flattening costs size, less than it first looked.** What ships is Marp's minified theme
+  stylesheet: 1,315,181 → 1,703,206 bytes (+30%), and gzipped 127,615 → 133,813 bytes (+5%).
+  The flattener repeats `:not(#\#)` per selector to encode a layer's rank, which compresses well.
 
-**Not covered:** the runtime-added DOM (the census renders CSS only); the VS Code preview's own
-stylesheet; dark palettes beyond those the example decks name; CSS written after export.
+**Not covered:** the runtime's DOM beyond the gallery; the VS Code preview's own stylesheet;
+author CSS, which breaks (§4.4). **One gap in the reference itself:** A puts Marp's own
+`!important` rules (the advanced-background `display:block!important`) in the lowest layer, and
+in the lowest layer an `!important` rule *wins*. So for `!important`, A means "Marp's base wins",
+the opposite of its intent. No element differed on the gallery's 9 `![bg]` slides, but the
+reference must define `!important` explicitly before it gates anything.
 
 ### 3.2 The VS Code Marp preview and our scripts
 
@@ -171,10 +185,11 @@ surfaces table to work around them. Under §5 the host carries them once.
 `lib/plugins/resolve.js:247-258` checks that `contributes.styles: true` matches a
 `<name>.styles.css` file, and that `tokens` is **exactly** the set of `var(--…)` reads in it.
 The same "declared ⇔ the module provides it" check covers `hydrate`, `bake`, `highlight`,
-`data`, `services` and `inline`. Mermaid hand-lists 50 tokens; the chart family, 104.
+`data`, `services` and `inline`. The first four can be read from the file listing; `services`
+and `inline` need the module loaded, so §5.3 keeps those declared. Mermaid hand-lists 50 tokens; the chart family, 104.
 
 `measure-manifests.mjs` applies §5.3's changes to the seven in-tree manifests and re-serializes
-both versions at the same indent: **597 lines → 206 (−65%)**. Mermaid goes from 136 to 29, the
+both versions at the same indent: **597 lines → 216 (−64%)**. Mermaid goes from 136 to 29, the
 chart family from 130 to 19.
 
 The system has 12 `contributes` keys (`lib/plugins/plugin.schema.json`), 15 top-level generated
@@ -236,11 +251,15 @@ needs its own measurement before it moves.
 
 ### 4.2 A bridge declares what its target environments can do
 
-| Environment | Runs our scripts? | Runs engine plugins? | Comments become | Notes |
+| Environment | Raw HTML | Runs our scripts? | Runs engine plugins? | Comments become |
 |---|---|---|---|---|
-| marp-cli (`npm run pdf` / `html` in the bundle) | yes (real headless browser) | yes (`marp.config.cjs`) | dropped by the config's engine (`marp-bundle.js:220-226`) | |
-| Marp for VS Code, default | **no** (Strict policy) | no (no custom engine) | **speaker notes** | CSS and raw HTML only |
-| Marp for VS Code at *Disable* | yes | no | speaker notes | needs a trusted workspace; Mermaid blank today |
+| marp-cli (`npm run pdf` / `html` in the bundle) | through the bundle's allowlist (`marp-bundle-html.js`) | yes (real headless browser) | yes (`marp.config.cjs`) | dropped by the config's engine (`marp-bundle.js:220-226`) |
+| Marp for VS Code, untrusted workspace | **off** | no | no | speaker notes |
+| Marp for VS Code, trusted workspace, default level | **all of it, no allowlist** (`enableHtml: true`, `marp-bundle.js:508`) | **no** (Strict policy) | no (no custom engine) | speaker notes |
+| Marp for VS Code, trusted, at *Disable* | all of it | yes | no | speaker notes; Mermaid blank today |
+
+The allowlist that protects marp-cli does not exist in VS Code, so anything a bridge emits must be
+safe without it.
 
 ### 4.3 How a plugin travels: presets first
 
@@ -257,22 +276,31 @@ will be opened (VS Code preview, marp-cli) and the preset fills in every plugin 
 behind an *Advanced* control. Only the preset combinations are tested and gated, so the matrix
 of plugins × choices × environments does not ship untested cells.
 
-**Frozen is real work for the bridge, and Mermaid shows how much:**
+**Frozen is real work for the bridge. The red team rendered the obvious form and it failed:**
 
-- **The carrier.** Mermaid draws labels as HTML inside `<foreignObject>` (`htmlLabels: true`,
-  `lib/plugins/mermaid/shared/init-directive.js:490`). The bundle's HTML allowlist refuses
-  `foreignObject` on purpose, because it can load or run something
-  (`lib/core/marp-bundle-html.js:46-53`). So an inline frozen SVG loses its labels in marp-cli.
-  Options: an image (`<img>` of an SVG data URI, which renders the labels without exposing them
-  to the page), a raster image, or a widened sanction under HARD RULE #22. Unmeasured.
-- **The source.** Keeping the source in an HTML comment fails twice: in VS Code, comments become
-  speaker notes, and `-->` (in nearly every flowchart) ends the comment early. The source needs a
-  carrier that is safe in both environments. Unmeasured.
+- **Inline SVG fails the allowlist.** Mermaid draws labels as HTML inside `<foreignObject>`
+  (`htmlLabels: true`, `lib/plugins/mermaid/shared/init-directive.js:490`) and styles them with
+  an SVG `<style>`. The bundle's allowlist refuses both on purpose, because each can load or run
+  something (`lib/core/marp-bundle-html.js:46-53`), and its `safeUrl` refuses
+  `data:image/svg+xml`. Rendered through the bundle's config, the frozen diagram came out with
+  `&lt;foreignObject&gt;` escaped as text: no labels, no styling. Widening the allowlist reopens
+  HARD RULE #22, and VS Code has no allowlist at all (§4.2).
+- **The likely carrier is a sidecar image file**, referenced with a Markdown image: an SVG file,
+  or a PNG. Not measured: whether the label fonts survive when an SVG loads as an image (an image
+  cannot fetch fonts, so they would have to be embedded or the text converted to paths), and how
+  a PNG looks at 4k.
+- **The source cannot live in an HTML comment.** The red team tried it: Mermaid's `-->` ends the
+  comment early, and the rest of the source (`B --> C[<img src="x" />]`) rendered as slide text.
+  Marp also turned the comment into a speaker note, which `--pptx` carries into the file. The
+  bundle already has a safe carrier, its inert JSON blocks (`<script
+  type="application/lattice-front-matter">`, with `<` escaped), or the source can be a sidecar
+  file next to the image.
 - **Drift.** If the author edits the source in VS Code, the picture is stale until the next
   export. The frozen block carries a hash of its source; the next export, the import, and
   (where scripts run) the preview warn when they disagree.
 
-So P1 starts with a frozen-Mermaid spike in both environments before anything ships.
+So P1 starts with a frozen-Mermaid spike in marp-cli and in VS Code (untrusted and trusted)
+before anything ships, and D3 waits for it.
 
 **Stock is opt-in, and never offered where the target's version is an untrusted-content sink.**
 Marp's math is the precedent: it is frozen for security, not taste (§3.5).
@@ -291,20 +319,34 @@ declared once; flattening each file alone would rank their layers independently.
 
 **What it leaves open:**
 
-- **CSS written after export.** Flattening raises Lattice selectors by an ID-level step per layer
-  rank (`section:not(#\#):not(#\#) h1`). A `<style>` block the author adds in VS Code later is
-  unlayered, with no such step, so it now **loses** to most Lattice rules, where today it often
-  wins by specificity. Only 3 of the 276 example decks carry a `<style>` at all, but the owner's
-  own workflow is exactly "export, then edit in VS Code". Options to measure: a flattening that
-  lowers early layers with `:where()` instead of raising late ones, a documented override
-  wrapper in the bundle README, or accepting it. **This blocks activation (D2), not the bridge.**
+- **The author's own CSS loses, at export and after it.** Flattening raises Lattice selectors by
+  an ID-level step per layer rank (`section:not(#\#):not(#\#) h1`). An author's CSS has no such
+  step. The red team measured it on the gallery: today, a `style:` front-matter rule colors `h2`
+  `rgb(1,2,3)` and a `<style scoped>` block colors it `rgb(4,5,6)`; bridged, both lose to Lattice
+  (`rgb(240,229,200)` and `rgb(42,26,6)`). Three example decks carry a `<style>`
+  (`finish-override.md`, `finish-backdrops.md`, `backdrop-register.md`), and the owner's own
+  workflow, "export, then edit in VS Code", adds more after export.
+  - **The reference does not settle it.** Under the layered meaning, unlayered author CSS beats
+    every layer; today, specificity decides; bridged, Lattice wins. Three different answers, so
+    the census's "0 differences" says nothing about CSS outside what the bridge flattens.
+  - **The bridge can rewrite what exists at export** (front matter and `<style>` blocks, raised
+    above the top rank, with Marp's per-slide scoping of `<style scoped>` handled), but that is
+    unbuilt and unmeasured. **CSS written after export** needs a different answer: a flattening
+    that lowers early layers with `:where()` instead of raising late ones, a documented override
+    form in the bundle README, or accepting the loss.
+  - **This blocks activation (D2), not the bridge.**
 - **`!important` inverts across layers** (`engineering/cascade.md` rule 2). The flattener
   handles this per spec; the Mermaid and KaTeX overrides of inline styles stay `!important` either
   way (cascade.md, "A fourth surprise").
-- **Size**: +62% gzipped (§3.1).
+- **Size**: +30% on Marp's minified theme stylesheet, +5% gzipped (§3.1).
 - **A dependency we then own.** Marp fidelity would rest on the flattener keeping up with every
   CSS feature Lattice adopts. Pin its version, and keep the census as a test over a fixture deck
   so a bump that changes output fails the build.
+- **A new HARD RULE #22 sink.** The flattener parses palette and plugin CSS and serializes it
+  again, which is the "CSS re-wrap" shape. postcss kept a hostile `<\/style` escaped in the red
+  team's test, but a later minify step could turn it back into a live terminator, and
+  `checkCssTreeRewrapSinks` only detects css-tree (`tools/check-ownership.js:7794`). The
+  flattening step calls `sanitizeStyleText` on its output and is registered with the gate.
 - **Lattice's own migration**: the elements whose meaning layering changes (§3.1) are fixed
   before activation, not by the bridge.
 
@@ -350,7 +392,16 @@ back to its source, so a deck we exported can come back losslessly.
 - **What an export waits on**: the settle state, figure markers, time budgets.
 - **What a failure shows**: the fallback, by default the source.
 - **Each target's constraints**: the export page's clean-output, policy and byte-identity rules
-  (§3.3), owned once by the host instead of encoded per plugin.
+  (§3.3), owned once by the host instead of encoded per plugin. Two of them, the unresolvable
+  `<script src>` and the player's single pinned script, are properties of the *delivered file*,
+  not of the page that captures it. So the host has a named **export mode**: draw everything
+  ahead, then deliver a file with no plugin script in it (or, for the player, only the pinned
+  one). P2 defines it before the contract freezes (D4).
+- **Where plugin code may run, by the channel it arrived through.** "The host decides when"
+  never means "any host runs anything". In-tree plugins run on both hosts. A zip plugin carries
+  no code (phase E refuses `exec`, `hydrate`, `bake` and script files, `lib/packages/read.js`),
+  and a code-door fence runs only behind its consent and sandbox (`2026-09-27-plugin-system.md`
+  §4.10). The Node host never runs third-party `render` in its own process.
 
 `ctx` holds what the whole call needs: the plugin's options, a token reader, its loaded library,
 and its name. What differs per figure travels on the figure.
@@ -361,7 +412,7 @@ and its name. What differs per figure travels on the figure.
 |---|---|---|---|
 | `tokens` | derive from the stylesheet | `resolve.js:254` equality check | the build reads `var()` calls; a new check holds every derived token to the token registry, so a typo is still caught |
 | `contributes.styles`, `data`, and `bake` / `hydrate` / `highlight` | derive from the **file listing** | `resolve.js` | a role file's presence is the declaration |
-| `contributes.services`, `inline` kinds, `codeRenderer` | derive by **reading the module** | `build-plugin-registry.js:125-171` `require`s it | in-tree: unchanged mechanism. Zip plugins carry no code (phase E), so no module to read |
+| `contributes.services`, `inline` kinds, `codeRenderer` | **keep declared** | `build-plugin-registry.js:125-172` `require`s the module to learn them; `resolve.js` checks module against manifest | deriving these would mean running plugin code to learn what it contributes, and would delete the two-sided check that a consent dialog reads. They stay declared |
 | `render.surfaces` | remove | `marp-fidelity.js:294` (`moot` vs `unmirrored`) | the bridge preset; "no static form" moves to §5.1's facts |
 | `render.figureClasses` | derive, or keep | the `drawnFigureClasses` ratchet, `check-ownership.js:7911,8070`, which bans these classes as selectors outside `lib/plugins` so callers use the host's `[data-lattice-figure]` marker | the ratchet still needs the names it bans. Derive them from the plugin's stylesheet and drawing code if that proves reliable; otherwise this one field stays |
 | `render.exec`, `render.parity` | remove | the host | a host decision from §5.1's facts |
@@ -374,9 +425,8 @@ and its name. What differs per figure travels on the figure.
 | `degradesTo` | keep, default "show source" | | |
 
 The 2026-09-27 design asked for a manifest "readable without running any of its code" (§1 of that
-note). This keeps the property where it matters: claims, payload and the file-listing facts need
-no code, and a zip plugin has no code. The module-read facts apply only to in-tree plugins,
-which the build already `require`s.
+note). This keeps the property: only facts a file listing or a stylesheet scan can establish are
+derived, and anything that needs a module evaluated stays declared and cross-checked.
 
 ### 5.4 The two hosts
 
@@ -401,11 +451,12 @@ PPTX, ODP, PDF and the rest are formats made after the hosts finish. Marp is a b
 
 | Risk | Proof |
 |---|---|
-| Flattening diverges with the runtime's DOM, or in the VS Code preview | The census with the runtime running, in marp-cli and in the real VS Code preview at Disable |
+| Flattening diverges with the runtime's DOM, or in the VS Code preview | The census with the runtime loaded and the real allowlist, across every example deck, in marp-cli and in the real VS Code preview at Disable; the reference defined explicitly for `!important` (§3.1) |
 | A flattener bump changes output | The census over a fixture deck as a unit test, with the flattener pinned |
 | Layering changes Lattice's own render | Every element the census lists as changed is moved or re-scoped, proven with `tools/pixel-check.js` against in-sandbox baselines (cascade.md's protocol) |
 | Frozen output breaks the bundle or leaks markup | The P1 spike: frozen Mermaid in marp-cli and VS Code, labels visible, source not in the speaker notes, through #22's sanitizer |
-| Export bytes change | Export sign-off per the QUALITY BAR: a representative deck in dark and light, sent before merge |
+| Export bytes change | Export sign-off per the QUALITY BAR, dark and light, sent before merge, for **P1** (the bundle changes), **P2+P3** (drawing moves; byte proofs for Mermaid, the chart family, function-plot and anima, not Mermaid alone) and **P4** (the bundle's `lattice.css` changes) |
+| Author CSS silently loses | The census extended to decks with `style:` front matter and `<style>` / `<style scoped>` blocks, and to CSS added after export; author rules must win where they win today |
 | The simpler plugin contract loses a capability | Port Mermaid first; its PDF stays byte-identical in light and dark, and the image-set re-bake still reports kept and failed |
 | Zip plugins inherit the old shape | Phase E ships after §5.3 |
 
@@ -423,7 +474,8 @@ Each phase ships on its own and leaves the tree green.
   and host-owned drawing ahead of layout replace the per-plugin bake and `hydrate-script.js`;
   the manifest and `ctx` changes (§5.3) land with them, Mermaid first. Before phase E.
 - **P4. `@layer`, only if D2 passes.** Fix the elements layering changes, activate in one pass,
-  and add the flattening step to the Marp bridge in the same PR.
+  and add the flattening step to the Marp bridge in the same PR, through `sanitizeStyleText` and
+  registered with the #22 re-wrap gate.
 
 P0 and P1 depend on nothing else. P2+P3 do not depend on P1. P4 depends on D2 and on the open
 items in §4.4.
@@ -433,9 +485,9 @@ items in §4.4.
 | # | Decision | Recommendation |
 |---|---|---|
 | D1 | Adopt the bridge model: the Marp export is a transpiler with environment presets | **yes**. Worth having without `@layer` |
-| D2 | Activate `@layer` behind a flattening bridge | **not yet**. First measure (a) how much of the specificity tax is cross-file and (b) whether a `:where()` flattening keeps author CSS winning. Decide with those numbers |
-| D3 | VS Code preset default for drawn plugins | **frozen**, once P1's spike shows a carrier that keeps Mermaid's labels and stays out of the speaker notes; **as is** until then |
-| D4 | Simplify the plugin contract (§5) before phase E's zip format ships | **yes**. Changing the schema costs far more once user plugins exist |
+| D2 | Activate `@layer` behind a flattening bridge | **not yet**. It needs three things first: (a) the cross-file share of the specificity tax, measured, so the benefit is a number; (b) an answer for author CSS that keeps it winning where it wins today, at export and after it (§4.4); (c) the examples-wide count of elements layering changes, with the runtime loaded (at least 119 on the gallery alone) |
+| D3 | VS Code preset default for drawn plugins | **as is** for now. **Frozen**, as a sidecar image with its source in an inert JSON block, once P1's spike shows the labels survive in marp-cli and VS Code and nothing lands in the speaker notes |
+| D4 | Simplify the plugin contract (§5) before phase E's zip format ships | **yes**, with the host's export mode (§5.2) defined first. Changing the schema costs far more once user plugins exist |
 | D5 | Merge the code-plugin branch with `codeRenderer: true` now, or adopt §5.3 first | **merge first**. It is one more flag of an existing kind, and P2+P3 migrate it with the rest |
 | D6 | Third-party bridges (a package kind), or first-party only | **first-party** until a second bridge exists |
 
@@ -475,7 +527,17 @@ The first draft went to the adversarial trio and a fact-checker on 2026-10-15. W
   `gotchas/vscode.md` had already settled the VS Code question (§3.2 now says it reproduces
   it); the spike's layer order differed from the repo's (rerun in the repo's order, same
   numbers); the manifest "after" figure depended on an unstated method (now a committed script).
-- **Red team.** [RED TEAM]
+- **Red team.** The flattening held under every attack: the real allowlist, the runtime loaded
+  (0 of 5,699), a dark palette, print media, and micro-tests on `!important`, `@keyframes`,
+  nested layers, `:where()` and `:has()`. What broke was around it, each demonstrated: the inline
+  frozen SVG fails the bundle's allowlist, and a comment cannot carry Mermaid source (§4.3, D3
+  now "as is" until a spike); the author's own CSS loses at export, not only after it (§4.4);
+  layering changes 119 gallery elements with the runtime, not 20 (§3.1); the size cost is +5%
+  gzipped on what ships, not +62% (§3.1). Also fixed: module-read manifest facts stay declared
+  (§5.3); a trust policy by channel and a named export mode (§5.2); export sign-off for P1, P2+P3
+  and P4 (§7); the flattener is a #22 re-wrap sink (§4.4); VS Code's raw-HTML behavior by
+  workspace trust (§4.2); the reference's `!important` gap (§3.1). I re-ran the red team's
+  runtime-loaded comparison myself and got the same 0 and 119.
 
 ## References
 

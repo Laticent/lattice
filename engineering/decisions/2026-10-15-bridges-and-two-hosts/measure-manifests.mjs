@@ -9,8 +9,8 @@ const PLUGINS = 'lib/plugins';
 // Fields the build derives from the folder, or the host owns (§5.3 "derive" and "remove").
 const DROP_TOP = ['$schema', 'type', 'format', 'api', 'tokens', 'vendor'];
 const DROP_RENDER = ['exec', 'surfaces', 'figureClasses', 'parity'];
-// `contributes` entries that only say "this file exists" or "this module exports X".
-const DERIVED_CONTRIBUTES = ['styles', 'hydrate', 'bake', 'highlight', 'data', 'services', 'codeRenderer'];
+// `contributes` entries a file listing establishes. Module-read facts (services, inline, codeRenderer) stay.
+const DERIVED_CONTRIBUTES = ['styles', 'hydrate', 'bake', 'highlight', 'data'];
 
 const lines = (o) => JSON.stringify(o, null, 2).split('\n').length;
 let before = 0;
