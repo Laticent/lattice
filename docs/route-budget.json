@@ -1,6 +1,6 @@
 {
   "_comment": "Per-route payload ledger, enforced by scripts/check-route-budget.mjs at the end of the docs build (blocking in CI via docs-build). Each metric has a SOFT target and a CEILING (hard). Over the ceiling fails; more than 5% under soft fails as STALE. A PR may add up to 2KB of eager JS per route over main while the route stays at or under soft; every byte above soft is declared in the PR's own docs/route-budget.d/<slug>.md (`studio: +N` plus why). Change these numbers only with `npm run route-budget:rebaseline`, which writes docs/route-budget.history.md too; a test holds this file to the newest history row, and CI flags any raise over the base on the job summary. Raising soft (--raise) or a ceiling (--ceiling) needs the owner's OK. Why: engineering/decisions/2026-09-29-route-budget-soft-hard.md.",
-  "_units": "bytes. eagerJsGz = gzip(level 6) of every /_astro/*.js the route's HTML references plus everything those import statically. engineJsGz = gzip(level 6) of the engine boot entries the route's HTML names (/playground/v/<hash>/lattice-playground.js and lattice-runtime.js) plus everything they import statically; lazy providers beside them are not counted. htmlRaw = the HTML document itself.",
+  "_units": "bytes. eagerJsGz = gzip(level 6) of every /_astro/*.js the route's HTML references plus everything those import statically. engineJsGz = gzip(level 6) of the engine boot entries the route's HTML names (/playground/v/<hash>/lattice-playground.js and lattice-runtime.js) plus everything they import statically; lazy providers beside them are not counted. chartKernelGz (studio only) = gzip of the largest esm/chart-<layout>.js closure beyond the engine. lintCoreGz (studio only) = gzip of the lint door chunk (_astro/authoring-door.<hash>.js) and its static imports beyond the route's eagerJsGz. htmlRaw = the HTML document itself.",
   "routes": {
     "studio": {
       "html": "studio/index.html",
@@ -15,6 +15,14 @@
       "engineJsGz": {
         "soft": 707731,
         "hard": 778504
+      },
+      "chartKernelGz": {
+        "soft": 79298,
+        "hard": 87228
+      },
+      "lintCoreGz": {
+        "soft": 186019,
+        "hard": 204621
       }
     },
     "playground": {

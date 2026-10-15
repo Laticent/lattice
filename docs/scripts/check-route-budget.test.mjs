@@ -11,8 +11,10 @@
 
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import zlib from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 import {
 	CEILING_PCT,
@@ -20,7 +22,9 @@ import {
 	evaluateAllowance,
 	evaluateRoute,
 	freeBytes,
+	LAZY_BUDGET_ROUTE,
 	METRICS,
+	measure,
 	newestHistory,
 	PR_ALLOWANCE_BYTES,
 	parseDeclarations,
@@ -150,14 +154,67 @@ describe('rebaseline', () => {
 	});
 });
 
+// The lazy metrics on a fixture dist: small, built here, no real build needed.
+describe('the lazy metrics', () => {
+	const gz = (s) => zlib.gzipSync(Buffer.from(s), { level: 6 }).length;
+	function fixture({ door = 'authoring-door.abc.js', kernels = true } = {}) {
+		const dist = fs.mkdtempSync(path.join(os.tmpdir(), 'route-budget-'));
+		const put = (rel, text) => {
+			fs.mkdirSync(path.dirname(path.join(dist, rel)), { recursive: true });
+			fs.writeFileSync(path.join(dist, rel), text);
+		};
+		const esm = 'playground/v/abc123/esm';
+		put('studio/index.html', `<script type="module" src="/_astro/app.x.js"></script><script src="/${esm}/engine.js"></script>`);
+		put('_astro/app.x.js', 'import"./shared.x.js";');
+		put('_astro/shared.x.js', 'export const s="shared";');
+		if (door) put(`_astro/${door}`, 'import"./shared.x.js";import"./md.x.js";export const lint="door";');
+		put('_astro/md.x.js', 'export const md="only the lint core loads me";');
+		put(`${esm}/engine.js`, 'import"./chunk-core.js";');
+		put(`${esm}/chunk-core.js`, 'export const core="engine";');
+		if (kernels) {
+			put(`${esm}/chart-small.js`, 'import"./chunk-core.js";export const k=1;');
+			put(`${esm}/chart-big.js`, 'import"./chunk-core.js";import"./chunk-big.js";export const k=2;');
+			put(`${esm}/chunk-big.js`, `export const big=${JSON.stringify('x'.repeat(50) + Math.random())};`);
+		}
+		return dist;
+	}
+
+	it('counts the largest kernel and the lint core beyond what the route already loaded', () => {
+		const dist = fixture();
+		const m = measure(LAZY_BUDGET_ROUTE, 'studio/index.html', dist);
+		const read = (rel) => fs.readFileSync(path.join(dist, rel), 'utf8');
+		const esm = 'playground/v/abc123/esm';
+		expect(m.chartKernel).toBe('chart-big.js');
+		expect(m.chartKernelGz).toBe(gz(read(`${esm}/chart-big.js`)) + gz(read(`${esm}/chunk-big.js`)));
+		expect(m.lintCoreGz).toBe(gz(read('_astro/authoring-door.abc.js')) + gz(read('_astro/md.x.js')));
+	});
+
+	it('measures them on the lazy budget route only', () => {
+		expect(measure('home', 'studio/index.html', fixture())).not.toHaveProperty('lintCoreGz');
+	});
+
+	it('throws, rather than reporting zero, when the lint door or the kernels are gone', () => {
+		expect(() => measure(LAZY_BUDGET_ROUTE, 'studio/index.html', fixture({ door: null }))).toThrow(/found 0/);
+		expect(() => measure(LAZY_BUDGET_ROUTE, 'studio/index.html', fixture({ kernels: false }))).toThrow(/no chart-\*\.js kernels/);
+	});
+
+	it('throws when the lint door is on the startup path, rather than banking a fake win', () => {
+		const dist = fixture();
+		fs.writeFileSync(path.join(dist, '_astro/app.x.js'), 'import"./shared.x.js";import"./authoring-door.abc.js";');
+		expect(() => measure(LAZY_BUDGET_ROUTE, 'studio/index.html', dist)).toThrow(/startup JS/);
+	});
+});
+
 describe('route-budget.json', () => {
 	const ledger = JSON.parse(fs.readFileSync(path.join(HERE, '..', 'route-budget.json'), 'utf8'));
 	const history = fs.readFileSync(path.join(HERE, '..', 'route-budget.history.md'), 'utf8');
 
 	it('holds a soft target and a ceiling per metric, and nothing else', () => {
 		for (const [name, r] of Object.entries(ledger.routes)) {
-			expect(Object.keys(r).sort(), name).toEqual(['eagerJsGz', 'engineJsGz', 'html', 'htmlRaw']);
-			for (const metric of METRICS) {
+			// The two lazy metrics live on LAZY_BUDGET_ROUTE alone (check-route-budget.mjs says why).
+			const lazy = name === LAZY_BUDGET_ROUTE ? ['chartKernelGz', 'lintCoreGz'] : [];
+			expect(Object.keys(r).sort(), name).toEqual(['eagerJsGz', 'engineJsGz', 'html', 'htmlRaw', ...lazy].sort());
+			for (const metric of METRICS.filter((m) => m in r)) {
 				expect(Object.keys(r[metric]).sort(), `${name}.${metric}`).toEqual(['hard', 'soft']);
 				expect(r[metric].hard, `${name}.${metric} ceiling`).toBeGreaterThanOrEqual(r[metric].soft);
 			}
@@ -170,7 +227,7 @@ describe('route-budget.json', () => {
 		// newest row that `route-budget:rebaseline` wrote.
 		const newest = newestHistory(history);
 		for (const [name, r] of Object.entries(ledger.routes)) {
-			for (const metric of METRICS) {
+			for (const metric of METRICS.filter((m) => m in r)) {
 				expect(r[metric], `${name}.${metric} vs route-budget.history.md`).toEqual(newest[`${name}.${metric}`]);
 			}
 		}

@@ -118,6 +118,42 @@ Breaking `engineBase()` on purpose fails two of its three tests.
 - **A shared lint/engine build.** Cut in review (§3). Tracked in `followups.d/`.
 - **The runtime.** Unchanged, by the 2026-07-11 and 2026-07-19 records. It is now budgeted.
 - **A budget on lazy code.** `engineJsGz` does not follow `import()`, so a chart kernel or the
-  lint core can grow without the gate seeing it. Tracked in `followups.d/`.
+  lint core could grow without the gate seeing it. Shipped on 2026-10-15; see §8.
 - **The 36 bundled highlight.js grammars.** Kept, per 2026-08-25; the owner declined moving them
   on demand (−44KB gz) for the fetch it would add to most code decks.
+
+## 8. The lazy code gets a budget (2026-10-15)
+
+`docs/scripts/check-route-budget.mjs` now measures two more metrics on the `studio` route, with a
+soft target and a ceiling like the rest:
+
+- **`chartKernelGz`** — the largest closure of one `esm/chart-<layout>.js` beyond the engine. A
+  deck pays for the kernels it names, so the largest is the worst one chart costs.
+- **`lintCoreGz`** — the lint door's chunk (`_astro/authoring-door.<hash>.js`, which carries the
+  lint core) plus its static imports, beyond the Studio's startup JS.
+
+Both live on one route because the chart kernels are the same files on every route, so five copies
+would mean five history rows per change. The gate throws when it cannot find the kernels or finds
+anything but exactly one lint door, so a rename cannot turn the metric into a silent zero.
+
+Measured on the built tree, gzip level 6:
+
+| Closure beyond what the route already loaded | gz |
+|---|---:|
+| `chart-map.js` (the largest) | 77.4KB |
+| `chart-hub-spoke.js` (second) | 40.5KB |
+| 16 more kernels | 15.5KB to 26.0KB |
+| `chart-progress.js` … `chart-timeline-list.js` (six) | 0.8KB to 4.0KB |
+| Lint core: the door chunk | 137.3KB |
+| Lint core: `markdown-it`, which only the lint core loads on the Studio | 44.4KB |
+
+Both were adopted at that measurement with the standard 10% ceiling: 77.4KB / 85.2KB and
+181.7KB / 199.8KB. The brief named the numbers as the owner's call and the owner was away, so the
+PR puts them to the owner before merge.
+
+What it still cannot see: a kernel other than the largest growing while it stays under the
+largest. `chart-hub-spoke.js` could grow 36KB before it moved the metric. A second metric for the
+sum of every kernel's closure would see it; that is a number for the owner, not added here.
+
+The 44.4KB `markdown-it` is the second copy the lint core and the ESM engine each carry; the shared
+build in `followups.d/2694-p1-shared-lint-engine-build.md` is what would remove it.

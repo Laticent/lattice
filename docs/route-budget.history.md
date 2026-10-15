@@ -6,6 +6,15 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-10-15 — measured on the built tree at 47b4623
+
+New metrics, on the studio route only. eagerJsGz and engineJsGz stop at import() on purpose, so the code that loads with it grew where no gate looked. chartKernelGz is the largest esm/chart-<layout>.js closure beyond the engine (chart-map.js today); lintCoreGz is the lint door's chunk and its static imports beyond the Studio's startup JS (the lint core plus a second markdown-it, 45KB gz, that only the lint core loads). Adopted at today's measurement with the standard 10% ceiling. The owner's brief for this PR asked for both caps and named the numbers as the owner's call; the owner was away, so these are the measurement, put to the owner in the PR before merge. engineering/decisions/2026-10-14-engine-spine.md §8.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | chartKernelGz | 0 | 79298 | +79298 | 87228 |
+| studio | lintCoreGz | 0 | 186019 | +186019 | 204621 |
+
 ### 2026-10-14 — measured on the built tree at a08602c
 
 The payload-diet PR, measured on the built tree rebased on main 584af1d. studio eagerJsGz: the lint core (authoring-core, 176KB gz) loads after first paint through the lint door instead of at startup. engineJsGz on every route: the engine bundles one markdown-it instead of two, and the docs site loads the ESM engine, whose 24 chart kernels (178KB gz) load on demand instead of with the engine. engineering/decisions/2026-10-14-engine-spine.md §6.
