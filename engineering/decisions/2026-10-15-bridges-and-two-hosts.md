@@ -56,11 +56,11 @@ neither a host nor a format.
 
 ## 3. What was measured
 
-The examples-wide census and the manifest count are committed next to this note, in
-`2026-10-15-bridges-and-two-hosts/`, with a README saying how to rerun them. The runtime-loaded
-gallery runs, the size figures, the author-CSS test, the micro-tests and the VS Code run were
-scratch runs and are not committed. Of those, the runtime-loaded 0 and 119 of 5,699 were
-reproduced by a second, independent run.
+The examples-wide census, the runtime-loaded gallery census (with the size figures) and the
+manifest count are committed next to this note, in `2026-10-15-bridges-and-two-hosts/`, with
+their results and a README saying how to rerun them. The author-CSS test, the micro-tests and the
+VS Code run were scratch runs and are not committed; the VS Code behavior is also recorded in
+`engineering/gotchas/vscode.md` and in VS Code's own source (§3.2).
 
 ### 3.1 Flattening `@layer` for Marp
 
@@ -86,9 +86,11 @@ Marp renders exactly as the layered sheet means?
 On the gallery deck, a fourth sheet, **D**, is today's unlayered bundle, to measure what
 layering itself changes. The gallery was run twice: with the spike's layer order and with the
 repo's declared order (`tools/build-css.js:259`, `base` before `root`). Both gave the same
-numbers. The examples-wide run used the spike's order only. The red team then re-ran the gallery with the bundle's real HTML allowlist and the
-runtime loaded, which renders the 139 spans, 8 KaTeX blocks and 8 background divs that
-`--html=false` escapes (5,699 elements instead of 2,016).
+numbers. The examples-wide run used the spike's order only. The gallery was then rendered the way an author sees it (`runtime-census.cjs`): through the
+bundle's own `marp.config.cjs`, so its real HTML allowlist applies and the runtime loads and
+settles, with `::marker` in the census. That renders the 139 spans, 8 KaTeX blocks and 8
+background divs that `--html=false` escapes (5,699 elements instead of 2,016). The red team ran
+this first; the committed script reproduces its numbers exactly.
 
 **Results.**
 
@@ -96,9 +98,9 @@ runtime loaded, which renders the 139 spans, 8 KaTeX blocks and 8 background div
 |---|---|---|
 | **A vs C**, every deck rendered | Does flattening reproduce the layered meaning inside Marp? | **0 differing elements** across **276 decks** (275 example decks and the gallery baseline), **40,590 elements, 14 palettes** (4 of them dark). The 276th example, `data-viz-gallery.md`, has no front matter, so Marp renders it in its own default theme; it is excluded |
 | A vs L, every deck rendered | The veto: layered Lattice next to unlayered Marp base | elements differ on **all 276** decks. On the gallery, 121 of 2,016: Marp's pagination `::after` wins position and padding |
-| A vs C, gallery, real allowlist, runtime loaded | The same, on the DOM an author actually sees | **0 of 5,699** (also 0 with `mustard-dark` and with print media emulation) |
+| A vs C, gallery, real allowlist, runtime loaded | The same, on the DOM an author actually sees | **0 of 5,699**, screen and print media (`runtime-census-results/`); also 0 with `mustard-dark` in the red team's run |
 | D vs A, gallery, CSS only | What layering changes in Lattice's own meaning, Marp aside | 20 of 2,016 |
-| D vs C, gallery, real allowlist, runtime loaded | The same, on the real DOM | **119 of 5,699** |
+| D vs C, gallery, real allowlist, runtime loaded | The same, on the real DOM | **119 of 5,699** (`runtime-census-results/`) |
 
 **Reading the results.**
 
@@ -116,8 +118,9 @@ runtime loaded, which renders the 139 spans, 8 KaTeX blocks and 8 background div
   `div.masthead-lede` loses its centering. Each is a rule to move or re-scope before activation,
   by the protocol in `engineering/cascade.md` §"What changing the cascade now would require".
   The examples-wide count is not measured (the census ran CSS only).
-- **Flattening costs size, less than it first looked.** What ships is Marp's minified theme
-  stylesheet: 1,315,181 → 1,703,206 bytes (+30%), and gzipped 127,615 → 133,813 bytes (+5%).
+- **Flattening costs size, less than it first looked.** What ships is the theme stylesheet Marp
+  writes into the page: on the gallery, 1,315,199 → 1,703,226 bytes (+29.5%), and gzipped
+  130,074 → 136,908 bytes (+5.3%) (`runtime-census-results/`).
   The flattener repeats `:not(#\#)` per selector to encode a layer's rank, which compresses well.
 
 **Not covered:** the runtime's DOM beyond the gallery; the VS Code preview's own stylesheet;
@@ -357,7 +360,7 @@ the gallery with the runtime loaded.
 - **`!important` inverts across layers** (`engineering/cascade.md` rule 2). The flattener
   handles this per spec; the Mermaid and KaTeX overrides of inline styles stay `!important` either
   way (cascade.md, "A fourth surprise").
-- **Size**: +30% on Marp's minified theme stylesheet, +5% gzipped (§3.1).
+- **Size**: +29.5% on the theme stylesheet Marp ships, +5.3% gzipped (§3.1).
 - **A dependency we then own.** Marp fidelity would rest on the flattener keeping up with every
   CSS feature Lattice adopts. Pin its version, and keep the census as a test over a fixture deck
   so a bump that changes output fails the build.

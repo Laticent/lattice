@@ -28,6 +28,13 @@ function layerFor(name, cur) {
   return ORDER.indexOf(want) < ORDER.indexOf(cur) ? cur : want;
 }
 let latLayered = null;
+let latFlat = null;
+function latUnlayered() {
+  if (latFlat) return latFlat;
+  const root = postcss.parse(lat);
+  root.walkAtRules('layer', (a) => { if (!a.nodes) a.remove(); });
+  return (latFlat = root.toString());
+}
 function layeredLattice() {
   if (latLayered) return latLayered;
   let cur = 'root', hoisted = '', body = '';
@@ -57,7 +64,9 @@ async function themes(themesDir, pal) {
   const r = await postcss([layersPlugin()]).process(L, { from: undefined });
   const C = r.css.includes('@theme ') ? r.css : header + '\n' + r.css;
   const dir = path.join(W, 'themes-' + pal); fs.mkdirSync(dir, { recursive: true });
-  const out = {}; for (const [k, v] of Object.entries({ L, C, E: header + '\n' })) { fs.mkdirSync(path.join(dir, k), { recursive: true }); out[k] = path.join(dir, k, pal + '.css'); fs.writeFileSync(out[k], v); }
+  // D: today's sheet, unlayered, with the inert @layer declaration dropped the same way as in L.
+  const Dsheet = `${header}\n${latUnlayered()}\n${pb}\n`;
+  const out = {}; for (const [k, v] of Object.entries({ L, C, D: Dsheet, E: header + '\n' })) { fs.mkdirSync(path.join(dir, k), { recursive: true }); out[k] = path.join(dir, k, pal + '.css'); fs.writeFileSync(out[k], v); }
   return (themeCache[pal] = out);
 }
 function marpStyle(h) { const ss = [...h.matchAll(/(<style[^>]*>)([\s\S]*?)(<\/style>)/g)]; return ss.find((m) => m[2].includes('foreignObject > section{')); }
@@ -68,18 +77,19 @@ function makeA(hL, hE, _pal) {
   const A = `@layer marp-base, ${ORDER.join(', ')};@layer marp-base{${L.slice(0, p)}}${L.slice(p, L.length - s)}@layer marp-base{${L.slice(L.length - s)}}`;
   const i = mL.index + mL[1].length; return hL.slice(0, i) + A + hL.slice(i + L.length);
 }
-async function census(page) {
-  return page.evaluate(() => {
+const PSEUDOS = [null, '::before', '::after'];
+async function census(page, pseudos = PSEUDOS) {
+  return page.evaluate((pseudos) => {
     const h = (s) => { let x = 2166136261; for (let i = 0; i < s.length; i++) { x ^= s.charCodeAt(i); x = Math.imul(x, 16777619); } return (x >>> 0).toString(36); };
     const ser = (cs) => { const a = []; for (let i = 0; i < cs.length; i++) a.push(cs[i] + ':' + cs.getPropertyValue(cs[i])); return a.sort().join(';'); };
-    return [...document.querySelectorAll('foreignObject > section, foreignObject > section *')].map((e) => [null, '::before', '::after'].map((pe) => h(ser(getComputedStyle(e, pe)))).join('.'));
-  });
+    return [...document.querySelectorAll('foreignObject > section, foreignObject > section *')].map((e) => pseudos.map((pe) => h(ser(getComputedStyle(e, pe)))).join('.'));
+  }, pseudos);
 }
-async function detail(page, idxs) {
-  return page.evaluate((idxs) => { const els = [...document.querySelectorAll('foreignObject > section, foreignObject > section *')];
-    return idxs.map((i) => { const e = els[i], o = {}; for (const pe of [null, '::before', '::after']) { const cs = getComputedStyle(e, pe); for (let k = 0; k < cs.length; k++) o[(pe || '') + cs[k]] = cs.getPropertyValue(cs[k]); } return { el: e.tagName.toLowerCase() + '.' + (typeof e.className === 'string' ? e.className : ''), o }; }); }, idxs);
+async function detail(page, idxs, pseudos = PSEUDOS) {
+  return page.evaluate(([idxs, pseudos]) => { const els = [...document.querySelectorAll('foreignObject > section, foreignObject > section *')];
+    return idxs.map((i) => { const e = els[i], o = {}; for (const pe of pseudos) { const cs = getComputedStyle(e, pe); for (let k = 0; k < cs.length; k++) o[(pe || '') + cs[k]] = cs.getPropertyValue(cs[k]); } return { el: e.tagName.toLowerCase() + '.' + (typeof e.className === 'string' ? e.className : ''), o }; }); }, [idxs, pseudos]);
 }
-(async () => {
+async function main() {
   const decks = process.argv.slice(2);
   const browser = await chromium.launch({ executablePath: process.env.CHROMIUM || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
   const log = fs.createWriteStream(path.join(W, 'results.jsonl'), { flags: 'a' });
@@ -105,4 +115,7 @@ async function detail(page, idxs) {
     log.write(JSON.stringify(rec) + '\n'); console.log(JSON.stringify({ deck: rec.deck, pal: rec.palette, n: rec.elements, AvsC: rec.AvsC, AvsL: rec.AvsL, err: rec.error?.slice(0, 80) }));
   }
   await browser.close();
-})();
+}
+
+module.exports = { themes, makeA, census, detail, ORDER, W };
+if (require.main === module) main();
