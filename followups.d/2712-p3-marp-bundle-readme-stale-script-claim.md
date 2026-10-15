@@ -17,6 +17,8 @@ source: https://github.com/Laticent/lattice/pull/2712
                    blocked at the default preview security level (Strict, a nonce-only CSP), run
                    at Disable, which is a per-workspace setting no bundle file can ship.
        where     — lib/core/marp-bundle.js, the README template (line ~667).
-       done when — the README states the measured behavior and the one-step way to enable it
-                   (trusted workspace + Markdown: Change Preview Security Settings → Disable).
+       done when — the README states the measured behavior and the one way to enable it: a
+                   trusted workspace plus Markdown: Change Preview Security Settings → Disable.
+                   It also says that the two "Allow insecure … content" levels do NOT run scripts
+                   (they keep the script nonce).
 ```

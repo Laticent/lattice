@@ -35,8 +35,8 @@ Marp is not a host; it is a bridge's target.
 **At export, the author picks a preset** for where the deck will be opened. The preset decides
 how each plugin travels: live (our runtime draws it in Marp), frozen (we draw it and ship the
 picture), stock (Marp's own version), or as is. This matters because **the VS Code Marp preview
-blocks our scripts by default** (§3.2), so live drawing does not work there unless the author
-changes a security setting.
+blocks our scripts by default** (§3.2). One choice in its security menu, *Disable*, lets them run,
+and that is the owner's usual setting, so VS Code gets two presets.
 
 The owner decisions are in §9. Nothing here is built yet.
 
@@ -145,6 +145,13 @@ opening an export of `examples/diagram-narration.md` (seven Mermaid fences):
 
 New since the gotcha entry:
 
+- **Only one of the four levels runs our scripts.** VS Code's Markdown preview builds its policy
+  from the level (the built-in `markdown-language-features` extension). *Strict*, *Allow insecure
+  local content* and *Allow insecure content* all keep `script-src 'nonce-…'`, so our scripts stay
+  blocked; they loosen images, fonts and styles only. *Disable* returns no policy at all, and so
+  does VS Code's older "trusted preview workspace" flag, which maps to the same level. Workspace
+  trust (Restricted Mode) is a separate gate: marp-vscode needs it to render the deck's HTML at
+  all, but it does not unblock scripts.
 - **The security level cannot be shipped.** VS Code stores it per workspace in extension state,
   not in `settings.json`.
 - **`markdown.marp.enableHtml` is deprecated in marp-vscode 3.6.1** in favor of
@@ -155,8 +162,9 @@ The bundle's own README still says it cannot confirm whether the scripts run
 (`lib/core/marp-bundle.js:667`). That is stale. The blank Mermaid at Disable is the known,
 unchased defect in the gotcha entry.
 
-So for the owner's workflow (export, then edit in VS Code), **live drawing does not work out of
-the box.**
+So **live drawing does not work out of the box**, but it is one menu choice away, and the owner's
+own habit is to choose *Disable*. For that workflow the blocker is not the policy but the blank
+Mermaid at *Disable*.
 
 ### 3.3 Why the CLI export page runs without the runtime
 
@@ -260,7 +268,7 @@ needs its own measurement before it moves.
 | marp-cli (`npm run pdf` / `html` in the bundle) | through the bundle's allowlist (`marp-bundle-html.js`) | yes (real headless browser) | yes (`marp.config.cjs`) | speaker notes, except the bundle's own trailer comments (`marp-bundle-html.js:187-196`) |
 | Marp for VS Code, untrusted workspace | **off** | no | no | speaker notes |
 | Marp for VS Code, trusted workspace, default level | **all of it, no allowlist** (`enableHtml: true`, `marp-bundle.js:508`) | **no** (Strict policy) | no (no custom engine) | speaker notes |
-| Marp for VS Code, trusted, at *Disable* | all of it | yes | no | speaker notes; Mermaid blank today |
+| Marp for VS Code, trusted, at *Disable* (the owner's usual setting) | all of it | yes | no | speaker notes; Mermaid blank today |
 
 The allowlist that protects marp-cli does not exist in VS Code, so anything a bridge emits must be
 safe without it.
@@ -275,7 +283,7 @@ safe without it.
 | **As is** | The source, nothing drawn | yes | n/a |
 
 **The product is the preset, not the four-way choice.** The export dialog asks where the deck
-will be opened (VS Code preview, marp-cli) and the preset fills in every plugin the deck uses
+will be opened (VS Code with scripts allowed, VS Code at its default, marp-cli) and the preset fills in every plugin the deck uses
 (`lib/plugins/deck-plugins.mjs` and each plugin's `detect` know which). Per-plugin overrides sit
 behind an *Advanced* control. Only the preset combinations are tested and gated, so the matrix
 of plugins × choices × environments does not ship untested cells.
@@ -470,9 +478,10 @@ PPTX, ODP, PDF and the rest are formats made after the hosts finish. Marp is a b
 
 Each phase ships on its own and leaves the tree green.
 
-- **P0. Fix what is wrong today.** The deprecated VS Code key, the bundle README's stale claim,
-  the five bundles that omit a palette they import (`bundleMissingPalettes` in
-  `layer-census-results.jsonl`), and the blank Mermaid at Disable. Logged as
+- **P0. Fix what is wrong today.** First, the blank Mermaid at *Disable*, because it blocks the
+  owner's own workflow. Then the five bundles that omit a palette they import
+  (`bundleMissingPalettes` in `layer-census-results.jsonl`), the deprecated VS Code key and the
+  bundle README's stale claim. Logged as
   follow-ups by this note's PR.
 - **P1. The bridge and its presets.** Name the Marp exporter a bridge, add the environment table
   and the preset dialog over today's per-plugin behavior (§3.5). Starts with the frozen-Mermaid
@@ -494,7 +503,7 @@ items in §4.4.
 |---|---|---|
 | D1 | Adopt the bridge model: the Marp export is a transpiler with environment presets | **yes**. Worth having without `@layer` |
 | D2 | Activate `@layer` behind a flattening bridge | **not yet**. It needs three things first: (a) the cross-file share of the specificity tax, measured, so the benefit is a number; (b) an answer for author CSS that keeps it winning where it wins today, at export and after it (§4.4); (c) the examples-wide count of elements layering changes, with the runtime loaded (at least 119 on the gallery alone) |
-| D3 | VS Code preset default for drawn plugins | **as is** for now. **Frozen**, as a sidecar image with its source in an inert JSON block, once P1's spike shows the labels survive in marp-cli and VS Code and nothing lands in the speaker notes |
+| D3 | VS Code presets for drawn plugins | **Two presets.** *VS Code, scripts allowed* (the owner's workflow, at *Disable*): **live**, which needs the blank-Mermaid defect fixed first (P0). *VS Code, default*: **as is** for now, then **frozen** (a sidecar image with its source in an inert JSON block) once P1's spike shows the labels survive and nothing lands in the speaker notes |
 | D4 | Simplify the plugin contract (§5) before phase E's zip format ships | **yes**, with the host's export mode (§5.2) defined first. Changing the schema costs far more once user plugins exist |
 | D5 | Merge the code-plugin branch with `codeRenderer: true` now, or adopt §5.3 first | **merge first**. It is one more flag of an existing kind, and P2+P3 migrate it with the rest |
 | D6 | Third-party bridges (a package kind), or first-party only | **first-party** until a second bridge exists |
