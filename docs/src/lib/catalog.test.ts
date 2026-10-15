@@ -26,9 +26,9 @@ function split(text: string) {
 }
 
 describe('catalog content', () => {
-	it('has the nine libraries and five plugins', () => {
+	it('has the nine libraries and six plugins', () => {
 		expect(files.filter((f) => f.kind === 'libraries')).toHaveLength(9);
-		expect(files.filter((f) => f.kind === 'plugins')).toHaveLength(5);
+		expect(files.filter((f) => f.kind === 'plugins')).toHaveLength(6);
 	});
 
 	for (const f of files) {

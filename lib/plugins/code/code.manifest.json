@@ -6,6 +6,13 @@
   "api": 1,
   "title": "Code",
   "description": "Syntax-highlighted code for every fenced block that no other plugin claims, on any slide. Loads highlight.js core plus only the grammars a deck's fences name, so a deck with no code pays nothing for it.",
+  "icon": {
+    "viewBox": "0 0 128 128",
+    "paths": [
+      {"ink": "line", "d": "M42 34L12 64L42 94M86 34L116 64L86 94", "width": 8},
+      {"ink": "accent", "d": "M74 22L54 106", "width": 8}
+    ]
+  },
   "contributes": {
     "syntax": {
       "code_record": { "kind": "block", "anchor": { "before": "fence" }, "triggers": ["`"], "opaque": true, "scansAhead": false }

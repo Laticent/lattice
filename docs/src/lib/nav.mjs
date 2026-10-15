@@ -115,6 +115,7 @@ export function pluginsNav(url) {
 		plugin(url, 'Icons', 'icons', 'Drawn icons, written in a word'),
 		plugin(url, 'Avatars', 'avatars', 'A face for every name'),
 		plugin(url, 'Function plots', 'function-plot', 'Graphs of y = f(x)'),
+		plugin(url, 'Code', 'code', 'Highlighted code in any language'),
 	];
 }
 

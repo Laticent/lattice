@@ -50,8 +50,8 @@ test('refuses anything that is not path numbers, rather than escaping it', async
 
 test('every shipped author-facing plugin carries a well-formed icon', async () => {
   const { isPluginIcon } = await load();
-  // The five the website's Plugins hub introduces; chart-family and anima are internal.
-  for (const name of ['math', 'mermaid', 'icons', 'avatars', 'function-plot']) {
+  // The six the website's Plugins hub introduces; chart-family and anima are internal.
+  for (const name of ['math', 'mermaid', 'icons', 'avatars', 'function-plot', 'code']) {
     const file = join(ROOT, name, `${name}.manifest.json`);
     assert.ok(existsSync(file), file);
     const { icon } = JSON.parse(readFileSync(file, 'utf8'));
