@@ -53,15 +53,15 @@ describe('the generated registries on a multi-plugin tree', () => {
 
     // Dependency order a → b → c. Two plugins after `fence`, two before it, one after `table`.
     writePlugin(root, 'a', { syntax: {
-      a_before: { kind: 'block', anchor: { before: 'fence' }, triggers: ['%'], opaque: true },
-      a_after: { kind: 'block', anchor: { after: 'fence' }, triggers: ['&'] },
+      a_before: { kind: 'block', anchor: { before: 'fence' }, triggers: ['%'], opaque: true, scansAhead: false },
+      a_after: { kind: 'block', anchor: { after: 'fence' }, triggers: ['&'], scansAhead: false },
     } });
     writePlugin(root, 'b', { requires: ['a'], syntax: {
-      b_before: { kind: 'block', anchor: { before: 'fence' }, triggers: ['@'] },
-      b_after: { kind: 'block', anchor: { after: 'fence' }, triggers: ['~'], opaque: true },
+      b_before: { kind: 'block', anchor: { before: 'fence' }, triggers: ['@'], scansAhead: false },
+      b_after: { kind: 'block', anchor: { after: 'fence' }, triggers: ['~'], opaque: true, scansAhead: false },
     } });
     writePlugin(root, 'c', { requires: ['b'], syntax: {
-      c_table: { kind: 'block', anchor: { after: 'table' }, triggers: ['^'] },
+      c_table: { kind: 'block', anchor: { after: 'table' }, triggers: ['^'], scansAhead: '^\\^\\^' },
     } });
     // A syntax module with no declared syntax and no `detect`: legal, and it must still link.
     writePlugin(root, 'e', {}, { detect: false });
@@ -85,6 +85,7 @@ describe('the generated registries on a multi-plugin tree', () => {
     assert.deepEqual(names.slice(names.indexOf('a_before'), names.indexOf('fence') + 3), ['a_before', 'b_before', 'fence', 'a_after', 'b_after']);
     assert.equal(names[names.indexOf('table') + 1], 'c_table');
     assert.deepEqual([...blocks.OPAQUE_BLOCK_TOKENS], ['a_before', 'b_after']);
+    assert.deepEqual({ ...blocks.FORWARD_SCAN_LINES }, { c_table: '^\\^\\^' });
   });
 
   test('a plugin with a syntax module but no syntax and no detect still links', async () => {

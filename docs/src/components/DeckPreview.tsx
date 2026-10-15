@@ -76,6 +76,10 @@ export type DeckPreviewProps = {
 	/** The page of the shown slide's pane split that holds the caret, or absent to keep the page
 	 *  shown. `pageIndex` wins over it. */
 	panePage?: number;
+	/** The shown slide's run is SLIDES in their own right, not pages of one slide: a chunk the
+	 *  deck splits on headings. Its members are already numbered by the host's counter and rail,
+	 *  so the "page 2 of 3" pill would describe them wrongly; it is not drawn. */
+	runIsSlides?: boolean;
 	/** Reports each definitive render of a slide: which slide it showed, and, when that slide
 	 *  split, which page of how many. `page` is `null` for an unsplit slide and for a failed
 	 *  render. The host's navigation steps through the run, and waits for this after it moves. */
@@ -205,6 +209,7 @@ export function DeckPreview({
 	pageIndex,
 	paneCounts,
 	panePage,
+	runIsSlides = false,
 	onSplitPage,
 	deckId,
 	webOrigins,
@@ -891,7 +896,7 @@ export function DeckPreview({
 			{/* A split slide's page indicator: which page of the run the frame holds, numbered as the
 			    PDF prints it. Visual and announced; it takes no pointer events (the preview box is a
 			    swipe surface). */}
-			{splitPage && !failed && (
+			{splitPage && !failed && !runIsSlides && (
 				<div className="pointer-events-none absolute inset-x-0 bottom-2 z-10 flex justify-center" data-split-page>
 					<span className="flex items-center gap-2 rounded-full border border-border bg-background/90 px-2.5 py-1 font-mono text-[11px] text-muted-foreground tabular-nums shadow-sm" role="status" aria-label={`Page ${splitPage.label}, ${splitPage.index + 1} of ${splitPage.count} in this slide`}>
 						<span className="flex gap-1" aria-hidden="true">

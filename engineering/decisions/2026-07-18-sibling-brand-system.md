@@ -167,3 +167,36 @@ so it reads at 16px. Assets: `docs/public/calco-mark.svg`, `calco-mark-min.svg` 
 `calco-lockup.svg`; the `/calco` header draws the same geometry inline so it follows the
 page's theme toggle. The generator was kept out of tree (`.scratch/calco-brand/gen.py`).
 
+## Fuoco — the focus (built 2026-10-15)
+
+Fuoco (the focus hub, `docs/src/lib/fuoco`) joined the family with its package. *Fuoco* is
+Italian for **fire**, and for **focus**: *mettere a fuoco* is to bring into focus. Its job is
+to hold the one place every view of a document is looking at. The mark is a viewfinder:
+
+- **the focus brackets**: four corner brackets, the frame a camera draws around the point it
+  has focused on — every view framing the same place;
+- **the warm ticks**: two short strokes either side of the hub, the focused line, the caret
+  every view follows;
+- **the ringed hub** is the focal point itself, the family tie.
+
+A first draft drew rays through a lens converging on the hub; it read as an eye, and at 16px
+as noise. A second, three views per side joined to the hub, read as a generic network icon.
+The brackets read as focus at any size. The min mark thickens the brackets (11 units), keeps
+the ticks and enlarges the hub so the favicon is the brackets and a dot. Assets:
+`docs/public/fuoco-mark.svg`, `fuoco-mark-min.svg` (favicon), `fuoco-lockup.svg`; the
+`/fuoco` header draws the same geometry inline so it follows the page's theme toggle. The
+generator was kept out of tree (`.scratch/fuoco-brand/gen.py`), as the siblings' were.
+
+**Palette**, teal with an ember live accent, chosen apart from every sibling (Suono's green,
+Lente's blue, Vetrina's rose, Cadenza's indigo, Trama's sienna and gold, Calco's ink blue and
+vermilion, Segno's charcoal and red):
+
+| Token | Light | Dark | Role |
+|---|---|---|---|
+| brackets (`pri`) | `#0e6b67` | `#5cc6bc` | the viewfinder (teal) |
+| ticks (`warm`) | `#e2661c` | `#ff9d57` | the focused line (ember) |
+| hub | `#0e6b67` | `#5cc6bc` | the focal point |
+| ring | `#06302e` | `#0a201f` | the hub's inner ring |
+| halo | `#f6f3ec` | `#121012` | paper (separation) |
+| ink (wordmark) | `#1b2423` | `#e3ebea` | Fraunces "Fuoco" |
+

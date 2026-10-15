@@ -1,0 +1,30 @@
+{
+  "//": "Isolated STANDALONE typecheck for the Fuoco library. It compiles ONLY the framework-free core with DOM libs and `types: []` \u2014 no repo tsconfig, no @types/node, no React. If the core ever grows a dependency on the host (Lattice's deck outliner lives OUTSIDE this folder, in src/lib/deck-outline), this fails. Run: `npm run check:fuoco`. The import-boundary gate (tools/check-ownership.js checkFuocoBoundary) guards runtime imports; this guards the type surface.",
+  "compilerOptions": {
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "customConditions": [
+      "@laticent/source"
+    ],
+    "lib": [
+      "DOM",
+      "DOM.Iterable",
+      "ES2022"
+    ],
+    "types": [],
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true
+  },
+  "//exclude": "react.ts is the peer-dep adapter (imports react), so it is excluded from the standalone (types:[]) typecheck; the full docs `typecheck` covers it against @types/react.",
+  "include": [
+    "src/lib/fuoco/**/*.ts"
+  ],
+  "exclude": [
+    "src/lib/fuoco/**/*.test.ts",
+    "src/lib/fuoco/react.ts"
+  ]
+}

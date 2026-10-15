@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
-import { stripFrontMatter } from '../src/components/studio/front-matter';
-import { splitSlides, usedComponents } from '../src/components/studio/lint';
+import { usedComponents } from '../src/components/studio/lint';
+import { buildDeckIndex, deckEditableOffset } from '../src/lib/deck-outline/deck-outline';
+import { partOfFlat, partStart, partText } from '../src/lib/fuoco/outline';
 import { expect, gotoStudio, persistedSource, railButtons, test, waitForStudioPaint } from './studio-fixture';
 
 /**
@@ -401,14 +402,13 @@ async function openDeck(page: Page, title: string): Promise<void> {
  *  rather than hardcoded: the built-in decks are content that changes, and a hardcoded line
  *  number would rot into a test that clicks the wrong slide and still passes. */
 async function slideStartLine(page: Page, n: number): Promise<number> {
+	// `n` counts RENDERED slides, as the rail does (one pill per heading section).
 	const doc = await editorDoc(page);
-	const body = stripFrontMatter(doc);
-	const offset = doc.length - body.length;
-	const chunks = splitSlides(body);
-	expect(chunks.length, `the deck has no slide ${n + 1}`).toBeGreaterThan(n);
-	const at = body.indexOf(chunks[n]);
-	expect(at, `slide ${n + 1} was not locatable in the document`).toBeGreaterThanOrEqual(0);
-	return doc.slice(0, offset + at).split('\n').length;
+	const ix = buildDeckIndex(doc);
+	expect(ix.partBase[ix.units.length], `the deck has no slide ${n + 1}`).toBeGreaterThan(n);
+	const at = partOfFlat(ix, n);
+	expect(at, `slide ${n + 1} was not locatable in the document`).not.toBeNull();
+	return doc.slice(0, partStart(ix, at!.unit, at!.part)).split('\n').length;
 }
 
 async function toCompose(page: Page): Promise<void> {
@@ -985,7 +985,11 @@ test('a randomized walk over the markdown-pane ops holds the structural invarian
 			.poll(
 				async () => {
 					const now = await railState(page);
-					const chunk = splitSlides(stripFrontMatter(await editorDoc(page)))[now.index];
+					// The rail lists RENDERED slides (one pill per heading section since Fuoco), so the
+					// pill index names a section of the slide index, not a `splitSlides` chunk.
+					const ix = buildDeckIndex(await editorDoc(page));
+					const at = partOfFlat(ix, now.index);
+					const chunk = at ? partText(ix, at.unit, at.part) : undefined;
 					if (chunk === undefined) return 'ok'; // the deck moved under us; the next step re-checks
 					if (headingsIn(chunk) > 1) return 'ok'; // the chunk holds more than one engine slide — see above
 					const names = usedComponents(chunk);
@@ -1181,9 +1185,9 @@ test('an undo history does not cross decks WITHOUT a Compose detour', async ({ p
 	await newDeck(page); // deck B — same bytes, different deck, and NO Compose in between
 	// TWO witnesses, because the bytes alone cannot tell deck B apart from deck A undone back to
 	// the template — which is the whole premise of this case. The deck INDEX says a new deck
-	// exists (`newDeck` polls for that); the caret says the editor has caught up. Note what the
-	// second one does and does not prove: a caret at 0 does NOT distinguish "rebuilt" from
-	// "value-synced" — the pre-fix path also dispatched `selection: { anchor: 0 }` — but it does
+	// exists (`newDeck` polls for that); the caret says the editor has caught up. Since Fuoco a
+	// new view follows the focus, which the deck switch put on slide 1, so the caret sits on that
+	// slide's first editable line. That does not prove "rebuilt" over "value-synced", but it does
 	// exclude the state this case would otherwise pass in for the wrong reason, deck A's own view
 	// still sitting at the document end after the ⌘End / type / undo above.
 	expect(await editorDoc(page), 'witness: deck B holds the same bytes deck A did').toBe(template);
@@ -1193,8 +1197,8 @@ test('an undo history does not cross decks WITHOUT a Compose detour', async ({ p
 			const v = (document.querySelector('.cm-content') as any)?.cmTile?.root?.view;
 			return v ? v.state.selection.main.head : -1;
 		}),
-		'witness: a rebuilt editor, its caret at the top of the new deck',
-	).toBe(0);
+		'witness: a rebuilt editor, its caret on the first line of the new deck\'s first slide',
+	).toBe(deckEditableOffset(buildDeckIndex(template), 0, 0));
 
 	await focusEditor(page);
 	// ONE press, not two, and this cost a vacuous oracle to learn. `Ctrl+Shift+Z` redoes while
@@ -1228,31 +1232,25 @@ test('an undo history does not cross decks WITHOUT a Compose detour', async ({ p
 // tests, all 16 oracles in this file, the lot. Unproven code reads exactly like proven code
 // from a test report, which is the failure this file exists to stop.
 //
-// THE MECHANISM. `lastSlideRef` is the editor's memory of which slide the caret was in, and it
-// lives on the COMPONENT, so a rebuild does not clear it. Park the caret in slide 2 of deck A
-// and it holds 1. Switch decks: the shell resets its own `activeSlide` to 0, but the ref still
-// says 1 — so moving the caret into slide 2 of the NEW deck reads `idx === lastSlideRef` and is
-// swallowed as "no change". The rail and preview sit on slide 1 while the caret is in slide 2.
-// On `main` this could not happen: the wholesale-replace branch set the ref to 0 itself. The
-// rebuild is what removed that, so it is this change's window to close (#18), not a pre-existing
-// one to log.
+// THE MECHANISM IT GUARDED. The editor used to remember which slide its caret was in
+// (`lastSlideRef`) and publish only on a change, so a deck switch that reset the shell but not
+// that memory swallowed the first caret move into the remembered index. Since Fuoco
+// (engineering/decisions/2026-10-15-fuoco-focus-sync.md) there is no such memory: the editor
+// reports every caret move to the focus hub and the hub compares against the focus. The test
+// stays, aimed at the same failure: slide 2 is still the index a stale memory would hold.
 test('the caret still drives the rail after a deck switch', async ({ page }) => {
-	// Park the caret in slide 2 of the boot deck. `revealSlide` sets `lastSlideRef` to 1 directly.
+	// Park the caret in slide 2 of the boot deck.
 	await railClick(page, 1);
 	await expect.poll(() => railState(page).then((r) => r.index), { message: 'witness: the rail followed the click to slide 2' }).toBe(1);
 
-	// Switch to another EXISTING multi-slide deck and do not type into it. `loadDeck` resets the
-	// shell's `activeSlide` but never calls `revealSlide`, so nothing but the re-statement under
-	// test clears the ref.
+	// Switch to another EXISTING multi-slide deck and do not type into it.
 	await openDeck(page, 'Q3 Board Review');
 	await expect.poll(() => railState(page).then((r) => r.count), { message: 'witness: the deck that opened has slides to move between' }).toBeGreaterThan(1);
 	await expect.poll(() => railState(page).then((r) => r.index), { message: 'witness: the new deck starts on its first slide' }).toBe(0);
 
-	// INTO SLIDE 2 SPECIFICALLY, because 1 is the value the stale ref holds. Two earlier versions
-	// of this test drove the caret to slide 1 and to the last slide and passed against a build
-	// with the re-statement DELETED — neither index collides with the stale one, so neither emit
-	// was swallowed. The defect is `idx === lastSlideRef` eating a real move; the only caret
-	// position that exposes it is the one the ref is stuck on.
+	// INTO SLIDE 2 SPECIFICALLY, because 1 is the value a stale memory would hold. Two earlier
+	// versions of this test drove the caret to slide 1 and to the last slide and passed against a
+	// broken build — neither index collides with the stale one.
 	const line = await slideStartLine(page, 1);
 	await caretIntoLine(page, line);
 	await expect

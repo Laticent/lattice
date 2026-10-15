@@ -86,12 +86,12 @@ test('jargon deck: every rail selection previews THAT slide', async ({ page }) =
 	expect(wrong, `${wrong.length} of ${authored.length} rail selections previewed the wrong slide:\n${wrong.join('\n')}`).toEqual([]);
 });
 
-/** The line `revealSlide` scrolls to: a slide's first line of actual CONTENT. Mirrors
- *  `slideEditableOffset` in docs/src/components/studio/lint.ts — skip blank lines and lone directive
+/** The line the editor's reveal scrolls to: a slide's first line of actual CONTENT. Mirrors
+ *  `deckEditableOffset` in docs/src/lib/deck-outline/deck-outline.ts — skip blank lines and lone directive
  *  comments (`<!-- _class: … -->` and siblings), fall back to the slide's first line when a slide is
  *  nothing but directives. Replicated rather than imported so the test states the contract
  *  independently of the module it checks — and unlike `splitSlides` above, this one IS still parity:
- *  `slideEditableOffset` walks past blank lines and lone directive comments with the same rule. */
+ *  `deckEditableOffset` walks past blank lines and lone directive comments with the same rule. */
 function editableLineOf(slide: string): string {
 	const isDirective = (l: string) => /^<!--(?:(?!-->).)*-->$/.test(l);
 	const lines = slide.split('\n').map((l) => l.trim());
@@ -101,7 +101,7 @@ function editableLineOf(slide: string): string {
 // THE REPORTED PAIR: rail selection vs what the EDITOR frames. The test above checks rail→preview,
 // which was already correct; the report was that the editor shows a DIFFERENT slide than the one
 // selected. `slideStartOffset` counted the front matter's closing `---` as separator #0, so
-// `revealSlide(k)` framed slide k-1 on every deck with front matter.
+// the editor's reveal of slide k framed slide k-1 on every deck with front matter.
 test('jargon deck: the editor frames the slide the rail selected', async ({ page }) => {
 	test.setTimeout(600_000);
 	const authored = splitSlides(stripFm(DECK));
@@ -114,10 +114,10 @@ test('jargon deck: the editor frames the slide the rail selected', async ({ page
 	// DOM selection came back empty (a rail click moves focus off the editor). "Slide i's first line is
 	// in the rendered DOM" PASSED with the bug reintroduced, because CodeMirror builds a margin of lines
 	// around the viewport — a one-slide error still leaves the target line in the DOM. So this measures
-	// the SCROLL POSITION, against the contract `revealSlide` ACTUALLY implements:
+	// the SCROLL POSITION, against the contract the editor's reveal (`revealFocus` in Editor.tsx) ACTUALLY implements:
 	//
 	//   `v.dispatch({ effects: EditorView.scrollIntoView(caret, { y: 'start', yMargin: 8 }) })`
-	//   where `caret = slideEditableOffset(doc, index)`
+	//   where `caret = deckEditableOffset(index, unit, part)` (Editor.tsx `revealFocus`)
 	//
 	// — TOP-ANCHOR the slide's first editable line, which is the line after its `<!-- _class: … -->`
 	// directive. So the discriminating measurement is that line's distance from the TOP of the
@@ -172,7 +172,7 @@ test('jargon deck: the editor frames the slide the rail selected', async ({ page
 				// neighbor, and reporting "" tells the reader nothing.
 				const atTopEl = lines.find((l) => l.getBoundingClientRect().bottom > s.top + 1 && (l.textContent ?? '').trim());
 				const atTopText = (atTopEl?.textContent ?? '').trim().slice(0, 60);
-				// THE CARET, not just the scroll. `revealSlide` has a two-part contract — frame the slide
+				// THE CARET, not just the scroll. the reveal has a two-part contract — frame the slide
 				// AND park the caret on its first editable line, so the next keystroke edits the slide you
 				// picked instead of corrupting its `_class` directive (#1288/#1291). Measuring only the
 				// scroll left that half unguarded at EVERY tier: pointing the selection at the raw slide
@@ -202,7 +202,7 @@ test('jargon deck: the editor frames the slide the rail selected', async ({ page
 		//
 		// Polling to success is safe HERE (unlike the caret→preview test below) because a rail click
 		// moves the editor to a slide it was not on, so the passing state is the one this click produces
-		// — not one that was already true beforehand. The one exception is the boundary: `revealSlide`'s
+		// — not one that was already true beforehand. The one exception is the boundary: the reveal's
 		// dispatch is synchronous but its SCROLL is not — CodeMirror ends `update` with
 		// `requestMeasure()`, which applies the scroll target inside a `requestAnimationFrame` callback
 		// one frame later. So a read taken before that frame sees the PREVIOUS slide's position, and for
@@ -246,7 +246,7 @@ test('jargon deck: the editor frames the slide the rail selected', async ({ page
 	}
 	// The caret half is only guarded where it could be READ. If the cursor layer never rendered, say so
 	// loudly rather than reporting a coverage level this run did not achieve.
-	expect(caretUnmeasured, `the caret could not be measured on rails ${caretUnmeasured.join(', ')} — the cursor layer did not render, so revealSlide's caret contract went unchecked`).toEqual([]);
+	expect(caretUnmeasured, `the caret could not be measured on rails ${caretUnmeasured.join(', ')} — the cursor layer did not render, so the reveal's caret contract went unchecked`).toEqual([]);
 	expect(wrong, `the editor framed the wrong slide:\n${wrong.join('\n')}`).toEqual([]);
 });
 

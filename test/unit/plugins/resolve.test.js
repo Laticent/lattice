@@ -19,7 +19,7 @@ const grammarHost = () => (host ??= require('../../../lib/plugins/host-grammar.m
 
 /** A minimal valid plugin: one inline rule on `trigger`, modules exporting exactly it. */
 function plugin(name, { requires, optional, token = `${name}_tok`, trigger = '@', kind = 'inline', anchor, diagnostics, exports } = {}) {
-  const syntax = { [token]: { kind, anchor: anchor || (kind === 'inline' ? { after: 'escape' } : { before: 'fence' }), triggers: [trigger] } };
+  const syntax = { [token]: { kind, anchor: anchor || (kind === 'inline' ? { after: 'escape' } : { before: 'fence' }), triggers: [trigger], ...(kind === 'block' ? { scansAhead: false } : {}) } };
   return {
     folder: name,
     manifest: {
@@ -81,6 +81,26 @@ describe('resolvePlugins — the manifest and the modules agree one-to-one', () 
   });
   test('syntax with no detect() fails', () => {
     expectError([plugin('a', { exports: { rules: ['a_tok'], renderers: ['a_tok'], detect: false } })], /exports no detect/);
+  });
+});
+
+describe('resolvePlugins — scansAhead', () => {
+  const block = (scansAhead) => {
+    const p = plugin('b', { kind: 'block' });
+    const rule = p.manifest.contributes.syntax.b_tok;
+    if (scansAhead === undefined) delete rule.scansAhead;
+    else rule.scansAhead = scansAhead;
+    return p;
+  };
+  test('a block rule must say whether it reads ahead', () => {
+    assert.match(resolvePlugins([block(undefined)]).errors.join('\n'), /must declare scansAhead/);
+  });
+  test('false and a valid pattern are both accepted', () => {
+    assert.deepEqual(resolvePlugins([block(false)]).errors, []);
+    assert.deepEqual(resolvePlugins([block('^\\$\\$')]).errors, []);
+  });
+  test('an invalid pattern is refused', () => {
+    assert.match(resolvePlugins([block('(')]).errors.join('\n'), /not a valid pattern/);
   });
 });
 
@@ -258,7 +278,7 @@ describe('host-grammar — install order and disabling', () => {
     const md = new MarkdownIt('commonmark');
     const before = (name, requires) => {
       const e = entry(name, requires);
-      e.syntax[`${name}_tok`] = { ...e.syntax[`${name}_tok`], kind: 'block', anchor: { before: 'fence' } };
+      e.syntax[`${name}_tok`] = { ...e.syntax[`${name}_tok`], kind: 'block', anchor: { before: 'fence' }, scansAhead: false };
       return e;
     };
     grammarHost().installGrammar(md, { grammar: [before('base'), before('dependent', ['base'])], kinds: ['block'] });

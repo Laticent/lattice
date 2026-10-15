@@ -66,7 +66,10 @@ async function slideFrames(page: import('@playwright/test').Page) {
 test('a preview frame never stacks two slides, and says so when it cannot show one (#1551)', async ({ page }) => {
 	await gotoStudio(page);
 	await setEditorContent(page, PASTED_BELOW_FRONT_MATTER);
-	await expect.poll(() => railButtons(page).count(), { timeout: 30_000 }).toBe(2);
+	// THREE rail pills: the rail counts RENDERED slides (Fuoco, #1570), and the pasted block's
+	// setext heading opens one more slide in the engine. The two authored chunks are what
+	// Present walks below.
+	await expect.poll(() => railButtons(page).count(), { timeout: 30_000 }).toBe(3);
 
 	// Typing leaves the caret at the end of the deck, so Present would otherwise open
 	// on the last slide — and slide 1 is the one that carries the stray block.

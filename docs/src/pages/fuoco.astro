@@ -1,0 +1,883 @@
+---
+// Fuoco — a standalone, framework-free showcase driven by the REAL library (docs/src/lib/fuoco,
+// the `@laticent/fuoco` workspace). One document, four independent views — an editor, an
+// outline, a rendered view and a minimap — that never call each other: each reports to one
+// focus hub and reacts to what it publishes. A domain switch re-runs the same four views over a
+// Markdown document, a timed transcript and a code file, each through the library's own
+// plain-text outliner, because the point is that the hub knows nothing about what a document
+// is. A live log and counters show every publication, its origin and cause, and what each lane
+// delivered. A guided storyboard walks the guarantees. Reached at /fuoco.
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+		<meta name="robots" content="noindex, nofollow" />
+		<title>Fuoco — one focus for every view</title>
+		<link rel="icon" href="/fuoco-mark-min.svg" type="image/svg+xml" />
+		<!-- Global (unscoped): the views, the log and the beats are built in JS at runtime, so
+		     Astro's element-scoped hashes would never match them. -->
+		<style is:global>
+			:root {
+				--paper: #f6f4ef; --stage: #ecefea; --ink: #1b2423; --muted: #5f6d6b; --line: #d6dedb;
+				--accent: #0e6b67; --accent-ink: #fff; --glow: #e2661c; --glow-ink: #b8490b; --glow-bg: #fbe7d8;
+				--panel: #fdfdfb; --soft: #e2efed; --ring: #06302e; --shadow: 0 1px 2px rgba(20,36,35,.06), 0 8px 24px rgba(20,36,35,.07);
+				--stage-serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
+				--sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+				--mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+				color-scheme: light;
+			}
+			@media (prefers-color-scheme: dark) {
+				:root:not([data-theme="light"]) {
+					--paper: #101313; --stage: #151a1a; --ink: #e3ebea; --muted: #93a3a1; --line: #263130;
+					--accent: #5cc6bc; --accent-ink: #062320; --glow: #ff9d57; --glow-ink: #ffb27c; --glow-bg: #33231a;
+					--panel: #131818; --soft: #183230; --ring: #0a201f; --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
+					color-scheme: dark;
+				}
+			}
+			:root[data-theme="dark"] {
+				--paper: #101313; --stage: #151a1a; --ink: #e3ebea; --muted: #93a3a1; --line: #263130;
+				--accent: #5cc6bc; --accent-ink: #062320; --glow: #ff9d57; --glow-ink: #ffb27c; --glow-bg: #33231a;
+				--panel: #131818; --soft: #183230; --ring: #0a201f; --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
+				color-scheme: dark;
+			}
+			* { box-sizing: border-box; }
+			body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--sans);
+				line-height: 1.5; -webkit-font-smoothing: antialiased; padding: clamp(16px, 4vw, 48px); }
+			.wrap { max-width: 1120px; margin: 0 auto; }
+			header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+			.brand { display: flex; align-items: center; gap: 13px; }
+			.brand .logo { width: 46px; height: 46px; flex-shrink: 0; }
+			.logo .t-pri { stroke: var(--accent); }
+			.logo .t-warm { stroke: var(--glow); }
+			.logo .t-hub { fill: var(--accent); }
+			.logo .t-halo { fill: var(--paper); }
+			.logo .t-ring { stroke: var(--ring); }
+			.home { color: var(--muted); text-decoration: none; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; }
+			.home:hover { color: var(--accent); }
+			.home svg, .theme svg { width: 12px; height: 12px; }
+			h1 { font-family: var(--stage-serif); font-size: clamp(28px, 5vw, 40px); font-weight: 600; margin: 0; letter-spacing: -.01em; }
+			h2 { font-family: var(--stage-serif); font-size: 21px; font-weight: 600; margin: 0; }
+			.tag { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--accent);
+				border: 1px solid var(--accent); padding: 3px 8px; border-radius: 999px; font-weight: 600; white-space: nowrap; }
+			.sub { color: var(--muted); font-size: 15px; max-width: 74ch; margin: 10px 0 0; }
+			.sub b { color: var(--ink); font-weight: 600; }
+			.theme { background: none; border: 1px solid var(--line); color: var(--muted); border-radius: 999px; font-size: 11px;
+				padding: 5px 11px; cursor: pointer; font-family: var(--sans); display: inline-flex; align-items: center; gap: 6px; }
+			.theme:hover { color: var(--accent); border-color: var(--accent); }
+			section.block { margin-top: 34px; }
+			.block-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+			.block-head p { margin: 4px 0 0; color: var(--muted); font-size: 13.5px; max-width: 70ch; }
+
+			/* ── The stage ───────────────────────────────────────────────────── */
+			.stage { margin-top: 22px; background: var(--stage); border: 1px solid var(--line); border-radius: 18px;
+				box-shadow: var(--shadow); padding: clamp(12px, 2.4vw, 22px); }
+			.toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+			.toolbar .group { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+			.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; background: var(--panel); padding: 3px; gap: 2px; }
+			.seg button { border: 0; background: none; color: var(--muted); font-family: var(--sans); font-size: 12.5px; font-weight: 600;
+				border-radius: 999px; padding: 6px 12px; cursor: pointer; white-space: nowrap; }
+			.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+			.btn { border: 1px solid var(--line); background: var(--panel); color: var(--ink); font-family: var(--sans);
+				font-size: 12.5px; font-weight: 600; border-radius: 999px; padding: 7px 13px; cursor: pointer; white-space: nowrap;
+				display: inline-flex; align-items: center; gap: 6px; transition: transform .08s ease, border-color .12s ease; }
+			.btn:hover { transform: translateY(-1px); border-color: var(--accent); }
+			.btn.icon { padding: 7px 11px; }
+			.btn svg { width: 12px; height: 12px; }
+			.views { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); grid-template-rows: auto auto; gap: 12px; }
+			.view { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
+			.view-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+			.view-head .name { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); font-weight: 700; display: inline-flex; gap: 7px; align-items: center; }
+			.view-head .name i { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); display: inline-block; transition: background .15s ease, transform .15s ease; }
+			.view-head .name i.lit { background: var(--glow); transform: scale(1.5); }
+			.view-head .meta { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+			.v-editor { grid-row: span 2; }
+			textarea#src { flex: 1; min-height: 430px; width: 100%; resize: none; border: 0; background: transparent; color: var(--ink);
+				font-family: var(--mono); font-size: 13px; line-height: 20px; padding: 12px 14px; tab-size: 2; white-space: pre; overflow: auto; }
+			textarea#src:focus { outline: none; box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 55%, transparent); }
+			@media (pointer: coarse) { textarea, input { font-size: max(16px, 1em); } }
+			.outline { list-style: none; margin: 0; padding: 8px; overflow: auto; max-height: 190px; display: flex; flex-direction: column; gap: 2px; }
+			.outline button { width: 100%; text-align: left; border: 0; background: none; color: var(--ink); font-family: var(--sans);
+				font-size: 13px; padding: 4px 8px; border-radius: 7px; cursor: pointer; display: flex; gap: 8px; align-items: baseline; }
+			.outline button .n { font-family: var(--mono); font-size: 11px; color: var(--muted); min-width: 22px; }
+			.outline button.part { padding-left: 32px; color: var(--muted); }
+			.outline button:hover { background: var(--soft); }
+			.outline button[aria-current="true"] { background: var(--accent); color: var(--accent-ink); }
+			.outline button[aria-current="true"] .n { color: var(--accent-ink); }
+			.render { padding: 14px 18px 12px; min-height: 196px; overflow: auto; font-size: 14px; position: relative; }
+			.render [data-s] { border-radius: 6px; cursor: pointer; transition: background .12s ease, box-shadow .12s ease; margin: 0; padding: 2px 6px; }
+			.render [data-s]:hover { background: var(--soft); }
+			.render [data-s].caret { box-shadow: inset 3px 0 0 var(--glow); }
+			.render [data-s].picked { background: var(--glow-bg); box-shadow: 0 0 0 1.5px var(--glow); }
+			.render .dim { opacity: .38; }
+			.render h3 { font-family: var(--stage-serif); font-size: 20px; margin: 0 0 6px; font-weight: 600; }
+			.render h4 { font-family: var(--stage-serif); font-size: 16px; margin: 10px 0 4px; font-weight: 600; color: var(--accent); }
+			.render p { margin: 2px 0; }
+			.render pre { font-family: var(--mono); font-size: 12px; background: var(--stage); padding: 8px 10px !important; overflow: auto; }
+			.render .cue { font-family: var(--stage-serif); font-size: 19px; line-height: 1.4; }
+			.render .cue .t { font-family: var(--mono); font-size: 12px; color: var(--glow-ink); display: block; margin-bottom: 4px; }
+			.render .timeline { display: flex; gap: 4px; margin-top: 16px; }
+			.render .timeline span { height: 6px; flex: 1; border-radius: 3px; background: var(--line); }
+			.render .timeline span.on { background: var(--glow); }
+			.render .code { font-family: var(--mono); font-size: 12.5px; line-height: 1.7; white-space: pre; }
+			.render .code .ln { color: var(--muted); display: inline-block; width: 26px; user-select: none; }
+			.pager { display: flex; justify-content: center; gap: 6px; padding: 6px 0 10px; min-height: 22px; }
+			.pager span { width: 7px; height: 7px; border-radius: 50%; background: var(--line); }
+			.pager span.on { background: var(--glow); }
+			.minimap { display: flex; flex-wrap: wrap; gap: 6px; padding: 12px; align-items: center; }
+			.minimap button { width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel);
+				font-family: var(--mono); font-size: 11px; color: var(--muted); cursor: pointer; }
+			.minimap button.first { border-left: 3px solid var(--accent); }
+			.minimap button[aria-current="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+			@media (max-width: 860px) {
+				.views { grid-template-columns: minmax(0, 1fr); }
+				.v-editor { grid-row: auto; }
+				textarea#src { min-height: 220px; }
+				/* Stacked, the preview sits right under the editor so both are on screen together. */
+				.v-preview { order: 1; }
+				.v-outline { order: 2; }
+				.outline { max-height: 160px; }
+			}
+
+			/* ── The wire: what the hub published, and who heard it ────────────── */
+			.wire { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 12px; margin-top: 12px; }
+			
+			.log { list-style: none; margin: 0; padding: 8px 10px; font-family: var(--mono); font-size: 12px; min-height: 196px; max-height: 196px; overflow: hidden; }
+			@media (max-width: 860px) {
+				.wire { grid-template-columns: minmax(0, 1fr); }
+				.log { min-height: 0; max-height: 150px; }
+				.wire .view-head .meta { display: none; }
+			}
+			.log li { display: grid; grid-template-columns: 38px 76px 64px 1fr; gap: 8px; padding: 3px 4px; border-radius: 6px; white-space: nowrap; }
+			.log li:first-child { background: var(--soft); }
+			.log .seq { color: var(--muted); }
+			.log .org { color: var(--accent); font-weight: 700; overflow: hidden; text-overflow: ellipsis; }
+			.log .cause { color: var(--glow-ink); }
+			.log .where { color: var(--ink); overflow: hidden; text-overflow: ellipsis; }
+			.log li.drop .cause, .log li.drop .where { color: var(--muted); text-decoration: line-through; }
+			.stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; padding: 10px; }
+			.stat { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
+			.stat .k { font-size: 11px; color: var(--muted); display: block; }
+			.stat .v { font-family: var(--mono); font-size: 18px; font-weight: 700; }
+			.stat.hot .v { color: var(--glow-ink); }
+			.diag { margin: 10px 2px 0; font-size: 13px; color: var(--muted); min-height: 20px; }
+			.diag b { color: var(--ink); }
+
+			/* ── Storyboard ───────────────────────────────────────────────────── */
+			.beats { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
+			.beat { text-align: left; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); padding: 14px 15px;
+				cursor: pointer; display: flex; gap: 12px; align-items: flex-start; transition: border-color .12s ease, transform .08s ease; font-family: var(--sans); color: var(--ink); }
+			.beat:hover { transform: translateY(-2px); border-color: var(--accent); }
+			.beat[aria-current="true"] { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 16%, transparent); }
+			.beat .n { flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%; background: var(--stage); border: 1px solid var(--line);
+				color: var(--accent); font-family: var(--mono); font-size: 12px; font-weight: 700; display: grid; place-items: center; }
+			.beat[aria-current="true"] .n { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+			.beat .bt { display: block; font-size: 14px; font-weight: 600; margin: 0 0 2px; }
+			.beat .bd { font-size: 12.5px; color: var(--muted); margin: 0 0 4px; line-height: 1.45; }
+			.beat .api { font-family: var(--mono); font-size: 11px; color: var(--accent); overflow-wrap: anywhere; }
+
+			/* ── Reference sections ───────────────────────────────────────────── */
+			.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; }
+			.card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
+			.card h3 { font-size: 14.5px; margin: 0 0 4px; }
+			.card p { margin: 0; color: var(--muted); font-size: 13px; }
+			.card code { font-family: var(--mono); font-size: 12px; color: var(--accent); }
+			.code-tabs { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
+			pre.snippet { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px;
+				font-family: var(--mono); font-size: 12.5px; line-height: 1.65; overflow: auto; color: var(--ink); }
+			pre.snippet .c { color: var(--muted); }
+			pre.snippet .k { color: var(--accent); font-weight: 600; }
+			pre.snippet .s { color: var(--glow-ink); }
+			table { width: 100%; border-collapse: collapse; font-size: 13px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+			th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+			th { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+			td.num { font-family: var(--mono); white-space: nowrap; }
+			td.win { color: var(--accent); font-weight: 700; }
+			.table-wrap { overflow-x: auto; border-radius: 14px; }
+			.note { color: var(--muted); font-size: 12.5px; margin: 8px 2px 0; }
+			.foot { margin-top: 34px; color: var(--muted); font-size: 12px; line-height: 1.7; border-top: 1px solid var(--line); padding-top: 16px; }
+			.foot code { overflow-wrap: anywhere; font-family: var(--mono); background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
+			.foot a { color: var(--accent); }
+			:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+			@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+		</style>
+	</head>
+	<body>
+		<div class="wrap">
+			<header>
+				<div class="brand">
+					<!-- The mark, inline so it follows this page's theme toggle as well as the OS
+					     (docs/public/fuoco-mark.svg is the same geometry): a viewfinder's focus
+					     brackets around the family's ringed hub, the focused line either side. -->
+					<svg class="logo" viewBox="0 0 128 128" fill="none" aria-hidden="true">
+						<g stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round">
+							<path class="t-pri" d="M14 38 L14 14 L38 14" /><path class="t-pri" d="M90 14 L114 14 L114 38" />
+							<path class="t-pri" d="M114 90 L114 114 L90 114" /><path class="t-pri" d="M38 114 L14 114 L14 90" />
+						</g>
+						<g stroke-width="7.3" stroke-linecap="round"><path class="t-warm" d="M26 64 L44 64" /><path class="t-warm" d="M84 64 L102 64" /></g>
+						<circle cx="64" cy="64" r="15" class="t-halo" /><circle cx="64" cy="64" r="12.2" class="t-hub" />
+						<circle cx="64" cy="64" r="7.6" class="t-ring" stroke-width="1.8" opacity="0.6" />
+					</svg>
+					<h1>Fuoco</h1><span class="tag">focus sync</span>
+				</div>
+				<div style="display:flex; gap:14px; align-items:center;">
+					<a class="home" href="/"><svg viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M7.5 2.5 L4 6 L7.5 9.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" /></svg>Lattice</a>
+					<button class="theme" id="themeBtn" type="button"><svg viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="4.8" fill="none" stroke="currentColor" stroke-width="1.3" /><path d="M6 1.2 A4.8 4.8 0 0 1 6 10.8 Z" fill="currentColor" /></svg>theme</button>
+				</div>
+			</header>
+			<p class="sub">An editor, an outline, a preview and a minimap are four views of one document, and each needs to know <b>where the reader is</b>. Wire them to each other and every new view multiplies the echo loops. Fuoco gives them <b>one focus hub</b> instead: views report facts, ask for moves, and hear only the changes they care about. Everything below is the <b>real library</b>, with no framework, on any kind of text.</p>
+
+			<div class="stage">
+				<div class="toolbar">
+					<div class="group">
+						<div class="seg" id="domainSeg" role="group" aria-label="Document">
+							<button type="button" data-d="doc" aria-pressed="true">Markdown doc</button>
+							<button type="button" data-d="transcript" aria-pressed="false">Transcript</button>
+							<button type="button" data-d="code" aria-pressed="false">Code file</button>
+						</div>
+						<div class="seg" id="pageSeg" role="group" aria-label="Preview pages">
+							<button type="button" data-p="off" aria-pressed="true">One page</button>
+							<button type="button" data-p="on" aria-pressed="false">Paginate</button>
+						</div>
+					</div>
+					<div class="group">
+						<button class="btn icon" type="button" id="prevBtn" aria-label="Previous (step)"><svg viewBox="0 0 12 12" fill="none"><path d="M7.5 2.5 L4 6 L7.5 9.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" /></svg></button>
+						<button class="btn icon" type="button" id="nextBtn" aria-label="Next (step)"><svg viewBox="0 0 12 12" fill="none"><path d="M4.5 2.5 L8 6 L4.5 9.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" /></svg></button>
+						<button class="btn" type="button" id="insertBtn">Insert &amp; go</button>
+						<button class="btn" type="button" id="lateBtn">Late report</button>
+						<button class="btn" type="button" id="burstBtn">Held key</button>
+					</div>
+				</div>
+				<div class="views">
+					<div class="view v-editor">
+						<div class="view-head"><span class="name"><i data-for="editor"></i>Editor</span><span class="meta" id="editorMeta"></span></div>
+						<textarea id="src" spellcheck="false" wrap="off" aria-label="Document source"></textarea>
+					</div>
+					<div class="view v-outline">
+						<div class="view-head"><span class="name"><i data-for="outline"></i>Outline</span><span class="meta" id="outlineMeta"></span></div>
+						<ul class="outline" id="outline" aria-label="Outline"></ul>
+					</div>
+					<div class="view v-preview">
+						<div class="view-head"><span class="name"><i data-for="preview"></i>Preview</span><span class="meta" id="previewMeta"></span></div>
+						<div class="render" id="preview" aria-live="off"></div>
+						<div class="pager" id="pager" aria-hidden="true"></div>
+					</div>
+				</div>
+				<div class="wire">
+					<div class="view">
+						<div class="view-head"><span class="name">The hub, publishing</span><span class="meta">seq · origin · cause · where</span></div>
+						<ol class="log" id="log" aria-label="Publications"></ol>
+					</div>
+					<div class="view">
+						<div class="view-head"><span class="name"><i data-for="minimap"></i>Minimap</span><span class="meta" id="mapMeta"></span></div>
+						<div class="minimap" id="minimap" aria-label="Minimap"></div>
+						<div class="stats" id="stats"></div>
+					</div>
+				</div>
+				<p class="diag" id="diag" role="status" aria-live="polite">Click anywhere in the editor, the outline, the preview or the minimap. The other three follow.</p>
+			</div>
+
+			<section class="block" aria-labelledby="sb">
+				<div class="block-head">
+					<div><h2 id="sb">The storyboard</h2><p>Each beat drives the stage above through the public API it names.</p></div>
+					<button class="btn" type="button" id="tourBtn">Play all seven</button>
+				</div>
+				<div class="beats" id="beats"></div>
+			</section>
+
+			<section class="block" aria-labelledby="use">
+				<div class="block-head"><div><h2 id="use">Use it</h2><p>One hub per document. Each view reports facts, asks for moves, and subscribes to what it shows.</p></div></div>
+				<div class="code-tabs seg" id="codeSeg" role="group" aria-label="Example">
+					<button type="button" data-tab="vanilla" aria-pressed="true">Any framework</button>
+					<button type="button" data-tab="react" aria-pressed="false">React</button>
+					<button type="button" data-tab="outliner" aria-pressed="false">Your own outliner</button>
+				</div>
+				<pre class="snippet" id="snippet-vanilla"None set:html={`<span class="k">import</span> { createFocusHub, createTextOutliner, byHeadings, revealOffset } <span class="k">from</span> <span class="s">'@laticent/fuoco'</span>;
+
+<span class="c">// One hub per document. The outliner says what a unit and a part are: here, # and ##.</span>
+<span class="k">const</span> hub = createFocusHub({ outliner: createTextOutliner(byHeadings({ unit: 1, part: 2 })) });
+
+<span class="c">// The editor reports what it knows: its text, and its caret.</span>
+editor.onChange((text, span) => hub.update(text, { span, by: <span class="s">'editor'</span> }));
+editor.onCaret((head, line) => hub.report(<span class="s">'editor'</span>, { head, line }));
+
+<span class="c">// …and moves when someone else navigates. It never hears its own moves.</span>
+hub.subscribe((f) => f, (f) => {
+  <span class="k">if</span> (f.cause === <span class="s">'nav'</span> || f.cause === <span class="s">'pick'</span>) editor.reveal(revealOffset(hub.outline(), f), f.grab);
+}, { ignoreOrigin: <span class="s">'editor'</span>, equals: (a, b) => a.seq === b.seq });
+
+<span class="c">// The outline asks for moves, and redraws only when the focused part changes, once a frame.</span>
+outline.onPick((unitIndex, part) => hub.go(<span class="s">'outline'</span>, { unitIndex, part, grab: <span class="k">true</span> }));
+hub.subscribe((f) => f.flat, (flat) => outline.highlight(flat), { lane: <span class="s">'frame'</span> });
+
+<span class="c">// Keys page through a paginated preview first, then parts, then units.</span>
+addEventListener(<span class="s">'keydown'</span>, (e) => e.key === <span class="s">'ArrowRight'</span> && hub.step(<span class="s">'keys'</span>, <span class="s">'next'</span>));`} />
+				<pre class="snippet" id="snippet-react" hidden set:html={`<span class="k">import</span> { useFocus } <span class="k">from</span> <span class="s">'@laticent/fuoco/react'</span>;
+
+<span class="c">// A component re-renders only when the value it selects changes: a caret moving along a</span>
+<span class="c">// line does not re-render the rail, only a change of part does.</span>
+<span class="k">function</span> Rail({ hub, parts }) {
+  <span class="k">const</span> flat = useFocus(hub, (f) => f.flat);
+  <span class="k">return</span> parts.map((p, i) => (
+    &lt;button aria-current={i === flat} onClick={() => hub.go(<span class="s">'rail'</span>, { flat: i, grab: <span class="k">true</span> })}&gt;{p.title}&lt;/button&gt;
+  ));
+}
+
+<span class="c">// Feeding the hub during render? Say so, and a focus the edit moves reaches React after it.</span>
+<span class="k">const</span> outline = useMemo(() => (hub.update(text, { by: <span class="s">'app'</span>, duringRender: <span class="k">true</span> }), hub.outline()), [text]);`} />
+				<pre class="snippet" id="snippet-outliner" hidden set:html={`<span class="k">import</span> { type Outliner, type Outline, nextRevision, carryIds, partBaseOf, diffSpan } <span class="k">from</span> <span class="s">'@laticent/fuoco'</span>;
+
+<span class="c">// Any document model: slides, cells, chapters, cues, functions. An outliner turns text into units</span>
+<span class="c">// (with stable ids) and parts, and returns the SAME outline for the same text.</span>
+<span class="k">const</span> notebook: Outliner = {
+  update(prev, text, opts) {
+    <span class="k">if</span> (prev?.source === text) <span class="k">return</span> prev;
+    <span class="k">const</span> cells = parseCells(text);                       <span class="c">// your parser: [{ from, start, end, parts }]</span>
+    <span class="k">const</span> span = prev ? (opts?.span ?? diffSpan(prev.source, text)) : <span class="k">null</span>;
+    <span class="k">const</span> ids = carryIds(prev, cells, text.length, span);  <span class="c">// ids survive edits</span>
+    <span class="k">const</span> units = cells.map((c, i) => ({ ...c, id: ids[i] }));
+    <span class="k">return</span> { rev: nextRevision(), source: text, units, partBase: partBaseOf(units) };
+  },
+};
+
+<span class="c">// Lattice's own slide outliner is one of these: it re-parses only the slides an edit touched.</span>`} />
+			</section>
+
+			<section class="block" aria-labelledby="why">
+				<div class="block-head"><div><h2 id="why">The guarantees</h2><p>Every one of these used to be a hand-written guard in the Lattice Studio, and every guard went stale at least once.</p></div></div>
+				<div class="cards">
+					<div class="card"><h3>No echoes</h3><p>Each publication names its <code>origin</code>. A view that subscribes with <code>ignoreOrigin</code> never hears its own move, and a reveal it makes is reported <code>quiet</code>, so it agrees and publishes nothing.</p></div>
+					<div class="card"><h3>No stale answers</h3><p>A report carries the outline <code>rev</code> it was computed against. One that arrives after the text changed is dropped, never applied to the wrong text.</p></div>
+					<div class="card"><h3>No re-entry</h3><p>A view that publishes while it is being told about a change is queued until the delivery ends, so nothing recurses and everyone hears the same order.</p></div>
+					<div class="card"><h3>No timers</h3><p>"Insert a slide, then go to it" waits for exactly that text with <code>go(…, {'{'} after {'}'})</code>, not for a frame or a timeout that is sometimes too short.</p></div>
+					<div class="card"><h3>Three lanes</h3><p><code>sync</code> for state, <code>frame</code> for DOM work (a held key that crosses three parts in one frame moves a view once), <code>idle</code> for saving and presence.</p></div>
+					<div class="card"><h3>Stable ids</h3><p>Units keep their id through edits, so a list keyed by id does not remount when you type, and a duplicate never answers for its original.</p></div>
+				</div>
+			</section>
+
+			<section class="block" aria-labelledby="measured">
+				<div class="block-head"><div><h2 id="measured">Measured in the Lattice Studio</h2><p>Same machine, same time, production builds side by side, a 123-slide deck, two runs averaged. Event Timing is the browser's own input-to-paint duration; about 16 ms is the floor.</p></div></div>
+				<div class="table-wrap">
+					<table>
+						<thead><tr><th>Interaction</th><th>Before</th><th>With Fuoco</th></tr></thead>
+						<tbody>
+							<tr><td>Arrow key along a line</td><td class="num">24 ms</td><td class="num win">16 ms</td></tr>
+							<tr><td>Slide change → rail</td><td class="num">25 ms</td><td class="num win">15 ms</td></tr>
+							<tr><td>Slide change → preview</td><td class="num">49 ms</td><td class="num win">36 ms</td></tr>
+							<tr><td>Rail click</td><td class="num">76 ms</td><td class="num win">48 ms</td></tr>
+							<tr><td>Typing, per key</td><td class="num">72 ms</td><td class="num win">60 ms</td></tr>
+							<tr><td>Long tasks over 35 keys</td><td class="num">966 ms</td><td class="num win">405 ms</td></tr>
+							<tr><td>Which slide is this? (index, per keystroke, 960 slides)</td><td class="num">14.7 ms</td><td class="num win">0.29 ms</td></tr>
+						</tbody>
+					</table>
+				</div>
+				<p class="note">Reproduce with <code>tools/studio-sync-bench.mjs</code>; the method and the full table are in the decision note.</p>
+			</section>
+
+			<section class="block" aria-labelledby="fits">
+				<div class="block-head"><div><h2 id="fits">Where it fits</h2><p>Anywhere more than one view shows one document and the reader expects them to agree.</p></div></div>
+				<div class="cards">
+					<div class="card"><h3>Editor + preview</h3><p>Markdown, LaTeX, slides: the caret drives the preview, a click in the preview selects the source.</p></div>
+					<div class="card"><h3>Outlines and tables of contents</h3><p>Docs sites, books and notes, where a long page and its outline must point at the same heading.</p></div>
+					<div class="card"><h3>Media and transcripts</h3><p>A player, a transcript and a chapter list, units as timed cues, paging as scrubbing.</p></div>
+					<div class="card"><h3>Code tools</h3><p>A file, its symbol outline, a minimap and a call graph, units as functions and classes.</p></div>
+					<div class="card"><h3>Collaboration</h3><p>A collaborator's cursor is one more origin: follow them, or not, with nothing new to wire.</p></div>
+					<div class="card"><h3>Notebooks</h3><p>Cells as units, outputs as rendered parts, a run log as one more view of where you are.</p></div>
+				</div>
+			</section>
+
+			<p class="foot">
+				<b>@laticent/fuoco</b> · source <code>docs/src/lib/fuoco</code> · zero dependencies, React optional ·
+				<code>createFocusHub({'{'} outliner {'}'})</code> · <code>hub.update(text, {'{'} span {'}'})</code> ·
+				<code>hub.report(origin, {'{'} head {'}'})</code> · <code>hub.go(origin, target, {'{'} after {'}'})</code> ·
+				<code>hub.step(origin, 'next')</code> · <code>hub.pick(origin, element)</code> ·
+				<code>hub.subscribe(select, listener, {'{'} lane, ignoreOrigin {'}'})</code> · <code>useFocus(hub, select)</code> ·
+				<a href="https://github.com/Laticent/lattice/tree/main/docs/src/lib/fuoco#readme">Read the README</a>
+			</p>
+		</div>
+
+		<script>
+			import { byHeadings, byPattern, createFocusHub, createTextOutliner, type Focus, type FocusHub, type Outline, type Outliner, partCount, revealOffset } from '@/lib/fuoco';
+
+			const $ = <T extends Element = HTMLElement>(s: string) => document.querySelector(s) as T;
+			const root = document.documentElement;
+			const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] as string);
+
+			// ── Theme (the key the docs site uses; `system` follows the OS) ──
+			const THEME_LS = 'lattice-docs-mode';
+			const osDark = () => matchMedia('(prefers-color-scheme: dark)').matches;
+			const applyTheme = (t: string | null) => { if (t === 'light' || t === 'dark') root.setAttribute('data-theme', t); else root.removeAttribute('data-theme'); };
+			try { const t = localStorage.getItem(THEME_LS); applyTheme(t === 'light' || t === 'dark' ? t : osDark() ? 'dark' : 'light'); } catch { /* storage blocked */ }
+			$('#themeBtn').addEventListener('click', () => {
+				const cur = root.getAttribute('data-theme') || (osDark() ? 'dark' : 'light');
+				const next = cur === 'dark' ? 'light' : 'dark';
+				applyTheme(next);
+				try { localStorage.setItem(THEME_LS, next); } catch { /* storage blocked */ }
+			});
+
+			// ── Three documents, three outliners — the hub is the same for all of them ──
+			const DOC = `# Fuoco
+
+One focus for every view of a document.
+
+## The problem
+
+An editor, an outline and a preview each need to know where the reader is.
+
+## The idea
+
+Views report facts and ask for moves. The hub decides, and tells the others.
+
+# Using it
+
+Create one hub per document, with an outliner that says what a unit is.
+
+## Report
+
+The editor reports its text and its caret, nothing more.
+
+## Subscribe
+
+Each view selects what it shows, and a lane to hear it on.
+
+## Navigate
+
+An outline click is a move: \`hub.go('outline', target)\`.
+
+# Guarantees
+
+No echoes, no stale answers, no re-entry, no timers.
+
+## Origins
+
+A view never hears its own moves.
+
+## Revisions
+
+A report against older text is dropped.
+`;
+			const TRANSCRIPT = `[00:00] Welcome back. Today: why views drift apart.
+[00:14] Every editor ends up with a preview, a rail, an outline.
+[00:31] Each one tracks where the reader is, on its own.
+[00:52] And each keeps a little memory of what it last told the others.
+[01:10] Those memories go stale, and the views stop agreeing.
+[01:33] The fix is one place that holds the focus.
+[01:55] Views report what they know, and ask for moves.
+[02:20] The hub answers, once, and everyone hears it.
+`;
+			const CODE = `import { createFocusHub } from '@laticent/fuoco';
+
+export function mountEditor(hub, el) {
+  el.addEventListener('input', () => hub.update(el.value, { by: 'editor' }));
+  el.addEventListener('keyup', () => report(hub, el));
+}
+
+function report(hub, el) {
+  hub.report('editor', { head: el.selectionStart });
+}
+
+export function mountOutline(hub, list) {
+  hub.subscribe((f) => f.flat, (flat) => highlight(list, flat), { lane: 'frame' });
+}
+
+function highlight(list, flat) {
+  list.querySelectorAll('li').forEach((li, i) => li.classList.toggle('on', i === flat));
+}
+
+export class Minimap {
+  constructor(hub, canvas) {
+    this.hub = hub;
+    this.canvas = canvas;
+  }
+
+  draw(outline) {
+    this.canvas.width = outline.units.length * 12;
+  }
+}
+`;
+			type Domain = { outliner: Outliner; text: string; unitWord: string; partWord: string };
+			const DOMAINS: Record<string, Domain> = {
+				doc: { outliner: createTextOutliner(byHeadings({ unit: 1, part: 2 })), text: DOC, unitWord: 'section', partWord: 'heading' },
+				transcript: { outliner: createTextOutliner({ units: byPattern(/^\[\d\d:\d\d\]/) }), text: TRANSCRIPT, unitWord: 'cue', partWord: 'cue' },
+				code: { outliner: createTextOutliner({ units: byPattern(/^(export )?(async )?(function|class) /), parts: byPattern(/^ {2}[a-zA-Z]\w*\(.*\) \{$/) }), text: CODE, unitWord: 'symbol', partWord: 'member' },
+			};
+
+			// ── The stage's state: which document, whether the preview paginates ──
+			let domainKey = 'doc';
+			let paginate = false;
+			let hub: FocusHub;
+			let unsubs: Array<() => void> = [];
+			const counts = { previewRenders: 0, outlineRenders: 0, editorReveals: 0 };
+			const srcEl = $<HTMLTextAreaElement>('#src');
+			const outlineEl = $('#outline'), previewEl = $('#preview'), pagerEl = $('#pager'), minimapEl = $('#minimap');
+			const logEl = $('#log'), statsEl = $('#stats'), diagEl = $('#diag');
+
+			const flash = (view: string) => {
+				const dot = document.querySelector<HTMLElement>(`i[data-for="${view}"]`);
+				if (!dot) return;
+				dot.classList.add('lit');
+				setTimeout(() => dot.classList.remove('lit'), 260);
+			};
+			const say = (html: string) => { diagEl.innerHTML = html; };
+			const titleOf = (o: Outline, u: number, k = 0) => {
+				const a = k === 0 ? o.units[u].start : o.units[u].from + o.units[u].parts[k];
+				const line = o.source.slice(a, o.source.indexOf('\n', a) < 0 ? undefined : o.source.indexOf('\n', a));
+				return line.replace(/^#+\s*/, '').replace(/^(export )?(async )?(function|class)\s+/, '').replace(/\s*[{(].*$/, '').trim() || '…';
+			};
+
+			// ── View 1: the editor (a plain textarea; a CodeMirror host would pass its change span) ──
+			let lastRevealSel: [number, number] | null = null;
+			function reportCaret() {
+				const head = srcEl.selectionDirection === 'backward' ? srcEl.selectionStart : srcEl.selectionEnd;
+				const anchor = srcEl.selectionDirection === 'backward' ? srcEl.selectionEnd : srcEl.selectionStart;
+				const text = srcEl.value;
+				const ls = text.lastIndexOf('\n', head - 1) + 1;
+				const le = text.indexOf('\n', head);
+				// The caret move a reveal made agrees with the focus that asked for it: say so (quiet),
+				// and the hub keeps the page navigation chose instead of following the caret.
+				// It stays quiet until the selection moves away: a textarea fires `select` and `focus`
+				// after the reveal too, and each of those reports the same, agreeing caret.
+				const quiet = !!lastRevealSel && lastRevealSel[0] === srcEl.selectionStart && lastRevealSel[1] === srcEl.selectionEnd;
+				if (!quiet) lastRevealSel = null;
+				hub.report('editor', { head, anchor, line: text.slice(ls, le < 0 ? undefined : le), quiet });
+				$('#editorMeta').textContent = `caret ${head}`;
+			}
+			function revealInEditor(f: Focus) {
+				const o = hub.outline();
+				if (!o || f.unitIndex < 0) return;
+				const a = f.cause === 'pick' && f.anchor !== null ? f.anchor : revealOffset(o, f);
+				const b = f.cause === 'pick' && f.head !== null ? f.head : a;
+				srcEl.setSelectionRange(Math.min(a, b), Math.max(a, b));
+				lastRevealSel = [srcEl.selectionStart, srcEl.selectionEnd];
+				const lh = parseFloat(getComputedStyle(srcEl).lineHeight) || 20;
+				const line = srcEl.value.slice(0, a).split('\n').length - 1;
+				srcEl.scrollTop = Math.max(0, line * lh - 2 * lh);
+				if (f.grab && matchMedia('(pointer: fine)').matches) srcEl.focus({ preventScroll: true });
+				counts.editorReveals++;
+				flash('editor');
+				reportCaret();
+			}
+			srcEl.addEventListener('input', () => {
+				hub.update(srcEl.value, { by: 'editor' });
+				reportCaret();
+				renderStructure();
+			});
+			for (const ev of ['keyup', 'click', 'select', 'focus']) srcEl.addEventListener(ev, () => reportCaret());
+
+			// ── View 2: the outline (units, with their parts nested) ──
+			function renderStructure() {
+				const o = hub.outline();
+				if (!o) return;
+				const f = hub.get();
+				let n = 0;
+				outlineEl.innerHTML = o.units
+					.map((u, i) =>
+						u.parts
+							.map((_, k) => {
+								n++;
+								const cur = f.unitIndex === i && f.part === k;
+								return `<li><button type="button" class="${k ? 'part' : 'unit'}" data-u="${i}" data-k="${k}" aria-current="${cur}"><span class="n">${n}</span>${esc(titleOf(o, i, k))}</button></li>`;
+							})
+							.join(''),
+					)
+					.join('');
+				$('#outlineMeta').textContent = `${o.units.length} ${DOMAINS[domainKey].unitWord}s · ${partCount(o)} parts`;
+				minimapEl.innerHTML = o.units
+					.map((u, i) => u.parts.map((_, k) => `<button type="button" class="${k ? '' : 'first'}" data-u="${i}" data-k="${k}" aria-label="Part ${o.partBase[i] + k + 1}" aria-current="${f.unitIndex === i && f.part === k}">${o.partBase[i] + k + 1}</button>`).join(''))
+					.join('');
+				$('#mapMeta').textContent = `rev ${o.rev}`;
+				counts.outlineRenders++;
+			}
+			function markCurrent(f: Focus) {
+				for (const el of [...outlineEl.querySelectorAll<HTMLElement>('button'), ...minimapEl.querySelectorAll<HTMLElement>('button')]) {
+					el.setAttribute('aria-current', String(Number(el.dataset.u) === f.unitIndex && Number(el.dataset.k) === f.part));
+				}
+				outlineEl.querySelector<HTMLElement>('[aria-current="true"]')?.scrollIntoView({ block: 'nearest' });
+			}
+			outlineEl.addEventListener('click', (e) => {
+				const b = (e.target as HTMLElement).closest<HTMLElement>('button');
+				if (b) hub.go('outline', { unitIndex: Number(b.dataset.u), part: Number(b.dataset.k), grab: false });
+			});
+			minimapEl.addEventListener('click', (e) => {
+				const b = (e.target as HTMLElement).closest<HTMLElement>('button');
+				if (b) hub.go('minimap', { unitIndex: Number(b.dataset.u), part: Number(b.dataset.k) });
+			});
+
+			// ── View 3: the preview — renders the focused unit; every element knows its source span ──
+			type Block = { s: number; e: number; html: string; part: number };
+			function blocksOf(o: Outline, u: number): Block[] {
+				const unit = o.units[u];
+				const out: Block[] = [];
+				const text = o.source;
+				const partOf = (abs: number) => { let k = 0; for (let i = 1; i < unit.parts.length; i++) if (unit.from + unit.parts[i] <= abs) k = i; return k; };
+				if (domainKey === 'code') {
+					let at = unit.start;
+					let ln = text.slice(0, at).split('\n').length;
+					while (at < unit.end) {
+						const nl = text.indexOf('\n', at);
+						const end = nl < 0 || nl > unit.end ? unit.end : nl;
+						const line = text.slice(at, end);
+						if (line.trim()) out.push({ s: at, e: end, part: partOf(at), html: `<div data-c="code" data-s="${at}" data-e="${end}" data-kind="line"><span class="ln">${ln}</span>${esc(line)}</div>` });
+						ln++;
+						at = end + 1;
+					}
+					return out;
+				}
+				if (domainKey === 'transcript') {
+					const raw = text.slice(unit.start, unit.end).trim();
+					const m = /^\[(\d\d:\d\d)\]\s*([\s\S]*)$/.exec(raw);
+					const total = o.units.length;
+					const bars = Array.from({ length: total }, (_, i) => `<span class="${i <= u ? 'on' : ''}"></span>`).join('');
+					out.push({ s: unit.start, e: unit.start + raw.length, part: 0, html: `<div data-c="cue" data-s="${unit.start}" data-e="${unit.start + raw.length}" data-kind="cue"><span class="t">${m ? m[1] : ''}</span>${esc(m ? m[2] : raw)}</div><div class="timeline">${bars}</div>` });
+					return out;
+				}
+				// Markdown: one block per paragraph, heading or fence.
+				const re = /(```[\s\S]*?```|[^\n]+(?:\n(?!\n)[^\n]+)*)/g;
+				const body = text.slice(unit.from, unit.end);
+				for (let m = re.exec(body); m; m = re.exec(body)) {
+					const s = unit.from + m.index, e = s + m[0].length;
+					const t = m[0];
+					const h = /^(#{1,3})\s+(.*)$/.exec(t);
+					const inline = (x: string) => esc(x).replace(/`([^`]+)`/g, '<code>$1</code>');
+					const html = h ? `<${h[1].length === 1 ? 'h3' : 'h4'} data-c="" data-s="${s}" data-e="${e}" data-kind="heading">${inline(h[2])}</${h[1].length === 1 ? 'h3' : 'h4'}>`
+						: t.startsWith('```') ? `<pre data-c="" data-s="${s}" data-e="${e}" data-kind="code">${esc(t.replace(/^```\w*\n?|```$/g, ''))}</pre>`
+						: `<p data-c="" data-s="${s}" data-e="${e}" data-kind="paragraph">${inline(t)}</p>`;
+					out.push({ s, e, html, part: partOf(s) });
+				}
+				return out;
+			}
+			function renderPreview(f: Focus) {
+				const o = hub.outline();
+				if (!o || f.unitIndex < 0) { previewEl.innerHTML = ''; return; }
+				const unit = o.units[f.unitIndex];
+				const all = blocksOf(o, f.unitIndex);
+				// Paginated: the focused part's blocks, one to a page. The page is navigation's choice
+				// when it made one (`f.page`), else the page that holds the caret.
+				let shown = all;
+				let pageCount = 1;
+				let page = 0;
+				if (paginate && domainKey !== 'transcript') {
+					const mine = all.filter((b) => b.part === f.part);
+					const PER = 1;
+					pageCount = Math.max(1, Math.ceil(mine.length / PER));
+					if (f.page !== null) page = f.page === Number.POSITIVE_INFINITY ? pageCount - 1 : Math.min(f.page, pageCount - 1);
+					else if (f.head !== null) { const at = mine.findIndex((b) => f.head! >= b.s && f.head! <= b.e); page = at < 0 ? 0 : Math.floor(at / PER); }
+					shown = mine.slice(page * PER, page * PER + PER);
+				}
+				const caretBlock = f.head === null ? -1 : shown.findIndex((b) => f.head! >= b.s && f.head! <= b.e);
+				previewEl.innerHTML = shown
+					.map((b, i) => {
+						let h = b.html;
+						const picked = f.element && unit.from + f.element.start === b.s;
+						const cls = [picked ? 'picked' : '', i === caretBlock ? 'caret' : ''].filter(Boolean).join(' ');
+						// Each block root carries its own classes in `data-c`; the focus adds `picked` / `caret`.
+						h = h.replace(/ data-c="([^"]*)"/, (_m, own: string) => ` class="${[own, cls].filter(Boolean).join(' ')}"`);
+						return !paginate && b.part !== f.part && domainKey !== 'transcript' ? `<div class="dim">${h}</div>` : h;
+					})
+					.join('');
+				pagerEl.innerHTML = pageCount > 1 ? Array.from({ length: pageCount }, (_, i) => `<span class="${i === page ? 'on' : ''}"></span>`).join('') : '';
+				$('#previewMeta').textContent = pageCount > 1 ? `page ${page + 1} of ${pageCount}` : `part ${f.flat + 1} of ${partCount(o)}`;
+				counts.previewRenders++;
+				flash('preview');
+				// The rendering view's report: how many pages this part has, and which one it shows.
+				hub.pages('preview', { unit: unit.id, part: f.part, count: pageCount, shown: page, canSplit: paginate });
+			}
+			previewEl.addEventListener('click', (e) => {
+				const el = (e.target as HTMLElement).closest<HTMLElement>('[data-s]');
+				const o = hub.outline();
+				const f = hub.get();
+				if (!el || !o || f.unitIndex < 0) return;
+				const unit = o.units[f.unitIndex];
+				hub.pick('preview', { unit: unit.id, start: Number(el.dataset.s) - unit.from, end: Number(el.dataset.e) - unit.from, kind: el.dataset.kind ?? 'element' });
+			});
+
+			// ── The wire: a sync subscriber that logs every publication, and the counters ──
+			function logLine(html: string, cls = '') {
+				const li = document.createElement('li');
+				if (cls) li.className = cls;
+				li.innerHTML = html;
+				logEl.prepend(li);
+				while (logEl.children.length > 8) logEl.lastElementChild?.remove();
+			}
+			function renderStats() {
+				const s = hub.stats;
+				const rows: Array<[string, number | string, boolean?]> = [
+					['published', s.published], ['delivered', s.delivered],
+					['stale, dropped', s.droppedStale, s.droppedStale > 0], ['queued, not re-entered', s.queued],
+					['preview renders', counts.previewRenders], ['editor reveals', counts.editorReveals],
+				];
+				statsEl.innerHTML = rows.map(([k, v, hot]) => `<div class="stat${hot ? ' hot' : ''}"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('');
+			}
+
+			// ── Mount: one hub per document, four views subscribed to it ──
+			function mount(key: string) {
+				for (const u of unsubs) u();
+				unsubs = [];
+				domainKey = key;
+				const d = DOMAINS[key];
+				hub = createFocusHub({ outliner: d.outliner });
+				srcEl.value = d.text;
+				hub.update(d.text, { by: 'load' });
+				hub.go('load', { unitIndex: 0 });
+				counts.previewRenders = counts.outlineRenders = counts.editorReveals = 0;
+				logEl.innerHTML = '';
+				// The editor: reveals what other views ask for, on the frame lane, never its own moves.
+				unsubs.push(hub.subscribe((f) => f, (f) => { if (f.cause === 'nav' || f.cause === 'pick') revealInEditor(f); }, { ignoreOrigin: 'editor', equals: (a, b) => a.seq === b.seq }));
+				// The outline and minimap: the focused part, once a frame.
+				unsubs.push(hub.subscribe((f) => `${f.unitIndex}.${f.part}`, (_v, f) => { markCurrent(f); flash('outline'); flash('minimap'); }));
+				// The preview: what it shows depends on the part, the page and (paginated) the caret.
+				unsubs.push(hub.subscribe((f) => `${f.rev}|${f.unitIndex}|${f.part}|${f.page}|${paginate ? f.head : ''}|${f.element?.start ?? ''}`, (_v, f) => renderPreview(f)));
+				// The log: every publication, synchronously.
+				unsubs.push(hub.subscribe((f) => f.seq, (_v, f) => {
+					const where = f.unitIndex < 0 ? '—' : `${DOMAINS[domainKey].unitWord} ${f.unitIndex + 1}${hub.outline()!.units[f.unitIndex].parts.length > 1 ? `.${f.part + 1}` : ''}${f.page !== null && f.page > 0 ? ` · page ${f.page === Number.POSITIVE_INFINITY ? 'last' : f.page + 1}` : ''}`;
+					logLine(`<span class="seq">#${f.seq}</span><span class="org">${esc(f.origin)}</span><span class="cause">${f.cause}</span><span class="where">${where}</span>`);
+				}, { lane: 'sync' }));
+				// The counters: when the browser is idle.
+				unsubs.push(hub.subscribe((f) => f.seq, () => renderStats(), { lane: 'idle' }));
+				const f0 = hub.get();
+				logLine(`<span class="seq">#${f0.seq}</span><span class="org">${esc(f0.origin)}</span><span class="cause">${f0.cause}</span><span class="where">${d.unitWord} 1</span>`);
+				renderStructure();
+				renderPreview(hub.get());
+				markCurrent(hub.get());
+				renderStats();
+				for (const b of $('#domainSeg').querySelectorAll<HTMLElement>('button')) b.setAttribute('aria-pressed', String(b.dataset.d === key));
+			}
+
+			// ── Controls ──
+			$('#domainSeg').addEventListener('click', (e) => { const b = (e.target as HTMLElement).closest<HTMLElement>('button'); if (b?.dataset.d) { stopTour(); mount(b.dataset.d); say(`A ${DOMAINS[b.dataset.d].unitWord} is a unit now. Same hub, same views: only the outliner changed.`); } });
+			function setPaginate(on: boolean) {
+				paginate = on;
+				for (const b of $('#pageSeg').querySelectorAll<HTMLElement>('button')) b.setAttribute('aria-pressed', String((b.dataset.p === 'on') === on));
+				renderPreview(hub.get());
+			}
+			$('#pageSeg').addEventListener('click', (e) => { const b = (e.target as HTMLElement).closest<HTMLElement>('button'); if (b) setPaginate(b.dataset.p === 'on'); });
+			const step = (a: 'next' | 'prev') => { hub.step('buttons', a, { pages: true }); };
+			$('#prevBtn').addEventListener('click', () => step('prev'));
+			$('#nextBtn').addEventListener('click', () => step('next'));
+			addEventListener('keydown', (e) => {
+				if (e.target === srcEl || e.metaKey || e.ctrlKey || e.altKey) return;
+				if (e.key === 'ArrowRight' || e.key === 'PageDown') { e.preventDefault(); hub.step('keys', 'next', { pages: true }); }
+				if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); hub.step('keys', 'prev', { pages: true }); }
+			});
+			function insertAndGo() {
+				const o = hub.outline()!;
+				const f = hub.get();
+				const u = Math.max(0, f.unitIndex);
+				const at = o.units[u].end;
+				const piece = domainKey === 'doc' ? '\n# Inserted\n\nA new section, and the editor already has its caret in it.\n\n' : domainKey === 'transcript' ? '[02:40] An inserted cue. Every view moved to it.\n' : '\nexport function inserted() {\n  return true;\n}\n\n';
+				const next = srcEl.value.slice(0, at) + (srcEl.value[at - 1] === '\n' ? '' : '\n') + piece + srcEl.value.slice(at);
+				// Ask first, for text that does not exist yet; the hub waits for exactly that text.
+				hub.go('insert', { unitIndex: u + 1, grab: true }, { after: next });
+				say('Asked to go to a unit that does not exist yet: <b>go(…, { after })</b> is waiting for that exact text.');
+				setTimeout(() => {
+					srcEl.value = next;
+					hub.update(next, { by: 'insert' });
+					renderStructure();
+					say('The text arrived, the waiting move ran, and <b>every view landed on the new unit</b>. No frame, no timeout.');
+				}, 700);
+			}
+			$('#insertBtn').addEventListener('click', insertAndGo);
+			function lateReport() {
+				const o = hub.outline()!;
+				const oldRev = o.rev;
+				const head = o.units[o.units.length - 1].start;
+				// The text changes (one space appended), and THEN a report computed against the old
+				// text arrives — a slow worker, a network round trip.
+				srcEl.value = `${srcEl.value} `;
+				hub.update(srcEl.value, { by: 'editor' });
+				const before = hub.get().seq;
+				hub.report('worker', { head, rev: oldRev });
+				const dropped = hub.get().seq === before;
+				logLine(`<span class="seq">rev ${oldRev}</span><span class="org">worker</span><span class="cause">caret</span><span class="where">${DOMAINS[domainKey].unitWord} ${o.units.length} · dropped</span>`, 'drop');
+				say(dropped ? `A report against <b>rev ${oldRev}</b> arrived after the text moved on to <b>rev ${hub.outline()!.rev}</b>. Dropped: nothing moved.` : 'The report applied.');
+				renderStats();
+			}
+			$('#lateBtn').addEventListener('click', lateReport);
+			function heldKey() {
+				const text = srcEl.value;
+				const lines: number[] = [0];
+				for (let i = 0; i < text.length; i++) if (text[i] === '\n') lines.push(i + 1);
+				const before = { pub: hub.stats.published, renders: counts.previewRenders };
+				let i = 0;
+				srcEl.focus({ preventScroll: true });
+				// Four caret moves per frame, as a fast key repeat produces on a long document.
+				const tick = () => {
+					for (let n = 0; n < 4 && i < lines.length; n++, i++) { srcEl.setSelectionRange(lines[i], lines[i]); reportCaret(); }
+					if (i < lines.length) requestAnimationFrame(tick);
+					else setTimeout(() => {
+						const pub = hub.stats.published - before.pub, renders = counts.previewRenders - before.renders;
+						say(`<b>${lines.length}</b> caret reports made <b>${pub}</b> publications and <b>${renders}</b> preview renders: the frame lane delivers the latest focus once per frame.`);
+						renderStats();
+					}, 120);
+				};
+				requestAnimationFrame(tick);
+			}
+			$('#burstBtn').addEventListener('click', heldKey);
+
+			// ── Code tabs ──
+			$('#codeSeg').addEventListener('click', (e) => {
+				const b = (e.target as HTMLElement).closest<HTMLElement>('button');
+				if (!b) return;
+				for (const x of $('#codeSeg').querySelectorAll<HTMLElement>('button')) x.setAttribute('aria-pressed', String(x === b));
+				for (const id of ['vanilla', 'react', 'outliner']) ($(`#snippet-${id}`) as HTMLElement).hidden = id !== b.dataset.tab;
+			});
+
+			// ── The storyboard ──
+			let timers: number[] = [];
+			const after = (ms: number, fn: () => void) => { timers.push(window.setTimeout(fn, ms)); };
+			const clearTimers = () => { for (const t of timers) clearTimeout(t); timers = []; };
+			function typeAt(offset: number, text: string, done?: () => void) {
+				let i = 0;
+				srcEl.focus({ preventScroll: true });
+				const one = () => {
+					if (i >= text.length) { done?.(); return; }
+					const v = srcEl.value;
+					const at = offset + i;
+					srcEl.value = v.slice(0, at) + text[i] + v.slice(at);
+					srcEl.setSelectionRange(at + 1, at + 1);
+					srcEl.dispatchEvent(new Event('input'));
+					i++;
+					after(55, one);
+				};
+				one();
+			}
+			type Beat = { id: string; t: string; d: string; api: string; run: () => void };
+			const BEATS: Beat[] = [
+				{ id: 'type', t: 'Type, and every view follows', d: 'The editor reports its text and caret. The outline, the minimap and the preview move with it.', api: "hub.update(text) · hub.report('editor', { head })",
+					run: () => { mount('doc'); setPaginate(false); const at = srcEl.value.indexOf(' is a move'); srcEl.setSelectionRange(at, at); reportCaret(); after(500, () => typeAt(at, ', from any view,', () => say('Typed in <b>Using it › Navigate</b>: the outline, the minimap and the preview all moved there.'))); } },
+				{ id: 'outline', t: 'Pick from the outline', d: 'A click is a move. The editor reveals it, and never hears its own caret come back as a move.', api: "hub.go('outline', { unitIndex, part })",
+					run: () => { mount('doc'); after(300, () => { hub.go('outline', { unitIndex: 2, part: 1 }); say('The outline asked for <b>Guarantees › Origins</b>. The editor revealed it and reported its caret <b>quiet</b>: the hub already agreed, so nothing was published and nothing echoed.'); }); } },
+				{ id: 'pick', t: 'Click what you see', d: 'Every rendered element knows its source span. A click selects the source in the editor.', api: "hub.pick('preview', { unit, start, end, kind })",
+					run: () => { mount('doc'); hub.go('outline', { unitIndex: 1, part: 1 }); after(500, () => { const el = previewEl.querySelectorAll<HTMLElement>('[data-s]')[1]; el?.click(); say('The preview picked a paragraph; the editor selected its <b>source span</b>. This is how click-to-restyle starts.'); }); } },
+				{ id: 'page', t: 'Page, then part, then unit', d: 'With pagination on, “next” turns the preview’s pages first, then moves on — the order a reader pages a document.', api: "hub.pages('preview', …) · hub.step('keys', 'next')",
+					run: () => { mount('doc'); setPaginate(true); hub.go('outline', { unitIndex: 1, part: 0 }); for (let i = 1; i <= 5; i++) after(i * 700, () => step('next')); after(4000, () => say('Each step turned a page while the part had pages left, then moved to the next part.')); } },
+				{ id: 'insert', t: 'Insert, then go there', d: 'Ask for a unit that does not exist yet; the hub waits for exactly that text.', api: 'hub.go(origin, target, { after: text })', run: () => { mount('doc'); setPaginate(false); after(300, insertAndGo); } },
+				{ id: 'late', t: 'A late report changes nothing', d: 'A report computed against older text is dropped instead of moving everyone to the wrong place.', api: "hub.report('worker', { head, rev })", run: () => { mount('transcript'); after(400, lateReport); } },
+				{ id: 'held', t: 'A held key costs one render a frame', d: 'Fifty caret moves in a dozen frames: the preview renders on the frame lane, latest focus only.', api: "subscribe(select, fn, { lane: 'frame' })", run: () => { mount('code'); after(300, heldKey); } },
+			];
+			const beatsEl = $('#beats');
+			function setCurrent(id: string | null) { [...beatsEl.children].forEach((b) => b.setAttribute('aria-current', String((b as HTMLElement).dataset.id === id))); }
+			BEATS.forEach((b, i) => {
+				const btn = document.createElement('button');
+				btn.className = 'beat'; btn.type = 'button'; btn.dataset.id = b.id;
+				btn.innerHTML = `<span class="n">${i + 1}</span><span><span class="bt">${b.t}</span><p class="bd">${b.d}</p><span class="api">${esc(b.api)}</span></span>`;
+				btn.addEventListener('click', () => { stopTour(); clearTimers(); setCurrent(b.id); b.run(); });
+				beatsEl.appendChild(btn);
+			});
+			let tourTimer = 0;
+			const tourBtn = $('#tourBtn');
+			function stopTour() { if (!tourTimer) return; clearInterval(tourTimer); tourTimer = 0; clearTimers(); tourBtn.textContent = 'Play all seven'; }
+			tourBtn.addEventListener('click', () => {
+				if (tourTimer) { stopTour(); return; }
+				let i = 0; tourBtn.textContent = 'Stop the tour';
+				const next = () => { if (i >= BEATS.length) { stopTour(); return; } clearTimers(); const b = BEATS[i++]; setCurrent(b.id); b.run(); };
+				next();
+				tourTimer = window.setInterval(next, 5200);
+			});
+
+			mount('doc');
+		</script>
+	</body>
+</html>

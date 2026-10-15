@@ -2,7 +2,13 @@
 // This file touches no DOM. Under the suite default it paid for a jsdom window it
 // never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
 import { describe, expect, it } from 'vitest';
-import { slideEditableOffset, slideStartOffset } from './lint';
+import { buildDeckIndex, deckEditableOffset } from '@/lib/deck-outline';
+import { partStart } from '@/lib/fuoco';
+
+// Moved into the slide index (docs/src/lib/deck-outline/deck-outline.ts); the cases are unchanged.
+const clamp = (src: string, i: number) => Math.max(0, Math.min(i, buildDeckIndex(src).units.length - 1));
+const slideStartOffset = (src: string, i: number) => partStart(buildDeckIndex(src), clamp(src, i), 0);
+const slideEditableOffset = (src: string, i: number) => deckEditableOffset(buildDeckIndex(src), clamp(src, i), 0);
 
 // #1288 / #1291 — picking a slide in the preview parks the caret in the editor. It
 // must land somewhere worth typing: a slide opens with machinery (`<!-- _class -->`

@@ -1,3 +1,4 @@
+import { buildDeckIndex } from '@/lib/deck-outline';
 import { normalizeSourceText } from '@/lib/normalize-source-text';
 import { DECKS, deckSource, type StudioDeck } from './decks';
 import { frontMatterBlock, frontMatterKeySpan, frontMatterValue, getFrontMatter, stripFrontMatter } from './front-matter';
@@ -242,8 +243,24 @@ export function newDeckSource(title = 'Untitled deck'): string {
 /** `N slides` for the deck-switcher meta line — the SAME splitter the live rail
  *  uses (splitSlides), front-matter excluded, so the count never disagrees with
  *  the rendered rail. */
+// Deck lists and the history panel ask for the same few decks' labels on every render; an index
+// build is a parse, so remember the last answers by text.
+const META_MAX = 64;
+const metaMemo = new Map<string, string>();
 export function metaFor(source: string): string {
-	const n = splitSlides(stripFrontMatter(source)).length || 1;
+	let m = metaMemo.get(source);
+	if (m === undefined) {
+		m = slideCountLabel(buildDeckIndex(source).partBase.at(-1) ?? 0);
+		if (metaMemo.size >= META_MAX) metaMemo.delete(metaMemo.keys().next().value as string);
+		metaMemo.set(source, m);
+	}
+	return m;
+}
+
+/** "N slides", counting RENDERED slides — the PDF's count, heading splits included, so the deck
+ *  chip agrees with the rail and the counter (docs/src/lib/fuoco). */
+export function slideCountLabel(rendered: number): string {
+	const n = rendered || 1;
 	return `${n} slide${n === 1 ? '' : 's'}`;
 }
 

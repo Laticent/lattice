@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test';
+import { buildDeckIndex } from '../src/lib/deck-outline/deck-outline';
 import { expect, gotoStudio, persistedSource, railButtons, slideCount, test } from './studio-fixture';
 
 /**
@@ -511,6 +512,21 @@ test('@parity inserting from the gallery reveals the new slide, taking focus onl
 // structural invariants after every op. It is deliberately NOT a script of one
 // scenario: the defects above were found by ORDERS nobody would think to write
 // down — a cut, then a rail move, then a mode switch, then a paste.
+/** The ACTIVE deck's persisted source (`persistedSource` returns whichever deck's key comes first). */
+function activeSource(page: Page): Promise<string> {
+	return page.evaluate(() => {
+		const id = JSON.parse(window.localStorage.getItem('lattice-studio-active') ?? 'null')?.deckId;
+		const raw = (id && window.localStorage.getItem(`lattice-studio-src-${id}`)) || '';
+		// Stored as JSON (see `slideClasses`); a bare string is accepted too.
+		try {
+			const v = JSON.parse(raw);
+			return typeof v === 'string' ? v : raw;
+		} catch {
+			return raw;
+		}
+	});
+}
+
 test('a randomized walk over the compose ops holds the structural invariants', async ({ page }) => {
 	// Fixed seed. Every op DRAWS unconditionally (see `deleteSlide`) so the stream does
 	// not depend on live DOM state, which is what makes a failure replayable rather than
@@ -596,9 +612,20 @@ test('a randomized walk over the compose ops holds the structural invariants', a
 		const op = pick(names);
 		await ops[op]();
 
-		// 1 + 2: Compose, the rail, and the persisted source agree on the slide count.
+		// 1 + 2: Compose, the rail, and the persisted source agree on the slide count. Compose
+		// shows one card per AUTHORED slide (chunk); the rail one pill per RENDERED slide, which
+		// is more than one per chunk when the deck splits on headings (Fuoco, #1570). Both are
+		// read off the slide index of the persisted source, polled for its ~400 ms debounce.
 		const composeCount = await page.locator('.cs-slide').count();
-		expect(composeCount, `after "${op}": compose vs rail`).toBe(await railButtons(page).count());
+		await expect
+			.poll(
+				async () => {
+					const ix = buildDeckIndex(await activeSource(page));
+					return `compose ${composeCount}/${ix.units.length} · rail ${await railButtons(page).count()}/${ix.partBase[ix.units.length]}`;
+				},
+				{ message: `after "${op}": compose vs rail vs source` },
+			)
+			.toMatch(/^compose (\d+)\/\1 · rail (\d+)\/\2$/);
 		await expect
 			.poll(async () => (await slideClasses(page)).length, { message: `after "${op}": compose vs source` })
 			.toBe(composeCount);

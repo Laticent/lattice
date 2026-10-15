@@ -9,7 +9,7 @@
   "contributes": {
     "syntax": {
       "math_inline": { "kind": "inline", "anchor": { "after": "escape" }, "triggers": ["$"] },
-      "math_block": { "kind": "block", "anchor": { "before": "fence" }, "triggers": ["$"], "opaque": true }
+      "math_block": { "kind": "block", "anchor": { "before": "fence" }, "triggers": ["$"], "opaque": true, "scansAhead": "^[ \\t]*\\$\\$|\\$\\$[ \\t]*$" }
     },
     "fences": {
       "math": { "body": "tex" }

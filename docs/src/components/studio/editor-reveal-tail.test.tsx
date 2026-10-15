@@ -2,6 +2,8 @@ import { EditorView } from '@codemirror/view';
 import { render } from '@testing-library/react';
 import * as React from 'react';
 import { describe, expect, it } from 'vitest';
+import { deckOutliner } from '@/lib/deck-outline';
+import { createFocusHub } from '@/lib/fuoco';
 import { Editor, type EditorHandle } from './Editor';
 
 // `revealTail` — how the CONTROLLED typing path follows what it types.
@@ -27,8 +29,10 @@ describe('the editor can reveal its tail without touching the document', () => {
 	it('scrolls only — no change, no selection, and no cursor→slide jump', () => {
 		const ref = React.createRef<EditorHandle>();
 		const changes: string[] = [];
-		const slides: number[] = [];
-		const { container } = render(<Editor ref={ref} value={DECK} onChange={(v) => changes.push(v)} onCursorSlide={(i) => slides.push(i)} />);
+		const hub = createFocusHub({ outliner: deckOutliner, scheduler: { frame: () => {}, idle: () => {} } });
+		hub.update(DECK);
+		const { container } = render(<Editor ref={ref} value={DECK} onChange={(v) => changes.push(v)} focusHub={hub} />);
+		const published = hub.stats.published;
 		const view = viewOf(container.querySelector('.cm-content'));
 		expect(view, 'no view means this case proves nothing').toBeTruthy();
 
@@ -58,7 +62,7 @@ describe('the editor can reveal its tail without touching the document', () => {
 		expect(view.state.doc.toString()).toBe(before.doc);
 		expect(view.state.selection.main.head).toBe(before.head);
 		expect(changes, 'a pure scroll must not look like an edit to the shell').toEqual([]);
-		expect(slides, 'the preview would jump to the last slide on every keystroke of a demo').toEqual([]);
+		expect(hub.stats.published, 'the preview would jump to the last slide on every keystroke of a demo').toBe(published);
 	});
 
 	it('is a no-op once the view is GONE rather than a throw', () => {
