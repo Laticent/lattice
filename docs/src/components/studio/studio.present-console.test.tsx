@@ -1,6 +1,11 @@
 import { act as act2, render, screen, within } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { loadAuthoring } from '@/playground/authoring-door.js';
 import { PresentOverlay } from './PresentOverlay';
+
+// The module under test reads the lint core synchronously; in the app, its loader awaits this first.
+beforeAll(() => loadAuthoring());
+
 
 // The CONSOLE's own instruments — the next slide, the speaker notes and the talk clock
 // (2026-08-24-stage-console-split.md §4). They are what the retired second presenter

@@ -54,9 +54,13 @@ export const HOME_HREF = joinBase(import.meta.env.BASE_URL || '/', '');
  *
  * `min-w`, not `w`: a deck past the reserved range grows its slot honestly rather than clipping
  * its own count. The ranges cover 999 slides, which is where the growth resumes.
+ *
+ * The counter's 80px is measured, not fitted: in Outfit 12px semibold the widest count in range,
+ * "Slide 999 / 999", draws 78.95px ("Slide 100 / 999" 78.75px). The slot was 78px until
+ * 2026-10-15, so any deck past 99 slides widened it and shifted the row by up to a pixel.
  */
 export const DECK_META_SLOT = 'min-w-[70px] shrink-0 text-right';
-export const SLIDE_COUNTER_SLOT = 'inline-block min-w-[78px] text-center';
+export const SLIDE_COUNTER_SLOT = 'inline-block min-w-[80px] text-center';
 
 // The top bar's band rule. ONE constant because the app header and the pre-paint
 // skeleton both draw it and `studio-shell-parity.spec.ts` compares their boxes — two

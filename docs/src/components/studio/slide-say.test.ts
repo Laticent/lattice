@@ -1,10 +1,15 @@
 // @vitest-environment node
 // This file touches no DOM. Under the suite default it paid for a jsdom window it
 // never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
+import { loadAuthoring } from '@/playground/authoring-door.js';
 import { getDescription, setDescription } from './slide-descriptions';
 import { getNote, setNote } from './slide-notes';
 import { getSayLine, setSayLine } from './slide-say';
+
+// The module under test reads the lint core synchronously; in the app, its loader awaits this first.
+beforeAll(() => loadAuthoring());
+
 
 describe('slide-say', () => {
 	it('reads a say: comment, prefix stripped', () => {

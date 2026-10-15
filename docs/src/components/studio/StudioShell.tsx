@@ -214,7 +214,10 @@ const ComposeView = React.lazy(() => import('./ComposeView').then((m) => ({ defa
 // which warms unconditionally on Studio mount because it is the default pane — the chunk
 // is not fetched at startup: it arrives with the idle warm-up (`studio-warm.ts`), or on the
 // first "Present" click if that comes first.
-const PresentOverlay = React.lazy(() => import('./PresentOverlay').then((m) => ({ default: m.PresentOverlay })));
+// Present reads the lint core synchronously (slide-notes.ts, pane-pages.ts), so its loader loads it too.
+const PresentOverlay = React.lazy(() =>
+	Promise.all([import('./PresentOverlay'), import('@/playground/authoring-door.js').then((door) => door.loadAuthoring())]).then(([m]) => ({ default: m.PresentOverlay })),
+);
 
 // The code-package notice renders only once the Library holds a code package (`codeStamp` is empty
 // until then), so its chunk is not part of the Studio's first load (docs/route-budget.json).
@@ -1383,7 +1386,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		let live = true;
 		// A failed load (a network blip, a chunk a deploy rotated away) is retried on the next deck,
 		// not left null for the rest of the session: `deck.id` is a dependency for that reason.
-		import('./pane-pages').then((m) => { if (live) setPaneMod(m); }).catch(() => {});
+		// pane-pages.ts reads the lint core synchronously, so it is set only once that has loaded.
+		Promise.all([import('./pane-pages'), import('@/playground/authoring-door.js').then((door) => door.loadAuthoring())]).then(([m]) => { if (live) setPaneMod(m); }).catch(() => {});
 		return () => { live = false; };
 	}, [hasPaneMarker, paneMod, deck.id]);
 	const usedLocalComponents = React.useMemo(() => {

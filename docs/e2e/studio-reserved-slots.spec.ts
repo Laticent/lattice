@@ -187,7 +187,7 @@ test('a slot does not resize when its content does — the relation, over the wh
 	// and React re-renders from state, so the next paint restores the real text.
 	for (const [key, samples] of [
 		['deck-meta', ['1 slide', '7 slides', '12 slides', '999 slides']],
-		['slide-counter', ['Slide 1 / 7', 'Slide 9 / 9', 'Slide 10 / 12', 'Slide 100 / 999']],
+		['slide-counter', ['Slide 1 / 7', 'Slide 9 / 9', 'Slide 10 / 12', 'Slide 100 / 999', 'Slide 999 / 999']],
 	] as const) {
 		const slot = page.locator(`[data-shell-unknowable="${key}"]`);
 		const widths: number[] = [];

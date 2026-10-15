@@ -13,7 +13,9 @@
 // was fence-blind (it ate `<!-- … -->` shown inside code fences). Both are fixed
 // by routing through `comments()` + `isDirectiveBody()`.
 
-import { notesCore } from '@/playground/authoring-door.js';
+// The lint core's notes boundary, read synchronously: this module's loaders (studio-panels.ts's
+// slide settings panel, StudioShell's Present overlay) await loadAuthoring() before it runs.
+import { authoring } from '@/playground/authoring-door.js';
 import { comments, isDescriptionBody, isDirectiveBody, isPaneMarkerBody, isSayBody, tidyOutsideFences } from './slide-directives';
 
 // A tooling comment (`markdownlint-capture`, `prettier-ignore`, …) is never a note: the engine's
@@ -21,7 +23,7 @@ import { comments, isDescriptionBody, isDirectiveBody, isPaneMarkerBody, isSayBo
 // the same list. Export-to-Marp writes `markdownlint-capture` where a panes deck's markers were
 // (lib/core/bake-splits.js `stripPaneMarkers`), so a bundle opened in the Studio again would
 // otherwise show it as the slide's speaker note.
-const isTooling = (body: string) => (notesCore as { isToolingComment: (b: string) => boolean }).isToolingComment(body);
+const isTooling = (body: string) => (authoring().notesCore as { isToolingComment: (b: string) => boolean }).isToolingComment(body);
 const notANote = (body: string) => isDirectiveBody(body) || isDescriptionBody(body) || isSayBody(body) || isPaneMarkerBody(body) || isTooling(body);
 
 /** The slide's speaker note (the first non-directive, non-description, non-say comment),

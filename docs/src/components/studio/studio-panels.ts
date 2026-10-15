@@ -7,9 +7,13 @@ import { lazyPanel } from './lazy-panel';
 // them all once the Studio is idle (`warmPanels`), so a later open renders on its first frame.
 // In a module of their own so a test can load them up front (`src/test/panels.ts`).
 // See engineering/decisions/2026-09-26-studio-panel-lazy-loading.md.
-export const sharePanel = lazyPanel('Share', () => import('./ShareSheet').then((m) => m.ShareSheet));
+// Share (through PrintOptionsPanel) and Slide settings (through slide-notes.ts) read the lint core
+// synchronously, so their loaders load it too (authoring-door.js says why it is not a top-level await).
+const withAuthoring = <T,>(load: Promise<T>): Promise<T> =>
+	Promise.all([load, import('@/playground/authoring-door.js').then((door) => door.loadAuthoring())]).then(([m]) => m);
+export const sharePanel = lazyPanel('Share', () => withAuthoring(import('./ShareSheet')).then((m) => m.ShareSheet));
 export const workspacePanel = lazyPanel('Workspace settings', () => import('./WorkspaceSheet').then((m) => m.WorkspaceSheet));
-export const slideSettingsPanel = lazyPanel('Slide settings', () => import('./SlideContext').then((m) => m.SlideContextBody));
+export const slideSettingsPanel = lazyPanel('Slide settings', () => withAuthoring(import('./SlideContext')).then((m) => m.SlideContextBody));
 export const chatPanel = lazyPanel('Chat', () => import('./ArchitectChat').then((m) => m.ArchitectChat));
 export const libraryPanel = lazyPanel('The Library', () => import('./Library').then((m) => m.Library));
 export const lensesPanel = lazyPanel('Reader views', () => import('./LensesPanel').then((m) => m.LensesPanel));

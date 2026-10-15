@@ -124,7 +124,13 @@ async function main() {
   if (!silent) console.log(`[build-authoring-core] wrote ${path.relative(ROOT, OUT_FILE)} (${out.length} bytes)`);
 }
 
-main().catch(e => {
-  console.error('[build-authoring-core] failed:', e.message);
-  process.exit(1);
-});
+// The same entry is the `lint` entry of the ESM engine build (tools/build-playground.js), which is
+// what the docs site loads. This file (built, not committed) is what vitest and the types read.
+module.exports = { ENTRY_CONTENTS, SRC_DIR };
+
+if (require.main === module) {
+  main().catch(e => {
+    console.error('[build-authoring-core] failed:', e.message);
+    process.exit(1);
+  });
+}

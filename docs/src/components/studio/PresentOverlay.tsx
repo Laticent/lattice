@@ -294,7 +294,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	React.useEffect(() => {
 		if (!hasPaneMarker || paneMod) return;
 		let live = true;
-		import('./pane-pages').then((m) => { if (live) setPaneMod(m); }).catch(() => {});
+		Promise.all([import('./pane-pages'), import('@/playground/authoring-door.js').then((door) => door.loadAuthoring())]).then(([m]) => { if (live) setPaneMod(m); }).catch(() => {});
 		return () => { live = false; };
 	}, [hasPaneMarker, paneMod]);
 	const paneCounts = React.useMemo(() => (paneMod ? paneMod.paneSplitCounts(set, frontMatter + set.join(SLIDE_SEP)) : undefined), [paneMod, set, frontMatter]);

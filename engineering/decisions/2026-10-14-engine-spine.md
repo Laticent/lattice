@@ -115,9 +115,167 @@ Breaking `engineBase()` on purpose fails two of its three tests.
 
 ## 7. What this does not do
 
-- **A shared lint/engine build.** Cut in review (§3). Tracked in `followups.d/`.
+- **A shared lint/engine build.** Cut in review (§3), audited (§9), shipped 2026-10-15 (§10).
 - **The runtime.** Unchanged, by the 2026-07-11 and 2026-07-19 records. It is now budgeted.
 - **A budget on lazy code.** `engineJsGz` does not follow `import()`, so a chart kernel or the
-  lint core can grow without the gate seeing it. Tracked in `followups.d/`.
+  lint core could grow without the gate seeing it. Shipped on 2026-10-15; see §8.
 - **The 36 bundled highlight.js grammars.** Kept, per 2026-08-25; the owner declined moving them
   on demand (−44KB gz) for the fetch it would add to most code decks.
+
+## 8. The lazy code gets a budget (2026-10-15)
+
+`docs/scripts/check-route-budget.mjs` now measures two more metrics on the `studio` route, with a
+soft target and a ceiling like the rest:
+
+- **`chartKernelGz`** — the largest closure of one `esm/chart-<layout>.js` beyond the engine. A
+  deck pays for the kernels it names, so the largest is the worst one chart costs.
+- **`lintCoreGz`** — the lint door's chunk (`_astro/authoring-door.<hash>.js`, which carries the
+  lint core) plus its static imports, beyond the Studio's startup JS.
+
+Both live on one route because the chart kernels are the same files on every route, so five copies
+would mean five history rows per change. The gate throws when it cannot find the kernels or finds
+anything but exactly one lint door, so a rename cannot turn the metric into a silent zero.
+
+Measured on the built tree, gzip level 6:
+
+| Closure beyond what the route already loaded | gz |
+|---|---:|
+| `chart-map.js` (the largest) | 77.4KB |
+| `chart-hub-spoke.js` (second) | 40.5KB |
+| 16 more kernels | 15.5KB to 26.0KB |
+| `chart-progress.js` … `chart-timeline-list.js` (six) | 0.8KB to 4.0KB |
+| Lint core: the door chunk | 137.3KB |
+| Lint core: `markdown-it`, which only the lint core loads on the Studio | 44.4KB |
+
+Both were adopted at that measurement with the standard 10% ceiling: 77.4KB / 85.2KB and
+181.7KB / 199.8KB. The brief named the numbers as the owner's call and the owner was away, so the
+PR puts them to the owner before merge.
+
+What it still cannot see: a kernel other than the largest growing while it stays under the
+largest. `chart-hub-spoke.js` could grow 36KB before it moved the metric. A second metric for the
+sum of every kernel's closure would see it; that is a number for the owner, not added here.
+
+The 44.4KB `markdown-it` is the second copy the lint core and the ESM engine each carry; the shared
+build in `followups.d/2694-p1-shared-lint-engine-build.md` is what would remove it.
+
+## 9. The shared lint/engine build: the state audit (2026-10-15)
+
+§3 cut the shared build because it merges module state. This is the audit that cut asked for,
+measured rather than argued.
+
+**Method.** A scratch build added the lint core's entry (`tools/build-authoring-core.js`
+`ENTRY_CONTENTS`) as a `lint` entry beside `engine` in `tools/build-playground.js`'s `ESM_OPTIONS`,
+and read esbuild's metafile. Every input module in a chunk that both entries import statically is
+shared state.
+
+**The payoff.** The lint entry's static closure beyond the engine's is **92.2KB gz**, against
+`lintCoreGz` 181.7KB today (§8): about 90KB gz less to fetch and parse after first paint, including
+the second markdown-it. The shared chunks hold 124KB gz across 63 repo modules and 6 packages
+(markdown-it and its dependencies).
+
+**Every module-level mutable singleton in those 63 modules:**
+
+| State | Kind | Shared is |
+|---|---|---|
+| `lib/core/boundary-parser.mjs` — the parser's enabled block rules, `rulesGeneration` | config: which plugin grammars split slides | **Unsafe.** The lint door calls `setBoundaryPluginsOff` with the deck's admission. Shared, that also narrows the parser the engine's own readers use (`bake-splits.js` is in the engine's static closure), which nothing narrows today. Engine output would then depend on whether the lint core had loaded yet. |
+| `segno-slots.js` `cache`; the `slot` memo in `inline-pills.js`, `inline-sparks.js`, `icons.inline.js`, `avatars.inline.js` | compiled grammars, built once from constants | Safe: the same value whoever builds it first. |
+| `plugin-data.js` `loaders`, `cache`, `failed` | the page's plugin data and its fetch failures | Safe: one page, one fetch; the lint reading the engine's "failed" is the true answer. |
+| `front-matter-key.js` `lastFm`/`lastBlanked`; `inline-pills.js` `lastText`/`lastBound`, `acceptedIcon`; `inline-sparks.js` `lastText`/`lastResult`; `split-sections.mjs` `walkMemo` | one-entry memos keyed by input text | Safe if no caller mutates a returned value. Not proven; a parity run would show it. |
+| `list-text.generated.js` and the Segno reader (`docs/src/lib/segno/dist/read.cjs`): `s`, `n`, `i`, `depth`, `err`, `buf`, `top`, `kindsSeen`, `handedText`/`handedResult` | parser scratch state | Safe across consumers for the parse itself, which is synchronous. But a returned tree points at the module's one `buf`, so a tree held across a task boundary is overwritten by the next parse from either consumer. Each bundle already lives with that; sharing doubles the parsers that can overwrite it. Not proven. |
+
+**Verdict.** The build is blocked on the boundary parser, and the fix is an engine-kernel choice,
+so it is the owner's:
+
+1. **Give the lint its own parser instance.** `slide-boundaries.mjs` takes a parser instead of
+   reading the shared one, and the lint entry builds its own from `createBoundaryParser()`. The
+   duplicated part is the instance, not markdown-it's code, so the 90KB saving holds.
+2. **Make the engine follow the deck's admission itself.** The engine narrows its own parser per
+   deck, so both consumers always set the same value for the same deck. This changes engine output
+   under a narrowed admission (it is arguably the correct output), so it needs its own parity
+   evidence.
+
+The owner picked option 1 on 2026-10-15; §10 is what shipped.
+
+## 10. The lint core as an entry of the ESM build (2026-10-15)
+
+The owner picked option 1 of §9: the lint gets its own parser instance. Shipped this way:
+
+- **One build, one extra module instance.** `tools/build-playground.js` adds `lint` as an entry of
+  the ESM build, from the same entry contents `tools/build-authoring-core.js` writes for vitest.
+  `lintEntryPlugin` resolves `boundary-parser` to a second module instance (namespace
+  `lint-boundary-parser`, same source file) for the three lint modules that reach it: the entry,
+  `lint-core.js` and `slide-boundaries.mjs`. Nothing in `lib/` changed. The rest of the lint core's
+  graph, markdown-it included, is the engine's own chunks.
+- **A build-time pin.** `assertLintParserIsolated` walks esbuild's module graph and fails the build if
+  the lint entry reaches the engine's `boundary-parser.mjs`, or if the engine or a chart kernel
+  reaches the lint's copy. Removing `slide-boundaries.mjs` from the redirect fails it.
+- **The door is a function, not a top-level await.** `authoring-door.js` exports `loadAuthoring()`,
+  which loads `esm/lint.js` from the engine's directory (`lint-core-source.js`), switches its parser
+  to the deck's admission and hands it over; and `authoring()`, a synchronous read that throws until
+  then. A top-level await was tried first and measured: Rolldown split the Studio's unchanged 493
+  startup modules into 167 chunks instead of 110, +12KB gz, even with nothing on the startup path
+  importing the door. The three synchronous readers (`pane-pages.ts`, `slide-notes.ts`,
+  `PrintOptionsPanel.tsx`) read `authoring()`, and every loader of them awaits `loadAuthoring()`:
+  the Share and Slide-settings panels, the Present overlay, both `pane-pages` loaders, and
+  `projectDeckScript`. A test holds the door free of `await`.
+- **vitest** aliases `lint-core-source.js` to `lint-core-source.vitest.js`, which loads
+  `authoring-core.generated.js` (built on install, not committed). Both are built from the same entry contents.
+
+Measured on the built tree (gzip level 6):
+
+| | Before | After |
+|---|---:|---:|
+| Lint core beyond what is already loaded (`lintCoreGz`) | 181.7KB (door chunk 137.3 + its own markdown-it 44.4, beyond startup) | 90.3KB (`esm/lint.js` and its chunks, beyond the engine) |
+| Studio startup JS (`eagerJsGz`) | 495.1KB, 127 files | 495.2KB, 127 files |
+| Engine + runtime (`engineJsGz`) | 694.6KB, engine in 13 files | 697.0KB, engine in 17 files |
+
+The engine's own modules are unchanged; esbuild now cuts them along the lint/engine boundary, and the
+four extra files cost 2.4KB gz of per-file compression on every route that loads the engine. The
+Vite copy of markdown-it still loads in the Studio when Compose or the Library opens, or when the
+idle warm-up fetches it, so in a session that reached any of those the lint core's real saving is
+137.3KB to 90.3KB, not 181.7KB.
+
+Equivalence:
+
+- **Lint.** Over 278 example and baseline decks, plus a perturbed copy of each (misspelled classes, a
+  renamed register, a `$$` block holding `---`), under the default admission and with math off:
+  1,112 runs, 6,854 findings, and `lintTextWith`, `reviewText`, `scoreDeck`, `extractSlideNotes` and
+  `splitSections` return the same results from `esm/lint.js` and from `authoring-core.generated.js`.
+  The math-off arm changed the result of all 278 perturbed decks, so it was live.
+- **Engine isolation.** `engine.js` and `lint.js` loaded in one realm, so their shared chunks are one
+  module each. Each of the 278 decks and a synthetic `$$`/`---` deck is rendered, split for preview
+  and baked for Marp; then the lint narrows its parser to math-off and lints every deck; then each
+  deck is rendered again. 0 of 279 changed. The same run against a control build whose lint SHARES
+  the engine's parser changed 2: the synthetic deck and `examples/slide-class-forms.md`.
+- **The real Studio.** First paint at 120ms; `esm/lint.js` requested at about 1.8s; the lint
+  underlines an unknown class. 75 Playwright specs over lint, panes, Present, Share, print, the
+  plugin admission, the Architect and engine loading pass on the desktop project.
+
+**Adversarial review (red team, inversion, checker).** No blocking defect. The red team audited every
+module-level `let`/`Map`/`Set` in the 61 shared repo modules and probed interleavings in one realm
+(lint after renders, engine after the lint narrowed, lint in the middle of a render): 0 of 279 decks
+changed. Folded in before merge:
+
+- `assertLintParserIsolated` runs on every build, watch mode included (`onEnd`), and the build pins
+  `absWorkingDir` so the engine-side check also holds from `cd docs`. It also fails if the lint core
+  reaches a module the engine build swaps for a browser stand-in (KaTeX, plugin data, the chart
+  registry, highlight.js's common build), since vitest runs the lint core without those stand-ins.
+- `pane-pages.ts` reads the lint core outside its `try`, so a caller that skipped `loadAuthoring()`
+  throws instead of reading as "one page".
+- `authoring-door.test.ts` forbids every way around the door: `authoring-core.generated.js`,
+  `lint-core-source.js` and the literal `esm/lint.js`, each outside the one module allowed to use it.
+
+Left as known limits: nothing statically catches a startup module calling `loadAuthoring()` (a
+runtime fetch has no static edge); a failed `esm/lint.js` load is retried on the next lint pass rather
+than cached; `__LATTICE_ASSET_BASE__` is read when the dev server starts, so re-running
+`sync:playground` under a live `astro dev` leaves it stale until the engine records its own URL; and
+the 2.4KB gz the extra engine chunk files cost is paid on every route that loads the engine,
+including routes that never lint.
+
+**Pinned nightly (2026-10-15).** Both equivalence checks are committed as
+`test/integration/lint-engine/lint-engine-equivalence.test.js`, in the `test:integration:nightly`
+slice (`integration-nightly.yml` runs it; no workflow step changed). The test builds the shipped ESM
+options and a shared-parser control into a temporary directory. Parity compares `esm/lint.js` with
+the Node source (`lib/authoring/*`), not with the vitest bundle, under both admissions. Isolation runs
+each build in its own child process and requires the control to change at least one deck. About 25s.
+Breaking one lint message in the built output fails parity on 554 runs.

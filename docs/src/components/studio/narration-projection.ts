@@ -87,6 +87,8 @@ export async function projectDeckScript(
 	const { palette, mode: docMode } = currentPaletteMode(paletteOverride);
 	const mode = modeOverride ?? docMode;
 	const { html } = await buildDeckRender(options, source, palette, mode, extraTheme, extraCss);
+	// paneSplitCounts (pane-pages.ts) reads the lint core synchronously.
+	await import('@/playground/authoring-door.js').then((door) => door.loadAuthoring());
 	const { splitSections } = (await loadDeckPreview()) as unknown as {
 		splitSections: (h: string) => string[];
 	};

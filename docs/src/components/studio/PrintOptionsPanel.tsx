@@ -34,7 +34,9 @@ import { notify } from '@/lib/notify';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 // Engine helpers (shared kernel, HARD RULE #1): the paper decision + slide placement
 // + single-slide srcdoc + rendered-HTML splitter all live in the playground engine.
-import { notesCore } from '@/playground/authoring-door.js';
+// Read synchronously: ShareSheet, which renders this panel, loads only after loadAuthoring()
+// (studio-panels.ts).
+import { authoring } from '@/playground/authoring-door.js';
 import { buildSrcdoc, handoutRegions, nUpCells, resolvePrintSheet, splitSections } from '@/playground/deck-preview.js';
 import { downloadBlob, downloadUrl, isIOSLike, namedFileUrl } from './download';
 import { frontMatterBlock, stripFrontMatter, withPrintCanvas } from './front-matter';
@@ -339,7 +341,7 @@ export function PrintOptionsPanel({
 	const sheetsTotal = Math.max(1, Math.ceil((sections.length || 1) / nup));
 	const pageIdx = Math.min(slide, sheetsTotal - 1);
 	// Speaker notes per slide (shared notesCore boundary) — for the handout preview + PDF.
-	const slideNotes = React.useMemo<(string | null)[]>(() => (sections.length ? notesCore.extractSlideNotes(sections) : []), [sections]);
+	const slideNotes = React.useMemo<(string | null)[]>(() => (sections.length ? authoring().notesCore.extractSlideNotes(sections) : []), [sections]);
 	const marginX = ((9 / 25.4) / (sheet.pageW / 96)) * 100; // 9mm as % of sheet width
 	const marginY = ((9 / 25.4) / (sheet.pageH / 96)) * 100;
 	const layoutLabel = handout ? ' · notes handout' : nup > 1 ? ` · ${nup}-up` : '';

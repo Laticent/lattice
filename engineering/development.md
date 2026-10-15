@@ -79,7 +79,7 @@ scaffolders, …). This section calls out only the daily inner-loop:
 | `test:<scope>` | Scoped unit subset (`palette`/`mermaid`/`parsing`/`components`/`cli`/`engine`/`layout`/…) |
 | `test:integration` | The FULL integration tier (every suite) — what pre-push runs under `LATTICE_FULL_PUSH=1` |
 | `test:integration:pr` | The PR-blocking slice CI gates on: cross-path wiring (`parity/`) + export pipeline (`export/`) + per-component semantic invariants (`invariants/`). CI runs the same globs as four time-balanced shards via `test:integration:shard` (see *CI* below) |
-| `test:integration:nightly` | The render-regression slice that runs nightly on `main` (`integration-nightly.yml`): gallery/component/exemplar page-counts + mermaid + screenshot |
+| `test:integration:nightly` | The render-regression slice that runs nightly on `main` (`integration-nightly.yml`): gallery/component/exemplar page-counts + mermaid + screenshot + the lint/engine equivalence checks (`lint-engine/`) |
 | `bench` | tinybench render benchmark — the owned engine over time (`-- --export` adds the rasterize tier, `-- --json` dumps machine-readable) |
 | `lint`, `lint:fix` | Biome check / Biome check --write (never `npx biome`) |
 | `lint:coverage`, `lint:coverage:bless` | Gate / re-record what Biome actually checks — see *Lint (Biome)* below |
@@ -165,6 +165,9 @@ test/integration/components/  component- + bucket-galleries          [nightly]
 test/integration/exemplars/   exemplar-render (45 decks)            [nightly]
 test/integration/mermaid/     mermaid-smoke                         [nightly]
 test/integration/screenshot/  screenshot, svg-scaling              [nightly]
+test/integration/lint-engine/ lint-engine-equivalence: esm/lint.js  [nightly]
+                              vs lib/authoring parity, and engine
+                              isolation with a shared-parser control
 test/benchmark/               engine-bench.mjs (npm run bench) + *.test.js
                               scaling guards (npm run test:perf) — neither is
                               in npm test, and neither blocks CI

@@ -51,7 +51,9 @@ test('the presented slide card stays a 16:9 box inside its row (#1227) @webkit-t
 	// studio.present-layout.test.tsx, since this whole tier is nightly.
 	const box = await page.evaluate(() => {
 		const host = document.querySelector('[aria-label="Presented slide"]');
-		const card = host?.closest('.aspect-video');
+		// The card is the slide frame (docs/src/lib/slide-frame.ts). It carried `.aspect-video` until
+		// #2648 (2026-10-12) moved it to `data-slide-frame`, and this lookup returned null from then on.
+		const card = host?.closest('[data-slide-frame]');
 		const row = card?.parentElement?.parentElement;
 		const header = document.querySelector('[role="dialog"][aria-label="Present"]')?.firstElementChild;
 		if (!card || !row || !header) return null;

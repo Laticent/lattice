@@ -1,15 +1,52 @@
-// THE ONE WAY INTO THE LINT CORE (authoring-core.generated.js). Import this, never the generated file:
+// THE ONE WAY INTO THE LINT CORE. Import this, never the lint core's module itself:
 // `docs/src/playground/authoring-door.test.ts` fails on any other importer.
 //
-// The lint core is 176 KB gz, and nothing on the Studio's first paint needs it, so it loads after first
-// paint (engineering/decisions/2026-10-14-engine-spine.md §5). It holds its own copy of the boundary
-// parser, and that copy must follow the deck's plugin admission before anyone parses with it. ES module
-// evaluation runs this file's body after the lint core and before any importer's body, so switching the
-// parser here means no reader, static or dynamic, can see the lint core on a stale grammar.
+// The lint core loads after first paint (engineering/decisions/2026-10-14-engine-spine.md §5), from
+// `esm/lint.js` beside the engine (§10; lint-core-source.js says where). It holds its own boundary
+// parser, and that parser must follow the deck's plugin admission before anyone parses with it, so
+// `loadAuthoring` switches it before it hands the lint core to anyone.
+//
+// NOT a top-level await. A module that awaits at the top makes Rolldown split the Studio's startup
+// code into 57 more chunks (110 to 167, +12KB gz across the same 493 modules; measured 2026-10-15),
+// even when nothing on the startup path imports it. So the door is a function, and a module that
+// needs the lint core synchronously (pane-pages.ts, slide-notes.ts, PrintOptionsPanel.tsx) reads it
+// with `authoring()`, after its own loader awaited `loadAuthoring()`.
 
-import { setBoundaryPluginsOff } from './authoring-core.generated.js';
 import { adoptLintBoundarySetter } from './lint-boundary-state.js';
+import { loadLintCore } from './lint-core-source.js';
 
-adoptLintBoundarySetter(setBoundaryPluginsOff);
+/** @typedef {typeof import('./authoring-core.generated.js')} Authoring */
 
-export * from './authoring-core.generated.js';
+/** @type {Authoring | null} */
+let core = null;
+/** @type {Promise<Authoring> | null} */
+let loading = null;
+
+/**
+ * The lint core, loaded once and switched to the deck's plugin admission before it is returned.
+ * A failed load is not cached, so a later call can retry.
+ * @returns {Promise<Authoring>}
+ */
+export function loadAuthoring() {
+	if (!loading) {
+		loading = loadLintCore().then((mod) => {
+			adoptLintBoundarySetter(mod.setBoundaryPluginsOff);
+			core = mod;
+			return mod;
+		});
+		loading.catch(() => {
+			loading = null;
+		});
+	}
+	return loading;
+}
+
+/**
+ * The lint core, for a caller that cannot await. Its module's loader must have awaited
+ * `loadAuthoring()` first; reading it earlier throws rather than guessing.
+ * @returns {Authoring}
+ */
+export function authoring() {
+	if (!core) throw new Error('authoring-door: the lint core has not loaded. Await loadAuthoring() in the loader of the module that reads it.');
+	return core;
+}

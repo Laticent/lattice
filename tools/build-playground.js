@@ -198,14 +198,102 @@ const lazyChartRegistryPlugin = {
   },
 };
 
+// THE LINT CORE, as an entry of this build (engineering/decisions/2026-10-14-engine-spine.md §10).
+// It is the same entry tools/build-authoring-core.js writes for vitest, so the docs site and the
+// tests run one source. Built here, it shares every chunk it has in common with the engine (one
+// markdown-it, one copy of each lib/core reader) instead of shipping its own.
+//
+// ONE MODULE IT MUST NOT SHARE: lib/core/boundary-parser.mjs. Its parser instance holds the enabled
+// plugin block rules, and the lint narrows them per deck (authoring-door.js) to the deck's plugin
+// admission. Shared, that would narrow the engine's parser too, and the engine's output would depend
+// on whether the lint core had loaded yet. So the three lint modules that reach the parser get their
+// own module instance of it: same source, its own `boundaryParser` and `rulesGeneration`.
+// assertLintParserIsolated() fails the build if either side ever reaches the other's copy.
+const { ENTRY_CONTENTS: LINT_ENTRY_CONTENTS, SRC_DIR: AUTHORING_DIR } = require('./build-authoring-core.js');
+const BOUNDARY_PARSER_MJS = path.join(ROOT, 'lib', 'core', 'boundary-parser.mjs');
+const BOUNDARY_PARSER_CJS = path.join(ROOT, 'lib', 'core', 'boundary-parser.js');
+const LINT_PARSER_IMPORTERS = new Set([path.join(ROOT, 'lib', 'authoring', 'lint-core.js'), path.join(ROOT, 'lib', 'core', 'slide-boundaries.mjs')]);
+const lintEntryPlugin = {
+  name: 'lint-entry',
+  setup(build) {
+    build.onResolve({ filter: /^lattice-lint$/ }, () => ({ path: 'lint', namespace: 'lattice-lint' }));
+    build.onLoad({ filter: /.*/, namespace: 'lattice-lint' }, () => ({ contents: LINT_ENTRY_CONTENTS, resolveDir: AUTHORING_DIR, loader: 'js' }));
+    build.onResolve({ filter: /boundary-parser(\.m?js)?$/ }, (args) => {
+      const fromLint = args.namespace === 'lattice-lint' || LINT_PARSER_IMPORTERS.has(args.importer);
+      if (!fromLint) return undefined;
+      const resolved = path.resolve(args.resolveDir, args.path);
+      if (![BOUNDARY_PARSER_MJS, BOUNDARY_PARSER_CJS, BOUNDARY_PARSER_CJS.slice(0, -3)].includes(resolved)) return undefined;
+      return { path: BOUNDARY_PARSER_MJS, namespace: 'lint-boundary-parser' };
+    });
+    build.onLoad({ filter: /.*/, namespace: 'lint-boundary-parser' }, (args) => ({
+      contents: fs.readFileSync(args.path, 'utf8'),
+      resolveDir: path.dirname(args.path),
+      loader: 'js',
+      watchFiles: [args.path],
+    }));
+    // On every build, watch mode included.
+    build.onEnd((result) => {
+      if (result.metafile) assertLintParserIsolated(result.metafile);
+    });
+  },
+};
+
+/**
+ * The lint core and the engine must each reach only their own boundary-parser instance. Walks the
+ * metafile's module graph (static, require and dynamic edges) from each entry. PURE over the
+ * metafile, so a test can hand it a fake one.
+ */
+function assertLintParserIsolated(metafile) {
+  const inputs = metafile.inputs;
+  const reach = (start) => {
+    const seen = new Set([start]);
+    const queue = [start];
+    while (queue.length) {
+      for (const imp of inputs[queue.pop()]?.imports ?? []) {
+        if (!seen.has(imp.path)) {
+          seen.add(imp.path);
+          queue.push(imp.path);
+        }
+      }
+    }
+    return seen;
+  };
+  const keys = Object.keys(inputs);
+  const lintEntry = keys.find((k) => k.startsWith('lattice-lint:'));
+  const lintCopy = keys.find((k) => k.startsWith('lint-boundary-parser:'));
+  const shared = keys.find((k) => !k.includes(':') && k.endsWith('lib/core/boundary-parser.mjs'));
+  if (!lintEntry || !lintCopy) throw new Error('build-playground: the lint entry or its own boundary parser is missing from the ESM build');
+  const problems = [];
+  const lintReach = reach(lintEntry);
+  if (shared && lintReach.has(shared)) problems.push('the lint core reaches the engine\'s boundary-parser.mjs');
+  // The engine build swaps some modules for browser stand-ins (KaTeX, plugin data, the chart
+  // registry, highlight.js's common build). vitest runs the lint core from authoring-core.generated.js,
+  // which has none of them, so a lint that reached one would pass its tests and differ in the browser.
+  const stubbed = [path.join(ROOT, 'lib', 'engine', 'katex-browser-stub.js'), PLUGIN_DATA_STUB, HLJS_COMMON].map((p) => path.relative(ROOT, p));
+  for (const k of lintReach) {
+    if (k.startsWith('lazy-chart-registry:') || stubbed.includes(k)) problems.push(`the lint core reaches ${k}, which the engine build replaces with a browser stand-in`);
+  }
+  for (const k of keys.filter((x) => !x.startsWith('lattice-lint:') && (x === path.relative(ROOT, ENTRY) || x.startsWith('lattice-chart:')))) {
+    if (reach(k).has(lintCopy)) problems.push(`${k} reaches the lint core's own boundary parser`);
+  }
+  if (problems.length) throw new Error(`build-playground: the lint core and the engine must not share a boundary parser: ${problems.join('; ')}`);
+}
+
 const ESM_OPTIONS = {
   ...BUILD_OPTIONS,
-  entryPoints: { engine: ENTRY, ...Object.fromEntries(Object.keys(CHART_KERNELS).map((l) => [`chart-${l}`, `lattice-chart:${l}`])) },
+  // Metafile keys relative to the repo whatever the working directory, so assertLintParserIsolated and
+  // esmChunkList read the same paths from `cd docs && node ../tools/build-playground.js` as from the root.
+  absWorkingDir: ROOT,
+  entryPoints: {
+    engine: ENTRY,
+    lint: 'lattice-lint',
+    ...Object.fromEntries(Object.keys(CHART_KERNELS).map((l) => [`chart-${l}`, `lattice-chart:${l}`])),
+  },
   format: 'esm',
   splitting: true,
   chunkNames: 'chunk-[hash]',
   metafile: true,
-  plugins: [lazyChartRegistryPlugin, ...BUILD_OPTIONS.plugins],
+  plugins: [lintEntryPlugin, lazyChartRegistryPlugin, ...BUILD_OPTIONS.plugins],
   banner: { js: '/* Auto-generated by tools/build-playground.js (ESM) — DO NOT EDIT. Rebuild: npm run playground:build */' },
 };
 
@@ -304,7 +392,12 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+// The ESM options and the isolation pin, for test/integration/lint-engine/, which builds its own copy.
+module.exports = { ESM_OPTIONS, assertLintParserIsolated };
+
+if (require.main === module) {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}

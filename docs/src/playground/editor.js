@@ -569,7 +569,7 @@ export function createEditor({ parent, doc = '', onChange, onCursor, autoHeight 
 		if (!readFrontMatter(src).validate) return []; // deck opted out via front matter
 		if (!lintCoreMod) {
 			try {
-				authoringCore = await import('./authoring-door.js');
+				authoringCore = await import('./authoring-door.js').then((door) => door.loadAuthoring());
 				lintCoreMod = authoringCore.lintCore;
 			} catch {
 				return [];
@@ -602,7 +602,7 @@ export function createEditor({ parent, doc = '', onChange, onCursor, autoHeight 
 		(async () => {
 			if (!lintCoreMod) {
 				try {
-					authoringCore = await import('./authoring-door.js');
+					authoringCore = await import('./authoring-door.js').then((door) => door.loadAuthoring());
 					lintCoreMod = authoringCore.lintCore;
 				} catch {
 					return;

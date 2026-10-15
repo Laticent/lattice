@@ -9,6 +9,8 @@ name: Integration nightly (render-regression tier)
 #   - exemplars/   45 worked decks render + committed-PDF freshness
 #   - mermaid/     mermaid-smoke render
 #   - screenshot/  screenshot + svg-scaling
+#   - lint-engine/ the lint core in the ESM engine build: parity with lib/authoring,
+#                  and engine isolation against a shared-parser control
 # Their only catch is "a render drifted / a committed artifact went stale", and
 # the stale-artifact half is already backstopped at pre-commit
 # (tools/build-staged-pdfs.js + the freshness gates), so a next-morning catch on
