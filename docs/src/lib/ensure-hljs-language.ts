@@ -39,7 +39,7 @@ const loaders = new Map<string, Promise<boolean>>();
 const manifests = new Map<string, Promise<Manifest | null>>();
 
 interface Manifest {
-	/** Each fetchable grammar: its file, and the grammars it embeds (`['*']` = all). */
+	/** Each fetchable grammar: its file, and the grammars it embeds. */
 	languages: Record<string, { file: string; bytes: number; requires?: string[] }>;
 	aliases: Record<string, string>;
 	/** The grammars built into the engine bundle (Lattice's shell grammar), name →
@@ -145,7 +145,7 @@ function injectGrammar(url: string): Promise<boolean> {
 
 /**
  * The grammar files to fetch for `tags`: each tag's own file, resolved through the
- * manifest's aliases, plus every grammar it embeds (`requires`; `['*']` is all of them),
+ * manifest's aliases, plus every grammar it embeds (`requires`),
  * less the ones `registered` says the engine already holds.
  *
  * `Object.hasOwn` throughout, because a tag is a FENCE INFO STRING — author text.
@@ -163,8 +163,7 @@ export function languageFiles(tags: string[], manifest: Manifest, registered: (n
 		seen.add(name);
 		const entry = manifest.languages[name];
 		if (!registered(name) && entry.file) files.add(entry.file);
-		const requires = entry.requires ?? [];
-		for (const dep of requires[0] === '*' ? Object.keys(manifest.languages) : requires) add(dep);
+		for (const dep of entry.requires ?? []) add(dep);
 	};
 	for (const tag of tags) {
 		const canonical = own(manifest.languages, tag) ? tag : own(manifest.aliases, tag) ? manifest.aliases[tag] : undefined;

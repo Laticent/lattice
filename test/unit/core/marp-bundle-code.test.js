@@ -50,6 +50,11 @@ describe('withoutCodeRecords', () => {
     assert.equal(withoutCodeRecords('`@code{numbers}`\r\n```ts\r\nx\r\n```\r\n'), '```ts\r\nx\r\n```\r\n');
   });
 
+  test('with the code plugin off, the record stays, as the engine prints it', () => {
+    const { markdown } = withRuntimeScriptsReport('# A\n\n`@code{numbers}`\n```ts\nx\n```\n', { pluginsOff: ['code'] });
+    assert.match(markdown, /`@code\{numbers\}`/);
+  });
+
   test('the bundle kernel applies it, so both producers ship no record line', () => {
     const { markdown } = withRuntimeScriptsReport('# A\n\n`@code{numbers}`\n```ts\nx\n```\n');
     assert.doesNotMatch(markdown, /@code\{/);

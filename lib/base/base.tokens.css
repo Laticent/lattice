@@ -1503,13 +1503,15 @@
 
   /* Syntax-role fallbacks (the code plugin's `--syntax-*`, which its stylesheet maps every
    * highlight.js class onto) — Night Owl values, EXCEPT the two solved below.
+   * (These were the `--hljs-*` tokens until 2026-10-15; the history told here uses today's names.)
    *
    * A FALLBACK IS ALL THEY ARE AGAIN. `lattice.js` used to concatenate
    * `paletteCSS + layoutCSS`, so on the EXPORT path the base loaded AFTER the theme
    * and these values WON — a theme's own `--syntax-*` never painted there. #1527 flipped
    * it, so what paints now is the theme's value where it declares one (every base theme
-   * declares all twelve; the 14 dark variants inherit them through @import) and these where it does not, plus the un-themed bundle: what the golden
-   * corpus and a bare `dist/lattice.css` consumer render with.
+   * declares all twelve; the 14 dark variants inherit them through @import) and these where
+   * it does not, plus the un-themed bundle: what the golden corpus and a bare
+   * `dist/lattice.css` consumer render with.
    *
    * `--syntax-comment` and `--syntax-constant` are nonetheless solved for EVERY panel in the
    * corpus rather than for this base's alone, and they are left that way. Night Owl's

@@ -100,7 +100,16 @@ describe('rendering a record', () => {
 
   test('a caption span above a fence on a `code` slide is still a caption', () => {
     const html = render(`<!-- _class: code -->\n\n\`Before · the old load\`\n\n## A\n\n${FENCE}`);
-    assert.match(html, /Before · the old load/);
+    // The layout lifts the lone code span into the masthead as the slide's eyebrow: that is the shape
+    // a record must never take, and the one a caption must keep.
+    assert.match(html, /<div class="masthead-lede"><p><code>Before · the old load<\/code><\/p><h2>A<\/h2>/);
+  });
+
+  test('a fence another plugin draws takes no options, so a deck default cannot reach the diagram', () => {
+    const html = render('---\ncode: numbers, diff\n---\n\n# A\n\n```mermaid\nflowchart LR\n  A --> B\n```\n');
+    const block = /<pre[^>]*><code class="language-mermaid">[\s\S]*?<\/code><\/pre>/.exec(html)?.[0] || '';
+    assert.ok(block, 'the mermaid source block renders');
+    assert.doesNotMatch(block, /class="ln|lat-diff-mark|lat-code-numbers/);
   });
 });
 

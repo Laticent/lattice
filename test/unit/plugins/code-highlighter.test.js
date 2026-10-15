@@ -51,6 +51,56 @@ describe('code plugin — lazy highlighter', () => {
     assert.deepEqual(differ, [], `lazy highlighting differs from the full build for: ${differ.join(', ')}`);
   });
 
+  // The test above loads languages cumulatively into one singleton, so an embedded language another
+  // test loaded first would hide a missing `requires` entry. This one gives each language a FRESH
+  // instance holding only that language and the closure the table says it needs.
+  test('each language plus its `requires` closure alone colors as the full build does', () => {
+    const ref = reference();
+    const differ = [];
+    for (const [name, requires] of Object.entries(LANGUAGES)) {
+      if (name === 'http') continue; // a chosen body set, not every language: its own test below
+      const solo = require('highlight.js/lib/core').newInstance();
+      for (const dep of [...requires, name]) solo.registerLanguage(dep, require(`highlight.js/lib/languages/${dep}`));
+      solo.registerLanguage('bash', shellLanguage);
+      const want = ref.highlight(SNIPPET, { language: name, ignoreIllegals: true }).value;
+      if (solo.highlight(SNIPPET, { language: name, ignoreIllegals: true }).value !== want) differ.push(name);
+    }
+    assert.deepEqual(differ, [], `the requires table misses an embedded language for: ${differ.join(', ')}`);
+  });
+
+  // `http` auto-detects its body among every registered language; the table gives it JSON and XML
+  // (tools/build-code-languages.js AUTODETECT_BODIES) rather than ~190 fetches. On those bodies it
+  // matches the full build; on a plain-text body the full build guessed EBNF, and this stays plain.
+  test('http colors JSON, XML and HTML bodies as the full build does, from its own closure alone', () => {
+    const full = require('highlight.js');
+    const solo = require('highlight.js/lib/core').newInstance();
+    for (const dep of [...LANGUAGES.http, 'http']) solo.registerLanguage(dep, require(`highlight.js/lib/languages/${dep}`));
+    for (const body of [
+      'POST /api/users HTTP/1.1\nContent-Type: application/json\n\n{"name": "Ada", "admin": true, "n": 3}\n',
+      'POST /svc HTTP/1.1\nContent-Type: application/xml\n\n<user id="1"><name>Ada</name></user>\n',
+      'HTTP/1.1 200 OK\nContent-Type: text/html\n\n<!doctype html>\n<p class="a">Hi</p>\n',
+    ]) {
+      assert.equal(solo.highlight(body, { language: 'http' }).value, full.highlight(body, { language: 'http' }).value, body);
+    }
+    assert.ok(LANGUAGES.http.length < 10, `http embeds ${LANGUAGES.http.length} grammars`);
+    assert.doesNotMatch(solo.highlight('HTTP/1.1 500 Error\n\nsomething went wrong\n', { language: 'http' }).value, /language-ebnf/);
+  });
+
+  test('every alias names the grammar the full build gives it, whatever was loaded first', () => {
+    const full = require('highlight.js');
+    const shell = new Set(['bash', 'sh', 'zsh']);
+    const differ = [];
+    for (const [alias, canon] of Object.entries(ALIASES)) {
+      if (shell.has(alias)) continue; // Lattice's shell grammar owns these on purpose
+      if (full.getLanguage(alias)?.name !== full.getLanguage(canon)?.name) differ.push(`${alias} → ${canon}`);
+    }
+    assert.deepEqual(differ, []);
+    // Load the losing owner of `ls` last: the alias must still color as LiveScript.
+    highlighter.ensure('livescript');
+    highlighter.ensure('lasso');
+    assert.equal(highlighter.highlight('x = 1', 'ls'), full.highlight('x = 1', { language: 'livescript' }).value);
+  });
+
   test('every alias resolves to a loadable language', () => {
     for (const [alias, canon] of Object.entries(ALIASES)) {
       assert.ok(Object.hasOwn(LANGUAGES, canon), `${alias} → ${canon}, which the table does not list`);

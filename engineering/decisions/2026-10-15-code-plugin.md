@@ -45,9 +45,11 @@ contract), `2026-10-14-plugin-inline-door.md` (the `@kind{…}` inline form this
 
   The fence keeps the language. A deck sets defaults once in front matter (`code: numbers, format`).
 - **Themes stop knowing highlight.js exists.** The twelve `--hljs-*` tokens become role tokens
-  (`--syntax-keyword`, `--syntax-string`, …) that `derive.js` computes from the palette for every theme.
-  A theme may still override any of them. The highlight.js class names live in one file inside the
-  plugin.
+  (`--syntax-keyword`, `--syntax-string`, …). Every committed theme declares them; `derive.js` computes
+  them for a theme the Studio derives from a palette. The map from highlight.js classes to roles lives in
+  one stylesheet inside the plugin (`code.styles.css`). (Correction after review: a few other places
+  still name highlight.js classes — the Mermaid plugin's source styles, the Studio's Compose preview,
+  the shell grammar — so a different highlighter would touch those too.)
 
 ## 2. What exists today, and what was measured
 
@@ -123,11 +125,10 @@ markdown  ──▶  bakes (async)  ──▶  markdown-it render (sync)  ──
   second is a build error naming both, as two fence claims are today. The fence table sends every
   unclaimed fence to it. If the plugin is turned off, fences render as escaped `<pre><code>` on the
   panel, unhighlighted: the deck still reads.
-- **`code-format`** declares `requires: ["code"]` and fills an extension point the code plugin offers,
-  `format` (the chart family's `kernel` is the precedent). It contributes a bake, so it reuses the async
-  pre-pass the host already has (`lib/plugins/host-bake.js:77-86`), which runs only when the deck uses
-  the plugin. The bake rewrites fence bodies in the Markdown text before the render, so every render
-  path, Marp export included, sees the formatted source.
+- **`code-format`** — *superseded by decision 5 (§9).* As first built it was a plugin with a bake that
+  rewrote fence bodies before every render. It is now an authoring tool (`lib/authoring/code-format/`):
+  `lattice fmt` and the Studio's Format command rewrite the source once, and the render never formats.
+  It never filled an extension point; the earlier text here said it would.
 
 Why two plugins and not one: they fail differently (a formatter throws on invalid code; a highlighter
 never does), they cost differently (171 KB gz for Prettier's TypeScript, against 2 KB for a highlight.js
@@ -181,23 +182,23 @@ what it adds on top: the full-height composition and the column layout of `compa
 | `--syntax-entity` | `--hljs-title` | title, title.function_, title.class_, section |
 | `--syntax-type` | `--hljs-type` | type, symbol, meta |
 | `--syntax-builtin` | `--hljs-built_in` | built_in |
-| `--syntax-string` | `--hljs-string` | string, regexp, link |
+| `--syntax-string` | `--hljs-string` | string, regexp, link, char.escape_ |
 | `--syntax-number` | `--hljs-number` | number, selector-id |
 | `--syntax-constant` | `--hljs-literal` | literal, subst |
 | `--syntax-variable` | `--hljs-variable` | variable, template-variable, selector-class |
 | `--syntax-parameter` | `--hljs-params` | params |
-| `--syntax-markup` | `--hljs-tag` | tag, name, attr, attribute |
-| `--syntax-comment` | `--hljs-comment` | comment, quote, doctag |
-| `--syntax-punctuation` | `--hljs-punctuation` | punctuation, operator, property |
+| `--syntax-markup` | `--hljs-tag` | tag, name, attr, attribute, doctag, code |
+| `--syntax-comment` | `--hljs-comment` | comment, quote |
+| `--syntax-punctuation` | `--hljs-punctuation` | punctuation, operator |
 | `--syntax-inserted` | (none; borrowed variable) | addition, plus a tinted line background |
 | `--syntax-deleted` | (none; borrowed literal) | deletion, plus a tinted line background |
 
-- `derive.js` computes all fourteen from the palette for every theme, with the existing
-  `ensureContrast` floor. A committed theme that hand-tuned its colors keeps them by setting the role
-  tokens.
+- `derive.js` computes the roles for a theme the Studio derives from a palette, with the existing
+  `ensureContrast` floor; every committed theme declares its own (the shipped table above is what
+  `code.styles.css` maps).
 - `lib/tokens/crosswalk.js` records each `--hljs-*` → `--syntax-*` rename, so `checkRetiredTokenNames`
-  catches an old name in a theme. An external theme that sets `--hljs-*` stops coloring code until it
-  renames: a changelog **Breaking:** line.
+  catches an old name in a theme. An external theme that sets `--hljs-*` falls back to the engine's
+  default syntax colors until it renames: a changelog **Breaking:** line.
 - `checkHljsContrast` and `checkHljsSeparation` are renamed and read the role tokens. They gain the two
   diff roles and keep their thresholds.
 - Print mode keeps its lightness-only hierarchy (`base.modifiers.css:1113-1128`), rewritten against the
@@ -233,9 +234,10 @@ What decides it:
 - **Speed does not matter at slide scale.** A deck formats a handful of blocks; 11 ms against 4 ms is
   invisible. Bytes and correctness decide.
 - **No formatter honors the width as a hard limit.** At width 40 every JS, TS and Python formatter still
-  left two or three lines past 100 columns, because none breaks string literals. The code plugin
-  measures the longest line after formatting and `lint:deck` warns on overflow, whether or not the
-  block was formatted.
+  left two or three lines past 100 columns, because none breaks string literals. A line past the
+  panel's edge is clipped, and the render's overflow check reports it (`⚠ OVERFLOW` and the "Content
+  clipped" tag, verified on a plain slide); `lint:deck` does not, because it cannot know the panel's
+  width. `wrap` is the author's fix. (An earlier draft said the plugin would measure it; it does not.)
 
 **The registry, as decided** (§9). Each adapter is a self-hosted file loaded by a dynamic `import()`
 only when a block in that language asks to be formatted, so an adapter no block uses costs nothing:

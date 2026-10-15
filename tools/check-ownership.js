@@ -9939,6 +9939,7 @@ function catInkCollapsePairs(inks, marks) {
 
 /**
  * The twelve `--syntax-*` syntax colors, against the code panel they are painted on.
+ * (These were the `--hljs-*` tokens until 2026-10-15; the history told here uses today's names.)
  *
  * #1527. Twelve tokens x 32 themes x 2 modes and **no contrast test anywhere** —
  * the one large token family the categorical gate above does not reach. That gap
@@ -9999,6 +10000,8 @@ function checkSyntaxContrast(errors, themesDir = THEMES_DIR) {
   let evaluated = 0;
   let themesScanned = 0;
   const unreadable = [];
+  // (These were the `--hljs-*` tokens until 2026-10-15; the history told here uses today's names.)
+  //
   // THE BASE IS SCANNED FIRST, and it is not optional. `lattice` is the palette
   // `dist/lattice.css` ships — what a deck renders with before any theme is picked,
   // and what `regression-gate.mjs` itself renders every golden with — so it is the
