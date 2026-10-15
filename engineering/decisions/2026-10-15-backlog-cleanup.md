@@ -26,7 +26,7 @@ Status: applied. Issues stay the source of truth; `backlog.d/` is regenerated fr
   (`type:test` and `type:chore` to `type:infra`, `type:bug` to `type:fix`, `type:feature` to `type:feat`,
   `area:theme` to `area:theming`, `area:components` to `area:engine`), and `priority:p3` was dropped. Four
   others were left alone because no defined label fits: `documentation`, `bug`, `security`, `type:perf`.
-  The 32 issues missing an area and the 32 missing a type were filled from the per-issue check, and 3
+  The 31 issues missing an area and the 31 missing a type were filled from the per-issue check, and 3
   issues got `status:backlog`.
 - **Swimlane and Done when.** Appended to 194 issue bodies (append only; original text untouched).
   Issues that already had an acceptance section got a `Remaining scope` section instead where the check
