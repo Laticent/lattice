@@ -5,8 +5,8 @@
 // check. It reads only the deck's Markdown, so it runs in a second, with no browser.
 //
 // The deck's conventions it relies on:
-// - A chapter starts at a `divider` slide whose eyebrow begins `Primer`, `Chapter N` or
-//   `Reference`. Slides before the first divider (the title) belong to no chapter.
+// - A chapter starts at a `divider` slide whose eyebrow begins `Primer`, `Day one`,
+//   `Chapter N`, `Kit` or `Reference`. Slides before the first divider (the title) belong to no chapter.
 // - The frame slides are found by the end of their eyebrow: `· Start here`, `· Common mistakes`,
 //   `· Check` and `· Try it`. "Start here" lists the outcomes and ends in a `> You need: …`
 //   line naming the earlier terms the chapter assumes, so it stands alone.
@@ -149,7 +149,7 @@ export function chapters(slides) {
   const out = [];
   let cur = null;
   slides.forEach((s, i) => {
-    if (s.cls === 'divider' && /^(Primer|Chapter \d+|Reference)/.test(s.eyebrow)) {
+    if (s.cls === 'divider' && /^(Primer|Day one|Chapter \d+|Kit|Reference)/.test(s.eyebrow)) {
       cur = { name: s.eyebrow.split('·')[0].trim(), title: s.eyebrow, start: i + 1, slides: [] };
       out.push(cur);
     }
@@ -164,8 +164,15 @@ export function judgeChapter(ch) {
   const add = (check, ok, detail = '') => results.push({ check, ok, detail });
   const isPrimer = ch.name === 'Primer';
   const isReference = ch.name === 'Reference';
+  const isKit = ch.name === 'Kit';
   const find = (suffix) => ch.slides.find((s) => s.eyebrow.endsWith(suffix));
 
+  if (isKit) {
+    // The kit is copyable files, not teaching; only notes are checked.
+    const silent = ch.slides.filter((s) => !s.notes.trim()).map((s) => `p${s.page}`);
+    add('Notes', silent.length === 0, silent.length ? `no notes: ${silent.join(', ')}` : '');
+    return results;
+  }
   if (isReference) {
     // A glossary teaches many terms at once, on purpose. It must define every registry term.
     const defined = ch.slides.filter((s) => s.cls === 'glossary').flatMap((s) => s.listLeads.map((l) => l.toLowerCase()));

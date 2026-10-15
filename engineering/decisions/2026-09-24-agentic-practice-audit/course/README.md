@@ -12,12 +12,19 @@ review and testing, and teaches only what changes when an agent does the typing.
 | `harness.mjs` | The teaching harness: measures each chapter against the bar below |
 | `terms.json` | Every agent term the course introduces, with its other spellings |
 | `scorecard.md` | The human half of the bar, scored per chapter |
+| `build-test.md` | An independent agent built the booking app from the deck alone: every gap it hit, and what fixed each |
 
 ## How the course is built
 
 - **The primer comes first.** It covers only what's new: the agent loop, the context
-  window, a one-slide refresher on the path a change takes, and the one rule. Nobody
-  starts a chapter cold, and nobody sits through what they already know.
+  window, a one-slide refresher on the path a change takes, your first session with a
+  table of tools and their instruction-file names, and the one rule. Nobody starts a
+  chapter cold, and nobody sits through what they already know.
+- **Day one comes second.** It covers the app's one-page spec, the six setup commits in
+  order, and how to show a failing test when the hook blocks failing commits.
+- **The kit comes last.** Every file the course shows, ready to copy: the instruction
+  file, a plan, the schema, the hook, a lint check, the guardrail, a follow-up file and its
+  check. Each was extracted from the deck and run.
 - **Each chapter stands on its own** through one line, not a slide: its "Start here" slide
   ends with `You need:` and the earlier terms it assumes, each with a short gloss. That
   restatement costs one line per chapter; a separate "You need" slide cost eight slides
@@ -41,7 +48,7 @@ The harness checks the parts a machine can measure. Change a number here and in
 
 | Check | The bar | Why |
 | --- | --- | --- |
-| Chapter frame | Every frame slide is present, and every chapter's "Start here" ends in a `You need:` line | A predictable shape lets a learner find their place. The primer has no `You need:` line because nothing comes before it |
+| Chapter frame | Every frame slide is present, and every chapter's "Start here" ends in a `You need:` line (Day one included; the Kit and Reference are checked for notes only) | A predictable shape lets a learner find their place. The primer has no `You need:` line because nothing comes before it |
 | Define before use | Each term in `terms.json` is named on the `You need:` line or taught on the slide that first uses it | Undefined jargon is the curse of knowledge in its plainest form. The list holds only agent terms; the professional baseline is assumed |
 | One new idea per slide | At most one `Teaches:` term per slide | Anyone absorbs one new name at a time, expert or not |
 | Density | 8–16 slides per chapter (18 for the primer); at most 45 words on a slide | One sitting per chapter; a slide supports the speaker, it doesn't replace them. Code, glossary and table slides are exempt, because the code is the content |
@@ -92,6 +99,10 @@ the new mistakes. Standing alone was never the main cost: it accounted for 8 of 
 ## What the harness can't measure
 
 A chapter can pass every check and still teach badly: the explanation can be wrong, the
-example can be a bad fit, or the order can be confusing. `scorecard.md` covers that half,
-with six criteria scored by a person. A third test, a cold read by someone from the target
-audience, is the real proof, and it hasn't been done yet.
+example can be a bad fit, or the order can be confusing. Two tests cover that half:
+- `scorecard.md`: six criteria scored by a person;
+- `build-test.md`: an independent agent built the app from the deck alone.
+
+The build test found the course strong on ideas and missing the hands-on steps, which
+Day one and the kit now supply. A cold read by a person from the target audience is still
+the real proof, and it hasn't been done yet.

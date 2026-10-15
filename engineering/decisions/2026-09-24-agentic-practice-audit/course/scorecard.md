@@ -31,6 +31,7 @@ section).
 | Chapter | 1 Baseline | 2 Concrete | 3 One idea | 4 Practice | 5 True | 6 Alone |
 | --- | --- | --- | --- | --- | --- | --- |
 | Primer | 4 | 4 | 4 | 4 | 4 | — |
+| Day one · Setup | 4 | 4 | 4 | 4 | 4 | 4 |
 | 1 · Directing the agent | 4 | 4 | 4 | 4 | 4 | 4 |
 | 2 · What the agent sees | 4 | 4 | 4 | 4 | 4 | 4 |
 | 3 · What the agent may do alone | 4 | 4 | 4 | 4 | 4 | 4 |
@@ -67,6 +68,16 @@ rewritten mistakes, which now carry new material). Chapter 8's guardrail now mea
 design that makes a mistake hard to write, like a type that only holds UTC, which builds
 on Chapter 5's check instead of repeating it. With the room freed, Chapter 2 gives the
 subagent its own slide instead of introducing it inside a list of habits.
+
+## Build test (2026-10-15)
+
+An independent agent built the booking app from the deck alone (`build-test.md`). It
+found two blockers: no tool or first session, and no name or location for the
+instruction file. It also found eleven major gaps, all about missing mechanics
+rather than wrong ideas. These scores were too generous on criterion 4 (practice),
+because the exercises assumed mechanics the course never showed. After the fix (the
+primer's tool table and first session, Day one, and the kit), every blocker and major gap
+has a slide. Five minor gaps are logged as not fixed. Day one is scored in the table above.
 
 ## The one remaining three
 
