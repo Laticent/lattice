@@ -517,7 +517,11 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
   stand-in. Interaction behavior (touch, gesture, scroll, focus, drag) *especially*
   must be exercised on the real surface, not a harness. When a surface can't be
   reached from here (e.g. iOS Safari in a headless sandbox), say so and mark it
-  **UNVERIFIED** — never turn "couldn't test" into "tested." *(discipline — no
+  **UNVERIFIED** — never turn "couldn't test" into "tested." **"Not installed" is not
+  unreachable:** a browser or tool the sandbox can install is a surface you can reach, so
+  install it and run the test. Playwright's WebKit and Firefox install themselves when the e2e
+  suite needs them (`docs/scripts/e2e-ensure-browsers.mjs`), so a skipped `webkit-*` or `gecko`
+  project is never a result to report. *(discipline — no
   automated gate; the test is whether every "verified" in a PR or report can point
   at the surface + artifact behind it. Sharpens the QUALITY BAR.)*
 - **#24 — Our `OPEN_ROUTER_KEY` stays OFF the site and OUT of tests.** Two guards for our
