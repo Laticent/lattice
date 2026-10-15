@@ -213,8 +213,24 @@ Values rendered through `lib/engine` in a `line` chart, three points each:
 | `4,2` (decimal comma) | `4.5 5 5.5 6` | parses, but the axis switches to a decimal point |
 | `1.234,5` (European thousands) | `1500 2000 2500 3000 3500` | parses, but the axis prints US style |
 
-Currency after the number is the common form in French, German and Italian decks, so a
-European client's chart silently fails to draw. The parse and the tick formatter both
+A wider probe of the value reader (`isValuePill` and `parseValue` in
+`lib/core/chart-values.js`) found more forms a global client writes that do not count as
+a value, so a chart built from them does not draw:
+
+| Authored value | Read as a value? | Number read |
+|---|---|---|
+| `EUR 4.2M`, `CHF 4.2M` (ISO code first) | no | 4 200 000 |
+| `US$4.2M`, `R$4,2M` (multi-character symbol) | no | 4 200 000 |
+| `4200€`, `4.2M EUR`, `4,2 M€` (currency after) | no | correct |
+| `4 200 €` (space-grouped, currency after) | no | 4, wrong |
+| `4,2 Mio. €` (German million abbreviation) | no | 42, wrong |
+| `₹4.2Cr` (Indian crore) | yes | 4.2, wrong: a crore is 10 000 000 |
+
+Currency after the number is the common form in French, German and Italian decks, and
+ISO codes are the norm in reinsurance slips, so these charts silently fail to draw. The
+whole-value test is Segno's `NUMERIC` grammar (`docs/src/lib/segno`), which the charts,
+the narrator and every inline-code slot share, so the fix there has a wide blast radius
+and owes a checker (MAKER-CHECKER). The parse and the tick formatter both
 live in `lib/components/chart/_chart-family/cartesian.js` (`affixOf`, `axisFormatter`).
 
 ### 7.4 The decided build, in order
