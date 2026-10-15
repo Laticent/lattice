@@ -107,7 +107,8 @@ describe('languageFiles — a grammar brings the ones it embeds', () => {
 			xml: { file: 'xml.js', bytes: 1, requires: ['css', 'javascript'] },
 			css: { file: 'css.js', bytes: 1 },
 			javascript: { file: 'javascript.js', bytes: 1, requires: ['xml'] },
-			http: { file: 'http.js', bytes: 1, requires: ['*'] },
+			json: { file: 'json.js', bytes: 1 },
+			http: { file: 'http.js', bytes: 1, requires: ['json', 'xml'] },
 		},
 		aliases: { html: 'xml', js: 'javascript' },
 	};
@@ -121,8 +122,8 @@ describe('languageFiles — a grammar brings the ones it embeds', () => {
 		expect([...languageFiles(['html'], manifest, (n) => n === 'xml')].sort()).toEqual(['css.js', 'javascript.js']);
 	});
 
-	it("`['*']` means every grammar (http's body auto-detects among all of them)", () => {
-		expect(languageFiles(['http'], manifest, none).size).toBe(4);
+	it("http brings the body grammars it auto-detects among, and their embeds, not every grammar", () => {
+		expect([...languageFiles(['http'], manifest, none)].sort()).toEqual(['css.js', 'http.js', 'javascript.js', 'json.js', 'xml.js']);
 	});
 
 	it('author text that names a prototype key resolves to nothing', () => {
