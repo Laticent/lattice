@@ -153,7 +153,7 @@ PR puts them to the owner before merge.
 
 What it still cannot see: a kernel other than the largest growing while it stays under the
 largest. `chart-hub-spoke.js` could grow 36KB before it moved the metric. A second metric for the
-sum of every kernel's closure would see it; that is a number for the owner, not added here.
+sum of every kernel's closure would see it; that is a number for the owner, not added here. (The owner picked it the same day; see §11.)
 
 The 44.4KB `markdown-it` is the second copy the lint core and the ESM engine each carry; the shared
 build in `followups.d/2694-p1-shared-lint-engine-build.md` is what would remove it.
@@ -279,3 +279,44 @@ options and a shared-parser control into a temporary directory. Parity compares 
 the Node source (`lib/authoring/*`), not with the vitest bundle, under both admissions. Isolation runs
 each build in its own child process and requires the control to change at least one deck. About 25s.
 Breaking one lint message in the built output fails parity on 554 runs.
+
+## 11. Every chart kernel gets a budget, not only the largest (2026-10-15)
+
+§8 left one blind spot: `chartKernelGz` watches the largest kernel only, so any other kernel could
+grow until it overtook `chart-map.js` and the gate would not move. `chart-hub-spoke.js` had 36KB of
+that room.
+
+`measureCharts` in `docs/scripts/check-route-budget.mjs` now also returns **`chartKernelsGz`**: the
+union of every `esm/chart-<layout>.js` closure beyond the engine, with each chunk that two kernels
+share counted once. It runs on the Studio route beside the other lazy metrics.
+
+Measured on the built tree at `ca333c1`, gzip level 6:
+
+| | gz |
+|---|---:|
+| `chart-map.js`, the largest (`chartKernelGz`) | 77.5KB |
+| 24 kernels, each closure summed separately | 464.9KB |
+| 24 kernels, union (`chartKernelsGz`) | 195.6KB |
+
+The separate sum counts the shared chunks 24 times, so it would describe no real download. The union
+is what a visitor pays when they open every chart type once.
+
+**The owner's call.** The owner was shown three options: the union at the standard 10% ceiling, the
+union at 5%, or recording why the largest is enough. They picked the union at 10%: soft 200,314
+bytes, ceiling 220,345. At that ceiling, about 19.6KB of growth in any kernel or shared chunk fails
+the docs build. The 5% option would have caught 9.8KB, at the cost of reaching the ceiling sooner on
+ordinary chart work. Measuring the union adds well under 0.2s to a 0.55s gate.
+
+**What it still cannot see.** One kernel growing by less than 19.6KB passes, even when that is half
+its own size (most kernels are 16 to 26KB). Adding or removing a kernel moves the union by the
+kernel's size, so a removal can trip the 5% stale floor and ask for a reset. That reset is the
+intended record, not noise.
+
+**Evidence.** A fixture test in `check-route-budget.test.mjs` grows a kernel that is not the largest
+and checks two things: `chartKernelGz` does not move, and `chartKernelsGz` fails its ceiling.
+On the real build, growing `chart-hub-spoke.js` by 27.5KB gz left `chartKernelGz` at 77.5KB and
+failed `chartKernelsGz` at 223.1KB against its 215.2KB ceiling.
+
+**Folded in from the checker.** The gate now throws when the engine imports a chart kernel
+statically, the same way it throws for the lint core: such a kernel would count as engine and drop
+out of both chart metrics. The stale floor would have caught it only for kernels of 10KB or more.

@@ -175,7 +175,8 @@ describe('the lazy metrics', () => {
 		if (kernels) {
 			put(`${esm}/chart-small.js`, 'import"./chunk-core.js";export const k=1;');
 			put(`${esm}/chart-big.js`, 'import"./chunk-core.js";import"./chunk-big.js";export const k=2;');
-			put(`${esm}/chunk-big.js`, `export const big=${JSON.stringify('x'.repeat(50) + Math.random())};`);
+			// Random, so gzip cannot shrink it: chart-big stays the largest when chart-small grows.
+			put(`${esm}/chunk-big.js`, `export const big=${JSON.stringify(Array.from({ length: 40 }, () => Math.random().toString(36).slice(2)).join(''))};`);
 		}
 		return dist;
 	}
@@ -188,15 +189,42 @@ describe('the lazy metrics', () => {
 		expect(m.chartKernel).toBe('chart-big.js');
 		expect(m.chartKernelGz).toBe(gz(read(`${esm}/chart-big.js`)) + gz(read(`${esm}/chunk-big.js`)));
 		expect(m.lintCoreGz).toBe(gz(read(`${esm}/lint.js`)) + gz(read(`${esm}/chunk-md.js`)));
+		// The union counts every kernel and every chunk beyond the engine once; chunk-core is the engine's.
+		expect(m.chartKernelsGz).toBe(gz(read(`${esm}/chart-big.js`)) + gz(read(`${esm}/chunk-big.js`)) + gz(read(`${esm}/chart-small.js`)));
+	});
+
+	it('fails the union when a kernel that is NOT the largest grows, which the largest alone cannot see', () => {
+		// The mutation note §11 names: grow chart-small by a chunk of its own, still well under
+		// chart-big. chartKernelGz does not move; chartKernelsGz does, and past a 10% ceiling.
+		const dist = fixture();
+		const esm = 'playground/v/abc123/esm';
+		const before = measure(LAZY_BUDGET_ROUTE, 'studio/index.html', dist);
+		const ledger = { chartKernelGz: { soft: before.chartKernelGz, hard: ceilingFor(before.chartKernelGz) }, chartKernelsGz: { soft: before.chartKernelsGz, hard: ceilingFor(before.chartKernelsGz) } };
+		fs.writeFileSync(path.join(dist, `${esm}/chart-small.js`), 'import"./chunk-core.js";import"./chunk-grow.js";export const k=1;');
+		// Incompressible and well past 10% of the union, so a zlib change cannot move the verdict.
+		fs.writeFileSync(path.join(dist, `${esm}/chunk-grow.js`), `export const g=${JSON.stringify(Array.from({ length: 20 }, () => Math.random().toString(36).slice(2)).join(''))};`);
+		const after = measure(LAZY_BUDGET_ROUTE, 'studio/index.html', dist);
+		expect(after.chartKernel).toBe('chart-big.js');
+		expect(after.chartKernelGz).toBe(before.chartKernelGz);
+		const { problems } = evaluateRoute(LAZY_BUDGET_ROUTE, after, ledger);
+		expect(problems).toHaveLength(1);
+		expect(problems[0]).toMatch(/chartKernelsGz.*EXCEEDS its ceiling/);
 	});
 
 	it('measures them on the lazy budget route only', () => {
-		expect(measure('home', 'studio/index.html', fixture())).not.toHaveProperty('lintCoreGz');
+		const m = measure('home', 'studio/index.html', fixture());
+		for (const metric of ['chartKernelGz', 'chartKernelsGz', 'lintCoreGz']) expect(m).not.toHaveProperty(metric);
 	});
 
 	it('throws, rather than reporting zero, when the lint core or the kernels are gone', () => {
 		expect(() => measure(LAZY_BUDGET_ROUTE, 'studio/index.html', fixture({ lint: false }))).toThrow(/lint\.js is missing/);
 		expect(() => measure(LAZY_BUDGET_ROUTE, 'studio/index.html', fixture({ kernels: false }))).toThrow(/no chart-\*\.js kernels/);
+	});
+
+	it('throws when the engine imports a chart kernel statically, rather than banking a fake win', () => {
+		const dist = fixture();
+		fs.writeFileSync(path.join(dist, 'playground/v/abc123/esm/engine.js'), 'import"./chunk-core.js";import"./chart-small.js";');
+		expect(() => measure(LAZY_BUDGET_ROUTE, 'studio/index.html', dist)).toThrow(/chart-small\.js statically.*back on startup/);
 	});
 
 	it('throws when the engine imports the lint core statically, rather than banking a fake win', () => {
@@ -212,8 +240,8 @@ describe('route-budget.json', () => {
 
 	it('holds a soft target and a ceiling per metric, and nothing else', () => {
 		for (const [name, r] of Object.entries(ledger.routes)) {
-			// The two lazy metrics live on LAZY_BUDGET_ROUTE alone (check-route-budget.mjs says why).
-			const lazy = name === LAZY_BUDGET_ROUTE ? ['chartKernelGz', 'lintCoreGz'] : [];
+			// The lazy metrics live on LAZY_BUDGET_ROUTE alone (check-route-budget.mjs says why).
+			const lazy = name === LAZY_BUDGET_ROUTE ? ['chartKernelGz', 'chartKernelsGz', 'lintCoreGz'] : [];
 			expect(Object.keys(r).sort(), name).toEqual(['eagerJsGz', 'engineJsGz', 'html', 'htmlRaw', ...lazy].sort());
 			for (const metric of METRICS.filter((m) => m in r)) {
 				expect(Object.keys(r[metric]).sort(), `${name}.${metric}`).toEqual(['hard', 'soft']);
