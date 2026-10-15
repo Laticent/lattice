@@ -26,7 +26,7 @@ Beyond the groups on [the token tour](/craft/themes/tokens/), define:
 
 | Also required | Count | Notes |
 |---|---|---|
-| `--hljs-*` code syntax colors | 12 | each readable on `--code-bg` |
+| `--syntax-*` code syntax colors | 12 | each readable on `--code-bg` |
 | `--cat-N-fill` / `--cat-N-mark` | 12 pairs | the [categorical cycle](/craft/themes/categorical/) |
 | `--cat-N-ink` | 12 | generated, not hand-picked |
 | `--chart-cat1…8`, `--chart-state-*` | 13 | the chart family's own palette |

@@ -147,6 +147,10 @@ npx lattice packages trust component/org-chart
 npx lattice deck.md deck.pdf --packages ./team-packages
 npx lattice packages new plugin demo-plot              # scaffold lib/plugins/demo-plot/ (a checkout)
 
+# Pretty-print the code blocks (Prettier, ruff, sql-formatter; optional deps)
+npx lattice fmt deck.md
+npx lattice fmt deck.md --check                        # exit 1 if a block would change
+
 # Narrated video and voiced player (optional voice install, once:
 #   npm i --no-save kokoro-js@1.2.1 @breezystack/lamejs@1.2.7)
 npx lattice video deck.md talk.mp4                           # voiced on-device, + talk.vtt

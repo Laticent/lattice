@@ -161,18 +161,20 @@
 
 /* ── highlight.js syntax tokens ────────────────────────────────────────── */
 :root {
-  --hljs-comment:    #5d8495;  /* dark teal — muted                          */
-  --hljs-keyword:    #50C0C8;  /* bright teal — control flow, italic         */
-  --hljs-built_in:   #78D8C8;  /* pale teal — functions, italic              */
-  --hljs-number:     #E8C870;  /* warm gold — numeric literals               */
-  --hljs-literal:    #E09888;  /* muted coral — booleans/null                */
-  --hljs-string:     #90D890;  /* sage — strings                             */
-  --hljs-title:      #60D0D8;  /* bright teal — function names, italic       */
-  --hljs-type:       #A0E0D8;  /* pale teal — types/annotations              */
-  --hljs-variable:   #48B8C0;  /* teal — variables                           */
-  --hljs-params:     #C0E0D0;  /* pale teal-white — parameters               */
-  --hljs-tag:        #E8A888;  /* coral — HTML tags                          */
-  --hljs-punctuation:#6b8d9d;  /* dark teal — operators                      */
+  --syntax-comment:     #5d8495;  /* dark teal — muted                          */
+  --syntax-keyword:     #50C0C8;  /* bright teal — control flow, italic         */
+  --syntax-builtin:     #78D8C8;  /* pale teal — functions, italic              */
+  --syntax-number:      #E8C870;  /* warm gold — numeric literals               */
+  --syntax-constant:    #E09888;  /* muted coral — booleans/null                */
+  --syntax-string:      #90D890;  /* sage — strings                             */
+  --syntax-entity:      #60D0D8;  /* bright teal — function names, italic       */
+  --syntax-type:        #A0E0D8;  /* pale teal — types/annotations              */
+  --syntax-variable:    #48B8C0;  /* teal — variables                           */
+  --syntax-parameter:   #C0E0D0;  /* pale teal-white — parameters               */
+  --syntax-markup:      #E8A888;  /* coral — HTML tags                          */
+  --syntax-punctuation: #6b8d9d;  /* dark teal — operators                      */
+  --syntax-inserted:    #8ddb9c;  /* diff: added lines (green by convention; AA on this panel) */
+  --syntax-deleted:     #ff9b9b;  /* diff: removed lines */
 }
 
 :root {

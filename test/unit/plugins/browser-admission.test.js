@@ -27,7 +27,8 @@ const pres = (html) => html.match(/<pre\b[^>]*>/g) || [];
 describe('the engine marks a fence whose plugin the deck did not load', () => {
   test('default set: no marker, byte-identical to a render with every plugin listed', () => {
     const plain = createEngine().render(DECK).html;
-    assert.deepEqual(pres(plain), ['<pre>', '<pre>']);
+    // The mermaid fence is the plugin's to draw (no panel); the js fence sits on the code panel.
+    assert.deepEqual(pres(plain), ['<pre>', '<pre class="lat-code">']);
     assert.ok(!plain.includes('data-lattice-off'));
   });
 
@@ -45,7 +46,8 @@ describe('the engine marks a fence whose plugin the deck did not load', () => {
 
   test("the host's disabled switch marks it too, whatever admitted it", () => {
     const html = createEngine({ plugins: { disabled: ['mermaid'] } }).render(`---\nplugins: [mermaid]\n---\n${DECK}`).html;
-    assert.deepEqual(pres(html)[0], '<pre data-lattice-off="mermaid">');
+    // With Mermaid off its fence is source the reader sees, so the code plugin gives it the panel.
+    assert.deepEqual(pres(html)[0], '<pre data-lattice-off="mermaid" class="lat-code">');
   });
 
   test('render({ pluginDefaults }) narrows one render, and the engine keeps no state from it', () => {

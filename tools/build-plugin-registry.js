@@ -126,6 +126,7 @@ async function readExports(folder, name, manifest) {
     out.hasRender = true;
     out.renderers = Object.keys(mod.renderers || {});
     out.fences = Object.keys(mod.fences || {});
+    out.hasCodeRenderer = typeof mod.codeRenderer?.render === 'function' && typeof mod.codeRenderer?.highlighter?.highlight === 'function';
   }
   const hydratePath = path.join(dir, `${name}.hydrate.js`);
   if (fs.existsSync(hydratePath)) {
@@ -691,7 +692,7 @@ function renderRegistry(ordered, exportsByName) {
   // code fences. Only the plugins that declare one; the others read null.
   const highlights = ordered.filter((p) => p.manifest.contributes.highlight === true)
     .map((p) => `  ${JSON.stringify(p.manifest.name)}: require('./${p.folder}/${p.manifest.name}.highlight.js').highlight,`);
-  return `${HEADER('The plugins the engine installs, in dependency order: the grammar plus each plugin\'s renderers and highlight grammar.')}
+  return `${HEADER('The plugins the engine installs, in dependency order: the grammar plus each plugin\'s renderers, highlight grammar and code renderer.')}
 const { PLUGIN_GRAMMAR, COMPONENT_PLUGINS } = require('./grammar.generated.mjs');
 
 const RENDER_MODULES = {
@@ -705,6 +706,7 @@ const PLUGINS = Object.freeze(PLUGIN_GRAMMAR.map((g) => Object.freeze({
   renderers: RENDER_MODULES[g.name].renderers || Object.freeze({}),
   fenceRenderers: RENDER_MODULES[g.name].fences || Object.freeze({}),
   highlight: HIGHLIGHT[g.name] || null,
+  codeRenderer: RENDER_MODULES[g.name].codeRenderer || null,
 })));
 
 module.exports = { PLUGINS, COMPONENT_PLUGINS };

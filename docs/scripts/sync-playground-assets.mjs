@@ -130,12 +130,11 @@ const distFontsDir = join(repoRoot, 'dist', 'fonts');
 for (const { file } of TEXT_FACES) {
   assets.push([`themes/fonts/${file}.woff2`, join(distFontsDir, `${file}.woff2`)]);
 }
-// On-demand highlight.js grammars — one file per language the engine bundle's
-// 36-language `common` build does NOT carry, plus the alias manifest
-// (tools/build-hljs-languages.js). Staged into the same hashed dir as the engine
-// bundle so docs/src/lib/ensure-hljs-language.ts derives the directory with one
-// path swap, exactly like lattice-katex.js. 156 files, ~932 KB on disk, and the
-// page fetches only the ones a deck's fences actually name — median 1.9 KB.
+// On-demand highlight.js grammars — one file per language, plus the manifest of aliases
+// and embedded grammars (tools/build-hljs-languages.js). Staged into the same hashed dir
+// as the engine bundle so docs/src/lib/ensure-hljs-language.ts derives the directory
+// with one path swap, exactly like lattice-katex.js. About 190 files, and the page
+// fetches only the ones a deck's fences name — median 2.1 KB.
 // THE ENGINE (engineering/decisions/2026-10-14-engine-spine.md): the ESM build tools/build-playground.js
 // writes to esm/ — the entry, one module per chart kernel, the chunks they share and chunks.json.
 // Staged whole, so each file is in the content hash and a changed chunk moves the directory. The
@@ -152,6 +151,17 @@ const hljsDir = join(pgDir, 'hljs');
 if (existsSync(hljsDir)) {
   for (const file of readdirSync(hljsDir)) {
     if (file.endsWith('.js') || file === 'index.json') assets.push([`hljs/${file}`, join(hljsDir, file)]);
+  }
+}
+
+// The code formatter's browser half — its entry, one chunk per formatter and the
+// formatters' WebAssembly (tools/build-code-format.js). Beside the engine for the same
+// reason as the grammars: docs/src/lib/ensure-code-format.ts finds it by one path swap,
+// and a deck fetches only the formatter its blocks ask for.
+const fmtDir = join(pgDir, 'fmt');
+if (existsSync(fmtDir)) {
+  for (const file of readdirSync(fmtDir)) {
+    if (file.endsWith('.mjs') || file.endsWith('.wasm')) assets.push([`fmt/${file}`, join(fmtDir, file)]);
   }
 }
 

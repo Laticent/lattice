@@ -512,6 +512,14 @@ if (process.argv[2] === 'video') {
   process.exit(r.status ?? 1);
 }
 
+// `lattice fmt <deck.md>` — pretty-print a deck's code blocks in place (lib/authoring/code-format/fmt-cli.mjs).
+// Dispatched as a child for the same reason as `packages` above; the subcommand owns its --help.
+if (process.argv[2] === 'fmt') {
+  const r = require('node:child_process').spawnSync(process.execPath, [path.join(PKG_ROOT, 'lib/authoring/code-format/fmt-cli.mjs'), ...process.argv.slice(3)], { stdio: 'inherit' });
+  if (r.error) console.error(`error: ${r.error.message}`);
+  process.exit(r.status ?? 1);
+}
+
 // `--help` / `-h` is one screen; `--help all` (`-h all`, `--help=all`, any case) is the full
 // reference. A help flag anywhere asks for help, as it always has; `--help=<anything>` counts too,
 // so `--help=` or a mistyped value prints the short help rather than "unknown option".

@@ -8,6 +8,7 @@ import { Annotation, ChangeSet, Compartment, EditorState, type Extension, Transa
 import { closeHoverTooltips, EditorView, hasHoverTooltips, keymap, lineNumbers, scrollPastEnd, ViewPlugin } from '@codemirror/view';
 import * as React from 'react';
 import { buildDeckIndex, deckEditableOffset } from '@/lib/deck-outline';
+import { type FormatResult, formatCode, wantsFormat } from '@/lib/ensure-code-format';
 import type { Focus, FocusHub } from '@/lib/fuoco/hub';
 import { partAt, unitAt } from '@/lib/fuoco/outline';
 import { followDeckAdmission } from '@/lib/plugin-admission';
@@ -179,6 +180,20 @@ export function carryApplies(state: CarriedState | null, key: string | undefined
 
 const BOM = '\uFEFF';
 const stripBom = (text: string) => (text.charCodeAt(0) === 0xfeff ? text.slice(1) : text);
+
+/**
+ * Format the editor's code blocks and apply the result as ONE undoable change, block by block, so the
+ * caret stays where it was. `all`: every block a formatter reads (the command); otherwise only the
+ * blocks that ask (format-on-blur). The formatters are async, so if the author edited the deck while
+ * they ran, the result is for text that no longer exists: nothing is applied, and null comes back.
+ */
+async function formatInto(view: EditorView, all: boolean): Promise<FormatResult | null> {
+	const before = view.state.doc.toString();
+	const result = await formatCode(before, { all });
+	if (view.state.doc.toString() !== before) return null;
+	if (result.changes.length) view.dispatch({ changes: result.changes, userEvent: 'input.format' });
+	return result;
+}
 const noLeadingBom = EditorState.transactionFilter.of((tr) => {
 	if (!tr.docChanged || tr.newDoc.length === 0) return tr;
 	if (tr.newDoc.sliceString(0, 1) !== BOM) return tr;
@@ -252,6 +267,10 @@ function isAuthorEdit(u: { transactions: readonly { isUserEvent(e: string): bool
 export type EditorSelection = { empty: boolean; text: string; from: number; to: number };
 export type EditorHandle = {
 	fixAll: () => void;
+	/** Pretty-print every code block a formatter reads, except `format=off`, as one undoable edit
+	 *  (lib/authoring/code-format/). Resolves with what changed and what was left alone, or null
+	 *  when no editor is mounted or the deck changed while the formatters ran. */
+	formatCode: () => Promise<FormatResult | null>;
 	/** The current primary selection (text + range). `empty` when nothing is selected. */
 	getSelection: () => EditorSelection;
 	/** Replace the current selection with `text` as one undoable transaction, then
@@ -583,6 +602,10 @@ export const Editor = React.forwardRef<EditorHandle, {
 	}, [focusHub, revealFocus]);
 
 	React.useImperativeHandle(ref, () => ({
+		formatCode() {
+			const v = viewRef.current;
+			return v ? formatInto(v, true) : Promise.resolve(null);
+		},
 		fixAll() {
 			const v = viewRef.current;
 			if (!v) return;
@@ -773,6 +796,16 @@ export const Editor = React.forwardRef<EditorHandle, {
 						scrollPastEnd(),
 						EditorView.lineWrapping,
 						EditorView.contentAttributes.of({ 'aria-label': 'Deck source' }),
+						// FORMAT ON LEAVING THE EDITOR, for the blocks that ask (`@code{format}`, or the
+						// deck's `code: format`). The Studio autosaves on every keystroke, so leaving the
+						// editor is its "save": formatting while the author types would move the text under
+						// the caret, and code mid-edit does not parse anyway (lib/authoring/code-format/).
+						EditorView.domEventHandlers({
+							blur: (_e, view) => {
+								if (!view.state.facet(EditorState.readOnly) && wantsFormat(view.state.doc.toString())) void formatInto(view, false);
+								return false;
+							},
+						}),
 						EditorView.updateListener.of((u) => {
 							const hub = hubRef.current;
 							// The value-sync pushing the SHELL's text in is not an author move: the hub

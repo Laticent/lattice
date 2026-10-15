@@ -6,6 +6,14 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-10-15 — measured on the built tree at cef3c3b
+
+code plugin: highlight.js grammars load on demand per deck instead of 36 bundled in the engine (#2710)
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| getting-started | engineJsGz | 324483 | 288314 | -36169 | 317145 |
+
 ### 2026-10-15 — measured on the built tree at ca333c1
 
 Adopts chartKernelsGz on the studio route: the union of every esm/chart-<layout>.js closure beyond the engine (24 kernels, shared chunks counted once). chartKernelGz watches only the largest (chart-map, 77.5KB), so a smaller kernel could grow unseen until it overtook map; hub-spoke had 36KB of room. The owner picked the union at the standard 10% ceiling on 2026-10-15 (engine-spine note §11), after seeing the measured 195.6KB. At that ceiling, ~19.6KB of growth in any kernel or shared chunk fails the build.

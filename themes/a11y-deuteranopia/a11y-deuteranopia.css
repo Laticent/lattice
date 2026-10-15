@@ -69,13 +69,13 @@
 
   /* ── Syntax colors for the SLIDE's code panel (#1715) ─────────────────────
    * Until now this palette declared NONE, so a11y-base's import of onyx handed
-   * it onyx's whole family: --hljs-string green at hue 144 deg beside
-   * --hljs-keyword red at 17 deg. That pair sits on the very red-green axis this
+   * it onyx's whole family: --syntax-string green at hue 144 deg beside
+   * --syntax-keyword red at 17 deg. That pair sits on the very red-green axis this
    * palette exists to avoid. #1720 routed the Studio's EDITOR around it; a deck
    * rendered on this palette still got the green strings.
    *
    * CONTRAST WAS NEVER THE PROBLEM. Every inherited value already cleared AA on
-   * this panel, which is why checkHljsContrast passed the whole time. SEPARATION
+   * this panel, which is why checkSyntaxContrast passed the whole time. SEPARATION
    * UNDER THE CONDITION was: 21 of 66 role pairs were distinct to a
    * normal-sighted reader and collapsed for the reader this palette is for, the
    * worst at dE 0.0104 (built_in/variable). Two colors can both clear contrast and still be the
@@ -83,16 +83,16 @@
    *
    *
    * THE CENSUS ABOVE COUNTS ALL TWELVE ROLES, and a first cut of it did not — it omitted
-   * --hljs-built_in and so quoted the SECOND-smallest pair over 55 pairs instead of the
+   * --syntax-builtin and so quoted the SECOND-smallest pair over 55 pairs instead of the
    * smallest over 66. That was the wrong direction to be wrong in: built_in is where the
    * worst inherited collapse is under every condition, including an EXACT dE 0.0000 tie
-   * with --hljs-type under achromatopsia (#70C0B8 and #90B8D0 both simulate to #B2B2B2)
+   * with --syntax-type under achromatopsia (#70C0B8 and #90B8D0 both simulate to #B2B2B2)
    * — the single strongest piece of evidence for this change, left out of its own table.
    * Caught by an independent checker recomputing it (HARD RULE #25).
    *
    * The "after" figure quoted here is the CROSS-GROUP worst. Over all 56 distinct pairs
    * the worst is comment/punctuation (deuteranopia 0.0575, protanopia 0.0541, tritanopia
-   * 0.0643) — both are quiet by design and that pair is checkHljsContrast's to police.
+   * 0.0643) — both are quiet by design and that pair is checkSyntaxContrast's to police.
    *
    * THE PANEL IS AN INVERTED SURFACE, which decides the seeds. --code-bg
    * resolves to --surface-inverse (#000000, inherited from onyx) while this
@@ -105,7 +105,7 @@
    * the fix. Roles that cannot be told apart under this condition are made
    * DELIBERATELY identical rather than accidentally so, and the six that remain
    * are spaced on the axes that do survive: blue 250 deg / amber 76 deg — the pair this palette already curates as --pass / --warn, plus lightness.
-   * comment and punctuation are both quiet but NOT equal — checkHljsContrast
+   * comment and punctuation are both quiet but NOT equal — checkSyntaxContrast
    * polices that pair by name, after an earlier change collapsed them into one
    * gray in eight palettes.
    *
@@ -120,12 +120,12 @@
    *
    *   lattice.js (the PDF / HTML-player EXPORT) used to concatenate
    *     `paletteCSS + layoutCSS`, so the base loaded AFTER the theme and
-   *     lib/base/base.tokens.css's own --hljs-* WON. Measured on a rendered PDF of this
+   *     lib/base/base.tokens.css's own --syntax-* WON. Measured on a rendered PDF of this
    *     palette at the time: the `function` keyword sampled #C792EA, the BASE's
-   *     --hljs-keyword, byte-exact. #1527 flipped it and this palette's own value paints.
+   *     --syntax-keyword, byte-exact. #1527 flipped it and this palette's own value paints.
    *   lib/engine/css.js `composeCss` inlines the base at the theme's `@import 'lattice'`
    *     position — base FIRST, theme last — so the theme wins. Verified by composing it:
-   *     --hljs-keyword resolves #c792ea → #E05060 → #E39B00, last wins.
+   *     --syntax-keyword resolves #c792ea → #E05060 → #E39B00, last wins.
    *   The live slide preview (Studio + docs site) loads the theme last too, measured on
    *     the real built Studio at #E39B00 here and #A7A7A7 on a11y-achromatopsia.
    *
@@ -135,22 +135,26 @@
    * being too narrow in the other.
    * Measured on THESE values, simulated: worst pair dE 0.1194
    * (structure/numeric), against 0.0104 for what was inherited. Lowest contrast on
-   * the panel 4.69:1. Gated by checkHljsSeparation, which
+   * the panel 4.69:1. Gated by checkSyntaxSeparation, which
    * measures the SIMULATED values — no existing gate did. .hljs-comment,
    * .hljs-built_in and .hljs-title also carry font-style:italic from
    * highlight-js.css, a second channel that survives every condition. */
-  --hljs-comment:     #777777;   /* comment */
-  --hljs-keyword:     #E39B00;   /* structure */
-  --hljs-built_in:    #E39B00;   /* structure */
-  --hljs-number:      #FFC56D;   /* numeric */
-  --hljs-literal:     #FFC56D;   /* numeric */
-  --hljs-string:      #89C3FF;   /* string */
-  --hljs-title:       #E39B00;   /* structure */
-  --hljs-type:        #339EFE;   /* identifier */
-  --hljs-variable:    #339EFE;   /* identifier */
-  --hljs-params:      #339EFE;   /* identifier */
-  --hljs-tag:         #E39B00;   /* structure */
-  --hljs-punctuation: #888888;   /* punctuation */
+  --syntax-comment:     #777777;   /* comment */
+  --syntax-keyword:     #E39B00;   /* structure */
+  --syntax-builtin:     #E39B00;   /* structure */
+  --syntax-number:      #FFC56D;   /* numeric */
+  --syntax-constant:    #FFC56D;   /* numeric */
+  --syntax-string:      #89C3FF;   /* string */
+  --syntax-entity:      #E39B00;   /* structure */
+  --syntax-type:        #339EFE;   /* identifier */
+  --syntax-variable:    #339EFE;   /* identifier */
+  --syntax-parameter:   #339EFE;   /* identifier */
+  --syntax-markup:      #E39B00;   /* structure */
+  --syntax-punctuation: #888888;   /* punctuation */
+  /* The diff pair reuses two of this palette's groups (string blue against structure orange), so a diff's added and removed
+   * lines stay apart under the condition (checkSyntaxSeparation's diff arm). */
+  --syntax-inserted:    #89C3FF;
+  --syntax-deleted:     #E39B00;
 
   /* ── HEATMAP RAMP — generated by tools/derive-chart-cat-ink.js ──
    * The heatmap prints a value INSIDE each cell, which is text on a colored fill —

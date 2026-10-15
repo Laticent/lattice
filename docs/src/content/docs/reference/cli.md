@@ -25,6 +25,7 @@ npx lattice <deck.md> <layouts.css> <output> [palette] [options]
 npx lattice -o <output> [-p palette] [-c layouts.css] <deck.md>
 npx lattice packages <command> [options]
 npx lattice video <deck.md | narrated-export.html> [out.mp4] [options]
+npx lattice fmt <deck.md> [more.md …] [options]
 npx lattice completion <bash | zsh | fish | powershell>
 ```
 
@@ -172,6 +173,29 @@ Themes, components, finishes and motion made in the Studio are packages.
 
 The store is `$LATTICE_HOME/packages`, or `~/.lattice/packages` when
 `LATTICE_HOME` is not set. `--packages <dir>` overrides it for one run.
+
+## `lattice fmt`
+
+Pretty-prints a deck's code blocks, in place: every top-level fenced block a
+formatter reads, except one whose `@code{…}` record says `format=off`. Prettier
+formats JavaScript, TypeScript, JSON, CSS, SCSS, Less, HTML, Vue, Markdown,
+YAML, GraphQL, PHP, XML and Java; ruff formats Python; sql-formatter formats SQL
+(PostgreSQL unless the record names another `dialect=`). A record's `width=`
+sets the line width. A block a formatter cannot parse keeps its text and is
+reported. Line endings and a byte-order mark stay as the file had them.
+
+The formatters are optional dependencies: an install without them still renders
+every deck, and `lattice fmt` names the package a block needs.
+
+| Option | What it does |
+|---|---|
+| `--check` | Write nothing; exit 1 when a block would change (for CI) |
+| `--stdout` | Print the formatted deck instead of writing it (one file only) |
+| `--quiet` | Print no per-block notes |
+
+The Studio formats the same way: **Format code blocks** in the command palette,
+and a block whose record says `format` (or a deck with `code: format`) is
+formatted when you leave the editor.
 
 ## `lattice video`
 

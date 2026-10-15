@@ -159,18 +159,20 @@
 
 /* ── highlight.js syntax tokens ────────────────────────────────────────── */
 :root {
-  --hljs-comment:    #678298;  /* dark steel — muted cool                    */
-  --hljs-keyword:    #7CB0D4;  /* bright steel — control flow, italic        */
-  --hljs-built_in:   #70C8B8;  /* teal — functions, italic                   */
-  --hljs-number:     #E8C06A;  /* warm gold — numeric literals               */
-  --hljs-literal:    #B0A0D0;  /* soft lavender — booleans/null              */
-  --hljs-string:     #A8D090;  /* sage — strings                             */
-  --hljs-title:      #8EC4E0;  /* sky blue — function names, italic          */
-  --hljs-type:       #C0D0E0;  /* pale steel — types/annotations             */
-  --hljs-variable:   #78B8CC;  /* cool teal — variables                      */
-  --hljs-params:     #A8C0D0;  /* pale steel blue — parameters               */
-  --hljs-tag:        #D09088;  /* warm rose — HTML tags                      */
-  --hljs-punctuation:#688aab;  /* steel blue — operators                     */
+  --syntax-comment:     #678298;  /* dark steel — muted cool                    */
+  --syntax-keyword:     #7CB0D4;  /* bright steel — control flow, italic        */
+  --syntax-builtin:     #70C8B8;  /* teal — functions, italic                   */
+  --syntax-number:      #E8C06A;  /* warm gold — numeric literals               */
+  --syntax-constant:    #B0A0D0;  /* soft lavender — booleans/null              */
+  --syntax-string:      #A8D090;  /* sage — strings                             */
+  --syntax-entity:      #8EC4E0;  /* sky blue — function names, italic          */
+  --syntax-type:        #C0D0E0;  /* pale steel — types/annotations             */
+  --syntax-variable:    #78B8CC;  /* cool teal — variables                      */
+  --syntax-parameter:   #A8C0D0;  /* pale steel blue — parameters               */
+  --syntax-markup:      #D09088;  /* warm rose — HTML tags                      */
+  --syntax-punctuation: #688aab;  /* steel blue — operators                     */
+  --syntax-inserted:    #8ddb9c;  /* diff: added lines (green by convention; AA on this panel) */
+  --syntax-deleted:     #ff9b9b;  /* diff: removed lines */
 }
 
 :root {

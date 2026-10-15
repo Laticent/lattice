@@ -5,7 +5,8 @@ its own `.docs.md` — read those for specifics.
 
 **These are moving to `lib/plugins/`**, one at a time
 (`engineering/decisions/2026-09-27-plugin-system.md`). KaTeX went first: math is now the
-`math` plugin (`lib/plugins/math/`). Function-plot and Mermaid follow.
+`math` plugin (`lib/plugins/math/`); highlight.js is the `code` plugin (`lib/plugins/code/`).
+Function-plot and Mermaid follow.
 
 - `markdown-it/` — `plugins.js` is the single source of the Lattice
   markdown-it transforms (badges, checklists, deck-class propagation,
@@ -15,7 +16,6 @@ its own `.docs.md` — read those for specifics.
   its stylesheet, grammar and kernels (`reorient.js`, the render worker, the init directive, the
   motion roles, the label-length guard) live in `lib/plugins/mermaid/` and `lib/plugins/mermaid/shared/`. Authoring guide:
   `engineering/mermaid.md`.
-- `highlight-js/` — syntax-highlight CSS + docs.
 
 **Gotcha:** `plugins.js` must stay pure markdown-it/Marpit token
 manipulation — no Node-only dependencies — because the browser paths

@@ -108,6 +108,10 @@ const STEPS = [
   // reason: the registry requires its inline module, which requires the vocabulary.
   // engineering/decisions/2026-10-09-inline-avatars.md § 6.
   { label: 'avatars data (lib/plugins/avatars)', script: 'build-avatars-data.js' },
+  // The code plugin's language table (every highlight.js language, its aliases and the grammars it
+  // embeds), for the same reason: the registry requires the code plugin's render module, which
+  // requires the table. engineering/decisions/2026-10-15-code-plugin.md § 4.3.
+  { label: 'code languages (lib/plugins/code)', script: 'build-code-languages.js' },
   { label: 'plugin registry (lib/plugins)', script: 'build-plugin-registry.js' },
   // The chart-finish rules, generated from the chart manifests. BEFORE lattice.css bundles
   // them, for the same one-build-late reason as the finish presets above.
@@ -187,6 +191,9 @@ const STEPS = [
   // Per-language highlight.js grammars for on-demand preview loading. After the
   // playground bundle only for log ordering — it reads node_modules, not the bundle.
   { label: 'hljs grammars (docs site)', script: 'build-hljs-languages.js', uncommitted: true },
+  // The code formatter's browser half: an entry and one chunk per formatter, fetched only when the
+  // author formats a block in that language (engineering/decisions/2026-10-15-code-plugin.md §6).
+  { label: 'code-format bundle (docs site)', script: 'build-code-format.js', uncommitted: true },
   { label: 'theme-core bundle (docs site)', script: 'build-theme-core.js', uncommitted: true },
   { label: 'layout-core bundle (docs site)', script: 'build-layout-core.js', uncommitted: true },
   // The package spine for the Studio's zip import/export (package-zip.ts).

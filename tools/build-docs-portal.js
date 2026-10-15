@@ -228,15 +228,15 @@ const PORTAL_TOKENS = [
 // (`lib/theme/cat-ink.js`: hold hue and chroma, move lightness by binary search until
 // it clears AA on both surfaces).
 //
-// WHY A NEW TIER AND NOT `--hljs-*` DIRECTLY. `--hljs-*` ARE the repo's real code-token
+// WHY A NEW TIER AND NOT `--syntax-*` DIRECTLY. `--syntax-*` ARE the repo's real code-token
 // colors, and they are the right SEED — but they are tuned for `--code-bg`, a panel that
 // is dark on every palette in both modes, and the editor's canvas is `--bg`. Measured
-// over 18 base palettes x 2 modes x {string, number}: 21 of 36 rows put a raw `--hljs-*`
-// below AA on the editor canvas, worst 1.01:1 (concrete/light `--hljs-number` #C8B880 on
+// over 18 base palettes x 2 modes x {string, number}: 21 of 36 rows put a raw `--syntax-*`
+// below AA on the editor canvas, worst 1.01:1 (concrete/light `--syntax-number` #C8B880 on
 // #B8B8B5 — invisible). Dropping them in as-is would be materially worse than the status
 // trio #1703 shipped, which is why that PR took the cheap path.
 //
-// (#1703 also stated a WRONG reason for taking it: that `--hljs-*` cannot join
+// (#1703 also stated a WRONG reason for taking it: that `--syntax-*` cannot join
 // PORTAL_TOKENS because the four a11y-* palettes declare none and `resolveToken` throws
 // on partial coverage. `a11y-base` extends `onyx`, which declares the full syntax
 // family, so all 18 base palettes resolve them — verified, and the claim is corrected in
@@ -284,7 +284,7 @@ const SYNTAX_INK_REPELLED = ['string', 'number'];
  * row move together: a theme-token change with a far wider blast radius than this tier. Tracked
  * separately, not smuggled in here.
  *
- * `string` / `number` seed from the palette's own `--hljs-string` / `--hljs-number`, so
+ * `string` / `number` seed from the palette's own `--syntax-string` / `--syntax-number`, so
  * the editor and the deck's rendered code panel agree on what a string IS: indaco gets
  * its Night Owl tan, cuoio its terracotta, laguna its sage — instead of one status green
  * everywhere.
@@ -307,7 +307,7 @@ const SYNTAX_INK_REPELLED = ['string', 'number'];
  * shares their grayscale categorical cycle and is a monochrome BRAND rather than a
  * color-vision accommodation. onyx keeps its own hued syntax pair.
  *
- * The deeper fix — giving the a11y palettes their own `--hljs-*` family, so their SLIDE
+ * The deeper fix — giving the a11y palettes their own `--syntax-*` family, so their SLIDE
  * code panels stop rendering confusable syntax too — is a per-palette design job across
  * twelve tokens and four palettes, off this change's path (HARD RULE #18). Tracked, not
  * smuggled in here.
@@ -316,8 +316,8 @@ function syntaxInkSeeds(name) {
   const safePair = name.startsWith('a11y-');
   return {
     keyword: 'accent',
-    string: safePair ? 'pass' : 'hljs-string',
-    number: safePair ? 'warn' : 'hljs-number',
+    string: safePair ? 'pass' : 'syntax-string',
+    number: safePair ? 'warn' : 'syntax-number',
   };
 }
 
@@ -698,7 +698,7 @@ function resolvePalettes() {
       dark[`${s}-fill`] = base;
     }
     // The editor SYNTAX INK tier, per mode against that mode's own canvas pair. Seeded
-    // from tokens that are NOT all on PORTAL_TOKENS (`--hljs-string` / `--hljs-number`),
+    // from tokens that are NOT all on PORTAL_TOKENS (`--syntax-string` / `--syntax-number`),
     // so they are resolved here the way --spectrum is, and a palette missing one is a
     // loud failure rather than a silently skipped role: every base palette resolves the
     // syntax family today (onyx declares it; a11y-base extends onyx), and a future
@@ -765,7 +765,7 @@ function resolvePalettes() {
             'solve holds it against: --text-heading, --text-body, --text-muted, AND the syntax inks ' +
             'already placed (keyword, then string, then number). On the shipped palettes it is ' +
             'always the already-placed inks that run the axis out, not the text roles — so widen ' +
-            "the categorical distance between this palette's --hljs-string and --hljs-number, or " +
+            "the categorical distance between this palette's --syntax-string and --syntax-number, or " +
             're-hue the seed. This is a property of the palette: re-running reproduces it.',
         );
       }

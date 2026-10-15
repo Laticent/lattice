@@ -235,9 +235,9 @@ the full 98-token contract directly** (the `CONTRACT` list in
 `test/unit/palette/token-parity.test.js`) or the untuned tokens fall back to
 indaco's cascade values and your deck renders code, diagrams, and categoricals in
 *indaco's* colors — a mediocre "indaco in disguise" that still lints clean. Beyond
-the 11 core tokens, define: all 12 `--hljs-*` code-syntax colors — each of which
+the 11 core tokens, define: all 12 `--syntax-*` code-syntax colors — each of which
 must clear **4.5:1 against your `--code-bg`**, comments and punctuation included
-(`checkHljsContrast`, via `build:check`). Syntax highlighting is small text a human
+(`checkSyntaxContrast`, via `build:check`). Syntax highlighting is small text a human
 reads, so it takes the AA text floor, not the 3:1 graphical one; an exemption for
 "deliberately quiet" tokens was tried and removed, because de-emphasis is about
 where a token sits *relative to the code* and the floor is about whether it can be
@@ -330,7 +330,7 @@ The **dark variant in full** — this is the whole file:
 - [ ] `<name>-dark.css` is the 3-line wrapper.
 - [ ] Gallery + mermaid gallery rendered in light AND dark and looked at.
 - [ ] Full 98-token contract defined directly (not just the 11 core) — all 12
-      `--cat-*` pairs, all `--hljs-*`, `--chart-*`, `--diagram-*`, `--seq-500`.
+      `--cat-*` pairs, all `--syntax-*`, `--chart-*`, `--diagram-*`, `--seq-500`.
 - [ ] `--seq-500`'s DARK arm re-anchored at OKLab L 0.68 in your own hue (not the
       dark `--accent`, which is near-white by design and leaves the derived stops
       1.08-1.90:1 apart) — `node tools/composed-contrast.js <name>` green.

@@ -1,5 +1,5 @@
 import {
-	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, FileBox, FileDown, FileSliders, FileText, Focus, Gauge, History, Layers, ListChecks, Menu as MenuIcon, Monitor, MonitorPlay, Moon, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Save, Settings2, Settings as SettingsCog, Shapes, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Upload, UsersRound, Volume2, Wand2, X, 
+	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, Braces, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, FileBox, FileDown, FileSliders, FileText, Focus, Gauge, History, Layers, ListChecks, Menu as MenuIcon, Monitor, MonitorPlay, Moon, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Save, Settings2, Settings as SettingsCog, Shapes, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Upload, UsersRound, Volume2, Wand2, X, 
 } from 'lucide-react';
 import * as React from 'react';
 import './asset-render-hook';
@@ -53,6 +53,7 @@ import { onToursEnabledChange, toursEnabled } from '@/playground/tour-prefs.js';
 import { collageDragged } from '../../../../lib/core/collage-tap.mjs';
 import { sourceHasMath } from '../../../../lib/plugins/math/math.syntax.mjs';
 import { attachPreviewZoom, type PreviewZoomHandle } from '../../lib/preview-zoom';
+import { tapCodeCopyAt } from '../../playground/code-copy-host.js';
 import { tapCollageAt } from '../../playground/collage-host.js';
 import { tapVideoAt } from '../../playground/video-overlay.js';
 import { AcronymEditor } from './AcronymEditor';
@@ -133,7 +134,7 @@ import { activeSpectrumCardEdge, SPECTRUM_CARD_EDGES } from './spectrum-card-edg
 import { activeSpectrum, SPECTRA } from './spectrum-catalog';
 import { activeSpectrumEdge, SPECTRUM_EDGES } from './spectrum-edge-catalog';
 import { activeSpectrumTrim, SPECTRUM_TRIMS } from './spectrum-trim-catalog';
-import type { StudioCommand } from './studio-commands';
+import { formatCodeNotice, type StudioCommand } from './studio-commands';
 import { deckOutputLang, languageLabel, resolveSupported } from './studio-language';
 import { chatPanel, DIAGRAMS_USED_KEY, FABRICATE_USED_KEY, lensesPanel, libraryPanel, liveCornerPanel, liveLobbyPanel, livePanel, livePillPanel, STUDIO_PANELS, sharePanel, slideSettingsPanel, workspacePanel } from './studio-panels';
 import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deckLabels, deckWebOrigins, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasStoredPosture, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSettingsTier, loadSettingsView, loadSource, markBackupNudged, metaFor, type Posture, resolveTitle, retitleSource, SETTINGS_EVENT, type SettingsPanelTier, type SettingsPanelView, saveActiveDeck, saveCheckpoint, saveSettings, saveSettingsTier, saveSettingsView, saveSource, setDeckLabel, setDeckWebOrigins, shouldNudgeBackup, slideCountLabel, storedTitleFor, syncDerivedTitle, titleFromSource } from './studio-store';
@@ -3820,7 +3821,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			if (!frame) return;
 			const dragged = collageDragged(pressAt, e.clientX, e.clientY);
 			pressAt = null; // a click with no press of its own (a script's) is never a drag
-			if (tapVideoAt(frame, e.clientX, e.clientY) || (!dragged && tapCollageAt(frame, e.clientX, e.clientY))) e.preventDefault();
+			if (tapVideoAt(frame, e.clientX, e.clientY) || (!dragged && (tapCodeCopyAt(frame, e.clientX, e.clientY) || tapCollageAt(frame, e.clientX, e.clientY)))) e.preventDefault();
 		};
 		holder.addEventListener('pointerdown', onPress, true);
 		holder.addEventListener('click', onTap);
@@ -6030,6 +6031,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// do the step with (2026-10-05-studio-lessons.md §Building and Polish).
 		{ id: 'coach', group: 'actions', label: 'Coach — check this deck', icon: Gauge, keywords: ['check', 'lint', 'issues', 'problems', 'review'], run: () => { revealCraftDock(); setActiveAssistant('coach'); } },
 		...(fixableIssues > 0 ? [{ id: 'fix-all', group: 'actions', label: 'Fix all issues', icon: ListChecks, keywords: ['fix', 'repair', 'clean up'], run: () => editorRef.current?.fixAll() } satisfies StudioCommand] : []),
+		// Formatting is an authoring step (lib/authoring/code-format/): it rewrites the source in the
+		// editor, so the row is offered only while the deck has a fenced block to format.
+		...(/^\s{0,3}(?:```|~~~)/m.test(source) ? [{ id: 'format-code', group: 'actions', label: 'Format code blocks', icon: Braces, keywords: ['format', 'prettier', 'pretty print', 'indent', 'code'], run: () => { void editorRef.current?.formatCode().then((r) => notify(formatCodeNotice(r))); } } satisfies StudioCommand] : []),
 		{ id: 'toggle-mode', group: 'actions', label: 'Switch light / dark mode', icon: SunMoon, keywords: ['dark', 'light', 'night', 'mode'], run: toggleMode },
 		{ id: 'slide-settings', group: 'actions', label: 'Slide settings — look, notes', icon: FileSliders, keywords: ['speaker notes', 'notes', 'slide options'], run: () => { revealCraftDock(); setInspectorScope('slide'); setInspectorOpen(true); } },
 		{ id: 'fabricate', group: 'actions', label: 'Fabricate — Theme & Component Studio', icon: PencilRuler, run: () => setView('fabricate') },

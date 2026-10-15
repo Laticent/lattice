@@ -79,11 +79,11 @@ avoids mode-stacks that depend on knowing which diagram type a fence
 is. Trade-off: some precision lost (`section` is treated uniformly
 across gantt/journey/timeline) for a smaller grammar.
 
-The file lives **in the plugin** (`lib/plugins/mermaid/`) rather than in
-`lib/integrations/highlight-js/` because the SUBJECT is Mermaid (this is
-"Lattice's syntax highlighting for Mermaid"): it is the plugin's `highlight`
-contribution, registered by the plugin host under the plugin's code fence.
-The hljs integration doc lists it as a registered custom language.
+The file lives **in the plugin** (`lib/plugins/mermaid/`) rather than in the
+code plugin because the SUBJECT is Mermaid (this is "Lattice's syntax
+highlighting for Mermaid"): it is the plugin's `highlight` contribution, which
+the plugin host registers on the code plugin's highlight.js under the plugin's
+code fence. The code plugin's docs list it as a registered custom language.
 
 ---
 
@@ -109,6 +109,6 @@ visual parity.
   mapping + per-diagram-type override catalog.
 - `engineering/mermaid.md` — Mermaid-specific authoring conventions
   used in shipped decks.
-- `lib/integrations/highlight-js/highlight-js.docs.md` — the hljs
-  integration that lists `mermaid.highlight.js` as a custom language.
+- `lib/plugins/code/code.docs.md` — the code plugin, which colors every
+  fence and lists `mermaid.highlight.js` as a custom language.
 - `lib/plugins/mermaid/mermaid.docs.md` — the plugin: what it contributes, and where it draws.

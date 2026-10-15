@@ -42,7 +42,7 @@ function flagsBetween(src, start, end, file) {
   return new Set([...src.slice(from, to).matchAll(FLAG_LITERAL)].map((m) => m[1]));
 }
 
-/** The options the `lattice` render command, `lattice packages` and `lattice video` accept. */
+/** The options the `lattice` render command, `lattice packages`, `lattice video` and `lattice fmt` accept. */
 function latticeCliFlags() {
   // parseArgs reads its options from one table (lib/cli/options.js); the literals left in its
   // body are the special cases, such as the retired --strip-captions.
@@ -54,7 +54,12 @@ function latticeCliFlags() {
   const videoSrc = read('lib/export/video-cli.mjs');
   const video = new Set([...videoSrc.matchAll(/a === '(--?[A-Za-z][\w-]*)'/g)].map((m) => m[1]));
   video.add('--help');
-  return { render, packages, video };
+  // `lattice fmt` lists its switches in one array; --help is handled before it.
+  const fmtSrc = read('lib/authoring/code-format/fmt-cli.mjs');
+  const fmtList = /\[('--[a-z-]+'(?:,\s*'--[a-z-]+')*)\]\.includes\(f\)/.exec(fmtSrc);
+  assert.ok(fmtList, 'lib/authoring/code-format/fmt-cli.mjs keeps its switches in one `[…].includes(f)` list');
+  const fmt = new Set([...fmtList[1].matchAll(/'(--[a-z-]+)'/g)].map((m) => m[1]));
+  return { render, packages, video: new Set([...video, ...fmt]) };
 }
 
 /** The options of the repo helper scripts the docs also teach. */

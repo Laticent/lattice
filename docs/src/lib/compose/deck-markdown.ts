@@ -243,6 +243,22 @@ function tightAfterParagraph(state: SerializerState, node: PMNode) {
 }
 
 /**
+ * The code plugin's `@code{…}` record (lib/plugins/code/code.syntax.mjs) sits on the line right
+ * above the fence it configures, and stays there: the serializer would otherwise close the record's
+ * paragraph with a blank line, so every Compose edit rewrote `` `@code{numbers}` `` + fence into two
+ * blocks. The record still applied across the blank line, but the author's source changed under them.
+ */
+function recordHugsFence(state: SerializerState) {
+	// biome-ignore lint/suspicious/noExplicitAny: `closed` and `flushClose` are serializer internals.
+	const st = state as any;
+	const prev = st.closed;
+	if (prev?.type?.name !== 'paragraph' || prev.childCount !== 1) return;
+	const only = prev.firstChild;
+	if (!only?.marks?.some((m: { type: { name: string } }) => m.type.name === 'code')) return;
+	if (/^@code\{[^`\n]*\}$/.test(only.text ?? '')) st.flushClose(1);
+}
+
+/**
  * Can this list start right under a paragraph line? CommonMark lets a list interrupt a paragraph
  * only when its first item has content and, for an ordered list, when it starts at 1. Any other
  * list keeps its blank line, or a re-read folds it into the paragraph: `> Note` / `> 2. x` is the
@@ -308,6 +324,7 @@ const latticeNodes = {
 	// A fence the author wrote comes back with the marker they wrote (see `codeBlockSpec`).
 	// With no marker it is the upstream serializer, byte for byte.
 	code_block(state: SerializerState, node: PMNode, parent: PMNode, index: number) {
+		recordHugsFence(state);
 		const marker = node.attrs.marker as string;
 		if (!marker) return defaultMarkdownSerializer.nodes.code_block(state, node, parent, index);
 		const fence = fenceFor(marker, node.textContent);

@@ -246,7 +246,24 @@ const cliDatasets = [
   // or a return to jsdom — would show up nowhere else in this file (HARD RULE #19(c)).
   // Mermaid-free like the three rows above, for the same reason: mmdc would swamp it.
   { name: 'cli · captions (deck projection)', deck: 'examples/read-along-captions.md', args: ['--captions'] },
+  // THE COLD-ENGINE ROWS, and the only place node boot + loading the engine is timed with no browser
+  // after it. Every CLI one-shot pays this before Chrome starts, and the warm render tier above cannot
+  // see it (it imports the engine once). The code plugin cut it by loading highlight.js per language
+  // instead of all 192 grammars at require time (engineering/decisions/2026-10-15-code-plugin.md), so
+  // there are two decks: one with no fence, which loads no grammar at all, and one with six
+  // languages. HARD RULE #19(c). The workload signal is the slide count the render returns.
+  { name: 'cli · cold engine, no fences (no browser)', deck: 'examples/portrait-roadmap.md', cold: true },
+  { name: 'cli · cold engine, six languages (no browser)', deck: 'examples/code-plugin.md', cold: true },
 ];
+
+// A fresh Node process: load the engine and the palette, render the deck once, print its slide count.
+const COLD_ENGINE = [
+  "const fs = require('node:fs');",
+  "const engine = require('./lib/engine/index.js').createEngine();",
+  "for (const f of ['dist/lattice.css', 'themes/indaco/indaco.css']) engine.addThemes([fs.readFileSync(f, 'utf8')]);",
+  "const html = engine.render(fs.readFileSync(process.argv[1], 'utf8'), 'indaco').html;",
+  "process.stdout.write(String((html.match(/<\\/section>/g) || []).length));",
+].join('\n');
 
 function overflowingDeck(slides) {
   const body = Array.from({ length: 14 }, (_, j) =>
@@ -1056,7 +1073,11 @@ async function cliTier() {
   // path — see its dataset comment. `pages` is the workload signal: a PDF's page count, or
   // for a zip the number of entries, either of which moving means the row is measuring a
   // different amount of work and must be re-blessed rather than compared.
-  function renderOnce({ deck, out: outName = 'out.pdf', args = [] }) {
+  function renderOnce({ deck, out: outName = 'out.pdf', args = [], cold = false }) {
+    if (cold) {
+      const out = execFileSync(process.execPath, ['-e', COLD_ENGINE, join(ROOT, deck)], { cwd: ROOT, env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 120000 });
+      return Number(out.trim());
+    }
     const dir = mkdtempSync(join(tmpdir(), 'bench-cli-'));
     try {
       const out = join(dir, outName);

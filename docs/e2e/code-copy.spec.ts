@@ -1,0 +1,152 @@
+/**
+ * A code block's copy buttons on the real surfaces (lib/core/code-copy.mjs;
+ * engineering/decisions/2026-10-15-code-plugin.md §9.7).
+ *
+ * Off by default: `@code{copy}` turns them on for a block. They are drawn only where a person reads
+ * in a browser, never in an export. Both halves are driven here:
+ *   - the Studio's live preview, whose box takes no pointer events, so the click goes through the
+ *     page's bridge (docs/src/playground/code-copy-host.js) — and the clipboard is read back;
+ *   - the exported webpage: baked in the Studio's capture frame, so its HTML must hold the marker and
+ *     no button, and opened as a file, where the player draws them and they copy text and HTML.
+ */
+import fs from 'node:fs';
+import type { Page } from '@playwright/test';
+import { expect, gotoStudio, LIVE_PREVIEW, setEditorContent, shareExport, test } from './studio-fixture';
+
+const DECK = ['# Copy', '', '`@code{copy}`', '```ts', 'const answer = 42;', '```', '', '```ts', 'const quiet = 1;', '```', ''].join('\n');
+
+test.skip(({ isMobile }) => isMobile, 'the editor and the preview share one pane on a phone; the desktop project covers the buttons');
+
+async function clipboardText(page: Page): Promise<string> {
+	return page.evaluate(() => navigator.clipboard.readText());
+}
+
+test('the Studio preview draws the buttons on a block that asks, and a click copies its code', async ({ page, context }) => {
+	await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+	await gotoStudio(page);
+	await setEditorContent(page, DECK);
+	const frame = page.frameLocator(LIVE_PREVIEW);
+	await expect(frame.locator('pre[data-copy] .lat-code-copy-btn')).toHaveCount(2, { timeout: 20_000 });
+	await expect(frame.locator('pre:not([data-copy]) .lat-code-copy-btn'), 'a block that does not ask has none').toHaveCount(0);
+
+	await page.evaluate(() => navigator.clipboard.writeText('before'));
+	const box = await frame.locator('.lat-code-copy-btn[data-kind="text"]').boundingBox();
+	expect(box, 'the button is on screen').not.toBeNull();
+	if (!box) return;
+	await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+	await expect.poll(() => clipboardText(page), { timeout: 10_000 }).toBe('const answer = 42;');
+	await expect(frame.locator('.lat-code-copy-btn[data-kind="text"]')).toHaveAttribute('aria-label', 'Copied');
+
+	// "Copy as HTML" through the same bridge: the frame builds the ClipboardItem in ITS realm and the
+	// page's clipboard writes it, which is the cross-realm path the text button does not exercise.
+	const htmlBox = await frame.locator('.lat-code-copy-btn[data-kind="html"]').boundingBox();
+	expect(htmlBox, 'the HTML button is on screen').not.toBeNull();
+	if (!htmlBox) return;
+	await page.mouse.click(htmlBox.x + htmlBox.width / 2, htmlBox.y + htmlBox.height / 2);
+	await expect(frame.locator('.lat-code-copy-btn[data-kind="html"]')).toHaveAttribute('data-copied', 'yes');
+	const copied = await page.evaluate(async () => {
+		const [item] = await navigator.clipboard.read();
+		return item.types.includes('text/html') ? await (await item.getType('text/html')).text() : '';
+	});
+	expect(copied, 'colored, inline').toMatch(/<pre style="[^"]*background[^"]*">[\s\S]*<span style="color: rgb\(/);
+	expect(copied).toContain('answer');
+});
+
+test('the exported webpage carries the marker and no baked button; opened, it copies code and HTML', async ({ page, context }) => {
+	test.setTimeout(300_000);
+	await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+	await gotoStudio(page);
+	await setEditorContent(page, DECK);
+	await expect(page.frameLocator(LIVE_PREVIEW).locator('pre[data-copy]')).toHaveCount(1, { timeout: 20_000 });
+	await page.getByRole('button', { name: 'Share', exact: true }).click();
+	await expect(page.getByRole('dialog')).toBeVisible();
+	const pending = page.waitForEvent('download', { timeout: 240_000 });
+	await shareExport(page, 'webpage');
+	const file = await (await pending).path();
+	const html = fs.readFileSync(file, 'utf8');
+	expect(html, 'the marker travels').toMatch(/<pre[^>]*\sdata-copy[\s>=]/);
+	expect(html, 'the capture frame drew no button into the export').not.toMatch(/class="lat-code-copy/);
+
+	const reader = await context.newPage();
+	// The download is saved with no extension, which a browser opens as text: give it its own name.
+	const page2 = test.info().outputPath('deck.html');
+	fs.copyFileSync(file, page2);
+	await reader.goto(`file://${page2}`);
+	// Two per marked block, and the player shows each block twice: on its slide and in its reading view.
+	await expect(reader.locator('pre[data-copy] .lat-code-copy-btn')).toHaveCount(4, { timeout: 20_000 });
+	await reader.locator('pre[data-copy]').first().hover();
+	await reader.locator('.lat-code-copy-btn[data-kind="text"]').first().click();
+	await expect.poll(() => clipboardText(reader), { timeout: 10_000 }).toBe('const answer = 42;');
+	const asHtml = reader.locator('.lat-code-copy-btn[data-kind="html"]').first();
+	await asHtml.click();
+	// The write is async: read the clipboard only once the button says it landed, or the read races
+	// it and returns the plain-text copy above.
+	await expect(asHtml).toHaveAttribute('data-copied', 'yes');
+	const copied = await reader.evaluate(async () => {
+		const [item] = await navigator.clipboard.read();
+		const html = item.types.includes('text/html') ? await (await item.getType('text/html')).text() : '';
+		const text = item.types.includes('text/plain') ? await (await item.getType('text/plain')).text() : '';
+		return { html, text };
+	});
+	expect(copied.text).toBe('const answer = 42;');
+	expect(copied.html, 'colored, inline').toMatch(/<pre style="[^"]*background[^"]*">[\s\S]*<span style="color: rgb\(/);
+	expect(copied.html).toContain('answer');
+	await reader.close();
+});
+
+test('Present and its slide overview draw no buttons', async ({ page }) => {
+	await gotoStudio(page);
+	await setEditorContent(page, DECK);
+	await expect(page.frameLocator(LIVE_PREVIEW).locator('pre[data-copy] .lat-code-copy-btn')).toHaveCount(2, { timeout: 20_000 });
+	await page.getByRole('button', { name: 'Present', exact: true }).click();
+	await expect(page.getByRole('dialog', { name: 'Present' })).toBeVisible();
+	await page.keyboard.press('g');
+	await expect(page.getByRole('dialog', { name: 'Slide overview' })).toBeVisible();
+	// Present's slide, its next-slide tile and every pooled tile are stamped chromeless; read each
+	// frame that holds the marked block. At least one must exist, or this passes by finding nothing.
+	const thumbs = async () => {
+		const out: Array<{ buttons: number }> = [];
+		for (const f of page.frames()) {
+			const r = await f.evaluate(() => ({
+				thumb: document.documentElement.hasAttribute('data-lattice-chromeless'),
+				marked: document.querySelectorAll('pre[data-copy]').length,
+				buttons: document.querySelectorAll('.lat-code-copy-btn').length,
+			})).catch(() => null);
+			if (r?.thumb && r.marked) out.push({ buttons: r.buttons });
+		}
+		return out;
+	};
+	await expect.poll(async () => (await thumbs()).length, { timeout: 20_000 }).toBeGreaterThan(0);
+	expect((await thumbs()).every((t) => t.buttons === 0), 'no chromeless frame draws a copy button').toBe(true);
+});
+
+test('the Playground draws the buttons, and its frame takes the click itself', async ({ page, context }) => {
+	await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+	// Seeding `lattice-docs-pg-source` is the suite's idiom for putting a deck in the Playground
+	// (playground-kpi-pill.spec.ts).
+	await page.addInitScript((s) => {
+		try {
+			localStorage.setItem('lattice-docs-pg-source', s);
+		} catch {
+			/* a private-mode profile gets the default deck, and the count below fails loudly */
+		}
+	}, `---\nmarp: true\ntheme: indaco\n---\n\n${DECK}`);
+	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
+	const preview = page.frameLocator('#preview');
+	const pre = preview.locator('pre[data-copy]').first();
+	await expect(pre.locator('.lat-code-copy-btn')).toHaveCount(2, { timeout: 30_000 });
+	await expect(preview.locator('pre:not([data-copy]) .lat-code-copy-btn'), 'a block that does not ask has none').toHaveCount(0);
+
+	await pre.hover();
+	await pre.locator('.lat-code-copy-btn[data-kind="text"]').click();
+	await expect.poll(() => clipboardText(page), { timeout: 10_000 }).toBe('const answer = 42;');
+	await pre.hover();
+	const asHtml = pre.locator('.lat-code-copy-btn[data-kind="html"]');
+	await asHtml.click();
+	await expect(asHtml).toHaveAttribute('data-copied', 'yes');
+	const html = await page.evaluate(async () => {
+		const [item] = await navigator.clipboard.read();
+		return item.types.includes('text/html') ? await (await item.getType('text/html')).text() : '';
+	});
+	expect(html, 'colored, inline').toMatch(/<span style="color: rgb\(/);
+});

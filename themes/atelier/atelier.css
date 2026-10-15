@@ -160,18 +160,20 @@
 
 /* ── highlight.js syntax tokens ────────────────────────────────────────── */
 :root {
-  --hljs-comment:    #847c6f;  /* dark amber — muted warm                    */
-  --hljs-keyword:    #C8963A;  /* amber gold — control flow, italic          */
-  --hljs-built_in:   #7AB8A0;  /* sage teal — functions, italic              */
-  --hljs-number:     #E8C06A;  /* bright gold — numeric literals             */
-  --hljs-literal:    #B89870;  /* muted amber — booleans/null                */
-  --hljs-string:     #9AC890;  /* sage — strings                             */
-  --hljs-title:      #D4A84A;  /* deep amber — function names, italic        */
-  --hljs-type:       #90C0B8;  /* cool teal — types/annotations              */
-  --hljs-variable:   #C0A878;  /* warm buff — variables                      */
-  --hljs-params:     #B0A080;  /* warm taupe — parameters                    */
-  --hljs-tag:        #C88870;  /* terracotta — HTML tags                     */
-  --hljs-punctuation:#938272;  /* dark warm gray — operators                 */
+  --syntax-comment:     #847c6f;  /* dark amber — muted warm                    */
+  --syntax-keyword:     #C8963A;  /* amber gold — control flow, italic          */
+  --syntax-builtin:     #7AB8A0;  /* sage teal — functions, italic              */
+  --syntax-number:      #E8C06A;  /* bright gold — numeric literals             */
+  --syntax-constant:    #B89870;  /* muted amber — booleans/null                */
+  --syntax-string:      #9AC890;  /* sage — strings                             */
+  --syntax-entity:      #D4A84A;  /* deep amber — function names, italic        */
+  --syntax-type:        #90C0B8;  /* cool teal — types/annotations              */
+  --syntax-variable:    #C0A878;  /* warm buff — variables                      */
+  --syntax-parameter:   #B0A080;  /* warm taupe — parameters                    */
+  --syntax-markup:      #C88870;  /* terracotta — HTML tags                     */
+  --syntax-punctuation: #938272;  /* dark warm gray — operators                 */
+  --syntax-inserted:    #8ddb9c;  /* diff: added lines (green by convention; AA on this panel) */
+  --syntax-deleted:     #ff9b9b;  /* diff: removed lines */
 }
 
 :root {

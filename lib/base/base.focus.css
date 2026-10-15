@@ -23,7 +23,8 @@
 /* Role tokens — a theme MAY retune these; defaults keep the feature
  * palette-blind. `--focus-dim` is an opacity (a number, not a color — no hex
  * rule applies); ring/fill borrow the universal accent tokens. */
-section[data-focus-resolved] {
+section[data-focus-resolved],
+pre[data-focus-style] /* a code block's own `@code{focus=…}` (lib/plugins/code/) */ {
   --focus-dim: 0.24;
   --focus-ring: var(--accent);
   --focus-fill: var(--accent-soft);
@@ -41,9 +42,11 @@ section[data-focus-resolved] {
 }
 
 /* ── spotlight — recede the rest ──────────────────────────────────────────── */
-section[data-focus-style="spotlight"] .lat-recede { opacity: var(--focus-dim); }
+/* A code block's own spotlight (`@code{focus=…}`, lib/plugins/code/) scopes the same treatment to its
+ * `<pre>` rather than the slide. */
+:is(section, pre)[data-focus-style="spotlight"] .lat-recede { opacity: var(--focus-dim); }
 /* promote the target (works whether it's an <li> or a table row) */
-section[data-focus-style="spotlight"] .lat-focus,
+:is(section, pre)[data-focus-style="spotlight"] .lat-focus,
 section[data-focus-style="blur"] .lat-focus,
 section[data-focus-style="spotlight"] .lat-focus > td,
 section[data-focus-style="spotlight"] .lat-focus > th { font-weight: 600; }

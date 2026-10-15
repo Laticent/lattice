@@ -63,10 +63,10 @@ The graphite deck now has a light counterpart — the same identity, solved for 
 /* One token decides it, and it is deliberately NOT an inverse of the canvas. */
 --surface-inverse: light-dark(#0E0E10, #0E0E10);
 
-/* So the twelve --hljs-* values curated for a near-black ground stay valid,
+/* So the twelve --syntax-* values curated for a near-black ground stay valid,
    unchanged, on a deck whose canvas is now off-white. */
---hljs-keyword: #7DE38A;   /* the electric lime, still doing its original job */
---hljs-string:  #88D4A8;
+--syntax-keyword: #7DE38A;   /* the electric lime, still doing its original job */
+--syntax-string:  #88D4A8;
 ```
 
 ---

@@ -18,7 +18,8 @@
  *                                eyebrow, key insight, pill, dark variant,
  *                                annotation, below-note, mirror, numbered,
  *                                .overflow, .heat, KaTeX-in-non-math)
- *   8. lib/_syntax-highlight.css highlight.js token theme
+ *   8. (highlight.js's token theme sat here until 2026-10-15; the code plugin's
+ *      stylesheet carries it now, in THE PLUGIN SLOT of TAIL_SOURCES)
  *   9. (the chart frame lived here; it is the chart-family plugin's `styles`
  *      contribution now, bundled in THE PLUGIN SLOT of TAIL_SOURCES)
  *  10. lib/base/base.treatments.css  27 utility classes (12 tints + 11 marks + reset)
@@ -172,8 +173,6 @@ const MODIFIERS_SOURCE = 'lib/base/base.modifiers.css';
 // BEFORE modifiers and sketch so those still compose on top. See
 // lib/base/base.card-tag.css and engineering/decisions/2026-09-27-card-tag-register.md.
 const CARD_TAG_SOURCE = 'lib/base/base.card-tag.css';
-// highlight.js token theme — wires .hljs-* to the --hljs-* tokens.
-const SYNTAX_HIGHLIGHT_SOURCE = 'lib/integrations/highlight-js/highlight-js.css';
 const QR_GENERAL_SOURCE = 'lib/components/connect/_qr-card/qr-general.css';
 // 27 utility classes (12 tints + 11 marks + treatment-none reset) for
 // peripheral atmospheric accents. All palette-blind via var(--accent).
@@ -567,11 +566,6 @@ function bundle() {
   if (modifiers) {
     parts.push(`/* === ${MODIFIERS_SOURCE} === */`);
     parts.push(modifiers);
-  }
-  const syntax = readIfExists(SYNTAX_HIGHLIGHT_SOURCE);
-  if (syntax) {
-    parts.push(`/* === ${SYNTAX_HIGHLIGHT_SOURCE} === */`);
-    parts.push(syntax);
   }
   const qrGeneral = readIfExists(QR_GENERAL_SOURCE);
   if (qrGeneral) {

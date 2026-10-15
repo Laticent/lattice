@@ -97,10 +97,32 @@ describe('focus — HTML kernel (applyToHtml)', () => {
     assert.match(out, /data-focus-style="spotlight"/);
   });
 
-  test('splitCodeLines keeps a newline inside an hljs span on one line', () => {
+  test('splitCodeLines gives one balanced fragment per source line, even inside a multi-line token', () => {
     const lines = focus.splitCodeLines('<span class="hljs-string">"a\nb"</span>\nnext');
-    assert.equal(lines.length, 2);
-    assert.match(lines[0], /"a\nb"/);
+    assert.deepEqual(lines, ['<span class="hljs-string">"a</span>', '<span class="hljs-string">b"</span>', 'next']);
+  });
+
+  test('a span that closes after the final newline is not an extra line (every template language)', () => {
+    // highlight.js wraps an erb/handlebars/php-template block in one sub-language span, closed after
+    // the last newline: that closing tag once counted as a fourth, empty numbered line.
+    assert.deepEqual(focus.splitCodeLines('<span class="language-xml">a\nb\nc\n</span>').length, 3);
+    const hljs = require('highlight.js');
+    const html = hljs.highlight('<%= user.name %>\n<p>{{ title }}</p>\n<% end %>\n', { language: 'erb' }).value;
+    assert.equal(focus.splitCodeLines(html).length, 3);
+  });
+
+  test('splitCodeLines treats the final newline as a terminator, not an empty extra line', () => {
+    assert.deepEqual(focus.splitCodeLines('a\nb\n'), ['a', 'b']);
+    assert.deepEqual(focus.splitCodeLines('a\n\n'), ['a', '']);
+    assert.deepEqual(focus.splitCodeLines(''), ['']);
+  });
+
+  test('line N is source line N after a multi-line comment (was off by one)', () => {
+    const code = '<span class="hljs-keyword">const</span> a = 1;\n<span class="hljs-comment">/* two\nlines */</span>\nlet b = 2;\n';
+    const out = focus.applyToHtml(`<section data-focus="line 4" class="code"><pre><code class="language-js">${code}</code></pre></section>`);
+    assert.match(out, /<span class="ln lat-focus">let b = 2;<\/span>/);
+    assert.match(out, /<span class="ln lat-recede"><span class="hljs-comment">lines \*\/<\/span><\/span>/);
+    assert.doesNotMatch(out, /<span class="ln lat-recede"><\/span>/);
   });
 });
 

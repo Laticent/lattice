@@ -160,3 +160,22 @@ describe('table round-trip — the reason table slides stop locking', () => {
 		expect(out).toContain('\\[n\\]'); // a non-marker escaped bracket stays escaped
 	});
 });
+
+// The code plugin's `@code{…}` record configures the fence on the line right under it
+// (lib/plugins/code/code.syntax.mjs). A Compose edit must give the author's source back as written,
+// not split the record from its fence with a blank line.
+describe('a `@code{…}` record stays on the line above its fence', () => {
+	for (const md of [
+		'`@code{numbers, focus=2}`\n```ts\nconst a = 1;\nconst b = 2;\n```',
+		'## Title\n\n`@code{title=src/a.ts}`\n```ts\nx\n```\n\nText after.',
+		'- item\n\n  `@code{numbers}`\n  ```ts\n  x\n  ```',
+	]) {
+		it(JSON.stringify(md.slice(0, 32)), () => {
+			expect(roundTripSlideProse(md)).toBe(md);
+		});
+	}
+
+	it('an ordinary code span above a fence keeps its blank line', () => {
+		expect(roundTripSlideProse('`not a record`\n\n```ts\nx\n```')).toBe('`not a record`\n\n```ts\nx\n```');
+	});
+});

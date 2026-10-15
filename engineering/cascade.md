@@ -26,12 +26,13 @@ concatenate in this order (the file-header docstring is canonical):
 5.  @layer declaration (declared, but no source wraps itself in any layer)
 6.  lib/components/<bucket>/<name>/<name>.styles.css   (alphabetical)
 7.  lib/base/base.modifiers.css                 (cross-cutting modifiers)
-8.  lib/integrations/highlight-js/highlight-js.css
+8.  (highlight.js's token theme sat here until 2026-10-15; it is the code plugin's stylesheet now)
 9.  lib/base/base.treatments.css                (tint-* / mark-* utilities)
 10. lib/shared/shared.styles.css
 11. lib/base/base.variants.css                  (state markers, tone, chrome)
 12. the plugin slot: lib/plugins/<name>/<name>.styles.css, in dependency order
-    (chart-family's chart frame, function-plot, math, Mermaid's SVG theme overrides)
+    (chart-family's chart frame, the code plugin's panel and syntax roles, function-plot, math,
+    Mermaid's SVG theme overrides and its source/error block)
 ```
 
 The chart frame moved into the plugin slot in phase F (2026-10-06; it used to sit between the

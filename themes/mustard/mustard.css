@@ -164,18 +164,20 @@
 
 /* ── highlight.js syntax tokens ────────────────────────────────────────── */
 :root {
-  --hljs-comment:    #89785e;  /* dark amber — muted                         */
-  --hljs-keyword:    #D4A840;  /* bright mustard — control flow, italic      */
-  --hljs-built_in:   #78B8A8;  /* sage teal — functions, italic              */
-  --hljs-number:     #E8C870;  /* bright gold — numeric literals             */
-  --hljs-literal:    #C09070;  /* warm amber — booleans/null                 */
-  --hljs-string:     #A8C888;  /* sage — strings                             */
-  --hljs-title:      #E0B840;  /* deep gold — function names, italic         */
-  --hljs-type:       #98C0B0;  /* pale teal — types/annotations              */
-  --hljs-variable:   #C8A850;  /* warm gold — variables                      */
-  --hljs-params:     #B8A070;  /* warm buff — parameters                     */
-  --hljs-tag:        #C87868;  /* oxblood rose — HTML tags                   */
-  --hljs-punctuation:#987e5d;  /* dark amber — operators                     */
+  --syntax-comment:     #89785e;  /* dark amber — muted                         */
+  --syntax-keyword:     #D4A840;  /* bright mustard — control flow, italic      */
+  --syntax-builtin:     #78B8A8;  /* sage teal — functions, italic              */
+  --syntax-number:      #E8C870;  /* bright gold — numeric literals             */
+  --syntax-constant:    #C09070;  /* warm amber — booleans/null                 */
+  --syntax-string:      #A8C888;  /* sage — strings                             */
+  --syntax-entity:      #E0B840;  /* deep gold — function names, italic         */
+  --syntax-type:        #98C0B0;  /* pale teal — types/annotations              */
+  --syntax-variable:    #C8A850;  /* warm gold — variables                      */
+  --syntax-parameter:   #B8A070;  /* warm buff — parameters                     */
+  --syntax-markup:      #C87868;  /* oxblood rose — HTML tags                   */
+  --syntax-punctuation: #987e5d;  /* dark amber — operators                     */
+  --syntax-inserted:    #8ddb9c;  /* diff: added lines (green by convention; AA on this panel) */
+  --syntax-deleted:     #ff9b9b;  /* diff: removed lines */
 }
 
 :root {

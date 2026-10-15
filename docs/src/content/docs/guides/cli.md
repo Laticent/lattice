@@ -549,6 +549,22 @@ npx lattice video talk.html talk.mp4 --lead-in 2000 --outro 3000
 Video needs a Chrome that can encode H.264, such as Chrome for Testing. Point
 `CHROME_PATH` at it if Lattice picks the wrong browser.
 
+### Format the code in a deck
+
+`lattice fmt` pretty-prints a deck's fenced code blocks in place, with
+Prettier, ruff (Python) or sql-formatter (SQL), whichever reads the block's
+language:
+
+```sh
+npx lattice fmt deck.md
+npx lattice fmt deck.md --check    # exit 1 if a block would change, for CI
+```
+
+A block whose `@code{…}` record says `format=off` keeps its text, and
+`width=48` in a record sets that block's line width. The formatters are
+optional dependencies; if one is missing, `lattice fmt` names the package to
+install.
+
 ### Allow web images
 
 By default a render stays off the network. An image or font from a web

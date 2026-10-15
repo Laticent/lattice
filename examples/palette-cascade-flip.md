@@ -34,7 +34,7 @@ Render this deck at any palette: what you see is what that palette's author wrot
 ---
 
 <!-- _class: code -->
-<!-- _footer: "The twelve --hljs-* tokens" -->
+<!-- _footer: "The twelve --syntax-* tokens" -->
 
 ## Each palette's own syntax ramp paints now.
 

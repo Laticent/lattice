@@ -376,3 +376,51 @@ theme: indaco
   - The third card carries one line.
 - Delta
   - The fourth card carries one line.
+
+---
+
+<!-- _class: code -->
+
+## code
+
+```js
+export function issue(user) {
+  return { token: sign(user.id) };
+}
+```
+
+---
+
+<!-- _class: code -->
+
+## code with a coda
+
+```js
+export function issue(user) {
+  return { token: sign(user.id) };
+}
+```
+
+> The coda under the block switches the row to stretch.
+
+---
+
+<!-- _class: compare-code -->
+
+## compare-code
+
+`Before`
+
+```js
+function before() {
+  return 'old';
+}
+```
+
+`After`
+
+```js
+function after() {
+  return 'new';
+}
+```

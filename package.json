@@ -389,7 +389,13 @@
     "zdog": "^1.1.3"
   },
   "optionalDependencies": {
+    "@prettier/plugin-php": "0.25.0",
+    "@prettier/plugin-xml": "3.4.2",
+    "@wasm-fmt/ruff_fmt": "0.15.20",
     "css-tree": "^3.2.1",
+    "prettier": "3.9.10",
+    "prettier-plugin-java": "2.11.0",
+    "sql-formatter": "15.9.0",
     "subset-font": "^2.5.0"
   }
 }

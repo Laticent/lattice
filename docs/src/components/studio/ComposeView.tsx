@@ -2537,7 +2537,7 @@ function ComposeStyles() {
 			   ENGINE's own highlighter, so these are the slide's tokens and not a second
 			   opinion about what a keyword is.
 			   THE PALETTE IS THE STUDIO'S THREE SYNTAX INKS, not the render's fuller
-			   --hljs-* tier. That tier is theme CSS and the docs site does not emit it
+			   --syntax-* tier. That tier is theme CSS and the docs site does not emit it
 			   (lattice-tokens.generated.css carries keyword / string / number and no
 			   more), and the three-ink reading is the deliberate one for a WRITING surface
 			   — it is what the deck editor and the chat code blocks already use, and

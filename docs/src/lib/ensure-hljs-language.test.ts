@@ -11,7 +11,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { __resetHljsLoaderCaches, ensureFenceLanguages, hljsBaseFor } from './ensure-hljs-language';
+import { __resetHljsLoaderCaches, ensureFenceLanguages, hljsBaseFor, languageFiles } from './ensure-hljs-language';
 
 const BASE = 'https://example.test/playground/v/abc123/hljs/';
 const MANIFEST = {
@@ -98,6 +98,36 @@ describe('ensureFenceLanguages — resolution', () => {
 		stubPlayground(['not-a-real-language']);
 		await expect(ensureFenceLanguages('x', BASE)).resolves.toEqual([]);
 		expect(appendedScripts()).toHaveLength(0);
+	});
+});
+
+describe('languageFiles — a grammar brings the ones it embeds', () => {
+	const manifest = {
+		languages: {
+			xml: { file: 'xml.js', bytes: 1, requires: ['css', 'javascript'] },
+			css: { file: 'css.js', bytes: 1 },
+			javascript: { file: 'javascript.js', bytes: 1, requires: ['xml'] },
+			json: { file: 'json.js', bytes: 1 },
+			http: { file: 'http.js', bytes: 1, requires: ['json', 'xml'] },
+		},
+		aliases: { html: 'xml', js: 'javascript' },
+	};
+	const none = () => false;
+
+	it('an HTML fence fetches the CSS and JavaScript it colors, once each, through a cycle', () => {
+		expect([...languageFiles(['html'], manifest, none)].sort()).toEqual(['css.js', 'javascript.js', 'xml.js']);
+	});
+
+	it('skips what the engine already holds, but still follows its embeds', () => {
+		expect([...languageFiles(['html'], manifest, (n) => n === 'xml')].sort()).toEqual(['css.js', 'javascript.js']);
+	});
+
+	it("http brings the body grammars it auto-detects among, and their embeds, not every grammar", () => {
+		expect([...languageFiles(['http'], manifest, none)].sort()).toEqual(['css.js', 'http.js', 'javascript.js', 'json.js', 'xml.js']);
+	});
+
+	it('author text that names a prototype key resolves to nothing', () => {
+		expect(languageFiles(['constructor', '__proto__', 'toString'], manifest, none).size).toBe(0);
 	});
 });
 

@@ -12,7 +12,7 @@
  * under a condition score near 0 and are flagged.
  *
  * THE ACHROMATOPSIA ARM (#1715 §9). `lib/theme/cvd.js` gained the primitive when
- * `checkHljsSeparation` needed it, and this CLI — the one a human runs — could not
+ * `checkSyntaxSeparation` needed it, and this CLI — the one a human runs — could not
  * reach it. It loops `SIMULATED_TYPES` now, not `CVD_TYPES`; `CVD_TYPES` stays the
  * three Machado matrices, because achromatopsia is a monochromacy, not a dichromacy,
  * and a unit test pins that list at exactly three.
@@ -99,12 +99,12 @@ const COLLAPSE = 0.15;
  * find, certified clean by the arm.
  *
  * TWO FLOORS, EACH RATCHETED FROM WHAT THE PURPOSE-BUILT PALETTE ACHIEVES — the method
- * `checkHljsSeparation` used (tools/check-ownership.js, #1715), applied per population:
+ * `checkSyntaxSeparation` used (tools/check-ownership.js, #1715), applied per population:
  *
  *   CROWDED GROUPS -> 0.065. `a11y-achromatopsia` cannot calibrate these: its cycle is a
  *   monotone value ramp, so the simulation is the identity on it and NO pair is induced
  *   at any floor. The number instead transposes the ratio this repo already measured and
- *   shipped one tier down — `checkHljsSeparation` holds twelve small-text syntax roles to
+ *   shipped one tier down — `checkSyntaxSeparation` holds twelve small-text syntax roles to
  *   0.11 under a dichromacy and 0.048 under monochromacy, 0.436x — onto this tool's 0.15:
  *   0.15 x 0.436 = 0.0655. Legitimate here precisely BECAUSE the hljs family is also a
  *   crowded twelve-way set boxed into a narrow band, so the crowding the ratio encodes is

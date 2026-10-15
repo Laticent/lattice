@@ -41,7 +41,11 @@ section.compare-code h2 { padding-bottom:var(--sp-sm); }
  *
  * The non-landscape families still wrap (see the reflow block below): they stack to
  * ONE column, so there is no gutter and no pairing to break. */
-section.compare-code .code-cols { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:var(--sp-md); flex:1; }
+/* The pair is one band in the `cards:` register (the "Grid" shape, lib/base/base.registers.docs.md): the
+ * grid fills the stage and `align-content` places its one row in it, content height and centered by
+ * default (the manifest's `center`), filling the stage only under `stretch`. The two panels stay equal
+ * height either way (the row stretches both cells), so the comparison keeps one baseline. */
+section.compare-code .code-cols { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:var(--sp-md); flex:1; align-content:var(--cards-align); }
 section.compare-code .code-col { display:flex; flex-direction:column; gap:var(--sp-xs); }
 /* Column label: p>code inside .code-col (JS path) or h2 ~ p>code (fallback path) */
 /* label→pre spacing is the .code-col flex parent's gap:var(--sp-xs); no padding here
@@ -66,6 +70,7 @@ section.compare-code h2 ~ p:has(> code:only-child):not(:where([data-prose])) > c
 section.compare-code pre {
   flex:1; margin:0; border-radius:var(--radius-md); overflow:hidden;
   background-color:var(--code-bg);
+  box-shadow:inset 0 0 0 1px var(--code-edge);
   background-image:var(--spectrum-structure);
   background-position:bottom;
   background-size:100% 3px;
@@ -184,6 +189,7 @@ section.compare-code-block pre {
   border-radius: var(--radius-md); overflow: hidden;
   /* Longhands — same reason as the pane rule above (#1528). */
   background-color: var(--code-bg);
+  box-shadow: inset 0 0 0 1px var(--code-edge);
   background-image: var(--spectrum-structure);
   background-position: bottom;
   background-size: 100% 3px;

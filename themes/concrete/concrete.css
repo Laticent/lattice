@@ -153,18 +153,20 @@
 
 /* ── highlight.js syntax tokens ────────────────────────────────────────── */
 :root {
-  --hljs-comment:    #85837b;  /* warm gray — muted                          */
-  --hljs-keyword:    #C07878;  /* muted oxblood — control flow, italic       */
-  --hljs-built_in:   #78B8B0;  /* industrial teal — functions, italic        */
-  --hljs-number:     #C8B880;  /* warm tan — numeric literals                */
-  --hljs-literal:    #A89898;  /* dusty rose — booleans/null                 */
-  --hljs-string:     #98C090;  /* sage — strings                             */
-  --hljs-title:      #D08888;  /* oxblood rose — function names, italic      */
-  --hljs-type:       #B0C8C8;  /* pale teal — types/annotations              */
-  --hljs-variable:   #90B0B0;  /* industrial teal — variables                */
-  --hljs-params:     #B0A890;  /* warm taupe — parameters                    */
-  --hljs-tag:        #C89880;  /* terracotta — HTML tags                     */
-  --hljs-punctuation:#8d8d85;  /* warm gray — operators                      */
+  --syntax-comment:     #85837b;  /* warm gray — muted                          */
+  --syntax-keyword:     #C07878;  /* muted oxblood — control flow, italic       */
+  --syntax-builtin:     #78B8B0;  /* industrial teal — functions, italic        */
+  --syntax-number:      #C8B880;  /* warm tan — numeric literals                */
+  --syntax-constant:    #A89898;  /* dusty rose — booleans/null                 */
+  --syntax-string:      #98C090;  /* sage — strings                             */
+  --syntax-entity:      #D08888;  /* oxblood rose — function names, italic      */
+  --syntax-type:        #B0C8C8;  /* pale teal — types/annotations              */
+  --syntax-variable:    #90B0B0;  /* industrial teal — variables                */
+  --syntax-parameter:   #B0A890;  /* warm taupe — parameters                    */
+  --syntax-markup:      #C89880;  /* terracotta — HTML tags                     */
+  --syntax-punctuation: #8d8d85;  /* warm gray — operators                      */
+  --syntax-inserted:    #8ddb9c;  /* diff: added lines (green by convention; AA on this panel) */
+  --syntax-deleted:     #ff9b9b;  /* diff: removed lines */
 }
 
 :root {

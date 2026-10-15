@@ -152,7 +152,7 @@ const SANCTIONED_FLAT_OVERRIDES = new Map([
     'The split-panel / split-compare top-edge mark is painted on --surface-inverse, ' +
     'which carbone pins to graphite (#0E0E10) on BOTH faces — it is the code-block ' +
     'ground, and keeping it dark on the light face is what preserves the terminal ' +
-    'register and the twelve --hljs-* values curated on it. Base derives the mark from ' +
+    'register and the twelve --syntax-* values curated on it. Base derives the mark from ' +
     '--accent, which DOES flip; on carbone light that is #037829 (a dark green) landing ' +
     'on graphite, which is the disappearing-edge defect this surface already has a ' +
     'decision note about (2026-08-18-split-frame-edge-ownership.md, where onyx measured ' +
