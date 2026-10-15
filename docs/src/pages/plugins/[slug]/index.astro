@@ -6,6 +6,7 @@
 import { getCollection } from 'astro:content';
 import CatalogLayout from '../../../layouts/CatalogLayout.astro';
 import CatalogTabs from '../../../components/catalog/CatalogTabs.astro';
+import CatalogMark from '../../../components/catalog/CatalogMark.astro';
 import Specimen from '../../../components/Specimen.astro';
 import '../../../styles/components.css';
 import { joinBase } from '../../../lib/base-url.mjs';
@@ -37,7 +38,7 @@ const others = plugins.filter((p) => p.id !== entry.id);
 			<div class="cat-learn-hero-inner">
 				<p class="cat-eyebrow"><span>Plugin · Demo</span></p>
 				<div class="cat-learn-title">
-					{d.mark && <img src={url(d.mark.replace(/^\//, ''))} alt="" width="52" height="52" />}
+					{d.mark && <CatalogMark mark={d.mark} size={52} />}
 					<h1 class="cat-h1">{d.name}</h1>
 				</div>
 				<p class="cat-promise">{d.promise}</p>

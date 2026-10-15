@@ -5,6 +5,7 @@
 // Props:  entry — a catalog entry
 import { joinBase } from '../../lib/base-url.mjs';
 import { hrefsFor } from '../../lib/catalog.mjs';
+import CatalogMark from './CatalogMark.astro';
 
 const { entry } = Astro.props;
 const d = entry.data;
@@ -17,7 +18,7 @@ const pkg = d.facts.find((f) => f.k === 'Package')?.v;
 	<article class="cat-card">
 		<div class="cat-card-head">
 			<span class="cat-card-mark" aria-hidden="true">
-				{d.mark ? <img src={url(d.mark.replace(/^\//, ''))} alt="" width="26" height="26" loading="lazy" /> : <span class="cat-mono">{d.name[0]}</span>}
+				{d.mark ? <CatalogMark mark={d.mark} size={26} /> : <span class="cat-mono">{d.name[0]}</span>}
 			</span>
 			<div class="cat-card-name">
 				<h3>{d.name}</h3>

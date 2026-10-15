@@ -287,9 +287,24 @@
 	background: var(--accent-soft);
 	border: 1px solid var(--border);
 }
-.cat-card-mark img {
+.cat-card-mark img,
+.cat-card-mark svg {
 	width: 26px;
 	height: 26px;
+}
+/* The plugin marks, drawn inline (CatalogMark.astro): the lines take the heading ink and the
+   one highlight takes the accent, so a mark holds its contrast on every palette, light or
+   dark, whatever the device's own setting says. */
+.cat-mark-svg .mk-i {
+	fill: none;
+	stroke: var(--text-heading);
+}
+.cat-mark-svg .mk-a {
+	fill: none;
+	stroke: var(--accent);
+}
+.cat-mark-svg .mk-f {
+	fill: var(--accent);
 }
 .cat-card-mark .cat-mono {
 	font-family: var(--font-display);
@@ -497,7 +512,8 @@
 	align-items: center;
 	gap: 16px;
 }
-.cat-learn-title img {
+.cat-learn-title img,
+.cat-learn-title svg {
 	width: 52px;
 	height: 52px;
 	flex: 0 0 auto;
@@ -792,7 +808,8 @@
 .cat-demo-hero .cat-h1 {
 	font-size: clamp(30px, 4vw, 44px);
 }
-.cat-demo-hero .cat-learn-title img {
+.cat-demo-hero .cat-learn-title img,
+.cat-demo-hero .cat-learn-title svg {
 	width: 40px;
 	height: 40px;
 }
