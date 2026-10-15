@@ -435,3 +435,12 @@ Proof:
   back to a selection copy when the clipboard API is refused. Buttons are built with `createElement` only,
   and both files are on the runtime-markup census (HARD RULE #22).
 
+- 2026-10-15: copy buttons, after the rebase. The Studio's thumbnail grids (the slide overview, the slide
+  and Reshape pickers, chat figures, print options) render through `preview-pool.tsx`, and their frames carry
+  `data-lattice-live-media` too, so a copy-enabled block drew two tiny buttons in every tile. Every pooled tile
+  now passes `thumbnail` to `DeckPreview`, which stamps `<html data-lattice-thumbnail>` (single-slide-render.ts),
+  and the runtime draws no buttons there. It is a builder-side signal, not a size guess, and it leaves the
+  overflow watcher alone (`specimen` is the flag that silences it). Checked in the real Studio's slide overview
+  (`code-copy.spec.ts`) and in `test/unit/runtime/code-copy-surfaces.test.js`, whose thumbnail arm fails
+  without the guard. `code-copy-engines.spec.ts` drives the exported webpage in Firefox and WebKit: both copy
+  the code with `writeText` and the colored copy with a `text/html` `ClipboardItem`.

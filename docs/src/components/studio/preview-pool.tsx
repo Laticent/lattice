@@ -651,7 +651,7 @@ export function PreviewPool({ children, className, baseSlots = BASE_SLOTS }: { c
 								style={{ top: clip.top, left: clip.left, width: clip.width, height: clip.height, visibility: hidden ? 'hidden' : 'visible' }}
 							>
 								<div data-slide-frame className="absolute overflow-hidden" style={{ top: s.rect.top - clip.top, left: s.rect.left - clip.left, width: s.rect.width, height: s.rect.height, ...slideFrameStyle('flat') }}>
-									{s.props ? <DeckPreview {...s.props} drawn={s.props.drawn ?? hasDrawnFence(s.props.sample)} active className="size-full" aria-hidden /> : null}
+									{s.props ? <DeckPreview {...s.props} drawn={s.props.drawn ?? hasDrawnFence(s.props.sample)} thumbnail active className="size-full" aria-hidden /> : null}
 								</div>
 							</div>
 						);

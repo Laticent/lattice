@@ -182,14 +182,18 @@ export type DeckPreviewProps = {
 	 * thumbnail / specimen host must stay static (a grid of popovers would be noise). Off by default.
 	 */
 	chartDetail?: boolean;
-	/**
-	 * This preview is a THUMBNAIL — a miniature in a grid of its peers, not a slide
-	 * anyone authors from. Folded into the renderer's options so the frame is stamped
-	 * `<html data-lattice-thumbnail>` and the engine runtime skips its overflow /
-	 * type-floor watcher (see `SingleSlideOptions.thumbnail`). Set by `SlideThumbFace`;
-	 * every full-size host omits it and keeps the watcher.
-	 */
+	/** A catalog sample the author did not write: the runtime silences its overflow / type-floor
+	 *  watcher (see `SingleSlideOptions.specimen`, which says why a thumbnail of the author's own
+	 *  slide must NOT set it). */
 	specimen?: boolean;
+	/**
+	 * This preview is a THUMBNAIL — a miniature in a grid of its peers, not a slide anyone reads
+	 * or acts on. Folded into the renderer's options so the frame is stamped
+	 * `<html data-lattice-thumbnail>`, and the runtime draws no reader chrome into it (a code
+	 * block's copy buttons, lib/core/code-copy.mjs). Unlike `specimen` it keeps the overflow
+	 * watcher. Set for every tile the Studio's preview pool renders.
+	 */
+	thumbnail?: boolean;
 	/** The preview an author types into: its flowcharts redraw in a worker (single-slide-render `liveLayout`). */
 	liveLayout?: boolean;
 };
@@ -231,6 +235,7 @@ export function DeckPreview({
 	loader = false,
 	chartDetail = false,
 	specimen = false,
+	thumbnail = false,
 	liveLayout = false,
 	...aria
 }: DeckPreviewProps) {
@@ -291,7 +296,7 @@ export function DeckPreview({
 	const engineRef = React.useRef<SingleSlideRenderer | null>(null);
 	// The FIRST render's arguments, held so a StrictMode remount can rebuild the renderer from
 	// inside an effect (see `runRenderRef`) without reading a later render's `options`.
-	const makeEngineRef = React.useRef(() => createSingleSlideRenderer(specimen || liveLayout ? { ...options, ...(specimen ? { specimen: true } : {}), ...(liveLayout ? { liveLayout: true } : {}) } : options));
+	const makeEngineRef = React.useRef(() => createSingleSlideRenderer(specimen || thumbnail || liveLayout ? { ...options, ...(specimen ? { specimen: true } : {}), ...(thumbnail ? { thumbnail: true } : {}), ...(liveLayout ? { liveLayout: true } : {}) } : options));
 	if (engineRef.current === null) engineRef.current = makeEngineRef.current();
 	const stageRef = React.useRef<HTMLElement>(null);
 	const activeRef = React.useRef(active);

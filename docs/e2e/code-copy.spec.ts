@@ -63,7 +63,11 @@ test('the exported webpage carries the marker and no baked button; opened, it co
 	await reader.locator('pre[data-copy]').first().hover();
 	await reader.locator('.lat-code-copy-btn[data-kind="text"]').first().click();
 	await expect.poll(() => clipboardText(reader), { timeout: 10_000 }).toBe('const answer = 42;');
-	await reader.locator('.lat-code-copy-btn[data-kind="html"]').first().click();
+	const asHtml = reader.locator('.lat-code-copy-btn[data-kind="html"]').first();
+	await asHtml.click();
+	// The write is async: read the clipboard only once the button says it landed, or the read races
+	// it and returns the plain-text copy above.
+	await expect(asHtml).toHaveAttribute('data-copied', 'yes');
 	const copied = await reader.evaluate(async () => {
 		const [item] = await navigator.clipboard.read();
 		const html = item.types.includes('text/html') ? await (await item.getType('text/html')).text() : '';
@@ -74,4 +78,30 @@ test('the exported webpage carries the marker and no baked button; opened, it co
 	expect(copied.html, 'colored, inline').toMatch(/<pre style="[^"]*background[^"]*">[\s\S]*<span style="color: rgb\(/);
 	expect(copied.html).toContain('answer');
 	await reader.close();
+});
+
+test('a thumbnail of the slide draws no buttons: the slide overview', async ({ page }) => {
+	await gotoStudio(page);
+	await setEditorContent(page, DECK);
+	await expect(page.frameLocator(LIVE_PREVIEW).locator('pre[data-copy] .lat-code-copy-btn')).toHaveCount(2, { timeout: 20_000 });
+	await page.getByRole('button', { name: 'Present', exact: true }).click();
+	await expect(page.getByRole('dialog', { name: 'Present' })).toBeVisible();
+	await page.keyboard.press('g');
+	await expect(page.getByRole('dialog', { name: 'Slide overview' })).toBeVisible();
+	// Every pooled tile is stamped a thumbnail (preview-pool.tsx); read each frame that holds the
+	// marked block. At least one must exist, or this passes by finding nothing.
+	const thumbs = async () => {
+		const out: Array<{ buttons: number }> = [];
+		for (const f of page.frames()) {
+			const r = await f.evaluate(() => ({
+				thumb: document.documentElement.hasAttribute('data-lattice-thumbnail'),
+				marked: document.querySelectorAll('pre[data-copy]').length,
+				buttons: document.querySelectorAll('.lat-code-copy-btn').length,
+			})).catch(() => null);
+			if (r?.thumb && r.marked) out.push({ buttons: r.buttons });
+		}
+		return out;
+	};
+	await expect.poll(async () => (await thumbs()).length, { timeout: 20_000 }).toBeGreaterThan(0);
+	expect((await thumbs()).every((t) => t.buttons === 0), 'no thumbnail draws a copy button').toBe(true);
 });
