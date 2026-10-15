@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: in-progress
 summary: >
   Highlighting moves out of the engine core into a `code` plugin that owns every fence no other
   plugin claims, loads highlight.js core plus only the languages a deck uses, maps highlight.js
@@ -13,7 +13,7 @@ summary: >
 
 # A code plugin, and a code-format plugin beside it (2026-10-15)
 
-Status: proposed. The owner's decisions go in §9. Parents: `2026-09-27-plugin-system.md` (the plugin
+Status: in progress. The owner's decisions are in §9; progress is in §11. Parents: `2026-09-27-plugin-system.md` (the plugin
 contract), `2026-10-14-plugin-inline-door.md` (the `@kind{…}` inline form this note's config uses),
 `2026-09-28-segno-unified-inline-notation.md` (the record grammar), `2026-07-19-preview-bundle-hljs-common.md`
 (the Studio's 36-language bundle this note replaces).
@@ -236,16 +236,28 @@ What decides it:
   measures the longest line after formatting and `lint:deck` warns on overflow, whether or not the
   block was formatted.
 
-**Recommended registry** (each adapter is loaded by a dynamic `import()` only when a block in that
-language asks to be formatted):
+**The registry, as decided** (§9). Each adapter is a self-hosted file loaded by a dynamic `import()`
+only when a block in that language asks to be formatted, so an adapter no block uses costs nothing:
 
-| Fence languages | Adapter | Why |
+| Fence languages | Adapter | gz, loaded only when used |
 |---|---|---|
-| js, jsx, ts, tsx, json, css, scss, less, html, vue, markdown, yaml, graphql | Prettier standalone + only that language's plugin | smallest per-language download, throws on invalid code, idempotent, real width |
-| python, py | ruff | best in class, 0.7 ms warm |
-| sql | sql-formatter, pre-bundled per dialect (`@code{format, dialect=postgres}`) | throws on invalid code; width is not supported, which the docs say |
-| go | gofmt | the canonical Go format; no width by design |
-| others (C family, shell, TOML…) | none in v1 | the remaining candidates either never validate or add a megabyte; a block in an unsupported language with `format` gets a lint warning, never silent nothing |
+| js, jsx, ts, tsx, json, css, scss, less, html, vue, markdown, yaml, graphql | Prettier standalone + that language's built-in plugin | 171 KB for TS |
+| php | `@prettier/plugin-php` (its own standalone build) | 43 KB |
+| xml | `@prettier/plugin-xml` | 46 KB |
+| java | `prettier-plugin-java` (tree-sitter wasm, located by `import.meta.url`) | 162 KB |
+| python, py | ruff (`@wasm-fmt/ruff_fmt`) | 499 KB |
+| sql | `sql-formatter`, pre-bundled per dialect (`@code{format, dialect=postgres}`) | 20 KB |
+| anything else (Go, shell, TOML, C family…) | none | a block that asks for `format` gets a lint warning, never silent nothing |
+
+The second round measured the Prettier community plugins before choosing, all at width 40:
+
+- **PHP, XML and Java** format correctly, are idempotent and throw on invalid code. Java was verified
+  in Node; its browser path (wasm by URL) is verified in slice 6.
+- **`prettier-plugin-sql` is 585 KB gz.** It wraps the 20 KB `sql-formatter`, so SQL uses the latter
+  directly.
+- **`prettier-plugin-sh` and `prettier-plugin-toml` do not run in a browser.** They read their wasm
+  with `node:fs`.
+- **Python has no maintained Prettier plugin**, so it uses ruff, which is best in class.
 
 Every adapter is pinned to an exact version, and a golden test per adapter fails when a version bump
 changes output, so a formatting change is a reviewed diff and never a surprise in an exported deck.
@@ -285,8 +297,7 @@ formatted block, which is the one way a reformat can silently move a focus.
 
 **Why not the fence info string** (```` ```ts {3-5} title="x" ````, the VitePress / Docusaurus form):
 it is shorter, but it is a second config grammar beside segno. It is invisible to Compose's per-kind
-editors, and Marp and GitHub render the extra words in their own ways. The inline span is also what
-you asked for. §9 asks you to confirm.
+editors, and Marp and GitHub render the extra words in their own ways. The owner chose the inline span (§9).
 
 ## 8. Build plan and how it is proven
 
@@ -319,17 +330,16 @@ Proof:
 - **Verification ladder** (HARD RULE #25): this moves an engine transform and changes the plugin
   contract, so the adversarial trio (red team, inversion, checker) runs on the final diff.
 
-## 9. Decisions (owner)
+## 9. Decisions (owner, 2026-10-15)
 
-Pending. Questions put on 2026-10-15:
-
-1. Config syntax: `@code{…}` inline span above the fence (recommended), or the fence info string, or both.
-2. Plain-slide look: the panel on every fence (recommended), or a second, light syntax palette for
-   fences that sit directly on the slide.
-3. Tokens: rename `--hljs-*` to role tokens `--syntax-*` and derive them for every theme (recommended,
-   a breaking change for external themes), or keep the names.
-4. Formatter: the per-language registry in §6 (recommended), or Prettier only (web languages; Python
-   and SQL unformatted), or defer `code-format` to a second PR.
+1. **Config is the `@code{…}` span above the fence.** The fence info string is not a second grammar.
+2. **Every fence gets the panel**, on a plain slide as on a `code` slide. There is one syntax palette.
+3. **`--hljs-*` is renamed to the role tokens `--syntax-*`**, derived for every theme. A theme may override
+   any of them. This is a breaking change for external themes, recorded in the changelog and the crosswalk.
+4. **Formatting uses Prettier first, with two exceptions where Prettier is absent or bloated:** ruff for
+   Python and sql-formatter for SQL. Everything is self-hosted and loaded per language. Go and the other
+   languages stay unformatted, with a lint warning. The owner asked for no bloat; per-language loading means
+   an unused adapter costs a deck nothing.
 
 ## 10. Open
 
@@ -338,3 +348,7 @@ Pending. Questions put on 2026-10-15:
 - The Studio's editor and chat use lezer, not highlight.js, with a separate token tier
   (`editor-theme.ts:104-134`). That stays: an editor needs incremental parsing, and highlight.js cannot
   do that. The parity test between them moves onto the role tokens.
+
+## 11. Progress
+
+- 2026-10-15: audit, bake-off and owner decisions recorded. Building slice 1.
