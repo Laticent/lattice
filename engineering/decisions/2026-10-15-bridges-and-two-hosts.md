@@ -141,7 +141,7 @@ opening an export of `examples/diagram-narration.md` (seven Mermaid fences):
 | Content Security Policy | `script-src 'nonce-…'`; our three tags carry no nonce | none |
 | Console | `Refused to load the script …` for `mermaid-v11-min.js`, `lattice-dagre-min.js`, `lattice-runtime-min.js` | clean |
 | `<html data-lattice-runtime>` | absent | `loaded` |
-| Mermaid fences | raw source text on every slide, under a "Some content has been disabled" banner | marked rendered, but each SVG is 0 px wide (blank) |
+| Mermaid fences | raw source text on every slide, under a "Some content has been disabled" banner | marked rendered, but each SVG is 0 px wide (blank) **in this headless harness only**; see below |
 
 New since the gotcha entry:
 
@@ -159,12 +159,18 @@ New since the gotcha entry:
   still writes the old key, which works through a legacy branch and shows a warning.
 
 The bundle's own README still says it cannot confirm whether the scripts run
-(`lib/core/marp-bundle.js:667`). That is stale. The blank Mermaid at Disable is the known,
-unchased defect in the gotcha entry.
+(`lib/core/marp-bundle.js:667`). That is stale.
+
+**The blank Mermaid is a harness result, not a confirmed product defect.** It reproduces in a
+headless code-server here (twice in September, once on 2026-10-15). In the owner's real VS Code,
+with the same bundle (the three script tags, `lattice.css` and the palette registered as
+`markdown.marp.themes`, `theme: indaco`) at *Disable*, Mermaid draws. A 0 px width is what
+Mermaid produces when it measures text in a frame that is not being painted, which a headless
+webview can be; the gotcha entry also records that the diagrams drew when
+`bierner.markdown-mermaid` was installed. Unconfirmed either way.
 
 So **live drawing does not work out of the box**, but it is one menu choice away, and the owner's
-own habit is to choose *Disable*. For that workflow the blocker is not the policy but the blank
-Mermaid at *Disable*.
+own habit is to choose *Disable*, and in the owner's VS Code that renders Mermaid live today.
 
 ### 3.3 Why the CLI export page runs without the runtime
 
@@ -268,7 +274,7 @@ needs its own measurement before it moves.
 | marp-cli (`npm run pdf` / `html` in the bundle) | through the bundle's allowlist (`marp-bundle-html.js`) | yes (real headless browser) | yes (`marp.config.cjs`) | speaker notes, except the bundle's own trailer comments (`marp-bundle-html.js:187-196`) |
 | Marp for VS Code, untrusted workspace | **off** | no | no | speaker notes |
 | Marp for VS Code, trusted workspace, default level | **all of it, no allowlist** (`enableHtml: true`, `marp-bundle.js:508`) | **no** (Strict policy) | no (no custom engine) | speaker notes |
-| Marp for VS Code, trusted, at *Disable* (the owner's usual setting) | all of it | yes | no | speaker notes; Mermaid blank today |
+| Marp for VS Code, trusted, at *Disable* (the owner's usual setting) | all of it | yes | no | speaker notes |
 
 The allowlist that protects marp-cli does not exist in VS Code, so anything a bridge emits must be
 safe without it.
@@ -478,10 +484,10 @@ PPTX, ODP, PDF and the rest are formats made after the hosts finish. Marp is a b
 
 Each phase ships on its own and leaves the tree green.
 
-- **P0. Fix what is wrong today.** First, the blank Mermaid at *Disable*, because it blocks the
-  owner's own workflow. Then the five bundles that omit a palette they import
+- **P0. Fix what is wrong today.** The five bundles that omit a palette they import
   (`bundleMissingPalettes` in `layer-census-results.jsonl`), the deprecated VS Code key and the
-  bundle README's stale claim. Logged as
+  bundle README's stale claim. Separately, find out why Mermaid draws blank in the headless
+  harness, so the harness can be trusted for the census in §7. Logged as
   follow-ups by this note's PR.
 - **P1. The bridge and its presets.** Name the Marp exporter a bridge, add the environment table
   and the preset dialog over today's per-plugin behavior (§3.5). Starts with the frozen-Mermaid
@@ -503,7 +509,7 @@ items in §4.4.
 |---|---|---|
 | D1 | Adopt the bridge model: the Marp export is a transpiler with environment presets | **yes**. Worth having without `@layer` |
 | D2 | Activate `@layer` behind a flattening bridge | **not yet**. It needs three things first: (a) the cross-file share of the specificity tax, measured, so the benefit is a number; (b) an answer for author CSS that keeps it winning where it wins today, at export and after it (§4.4); (c) the examples-wide count of elements layering changes, with the runtime loaded (at least 119 on the gallery alone) |
-| D3 | VS Code presets for drawn plugins | **Two presets.** *VS Code, scripts allowed* (the owner's workflow, at *Disable*): **live**, which needs the blank-Mermaid defect fixed first (P0). *VS Code, default*: **as is** for now, then **frozen** (a sidecar image with its source in an inert JSON block) once P1's spike shows the labels survive and nothing lands in the speaker notes |
+| D3 | VS Code presets for drawn plugins | **Two presets.** *VS Code, scripts allowed* (the owner's workflow, at *Disable*): **live**, which works today in the owner's VS Code. *VS Code, default*: **as is** for now, then **frozen** (a sidecar image with its source in an inert JSON block) once P1's spike shows the labels survive and nothing lands in the speaker notes |
 | D4 | Simplify the plugin contract (§5) before phase E's zip format ships | **yes**, with the host's export mode (§5.2) defined first. Changing the schema costs far more once user plugins exist |
 | D5 | Merge the code-plugin branch with `codeRenderer: true` now, or adopt §5.3 first | **merge first**. It is one more flag of an existing kind, and P2+P3 migrate it with the rest |
 | D6 | Third-party bridges (a package kind), or first-party only | **first-party** until a second bridge exists |
