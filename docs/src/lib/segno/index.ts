@@ -20,4 +20,4 @@ export { notationSpec, STOP, TAGS, WS } from './notation-grammar.js';
 export type { Bound, Positional, RecordOf, RecordSpec, Slot, Spelling } from './schema.js';
 export { list, record, SchemaError, schemaProblems, value } from './schema.js';
 export type { Cls, EnumOptions, NumberValue, Range, TimePoint, Type } from './types.js';
-export { CLASS_ORDER, flag, id, indexed, malformedNumber, named, number, oneOf, range, readNumber, readTime, text, time } from './types.js';
+export { CLASS_ORDER, flag, id, indexed, isCurrency, malformedNumber, named, number, oneOf, range, readNumber, readTime, text, time } from './types.js';
