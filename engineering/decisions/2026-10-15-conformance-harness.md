@@ -298,3 +298,15 @@ per `slide-contrast.test.js`) and shard if needed.
    2), so it needs a yes, with the measured number from phase 3 in hand.
 4. **Unknown front-matter key: warning or error.** Every authoring rule warns today; a typo'd
    key silently does nothing, which argues for at least a warning.
+
+## 9. Owner rulings (2026-10-15)
+
+1. **Direction: yes, components first.** Phase 1 (the harness skeleton, the debt ledger and the
+   component static contract) is the first build PR.
+2. **Cards: opt-in, plus an evidence trigger.** A detected card row with no `cards` declaration
+   fails the harness. `stats`, `actors` and `kpi` are each reviewed: each one either adopts `cards`
+   (a visual change, shipped with a demo deck) or goes in the ledger as debt with a reason.
+3. **An unknown front-matter key is a warning**, like every other authoring rule.
+4. **Still open: §8.3, the render-tier cost.** Phase 3 measures an in-process render and contrast
+   pass first, and brings the number back before anything is wired into CI.
+5. **This note holds for revision** before it merges.
