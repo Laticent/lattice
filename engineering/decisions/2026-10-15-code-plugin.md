@@ -344,8 +344,7 @@ Proof:
 
 ## 10. Open
 
-- How the Marp bundle carries the shell grammar (defect 9): a registration script inside the exported
-  bundle, or pre-highlighted HTML. Decided in slice 7, after reading `marp-bundle.js`.
+- ~~How the Marp bundle carries the shell grammar (defect 9).~~ Decided in slice 7: the config's engine, see §11.
 - The Studio's editor and chat use lezer, not highlight.js, with a separate token tier
   (`editor-theme.ts:104-134`). That stays: an editor needs incremental parsing, and highlight.js cannot
   do that. The parity test between them moves onto the role tokens.
@@ -376,4 +375,16 @@ Proof:
   SQL chunk carries all of them (about 80 KB gz, only for a deck that formats SQL); the planned per-dialect build was
   not possible. HTML, Vue and Markdown format their own markup only (`embeddedLanguageFormatting: 'off'`), which keeps
   each download to its own plugin.
-
+- 2026-10-15: slice 7, the Marp export. marp-core 4.5 exposes its highlight.js as `marp.highlightjs`, and every
+  registered language keeps its `rawDefinition`. So the bundle's `marp.config.cjs` rebuilds bash on the recipient's
+  own instance from that instance's stock bash (`ownShell`, lib/core/marp-bundle-html.js). The grammar builder
+  (`shellFrom`) is written into the config as source, and the bundle ships no second copy of highlight.js.
+  Pre-highlighted HTML was the alternative; it was rejected because Marp highlights fences itself, so the export
+  would have had to replace each fence with raw HTML that the config's allowlist then has to admit. On a real
+  marp-cli 4.5.0 render, a three-line command list goes from 0 tokens to 7 (3 commands, 4 flags). VS Code's
+  preview reads no engine config, so there a shell fence stays stock bash; the fidelity ledger says so. Two gaps
+  the plan missed, and both are fixed: the export ran no plugin bake, so a block that asked to be formatted
+  shipped as written (export-marp now runs the code-format bake, and the Studio formats before it exports); and
+  Marp printed each `@code{…}` record as a line of inline code (`withoutCodeRecords` removes it in the shared
+  kernel, found by the engine's own block rule). The record's options are not drawn by Marp, and that is a
+  ledger row.

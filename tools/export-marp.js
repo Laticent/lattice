@@ -339,7 +339,19 @@ function main(argv) {
   //    the emitted `.md` renders identically on any Marp tool and stays editable.
   //    Without the glossary bake the exported deck silently lost the generated
   //    Glossary slide while the slide before it still announced it (#1256).
-  const glossed = appendAutoGlossary(src);
+  // 0) the code-format bake, before every other: a block whose `@code{format}` record (or the deck's
+  //    `code: format` default) asks goes out formatted, as the render CLI prints it, because Marp runs
+  //    no plugin. Only this bake: the bundled runtime draws Mermaid itself. Same admission as the
+  //    render (lib/plugins/host-bake.js), so `--disable-plugin code-format` exports the text as written.
+  const { BAKERS } = require('../lib/plugins/bake.generated.js');
+  const { bakeDeck } = require('../lib/plugins/host-bake.js');
+  const formattedSrc = bakeDeck(src, { pkgRoot: ROOT }, {
+    bakers: BAKERS.filter((b) => b.name === 'code-format'),
+    disabled: disabledPlugins,
+    ...(defaultPlugins ? { defaults: defaultPlugins } : {}),
+    strict: true,
+  }).source;
+  const glossed = appendAutoGlossary(formattedSrc);
   const glossedFm = glossed.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n/);
   const deckDir = path.dirname(path.resolve(deckPath));
   const copied = new Map(); // one dedupe map across body + front-matter refs
