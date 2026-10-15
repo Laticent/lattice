@@ -39,7 +39,7 @@ duplicate.
 | SWOT, BCG growth-share, Eisenhower, risk × impact | `matrix-2x2` (its docs name all four) |
 | Positioning map, effort × impact | `quadrant`, `scatter` |
 | Pricing tiers | `pricing` |
-| Competitive feature table with "us" highlighted | `table` with `[x]` / `[-]` / `[!]` cell markers and `<!-- _focus: col 2 -->` (`lib/base/base.docs.md` § State markers, § Focus & highlighting) |
+| Competitive feature table with "us" highlighted | `<!-- _class: table state-cells -->` with `[x]` / `[-]` / `[!]` alone in a cell, plus `<!-- _focus: col 2 -->` (`lib/base/base.docs.md` § `state-cells`, § Focus & highlighting). Without `state-cells` the markers render as literal text |
 | "Trusted by" logos | `logo-wall` |
 | Team, account team, QBR roll-call | `team-profile` |
 | The hardest investor questions, answered ahead | `q-and-a` |
@@ -57,8 +57,10 @@ duplicate.
 **One docs fix falls out of this table.** The competitive feature table is fully
 buildable, but no doc says so: the word "competitive" appears in only one component's
 docs (`radar`), so an author or agent searching for it does not find `table`. A line in
-`table.docs.md` § When to use, plus a gallery slide, closes it. That needs no new
-component.
+`table.docs.md` § When to use, plus a gallery slide, closes it. The line must name
+the `state-cells` modifier: a marker alone in a cell is drawn only when the slide's
+class carries `state-cells` or `obligation-matrix` (`lib/integrations/markdown-it/plugins.js`,
+the cell-marker decode). That needs no new component.
 
 ## 3. The four component gaps
 
@@ -147,8 +149,8 @@ in the desktop app. Before code, it owes a design note that answers:
 
 ## 5. Deliberately not building
 
-`2026-09-06-cartesian-chart-expansion.md` §2 already rejected `gauge`, `marimekko`,
-`candlestick` and `radial bar`, with reasons. This audit found nothing that changes
+`2026-09-06-cartesian-chart-expansion.md` §2 deferred `gauge`, `marimekko`,
+`candlestick` and `radial bar`, with reasons that amount to rejections. This audit found nothing that changes
 those calls.
 
 ## 6. Next steps
