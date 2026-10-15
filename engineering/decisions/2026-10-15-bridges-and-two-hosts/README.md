@@ -1,0 +1,27 @@
+# Evidence for `2026-10-15-bridges-and-two-hosts.md`
+
+| File | What it is | Note section |
+|---|---|---|
+| `layer-census.cjs` | Exports each deck to Marp, builds a layered, a flattened and a reference theme for its palette, renders each through marp-cli and compares every element's computed style | §3.1 |
+| `layer-census-results.jsonl` | One line per deck from the 2026-10-15 run: palette, element count, `AvsC` (flattened vs reference) and `AvsL` (the veto) differing elements | §3.1 |
+| `measure-manifests.mjs` | Applies §5.3's field changes to the seven in-tree plugin manifests and counts lines before and after | §3.4 |
+
+## Rerunning
+
+`measure-manifests.mjs` needs nothing but Node:
+
+```sh
+node engineering/decisions/2026-10-15-bridges-and-two-hosts/measure-manifests.mjs
+```
+
+It treats `render.figureClasses` as derived. If that field stays (§5.3 leaves it open), add one to
+four lines per drawn plugin.
+
+`layer-census.cjs` needs marp-cli, the flattener and Playwright, which are deliberately not repo
+dependencies. Its header gives the install line. It uses the spike's layer order (`root` before
+`base`); the gallery was also run in the repo's declared order (`tools/build-css.js`, `base`
+first) with identical results.
+
+The census renders CSS only (`--html=false`), so the runtime's DOM is not covered. The VS Code
+run in §3.2 used a real code-server and marp-vscode; its method is the one recorded in
+`engineering/gotchas/vscode.md` §"Does the marp-vscode webview execute `<script>`?".
