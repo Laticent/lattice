@@ -81,6 +81,7 @@ export function librariesNav(url) {
 		{ label: 'Segno', href: url('segno'), match: ['segno'], pkg: '@laticent/segno', desc: 'Grammar engine + notation' },
 		{ label: 'Calco', href: url('calco'), match: ['calco'], pkg: '@laticent/calco', desc: 'Slides to editable office files' },
 		{ label: 'Tavola', href: url('tavola'), match: ['tavola'], pkg: '@laticent/tavola', desc: 'Peer-to-peer live editing' },
+		{ label: 'Fuoco', href: url('fuoco'), match: ['fuoco'], pkg: '@laticent/fuoco', desc: 'One focus for every view' },
 	];
 }
 
