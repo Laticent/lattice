@@ -10128,10 +10128,61 @@ function checkSyntaxContrast(errors, themesDir = THEMES_DIR) {
   }
 }
 
+/**
+ * A RECEDED CODE LINE STAYS READABLE (HARD RULE #3's contrast half, for the code plugin). A line a
+ * `focus=` record or a slide's `_focus: line` recedes drops to one color, `--code-text` mixed toward
+ * `--code-bg` by `--code-recede` (lib/plugins/code/code.styles.css). The spotlight's opacity used to
+ * do this and left a receded comment at 1.23:1, which reads as blank. This holds the mix at
+ * CODE_RECEDE_FLOOR on every palette's panel, in both modes, reading the percentage from the
+ * stylesheet itself so the two cannot drift. 3:1 is the floor for context, not reading text: the
+ * focused lines keep the 4.5:1 checkSyntaxContrast holds.
+ */
+const CODE_RECEDE_FLOOR = 3;
+function checkCodeRecede(errors, themesDir = THEMES_DIR, cssFile = path.join(ROOT, 'lib', 'plugins', 'code', 'code.styles.css')) {
+  const css = fs.readFileSync(cssFile, 'utf8');
+  const m = /--code-recede:\s*(\d+(?:\.\d+)?)%/.exec(css);
+  if (!m) {
+    errors.push(`checkCodeRecede: no \`--code-recede: N%\` in ${path.relative(ROOT, cssFile)} — the receded-line mix this gate measures is gone; restore it or retire this gate with its reason.`);
+    return;
+  }
+  const a = Number(m[1]) / 100;
+  const mix = (fg, bg) => `#${[0, 2, 4].map((i) => {
+    const f = parseInt(fg.slice(1 + i, 3 + i), 16);
+    const b = parseInt(bg.slice(1 + i, 3 + i), 16);
+    return Math.round(f * a + b * (1 - a)).toString(16).padStart(2, '0');
+  }).join('')}`;
+  const names = ['lattice', ...themeEntries(themesDir).filter((f) => f.endsWith('.css')).map((f) => f.replace(/\.css$/, ''))];
+  const failures = [];
+  let evaluated = 0;
+  for (const name of names) {
+    const map = catParseTokens(catPaletteSource(name, new Set(), themesDir));
+    for (const mode of ['light', 'dark']) {
+      const bg = catResolve(map, '--code-bg', mode);
+      const fg = catResolve(map, '--code-text', mode);
+      if (!bg || !fg) continue;
+      evaluated += 1;
+      const ratio = catContrast(mix(fg, bg), bg);
+      if (ratio < CODE_RECEDE_FLOOR) failures.push(`${name}/${mode} ${ratio.toFixed(2)}:1`);
+    }
+  }
+  if (!evaluated) {
+    errors.push('checkCodeRecede: resolved no --code-text/--code-bg pair in any palette — the gate measured nothing.');
+    return;
+  }
+  if (failures.length) {
+    errors.push(
+      `${failures.length} palette(s) leave a receded code line under ${CODE_RECEDE_FLOOR}:1 on the panel at ` +
+      `--code-recede ${m[1]}% (lib/plugins/code/code.styles.css): ${failures.slice(0, 8).join('; ')}. ` +
+      'Raise --code-recede, or lift that palette\'s --code-text against its --code-bg.',
+    );
+  }
+}
+
 function checkCatContrast(errors) {
   checkCatInkDeclared(errors);
   checkCatInkFallback(errors);
   checkSyntaxContrast(errors);
+  checkCodeRecede(errors);
   const printOverlay = catPrintOverlay(errors);
   let scanned = 0;
   let evaluated = 0;    // ①–③ slot×mode pairs actually contrast-checked — the real coverage metric
@@ -13818,6 +13869,8 @@ module.exports = {
   checkCatContrast,
   catResolve,
   catContrast,
+  checkCodeRecede,
+  CODE_RECEDE_FLOOR,
   checkCatInkDeclared,
   CAT_TEXT_FLOOR,
   CAT_EDGE_FLOOR,

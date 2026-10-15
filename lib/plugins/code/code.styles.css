@@ -13,10 +13,19 @@
  * the pale ones were unreadable. Wrapped in `:where(section)` so a layout that styles its own
  * `pre` (`code`, `compare-code`) wins by specificity and keeps its composition.
  *
+ * THE SAME PANEL IN A MARP RENDER. Export to Marp ships this file, but Marp renders fences itself:
+ * a bare `<pre>` (marp-cli) or `<marp-pre>` (VS Code's preview), with no `lat-code` class, so a
+ * plain-slide fence there painted its colors onto the slide again. The second selector is that
+ * shape: a `<pre>` holding a `<code>` that no plugin draws (a drawn fence carries
+ * `data-lattice-hydrate` from the engine, or `data-lattice-settle` from the bundled runtime the
+ * moment it starts). It is wrapped whole in `:where()`, so it adds no specificity, and the engine's
+ * own `pre.lat-code` match keeps the specificity the layouts are written against.
+ *
  * Palette-blind: every color is a token (HARD RULE #3).
  */
 
-:where(section) pre.lat-code {
+:where(section) pre.lat-code,
+:where(section :is(pre, marp-pre):not(.lat-code, [data-lattice-hydrate], [data-lattice-settle]):has(> code)) {
   background-color: var(--code-bg);
   box-shadow: inset 0 0 0 1px var(--code-edge);
   color: var(--code-text);
@@ -116,13 +125,36 @@ section .hljs-deletion {
 :where(section) pre.lat-code .ln[data-diff="ins"] .lat-diff-mark { color: var(--syntax-inserted); }
 :where(section) pre.lat-code .ln[data-diff="del"] .lat-diff-mark { color: var(--syntax-deleted); }
 
-/* wrap : long lines wrap inside the panel. With numbers, a wrapped line hangs under its own text,
- * not under the number column. */
+/* focus= (and a slide's `_focus: line` on a code block) : a receded line drops its syntax colors to
+ * one quiet color, `--code-text` mixed toward the panel, instead of the spotlight's opacity. Opacity
+ * multiplies down roles that are already quiet: at the spotlight's 0.24 a receded comment measured
+ * 1.23:1 on its panel, and plain code 1.53:1, which reads as blank. The mix is held at 3:1 or better
+ * on every panel by checkCodeRecede (tools/check-ownership.js), well under the 4.5:1 the focused
+ * lines keep, and the lost color is itself the cue that a line is context. The selector outranks
+ * base.focus.css's opacity rule, and the span rule outranks each `section .hljs-*` role. */
+[data-focus-style="spotlight"] pre .ln.lat-recede,
+pre[data-focus-style="spotlight"] .ln.lat-recede {
+  opacity: 1;
+  color: color-mix(in srgb, var(--code-text) var(--code-recede), var(--code-bg));
+}
+[data-focus-style="spotlight"] pre .ln.lat-recede span,
+[data-focus-style="spotlight"] pre .ln.lat-recede::before,
+pre[data-focus-style="spotlight"] .ln.lat-recede span,
+pre[data-focus-style="spotlight"] .ln.lat-recede::before { color: inherit; }
+:where(section) { --code-recede: 55%; }
+
+/* wrap : long lines wrap inside the panel, and a wrapped line's continuation hangs two columns in,
+ * so it does not read as a new line of code. With numbers it hangs under its own text, not under
+ * the number column. */
 :where(section) pre.lat-code-wrap code { white-space: pre-wrap; overflow-wrap: anywhere; }
-:where(section) pre.lat-code-wrap.lat-code-numbers .ln {
+:where(section) pre.lat-code-wrap .ln {
   display: inline-block;
   box-sizing: border-box;
   width: 100%;
+  padding-inline-start: 2ch;
+  text-indent: -2ch;
+}
+:where(section) pre.lat-code-wrap.lat-code-numbers .ln {
   padding-inline-start: calc(var(--ln-digits) + 1.5ch);
   text-indent: calc(-1 * (var(--ln-digits) + 1.5ch));
 }

@@ -44,7 +44,7 @@ export async function load(id: string): Promise<User> {
 | `focus=` | Lines at full strength; the rest recede. Same grammar as `_focus: line` | `focus=3-5 9` |
 | `mark=` | Lines tinted, nothing dimmed | `mark=4` |
 | `diff` | A leading `+`, `-` or space marks each line added, removed or unchanged; the rest is highlighted in the fence's language | ```` ```ts ```` with `diff` |
-| `wrap` | Long lines wrap inside the panel (with numbers, a wrapped line hangs under its text) | `wrap` |
+| `wrap` | Long lines wrap inside the panel, and the continuation hangs two columns in (with numbers, under the line's own text) | `wrap` |
 | `format` | Pretty-print the block before it is colored (the `code-format` plugin) | `format`, `format=off` |
 | `width=` | The formatter's print width, in columns | `width=48` |
 | `dialect=` | The SQL dialect the formatter reads | `dialect=postgresql` |

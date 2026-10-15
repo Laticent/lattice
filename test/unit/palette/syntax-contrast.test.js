@@ -39,6 +39,7 @@ const path = require('node:path');
 
 const {
   checkSyntaxContrast, SYNTAX_TOKENS, catResolve, catContrast,
+  checkCodeRecede, CODE_RECEDE_FLOOR,
 } = require('../../../tools/check-ownership.js');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
@@ -262,5 +263,37 @@ describe('--syntax-* contrast against --code-bg', () => {
     const fg = catResolve(map, '--syntax-constant', 'light');
     assert.ok(catContrast(fg, bg) >= FLOOR,
       `indaco --syntax-constant ${fg} on ${bg} = ${catContrast(fg, bg).toFixed(2)}:1`);
+  });
+});
+
+// A receded code line (focus=, `_focus: line`) is one color, `--code-text` mixed toward the panel by
+// `--code-recede` (lib/plugins/code/code.styles.css). The spotlight's opacity it replaced left a
+// receded comment at 1.23:1; the gate holds the mix at CODE_RECEDE_FLOOR on every panel.
+describe('checkCodeRecede — a receded code line stays readable', () => {
+  const withRecede = (pct) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'code-recede-'));
+    const file = path.join(dir, 'code.styles.css');
+    fs.writeFileSync(file, pct === null ? ':where(section) {}\n' : `:where(section) { --code-recede: ${pct}%; }\n`);
+    return file;
+  };
+
+  test('the shipped mix clears the floor on every palette', () => {
+    const errors = [];
+    checkCodeRecede(errors);
+    assert.deepEqual(errors, []);
+    assert.equal(CODE_RECEDE_FLOOR, 3);
+  });
+
+  test('the spotlight-strength mix it replaced fails, naming palettes', () => {
+    const errors = [];
+    checkCodeRecede(errors, undefined, withRecede(24));
+    assert.equal(errors.length, 1);
+    assert.match(errors[0], /receded code line under 3:1/);
+  });
+
+  test('a stylesheet without the token is an error, not a pass', () => {
+    const errors = [];
+    checkCodeRecede(errors, undefined, withRecede(null));
+    assert.match(errors[0], /no `--code-recede: N%`/);
   });
 });

@@ -81,6 +81,12 @@ describe('rendering a record', () => {
     assert.doesNotMatch(pre(render(`# A\n\n\`@code{numbers}\`\n${FENCE}`)), /data-digits/);
   });
 
+  test('`wrap` alone splits the block into lines, which carry its hanging indent', () => {
+    const html = pre(render(`# A\n\n\`@code{wrap}\`\n${FENCE}`));
+    assert.match(html, /class="lat-code lat-code-wrap"/);
+    assert.match(html, /^<pre class="lat-code lat-code-wrap"><code class="language-ts"><span class="ln">/);
+  });
+
   test('the deck default applies to every fence, and a record overrides it', () => {
     const html = render(`---\ncode: numbers, wrap\n---\n\n# A\n\n${FENCE}\n---\n\n# B\n\n\`@code{title=x}\`\n${FENCE}`);
     assert.match(pre(html, 0), /class="lat-code lat-code-numbers lat-code-wrap"/);

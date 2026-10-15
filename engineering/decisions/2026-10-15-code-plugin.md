@@ -388,3 +388,9 @@ Proof:
   Marp printed each `@code{…}` record as a line of inline code (`withoutCodeRecords` removes it in the shared
   kernel, found by the engine's own block rule). The record's options are not drawn by Marp, and that is a
   ledger row.
+- 2026-10-15: slice 7, the demo deck (`examples/code-plugin.md`). Rendering it through marp-cli found a third
+  export gap: a plain-slide fence in Marp had no panel, because Marp renders a bare `<pre>` and the panel rule keyed
+  on the `lat-code` class Lattice's renderer adds. The rule gained a second selector for that shape, wrapped whole in
+  `:where()` so the engine's own match keeps its specificity (the engine PDF is pixel-identical). A drawn fence is
+  left out by its `data-lattice-hydrate` / `data-lattice-settle` marker, so the code plugin names no other plugin.
+  `wrap` also gained a two-column hanging indent, because without numbers a wrapped continuation read as a new line.

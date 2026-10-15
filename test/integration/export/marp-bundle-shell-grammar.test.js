@@ -8,13 +8,15 @@
  * instance from the code plugin's shell grammar (lib/core/marp-bundle-html.js `ownShell`;
  * engineering/decisions/2026-10-15-code-plugin.md, defect 9). This renders a bundle with marp-cli
  * and reads the tokens back, with the config and without it, so the test proves both that the
- * config is what colors the block and that stock Marp still does not.
+ * config is what colors the block and that stock Marp still does not. It also opens the page in
+ * Chromium and reads the panel's color, because a plain-slide fence in Marp is a bare `<pre>` that
+ * the code plugin's CSS has to find without the class Lattice's own renderer adds.
  *
  * Local runs skip when marp-cli cannot be fetched; CI fails instead (marp-kit-render.test.js
  * explains why a self-skipping gate is not a gate).
  */
 
-const { test, describe, before } = require('node:test');
+const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const fs = require('node:fs');
@@ -61,13 +63,15 @@ function bashBlock(file) {
   return m[1];
 }
 
-describe('Export-to-Marp colors a shell command list — real marp-cli', () => {
+describe('Export to Marp and the code plugin — real marp-cli', () => {
   let skip = null;
   let withConfig = '';
   let stock = '';
   let exported = '';
+  let browser;
+  let panel = null;
 
-  before(() => {
+  before(async () => {
     const probe = marp(['--version'], ROOT, 90000);
     if (probe.status !== 0) {
       const reason = `could not fetch marp-cli (exit ${probe.status}): ${String(probe.stderr || '').slice(0, 300)}`;
@@ -90,6 +94,25 @@ describe('Export-to-Marp colors a shell command list — real marp-cli', () => {
     assert.equal(b.status, 0, `marp failed:\n${b.stdout}\n${b.stderr}`);
     withConfig = bashBlock(path.join(bundle, 'with-config.html'));
     stock = bashBlock(path.join(bundle, 'stock.html'));
+    // The panel, read from the real page: a plain-slide fence is a bare <pre> in marp-cli, and the
+    // code plugin's CSS has to find it without the class Lattice's own renderer adds.
+    browser = await require('puppeteer').launch({ headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+    const page = await browser.newPage();
+    await page.goto(require('node:url').pathToFileURL(path.join(bundle, 'with-config.html')).href, { waitUntil: 'networkidle0' });
+    panel = await page.evaluate(() => {
+      const pre = document.querySelector('section pre:has(> code.language-bash)');
+      const section = pre.closest('section');
+      const probe = document.createElement('i');
+      probe.style.color = 'var(--code-bg)';
+      section.append(probe);
+      const want = getComputedStyle(probe).color;
+      probe.remove();
+      return { bg: getComputedStyle(pre).backgroundColor, want, slide: getComputedStyle(section).backgroundColor };
+    });
+  });
+
+  after(async () => {
+    await browser?.close();
   });
 
   test('the bundle colors each command as a built-in and each flag as a parameter', (t) => {
@@ -106,6 +129,12 @@ describe('Export-to-Marp colors a shell command list — real marp-cli', () => {
     if (skip) return t.skip(skip);
     assert.doesNotMatch(stock, /hljs-params/);
     assert.doesNotMatch(stock, /<span class="hljs-built_in">(?:npm|docker|kubectl)<\/span>/);
+  });
+
+  test('a fence on a plain slide sits on the code panel, as it does in the engine', (t) => {
+    if (skip) return t.skip(skip);
+    assert.equal(panel.bg, panel.want, 'the <pre> paints --code-bg');
+    assert.notEqual(panel.bg, panel.slide, 'and that is not the slide background');
   });
 
   // Not a marp-cli question, but this file already runs the CLI export: the bundle's deck carries the
