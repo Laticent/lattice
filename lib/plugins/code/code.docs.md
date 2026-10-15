@@ -21,6 +21,45 @@ this plugin colors it and gives it its panel, on those slides and on every other
 This is a **plugin** (`engineering/decisions/2026-09-27-plugin-system.md`; design:
 `engineering/decisions/2026-10-15-code-plugin.md`). It is on by default.
 
+## Configuring a block: `@code{…}`
+
+Put an inline code span holding a record on the line directly above a fence (blank lines between
+are fine). It configures that fence and renders nothing itself:
+
+````markdown
+`@code{title=src/load.ts, numbers, focus=4-5}`
+
+```ts
+export async function load(id: string): Promise<User> {
+  …
+}
+```
+````
+
+| Field | What it does | Example |
+|---|---|---|
+| `title=` | A file name or caption bar at the top of the panel | `title=src/load.ts`, `title="a, b.ts"` |
+| `numbers` | Line numbers. They are drawn, never part of the text, so copying the code copies only the code | `numbers` |
+| `start=` | The first line number | `numbers, start=120` |
+| `focus=` | Lines at full strength; the rest recede. Same grammar as `_focus: line` | `focus=3-5 9` |
+| `mark=` | Lines tinted, nothing dimmed | `mark=4` |
+| `diff` | A leading `+`, `-` or space marks each line added, removed or unchanged; the rest is highlighted in the fence's language | ```` ```ts ```` with `diff` |
+| `wrap` | Long lines wrap inside the panel (with numbers, a wrapped line hangs under its text) | `wrap` |
+| `format` | Pretty-print the block before it is colored (the `code-format` plugin) | `format`, `format=off` |
+| `width=` | The formatter's print width, in columns | `width=48` |
+| `dialect=` | The SQL dialect the formatter reads | `dialect=postgresql` |
+
+Lines are counted as written, from 1, whatever a comment or string spans. `lint:deck` warns when a
+record does not read (`code-record`), when a record line has no fence after it
+(`code-record-orphan`), and when `focus=`, `mark=` or a slide's `_focus: line` names a line past
+the end of the block (`code-line-range`).
+
+**A deck default.** `code: numbers, wrap` in the front matter applies to every fence; a block's own
+record overrides it field by field (`@code{format=off}`).
+
+**Captions are unchanged.** On a `code` or `compare-code` slide, a plain inline code span above a
+fence is still the caption or column label. Only a span that is exactly `@code{…}` is a record.
+
 ## Languages
 
 Every [highlight.js language](https://highlightjs.readthedocs.io/en/latest/supported-languages.html)
@@ -39,6 +78,8 @@ with no code pays nothing for highlighting.
 
 - **A fence with no language.** It renders, but uncolored. Name the language.
 - **` ```shell ` for a script.** It colors almost nothing; use ` ```sh `.
+- **A `diff` fence for a change to real code.** It colors added and removed lines but not the code
+  on them. Use the language's fence with `@code{diff}` instead.
 - **Code as a screenshot.** An image of code cannot be searched, copied, read aloud or recolored
   by the theme. Paste the code.
 

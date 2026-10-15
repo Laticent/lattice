@@ -85,3 +85,30 @@ flowchart LR
 
 - renders `language-html`
 - renders `hljs-keyword">let`
+
+## a record above a fence configures it and renders nothing
+
+````markdown
+`@code{title=load.ts, numbers, focus=2}`
+
+```ts
+const a = 1;
+let b = 2;
+```
+````
+
+- renders `<pre class="lat-code lat-code-numbers" data-focus-style="spotlight" data-focus-axis="line"><span class="lat-code-title">load.ts</span>`
+- renders `<span class="ln lat-focus" data-n="2">`
+- omits `@code`
+- detect true
+
+## a record with no fence after it stays inline code
+
+````markdown
+`@code{numbers}`
+
+Text.
+````
+
+- renders `<code>@code{numbers}</code>`
+

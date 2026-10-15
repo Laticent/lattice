@@ -70,3 +70,59 @@ section .hljs-deletion {
   color: var(--syntax-deleted);
   background-color: color-mix(in srgb, var(--syntax-deleted) 14%, transparent);
 }
+
+/* ── What an `@code{…}` record adds (code.render.js) ──────────────────────── */
+
+/* title= : a file name or caption above the code, inside the panel. A hairline under it, then the
+ * code, spaced by padding (HARD RULE #20). */
+:where(section) pre.lat-code > .lat-code-title {
+  display: block;
+  padding-bottom: var(--sp-xs);
+  border-bottom: 1px solid var(--code-edge);
+  font-family: var(--font-mono);
+  font-size: var(--fs-meta);
+  color: var(--syntax-comment);
+  font-style: normal;
+}
+:where(section) pre.lat-code > .lat-code-title + code { display: block; padding-top: var(--sp-xs); }
+
+/* numbers : drawn from `data-n`, never part of the text, so a copy of the code is the code. The
+ * column fits the widest number the block shows (`data-digits`, set from `start=` and the count). */
+:where(section) pre.lat-code-numbers { --ln-digits: 2ch; }
+:where(section) pre.lat-code-numbers[data-digits="3"] { --ln-digits: 3ch; }
+:where(section) pre.lat-code-numbers[data-digits="4"] { --ln-digits: 4ch; }
+:where(section) pre.lat-code-numbers .ln::before {
+  content: attr(data-n);
+  display: inline-block;
+  min-width: var(--ln-digits);
+  padding-inline-end: 1.5ch;
+  text-align: end;
+  color: var(--syntax-comment);
+  font-style: normal;
+  font-weight: 400;
+  user-select: none;
+}
+
+/* mark= and diff : a line-wide band. The line becomes an inline-block as wide as the panel, as the
+ * `diff` grammar's own spans do above. */
+:where(section) pre.lat-code .ln:is(.lat-mark, [data-diff]) { display: inline-block; min-width: 100%; }
+:where(section) pre.lat-code .ln.lat-mark {
+  background-color: color-mix(in srgb, var(--code-text) 12%, transparent);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+:where(section) pre.lat-code .ln[data-diff="ins"] { background-color: color-mix(in srgb, var(--syntax-inserted) 14%, transparent); }
+:where(section) pre.lat-code .ln[data-diff="del"] { background-color: color-mix(in srgb, var(--syntax-deleted) 14%, transparent); }
+:where(section) pre.lat-code .lat-diff-mark { display: inline-block; width: 2ch; }
+:where(section) pre.lat-code .ln[data-diff="ins"] .lat-diff-mark { color: var(--syntax-inserted); }
+:where(section) pre.lat-code .ln[data-diff="del"] .lat-diff-mark { color: var(--syntax-deleted); }
+
+/* wrap : long lines wrap inside the panel. With numbers, a wrapped line hangs under its own text,
+ * not under the number column. */
+:where(section) pre.lat-code-wrap code { white-space: pre-wrap; overflow-wrap: anywhere; }
+:where(section) pre.lat-code-wrap.lat-code-numbers .ln {
+  display: inline-block;
+  box-sizing: border-box;
+  width: 100%;
+  padding-inline-start: calc(var(--ln-digits) + 1.5ch);
+  text-indent: calc(-1 * (var(--ln-digits) + 1.5ch));
+}

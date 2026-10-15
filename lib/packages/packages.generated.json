@@ -1368,7 +1368,8 @@
         "fixtures.md",
         "manifest.json",
         "render.js",
-        "styles.css"
+        "styles.css",
+        "syntax.mjs"
       ],
       "code": true
     },

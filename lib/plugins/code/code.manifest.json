@@ -7,14 +7,18 @@
   "title": "Code",
   "description": "Syntax-highlighted code for every fenced block that no other plugin claims, on any slide. Loads highlight.js core plus only the grammars a deck's fences name, so a deck with no code pays nothing for it.",
   "contributes": {
+    "syntax": {
+      "code_record": { "kind": "block", "anchor": { "before": "fence" }, "triggers": ["`"], "opaque": true }
+    },
     "codeRenderer": true,
     "styles": true
   },
   "tokens": [
-    "--code-bg", "--code-edge", "--code-text", "--font-mono", "--fs-body-compact", "--lh-base", "--radius-md",
-    "--sp-md", "--sp-sm", "--syntax-builtin", "--syntax-comment", "--syntax-constant", "--syntax-deleted",
-    "--syntax-entity", "--syntax-inserted", "--syntax-keyword", "--syntax-markup", "--syntax-number", "--syntax-parameter",
-    "--syntax-punctuation", "--syntax-string", "--syntax-type", "--syntax-variable"
+    "--accent", "--code-bg", "--code-edge", "--code-text", "--font-mono", "--fs-body-compact",
+    "--fs-meta", "--lh-base", "--ln-digits", "--radius-md", "--sp-md", "--sp-sm",
+    "--sp-xs", "--syntax-builtin", "--syntax-comment", "--syntax-constant", "--syntax-deleted", "--syntax-entity",
+    "--syntax-inserted", "--syntax-keyword", "--syntax-markup", "--syntax-number", "--syntax-parameter", "--syntax-punctuation",
+    "--syntax-string", "--syntax-type", "--syntax-variable"
   ],
   "render": {
     "parity": "equivalent",

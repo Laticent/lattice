@@ -360,4 +360,13 @@ Proof:
   stay out of `REQUIRED_TOKENS` (the engine defaults them) but are derived and serialized as known names
   (`OPTIONAL_TOKENS`). Defect 4 is re-stated, not withdrawn: Mermaid's own CSS flattens its source colors on a diagram
   slide, so its grammar shows only when the plugin is off; tokenizing costs under a millisecond, so it stays.
+- 2026-10-15: slice 5 — the `@code{…}` record. Built as a block rule (`code_record`) the renderer reads from the
+  token before the fence, not as an inline kind: inline kinds draw in place and carry a sigil, and a record that
+  configures the next fence is neither. So Compose has no per-kind panel for it yet; that editor is slice 8 below.
+  Two Segno facts shaped the fields: two named lists in one record are ambiguous, and Segno writes ranges `a..b`,
+  so `focus=` and `mark=` are text read by the `_focus: line` parser (`3-5 9`), which also keeps the two grammars
+  one. `numbers=12` became `numbers, start=12`: a field cannot be both a flag and a number. Per-block focus reuses
+  the spotlight treatment with a `<pre>` as its scope.
+- Pending, slice 8: the Compose editor for a fence's record (a popover beside the language picker that writes the
+  `@code{…}` line, changing only the words edited).
 
