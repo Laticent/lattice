@@ -15,7 +15,8 @@
 
 import * as React from 'react';
 import type { DeckIndex } from '@/lib/deck-outline';
-import { type FocusHub, flatPart, partText } from '@/lib/fuoco';
+import type { FocusHub } from '@/lib/fuoco/hub';
+import { flatPart, partText } from '@/lib/fuoco/outline';
 import { useFocus } from '@/lib/fuoco/react';
 import { cn } from '@/lib/utils';
 import { slideClass, slideTitle } from './lint';

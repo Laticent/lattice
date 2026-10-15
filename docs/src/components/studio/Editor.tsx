@@ -8,7 +8,8 @@ import { Annotation, ChangeSet, Compartment, EditorState, type Extension, Transa
 import { closeHoverTooltips, EditorView, hasHoverTooltips, keymap, lineNumbers, scrollPastEnd, ViewPlugin } from '@codemirror/view';
 import * as React from 'react';
 import { buildDeckIndex, deckEditableOffset } from '@/lib/deck-outline';
-import { type Focus, type FocusHub, partAt, unitAt } from '@/lib/fuoco';
+import type { Focus, FocusHub } from '@/lib/fuoco/hub';
+import { partAt, unitAt } from '@/lib/fuoco/outline';
 import { followDeckAdmission } from '@/lib/plugin-admission';
 import type { SparkFitReport } from '@/lib/spark-fit';
 import { buildVocabSets, externalInlineKinds, findingsToDiagnostics } from '@/playground/editor-diagnostics.js';

@@ -18,7 +18,7 @@
 import * as React from 'react';
 import DeckPreview, { type DeckPreviewProps } from '@/components/DeckPreview';
 import type { DeckIndex } from '@/lib/deck-outline';
-import type { FocusHub } from '@/lib/fuoco';
+import type { FocusHub } from '@/lib/fuoco/hub';
 import { useFocus } from '@/lib/fuoco/react';
 
 type PaneMod = typeof import('./pane-pages');
