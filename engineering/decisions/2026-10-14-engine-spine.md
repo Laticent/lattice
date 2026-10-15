@@ -271,3 +271,11 @@ than cached; `__LATTICE_ASSET_BASE__` is read when the dev server starts, so re-
 `sync:playground` under a live `astro dev` leaves it stale until the engine records its own URL; and
 the 2.4KB gz the extra engine chunk files cost is paid on every route that loads the engine,
 including routes that never lint.
+
+**Pinned nightly (2026-10-15).** Both equivalence checks are committed as
+`test/integration/lint-engine/lint-engine-equivalence.test.js`, in the `test:integration:nightly`
+slice (`integration-nightly.yml` runs it; no workflow step changed). The test builds the shipped ESM
+options and a shared-parser control into a temporary directory. Parity compares `esm/lint.js` with
+the Node source (`lib/authoring/*`), not with the vitest bundle, under both admissions. Isolation runs
+each build in its own child process and requires the control to change at least one deck. About 25s.
+Breaking one lint message in the built output fails parity on 554 runs.

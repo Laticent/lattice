@@ -392,7 +392,12 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+// The ESM options and the isolation pin, for test/integration/lint-engine/, which builds its own copy.
+module.exports = { ESM_OPTIONS, assertLintParserIsolated };
+
+if (require.main === module) {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}
