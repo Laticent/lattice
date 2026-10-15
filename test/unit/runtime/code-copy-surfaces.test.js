@@ -2,10 +2,10 @@
  * The runtime draws a code block's copy buttons only on a surface a person reads, at reading size.
  *
  * `data-lattice-live-media` says a person reads the frame (the Studio preview, the Playground,
- * Present); a capture frame and a print document are built without it. A thumbnail
- * (`data-lattice-thumbnail`, every tile in the Studio's preview pool) and a catalog specimen
- * (`data-lattice-specimen`) are read-only miniatures: two buttons there are unreadable, untappable
- * chrome. lib/core/code-copy.mjs; engineering/decisions/2026-10-15-code-plugin.md.
+ * Present); a capture frame and a print document are built without it. A chromeless frame
+ * (`data-lattice-chromeless`: every tile in the Studio's preview pool, and Present's slide, next-slide
+ * tile and audience window) and a catalog specimen (`data-lattice-specimen`) are watched, not read:
+ * nobody acts on a copy button there. lib/core/code-copy.mjs; engineering/decisions/2026-10-15-code-plugin.md.
  *
  * Loads the BUILT bundle (`npm run build` regenerates dist/), the same file a frame loads.
  */
@@ -42,8 +42,8 @@ test('a capture or print document gets none', { skip }, async () => {
   assert.equal(await buttonsOn(''), 0);
 });
 
-test('a thumbnail of the author\'s own slide gets none', { skip }, async () => {
-  assert.equal(await buttonsOn('data-lattice-live-media data-lattice-thumbnail'), 0);
+test('a chromeless frame (a tile, or Present) gets none', { skip }, async () => {
+  assert.equal(await buttonsOn('data-lattice-live-media data-lattice-chromeless'), 0);
 });
 
 test('a catalog specimen gets none', { skip }, async () => {

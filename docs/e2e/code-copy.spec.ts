@@ -36,6 +36,20 @@ test('the Studio preview draws the buttons on a block that asks, and a click cop
 	await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
 	await expect.poll(() => clipboardText(page), { timeout: 10_000 }).toBe('const answer = 42;');
 	await expect(frame.locator('.lat-code-copy-btn[data-kind="text"]')).toHaveAttribute('aria-label', 'Copied');
+
+	// "Copy as HTML" through the same bridge: the frame builds the ClipboardItem in ITS realm and the
+	// page's clipboard writes it, which is the cross-realm path the text button does not exercise.
+	const htmlBox = await frame.locator('.lat-code-copy-btn[data-kind="html"]').boundingBox();
+	expect(htmlBox, 'the HTML button is on screen').not.toBeNull();
+	if (!htmlBox) return;
+	await page.mouse.click(htmlBox.x + htmlBox.width / 2, htmlBox.y + htmlBox.height / 2);
+	await expect(frame.locator('.lat-code-copy-btn[data-kind="html"]')).toHaveAttribute('data-copied', 'yes');
+	const copied = await page.evaluate(async () => {
+		const [item] = await navigator.clipboard.read();
+		return item.types.includes('text/html') ? await (await item.getType('text/html')).text() : '';
+	});
+	expect(copied, 'colored, inline').toMatch(/<pre style="[^"]*background[^"]*">[\s\S]*<span style="color: rgb\(/);
+	expect(copied).toContain('answer');
 });
 
 test('the exported webpage carries the marker and no baked button; opened, it copies code and HTML', async ({ page, context }) => {
@@ -80,7 +94,7 @@ test('the exported webpage carries the marker and no baked button; opened, it co
 	await reader.close();
 });
 
-test('a thumbnail of the slide draws no buttons: the slide overview', async ({ page }) => {
+test('Present and its slide overview draw no buttons', async ({ page }) => {
 	await gotoStudio(page);
 	await setEditorContent(page, DECK);
 	await expect(page.frameLocator(LIVE_PREVIEW).locator('pre[data-copy] .lat-code-copy-btn')).toHaveCount(2, { timeout: 20_000 });
@@ -88,13 +102,13 @@ test('a thumbnail of the slide draws no buttons: the slide overview', async ({ p
 	await expect(page.getByRole('dialog', { name: 'Present' })).toBeVisible();
 	await page.keyboard.press('g');
 	await expect(page.getByRole('dialog', { name: 'Slide overview' })).toBeVisible();
-	// Every pooled tile is stamped a thumbnail (preview-pool.tsx); read each frame that holds the
-	// marked block. At least one must exist, or this passes by finding nothing.
+	// Present's slide, its next-slide tile and every pooled tile are stamped chromeless; read each
+	// frame that holds the marked block. At least one must exist, or this passes by finding nothing.
 	const thumbs = async () => {
 		const out: Array<{ buttons: number }> = [];
 		for (const f of page.frames()) {
 			const r = await f.evaluate(() => ({
-				thumb: document.documentElement.hasAttribute('data-lattice-thumbnail'),
+				thumb: document.documentElement.hasAttribute('data-lattice-chromeless'),
 				marked: document.querySelectorAll('pre[data-copy]').length,
 				buttons: document.querySelectorAll('.lat-code-copy-btn').length,
 			})).catch(() => null);
@@ -103,5 +117,5 @@ test('a thumbnail of the slide draws no buttons: the slide overview', async ({ p
 		return out;
 	};
 	await expect.poll(async () => (await thumbs()).length, { timeout: 20_000 }).toBeGreaterThan(0);
-	expect((await thumbs()).every((t) => t.buttons === 0), 'no thumbnail draws a copy button').toBe(true);
+	expect((await thumbs()).every((t) => t.buttons === 0), 'no chromeless frame draws a copy button').toBe(true);
 });

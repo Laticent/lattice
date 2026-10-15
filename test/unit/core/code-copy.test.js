@@ -57,6 +57,30 @@ describe('codeCopy — the buttons', () => {
     assert.equal(win.document.querySelector('[data-kind="text"]').getAttribute('aria-label'), 'Copied');
   });
 
+  test('a diff block copies as written: the author\'s markers stay, the alignment space does not', async () => {
+    const { codeCopy } = await load();
+    const win = page(render('# A\n\n`@code{copy, diff}`\n```ts\n+const a = 1;\n-const b = 2;\nconst c = 3;\n d();\n```\n'));
+    const api = codeCopy(win);
+    api.install();
+    const writes = [];
+    const nav = { clipboard: { writeText: async (t) => writes.push(t) } };
+    await api.copy(win.document.querySelector('[data-kind="text"]'), nav);
+    assert.deepEqual(writes, ['+const a = 1;\n-const b = 2;\nconst c = 3;\n d();']);
+  });
+
+  test('a blank last line survives in line mode as in plain mode', async () => {
+    const { codeCopy } = await load();
+    const body = '```ts\nx\n\n```\n';
+    for (const rec of ['copy', 'copy, numbers']) {
+      const win = page(render(`# A\n\n\`@code{${rec}}\`\n${body}`));
+      const api = codeCopy(win);
+      api.install();
+      const writes = [];
+      await api.copy(win.document.querySelector('[data-kind="text"]'), { clipboard: { writeText: async (t) => writes.push(t) } });
+      assert.deepEqual(writes, ['x\n'], rec);
+    }
+  });
+
   test('"Copy as HTML" writes styled HTML built from the code\'s text, plus the plain text', async () => {
     const { codeCopy } = await load();
     const win = page(render(`# A\n\n\`@code{copy}\`\n\`\`\`html\n<img src=x onerror="alert(1)">\n\`\`\`\n`));

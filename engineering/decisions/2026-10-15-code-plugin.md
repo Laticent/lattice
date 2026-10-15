@@ -444,3 +444,13 @@ Proof:
   (`code-copy.spec.ts`) and in `test/unit/runtime/code-copy-surfaces.test.js`, whose thumbnail arm fails
   without the guard. `code-copy-engines.spec.ts` drives the exported webpage in Firefox and WebKit: both copy
   the code with `writeText` and the colored copy with a `text/html` `ClipboardItem`.
+- 2026-10-15: the checker on the copy slice (it landed after the trio). Three fixes. (1) A `diff` block copied
+  the space the renderer adds to align an unmarked line; that space now carries `data-pad` and the copy skips
+  it, so a copied block is the source as written, markers included. (2) In line mode the copy dropped a blank
+  last line that plain mode kept; only plain mode now strips the fence's final newline. (3) Present drew the
+  buttons where nobody could use them: its slide card takes no pointer events, its next-slide tile is a
+  miniature, and its audience window is a projection. The owner named the Studio, the Playground and the HTML
+  player; Present was this note's addition and is withdrawn. The tile flag became `chromeless`
+  (`<html data-lattice-chromeless>`, "watched, not read"), set on every preview-pool tile, both Present frames
+  and the stage window. The Studio e2e now also clicks "Copy as HTML" through the tap bridge, the cross-realm
+  path where the frame's `ClipboardItem` is written by the page's clipboard.

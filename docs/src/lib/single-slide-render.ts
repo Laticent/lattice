@@ -193,12 +193,13 @@ export type SingleSlideOptions = {
 	 */
 	specimen?: boolean;
 	/**
-	 * This host renders a THUMBNAIL: a miniature in a grid of its peers (the Studio's preview pool).
-	 * Stamps `data-lattice-thumbnail` on the frame's root element, and the runtime draws no reader
-	 * chrome into it: a code block's copy buttons are unreadable and untappable at tile size
-	 * (lib/core/code-copy.mjs). It does NOT touch the overflow watcher; that is `specimen`.
+	 * This host is WATCHED, not read: a tile in the Studio's preview pool, or Present's delivered slide
+	 * and next-slide tile. Stamps `data-lattice-chromeless` on the frame's root element, and the runtime
+	 * draws no reader chrome into it: a code block's copy buttons are untappable there, and on a
+	 * projected slide they are clutter (lib/core/code-copy.mjs). It does NOT touch the overflow
+	 * watcher; that is `specimen`.
 	 */
-	thumbnail?: boolean;
+	chromeless?: boolean;
 	/**
 	 * This host is the preview an author TYPES into (the Studio's editing preview). Stamps
 	 * `data-lattice-live-layout` on the frame's root element, and the flowchart pass then lays
@@ -992,7 +993,7 @@ function swapSharedSheet(doc: Document, url: string): void {
 const splitPageByHost = new WeakMap<HTMLElement, { deck: string; slide: number; page: number }>();
 
 export function createSingleSlideRenderer(opts: SingleSlideOptions) {
-	const { themeBase, runtimeUrl, engineUrl, specimen, thumbnail, liveLayout } = opts;
+	const { themeBase, runtimeUrl, engineUrl, specimen, chromeless, liveLayout } = opts;
 	// Refcount membership for the shared whole-deck memo (see dispose()). Claimed on the first
 	// RENDER, never at construction — because construction is not paired 1:1 with a dispose.
 	// `FieldCardsLive` and `RestyleShowcase` both write `useRef(createSingleSlideRenderer(...))`,
@@ -1160,13 +1161,13 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		let s =
 			// The theme <style> carries an id so the RESTYLE fast path (renderInto) can find
 			// and swap it in place on a theme/mode change — no srcdoc rewrite, no new realm.
-			// `data-lattice-thumbnail` (opts.thumbnail) rides on the <html> tag rather than
+			// `data-lattice-chromeless` (opts.chromeless) rides on the <html> tag rather than
 			// the body or the section: the runtime reads it once at boot, before it has a
 			// section to consult, and the restyle/patch fast paths never rewrite this tag —
 			// so the flag survives every re-render short of a full write, which rebuilds it.
 			// `data-lattice-live-media`: this frame is ON SCREEN, so a picture still loading shows the
 			// Underpainting (lib/core/image-painting.js). An export capture never sets it.
-			'<!doctype html><html' + (specimen ? ' data-lattice-specimen' : '') + (thumbnail ? ' data-lattice-thumbnail' : '') + (liveLayout ? ' data-lattice-live-layout' : '') + previewDiagramsAttr(drawn && !!runtimeUrl) +
+			'<!doctype html><html' + (specimen ? ' data-lattice-specimen' : '') + (chromeless ? ' data-lattice-chromeless' : '') + (liveLayout ? ' data-lattice-live-layout' : '') + previewDiagramsAttr(drawn && !!runtimeUrl) +
 			' data-lattice-live-media><head><meta charset="utf-8">' +
 			// Remote-subresource containment, before any content (#1753). This frame takes its
 			// KaTeX from `opts.katexUrl`, so the same value drives the font-src origin.

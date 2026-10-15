@@ -45,7 +45,7 @@ export async function load(id: string): Promise<User> {
 | `mark=` | Lines tinted, nothing dimmed | `mark=4` |
 | `diff` | A leading `+`, `-` or space marks each line added, removed or unchanged; the rest is highlighted in the fence's language | ```` ```ts ```` with `diff` |
 | `wrap` | Long lines wrap inside the panel, and the continuation hangs two columns in (with numbers, under the line's own text) | `wrap` |
-| `copy` | Two buttons at the panel's top right: copy the code as text, or as HTML with the theme's colors inline. Shown only where the deck is read in a browser (the Studio, the Playground, Present, the exported webpage), never in a PDF, PowerPoint, image or video. Off unless asked; `code: copy` turns it on for every block | `copy`, `copy=off` |
+| `copy` | Two buttons at the panel's top right: copy the code as text, or as HTML with the theme's colors inline. Shown only where the deck is read in a browser (the Studio, the Playground, the exported webpage), never in a PDF, PowerPoint, image or video, in Present, or in a thumbnail. Off unless asked; `code: copy` turns it on for every block | `copy`, `copy=off` |
 | `format` | Keep the block formatted: the Studio formats it when you leave the editor. `lattice fmt` and the Studio's Format command format every block except `format=off` | `format`, `format=off` |
 | `width=` | The formatter's print width, in columns | `width=48` |
 | `dialect=` | The SQL dialect the formatter reads | `dialect=postgresql` |
