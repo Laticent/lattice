@@ -18,7 +18,7 @@
  * tokens off the rendered `<section>` in Chromium (HARD RULE #23: the surface, not a
  * stand-in), and it picks tokens where the theme and the base disagree — a token they
  * both spell the same way cannot tell the two orders apart, which is precisely how
- * #1527's own before/after sweep missed indaco's sub-AA `--hljs-literal`.
+ * #1527's own before/after sweep missed indaco's sub-AA `--syntax-constant`.
  *
  * Slow tier (spawns the emulator, which spawns Chromium).
  *
@@ -137,7 +137,7 @@ describe('the palette wins the cascade on the export path', () => {
     // resolve TWO ways in one render — the baked SVG from the palette, the CSS from the
     // base.
     const disputed = disputedTokens([
-      '--pass', '--warn', '--fail', '--hljs-literal', '--hljs-keyword', '--hljs-comment', '--diagram-critical',
+      '--pass', '--warn', '--fail', '--syntax-constant', '--syntax-keyword', '--syntax-comment', '--diagram-critical',
     ]);
 
     render();

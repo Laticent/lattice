@@ -85,9 +85,9 @@ You don't simplify the data — you direct the eye. One ordinal grammar addresse
 ---
 
 <!-- _class: code -->
-<!-- _focus: line 8-9 -->
+<!-- _focus: line 8 -->
 
-## `_focus: line 8-9` — the line that matters.
+## `_focus: line 8` — the line that matters.
 
 ```javascript
 import { DecisionFramework } from "@company/signal-sdk";

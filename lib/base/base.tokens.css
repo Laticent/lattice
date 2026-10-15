@@ -702,13 +702,20 @@
   --accent-soft-body:    var(--text-body);
 
   /* ── Code panel ─────────────────────────────────────────────────────────
-   * Code blocks (.code, .compare-code, hljs) ride the brand dark surface.
+   * Every code block (the code plugin's panel on any slide, .code, .compare-code) rides the
+   * brand dark surface.
    * Themes can override --code-bg to bind it to the brand palette;
    * --code-text is theme-defined for syntax-on-dark legibility. The
    * fallbacks below match the indaco values so unstyled renders are still
    * usable as a diagnostic. */
   --code-bg:   var(--surface-inverse, #001D33);
   --code-text: #CBD9E8;
+  /* The panel's inner hairline. On a dark slide `--code-bg` can equal the slide's own background
+   * (onyx-dark, cuoio-dark and six more), and the panel then vanished, leaving code floating on the
+   * slide. The panel's own text color at low strength gives it an edge there and all but disappears
+   * on a light slide, where the dark panel already stands out. Drawn as an inset shadow, so it
+   * takes no space and changes no contrast a gate measures. */
+  --code-edge: color-mix(in srgb, var(--code-text) 18%, transparent);
 
   /* ── Inline code chip ─────────────────────────────────────────────────────
    * DISTINCT from the block panel above (--code-bg / --code-text). The inline
@@ -1494,37 +1501,43 @@
   --on-dark-ghost:     color-mix(in srgb, white 42%, transparent);
   --on-dark-watermark: color-mix(in srgb, white 12%, transparent);
 
-  /* hljs fallbacks — Night Owl values, EXCEPT the two solved below.
+  /* Syntax-role fallbacks (the code plugin's `--syntax-*`, which its stylesheet maps every
+   * highlight.js class onto) — Night Owl values, EXCEPT the two solved below.
    *
    * A FALLBACK IS ALL THEY ARE AGAIN. `lattice.js` used to concatenate
    * `paletteCSS + layoutCSS`, so on the EXPORT path the base loaded AFTER the theme
-   * and these values WON — a theme's own `--hljs-*` never painted there. #1527 flipped
-   * it, so what paints now is the theme's value where it declares one (all 32 declare
-   * all twelve) and these where it does not, plus the un-themed bundle: what the golden
+   * and these values WON — a theme's own `--syntax-*` never painted there. #1527 flipped
+   * it, so what paints now is the theme's value where it declares one (every base theme
+   * declares all twelve; the 14 dark variants inherit them through @import) and these where it does not, plus the un-themed bundle: what the golden
    * corpus and a bare `dist/lattice.css` consumer render with.
    *
-   * `--hljs-comment` and `--hljs-literal` are nonetheless solved for EVERY panel in the
+   * `--syntax-comment` and `--syntax-constant` are nonetheless solved for EVERY panel in the
    * corpus rather than for this base's alone, and they are left that way. Night Owl's
    * #637777 read 3.63:1 here and 2.39:1 on indaco; #ff5874 read 3.71:1 on indaco. Both
    * were first repaired against this base's panel only, which fixed the docs/Studio path
    * and left the export still painting sub-AA — the gate could not see it, because it
    * paired base tokens only with the base's own panel. Worst case now: comment 4.51:1,
-   * literal 4.58:1, both on indaco's #003d66. `checkHljsContrast` now holds the base to
+   * literal 4.58:1, both on indaco's #003d66. `checkSyntaxContrast` now holds the base to
    * its own panel plus any panel that INHERITS the token, which is the pair that
    * renders; the extra margin above that is kept deliberately, so a palette that ever
    * drops one of the twelve inherits a value already safe on its panel. */
-  --hljs-comment:    #92a8a8;
-  --hljs-keyword:    #c792ea;
-  --hljs-built_in:   #addb67;
-  --hljs-number:     #F78C6C;
-  --hljs-literal:    #ff7c8c;
-  --hljs-string:     #ecc48d;
-  --hljs-title:      #DCDCAA;
-  --hljs-type:       #82aaff;
-  --hljs-variable:   #addb67;
-  --hljs-params:     #7fdbca;
-  --hljs-tag:        #7fdbca;
-  --hljs-punctuation:#d6deeb;
+  --syntax-comment:     #92a8a8;
+  --syntax-keyword:     #c792ea;
+  --syntax-builtin:     #addb67;
+  --syntax-number:      #F78C6C;
+  --syntax-constant:    #ff7c8c;
+  --syntax-string:      #ecc48d;
+  --syntax-entity:      #DCDCAA;
+  --syntax-type:        #82aaff;
+  --syntax-variable:    #addb67;
+  --syntax-parameter:   #7fdbca;
+  --syntax-markup:      #7fdbca;
+  --syntax-punctuation: #d6deeb;
+  /* The diff pair (a ```diff fence's added and removed lines, and `@code{diff}`): green and
+   * red by convention, held to AA on every panel that inherits them, and to separability
+   * from each other on the a11y palettes, which declare their own (checkSyntaxSeparation). */
+  --syntax-inserted:    #8ddb9c;
+  --syntax-deleted:     #ff9b9b;
 }
 
 /* ── Card lift activation ──────────────────────────────────────────────────

@@ -159,18 +159,20 @@
 
 /* ── highlight.js syntax tokens ────────────────────────────────────────── */
 :root {
-  --hljs-comment:    #a26a72;  /* dark wine — muted warm                     */
-  --hljs-keyword:    #C87080;  /* rose — control flow, italic                */
-  --hljs-built_in:   #8CBCB0;  /* sage teal — functions, italic              */
-  --hljs-number:     #D4B870;  /* champagne gold — numeric literals          */
-  --hljs-literal:    #C09898;  /* dusty rose — booleans/null                 */
-  --hljs-string:     #B8D490;  /* sage — strings                             */
-  --hljs-title:      #E08090;  /* bright rose — function names, italic       */
-  --hljs-type:       #C8C890;  /* pale gold — types/annotations              */
-  --hljs-variable:   #90B8B0;  /* muted teal — variables                     */
-  --hljs-params:     #C8A880;  /* warm champagne — parameters                */
-  --hljs-tag:        #D08080;  /* warm rose — HTML tags                      */
-  --hljs-punctuation:#927179;  /* muted wine — operators                     */
+  --syntax-comment:     #a26a72;  /* dark wine — muted warm                     */
+  --syntax-keyword:     #C87080;  /* rose — control flow, italic                */
+  --syntax-builtin:     #8CBCB0;  /* sage teal — functions, italic              */
+  --syntax-number:      #D4B870;  /* champagne gold — numeric literals          */
+  --syntax-constant:    #C09898;  /* dusty rose — booleans/null                 */
+  --syntax-string:      #B8D490;  /* sage — strings                             */
+  --syntax-entity:      #E08090;  /* bright rose — function names, italic       */
+  --syntax-type:        #C8C890;  /* pale gold — types/annotations              */
+  --syntax-variable:    #90B8B0;  /* muted teal — variables                     */
+  --syntax-parameter:   #C8A880;  /* warm champagne — parameters                */
+  --syntax-markup:      #D08080;  /* warm rose — HTML tags                      */
+  --syntax-punctuation: #927179;  /* muted wine — operators                     */
+  --syntax-inserted:    #8ddb9c;  /* diff: added lines (green by convention; AA on this panel) */
+  --syntax-deleted:     #ff9b9b;  /* diff: removed lines */
 }
 
 :root {

@@ -81,11 +81,18 @@ override any subset of them.
 | Spectrum | `--spectrum` `--spectrum-vertical` `--spectrum-end` |
 | Sequential | `--seq-500` |
 | Universal signal | `--diagram-critical` |
-| Code highlighting | `--hljs-comment` `--hljs-keyword` `--hljs-built_in` `--hljs-number` `--hljs-literal` `--hljs-string` `--hljs-title` `--hljs-type` `--hljs-variable` `--hljs-punctuation` |
+| Code highlighting | `--syntax-comment` `--syntax-keyword` `--syntax-builtin` `--syntax-number` `--syntax-constant` `--syntax-string` `--syntax-entity` `--syntax-type` `--syntax-variable` `--syntax-punctuation` |
 | Charts | `--chart-cat1` `--chart-cat2` `--chart-cat3` `--chart-cat4` `--chart-cat5` `--chart-cat6` `--chart-cat7` `--chart-cat8` `--chart-state-pass` `--chart-state-warn` `--chart-state-fail` `--chart-state-info` `--chart-state-mute` |
 
 † the engine defaults it (`ENGINE_DEFAULTED_TOKENS`). ‡ every reader has a fallback
 (`FALLBACK_ONLY_TOKENS`). Both live in `lib/theme/gate.js`, and a test holds this table to them.
+
+The code-highlighting tokens name ROLES, not a highlighter's classes: Lattice's code plugin maps
+each highlight.js class onto one of them, so a theme never names highlight.js. Four more roles are
+optional, because the engine gives each a default: `--syntax-parameter` (function parameters),
+`--syntax-markup` (tags, names and attributes in markup languages), and the diff pair
+`--syntax-inserted` and `--syntax-deleted` (a diff's added and removed lines). A theme MAY declare
+them; one that does is held to the same contrast as the ten above.
 
 A theme MAY declare tokens outside this table, for its own use (`--brand-*` operands that build
 `--spectrum`, for instance). A reader MUST keep them: a token in the table can be built from one
@@ -165,3 +172,4 @@ and skips those two.
 | Version | Date | Change |
 |---|---|---|
 | 1.0 | 2026-10-08 | First version, written from the reference implementation (spec audit §8.1). Waits on the owner's sign-off. |
+| 1.0 (draft amended) | 2026-10-15 | Before sign-off, the ten `--hljs-*` code-highlighting tokens were renamed to role names (`--syntax-keyword`, …; `built_in` → `builtin`, `literal` → `constant`, `title` → `entity`) and four optional roles were documented, because the engine stopped naming its highlighter (`engineering/decisions/2026-10-15-code-plugin.md`). The owner chose to amend the unsigned draft rather than version it. `lib/tokens/crosswalk.js` renames an old theme mechanically. |

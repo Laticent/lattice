@@ -47,12 +47,13 @@ describe('crosswalk transforms', () => {
   test('PAIRS is the complete historical map (every group present, no dupes)', () => {
     const olds = PAIRS.map((p) => p.old);
     const news = PAIRS.map((p) => p.new);
-    // 26 categorical + 3 diagram-structural + 8 lifecycle + 10 surfaces + 10 seq
-    assert.equal(PAIRS.length, 57);
-    assert.equal(new Set(olds).size, 57, 'no duplicate old name');
-    assert.equal(new Set(news).size, 57, 'no duplicate new name');
+    // 26 categorical + 3 diagram-structural + 8 lifecycle + 10 surfaces + 10 seq + 12 syntax roles
+    assert.equal(PAIRS.length, 69);
+    assert.equal(new Set(olds).size, 69, 'no duplicate old name');
+    assert.equal(new Set(news).size, 69, 'no duplicate new name');
     // spot-check one from each group
     assert.ok(olds.includes('c1-light') && olds.includes('c-stroke'));
     assert.ok(olds.includes('c-warm-light') && olds.includes('bg-dark') && olds.includes('scale-500'));
+    assert.ok(olds.includes('hljs-built_in') && news.includes('syntax-builtin'));
   });
 });

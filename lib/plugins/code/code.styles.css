@@ -1,0 +1,72 @@
+/* lib/plugins/code/code.styles.css — the code plugin's stylesheet: the panel every code block sits
+ * on, and the ONE place highlight.js's class names meet a theme.
+ *
+ * ROLES, NOT CLASSES. A theme declares `--syntax-*` roles (spec/THEME-1.0.md §4.1); this file maps
+ * each `.hljs-*` class highlight.js emits onto one of them. So a theme never names highlight.js, and
+ * a different highlighter would change this file and nothing else
+ * (engineering/decisions/2026-10-15-code-plugin.md §5).
+ *
+ * THE PANEL. The plugin marks every block it colors `<pre class="lat-code">` (code.render.js), on
+ * any slide, so code on a plain content slide sits on the same `--code-bg` panel the `code` slide
+ * uses. The syntax roles are tuned and gated (checkSyntaxContrast) against that panel; before the
+ * plugin, a fence on a plain slide painted them straight onto the slide's own background, where
+ * the pale ones were unreadable. Wrapped in `:where(section)` so a layout that styles its own
+ * `pre` (`code`, `compare-code`) wins by specificity and keeps its composition.
+ *
+ * Palette-blind: every color is a token (HARD RULE #3).
+ */
+
+:where(section) pre.lat-code {
+  background-color: var(--code-bg);
+  box-shadow: inset 0 0 0 1px var(--code-edge);
+  color: var(--code-text);
+  border-radius: var(--radius-md);
+  padding: var(--sp-sm) var(--sp-md);
+  box-sizing: border-box;
+  overflow: hidden;
+  font-family: var(--font-mono);
+  /* The `code` layout's own type step (code.styles.css explains the role), so a block reads the
+   * same size on a content slide as on a code slide. */
+  font-size: var(--fs-body-compact);
+  line-height: var(--lh-base);
+}
+
+/* ── highlight.js class → syntax role ─────────────────────────────────────── */
+section .hljs-comment, section .hljs-quote { color: var(--syntax-comment); font-style: italic; }
+section .hljs-keyword, section .hljs-template-tag,
+section .hljs-selector-pseudo, section .hljs-selector-attr,
+section .hljs-variable.language_ { color: var(--syntax-keyword); font-style: italic; }
+section .hljs-selector-tag, section .hljs-formula { color: var(--syntax-keyword); }
+section .hljs-built_in, section .hljs-builtin-name { color: var(--syntax-builtin); font-style: italic; }
+section .hljs-variable, section .hljs-template-variable,
+section .hljs-selector-class, section .hljs-bullet { color: var(--syntax-variable); }
+section .hljs-number, section .hljs-selector-id { color: var(--syntax-number); }
+section .hljs-literal, section .hljs-subst { color: var(--syntax-constant); }
+section .hljs-string, section .hljs-meta-string, section .hljs-regexp,
+section .hljs-link, section .hljs-char.escape_ { color: var(--syntax-string); }
+section .hljs-title, section .hljs-title.function_,
+section .hljs-function, section .hljs-section { color: var(--syntax-entity); font-style: italic; }
+section .hljs-title.class_, section .hljs-title.class_.inherited__,
+section .hljs-class { color: var(--syntax-entity); }
+section .hljs-type, section .hljs-symbol,
+section .hljs-meta, section .hljs-meta-keyword { color: var(--syntax-type); }
+section .hljs-params { color: var(--syntax-parameter); }
+section .hljs-tag, section .hljs-name, section .hljs-attr,
+section .hljs-attribute, section .hljs-doctag, section .hljs-code { color: var(--syntax-markup); }
+section .hljs-punctuation, section .hljs-operator { color: var(--syntax-punctuation); }
+section .hljs-emphasis { font-style: italic; }
+section .hljs-strong { font-weight: 700; }
+
+/* A diff's added and removed lines. The tint is the role's own color at low strength, so the band
+ * follows the theme; the +/- that starts the line carries the meaning without color. Each band runs
+ * the panel's full width (an inline-block as wide as the line box), so a short line does not leave
+ * a ragged edge. highlight.js wraps exactly one line's text in each span, never the newline. */
+section .hljs-addition, section .hljs-deletion { display: inline-block; min-width: 100%; }
+section .hljs-addition {
+  color: var(--syntax-inserted);
+  background-color: color-mix(in srgb, var(--syntax-inserted) 14%, transparent);
+}
+section .hljs-deletion {
+  color: var(--syntax-deleted);
+  background-color: color-mix(in srgb, var(--syntax-deleted) 14%, transparent);
+}

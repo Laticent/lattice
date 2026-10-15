@@ -263,10 +263,10 @@
  * the dark brown without importing the cool Night Owl palette used by
  * the indaco theme. */
 :root {
-  --hljs-comment:    #92816f;  /* muted warm brown, italic               */
-  --hljs-keyword:    #D4A04A;  /* warm amber-gold, italic                */
-  --hljs-built_in:   #8EBA6A;  /* warm lime-green — built-ins            */
-  --hljs-number:     #D48A6A;  /* warm orange-rust                       */
+  --syntax-comment:     #92816f;  /* muted warm brown, italic               */
+  --syntax-keyword:     #D4A04A;  /* warm amber-gold, italic                */
+  --syntax-builtin:     #8EBA6A;  /* warm lime-green — built-ins            */
+  --syntax-number:      #D48A6A;  /* warm orange-rust                       */
   /* Was #C05A6A, which is 4.05:1 on this theme's own --code-bg (#1e1a15) — under
    * the AA floor for code text. Lifted in OKLCH holding hue (12.2 -> 12.4) and
    * chroma, +0.036 lightness, the same move derive-cat-ink makes for the ink tier:
@@ -276,14 +276,16 @@
    * instead. It was landed as a PREREQUISITE for the concat flip, changing nothing
    * rendered at the time — #1527 has since flipped the order, so this value is what a
    * cuoio export paints. */
-  --hljs-literal:    #CC6574;  /* warm rose-pink — booleans/null         */
-  --hljs-string:     #C8885A;  /* warm terracotta                        */
-  --hljs-title:      #D4B868;  /* warm amber-yellow, italic              */
-  --hljs-type:       #7ABAB0;  /* muted teal — cool contrast on warm bg  */
-  --hljs-variable:   #8EBA6A;  /* warm lime-green — variables            */
-  --hljs-params:     #7ABAB0;  /* muted teal-mint — parameters           */
-  --hljs-tag:        #7ABAB0;  /* muted teal — HTML tags / names         */
-  --hljs-punctuation:#C8B8A0;  /* warm taupe — operators, punctuation    */
+  --syntax-constant:    #CC6574;  /* warm rose-pink — booleans/null         */
+  --syntax-string:      #C8885A;  /* warm terracotta                        */
+  --syntax-entity:      #D4B868;  /* warm amber-yellow, italic              */
+  --syntax-type:        #7ABAB0;  /* muted teal — cool contrast on warm bg  */
+  --syntax-variable:    #8EBA6A;  /* warm lime-green — variables            */
+  --syntax-parameter:   #7ABAB0;  /* muted teal-mint — parameters           */
+  --syntax-markup:      #7ABAB0;  /* muted teal — HTML tags / names         */
+  --syntax-punctuation: #C8B8A0;  /* warm taupe — operators, punctuation    */
+  --syntax-inserted:    #8ddb9c;  /* diff: added lines (green by convention; AA on this panel) */
+  --syntax-deleted:     #ff9b9b;  /* diff: removed lines */
 }
 
 /* ── Diagram tokens ────────────────────────────────────────────────────

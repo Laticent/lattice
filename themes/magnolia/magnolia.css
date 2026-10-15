@@ -156,18 +156,20 @@
 
 /* ── highlight.js syntax tokens ────────────────────────────────────────── */
 :root {
-  --hljs-comment:    #a56d75;  /* dark rose — muted                          */
-  --hljs-keyword:    #E08898;  /* bright rose — control flow, italic         */
-  --hljs-built_in:   #78C8B0;  /* teal — functions, italic                   */
-  --hljs-number:     #E8C870;  /* warm gold — numeric literals               */
-  --hljs-literal:    #C08898;  /* muted rose — booleans/null                 */
-  --hljs-string:     #98D090;  /* sage — strings                             */
-  --hljs-title:      #E898A8;  /* bright rose-pink — function names, italic  */
-  --hljs-type:       #C0C8E8;  /* pale lavender — types/annotations          */
-  --hljs-variable:   #80C0B8;  /* teal — variables                           */
-  --hljs-params:     #C8A8B0;  /* dusty rose — parameters                    */
-  --hljs-tag:        #E0A090;  /* warm rose — HTML tags                      */
-  --hljs-punctuation:#b37080;  /* dark rose — operators                      */
+  --syntax-comment:     #a56d75;  /* dark rose — muted                          */
+  --syntax-keyword:     #E08898;  /* bright rose — control flow, italic         */
+  --syntax-builtin:     #78C8B0;  /* teal — functions, italic                   */
+  --syntax-number:      #E8C870;  /* warm gold — numeric literals               */
+  --syntax-constant:    #C08898;  /* muted rose — booleans/null                 */
+  --syntax-string:      #98D090;  /* sage — strings                             */
+  --syntax-entity:      #E898A8;  /* bright rose-pink — function names, italic  */
+  --syntax-type:        #C0C8E8;  /* pale lavender — types/annotations          */
+  --syntax-variable:    #80C0B8;  /* teal — variables                           */
+  --syntax-parameter:   #C8A8B0;  /* dusty rose — parameters                    */
+  --syntax-markup:      #E0A090;  /* warm rose — HTML tags                      */
+  --syntax-punctuation: #b37080;  /* dark rose — operators                      */
+  --syntax-inserted:    #8ddb9c;  /* diff: added lines (green by convention; AA on this panel) */
+  --syntax-deleted:     #ff9b9b;  /* diff: removed lines */
 }
 
 :root {

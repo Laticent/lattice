@@ -50,7 +50,7 @@ contains:
    ink, accents, semantic signals).
 4. A `:root` block defining `--scheme-dark-*` tokens used by the `section.dark`
    variant for cover/divider/closing slides on a dark canvas.
-5. A `:root` block defining `--hljs-*` tokens for code-block syntax colors.
+5. A `:root` block defining `--syntax-*` tokens for code-block syntax colors.
 6. A `:root` block defining `--c-*` tokens — the categorical palette
    (12-slot paired light/dark cycle, paired ink, structural stroke/line,
    plus optional overrides of the universal semantic palette).
@@ -208,17 +208,20 @@ at every use site based on the computed `color-scheme` of the element:
   matching theme variant if they care about diagram color (the variant
   is the only signal the palette parser sees).
 
-### highlight.js syntax
+### Syntax roles (code highlighting)
 
-| Token | Highlight class |
-|---|---|
-| `--hljs-comment` | `.hljs-comment, .hljs-quote` |
-| `--hljs-keyword` | `.hljs-keyword, .hljs-selector-tag, .hljs-addition` |
-| `--hljs-number` | `.hljs-number, .hljs-literal, .hljs-built_in` |
-| `--hljs-string` | `.hljs-string, .hljs-doctag, .hljs-regexp` |
-| `--hljs-title` | `.hljs-title, .hljs-section, .hljs-function` |
-| `--hljs-variable` | `.hljs-variable, .hljs-attr, .hljs-tag` |
-| `--hljs-punctuation` | `.hljs-punctuation, .hljs-operator` |
+A theme colors code through **role** tokens, never highlight.js class names: the code plugin's
+stylesheet (`lib/plugins/code/code.styles.css`) maps each `.hljs-*` class onto a role. The ten
+required roles are `--syntax-comment`, `--syntax-keyword`, `--syntax-builtin`, `--syntax-number`,
+`--syntax-constant`, `--syntax-string`, `--syntax-entity`, `--syntax-type`, `--syntax-variable`
+and `--syntax-punctuation`; four more are optional, with engine defaults: `--syntax-parameter`,
+`--syntax-markup`, and the diff pair `--syntax-inserted` / `--syntax-deleted`. The full class map
+is the table in `lib/plugins/code/code.docs.md` § The syntax roles; it is not repeated here, so
+the two cannot disagree.
+
+Every role paints on the code panel (`--code-bg`, with `--code-text` for unhighlighted text), on
+every slide, and is held to 4.5:1 there (`checkSyntaxContrast`). The a11y palettes also hold their
+roles apart under the condition they are named for (`checkSyntaxSeparation`).
 
 ### Categorical tokens (`--c-*`)
 

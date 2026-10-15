@@ -1367,7 +1367,8 @@
         "docs.md",
         "fixtures.md",
         "manifest.json",
-        "render.js"
+        "render.js",
+        "styles.css"
       ],
       "code": true
     },

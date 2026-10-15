@@ -1821,13 +1821,13 @@ const SANCTIONED_MONO_FONTS = [
        + 'them are label voice and route through --font-label.',
   },
   {
-    file: 'lib/integrations/highlight-js/highlight-js.css',
-    selector: 'code.hljs',
+    file: 'lib/plugins/code/code.styles.css',
+    selector: 'pre.lat-code',
     count: 1,
-    why: 'the highlighted code block.',
+    why: 'the code panel every fenced block sits on, on any slide.',
   },
   {
-    file: 'lib/integrations/highlight-js/highlight-js.css',
+    file: 'lib/plugins/mermaid/mermaid.styles.css',
     selector: 'mermaid-error',
     count: 3,
     why: 'the three mermaid-error parts (label, message, detail). An error surface quotes the '
@@ -2803,6 +2803,7 @@ const SANCTIONED_READING_ROLE = [
   { file: 'lib/components/chart/roadmap/roadmap.styles.css', role: 'body-compact', count: 1, why: 'E4 chart key (the legend)' },
   { file: 'lib/components/chart/timeline-list/timeline-list.styles.css', role: 'body-compact', count: 1, why: 'E7 support line (a milestone\'s description under its --fs-body title)' },
   { file: 'lib/components/code/code/code.styles.css', role: 'body-compact', count: 1, why: 'code keeps --fs-body-compact: a code line cannot wrap (owner, 2026-09-29)' },
+  { file: 'lib/plugins/code/code.styles.css', role: 'body-compact', count: 1, why: 'the code panel every fence sits on reads at the code layout\'s own step: a code line cannot wrap (owner, 2026-09-29), and a block should read the same size on any slide (code-plugin note §5)' },
   { file: 'lib/components/code/compare-code/compare-code.styles.css', role: 'body-compact', count: 2, why: 'code keeps --fs-body-compact (owner, 2026-09-29)' },
   { file: 'lib/components/comparison/pricing/pricing.styles.css', role: 'message', count: 1, why: 'the tier name, a card title (features read at --fs-body)' },
   { file: 'lib/components/comparison/table/table.styles.css', role: 'body-compact', count: 1, why: 'the field label in a table split into cards (label chrome)' },
@@ -3186,7 +3187,7 @@ const SANCTIONED_STAGE_INSETS = [
   // time the entry is correct rather than incidental: it is a seam, and a seam that
   // provably cannot be spelled any other way.
   {
-    file: 'lib/integrations/highlight-js/highlight-js.css',
+    file: 'lib/plugins/mermaid/mermaid.styles.css',
     prop: 'padding-bottom',
     value: 'var(--sp-sm) (on `[data-lattice-figure]:has(+ .mermaid-error)`)',
     why: 'The gap between a failed diagram and the parser-error block beneath it. It '
@@ -9925,11 +9926,11 @@ function catInkCollapsePairs(inks, marks) {
 }
 
 /**
- * The twelve `--hljs-*` syntax colors, against the code panel they are painted on.
+ * The twelve `--syntax-*` syntax colors, against the code panel they are painted on.
  *
  * #1527. Twelve tokens x 32 themes x 2 modes and **no contrast test anywhere** —
  * the one large token family the categorical gate above does not reach. That gap
- * hid a real defect: `cuoio`'s `--hljs-literal` sat at 4.05:1 on its own `--code-bg`,
+ * hid a real defect: `cuoio`'s `--syntax-constant` sat at 4.05:1 on its own `--code-bg`,
  * under the AA floor for code text. Nobody saw it because the export bundle then
  * concatenated the theme BEFORE the base, so the base's `#ff5874` painted instead of
  * the theme's value — which is exactly why #1527's concat flip needed this gate to land
@@ -9947,16 +9948,16 @@ function catInkCollapsePairs(inks, marks) {
  * same resolver the categorical arms use, so the two cannot disagree about what a
  * token resolves to (HARD RULE #15).
  */
-const HLJS_TOKENS = Object.freeze([
-  'built_in', 'comment', 'keyword', 'literal', 'number', 'params',
-  'punctuation', 'string', 'tag', 'title', 'type', 'variable',
-].map((t) => `--hljs-${t}`));
+const SYNTAX_TOKENS = Object.freeze([
+  'builtin', 'comment', 'constant', 'deleted', 'entity', 'inserted', 'keyword', 'markup',
+  'number', 'parameter', 'punctuation', 'string', 'type', 'variable',
+].map((t) => `--syntax-${t}`));
 
 /**
  * NO EXEMPTIONS. All twelve tokens are held to the floor, including the two that
  * are deliberately quiet.
  *
- * The first cut of this gate exempted `--hljs-comment` and `--hljs-punctuation`,
+ * The first cut of this gate exempted `--syntax-comment` and `--syntax-punctuation`,
  * on the argument that de-emphasis IS the design and that holding them to 4.5:1
  * would make a comment as loud as the statement it annotates. The measurement
  * behind it was real — 64 comment and 46 punctuation values under the floor,
@@ -9973,7 +9974,7 @@ const HLJS_TOKENS = Object.freeze([
  * theme-modes, no token that carries CODE sits below the repaired comment. Say it
  * that way and not "the comment is the quietest thing in the panel" — the looser
  * sentence shipped in the first cut and was false in 26 of 66 theme-modes, because
- * `--hljs-punctuation` is lifted to the same floor and lands a few hundredths
+ * `--syntax-punctuation` is lifted to the same floor and lands a few hundredths
  * either side. Comment and punctuation are peers at the bottom by design; what
  * must never invert is comment against the code.
  *
@@ -9981,7 +9982,7 @@ const HLJS_TOKENS = Object.freeze([
  * is the shape of a defect being counted rather than fixed.
  */
 
-function checkHljsContrast(errors, themesDir = THEMES_DIR) {
+function checkSyntaxContrast(errors, themesDir = THEMES_DIR) {
   const failures = [];
   let evaluated = 0;
   let themesScanned = 0;
@@ -9994,7 +9995,7 @@ function checkHljsContrast(errors, themesDir = THEMES_DIR) {
   // The first cut of this gate skipped it, on the reasoning quoted in the loop
   // below: a theme with no syntax colors of its own "inherits the base's, which the
   // base is responsible for". Nothing made the base responsible. It shipped
-  // `--hljs-comment: #637777` — Night Owl's value, tuned for Night Owl's #011627 —
+  // `--syntax-comment: #637777` — Night Owl's value, tuned for Night Owl's #011627 —
   // at 3.63:1 on the base's darker #001d33, and no gate could say so. It was found
   // by asking why a full 340-render regression sweep showed no drift after fourteen
   // themes changed color: the sweep renders with `dist/lattice.css`, whose comment
@@ -10008,10 +10009,10 @@ function checkHljsContrast(errors, themesDir = THEMES_DIR) {
   // the thing this gate has been wrong about twice.
   //
   // Before #1527 the export concatenated `paletteCSS + layoutCSS`, so the base loaded
-  // AFTER the theme and its `--hljs-*` won on EVERY panel; a theme's own syntax ramp
+  // AFTER the theme and its `--syntax-*` won on EVERY panel; a theme's own syntax ramp
   // never painted there. Pairing base-with-base and theme-with-theme modeled a world
   // that did not exist yet and left the shipping one unmeasured — the hole that hid
-  // indaco rendering `--hljs-literal` at 3.71:1 and `--hljs-comment` at 3.06:1 while
+  // indaco rendering `--syntax-constant` at 3.71:1 and `--syntax-comment` at 3.06:1 while
   // this gate reported clean and a "Fixed" changelog entry shipped.
   //
   // The flip landed, so the base no longer wins anywhere: its value is the FALLBACK
@@ -10032,7 +10033,7 @@ function checkHljsContrast(errors, themesDir = THEMES_DIR) {
       if (!bg) continue;
       if (!panels.has(bg)) panels.set(bg, `${name}/${mode}`);
       if (name === 'lattice') continue;
-      for (const token of HLJS_TOKENS) {
+      for (const token of SYNTAX_TOKENS) {
         if (map.has(token)) continue;
         if (!inheritedPanels.has(token)) inheritedPanels.set(token, new Map());
         if (!inheritedPanels.get(token).has(bg)) inheritedPanels.get(token).set(bg, `${name}/${mode}`);
@@ -10044,7 +10045,7 @@ function checkHljsContrast(errors, themesDir = THEMES_DIR) {
     const map = maps.get(name);
     // A theme that declares no syntax colors of its own inherits the base's, which
     // is now checked above rather than assumed — nothing further here.
-    if (!HLJS_TOKENS.some((t) => map.has(t))) continue;
+    if (!SYNTAX_TOKENS.some((t) => map.has(t))) continue;
     themesScanned += 1;
     for (const mode of ['light', 'dark']) {
       const own = catResolve(map, '--code-bg', mode);
@@ -10053,7 +10054,7 @@ function checkHljsContrast(errors, themesDir = THEMES_DIR) {
       // token; a theme only against its own, because a theme's value cannot paint on
       // another theme's panel.
       const inheritedFor = (token) => [...(inheritedPanels.get(token)?.keys() ?? [])];
-      for (const token of HLJS_TOKENS) {
+      for (const token of SYNTAX_TOKENS) {
         if (!map.has(token)) continue;
         const fg = catResolve(map, token, mode);
         if (!fg) {
@@ -10079,13 +10080,13 @@ function checkHljsContrast(errors, themesDir = THEMES_DIR) {
       // eight palettes (concrete reached OKLab dE 0.0030, 1.01:1 against each
       // other) — legible, and indistinguishable, which is a different defect from
       // the one the lift fixed. Judged against the repo's own collapse floor.
-      const cmt = map.has('--hljs-comment') && catResolve(map, '--hljs-comment', mode);
-      const pun = map.has('--hljs-punctuation') && catResolve(map, '--hljs-punctuation', mode);
+      const cmt = map.has('--syntax-comment') && catResolve(map, '--syntax-comment', mode);
+      const pun = map.has('--syntax-punctuation') && catResolve(map, '--syntax-punctuation', mode);
       if (cmt && pun) {
         const dist = oklabDistance(cmt, pun);
         if (dist < CAT_INK_COLLAPSE_DIST) {
           failures.push(
-            `${name}/${mode} --hljs-comment ${cmt} and --hljs-punctuation ${pun} collapse — ` +
+            `${name}/${mode} --syntax-comment ${cmt} and --syntax-punctuation ${pun} collapse — ` +
             `OKLab dE ${dist.toFixed(4)} < ${CAT_INK_COLLAPSE_DIST}`,
           );
         }
@@ -10094,7 +10095,7 @@ function checkHljsContrast(errors, themesDir = THEMES_DIR) {
   }
   if (unreadable.length) {
     errors.push(
-      `${unreadable.length} \`--hljs-*\` value(s) are in a notation catResolve cannot read, so they were never ` +
+      `${unreadable.length} \`--syntax-*\` value(s) are in a notation catResolve cannot read, so they were never ` +
       `measured: ${unreadable.slice(0, 6).join('; ')}${unreadable.length > 6 ? `, +${unreadable.length - 6} more` : ''}. ` +
       'Write the value as a hex literal (or a light-dark()/var()/color-mix() of hex literals) so the floor applies. ' +
       'An unreadable value is an UNCHECKED value, not a passing one.',
@@ -10104,14 +10105,14 @@ function checkHljsContrast(errors, themesDir = THEMES_DIR) {
   // curated palettes is hundreds of pairs; a near-zero count means the scan broke.
   if (evaluated < 100) {
     errors.push(
-      `checkHljsContrast evaluated only ${evaluated} token-mode pairs across ${themesScanned} theme(s) — ` +
+      `checkSyntaxContrast evaluated only ${evaluated} token-mode pairs across ${themesScanned} theme(s) — ` +
       'the curated palettes declare twelve syntax colors each, so this is a broken scan, not a clean tree.',
     );
     return;
   }
   if (failures.length) {
     errors.push(
-      `${failures.length} \`--hljs-*\` syntax color(s) fall below the ${CAT_TEXT_FLOOR}:1 AA floor on their own ` +
+      `${failures.length} \`--syntax-*\` syntax color(s) fall below the ${CAT_TEXT_FLOOR}:1 AA floor on their own ` +
       `--code-bg: ${failures.slice(0, 8).join('; ')}${failures.length > 8 ? `, +${failures.length - 8} more` : ''}. ` +
       'Lift the value in OKLCH holding hue and chroma (the move derive-cat-ink makes for the ink tier) rather ' +
       'than picking a new color by eye — the palette author chose the hue. Since #1527 the export loads ' +
@@ -10124,7 +10125,7 @@ function checkHljsContrast(errors, themesDir = THEMES_DIR) {
 function checkCatContrast(errors) {
   checkCatInkDeclared(errors);
   checkCatInkFallback(errors);
-  checkHljsContrast(errors);
+  checkSyntaxContrast(errors);
   const printOverlay = catPrintOverlay(errors);
   let scanned = 0;
   let evaluated = 0;    // ①–③ slot×mode pairs actually contrast-checked — the real coverage metric
@@ -11978,14 +11979,14 @@ function checkMutedTierFloors(errors, themesDir = THEMES_DIR) {
 
 // ─── a11y syntax separation UNDER the condition (#1715) ────────────────────
 //
-// `checkHljsContrast` holds every `--hljs-*` to AA against `--code-bg`, and on the
+// `checkSyntaxContrast` holds every `--syntax-*` to AA against `--code-bg`, and on the
 // four `a11y-*` palettes it PASSED the whole time — every inherited value cleared
 // the floor comfortably. Contrast was never what was wrong there.
 //
 // What was wrong is that two colors can both clear contrast and still be the SAME
 // COLOR to the reader the palette exists for. Until #1715 the four declared no
 // syntax family at all, so `a11y-base`'s import of `onyx` gave them onyx's:
-// `--hljs-string` green at hue 144° beside `--hljs-keyword` red at 17° — the
+// `--syntax-string` green at hue 144° beside `--syntax-keyword` red at 17° — the
 // red-green axis `a11y-deuteranopia` and `a11y-protanopia` are named for. Measured
 // through the simulation, 17 of 55 role pairs on deuteranopia were distinct to a
 // normal-sighted reader and collapsed under the condition; 19 of 55 on
@@ -12001,10 +12002,15 @@ const A11Y_SYNTAX_CONDITIONS = Object.freeze([
   { theme: 'a11y-achromatopsia', condition: 'achromatopsia' },
 ]);
 
-/** The twelve roles a palette declares. `.hljs-meta` and `.hljs-name` are not
- *  separate tokens — highlight-js.css routes them to `--hljs-type` / `--hljs-tag`. */
-const HLJS_ROLES = Object.freeze(['comment', 'keyword', 'built_in', 'number', 'literal',
-  'string', 'title', 'type', 'variable', 'params', 'tag', 'punctuation']);
+/** The twelve roles that share a code panel line by line. highlight.js's class names never
+ *  reach a theme: the code plugin's stylesheet (lib/plugins/code/code.styles.css) routes each
+ *  `.hljs-*` class to one of these roles — `.hljs-meta` to `type`, `.hljs-name` to `markup`.
+ *  The two DIFF roles, `inserted` and `deleted`, are held apart from each other instead
+ *  (SYNTAX_DIFF_PAIR): they color whole diff lines, which already carry a `+` or `-`, and meet
+ *  no other role on that line. */
+const SYNTAX_ROLES = Object.freeze(['comment', 'keyword', 'builtin', 'number', 'constant',
+  'string', 'entity', 'type', 'variable', 'parameter', 'markup', 'punctuation']);
+const SYNTAX_DIFF_PAIR = Object.freeze(['inserted', 'deleted']);
 
 /**
  * PINNED LITERALS, not imported from whatever produced the values — a floor that
@@ -12026,21 +12032,21 @@ const HLJS_ROLES = Object.freeze(['comment', 'keyword', 'built_in', 'number', 'l
  * CATEGORICAL distinctness, which is a bar for large flat areas of color rather
  * than for small text carrying italics and language structure as well.
  */
-const HLJS_SEP_FLOOR_DICHROMACY = 0.11;
-const HLJS_SEP_FLOOR_MONOCHROMACY = 0.048;
+const SYNTAX_SEP_FLOOR_DICHROMACY = 0.11;
+const SYNTAX_SEP_FLOOR_MONOCHROMACY = 0.048;
 
 /**
  * comment and punctuation are BOTH quiet by design, so holding them to the floor
  * above would be asking the palette to make its two de-emphasis roles shout at
- * each other. They are not exempt, though: `checkHljsContrast` polices exactly
+ * each other. They are not exempt, though: `checkSyntaxContrast` polices exactly
  * that pair by name against the repo's 0.010 collapse floor, after an earlier
  * change lifted both to the same AA target and merged them into one gray in eight
  * palettes. That gate owns the pair; this one steps aside rather than duplicating
  * it with a second, different number (HARD RULE #15).
  */
-const HLJS_QUIET_PAIR = Object.freeze(['comment', 'punctuation']);
+const SYNTAX_QUIET_PAIR = Object.freeze(['comment', 'punctuation']);
 
-function checkHljsSeparation(errors, themesDir = THEMES_DIR) {
+function checkSyntaxSeparation(errors, themesDir = THEMES_DIR) {
   const { simulate } = require('../lib/theme/cvd.js');
   const { oklabDistance } = require('../lib/theme/color.js');
   let compared = 0;
@@ -12048,11 +12054,11 @@ function checkHljsSeparation(errors, themesDir = THEMES_DIR) {
   for (const { theme, condition } of A11Y_SYNTAX_CONDITIONS) {
     const file = path.join(themesDir, theme, `${theme}.css`);
     if (!fs.existsSync(file)) {
-      errors.push(`checkHljsSeparation: themes/${theme}/${theme}.css is missing — the gate cannot run.`);
+      errors.push(`checkSyntaxSeparation: themes/${theme}/${theme}.css is missing — the gate cannot run.`);
       continue;
     }
     // The EMITTED file, flattened through its @import chain — the same reader
-    // checkHljsContrast uses, so the two cannot disagree about what a palette says.
+    // checkSyntaxContrast uses, so the two cannot disagree about what a palette says.
     const map = catParseTokens(catPaletteSource(theme, new Set(), themesDir));
     // These palettes are mode-invariant (a11y-base pins color-scheme: light), so
     // 'light' is the only mode that renders. Asking for it explicitly rather than
@@ -12063,10 +12069,10 @@ function checkHljsSeparation(errors, themesDir = THEMES_DIR) {
     // through the a11y-base -> onyx import, which is exactly the defect; so a role
     // that is not declared in this palette's OWN file is an error, not an inherit.
     const own = fs.readFileSync(file, 'utf8');
-    const missing = HLJS_ROLES.filter((r) => !new RegExp(`--hljs-${r}\\s*:`).test(own));
+    const missing = [...SYNTAX_ROLES, ...SYNTAX_DIFF_PAIR].filter((r) => !new RegExp(`--syntax-${r}\\s*:`).test(own));
     if (missing.length) {
       errors.push(
-        `themes/${theme}/${theme}.css declares no --hljs-${missing.join(', --hljs-')} of its own, so it `
+        `themes/${theme}/${theme}.css declares no --syntax-${missing.join(', --syntax-')} of its own, so it `
         + "inherits onyx's syntax family through a11y-base — the red-green pair this palette "
         + 'exists to avoid (#1715).');
       continue;
@@ -12082,25 +12088,25 @@ function checkHljsSeparation(errors, themesDir = THEMES_DIR) {
     // measuring nothing — the shape #1720 had to repair in checkSyntaxInkContrast.
     if (!bg || !codeText) {
       errors.push(
-        `checkHljsSeparation: ${theme} — could not resolve `
+        `checkSyntaxSeparation: ${theme} — could not resolve `
         + `${!bg ? '--code-bg' : '--code-text'} to a hex, so nothing can be measured against it.`);
       continue;
     }
 
     const vals = new Map([['code-text', codeText]]);
     let unresolved = null;
-    for (const role of HLJS_ROLES) {
-      const hex = catResolve(map, `--hljs-${role}`, mode);
+    for (const role of SYNTAX_ROLES) {
+      const hex = catResolve(map, `--syntax-${role}`, mode);
       if (!hex) { unresolved = role; break; }
       vals.set(role, hex);
     }
     if (unresolved) {
-      errors.push(`checkHljsSeparation: ${theme} — --hljs-${unresolved} does not resolve to a hex.`);
+      errors.push(`checkSyntaxSeparation: ${theme} — --syntax-${unresolved} does not resolve to a hex.`);
       continue;
     }
 
     const floor = condition === 'achromatopsia'
-      ? HLJS_SEP_FLOOR_MONOCHROMACY : HLJS_SEP_FLOOR_DICHROMACY;
+      ? SYNTAX_SEP_FLOOR_MONOCHROMACY : SYNTAX_SEP_FLOOR_DICHROMACY;
     const entries = [...vals];
 
     // HOW MUCH COLLAPSE IS "DESIGN"? The pair-skip below treats byte-identical roles as
@@ -12114,10 +12120,10 @@ function checkHljsSeparation(errors, themesDir = THEMES_DIR) {
     // The design is SIX groups, so six distinct values. Floored at five to leave one group
     // free to merge without a gate edit, which is a design call; going below that is not.
     const DISTINCT_MIN = 5;
-    const distinct = new Set(HLJS_ROLES.map((r) => String(vals.get(r)).toLowerCase()));
+    const distinct = new Set(SYNTAX_ROLES.map((r) => String(vals.get(r)).toLowerCase()));
     if (distinct.size < DISTINCT_MIN) {
       errors.push(
-        `${theme}: its twelve --hljs-* roles resolve to only ${distinct.size} distinct color(s), `
+        `${theme}: its twelve --syntax-* roles resolve to only ${distinct.size} distinct color(s), `
         + `under the ${DISTINCT_MIN} this palette's six-group design emits. Roles made `
         + 'DELIBERATELY identical are skipped by the separation arm below, so a wholesale '
         + 'collapse would otherwise pass every check while erasing syntax highlighting on the '
@@ -12131,14 +12137,14 @@ function checkHljsSeparation(errors, themesDir = THEMES_DIR) {
         // are the design (a twelve-way color distinction does not survive a
         // dichromacy). Only pairs the palette claims are different are measured.
         if (ha.toLowerCase() === hb.toLowerCase()) continue;
-        // The two quiet roles are checkHljsContrast's to police; see HLJS_QUIET_PAIR.
-        if (HLJS_QUIET_PAIR.includes(na) && HLJS_QUIET_PAIR.includes(nb)) continue;
+        // The two quiet roles are checkSyntaxContrast's to police; see SYNTAX_QUIET_PAIR.
+        if (SYNTAX_QUIET_PAIR.includes(na) && SYNTAX_QUIET_PAIR.includes(nb)) continue;
         compared++;
         const d = oklabDistance(simulate(ha, condition), simulate(hb, condition));
         if (!(d >= floor)) {
-          // `--code-text` is in the set but is NOT an --hljs-* token, so it gets its
-          // own name in the message rather than a fabricated `--hljs-code-text`.
-          const nameOf = (n) => (n === 'code-text' ? '--code-text' : `--hljs-${n}`);
+          // `--code-text` is in the set but is NOT an --syntax-* token, so it gets its
+          // own name in the message rather than a fabricated `--syntax-code-text`.
+          const nameOf = (n) => (n === 'code-text' ? '--code-text' : `--syntax-${n}`);
           errors.push(
             `${theme}: ${nameOf(na)} (${ha}) and ${nameOf(nb)} (${hb}) are different colors that `
             + `render ΔE ${d.toFixed(4)} apart UNDER ${condition} — below the ${floor} floor. `
@@ -12147,6 +12153,22 @@ function checkHljsSeparation(errors, themesDir = THEMES_DIR) {
         }
       }
     }
+
+    // THE DIFF PAIR, against each other only (SYNTAX_DIFF_PAIR): an inserted line and a deleted
+    // line must not read as the same color to this palette's reader, and they meet no other role.
+    const [ins, del] = SYNTAX_DIFF_PAIR.map((r) => catResolve(map, `--syntax-${r}`, mode));
+    if (!ins || !del) {
+      errors.push(`checkSyntaxSeparation: ${theme} — --syntax-${!ins ? 'inserted' : 'deleted'} does not resolve to a hex.`);
+      continue;
+    }
+    compared++;
+    const dDiff = oklabDistance(simulate(ins, condition), simulate(del, condition));
+    if (!(dDiff >= floor)) {
+      errors.push(
+        `${theme}: --syntax-inserted (${ins}) and --syntax-deleted (${del}) render ΔE ${dDiff.toFixed(4)} `
+        + `apart UNDER ${condition} — below the ${floor} floor, so a diff's added and removed lines `
+        + 'read as one color to the reader this palette is for.');
+    }
   }
 
   // ANTI-VACUOUS. Every arm above `continue`s on a problem it reports, so a broken
@@ -12154,7 +12176,7 @@ function checkHljsSeparation(errors, themesDir = THEMES_DIR) {
   // is a failure whatever else it said.
   if (compared < 20) {
     errors.push(
-      `checkHljsSeparation made only ${compared} comparison(s) across `
+      `checkSyntaxSeparation made only ${compared} comparison(s) across `
       + `${A11Y_SYNTAX_CONDITIONS.length} palettes — it should make dozens, so the scan is broken.`);
   }
 }
@@ -13255,11 +13277,11 @@ function checkAnimaColorVocabulary(errors) {
  * The Studio editor's derived SYNTAX INK tier must be legible on the editor canvas and
  * tellable apart from the colors the same editor paints from other tokens.
  *
- * WHY A SECOND GATE AND NOT `checkHljsContrast`. That gate holds `--hljs-*` to AA against
+ * WHY A SECOND GATE AND NOT `checkSyntaxContrast`. That gate holds `--syntax-*` to AA against
  * `--code-bg`, the slide's dark code PANEL. This tier is the same hues on a different
  * surface — the Studio editor's `--bg` / `--bg-alt` — and the two answers are not related:
- * 21 of 36 palette-modes put a raw `--hljs-*` below AA on the editor canvas while passing
- * the panel gate, worst 1.01:1. Extending `checkHljsContrast` to a second surface would
+ * 21 of 36 palette-modes put a raw `--syntax-*` below AA on the editor canvas while passing
+ * the panel gate, worst 1.01:1. Extending `checkSyntaxContrast` to a second surface would
  * make it fail on values that are correct for the panel they are tuned for, so the tier
  * gets its own floor against its own surface.
  *
@@ -13524,7 +13546,7 @@ function run() {
   checkFontMetricsPin(errors);
   checkFallbackContracts(errors);
   checkPhantomTokenReads(errors);
-  checkHljsSeparation(errors);
+  checkSyntaxSeparation(errors);
   checkMutedTierFloors(errors);
   return {
     errors,
@@ -13620,10 +13642,10 @@ module.exports = {
   ledgerContractProblems,
   fallbackHops,
   checkPhantomTokenReads,
-  checkHljsSeparation,
+  checkSyntaxSeparation,
   checkMutedTierFloors,
   A11Y_SYNTAX_CONDITIONS,
-  HLJS_ROLES,
+  SYNTAX_ROLES,
   engineDeclaredTokens,
   runtimeWrittenTokens,
   AUTHOR_SET_ENGINE_TOKENS,
@@ -13797,8 +13819,8 @@ module.exports = {
   CAT_INK_COLLAPSE_DIST,
   catInkCollapsePairs,
   checkCatInkFallback,
-  checkHljsContrast,
-  HLJS_TOKENS,
+  checkSyntaxContrast,
+  SYNTAX_TOKENS,
   checkNoSafeDefaultTokens,
   noSafeDefaultTokens,
   fallbackOnlyTokens,

@@ -110,7 +110,7 @@ export const codeFieldTheme = studioTheme(false);
 // `tools/build-docs-portal.js` (`deriveSyntaxInks`) and emitted onto the
 // `html[data-palette][data-mode]` blocks in `lattice-tokens.generated.css`, exactly like
 // the status FILL tokens. They are real code-token colors — the palette's own
-// `--hljs-string` / `--hljs-number`, the same hues the deck's rendered code panel uses —
+// `--syntax-string` / `--syntax-number`, the same hues the deck's rendered code panel uses —
 // with lightness solved until they clear AA on the EDITOR's canvas (`--bg` and
 // `--bg-alt`), and then held clear of the colors these rows below already paint from
 // `--text-heading` / `--text-body` / `--text-muted`. Measured over 18 base palettes x 2
@@ -125,13 +125,13 @@ export const codeFieldTheme = studioTheme(false);
 // NOWHERE in the repo, so the hardcoded hex won on all 36 palette x mode rows and the
 // "every color a theme token" claim above was false for exactly the rows that carried a
 // hue. #1703 pointed them at `--pass` / `--warn`, which cleared AA and preserved the
-// green/amber intent, and justified NOT using `--hljs-*` on the grounds that the four
+// green/amber intent, and justified NOT using `--syntax-*` on the grounds that the four
 // a11y-* base palettes declare none and `resolveToken` would throw on partial coverage.
 // **That reason was false.** `a11y-base` extends `onyx`, which declares the whole syntax
-// family, so all 18 base palettes resolve `--hljs-*` and PORTAL_TOKENS would not have
+// family, so all 18 base palettes resolve `--syntax-*` and PORTAL_TOKENS would not have
 // thrown. The real blocker was the SURFACE: those values are tuned for `--code-bg`, a
 // panel that is dark on every palette in both modes, and 21 of 36 rows put a raw
-// `--hljs-*` below AA on the editor's canvas (worst 1.01:1). Hence a solved tier rather
+// `--syntax-*` below AA on the editor's canvas (worst 1.01:1). Hence a solved tier rather
 // than a direct read.
 //
 // COMMENTS AND PUNCTUATION DELIBERATELY STAY ON `--text-muted`, AND THAT TOKEN IS NOW AA.

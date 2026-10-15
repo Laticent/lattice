@@ -7,7 +7,17 @@
   "title": "Code",
   "description": "Syntax-highlighted code for every fenced block that no other plugin claims, on any slide. Loads highlight.js core plus only the grammars a deck's fences name, so a deck with no code pays nothing for it.",
   "contributes": {
-    "codeRenderer": true
+    "codeRenderer": true,
+    "styles": true
   },
-  "render": { "parity": "equivalent", "degradesTo": "code-block" }
+  "tokens": [
+    "--code-bg", "--code-edge", "--code-text", "--font-mono", "--fs-body-compact", "--lh-base", "--radius-md",
+    "--sp-md", "--sp-sm", "--syntax-builtin", "--syntax-comment", "--syntax-constant", "--syntax-deleted",
+    "--syntax-entity", "--syntax-inserted", "--syntax-keyword", "--syntax-markup", "--syntax-number", "--syntax-parameter",
+    "--syntax-punctuation", "--syntax-string", "--syntax-type", "--syntax-variable"
+  ],
+  "render": {
+    "parity": "equivalent",
+    "degradesTo": "code-block"
+  }
 }

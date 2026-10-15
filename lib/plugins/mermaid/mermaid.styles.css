@@ -1293,3 +1293,125 @@ section.diagram :is(pre, marp-pre):not([data-lattice-settle="rendered"]) > code,
 /* Mermaid gantt — taskTextOutsideLeft/Right ignore taskTextOutsideColor for some
  * bar widths; force dark text in the outside-the-bar margin (was gantt.styles.css). */
 :is(section, figure) .taskTextOutsideLeft, :is(section, figure) .taskTextOutsideRight { fill: var(--text-heading) !important; }
+
+/* ── Moved from lib/integrations/highlight-js/highlight-js.css (2026-10-15), which styled the
+ * diagram source block and the figure's frame and error states alongside highlight.js's token
+ * colors. Those token colors are the code plugin's now (lib/plugins/code/code.styles.css); what is
+ * Mermaid's lives here with the rest of Mermaid's CSS. */
+/* Diagram source <pre> — override Marp's bundled section pre/code defaults */
+section.diagram :is(pre, marp-pre):not([data-lattice-settle="rendered"]),
+section.diagram :is(pre, marp-pre):not([data-lattice-settle="rendered"]) > code,
+section.diagram :is(pre, marp-pre):not([data-lattice-settle="rendered"]) > code [class*="hljs-"] {
+  background: none !important; color: var(--text-muted) !important;
+}
+
+/* Suppress per-token hljs coloring inside the source <pre>. Marp registers
+ * a mermaid hljs grammar in the engine so the rendered HTML wraps the
+ * fence content in <span class="hljs-*"> tokens. Coloring those tokens with
+ * the per-theme `section .hljs-*` rules paints a JavaScript-style highlight
+ * on what is really our diagram source — visually noisy and semantically
+ * misleading (mermaid is not a programming language). Force every hljs span
+ * to inherit the flat code color so the block reads as a plain code block. */
+section.diagram :is(pre, marp-pre):not([data-lattice-settle="rendered"]) > code [class*="hljs-"],
+:is(pre, marp-pre):where([data-lattice-hydrate="mermaid"])[data-lattice-settle]:not([data-lattice-settle="rendered"]) > code [class*="hljs-"] {
+  color:inherit;
+  font-style:inherit;
+  font-weight:inherit;
+  background:none !important;
+}
+
+/* Default container size for non-slide hosts (plain markdown preview,
+ * standalone HTML pages). Mermaid reads getBoundingClientRect() before
+ * rendering and, for diagram types with useMaxWidth:true, scales the SVG
+ * to that width. We give the container fixed pixel dimensions so it has
+ * a deterministic box even when no flex parent provides one.
+ *
+ * :where() reduces specificity to 0 so the slide-context rule
+ * (`section.diagram [data-lattice-figure]`, specificity 0,2,1) always wins. Both
+ * rules would otherwise be (0,2,1) and source order would let this
+ * non-slide rule override the slide-context width. At HD the two values
+ * coincided (1152px, which is what the slide rule's retired inset calc also
+ * produced), hiding the bug; at 4K the container would be stuck at 1152px
+ * instead of 3456px. The slide rule is `width: 100%` since #1598 — the same
+ * specificity story, and the coincidence at HD is unchanged. */
+:where(:is(pre, marp-pre):where([data-lattice-hydrate])[data-lattice-settle="rendered"] + [data-lattice-figure]) {
+  align-items:center; justify-content:center;
+  width:1152px; height:480px;
+  max-width:100%;
+  box-sizing:border-box;
+}
+:is(pre, marp-pre):where([data-lattice-hydrate])[data-lattice-settle="rendered"] + [data-lattice-figure] > svg {
+  max-width:100%; max-height:100%; display:block;
+}
+
+/* Themed parser-error block. Uses the same fail-soft palette as .verdict
+ * and .badge.fail so it feels native to the deck. Width matches the
+ * source <pre> / rendered .mermaid container so the error sits flush with
+ * the diagram slot above it. Height is intrinsic — errors are short. */
+/* Gap from the diagram slot above, for a host where the `.mermaid` container is still
+ * laid out. Carried as padding on that (no-bg) container rather than as a margin-top on
+ * this bordered/filled block, which would bleed its fill and could not be measured —
+ * HARD RULE #20. The container is the error's previous sibling (attachError inserts
+ * afterend of the target).
+ *
+ * ON A DIAGRAM SLIDE THIS IS NOW INERT, and the gap comes from elsewhere. `mermaid.css`
+ * collapses the spent container in both failure states so the source <pre> gets the whole
+ * stage, and `display:none` pays no padding; `.cell-stage`'s flex `gap` supplies the
+ * separation instead. Measured before and after that collapse: the <pre> goes 92px → 216px
+ * and the gap to `.mermaid-error` 140px → 16px. Kept for the hosts that do not wrap a
+ * diagram slide in `.cell-stage`, where the container still lays out. */
+[data-lattice-figure]:has(+ .mermaid-error) {
+  padding-bottom:var(--sp-sm);
+}
+.mermaid-error {
+  padding:var(--sp-xs) var(--sp-md);
+  background:color-mix(in srgb, var(--fail) 8%, var(--bg-alt));
+  border:1px solid var(--fail);
+  border-radius:var(--radius-md);
+  font-size:var(--fs-meta);
+  line-height:var(--lh-snug);
+  color:var(--text-body);
+  display:flex; flex-direction:column; gap:0.3125cqi;
+  flex:0 0 auto;
+  width:1152px; max-width:100%;
+  box-sizing:border-box;
+}
+/* `> .cell-stage >` arm: diagram is `conformance:"strict"`, so its body — the
+ * source `<pre>`, the drawn figure (`[data-lattice-figure]`), and the `.mermaid-error`
+ * block attached after it — hoists into `.cell-stage` on the wrapped (Form) path.
+ * The bare `section.diagram >` arm keeps an unwrapped slide working. */
+/* Full width of the box that already carries the frame inset (#1598) — the error
+ * block replaces the diagram in place, so it must sit on the diagram's own edges;
+ * the retired `calc(100cqi - 2 * var(--sp-2xl))` was a second inset that put it
+ * 64px inside them. design/forms.md §6.1. */
+section.diagram > .mermaid-error,
+section.diagram > .cell-stage > .mermaid-error {
+  width:100%;
+}
+section.diagram > .mermaid-error-label,
+section.diagram > .cell-stage > .mermaid-error-label,
+.mermaid-error-label {
+  font-family:var(--font-mono);
+  font-size:var(--fs-meta);
+  font-weight:700;
+  letter-spacing:0.10em;
+  text-transform:uppercase;
+  color:var(--fail);
+}
+/* Ligatures off: this headline echoes the author's own Mermaid source, which is
+ * built out of `-->`. On mono that renders as an arrow GLYPH, so the error tells
+ * the author their diagram broke and then misquotes the line that broke it. The
+ * `<pre>` sibling below is covered by base.elements.css; a bare <span> is not. */
+.mermaid-error-msg    { font-family:var(--font-mono); color:var(--text-heading); font-variant-ligatures:none; }
+.mermaid-error-detail {
+  margin:0; padding:var(--sp-xs) var(--sp-sm);
+  background:var(--bg);
+  border:1px solid var(--border);
+  border-radius:var(--radius-sm);
+  font-family:var(--font-mono);
+  font-size:var(--fs-meta);
+  line-height:var(--lh-snug);
+  color:var(--text-muted);
+  white-space:pre-wrap; overflow:auto;
+  max-height:12.5cqi;
+}

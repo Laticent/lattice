@@ -58,15 +58,15 @@
 
 :root {
   /* highlight.js syntax */
-  --hljs-comment: #7a818e;
-  --hljs-keyword: #86a2ea;
-  --hljs-built_in: #e1897f;
-  --hljs-number: #c98cc8;
-  --hljs-literal: #5aafe1;
-  --hljs-title: #a09ae6;
-  --hljs-type: #c2a04c;
-  --hljs-variable: #e1897f;
-  --hljs-punctuation: #acb7d2;
+  --syntax-comment:     #7a818e;
+  --syntax-keyword:     #86a2ea;
+  --syntax-builtin:     #e1897f;
+  --syntax-number:      #c98cc8;
+  --syntax-constant:    #5aafe1;
+  --syntax-entity:      #a09ae6;
+  --syntax-type:        #c2a04c;
+  --syntax-variable:    #e1897f;
+  --syntax-punctuation: #acb7d2;
 }
 
 :root {

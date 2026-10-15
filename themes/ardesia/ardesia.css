@@ -160,18 +160,20 @@
 
 /* ── highlight.js syntax tokens ────────────────────────────────────────── */
 :root {
-  --hljs-comment:    #708596;  /* slate mist — muted cool gray               */
-  --hljs-keyword:    #7EA8C8;  /* steel blue — control flow, italic          */
-  --hljs-built_in:   #6ABCB0;  /* sage teal — functions, italic              */
-  --hljs-number:     #C4A882;  /* warm sand — numeric literals               */
-  --hljs-literal:    #A89EC8;  /* muted lavender — booleans/null             */
-  --hljs-string:     #9EC89A;  /* muted sage — strings                       */
-  --hljs-title:      #8EC0DC;  /* sky blue — function names, italic          */
-  --hljs-type:       #C4B882;  /* warm gold — types/annotations              */
-  --hljs-variable:   #8CBCB8;  /* teal — variables                           */
-  --hljs-params:     #B8AC90;  /* warm taupe — parameters                    */
-  --hljs-tag:        #C49090;  /* muted rose — HTML tags                     */
-  --hljs-punctuation:#7890A0;  /* slate — operators, punctuation             */
+  --syntax-comment:     #708596;  /* slate mist — muted cool gray               */
+  --syntax-keyword:     #7EA8C8;  /* steel blue — control flow, italic          */
+  --syntax-builtin:     #6ABCB0;  /* sage teal — functions, italic              */
+  --syntax-number:      #C4A882;  /* warm sand — numeric literals               */
+  --syntax-constant:    #A89EC8;  /* muted lavender — booleans/null             */
+  --syntax-string:      #9EC89A;  /* muted sage — strings                       */
+  --syntax-entity:      #8EC0DC;  /* sky blue — function names, italic          */
+  --syntax-type:        #C4B882;  /* warm gold — types/annotations              */
+  --syntax-variable:    #8CBCB8;  /* teal — variables                           */
+  --syntax-parameter:   #B8AC90;  /* warm taupe — parameters                    */
+  --syntax-markup:      #C49090;  /* muted rose — HTML tags                     */
+  --syntax-punctuation: #7890A0;  /* slate — operators, punctuation             */
+  --syntax-inserted:    #8ddb9c;  /* diff: added lines (green by convention; AA on this panel) */
+  --syntax-deleted:     #ff9b9b;  /* diff: removed lines */
 }
 
 :root {

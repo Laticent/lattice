@@ -98,7 +98,7 @@ formats code.
 | 1 | **Code on a plain slide is unreadable.** Colors tuned for the dark panel render on the light slide with no panel: pale yellow (`load`, `get`, `Promise`) on white. | Rendered `indaco`, slide 1 vs slide 2 of the probe deck (`plain.001.png`, `plain.002.png`) | Every fence gets the panel (§5); the contrast gate measures against the surface the code actually sits on |
 | 2 | **`_focus: line N` and `_build` lines are off by one** after any multi-line token: a two-line comment counts as one line. `_focus: line 3` lit source line 4. | Engine render, this session | The plugin's line model splits highlight.js's output at every newline and re-opens the spans that cross it |
 | 3 | A trailing empty `<span class="ln">` on every focused block | Same render | Same line model; the final newline is not a line |
-| 4 | ~~Mermaid source is tokenized, then `mermaid.hydrate.js:585` reads `textContent` and discards it~~ **Withdrawn while building slice 2.** The colored source is what a reader sees whenever a diagram fails to draw, and tokenizing costs well under a millisecond, so it is not waste. | `host.js:141-145` | None: an `as: "code"` fence stays highlighted |
+| 4 | Mermaid source is tokenized, then `mermaid.hydrate.js:585` reads `textContent`, and Mermaid's own CSS flattens the token colors on a diagram slide | `host.js:141-145`, `mermaid.styles.css` | **Kept, deliberately.** The colors show when the Mermaid plugin is off, where the source is what the reader sees; tokenizing costs well under a millisecond. Re-stated in slice 4 after a first reading wrongly said the colors always showed. |
 | 5 | The full 192-language build loads in every process, ~105 ms | Measured above | Core + per-deck languages (§4) |
 | 6 | `section code.hljs` never matches; the engine emits no `hljs` class | `highlight-js.css:16`, `highlight-js.docs.md:33-35` | Deleted; the plugin's stylesheet targets what it emits |
 | 7 | `registerShellHljs` ships dead in `lattice-runtime-min.js` | Runtime bundle | Moves into the plugin, off the runtime's graph |
@@ -353,3 +353,11 @@ Proof:
 ## 11. Progress
 
 - 2026-10-15: audit, bake-off and owner decisions recorded. Building slice 1.
+- 2026-10-15: slices 1-3 shipped (line model, the plugin and lazy grammars, per-deck grammars in the Studio).
+- 2026-10-15: slice 4 — the panel on every fence and the `--syntax-*` roles. Three things the plan did not foresee:
+  the theme spec named the tokens (the owner chose to amend the unsigned 1.0 draft); half the dark variants paint
+  `--code-bg` the same as the slide, so the panel gained an inner edge (`--code-edge`); and the four optional roles
+  stay out of `REQUIRED_TOKENS` (the engine defaults them) but are derived and serialized as known names
+  (`OPTIONAL_TOKENS`). Defect 4 is re-stated, not withdrawn: Mermaid's own CSS flattens its source colors on a diagram
+  slide, so its grammar shows only when the plugin is off; tokenizing costs under a millisecond, so it stays.
+

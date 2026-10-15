@@ -15,7 +15,7 @@ const user = await api.get(id);
 ```
 ````
 
-- renders `<code class="language-ts">`
+- renders `<pre class="lat-code"><code class="language-ts">`
 - renders `hljs-keyword`
 
 ## an alias loads its language
@@ -41,7 +41,7 @@ def load(id): return cache.get(id)
 - renders `&lt;b&gt;`
 - omits `hljs-`
 
-## an untagged fence is plain text
+## an untagged fence is plain text on the code panel
 
 ````markdown
 ```
@@ -49,7 +49,7 @@ plain <text>
 ```
 ````
 
-- renders `<pre><code>plain &lt;text&gt;`
+- renders `<pre class="lat-code"><code>plain &lt;text&gt;`
 - omits `hljs-`
 
 ## a shell command list gets Lattice's shell grammar
@@ -62,6 +62,18 @@ docker compose up -d --build
 
 - renders `hljs-built_in">docker`
 - renders `hljs-params">--build`
+
+## a mermaid fence keeps its plugin's own source block, not the panel
+
+````markdown
+```mermaid
+flowchart LR
+  A --> B
+```
+````
+
+- renders `<pre><code class="language-mermaid">`
+- omits `lat-code`
 
 ## HTML colors the script and style it embeds
 

@@ -151,7 +151,7 @@ describe('theme-parse — the shipped corpus', () => {
     }
     // Named rather than merely counted: these are the families whose loss is a
     // rendering defect, not a thinner file.
-    for (const name of ['cat-1-texture', 'cat-12-texture', 'chart-cat1-ink', 'hljs-params', 'hljs-tag']) {
+    for (const name of ['cat-1-texture', 'cat-12-texture', 'chart-cat1-ink', 'syntax-parameter', 'syntax-markup']) {
       assert.ok(survivors.has(name), `--${name} is not in the corpus any more — re-check the extras claim`);
       assert.ok(!required.has(name), `--${name} joined REQUIRED_TOKENS; it is no longer an "extra"`);
     }
@@ -251,10 +251,13 @@ describe('theme-parse — the generator half', () => {
   });
 
   test('serializeTheme emits names outside the contract', () => {
-    const extras = { 'cat-1-texture': 'url(#t1)', 'brand-navy': '#1F4A6E', 'hljs-tag': '#8250df' };
+    const extras = { 'cat-1-texture': 'url(#t1)', 'brand-navy': '#1F4A6E', 'chart-cat1-ink': '#8250df' };
     const css = serializeTheme({ ...map, ...extras }, { name: 'probe', label: 'Probe' });
     const view = themeRecordView(parseTheme(css));
-    assert.deepEqual(view.tokens.filter((t) => !t.contract).map((t) => t.name), Object.keys(extras));
+    // The optional syntax roles derivation also solves (derive.js OPTIONAL_TOKENS) are outside the
+    // required contract too, and written in the syntax block, ahead of the extras.
+    const { OPTIONAL_TOKENS } = require('../../../lib/theme/derive.js');
+    assert.deepEqual(view.tokens.filter((t) => !t.contract).map((t) => t.name), [...OPTIONAL_TOKENS.syntax, ...Object.keys(extras)]);
     assert.equal(view.tokens.length, Object.keys(map).length + Object.keys(extras).length);
   });
 

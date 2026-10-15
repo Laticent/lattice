@@ -1114,18 +1114,22 @@ section.print {
    * darkest, string/comment/punctuation lighter — legible and B&W-safe. */
   --code-bg: var(--print-bg-alt);
   --code-text: var(--print-text-body);
-  --hljs-comment: var(--print-text-muted);
-  --hljs-keyword: var(--print-text-heading);
-  --hljs-built_in: var(--print-text-body);
-  --hljs-number: var(--print-text-body);
-  --hljs-literal: var(--print-text-body);
-  --hljs-string: var(--print-text-secondary);
-  --hljs-title: var(--print-text-heading);
-  --hljs-type: var(--print-text-body);
-  --hljs-variable: var(--print-text-body);
-  --hljs-params: var(--print-text-body);
-  --hljs-tag: var(--print-text-body);
-  --hljs-punctuation: var(--print-text-secondary);
+  --syntax-comment:     var(--print-text-muted);
+  --syntax-keyword:     var(--print-text-heading);
+  --syntax-builtin:     var(--print-text-body);
+  --syntax-number:      var(--print-text-body);
+  --syntax-constant:    var(--print-text-body);
+  --syntax-string:      var(--print-text-secondary);
+  --syntax-entity:      var(--print-text-heading);
+  --syntax-type:        var(--print-text-body);
+  --syntax-variable:    var(--print-text-body);
+  --syntax-parameter:   var(--print-text-body);
+  --syntax-markup:      var(--print-text-body);
+  --syntax-punctuation: var(--print-text-secondary);
+  /* In print the +/- marker that starts every diff line carries the difference, so the two roles
+   * take the hierarchy's two ends (heading and muted) rather than two mid grays a printer merges. */
+  --syntax-inserted:    var(--print-text-heading);
+  --syntax-deleted:     var(--print-text-muted);
   --spectrum: var(--print-border);  /* the rainbow ribbon → a flat gray rule (code panel edge, etc.) */
   /* Paper is a LIGHT canvas, so the mark takes the light-canvas treatment even on a
    * `dark print` slide. `initial` makes a custom property the guaranteed-invalid value,

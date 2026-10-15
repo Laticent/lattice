@@ -206,10 +206,10 @@
  * Background is kept as our brand dark (#001D33 + spectrum) rather than
  * Night Owl's #011627. All token colors are verbatim Night Owl values. */
 :root {
-  --hljs-comment:    #95aaaa;  /* Night Owl: muted teal-gray, italic     */
-  --hljs-keyword:    #c792ea;  /* Night Owl: soft purple, italic         */
-  --hljs-built_in:   #addb67;  /* Night Owl: yellow-green — functions    */
-  --hljs-number:     #F78C6C;  /* Night Owl: warm orange                 */
+  --syntax-comment:     #95aaaa;  /* Night Owl: muted teal-gray, italic     */
+  --syntax-keyword:     #c792ea;  /* Night Owl: soft purple, italic         */
+  --syntax-builtin:     #addb67;  /* Night Owl: yellow-green — functions    */
+  --syntax-number:      #F78C6C;  /* Night Owl: warm orange                 */
   /* NOT verbatim Night Owl, and deliberately so. Night Owl's own #ff5874 is tuned
    * for Night Owl's panel (#011627); indaco's --code-bg is the lighter #003d66,
    * and the borrowed value lands at 3.71:1 there — under AA, and rendering that
@@ -217,14 +217,16 @@
    * concat order, which is why no before/after sweep of the two orders could find it.
    * Lifted in OKLCH holding hue (14.4 -> 14.3), +0.054 lightness: 4.67:1.
    * Chroma drops 0.202 -> 0.156 because the hue runs out of gamut that light. */
-  --hljs-literal:    #ff7f8e;  /* Night Owl pink-red, lifted for this panel */
-  --hljs-string:     #ecc48d;  /* Night Owl: warm gold/tan               */
-  --hljs-title:      #DCDCAA;  /* Night Owl: pale yellow, italic         */
-  --hljs-type:       #82aaff;  /* Night Owl: periwinkle — type names     */
-  --hljs-variable:   #addb67;  /* Night Owl: yellow-green — variables    */
-  --hljs-params:     #7fdbca;  /* Night Owl: mint — function parameters  */
-  --hljs-tag:        #7fdbca;  /* Night Owl: mint — HTML tags / names    */
-  --hljs-punctuation:#d6deeb;  /* base text — operators, punctuation     */
+  --syntax-constant:    #ff7f8e;  /* Night Owl pink-red, lifted for this panel */
+  --syntax-string:      #ecc48d;  /* Night Owl: warm gold/tan               */
+  --syntax-entity:      #DCDCAA;  /* Night Owl: pale yellow, italic         */
+  --syntax-type:        #82aaff;  /* Night Owl: periwinkle — type names     */
+  --syntax-variable:    #addb67;  /* Night Owl: yellow-green — variables    */
+  --syntax-parameter:   #7fdbca;  /* Night Owl: mint — function parameters  */
+  --syntax-markup:      #7fdbca;  /* Night Owl: mint — HTML tags / names    */
+  --syntax-punctuation: #d6deeb;  /* base text — operators, punctuation     */
+  --syntax-inserted:    #8ddb9c;  /* diff: added lines (green by convention; AA on this panel) */
+  --syntax-deleted:     #ff9b9b;  /* diff: removed lines */
 }
 
 /* ── Diagram tokens ────────────────────────────────────────────────────

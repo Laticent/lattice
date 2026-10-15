@@ -53,7 +53,7 @@
  *       graphite was a near-black bar across every light slide. The lime tip was
  *       still there, which is what made it easy to miss.);
  *     · --surface-inverse is DARK on both faces, so the code block keeps its
- *       terminal register and all twelve --hljs-* values stay valid.
+ *       terminal register and all twelve --syntax-* values stay valid.
  *
  * Design contract
  * ───────────────
@@ -109,7 +109,7 @@
   /* INVERSE IS DARK ON BOTH FACES, deliberately. It is the code-block ground and
    * the split-panel fill; carbone's terminal register is the most recognizable
    * thing it owns, so the light face keeps a graphite block rather than inverting
-   * to paper. The twelve --hljs-* values are curated on it and stay valid. */
+   * to paper. The twelve --syntax-* values are curated on it and stay valid. */
   --surface-inverse:  light-dark(#0E0E10, #0E0E10);
   --border:   light-dark(#818486, var(--scheme-dark-border));  /* 3.49 / 3.52 hairline */
 
@@ -372,18 +372,20 @@
  * kept to a single accent so the terminal register never feels warm.
  * All values clear ≥4.5:1 on the code block background (#0E0E10). */
 :root {
-  --hljs-comment:    #688368;  /* muted forest green, italic             */
-  --hljs-keyword:    #7DE38A;  /* electric accent green — control flow   */
-  --hljs-built_in:   #4FC6C6;  /* bright cyan — built-in functions       */
-  --hljs-number:     #F2C05A;  /* warm amber — numeric literals          */
-  --hljs-literal:    #D98FD6;  /* soft violet — booleans/null            */
-  --hljs-string:     #88D4A8;  /* cool jade-green — strings              */
-  --hljs-title:      #A8D8F0;  /* pale sky-blue, italic — function names */
-  --hljs-type:       #78BCDE;  /* steel blue — types/annotations         */
-  --hljs-variable:   #B0E0B0;  /* light sage — variables                 */
-  --hljs-params:     #8FC8C0;  /* teal-mint — parameters                 */
-  --hljs-tag:        #5BC8E8;  /* electric cyan — HTML tags              */
-  --hljs-punctuation:#788090;  /* cool slate — operators, punctuation    */
+  --syntax-comment:     #688368;  /* muted forest green, italic             */
+  --syntax-keyword:     #7DE38A;  /* electric accent green — control flow   */
+  --syntax-builtin:     #4FC6C6;  /* bright cyan — built-in functions       */
+  --syntax-number:      #F2C05A;  /* warm amber — numeric literals          */
+  --syntax-constant:    #D98FD6;  /* soft violet — booleans/null            */
+  --syntax-string:      #88D4A8;  /* cool jade-green — strings              */
+  --syntax-entity:      #A8D8F0;  /* pale sky-blue, italic — function names */
+  --syntax-type:        #78BCDE;  /* steel blue — types/annotations         */
+  --syntax-variable:    #B0E0B0;  /* light sage — variables                 */
+  --syntax-parameter:   #8FC8C0;  /* teal-mint — parameters                 */
+  --syntax-markup:      #5BC8E8;  /* electric cyan — HTML tags              */
+  --syntax-punctuation: #788090;  /* cool slate — operators, punctuation    */
+  --syntax-inserted:    #8ddb9c;  /* diff: added lines (green by convention; AA on this panel) */
+  --syntax-deleted:     #ff9b9b;  /* diff: removed lines */
 }
 
 /* ── Chart-family palette ───────────────────────────────────────────────

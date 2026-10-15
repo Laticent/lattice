@@ -160,18 +160,20 @@
 
 /* ── highlight.js syntax tokens ────────────────────────────────────────── */
 :root {
-  --hljs-comment:    #9482b6;  /* muted violet — muted                       */
-  --hljs-keyword:    #A888DC;  /* bright violet — control flow, italic       */
-  --hljs-built_in:   #78C8C0;  /* teal — functions, italic                   */
-  --hljs-number:     #E8C870;  /* warm gold — numeric literals               */
-  --hljs-literal:    #C898C0;  /* lavender rose — booleans/null              */
-  --hljs-string:     #98D898;  /* pale sage — strings                        */
-  --hljs-title:      #B8A0E0;  /* bright lavender — function names, italic   */
-  --hljs-type:       #C8B8E8;  /* pale violet — types/annotations            */
-  --hljs-variable:   #88C0C8;  /* teal — variables                           */
-  --hljs-params:     #C0A8D8;  /* soft lavender — parameters                 */
-  --hljs-tag:        #E098A0;  /* muted rose — HTML tags                     */
-  --hljs-punctuation:#a28ac3;  /* muted violet — operators                   */
+  --syntax-comment:     #9482b6;  /* muted violet — muted                       */
+  --syntax-keyword:     #A888DC;  /* bright violet — control flow, italic       */
+  --syntax-builtin:     #78C8C0;  /* teal — functions, italic                   */
+  --syntax-number:      #E8C870;  /* warm gold — numeric literals               */
+  --syntax-constant:    #C898C0;  /* lavender rose — booleans/null              */
+  --syntax-string:      #98D898;  /* pale sage — strings                        */
+  --syntax-entity:      #B8A0E0;  /* bright lavender — function names, italic   */
+  --syntax-type:        #C8B8E8;  /* pale violet — types/annotations            */
+  --syntax-variable:    #88C0C8;  /* teal — variables                           */
+  --syntax-parameter:   #C0A8D8;  /* soft lavender — parameters                 */
+  --syntax-markup:      #E098A0;  /* muted rose — HTML tags                     */
+  --syntax-punctuation: #a28ac3;  /* muted violet — operators                   */
+  --syntax-inserted:    #8ddb9c;  /* diff: added lines (green by convention; AA on this panel) */
+  --syntax-deleted:     #ff9b9b;  /* diff: removed lines */
 }
 
 :root {

@@ -58,9 +58,9 @@ const CONTRACT = [
   'scheme-dark-text-body', 'scheme-dark-text-display', 'scheme-dark-text-secondary',
   'scheme-dark-text-label', 'scheme-dark-text-muted',
   // highlight.js
-  'hljs-comment', 'hljs-keyword', 'hljs-built_in', 'hljs-number',
-  'hljs-literal', 'hljs-string', 'hljs-title', 'hljs-type', 'hljs-variable',
-  'hljs-params', 'hljs-tag', 'hljs-punctuation',
+  'syntax-comment', 'syntax-keyword', 'syntax-builtin', 'syntax-number',
+  'syntax-constant', 'syntax-string', 'syntax-entity', 'syntax-type', 'syntax-variable',
+  'syntax-parameter', 'syntax-markup', 'syntax-punctuation',
   // categorical band scale (12 paired slots) + role tokens
   ...Array.from({ length: 12 }, (_, i) => [`cat-${i + 1}-fill`, `cat-${i + 1}-mark`]).flat(),
   'diagram-stroke', 'diagram-line', 'cat-on-fill', 'cat-on-mark', 'diagram-active',

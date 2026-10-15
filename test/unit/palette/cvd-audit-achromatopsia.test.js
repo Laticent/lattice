@@ -2,7 +2,7 @@
  * Unit: tools/cvd-audit.js — the ACHROMATOPSIA arm (#1715 §9).
  *
  * `lib/theme/cvd.js` has been able to simulate a monochromacy since #1715, and
- * `checkHljsSeparation` used it — but the CLI a human runs could not reach it. The
+ * `checkSyntaxSeparation` used it — but the CLI a human runs could not reach it. The
  * defect shape is the one that change logged twice: the measurement primitive exists,
  * a build-time gate already uses it, and the surface a person reads does not.
  *

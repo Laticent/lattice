@@ -1,5 +1,5 @@
 /**
- * Unit: the `--hljs-*` syntax colors against the code panel they sit on (#1527).
+ * Unit: the `--syntax-*` syntax colors against the code panel they sit on (#1527).
  *
  * WHY THIS EXISTS. Twelve tokens × 32 themes × 2 modes and no contrast test
  * anywhere — the one large token family `checkCatContrast` does not reach. The
@@ -9,8 +9,8 @@
  * #1527's before/after sweep could never have found it, because a value under the
  * floor in *both* orders never registers as a crossing.
  *
- * ALL TWELVE TOKENS ARE GATED. The first cut exempted `--hljs-comment` and
- * `--hljs-punctuation` as deliberately quiet; the 110 sub-floor values behind that
+ * ALL TWELVE TOKENS ARE GATED. The first cut exempted `--syntax-comment` and
+ * `--syntax-punctuation` as deliberately quiet; the 110 sub-floor values behind that
  * exemption were repaired instead.
  *
  * Four things have to hold at once, and each has its own test below, because three
@@ -38,7 +38,7 @@ const os = require('node:os');
 const path = require('node:path');
 
 const {
-  checkHljsContrast, HLJS_TOKENS, catResolve, catContrast,
+  checkSyntaxContrast, SYNTAX_TOKENS, catResolve, catContrast,
 } = require('../../../tools/check-ownership.js');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
@@ -113,10 +113,10 @@ function themesWithMutation(token) {
   return dir;
 }
 
-describe('--hljs-* contrast against --code-bg', () => {
+describe('--syntax-* contrast against --code-bg', () => {
   test('the live tree is clean', () => {
     const errors = [];
-    checkHljsContrast(errors);
+    checkSyntaxContrast(errors);
     assert.deepEqual(errors, []);
   });
 
@@ -124,10 +124,10 @@ describe('--hljs-* contrast against --code-bg', () => {
     // The exemption this replaced meant two tokens could be driven to near-zero
     // contrast and the gate stayed green. If one ever comes back, exactly this
     // fails, and it fails per-token rather than in aggregate.
-    for (const token of HLJS_TOKENS) {
+    for (const token of SYNTAX_TOKENS) {
       const dir = themesWithMutation(token);
       const errors = [];
-      checkHljsContrast(errors, dir);
+      checkSyntaxContrast(errors, dir);
       fs.rmSync(dir, { recursive: true, force: true });
       assert.notDeepEqual(errors, [], `${token} driven to near-invisible must fail the gate`);
       assert.ok(errors.join(' ').includes(token), `the failure must NAME ${token}, not just count it`);
@@ -142,7 +142,7 @@ describe('--hljs-* contrast against --code-bg', () => {
       for (const mode of ['light', 'dark']) {
         const bg = catResolve(map, '--code-bg', mode);
         if (!bg) continue;
-        for (const t of HLJS_TOKENS) {
+        for (const t of SYNTAX_TOKENS) {
           if (!map.has(t)) continue;
           const fg = catResolve(map, t, mode);
           if (fg && catContrast(fg, bg) < FLOOR) {
@@ -165,14 +165,14 @@ describe('--hljs-* contrast against --code-bg', () => {
       const map = tokens(flatten(f.replace(/\.css$/, '')));
       for (const mode of ['light', 'dark']) {
         const bg = catResolve(map, '--code-bg', mode);
-        const cfg = map.has('--hljs-comment') && catResolve(map, '--hljs-comment', mode);
+        const cfg = map.has('--syntax-comment') && catResolve(map, '--syntax-comment', mode);
         if (!bg || !cfg) continue;
         const comment = catContrast(cfg, bg);
-        for (const t of HLJS_TOKENS) {
-          // `--hljs-punctuation` is quiet by the same design and lands at the same
+        for (const t of SYNTAX_TOKENS) {
+          // `--syntax-punctuation` is quiet by the same design and lands at the same
           // floor, so the two sit within a few hundredths of each other; the
           // meaningful comparison is against the tokens that carry the CODE.
-          if (t === '--hljs-comment' || t === '--hljs-punctuation' || !map.has(t)) continue;
+          if (t === '--syntax-comment' || t === '--syntax-punctuation' || !map.has(t)) continue;
           const fg = catResolve(map, t, mode);
           if (fg && catContrast(fg, bg) < comment) {
             louder.push(`${f}/${mode} ${t} ${catContrast(fg, bg).toFixed(2)} < comment ${comment.toFixed(2)}`);
@@ -196,8 +196,8 @@ describe('--hljs-* contrast against --code-bg', () => {
       if (!f.endsWith('.css')) continue;
       const map = tokens(flatten(f.replace(/\.css$/, '')));
       for (const mode of ['light', 'dark']) {
-        const c = map.has('--hljs-comment') && catResolve(map, '--hljs-comment', mode);
-        const p = map.has('--hljs-punctuation') && catResolve(map, '--hljs-punctuation', mode);
+        const c = map.has('--syntax-comment') && catResolve(map, '--syntax-comment', mode);
+        const p = map.has('--syntax-punctuation') && catResolve(map, '--syntax-punctuation', mode);
         if (!c || !p) continue;
         const d = oklabDistance(c, p);
         if (d < FLOOR_DE) collapsed.push(`${f}/${mode} ${c} vs ${p} dE ${d.toFixed(4)}`);
@@ -208,9 +208,9 @@ describe('--hljs-* contrast against --code-bg', () => {
 
   test('EXPORT PATH — the base value is a FALLBACK, and nothing inherits it today', () => {
     // Before #1527 `lattice.js` concatenated `paletteCSS + layoutCSS`, so the
-    // base loaded AFTER the theme and its --hljs-* won on every panel; a theme's own
+    // base loaded AFTER the theme and its --syntax-* won on every panel; a theme's own
     // value never painted on the export. That is what left indaco rendering
-    // --hljs-literal at 3.71:1 and --hljs-comment at 3.06:1 while the gate reported
+    // --syntax-constant at 3.71:1 and --syntax-comment at 3.06:1 while the gate reported
     // clean and a "Fixed" changelog entry shipped.
     //
     // The flip landed. The base's value now paints in exactly two places: on the
@@ -227,7 +227,7 @@ describe('--hljs-* contrast against --code-bg', () => {
       if (!f.endsWith('.css')) continue;
       const own = tokens(flattenOwn(f.replace(/\.css$/, '')));
       const map = tokens(flatten(f.replace(/\.css$/, '')));
-      for (const t of HLJS_TOKENS) {
+      for (const t of SYNTAX_TOKENS) {
         if (own.has(t)) continue;
         inheriting.push(`${f} inherits ${t}`);
         for (const mode of ['light', 'dark']) {
@@ -258,9 +258,9 @@ describe('--hljs-* contrast against --code-bg', () => {
     const own = tokens(flattenOwn('indaco'));
     const bg = catResolve(map, '--code-bg', 'light');
     assert.equal(bg, '#003d66');
-    assert.ok(own.has('--hljs-literal'), 'indaco must declare its own --hljs-literal for this to be its surface');
-    const fg = catResolve(map, '--hljs-literal', 'light');
+    assert.ok(own.has('--syntax-constant'), 'indaco must declare its own --syntax-constant for this to be its surface');
+    const fg = catResolve(map, '--syntax-constant', 'light');
     assert.ok(catContrast(fg, bg) >= FLOOR,
-      `indaco --hljs-literal ${fg} on ${bg} = ${catContrast(fg, bg).toFixed(2)}:1`);
+      `indaco --syntax-constant ${fg} on ${bg} = ${catContrast(fg, bg).toFixed(2)}:1`);
   });
 });
