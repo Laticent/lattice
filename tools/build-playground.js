@@ -253,9 +253,9 @@ function assertLintParserIsolated(metafile) {
   const lintReach = reach(lintEntry);
   if (shared && lintReach.has(shared)) problems.push('the lint core reaches the engine\'s boundary-parser.mjs');
   // The engine build swaps some modules for browser stand-ins (KaTeX, plugin data, the chart
-  // registry, highlight.js's common build). vitest runs the lint core from authoring-core.generated.js,
+  // registry, the code plugin's grammar loader). vitest runs the lint core from authoring-core.generated.js,
   // which has none of them, so a lint that reached one would pass its tests and differ in the browser.
-  const stubbed = [path.join(ROOT, 'lib', 'engine', 'katex-browser-stub.js'), PLUGIN_DATA_STUB, HLJS_COMMON].map((p) => path.relative(ROOT, p));
+  const stubbed = [path.join(ROOT, 'lib', 'engine', 'katex-browser-stub.js'), PLUGIN_DATA_STUB, CODE_LOAD_GRAMMAR_BROWSER].map((p) => path.relative(ROOT, p));
   for (const k of lintReach) {
     if (k.startsWith('lazy-chart-registry:') || stubbed.includes(k)) problems.push(`the lint core reaches ${k}, which the engine build replaces with a browser stand-in`);
   }
