@@ -121,7 +121,7 @@ First, the agent itself.
 ## The agent loop: it repeats until it thinks it's finished.
 
 - Read
-  - The request and files.
+  - Your booking request and files.
 - Plan
   - The next step.
 - Act
@@ -213,7 +213,7 @@ A quick refresher. A change becomes a pull request, CI runs the checks, someone 
 
 - Did the tests run?
   - Or did the agent assume they would pass?
-- Do they test the feature?
+- Do they test booking?
   - A test that can't fail proves nothing.
 - The one rule
   - What you ship must match what you say you shipped.
@@ -250,14 +250,14 @@ Three mistakes nearly everyone makes in their first week with an agent. Trusting
 ## The agent says "Booking works, all tests pass." What do you do first?
 
 - A
-  - Merge it. CI is green.
-- B
   - Check which tests ran, and what they actually test.
+- B
+  - Merge it. CI is green.
 - C
   - Ask the agent if it's sure.
 
 <!--
-The answer is B. The report is the agent's belief. The tests are evidence only if they ran and only if they check booking. A trusts a green light without knowing what it lights up for. C asks the same loop to check itself, and it will almost always say yes.
+The answer is A. The report is the agent's belief. The tests are evidence only if they ran and only if they check booking. B trusts a green light without knowing what it lights up for. C asks the same loop to check itself, and it will almost always say yes.
 -->
 
 ---
@@ -489,21 +489,24 @@ A declarative request works on one condition: it has to be complete, because the
 
 ---
 
-<!-- _class: cards-grid three -->
+<!-- _class: diagram insight-key -->
 
-`Chapter 1 · Directing`
+`Chapter 1 · Asking`
 
-## Lead, follow, or step back.
+## For anything bigger than a small fix, have the agent plan before it builds.
 
-- Lead
-  - When the goal is unclear, set the direction and say why.
-- Follow
-  - When the agent knows a library better, let it propose.
-- Step back
-  - When checks are in place, let it run.
+```mermaid
+%%{init: {'themeVariables': {'fontSize': '22px'}}}%%
+flowchart LR
+  A["Explore<br/>read the code"] --> B["Plan<br/>write the steps"]
+  B --> C["You review the plan<br/>send it back if wrong"]
+  C --> D["Build"] --> E["Verify"]
+```
+
+> A wrong plan costs a minute to fix. Wrong code costs an afternoon.
 
 <!--
-Think about the best manager you've had. They led when you were lost, followed when you knew the ground better, and stepped back when you had it. Do the same with an agent. Lead on what the booking app should do. Follow when it knows a date library better than you do. Step back once the checks are in place. Don't try to control every line.
+Here's the workflow that matters most, and the one new users skip. For anything bigger than a small fix, don't let the agent start typing. First it explores: it reads the code it will touch. Then it writes a plan: which files, which steps, how it will test. Then you review the plan, before any code exists. For booking, that's where you catch "I'll compare times in the user's local zone" and send it back. Then it builds, and then it verifies. Most coding agents have a planning mode for exactly this. A wrong plan costs a minute to fix. Wrong code costs an afternoon.
 -->
 
 ---
@@ -534,14 +537,14 @@ Three common mistakes. Vague notes get guesses. No finish line means the agent s
 ## Which request is most likely to get booking right the first time?
 
 - A
-  - "Build booking. Make it robust!!!"
+  - "Store times in UTC. Prevent overlaps."
 - B
-  - "Store times in UTC. A 2–3 pm booking must not block 3–4 pm. Test two time zones."
+  - "Read docs/time.md first and follow it exactly."
 - C
-  - "Please build a booking feature when you can."
+  - "Store times in UTC. 2–3 pm must not block 3–4 pm. Test two zones."
 
 <!--
-The answer is B. It says what to do, settles the two cases agents get wrong, and says how to prove it. A is loud and vague: "robust" doesn't say robust against what. C is polite and vague. Politeness isn't the problem; the missing information is.
+The answer is C. All three sound reasonable, and that's the point. A names the rules but not the edge: does a booking that ends at 3 overlap one that starts at 3? The agent will guess. B sends it to the right document but doesn't say what done looks like, so it stops at the first version that passes. C settles the edge case and says how to prove it.
 -->
 
 ---
@@ -752,8 +755,8 @@ Teaches: token
 ## Three habits keep the view full of what matters.
 
 - Read by section: list the headings, then open only what you need.
-- Hand big reads to a subagent: a helper agent that returns a summary.
-- Measure what fills the view before you trim it.
+- Hand big reads, like booking logs, to a subagent: a helper agent that returns a summary.
+- Measure what fills the view before trimming.
 
 <!--
 Three habits. Read long documents by section instead of whole. Hand big reads, like a long log, to a subagent: a helper agent that reads it in its own separate window and gives back just a summary. And measure what's actually filling the window before you trim it, because guesses about where the space goes are usually wrong.
@@ -802,14 +805,14 @@ Agents copy whatever they read. If the first files mix two spellings or three da
 
 `Chapter 2 · The first example`
 
-## Build one feature end to end, by hand if need be, before you scale.
+## Get booking right end to end before agents build anything else.
 
 1. The rules
    - What must stay true, and why.
 2. The checks
    - Tests that catch drift.
 3. One example
-   - Booking, done right, to copy.
+   - One feature, done right, to copy.
 4. Kept flat
    - Plain beats clever.
 
@@ -842,17 +845,17 @@ Three ways teams fill the agent's view with the wrong things. An instruction fil
 
 `Chapter 2 · Check`
 
-## You wrote the UTC rule in a design doc, but the agent ignores it. Why?
+## The agent ignores your design doc's UTC rule. Why?
 
 - A
-  - The model is broken.
+  - Nothing pointed it to the doc.
 - B
-  - The doc was never in its context window.
+  - The instruction file is long; the rule got lost.
 - C
-  - The rule needs capital letters.
+  - The rule reads as a suggestion.
 
 <!--
-The answer is B. The agent can't follow a rule it never saw. If the design doc wasn't opened, it wasn't in the context window, so as far as the agent knows, the rule doesn't exist. The fix is a line in the index that points to the doc. Capital letters, answer C, would only make it overreact once it did see the rule.
+The answer is A. The rule lives in a design doc, and nothing in the index points there, so the doc never entered the agent's context window. As far as the agent knows, the rule doesn't exist. B and C both happen, but they assume the agent saw the rule. Check that first: most "ignored" rules were never read. The fix is one line in the index that points to the doc.
 -->
 
 ---
@@ -1127,17 +1130,17 @@ Three ways permission goes wrong. Ask about everything, and you stop reading the
 
 `Chapter 3 · Check`
 
-## Which action should your agent ask about first?
+## Which of these should your agent ask about first?
 
 - A
-  - Rewrite its own booking test.
+  - Write a migration that adds a column, in its own branch.
 - B
-  - Rename a variable inside its own change.
+  - Run that migration on the shared staging database.
 - C
-  - Send a test invite to every employee.
+  - Upgrade the date library to fix a time-zone bug, in its own branch.
 
 <!--
-The answer is C. It reaches thousands of real people, and an invite can't be unsent. A and B are inside the agent's own change and easy to undo, so it should just do them.
+The answer is B. It's tempting to think "it's only staging," but other teams test against that database, and a migration is hard to undo. A and C feel bigger, but both stay inside the agent's own branch: nothing happens to anyone until a reviewed pull request merges. Reach, not size, decides.
 -->
 
 ---
@@ -1291,6 +1294,27 @@ Agents often write tests that can't fail. The one on the left compares a result 
 
 ---
 
+<!-- _class: list-steps -->
+
+`Chapter 4 · Claims and proof`
+
+## Review the agent's change in this order.
+
+1. The plan
+   - Does it match what you agreed?
+2. The tests
+   - Do they test booking, and can they fail?
+3. The diff
+   - Look for what's missing.
+4. Size
+   - Too big to read? Ask for smaller changes.
+
+<!--
+Agents write fast, so you'll read a lot of diffs. Read them in this order. First, does the change match the plan you agreed? Second, the tests: they tell you what the agent thinks done means, so check they cover the booking rules and could actually fail. Third, the diff itself, looking hardest for what's missing: the error case, the second time zone, the docs. And if the change is too big to read properly, don't skim it. Ask for it in smaller pieces. A 300-line pull request gets a real review; a 3,000-line one gets a rubber stamp.
+-->
+
+---
+
 <!-- _class: topic -->
 <!-- _header: '' -->
 
@@ -1310,19 +1334,19 @@ Second, the checks themselves.
 
 `Chapter 4 · Gates`
 
-## Set up three gates before the first feature.
+## Agents will try to get past a gate. Make every gate hold.
 
 1. Your machine
    - A hook: lint and fast tests, in seconds.
 2. The pull request
-   - CI runs every test, in minutes.
+   - CI runs every test.
 3. The merge queue
    - Tests changes together.
-4. If one fails
-   - Fix the cause. Never skip it.
+4. The rule
+   - Never skip or loosen a gate.
 
 <!--
-You know these three gates. What's new is how much they matter once an agent writes most of the code. A hook on your machine runs lint and fast tests in seconds. CI runs every test on the pull request. The merge queue tests each change together with the others waiting, so two changes that each pass alone can't break main together. And when a gate fails, fix the cause. Agents sometimes skip a hook to get past it; your instruction file should forbid that.
+You know these three gates. What's new is that an agent under pressure to finish will try to get past them: skip the hook, mark a test as skipped, loosen a threshold. It isn't malicious; it's optimizing for "done." So write the rule into the instruction file: never skip, disable or loosen a gate to get green. Fix the cause, or stop and ask.
 -->
 
 ---
@@ -1387,14 +1411,14 @@ Three ways proof goes wrong. Taking "done" at face value. Keeping tests that pas
 ## Which report proves double booking is fixed?
 
 - A
-  - "Fixed. Should be good now."
+  - "All 1,800 tests pass, plus a new overlap test."
 - B
-  - "All 1,800 tests pass."
+  - "I ran the app; booking looks right."
 - C
-  - "London and New York tried Room 4 at the same hour; the second was refused. Screenshot attached."
+  - "The two-zone test fails on the old code, passes now. On staging, Room 4 from both zones: refused."
 
 <!--
-The answer is C. It names where it was checked, the real booking flow, and shows the evidence. A is a feeling. B sounds strong, but the same tests passed while the bug was live, so passing them again proves nothing about this fix.
+The answer is C. A sounds strong, but a new test proves nothing until you've seen it fail on the old code; it might not test the bug at all. B is a real check on the real app, but "looks right" doesn't say what was tried. C shows the test can fail, and shows the real flow refusing the exact case that broke.
 -->
 
 ---
@@ -1641,17 +1665,17 @@ Three ways teams forget. Fixing the bug but not the cause. Writing rules without
 
 `Chapter 5 · Check`
 
-## A new session wants to store booking times in local time. What stops it?
+## What's the least you leave behind so double booking stays fixed?
 
 - A
-  - Nothing. It starts fresh each time.
+  - The fix and a test that fails on the old code.
 - B
-  - The rule, the two-zone test, and the decision record.
+  - The fix, the test, a rule, and a decision record.
 - C
-  - You remembering to mention it.
+  - The fix, the test, and a long code comment.
 
 <!--
-The answer is B. The rule in the instruction file tells it not to, the test fails if it does, and the decision record explains why. A is true of an agent with no written memory. C works until you're on vacation.
+The answer is B. A stops this exact bug, but the next session that "simplifies" the time code has no idea why UTC matters, and may change the test to match. C explains why, but only to someone already reading that file. B puts the rule where every session reads it, the test where CI enforces it, and the reason where anyone can find it.
 -->
 
 ---
@@ -1745,7 +1769,7 @@ First, giving each agent a role.
 ## Give each helper agent one job.
 
 1. The finder
-   - "Where's the overlap check?"
+   - "Where's the booking overlap check?"
 2. The fact checker
    - Checks claims against the code.
 3. The red team
@@ -1817,15 +1841,15 @@ Match the review to the risk. A routine change, like a typo, needs only the gate
 
 ## Use the strongest model for every helper.
 
-A cheaper model saves money until it's wrong in a way nobody notices.
+A judgment call, and teams differ. Ours: a cheaper model saves money until it's wrong in a way nobody notices.
 
 - How cheap fails
   - Confident, well formatted, and wrong.
 - What to cut instead
-  - The number of agents, and how much each writes.
+  - The number of agents.
 
 <!--
-It's tempting to save money by giving simple jobs to a cheaper model. The problem is how a cheaper model fails. It doesn't fail loudly. It gives a confident, neat, wrong answer that passes every check. That's a judgment, and teams disagree on it; it's the one we've found holds up. If you need to save, run fewer agents and ask each to write less, rather than buying a weaker one.
+It's tempting to save money by giving simple jobs to a cheaper model. The problem is how a cheaper model fails. It doesn't fail loudly. It gives a confident, neat, wrong answer that passes every check. This is a judgment, and teams disagree on it; the slide says so. It's the one we've found holds up. If you need to save, run fewer agents and ask each to write less, rather than buying a weaker one.
 -->
 
 ---
@@ -1837,14 +1861,14 @@ It's tempting to save money by giving simple jobs to a cheaper model. The proble
 ## Set a budget before you start a group of agents.
 
 - Count first
-  - How many agents, and roughly what each costs.
+  - Five agents on room search? Say what each costs.
 - Set a cap
   - Stop at the limit, even mid-task.
 - Stop early
   - When a round changes nothing, stop.
 
 <!--
-Before you launch several agents, count them and estimate the cost. Set a cap and stop when you reach it. And stop early when another round of review stops finding anything: a third pass that changes nothing is pure cost. A sensible default for the booking project: no more than ten agents on any one task without someone approving more.
+Before you launch several agents, count them and estimate the cost. Five agents building room search in parallel? Say what each will cost before you start. Set a cap and stop when you reach it. And stop early when another round of review stops finding anything: a third pass that changes nothing is pure cost. A sensible default for the booking project: no more than ten agents on any one task without someone approving more.
 -->
 
 ---
@@ -1865,13 +1889,10 @@ Third, agents working at the same time.
 ---
 
 <!-- _class: split-compare -->
-<!-- _header: 'Agentic engineering' -->
 
 `Chapter 6 · Side by side`
 
 ## Parallel changes should touch different files.
-
-Every agent opens its own pull request.
 
 - One shared file
   - All edit one changelog
@@ -1881,6 +1902,8 @@ Every agent opens its own pull request.
   - Each adds its own file
   - No shared lines
   - A script joins them
+
+> Plan for parallel work on day one.
 
 <!--
 When several agents work at once, each opens its own pull request. If they all add a line to one shared file, like the changelog, any two of them edit the same lines and you're resolving conflicts all day. With a dozen agents, that becomes the job. On a new project you can avoid it from the start: each change adds its own small file to a folder, one per changelog entry or follow-up, and a script joins them when someone needs the full list, like at release time. Generated files get built, not committed.
@@ -1911,17 +1934,17 @@ Three ways it goes wrong. Vague jobs get vague results. No budget means ten agen
 
 `Chapter 6 · Check`
 
-## Your change emails every employee when a room closes. What review fits?
+## Which change most needs a second agent to review it?
 
 - A
-  - None. The tests pass.
+  - A one-line change to the booking overlap check.
 - B
-  - One quick look by the agent that wrote it.
+  - A rename across 40 files.
 - C
-  - A red team plus two independent reviewers.
+  - A new week-view layout, already compared against saved screenshots.
 
 <!--
-The answer is C. An email to every employee can't be taken back, and a bug in it is seen by the whole company. A trusts tests that only check what they were written to check. B asks the maker to check itself, which misses what it didn't think of.
+The answer is A. It's the smallest diff and the biggest risk: one character in the overlap check, a less-than where a less-or-equal belongs, and every back-to-back booking breaks or every overlap slips through. B is large but mechanical, and the compiler and tests catch most mistakes. C already has its check. Review effort follows risk, not line count.
 -->
 
 ---
@@ -2160,17 +2183,17 @@ Three ways to stay stuck. Rerunning until it passes. Changing many things at onc
 
 `Chapter 7 · Check`
 
-## The booking test fails one run in ten. What do you do?
+## A booking test fails one run in ten. Which fix do you accept?
 
 - A
-  - Rerun it until CI passes.
+  - Retry the test up to three times.
 - B
-  - Find what differs between runs that pass and fail.
+  - Fix the test's clock at noon, so it always passes.
 - C
-  - Delete the test.
+  - Run it at set clock times to find which ones fail.
 
 <!--
-The answer is B. Something differs between the runs that pass and the runs that fail, and that difference is the bug. A hides it. C throws away the only thing that noticed it.
+The answer is C. A hides the failure. B is the tempting one: the test goes green for good, but the app still breaks near midnight UTC, for real users, and now nothing notices. C finds the cause: run the test at fixed times, see that it fails only near midnight UTC, and you've found a time-zone bug in the app, not the test.
 -->
 
 ---
@@ -2368,7 +2391,7 @@ Third, changing things other people depend on.
 
 `Chapter 8 · Changing what others use`
 
-## Retire the old API in steps, not in one go.
+## Retire an API in steps, or an agent will just delete it.
 
 1. Announce
    - Name the replacement and a date.
@@ -2408,17 +2431,17 @@ Three ways good code decays. Rules with no checks behind them. Testing parts onl
 
 `Chapter 8 · Check`
 
-## The mobile app still calls the old booking API. What do you do?
+## The old booking API has had no calls for 30 days. What now?
 
 - A
-  - Delete it. They'll notice.
+  - Delete it. Nobody uses it.
 - B
-  - Leave it forever.
+  - Check for jobs that run monthly or yearly, then delete it.
 - C
-  - Announce, warn, help them move, then delete.
+  - Keep it another year to be safe.
 
 <!--
-The answer is C. A breaks the mobile app without warning. B leaves two APIs to maintain forever, and agents will keep copying the old one. C retires it safely.
+The answer is B. Thirty quiet days only proves nobody called it daily or weekly. A monthly report, a quarterly audit, or a year-end export might still depend on it. Check for those, then delete. C sounds careful, but every old API you keep is one more thing agents find and copy.
 -->
 
 ---
@@ -2459,9 +2482,9 @@ The last section is a reference: every term the course introduces, in plain word
 
 <!-- _class: glossary -->
 
-`Reference · Glossary, 1 of 2`
+`Reference · Glossary, 1 of 3`
 
-## Terms A to I.
+## Terms A to F.
 
 - Agent loop
   - Read, plan, act, check, until the agent thinks it's done.
@@ -2475,23 +2498,23 @@ The last section is a reference: every term the course introduces, in plain word
   - Behavior that appears only when parts combine.
 - Flaky test
   - A test that sometimes fails with no code change. Usually a real bug.
-- Follow-up file
-  - One small file per piece of unfinished work, kept in the repository.
-- Guardrail
-  - A check that makes a mistake hard to make at all.
 
 <!--
-Terms A to I.
+Terms A to F.
 -->
 
 ---
 
 <!-- _class: glossary -->
 
-`Reference · Glossary, 2 of 2`
+`Reference · Glossary, 2 of 3`
 
-## Terms I to T.
+## Terms F to P.
 
+- Follow-up file
+  - One small file per piece of unfinished work, kept in the repository.
+- Guardrail
+  - A check that makes a mistake hard to make at all.
 - Index
   - A short file of one-line rules, each linking to its detail.
 - Instruction file
@@ -2500,6 +2523,19 @@ Terms A to I.
   - Parts of a screen that jump when the content changes.
 - Prompt injection
   - Text the agent reads that tries to give it orders.
+
+<!--
+Terms F to P.
+-->
+
+---
+
+<!-- _class: glossary -->
+
+`Reference · Glossary, 3 of 3`
+
+## Terms R to T.
+
 - Reach test
   - Before acting alone: can I undo it, and who else does it touch?
 - Red team
@@ -2508,9 +2544,11 @@ Terms A to I.
   - Actions an agent must always ask a human about first.
 - Subagent
   - A helper agent with its own context window that reports back.
+- Token
+  - A chunk of text, about three-quarters of a word. Models read and charge in tokens.
 
 <!--
-Terms I to T. One more, token, belongs here: a chunk of text, about three-quarters of a word. Models read and charge in tokens.
+Terms R to T. That's every term the course introduces.
 -->
 
 ---

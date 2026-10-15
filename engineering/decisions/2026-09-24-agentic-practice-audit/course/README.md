@@ -40,8 +40,11 @@ The harness checks the parts a machine can measure. Change a number here and in
 | Define before use | Each term in `terms.json` is restated on "You need" or taught on the slide that first uses it | Undefined jargon is the curse of knowledge in its plainest form. The list holds only agent terms; the professional baseline is assumed |
 | One new idea per slide | At most one `Teaches:` term per slide | Anyone absorbs one new name at a time, expert or not |
 | Density | 8–16 slides per chapter (18 for the primer); at most 45 words on a slide | One sitting per chapter; a slide supports the speaker, it doesn't replace them. Code, glossary and table slides are exempt, because the code is the content |
-| Reading level | Flesch–Kincaid grade 9 or below, per chapter | Plain words cost an expert nothing and help every reader whose first language isn't English |
-| Running example | At least two slides per chapter use the booking-app story | A concrete case before every abstraction |
+| Reading level | Flesch–Kincaid grade 9 or below, measured on each chapter's speaker notes | Plain words cost an expert nothing and help every reader whose first language isn't English. Slide text is fragments, which any formula scores as easy, so the notes are measured: they are the full explanation, in ordinary sentences |
+| Running example | At least two teaching slides per chapter use the booking-app story; code and diagrams count, the Check slide doesn't | A concrete case before every abstraction, and a chapter can't meet it on its quiz alone |
+| Check has an answer | The Check slide's notes say "The answer is X" for one of its options | An unanswered quiz teaches nothing |
+| Answer key varies | No one letter answers more than half of the Checks, deck-wide | A learner who spots "it's always B" stops reading the options |
+| Glossary covers every term | The Reference glossary defines every term in `terms.json` | The glossary is where a reader goes when a word stops them |
 | Notes | Every slide has speaker notes | The notes carry the full explanation, so the deck works when it's read alone |
 
 A slide marks the term it teaches on the last line of its speaker notes:
@@ -61,6 +64,16 @@ npm run lint:deck -- --strict engineering/decisions/2026-09-24-agentic-practice-
 node lattice.js engineering/decisions/2026-09-24-agentic-practice-audit/course/agentic-engineering-course.md \
   engineering/decisions/2026-09-24-agentic-practice-audit/course/agentic-engineering-course.pdf
 ```
+
+Each of the newer checks has been seen to fail. On 2026-10-15, five broken copies of the
+deck each failed the check aimed at them:
+- a term missing from the glossary;
+- a Check answer that isn't one of the options;
+- every answer set to B;
+- the story removed from the primer;
+- unreadable speaker notes.
+
+A check that can't fail proves nothing; the deck teaches the same rule in Chapter 4.
 
 ## What the harness can't measure
 

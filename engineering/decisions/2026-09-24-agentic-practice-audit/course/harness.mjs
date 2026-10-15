@@ -80,6 +80,7 @@ export function parseSlide(md) {
   const cls = (md.match(/<!--\s*_class:\s*([^>]*?)\s*-->/) || [])[1] ?? '';
   const notes = [...md.matchAll(/<!--(?!\s*_)([\s\S]*?)-->/g)].map((m) => m[1].trim()).join('\n');
   let visible = stripComments(md);
+  const withCode = visible;
   const code = /```[\s\S]*?```/g;
   const hasCode = code.test(visible);
   visible = visible.replace(/```[\s\S]*?```/g, '');
@@ -101,6 +102,7 @@ export function parseSlide(md) {
     prose,
     hasCode,
     notes,
+    withCode,
     teaches,
     listLeads: [...stripComments(md).matchAll(/^[-*]\s+(.+)$/gm)].map((m) => m[1].trim()),
   };
@@ -170,7 +172,10 @@ export function judgeChapter(ch) {
   const find = (suffix) => ch.slides.find((s) => s.eyebrow.endsWith(suffix));
 
   if (isReference) {
-    // A glossary teaches many terms at once, on purpose; only notes are checked here.
+    // A glossary teaches many terms at once, on purpose. It must define every registry term.
+    const defined = ch.slides.filter((s) => s.cls === 'glossary').flatMap((s) => s.listLeads.map((l) => l.toLowerCase()));
+    const absent = terms.map((t) => t.name).filter((n) => !defined.includes(n.toLowerCase()));
+    add('Glossary covers every term', absent.length === 0, absent.length ? `missing: ${absent.join(', ')}` : '');
     const silent = ch.slides.filter((s) => !s.notes.trim()).map((s) => `p${s.page}`);
     add('Notes', silent.length === 0, silent.length ? `no notes: ${silent.join(', ')}` : '');
     return results;
@@ -215,20 +220,46 @@ export function judgeChapter(ch) {
       .join('; '),
   );
 
-  const grade = fkGrade(ch.slides.filter((s) => !WORD_EXEMPT.has(s.cls)).flatMap((s) => s.prose));
-  add('Reading level', grade <= BAR.gradeMax, `grade ${grade.toFixed(1)} (max ${BAR.gradeMax})`);
+  // Slide text is fragments, which any formula scores as easy, so the grade is taken on the
+  // speaker notes: the full explanation, written as ordinary sentences.
+  const notesText = ch.slides.map((s) => s.notes.replace(/^Teaches:.*$/gim, '')).join(' ');
+  const grade = fkGrade([notesText]);
+  add('Reading level', grade <= BAR.gradeMax, `notes grade ${grade.toFixed(1)} (max ${BAR.gradeMax})`);
 
-  const story = ch.slides.filter((s) => STORY.test(s.prose.join(' '))).length;
-  add('Running example', story >= BAR.storySlidesMin, `${story} slides use the booking-app story`);
+  // The Check slide's answer, in its notes, must name one of its options.
+  const check = find('· Check');
+  if (check) {
+    const letter = (check.notes.match(/The answer is ([A-Z])\b/) || [])[1];
+    const options = check.listLeads.filter((l) => /^[A-Z]$/.test(l));
+    const ok = Boolean(letter) && options.includes(letter);
+    add('Check has an answer', ok, ok ? `answer ${letter} of ${options.join('/')}` : 'notes must say "The answer is X" for a listed option');
+  }
+
+  // Code and diagrams count (a test that books Room 4 is the story); the Check slide doesn't,
+  // so a chapter can't meet the bar on its quiz alone.
+  const story = ch.slides.filter((s) => s !== check && STORY.test(s.withCode)).length;
+  add('Running example', story >= BAR.storySlidesMin, `${story} teaching slides use the booking-app story`);
 
   const silent = ch.slides.filter((s) => !s.notes.replace(/^Teaches:.*$/im, '').trim()).map((s) => `p${s.page}`);
   add('Notes', silent.length === 0, silent.length ? `no notes: ${silent.join(', ')}` : '');
   return results;
 }
 
+/** Deck-wide: the Check answers must not fall into a pattern a learner can game. */
+export function judgeAnswerKey(report) {
+  const letters = report.flatMap((c) => c.results.filter((r) => r.check === 'Check has an answer' && r.ok).map((r) => r.detail.split(' ')[1]));
+  const counts = {};
+  for (const l of letters) counts[l] = (counts[l] ?? 0) + 1;
+  const top = Math.max(0, ...Object.values(counts));
+  const ok = letters.length > 0 && top <= Math.ceil(letters.length / 2);
+  const detail = Object.entries(counts).sort().map(([l, n]) => `${l}×${n}`).join(' ');
+  return { check: 'Answer key varies', ok, detail: ok ? detail : `${detail}: one letter answers more than half` };
+}
+
 function main() {
   const slides = splitSlides(readFileSync(deckPath, 'utf8'));
   const report = chapters(slides).map((ch) => ({ chapter: ch.title, slides: ch.slides.length, results: judgeChapter(ch) }));
+  report.push({ chapter: 'Whole deck', slides: slides.length, results: [judgeAnswerKey(report)] });
   const ok = report.every((c) => c.results.every((r) => r.ok));
   if (asJson) {
     console.log(JSON.stringify({ ok, report }, null, 2));
