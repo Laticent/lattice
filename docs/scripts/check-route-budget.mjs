@@ -74,7 +74,7 @@
 // the runtime), plus every file they import statically; the lazy providers beside them (KaTeX,
 // dagre, Mermaid, the `esm/chart-*.js` kernels) load on demand and are not counted, for the same
 // reason `import()` is not — and since 2026-10-15 two metrics of their own watch them, on the
-// Studio only: `chartKernelGz` and `lintCoreGz` (see LAZY_BUDGET_ROUTE). Bytes are a proxy for parse+hydrate,
+// Studio only: `chartKernelGz`, `chartKernelsGz` and `lintCoreGz` (see LAZY_BUDGET_ROUTE). Bytes are a proxy for parse+hydrate,
 // which — because the service worker serves /_astro/ cache-first — is the cost that
 // actually RECURS per launch.
 //
@@ -121,7 +121,7 @@ export const CEILING_PCT = 0.1;
 // were under it (the two over were +2,220 and +5,202 bytes).
 export const PR_ALLOWANCE_BYTES = 2048;
 
-export const METRICS = ['eagerJsGz', 'engineJsGz', 'htmlRaw', 'chartKernelGz', 'lintCoreGz'];
+export const METRICS = ['eagerJsGz', 'engineJsGz', 'htmlRaw', 'chartKernelGz', 'chartKernelsGz', 'lintCoreGz'];
 
 const kb = (n) => `${(n / 1024).toFixed(1)}KB`;
 export const ceilingFor = (soft) => soft + Math.round(soft * CEILING_PCT);
@@ -205,6 +205,11 @@ export const LAZY_BUDGET_ROUTE = 'studio';
  * chartKernelGz: the LARGEST closure of one `esm/chart-<layout>.js` beyond the engine. A deck
  * pays for the kernels it names, so the largest is the worst a single chart costs. Also
  * returns which kernel that is, for the report.
+ *
+ * chartKernelsGz: the UNION of every kernel's closure beyond the engine, each shared chunk
+ * counted once. The largest alone cannot see a smaller kernel grow while it stays under the
+ * largest (hub-spoke had 36KB of room on 2026-10-15); the union moves with growth in ANY
+ * kernel or in the chunks they share. The owner picked it on 2026-10-15 (engine-spine note §11).
  */
 function measureCharts(engine, dist) {
 	const esm = engine.entries.find((e) => e.endsWith('/esm/engine.js'));
@@ -216,13 +221,20 @@ function measureCharts(engine, dist) {
 	if (!kernels.length) {
 		throw new Error(`check-route-budget: /${dir}/ has no chart-*.js kernels — the build is broken, not smaller.`);
 	}
+	// A kernel the engine imports statically is counted as engine, so it would vanish from both
+	// chart metrics and the gate would bank that as a win. It is the opposite: it is on startup.
+	const eager = kernels.filter((k) => engine.seen.has(`${dir}/${k}`));
+	if (eager.length) {
+		throw new Error(`check-route-budget: the engine imports ${eager.join(', ')} statically, so that chart kernel is back on startup. Kernels load on demand by design (engine-spine note §11).`);
+	}
 	let chartKernelGz = 0;
 	let chartKernel = '';
 	for (const k of kernels.sort()) {
 		const { gz } = closure([`${dir}/${k}`], dist, engine.seen, `/${dir}/${k}`);
 		if (gz > chartKernelGz) [chartKernelGz, chartKernel] = [gz, k];
 	}
-	return { chartKernelGz, chartKernel };
+	const chartKernelsGz = closure(kernels.map((k) => `${dir}/${k}`), dist, engine.seen, `/${dir}/chart-*.js`).gz;
+	return { chartKernelGz, chartKernelsGz, chartKernel };
 }
 
 /**
@@ -529,7 +541,7 @@ function main() {
 
 	const problems = [];
 	const warnings = [];
-	const lines = [`  ${'route'.padEnd(16)} ${'metric'.padEnd(13)} ${'measured'.padStart(9)} ${'soft'.padStart(9)} ${'ceiling'.padStart(9)}`];
+	const lines = [`  ${'route'.padEnd(16)} ${'metric'.padEnd(14)} ${'measured'.padStart(9)} ${'soft'.padStart(9)} ${'ceiling'.padStart(9)}`];
 	for (const [route, budget] of Object.entries(ledger.routes)) {
 		const actual = measured[route];
 		const r = evaluateRoute(route, actual, budget);
@@ -538,10 +550,10 @@ function main() {
 		for (const metric of METRICS) {
 			const { soft, hard } = budget[metric] ?? {};
 			if (typeof soft !== 'number') continue;
-			lines.push(`  ${route.padEnd(16)} ${metric.padEnd(13)} ${kb(actual[metric]).padStart(9)} ${kb(soft).padStart(9)} ${kb(hard).padStart(9)}`);
+			lines.push(`  ${route.padEnd(16)} ${metric.padEnd(14)} ${kb(actual[metric]).padStart(9)} ${kb(soft).padStart(9)} ${kb(hard).padStart(9)}`);
 		}
-		lines.push(`  ${route.padEnd(16)} ${'chunks'.padEnd(13)} ${String(actual.chunks).padStart(9)}`);
-		if (actual.chartKernel) lines.push(`  ${route.padEnd(16)} ${'kernel'.padEnd(13)} ${actual.chartKernel.padStart(9)}`);
+		lines.push(`  ${route.padEnd(16)} ${'chunks'.padEnd(14)} ${String(actual.chunks).padStart(9)}`);
+		if (actual.chartKernel) lines.push(`  ${route.padEnd(16)} ${'kernel'.padEnd(14)} ${actual.chartKernel.padStart(9)}`);
 	}
 
 	// The per-PR allowance needs main's numbers, which exist only when something built main
