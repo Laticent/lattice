@@ -119,3 +119,34 @@ test('Present and its slide overview draw no buttons', async ({ page }) => {
 	await expect.poll(async () => (await thumbs()).length, { timeout: 20_000 }).toBeGreaterThan(0);
 	expect((await thumbs()).every((t) => t.buttons === 0), 'no chromeless frame draws a copy button').toBe(true);
 });
+
+test('the Playground draws the buttons, and its frame takes the click itself', async ({ page, context }) => {
+	await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+	// Seeding `lattice-docs-pg-source` is the suite's idiom for putting a deck in the Playground
+	// (playground-kpi-pill.spec.ts).
+	await page.addInitScript((s) => {
+		try {
+			localStorage.setItem('lattice-docs-pg-source', s);
+		} catch {
+			/* a private-mode profile gets the default deck, and the count below fails loudly */
+		}
+	}, `---\nmarp: true\ntheme: indaco\n---\n\n${DECK}`);
+	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
+	const preview = page.frameLocator('#preview');
+	const pre = preview.locator('pre[data-copy]').first();
+	await expect(pre.locator('.lat-code-copy-btn')).toHaveCount(2, { timeout: 30_000 });
+	await expect(preview.locator('pre:not([data-copy]) .lat-code-copy-btn'), 'a block that does not ask has none').toHaveCount(0);
+
+	await pre.hover();
+	await pre.locator('.lat-code-copy-btn[data-kind="text"]').click();
+	await expect.poll(() => clipboardText(page), { timeout: 10_000 }).toBe('const answer = 42;');
+	await pre.hover();
+	const asHtml = pre.locator('.lat-code-copy-btn[data-kind="html"]');
+	await asHtml.click();
+	await expect(asHtml).toHaveAttribute('data-copied', 'yes');
+	const html = await page.evaluate(async () => {
+		const [item] = await navigator.clipboard.read();
+		return item.types.includes('text/html') ? await (await item.getType('text/html')).text() : '';
+	});
+	expect(html, 'colored, inline').toMatch(/<span style="color: rgb\(/);
+});
