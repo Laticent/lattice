@@ -1,6 +1,6 @@
 /**
- * Unit: Lattice's augmented shell grammar (lib/integrations/highlight-js/shell.hljs.js,
- * registered by `registerShellHljs` in lib/integrations/markdown-it/plugins.js).
+ * Unit: Lattice's augmented shell grammar (lib/plugins/code/shared/shell.hljs.js,
+ * registered as `bash` by the code plugin's highlighter, lib/plugins/code/shared/highlighter.js).
  *
  * The grammar exists because hljs's stock bash knows POSIX built-ins and nothing
  * else, so the shape a shell block actually takes on a slide — a list of modern
@@ -158,9 +158,9 @@ describe('augmented shell grammar', () => {
       assert.deepEqual(tokens(html, 'built_in'), [], '```shell must stay on the upstream session grammar');
       // Assert the IDENTITY, not just the absence of color — the check above would
       // also pass if `shell` were re-registered as an empty grammar.
-      const { createEngine: fresh } = require('../../../lib/engine/index.js');
-      fresh().render('```sh\nx\n```\n'); // force registration
-      assert.equal(require('highlight.js').getLanguage('shell').name, 'Shell Session');
+      const { hljs } = require('../../../lib/plugins/code/shared/highlighter.js');
+      assert.equal(hljs.getLanguage('shell').name, 'Shell Session');
+      assert.equal(hljs.getLanguage('bash').name, 'Shell', 'the shell fence above loaded bash as Lattice\'s grammar, not the stock one');
     });
 
     test('```console keeps its prompt, and its embedded commands gain the augmentation', () => {

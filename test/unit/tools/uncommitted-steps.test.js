@@ -129,6 +129,10 @@ const EXPECTED_PR_OWNED = new Set([
   // lib/plugins/avatars/avatars.{vocab,data}.generated.js, both tracked — the registry and the
   // engine require them, as they do the icons'.
   'build-avatars-data.js',
+  // Measured 2026-10-15 against a timestamped tree: writes exactly
+  // lib/plugins/code/shared/languages.generated.js, which git tracks — the code plugin's
+  // highlighter requires it, so the engine does.
+  'build-code-languages.js',
   'build-projection-catalog.js', // lib/core/projection-catalog.generated.mjs
   // Measured 2026-09-28: writes exactly docs/src/lib/segno/notation.generated.ts, which git
   // tracks — the docs site and Vitest import it. Since Segno phase 3 (2026-10-06) also

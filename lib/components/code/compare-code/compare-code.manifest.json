@@ -28,6 +28,7 @@
   "function": "comparison",
   "bucket": "code",
   "form": "split",
+  "plugins": { "requires": ["code"] },
   "substance": "structure",
   "tags": [
     "snippet",

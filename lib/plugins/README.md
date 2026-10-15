@@ -10,8 +10,10 @@ are `engineering/decisions/2026-09-27-plugin-system.md`; the contract a plugin i
 **Shipped plugins:** `math` (`$…$`, `$$…$$`, ` ```math `; the `math` slide class requires it),
 `function-plot` (` ```functionplot `, drawn in the browser; `math` lists it as optional), `anima`
 (` ```anima `; the `scene` slide class requires it) and `mermaid` (` ```mermaid `, drawn by the
-runtime in a browser and by its bake on the CLI; the `diagram` slide class requires it) and
-`chart-family` (the `kernel` extension point every chart fills; see "Extension points" below).
+runtime in a browser and by its bake on the CLI; the `diagram` slide class requires it),
+`chart-family` (the `kernel` extension point every chart fills; see "Extension points" below) and
+`code` (every fence no other plugin claims, syntax-highlighted; the `code` and `compare-code` slide
+classes require it; see "The code renderer" below).
 
 ## A plugin is a folder
 
@@ -130,7 +132,7 @@ A plugin claims fence names in `contributes.fences` and exports a renderer per n
 ```
 
 The host owns `md.renderer.rules.fence` ONCE — a table from every fence name and alias to its
-plugin's renderer, and everything else to the renderer that was there before. It replaced the old
+plugin's renderer, and everything else to the code renderer (below). It replaced the old
 wrapper chain, where each fence plugin wrapped the previous rule and registration order decided who
 won. A fence renderer is `(token, ctx, env) → string`, `token.content` the body; a fence with a
 browser half returns `<div class="…" ${ctx.hydrateAttrs(token.content)}></div>`. A name two plugins
@@ -138,6 +140,26 @@ claim, or one a code language owns (every highlight.js name and alias), fails th
 exception: when a highlight.js upgrade later adds a language named like a fence the committed
 registry already ships, that plugin keeps the fence and the build warns. A deprecated alias still renders and reports `<name>/deprecated-alias`, which the manifest
 must declare. A fence counts as use: the host derives a plugin's `detect` probe from its fence names.
+
+## The code renderer
+
+Every fence no plugin claims goes to ONE plugin that declares `contributes.codeRenderer`: today
+`code` (`lib/plugins/code/`). Its `<name>.render.js` exports `codeRenderer`,
+`{ highlighter, render(token, ctx, env, base) }`:
+
+- `base(highlight)` is markdown-it's own fence rule, run with that `highlight` callback (null for
+  plain text). Every fence's markup (`<pre><code class="language-x">`, its attributes, the escaping
+  of an unknown language) comes from it, whoever colors the code.
+- `highlighter` owns highlight.js. The engine names no plugin and imports no highlight.js: its
+  `languages` capability is `codeHighlighter().languages` (`host.js`), and the host registers each
+  plugin's `contributes.highlight` grammar on `highlighter.hljs`.
+
+A claimed fence never reaches the code renderer, so it cannot restyle a drawn figure. A fence
+declared `as: "code"` (Mermaid) does reach it, because it is code until its plugin draws it. A
+second plugin that declares `codeRenderer` fails the build, naming both. With the code plugin off
+(`createEngine({ plugins: { defaults: [] } })`, or a host that disables it), a fence renders as
+escaped plain code. A zip plugin may not declare it (`PLUGIN_DATA_CONTRIBUTIONS`). Design:
+`engineering/decisions/2026-10-15-code-plugin.md`.
 
 ## Extension points
 
@@ -171,8 +193,7 @@ reserved as a later, additive field.
 
 Mermaid's fence is declared `as: "code"`: the plugin owns the name (no other plugin may claim it,
 and it counts as use), but the engine renders it as the highlighted code block it always was —
-the host leaves it to the fence renderer installed before the table, so it has no renderer and no
-aliases. The plugin draws it later, in two places:
+the host leaves it to the code renderer, so it has no renderer and no aliases. The plugin draws it later, in two places:
 
 - **In a browser, the plugin's PASS draws it** (`render.exec.hydrate: "pass"`):
   `mermaid.hydrate.js` exports `createPass(ctx)` rather than a per-placeholder `hydrate(el, ctx)`,
@@ -202,7 +223,7 @@ The resolver requires the bake of any plugin a pass draws: the CLI export page c
 runtime, so nothing else would draw it there.
 
 **Its grammar and its stylesheet are its own** (`contributes.highlight`, `contributes.styles`):
-`installPlugins` registers `mermaid.highlight.js` on the engine's highlight.js under the code
+`installPlugins` registers `mermaid.highlight.js` on the code renderer's highlight.js under the code
 fence (for every installed plugin, a switched-off one included — its fence is the one that stays
 source), and `mermaid.styles.css` is bundled into the plugin slot like any plugin's CSS.
 

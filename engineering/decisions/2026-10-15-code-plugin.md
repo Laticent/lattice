@@ -98,7 +98,7 @@ formats code.
 | 1 | **Code on a plain slide is unreadable.** Colors tuned for the dark panel render on the light slide with no panel: pale yellow (`load`, `get`, `Promise`) on white. | Rendered `indaco`, slide 1 vs slide 2 of the probe deck (`plain.001.png`, `plain.002.png`) | Every fence gets the panel (§5); the contrast gate measures against the surface the code actually sits on |
 | 2 | **`_focus: line N` and `_build` lines are off by one** after any multi-line token: a two-line comment counts as one line. `_focus: line 3` lit source line 4. | Engine render, this session | The plugin's line model splits highlight.js's output at every newline and re-opens the spans that cross it |
 | 3 | A trailing empty `<span class="ln">` on every focused block | Same render | Same line model; the final newline is not a line |
-| 4 | Mermaid source is tokenized with a custom grammar, then `mermaid.hydrate.js:585` reads `textContent` and discards it | `host.js:141-145` | An `as: "code"` fence is highlighted only when its plugin is off (the source is what the reader sees) |
+| 4 | ~~Mermaid source is tokenized, then `mermaid.hydrate.js:585` reads `textContent` and discards it~~ **Withdrawn while building slice 2.** The colored source is what a reader sees whenever a diagram fails to draw, and tokenizing costs well under a millisecond, so it is not waste. | `host.js:141-145` | None: an `as: "code"` fence stays highlighted |
 | 5 | The full 192-language build loads in every process, ~105 ms | Measured above | Core + per-deck languages (§4) |
 | 6 | `section code.hljs` never matches; the engine emits no `hljs` class | `highlight-js.css:16`, `highlight-js.docs.md:33-35` | Deleted; the plugin's stylesheet targets what it emits |
 | 7 | `registerShellHljs` ships dead in `lattice-runtime-min.js` | Runtime bundle | Moves into the plugin, off the runtime's graph |
@@ -138,8 +138,9 @@ highlighted deck pay for the formatter's loading machinery.
 
 - A plugin that claims a fence name owns that fence completely. The code plugin never sees it, so it
   cannot clobber a drawn diagram with styled text. This is today's guarantee, kept.
-- A fence declared `as: "code"` (mermaid) is drawn by its plugin from the source. The code plugin
-  highlights it only when that plugin is off, because then the source *is* what the reader sees.
+- A fence declared `as: "code"` (mermaid) is drawn by its plugin from the source, and the code plugin
+  highlights it like any other fence: the colored source is what a reader sees until the figure draws,
+  and whenever it cannot.
 - The refusal stays: no plugin may claim a highlight.js language name. Without it, a third-party zip
   plugin could take ```` ```ts ```` from every deck that lists it.
 - Code-door (zip) fences keep today's path: the code plugin returns a plain `<pre><code>` for them
@@ -305,7 +306,7 @@ One branch, one PR, one commit per slice; each slice builds and tests on its own
 
 1. **Line model + defects 2, 3.** A failing test first: `_focus: line 3` after a two-line comment.
 2. **The `code` plugin and the `codeRenderer` role**: highlight.js moves out of `lib/engine`, loads
-   lazily (defect 5), and the shell and mermaid grammars move with it (defects 4, 7, 8). Contract
+   lazily (defect 5), and the shell grammar moves with it (defects 7, 8). Contract
    change to `lib/plugins/README.md`, `plugin.schema.json` and `resolve.js`.
 3. **Studio loading**: drop the esbuild swap; core + per-language payload. Route-budget numbers
    before and after.

@@ -54,6 +54,10 @@
           "propertyNames": {"pattern": "^[a-z][a-z0-9-]*$"},
           "additionalProperties": {"$ref": "#/$defs/fence"}
         },
+        "codeRenderer": {
+          "const": true,
+          "description": "The plugin renders every fenced block no plugin claims: `<name>.render.js` exports `codeRenderer`, `{ highlighter, render(token, ctx, env, base) }`, where `base(highlight)` runs markdown-it's own fence rule with that `highlight` callback (null for plain text). A claimed fence never reaches it, so it cannot restyle a drawn figure. At most one plugin fills the role, and a second is a build error naming both. With none active, a fence renders as escaped plain code. In-tree only."
+        },
         "hydrate": {
           "type": "object",
           "additionalProperties": false,

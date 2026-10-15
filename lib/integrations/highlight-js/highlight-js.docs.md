@@ -49,13 +49,14 @@ per deck. That split, and why it is answerable rather than implicit, is
 
 ## Custom language definitions Lattice ships
 
-Two, both registered in `createEngine()` so every surface gets them:
+Two, both registered on the code plugin's highlight.js (`lib/plugins/code/shared/highlighter.js`,
+which owns highlighting since 2026-10-15) so every surface gets them:
 
 - **Mermaid** — `lib/plugins/mermaid/mermaid.highlight.js`, the Mermaid plugin's
   `highlight` contribution: the plugin host (`installPlugins`, `lib/plugins/host.js`)
   registers it under the plugin's code fence. It lives with the rest of the plugin
   (subject over means — see `lib/plugins/mermaid/mermaid.docs.md`).
-- **Shell** — `shell.hljs.js` in this folder, via `registerShellHljs`. hljs's own
+- **Shell** — `lib/plugins/code/shared/shell.hljs.js`, registered as `bash` by the highlighter at load. hljs's own
   bash grammar plus modern CLI tools as `built_in` and `--flags` as `params`,
   because stock bash knows POSIX built-ins and nothing else — so the shape a
   shell block actually takes on a slide (a list of `npm` / `docker` / `kubectl`

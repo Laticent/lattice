@@ -14,6 +14,7 @@
   "function": "evidence",
   "bucket": "code",
   "form": "canvas",
+  "plugins": { "requires": ["code"] },
   "substance": "prose",
   "stage": "flow",
   "tags": [

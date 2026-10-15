@@ -56,37 +56,23 @@ const watch = argv.includes('--watch');
 const check = argv.includes('--check');
 const silent = argv.includes('--silent') || check;
 
-// Preview-only: swap highlight.js's FULL 192-language build (the single largest
-// passenger — ~1.05MB raw / ~64% of this bundle) for its 36-language `common` build.
-// A slide deck's fenced code is JS/TS/Python/YAML/SQL/etc. — all in `common`; an exotic
-// language degrades gracefully to monochrome (`lib/engine/index.js` guards
-// `hljs.getLanguage(lang)` before highlighting, so a miss is escaped plaintext, never an
-// error). The plugin host's grammar registration still works — `common` exposes the same singleton
-// `.registerLanguage` API. SCOPED TO THE PREVIEW BUNDLE ONLY: the CLI/PDF export path
-// imports the SAME `require('highlight.js')` from lib/engine and keeps the full build, so
-// exported artifacts highlight every language and no export-sign-off gate fires.
-//
-// Implemented as an EXACT-MATCH resolve, NOT an esbuild `alias`: `alias['highlight.js']`
-// matches subpaths by PREFIX, so it would also rewrite a future `highlight.js/lib/...`
-// import to `common.js/lib/...` and break the build. The `/^highlight\.js$/` filter
-// rewrites ONLY the bare specifier and leaves any subpath import to resolve normally.
-// See engineering/decisions/2026-07-19-preview-bundle-hljs-common.md.
-//
-// STILL CORRECT, AND NO LONGER THE WHOLE STORY. The paragraph above says an exotic
-// language "degrades gracefully to monochrome" — true, and it was also a silent PARITY
-// break, because the CLI and marp-core both kept the full build: a `powershell` fence
-// measured 11 highlight spans in an exported PDF and 0 here, same deck, nothing logged.
-// The swap stays (it is worth 259 KB gzipped); what closes the gap is that the preview
-// now FETCHES the grammars a deck actually names — tools/build-hljs-languages.js emits
-// them one file per language, median 1.9 KB, and docs/src/lib/ensure-hljs-language.ts
-// loads them above the synchronous render(). So this plugin now decides what ships in
-// the BUNDLE, not what the product supports; `lib/engine`'s `languages` capability owns
-// the latter. See engineering/decisions/2026-08-25-on-demand-fence-grammars.md.
-const HLJS_COMMON = path.join(ROOT, 'node_modules', 'highlight.js', 'lib', 'common.js');
-const hljsCommonPreviewPlugin = {
-  name: 'hljs-common-preview',
+// The code plugin's grammar loader, swapped for its browser half. In Node,
+// lib/plugins/code/shared/load-grammar.js requires each highlight.js grammar the first time a fence
+// names it; a browser cannot, so load-grammar.browser.js registers highlight.js's 36-language
+// `common` build eagerly and the preview fetches the rest one file per language
+// (tools/build-hljs-languages.js, docs/src/lib/ensure-hljs-language.ts). The swap keeps the 192
+// grammar modules out of the bundle, which is the job the old bare-`highlight.js`→`common` swap did
+// before the engine stopped importing highlight.js (engineering/decisions/2026-10-15-code-plugin.md).
+// Matched on the resolved path, exact file, so nothing else named load-grammar is touched.
+const CODE_LOAD_GRAMMAR = path.join(ROOT, 'lib', 'plugins', 'code', 'shared', 'load-grammar.js');
+const CODE_LOAD_GRAMMAR_BROWSER = path.join(ROOT, 'lib', 'plugins', 'code', 'shared', 'load-grammar.browser.js');
+const codeGrammarBrowserPlugin = {
+  name: 'code-grammar-browser',
   setup(build) {
-    build.onResolve({ filter: /^highlight\.js$/ }, () => ({ path: HLJS_COMMON }));
+    build.onResolve({ filter: /load-grammar(\.js)?$/ }, (args) => {
+      const resolved = path.resolve(args.resolveDir, args.path.endsWith('.js') ? args.path : `${args.path}.js`);
+      return resolved === CODE_LOAD_GRAMMAR ? { path: CODE_LOAD_GRAMMAR_BROWSER } : undefined;
+    });
   },
 };
 
@@ -96,7 +82,7 @@ const hljsCommonPreviewPlugin = {
 // each condition, so the bundle carried TWO markdown-its and two copies of `entities` (measured
 // 2026-10-14: about 175 KB raw of duplicate). Every bare specifier now resolves to the CommonJS
 // build; an `import` of it still works, because esbuild hands a CJS module's exports to a default
-// import. Exact match, for the same subpath reason as the highlight.js swap above.
+// import. Exact match: an esbuild `alias` matches subpaths by prefix.
 const MARKDOWN_IT_CJS = require.resolve('markdown-it');
 const oneMarkdownItPlugin = {
   name: 'one-markdown-it',
@@ -150,9 +136,9 @@ const BUILD_OPTIONS = {
   target: ['chrome109'],
   minify: true,
   legalComments: 'none',
-  // The preview-only highlight.js→common swap (exact-match, see above the const), one
-  // markdown-it (see oneMarkdownItPlugin), and the KaTeX stub in place of the math plugin's copy.
-  plugins: [hljsCommonPreviewPlugin, oneMarkdownItPlugin, pluginDataStubPlugin, katexStubPlugin],
+  // The code plugin's browser grammar loader (see codeGrammarBrowserPlugin), one markdown-it (see
+  // oneMarkdownItPlugin), and the KaTeX stub in place of the math plugin's copy.
+  plugins: [codeGrammarBrowserPlugin, oneMarkdownItPlugin, pluginDataStubPlugin, katexStubPlugin],
   banner: {
     js: '/* Auto-generated by tools/build-playground.js — DO NOT EDIT. Source: lib/playground/index.js. Rebuild: npm run playground:build */',
   },

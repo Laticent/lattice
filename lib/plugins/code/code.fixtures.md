@@ -1,0 +1,75 @@
+# code — conformance fixtures
+
+The plugin harness (`test/unit/plugins/conformance.test.js`) runs every case below. Each `##`
+heading is one case: the ` ```markdown ` fence is the input, rendered by the engine, and each
+bullet is an assertion about that render. The code plugin renders every fence no other plugin
+claims, so its cases are ordinary fences on ordinary slides.
+
+## a fence on a plain slide is highlighted
+
+````markdown
+## Load a user
+
+```ts
+const user = await api.get(id);
+```
+````
+
+- renders `<code class="language-ts">`
+- renders `hljs-keyword`
+
+## an alias loads its language
+
+````markdown
+```py
+def load(id): return cache.get(id)
+```
+````
+
+- renders `language-py`
+- renders `hljs-keyword`
+
+## an unknown language renders as escaped plain text
+
+````markdown
+```nosuchlang
+<b>not markup</b>
+```
+````
+
+- renders `language-nosuchlang`
+- renders `&lt;b&gt;`
+- omits `hljs-`
+
+## an untagged fence is plain text
+
+````markdown
+```
+plain <text>
+```
+````
+
+- renders `<pre><code>plain &lt;text&gt;`
+- omits `hljs-`
+
+## a shell command list gets Lattice's shell grammar
+
+````markdown
+```sh
+docker compose up -d --build
+```
+````
+
+- renders `hljs-built_in">docker`
+- renders `hljs-params">--build`
+
+## HTML colors the script and style it embeds
+
+````markdown
+```html
+<script>let x = 1;</script>
+```
+````
+
+- renders `language-html`
+- renders `hljs-keyword">let`
