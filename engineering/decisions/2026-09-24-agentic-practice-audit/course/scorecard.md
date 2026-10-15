@@ -32,7 +32,7 @@ section).
 | --- | --- | --- | --- | --- | --- | --- |
 | Primer | 4 | 4 | 4 | 4 | 4 | — |
 | 1 · Directing the agent | 4 | 4 | 4 | 4 | 4 | 4 |
-| 2 · What the agent sees | 4 | 4 | 3 | 4 | 4 | 4 |
+| 2 · What the agent sees | 4 | 4 | 4 | 4 | 4 | 4 |
 | 3 · What the agent may do alone | 4 | 4 | 4 | 4 | 4 | 4 |
 | 4 · Proving it works | 4 | 4 | 4 | 4 | 4 | 4 |
 | 5 · Learning from mistakes | 4 | 4 | 4 | 4 | 4 | 4 |
@@ -56,13 +56,22 @@ section).
 - **Chapter 8** puts the agent angle in the API slide's heading.
 - **The glossary** now defines every term the course teaches, including "token".
 
-## The two remaining threes
+## Repetition pass (2026-10-15)
 
-- **Chapter 2, criterion 3.** "Three habits" puts three habits on one slide, and
-  "subagent" is introduced inside one of them. Giving the subagent its own slide would
-  push the chapter past its 16-slide limit, so it stays a 3.
+Measured before cutting: 59% of the 118 chapter slides were frame, not teaching. Standing
+alone caused only the eight "You need" slides. The rest came from the frame itself: 22
+one-line topic slides, separate opening slides, and "Common mistakes" slides that recapped
+their chapter. Two ideas were taught twice (rule-then-check in Chapters 5 and 8, fresh eyes in
+Chapters 6 and 7). After the pass: 88 chapter slides, 55% teaching (64% counting the
+rewritten mistakes, which now carry new material). Chapter 8's guardrail now means a
+design that makes a mistake hard to write, like a type that only holds UTC, which builds
+on Chapter 5's check instead of repeating it. With the room freed, Chapter 2 gives the
+subagent its own slide instead of introducing it inside a list of habits.
+
+## The one remaining three
+
 - **Chapter 6, criterion 3.** The chapter covers roles, how many reviewers, model choice,
-  budget and parallel layout: five ideas in fifteen slides. Each slide makes one point,
+  budget and parallel layout: five ideas in eleven slides. Each slide makes one point,
   but the chapter is the busiest in the course.
 
 ## Not yet done: the cold read

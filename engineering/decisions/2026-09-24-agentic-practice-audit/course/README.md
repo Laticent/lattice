@@ -18,11 +18,16 @@ review and testing, and teaches only what changes when an agent does the typing.
 - **The primer comes first.** It covers only what's new: the agent loop, the context
   window, a one-slide refresher on the path a change takes, and the one rule. Nobody
   starts a chapter cold, and nobody sits through what they already know.
-- **Each chapter stands on its own.** It opens with a "You need" slide that restates the
-  few earlier terms it uses, so the chapters can be taken in any order.
-- **Every chapter has the same frame:** a divider, "You'll learn", "You need", two or three
-  topics, a "Common mistakes" slide, a "Check" question (answer in the speaker notes), and
-  a "Try it" exercise.
+- **Each chapter stands on its own** through one line, not a slide: its "Start here" slide
+  ends with `You need:` and the earlier terms it assumes, each with a short gloss. That
+  restatement costs one line per chapter; a separate "You need" slide cost eight slides
+  across the course.
+- **Every chapter has the same small frame:** a divider, "Start here" (what you'll learn,
+  and what you need), the teaching slides, "Common mistakes", a "Check" question (answer in
+  the speaker notes), and a "Try it" exercise. Sections are named in each slide's eyebrow
+  ("Chapter 4 · Gates"), not with separate topic slides.
+- **"Common mistakes" teaches something new.** Each one names mistakes the chapter hasn't
+  shown, such as an agent editing a test to match broken code, rather than recapping it.
 - **One project runs through it all, in the second person:** you start a room-booking app
   from an empty repository. It's a new project on purpose: there's no legacy code to work
   around, and every habit is shown at its cheapest moment, day one. Its recurring bug, a
@@ -36,8 +41,8 @@ The harness checks the parts a machine can measure. Change a number here and in
 
 | Check | The bar | Why |
 | --- | --- | --- |
-| Chapter frame | Every frame slide is present, plus at least one topic slide | A predictable shape lets a learner find their place. The primer has no "You need" slide because nothing comes before it |
-| Define before use | Each term in `terms.json` is restated on "You need" or taught on the slide that first uses it | Undefined jargon is the curse of knowledge in its plainest form. The list holds only agent terms; the professional baseline is assumed |
+| Chapter frame | Every frame slide is present, and every chapter's "Start here" ends in a `You need:` line | A predictable shape lets a learner find their place. The primer has no `You need:` line because nothing comes before it |
+| Define before use | Each term in `terms.json` is named on the `You need:` line or taught on the slide that first uses it | Undefined jargon is the curse of knowledge in its plainest form. The list holds only agent terms; the professional baseline is assumed |
 | One new idea per slide | At most one `Teaches:` term per slide | Anyone absorbs one new name at a time, expert or not |
 | Density | 8–16 slides per chapter (18 for the primer); at most 45 words on a slide | One sitting per chapter; a slide supports the speaker, it doesn't replace them. Code, glossary and table slides are exempt, because the code is the content |
 | Reading level | Flesch–Kincaid grade 9 or below, measured on each chapter's speaker notes | Plain words cost an expert nothing and help every reader whose first language isn't English. Slide text is fragments, which any formula scores as easy, so the notes are measured: they are the full explanation, in ordinary sentences |
@@ -74,6 +79,15 @@ deck each failed the check aimed at them:
 - unreadable speaker notes.
 
 A check that can't fail proves nothing; the deck teaches the same rule in Chapter 4.
+
+## Why the frame is small
+
+An earlier draft spent 59% of its chapter slides on frame: separate "You'll learn" and
+"You need" slides, 22 one-line topic slides, and "Common mistakes" slides that recapped the
+chapter. Merging the two opening slides, naming sections in the eyebrow, making the mistakes
+new, and removing two ideas taught twice (Chapters 5 and 8, Chapters 6 and 7) cut the
+chapters from 118 slides to 88 and raised the teaching share from 41% to 55%, or 64% counting
+the new mistakes. Standing alone was never the main cost: it accounted for 8 of the 118.
 
 ## What the harness can't measure
 

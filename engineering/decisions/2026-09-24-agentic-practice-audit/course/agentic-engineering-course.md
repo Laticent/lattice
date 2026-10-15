@@ -62,18 +62,23 @@ The primer. It's short, because you already know how software gets built. It cov
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- _class: split-panel -->
 
-`Primer · You'll learn`
+`Primer · Start here`
 
-## By the end of the primer, you can:
+## A coding agent works in a loop, and stops when it thinks it's done.
 
-- Explain how a coding agent works, step by step.
-- Say what it can and can't see.
-- Name the one rule every chapter builds on.
+Nothing to know first: you already ship software.
+
+- How it works
+  - The loop, step by step.
+- What it sees
+  - And what it can't.
+- The one rule
+  - What every chapter builds on.
 
 <!--
-Three things. How an agent works, step by step. What it can see and what it can't. And the one rule that every chapter after this one builds on.
+Three things. How an agent works, step by step. What it can see and what it can't. And the one rule every chapter after this one builds on.
 -->
 
 ---
@@ -95,21 +100,6 @@ Nothing exists yet.
 
 <!--
 Here's the project we'll follow. Your company needs a room-booking app: staff find a free meeting room and book it. Nothing exists yet. No code, no rules, no tests. You'll build it with a coding agent doing most of the typing. Starting from nothing is the best place to learn this, because there's no old code to work around. Every habit in this course is cheapest on day one.
--->
-
----
-
-<!-- _class: topic -->
-<!-- _header: '' -->
-
-`Primer · The agent`
-
-## The agent
-
-What a coding agent is, and what it can see.
-
-<!--
-First, the agent itself.
 -->
 
 ---
@@ -170,21 +160,6 @@ Teaches: context window
 
 ---
 
-<!-- _class: topic -->
-<!-- _header: '' -->
-
-`Primer · The path`
-
-## The path
-
-You know it already. One thing about it changes.
-
-<!--
-Second, the path a change takes, which you already know.
--->
-
----
-
 <!-- _class: diagram insight-key -->
 
 `Primer · The path`
@@ -228,17 +203,17 @@ The agent reports back: "Done. All the tests pass." Ask two questions every time
 
 `Primer · Common mistakes`
 
-## Three mistakes almost everyone makes in their first week.
+## Three habits that waste your first week.
 
-1. Trusting the summary
-   - Read the change, not just the agent's report.
-2. Assuming it knows
-   - It knows only what's in its context window.
-3. Stopping at "tests pass"
-   - Ask what the tests actually check.
+1. One giant request
+   - Ten features at once come back ten half-done.
+2. Skipping the transcript
+   - What it ran tells you more than what it says.
+3. Repeating a correction
+   - Said it twice? Write it where every session reads it.
 
 <!--
-Three mistakes nearly everyone makes in their first week with an agent. Trusting its summary instead of reading the change. Assuming it knows something it was never shown. And stopping at "the tests pass" without asking what the tests check.
+Three habits that waste a first week, none of them covered yet. One giant request: ask for ten features at once and you get ten half-done; ask for one per session. Skipping the transcript: the commands the agent actually ran tell you more than its summary. And correcting the same thing in chat over and over: if you've said it twice, write it down where every session will read it. Chapter 2 shows where.
 -->
 
 ---
@@ -296,50 +271,23 @@ Chapter one is about your role. When an agent does the typing, your job changes.
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- _class: split-panel -->
 
-`Chapter 1 · You'll learn`
+`Chapter 1 · Start here`
 
-## By the end of this chapter, you can:
+## Your job changes from typing to directing.
 
-- Give the agent one clear note at a time.
-- Word a request so it gets the right result.
-- Decide what "done" means before work starts.
+You need: agent loop (read, plan, act, check) · context window (what the agent sees).
 
-<!--
-Three skills. Giving precise notes. Wording requests so you get what you meant. And deciding what done means before the agent starts, so it doesn't stop at the first thing that looks finished.
--->
-
----
-
-<!-- _class: list takeaway -->
-
-`Chapter 1 · You need`
-
-## Two ideas from the primer:
-
-- Agent loop
-  - Read, plan, act, check, until it thinks it's done.
-- Context window
-  - Everything the agent can see right now.
+- Notes
+  - Give one clear note at a time.
+- Plans
+  - Get a plan before the agent builds.
+- Done
+  - Decide what done means first.
 
 <!--
-Two reminders from the primer. The agent loop: the agent reads, plans, acts and checks, and stops when it believes it's done. And the context window: everything the agent can see at this moment. Everything in this chapter is about steering that loop and filling that window well.
--->
-
----
-
-<!-- _class: topic -->
-<!-- _header: '' -->
-
-`Chapter 1 · Directing`
-
-## Directing
-
-You don't type the code. You direct the work.
-
-<!--
-First, what directing means.
+Three skills: precise notes, a plan before any code, and a finish line set before work starts. You need two ideas from the primer. The agent loop: it reads, plans, acts and checks, and stops when it believes it's done. The context window: everything it can see right now.
 -->
 
 ---
@@ -376,21 +324,6 @@ Agents raise everyone's floor. Anyone can now produce a booking app that runs an
 
 <!--
 Think of a film director. A director doesn't run the camera. They watch the take, name the problem precisely, and give one clear note. You do the same. Read the agent's change and run it. Name the problem exactly: "a 2 to 3 pm booking blocks a 3 to 4 pm booking; back-to-back should be allowed." Then give that one note and let the agent work. "Booking seems off" gets a guess. A precise note gets a fix.
--->
-
----
-
-<!-- _class: topic -->
-<!-- _header: '' -->
-
-`Chapter 1 · Asking`
-
-## Asking
-
-How you word a request changes what you get back.
-
-<!--
-Second, how to word a request.
 -->
 
 ---
@@ -515,17 +448,17 @@ Here's the workflow that matters most, and the one new users skip. For anything 
 
 `Chapter 1 · Common mistakes`
 
-## Three mistakes that waste a day.
+## Three ways direction goes wrong.
 
-1. Vague notes
-   - "Make it better" gets a guess. Name the problem.
-2. No finish line
-   - Without a bar, the agent stops early.
+1. Skimming the plan
+   - A plan you approve unread is your mistake.
+2. Arguing in chat
+   - After a few rounds, start fresh with a better request.
 3. Fixing it yourself
    - Fix the request too, or the mistake comes back.
 
 <!--
-Three common mistakes. Vague notes get guesses. No finish line means the agent stops at the first result that looks done. And quietly fixing the agent's work yourself, without changing the request or the rules, means the same mistake comes back tomorrow.
+Three ways direction goes wrong. Skimming the plan: once you approve it, its mistakes are yours. Arguing in chat: after a few rounds of corrections, the context window is full of the wrong attempts; start a fresh session with a better request. And quietly fixing the agent's work yourself without changing the request: the same mistake comes back tomorrow.
 -->
 
 ---
@@ -583,50 +516,23 @@ Chapter two is about what the agent sees. An agent is only as good as the inform
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- _class: split-panel -->
 
-`Chapter 2 · You'll learn`
+`Chapter 2 · Start here`
 
-## By the end of this chapter, you can:
+## The agent knows only what's in front of it.
 
-- Write the rules the agent reads every time it starts.
-- Keep the agent's view full of what matters.
-- Build the one example every later feature copies.
+You need: context window (what the agent sees) · agent loop (its work cycle).
 
-<!--
-Three skills. Writing the standing rules the agent reads at the start of every session. Keeping its view free of noise. And building one feature well, first, because the agent will copy whatever it finds.
--->
-
----
-
-<!-- _class: list takeaway -->
-
-`Chapter 2 · You need`
-
-## Two ideas from the primer:
-
-- Context window
-  - Everything the agent can see right now.
-- Agent loop
-  - Read, plan, act, check, until it thinks it's done.
+- Standing rules
+  - What every session reads first.
+- A clean view
+  - Only what matters.
+- The first example
+  - What every feature copies.
 
 <!--
-Two reminders from the primer. The context window is everything the agent can see at this moment; if it isn't there, the agent doesn't know it. And the agent loop: read, plan, act, check, until it believes it's done.
--->
-
----
-
-<!-- _class: topic -->
-<!-- _header: '' -->
-
-`Chapter 2 · Standing rules`
-
-## Standing rules
-
-Write them before the first line of code.
-
-<!--
-First, the rules the agent reads before it starts.
+Three skills: the standing rules every session reads, a view free of noise, and one feature built well enough to copy. You need two ideas from the primer: the context window, everything the agent can see right now, and the agent loop, read, plan, act, check.
 -->
 
 ---
@@ -698,21 +604,6 @@ One useful part of the index is a routing table. It tells the agent which docume
 
 ---
 
-<!-- _class: topic -->
-<!-- _header: '' -->
-
-`Chapter 2 · A clean view`
-
-## A clean view
-
-Less noise, more of what matters.
-
-<!--
-Second, keeping the agent's view clean.
--->
-
----
-
 <!-- _class: compare-code insight-key -->
 
 `Chapter 2 · A clean view`
@@ -752,30 +643,36 @@ Teaches: token
 
 `Chapter 2 · A clean view`
 
-## Three habits keep the view full of what matters.
+## Two habits keep the view full of what matters.
 
-- Read by section: list the headings, then open only what you need.
-- Hand big reads, like booking logs, to a subagent: a helper agent that returns a summary.
-- Measure what fills the view before trimming.
+- Read by section: list the headings, then open only the one you need.
+- Measure what fills the view before you trim it.
 
 <!--
-Three habits. Read long documents by section instead of whole. Hand big reads, like a long log, to a subagent: a helper agent that reads it in its own separate window and gives back just a summary. And measure what's actually filling the window before you trim it, because guesses about where the space goes are usually wrong.
-Teaches: subagent
+Two habits. Read long documents by section instead of whole: list the headings first, then open only the section the task needs. And measure what's actually filling the window before you trim it, because guesses about where the space goes are usually wrong.
 -->
 
 ---
 
-<!-- _class: topic -->
-<!-- _header: '' -->
+<!-- _class: diagram insight-key -->
 
-`Chapter 2 · The first example`
+`Chapter 2 · A clean view`
 
-## The first example
+## Hand big reads to a subagent, and keep only its summary.
 
-Agents copy what they find. Make the first thing good.
+```mermaid
+%%{init: {'themeVariables': {'fontSize': '22px'}}}%%
+flowchart LR
+  A["Your agent<br/>needs one answer"] -->|"asks"| B["Subagent<br/>reads 5,000 log lines<br/>in its own window"]
+  B -->|"returns"| C["A 10-line summary"]
+  C --> A
+```
+
+> Your agent's window holds the answer, not the log.
 
 <!--
-Third, the example the agent will copy.
+Some reads are huge: a week of booking logs, a long error trace, a whole folder of code. If your agent reads them itself, they fill its context window and push out what matters. Instead, it hands the read to a subagent: a helper agent with its own separate window. The subagent reads all 5,000 lines and returns a ten-line summary. Your agent's window holds the answer, not the log. The same trick gives you fresh eyes for review, which Chapter 6 uses.
+Teaches: subagent
 -->
 
 ---
@@ -826,17 +723,17 @@ Agents copy the nearest example, so the first feature sets the pattern for every
 
 `Chapter 2 · Common mistakes`
 
-## Three ways to fill the view with the wrong things.
+## Three ways the rules themselves go wrong.
 
-1. A giant instruction file
-   - It's read every time. Link out instead.
-2. Pasting whole logs
-   - Hand them to a subagent; keep the summary.
-3. Style left for later
-   - Agents copy the mess. Settle it on day one.
+1. Rules no longer true
+   - The agent obeys them anyway.
+2. Rules it can't act on
+   - "Write clean code" versus "run npm test".
+3. Rules nobody owns
+   - Review the instruction file like code.
 
 <!--
-Three ways teams fill the agent's view with the wrong things. An instruction file so long it costs a fortune on every task. Pasting whole logs into the conversation. And leaving the house style for later, so agents copy the mess.
+Three ways the rules themselves go wrong. A rule that's no longer true is worse than no rule, because the agent follows it faithfully. A rule it can't act on, like "write clean code", changes nothing; "run npm test before you finish" does. And a file nobody owns rots, so review changes to the instruction file the way you review code.
 -->
 
 ---
@@ -894,50 +791,23 @@ Chapter three is about permission. An agent that asks about everything is useles
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- _class: split-panel -->
 
-`Chapter 3 · You'll learn`
+`Chapter 3 · Start here`
 
-## By the end of this chapter, you can:
+## Decide what the agent may do without you.
 
-- Tell which changes an agent can make on its own.
-- Write the short list of things it must ask about.
-- Spot two dangers that come from outside your code.
+You need: agent loop (it acts alone) · instruction file (rules every session reads).
 
-<!--
-Three skills. Sorting actions into "go ahead" and "ask first." Writing that line down so every session follows it. And recognizing two dangers that come from outside: text that tries to give the agent orders, and secret keys that leak.
--->
-
----
-
-<!-- _class: list takeaway -->
-
-`Chapter 3 · You need`
-
-## Two ideas from earlier:
-
-- Agent loop
-  - Read, plan, act, check, until it thinks it's done.
-- Instruction file
-  - The rules every agent session reads first.
+- Two questions
+  - Tell what it can do alone.
+- Ask first
+  - Write down what needs you.
+- Outside danger
+  - Hidden orders and leaked keys.
 
 <!--
-Two reminders. The agent loop: it reads, plans, acts and checks, on its own, until it thinks it's done. And the instruction file: the standing rules every session reads first. This chapter decides what that loop may do without you, and writes it into that file.
--->
-
----
-
-<!-- _class: topic -->
-<!-- _header: '' -->
-
-`Chapter 3 · Two questions`
-
-## Two questions
-
-Ask them before every action.
-
-<!--
-First, a simple test for any action.
+Three skills: sorting actions into go ahead and ask first, writing that line down, and spotting text that gives the agent orders and keys that leak. You need two ideas: the agent loop, which acts on its own until it thinks it's done, and the instruction file, the rules every session reads first. This chapter decides what that loop may do without you, and writes it into that file.
 -->
 
 ---
@@ -983,21 +853,6 @@ Most work passes the reach test easily. Writing the booking form and its tests. 
 
 ---
 
-<!-- _class: topic -->
-<!-- _header: '' -->
-
-`Chapter 3 · Ask first`
-
-## Ask first
-
-Write down what always needs a human.
-
-<!--
-Second, writing down the line.
--->
-
----
-
 <!-- _class: list-tabular -->
 
 `Chapter 3 · Ask first`
@@ -1035,21 +890,6 @@ Your agent wants to sync bookings with everyone's calendar.
 
 <!--
 When the agent hits the stop list, it shouldn't just ask "what should I do?" Say your agent wants to sync bookings with every employee's calendar. That touches thousands of people. So it lays out the options, what each costs, what each risks, and which one it recommends. You can decide in a minute. A question with no recommendation pushes all the thinking back onto you.
--->
-
----
-
-<!-- _class: topic -->
-<!-- _header: '' -->
-
-`Chapter 3 · Outside danger`
-
-## Outside danger
-
-Two risks that come from outside your code.
-
-<!--
-Third, two dangers that come from outside.
 -->
 
 ---
@@ -1111,17 +951,17 @@ Your app will need keys: one for the calendar service, maybe one for the AI mode
 
 `Chapter 3 · Common mistakes`
 
-## Three ways permission goes wrong.
+## Three ways permission leaks.
 
-1. Asking about everything
-   - You stop reading its questions.
-2. Asking about nothing
-   - It breaks what other teams rely on.
-3. Trusting what it reads
-   - A meeting title gives it orders.
+1. Granting it in chat
+   - The next session never saw it. Write it down.
+2. Approving prompts on reflex
+   - Read the command, every time.
+3. One stop list everywhere
+   - A payments repository needs a longer one.
 
 <!--
-Three ways permission goes wrong. Ask about everything, and you stop reading the questions, which is worse than no questions. Ask about nothing, and the agent changes something other teams rely on. And trust what it reads, and anyone who can type a meeting title can steer it.
+Three ways permission leaks. Granting it in chat: the next session never saw that conversation, so write the permission into the instruction file or it doesn't exist. Approving every command prompt on reflex: after the twentieth, you stop reading, and the twenty-first is the one that mattered. And one stop list for every repository: the booking app and a payments service don't carry the same risk.
 -->
 
 ---
@@ -1179,50 +1019,23 @@ Chapter four is about proof. An agent will tell you its work is done. This chapt
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- _class: split-panel -->
 
-`Chapter 4 · You'll learn`
+`Chapter 4 · Start here`
 
-## By the end of this chapter, you can:
+## "Done" is a claim until you've seen proof.
 
-- Tell a claim apart from proof.
-- Make sure a test can actually fail.
-- Set up the checks on day one, while they're cheap.
+You need: agent loop (it stops when it thinks it's done) · instruction file (standing rules).
 
-<!--
-Three skills. Telling the difference between "the agent says it works" and evidence that it works. Making sure a test could actually catch a bug. And setting up the checks before the first feature, which is when they cost least.
--->
-
----
-
-<!-- _class: list takeaway -->
-
-`Chapter 4 · You need`
-
-## Two ideas from earlier:
-
-- Agent loop
-  - It stops when it thinks it's done, not when it is.
-- Instruction file
-  - The rules every agent session reads first.
+- Claims and proof
+  - Tell a claim from evidence.
+- Review
+  - Read an agent's change in order.
+- Gates
+  - Make every gate hold.
 
 <!--
-Two reminders. The agent loop stops when the agent believes it's done, which isn't the same as being done. And the instruction file holds the rules every session reads first; the rule in this chapter belongs there.
--->
-
----
-
-<!-- _class: topic -->
-<!-- _header: '' -->
-
-`Chapter 4 · Claims and proof`
-
-## Claims and proof
-
-"It works" is a claim. Proof is something you can show.
-
-<!--
-First, the difference between a claim and proof.
+Three skills: telling a claim from proof, reviewing an agent's change in the right order, and making gates hold when an agent wants past them. You need two ideas: the agent loop stops when the agent believes it's done, which isn't the same as done; and the instruction file holds rules every session reads first.
 -->
 
 ---
@@ -1315,21 +1128,6 @@ Agents write fast, so you'll read a lot of diffs. Read them in this order. First
 
 ---
 
-<!-- _class: topic -->
-<!-- _header: '' -->
-
-`Chapter 4 · Gates`
-
-## Gates
-
-Set them up before there's code to slip through.
-
-<!--
-Second, the checks themselves.
--->
-
----
-
 <!-- _class: list-tabular -->
 
 `Chapter 4 · Gates`
@@ -1389,17 +1187,17 @@ Some bugs don't break any test. The booking week view can pass every check while
 
 `Chapter 4 · Common mistakes`
 
-## Three ways proof goes wrong.
+## Three ways an agent fakes a pass.
 
-1. Trusting "done"
-   - Ask where it was checked, and for the evidence.
-2. Tests that can't fail
-   - Break the code once to see the test go red.
-3. Gates added late
-   - Turn them on while the repository is empty.
+1. Editing the test to match
+   - The code was wrong; the test was right.
+2. Mocking what's under test
+   - The test passes against a fake.
+3. Catching every error
+   - The crash is gone, and so is the warning.
 
 <!--
-Three ways proof goes wrong. Taking "done" at face value. Keeping tests that pass no matter what. And adding gates late, when turning them on means fixing everything already written.
+Three ways an agent gets to green without fixing anything, none of them malicious. It edits the test to match the code, when the test was right. It mocks the very thing under test, so the test passes against a fake. Or it wraps the failing code in a catch-everything block, so the crash disappears along with the warning. Look for all three when you read the diff.
 -->
 
 ---
@@ -1457,50 +1255,23 @@ Chapter five is about memory. An agent starts every session fresh. It doesn't re
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- _class: split-panel -->
 
-`Chapter 5 · You'll learn`
+`Chapter 5 · Start here`
 
-## By the end of this chapter, you can:
+## Agents forget. Your repository remembers.
 
-- Turn a mistake into a rule that stops it coming back.
-- Write down why a decision was made.
-- Keep unfinished work from getting lost.
+You need: context window (nothing carries between sessions) · instruction file (standing rules).
 
-<!--
-Three skills. Turning one mistake into a rule plus a check, so it can't happen twice. Recording why a decision was made, so nobody undoes it by accident. And keeping track of unfinished work, so it doesn't vanish when a session ends.
--->
-
----
-
-<!-- _class: list takeaway -->
-
-`Chapter 5 · You need`
-
-## Two ideas from earlier:
-
-- Context window
-  - Everything the agent can see right now. Nothing carries over.
-- Instruction file
-  - The rules every agent session reads first.
+- The loop
+  - Turn a mistake into a rule and a check.
+- Writing it down
+  - Record why.
+- Unfinished work
+  - Keep loose ends from vanishing.
 
 <!--
-Two reminders. The context window is all the agent can see, and nothing carries over from one session to the next. The instruction file is where standing rules live, read at the start of every session. Together they explain this chapter: anything you want the agent to remember has to be written where it will read it.
--->
-
----
-
-<!-- _class: topic -->
-<!-- _header: '' -->
-
-`Chapter 5 · The loop`
-
-## The loop
-
-Every mistake should happen once.
-
-<!--
-First, a loop that turns mistakes into rules.
+Three skills: turning one mistake into a rule and a check, recording why, and keeping track of unfinished work. You need two ideas: the context window, which is all the agent sees, with nothing carried from one session to the next; and the instruction file, read at the start of every session. Anything you want the agent to remember has to be written where it will read it.
 -->
 
 ---
@@ -1540,21 +1311,6 @@ Here's the loop. A mistake happens: Room 4 is booked twice for the same hour. Yo
 
 <!--
 There are two ways to fix a bug. You can fix this one. Then next month, a different agent session writes reminder emails and makes the same time-zone mistake, because nothing told it not to. Or you fix the bug, add the rule, and add a check that covers all code that handles time. The second takes ten more minutes and saves every repeat.
--->
-
----
-
-<!-- _class: topic -->
-<!-- _header: '' -->
-
-`Chapter 5 · Writing it down`
-
-## Writing it down
-
-Rules say what. Records say why.
-
-<!--
-Second, writing down why.
 -->
 
 ---
@@ -1607,21 +1363,6 @@ Three kinds of document, each with one job. The instruction file says what to do
 
 ---
 
-<!-- _class: topic -->
-<!-- _header: '' -->
-
-`Chapter 5 · Unfinished work`
-
-## Unfinished work
-
-When a session ends, the chat goes with it.
-
-<!--
-Third, unfinished work.
--->
-
----
-
 <!-- _class: q-and-a -->
 
 `Chapter 5 · Unfinished work`
@@ -1646,17 +1387,17 @@ Teaches: follow-up file
 
 `Chapter 5 · Common mistakes`
 
-## Three ways teams forget.
+## Three ways written memory fails.
 
-1. Fixing only this bug
-   - Add the rule and the check too.
-2. Rules with no reason
-   - Someone deletes them. Write the record.
-3. Loose ends in chat
-   - They vanish. Put each in a file.
+1. Rules that only grow
+   - Prune any rule a check now covers.
+2. Records nobody can find
+   - Link each one from the instruction file.
+3. Writing it up later
+   - Write the record in the same pull request.
 
 <!--
-Three ways teams forget. Fixing the bug but not the cause. Writing rules without reasons, so they get deleted. And leaving loose ends in a chat that disappears when the session closes.
+Three ways written memory fails. Rules that only grow: two hundred rules and none get read, so prune any rule a check now enforces. Records nobody can find: link each decision record from the instruction file. And writing it up later: by then the details are gone, so write the record in the same pull request as the fix.
 -->
 
 ---
@@ -1714,50 +1455,23 @@ Chapter six is about using more than one agent. More agents can mean better work
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- _class: split-panel -->
 
-`Chapter 6 · You'll learn`
+`Chapter 6 · Start here`
 
-## By the end of this chapter, you can:
+## More agents help only where they change the outcome.
 
-- Give each helper agent one clear job.
-- Decide when a second or third agent is worth it.
-- Lay out the repository so agents don't collide.
+You need: subagent (a helper agent with its own context window).
 
-<!--
-Three skills. Giving each helper agent one clear job. Deciding when a second look, or a third, is worth paying for. And laying out the repository from day one so agents working at the same time don't trip over each other.
--->
-
----
-
-<!-- _class: list takeaway -->
-
-`Chapter 6 · You need`
-
-## Two ideas from earlier:
-
-- Subagent
-  - A helper agent with its own context window.
-- Context window
-  - Everything an agent can see right now.
+- Roles
+  - One clear job per helper.
+- How many
+  - Match the review to the risk.
+- Side by side
+  - Keep parallel agents apart.
 
 <!--
-Two reminders. A subagent is a helper agent that works in its own separate context window and reports back a summary. And each agent's context window is everything it can see; a helper starts with an empty one, which is exactly why it gives you fresh eyes.
--->
-
----
-
-<!-- _class: topic -->
-<!-- _header: '' -->
-
-`Chapter 6 · Roles`
-
-## Roles
-
-One agent, one job.
-
-<!--
-First, giving each agent a role.
+Three skills: one clear job per helper agent, review effort matched to risk, and a repository where parallel agents don't collide. You need one idea: a subagent is a helper agent that works in its own context window and reports back. It starts with an empty window, which is exactly why it gives you fresh eyes.
 -->
 
 ---
@@ -1797,21 +1511,6 @@ Teaches: red team
 
 <!--
 The agent that wrote the code reads it the way it meant it, not the way it is. That's true of people too. So for changes that matter, separate the maker from the checker: a second agent reads the change cold. In our booking fix, the checker noticed that reminder emails convert time the same wrong way.
--->
-
----
-
-<!-- _class: topic -->
-<!-- _header: '' -->
-
-`Chapter 6 · How many`
-
-## How many
-
-More agents cost more. Use them where they change the outcome.
-
-<!--
-Second, deciding how many agents to use.
 -->
 
 ---
@@ -1873,21 +1572,6 @@ Before you launch several agents, count them and estimate the cost. Five agents 
 
 ---
 
-<!-- _class: topic -->
-<!-- _header: '' -->
-
-`Chapter 6 · Side by side`
-
-## Side by side
-
-Many agents, one repository.
-
-<!--
-Third, agents working at the same time.
--->
-
----
-
 <!-- _class: split-compare -->
 
 `Chapter 6 · Side by side`
@@ -1915,17 +1599,17 @@ When several agents work at once, each opens its own pull request. If they all a
 
 `Chapter 6 · Common mistakes`
 
-## Three ways a team of agents goes wrong.
+## Three ways a team of agents misleads you.
 
-1. Vague jobs
-   - "Review this" gets a vague review.
-2. No budget
-   - Ten agents where one would do.
-3. One shared file
-   - Every change collides with every other.
+1. Two agents, same files
+   - Give each one its own area.
+2. Trusting agreement
+   - Three agents that read the same wrong doc all agree.
+3. A checker that saw the reasoning
+   - Give it the diff, not the conversation.
 
 <!--
-Three ways it goes wrong. Vague jobs get vague results. No budget means ten agents where one would do. And one shared file means every parallel change collides.
+Three ways a team of agents misleads you. Two agents editing the same files at once undo each other's work; give each its own area. Agreement isn't proof: three agents that read the same out-of-date document will all agree, and all be wrong. And a checker that saw the maker's reasoning inherits its blind spots, so give it the diff, not the conversation.
 -->
 
 ---
@@ -1983,50 +1667,23 @@ Chapter seven is about hard problems. Sometimes an agent goes around in circles:
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- _class: split-panel -->
 
-`Chapter 7 · You'll learn`
+`Chapter 7 · Start here`
 
-## By the end of this chapter, you can:
+## When the agent circles, stop guessing and start testing.
 
-- Notice when an agent is going in circles.
-- Use four tactics to pin a bug down.
-- Make the agent test ideas instead of guessing.
+You need: context window (it fills with old guesses) · subagent (a clean helper).
 
-<!--
-Three skills. Noticing the signs that an agent is stuck. Four tactics that pin a bug down. And getting the agent to work like a scientist: guess, test, keep or throw away.
--->
-
----
-
-<!-- _class: list takeaway -->
-
-`Chapter 7 · You need`
-
-## Two ideas from earlier:
-
-- Context window
-  - Everything the agent can see right now.
-- Subagent
-  - A helper agent with its own context window.
+- Signs
+  - Notice the circling early.
+- Tactics
+  - Pin the bug down.
+- Think like a scientist
+  - Test ideas, don't guess.
 
 <!--
-Two reminders. The context window is everything the agent can see, and in a long session it fills up with old attempts. A subagent is a helper agent that starts with a clean window and reports back. Both matter when an agent is stuck.
--->
-
----
-
-<!-- _class: topic -->
-<!-- _header: '' -->
-
-`Chapter 7 · Signs`
-
-## Signs
-
-How to tell the agent is stuck.
-
-<!--
-First, the signs.
+Three skills: noticing when an agent is stuck, four tactics to pin a bug down, and getting the agent to test ideas instead of guessing. You need two ideas: the context window, which in a long session fills up with old attempts, and the subagent, a helper that starts with a clean window.
 -->
 
 ---
@@ -2046,21 +1703,6 @@ First, the signs.
 
 <!--
 Three signs an agent is guessing rather than solving. It tries a fix it already tried. The bug moves instead of going away: double bookings stop, but reminders now go out an hour early. Or it can't explain why its fix works. When you see any of these, stop the agent and change approach.
--->
-
----
-
-<!-- _class: topic -->
-<!-- _header: '' -->
-
-`Chapter 7 · Tactics`
-
-## Tactics
-
-Four ways to pin a bug down.
-
-<!--
-Second, tactics.
 -->
 
 ---
@@ -2104,21 +1746,6 @@ Teaches: flaky test
 
 ---
 
-<!-- _class: topic -->
-<!-- _header: '' -->
-
-`Chapter 7 · Think like a scientist`
-
-## Think like a scientist
-
-Guess, test, keep or throw away.
-
-<!--
-Third, a habit that works on any hard problem.
--->
-
----
-
 <!-- _class: diagram insight-key -->
 
 `Chapter 7 · Think like a scientist`
@@ -2145,7 +1772,7 @@ When an agent is stuck, stop asking for a fix. Ask for three possible causes. Fo
 
 `Chapter 7 · Think like a scientist`
 
-## When stuck, ask for a fresh pair of eyes.
+## When stuck, reset with only the facts you've confirmed.
 
 A long session fills up with failed guesses, and the agent keeps following them.
 
@@ -2164,17 +1791,17 @@ A long session fills up with failed attempts, and the agent keeps building on th
 
 `Chapter 7 · Common mistakes`
 
-## Three ways to stay stuck.
+## Three ways to lose an afternoon.
 
-1. Retrying
-   - Running it again hides the bug.
-2. Many changes at once
-   - You can't tell which one helped.
-3. One long session
-   - Old guesses steer new ones.
+1. Accepting a symptom fix
+   - A catch-all hides the bug; it doesn't fix it.
+2. Trusting its explanation
+   - Its account of its own code is a guess too.
+3. No time box
+   - Circling for 30 minutes? Stop and reset.
 
 <!--
-Three ways to stay stuck. Rerunning until it passes. Changing many things at once, so you can't tell what helped. And staying in one long session where old wrong guesses keep steering the new ones.
+Three ways to lose an afternoon. Accepting a fix that removes the symptom: a catch-all error handler makes the failure quiet, not gone. Trusting the agent's explanation of why its code works: that's a guess too, so test it like one. And no time box: if you've been circling for thirty minutes, stop, write down what you know, and reset.
 -->
 
 ---
@@ -2232,86 +1859,42 @@ Chapter eight is about the long run. One good change is easy. A codebase that's 
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- _class: split-panel -->
 
-`Chapter 8 · You'll learn`
+`Chapter 8 · Start here`
 
-## By the end of this chapter, you can:
+## Stay good after a thousand agent changes.
 
-- Build checks that make a mistake hard to repeat.
-- Expect surprises when rules combine.
-- Change a shared API without breaking its callers.
+You need: instruction file (standing rules) · agent loop (it runs on its own).
 
-<!--
-Three skills. Building checks that make a mistake hard to repeat. Expecting surprises when rules and parts combine. And changing something other people already depend on without breaking them.
--->
-
----
-
-<!-- _class: list takeaway -->
-
-`Chapter 8 · You need`
-
-## Two ideas from earlier:
-
-- Instruction file
-  - The rules every agent session reads first.
-- Agent loop
-  - Read, plan, act, check, until it thinks it's done.
+- Guardrails
+  - Make the wrong thing hard to write.
+- Surprises
+  - Expect rules to combine badly.
+- Changing what others use
+  - Retire an API without breaking callers.
 
 <!--
-Two reminders. The instruction file holds the standing rules. And the agent loop runs on its own until the agent believes it's done. This chapter is about turning rules into checks the loop can't get past.
--->
-
----
-
-<!-- _class: topic -->
-<!-- _header: '' -->
-
-`Chapter 8 · What compounds`
-
-## What compounds
-
-Small habits add up.
-
-<!--
-First, what adds up over time.
--->
-
----
-
-<!-- _class: compare-prose chosen -->
-
-`Chapter 8 · What compounds`
-
-## Each check you add makes every future change safer.
-
-- No checks
-  - Every session can repeat every old mistake. Review slows each month.
-- One check per lesson
-  - The two-zone test guards every future booking change.
-
-<!--
-Good habits compound. A codebase with no checks lets every new session repeat every old mistake, so review gets slower as the code grows. A team that adds one check per lesson goes the other way. The two-zone test now guards every future change to booking, for free, for as long as the app exists.
+Three skills: making the wrong thing hard to write, expecting surprises when parts combine, and changing what others depend on without breaking them. You need two ideas: the instruction file holds the standing rules, and the agent loop runs on its own until the agent believes it's done. This chapter is about guardrails that loop can't get past.
 -->
 
 ---
 
 <!-- _class: split-panel -->
 
-`Chapter 8 · What compounds`
+`Chapter 8 · Guardrails`
 
-## A guardrail makes the wrong thing hard to do.
+## A guardrail makes the wrong thing hard to write at all.
 
-A rule asks people to remember. A guardrail checks for them.
+A check catches a mistake. A guardrail stops it being written.
 
-- A rule
-  - "Always store times in UTC."
+- A check
+  - A test fails on a time with no zone.
 - A guardrail
-  - A check that fails CI on a time with no zone.
+  - A UtcTime type: booking code can't hold a local time.
 
 <!--
-A guardrail is a check that makes a mistake hard to make at all, like the rail on a mountain road. A rule asks people and agents to remember: "always store times in UTC." A guardrail checks for them: CI fails the moment a time without a zone appears in booking code. Rules get forgotten. Guardrails don't.
+Chapter five turned a mistake into a rule and a check. A guardrail goes one step further: it makes the mistake hard to write at all, like the rail on a mountain road. The check fails CI when a booking time has no zone. The guardrail is a UtcTime type that booking code must use, so a local time can't even be stored there; the mistake stops compiling. Agents copy whatever compiles, so a guardrail teaches every future session for free.
 Teaches: guardrail
 -->
 
@@ -2319,7 +1902,7 @@ Teaches: guardrail
 
 <!-- _class: compare-prose chosen -->
 
-`Chapter 8 · What compounds`
+`Chapter 8 · Guardrails`
 
 ## Check for jank: parts that jump as content grows.
 
@@ -2331,21 +1914,6 @@ Teaches: guardrail
 <!--
 Most checks ask whether things fit. Fewer ask whether things move. When a meeting title gets longer, the booking card might still fit, but the Book button jumps down a line, and people tap the wrong thing. That unwanted movement is called jank. Check for it: change the content, and make sure the fixed parts stay put.
 Teaches: jank
--->
-
----
-
-<!-- _class: topic -->
-<!-- _header: '' -->
-
-`Chapter 8 · Surprises`
-
-## Surprises
-
-Parts that work alone can fail together.
-
-<!--
-Second, surprises.
 -->
 
 ---
@@ -2368,21 +1936,6 @@ Second, surprises.
 <!--
 Some behavior only shows up when parts combine. That's called emergence. Here, two sensible rules: show times in the viewer's own zone, and book in 30-minute slots. Each works. But Nepal is five hours and 45 minutes ahead of UTC, so for staff there, every slot starts at quarter past or quarter to. No test of either rule alone would catch it. Test the parts together, on real data from real places.
 Teaches: emergence
--->
-
----
-
-<!-- _class: topic -->
-<!-- _header: '' -->
-
-`Chapter 8 · Changing what others use`
-
-## Changing what others use
-
-Once someone depends on it, it isn't only yours.
-
-<!--
-Third, changing things other people depend on.
 -->
 
 ---
@@ -2412,17 +1965,17 @@ Within months, other teams will build on your booking API: a mobile app, a lobby
 
 `Chapter 8 · Common mistakes`
 
-## Three ways good code decays.
+## Three ways guardrails fail.
 
-1. Rules without checks
-   - Rules get forgotten. Add a guardrail.
-2. Testing parts alone
-   - The surprise is in how they combine.
-3. Deleting in one step
-   - Someone still used it.
+1. Unclear failures
+   - The message must say how to fix it.
+2. Slow checks
+   - A slow hook gets skipped. Keep it fast.
+3. Exceptions that pile up
+   - Each needs a reason and an end date.
 
 <!--
-Three ways good code decays. Rules with no checks behind them. Testing parts only one at a time. And deleting shared code in one step, without warning the people who use it.
+Three ways guardrails fail. A failure message that only says "failed": the agent will guess at a fix, so say exactly what's wrong and how to fix it. Slow checks: a hook that takes minutes gets skipped, by people and by agents, so keep it to seconds. And exceptions that pile up: every allowed exception needs a written reason and an end date, or the guardrail slowly stops guarding.
 -->
 
 ---
@@ -2514,7 +2067,7 @@ Terms A to F.
 - Follow-up file
   - One small file per piece of unfinished work, kept in the repository.
 - Guardrail
-  - A check that makes a mistake hard to make at all.
+  - A design that makes a mistake hard to write at all, like a type that only holds UTC.
 - Index
   - A short file of one-line rules, each linking to its detail.
 - Instruction file

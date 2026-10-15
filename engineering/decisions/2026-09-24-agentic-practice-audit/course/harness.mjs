@@ -7,8 +7,9 @@
 // The deck's conventions it relies on:
 // - A chapter starts at a `divider` slide whose eyebrow begins `Primer`, `Chapter N` or
 //   `Reference`. Slides before the first divider (the title) belong to no chapter.
-// - The frame slides are found by the end of their eyebrow: `· You'll learn`, `· You need`,
-//   `· Common mistakes`, `· Check` and `· Try it`.
+// - The frame slides are found by the end of their eyebrow: `· Start here`, `· Common mistakes`,
+//   `· Check` and `· Try it`. "Start here" lists the outcomes and ends in a `> You need: …`
+//   line naming the earlier terms the chapter assumes, so it stands alone.
 // - A slide that introduces a term says so on the last line of its speaker notes:
 //   `Teaches: index` (comma-separated for more than one).
 // - Terms and their spellings live in terms.json beside this file.
@@ -119,12 +120,6 @@ function escapeRe(s) {
 export function termsIn(text) {
   return termIndex.filter((t) => t.re.test(text)).map((t) => t.name);
 }
-/** The registry term a "You need" item names, by its lead words. */
-function termNamed(item) {
-  const lead = item.split(/[—:]/)[0];
-  const hit = termIndex.find((t) => t.re.test(lead));
-  return hit?.name;
-}
 
 /** Flesch–Kincaid grade level. Each line counts as at least one sentence. */
 export function fkGrade(lines) {
@@ -180,14 +175,14 @@ export function judgeChapter(ch) {
     add('Notes', silent.length === 0, silent.length ? `no notes: ${silent.join(', ')}` : '');
     return results;
   }
-  const parts = ["· You'll learn", '· Common mistakes', '· Check', '· Try it'];
-  if (!isPrimer) parts.push('· You need');
+  const parts = ['· Start here', '· Common mistakes', '· Check', '· Try it'];
   const missing = parts.filter((p) => !find(p));
-  if (!ch.slides.some((s) => s.cls === 'topic')) missing.push('a topic slide');
+  const need = find('· Start here');
+  const needLine = need ? (need.prose.find((l) => /^You need:/.test(l)) ?? '') : '';
+  if (!isPrimer && !needLine) missing.push('a "You need:" line on Start here');
   add('Chapter frame', missing.length === 0, missing.length ? `missing: ${missing.join(', ')}` : '');
 
-  const need = find('· You need');
-  const known = new Set(need ? need.listLeads.map(termNamed).filter(Boolean) : []);
+  const known = new Set(termsIn(needLine));
   const early = [];
   const unused = [];
   const crowded = [];
