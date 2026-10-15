@@ -66,19 +66,19 @@ The primer. It's short, because you already know how software gets built. It cov
 
 `Primer · Start here`
 
-## A coding agent works in a loop, and stops when it thinks it's done.
+## A coding agent loops until it thinks it's done.
 
 Nothing to know first: you already ship software.
 
 - How it works
-  - The loop, step by step.
-- What it sees
-  - And what it can't.
+  - The loop, and what it can see.
+- Your first session
+  - Start, plan, watch.
 - The one rule
   - What every chapter builds on.
 
 <!--
-Three things. How an agent works, step by step. What it can see and what it can't. And the one rule every chapter after this one builds on.
+Three things. How an agent works, and what it can and can't see. Your first session: picking a tool, starting it, and watching it plan and work. And the one rule every chapter after this one builds on.
 -->
 
 ---
@@ -213,8 +213,10 @@ The agent reports back: "Done. All the tests pass." Ask two questions every time
 | Cursor | `.cursor/rules/` | Open the repo in Cursor |
 | GitHub Copilot | `.github/copilot-instructions.md` | Open the repo, or assign it an issue |
 
+> Names as of late 2026. Tools change: check yours.
+
 <!--
-Any coding agent will do for this course, and the habits carry across all of them. What differs is the name of the instruction file: the file of standing rules the agent reads every time it starts. Each tool looks for its own name, in the repository root, and a file with the wrong name is simply never read. Many tools also read AGENTS.md. These names were current in late 2026; tools change, so check yours.
+Any coding agent will do for this course, and the habits carry across all of them. What differs is the name of the instruction file: the file of standing rules the agent reads every time it starts. Each tool looks for its own name, at the path it expects, and a file with the wrong name or in the wrong place is simply never read. Many tools also read AGENTS.md. These names were current in late 2026; tools change, so check yours.
 Teaches: instruction file
 -->
 
@@ -351,12 +353,13 @@ Times:  ISO 8601 with an offset, like 2027-01-12T14:00+00:00
 Span:   start included, end excluded
         (14:00-15:00 does not block 15:00-16:00)
 Slots:  30 minutes
+UI:     a week view per room, in the browser
 Stack:  Node.js, node:test, no packages
-Not v1: recurring bookings, calendar sync, a UI
+Not v1: recurring bookings, calendar sync
 ```
 
 <!--
-Here is the whole booking app, on one page. Every line settles something an agent would otherwise guess: who uses it, the two functions, the exact time format, whether back-to-back bookings clash, and the stack. Kathmandu is there on purpose; it comes back in Chapter 8. The last line matters most: "Not v1" stops the agent building features you didn't ask for. Every code sample in the course follows this spec.
+Here is the whole booking app, on one page. Every line settles something an agent would otherwise guess: who uses it, the two functions, the exact time format, whether back-to-back bookings clash, the one screen, and the stack. Kathmandu is there on purpose; it comes back in Chapter 8. The last line matters most: "Not v1" stops the agent building features you didn't ask for. Every code sample in the course follows this spec.
 -->
 
 ---
@@ -745,7 +748,7 @@ Three skills: the standing rules every session reads, a view free of noise, and 
 
 `Chapter 2 · Standing rules`
 
-## Your first commit is a file of rules, not code.
+## Before any code, write the rules every session reads.
 
 The instruction file: in the repository root, named for your tool, read first.
 
@@ -755,7 +758,7 @@ The instruction file: in the repository root, named for your tool, read first.
   - "Store every time in UTC."
 
 <!--
-On a new project, make your first commit a file of standing rules, not code. It's called the instruction file. It sits in the repository root, under the name your tool looks for (CLAUDE.md, AGENTS.md and so on), and every agent session reads it before doing anything. It says how to run the tests, how to name things, and what never to touch. Write "store every time in UTC" there on day one, and a whole class of booking bugs never gets written.
+On a new project, write your standing rules before any code: right after the one-page spec, as the second commit of day one. It's called the instruction file. It sits in the repository root, under the name your tool looks for (CLAUDE.md, AGENTS.md and so on), and every agent session reads it before doing anything. It says how to run the tests, how to name things, and what never to touch. Write "store every time in UTC" there on day one, and a whole class of booking bugs never gets written.
 Teaches: instruction file
 -->
 
@@ -843,17 +846,21 @@ Teaches: token
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- _class: cards-grid three -->
 
 `Chapter 2 · A clean view`
 
-## Two habits keep the view full of what matters.
+## Three habits keep the view full of what matters.
 
-- Read by section: list the headings, then open only the one you need.
-- Measure what fills the view before you trim it.
+- Read by section
+  - List headings; open only the one you need.
+- Measure first
+  - Check what fills the view before you trim it.
+- Start fresh
+  - New task, new session. A clean view beats a full one.
 
 <!--
-Two habits. Read long documents by section instead of whole: list the headings first, then open only the section the task needs. And measure what's actually filling the window before you trim it, because guesses about where the space goes are usually wrong.
+Three habits. Read long documents by section instead of whole: list the headings first, then open only the section the task needs. Measure what's actually filling the window before you trim it, because guesses about where the space goes are usually wrong. And start a fresh session for each new task: a window full of yesterday's search for a booking bug only gets in the way of building room search today.
 -->
 
 ---
@@ -975,7 +982,7 @@ The answer is A. The rule lives in a design doc, and nothing in the index points
    - Ask an agent something only the detail answers.
 
 <!--
-Try this. Start an empty repository for any small project. Make the first commit an instruction file: five rules, one line each, each linking to a short document. Then ask an agent a question that only a linked document can answer, and see whether it finds it.
+Try this. Start an empty repository for any small project. Write the one-page spec, then make the next commit an instruction file: five rules, one line each, each linking to a short document. Then ask an agent a question that only a linked document can answer, and see whether it finds it.
 -->
 
 ---
@@ -1741,60 +1748,35 @@ Match the review to the risk. A routine change, like a typo, needs only the gate
 
 ---
 
-<!-- _class: split-panel -->
-
-`Chapter 6 · How many`
-
-## Use the strongest model for every helper.
-
-A judgment call, and teams differ. Ours: a cheaper model saves money until it's wrong in a way nobody notices.
-
-- How cheap fails
-  - Confident, well formatted, and wrong.
-- What to cut instead
-  - The number of agents.
-
-<!--
-It's tempting to save money by giving simple jobs to a cheaper model. The problem is how a cheaper model fails. It doesn't fail loudly. It gives a confident, neat, wrong answer that passes every check. This is a judgment, and teams disagree on it; the slide says so. It's the one we've found holds up. If you need to save, run fewer agents and ask each to write less, rather than buying a weaker one.
--->
-
----
-
 <!-- _class: cards-grid three -->
 
 `Chapter 6 · How many`
 
-## Set a budget before you start a group of agents.
+## Cut cost with fewer agents, never weaker ones.
 
 - Count first
   - Five agents on room search? Say what each costs.
 - Set a cap
-  - Stop at the limit, even mid-task.
-- Stop early
-  - When a round changes nothing, stop.
+  - Stop at it; stop early if a round finds nothing.
+- Keep the model
+  - Our call, and teams differ: weak models fail confidently.
 
 <!--
-Before you launch several agents, count them and estimate the cost. Five agents building room search in parallel? Say what each will cost before you start. Set a cap and stop when you reach it. And stop early when another round of review stops finding anything: a third pass that changes nothing is pure cost. A sensible default for the booking project: no more than ten agents on any one task without someone approving more.
+Before you launch several agents, count them and estimate the cost. Five agents building room search in parallel? Say what each will cost before you start. Set a cap, and stop early when another round of review finds nothing new: a third pass that changes nothing is pure cost. And when you need to save, cut the number of agents, not their strength. A cheaper model doesn't fail loudly; it gives a confident, neat, wrong answer that passes every check. That's a judgment, and teams disagree on it; it's the one we've found holds up. A sensible default for the booking project: no more than ten agents on one task without someone approving more.
 -->
 
 ---
 
-<!-- _class: split-compare -->
+<!-- _class: compare-prose chosen -->
 
 `Chapter 6 · Side by side`
 
-## Parallel changes should touch different files.
+## Give each parallel change its own file.
 
 - One shared file
-  - All edit one changelog
-  - Any two collide
-  - More agents, more collisions
+  - Every agent edits one changelog. Any two collide.
 - One file per entry
-  - Each adds its own file
-  - No shared lines
-  - A script joins them
-
-> Plan for parallel work on day one.
+  - Each change adds its own file. A script joins them.
 
 <!--
 When several agents work at once, each opens its own pull request. If they all add a line to one shared file, like the changelog, any two of them edit the same lines and you're resolving conflicts all day. With a dozen agents, that becomes the job. On a new project you can avoid it from the start: each change adds its own small file to a folder, one per changelog entry or follow-up, and a script joins them when someone needs the full list, like at release time. Generated files get built, not committed.
@@ -2304,7 +2286,7 @@ The instruction file for the booking app. Name it for your tool, in the reposito
    - 14:00-15:00 then 15:00-16:00 in one room: both saved
    - London 14:00 and New York 09:00, Jan 12: second refused
 5. Run node --test: show the red run, then green.
-Not doing: recurrence, calendar sync, a UI.
+Not doing: recurrence, calendar sync. The week view is the next plan.
 Question: what's the longest booking allowed? The spec is silent.
 ```
 

@@ -37,7 +37,7 @@ section).
 | 3 · What the agent may do alone | 4 | 4 | 4 | 4 | 4 | 4 |
 | 4 · Proving it works | 4 | 4 | 4 | 4 | 4 | 4 |
 | 5 · Learning from mistakes | 4 | 4 | 4 | 4 | 4 | 4 |
-| 6 · Working with many agents | 4 | 4 | 3 | 4 | 4 | 4 |
+| 6 · Working with many agents | 4 | 4 | 4 | 4 | 4 | 4 |
 | 7 · Hard problems | 4 | 4 | 4 | 4 | 4 | 4 |
 | 8 · Making it last | 4 | 4 | 4 | 4 | 4 | 4 |
 
@@ -79,11 +79,21 @@ because the exercises assumed mechanics the course never showed. After the fix (
 primer's tool table and first session, Day one, and the kit), every blocker and major gap
 has a slide. Five minor gaps are logged as not fixed. Day one is scored in the table above.
 
-## The one remaining three
+## Coherence pass (2026-10-15)
 
-- **Chapter 6, criterion 3.** The chapter covers roles, how many reviewers, model choice,
-  budget and parallel layout: five ideas in eleven slides. Each slide makes one point,
-  but the chapter is the busiest in the course.
+A full read-through after the build test found three contradictions that the new Day one
+spec had introduced, all now fixed:
+- **What comes first.** Chapter 2 said "your first commit is a file of rules", while Day
+  one puts the spec first. Chapter 2 now says the rules come before any code.
+- **"No UI" against UI slides.** The spec said "Not v1: a UI", but the week-view
+  screenshot, the "Book" button and jank all assume one. The spec now names one screen,
+  "a week view per room".
+- **The primer's opening map.** It omitted "Your first session"; now it lists it.
+
+Chapter 6 merges model choice and budget into one slide, "Cut cost with fewer agents,
+never weaker ones", so it now teaches four ideas instead of five. The tool table's
+"as of late 2026" caveat moved from the notes onto the slide. The sparse slides in
+Chapters 2 and 6 were reworked after a full visual pass. No criterion now scores below 4.
 
 ## Not yet done: the cold read
 
