@@ -23,7 +23,7 @@
     "description": {"type": "string", "minLength": 1},
     "icon": {
       "type": "object",
-      "description": "The plugin's mark, as DATA rather than markup: a viewBox and a list of paths, each tagged with the ink it takes. The host draws it (lib/plugins/plugin-icon.mjs) and colors each ink from the active theme — `line` and `fill` take the heading ink, `accent` the palette's accent — so a mark holds its contrast on every palette and can never carry a fixed color, a script or a style. A path is SVG path data and nothing else (the pattern admits only path commands and numbers). Optional; a plugin with none is shown by its name.",
+      "description": "The plugin's mark, as DATA rather than markup: a viewBox and a list of paths, each tagged with the ink it takes. The host draws it (lib/plugins/plugin-icon.mjs) and colors each ink from the active theme — `line` takes the heading ink; `accent` and `fill` take the palette's accent (`accent` stroked, `fill` filled) — so a mark holds its contrast on every palette and can never carry a fixed color, a script or a style. A path is SVG path data and nothing else (the pattern admits only path commands and numbers). Optional; a plugin with none is shown by its name.",
       "additionalProperties": false,
       "required": ["viewBox", "paths"],
       "properties": {

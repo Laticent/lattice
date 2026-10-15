@@ -87,7 +87,7 @@ at every level: an unknown field is an error.
 | `name` | yes | the plugin's identity (§2) |
 | `api` | yes | `1` — the host API this plugin is written for (§5). An unknown value is a build error |
 | `title`, `description` | yes | one line each, for people |
-| `icon` | no | the plugin's mark, as data: `{ "viewBox": "0 0 W H", "paths": [{ "ink", "d", "width"? }] }`. `ink` is `line`, `accent` or `fill`; `d` is SVG path data and nothing else (commands and numbers); `width` a stroke width. The host draws it and colors each ink from the active theme, so a mark can carry no color, element, script or style of its own, and holds its contrast on every palette. A plugin with none is shown by its name |
+| `icon` | no | the plugin's mark, as data: `{ "viewBox": "0 0 W H", "paths": [{ "ink", "d", "width"? }] }`, no other keys. `W` and `H` are 1–9999; 1–24 paths. `ink` is `line` (stroked in the heading ink), `accent` (stroked in the accent) or `fill` (filled with the accent); `d` is SVG path data and nothing else, 2–2000 characters of commands and plain numbers (no exponent); `width` a stroke width, 0.5–16, default 6. The host draws it and colors each ink from the active theme, so a mark can carry no color, element, script or style of its own, and holds its contrast on every palette. A plugin with none is shown by its name |
 
 ### 3.2 Dependencies
 
@@ -432,7 +432,7 @@ leaves its fences as code blocks.
 | Channel | May carry |
 |---|---|
 | In-tree (`lib/plugins/`) | every contribution |
-| Zip — the Studio Library, `lattice packages add` (later phase) | `styles`, `diagnostics`, `icon` (data, drawn by the host); fence code and `inline` kinds only through the code-package door (consent pinned to the code's hash, its fence and its kinds with their slots, then a sandbox). Never `syntax`, `hydrate` (a pass least of all), `highlight`, `bake`, `payload` or `extensionPoints` — and a zip COMPONENT cannot fill a slot either, because a filler is code — a `bake` runs with full Node privileges in the CLI's process, which no sandbox the door has can hold |
+| Zip — the Studio Library, `lattice packages add` (later phase) | `styles` and `diagnostics` (data `contributes`), and the top-level `icon` (data, drawn by the host); fence code and `inline` kinds only through the code-package door (consent pinned to the code's hash, its fence and its kinds with their slots, then a sandbox). Never `syntax`, `hydrate` (a pass least of all), `highlight`, `bake`, `payload` or `extensionPoints` — and a zip COMPONENT cannot fill a slot either, because a filler is code — a `bake` runs with full Node privileges in the CLI's process, which no sandbox the door has can hold |
 | npm, by an explicit list (later phase) | every contribution, after the license grant |
 
 A shipped plugin's name is reserved.
@@ -454,7 +454,8 @@ highlight.js language or alias, and at most 64 characters.
 - **0.6-draft, the plugin's icon (2026-10-15).** §3.1 gains an optional `icon`: path data
   tagged by ink, drawn by the host (`lib/plugins/plugin-icon.mjs`) in the theme's colors. Data
   rather than an SVG file, so it travels on every channel (§10), a zip included, with nothing
-  to sanitize. The website's Plugins hub is its first reader.
+  to sanitize. The website's Plugins hub is its only reader so far; no Studio or zip-channel
+  surface draws it yet.
 
 - **0.6-draft, inline kinds and the `@name{…}` form (2026-10-14).** §3.3 gains `inline`: every
   inline kind is called `@name{…}`, an in-tree kind keeps its one-character `sigil` as an alias,

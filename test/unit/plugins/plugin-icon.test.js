@@ -31,6 +31,14 @@ test('refuses anything that is not path numbers, rather than escaping it', async
     { ...ok, paths: [{ ink: 'red', d: 'M0 0L1 1' }] },
     { ...ok, paths: [{ ink: 'line', d: 'M0 0L1 1', width: 99 }] },
     { ...ok, paths: Array.from({ length: 25 }, () => ({ ink: 'line', d: 'M0 0L1 1' })) },
+    // As strict as the schema: no coercion, no unknown keys, no holes.
+    { ...ok, viewBox: ['0 0 128 128'] },
+    { ...ok, paths: [{ ink: ['fill'], d: 'M0 0L1 1' }] },
+    { ...ok, color: 'red' },
+    { ...ok, paths: [{ ink: 'line', d: 'M0 0L1 1', style: 'x' }] },
+    // biome-ignore lint/suspicious/noSparseArray: the hole is the case under test
+    { ...ok, paths: [, { ink: 'line', d: 'M0 0L1 1' }] },
+    { ...ok, paths: [{ ink: 'line', d: 'M1e2 0' }] },
   ];
   for (const icon of bad) {
     assert.equal(isPluginIcon(icon), false, JSON.stringify(icon));
