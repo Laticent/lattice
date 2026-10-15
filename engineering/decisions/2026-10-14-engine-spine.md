@@ -157,3 +157,43 @@ sum of every kernel's closure would see it; that is a number for the owner, not 
 
 The 44.4KB `markdown-it` is the second copy the lint core and the ESM engine each carry; the shared
 build in `followups.d/2694-p1-shared-lint-engine-build.md` is what would remove it.
+
+## 9. The shared lint/engine build: the state audit (2026-10-15)
+
+§3 cut the shared build because it merges module state. This is the audit that cut asked for,
+measured rather than argued.
+
+**Method.** A scratch build added the lint core's entry (`tools/build-authoring-core.js`
+`ENTRY_CONTENTS`) as a `lint` entry beside `engine` in `tools/build-playground.js`'s `ESM_OPTIONS`,
+and read esbuild's metafile. Every input module in a chunk that both entries import statically is
+shared state.
+
+**The payoff.** The lint entry's static closure beyond the engine's is **92.2KB gz**, against
+`lintCoreGz` 181.7KB today (§8): about 90KB gz less to fetch and parse after first paint, including
+the second markdown-it. The shared chunks hold 124KB gz across 63 repo modules and 6 packages
+(markdown-it and its dependencies).
+
+**Every module-level mutable singleton in those 63 modules:**
+
+| State | Kind | Shared is |
+|---|---|---|
+| `lib/core/boundary-parser.mjs` — the parser's enabled block rules, `rulesGeneration` | config: which plugin grammars split slides | **Unsafe.** The lint door calls `setBoundaryPluginsOff` with the deck's admission. Shared, that also narrows the parser the engine's own readers use (`bake-splits.js` is in the engine's static closure), which nothing narrows today. Engine output would then depend on whether the lint core had loaded yet. |
+| `segno-slots.js` `cache`; the `slot` memo in `inline-pills.js`, `inline-sparks.js`, `icons.inline.js`, `avatars.inline.js` | compiled grammars, built once from constants | Safe: the same value whoever builds it first. |
+| `plugin-data.js` `loaders`, `cache`, `failed` | the page's plugin data and its fetch failures | Safe: one page, one fetch; the lint reading the engine's "failed" is the true answer. |
+| `front-matter-key.js` `lastFm`/`lastBlanked`; `inline-pills.js` `lastText`/`lastBound`, `acceptedIcon`; `inline-sparks.js` `lastText`/`lastResult`; `split-sections.mjs` `walkMemo` | one-entry memos keyed by input text | Safe if no caller mutates a returned value. Not proven; a parity run would show it. |
+| `list-text.generated.js` and the Segno reader (`docs/src/lib/segno/dist/read.cjs`): `s`, `n`, `i`, `depth`, `err`, `buf`, `top`, `kindsSeen`, `handedText`/`handedResult` | parser scratch state | Safe across consumers for the parse itself, which is synchronous. But a returned tree points at the module's one `buf`, so a tree held across a task boundary is overwritten by the next parse from either consumer. Each bundle already lives with that; sharing doubles the parsers that can overwrite it. Not proven. |
+
+**Verdict.** The build is blocked on the boundary parser, and the fix is an engine-kernel choice,
+so it is the owner's:
+
+1. **Give the lint its own parser instance.** `slide-boundaries.mjs` takes a parser instead of
+   reading the shared one, and the lint entry builds its own from `createBoundaryParser()`. The
+   duplicated part is the instance, not markdown-it's code, so the 90KB saving holds.
+2. **Make the engine follow the deck's admission itself.** The engine narrows its own parser per
+   deck, so both consumers always set the same value for the same deck. This changes engine output
+   under a narrowed admission (it is arguably the correct output), so it needs its own parity
+   evidence.
+
+Either one, then the door's static importers (`PrintOptionsPanel.tsx`, `pane-pages.ts`,
+`slide-notes.ts`) move to the async door, and the 277-deck parity run decides. Tracked in
+`followups.d/2694-p1-shared-lint-engine-build.md`.

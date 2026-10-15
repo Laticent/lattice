@@ -26,3 +26,8 @@ evidence  — inversion measured a 2-entry ESM split at 63KB gz of lint beyond t
             boundary-parser.mjs lands in a chunk both entries import.
 verify    — the 276-deck byte-identical A/B in the PR body, with the Studio editor's plugin
             admission narrowed.
+status    — 2026-10-15: the shared-state audit is DONE (engine-spine note §9). Measured payoff:
+            the lint entry's closure beyond the engine is 92.2KB gz vs 181.7KB today. Blocked on
+            one singleton, the boundary parser's enabled rules, and its fix is an engine-kernel
+            fork the owner picks: (1) the lint gets its own parser instance, or (2) the engine
+            follows the deck's admission itself. Every other singleton is classified there.
