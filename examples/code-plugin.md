@@ -104,7 +104,7 @@ group by
   region
 ```
 
-Prettier formats the web languages, ruff formats Python, and sql-formatter formats SQL in the dialect you name. Each loads only when you format a block in its language.
+Prettier, ruff and sql-formatter each load only when you format a block in their language.
 
 ---
 
