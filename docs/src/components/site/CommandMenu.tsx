@@ -1,4 +1,4 @@
-import { ArrowRight, BookOpen, Boxes, GraduationCap, LayoutGrid, Moon, Palette, PencilRuler, Play, Puzzle, Sparkles, Sun, Wrench } from 'lucide-react';
+import { ArrowRight, BookOpen, GraduationCap, LayoutGrid, Moon, Palette, PencilRuler, Play, Sparkles, Sun, Wrench } from 'lucide-react';
 import * as React from 'react';
 import { paletteLabel } from '@/components/site/PaletteSelectItems';
 import { Badge } from '@/components/ui/badge';
@@ -50,8 +50,6 @@ const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
 	'Drawing Board': PencilRuler,
 	Workbench: Wrench,
 	Studio: Sparkles,
-	Libraries: Boxes,
-	Plugins: Puzzle,
 };
 
 /**
