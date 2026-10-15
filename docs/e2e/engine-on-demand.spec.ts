@@ -55,6 +55,41 @@ async function assetsResolveBesideTheEngine(page: Page) {
 	await expect(frame.locator('pre code [class^="hljs-"]').first()).toBeAttached({ timeout: 20_000 });
 }
 
+/** Every grammar file a page fetches beside the engine (tools/build-hljs-languages.js). */
+function grammarRequests(page: Page): string[] {
+	const seen: string[] = [];
+	page.on('request', (r: Request) => {
+		const m = r.url().match(/\/playground\/v\/[0-9a-f]+\/hljs\/([^?#/]+)\.js/);
+		if (m) seen.push(m[1]);
+	});
+	return seen;
+}
+
+// The code plugin's browser half carries no grammar but Lattice's shell grammar
+// (engineering/decisions/2026-10-15-code-plugin.md §4.3): a deck fetches the languages its fences
+// name and the ones those embed, and a deck with no code fetches none. Each half of that is a way
+// for a fence to fail silently — plain monospace in the preview while the export is colored.
+async function grammarsArriveWithTheirEmbeds(page: Page) {
+	const grammars = grammarRequests(page);
+	await gotoStudio(page);
+	await typeDeck(page, '# No code here\n\nJust a sentence.\n');
+	await expect(live(page).locator('section h1').first()).toHaveText('No code here', { timeout: 20_000 });
+	expect(grammars, 'a deck with no fence fetches no grammar').toEqual([]);
+	await typeDeck(page, '# Code\n\n```ts\nconst a: number = 1;\n```\n\n```html\n<script>let x = 1;</script>\n<style>a { color: red; }</style>\n```\n\n```sh\ndocker compose up -d --build\n```\n');
+	const frame = live(page);
+	await expect(frame.locator('code.language-ts .hljs-keyword').first()).toHaveText('const', { timeout: 20_000 });
+	// HTML colors the script and style it embeds: JavaScript and CSS came with it.
+	await expect(frame.locator('code.language-html .hljs-keyword').first()).toHaveText('let', { timeout: 20_000 });
+	await expect(frame.locator('code.language-html .hljs-attribute').first()).toHaveText('color');
+	// The shell grammar is built in, never fetched, and it is Lattice's (docker is a built-in).
+	await expect(frame.locator('code.language-sh .hljs-built_in').first()).toHaveText('docker');
+	expect(grammars).toEqual(expect.arrayContaining(['typescript', 'xml', 'javascript', 'css']));
+	expect(grammars).not.toContain('bash');
+	expect(new Set(grammars).size, 'each grammar is fetched once').toBe(grammars.length);
+}
+
+test('a deck fetches the grammars its fences name and the ones they embed, and none without code', async ({ page }) => grammarsArriveWithTheirEmbeds(page));
+
 test('@smoke a chart slide loads its own kernel and draws, and no other chart kernel loads', async ({ page }) => chartLoadsItsOwnKernel(page));
 test('math, an icon and an exotic fence still find their assets beside the ESM engine', async ({ page }) => assetsResolveBesideTheEngine(page));
 

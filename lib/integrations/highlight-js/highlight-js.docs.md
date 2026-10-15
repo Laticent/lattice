@@ -40,10 +40,12 @@ PDF/PPTX exports, the HTML player bake and the browser preview all run the same
 callback with the same custom grammars registered.
 
 **Which grammars a build carries** is the engine's `languages` capability
-(`lib/engine/index.js`) — `has` / `list` / `needed` / `missing` / `register`. The
-Node paths carry all 192; the browser bundle ships `common` and FETCHES the rest
-per deck. That split, and why it is answerable rather than implicit, is
-`engineering/decisions/2026-08-25-on-demand-fence-grammars.md`.
+(`lib/engine/index.js`) — `has` / `list` / `needed` / `missing` / `register` —
+answered by the code plugin's highlighter. Node paths load any of the 192 the first
+time a fence names it; the browser bundle carries only Lattice's shell grammar and
+FETCHES the rest per deck, with the grammars each one embeds. Why it is answerable
+rather than implicit: `engineering/decisions/2026-08-25-on-demand-fence-grammars.md`;
+the plugin: `engineering/decisions/2026-10-15-code-plugin.md`.
 
 ---
 

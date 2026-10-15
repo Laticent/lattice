@@ -42,8 +42,8 @@ export interface LatticePlaygroundEngine {
 	/** Every link reference definition's target, used or not (lib/engine `referenceTargets`). */
 	referenceTargets?: (markdown: string) => string[];
 	/** Fenced-code grammars this deck asks for that the bundle cannot color.
-	 *  The bundle carries highlight.js's 36-language `common` build; the rest are
-	 *  fetched per deck by docs/src/lib/ensure-hljs-language.ts. */
+	 *  The bundle carries highlight.js core and Lattice's shell grammar only; every
+	 *  other grammar is fetched per deck by docs/src/lib/ensure-hljs-language.ts. */
 	missingLanguages?: (markdown: string) => string[];
 	/** Register everything queued on `window.__latticeHljs`; returns what took. */
 	drainLanguages?: () => string[];

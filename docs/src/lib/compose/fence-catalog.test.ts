@@ -3,13 +3,19 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { deckFenceTags, fenceAdvice, fenceGroups, type HljsManifest, highlightLanguageFor, hljsOptions, isEngineFence, LATTICE_FENCES, latticeFencesCovered, PLAIN_FENCE, resolveFenceTag } from './fence-catalog';
 
-// A stand-in manifest: two lazy grammars with aliases, two common ones. Small on
+// A stand-in manifest: lazy grammars with aliases, and the bundled shell grammar. Small on
 // purpose — the REAL manifest is exercised by the last block, which reads the built
 // file when it is there.
 const MANIFEST: HljsManifest = {
-	languages: { powershell: { file: 'powershell.js', bytes: 100 }, dockerfile: { file: 'dockerfile.js', bytes: 100 } },
-	aliases: { ps1: 'powershell', pwsh: 'powershell', docker: 'dockerfile' },
-	common: { javascript: ['js', 'jsx', 'mjs', 'cjs'], python: ['py', 'gyp'], bash: ['sh', 'zsh'], shell: ['console', 'shellsession'] },
+	languages: {
+		powershell: { file: 'powershell.js', bytes: 100 },
+		dockerfile: { file: 'dockerfile.js', bytes: 100, requires: ['bash'] },
+		javascript: { file: 'javascript.js', bytes: 100 },
+		python: { file: 'python.js', bytes: 100 },
+		shell: { file: 'shell.js', bytes: 100 },
+	},
+	aliases: { ps1: 'powershell', pwsh: 'powershell', docker: 'dockerfile', js: 'javascript', jsx: 'javascript', mjs: 'javascript', cjs: 'javascript', py: 'python', gyp: 'python', console: 'shell', shellsession: 'shell' },
+	bundled: { bash: ['sh', 'zsh'] },
 };
 
 describe('the Lattice group', () => {
@@ -79,7 +85,8 @@ describe('the Lattice group', () => {
 describe('resolving a tag', () => {
 	it('follows aliases on both halves of the manifest', () => {
 		expect(resolveFenceTag('ps1', MANIFEST)?.tag).toBe('powershell'); // lazy, via `aliases`
-		expect(resolveFenceTag('js', MANIFEST)?.tag).toBe('javascript'); // common, scanned
+		expect(resolveFenceTag('js', MANIFEST)?.tag).toBe('javascript'); // lazy, via `aliases`
+		expect(resolveFenceTag('sh', MANIFEST)?.tag).toBe('bash'); // bundled, scanned
 		expect(resolveFenceTag('python', MANIFEST)?.tag).toBe('python');
 	});
 
@@ -134,7 +141,7 @@ describe('the picker model', () => {
 	});
 
 	it('caps the long group so the picker never renders 192 rows at once', () => {
-		const big: HljsManifest = { languages: Object.fromEntries(Array.from({ length: 200 }, (_, i) => [`lang${i}`, { file: 'x', bytes: 1 }])), aliases: {}, common: {} };
+		const big: HljsManifest = { languages: Object.fromEntries(Array.from({ length: 200 }, (_, i) => [`lang${i}`, { file: 'x', bytes: 1 }])), aliases: {}, bundled: {} };
 		expect(fenceGroups({ manifest: big }).find((g) => g.key === 'all')?.options.length).toBe(40);
 	});
 
@@ -179,8 +186,8 @@ describe('against the real built manifest', () => {
 	it('offers all 192 grammars the renderer actually carries', () => {
 		if (!fs.existsSync(manifestPath)) return; // built artifact, gitignored
 		const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8')) as HljsManifest;
-		expect(Object.keys(manifest.common || {}).length).toBeGreaterThan(30);
-		// The count the picker can offer = lazy + common, minus the engine rows it hides.
+		expect(Object.keys(manifest.bundled || {})).toEqual(['bash']);
+		// The count the picker can offer = lazy + bundled, minus the engine rows it hides.
 		const options = hljsOptions(manifest);
 		expect(options.length).toBeGreaterThan(180);
 		// The tags our own decks use all resolve — the picker can name every fence we ship.

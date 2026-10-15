@@ -58,11 +58,11 @@ const silent = argv.includes('--silent') || check;
 
 // The code plugin's grammar loader, swapped for its browser half. In Node,
 // lib/plugins/code/shared/load-grammar.js requires each highlight.js grammar the first time a fence
-// names it; a browser cannot, so load-grammar.browser.js registers highlight.js's 36-language
-// `common` build eagerly and the preview fetches the rest one file per language
-// (tools/build-hljs-languages.js, docs/src/lib/ensure-hljs-language.ts). The swap keeps the 192
-// grammar modules out of the bundle, which is the job the old bare-`highlight.js`→`common` swap did
-// before the engine stopped importing highlight.js (engineering/decisions/2026-10-15-code-plugin.md).
+// names it; a browser cannot, so load-grammar.browser.js loads nothing and the preview fetches each
+// grammar a deck names, one file per language (tools/build-hljs-languages.js,
+// docs/src/lib/ensure-hljs-language.ts). The swap keeps the 192 grammar modules out of the bundle;
+// before the code plugin, the bundle carried highlight.js's 36-language `common` build for every
+// deck, code or not (engineering/decisions/2026-10-15-code-plugin.md §4.3).
 // Matched on the resolved path, exact file, so nothing else named load-grammar is touched.
 const CODE_LOAD_GRAMMAR = path.join(ROOT, 'lib', 'plugins', 'code', 'shared', 'load-grammar.js');
 const CODE_LOAD_GRAMMAR_BROWSER = path.join(ROOT, 'lib', 'plugins', 'code', 'shared', 'load-grammar.browser.js');

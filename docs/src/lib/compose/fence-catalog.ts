@@ -21,9 +21,9 @@ const { fenceLanguages, looksLikeShellScript, normalizeInfo, SCRIPT_TAGS, SESSIO
 //
 // The hljs half of the catalog is read from the grammar manifest
 // (`docs/public/playground/hljs/index.json`, built by tools/build-hljs-languages.js):
-// `languages` are the 156 fetched on demand, `common` the 36 inside the engine
-// bundle, and `aliases` resolves every spelling of a lazy grammar to its canonical
-// name. That manifest is the only complete machine-readable answer to "what can this
+// `languages` are the grammars fetched on demand, `bundled` the one built into the
+// engine (Lattice's shell grammar), and `aliases` resolves every spelling of a fetched
+// grammar to its canonical name. That manifest is the only complete machine-readable answer to "what can this
 // renderer actually color", so the picker reads it instead of carrying a list that
 // would rot on the next highlight.js bump.
 
@@ -51,11 +51,11 @@ export type FenceOption = {
 
 export type FenceGroup = { key: 'lattice' | 'deck' | 'all'; label: string; options: FenceOption[] };
 
-/** The grammar manifest's shape. `common` was added for this picker — see the builder. */
+/** The grammar manifest's shape. `bundled` is recorded for this picker — see the builder. */
 export type HljsManifest = {
-	languages?: Record<string, { file: string; bytes: number }>;
+	languages?: Record<string, { file: string; bytes: number; requires?: string[] }>;
 	aliases?: Record<string, string>;
-	common?: Record<string, string[]>;
+	bundled?: Record<string, string[]>;
 };
 
 /**
@@ -113,7 +113,7 @@ export function highlightLanguageFor(tag: string): string {
 /**
  * Every tag the catalog knows, canonical name → its row. Built once per manifest.
  *
- * A lazy grammar and a `common` one are indistinguishable to an author — both color
+ * A fetched grammar and the bundled one are indistinguishable to an author — both color
  * a fence — so they are one flat set here; only `ensure-hljs-language` cares which
  * half a name came from, and it reads the manifest itself.
  */
@@ -130,7 +130,7 @@ export function hljsOptions(manifest: HljsManifest | null | undefined): FenceOpt
 		if (LATTICE_TAGS.has(name)) continue; // the engine's own row wins (mermaid ships as an hljs grammar too)
 		out.push({ tag: name, aliases: aliasesFor.get(name)?.sort() });
 	}
-	for (const [name, aliases] of Object.entries(manifest.common || {})) {
+	for (const [name, aliases] of Object.entries(manifest.bundled || {})) {
 		if (LATTICE_TAGS.has(name)) continue;
 		out.push({ tag: name, aliases: aliases.length ? [...aliases].sort() : undefined });
 	}
@@ -158,19 +158,19 @@ export function resolveFenceTag(tag: string, manifest: HljsManifest | null | und
 	// does not narrow the optional away for the reader or the compiler.
 	const aliases = manifest.aliases;
 	const languages = manifest.languages;
-	const common = manifest.common;
+	const bundled = manifest.bundled;
 	const canonical = aliases && Object.hasOwn(aliases, t) ? aliases[t] : t;
-	if (languages && Object.hasOwn(languages, canonical)) return { tag: canonical, aliases: aliasesOfCommon(manifest, canonical) };
-	if (common && Object.hasOwn(common, canonical)) return { tag: canonical, aliases: common[canonical] };
-	// A `common` grammar's alias is not in `manifest.aliases` (that map exists to point
-	// a spelling at a FILE to fetch), so it is resolved by scanning the common half.
-	for (const [name, aliases] of Object.entries(manifest.common || {})) {
+	if (languages && Object.hasOwn(languages, canonical)) return { tag: canonical, aliases: aliasesOfLanguage(manifest, canonical) };
+	if (bundled && Object.hasOwn(bundled, canonical)) return { tag: canonical, aliases: bundled[canonical] };
+	// A bundled grammar's alias is not in `manifest.aliases` (that map exists to point
+	// a spelling at a FILE to fetch), so it is resolved by scanning the bundled half.
+	for (const [name, aliases] of Object.entries(manifest.bundled || {})) {
 		if (aliases.includes(t)) return { tag: name, aliases };
 	}
 	return null;
 }
 
-function aliasesOfCommon(manifest: HljsManifest, canonical: string): string[] | undefined {
+function aliasesOfLanguage(manifest: HljsManifest, canonical: string): string[] | undefined {
 	const out = Object.entries(manifest.aliases || {})
 		.filter(([, c]) => c === canonical)
 		.map(([a]) => a)

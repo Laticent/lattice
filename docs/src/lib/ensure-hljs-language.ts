@@ -1,12 +1,13 @@
-// On-demand loader for highlight.js grammars the engine bundle does not carry.
+// On-demand loader for the highlight.js grammars a deck's fences name.
 //
-// The engine bundle ships highlight.js's 36-language `common` build, while the CLI
-// and marp-core both ship all 192 — so a `powershell` fence rendered 11 token spans
-// in an exported PDF and 0 in the Playground, same deck, nothing logged. Shipping
-// the full build closes that and nearly doubles the bundle (327 KB → 585 KB gzipped,
-// measured), so the missing grammars are fetched per deck instead: one file each,
-// median 1.9 KB, built by tools/build-hljs-languages.js and staged alongside the
-// engine bundle in the content-hashed `playground/v/<hash>/hljs/` dir.
+// The engine bundle carries highlight.js CORE and Lattice's shell grammar, and no
+// other grammar: the code plugin's browser loader loads nothing up front
+// (lib/plugins/code/shared/load-grammar.browser.js), so a deck pays for exactly the
+// languages it uses, as the CLI does (engineering/decisions/2026-10-15-code-plugin.md
+// §4.3). Each grammar is one file, median 2.1 KB, built by tools/build-hljs-languages.js
+// and staged alongside the engine bundle in the content-hashed `playground/v/<hash>/hljs/`
+// dir. A grammar that embeds others (HTML's `<script>` → JavaScript) brings them too, from
+// the manifest's `requires`, so the preview colors what the export colors.
 //
 // Same classic-<script>-injection idiom as ensure-katex.ts, and deliberately so —
 // these grammars must register into the singleton highlight.js the classic-script
@@ -38,12 +39,13 @@ const loaders = new Map<string, Promise<boolean>>();
 const manifests = new Map<string, Promise<Manifest | null>>();
 
 interface Manifest {
-	languages: Record<string, { file: string; bytes: number }>;
+	/** Each fetchable grammar: its file, and the grammars it embeds (`['*']` = all). */
+	languages: Record<string, { file: string; bytes: number; requires?: string[] }>;
 	aliases: Record<string, string>;
-	/** The `common` build's own grammars, name → aliases. Never fetched (they ship
-	 *  inside the engine bundle); recorded so the manifest is a COMPLETE answer to
-	 *  "what can this renderer color", which is what the language picker needs. */
-	common?: Record<string, string[]>;
+	/** The grammars built into the engine bundle (Lattice's shell grammar), name →
+	 *  aliases. Never fetched; recorded so the manifest is a COMPLETE answer to "what
+	 *  can this renderer color", which is what the language picker needs. */
+	bundled?: Record<string, string[]>;
 }
 
 /**
@@ -142,15 +144,45 @@ function injectGrammar(url: string): Promise<boolean> {
 }
 
 /**
+ * The grammar files to fetch for `tags`: each tag's own file, resolved through the
+ * manifest's aliases, plus every grammar it embeds (`requires`; `['*']` is all of them),
+ * less the ones `registered` says the engine already holds.
+ *
+ * `Object.hasOwn` throughout, because a tag is a FENCE INFO STRING — author text.
+ * `manifest.languages['constructor']` is truthy on any plain object, so a ```constructor
+ * fence once resolved to an entry whose `.file` was undefined and injected
+ * `<script src=".../hljs/undefined">`: a 404 retried on every keystroke. Same for
+ * `__proto__`, `toString`, `valueOf`, `hasOwnProperty`.
+ */
+export function languageFiles(tags: string[], manifest: Manifest, registered: (name: string) => boolean): Set<string> {
+	const own = (o: Record<string, unknown>, k: string) => Object.hasOwn(o, k);
+	const files = new Set<string>();
+	const seen = new Set<string>();
+	const add = (name: string) => {
+		if (seen.has(name) || !own(manifest.languages, name)) return;
+		seen.add(name);
+		const entry = manifest.languages[name];
+		if (!registered(name) && entry.file) files.add(entry.file);
+		const requires = entry.requires ?? [];
+		for (const dep of requires[0] === '*' ? Object.keys(manifest.languages) : requires) add(dep);
+	};
+	for (const tag of tags) {
+		const canonical = own(manifest.languages, tag) ? tag : own(manifest.aliases, tag) ? manifest.aliases[tag] : undefined;
+		if (canonical) add(canonical);
+	}
+	return files;
+}
+
+/**
  * Make sure every grammar `markdown` asks for is registered before it is rendered.
  *
  * Resolves to whatever the FINAL drain returns, which is normally `[]` even when
  * grammars were fetched: each injection drains as it lands, so the last call finds
  * the queue already empty. The return value exists for a caller that wants to log
  * what arrived; nothing reads it today, and the useful signal is the side effect —
- * `hljs` has the grammars registered by the time this resolves. On the overwhelming
- * majority of decks nothing is fetched at all, because js/ts/python/yaml/sql/bash
- * are all in `common`.
+ * `hljs` has the grammars registered by the time this resolves. For a deck with no
+ * fenced code nothing is fetched at all; a deck with code fetches each
+ * language it names once, and the service worker caches it after that.
  *
  * NEVER REJECTS. A grammar that will not load leaves its fence in plain monospace,
  * which is exactly what happens today and is not worth failing a preview over.
@@ -176,27 +208,12 @@ export async function ensureFenceLanguages(markdown: string, base?: string | nul
 	const manifest = await loadManifest(dir);
 	if (!manifest) return [];
 
-	// Resolve each requested tag to a file. A tag may be the canonical name or one
-	// of the aliases the build resolved ahead of time — `ps1` → powershell.js —
-	// which is why the manifest exists at all: a grammar declares its aliases INSIDE
-	// the file, so without it the browser would have to fetch speculatively to find
-	// out whether the file it wants is the file it asked for.
-	// `own` rather than a bare index, because `tag` is a FENCE INFO STRING — author
-	// text. `manifest.languages['constructor']` is truthy on any plain object, so a
-	// ```constructor fence resolved to a truthy `entry` whose `.file` is undefined
-	// and injected `<script src=".../hljs/undefined">`: a 404 that fails the load,
-	// drops out of the in-flight map, and is therefore retried on EVERY render —
-	// once per debounced keystroke in the Studio. Same for `__proto__`, `toString`,
-	// `valueOf`, `hasOwnProperty`. `hljs.getLanguage()` itself is safe on all five.
-	const own = (o: Record<string, unknown>, k: string) => Object.hasOwn(o, k);
-	const files = new Set<string>();
-	for (const tag of missing) {
-		const canonical = own(manifest.languages, tag) ? tag
-			: own(manifest.aliases, tag) ? manifest.aliases[tag]
-			: undefined;
-		const entry = canonical && own(manifest.languages, canonical) ? manifest.languages[canonical] : undefined;
-		if (entry?.file) files.add(entry.file);
-	}
+	// Resolve each requested tag to a file through the aliases the build resolved
+	// ahead of time — `ps1` → powershell.js — which is why the manifest exists at all:
+	// a grammar declares its aliases INSIDE the file, so without it the browser would
+	// have to fetch speculatively to find out whether the file it wants is the file it
+	// asked for. `languageFiles` adds the grammars each one embeds.
+	const files = languageFiles(missing, manifest, (name) => Boolean(pg.languages?.has?.(name)));
 	if (files.size === 0) return []; // genuinely not a highlight.js language
 
 	await Promise.all([...files].map((f) => injectGrammar(dir + f)));
@@ -212,7 +229,7 @@ export async function ensureFenceLanguages(markdown: string, base?: string | nul
 /**
  * The grammar manifest itself, for a caller that needs the CATALOG rather than a
  * load — today the Compose language picker, which reads it to offer every grammar
- * this renderer can apply (the 156 lazy ones, the 36 in `common`, and every alias).
+ * this renderer can apply (every fetchable one, the bundled shell grammar, and every alias).
  *
  * Shares this module's per-base memo, so the picker and the renderer make ONE
  * request between them, and returns null rather than throwing when the engine
