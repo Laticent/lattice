@@ -1,5 +1,7 @@
 <!-- Evidence for ../2026-10-15-conformance-harness.md. Written by a read-only harvesting agent on 2026-10-15 at d2a6e6f; classifications are its reading, and rows marked UNVERIFIED were not confirmed by grep. Kept as the record the note cites, not maintained. -->
 
+<!-- Superseded numbers: this harvest's 947 gallery slides, ~1.25M configurations and ~2.6 h nightly counted front-matter delimiters as slides. The note uses 858 slides, ~1.13M and ~2.3 h. RTL was ruled in scope (note §12.5). Restyle-in-place for registers and modifiers is unsound; see note §6.4. -->
+
 # Harvest: axes and joins for per-kind conformance harnesses
 
 Source checkout: /home/user/lattice at HEAD (shallow clone: `git log` has 53 commits, so past-defect

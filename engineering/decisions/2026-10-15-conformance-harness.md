@@ -71,8 +71,8 @@ new component "is covered the moment its manifest lands"). What is missing:
 fix commits in the last 600, a check that walked every instance on every axis would have failed
 36 (53%) before merge, and 25 more with an extra assertion or a real browser. Counting every
 kind the contracts claim (packages, generated files, parsers, gates), it is 39 of 92 (42%). The
-true per-PR figure is lower, because the heavy checks run in full only nightly. Phase 1 re-grades
-history against the actual clause list and each phase reports its real catches (§6.5).
+true per-PR figure is lower, because the heavy checks run in full only nightly. Each phase re-grades
+history against its own clauses and reports its real catches (§6.5).
 
 **Recommendation:** extend the two harnesses that exist into contracts for every kind, rather
 than building a new framework beside them. Order the work so **every PR catches defects that
@@ -202,7 +202,7 @@ that change the design, all verified:
 | **A detector is a probe and can be wrong.** `hasCardRow` was undefined and one fixture proves nothing about its miss rate | One failing fixture | Each trigger is measured against a hand-labeled corpus before it blocks (§6.3) |
 | **Per-PR render cost collides with a live cost effort** (`2026-08-18-inspection-oracle-catalog.md`, in progress: per-PR CI ≈ 11 min wall, lever A = fewer renders) | Measure after building | A render budget is measured and set in phase 2, before the per-PR render tier blocks, and every render clause uses lever A's one-deck batching (§12.4) |
 | **Missing kinds and axes**: font face; speaker note, `say:` line, review comment; docs-site page at three widths; sample assets; the VS Code Marp preview; the diagnostic-code registry; CLI options; out-of-tree components; color modes `system`/`inherited`, `lang`, lens, motion and reduced motion, notes, install path, pane | Absent | Added (§6.2, §7) |
-| Numbers: 858 slides, not 947 (947 counted front-matter delimiters); "65 with no *blocking* check"; 25 axes; the two split fixes landed the same day; the 53% is an upper bound | — | Corrected throughout |
+| Numbers: 858 slides, not 947 (947 counted front-matter delimiters); "65 with no *blocking* check"; 25 axes; the two split fixes landed the same day; the 53% is an upper bound | — | Corrected in this note; the raw harvests keep their original counts, with a header saying so |
 
 ## 6. The design
 
@@ -220,7 +220,8 @@ that change the design, all verified:
 | `guide-handles.test.js` | The model for a trigger: derive the set from what renders, keep a sanctioned-exceptions list |
 
 The new code is thin: a contract per kind (enumerate + clauses), one runner, one ledger, one
-generated checklist page.
+generated checklist page. This is the thin core, not a second harness: the component render tier
+stays in `component-invariants.test.js`, and the plugin contract stays in its own test.
 
 ```
 lib/conformance/
@@ -245,7 +246,7 @@ A clause:
   check:   (c) => Boolean(c.manifest.cards),
   fails:   'test/conformance/fixtures/undeclared-card-row/',    // must fail with THIS id
   passes:  'test/conformance/fixtures/declared-card-row/',      // its near-twin must pass
-  catches: ['ed9a233'],                                        // history it would have caught, or a reason
+  catches: [],  // none in the 600-commit window; reason: the owner's 2026-10-15 report (stats, actors, kpi)
   why: 'engineering/decisions/2026-09-01-card-stack-vertical-alignment.md',
 }
 ```
@@ -366,16 +367,16 @@ Rough sizes from real counts, not a measured run: one changed component restyled
 axes (33 theme files, 10 finish states, 16 backdrops: about 60 values) is about 11 slides ×
 60 × 32 ms ≈ 20 s; its re-render axes (8 sizes,
 split, 6 formats) add a batched render each. Axe's per-configuration cost is not measured yet.
-The full nightly is about 2.3 h serial. Phase 3 measures all of it before anything is wired
-into CI.
+The full nightly is about 2.3 h serial. Phase 2 measures the render tier, nightly and report-only, before it
+blocks a PR (§12.4).
 
 ### 6.5 How we know it works
 
 Each phase's PR reports, in its body, the defects its clauses caught on the day they landed
-(real ones in the tree, not fixtures). Phase 1 re-grades the 112 historical fixes against the
-actual clause list, split into per-PR and nightly catches. That replaces the 53% upper bound
-with a real number, and a clause family that catches nothing over two phases is a candidate for
-removal.
+(real ones in the tree, not fixtures). Each phase also re-grades the 112 historical fixes against the
+clauses it adds, split into per-PR and nightly catches. Once phase 5 lands, the running total
+replaces the 53% upper bound with a real number. A clause family that catches nothing over two
+phases is a candidate for removal.
 
 ## 7. The axes
 
@@ -399,7 +400,8 @@ removal.
 | Text direction | `ltr`, `rtl` | re-render | ✗ (no RTL support exists yet) |
 
 Two axes do not exist yet. **Right-to-left text is in scope** (ruling §12.5): component CSS has
-321 physical left/right declarations against 33 logical ones, so the axis starts as a static
+hundreds of physical left/right declarations against a handful of logical ones (321/33 or
+401/10, depending on the regex; the ratchet's own counter will fix the number), so the axis starts as a static
 ratchet (phase 2) and becomes a rendered `dir="rtl"` axis (phase 4). **Reveal/build states** stay
 out until a feature adds them.
 
@@ -429,9 +431,9 @@ is its first consumer.
 
 | # | Phase | Catches on day one | Also delivers |
 |---|---|---|---|
-| 1 | **Deck-setting and modifier registry.** One engine-side table of keys and values; unknown key and value warn; autocomplete keys and values, hover, docs, spec §2.3 and a front-matter JSON Schema derived from it; treatment spelling and `at-*` placement; `STATIC_VALUES` moves into the engine. **Plus the thin contract core** (contract shape, runner, ledger, §6.3 fixture rules, generated checklist) with the deck-setting contract as its first user, and the re-grade of history (§6.5) | `finsh:`, `themee:`, `size: huge`, `theme: nosuchtheme`; `icon`/`avatar`/`plugins`/`greeting`/`closing` autocomplete; 4 spec gaps; `tint-bogus`, bare `tint-corner` | The contract core every later phase reuses |
-| 2 | **Component contract on `component-invariants`.** Fix the probe; widen from one sample to every variant × theme × scheme, batched; body-text contrast and axe; the card-row trigger (report-only until measured, §6.3); static component clauses (manifest and CSS both ways, variants both ways, `isEnriched`, capacity and exclusive-axis declarations, manifest autocomplete from the schema); anatomy matches render; logical CSS properties, with the 321 physical left/right declarations seeded as a shrinking ratchet | `list-steps converge`; the 18 unchecked components; `stats`/`actors`/`kpi`; `_qr-card` | Render budget measured and set with the owner (§12.4) before the per-PR render tier is wired |
-| 3 | **Surfaces and exporters.** Render surface and exporter become kinds; one coverage deck through every format and every surface; export warnings fail; Marp-ledger completeness; sanitizer keeps what the engine emits | The largest historical class (30 of 112) | — |
+| 1 | **Deck-setting and modifier registry.** One engine-side table of keys and values; unknown key and value warn; autocomplete keys and values, hover, docs, spec §2.3 and a front-matter JSON Schema derived from it; treatment spelling and `at-*` placement; `STATIC_VALUES` moves into the engine. **Plus the thin contract core** (contract shape, runner, ledger, §6.3 fixture rules, generated checklist) with the deck-setting contract as its first user, and its share of the history re-grade (§6.5) | `finsh:`, `themee:`, `size: huge`, `theme: nosuchtheme`; `icon`/`avatar`/`plugins`/`greeting`/`closing` autocomplete; 4 spec gaps; `tint-bogus`, bare `tint-corner` | The contract core every later phase reuses |
+| 2 | **Component contract on `component-invariants`.** Fix the probe; widen from one sample to every variant × theme × scheme, batched; body-text contrast and axe; the card-row trigger (report-only until measured, §6.3); static component clauses (manifest and CSS both ways, variants both ways, `isEnriched`, capacity and exclusive-axis declarations, manifest autocomplete from the schema); anatomy matches render; logical CSS properties, with today's physical left/right declarations seeded as a shrinking ratchet | `list-steps converge`; the 18 unchecked components; `stats`/`actors`/`kpi`; `_qr-card` | Render budget measured and set with the owner (§12.4) before the per-PR render tier is wired |
+| 3 | **Surfaces and exporters.** Render surface and exporter become kinds; one coverage deck through every format and every surface; export warnings fail; Marp-ledger completeness; sanitizer keeps what the engine emits; the input-verb census (keyboard, wheel, touch through `present-transport`) and the font gate on every preview surface | The largest historical class (30 of 112) | — |
 | 4 | **Joins.** Registers honored or measured-inert on every component; split as token *and* selector; size families × scheme; Form conformance from opt-in to evidence-triggered; every component rendered under `dir="rtl"` (mirrored layout, no clipped or overlapping text) | Register and split regressions | — |
 | 5 | **Themes, finishes, treatments, textures, charts.** Both `light-dark()` branches; CVD distinctness; finish text contrast; recipe schema; texture sets; `--muted-mark`; chart edge cases, vocabulary, categories, members, black paint in every theme | a11y dark branches; finish contrast | — |
 | 6 | **Families E and F, out-of-tree instances, the rest.** Libraries, generated artifacts, gates with failing arms, docs claims anchored, plugin escaping, ingest census, lint rules under `--all`, grammars, lens, motion, CLI options, fonts; the same contracts run by the package-install and Studio gates | The two false docs | — |
