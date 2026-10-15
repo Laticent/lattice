@@ -1,6 +1,10 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "code",
+  "cards": {
+    "default": "center",
+    "withCoda": "stretch"
+  },
   "adapt": {
     "mode": "native",
     "priority": [

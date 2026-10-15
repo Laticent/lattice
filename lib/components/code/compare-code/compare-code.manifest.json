@@ -1,6 +1,10 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "compare-code",
+  "cards": {
+    "default": "center",
+    "withCoda": "stretch"
+  },
   "adapt": {
     "mode": "reflow",
     "priority": [
