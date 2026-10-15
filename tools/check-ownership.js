@@ -5942,6 +5942,12 @@ const RUNTIME_MARKUP_EXTRA_FILES = [
   // (spec 2026-10-11-collage-component.md §5.4a).
   'docs/src/playground/collage-host.js',
   'lib/core/collage-lightbox.mjs',
+  // The code block's copy buttons are drawn into a slide after the preview builder sanitized it, and
+  // copy the block's text as HTML. Both files build elements with createElement and read the copied
+  // HTML back with `outerHTML`; nothing is parsed from a string. Listed so a later `innerHTML` is
+  // caught (engineering/decisions/2026-10-15-code-plugin.md §9.7).
+  'docs/src/playground/code-copy-host.js',
+  'lib/core/code-copy.mjs',
 ];
 const SANCTIONED_RUNTIME_MARKUP_SINKS = [
   {

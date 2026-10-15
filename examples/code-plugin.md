@@ -122,6 +122,17 @@ command: ["billing", "--listen=0.0.0.0:8080", "--db=postgres://billing@db.intern
 
 ---
 
+## Copy buttons, where people read.
+
+`@code{copy}`
+```bash
+npx lattice fmt deck.md --check
+```
+
+`copy` puts two buttons on a block in the Studio, the Playground and the exported webpage: copy the code, or copy it as colored HTML. A PDF like this one never shows them.
+
+---
+
 <!-- _class: closing -->
 <!-- _paginate: false -->
 <!-- _header: '' -->

@@ -355,7 +355,7 @@ Proof:
    them still renders every deck. A style change in a minor release fails the golden tests in Dependabot's
    routine group, and the fix is to re-bless the goldens; no shipped deck changes, because none is formatted
    at render time.
-7. **Copy buttons on a code block, off by default** — slice 9 below. `@code{copy}` turns them on for one
+7. **Copy buttons on a code block, off by default** — see the slice 9 entry in §11. `@code{copy}` turns them on for one
    block and `code: copy` in the front matter for every block. Two small on-brand icon buttons, top right of
    the panel, each with a tooltip: copy as code (plain source) and copy as HTML (the highlighted block with
    the theme's colors resolved inline, so it pastes colored into a document or an email). Only on surfaces
@@ -422,4 +422,16 @@ Proof:
   closing fence indented four spaces closed, and a `diff` block's markers were fed to the formatter and fused
   into one false line. SQL now defaults to PostgreSQL: the generic dialect rewrote `B'0101'` as `B '0101'`.
   `parseIndexList` caps a range at 10,000 lines: `focus=1-20000000` took 7 s and then crashed the whole lint.
+- 2026-10-15: slice 9, copy buttons (decision 7). The render writes only a marker, `<pre data-copy>`; the
+  buttons are drawn by `lib/core/code-copy.mjs`, one self-contained function with two hosts. The runtime
+  draws them on a document whose builder stamped `data-lattice-live-media` (the Studio preview, the
+  Playground, Present), which no capture frame or print document carries. The HTML player, which ships no
+  runtime, inlines the function by its source only for a deck that has a marked block, and skips it while a
+  video is recorded. Neither a plugin pass nor a hydrate could carry it: a pass must declare a bake, a hydrate
+  runs on the CLI's capture page, and either would make "code" a name the runtime may not mention. The
+  Studio's preview takes no pointer events, so its page hit-tests a tap and copies through the frame with
+  its own clipboard (`code-copy-host.js`), as the video and collage taps do. "Copy as HTML" clones the
+  code's text into spans carrying their computed color inline (no attribute or class travels), and falls
+  back to a selection copy when the clipboard API is refused. Buttons are built with `createElement` only,
+  and both files are on the runtime-markup census (HARD RULE #22).
 

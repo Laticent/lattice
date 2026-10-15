@@ -14,11 +14,12 @@
     "styles": true
   },
   "tokens": [
-    "--accent", "--code-bg", "--code-edge", "--code-recede", "--code-text", "--font-mono", "--fs-body-compact",
-    "--fs-meta", "--lh-base", "--ln-digits", "--radius-md", "--sp-md", "--sp-sm",
-    "--sp-xs", "--syntax-builtin", "--syntax-comment", "--syntax-constant", "--syntax-deleted", "--syntax-entity",
-    "--syntax-inserted", "--syntax-keyword", "--syntax-markup", "--syntax-number", "--syntax-parameter", "--syntax-punctuation",
-    "--syntax-string", "--syntax-type", "--syntax-variable"
+    "--accent", "--code-bg", "--code-edge", "--code-recede", "--code-text", "--font-mono",
+    "--fs-body-compact", "--fs-meta", "--lh-base", "--ln-digits", "--radius-md", "--radius-sm", "--sp-2xs",
+    "--sp-md", "--sp-sm", "--sp-xs", "--syntax-builtin", "--syntax-comment", "--syntax-constant",
+    "--syntax-deleted", "--syntax-entity", "--syntax-inserted", "--syntax-keyword", "--syntax-markup",
+    "--syntax-number", "--syntax-parameter", "--syntax-punctuation", "--syntax-string", "--syntax-type",
+    "--syntax-variable"
   ],
   "render": {
     "parity": "equivalent",

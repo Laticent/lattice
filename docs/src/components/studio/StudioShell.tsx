@@ -53,6 +53,7 @@ import { onToursEnabledChange, toursEnabled } from '@/playground/tour-prefs.js';
 import { collageDragged } from '../../../../lib/core/collage-tap.mjs';
 import { sourceHasMath } from '../../../../lib/plugins/math/math.syntax.mjs';
 import { attachPreviewZoom, type PreviewZoomHandle } from '../../lib/preview-zoom';
+import { tapCodeCopyAt } from '../../playground/code-copy-host.js';
 import { tapCollageAt } from '../../playground/collage-host.js';
 import { tapVideoAt } from '../../playground/video-overlay.js';
 import { AcronymEditor } from './AcronymEditor';
@@ -3820,7 +3821,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			if (!frame) return;
 			const dragged = collageDragged(pressAt, e.clientX, e.clientY);
 			pressAt = null; // a click with no press of its own (a script's) is never a drag
-			if (tapVideoAt(frame, e.clientX, e.clientY) || (!dragged && tapCollageAt(frame, e.clientX, e.clientY))) e.preventDefault();
+			if (tapVideoAt(frame, e.clientX, e.clientY) || (!dragged && (tapCodeCopyAt(frame, e.clientX, e.clientY) || tapCollageAt(frame, e.clientX, e.clientY)))) e.preventDefault();
 		};
 		holder.addEventListener('pointerdown', onPress, true);
 		holder.addEventListener('click', onTap);
