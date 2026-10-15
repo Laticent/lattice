@@ -39,16 +39,46 @@ export const inlineCode = (text) => esc(text).replace(/`([^`]+)`/g, '<code>$1</c
 export const plainText = (text) => text.replace(/`([^`]+)`/g, '$1');
 
 // The Markdown renderer for Learn pages. Its own processor, not the site-wide one, so the
-// code theme (the restrained Vitesse pair the docs zone already uses) is set here without
-// touching any other page. `defaultColor: false` emits both themes as CSS variables, and
-// the Learn page picks one from `data-mode` — so a code block follows the light/dark
-// toggle like everything else on the page.
+// code theme is set here without touching any other page. The theme's colors are CSS
+// variables (--code-*), declared in styles/catalog.css from the site's palette tokens — so a
+// code block follows the theme picker and the light/dark toggle like everything else, and
+// no color is a literal. (Shiki's own two-theme mode would read --shiki-light/--shiki-dark,
+// which it writes inline where the ownership gate can't see them declared.)
+// Spelled out in full, not built from a template, so the ownership gate can match each read
+// to its declaration in catalog.css.
+const v = {
+	fg: 'var(--code-fg)',
+	bg: 'var(--code-bg)',
+	comment: 'var(--code-comment)',
+	string: 'var(--code-string)',
+	constant: 'var(--code-constant)',
+	keyword: 'var(--code-keyword)',
+	function: 'var(--code-function)',
+	property: 'var(--code-property)',
+	punctuation: 'var(--code-punctuation)',
+};
+const CODE_THEME = {
+	name: 'lattice-catalog',
+	type: 'light',
+	colors: { 'editor.foreground': v.fg, 'editor.background': v.bg },
+	tokenColors: [
+		{ settings: { foreground: v.fg, background: v.bg } },
+		{ scope: ['comment', 'punctuation.definition.comment'], settings: { foreground: v.comment, fontStyle: 'italic' } },
+		{ scope: ['string', 'string.quoted', 'string.template', 'markup.inline.raw', 'markup.fenced_code'], settings: { foreground: v.string } },
+		{ scope: ['constant', 'constant.numeric', 'constant.language', 'support.constant'], settings: { foreground: v.constant } },
+		{ scope: ['keyword', 'storage', 'storage.type', 'keyword.operator.new', 'markup.heading'], settings: { foreground: v.keyword } },
+		{ scope: ['entity.name.function', 'support.function', 'meta.function-call', 'entity.name.tag'], settings: { foreground: v.function } },
+		{ scope: ['variable.parameter', 'entity.other.attribute-name', 'support.type.property-name', 'meta.object-literal.key'], settings: { foreground: v.property } },
+		{ scope: ['punctuation', 'keyword.operator', 'meta.brace'], settings: { foreground: v.punctuation } },
+	],
+};
+
 let processorPromise;
 export async function renderCatalogMarkdown(source) {
 	if (!processorPromise) {
 		processorPromise = import('@astrojs/markdown-remark').then(({ createMarkdownProcessor }) =>
 			createMarkdownProcessor({
-				shikiConfig: { themes: { light: 'vitesse-light', dark: 'vitesse-dark' }, defaultColor: false },
+				shikiConfig: { theme: CODE_THEME },
 			}),
 		);
 	}

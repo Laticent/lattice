@@ -30,8 +30,9 @@ const pkg = d.facts.find((f) => f.k === 'Package')?.v;
 			<p class="cat-card-use"><strong>Use it when</strong> {d.useWhen[0].toLowerCase() + d.useWhen.slice(1)}</p>
 		</div>
 		<div class="cat-card-links">
-			<a href={hrefs.demo} aria-label={`Try the ${d.name} demo`}><span class="ico ico-play" aria-hidden="true"></span> Try the demo</a>
-			<a class="secondary" href={hrefs.learn} aria-label={`Learn ${d.name}`}>Learn how it works <span class="ico ico-arrow-right" aria-hidden="true"></span></a>
+			{/* The visible words start each accessible name (WCAG 2.5.3); the hidden suffix says which card. */}
+			<a href={hrefs.demo}><span class="ico ico-play" aria-hidden="true"></span> Try the demo<span class="cat-sr">: {d.name}</span></a>
+			<a class="secondary" href={hrefs.learn}>Learn how it works<span class="cat-sr">: {d.name}</span> <span class="ico ico-arrow-right" aria-hidden="true"></span></a>
 		</div>
 	</article>
 </li>

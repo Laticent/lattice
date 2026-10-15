@@ -272,23 +272,23 @@ const paletteLabelCss = seedablePalettes
 	/* The bar's width budget, in three steps. Below lg the nav is hidden and the
 	 * Sheet / ⌘K palette carry everything. From lg (1024px) the nav appears with
 	 * the two app links + the four content links; the search control is an ICON
-	 * there, which is what buys the room. From xl (1280px) the Libraries
-	 * disclosure joins and the search grows back to a pill.
+	 * there, which is what buys the room. From xl (1280px) the search grows back
+	 * to a pill, and from 1408px the two catalog links (Libraries, Plugins) join.
 	 *
-	 * These steps are measured, not guessed — the row's right edge, against the
-	 * viewport it has to fit inside:
+	 * These steps are measured, not guessed — the right edge of the actions, on a
+	 * centered (non-wide) page, against the viewport it has to fit inside:
 	 *
-	 *   1024px (lg)   → 1015px   nav + icon search
-	 *   1280px (xl)   → 1149px   + the search pill returns
-	 *   1408px        → 1239px   + Libraries
-	 *   1536px (2xl)  → 1319px   + the pill widens to w-64
+	 *   1024px (lg)   → 1006px   nav + icon search
+	 *   1280px (xl)   → 1206px   + the search pill returns
+	 *   1408px        → 1398px   + Libraries + Plugins
+	 *   1440px        → 1414px
+	 *   1536px (2xl)  → 1462px   the pill no longer widens here: with the two
+	 *                            catalog links, a w-64 pill overflowed by 18px
 	 *
-	 * The previous layout (four content links + the Tools and Libraries
-	 * disclosures + a 176px search pill from lg) overflowed the viewport by 88px
-	 * at exactly 1024, cutting off the GitHub icon — every step above is now
-	 * positive. If you add an item here, re-measure before you ship: every link
-	 * is `white-space: nowrap`, so this row cannot reflow — it can only
-	 * overflow. */
+	 * Every link is `white-space: nowrap`, so this row cannot reflow — it can only
+	 * overflow. If you add an item here, re-measure before you ship (the catalog
+	 * links' first draft overflowed 1024px by 128px because a later `.sh-link`
+	 * rule beat its `display: none`). */
 	@media (min-width: 64rem) {
 		.sh-nav {
 			display: flex;
@@ -299,11 +299,11 @@ const paletteLabelCss = seedablePalettes
 	 * until after the search pill has taken its share back. Below 88rem they are
 	 * reached through the ⌘K palette (the site's one findability surface, on
 	 * every page), the mobile Sheet, and the Starlight sidebar in the docs zone. */
-	.sh-catalog {
+	.sh-nav .sh-catalog {
 		display: none;
 	}
 	@media (min-width: 88rem) {
-		.sh-catalog {
+		.sh-nav .sh-catalog {
 			display: inline-flex;
 		}
 	}
@@ -312,7 +312,7 @@ const paletteLabelCss = seedablePalettes
 		display: inline-flex;
 		align-items: center;
 		gap: 0.25rem;
-		padding: 0.4rem 0.45rem;
+		padding: 0.4rem 0.4rem;
 		border-radius: var(--radius-sm, 8px);
 		font-size: 0.875rem;
 		font-weight: 500;

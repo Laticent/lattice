@@ -39,8 +39,9 @@ const GH = 'https://github.com/Laticent/lattice/blob/main/';
 		</div>
 	</section>
 
-	<section class="cat-section" aria-label="The plugins" style="padding-top: 0">
-		<div class="wrap">
+	<section class="cat-section" aria-labelledby="the-plugins" style="padding-top: 0">
+		<div class="wrap cat-group">
+			<h2 class="cat-group-title" id="the-plugins">The five you write</h2>
 			<ul class="cat-cards">
 				{plugins.map((e) => <CatalogCard entry={e} />)}
 			</ul>

@@ -361,7 +361,7 @@ function joinGroups(groups: (React.ReactElement | false)[]): React.ReactNode {
 // off so Pagefind doc results can share the list).
 function matchRows(items: string[], query: string): string[] {
 	const q = query.trim().toLowerCase();
-	if (!q) return items.filter((l) => !l.searchOnly);
+	if (!q) return items;
 	return items.filter((p) => paletteLabel(p).toLowerCase().includes(q) || p.toLowerCase().includes(q));
 }
 

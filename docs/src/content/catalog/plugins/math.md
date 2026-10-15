@@ -61,8 +61,10 @@ examples:
       ```
   - key: matrix
     label: A matrix
-    caption: Environments like pmatrix work, and a lone = line stays math.
+    caption: Environments like pmatrix work, and a lone = line stays math, never a heading.
     sample: |
+      <!-- _class: math -->
+
       ## A matrix, factored.
 
       $$
