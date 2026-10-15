@@ -141,9 +141,11 @@ in the desktop app. Before code, it owes a design note that answers:
   `2026-08-04-line-endings-lf-boundaries.md` and `SANCTIONED_EOL_BOUNDARIES`.
 - **The browser surfaces.** The docs-site Playground has no file system. Either the
   data travels inside the deck, or the browser shows a clear placeholder.
-- **Number formatting.** Business charts need `$4.2M`, `12%` and `1.3×` on axes and
-  labels. Whether the chart kernel formats these today is unchecked; the note should
-  measure it first.
+- **Number formatting.** Inline values already parse it: `line` and `bullet` read
+  `1.2M` as 1 200 000 and carry an affix every value shares (`$`, `%`) onto the axis
+  (`line.docs.md` § points, `bullet.docs.md` § rows). A CSV holds raw numbers, so the
+  plugin must say where the unit and magnitude come from: a column header, or the
+  fence.
 - **Live sources.** Google Sheets or an API needs network access and credentials at
   render time. Recommend CSV only for v1.
 
