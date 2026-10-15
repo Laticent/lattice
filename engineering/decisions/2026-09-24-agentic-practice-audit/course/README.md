@@ -7,7 +7,7 @@ review and testing, and teaches only what changes when an agent does the typing.
 
 | File | What it is |
 | --- | --- |
-| `agentic-engineering-course.md` | The deck: a primer, eight chapters, and a glossary |
+| `agentic-engineering-course.md` | The deck: a primer, Day one, eight chapters, a kit of copyable files, and a glossary |
 | `agentic-engineering-course.pdf` | The rendered deck (`venue: laptop`), rendered by hand |
 | `harness.mjs` | The teaching harness: measures each chapter against the bar below |
 | `terms.json` | Every agent term the course introduces, with its other spellings |
