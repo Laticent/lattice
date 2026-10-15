@@ -7,7 +7,7 @@ import react from '@astrojs/react';
 import starlight from '@astrojs/starlight';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'astro/config';
-import { assetBase } from './src/playground/asset-version.mjs';
+import { assetVersion } from './src/playground/asset-version.mjs';
 import rehypeScrollableTables from './src/plugins/rehype-scrollable-tables.mjs';
 import viteCjsLibDev from './src/plugins/vite-cjs-lib-dev.mjs';
 
@@ -120,8 +120,11 @@ export default defineConfig({
 		server: { fs: { allow: ['..'] } },
 		// The versioned asset directory, for a module that needs an engine asset before the page has
 		// loaded the engine: the lint core (src/playground/lint-core-source.js) loads `esm/lint.js` from
-		// it. Read after `sync:playground`, which the build runs first, so it names this build's hash.
-		define: { __LATTICE_ASSET_BASE__: JSON.stringify(`/${assetBase()}`) },
+		// it. The build runs `sync:playground` first, so it names this build's hash. assetVersion(), not
+		// assetBase(): the config also loads where nothing is synced yet (`astro sync` under `typecheck`),
+		// and assetBase() throws there by design. A build that really has no hash still fails, at the
+		// first page that names the engine through engineAsset().
+		define: { __LATTICE_ASSET_BASE__: JSON.stringify(assetVersion() ? `/playground/v/${assetVersion()}/` : '/playground/') },
 		// Cadenza imports the LTT format by package name; the site reads it as SOURCE, the same
 		// alias docs/vitest.config.ts carries (its comment has the why).
 		// `dedupe`: the narration encoder (lib/core/narration-encode.mjs) imports the MP3 encoder by
