@@ -403,6 +403,15 @@ without the fix:
   one slide to every slide operation and two to the engine and the index. Every caller passes
   a stripped body; the second strip is gone.
 
+**The corpus pass #1570 asked for.** Every committed Markdown file with front matter or a `---`
+(examples, the baseline decks, the docs site's content), counted by the deck outliner as
+authored slides and as rendered slides: 314 files, 24 change, 2,776 slides become 2,933. One of
+the 24 is a deck, `examples/split-headings.md`, 1 → 7, the very shape #1570 describes. The other
+23 are docs-site prose pages (`docs/src/content/docs/**`); they change only if opened in the
+Studio, where they now count the slides the engine renders. `splitSlides` itself stays
+separator-only on purpose: it feeds slide operations (move, duplicate, delete), which act on
+authored slides; the rendered count lives in the outliner, which every count consumer reads.
+
 **Left for phases 3 and 4** (one `followups.d/` file per item, filed with this PR): Compose reports a chunk, not a
 section, so a Compose caret under a heading shows the chunk's first section; Compose keeps its
 internal `lastSlideRef`; Present seeds from a chunk index and does not follow; Live awareness
