@@ -412,7 +412,7 @@ Studio, where they now count the slides the engine renders. `splitSlides` itself
 separator-only on purpose: it feeds slide operations (move, duplicate, delete), which act on
 authored slides; the rendered count lives in the outliner, which every count consumer reads.
 
-**Left for phases 3 and 4** (one `followups.d/` file per item, filed with this PR): Compose reports a chunk, not a
+**Left for phases 3 and 4** (`followups.d/2704-p1` to `p6`): Compose reports a chunk, not a
 section, so a Compose caret under a heading shows the chunk's first section; Compose keeps its
 internal `lastSlideRef`; Present seeds from a chunk index and does not follow; Live awareness
 and the persisted boot slide are chunk indices, not ids; the Playground keeps its own scanner;
