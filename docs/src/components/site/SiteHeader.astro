@@ -5,20 +5,19 @@
 // docs zone render this exact component, so the chrome can no longer drift
 // (it used to be copy-pasted into 8 places across two class systems).
 //
-// Shape:  [brand] [Studio ᴾᴿᴱⱽ · Playground · Docs · Components · Features · Comparison · Libraries ▾]
+// Shape:  [brand] [Studio ᴾᴿᴱⱽ · Playground · Docs · Components · Features · Comparison · Libraries · Plugins]
 //                            …flex spacer…
 //         [Search ⌘K] [theme select] [light/dark] [GitHub] [☰ on mobile]
 //
 // The apps lead the bar (Studio first — it is the front door), then the
-// content links, then the Libraries disclosure. The "Tools" disclosure that
+// content links, then the two catalog hubs (Libraries, Plugins). The "Tools" disclosure that
 // used to hide the apps behind a hover is gone: the Studio and the Playground
 // are one click from every page (nav.mjs).
 //
-// The inline links + the Libraries disclosure are static HTML (SSR, no-JS,
-// crawlable). Everything interactive — the ⌘K command palette, the theme
-// controls, the mobile menu — is the single <NavActions> island. The Libraries
-// disclosure is a native <details> (no island) with a tiny shared script to
-// close it on outside-click / Escape.
+// The inline links are static HTML (SSR, no-JS, crawlable). Everything
+// interactive — the ⌘K command palette, the theme controls, the mobile menu — is
+// the single <NavActions> island. (The Libraries disclosure that listed every
+// library is gone: one link to the Libraries hub replaced it, beside Plugins.)
 //
 // Props:
 //   palettes    string[]  — selectable palette names (titleCased for display)
@@ -34,7 +33,7 @@ import NavActions from './NavActions.tsx';
 // splitting it out of `PaletteSelectItems.tsx`, which drags radix + React behind it.
 import { paletteLabel } from '../../lib/palette-label';
 import { joinBase } from '../../lib/base-url.mjs';
-import { appsNav, contentNav, librariesNav, primaryNav, GITHUB_URL, isCurrent, librariesActive } from '../../lib/nav.mjs';
+import { appsNav, catalogNav, contentNav, findableNav, GITHUB_URL, isCurrent } from '../../lib/nav.mjs';
 
 const { palettes = [], wide = false, standalone = true, mobileMenu = true } = Astro.props;
 
@@ -45,9 +44,8 @@ const here = Astro.url.pathname;
 const annotate = (items) => items.map((l) => ({ ...l, current: isCurrent(l, here) }));
 const apps = annotate(appsNav(url));
 const content = annotate(contentNav(url));
-const libraries = annotate(librariesNav(url));
-const links = annotate(primaryNav(url)); // flat, for the command palette + sheet
-const libsOn = librariesActive(here, url);
+const catalog = annotate(catalogNav(url));
+const links = annotate(findableNav(url)); // the ⌘K palette: the menus, plus each library and plugin by name
 const pagefindUrl = url('pagefind/pagefind.js');
 const homeHref = url('');
 
@@ -157,24 +155,9 @@ const paletteLabelCss = seedablePalettes
 			{content.map((l) => (
 				<a class="sh-link" href={l.href} aria-current={l.current ? 'page' : undefined}>{l.label}</a>
 			))}
-			<details class="sh-tools sh-libraries">
-				<summary class="sh-link sh-tools-summary" data-active={libsOn ? '' : undefined} aria-current={libsOn ? 'true' : undefined}>
-					Libraries
-					<svg class="sh-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-						<path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-					</svg>
-				</summary>
-				<div class="sh-tools-menu" role="menu">
-					{libraries.map((l) => (
-						<a class="sh-tools-item" href={l.href} role="menuitem" aria-current={l.current ? 'page' : undefined}>
-							<span class="sh-tools-item-head">
-								<span class="sh-tools-item-label">{l.label}</span>
-							</span>
-							{l.desc && <span class="sh-tools-item-desc">{l.desc}</span>}
-						</a>
-					))}
-				</div>
-			</details>
+			{catalog.map((l) => (
+				<a class="sh-link sh-catalog" href={l.href} aria-current={l.current ? 'page' : undefined}>{l.label}</a>
+			))}
 		</nav>
 
 		<div class="sh-spacer"></div>
@@ -185,8 +168,7 @@ const paletteLabelCss = seedablePalettes
 				palettes={palettes}
 				links={links}
 				apps={apps}
-				content={content}
-				libraries={libraries}
+				content={[...content, ...catalog]}
 				githubUrl={GITHUB_URL}
 				pagefindUrl={pagefindUrl}
 				homeHref={homeHref}
@@ -196,21 +178,6 @@ const paletteLabelCss = seedablePalettes
 	</div>
 </Wrapper>
 
-<script>
-	// Close the Libraries disclosure on outside-click / Escape (native <details>
-	// doesn't). One listener for every <details.sh-tools> on the page; runs once
-	// per page because Astro hoists + dedupes this module script.
-	const closeTools = (except?: EventTarget | null) => {
-		for (const d of document.querySelectorAll<HTMLDetailsElement>('details.sh-tools[open]')) {
-			if (except && d.contains(except as Node)) continue;
-			d.open = false;
-		}
-	};
-	document.addEventListener('click', (e) => closeTools(e.target));
-	document.addEventListener('keydown', (e) => {
-		if (e.key === 'Escape') closeTools();
-	});
-</script>
 
 <style is:global>
 	/* THE MODE TOGGLE'S ICON, chosen by the seeded preference rather than by React (#1592).
@@ -327,17 +294,17 @@ const paletteLabelCss = seedablePalettes
 			display: flex;
 		}
 	}
-	/* Libraries — the four sibling projects — is the lowest-priority family in
-	 * the bar, so it is the one that waits for room, and it waits until after
-	 * the search pill has taken its share back. Below 88rem it is reached
-	 * through the ⌘K palette (the site's one findability surface, on every
-	 * page), the mobile Sheet, and the Starlight sidebar in the docs zone. */
-	.sh-libraries {
+	/* Libraries and Plugins — the two catalog hubs — are the lowest-priority
+	 * family in the bar, so they are the ones that wait for room, and they wait
+	 * until after the search pill has taken its share back. Below 88rem they are
+	 * reached through the ⌘K palette (the site's one findability surface, on
+	 * every page), the mobile Sheet, and the Starlight sidebar in the docs zone. */
+	.sh-catalog {
 		display: none;
 	}
 	@media (min-width: 88rem) {
-		.sh-libraries {
-			display: block;
+		.sh-catalog {
+			display: inline-flex;
 		}
 	}
 
@@ -360,8 +327,7 @@ const paletteLabelCss = seedablePalettes
 		color: var(--accent);
 		background: color-mix(in srgb, var(--accent) 8%, transparent);
 	}
-	.sh-link[aria-current='page'],
-	.sh-tools-summary[data-active] {
+	.sh-link[aria-current='page'] {
 		color: var(--accent);
 		font-weight: 600;
 	}
@@ -402,80 +368,6 @@ const paletteLabelCss = seedablePalettes
 		padding-inline: 0.3rem;
 		background: var(--border);
 		background-clip: content-box;
-	}
-
-	/* Libraries disclosure */
-	.sh-tools {
-		position: relative;
-	}
-	.sh-tools-summary {
-		list-style: none;
-	}
-	.sh-tools-summary::-webkit-details-marker {
-		display: none;
-	}
-	.sh-chevron {
-		transition: transform 0.15s ease;
-	}
-	.sh-tools[open] .sh-chevron {
-		transform: rotate(180deg);
-	}
-	.sh-tools-menu {
-		position: absolute;
-		top: calc(100% + 0.4rem);
-		left: 0;
-		min-width: 15rem;
-		display: flex;
-		flex-direction: column;
-		gap: 0.125rem;
-		padding: 0.4rem;
-		border: 1px solid var(--border);
-		border-radius: var(--radius-md, 14px);
-		background: var(--bg);
-		box-shadow: var(--shadow-lg, 0 24px 60px rgba(10, 22, 40, 0.14));
-		z-index: 60;
-	}
-	.sh-tools-item {
-		display: flex;
-		flex-direction: column;
-		gap: 0.1rem;
-		padding: 0.5rem 0.6rem;
-		border-radius: var(--radius-sm, 8px);
-		text-decoration: none;
-		color: var(--text-body);
-	}
-	.sh-tools-item:hover {
-		background: color-mix(in srgb, var(--accent) 10%, transparent);
-	}
-	.sh-tools-item[aria-current='page'] .sh-tools-item-label {
-		color: var(--accent);
-	}
-	.sh-tools-item-head {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.4rem;
-	}
-	.sh-tools-item-label {
-		font-size: 0.9rem;
-		font-weight: 600;
-		color: var(--text-heading);
-	}
-	/* "Preview" (or any nav pill) — a small accent-tinted chip; palette-token
-	   only, so it recolours with the theme in both light and dark. */
-	.sh-tools-item-badge {
-		font-size: 0.6rem;
-		font-weight: 700;
-		line-height: 1;
-		letter-spacing: 0.04em;
-		text-transform: uppercase;
-		padding: 0.2rem 0.4rem;
-		border-radius: 999px;
-		color: var(--accent);
-		background: color-mix(in srgb, var(--accent) 14%, transparent);
-	}
-	.sh-tools-item-desc {
-		font-size: 0.78rem;
-		color: var(--text-muted);
 	}
 
 	.sh-spacer {

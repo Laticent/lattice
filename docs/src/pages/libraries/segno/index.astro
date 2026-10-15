@@ -4,7 +4,10 @@
 // first user Lattice's), the per-document
 // spelling check, the compiler refusing a grammar it cannot prove linear, and the hostile-input
 // ladder timed in the visitor's own browser. No React, no slide engine — the honest proof the
-// grammar engine is a self-contained, no-DOM library. Reached at /segno.
+// grammar engine is a self-contained, no-DOM library. Reached at /libraries/segno/; its Learn
+// page is /libraries/segno/learn/ (src/content/catalog/). The stable notation leads; the
+// experimental grammar engine follows, so a first visit starts with the everyday payoff.
+import DemoBar from '../../../components/catalog/DemoBar.astro';
 ---
 
 <!doctype html>
@@ -59,7 +62,10 @@
 			.home:hover { color: var(--accent); }
 			.theme { background: none; border: 1px solid var(--line); color: var(--muted); border-radius: 999px; font-size: 11px; padding: 5px 11px;
 				cursor: pointer; font-family: var(--sans); }
-			.sub { color: var(--muted); font-size: 15px; max-width: 68ch; margin: 10px 0 0; }
+			.promise { font-family: var(--serif); font-size: clamp(21px, 3vw, 27px); line-height: 1.3; color: var(--ink); max-width: 34ch; margin: 14px 0 0; text-wrap: balance; }
+			.sub { color: var(--muted); font-size: 15px; max-width: 66ch; margin: 8px 0 0; }
+			.sub code { font-family: var(--mono); font-size: 0.92em; }
+			h2 .exp { font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); border: 1px solid currentColor; border-radius: 999px; padding: 2px 7px; vertical-align: middle; }
 			.sub b { color: var(--ink); font-weight: 600; }
 
 			section.stage { margin: 26px 0 0; background: var(--stage); border: 1px solid var(--line); border-radius: 18px;
@@ -200,28 +206,55 @@
 	</head>
 	<body>
 		<div class="wrap">
+			<DemoBar slug="segno" />
 			<header>
 				<div class="brand">
 					<svg class="logo" viewBox="0 0 128 128" fill="none" aria-hidden="true"><rect x="6" y="6" width="116" height="116" rx="28" class="m-plate"/><path d="M84.5 38.5c-5.2-6.4-12.4-9.5-20.9-9.5-11.6 0-20.1 6.6-20.1 15.9 0 9.1 7.4 13.2 19.6 16.6 12.9 3.6 21.4 8.1 21.4 18.3 0 10.3-9.2 17.2-21.7 17.2-9.6 0-17.6-3.8-22.8-10.8" class="m-s" stroke-width="8.5" stroke-linecap="round"/><line x1="40" y1="96" x2="88" y2="32" class="m-cut" stroke-width="7" stroke-linecap="round"/><circle cx="37" cy="54" r="6.2" class="m-dot"/><circle cx="91" cy="74" r="6.2" class="m-dot"/></svg>
-					<h1>Segno</h1><span class="tag">grammar engine</span>
+					<h1>Segno</h1><span class="tag">Library</span>
 				</div>
 				<div class="nav">
-					<a class="home" href="/">Back to Lattice</a>
 					<button class="theme" id="themeBtn" type="button">Theme</button>
 				</div>
 			</header>
-			<p class="sub">
-				<b>Write a grammar as data, and Segno compiles it into a parser</b> that reads any input in one left-to-right
-				pass — or refuses the grammar, naming the rule that would make it guess. Built on it is
-				a small <b>inline notation</b> for directives that live inside other text: a value, a [list] or a &#123;record&#125;, commas
-				between items, <b>name=value</b> when you want to be explicit, and double quotes that must close, with a schema
-				per place saying what each word means. General-purpose and dependency-free; <b>Lattice is its first user</b>.
-				Everything below runs the <b>real library</b>, in this page.
-			</p>
+			<p class="promise">Turn a short typed instruction into structured data, safely.</p>
+			<p class="sub">Below is a feature-flag rule, <code>&#123;new-checkout, beta, 25%, [eu, us], sticky&#125;</code>, read into a typed value. <b>Swap the words around</b>: the result stays the same, because each word finds the one field that takes it. Then <b>type a word that doesn't belong</b>, like <code>mars</code>, and Segno points at it and says what it expected.</p>
+
+			<section class="stage" aria-labelledby="try-h">
+				<h2 id="try-h">Typed values, in any order</h2>
+				<p class="lede">Pick a kind of rule, then type. The same notation means different things in different places: each place has a schema that says which fields it takes, and every error names what was expected.</p>
+				<div class="slots" id="slots" role="group" aria-label="Slot"></div>
+				<div class="slot-group"><span class="label">Lattice's slots</span><div class="slots" id="slotsLattice" role="group" aria-label="Lattice slot"></div></div>
+				<div class="editor"><input id="src" spellcheck="false" autocomplete="off" aria-label="Span text" /></div>
+				<div class="tokens" id="tokens" aria-live="polite"></div>
+				<div class="result">
+					<div class="card">
+						<div class="label">Reads as</div>
+						<div class="status" id="status" data-ok="true"><span class="dot"></span><span id="statusText"></span></div>
+						<div class="why" id="why"></div>
+						<button class="fix" id="fixBtn" type="button" hidden>Apply fix</button>
+					</div>
+					<div class="card"><div class="label">Bound value</div><pre id="bound"></pre></div>
+				</div>
+			</section>
+
+			<section class="stage" aria-labelledby="deck-h">
+				<h2 id="deck-h">Aliases, shortcuts, and one spelling per document</h2>
+				<p class="lede"><code>[x]</code>, <code>&#123;done&#125;</code> and <code>&#123;yes&#125;</code> all mean the same state. That is kind per span and messy per document, so Segno reports every span written differently from the document's most common spelling — with a fix. One state mark per line:</p>
+				<textarea class="deck" id="deck" spellcheck="false" aria-label="State marks, one per line"></textarea>
+				<div class="findings" id="findings" aria-live="polite"></div>
+			</section>
+
+			<section class="stage" aria-labelledby="speed-h">
+				<h2 id="speed-h">Try to make it slow</h2>
+				<p class="lede">These are the inputs that took other parser libraries from one second to over sixteen, at 2k, 8k and 32k characters. Each step is 4 times longer, so steady parsing takes about 4 times as long; a parser that blows up takes 16 times as long or more.</p>
+				<button class="run" id="runBtn" type="button">Time it in your browser</button>
+				<div class="bars" id="bars"></div>
+				<p class="note" id="speedNote"></p>
+			</section>
 
 			<section class="stage" aria-labelledby="gram-h">
-				<h2 id="gram-h">Write a grammar, parse with it</h2>
-				<p class="lede">A grammar is a few rules built from <code>seq</code>, <code>alt</code>, <code>many</code>, <code>opt</code>, <code>ref</code> and character sets; <code>node</code> marks the pieces you want back. Edit the grammar or the text: it compiles and parses as you type. Pick a refused grammar to see the compiler say no.</p>
+				<h2 id="gram-h">Build your own parser <span class="exp">experimental</span></h2>
+				<p class="lede">Underneath the notation is a grammar engine. Segno only builds a parser it can prove reads in one pass, and says no to a grammar that would need to guess. A grammar is a few rules built from <code>seq</code>, <code>alt</code>, <code>many</code>, <code>opt</code>, <code>ref</code> and character sets; <code>node</code> marks the pieces you want back. Edit the grammar or the text: it compiles and parses as you type. Pick a refused grammar to see the compiler say no.</p>
 				<div class="presets" id="gramPresets" role="group" aria-label="Example grammar"></div>
 				<div class="gram">
 					<div class="gram-col">
@@ -242,35 +275,10 @@
 				</details>
 			</section>
 
-			<section class="stage" aria-labelledby="try-h">
-				<h2 id="try-h">The notation: typed values, in any order</h2>
-				<p class="lede">Past the parse tree, the notation has a second layer: a schema per slot binds each word to a meaning. Pick where the span sits, then type. The same notation means different things in different slots; the slot's schema decides, and an error names what the slot takes.</p>
-				<div class="slots" id="slots" role="group" aria-label="Slot"></div>
-				<div class="slot-group"><span class="label">Lattice's slots</span><div class="slots" id="slotsLattice" role="group" aria-label="Lattice slot"></div></div>
-				<div class="editor"><input id="src" spellcheck="false" autocomplete="off" aria-label="Span text" /></div>
-				<div class="tokens" id="tokens" aria-live="polite"></div>
-				<div class="result">
-					<div class="card">
-						<div class="label">Reads as</div>
-						<div class="status" id="status" data-ok="true"><span class="dot"></span><span id="statusText"></span></div>
-						<div class="why" id="why"></div>
-						<button class="fix" id="fixBtn" type="button" hidden>Apply fix</button>
-					</div>
-					<div class="card"><div class="label">Bound value</div><pre id="bound"></pre></div>
-				</div>
-			</section>
-
 			<section class="stage" aria-labelledby="one-h">
 				<h2 id="one-h">First user: Lattice</h2>
 				<p class="lede"><a href="/">Lattice</a> renders slide decks from Markdown, and its inline code spans carry directives. It had grown 27 hand-written grammars for them, with 21 sigils between them; it is moving every one onto this notation. Some of them, beside what each becomes — try any row in the editor above.</p>
 				<div class="scroll"><table id="gallery"><thead><tr><th>Where</th><th>Before</th><th>Segno</th><th></th></tr></thead><tbody></tbody></table></div>
-			</section>
-
-			<section class="stage" aria-labelledby="deck-h">
-				<h2 id="deck-h">Aliases, shortcuts, and one spelling per document</h2>
-				<p class="lede"><code>[x]</code>, <code>&#123;done&#125;</code> and <code>&#123;yes&#125;</code> all mean the same state. That is kind per span and messy per document, so Segno reports every span written differently from the document's most common spelling — with a fix. One state mark per line:</p>
-				<textarea class="deck" id="deck" spellcheck="false" aria-label="State marks, one per line"></textarea>
-				<div class="findings" id="findings" aria-live="polite"></div>
 			</section>
 
 			<section class="stage" aria-labelledby="vs-h">
@@ -294,19 +302,7 @@
 				<p class="note">Measured 2026-09-29, Node 22, on a shared cloud machine: absolute times move with the machine, the ratios carry. Bracket lists: the 64 in Lattice's decks, parsed into parts. Inline spans: all 4,645, 99% of them ordinary code. "Did not finish": a smaller input already took over half a second, so the next was stopped. Lezer's grammar set does not cover bracket lists. Segno's flat best case on nested brackets is its 31-level cap refusing the input, not a parse. Reproduce: <code>npm run parser:bakeoff:versus</code>.</p>
 			</section>
 
-			<section class="stage" aria-labelledby="speed-h">
-				<h2 id="speed-h">Hostile input, timed in your browser</h2>
-				<p class="lede">The inputs that took parser libraries from one second to over sixteen in the bake-off, at 2k, 8k and 32k characters. Linear growth is about 4x per step; quadratic would be 16x.</p>
-				<button class="run" id="runBtn" type="button">Run the ladder</button>
-				<div class="bars" id="bars"></div>
-				<p class="note" id="speedNote"></p>
-			</section>
-
-			<p class="foot">
-				Segno is <code>@laticent/segno</code> — framework-free, zero-dependency, no DOM. Design and decisions:
-				<code>engineering/decisions/2026-09-28-segno-unified-inline-notation.md</code>. Why an owned engine:
-				<code>2026-09-28-parser-library-bakeoff.md</code>. <em>Segno</em> is Italian for sign or mark — and the musical <em>dal segno</em>.
-			</p>
+			<p class="foot">This page runs the real library in your browser. <em>Segno</em> is Italian for sign or mark. <a href="/libraries/segno/learn/">Learn how Segno works, and how to use it →</a></p>
 		</div>
 
 		<script>
@@ -374,8 +370,8 @@
 				},
 				journey: {
 					lattice: true,
-					label: 'Journey task', sample: '{@Customer, mood=4, volume=120}',
-					slot: record({ label: 'a journey task', params: { who: text(), mood: named(number()), volume: named(number()) }, sigils: { '@': 'who' } }),
+					label: 'Journey task', sample: '{who=Customer, mood=4, volume=120}',
+					slot: record({ label: 'a journey task', params: { who: named(text()), mood: named(number()), volume: named(number()) } }),
 				},
 				gantt: {
 					lattice: true,
@@ -470,7 +466,7 @@
 				['Gantt dependency', 'after: Design', 'after=Design', 'gantt'],
 				['Quadrant point', '3, 70', '{3, 70}', 'point'],
 				['Scatter point', '$4.2M  62%  140  (three spans)', '{$4.2M, 62%, size=140}', 'point'],
-				['Journey task', '@Customer  :4  +120  (three spans)', '{@Customer, mood=4, volume=120}', 'journey'],
+				['Journey task', '@Customer  :4  +120  (three spans)', '{who=Customer, mood=4, volume=120}', 'journey'],
 				['State-chart edge', 'approve => 2', '{approve, to=2}', null],
 				['Flowchart node', '#api:diamond:c2', '{#api, diamond, c2}', null],
 				['Radar scale', 'Scale \u00b7 0\u2013100', '0..100', null],
@@ -650,7 +646,7 @@ return {
 			let worker = null, workerReady = false, inFlight = null, waiting = null, limitTimer = 0, lastId = 0, lastCompileId = 0, lastText = '';
 			function startWorker() {
 				workerReady = false; inFlight = null;
-				const w = new Worker(new URL('../lib/segno-playground-worker.ts', import.meta.url), { type: 'module' });
+				const w = new Worker(new URL('../../../lib/segno-playground-worker.ts', import.meta.url), { type: 'module' });
 				// Each handler answers only for its own worker, so nothing a stopped worker sent is ever read.
 				w.onmessage = (event) => { if (w === worker) onWorker(event.data); };
 				w.onerror = (event) => { if (w === worker) { event.preventDefault(); onWorkerError(event.message); } };

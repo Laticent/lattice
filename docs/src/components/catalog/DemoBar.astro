@@ -1,0 +1,83 @@
+---
+// The thin bar across the top of a LIBRARY demo page. Those pages keep their own chrome
+// and their own palette (each stands alone, importing nothing from the site), so this bar
+// owns its styles and takes every color from the page it sits on: text in currentColor,
+// rules and fills mixed from it. It carries the way back (Lattice › Libraries) and the
+// Demo | Learn pair that every catalog page shares (CatalogTabs is the site-chrome twin).
+//
+// Props:  slug — the library's catalog id (src/content/catalog/libraries/<slug>.md)
+import { getEntry } from 'astro:content';
+import { joinBase } from '../../lib/base-url.mjs';
+import { hrefsFor } from '../../lib/catalog.mjs';
+
+const { slug } = Astro.props;
+const entry = await getEntry('catalog', `libraries/${slug}`);
+if (!entry) throw new Error(`DemoBar: no catalog entry for libraries/${slug}`);
+const url = (p) => joinBase(import.meta.env.BASE_URL, p);
+const hrefs = hrefsFor(entry, url);
+---
+
+<nav class="demo-bar" aria-label={`${entry.data.name}: demo and guide`}>
+	<div class="demo-bar-crumbs">
+		<a href={url('')}>Lattice</a>
+		<span aria-hidden="true">/</span>
+		<a href={hrefs.hub}>Libraries</a>
+		<span aria-hidden="true">/</span>
+		<span aria-current="page">{entry.data.name}</span>
+	</div>
+	<div class="demo-bar-tabs">
+		<a href={hrefs.demo} aria-current="page">Demo</a>
+		<a href={hrefs.learn}>Learn how it works <span aria-hidden="true">→</span></a>
+	</div>
+</nav>
+
+<style>
+	.demo-bar {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		flex-wrap: wrap;
+		gap: 10px 16px;
+		padding-bottom: 18px;
+		font-family: var(--sans, system-ui, sans-serif);
+		font-size: 13px;
+	}
+	.demo-bar-crumbs {
+		display: flex;
+		align-items: center;
+		gap: 7px;
+		opacity: 0.72;
+	}
+	.demo-bar-crumbs a {
+		color: inherit;
+		text-decoration: none;
+	}
+	.demo-bar-crumbs a:hover {
+		text-decoration: underline;
+		text-underline-offset: 3px;
+	}
+	.demo-bar-crumbs [aria-current] {
+		font-weight: 600;
+	}
+	.demo-bar-tabs {
+		display: inline-flex;
+		gap: 2px;
+		padding: 3px;
+		border-radius: 999px;
+		border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+	}
+	.demo-bar-tabs a {
+		padding: 5px 13px;
+		border-radius: 999px;
+		color: inherit;
+		font-weight: 600;
+		text-decoration: none;
+		white-space: nowrap;
+	}
+	.demo-bar-tabs a[aria-current] {
+		background: color-mix(in srgb, currentColor 12%, transparent);
+	}
+	.demo-bar-tabs a:not([aria-current]):hover {
+		background: color-mix(in srgb, currentColor 7%, transparent);
+	}
+</style>

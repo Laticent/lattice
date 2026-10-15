@@ -7,9 +7,11 @@
 // README says: the page loads the site's own `lattice-dagre.js` (the build every drawn
 // state chart uses), which installs `globalThis.__latticeDagre`. A guided storyboard: type
 // a row, flip the direction, wrap a chain, drag a box, watch the quality counters hold at
-// zero. Reached at /trama.
-import { joinBase } from '../lib/base-url.mjs';
-import { assetBase } from '../playground/asset-version.mjs';
+// zero. Reached at /libraries/trama/; its Learn page is /libraries/trama/learn/
+// (src/content/catalog/).
+import DemoBar from '../../../components/catalog/DemoBar.astro';
+import { joinBase } from '../../../lib/base-url.mjs';
+import { assetBase } from '../../../playground/asset-version.mjs';
 
 const url = (p: string) => joinBase(import.meta.env.BASE_URL, p);
 const dagreUrl = url(assetBase() + 'lattice-dagre.js');
@@ -67,7 +69,8 @@ const dagreUrl = url(assetBase() + 'lattice-dagre.js');
 			h1 { font-family: var(--stage-serif); font-size: clamp(28px, 5vw, 40px); font-weight: 600; margin: 0; letter-spacing: -.01em; }
 			.tag { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--accent);
 				border: 1px solid var(--accent); padding: 3px 8px; border-radius: 999px; font-weight: 600; white-space: nowrap; }
-			.sub { color: var(--muted); font-size: 14px; max-width: 70ch; margin: 6px 0 0; }
+			.promise { font-family: var(--stage-serif); font-size: clamp(21px, 3vw, 27px); line-height: 1.3; color: var(--ink); max-width: 34ch; margin: 14px 0 0; text-wrap: balance; }
+			.sub { color: var(--muted); font-size: 15px; max-width: 66ch; margin: 8px 0 0; }
 			.sub b { color: var(--ink); font-weight: 600; }
 			.theme { background: none; border: 1px solid var(--line); color: var(--muted); border-radius: 999px; font-size: 11px;
 				padding: 5px 11px; cursor: pointer; font-family: var(--sans); display: inline-flex; align-items: center; gap: 6px; }
@@ -186,6 +189,7 @@ const dagreUrl = url(assetBase() + 'lattice-dagre.js');
 	</head>
 	<body>
 		<div class="wrap">
+			<DemoBar slug="trama" />
 			<header>
 				<div class="brand">
 					<!-- The mark, inline so it follows this page's theme toggle as well as the OS
@@ -201,22 +205,18 @@ const dagreUrl = url(assetBase() + 'lattice-dagre.js');
 						<circle cx="64" cy="64" r="15" class="t-halo" /><circle cx="64" cy="64" r="12.2" class="t-hub" />
 						<circle cx="64" cy="64" r="7.6" class="t-ring" stroke-width="1.8" opacity="0.6" />
 					</svg>
-					<h1>Trama</h1><span class="tag">graph charts</span>
+					<h1>Trama</h1><span class="tag">Library</span>
 				</div>
 				<div style="display:flex; gap:14px; align-items:center;">
-					<a class="home" href="/"><svg viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M7.5 2.5 L4 6 L7.5 9.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" /></svg>Lattice</a>
 					<button class="theme" id="themeBtn" type="button"><svg viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="4.8" fill="none" stroke="currentColor" stroke-width="1.3" /><path d="M6 1.2 A4.8 4.8 0 0 1 6 10.8 Z" fill="currentColor" /></svg>theme</button>
 				</div>
 			</header>
-			<p class="sub">
-				Trama lays out a graph with dagre and routes every line as an elbow that <b>never runs through a
-				box or along another line</b>. Type rows below and the page runs the <b>real kernel</b> on every
-				keystroke. Drag a box and <b>route()</b> weaves the lines again around it.
-			</p>
+			<p class="promise">Diagrams that lay themselves out, with lines routed around every box.</p>
+			<p class="sub"><b>Drag any box</b> in the flowchart below. Every line finds a new path that avoids every box and every other line. Then edit the steps on the left, and the whole diagram lays itself out again as you type.</p>
 
 			<div class="stage">
 				<div class="rows">
-					<label for="rows">Rows</label>
+					<label for="rows">Steps</label>
 					<textarea id="rows" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
 					<p class="syntax">
 						One line per row: <code>A -&gt; B</code> draws a line, <code class="gold">A =&gt; B</code> marks the
@@ -227,8 +227,8 @@ const dagreUrl = url(assetBase() + 'lattice-dagre.js');
 					<div class="controls">
 						<div class="seg" role="group" aria-label="Direction" id="dirSeg">
 							<button type="button" data-dir="auto" aria-pressed="true">Auto</button>
-							<button type="button" data-dir="lr" aria-pressed="false">Across</button>
-							<button type="button" data-dir="tb" aria-pressed="false">Down</button>
+							<button type="button" data-dir="lr" aria-pressed="false">Left to right</button>
+							<button type="button" data-dir="tb" aria-pressed="false">Top to bottom</button>
 						</div>
 						<button class="switch" id="wrapBtn" type="button" aria-pressed="false"><span class="knob"></span>Wrap the chain</button>
 						<button class="btn" id="relayBtn" type="button">Lay out again</button>
@@ -239,9 +239,9 @@ const dagreUrl = url(assetBase() + 'lattice-dagre.js');
 				</div>
 			</div>
 
-			<section class="quality" id="quality" aria-label="Quality counters">
+			<section class="quality" id="quality" aria-label="What Trama checks">
 				<div class="quality-head">
-					<h2>The quality counters</h2>
+					<h2>What Trama checks</h2>
 					<span class="sum" id="qsum"></span>
 				</div>
 				<div class="counters" id="counters"></div>
@@ -249,22 +249,13 @@ const dagreUrl = url(assetBase() + 'lattice-dagre.js');
 
 			<div class="rail">
 				<div class="rail-head">
-					<h2>The storyboard</h2>
+					<h2>Five things to try</h2>
 					<button class="btn primary" id="tourBtn" type="button">Play all five</button>
 				</div>
 				<div class="beats" id="beats"></div>
 			</div>
 
-			<p class="foot">
-				Driven by the real library (<code>@laticent/trama</code>, <code>docs/src/lib/trama</code>):
-				<code>graphLayoutKernel().layout(model, sizes, opts, dagre)</code> places the boxes and routes the
-				lines, and <code>route(model, sizes, positions, opts)</code> routes them between boxes you placed
-				yourself, with the same solver and the same never-rules. It prices crossings first, then side
-				middles and symmetry, then turns, then length, and counts every fault it could not avoid in
-				<code>geo.quality</code>. dagre is handed in, never imported: this page passes the site's own
-				build, the one every drawn state chart uses. A plain DOM page with no framework, which is the
-				proof the kernel stands alone. <a href="https://github.com/Laticent/lattice/tree/main/docs/src/lib/trama">Read the README</a>.
-			</p>
+			<p class="foot">This page runs the real library in your browser. <a href="/libraries/trama/learn/">Learn how Trama works, and how to use it →</a></p>
 		</div>
 
 		<script>
@@ -542,7 +533,7 @@ const dagreUrl = url(assetBase() + 'lattice-dagre.js');
 					countersEl.appendChild(c);
 				}
 				qsumEl.dataset.bad = String(total > 0);
-				qsumEl.innerHTML = q ? (total ? `<b>${total}</b> ${total === 1 ? 'fault' : 'faults'}: move the box off its neighbor` : `<b>0</b> faults across all ten`) : '';
+				qsumEl.innerHTML = q ? (total ? `<b>${total}</b> ${total === 1 ? 'problem' : 'problems'}: move the box off its neighbor` : `<b>0</b> collisions, crossings or overlaps`) : '';
 			}
 
 			// ── Drag a box: route() re-weaves the lines around where you put it ──
@@ -658,15 +649,15 @@ const dagreUrl = url(assetBase() + 'lattice-dagre.js');
 			}
 			function flashQuality() { qualityEl.classList.add('flash'); after(1400, () => qualityEl.classList.remove('flash')); qualityEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
 			const BEATS = [
-				{ id: 'type', t: 'Type a row', d: 'Each keystroke is one kernel call: the boxes are measured in the page font, placed, and every line routed.',
+				{ id: 'type', t: 'Type a step', d: 'Every keystroke lays the whole diagram out again: boxes measured, placed, and every line routed.',
 					api: 'layout(model, sizes, opts, dagre)', run: () => { load(FLOW); typeRow('Ship => Delivered : signed'); } },
-				{ id: 'dir', t: 'Flip the direction', d: 'Auto lays both directions out and keeps whichever sets the type larger. Pin one and the other is never tried.',
+				{ id: 'dir', t: 'Change the direction', d: 'Auto tries left to right and top to bottom, and keeps whichever leaves the text larger.',
 					api: "opts.dir = 'lr' | 'tb'", run: () => { load(FLOW, { dir: 'lr' }); after(1300, () => setDir('tb')); after(2600, () => setDir('auto')); } },
-				{ id: 'wrap', t: 'Wrap the chain', d: 'A long chain on one line shrinks its type. With wrap on, the kernel also tries the chain on several lines in reading order.',
+				{ id: 'wrap', t: 'Wrap a long chain', d: 'A long chain on one line shrinks its text. With wrap on, Trama also tries it on several rows, in reading order.',
 					api: 'opts.wrap = true', run: () => { load(CHAIN); after(1300, () => setWrap(true)); } },
-				{ id: 'drag', t: 'Drag a box', d: 'route() keeps every box where you put it and routes the lines again, with the same solver and never-rules.',
+				{ id: 'drag', t: 'Drag a box', d: 'Every box stays where you put it, and the lines find new paths by the same rules.',
 					api: 'route(model, sizes, positions)', run: () => { load(FLOW, { dir: 'lr' }); after(400, () => { const c = centers()['back-order']; if (c) glideBox('back-order', 0, (frame.h - c.y) * 0.6, 1400); }); } },
-				{ id: 'zero', t: 'The counters hold at zero', d: 'The kernel counts every fault it could not avoid. The unit gallery holds all ten to zero; so does everything above.',
+				{ id: 'zero', t: 'It checks its own work', d: 'Trama counts ten kinds of flaw, such as a line through a box or two labels touching. Everything above scores zero.',
 					api: 'geo.quality', run: () => { if (!base) load(FLOW); flashQuality(); } },
 			];
 			function setCurrent(id: string | null) { [...beatsEl.children].forEach((b) => b.setAttribute('aria-current', String((b as HTMLElement).dataset.id === id))); }

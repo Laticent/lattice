@@ -693,7 +693,7 @@ paths on Chromium, Firefox and WebKit (iPhone 15 Pro, Safari / Firefox / Chrome 
 - **Fix:** `lib/core/capture-style-properties.mjs` › `captureStyleProperties` passes
   html-to-image the browser's list plus the three counter properties, as
   `includeStyleProperties`, on every capture: the Studio's (`deck-export.js` › `captureOptions`),
-  the /calco page's, and the composed PDF's html-to-image camera (`pdf-compose/compose.mjs`).
+  the Calco demo's (`/libraries/calco/`), and the composed PDF's html-to-image camera (`pdf-compose/compose.mjs`).
   html-to-image keeps the list from its FIRST call for the whole page, so every capture must
   pass the same one: route a new capture through that helper, never a bare `toPng`/`toCanvas`.
   Native list markers (`<ol start="3">`) are unaffected, measured.

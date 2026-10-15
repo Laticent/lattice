@@ -5,8 +5,10 @@
 // Calco reads any laid-out page, not only Lattice's. readSlide() reads the slide you pick and
 // the page outlines every paragraph it found; "Lift the text" runs the same hide the export
 // uses; the two downloads write a real .odp (fonts embedded) and .pptx in the browser, with
-// JSZip and PptxGenJS passed in, exactly as the README says. Reached at /calco.
-import { previewFontFaceCss } from '../playground/font-embed.js';
+// JSZip and PptxGenJS passed in, exactly as the README says. Reached at /libraries/calco/;
+// its Learn page is /libraries/calco/learn/ (src/content/catalog/).
+import DemoBar from '../../../components/catalog/DemoBar.astro';
+import { previewFontFaceCss } from '../../../playground/font-embed.js';
 
 const faces = previewFontFaceCss();
 ---
@@ -63,7 +65,8 @@ const faces = previewFontFaceCss();
 			h1 { font-family: var(--stage-serif); font-size: clamp(28px, 5vw, 40px); font-weight: 600; margin: 0; letter-spacing: -.01em; }
 			.tag { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--accent);
 				border: 1px solid var(--accent); padding: 3px 8px; border-radius: 999px; font-weight: 600; white-space: nowrap; }
-			.sub { color: var(--muted); font-size: 14px; max-width: 72ch; margin: 6px 0 0; }
+			.promise { font-family: var(--stage-serif); font-size: clamp(21px, 3vw, 27px); line-height: 1.3; color: var(--ink, inherit); max-width: 34ch; margin: 14px 0 0; text-wrap: balance; }
+			.sub { color: var(--muted); font-size: 15px; max-width: 64ch; margin: 8px 0 0; }
 			.sub b { color: var(--ink); font-weight: 600; }
 			.theme { background: none; border: 1px solid var(--line); color: var(--muted); border-radius: 999px; font-size: 11px;
 				padding: 5px 11px; cursor: pointer; font-family: var(--sans); display: inline-flex; align-items: center; gap: 6px; }
@@ -159,6 +162,7 @@ const faces = previewFontFaceCss();
 	</head>
 	<body>
 		<div class="wrap">
+			<DemoBar slug="calco" />
 			<header>
 				<div class="brand">
 					<!-- The mark, inline so it follows this page's theme toggle as well as the OS
@@ -173,16 +177,14 @@ const faces = previewFontFaceCss();
 						<circle cx="64" cy="64" r="15" class="c-halo" /><circle cx="64" cy="64" r="12.2" class="c-hub" />
 						<circle cx="64" cy="64" r="7.6" class="c-ring" stroke-width="1.8" opacity="0.6" />
 					</svg>
-					<h1>Calco</h1><span class="tag">office files</span>
+					<h1>Calco</h1><span class="tag">Library</span>
 				</div>
 				<div style="display:flex; gap:14px; align-items:center;">
-					<a class="home" href="/"><svg viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M7.5 2.5 L4 6 L7.5 9.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" /></svg>Lattice</a>
 					<button class="theme" id="themeBtn" type="button"><svg viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="4.8" fill="none" stroke="currentColor" stroke-width="1.3" /><path d="M6 1.2 A4.8 4.8 0 0 1 6 10.8 Z" fill="currentColor" /></svg>theme</button>
 				</div>
 			</header>
-			<p class="sub">
-				Calco turns a finished slide into an office file you can <b>edit</b>. It reads every paragraph off the page, keeps a picture of the slide with the text lifted out, and writes the text back as <b>real text boxes</b> in the slide's own fonts: an <b>.odp</b> for LibreOffice Impress, fonts built in, or a <b>.pptx</b> for PowerPoint. The slides below are plain HTML. Pick one, see what Calco reads, lift the text, then download what the real library writes.
-			</p>
+			<p class="promise">Turn any web slide into a PowerPoint you can edit.</p>
+			<p class="sub">The slides below are plain HTML. <b>Each outline is a paragraph Calco found</b>, and each becomes a real text box, in the slide's own font. Switch on <b>Show the background</b> to see the picture that sits behind the text. Then download the file, open it, and click any heading: it's real text.</p>
 
 			<div class="stage">
 				<div class="controls">
@@ -192,10 +194,10 @@ const faces = previewFontFaceCss();
 						<button type="button" data-slide="code" aria-pressed="false">Code</button>
 					</div>
 					<button class="switch" id="showBtn" type="button" aria-pressed="true"><span class="knob"></span>Show what it reads</button>
-					<button class="switch" id="liftBtn" type="button" aria-pressed="false"><span class="knob"></span>Lift the text</button>
+					<button class="switch" id="liftBtn" type="button" aria-pressed="false"><span class="knob"></span>Show the background</button>
 					<span class="spacer"></span>
-					<button class="btn primary" id="odpBtn" type="button"><svg viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M6 1.5 V8 M3 5.5 L6 8.5 L9 5.5 M2 10.5 H10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg>.odp</button>
-					<button class="btn" id="pptxBtn" type="button"><svg viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M6 1.5 V8 M3 5.5 L6 8.5 L9 5.5 M2 10.5 H10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg>.pptx</button>
+					<button class="btn primary" id="pptxBtn" type="button"><svg viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M6 1.5 V8 M3 5.5 L6 8.5 L9 5.5 M2 10.5 H10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg>.pptx · PowerPoint</button>
+					<button class="btn" id="odpBtn" type="button"><svg viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M6 1.5 V8 M3 5.5 L6 8.5 L9 5.5 M2 10.5 H10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg>.odp · LibreOffice</button>
 				</div>
 				<div class="frame" id="frame">
 					<div class="scaler" id="scaler">
@@ -236,7 +238,7 @@ const faces = previewFontFaceCss();
 				<div class="rail-head"><h2>How it works</h2></div>
 				<div class="beats">
 					<button class="beat" type="button" id="beatRead"><span class="n">1</span><span><span class="bt">Read</span><span class="bd">Every word, with the box and the font the browser gave it, grouped into paragraphs and lines where the browser broke them.</span><span class="api">readSlide(slide)</span></span></button>
-					<button class="beat" type="button" id="beatLift"><span class="n">2</span><span><span class="bt">Lift</span><span class="bd">Hide exactly that text, nothing else, and photograph the slide. Markers, pills and icons stay put.</span><span class="api">readSlide(slide, {"{"} hide: true {"}"})</span></span></button>
+					<button class="beat" type="button" id="beatLift"><span class="n">2</span><span><span class="bt">Lift</span><span class="bd">Hide exactly that text, nothing else, and take a picture of the slide. Badges and icons stay in the picture.</span><span class="api">readSlide(slide, {"{"} hide: true {"}"})</span></span></button>
 					<button class="beat" type="button" id="beatWrite"><span class="n">3</span><span><span class="bt">Write</span><span class="bd">The picture underneath, a text box on top for every paragraph, the fonts embedded in both.</span><span class="api">writeOdp(JSZip, deck) · writePptx(PptxGenJS, deck, 'uint8array', JSZip)</span></span></button>
 				</div>
 			</div>
@@ -247,14 +249,12 @@ const faces = previewFontFaceCss();
 				<div><b>Not yet opened in PowerPoint</b>The .pptx carries its fonts and opens right in LibreOffice. PowerPoint itself has not been tested yet.</div>
 			</div>
 
-			<p class="foot">
-				Driven by the real library (<code>@laticent/calco</code>, <code>docs/src/lib/calco</code>): <code>readSlide(element, {"{"} hide {"}"})</code> reads a laid-out element and can lift its text, <code>restoreSlide(element)</code> puts it back, <code>prepareFonts(deck, host)</code> gets fonts ready to embed, and <code>writeOdp</code> / <code>writePptx</code> write the file. It has no dependencies: JSZip, PptxGenJS and the font pinner are passed in, so the reader can ship into any page. This page captures with html-to-image and pins fonts with HarfBuzz. Calco is AGPL-3.0, like Lattice. <a href="https://github.com/Laticent/lattice/tree/main/docs/src/lib/calco">Read the README</a>.
-			</p>
+			<p class="foot">This page runs the real library in your browser, on plain HTML slides, not ones Lattice made. <a href="/libraries/calco/learn/">Learn how Calco works, and how to use it →</a></p>
 		</div>
 
 		<script>
 			import { readSlide, restoreSlide, prepareFonts, writeOdp, writePptx, type Deck, type TextFrame } from '@/lib/calco';
-			import { captureStyleProperties } from '../../../lib/core/capture-style-properties.mjs';
+			import { captureStyleProperties } from '../../../../../lib/core/capture-style-properties.mjs';
 
 			const $ = <T extends Element = HTMLElement>(s: string) => document.querySelector(s) as T;
 			const root = document.documentElement;
@@ -365,7 +365,7 @@ const faces = previewFontFaceCss();
 					try { image = await capture(el); } finally { restoreSlide(el); }
 					const deck: Deck = { width: read.width, height: read.height, title: 'Calco demo', author: 'Calco', company: 'Calco demo', slides: [{ image, frames: read.frames, description: el.querySelector('h2')?.textContent?.trim() || 'Slide 1' }] };
 					statusEl.textContent = 'Embedding fonts…';
-					const { calcoFontHost } = await import('../components/studio/export/calco-font-host.js');
+					const { calcoFontHost } = await import('../../../components/studio/export/calco-font-host.js');
 					deck.fonts = await prepareFonts(deck, await calcoFontHost());
 					statusEl.textContent = `Writing .${format}…`;
 					const bytes = format === 'odp'
@@ -373,7 +373,7 @@ const faces = previewFontFaceCss();
 						: await writePptx((await import('pptxgenjs')).default, deck, 'uint8array', (await import('jszip')).default);
 					const type = format === 'odp' ? 'application/vnd.oasis.opendocument.presentation' : 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
 					// The site's one download path (download.js): a named blob: URL, revoked later.
-					const { downloadBlob } = await import('../components/studio/download.js');
+					const { downloadBlob } = await import('../../../components/studio/download.js');
 					downloadBlob(`calco-${current}.${format}`, new Blob([bytes as BlobPart], { type }));
 					const name = document.createElement('b');
 					name.textContent = `calco-${current}.${format}`;

@@ -4,7 +4,9 @@
 // clock→word driver, toVtt → the caption export. No React, no slide engine — the
 // honest proof that the caption core is a self-contained library. Silent path (no
 // audio): the highlight rides Cadenza's own cadence estimate. Not in site nav — a
-// reference surface reached by URL (/cadenza), the Vetrina-exemplar pattern.
+// reference surface reached at /libraries/cadenza/; its Learn page is
+// /libraries/cadenza/learn/ (src/content/catalog/).
+import DemoBar from '../../../components/catalog/DemoBar.astro';
 ---
 
 <!doctype html>
@@ -52,7 +54,8 @@
 			h1 { font-family: var(--stage-serif); font-size: clamp(28px, 5vw, 40px); font-weight: 600; margin: 0; letter-spacing: -.01em; }
 			.tag { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--accent);
 				border: 1px solid var(--accent); padding: 3px 8px; border-radius: 999px; font-weight: 600; }
-			.sub { color: var(--muted); font-size: 14px; max-width: 62ch; margin: 6px 0 0; }
+			.promise { font-family: var(--stage-serif); font-size: clamp(21px, 3vw, 27px); line-height: 1.3; color: var(--ink); max-width: 34ch; margin: 14px 0 0; text-wrap: balance; }
+			.sub { color: var(--muted); font-size: 15px; max-width: 62ch; margin: 8px 0 0; }
 			.sub b { color: var(--ink); font-weight: 600; }
 			.stage { margin: 28px 0 0; background: var(--stage); border: 1px solid var(--line); border-radius: 18px;
 				box-shadow: var(--shadow); padding: clamp(24px, 5vw, 44px); min-height: 220px; display: flex; flex-direction: column; justify-content: center; }
@@ -133,14 +136,13 @@
 	</head>
 	<body>
 		<div class="wrap">
+			<DemoBar slug="cadenza" />
 			<header>
-				<div class="brand"><img class="logo" src="/cadenza-mark.svg" alt="" width="46" height="46" /><h1>Cadenza</h1><span class="tag">read-along</span></div>
+				<div class="brand"><img class="logo" src="/cadenza-mark.svg" alt="" width="46" height="46" /><h1>Cadenza</h1><span class="tag">Library</span></div>
 				<button class="theme" id="themeBtn" type="button">◐ theme</button>
 			</header>
-			<p class="sub">The pure caption engine behind Lattice's read-aloud: prose in, a <b>timed track</b> out — each
-				word carrying a <b>display</b> form and a <b>spoken</b> form, lit as it's said. It owns no audio and
-				no DOM; <b>you inject the clock</b>. Every beat below runs the <b>real engine</b> — silent by default,
-				and with a connected voice each sentence's measured onset re-anchors the highlight to the real audio.</p>
+			<p class="promise">Words that light up as they're spoken.</p>
+			<p class="sub">Cadenza works out when each word of a text is said, with no recording needed, and exports captions any video player reads. <b>Press play</b> and watch the words light up. Notice how long <b>$4.2M</b> stays lit: Cadenza times it as "four point two million dollars". Then edit the text below and play it again.</p>
 
 			<div class="stage">
 				<div class="caption" id="caption"></div>
@@ -164,16 +166,21 @@
 
 			<p class="diag" id="diag" role="status" aria-live="polite"></p>
 
+			<details id="textPanel" open>
+				<summary><span class="chev">▸</span> Your text <span class="hint">— type or paste anything; it re-times as you type</span></summary>
+				<div class="panel-body"><textarea id="input" spellcheck="false" aria-label="Text to time"></textarea></div>
+			</details>
+
 			<div class="rail">
 				<div class="rail-head">
-					<h2>The storyboard</h2>
+					<h2>Five things to try</h2>
 					<button class="btn primary" id="tourBtn" type="button">▸ Play all five</button>
 				</div>
 				<div class="beats" id="beats"></div>
 			</div>
 
 			<details id="keyPanel">
-				<summary><span class="chev">▸</span> Cloud voice <span class="hint">— paste an OpenRouter key to hear Kokoro (and enable the voice picker)</span></summary>
+				<summary><span class="chev">▸</span> A better voice <span class="hint">— optional; without it, your browser's own voice reads</span></summary>
 				<div class="panel-body">
 					<p class="keyhint">Your key is stored only in this browser (localStorage), same as the Playground — it never leaves your device. Get one at <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">openrouter.ai/keys</a>. Without a key this page uses your device’s built-in browser voice.</p>
 					<div class="keyrow">
@@ -185,17 +192,12 @@
 				</div>
 			</details>
 
-			<details id="textPanel">
-				<summary><span class="chev">▸</span> Your narration <span class="hint">— paste anything and it re-times live</span></summary>
-				<div class="panel-body"><textarea id="input" spellcheck="false"></textarea></div>
-			</details>
-
 			<details id="vttPanel">
-				<summary><span class="chev">▸</span> Generated WebVTT <span class="hint">— captions + karaoke word timings, the real export</span></summary>
+				<summary><span class="chev">▸</span> The caption file <span class="hint">— standard WebVTT, with a timestamp on every word</span></summary>
 				<div class="panel-body"><pre id="vtt"></pre></div>
 			</details>
 
-			<p class="foot">Driven by the real engine (<code>@/lib/cadenza</code>): <code>buildTrack</code> → a timed track, <code>makeReader</code> → the clock→word driver, <code>toVtt</code> → this export. A plain DOM page, no framework — the proof the core is standalone. With real TTS, each sentence's measured onset re-anchors its words so the highlight tracks the actual voice.</p>
+			<p class="foot">This page runs the real library in your browser. <a href="/libraries/cadenza/learn/">Learn how Cadenza works, and how to use it →</a></p>
 		</div>
 
 		<script>
@@ -530,11 +532,11 @@
 			const restart = () => { stop(); render(); play(); };
 			const beatsEl = $('#beats');
 			const BEATS = [
-				{ id: 'track', t: 'Text → a timed track', d: 'buildTrack turns prose into cues + per-word timings; makeReader lights the word being said now on a clock YOU inject (a plain timer here).', api: 'buildTrack → makeReader', run: () => { forceSilent = true; setText(SAMPLE); setPace('moderate'); restart(); } },
-				{ id: 'forms', t: 'Display vs spoken', d: '“$4.2M” shows as four glyphs but dwells as long as “four point two million dollars” takes to say — watch the spoken readout under the caption.', api: 'Word.display / Word.spoken', run: () => { forceSilent = true; setText(NUMBERS); setPace('moderate'); restart(); } },
-				{ id: 'pace', t: 'Pace retimes it', d: 'slow · moderate · fast rescale the estimate — the same words, a different clock. (Playing slow.)', api: "pace: 'slow'|'moderate'|'fast'", run: () => { forceSilent = true; setText(SAMPLE); setPace('slow'); restart(); } },
-				{ id: 'vtt', t: 'Export WebVTT', d: 'The same track serializes to standard captions with karaoke word timestamps — the real export, opened below.', api: 'toVtt(track)', run: () => { forceSilent = true; stop(); setText(SAMPLE); render(); $('#vttPanel').open = true; $('#vttPanel').scrollIntoView({ behavior: 'smooth', block: 'nearest' }); setDiag('WebVTT generated below — karaoke word timings included.'); } },
-				{ id: 'voice', t: 'Real voice + hybrid re-anchor', d: 'Connect a cloud key and each sentence’s measured onset re-anchors its words to the ACTUAL voice; with no key, the browser voice or the silent estimate carries it.', api: 'onset → reader.align', run: () => { forceSilent = false; setText(SAMPLE); setPace('moderate'); restart(); } },
+				{ id: 'track', t: 'Text becomes timing', d: 'Plain text in, a start and end time for every word out. A simple timer drives the highlight here; in an app, it would be your audio player.', api: 'buildTrack → makeReader', run: () => { forceSilent = true; setText(SAMPLE); setPace('moderate'); restart(); } },
+				{ id: 'forms', t: 'What you see vs. what you hear', d: '“$4.2M” is one word on screen and five out loud. Watch the spoken form under the caption: the highlight stays as long as it takes to say.', api: 'Word.display / Word.spoken', run: () => { forceSilent = true; setText(NUMBERS); setPace('moderate'); restart(); } },
+				{ id: 'pace', t: 'Change the speed', d: 'Slow, moderate or fast: the same words on a different clock. (This plays slow.)', api: "pace: 'slow'|'moderate'|'fast'", run: () => { forceSilent = true; setText(SAMPLE); setPace('slow'); restart(); } },
+				{ id: 'vtt', t: 'Download captions', d: 'The same timing as a standard .vtt caption file, with a timestamp on every word. It opens below.', api: 'toVtt(track)', run: () => { forceSilent = true; stop(); setText(SAMPLE); render(); $('#vttPanel').open = true; $('#vttPanel').scrollIntoView({ behavior: 'smooth', block: 'nearest' }); setDiag('The caption file is below, with a timestamp on every word.'); } },
+				{ id: 'voice', t: 'Sync to a real voice', d: 'Play it with a voice. As each sentence starts, Cadenza re-times its words to the real audio, so the highlight follows the speaker.', api: 'onset → reader.align', run: () => { forceSilent = false; setText(SAMPLE); setPace('moderate'); restart(); } },
 			];
 			function setCurrentBeat(id) { [...beatsEl.children].forEach((el) => el.setAttribute('aria-current', String(el.dataset.id === id))); }
 			BEATS.forEach((b, i) => {

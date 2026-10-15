@@ -3,7 +3,9 @@
 // (docs/src/lib/vetrina): run() drives a self-directing cursor over a plain-DOM mini dashboard —
 // theater over REAL state, seamlessly interruptible. No React, no slide engine. A guided storyboard:
 // each beat runs a short walkthrough that shows one primitive (narrate + point, a real state change,
-// typing, gestures, the cooperative hand-off). Reached at /vetrina.
+// typing, gestures, the cooperative hand-off). Reached at /libraries/vetrina/; its Learn page is
+// /libraries/vetrina/learn/ (src/content/catalog/).
+import DemoBar from '../../../components/catalog/DemoBar.astro';
 ---
 
 <!doctype html>
@@ -52,7 +54,12 @@
 			h1 { font-family: var(--stage-serif); font-size: clamp(28px, 5vw, 40px); font-weight: 600; margin: 0; letter-spacing: -.01em; }
 			.tag { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--accent);
 				border: 1px solid var(--accent); padding: 3px 8px; border-radius: 999px; font-weight: 600; }
-			.sub { color: var(--muted); font-size: 14px; max-width: 66ch; margin: 6px 0 0; }
+			.promise { font-family: var(--stage-serif); font-size: clamp(21px, 3vw, 27px); line-height: 1.3; color: var(--ink); max-width: 34ch; margin: 14px 0 0; text-wrap: balance; }
+			.sub { color: var(--muted); font-size: 15px; max-width: 64ch; margin: 8px 0 0; }
+			.start { margin-top: 22px; display: flex; align-items: center; gap: 10px 16px; flex-wrap: wrap; }
+			.start .btn.primary { font-size: 15px; padding: 11px 20px; }
+			.start-hint { color: var(--muted); font-size: 14px; }
+			.start-hint b { color: var(--ink); }
 			.sub b { color: var(--ink); font-weight: 600; }
 
 			.stage { margin: 26px 0 0; background: var(--stage); border: 1px solid var(--line); border-radius: 18px;
@@ -178,20 +185,22 @@
 	</head>
 	<body>
 		<div class="wrap">
+			<DemoBar slug="vetrina" />
 			<header>
 				<div class="brand">
 					<img class="logo" src="/vetrina-mark.svg" alt="" width="46" height="46" />
-					<h1>Vetrina</h1><span class="tag">walkthrough</span>
+					<h1>Vetrina</h1><span class="tag">Library</span>
 				</div>
 				<div style="display:flex; gap:14px; align-items:center;">
-					<a class="home" href="/">← Lattice</a>
 					<button class="theme" id="themeBtn" type="button">◐ theme</button>
 				</div>
 			</header>
-			<p class="sub">
-				A self-driving product tour — a cursor that <b>narrates and operates real UI</b>, theater over <b>real state</b>, and hands you the wheel the instant you touch anything. Framework-free; it drives
-				plain DOM. Every beat below runs the <b>real engine</b> over the mini dashboard.
-			</p>
+			<p class="promise">A product tour that drives your real app, then steps aside.</p>
+			<p class="sub">Below is a small, working release-notes board. Press play and a narrated cursor adds, edits and publishes real notes through the board's own code. Nothing is faked, so nothing has to be undone.</p>
+			<div class="start">
+				<button class="btn primary" id="tourBtn" type="button">▸ Play the tour</button>
+				<span class="start-hint">Then <b>try to interrupt it</b>: click or type anywhere, and the board is yours.</span>
+			</div>
 
 			<div class="stage">
 				<div class="board" id="vt-board" data-published="false">
@@ -207,6 +216,9 @@
 					<button class="board-btn primary" id="vt-finish" type="button">Publish release</button>
 				</div>
 			</div>
+			<details class="pane" id="lookPane">
+				<summary>Customize the look — caption, pointer, speed and motion</summary>
+				<div class="pane-body">
 			<div class="controls" id="controls">
 				<div class="ctl-row">
 					<span class="ctl-label" id="lbl-caption">Caption</span>
@@ -230,25 +242,38 @@
 				</div>
 				<p class="ctl-note" id="ctl-note"></p>
 			</div>
+				</div>
+			</details>
 			<div class="transport">
 				<button class="btn" id="stopBtn" type="button">Stop</button>
 				<button class="btn" id="resetBtn" type="button">Reset board</button>
-				<button class="btn" id="recordBtn" type="button" title="Record “Point at a thing” as a timing track (.ltt.json)">Record</button>
-				<button class="btn" id="replayBtn" type="button" title="Replay the committed recording of “Point at a thing”">Replay recording</button>
-				<a class="btn" id="recordingLink" hidden>Download recording</a>
 			</div>
 			<p class="diag" id="diag" role="status" aria-live="polite"></p>
 
 			<div class="rail">
 				<div class="rail-head">
-					<h2>The storyboard</h2>
-					<button class="btn primary" id="tourBtn" type="button">▸ Play all seven</button>
+					<h2>Or play one step at a time</h2>
 				</div>
 				<div class="beats" id="beats"></div>
 			</div>
 
+			<details class="pane" id="recordPane">
+				<summary>Record a run and replay it with the same timing</summary>
+				<div class="pane-body">
+					<p class="pane-note">
+						Recording saves the “Point at a thing” step as a timing file (<code>.ltt.json</code>). Replaying
+						plays it back with exactly the same timing, which is how a narrated export stays in step.
+					</p>
+					<div class="transport">
+						<button class="btn" id="recordBtn" type="button" title="Record “Point at a thing” as a timing track (.ltt.json)">Record</button>
+						<button class="btn" id="replayBtn" type="button" title="Replay the committed recording of “Point at a thing”">Replay recording</button>
+						<a class="btn" id="recordingLink" hidden>Download recording</a>
+					</div>
+				</div>
+			</details>
+
 			<details class="pane" id="logPane">
-				<summary>The beat log — what ran, and when<span class="log-sum" id="logSum"></span></summary>
+				<summary>What ran, and when<span class="log-sum" id="logSum"></span></summary>
 				<div class="pane-body">
 					<p class="pane-note">
 						Every verb the engine performed, timestamped from the run's first frame. The gap column is
@@ -266,7 +291,7 @@
 			</details>
 
 			<details class="pane" id="dataPane">
-				<summary>The storyboard, as data<span class="log-sum" id="dataSum"></span></summary>
+				<summary>The tour, as data<span class="log-sum" id="dataSum"></span></summary>
 				<div class="pane-body">
 					<p class="pane-note">
 						<code>scene()</code> is a recorder, not a runtime: it compiles to a plain <code>Step[]</code> that <code>storyboard()</code> plays. That array is the wire format —
@@ -277,15 +302,7 @@
 				</div>
 			</details>
 
-			<p class="foot">
-				Driven by the real engine (<code>@/lib/vetrina</code>): <code>run()</code> owns the take-over race +
-				teardown; the self-directing cursor calls <code>stage.say</code> / <code>point</code> /
-				<code>gesture</code> and <code>ctx.type</code> / <code>awaitUser</code> over the real board above.
-				The board is a <b>working CRUD example</b> — <b>Create</b> (type + Add), <b>Read</b> (the list), <b>Update</b> (click a note to edit), <b>Delete</b> (×), then Publish. The tour calls the <i>same</i>
-				<code>actions.add</code> / <code>update</code> / <code>remove</code> / <code>publish</code> you do — it
-				mutates real state, it doesn't paint it. Operate it yourself any time; touch anything mid-tour and it
-				hands you the wheel. A plain DOM page, no framework — the proof the core is standalone.
-			</p>
+			<p class="foot">This page runs the real library over a working board: add a note, click one to edit it, delete it, publish. The tour calls the same functions you do. <a href="/libraries/vetrina/learn/">Learn how Vetrina works, and how to use it →</a></p>
 		</div>
 
 		<script>
@@ -369,7 +386,7 @@
 
 			// Seed a couple of records so the board reads as real on load (and the beats have rows to touch).
 			function resetBoard() {
-				notes = [{ id: ++seq, text: 'Ship the real ESM builds' }, { id: ++seq, text: 'Close the lente approval hole' }];
+				notes = [{ id: ++seq, text: 'Ship the real ESM builds' }, { id: ++seq, text: 'Fix the export bug' }];
 				published = false; noteEl.value = ''; renderBoard();
 			}
 
@@ -409,7 +426,7 @@
 			const tourBtn = $('#tourBtn');
 			// Halt the "Play all five" loop and restore the button — called by every manual
 			// interruption (Stop, Reset, picking a single beat) so the tour can't march on.
-			function endTour() { touring = false; tourBtn.textContent = '▸ Play all seven'; }
+			function endTour() { touring = false; tourBtn.textContent = '▸ Play the tour'; }
 			function stopCurrent() { if (handle) { try { handle.stop(); } catch {} handle = null; } }
 			// The beat a control change replays, so switching `caption` or `pacing` shows the
 			// difference on the thing you were already watching rather than on nothing.
@@ -554,32 +571,32 @@
 
 			// ── The five beats — each a short walkthrough over the real widgets ──
 			const BEATS = [
-				{ id: 'read', t: 'Narrate + point', d: 'The cursor speaks and points at real elements — a caption dock + a gliding pointer over your own DOM.', api: 'stage.say / point', run: () => playScene(async ({ stage, signal }) => {
+				{ id: 'read', t: 'Explain and point', d: 'The cursor speaks and points at real parts of the page, with a caption along the bottom.', api: 'stage.say / point', run: () => playScene(async ({ stage, signal }) => {
 					stage.say('This is your release-notes board — a couple queued already.'); await wait(900, signal);
 					await stage.point('#vt-list', signal); stage.say('Read: every row is real state, not a picture.'); await wait(1100, signal);
 				}) },
-				{ id: 'create', t: 'Create a record', d: 'Types a note and clicks Add — a real row appears in the list, end-to-end.', api: 'ctx.type + actions.add', run: () => playScene(async (ctx) => {
+				{ id: 'create', t: 'Add a note', d: 'Types a note and adds it. A real row appears in the list.', api: 'ctx.type + actions.add', run: () => playScene(async (ctx) => {
 					const { stage, actions, signal } = ctx;
 					await stage.point('#vt-note', signal); stage.say('Create — type a new note…'); await wait(450, signal);
 					await ctx.type('#vt-note', 'Emit dist/index.mjs for all four', { cadence: 30 }); await wait(300, signal);
 					await stage.point('#vt-add', signal); actions.addFromInput(); await stage.gesture('check', '#vt-list', signal);
 					stage.say('Added — a real Create.'); await wait(950, signal);
 				}) },
-				{ id: 'update', t: 'Update a record', d: 'Edits the first note in place — the row’s text really changes through actions.update.', api: 'actions.update(id, text)', run: () => playScene(async ({ stage, actions, signal }) => {
+				{ id: 'update', t: 'Edit a note', d: 'Edits the first note in place, through the board’s own update function.', api: 'actions.update(id, text)', run: () => playScene(async ({ stage, actions, signal }) => {
 					const first = notes[0];
 					if (!first) { stage.say('Nothing to edit yet.'); await wait(700, signal); return; }
 					await stage.point('#vt-list .note:first-child', signal); stage.say('Update — revise the first note.'); await wait(500, signal);
 					actions.update(first.id, `${first.text} ✓`); await stage.gesture('circle', '#vt-list .note:first-child', signal);
 					stage.say('Edited in place — a real Update.'); await wait(1000, signal);
 				}) },
-				{ id: 'delete', t: 'Delete a record', d: 'Crosses out the last note and removes it — the row is gone from state, not hidden.', api: 'actions.remove(id)', run: () => playScene(async ({ stage, actions, signal }) => {
+				{ id: 'delete', t: 'Delete a note', d: 'Crosses out the last note and removes it. It is gone, not hidden.', api: 'actions.remove(id)', run: () => playScene(async ({ stage, actions, signal }) => {
 					const last = notes[notes.length - 1];
 					if (!last) { stage.say('Nothing to delete.'); await wait(700, signal); return; }
 					await stage.point('#vt-list .note:last-child', signal); stage.say('Delete — drop the last one.'); await wait(500, signal);
 					await stage.gesture('cross', '#vt-list .note:last-child', signal); actions.remove(last.id);
 					stage.say('Gone — a real Delete.'); await wait(1000, signal);
 				}) },
-				{ id: 'handoff', t: 'Take the wheel', d: 'Hands you the board — add, edit, delete freely, or click Publish. Touch anything and it’s yours; times out after 8s.', api: 'ctx.awaitUser({ match })', run: () => playScene(async (ctx) => {
+				{ id: 'handoff', t: 'Your turn', d: 'The tour waits for you to click Publish yourself. Do anything else and the board is yours; after 8 seconds it gives up waiting.', api: 'ctx.awaitUser({ match })', run: () => playScene(async (ctx) => {
 					const { stage, actions, signal } = ctx;
 					stage.say('Your turn — the board is yours. Click Publish when ready.'); await stage.point('#vt-finish', signal);
 					await ctx.awaitUser({ match: (e) => within('#vt-finish', e.target), timeout: 8000, onTimeout: 'abort' });
@@ -592,9 +609,9 @@
 				// a decision record. They name a thing by its shape: a line gets a rule under
 				// it, a phrase gets its words swept, a box that draws no boundary of its own
 				// gets one, and something small enough to be a point gets tapped.
-				{ id: 'deictic', t: 'Point at a thing', d: 'The four deictic strokes — underline a line, wash a phrase, bracket a block, tap a point. Chosen by the SHAPE of what is named.', api: "scene().gesture('underline'…)", scene: deicticScene },
+				{ id: 'deictic', t: 'Point at a thing', d: 'Four ways to point: underline a line, highlight a phrase, bracket a block, tap a spot. The cursor picks the one that fits what it is talking about.', api: "scene().gesture('underline'…)", scene: deicticScene },
 				// ── THE TEACHING BEAT ──
-				{ id: 'teach', t: 'Teach, then do', d: 'A read() beat dips the cursor to the caption, pulses the words, and DWELLS long enough to read them — before the action runs.', api: 'scene().read()', scene: teachScene },
+				{ id: 'teach', t: 'Explain, then do', d: 'The cursor pauses on the caption long enough for you to read it, and only then acts.', api: 'scene().read()', scene: teachScene },
 			];
 			function setCurrentBeat(id) { [...beatsEl.children].forEach((el) => el.setAttribute('aria-current', String(el.dataset.id === id))); }
 			// A `scene` beat compiles through the recorder; a `run` beat is a raw Walkthrough.
@@ -675,8 +692,15 @@
 					if (!touring) break;
 					setCurrentBeat(b.id);
 					lastBeat = b; renderData(b);
-					await b.run(); // resolves when the beat tears down (awaitUser beat resolves on click or 8s timeout)
+					const res = await b.run(); // resolves when the beat tears down (awaitUser beat resolves on click or 8s timeout)
 					if (!touring) break;
+					// A take-over ends the whole tour, not just this step: the visitor's first real input
+					// hands them the board, which is the one promise this page makes above the fold.
+					if ((typeof res === 'string' ? res : res?.reason) === 'takeover') {
+						endTour();
+						setDiag('You took over. Everything the tour did is real, so the board is yours to edit.');
+						break;
+					}
 					await new Promise((r) => setTimeout(r, 500));
 				}
 				endTour();

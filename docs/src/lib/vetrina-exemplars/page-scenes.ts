@@ -1,6 +1,6 @@
 // The `/vetrina` page's two `scene()` beats, and the recording of one of them.
 //
-// They live here rather than inline in docs/src/pages/vetrina.astro so that a test can hash the
+// They live here rather than inline in docs/src/pages/libraries/vetrina/index.astro so that a test can hash the
 // storyboard the page actually runs: `staleStretches` compares a recording against the steps as they
 // stand now (LTT step 4), and a copy of the steps in a test would compare the recording against the
 // copy. The page imports these builders; page-scenes.test.ts imports the same ones.

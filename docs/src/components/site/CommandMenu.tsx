@@ -1,4 +1,4 @@
-import { ArrowRight, BookOpen, GraduationCap, LayoutGrid, Moon, Palette, PencilRuler, Play, Sparkles, Sun, Wrench } from 'lucide-react';
+import { ArrowRight, BookOpen, Boxes, GraduationCap, LayoutGrid, Moon, Palette, PencilRuler, Play, Puzzle, Sparkles, Sun, Wrench } from 'lucide-react';
 import * as React from 'react';
 import { paletteLabel } from '@/components/site/PaletteSelectItems';
 import { Badge } from '@/components/ui/badge';
@@ -17,7 +17,9 @@ import { cycleModePref, setPalette } from '@/lib/site-chrome';
 import { useIsPhone } from '@/lib/use-breakpoint';
 import type { LessonMeta } from '../studio/lessons/catalog';
 
-export type NavLink = { label: string; href: string; desc?: string; current?: boolean; badge?: string };
+// `searchOnly`: listed only once the visitor types — the individual libraries and plugins,
+// which the menus leave to their hubs (nav.mjs findableNav).
+export type NavLink = { label: string; href: string; desc?: string; current?: boolean; badge?: string; searchOnly?: boolean };
 
 // lucide v1 dropped brand glyphs, so the GitHub mark is a local inline SVG
 // (currentColor, sized like the lucide icons around it).
@@ -48,6 +50,8 @@ const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
 	'Drawing Board': PencilRuler,
 	Workbench: Wrench,
 	Studio: Sparkles,
+	Libraries: Boxes,
+	Plugins: Puzzle,
 };
 
 /**
@@ -357,13 +361,13 @@ function joinGroups(groups: (React.ReactElement | false)[]): React.ReactNode {
 // off so Pagefind doc results can share the list).
 function matchRows(items: string[], query: string): string[] {
 	const q = query.trim().toLowerCase();
-	if (!q) return items;
+	if (!q) return items.filter((l) => !l.searchOnly);
 	return items.filter((p) => paletteLabel(p).toLowerCase().includes(q) || p.toLowerCase().includes(q));
 }
 
 function matchLinks(items: NavLink[], query: string): NavLink[] {
 	const q = query.trim().toLowerCase();
-	if (!q) return items;
+	if (!q) return items.filter((l) => !l.searchOnly);
 	return items.filter((l) => `${l.label} ${l.desc ?? ''}`.toLowerCase().includes(q));
 }
 

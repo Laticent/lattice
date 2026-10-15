@@ -1,0 +1,89 @@
+---
+// A plugin's DEMO page — the killer intro and a live, editable slide. The examples are the
+// plugin's catalog entry (src/content/catalog/plugins/<slug>.md), each one slide of Markdown,
+// rendered by the same live specimen the component reference uses: preview, then Edit, then
+// open it in the Playground. The Learn page sits beside it at ./learn/.
+import { getCollection } from 'astro:content';
+import CatalogLayout from '../../../layouts/CatalogLayout.astro';
+import CatalogTabs from '../../../components/catalog/CatalogTabs.astro';
+import Specimen from '../../../components/Specimen.astro';
+import '../../../styles/components.css';
+import { joinBase } from '../../../lib/base-url.mjs';
+import { byOrder, hrefsFor, inlineCode, plainText, slugOf } from '../../../lib/catalog.mjs';
+import { sourceHasDrawnFence } from '../../../../../lib/plugins/drawn-probe.mjs';
+
+export async function getStaticPaths() {
+	const plugins = (await getCollection('catalog', (e) => e.data.kind === 'plugin')).sort(byOrder);
+	return plugins.map((entry) => ({ params: { slug: slugOf(entry) }, props: { entry, plugins } }));
+}
+
+const { entry, plugins } = Astro.props;
+const d = entry.data;
+const url = (p) => joinBase(import.meta.env.BASE_URL, p);
+const hrefs = hrefsFor(entry, url);
+const examples = d.examples ?? [];
+if (!examples.length) throw new Error(`plugins/${slugOf(entry)}: a plugin demo needs at least one example`);
+// The specimen treats its first variant as the base ('default'); the rest keep their keys.
+const variants = examples.map((e, i) => ({ key: i === 0 ? 'default' : e.key, label: e.label, caption: e.caption, sample: e.sample }));
+const drawn = variants.some((v) => sourceHasDrawnFence(v.sample));
+const others = plugins.filter((p) => p.id !== entry.id);
+---
+
+<CatalogLayout title={`${d.name} — a Lattice plugin, live`} description={`${d.promise} ${plainText(d.intro)}`} specimen={true}>
+	<CatalogTabs slot="subbar" kind="plugin" name={d.name} hrefs={hrefs} current="demo" />
+
+	<header class="cat-demo-hero">
+		<div class="wrap">
+			<div class="cat-learn-hero-inner">
+				<p class="cat-eyebrow"><span>Plugin · Demo</span></p>
+				<div class="cat-learn-title">
+					{d.mark && <img src={url(d.mark.replace(/^\//, ''))} alt="" width="52" height="52" />}
+					<h1 class="cat-h1">{d.name}</h1>
+				</div>
+				<p class="cat-promise">{d.promise}</p>
+				<p class="cat-lede" set:html={inlineCode(d.intro)} />
+			</div>
+		</div>
+	</header>
+
+	<section class="cat-demo-stage" aria-label={`${d.name}, live`}>
+		<div class="wrap">
+			<Specimen name={`plugin-${slugOf(entry)}`} sample={variants[0].sample} drawn={drawn} variants={variants} variantsLabel="Example" from={`the ${d.name} plugin demo`} />
+			<p class="cat-demo-hint">
+				<span><strong>Pick an example</strong>, then press <strong>Edit</strong> and change it — the slide redraws as you type.</span>
+				<span>It's on in every deck: there's nothing to install or switch on.</span>
+			</p>
+		</div>
+	</section>
+
+	<section class="cat-section">
+		<div class="wrap">
+			<div class="cat-section-head">
+				<h2 class="cat-h2">Learn what it's for, and how to use it</h2>
+				<p>The guide covers the problem it solves, the syntax in full, where it fits beyond slides, and what it doesn't do.</p>
+			</div>
+			<div class="cat-actions">
+				<a class="cat-btn primary" href={hrefs.learn}>Learn {d.name} <span class="ico ico-arrow-right" aria-hidden="true"></span></a>
+				<a class="cat-btn" href={hrefs.hub}>All plugins</a>
+			</div>
+		</div>
+	</section>
+
+	<section class="cat-section" aria-labelledby="more-plugins">
+		<div class="wrap">
+			<div class="cat-section-head">
+				<h2 class="cat-h2" id="more-plugins">More plugins</h2>
+			</div>
+			<ul class="cat-deeper">
+				{others.map((p) => (
+					<li>
+						<a href={hrefsFor(p, url).demo}>
+							<strong>{p.data.name}</strong>
+							<span>{p.data.promise}</span>
+						</a>
+					</li>
+				))}
+			</ul>
+		</div>
+	</section>
+</CatalogLayout>

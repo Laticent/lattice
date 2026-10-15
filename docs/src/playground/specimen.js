@@ -210,7 +210,7 @@ export function initSpecimen() {
     try {
       localStorage.setItem(
         'lattice-docs-pg-handoff',
-        JSON.stringify({ md: markdown, from: 'the component reference', ts: Date.now() }),
+        JSON.stringify({ md: markdown, from: data.from || 'the component reference', ts: Date.now() }),
       );
     } catch {
       /* non-fatal — playground falls back to its starter */
@@ -290,4 +290,7 @@ export function initSpecimen() {
   });
 
   setDirty(state.source !== data.sample);
+  // The first example's caption, shown from the start (a component page's base layout has none,
+  // so this is a no-op there; a plugin demo captions every example, the first included).
+  setCaption(variantMap[state.variant]?.caption);
 }

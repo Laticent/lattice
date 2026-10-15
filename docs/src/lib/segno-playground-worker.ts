@@ -4,7 +4,7 @@
 // the box as data. The worker is here for a different reason — Segno's compiler and code
 // generator are not linear in every grammar. A pasted `alt(...)` of 3,000 literals is 26 KB and
 // took about 10 s to compile and 14 s to generate; on the main thread that froze the tab. In here
-// it only blocks this worker: the page (docs/src/pages/segno.astro) keeps one request in flight,
+// it only blocks this worker: the page (docs/src/pages/libraries/segno/index.astro) keeps one request in flight,
 // waits a fixed time for its answer, then terminates the worker, says the grammar took too long,
 // and starts a fresh one. The reader's size cap answers the common blowups (a name reused until it
 // doubles, a long literal reused everywhere) at once; this time limit answers every other one,

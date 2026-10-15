@@ -1,0 +1,41 @@
+---
+// The sub-bar on every catalog page under the site header: where you are
+// (Libraries › Suono) and the Demo | Learn pair, so the two colocated pages are always
+// one click apart. A hub passes no `entry` and gets the crumb alone.
+//
+// Props:
+//   kind      'library' | 'plugin'
+//   name      the entry's display name (omit on a hub)
+//   hrefs     { demo, learn, hub } from catalog.mjs hrefsFor (omit on a hub)
+//   current   'demo' | 'learn' | 'hub'
+import { KIND } from '../../lib/catalog.mjs';
+
+const { kind, name, hrefs, current, hubHref } = Astro.props;
+const k = KIND[kind];
+---
+
+<nav class="cat-subbar" aria-label={name ? `${name}: demo and guide` : k.hub}>
+	<div class="wrap cat-subbar-inner">
+		<div class="cat-crumbs">
+			{name ? (
+				<>
+					<a href={hrefs.hub}>{k.hub}</a>
+					<span class="sep" aria-hidden="true">/</span>
+					<span aria-current="page">{name}</span>
+				</>
+			) : (
+				<a href={hubHref} aria-current="page">{k.hub}</a>
+			)}
+		</div>
+		{name && (
+			<div class="cat-tabs">
+				<a class="cat-tab" href={hrefs.demo} aria-current={current === 'demo' ? 'page' : undefined}>
+					<span class="ico ico-play" aria-hidden="true"></span> Demo
+				</a>
+				<a class="cat-tab" href={hrefs.learn} aria-current={current === 'learn' ? 'page' : undefined}>
+					Learn
+				</a>
+			</div>
+		)}
+	</div>
+</nav>

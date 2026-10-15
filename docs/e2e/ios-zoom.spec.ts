@@ -78,7 +78,7 @@ test('@mobile playground: the editor and its controls hold the 16px floor', asyn
 
 test('@mobile trama: the demo page rows editor holds the 16px floor', async ({ page }) => {
 	// A standalone page that does not load landing.css, so it carries its own net.
-	await page.goto('/trama/', { waitUntil: 'domcontentloaded' });
+	await page.goto('/libraries/trama/', { waitUntil: 'domcontentloaded' });
 	expect(await page.evaluate(() => matchMedia('(pointer: coarse)').matches)).toBe(true);
 	await expect(page.locator('#rows')).toBeAttached();
 	const controls = await sweepTextControls(page);

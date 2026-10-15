@@ -2,7 +2,7 @@ import { expect, type Page, test } from '@playwright/test';
 
 // The /segno grammar playground, driven through its hostile grammars in all three engines.
 //
-// WHAT IT PINS. The playground (src/pages/segno.astro) reads a grammar the visitor types, compiles
+// WHAT IT PINS. The playground (src/pages/libraries/segno/index.astro) reads a grammar the visitor types, compiles
 // it in a worker (src/lib/segno-playground-worker.ts) and parses with it. Four defenses keep a
 // hostile grammar off the main thread, and each step below makes one of them answer:
 //   · the READER's size cap (src/lib/segno-playground-grammar.ts, MAX_EXPANDED) refuses a grammar
@@ -161,7 +161,7 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 			};
 
 			try {
-				await page.goto('/segno', { waitUntil: 'domcontentloaded' });
+				await page.goto('/libraries/segno/', { waitUntil: 'domcontentloaded' });
 
 				// 1 — the first preset compiles on load and its first sample parses, tree drawn.
 				await test.step('1 a preset parses', async () => {
