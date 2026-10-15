@@ -2072,6 +2072,10 @@ describe('check-ownership', () => {
       }
       assert.deepEqual(run({ 'hub.test.ts': "import { it } from 'vitest';" }), []);
     });
+    test('a triple-slash reference is an ambient dependency, and is caught', () => {
+      assert.equal(run({ 'hub.ts': '/// <reference types="node" />\nexport const x = 1;' }).length, 1);
+      assert.deepEqual(run({ 'hub.ts': '// a plain comment about <reference types="node" />\nexport const x = 1;' }), []);
+    });
   });
 
   // The Anima animation core's self-containment antibody

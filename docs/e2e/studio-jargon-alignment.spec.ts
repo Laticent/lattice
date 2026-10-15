@@ -87,11 +87,11 @@ test('jargon deck: every rail selection previews THAT slide', async ({ page }) =
 });
 
 /** The line the editor's reveal scrolls to: a slide's first line of actual CONTENT. Mirrors
- *  `sectionEditableOffset` in docs/src/lib/fuoco/deck-index.ts — skip blank lines and lone directive
+ *  `deckEditableOffset` in docs/src/lib/deck-outline/deck-outline.ts — skip blank lines and lone directive
  *  comments (`<!-- _class: … -->` and siblings), fall back to the slide's first line when a slide is
  *  nothing but directives. Replicated rather than imported so the test states the contract
  *  independently of the module it checks — and unlike `splitSlides` above, this one IS still parity:
- *  `sectionEditableOffset` walks past blank lines and lone directive comments with the same rule. */
+ *  `deckEditableOffset` walks past blank lines and lone directive comments with the same rule. */
 function editableLineOf(slide: string): string {
 	const isDirective = (l: string) => /^<!--(?:(?!-->).)*-->$/.test(l);
 	const lines = slide.split('\n').map((l) => l.trim());
@@ -117,7 +117,7 @@ test('jargon deck: the editor frames the slide the rail selected', async ({ page
 	// the SCROLL POSITION, against the contract the editor's reveal (`revealFocus` in Editor.tsx) ACTUALLY implements:
 	//
 	//   `v.dispatch({ effects: EditorView.scrollIntoView(caret, { y: 'start', yMargin: 8 }) })`
-	//   where `caret = sectionEditableOffset(index, chunk, section)` (Editor.tsx `revealFocus`)
+	//   where `caret = deckEditableOffset(index, unit, part)` (Editor.tsx `revealFocus`)
 	//
 	// — TOP-ANCHOR the slide's first editable line, which is the line after its `<!-- _class: … -->`
 	// directive. So the discriminating measurement is that line's distance from the TOP of the

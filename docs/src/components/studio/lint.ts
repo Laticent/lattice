@@ -133,8 +133,8 @@ export function slideTitle(slideSrc: string): string {
 }
 
 // The caret ↔ slide locators (`slideIndexAt`, `slideStartOffset`, `slideEditableOffset`) that
-// lived here moved into the slide index, docs/src/lib/fuoco/deck-index.ts (`chunkAt`,
-// `sectionStart`, `sectionEditableOffset`), which every pane now shares. Their history — the
+// lived here moved into the slide index, docs/src/lib/deck-outline/deck-outline.ts (`unitAt`,
+// `partStart`, `deckEditableOffset`), which every pane now shares. Their history — the
 // front-matter and empty-chunk defects, the blank-line gap — is pinned by the cases in
 // lint.test.ts and slide-sync.test.ts, which now run against the index.
 

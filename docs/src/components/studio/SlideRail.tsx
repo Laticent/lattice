@@ -3,7 +3,7 @@
 // One pill per rendered slide, not per authored unit: a deck that splits on headings (the
 // engine's default) renders `# Title` + two `##` as three slides, and the PDF numbers them
 // 1, 2, 3. The rail used to show one pill for the three and number every later slide one
-// short of the PDF (backlog #1570). The slide index (docs/src/lib/fuoco/deck-index.ts)
+// short of the PDF (backlog #1570). The slide index (docs/src/lib/deck-outline/deck-outline.ts)
 // knows where each section begins, so the rail lists those.
 //
 // IT RE-RENDERS FOR TWO REASONS ONLY: the deck text changed, or the focused slide did. Before

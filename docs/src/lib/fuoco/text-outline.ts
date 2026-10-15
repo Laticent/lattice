@@ -30,13 +30,13 @@ export interface TextOutlinerOptions {
 export function createTextOutliner(opts: TextOutlinerOptions): Outliner {
 	const dropEmpty = opts.dropEmpty !== false;
 	const build = (text: string, prev: Outline | null, span: EditSpan | null): Outline => {
-		const starts = [...opts.units(text)].filter((n) => n >= 0 && n <= text.length).sort((a, b) => a - b);
+		const starts = [...new Set(opts.units(text))].filter((n) => n >= 0 && n <= text.length).sort((a, b) => a - b);
 		if (starts[0] !== 0) starts.unshift(0);
 		const raw: Array<{ from: number; start: number; end: number }> = [];
 		for (let i = 0; i < starts.length; i++) {
 			const from = starts[i];
 			const end = i + 1 < starts.length ? starts[i + 1] : text.length;
-			if (end < from || (i > 0 && from === starts[i - 1])) continue;
+			if (end < from) continue;
 			const body = text.slice(from, end);
 			const lead = body.length - body.trimStart().length;
 			if (dropEmpty && lead === body.length) continue;
@@ -65,7 +65,7 @@ export function createTextOutliner(opts: TextOutlinerOptions): Outliner {
 
 /** Every line the pattern matches opens a unit. The pattern is tested against each line. */
 export function byPattern(line: RegExp): (text: string) => number[] {
-	const re = new RegExp(line.source, line.flags.replace(/[gm]/g, ''));
+	const re = new RegExp(line.source, line.flags.replace(/[gmy]/g, ''));
 	return (text) => {
 		const out: number[] = [];
 		let at = 0;
@@ -84,7 +84,7 @@ export function byPattern(line: RegExp): (text: string) => number[] {
 export function byBlankLines(): (text: string) => number[] {
 	return (text) => {
 		const out = [0];
-		const re = /\n[ \t]*\n+/g;
+		const re = /\n(?:[ \t]*\r?\n)+/g;
 		for (let m = re.exec(text); m; m = re.exec(text)) out.push(m.index + m[0].length);
 		return out;
 	};
@@ -106,9 +106,10 @@ export function byHeadings(levels: { unit?: number; part?: number } = {}): Requi
 			const line = text.slice(at, nl < 0 ? text.length : nl);
 			const f = /^ {0,3}(`{3,}|~{3,})/.exec(line);
 			if (f) {
-				// A fence closes on a run of the same character, at least as long as the one that opened it.
+				// A fence closes on a run of the same character, at least as long as the one that opened it,
+				// A closing fence carries nothing after it (an info string makes it content).
 				if (fence === null) fence = f[1];
-				else if (f[1][0] === fence[0] && f[1].length >= fence.length) fence = null;
+				else if (f[1][0] === fence[0] && f[1].length >= fence.length && line.slice(line.indexOf(f[1]) + f[1].length).trim() === '') fence = null;
 			} else if (fence === null) {
 				const h = /^ {0,3}(#{1,6})(?:[ \t]|$)/.exec(line);
 				if (h && h[1].length === level) out.push(at);

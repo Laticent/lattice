@@ -45,6 +45,28 @@ describe('createTextOutliner + byHeadings — a Markdown outline', () => {
 	});
 });
 
+describe('ids at a unit boundary', () => {
+	const outliner = createTextOutliner(byHeadings({ unit: 1, part: 2 }));
+
+	it('text inserted exactly at a unit start leaves that unit its id, and the new unit gets a new one', () => {
+		const o = outliner.update(null, DOC);
+		const at = DOC.indexOf('# Usage');
+		const ins = '# Middle\n\nNew.\n\n';
+		const n = outliner.update(o, DOC.slice(0, at) + ins + DOC.slice(at), { span: { from: at, toA: at, toB: at + ins.length } });
+		expect(n.units.map((_, i) => unitText(n, i).split('\n')[0])).toEqual(['# Intro', '# Middle', '# Usage']);
+		expect(n.units[0].id).toBe(o.units[0].id);
+		expect(n.units[2].id).toBe(o.units[1].id);
+		expect(n.units[1].id).not.toBe(o.units[1].id);
+	});
+
+	it('text appended at a unit start that opens no unit stays with the unit before', () => {
+		const o = outliner.update(null, DOC);
+		const at = DOC.indexOf('# Usage');
+		const n = outliner.update(o, `${DOC.slice(0, at)}More.\n\n${DOC.slice(at)}`, { span: { from: at, toA: at, toB: at + 7 } });
+		expect(n.units.map((u) => u.id)).toEqual(o.units.map((u) => u.id));
+	});
+});
+
 describe('the other splitters', () => {
 	it('byPattern: every matching line opens a unit (a transcript of cues)', () => {
 		const text = '00:01 Hello\nmore\n00:05 Next\n00:09 Last\n';
@@ -52,9 +74,26 @@ describe('the other splitters', () => {
 		expect(o.units.map((_, i) => unitText(o, i))).toEqual(['00:01 Hello\nmore', '00:05 Next', '00:09 Last']);
 	});
 
-	it('byBlankLines: paragraphs', () => {
+	it('byBlankLines: paragraphs, with LF or CRLF', () => {
 		const o = createTextOutliner({ units: byBlankLines() }).update(null, 'One.\n\nTwo.\n\n\nThree.');
 		expect(o.units.map((_, i) => unitText(o, i))).toEqual(['One.', 'Two.', 'Three.']);
+		const crlf = createTextOutliner({ units: byBlankLines() }).update(null, 'One.\r\n\r\nTwo.\r\n \r\nThree.');
+		expect(crlf.units.map((_, i) => unitText(crlf, i))).toEqual(['One.', 'Two.', 'Three.']);
+	});
+
+	it('byPattern ignores g, m and y: every line is tested from its start', () => {
+		expect(byPattern(/^## /gmy)('a\n## b\n## c')).toEqual([2, 7]);
+	});
+
+	it('a splitter that repeats an offset loses no text', () => {
+		const o = createTextOutliner({ units: () => [0, 4, 4] }).update(null, 'aaa\nbbb\n');
+		expect(o.units.map((_, i) => unitText(o, i))).toEqual(['aaa', 'bbb']);
+	});
+
+	it('byHeadings: a backtick line with an info string does not close a fence', () => {
+		const text = '# A\n```\n```js\n# inside\n```\n# B\n';
+		const o = createTextOutliner(byHeadings({ unit: 1 })).update(null, text);
+		expect(o.units.map((_, i) => unitText(o, i).split('\n')[0])).toEqual(['# A', '# B']);
 	});
 
 	it('any function: units of a code file, one per top-level function', () => {

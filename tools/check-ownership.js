@@ -8957,7 +8957,15 @@ function checkFuocoBoundary(errors, dir = FUOCO_DIR, adapter = FUOCO_ADAPTER) {
   if (!fs.existsSync(dir)) return;
   for (const file of listPackageSources(path.resolve(dir))) {
     if (TEST_FILE.test(file) || path.resolve(file) === path.resolve(adapter)) continue;
-    const src = stripJsComments(fs.readFileSync(file, 'utf8'));
+    const raw = fs.readFileSync(file, 'utf8');
+    // A triple-slash reference is a comment to the stripper, but an ambient dependency to tsc.
+    for (const m of raw.matchAll(/^\s*\/\/\/\s*<reference\s+(?:types|path|lib)\s*=\s*["']([^"']+)["']/gm)) {
+      errors.push(
+        `${path.relative(ROOT, file)} has a triple-slash reference to '${m[1]}'. The Fuoco core declares ` +
+          `no ambient types; import what it needs from inside docs/src/lib/fuoco/.`,
+      );
+    }
+    const src = stripJsComments(raw);
     for (const pattern of SUONO_SPEC_PATTERNS) {
       for (const m of src.matchAll(pattern)) {
         if (m[1] !== 'react') continue;

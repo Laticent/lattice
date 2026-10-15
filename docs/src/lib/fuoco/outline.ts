@@ -211,9 +211,9 @@ export function mapOffset(o: number, span: EditSpan): number {
 
 /** Ids for the units of a new outline, carried from `prev` through `span`: a unit outside the
  *  edit keeps its id; inside it, units are matched from both ends by position, and a region
- *  that kept its unit count keeps every id in order. Duplicating a unit gives the copy a new id;
- *  splitting one keeps the first half's id. Shared by every outliner so ids mean the same thing
- *  whatever produced them. */
+ *  that kept its unit count keeps every id in order. Text inserted at a unit's start leaves
+ *  that unit its id. Duplicating a unit gives the copy a new id; splitting one keeps the first
+ *  half's id. `createTextOutliner` uses it; a custom outliner can too. */
 export function carryIds(prev: Outline | null, next: readonly { from: number }[], nextLength: number, span: EditSpan | null): UnitId[] {
 	const ids = new Array<UnitId>(next.length);
 	if (!prev || !span) {
@@ -228,10 +228,24 @@ export function carryIds(prev: Outline | null, next: readonly { from: number }[]
 	};
 	// Outside the edit: an unchanged start offset, shifted.
 	const before = new Map<number, UnitId>();
-	for (const u of prev.units) if (u.from < span.from || u.from > span.toA || (u.from === span.from && span.toA === span.from)) before.set(mapOffset(u.from, span), u.id);
+	const pureInsert = span.toA === span.from;
+	for (const u of prev.units) if (u.from < span.from || u.from > span.toA) before.set(mapOffset(u.from, span), u.id);
 	for (let i = 0; i < next.length; i++) {
 		const id = before.get(next[i].from);
 		if (id !== undefined) take(i, id);
+	}
+	// A unit that starts exactly where text was inserted: the insertion went in front of it
+	// when a unit now starts where the inserted text ends, else the unit kept its offset (text
+	// appended to the unit before it). Either way it keeps its id, and an inserted unit gets a
+	// new one.
+	if (pureInsert) {
+		const u = prev.units.find((x) => x.from === span.from);
+		if (u && !used.has(u.id)) {
+			const pushed = next.findIndex((n, i) => ids[i] === undefined && n.from === span.toB);
+			const stayed = next.findIndex((n, i) => ids[i] === undefined && n.from === span.from);
+			if (span.toB > span.from && pushed >= 0) take(pushed, u.id);
+			else if (stayed >= 0) take(stayed, u.id);
+		}
 	}
 	// Inside: by position from both ends, among the units that are still unassigned.
 	const oldInside = prev.units.filter((u) => !used.has(u.id));

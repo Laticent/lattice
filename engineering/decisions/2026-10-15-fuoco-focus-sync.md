@@ -421,9 +421,12 @@ absolute. An `Outliner` builds and maintains it (`update(prev, text, { span })`,
 unit, section → part, `hub.source()` → `hub.update()`, `{ chunk, section }` → `{ unit, part }`
 in `pages()` and `go()`.
 
-**What stayed shared.** Id carrying (`carryIds`), the change span (`diffSpan`, `spanHolds`,
-`mapOffset`), revisions and every lookup (`unitAt`, `partAt`, `partOfFlat`, …) live in
-`outline.ts`, so an id or a revision means the same thing whichever outliner produced it.
+**What stayed shared.** The id and revision counters (`nextUnitId`, `nextRevision`), the change
+span (`diffSpan`, `spanHolds`, `mapOffset`) and every lookup (`unitAt`, `partAt`, `partOfFlat`,
+…) live in `outline.ts`, so an id or a revision is unique whichever outliner produced it. Id
+CARRYING is not shared yet: `carryIds` serves `createTextOutliner` and any custom outliner, while
+the deck outliner keeps the region matching it shipped with in §11, because it matches only
+inside the re-parsed region. Moving it onto `carryIds` is logged as a follow-up.
 
 **The Lattice adapter** moved to `docs/src/lib/deck-outline`: `deckOutliner` is the
 incremental slide index of §11, now an `Outliner`, with `deckEditableOffset` beside it. Its
@@ -432,7 +435,8 @@ tests are unchanged apart from the names.
 **The general outliner.** `createTextOutliner({ units, parts?, dropEmpty? })` re-runs a splitter
 over the whole text on each change, which is linear and fine into the hundreds of kilobytes;
 `byPattern`, `byHeadings` (ATX, fenced code skipped, a fence closes on a run of the same
-character at least as long as its opener) and `byBlankLines` cover the common shapes. A
+character at least as long as its opener, with nothing after it) and `byBlankLines` cover the
+common shapes. A
 document too large to rescan writes its own outliner, as Lattice did.
 
 **The boundary is gated.** `checkFuocoBoundary` in `tools/check-ownership.js` fails a core file

@@ -80,10 +80,11 @@ It must return `prev` itself when the text is unchanged. Fuoco ships one for pla
 - `byHeadings({ unit: 1, part: 2 })`: Markdown ATX headings, fenced code skipped.
 - `byBlankLines()`: paragraphs.
 
-A host with its own parser writes its own outliner from the exported helpers: `carryIds` keeps
-ids through an edit, `diffSpan` finds the edit when the editor does not say, `nextRevision`
-and `partBaseOf` finish the outline. Lattice's slide outliner (`docs/src/lib/deck-outline`)
-is one of these: it re-parses only the slides an edit touched.
+A host with its own parser writes its own outliner. The exported helpers do the bookkeeping:
+`carryIds` keeps ids through an edit, `diffSpan` finds the edit when the editor does not say,
+`nextUnitId`, `nextRevision` and `partBaseOf` finish the outline. Lattice's slide outliner
+(`docs/src/lib/deck-outline`) is one of these. It re-parses only the slides an edit touched and
+matches ids inside that region itself, drawing them from the shared `nextUnitId`.
 
 ## The hub
 

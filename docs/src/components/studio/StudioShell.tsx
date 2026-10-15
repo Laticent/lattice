@@ -4139,7 +4139,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// the wrong slide. The Inspector's slide scope owns the note + class controls (SlideContextBody),
 	// and its writes route through the Undo funnel (a user tuning a slide). The demo's plain,
 	// toast-free twin of this left with the tours that used it (2026-10-05-studio-lessons.md).
-	const mutateSlideFromPanel = React.useCallback((fn: (unit: string) => string) => {
+	const mutateSlideFromPanel = React.useCallback((fn: (chunk: string) => string) => {
 		settingsWrite('This slide', (s) => {
 			const chunk = splitSlides(stripFrontMatter(s))[activeFullIndex];
 			return chunk == null ? s : replaceSlide(s, activeFullIndex, fn(chunk)).source;

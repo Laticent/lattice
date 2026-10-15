@@ -454,7 +454,7 @@ export const OPAQUE_BLOCK_TOKENS = Object.freeze(${JSON.stringify(opaque)});
 
 /** Block rules that decide by reading lines past the block they open, each with a pattern for the
  *  lines that decision depends on (the manifest's \`scansAhead\`). The Studio's incremental slide
- *  index rebuilds the deck when an edit adds or removes such a line (docs/src/lib/fuoco/deck-index.ts). */
+ *  index rebuilds the deck when an edit adds or removes such a line (docs/src/lib/deck-outline/deck-outline.ts). */
 export const FORWARD_SCAN_LINES = Object.freeze({${ahead.length ? ` ${ahead.join(', ')} ` : ''}});
 
 /** Every shipped plugin's name, in dependency order — for a reader that needs only the names
