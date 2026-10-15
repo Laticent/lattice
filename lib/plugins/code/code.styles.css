@@ -10,22 +10,31 @@
  * any slide, so code on a plain content slide sits on the same `--code-bg` panel the `code` slide
  * uses. The syntax roles are tuned and gated (checkSyntaxContrast) against that panel; before the
  * plugin, a fence on a plain slide painted them straight onto the slide's own background, where
- * the pale ones were unreadable. Wrapped in `:where(section)` so a layout that styles its own
- * `pre` (`code`, `compare-code`) wins by specificity and keeps its composition.
+ * the pale ones were unreadable. The `pre` is wrapped in `:where()` so a layout that styles its
+ * own `pre` (`code`, `compare-code`) wins by specificity and keeps its composition.
+ *
+ * WHY `section :where(pre)` AND NEVER `:where(section) pre`. Both weigh the same, (0,0,1) before
+ * the classes, but only the first survives scoping. Every browser host (the engine's packer,
+ * lib/engine/css.js `packSelector`) and Marp both prefix the slide path to a selector that does
+ * not START with `section`, so `:where(section) pre` became `… > section :where(section) pre`:
+ * a section inside a section, which never exists. Every rule written that way matched nothing in
+ * the Studio, the Playground and the site, while the CLI's unscoped sheet drew them. The same
+ * trap took out the base tokens once (base.tokens.css, above its `:root`).
  *
  * THE SAME PANEL IN A MARP RENDER. Export to Marp ships this file, but Marp renders fences itself:
  * a bare `<pre>` (marp-cli) or `<marp-pre>` (VS Code's preview), with no `lat-code` class, so a
  * plain-slide fence there painted its colors onto the slide again. The second selector is that
  * shape: a `<pre>` holding a `<code>` that no plugin draws (a drawn fence carries
  * `data-lattice-hydrate` from the engine, or `data-lattice-settle` from the bundled runtime the
- * moment it starts). It is wrapped whole in `:where()`, so it adds no specificity, and the engine's
- * own `pre.lat-code` match keeps the specificity the layouts are written against.
+ * moment it starts). Everything after `section` is wrapped in `:where()`, so it weighs no more than
+ * the engine's own `pre.lat-code` match, and the layouts keep the specificity they were written
+ * against.
  *
  * Palette-blind: every color is a token (HARD RULE #3).
  */
 
-:where(section) pre.lat-code,
-:where(section :is(pre, marp-pre):not(.lat-code, [data-lattice-hydrate], [data-lattice-settle]):has(> code)) {
+section :where(pre).lat-code,
+section :where(:is(pre, marp-pre):not(.lat-code, [data-lattice-hydrate], [data-lattice-settle]):has(> code)) {
   background-color: var(--code-bg);
   box-shadow: inset 0 0 0 1px var(--code-edge);
   color: var(--code-text);
@@ -84,7 +93,7 @@ section .hljs-deletion {
 
 /* title= : a file name or caption above the code, inside the panel. A hairline under it, then the
  * code, spaced by padding (HARD RULE #20). */
-:where(section) pre.lat-code > .lat-code-title {
+section :where(pre).lat-code > .lat-code-title {
   display: block;
   padding-bottom: var(--sp-xs);
   border-bottom: 1px solid var(--code-edge);
@@ -93,16 +102,16 @@ section .hljs-deletion {
   color: var(--syntax-comment);
   font-style: normal;
 }
-:where(section) pre.lat-code > .lat-code-title + code { display: block; padding-top: var(--sp-xs); }
+section :where(pre).lat-code > .lat-code-title + code { display: block; padding-top: var(--sp-xs); }
 
 /* numbers : drawn from `data-n`, never part of the text, so a copy of the code is the code. The
  * column fits the widest number the block shows (`data-digits`, set from `start=` and the count). */
-:where(section) pre.lat-code-numbers { --ln-digits: 2ch; }
-:where(section) pre.lat-code-numbers[data-digits="3"] { --ln-digits: 3ch; }
-:where(section) pre.lat-code-numbers[data-digits="4"] { --ln-digits: 4ch; }
-:where(section) pre.lat-code-numbers[data-digits="5"] { --ln-digits: 5ch; }
-:where(section) pre.lat-code-numbers[data-digits="6"] { --ln-digits: 6ch; }
-:where(section) pre.lat-code-numbers .ln::before {
+section :where(pre).lat-code-numbers { --ln-digits: 2ch; }
+section :where(pre).lat-code-numbers[data-digits="3"] { --ln-digits: 3ch; }
+section :where(pre).lat-code-numbers[data-digits="4"] { --ln-digits: 4ch; }
+section :where(pre).lat-code-numbers[data-digits="5"] { --ln-digits: 5ch; }
+section :where(pre).lat-code-numbers[data-digits="6"] { --ln-digits: 6ch; }
+section :where(pre).lat-code-numbers .ln::before {
   content: attr(data-n);
   display: inline-block;
   min-width: var(--ln-digits);
@@ -116,16 +125,16 @@ section .hljs-deletion {
 
 /* mark= and diff : a line-wide band. The line becomes an inline-block as wide as the panel, as the
  * `diff` grammar's own spans do above. */
-:where(section) pre.lat-code .ln:is(.lat-mark, [data-diff]) { display: inline-block; min-width: 100%; }
-:where(section) pre.lat-code .ln.lat-mark {
+section :where(pre).lat-code .ln:is(.lat-mark, [data-diff]) { display: inline-block; min-width: 100%; }
+section :where(pre).lat-code .ln.lat-mark {
   background-color: color-mix(in srgb, var(--code-text) 12%, transparent);
   box-shadow: inset 3px 0 0 var(--accent);
 }
-:where(section) pre.lat-code .ln[data-diff="ins"] { background-color: color-mix(in srgb, var(--syntax-inserted) 14%, transparent); }
-:where(section) pre.lat-code .ln[data-diff="del"] { background-color: color-mix(in srgb, var(--syntax-deleted) 14%, transparent); }
-:where(section) pre.lat-code .lat-diff-mark { display: inline-block; width: 2ch; }
-:where(section) pre.lat-code .ln[data-diff="ins"] .lat-diff-mark { color: var(--syntax-inserted); }
-:where(section) pre.lat-code .ln[data-diff="del"] .lat-diff-mark { color: var(--syntax-deleted); }
+section :where(pre).lat-code .ln[data-diff="ins"] { background-color: color-mix(in srgb, var(--syntax-inserted) 14%, transparent); }
+section :where(pre).lat-code .ln[data-diff="del"] { background-color: color-mix(in srgb, var(--syntax-deleted) 14%, transparent); }
+section :where(pre).lat-code .lat-diff-mark { display: inline-block; width: 2ch; }
+section :where(pre).lat-code .ln[data-diff="ins"] .lat-diff-mark { color: var(--syntax-inserted); }
+section :where(pre).lat-code .ln[data-diff="del"] .lat-diff-mark { color: var(--syntax-deleted); }
 
 /* focus= (and a slide's `_focus: line` on a code block) : a receded line drops its syntax colors to
  * one quiet color, `--code-text` mixed toward the panel, instead of the spotlight's opacity. Opacity
@@ -143,20 +152,20 @@ pre[data-focus-style="spotlight"] .ln.lat-recede {
 [data-focus-style="spotlight"] pre .ln.lat-recede::before,
 pre[data-focus-style="spotlight"] .ln.lat-recede span,
 pre[data-focus-style="spotlight"] .ln.lat-recede::before { color: inherit; }
-:where(section) { --code-recede: 55%; }
+section { --code-recede: 55%; }
 
 /* wrap : long lines wrap inside the panel, and a wrapped line's continuation hangs two columns in,
  * so it does not read as a new line of code. With numbers it hangs under its own text, not under
  * the number column. */
-:where(section) pre.lat-code-wrap code { white-space: pre-wrap; overflow-wrap: anywhere; }
-:where(section) pre.lat-code-wrap .ln {
+section :where(pre).lat-code-wrap code { white-space: pre-wrap; overflow-wrap: anywhere; }
+section :where(pre).lat-code-wrap .ln {
   display: inline-block;
   box-sizing: border-box;
   width: 100%;
   padding-inline-start: 2ch;
   text-indent: -2ch;
 }
-:where(section) pre.lat-code-wrap.lat-code-numbers .ln {
+section :where(pre).lat-code-wrap.lat-code-numbers .ln {
   padding-inline-start: calc(var(--ln-digits) + 1.5ch);
   text-indent: calc(-1 * (var(--ln-digits) + 1.5ch));
 }
@@ -165,8 +174,8 @@ pre[data-focus-style="spotlight"] .ln.lat-recede::before { color: inherit; }
  * lib/core/code-copy.mjs on a block marked `data-copy`, and only on a surface a person reads in a
  * browser. Quiet until the block is pointed at or a button has focus, so they never compete with
  * the code; the tooltip is the button's own label, in the panel's colors reversed. */
-:where(section) pre[data-copy] { position: relative; }
-:where(section) pre .lat-code-copy {
+section :where(pre)[data-copy] { position: relative; }
+section :where(pre) .lat-code-copy {
   position: absolute;
   top: var(--sp-xs);
   right: var(--sp-xs);
@@ -176,9 +185,9 @@ pre[data-focus-style="spotlight"] .ln.lat-recede::before { color: inherit; }
   opacity: 0.6;
   transition: opacity 120ms ease;
 }
-:where(section) pre:hover .lat-code-copy,
-:where(section) pre .lat-code-copy:focus-within { opacity: 1; }
-:where(section) pre .lat-code-copy-btn {
+section :where(pre):hover .lat-code-copy,
+section :where(pre) .lat-code-copy:focus-within { opacity: 1; }
+section :where(pre) .lat-code-copy-btn {
   position: relative;
   display: grid;
   place-items: center;
@@ -192,11 +201,11 @@ pre[data-focus-style="spotlight"] .ln.lat-recede::before { color: inherit; }
   color: var(--code-text);
   cursor: pointer;
 }
-:where(section) pre .lat-code-copy-btn:hover { background-color: color-mix(in srgb, var(--code-text) 22%, var(--code-bg)); }
-:where(section) pre .lat-code-copy-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-:where(section) pre .lat-code-copy-btn[data-copied="yes"] { color: var(--syntax-inserted); }
-:where(section) pre .lat-code-copy-btn svg { inline-size: 1.1em; block-size: 1.1em; }
-:where(section) pre .lat-code-copy-btn::after {
+section :where(pre) .lat-code-copy-btn:hover { background-color: color-mix(in srgb, var(--code-text) 22%, var(--code-bg)); }
+section :where(pre) .lat-code-copy-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+section :where(pre) .lat-code-copy-btn[data-copied="yes"] { color: var(--syntax-inserted); }
+section :where(pre) .lat-code-copy-btn svg { inline-size: 1.1em; block-size: 1.1em; }
+section :where(pre) .lat-code-copy-btn::after {
   content: attr(aria-label);
   position: absolute;
   top: calc(100% + var(--sp-2xs));
@@ -212,8 +221,8 @@ pre[data-focus-style="spotlight"] .ln.lat-recede::before { color: inherit; }
   pointer-events: none;
   transition: opacity 120ms ease;
 }
-:where(section) pre .lat-code-copy-btn:is(:hover, :focus-visible, [data-copied])::after { opacity: 1; }
+section :where(pre) .lat-code-copy-btn:is(:hover, :focus-visible, [data-copied])::after { opacity: 1; }
 /* Backstops: the buttons are drawn only on reading surfaces, but a printed page or a section being
  * captured must never show one. */
-@media print { :where(section) pre .lat-code-copy { display: none; } }
+@media print { section :where(pre) .lat-code-copy { display: none; } }
 section.lattice-exporting pre .lat-code-copy { display: none; }
