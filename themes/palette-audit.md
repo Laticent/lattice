@@ -4640,3 +4640,5 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 </div>
 
 </div>
+
+<!-- ci-probe: touched so golden-diff renders this deck on the CI runner; reverted next commit -->
