@@ -41,7 +41,7 @@ Author syntax, as proposed:
 
 ```md
 ![Team offsite](asset:offsite)                       an image: CommonMark, kept as the image's alias
-`@image{asset:offsite, alt="The team at the lake", caption="Offsite, 2026", nimbus}` the same image, with its text and a setting (§4.7)
+`@image{asset:offsite, caption="Offsite, 2026", nimbus}`   the same image, with a caption and a finish (§4.7)
 `@video{https://youtu.be/dQw4w9WgXcQ?t=90, caption="The 90-second tour", poster=sample:photo-pano.jpg, muted}` a video on any slide, starting at 1:30
 `>{https://youtu.be/dQw4w9WgXcQ}`                    the same video through its sigil (§8)
 `@video{clips/demo.mp4}`                             a video file beside the deck (new: the `file` row)
@@ -146,11 +146,11 @@ hosts can serve it, and the others show the stand-in.
 
 ### 4.2 The `image` plugin
 
-- **The kind is `image`.** `` `@image{src, alt="…", caption="…", title="…", …}` `` is the full form. CommonMark's
-  `![alt](src "title")` is its alias, the way `^{…}` is the icon's, and both fields mean what HTML means. Every editor, GitHub and every Markdown
+- **The kind is `image`.** `` `@image{src, caption="…", …}` `` is the usual form, with an optional `alt="…"`. CommonMark's
+  `![alt](src)` is its alias, the way `^{…}` is the icon's; the alt text becomes its `alt`. Every editor, GitHub and every Markdown
   tool still shows the picture.
-- **The record describes the picture; the layout places it.** It carries `alt`, `caption`, `title`, a focus hint
-  and a treatment, and a relative size (`sm` / `md` / `lg`). Placement, fit and scrim belong to the layout it is written
+- **The record describes the picture; the layout places it.** It carries a `caption`, an optional `alt`, a focus
+  hint, a treatment and a relative size (`sm` / `md` / `lg`). Placement, fit and scrim belong to the layout it is written
   in (§4.7).
 - **It owns** `bg-image.js`, `background-image.js`, `image-scrim`, `image-adaptive` and the `wrapImageText`
   pass. That ends the CLI/engine split (D3, D4): one lift, in the kernel both paths read.
@@ -258,7 +258,7 @@ Every committed deck that uses video or images renders the same before and after
 
 | File or field | What it holds for these plugins |
 |---|---|
-| `<name>.docs.md` | The plain-language guide the docs site renders at `/plugins/<name>/`, in the shape of `avatars.docs.md`: the record and its alias, every option with a live example, the deck register, the sources an address can name (relative, `asset:`, `sample:`, web; Google Drive when it lands), the video hosts, what each export does (§4.3's table), accessibility (alt text, the poster's label), what stays literal, anti-patterns, and a short "where the address comes from" section stating §4.5 for authors |
+| `<name>.docs.md` | The plain-language guide the docs site renders at `/plugins/<name>/`, in the shape of `avatars.docs.md`: the record and its alias, every option with a live example, the deck register, the sources an address can name (relative, `asset:`, `sample:`, web; Google Drive when it lands), the video hosts, what each export does (§4.3's table), accessibility (how Lattice fills the alt text when the author does not), what stays literal, anti-patterns, and a short "where the address comes from" section stating §4.5 for authors |
 | `<name>.fixtures.md` | The conformance cases `test/unit/plugins/conformance.test.js` runs: one `##` case per option and alias, plus the §4.5 cases (a plugin's `<code>@video{…}</code>` stays text; a bullet the author did not write never becomes a poster) |
 | manifest `icon` | A drawn mark: a viewBox plus paths tagged `line`, `accent` or `fill`, which `lib/plugins/plugin-icon.mjs` turns into SVG and the theme colors. `image`: a frame with a hill and a sun. `video`: a frame with a play triangle. Drawn paths, never a typed `▶` (HARD RULE #29) |
 | Docs site | the `/plugins/` index lists them. Its one-line description (`docs/src/pages/plugins/index.astro:20`) names the plugins by hand, so it gains "images, video" |
@@ -276,23 +276,34 @@ Each slice that ships a plugin ships its whole set; a plugin without its guide o
    (below), which scales the thing inside the box the layout gave it and can never break out of that box. A record alone in a paragraph on a plain slide is a block
    figure the slide's own flow sizes; on an `image`, `split-panel`, `collage` or `video` slide, that layout seats it,
    and a layout that composes several plugins (a clip beside its QR code, a Wi-Fi card) owns that composition.
-2. **A field's meaning and its name come from the standard that defines it.** Lattice coins a word only where the
-   standard's spelling would significantly hurt understanding, and then the standard's name is accepted too. No
-   field below is ours where a standard exists.
+2. **A field's meaning and its name come from a standard, and the author's standard comes first.** Authors are
+   presenters, not web developers (owner, 2026-10-16), so where the presentation tools they already use name a thing
+   (PowerPoint, Keynote, Google Slides: *caption*, *alt text*, *poster frame*, *loop*, *mute*), that is the name.
+   The web standard (HTML, CSS, Media Fragments, the hosts' player parameters) sits underneath, as how the plugin builds
+   it. Lattice coins a word only where neither names the thing well. **Accessibility is Lattice's job, not a field the
+   author must fill in** (below).
 
-**The words every media record shares** come from HTML and Markdown, which already define a picture's text:
+**The words every media record shares**, in the presentation tools' own terms:
 
-| Field | Meaning | Standard |
-|---|---|---|
-| the first item | the thing itself: an image or video address (any media source, §4.1) or a QR payload | the `src` of `<img>` / `<video>` |
-| `alt="…"` | the text alternative a screen reader speaks, and what shows if the picture cannot | HTML `alt`; Markdown's `![alt](…)` |
-| `caption="…"` | a visible line with the figure; the layout decides where | HTML `<figcaption>` |
-| `title="…"` | advisory text, never on the slide face: shown on hover and tap on screen, the speaker note in print | HTML `title`; Markdown's `![…](src "title")` |
+| Field | Meaning | Familiar from | Built as |
+|---|---|---|---|
+| the first item | the thing itself: an image or video address (any media source, §4.1) or a QR payload | inserting a picture or a video | the `src` of `<img>` / `<video>` |
+| `caption="…"` | a visible line with the figure; the layout decides where. The one text field an author normally writes | Keynote's and Word's *Caption* | HTML `<figcaption>` |
+| `alt="…"` *(optional)* | what a screen reader says about the picture, when the author wants to say it themselves | PowerPoint's and Google Slides' *Alt Text* | HTML `alt`; Markdown's `![alt](…)` |
 
-The Markdown alias carries three of them: `![alt](src "title")` is `@image{src, alt="alt", title="title"}`, exactly
-as Markdown and HTML mean them. A media `title` plays the role #2723 calls a `description` on a chart (hidden detail,
-hover and tap, the speaker note in print). The two keep their own standards' names; the guide says they are the same
-role.
+**Accessibility is taken care of** (owner, 2026-10-16). An author never has to write `alt`, and nothing warns or
+blocks when it is missing. Lattice fills it, first source wins: the author's `alt`; the Markdown alt text
+(`![alt](src)`); the photo's alt text stored in the Studio Library (`assetAlts`, `2026-10-12-library-media-assets.md`);
+the `caption`; and for a QR code, a sentence built from its payload ("QR code: join the Guest Wi-Fi network",
+"QR code: laticent.com/join"). A picture with none of these is marked decorative, so a screen reader skips it rather
+than reading a file name. Offering to describe a picture in the Studio is a later, opt-in idea, not part of this
+design.
+
+**Left out: a hover `title`.** A tooltip is a web-page idea; presentation tools have none, and a presenter who wants
+extra detail on a slide already has the speaker notes. Markdown's image title (`![…](src "title")`) is accepted and
+ignored, so a pasted deck still renders.
+
+#2723's `description` (a chart's hidden detail) stays a chart word; media has no equivalent field.
 
 **What each plugin adds:**
 
@@ -309,7 +320,7 @@ role.
 | | `fullscreen=false` | while presenting, the clip plays in its frame instead of filling the stage, which is the default (§4.8) | PowerPoint *Play Full Screen* (ECMA-376 `fullScrn`) |
 | `qr` | the payload | a URI, quoted text, or a nested format record (`wifi={…}`, `contact={…}`) | URIs, the Wi-Fi URI, vCard (`2026-10-16-qr-plugin.md` §3, §3c) |
 | | `c1` … `c12` | the code's ink, with a lint for scan contrast (owner, 2026-10-16) | the deck's color cycle |
-| | `ec=L` `M` `Q` `H` | error correction | ISO/IEC 18004 |
+| | *(no word)* | error correction is chosen by Lattice (ISO/IEC 18004 level M, or H when a frame or a small size makes damage likelier); it is jargon an author should not have to know | ISO/IEC 18004 |
 
 Each video host row in the provider table maps these HTML names to the host's own parameters, and leaves out what a
 host does not support (Instagram's embed takes none). The author writes HTML's word once; the row speaks the host's
@@ -330,7 +341,7 @@ dialect. That is the same strategy pattern as the hosts themselves.
 - **Placement and fit words, and absolute sizes** (rule 1; `sm` / `md` / `lg` are the only size words), **pixel sizes and filters** (Marp's keywords are retired, §8 decision 2),
   and **#2723's chart fields** (`size`, `kind`, `when`, `to`, `after`, `value`, `x`, `y`, `group`), which mean other
   things there.
-- **`{> …}` inside a record.** In #2723 that form describes a table cell; a record names its `title`.
+- **`{> …}` inside a record.** In #2723 that form describes a table cell; a record's visible text is its `caption`.
 
 **Size: `sm`, `md`, `lg` (owner, 2026-10-16).** Images, video players and QR codes all take the same three words,
 with `md` the default, the same words icons and avatars use. The layout still owns the box; the word scales the thing
@@ -529,9 +540,11 @@ Slices 2 and 3 rebase onto #2725 once it lands, because they delete rows from it
 7. **No `start=`** (reversed the same day under rule 2 of §4.7). A start time is part of the address, as each host
    and W3C Media Fragments define it.
 8. **A QR code takes `c1` … `c12`**, with a lint for scan contrast.
-9. **Standards first** (§4.7, rule 2): a field's meaning and name come from the standard that defines it (HTML, CSS,
-   Media Fragments, the hosts' player parameters, URIs, the Wi-Fi URI, vCard, ISO/IEC 18004). Lattice coins a word only
-   where the standard's spelling would significantly hurt understanding, and accepts the standard's name beside it.
+9. **Standards first, the author's standard first** (§4.7, rule 2): a field's meaning and name come from a standard.
+   Where the presentation tools authors use name a thing, that name wins; the web standards (HTML, CSS, Media
+   Fragments, the hosts' player parameters, URIs, the Wi-Fi URI, vCard, ISO/IEC 18004) sit underneath as how it is
+   built. Accessibility is Lattice's job: `alt` is optional and filled automatically, and jargon such as QR error
+   correction is chosen for the author.
    `fullscreen` was weighed against the hosts and left out (§4.7), then admitted from the presentation standard
    (§4.8).
 10. **The next advance plays a waiting clip** (§4.8), as in PowerPoint and Google Slides: the familiar behavior for
@@ -545,6 +558,8 @@ Slices 2 and 3 rebase onto #2725 once it lands, because they delete rows from it
 
 - 2026-10-16: audit and proposal written; D1 confirmed by render and logged. Owner settled decisions 2-4;
   decision 1 (packaging) is on hold.
+- 2026-10-16: author-facing names follow the presentation tools (owner: authors, not web developers). `caption` is the
+  text field; `alt` is optional and filled by Lattice when missing; the hover `title` and the QR `ec` word are dropped.
 - 2026-10-16: a pass-through for host player settings rejected (§6); `subtitles` recorded as a proposed word (§4.7; first
   drafted as `captions`, renamed the same day so it cannot be mistaken for `caption=`).
 - 2026-10-16: a second fact-check pass (44 claims confirmed) corrected six: Keynote's default, Vimeo's `fullscreen`
