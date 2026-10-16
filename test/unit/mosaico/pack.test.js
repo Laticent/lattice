@@ -136,3 +136,15 @@ test('the ESM entry is the same library as the CommonJS one', async () => {
   assert.equal(JSON.stringify(esm.pack(PHOTOS, { aspect: 1.41 }, { gap: GAP })), JSON.stringify(pack(PHOTOS, { aspect: 1.41 }, { gap: GAP })));
   assert.deepEqual(Object.keys(esm).sort(), Object.keys(mosaico).filter((k) => k !== 'default').sort());
 });
+
+test('weights must be finite and non-negative: the search prunes on a bound that needs it', () => {
+  for (const bad of [-0.5, NaN, Infinity]) {
+    assert.throws(() => pack(PHOTOS.slice(0, 2), { aspect: 1.41 }, { weights: { hero: bad } }), RangeError, String(bad));
+  }
+  assert.equal(pack(PHOTOS.slice(0, 2), { aspect: 1.41 }, { weights: { hero: 0, smallTile: 0 } }).ok, true);
+});
+
+test('a key term on a rounding boundary keeps the mirror the old search kept (3:2 beside 16:9)', () => {
+  // The two photos' area ratio is exactly 0.84375, so the balance term is 8437.5.
+  assert.equal(pack([1.5, 16 / 9], { aspect: 1.41 }, { gap: 0.012 }).arrangement, 'H(0,1)');
+});

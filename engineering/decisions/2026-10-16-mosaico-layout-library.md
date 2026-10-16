@@ -275,24 +275,40 @@ container.
 emits. The one-photo case keeps its old shortcut (`crop: 0` even under `fill`) so the output stays the same.
 
 **Byte-identical gate.** `test/fixtures/collage-golden/` holds an FNV-1a hash of `packCollage`'s output for
-4,032 cases: 240 seeded random sets of 0 to 7 photos and 12 sets of repeated shapes, each in 16 variants
-(order × fit × hero × bleed), captured from the packer at 69b521f. All 4,032 match. Mutations of the built
-library show the gate can fail: dropping the tile-balance term from the dedupe changes 114 cases, reversing
-the tie-break 55 (only the repeated-shape sets reach it; with random sets alone it changed none, which is why
-they were added), and over-pruning the lower bound by 1e-3 changes 10. Removing either speedup changes none.
+4,128 cases: 240 seeded random sets of 0 to 7 photos, 12 sets of repeated shapes and 6 sets on a rounding
+boundary, each in 16 variants (order × fit × hero × bleed), captured from the packer at 69b521f. All 4,128
+match. Mutations of the built library show the gate can fail: dropping the tile-balance term from the dedupe
+changes 114 cases, reversing the tie-break 55 (only the repeated-shape sets reach it; with random sets alone it
+changed none), over-pruning the lower bound by 1e-3 changes 10, and never building mirrors changes 16 (only the
+boundary sets reach it).
 
-**What made it fast.** Three changes, each output-neutral by the gate above:
+**The checker's find.** The first cut skipped every mirror, on the claim that a mirror always repeats a key
+already seen. The independent checker refuted it: a mirror computes its tile areas along a different chain of
+additions, so they can differ in the last bits, and where a rounded key term sits exactly on a .5 boundary the
+mirror gets a different key. 3:2 beside 16:9 balances at exactly 8437.5, so `packCollage([1.5, 16/9])` swapped
+the two photos. It changed 480 of 37,800 two-photo and 1,807 of 567,000 three-photo cases against the old
+packer, and the first golden passed because no case reached a boundary. The boundary sets are in the golden
+now, and the rule below replaced the skip.
 
-- **No mirrors.** In free order the subset loop visited every split twice, and the mirror (B beside A for A
-  beside B) always produced a key already seen. The loop now stops once the left part loses the subset's top
-  item.
-- **Signatures only on an outline collision.** A node alone on its `(cut, p, q)` is new whatever its tile
-  balance, so the balance walk runs only when a second node shares the outline. Keys are packed integers, and
-  a dropped candidate allocates nothing.
+**What made it fast.** Three changes, each checked against the old packer directly as well as by the gate:
+every two- and three-photo case over 15 common shapes and 7 stages (604,800 cases), 4,608 four- and five-photo
+sets around the boundary pair, 1,500 random four- to six-photo sets and 81,808 edge cases (gutters from 0 to
+`Number.MAX_VALUE`, odd heroes and stages) all return the same bytes.
+
+- **Mirrors only near a rounding boundary.** In free order the subset loop visited every split twice. The
+  first pass now takes only the splits holding the subset's top item, computes each candidate's two key terms
+  before rounding, and queues the mirror of any candidate whose term lies within 1e-5 of a .5 boundary
+  (measured error between a node and its mirror: about 1e-12 of a term). The queued mirrors are offered
+  afterwards in the order the subset loop met them, so the dedupe keeps exactly the nodes it always kept. A
+  gutter as tall as the box (`gap ≥ 1`) breaks that error bound, so there every mirror is queued: the old
+  search, at the old cost.
+- **Packed keys, no allocation for a dropped candidate.** Keys are packed integers (with the old string as
+  the fallback outside their range), and a node is allocated only when kept. In `ordered` mode, which has no
+  mirrors, the tile-balance walk runs only when a second node shares an outline.
 - **Bounds before work at the root.** `W.empty·empty + crop` is a lower bound on the score, known before any
   layout; the full score is a lower bound before the two track passes. A root that loses on either bound by
   more than 4e-12 is skipped. At six free photos 1,114 of 5,484 roots are laid out, and about 12 reach the
-  track check.
+  track check. The bound holds only for non-negative weights, so `pack` refuses a negative one.
 
 `ordered` visits only contiguous runs, which is the interval DP §3 proposed with the split order kept.
 
@@ -302,9 +318,9 @@ runs of `packCollage` with the §3 aspects, the landscape `beside` stage, the de
 
 | Photos | Free, before | Free, after | Ordered, before | Ordered, after |
 |---|---|---|---|---|
-| 4 | 0.74 / 1.59 | 0.23 / 0.71 | 0.23 / 0.43 | 0.04 / 0.19 |
-| 5 | 6.62 / 8.26 | 0.67 / 1.29 | 0.73 / 1.19 | 0.14 / 0.35 |
-| 6 | 61.4 / 111 | 8.9 / 13.8 | 4.30 / 6.54 | 0.56 / 0.65 |
+| 4 | 0.76 / 1.24 | 0.20 / 0.58 | 0.12 / 0.27 | 0.04 / 0.22 |
+| 5 | 4.14 / 6.60 | 0.94 / 1.50 | 0.61 / 1.04 | 0.11 / 0.29 |
+| 6 | 58.0 / 95.9 | 9.1 / 12.6 | 3.31 / 3.68 | 0.37 / 0.73 |
 
 The §4.5 budget (one re-pack ≤16 ms for `tree` at six items) holds at the median and at p95. §3's 92-113 ms
 for the same packer came from a different harness (a mean of five runs after one warm-up), so compare within

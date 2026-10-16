@@ -1,6 +1,6 @@
 /**
- * The input sets behind golden.json: 240 seeded random photo sets plus 12 hand-picked sets
- * of repeated shapes, each run in 16 variants (free/ordered × tight/fill × hero or not × bleed or not). The golden file holds a
+ * The input sets behind golden.json: 240 seeded random photo sets, 12 hand-picked sets of
+ * repeated shapes and 6 sets on a rounding boundary, each run in 16 variants (free/ordered × tight/fill × hero or not × bleed or not). The golden file holds a
  * short hash of `JSON.stringify(packCollage(...))` per case, captured from the packer as it
  * stood in lib/core/collage-pack.js at 69b521f, before it moved into @laticent/mosaico.
  * Changing this generator invalidates the golden: the point is that the inputs never change.
@@ -31,7 +31,20 @@ const TIE_SETS = [
   { aspects: [0.8, 0.8, 0.8, 1.25, 1.25, 1.25], stageAspect: 0.62 },
   { aspects: [1.5, 0.67, 1.5, 0.67], stageAspect: 9 / 16 },
 ].map((t, i) => ({ ...t, gap: undefined, hero: i % t.aspects.length }));
-const SETS = RANDOM_SETS + TIE_SETS.length;
+// Shapes whose tile balance lands exactly on a rounding boundary (3:2 beside 16:9 balances at
+// 8437.5 in the dedupe key). There a mirrored arrangement can round to a different key than the
+// original, so the old packer kept both and the tie-break chose the mirror. A first cut of the
+// faster search never built mirrors and swapped these photos; the checker found it, and none of
+// the sets above reached the boundary.
+const BOUNDARY_SETS = [
+  { aspects: [1.5, 16 / 9], stageAspect: 1.41 },
+  { aspects: [16 / 9, 1.5], stageAspect: 3.4 },
+  { aspects: [1.5, 16 / 9, 1.5, 1.5], stageAspect: 1.41 },
+  { aspects: [1.5, 16 / 9, 1], stageAspect: 16 / 9 },
+  { aspects: [1.5, 16 / 9, 0.8, 1.25, 2], stageAspect: 0.62 },
+  { aspects: [16 / 9, 1.5, 9 / 16, 2 / 3, 1, 1.5], stageAspect: 1.7 },
+].map((t, i) => ({ ...t, gap: undefined, hero: i % t.aspects.length }));
+const SETS = RANDOM_SETS + TIE_SETS.length + BOUNDARY_SETS.length;
 
 // mulberry32: small, seedable, the same numbers on every machine.
 function rng(seed) {
@@ -69,7 +82,7 @@ function photoSets() {
     const hero = n > 0 ? Math.floor(r() * n) : 0;
     sets.push({ aspects, stageAspect, gap, hero });
   }
-  return [...sets, ...TIE_SETS];
+  return [...sets, ...TIE_SETS, ...BOUNDARY_SETS];
 }
 
 /** Every case: [setIndex, variantIndex, aspects, opts]. */
@@ -94,7 +107,7 @@ function cases() {
   return out;
 }
 
-// FNV-1a, 32 bits, as 8 hex characters: enough to tell two outputs apart in 4,032 cases.
+// FNV-1a, 32 bits, as 8 hex characters: enough to tell two outputs apart in 4,128 cases.
 function hash(str) {
   let h = 0x811c9dc5;
   for (let i = 0; i < str.length; i++) {

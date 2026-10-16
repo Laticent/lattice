@@ -74,11 +74,10 @@ The search is exhaustive, and each item multiplies the work by about eight. Meas
 The budget is one re-pack inside one 60 Hz frame (16 ms) for six items, so a host can re-lay out
 as image sizes arrive. Three things make it fit, none of which changes a result:
 
-- **No mirrors.** `B beside A` has the same outline and tile areas as `A beside B`, so the search
-  builds only one of each pair.
-- **Signatures on demand.** Two arrangements are merged when their outline and tile balance
-  match. The tile balance costs a walk of the tree, so it is computed only when a second
-  arrangement shares an outline.
+- **Mirrors only where they can matter.** `B beside A` has the same outline as `A beside B` and the
+  same tile areas up to the last bits, so its dedupe key repeats the original's, except when a key
+  term sits on a rounding boundary. The search builds a mirror only there.
+- **No allocation for a duplicate.** Keys are packed integers, and a node is allocated only when kept.
 - **Bounds before work.** Empty space and crop are known from the outline alone, and they bound
   the score from below; an arrangement that already loses on that bound is never laid out.
 

@@ -1,7 +1,8 @@
 // The collage packer moved from lib/core/collage-pack.js into @laticent/mosaico and was rewritten
 // for speed. This pins that the move changed nothing a deck can see: 240 seeded random photo
-// sets of 0-7 photos and 12 sets of repeated shapes (the ones that reach the tie-break), each
-// in 16 variants (free/ordered × tight/fill × hero or not × bleed or
+// sets of 0-7 photos, 12 sets of repeated shapes (the ones that reach the tie-break) and 6 sets
+// whose tile balance sits on a rounding boundary (the ones where a mirror can survive the
+// dedupe), each in 16 variants (free/ordered × tight/fill × hero or not × bleed or
 // not), return what the packer returned at 69b521f, byte for byte
 // (engineering/decisions/2026-10-16-mosaico-layout-library.md §8 slice 1).
 //
@@ -24,6 +25,6 @@ test('every golden case returns the bytes the old packer returned', () => {
     const got = hash(JSON.stringify(packCollage(aspects, opts)));
     if (got !== want[si][v]) misses.push(`set ${si} variant ${v}: ${JSON.stringify(aspects)} ${JSON.stringify(opts)}`);
   }
-  assert.equal(n, 4032);
+  assert.equal(n, 4128);
   assert.deepEqual(misses, [], `${misses.length} case(s) changed:\n${misses.slice(0, 10).join('\n')}`);
 });

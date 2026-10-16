@@ -11,7 +11,10 @@
  * (engineering/decisions/2026-10-16-mosaico-layout-library.md §3, §8 slice 1):
  *
  * - The dedupe key's tile-balance term is computed by a walk that writes areas into a reused
- *   buffer, not by laying out a fresh array of rectangle objects per candidate.
+ *   buffer, not by laying out a fresh array of rectangle objects per candidate, and keys are
+ *   packed integers.
+ * - `free` builds a mirror (B beside A for A beside B) only when it could survive the dedupe: when
+ *   a key term sits on a rounding boundary (see NEAR_HALF in `enumerate`).
  * - `ordered` visits only contiguous runs of the written order (interval dynamic programming).
  *   Within a run it tries splits in the order the subset loop did, longest prefix first, because
  *   the dedupe keeps the first node it sees and a different order could keep a different one.
@@ -101,6 +104,15 @@ function areasOfJoin(cut: 'V' | 'H', l: TreeNode, r: TreeNode, w: number, h: num
 
 const TWO24 = 2 ** 24;
 
+interface Mirror {
+  t: number;
+  iR: number;
+  iL: number;
+  cut: number;
+  L: TreeNode;
+  R: TreeNode;
+}
+
 // What the final score can tell two layouts of the same outer shape apart by: how unequal the
 // tile areas are, and how much of the box the hero owns. Two nodes with the same (p, q) and the
 // same signature score the same wherever they sit, so keeping one is lossless; keying on (p, q)
@@ -108,6 +120,13 @@ const TWO24 = 2 ** 24;
 // Both terms are rounded to 1e-4, so the pair packs into one number; anything not finite keeps
 // the string the key was always built from.
 function signature(cut: 'V' | 'H', l: TreeNode, r: TreeNode, p: number, q: number, m: number, g: number, hero: number, buf: Float64Array): number | string {
+  rawSignature(cut, l, r, p, q, m, g, hero, buf);
+  return packSignature(RAW[0], RAW[1]);
+}
+
+// The two signature terms before rounding (×1e4), written to RAW.
+const RAW = new Float64Array(2);
+function rawSignature(cut: 'V' | 'H', l: TreeNode, r: TreeNode, p: number, q: number, m: number, g: number, hero: number, buf: Float64Array): void {
   areasOfJoin(cut, l, r, p + q, 1, g, buf);
   let lo = Infinity;
   let hi = 0;
@@ -122,12 +141,25 @@ function signature(cut: 'V' | 'H', l: TreeNode, r: TreeNode, p: number, q: numbe
     sum += a;
     if (i === hero) own = a;
   }
-  const balance = Math.round((lo / hi) * 1e4);
-  const share = hero >= 0 ? Math.round((own / sum) * 1e4) : 0;
+  RAW[0] = (lo / hi) * 1e4;
+  RAW[1] = hero >= 0 ? (own / sum) * 1e4 : 0;
+}
+
+function packSignature(rawBalance: number, rawShare: number): number | string {
+  const balance = Math.round(rawBalance);
+  const share = Math.round(rawShare);
   return Number.isFinite(balance) && Number.isFinite(share) && Math.abs(balance) < TWO24 && Math.abs(share) < TWO24
     ? (balance + TWO24) * 2 ** 25 + (share + TWO24)
     : `:${balance}:${share}`;
 }
+
+// A mirror computes its tile areas along a different chain of additions, so they can differ from
+// the original's in the last bits: measured as up to about 1e-12 of a term. That moves a rounded
+// term only when the term sits within that distance of a .5 boundary, so anything farther than
+// this from one rounds the same for both (the checker's counterexample: 3:2 beside 16:9 has a
+// balance of exactly 8437.5).
+const NEAR_HALF = 1e-5;
+const nearHalf = (x: number): boolean => !Number.isFinite(x) || Math.abs(x - Math.floor(x) - 0.5) < NEAR_HALF;
 
 // The cut and the outer line rounded to 1e-3, as one exact number when it fits in 51 bits.
 function lineKey(cut: 'V' | 'H', p: number, q: number): number | string {
@@ -171,15 +203,15 @@ export function enumerate(aspects: number[], ordered: boolean, g: number, hero: 
       if (node.s === undefined) node.s = signature(node.cut, node.l, node.r, node.p, node.q, node.m, g, hero, buf);
       return node.s;
     };
-    const offer = (cut: 'V' | 'H', L: TreeNode, R: TreeNode, p: number, q: number): void => {
+    const offer = (cut: 'V' | 'H', L: TreeNode, R: TreeNode, p: number, q: number, sig?: number | string): void => {
       const k = lineKey(cut, p, q);
       const group = groups.get(k);
       let node: TreeJoin;
       if (group === undefined) {
-        node = { leaf: false, cut, l: L, r: R, m, p, q, s: undefined };
+        node = { leaf: false, cut, l: L, r: R, m, p, q, s: sig };
         groups.set(k, node);
       } else {
-        const sig = signature(cut, L, R, p, q, m, g, hero, buf);
+        if (sig === undefined) sig = signature(cut, L, R, p, q, m, g, hero, buf);
         if (Array.isArray(group)) {
           for (const kept of group) if (sigOf(kept) === sig) return;
           node = { leaf: false, cut, l: L, r: R, m, p, q, s: sig };
@@ -192,24 +224,57 @@ export function enumerate(aspects: number[], ordered: boolean, g: number, hero: 
       }
       out.push(node);
     };
-    // free: a split and its mirror (B beside A for A beside B) give nodes with the same outer
-    // line and the same tile areas, so the mirror's key always repeats one already seen and
-    // the dedupe drops it. The subset loop meets every split holding m's top item first, so
-    // stop when the left part loses it: the rest are mirrors.
+    // free: a split and its mirror (B beside A for A beside B) give nodes with the same outer line
+    // (p, q), bit for bit, and the same tile areas up to rounding in the last bits. So the
+    // mirror's key repeats the original's, and the dedupe drops it, unless a signature term sits
+    // on a rounding boundary (see NEAR_HALF). The subset loop meets every split holding m's top
+    // item first: the first pass takes those, and queues the mirrors of the near-boundary
+    // candidates; the second pass offers the queued mirrors in the order the subset loop would
+    // have met them, so the dedupe keeps exactly the nodes it always kept.
     const top = ordered ? 0 : 1 << (31 - Math.clz32(m));
+    const mirrors: Mirror[] = [];
+    // A gutter as tall as the box makes the subtractions cancel badly enough that the last-bits
+    // bound above no longer holds, so every mirror is queued, which is exactly the old search.
+    const allMirrors = g >= 1;
     for (let s = (m - 1) & m; s > 0 && (s & top) === top; s = (s - 1) & m) {
       const t = m ^ s;
       // ordered: the left part must be a prefix of the written order within this subset
       if (ordered && 31 - Math.clz32(s) >= 31 - Math.clz32(t & -t)) continue;
       const left = memo[s];
       const right = memo[t];
-      for (const L of left) {
-        for (const R of right) {
+      for (let iL = 0; iL < left.length; iL++) {
+        const L = left[iL];
+        for (let iR = 0; iR < right.length; iR++) {
+          const R = right[iR];
           // joinV and joinH, inlined so a dropped candidate allocates nothing.
-          offer('V', L, R, L.p + R.p, L.q + R.q + g);
-          const p = 1 / (1 / L.p + 1 / R.p);
-          offer('H', L, R, p, p * (L.q / L.p + R.q / R.p - g));
+          const pv = L.p + R.p;
+          const qv = L.q + R.q + g;
+          const ph = 1 / (1 / L.p + 1 / R.p);
+          const qh = ph * (L.q / L.p + R.q / R.p - g);
+          if (ordered) {
+            offer('V', L, R, pv, qv);
+            offer('H', L, R, ph, qh);
+            continue;
+          }
+          rawSignature('V', L, R, pv, qv, m, g, hero, buf);
+          if (allMirrors || nearHalf(RAW[0]) || (hero >= 0 && nearHalf(RAW[1]))) mirrors.push({ t, iR, iL, cut: 0, L, R });
+          offer('V', L, R, pv, qv, packSignature(RAW[0], RAW[1]));
+          rawSignature('H', L, R, ph, qh, m, g, hero, buf);
+          if (allMirrors || nearHalf(RAW[0]) || (hero >= 0 && nearHalf(RAW[1]))) mirrors.push({ t, iR, iL, cut: 1, L, R });
+          offer('H', L, R, ph, qh, packSignature(RAW[0], RAW[1]));
         }
+      }
+    }
+    // The subset loop met a mirror's split at s' = t (descending), then its left part (the
+    // original's right) in memo order, then its right part, then V before H.
+    mirrors.sort((a, b) => b.t - a.t || a.iR - b.iR || a.iL - b.iL || a.cut - b.cut);
+    for (const { cut, L, R } of mirrors) {
+      // The mirror joins R then L, in the arithmetic the subset loop used for it.
+      if (cut === 0) {
+        offer('V', R, L, R.p + L.p, R.q + L.q + g);
+      } else {
+        const p = 1 / (1 / R.p + 1 / L.p);
+        offer('H', R, L, p, p * (R.q / R.p + L.q / L.p - g));
       }
     }
     memo[m] = out;

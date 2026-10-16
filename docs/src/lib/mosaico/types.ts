@@ -23,7 +23,7 @@ export interface Container {
   aspect: number;
 }
 
-/** Score weights for the `tree` strategy's `fill` goal. */
+/** Score weights for the `tree` strategy's `fill` goal. Each must be finite and ≥ 0 (`pack` throws otherwise). */
 export interface TreeWeights {
   /** Weight of the container area the layout leaves empty (default 1). */
   empty?: number;

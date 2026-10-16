@@ -54,6 +54,10 @@ export function pack(items: ReadonlyArray<Item | number>, container: Container, 
   const gap = Number.isFinite(options.gap) && (options.gap as number) >= 0 ? (options.gap as number) : 0;
   const hero = Number.isInteger(options.hero) ? (options.hero as number) : -1;
   const weights = { ...DEFAULT_TREE_WEIGHTS, ...options.weights };
+  // The search skips a root on a lower bound that holds only for non-negative weights.
+  for (const [k, v] of Object.entries(weights)) {
+    if (!(typeof v === 'number' && Number.isFinite(v) && v >= 0)) throw new RangeError(`mosaico: weights.${k} must be a finite number ≥ 0, got ${v}`);
+  }
   const aspects = items.map(itemAspect);
 
   const best = chooseTree(aspects, F, { ordered, fit, stretch, gap, hero, weights });

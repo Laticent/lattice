@@ -438,11 +438,14 @@ async function main(argv) {
     'docs/src/lib/segno/dist/index.cjs',
     'docs/src/lib/segno/dist/read.cjs',
     'docs/src/lib/segno/dist/values.cjs',
+    // The guard loads the transformer registry, whose collage transform requires
+    // `@laticent/mosaico` (2026-10-16-mosaico-layout-library.md).
+    'docs/src/lib/mosaico/dist/index.cjs',
   ];
   if (!onlyUncommitted && GUARD_INPUTS.some((f) => !fs.existsSync(path.join(ROOT, f)))) {
     process.stdout.write('▸ cold tree — generating the built-not-committed artifacts first\n');
     // BACKGROUND_LABELS first, and this is a dependency, not a speed-up. The main
-    // pipeline starts the five workspace-library dists in the background early and
+    // pipeline starts the workspace-library dists in the background early and
     // joins them at build-read-along-core.js; a naive in-order serial loop here
     // instead ran build-player-core.js BEFORE build-cadenza-lib.js, and player-core
     // bundles `@laticent/cadenza`, whose entry IS that dist. It failed with
