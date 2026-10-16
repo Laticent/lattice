@@ -7,6 +7,8 @@ summary: Design for mosaico, a general box-packing library grown out of the coll
 
 **Status: in progress.** The owner settled all eight forks on 2026-10-16 (§9). Slice 1 (§8) is built:
 `@laticent/mosaico` exists with `tree` + `fill` for fixed shapes, and `collage` runs on it (§8.1).
+Slice 3 is built too: `rows` + `equal-weight`, and `logo-wall` runs on it (§8.2). Slice 2 (range items,
+`template`, panes) is next.
 
 ## 1. The answer first
 
@@ -341,6 +343,69 @@ and no dedupe, so its row compares with mosaico's ordered column, where the two 
 column searches every order, which diorama does not attempt. justified-layout solves rows, the job slice 3's
 `rows` strategy takes, and its speed is the bar that strategy should meet. diorama's current release (2.0.21)
 ships an empty worker file and cannot run; 2.0.18 is the last release that does.
+
+### 8.2 Slice 3, as built (2026-10-16)
+
+Built before slice 2 because `rows` needs only fixed shapes and `logo-wall` is the second user the npm
+release waits for.
+
+**The strategy** (`docs/src/lib/mosaico/rows.ts`). Units are fractions of the container's width. Each item
+sits in a cell at least `minCell` wide and centered in it; a row holds at most `maxPerRow` cells. The area is
+the largest at which an item of aspect max(narrowest, `aspectFloor`) stands exactly at `heightCap`, never more
+than a square at the cap; narrower items stand at the cap with less area. If the rows exceed `maxRows` or
+`maxHeight`, the cap falls toward `minHeightCap` with the area held, then the area falls, both by bisection.
+Every answer fits (a value is kept only after it passes); it is the largest fitting one when fitting is
+monotone, which holds for the row count but not strictly for the height, because the most even breaks can
+regroup rows as cells shrink. A layout that fits only at zero area is refused. Breaks: dynamic programming, fewest
+rows then least squared slack, ties to the earliest break. Forty items: 0.7 ms median, 1.0 ms p95.
+
+**How §4.3's rule became numbers for the logo wall** (`lib/core/logo-wall-pack.js`).
+The first anchoring, area set by the narrowest mark at the old band, shrank the common case: a 3:1 wordmark
+went from 240 px to 127 px wide. So the cap is the old band × √2 (with a 1:2 crest present, a square keeps its
+old 104 px) and may fall back to the band; `minCell` is the old column width, `maxRows` the old row count. A
+wall of one shape then keeps its old size exactly (four 3:1 wordmarks: 240×80 px, as before). Captioned walls
+keep the band as their cap.
+
+**A pre-existing overflow, fixed on the way.** The old wall did not fit three rows under an eyebrow: 439 px
+of wall in a 400 px stage at 1280×720, on `main` too. On this PR's path, so fixed here (#18): a packed row is
+as tall as its tallest mark (the CSS drops the band `min-height`), and the plan fits a stage estimated from the
+slide's shape: the stage's measured share of the slide height at each canvas (0.608 at 16:9 up to 0.85 at
+mobile, interpolated by aspect) less 0.06 for an eyebrow, and captions at 0.125 of the slide's short side.
+
+**The checker's second round** (on the uncommitted slice) found the first cut of this wall unfit to ship, and
+every finding was fixed before commit:
+
+- *Overloaded walls shrank to dots and lost the overflow flag.* A 24-mark captioned dense wall packed to 5 px
+  marks, silently. Now a wall that would pack below 0.35 of a square at the band keeps the old grid, whose
+  overflow the export flags as before.
+- *Tall and strip decks.* The plan assumed the `--sp-*` gaps scale with the list's width; on a mobile deck the
+  row gap is 3× what it budgeted, which made a new overflow. A packed wall now stamps both gaps and the CSS
+  reads them in `cqi` of the stage, so the plan's spacing is the drawn spacing on every canvas.
+- *CLI and preview disagreed* on raster and remote marks (the preview packed them, the CLI could not). The
+  preview now reads only what the CLI can: an inline or data: SVG, or a same-origin SVG URL.
+- *A hidden section planned as 16:9.* The preview now reads the slide's shape from its computed size.
+- Smaller: `rows` returned `ok` for zero-area layouts; a list's own style was overwritten (preview) or the
+  list skipped (CLI); rounding could push an exactly full row past the width (values now round down).
+
+Checked against the old tree on seven canvases (hd, 4K, standard, square, portrait, story, mobile) with the
+checker's edge decks: no slide that rendered cleanly now overflows; walls that overflowed before and now pack
+(three crest rows under an eyebrow at hd and 4K, twenty marks at square and mobile) fit; the rest fall back
+to the old grid and overflow exactly as before.
+
+**Rendering.** The CSS reads stamped fractions of the list's width: a percentage width, padding and column
+gap all resolve against it. The first and last cells of a row carry the row's leftover width as inline
+padding, which centers the row and fills the line, so the browser breaks exactly where the plan does. Each
+mark is padded to its row's height (mask and inline SVG draw in the content box), so captions line up.
+
+**Both paths.** The CLI stamps after `lattice.js` inlines each mark's SVG, reading the aspect from the inline
+`<svg>` (the shared `aspectFromSvgTag`); the live preview (`logo-marks.js` `applyToDom`) fetches same-origin
+SVG marks and parses them with the same function, and stamps once, with a 4 s cap like the collage's. In a
+served page running the real `dist/lattice-runtime.js`, the live stamp matched the CLI's for all 10 marks of a
+two-wall deck, and `docs/e2e/logo-wall-equal-weight.spec.ts` drives the real Studio (desktop, mobile and
+WebKit phone): four mixed marks draw within 3% of one area, in one row.
+
+**Measured on a CLI render at 1280×720** (drawn SVG boxes): a 4:1, 1:1, 1:2 and 3:1 mark went from 3.57×
+max/min area to 1.00× (default) and from 2.75× to 1.00× (`dense`, six marks).
 
 ## 9. Decisions
 

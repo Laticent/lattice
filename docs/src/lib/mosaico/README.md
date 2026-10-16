@@ -4,7 +4,9 @@
 the same input gives the same layout, byte for byte.**
 
 Mosaico takes a list of items and a container and returns one rectangle per item. This version
-ships one strategy, `tree`: it tries every guillotine layout of up to six fixed-shape items (a
+ships two strategies: `rows` (below) and `tree`.
+
+The `tree` strategy it tries every guillotine layout of up to six fixed-shape items (a
 layout where every cut runs all the way across the region it divides) and keeps the one that
 leaves the least empty space and crop. Each tree node stores its width as a line in its height,
 so a tile that spans several grid tracks keeps its exact aspect and the gutters need no rounding.
@@ -15,8 +17,9 @@ server, in a browser and in a worker. The design contract, including the strateg
 come (`rows`, `template`, items with a range of shapes), is
 [`engineering/decisions/2026-10-16-mosaico-layout-library.md`](https://github.com/Laticent/lattice/blob/main/engineering/decisions/2026-10-16-mosaico-layout-library.md).
 
-**Status: 0.1.0, unpublished.** The first npm release follows once Lattice's `collage` and
-`logo-wall` both run on it (design note §9, decision 8). The API below may still change before then.
+**Status: 0.1.0, unpublished.** Lattice's `collage` and `logo-wall` both run on it now, which is
+what the first npm release waited for (design note §9, decision 8); the release itself is the
+owner's to trigger.
 
 ## 60-second start
 
@@ -40,7 +43,40 @@ if (result.ok) {
 The grid adapter emits `fr` tracks, so the browser fits the grid to whatever box it gets. Mosaico
 needs only the container's shape, not its size.
 
+## Rows: equal visual weight
+
+The `rows` strategy breaks an ordered list into centered rows and gives every item the same area,
+unless that would stand it taller than a cap. It is the logo wall's layout. The container is 1 wide
+and grows downward, so pass `{}` and read every length as a fraction of its width.
+
+```ts
+const wall = pack([4, 1, 0.5, 3], {}, {
+  strategy: 'rows',      // goal 'equal-weight' is its default and only goal
+  gap: 0.0556,           // between cells, and between rows unless rowGap is set
+  heightCap: 0.127,      // the tallest an item may be
+  minHeightCap: 0.09,    // how far the cap may fall before every area shrinks
+  maxPerRow: 4,
+  maxRows: 1,
+  maxHeight: 0.34,       // rows and row gaps together
+  minCell: 0.208,        // the narrowest cell: keeps a column rhythm
+});
+wall.rows;   // [[0, 1, 2, 3]]
+wall.rects;  // each item's box, centered in its cell and its row
+wall.cells;  // each item's cell, as tall as its row
+```
+
+The area is the largest at which an item of aspect max(narrowest, `aspectFloor`, default 0.5) is
+exactly `heightCap` tall, and never more than a square at the cap. An item narrower than
+`aspectFloor` stands at the cap and gets less area, so one 1:5 crest cannot shrink every item. When
+the rows exceed `maxRows` or `maxHeight`, the cap falls toward `minHeightCap` first, then every
+area shrinks. Breaks come from dynamic programming over break points: the fewest rows, then the
+most even ones. Forty items pack in under a millisecond.
+
+`rows` refuses with `'too-wide'` when even the smallest items cannot fit the limits.
+
 ## Options
+
+Options for `tree`:
 
 | Option | Default | Meaning |
 |---|---|---|

@@ -78,6 +78,7 @@ No color library. The kernel is `lib/theme/color.js` and `lib/theme/cvd.js`.
 | Chart kernels | `lib/components/chart/_chart-family/cartesian.js` and the per-chart `*.transform.js` | Heckbert nice ticks plus 2.5; area-true bubbles; least squares and Pearson's r; largest-remainder rounding to 100; quantile classes; first-fit Gantt lanes; an Archimedean spiral with a golden-angle start for word clouds. |
 | Label placement | `_chart-family/svg-label.js` (`placeLabels`, `deCollideLabels`) | An eight-position candidate model as in cartography, with leader lines. |
 | **Mosaico's guillotine packer** (BRIC, Atkins 2008) | `docs/src/lib/mosaico/tree.ts` (`enumerate`, `chooseTree`) | Every guillotine tree of up to six fixed-shape boxes, each node's width a line `p·h + q` in its height so gutters are exact. Exhaustive, deduped on outline plus tile balance; mirrors are never built, the tile balance is computed only on an outline collision, and a lower bound skips roots that cannot win. Pinned byte for byte to the packer it replaced (`test/fixtures/collage-golden/`). |
+| Mosaico's equal-weight rows | `docs/src/lib/mosaico/rows.ts` (`chooseRows`) | Same area per item under a height cap; row breaks by dynamic programming (fewest rows, then least squared slack); the cap and then the area fall by bisection until the rows fit, sound because nothing grows as either falls. The logo wall's layout. |
 | Map projections | `tools/build-basemap.world.js` | Equal Earth and Robinson, and Douglas–Peucker simplification, all at build time. |
 
 ## 5. Typography and fit
