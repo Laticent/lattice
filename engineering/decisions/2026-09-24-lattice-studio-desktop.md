@@ -240,6 +240,9 @@ and needs the owner's export sign-off.
   `http(s)://tauri.localhost`, `about:`, `blob:`, `data:` and, in a debug build, the dev
   server load in the main window. Anything else on http(s) or `mailto:` goes to the default
   browser through `tauri-plugin-opener`, pinned to `~2.5` because 2.6 needs Tauri 2.12.
+  The plugin is built with `open_js_links_on_click(false)`: its default build injects a page
+  script that cancels `target=_blank` clicks and calls the plugin over IPC, which the page is
+  not allowed to do, so links went nowhere (found on the Ubuntu run below).
 - **Sign-in window.** `sign_in(url, callback)` opens a window labeled `sign-in`. Its
   navigation handler stops the window at the callback (same origin and path, loopback only),
   sends that URL down a one-shot channel and closes the window; closing it by hand returns
@@ -276,6 +279,28 @@ sign-in window on WebView2) are unverified until the owner's next Windows run.**
 One Linux caveat, older than this PR: WebKitGTK prints on the print dialog's paper and
 ignores `@page size`, so a 16:9 slide prints on A4 or Letter with margins. Chromium and
 WebView2 honor `@page size`. It is logged on the native-print follow-up.
+
+## The Ubuntu test run (2026-10-16)
+
+The owner installed the `.deb` of `f056469` on Ubuntu 24.04.4 (GNOME on Wayland, WebKitGTK
+2.52.6, dark mode) and walked `test-lattice-studio.sh`, the Linux twin of the Windows script.
+**32 of 34 checks passed**: install through `apt`, the app grid entry, find and replace in both
+editors, every save through the GTK dialog, Ctrl+P and the print dialog for every layout, the
+browser keys, right-click, Back, the sign-in window, backup, restart, dark and light, Present,
+Import and uninstall. The saved Markdown, PowerPoint (7 slides), PDF (7 pages) and backup (7
+entries) all checked out.
+
+**One real defect: outside links did nothing.** `tauri-plugin-opener`'s default build injects
+a click listener into the page that calls `preventDefault()` on every `target=_blank` link and
+asks the plugin over IPC to open it. The page has no plugin permissions (by design; plugins are
+called from Rust), so the IPC call failed silently and WebKit never asked for a new window.
+Reproduced here with a logging `xdg-open` (no call), proven by loading the same Studio build in
+a bare WebKitGTK window (the `create` signal fired), and fixed by building the plugin with
+`open_js_links_on_click(false)`: the same click now reaches `on_new_window` and runs `xdg-open`
+with the GitHub URL. WebView2 runs the same injected script, so Windows had the same defect.
+
+The other failure was the script's: Print deck suggests `Markdown-for-the-boardroom.pdf` and the
+check looked only for `print-deck.pdf`.
 
 ## Corrections to the May note
 
