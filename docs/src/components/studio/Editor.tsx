@@ -492,7 +492,11 @@ export const Editor = React.forwardRef<EditorHandle, {
 			return {
 				pos: hit.from,
 				end: hit.to,
-				above: true,
+				// BELOW the line, not above: front matter is the top of the document, so a tooltip
+				// opened above lines 1–3 runs into the pane's top edge, and WebKit clips it there
+				// (the key's own heading disappeared behind the Edit toolbar at 1180×703). CodeMirror
+				// flips it above when there is no room below.
+				above: false,
 				create: () => {
 					const dom = document.createElement('div');
 					dom.className = 'cm-fm-hover';
