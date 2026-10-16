@@ -336,12 +336,14 @@ overrides the deck, and a record's own word wins.
    passe-partout), `keyline` (one accent hairline, offset), `float` (lifted on a soft shadow), `device` (a screen bezel,
    for product demos and video), `stack` (prints stacked on a table) and `corners` (registration brackets). A QR code's
    frame wraps its light paper tile, never the code itself, so the quiet zone and the contrast stay as ISO/IEC 18004
-   requires (`2026-10-16-qr-plugin.md` §3c).
+   requires (`2026-10-16-qr-plugin.md` §3c). **Kept (owner, 2026-10-16): `mat`, `keyline`, `float`, `device`,
+   `corners`.** `stack` was left out as too casual for a boardroom.
 2. **A finish on the picture**: the deck's own finishes applied to the photo's pixels as a light overlay, so a photo
    belongs to the deck's look. Only the finishes that suit a photograph qualify. Rendered candidates: `nimbus` (accent
    blooms, the owner's named pick), `halo` (a vignette with a lifted center) and `meridian` (a diagonal accent wash).
    `strata`'s bands and the line and pattern finishes (`ledger`, `savile`, `loom`, `atrium`) fight a photograph and
    are left out. Images take a finish; a video's poster takes the same one, so a clip matches the pictures beside it.
+   **Kept (owner, 2026-10-16): `nimbus`, `halo`, `meridian`.**
 3. **A tone**: `duotone` (two palette colors) and `grayscale` (CSS's own filter name). Approved by the owner. Duotone
    needs its own colors in dark mode, where the first render washed out to a flat teal.
 
@@ -395,6 +397,29 @@ options (`fullscreen` → `fullScrn="1"`, `autoplay` → start automatically, `l
 **The venue matters.** A web-hosted clip needs the room's network and the reader's web-media consent; an `asset:`
 or file clip plays offline. Before presenting starts, a check (new work) names every clip that streams from a
 host, so a presenter learns it before the audience does.
+
+### 4.9 What the prototype taught, which the build owes (added 2026-10-16)
+
+The pick was made from a throwaway prototype: inline CSS in a scratch deck, rendered by the CLI in `indaco` and
+`cuoio`, light and dark, on two real photographs (a canoe on a lake; a red mug) and on Lattice's sample art. The
+build turns it into the plugins' styles and owes these fixes, each seen in the renders:
+
+- **`mat` in dark mode:** its drop shadow used the heading color, which is light on a dark theme, so it drew a pale
+  glow under the mat. A frame's shadow is always dark, whatever the theme.
+- **`float` in dark mode:** the accent-tinted shadow reads as a glow; tone it down for dark themes.
+- **`mat` and `corners` cut the picture square,** overriding the base `section img` radius; `keyline`, `float` and
+  `device` keep a rounded picture.
+- **`device` around a QR code** puts its camera dot near the code. It is allowed, but no guide example shows it.
+- **`nimbus` on a bright photograph nearly vanishes,** because its blooms lighten (a screen blend) and a bright sky is
+  already light. It shows on a darker photo. The build finds a blend that reads on both, measured on a light and a
+  dark photograph, without hiding the subject.
+- **`duotone` in dark mode** needs dark shadows of its own; the first render washed out to a flat teal, and a deeper
+  shadow color fixed it.
+- **Sizes are relative to the frame** (padding in percent, with a floor in `em`), so a frame looks the same around a
+  small poster and a full-width photo.
+
+Each plugin's demo deck (HARD RULE #9) shows every frame and finish on a real photograph, in light and dark, and the
+QUALITY BAR's visual review runs on it before merge.
 
 ## 5. Why records, not Marp keywords
 
@@ -461,7 +486,9 @@ Slices 2 and 3 rebase onto #2725 once it lands, because they delete rows from it
    (§4.8).
 6. **Treatments: settled into three controls (§4.7):** frames (3–5, off by default, shared by all three plugins),
    finishes on the photo (`nimbus` and the others that suit a photograph), and tones (`duotone`, `grayscale`). Which
-   frames and finishes make the cut is still open: the owner picks from the rendered candidates (§9, progress).
+   frames and finishes make the cut was settled from renders on two real photographs (owner, 2026-10-16): **all five
+   frames** (`mat`, `keyline`, `float`, `device`, `corners`) and **all three finishes** (`nimbus`, `halo`,
+   `meridian`), with both tones. `stack` and `strata` were rendered and left out.
 7. **No `start=`** (reversed the same day under rule 2 of §4.7). A start time is part of the address, as each host
    and W3C Media Fragments define it.
 8. **A QR code takes `c1` … `c12`**, with a lint for scan contrast.
@@ -473,6 +500,8 @@ Slices 2 and 3 rebase onto #2725 once it lands, because they delete rows from it
 
 - 2026-10-16: audit and proposal written; D1 confirmed by render and logged. Owner settled decisions 2-4;
   decision 1 (packaging) is on hold.
+- 2026-10-16: owner kept all five frames and all three finishes after renders on real photographs; §4.9 lists the
+  fixes the prototype found.
 - 2026-10-16: styling settled into frames, finishes on the photo and tones; six frame candidates and four finish
   candidates rendered for the pick.
 - 2026-10-16: decisions 10 and 11 recorded: the next advance plays a waiting clip; full screen is the default.
