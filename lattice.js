@@ -2175,7 +2175,7 @@ function engineSlides(deckSource = rawMd) {
   let rendered;
   if (DECK_CODE_PACKAGES.length || DECK_PLUGINS.length) {
     const { renderWithCodePackages } = require('./lib/packages/code-door.js');
-    const r = renderWithCodePackages((hook, more) => engine.render(deckMd, paletteName, { codePackages: hook, ...more, samplesUrl }), {
+    const r = renderWithCodePackages((hook, more) => engine.render(deckMd, paletteName, { codePackages: hook, ...more, samplesUrl, baseUrl: deckBaseUrl }), {
       packages: DECK_CODE_PACKAGES,
       plugins: DECK_PLUGINS,
       executablePath: CHROME_EXEC,
@@ -2188,7 +2188,7 @@ function engineSlides(deckSource = rawMd) {
     }
     rendered = r.rendered;
   } else {
-    rendered = engine.render(deckMd, paletteName, { samplesUrl });
+    rendered = engine.render(deckMd, paletteName, { samplesUrl, baseUrl: deckBaseUrl });
   }
   // logo-wall marks ride as CSS `mask` in the preview; for the PDF we swap each
   // mask span for the mark's real `<svg>` vector (CSS mask isn't reliable in

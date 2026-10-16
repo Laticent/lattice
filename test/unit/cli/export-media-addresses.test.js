@@ -27,6 +27,11 @@ function exportHtml(deck) {
   }
 }
 
+test('a relative prose image resolves against the deck folder, not the output folder', () => {
+  const { html, deckUrl } = exportHtml('# T\n\n![a](pic.jpg)\n');
+  assert.ok(html.includes(`src="${deckUrl}pic.jpg"`), 'prose image src is an absolute file:// URL beside the deck');
+});
+
 test('![bg] on a plain slide is painted by the engine, not lifted into a sizeless .lattice-bg div', () => {
   const { html } = exportHtml('# T\n\n![bg contain](sample:photo-pano.jpg)\n');
   assert.ok(!html.includes('class="lattice-bg'), 'no lattice-bg div on a non-image slide');
