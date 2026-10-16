@@ -48,6 +48,17 @@ describe('mergeIdenticalFontFaces', () => {
 		assert.equal(mergeIdenticalFontFaces(ranged, { byFamily: { q: [600] } }).applied, false, 'a face already ranged is left alone');
 	});
 
+	test('a face with no font-weight descriptor is never merged, and never swallows its run', () => {
+		const css = "@font-face{font-family:'K';src:url(F);}@font-face{font-family:'K';src:url(F);font-weight:700;}";
+		assert.equal(mergeIdenticalFontFaces(css, { byFamily: { k: [400, 700] } }).applied, false);
+	});
+
+	test('two faces at one weight (a unicode-range split) leave the family alone', () => {
+		const ranged = (w, src, range) => `@font-face{font-family:Z;font-weight:${w};src:url(${src})${range ? `;unicode-range:${range}` : ''}}`;
+		const css = ranged(400, 'A') + ranged(500, 'A') + ranged(500, 'B', 'U+0100-024F') + ranged(600, 'A');
+		assert.equal(mergeIdenticalFontFaces(css, { byFamily: { z: [400, 500, 600] } }).applied, false);
+	});
+
 	test('keyword weights read as numbers', () => {
 		const css = face('K', 'normal', 'F') + face('K', 'bold', 'F');
 		assert.equal(mergeIdenticalFontFaces(css, { byFamily: { k: [400, 700] } }).css, face('K', '400 700', 'F'));

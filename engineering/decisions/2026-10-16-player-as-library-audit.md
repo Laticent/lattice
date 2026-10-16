@@ -46,7 +46,7 @@ That injection seam is the right shape for a library: it is how Calco works
 on either side of it:
 
 - **The input is Lattice's.** `data.docHtml` is the engine's whole rendered document;
-  `section[data-lattice-slide]` appears 19 times in `player-core.mjs`. `data.source` is the
+  `section[data-lattice-slide]` appears 18 times in `player-core.mjs`. `data.source` is the
   Lattice markdown, which the core re-reads for `pace:`, `delivery:`, `motion:` and
   `color-mode:`. Notes are `aside.lattice-notes`, and the envelope is the `lattice` format
   (`lib/core/lattice-doc.js:93`).
@@ -73,7 +73,7 @@ twice with `node lattice.js … --player`. Each run took 82–109 s.
 | …saved by merging adjacent identical rules | 26,976 | 1% of the file; merging rules that are far apart is not safe (below) |
 | Deck sheet after prune | 250,772 | the CLI reports `1202/4460 rules kept, 777 KB saved` |
 | Fonts after prune | 442,048 | `18/37 faces kept, 395 KB saved` |
-| Script | 139,971 | |
+| Script blocks | 139,971 | the player's script is 33,455; the inert source envelope is 106,500 |
 
 Three findings came only from the measurement:
 
@@ -87,9 +87,9 @@ Three findings came only from the measurement:
    as an inline `background-image` on four slides. Hoisting each asset into one
    custom property (`--lp-asset-7: url(data:…)`) and referencing it keeps the
    no-JavaScript floor working and stores it once.
-3. **Two runs are not byte-identical.** The only difference is `generatedAt` in the
-   envelope: the CLI passes `now: Date.now()` (`lattice.js:4897`), while the PDF path
-   honors `SOURCE_DATE_EPOCH` (`lib/core/pdf-timestamps.js:102`). The golden test pins
+3. **Two runs are not byte-identical** (fixed in phase 0, commit `6aa6c98`). The only
+   difference was `generatedAt` in the envelope: the CLI passed `now: Date.now()`, while
+   the PDF path honors `SOURCE_DATE_EPOCH` (`lib/core/pdf-timestamps.js:102`). The golden test pins
    `now: 0` (`test/unit/export/html-player.test.js:1443`), so it cannot see this.
 
 Taken together, about 21% of a large export is repeated asset bytes, and the fixes are
@@ -123,7 +123,7 @@ puts it ahead of PurgeCSS, which matches class names in text and verifies nothin
   (`lattice.js:5112`). The dark block, the player chrome and KaTeX never are, and the dark
   block is now larger than the pruned deck sheet.
 - **Kinds of CSS.** Unused custom properties and unused `@keyframes` are never dropped,
-  and identical declaration bodies are never merged (the 150 KB above).
+  and identical declaration bodies are never merged (§3: 27 KB of adjacent repeats, 259 KB of repeated selector prefixes).
 - **States the gate never enters.** The gate runs in the scheme that was baked, in one
   viewport, and does not open notes, play narration, enter hover or focus, or emulate print.
 - **Classes JavaScript adds.** A class runtime JavaScript adds later is invisible to the
@@ -165,7 +165,8 @@ with limits: 48 MB total, 200 pictures, 8 MB each, 20 s timeout.
 ### 4.3 External resources and viewer consent
 
 **State.** The player's CSP (`player-core.mjs:3344`) is
-`default-src 'none'; script-src 'sha256-…'; img-src data:; font-src data:; …`. It makes
+`default-src 'none'; script-src 'sha256-…'; style-src 'unsafe-inline'; img-src data:; font-src data:; …`.
+The hash pins scripts only; styles are inline and unpinned. It makes
 zero remote requests, measured (`2026-09-01-export-remote-subresource-posture.md`). A web
 image is baked at export or drawn as a hatch placeholder (`remote-ref.js:527`). **There is
 no viewer-side prompt.** The CSP makes one impossible by design: a `<meta>` CSP can only be
@@ -199,8 +200,8 @@ the light/dark flip and the view switch; an engine without `:has()` gets the sta
 (`2026-09-29-player-no-js-controls.md`). `test/integration/export/player-no-js.test.js`
 passes 7/7 in Chromium and WebKit.
 
-**Gaps.** Slides have no `id`s, so there is no `:target` navigation (link to slide 12 with
-`#s12`), no `<noscript>` note, and no designed print sheet. The player's CSS has one
+**Gaps.** Slides carry `id`s already (`id="1"`), but nothing reads the URL hash, so there
+is no deep link or `:target` navigation, no `<noscript>` note, and no designed print sheet. The player's CSS has one
 `@media print` rule and no `@page`, and `lib/core/print-sheet.mjs` serves only the PDF path.
 
 ### 4.5 A structure readers can read
@@ -225,8 +226,8 @@ Article view is a real prose projection.
 
 | Capability | State | Why it matters for a library |
 |---|---|---|
-| **Byte-identical output** | Partial: golden at `now:0`; the CLI stamps `Date.now()`; the prune depends on the browser build | The owner's "deterministic" goal; a library needs a reproducibility test like `pdf-reproducible.test.js` |
-| **Deep links per slide** | Absent (no `location.hash` or `history`) | Sharing "slide 12" is the most common thing a reader does |
+| **Byte-identical output** | Partial: the CLI clock is pinned (phase 0); the prune depends on the browser build, and the Studio prunes in the author's own browser | The owner's "deterministic" goal; a library needs a reproducibility test like `pdf-reproducible.test.js` |
+| **Deep links per slide** | Absent (no `location.hash` or `history`), though slides already carry `id`s | Sharing "slide 12" is the most common thing a reader does |
 | **Size budget and report** | Absent | A packer should print a breakdown (CSS / fonts / images / script, repeated bytes) and warn past a budget |
 | **Studio parity** | The Studio never subsets fonts (`share-export.ts:377`) | Two hosts produce different files from one deck; a library has one pipeline |
 | **Extension contract** | Implicit: hand safelist, inline bundles | Guide, Anima, lightbox and code copy become plugins that declare their script hash, CSS, runtime classes and a no-JS fallback |
@@ -351,8 +352,8 @@ or has walked through:
 
 **What it would cost.**
 
-- **The 19 selectors.** Every `section[data-lattice-slide]` in `player-core.mjs` becomes
-  `[data-frame]`, inside Lattice first, with the bytes checked.
+- **The 18 selectors.** Every `section[data-lattice-slide]` in `player-core.mjs` becomes
+  a new frame attribute (not `data-frame`, which the engine already writes; §10), inside Lattice first, with the bytes checked.
 - **The chrome CSS.** It moves from Lattice tokens to player tokens.
 - **The core's direct reads.** The core stops reading the markdown source for `pace:`,
   `delivery:` and `color-mode:`; the adapter passes those values in.
@@ -369,7 +370,8 @@ list of Lattice assumptions still left.
 
 ## 7. Forks for the owner, and the 2026-10-16 rulings
 
-1. **Split.** *Ruled: the packer, for sure.* The player is held. The owner wants to
+1. **Split.** *Ruled: the packer, for sure.* The player is held; the trio's verdict on it
+   is §10. The owner wants to
    understand what a generic player means and where else it would be used before ruling;
    §6a is that explanation, and its "cheap way to find out" is the proposed next step.
 2. **Input contract.** *Open.* The owner's instinct was "neutral HTML". §6a makes that
@@ -401,21 +403,91 @@ list of Lattice assumptions still left.
      WebKit and Firefox, at every weight a face declares and every weight outside a run.
    - Old against new, `examples/html-player.md` is pixel-identical in all three engines, in
      Present, Slides and Article, light and dark.
-   - The gallery is pixel-identical in the same grid in Chromium and WebKit. The Firefox run
-     was still going when this was written.
+   - The gallery is pixel-identical in the same grid in all three engines.
 
    One thing turned up along the way: Firefox took more than 30 seconds to load the old 2.7 MB
    gallery file from disk.
 
 1. **Packer behind the seam:** move prune, inlining, fonts, CSP and the asset store into
-   the package with a boundary gate, and keep the bytes identical, so the golden test is
-   the proof and no new sign-off is needed. Add the static conformance clauses.
+   the package with a boundary gate, and keep the bytes identical. *Corrected by the trio
+   (§10):* the golden test cannot prove this. It never reaches subsetting, inlining, the hoist
+   or the prune, so this phase needs a second golden that does, plus a before/after SHA of a
+   real export, and it still owes the export sign-off. Add the static conformance clauses.
 2. **Packer features:** prune every sheet over the state matrix, the extension
    declarations, the asset-root allowlist, image resize and re-encode, the size report,
    and the consent mode.
 3. **Player (held, §6a):** the shell contract, the views and transport, deep links, the
    print sheet, a foreign-producer fixture, and the Lattice adapter. The adversarial trio
    runs before the first npm version (HARD RULE #25; `2026-10-08-library-audit.md` §3).
+
+## 10. The adversarial trio on the player fork (2026-10-16)
+
+The owner asked whether a shell-based player is worth building, or too domain-specific, and
+offered an alternative: an **assembler and connectors**. The trio (red team, Munger inversion,
+independent checker) ran on three shapes:
+
+- **(A)** the shell player of §6a;
+- **(B)** the owner's assembler and connectors: the library only seals a document (prune,
+  dedupe, fonts, CSP, consent, determinism), and each producer's connector brings its own
+  runtime, CSS, runtime-class declarations and no-JS fallback. Lattice's player stays here as
+  Lattice's connector;
+- **(C)** none of it: keep improving the player in place.
+
+**Verdict: (B), as a fenced module inside this repo, not published.** That means no npm
+package, no product name and no public page until a second producer commits to using it.
+(A) loses on all three lenses.
+
+**Why (A) loses.**
+
+- **No evidence of demand.** No issue, followup or doc asks for it, and every foreign slide
+  tool ships its own runtime, so a shared player competes with those runtimes rather than
+  serving them.
+- **Foreign input fails silently today.** The red team fed a reveal.js-shaped document
+  through `buildPlayerHtml`. It returned a 63,201-byte file with zero slides, no error and no
+  warning.
+- **The proposed attribute is taken.** The engine already writes `data-frame` on every
+  section (`lib/integrations/markdown-it/plugins.js:988`) and on inline sparks, icons and
+  avatars.
+
+**What (B) has to survive.**
+
+1. **The prune gate needs a state driver.** The gate is the one thing that makes the prune
+   safe, and it works by putting the page into each of the player's views (`#lp-app`,
+   `data-lp-view`). A generic assembler cannot do that for a document it does not know, so a
+   connector owes a small *state driver* as well as its declarations. *Falsifier:* write the
+   connector for a plain reveal.js export first. If the gate cannot pass on declared data plus
+   a driver of a few lines, the contract is the shell player under another name.
+2. **Determinism holds only within one engine.** The Studio prunes in the author's own
+   browser, and the kept set depends on that engine. The promise has to be stated per engine
+   (and per tier), not as a headline.
+3. **The hosts are the measured pain, not the producers.** The CLI, the Studio and video
+   (with the desktop app to come) already make different files from one deck. The Studio
+   never subsets fonts, and the prune orchestration is written twice by hand (`lattice.js`
+   and `player-prune-browser.ts`). That is HARD RULE #1 debt with or without a library. *First
+   acceptance test:* the same deck at the same epoch gives the same SHA from the CLI and the
+   Studio in Chromium.
+4. **The style-sink gates find files by root.** `DOC_STYLE_SINK_ROOTS`
+   (`tools/check-ownership.js:5890`) must name the new folder, or a sink there goes unscanned.
+   A connector's runtime that writes markup is unvouched: the assembler can hash it into the
+   CSP, but it cannot sanitize it.
+5. **The license reaches every recipient.** The runtime is embedded in every exported file,
+   so an AGPL assembler reaches whoever opens the file, not just whoever integrates it. That
+   has to be ruled before anything publishes.
+
+**The smallest first slice of (B), which leaves bytes unchanged:**
+
+1. Lift the tail of `assemblePlayer` (the CSP builder, `subsetFonts` and
+   `hoistRepeatedAssets`) into one assembler function taking `{ html, scriptHashes, media }`.
+2. Give `player-prune.js` `{ safelist, skipStyleIds }` options that default to today's
+   constants.
+3. Bless a second golden first, on a fixture that fires every stage (a real small font, two
+   repeated pictures, an unused rule), and compare a gallery export's SHA before and after.
+4. Add a refuse-on-zero-frames guard, so a document the connector cannot read fails loudly
+   instead of exporting an empty shell.
+
+**What flips the verdict.** A real second producer (an outside user, or a Laticent product
+that ships non-Lattice HTML) commits to the assembler: then publish (B). If that producer also
+wants views and transport rather than bringing its own, reopen (A).
 
 ## 9. Stale claims found along the way
 

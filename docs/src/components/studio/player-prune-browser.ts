@@ -199,7 +199,11 @@ export async function prunePlayerInBrowser(playerHtml: string): Promise<PruneRes
 		// mergeIdenticalFontFaces). The literal weights come from the CSS that SHIPS, so this waits
 		// for the CSS verdict; the CLI twin (lattice.js prunePlayerCssInPage) explains why.
 		if (fontBlock && usedWeights) {
-			const shipped = blocks.map((b) => (cssOk && target && b[0] === target.full ? cssResult.css : b[2])).join('\n');
+			// The font block itself is not text styling: its own descriptors would block other merges.
+			const shipped = blocks
+				.filter((b) => b[0] !== fontBlock.full)
+				.map((b) => (cssOk && target && b[0] === target.full ? cssResult.css : b[2]))
+				.join('\n');
 			const merged = mergeIdenticalFontFaces(fontResult.applied ? fontResult.css : fontBlock.css, { byFamily: usedWeights, any: literalFontWeights(shipped) }) as { css: string; applied: boolean; merged: number };
 			if (merged.applied) fontResult = { ...fontResult, applied: true, css: merged.css, kept: fontResult.applied ? fontResult.kept : fontResult.total, merged: merged.merged };
 		}

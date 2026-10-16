@@ -36,12 +36,42 @@ describe('hoistRepeatedAssets', () => {
 		assert.ok(a.indexOf(`--lp-asset-0:url(${PNG})`) !== -1, 'the first-seen asset is number 0');
 	});
 
-	test('repeats inside stylesheets are hoisted too, with any quoting', async () => {
+	test('every quoting of url() inside a style attribute is hoisted', async () => {
 		const { hoistRepeatedAssets } = await load();
-		const css = `<style>.a{background:url("${PNG}")}.b{mask:url( ${PNG} )}</style>`;
-		const { html, hoisted } = hoistRepeatedAssets(doc(css, ''));
+		const body = `<i style="background:url('${PNG}')"></i><i style="mask:url( ${PNG} )"></i><i style='x:1' style="background:url(${PNG})"></i>`;
+		const { html, hoisted } = hoistRepeatedAssets(doc('', body));
 		assert.equal(hoisted, 1);
-		assert.match(html, /\.a\{background:var\(--lp-asset-0\)\}\.b\{mask:var\(--lp-asset-0\)\}/);
+		assert.equal(html.split(PNG).length - 1, 1);
+	});
+
+	test('stylesheets are left alone: the CSS prune may still drop the rule', async () => {
+		const { hoistRepeatedAssets } = await load();
+		const input = doc(`<style>.a{background:url("${PNG}")}.b{mask:url(${PNG})}</style>`, '');
+		assert.deepEqual(hoistRepeatedAssets(input), { html: input, hoisted: 0, saved: 0 });
+	});
+
+	test('text that LOOKS like a style is never rewritten (a code block, alt text, a comment)', async () => {
+		const { hoistRepeatedAssets } = await load();
+		// The slide and its Read·Article copy both show the snippet, so it occurs twice.
+		const code = `<pre><code>.logo { background: url(${PNG}); } &lt;div style="background:url(${PNG})"&gt;</code></pre>`;
+		const input = doc('', `${code}${code}<img alt='style="background:url(${PNG})"' src="x.png"><!-- style="background:url(${PNG})" --><textarea> style="background:url(${PNG})"</textarea>`);
+		assert.deepEqual(hoistRepeatedAssets(input), { html: input, hoisted: 0, saved: 0 });
+	});
+
+	test('a real style next to a look-alike in text: only the real one changes', async () => {
+		const { hoistRepeatedAssets } = await load();
+		const real = `<div class="lattice-bg" style="background-image:url('${JPEG}')"></div>`;
+		const text = `<code>url(${JPEG})</code>`;
+		const { html, hoisted } = hoistRepeatedAssets(doc('', real + real + text));
+		assert.equal(hoisted, 1);
+		assert.ok(html.includes(`<code>url(${JPEG})</code>`), 'the code text still reads as written');
+		assert.equal(html.split('var(--lp-asset-0)').length - 1, 2);
+	});
+
+	test('a > inside a quoted attribute does not end the tag early', async () => {
+		const { hoistRepeatedAssets } = await load();
+		const el = `<div title="a > b" style="background:url(${PNG})"></div>`;
+		assert.equal(hoistRepeatedAssets(doc('', el + el)).hoisted, 1);
 	});
 
 	test('fonts are never hoisted: var() is invalid in @font-face', async () => {

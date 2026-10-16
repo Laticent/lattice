@@ -4912,13 +4912,14 @@ async function renderBody(browser, g, closeBrowser) {
         if (pr.applied) {
           finalPlayerHtml = pr.html;
           if (pr.saved > 0) pruneNotes.push(`  pruned unused CSS: ${pr.keptRules}/${pr.totalRules} rules kept, ${(pr.saved / 1024).toFixed(0)} KB saved`);
-          if (pr.fontApplied) pruneNotes.push(`  pruned unused fonts: ${pr.fontsKept}/${pr.fontsTotal} faces kept${pr.fontsMerged ? `, ${pr.fontsMerged} identical file(s) declared once` : ''}, ${(pr.fontSaved / 1024).toFixed(0)} KB saved`);
+          if (pr.fontApplied) pruneNotes.push(`  pruned unused fonts: ${pr.fontsKept}/${pr.fontsTotal} faces kept${pr.fontsMerged ? `, shipped as ${pr.fontsKept - pr.fontsMerged} (identical files declared once)` : ''}, ${(pr.fontSaved / 1024).toFixed(0)} KB saved`);
         }
         if (pr.gateFailed) pruneNotes.push('  note: CSS prune skipped — computed-style gate flagged a diff; shipping full CSS');
-        if (report.assetsHoisted) pruneNotes.push(`  stored ${report.assetsHoisted} repeated picture(s) once, ${(report.assetBytesSaved / 1024).toFixed(0)} KB saved`);
       } catch (e) {
         pruneNotes.push(`  note: player optimization skipped (${e?.message}); shipping full CSS + fonts`);
       }
+      // Reported outside the prune: the hoist runs in assemblePlayer, so it applies either way.
+      if (report.assetsHoisted) pruneNotes.push(`  stored ${report.assetsHoisted} repeated background picture(s) once, ${(report.assetBytesSaved / 1024).toFixed(0)} KB saved`);
       fs.writeFileSync(outHtml, finalPlayerHtml);
       // The player carries its own, STRICTER policy (`default-src 'none'`). Record that it
       // is what landed at outHtml, so the subresource injection below skips it — see the
@@ -5252,7 +5253,12 @@ async function prunePlayerCssInPage(playerHtml) {
     // sheet names every component's weights (hub-spoke's 560, 680…), and those would block
     // every merge in a deck that draws no hub-spoke.
     if (fontBlock && usedFonts) {
-      const shipped = blocks.map((b) => (cssOk && b[0] === target.full ? cssResult.css : b[2])).join('\n');
+      // The font block itself is not text styling: its own descriptors (Outfit's 500, 600)
+      // would count as weights for every family and block the Playfair merge.
+      const shipped = blocks
+        .filter((b) => b[0] !== fontBlock.full)
+        .map((b) => (cssOk && b[0] === target.full ? cssResult.css : b[2]))
+        .join('\n');
       const merged = mergeIdenticalFontFaces(fontResult.applied ? fontResult.css : fontBlock.css, { byFamily: usedFonts.weights, any: literalFontWeights(shipped) });
       if (merged.applied) {
         fontResult = { ...fontResult, applied: true, css: merged.css, kept: fontResult.applied ? fontResult.kept : fontResult.total, merged: merged.merged };
