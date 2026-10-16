@@ -106,13 +106,16 @@ async function verbatimKernels() {
   return out;
 }
 
+/** Every regular-expression metacharacter, escaped, so a name is matched as written. */
+const escapeRe = (s) => s.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&');
+
 async function build() {
   const result = await esbuild.build({ ...BUILD_OPTIONS, write: false });
   let text = result.outputFiles[0].text;
   for (const [name, source] of await verbatimKernels()) {
     const [head, tail] = name.split('.');
     // esbuild may suffix a bundled binding (`keyAction2`); a namespace keeps its name.
-    const re = new RegExp(`\\$\\{${head.replace(/\$/g, '\\$')}${tail ? '' : '\\d*'}${tail ? `\\.${tail}` : ''}\\.toString\\(\\)\\}`, 'g');
+    const re = new RegExp(`\\$\\{${escapeRe(head)}${tail ? '' : '\\d*'}${tail ? `\\.${escapeRe(tail)}` : ''}\\.toString\\(\\)\\}`, 'g');
     const before = text;
     text = text.replace(re, () => `\${${JSON.stringify(source)}}`);
     if (text === before) throw new Error(`the bundle no longer inlines \`${name}\` with .toString(); update verbatimKernels`);
