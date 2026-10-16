@@ -28,7 +28,7 @@
  * parameter (`@Customer` → `who=Customer`). Both are checked when the schema is built.
  */
 
-import { bareEnd, type Diagnostic, FLAT_KIND, flatTree, type Item, isName, parse, type Scalar, type Value } from './notation.js';
+import { bareEnd, type Diagnostic, FLAT_KIND, flatTree, type Item, isName, parse, plainRecordTree, type Scalar, type Value } from './notation.js';
 import { TAGS } from './notation-grammar.js';
 import { CLASS_ORDER, type Cls, isBuiltIn, type Type } from './types.js';
 
@@ -96,6 +96,14 @@ export interface Slot<T> {
   bindItems?(items: readonly Item[]): Bound<T>;
   /** Parse and bind one span's text. */
   read(text: string): Bound<T>;
+  /**
+   * `read`, for a caller that only needs the value: the same success `read` returns, or null where
+   * `read` would fail. It builds no diagnostic for a span the fast walk is certain will not bind, which
+   * is where a render path spends its time (most spans that reach a pill slot are someone else's
+   * braces, `{2, 82}`, `{who=sales}`, and wording each refusal cost 1.8 µs). A caller that needs the
+   * reason asks `read`. One call, no state between calls. A record slot has it.
+   */
+  tryRead?(text: string): Bound<T> | null;
   /** The schema, for docs and autocomplete. */
   readonly spec: unknown;
 }
@@ -285,10 +293,12 @@ class Binding {
 }
 
 /** @internal Test hook, not public: `fast: false` makes every record slot take the full bind, so a test can
- *  hold the fast read equal to it; `hits` counts the binds the fast read made. */
+ *  hold the fast read equal to it; `hits` counts the binds the fast read made, `refused` the refusals
+ *  `tryRead` answered from the fast walk without the full path. */
 export const bindMode = {
   fast: true,
   hits: 0,
+  refused: 0,
   /** Under test, run the full bind beside every fast read and throw when they differ. Set before the first
    *  read: by a test directly, or by `globalThis[Symbol.for('laticent.segno.checkBothPaths')] = true` before
    *  the library loads. Off in every shipped path. */
@@ -420,17 +430,27 @@ export function record<const S extends RecordSpec>(spec: S): Slot<RecordOf<S>> {
 
   // THE FAST READ. A plain `{…}` span of bare words and `name=bare` items (a pill, a point, a state
   // mark) is bound straight from the parser's flat tree: no Item or Scalar object per item, no
-  // Binding. It is the SAME bind as `bindItems` without the objects, and it only ever SUCCEEDS.
-  // On anything else (a quote, a nested record or list, an unknown name or word, a repeat, a
-  // missing value, any error) it returns null and `read` runs the full path, which alone words a
-  // diagnostic, so an error reads as it always did. schema.test.ts pins a success equal to the
-  // full path's. Off for a slot with a tag or sigils (their handling lives in the full path), and for
+  // Binding. It is the SAME bind as `bindItems` without the objects, and it never words a
+  // diagnostic. It answers three ways: a success; `false`, a REFUSAL the full path is certain to
+  // make too (a span that does not parse, an unknown or ill-formed name, a word no parameter takes,
+  // a value its type does not read, a repeat, a missing positional); and null, "cannot tell" (a quote, a nested record or list,
+  // a `name=` whose value is not bare). On either of the last two `read` runs the full path, which
+  // alone words a diagnostic, so an error reads as it always did; only `tryRead` acts on `false`.
+  // A refusal is sound because the walk stops at the FIRST bad item and the full bind never
+  // recovers from one: every later item, however it parses, leaves the bind failed. schema.test.ts
+  // pins a success equal to the full path's, and a refusal to a full-path failure. Off for a slot with a tag or sigils (their handling lives in the full path), and for
   // one with a sub-slot or a type of the caller's own: such a `read` may parse a span of its own,
   // which overwrites the buffer this walks (schema.test.ts, "a custom type that parses").
   const fastable = !spec.tag && !hasSigils && [...byName.values()].every((t) => !isSlot(t) && isBuiltIn(t));
-  const fastRead = (text: string): Bound<RecordOf<S>> | null => {
-    const b = flatTree(text);
-    if (b === null || b[0] !== FLAT_KIND.record) return null;
+  const fastRead = (text: string): Bound<RecordOf<S>> | false | null => {
+    // The plain shape is scanned directly; anything else asks the generated parser.
+    const b = plainRecordTree(text) ?? flatTree(text);
+    // A span that does not parse cannot bind: `read` reports the syntax error and fails. Saying so
+    // here lets `tryRead` answer it too, without the full parse that words the message. A bare value
+    // or a list does parse, and the full bind may still read it as the record's primary alone, so
+    // that stays "cannot tell".
+    if (b === null) return false;
+    if (b[0] !== FLAT_KIND.record) return null;
     const end = b[3];
     // One item means the record is the whole span's only item: a spelling may then rewrite the span.
     const alone = b[7] === end ? { from: b[1], to: b[2] } : undefined;
@@ -452,10 +472,11 @@ export function record<const S extends RecordSpec>(spec: S): Slot<RecordOf<S>> {
         // `name=value`: a bare value, under a name an author can write that this slot declares.
         if (b[tail] !== FLAT_KIND.bare) return null;
         const label = text.slice(nameFrom, nameTo);
-        if (!isName(label)) return null;
+        if (!isName(label)) return false; // the parser refuses it: `bad-name`
         param = label.toLowerCase();
         const declared = byName.get(param);
-        if (declared === undefined || isSlot(declared)) return null;
+        if (declared === undefined) return false; // `unknown-param`
+        if (isSlot(declared)) return null;
         t = declared;
         named = true;
         from = b[tail + 1];
@@ -472,7 +493,7 @@ export function record<const S extends RecordSpec>(spec: S): Slot<RecordOf<S>> {
       let spell = false;
       if (t !== undefined) {
         got = t.read(word, false);
-        if (got === undefined) return null;
+        if (got === undefined) return false; // `wrong-type`
         if (t.cls === 'vocab') { spell = true; canonical = t.canonical?.(word) ?? word; written = word.toLowerCase(); }
       } else {
         // A bare word: its vocabulary owner, else the first non-vocab parameter that reads it.
@@ -488,20 +509,81 @@ export function record<const S extends RecordSpec>(spec: S): Slot<RecordOf<S>> {
               if (r !== undefined) { param = cls[e][0]; t = cls[e][1]; got = r; break; }
             }
           }
-          if (t === undefined) return null;
+          // `unknown-word` (or `out-of-range`): nothing reads it, which is what the full path
+          // concludes too, since its sigils and sub-slots are off for a fastable slot.
+          if (t === undefined) return false;
         }
       }
-      if (Object.hasOwn(out, param)) return null;
+      if (Object.hasOwn(out, param)) return false; // `given-twice`
       out[param] = got;
       if (spell) {
         (spellings ??= []).push({ param, canonical, written, from, to, shortcut: false, ...(alone ? { alone } : {}), ...(named ? { named: true } : {}) });
       }
     }
     for (let k = 0; k < positional.length; k++) {
-      if ((positional[k].required ?? k === 0) && !Object.hasOwn(out, positional[k].name)) return null;
+      if ((positional[k].required ?? k === 0) && !Object.hasOwn(out, positional[k].name)) return false; // `missing`
     }
     bindMode.hits++;
     return { ok: true, value: out as RecordOf<S>, spellings: spellings ?? NO_SPELLINGS };
+  };
+
+  // The shortcut read: a fixed string binds once (below), so every later read of it is a lookup.
+  const shortcutRead = (text: string): Bound<RecordOf<S>> | undefined => {
+    if (shortcutBound.size) {
+      const hit = shortcutBound.get(text);
+      if (hit) return hit;
+    }
+    const token = shortcuts.size ? text.trim() : '';
+    const expanded = shortcuts.size ? shortcuts.get(token) : undefined;
+    if (expanded && expanded.kind === 'record') {
+      const at = text.indexOf(token);
+      const range = { from: at, to: at + token.length };
+      return bindItems(expanded.items, { token, ...range }, expanded.items.length === 1 ? range : undefined);
+    }
+    return undefined;
+  };
+
+  // The fast step both reads share: the fast walk's own answer, checked against the full bind when
+  // the test hook asks. A success is returned as is; `false` means certain to fail; null, cannot tell.
+  const fastStep = (text: string): Bound<RecordOf<S>> | false | null => {
+    if (!fastable || !bindMode.fast) return null;
+    const f = fastRead(text);
+    if (f !== null && bindMode.check) {
+      bindMode.fast = false;
+      let full: Bound<RecordOf<S>>;
+      try { full = slot.read(text); } finally { bindMode.fast = true; }
+      bindMode.compared++;
+      if (f === false) {
+        if (full.ok) throw new Error(`segno: the fast read refused ${JSON.stringify(text)}, which the full bind accepts`);
+      } else {
+        const a = JSON.stringify(canon(f));
+        const b = JSON.stringify(canon(full));
+        if (a !== b) throw new Error(`segno: the fast read and the full bind disagree on ${JSON.stringify(text)}\n  fast: ${a}\n  full: ${b}`);
+      }
+    }
+    return f;
+  };
+
+  // The full path: parse into objects and bind, wording every diagnostic.
+  const fullRead = (text: string): Bound<RecordOf<S>> => {
+    const p = parse(text);
+    if (!p.ok) return { ok: false, diagnostics: [p.diagnostic] };
+    const tagged = p.item.tag ?? '';
+    if (tagged !== (spec.tag ?? '')) {
+      const v = p.item.value;
+      return {
+        ok: false,
+        diagnostics: [spec.tag
+          ? err('missing-tag', `${label} starts with "${spec.tag}{"`, v.from, v.to, { from: v.from, to: v.from, insert: spec.tag })
+          : err('unexpected-tag', `${label} takes no "${tagged}" before its "{"`, p.item.from, p.item.from + 1, { from: p.item.from, to: p.item.from + 1, insert: '' })],
+      };
+    }
+    if (p.item.name !== null) return bindItems([p.item]);
+    const v = p.item.value;
+    // Only a WHOLE span can be rewritten to a shortcut, so only a top-level one-item record is
+    // `alone`; a record nested in a list or a sub-slot never is (`[{done}]` has no `[[x]]`).
+    if (v.kind === 'record') return bindItems(v.items, undefined, v.items.length === 1 ? { from: v.from, to: v.to } : undefined);
+    return slot.bind(v);
   };
 
   const slot: Slot<RecordOf<S>> = {
@@ -516,51 +598,25 @@ export function record<const S extends RecordSpec>(spec: S): Slot<RecordOf<S>> {
     },
     bindItems: (items) => bindItems(items),
     read(text: string) {
-      // A shortcut is a fixed string, so its bind is too: computed once below, returned here.
-      if (shortcutBound.size) {
-        const hit = shortcutBound.get(text);
-        if (hit) return hit;
+      const sc = shortcutRead(text);
+      if (sc) return sc;
+      const f = fastStep(text);
+      return f || fullRead(text);
+    },
+    tryRead(text: string) {
+      // The same steps as `read`, and one answer: the value `read` returns when the span binds, else
+      // null. A refusal the fast walk is certain of stops there, so nothing words a message no one
+      // will read. Anything it cannot decide goes to the full path, as `read` does.
+      const sc = shortcutRead(text);
+      if (sc) return sc.ok ? sc : null;
+      const f = fastStep(text);
+      if (f) return f;
+      if (f === false) {
+        bindMode.refused++;
+        return null;
       }
-      const token = shortcuts.size ? text.trim() : '';
-      const expanded = shortcuts.size ? shortcuts.get(token) : undefined;
-      if (expanded && expanded.kind === 'record') {
-        const at = text.indexOf(token);
-        const range = { from: at, to: at + token.length };
-        return bindItems(expanded.items, { token, ...range }, expanded.items.length === 1 ? range : undefined);
-      }
-      if (fastable && bindMode.fast) {
-        const f = fastRead(text);
-        if (f !== null) {
-          if (bindMode.check) {
-            bindMode.fast = false;
-            let full: unknown;
-            try { full = slot.read(text); } finally { bindMode.fast = true; }
-            bindMode.compared++;
-            const a = JSON.stringify(canon(f));
-            const b = JSON.stringify(canon(full));
-            if (a !== b) throw new Error(`segno: the fast read and the full bind disagree on ${JSON.stringify(text)}\n  fast: ${a}\n  full: ${b}`);
-          }
-          return f;
-        }
-      }
-      const p = parse(text);
-      if (!p.ok) return { ok: false, diagnostics: [p.diagnostic] };
-      const tagged = p.item.tag ?? '';
-      if (tagged !== (spec.tag ?? '')) {
-        const v = p.item.value;
-        return {
-          ok: false,
-          diagnostics: [spec.tag
-            ? err('missing-tag', `${label} starts with "${spec.tag}{"`, v.from, v.to, { from: v.from, to: v.from, insert: spec.tag })
-            : err('unexpected-tag', `${label} takes no "${tagged}" before its "{"`, p.item.from, p.item.from + 1, { from: p.item.from, to: p.item.from + 1, insert: '' })],
-        };
-      }
-      if (p.item.name !== null) return bindItems([p.item]);
-      const v = p.item.value;
-      // Only a WHOLE span can be rewritten to a shortcut, so only a top-level one-item record is
-      // `alone`; a record nested in a list or a sub-slot never is (`[{done}]` has no `[[x]]`).
-      if (v.kind === 'record') return bindItems(v.items, undefined, v.items.length === 1 ? { from: v.from, to: v.to } : undefined);
-      return slot.bind(v);
+      const r = fullRead(text);
+      return r.ok ? r : null;
     },
   };
 

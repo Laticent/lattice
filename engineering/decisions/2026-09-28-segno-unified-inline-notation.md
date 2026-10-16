@@ -489,6 +489,39 @@ machine and engine. The tokenizers it beats also classify tokens (css-tree tells
 dimension, parse5 decodes entities). Matching that classification is grammar work, and it is
 where an honest race against a full parser would start.
 
+### The plain-record parser and `restrict` (2026-10-16, #2730)
+
+Followup 2718-p3 found where the inline-code dispatcher spent its time on ordinary code: 175 of the
+bench fixture's 4,946 spans are brace records that are not pills (a quadrant's `{2, 82}`, a
+journey's `{who=sales}`). Each one paid the generated parser plus a full bind that worded a
+diagnostic nobody read, about 1.8 µs a span against 25 ns for the rest. Two Segno changes fixed it:
+
+- **`slot.tryRead(text)`.** The fast bind (schema.ts `fastRead`) now tells a certain refusal (an
+  unknown name, a word nothing takes, a repeat, a span that does not parse) from a can't-tell.
+  `tryRead` returns `read`'s success or null, and on a certain refusal it words nothing. A first cut
+  was a `refuses()` predicate plus a hidden one-shot hand-off of its result to the next `read`; the
+  owner's review called the hidden state a shortcut that would surprise tomorrow's caller, and one
+  stateless call replaced both at the same measured speed.
+- **A parser for plain records, generated from the grammar.** The first cut was a hand-written
+  scanner, and the owner asked for it to come from the grammar instead. `restrict()` (grammar.ts)
+  derives `plainRecordSpec` from `notationSpec` by removing lists, quoted text and tags, and the
+  code generator writes `notation-plain.generated.ts` from it, numbering its nodes with
+  `kindsOf(notationSpec)`. On an LL(1) grammar a restriction only refuses more, so the two parsers
+  build identical trees. `restrict` throws inside a `greedy()` or an `attempt()`, where an
+  independent checker showed it would not hold.
+
+Measured against the retired kernel, ordinary code went from 6.71x to 2.79–2.87x on one sandbox
+(directives 44.9x to 35.7–36.3x). On a GitHub runner, three dispatched nightlies read the head at
+2.79–2.90x against a base that swung 5.49–5.96x on unchanged code: −48% to −53%, so "about half",
+with the base's own spread as wide as the distance to the line. Every sample is reported here,
+including the one below half, and the runner was not re-sampled to cross it (the owner named the
+McNamara fallacy). The hand scanner had read 2.70–2.75x here and 2.41–2.52x on the runner: that
+difference is the price of generating the parser, and the owner chose it. Most of the gain comes
+from the fixture's 175 non-pill brace records, so a deck without such spans gains little. The finding worth keeping is that pruning
+did not make the generated code faster (135 ns against 139 ns on `{2, 82}`). The cost is in how
+`generate()` writes a parser, not in the grammar's size, so making the code generator faster would
+speed up every Segno parser: an open question below.
+
 ### Flowchart rows need a bounded attempt (the #2462 spike)
 
 Phase 3 moves the flowchart's list text (`Storefront -SEV1-> Payments`) onto Segno, and #2462's
@@ -1030,13 +1063,20 @@ implementations (`tools/parser-bakeoff/shared.mjs`).
 ## Open questions
 
 The three this note first carried — coordinates, journey sigils, color slots — are decisions 10 to 12.
-Two are open, and both only matter from phase 2 on:
+Two were open from phase 2 on, and #2730 added a third:
 
 - **Editor tooling.** Segno stops at the first error and has no incremental parsing or
   highlighting. If the Studio editor needs highlighting of Segno spans, is the path a display-only
   Lezer grammar, with Segno as the authority? (Raised by the trio's inversion.)
 - ~~**No-break spaces and newlines.**~~ Settled by decision 23: U+00A0 is a space. A code span
   cannot hold a newline, so nothing else was open.
+- **A faster code generator.** A generated parser of the notation's plain-record subset ran at
+  about the speed of the full one (135 against 139 ns on `{2, 82}`), where a hand-written scanner of
+  the same subset took 79 ns (§ The plain-record parser and `restrict`). So the gap is in what
+  `generate()` writes, not in grammar size. Candidates are inlining non-recursive rules and keeping
+  the parser's state in locals rather than module variables. Either change touches every generated
+  parser, including the flowchart row and list-text ones, so it would need its own bench and
+  checker. (Raised by #2730.)
 
 **Phase 1's checker** (one independent agent) confirmed the LL(1) check sound on about 4,800 random
 grammars against a brute-force recognizer, the generated parser identical to the closure parser on the

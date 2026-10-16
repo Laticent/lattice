@@ -33,8 +33,15 @@
  */
 import fs from 'node:fs';
 
-/** Render is in-process and the most stable signal; export is a whole rasterize cycle over I/O. */
-const BAND = { render: 60, export: 80 };
+/** Render is in-process and the most stable signal; export is a whole rasterize cycle over I/O.
+ *  The inline tier is a PAIRED ratio (test/benchmark/inline-span-timer.mjs), so the runner's speed
+ *  has already cancelled inside each arm, and it holds `bench:check`'s 12% floor rather than a
+ *  cliff, because the one-line arm the tier was built to catch, a per-span `includes` in
+ *  `dispatches`, read +21% in a nightly-shaped local run. A 60% cliff would pass it. The headroom
+ *  is narrow, and one timer run is not enough to use it: single runs of unchanged code spread from
+ *  -48% to +28% (2 tails in 66 runs). So the nightly passes `--inline-runs 5` and each arm reports
+ *  each row's median of five. */
+const BAND = { render: 60, export: 80, inline: 12 };
 
 const arg = (k) => {
 	const i = process.argv.indexOf(k);
@@ -158,6 +165,57 @@ function tier(label, baseRows = [], headRows = [], band, scale = 1, unit = 'ms')
 }
 
 /**
+ * The inline-span tier, which `tier()` cannot read: its rows carry a `ratio` (shipped dispatcher ÷
+ * retired kernel, on the same spans, in one process) and a `spans` count, not `ms` and `slides`. The
+ * same verdicts otherwise: a row in one arm only is drift, a changed span count is a changed
+ * workload, and a ratio that fell past nine tenths has stopped measuring. No RME widening: the
+ * timer reports a median of 2,000 paired slices and no RME, and the 12% band already sits above the
+ * spread measured on unchanged code.
+ */
+function ratioTier(label, baseRows = [], headRows = [], band, skipped = {}) {
+	if (!headRows.length && !baseRows.length) return;
+	out.push(`\n### ${label}\n`);
+	// A timer that did not run says so: DATASET DRIFT alone would send triage bisecting for a
+	// slowdown when the arm measured nothing.
+	for (const [arm, why] of [['base', skipped.base], ['head', skipped.head]]) {
+		if (why) out.push(`_The ${arm} arm's timer reported \`${why}\`, so it measured nothing: its rows below read as drift._\n`);
+	}
+	out.push('| dataset | base | head | Δ% | band | verdict |');
+	out.push('|---|---|---|---|---|---|');
+	const fmt = (r) => (r && Number.isFinite(r.ratio) ? `${r.ratio.toFixed(3)}×` : '—');
+	const names = [...new Set([...baseRows.map((r) => r.dataset), ...headRows.map((r) => r.dataset)])];
+	for (const name of names) {
+		const b = baseRows.find((r) => r.dataset === name);
+		const h = headRows.find((r) => r.dataset === name);
+		if (!b || !h) {
+			regressed = true;
+			out.push(`| \`${name}\` | ${fmt(b)} | ${fmt(h)} | — | — | **DATASET DRIFT** — present in only one arm, so nothing was compared |`);
+			continue;
+		}
+		if (b.spans !== h.spans) {
+			regressed = true;
+			out.push(`| \`${name}\` | ${b.spans} spans | ${h.spans} spans | — | — | **WORKLOAD CHANGED** — the two arms split the fixture differently, so they are not comparable |`);
+			continue;
+		}
+		const d = ((h.ratio - b.ratio) / b.ratio) * 100;
+		if (!Number.isFinite(d)) {
+			regressed = true;
+			out.push(`| \`${name}\` | ${fmt(b)} | ${fmt(h)} | — | — | **NOT MEASURED** — non-finite delta, a ratio of zero or a row that produced nothing |`);
+			continue;
+		}
+		if (d < -90) {
+			regressed = true;
+			out.push(`| \`${name}\` | ${fmt(b)} | ${fmt(h)} | ${d.toFixed(1)} | ±${band} | **WORKLOAD COLLAPSED** — too fast to be real; the dispatcher likely stopped doing its work |`);
+			continue;
+		}
+		const bad = d > band;
+		if (bad) regressed = true;
+		compared += 1;
+		out.push(`| \`${name}\` | ${fmt(b)} | ${fmt(h)} | ${d >= 0 ? '+' : ''}${d.toFixed(1)} | ±${band} | ${bad ? '**REGRESSION**' : d < -band ? 'win' : 'ok'} |`);
+	}
+}
+
+/**
  * EXIT 2 ON A CRASH, NOT 1. Exit 1 is the workflow's "a tier regressed" code, so an internal
  * TypeError — a future bench summary shape, an unexpected null — was filed as a `priority:high`
  * perf regression whose entire body was a run link, because the crash happened before the report
@@ -168,6 +226,7 @@ out.push('# Engine / export perf — head vs base, same runner\n');
 tier('Engine render (markdown → HTML+CSS)', base.render?.summary, head.render?.summary, BAND.render);
 tier('Export / rasterize (screenshot every slide)', base.export?.summary, head.export?.summary, BAND.export, 1000, 's');
 tier('Print re-place (rasterize + assemble)', base.print?.summary, head.print?.summary, BAND.export, 1000, 's');
+ratioTier('Inline span (dispatcher ÷ retired kernel, paired, per span)', base.inline?.summary, head.inline?.summary, BAND.inline, { base: base.inline?.skipped, head: head.inline?.skipped });
 
 /**
  * A TIER THAT VANISHED FROM BOTH ARMS IS NOT ABSENCE OF NEWS. `tier()` returns early when neither
@@ -180,7 +239,8 @@ tier('Print re-place (rasterize + assemble)', base.print?.summary, head.print?.s
  * That is the blessed-but-never-read hole recurring inside the mechanism built to close it. So the
  * tiers this run was ASKED to produce are named up front and their absence is an alarm.
  */
-const EXPECTED = ['render', 'export'];
+// `inline` runs on every engine-bench call, flag or none, so it is expected on every night.
+const EXPECTED = ['render', 'export', 'inline'];
 const missing = EXPECTED.filter((k) => !(head[k]?.summary?.length || base[k]?.summary?.length));
 if (missing.length) {
 	regressed = true;

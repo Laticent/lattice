@@ -314,7 +314,7 @@ jobs:
           echo "Base commit: $BASE (head: $HEAD_SHA)"
 
       - name: Bench — head
-        run: node test/benchmark/engine-bench.mjs --json --export > head-bench.json
+        run: node test/benchmark/engine-bench.mjs --json --export --inline-runs 5 > head-bench.json
 
       # continue-on-error, matching the lighthouse job's `Build + collect — base`: a broken
       # historical commit, or a transient `npm ci`, must not silently disable the whole alarm. It
@@ -334,8 +334,15 @@ jobs:
           set -euo pipefail
           git worktree add --detach /tmp/base "${{ steps.base.outputs.sha }}"
           cp test/benchmark/engine-bench.mjs /tmp/base/test/benchmark/engine-bench.mjs
+          # The inline-span tier's timer and its frozen spans are harness too: without them the base
+          # arm reports the tier `absent` and the comparator can only call it drift (followup 2718-p4).
+          # `--inline-runs 5` (both arms) keeps each row's median of five timer runs: one run has tails
+          # wider than the comparator's 12% band, and nothing here re-runs a row that regressed.
+          mkdir -p /tmp/base/test/benchmark/fixtures
+          cp test/benchmark/inline-span-timer.mjs /tmp/base/test/benchmark/inline-span-timer.mjs
+          cp test/benchmark/fixtures/inline-spans.json /tmp/base/test/benchmark/fixtures/inline-spans.json
           cd /tmp/base && npm ci --silent
-          node test/benchmark/engine-bench.mjs --json --export > "$GITHUB_WORKSPACE/base-bench.json"
+          node test/benchmark/engine-bench.mjs --json --export --inline-runs 5 > "$GITHUB_WORKSPACE/base-bench.json"
 
       # EXIT 2 IS A WIRING BUG, NOT A REGRESSION — it means the tool was invoked wrong, and filing
       # that as a priority:high "perf regression" would be a confident, wrong, actionable issue.

@@ -48,8 +48,9 @@ This is 0.x: a minor version may break the API. Within that, two halves move at 
 - **Stable for 0.x:** declaring a slot (`record`, the types, `read`, `values`), `parse` for the
   inline notation, `readNumber` / `readTime`, and `SchemaError`. Lattice reads every deck through
   these.
-- **Experimental:** the grammar engine (`compile`, the combinators, `lint`, `generate`) and the
-  notation's own grammar (`notationSpec`, `TAGS`). Their names and shapes may change in any minor
+- **Experimental:** the grammar engine (`compile`, the combinators, `lint`, `generate`,
+  `restrict`, `kindsOf`), a record slot's `tryRead`, and the notation's own grammar
+  (`notationSpec`, `plainRecordSpec`, `TAGS`). Their names and shapes may change in any minor
   version. The notation itself is specified in LFM 1.1 §3.6
   ([`spec/LFM-1.1.md`](https://github.com/Laticent/lattice/blob/main/spec/LFM-1.1.md)), which wins
   where it and this package disagree.
@@ -96,6 +97,38 @@ stack.
 A set holds characters one UTF-16 unit long: `chars()` and `charRange()` throw on an emoji or any
 other character outside the Basic Multilingual Plane, and on a range that runs backwards. Match such
 a character with `lit()`.
+
+### A faster parser for a common subset: `restrict`
+
+When most inputs take a few simple shapes, a parser that knows only those shapes can skip the
+branches they never take. `restrict(spec, { rules, nodes })` derives that grammar from yours
+instead of asking you to write a second one: it removes every reference to a rule in `rules` and
+every node of a kind in `nodes`, together with the branch that needs it.
+
+```ts
+import { compile, generate, kindsOf, restrict } from '@laticent/segno';
+
+const plain = restrict(spec, { rules: ['list', 'quoted'] }); // no lists, no quoted text
+const fast = compile(plain);
+const full = compile(spec);
+// Try the subset first; anything it refuses, the full grammar decides.
+const read = (text) => { const r = fast.parse(text); return r.ok ? r : full.parse(text); };
+
+// Generated, number the subset's nodes as the full parser does, so one reader walks both trees:
+generate(plain, { kinds: kindsOf(spec) });
+```
+
+The two parsers cannot disagree. On a strictly LL(1) grammar every choice is made on the next
+character, and removing branches can only make a parser refuse more, never read a span another way.
+So whatever the subset accepts, the full grammar accepts by the same branches, with the same tree.
+`restrict` throws rather than break that: inside a `greedy()` loop or optional, or an `attempt()`,
+removing a branch can change which branch wins, so it refuses to prune there. It also throws if
+it would remove the start rule, or leave a choice with a branch that matches nothing.
+
+Note that pruning does not by itself make the generated code faster. Measured on the notation, the
+generated parser of its plain-record subset ran at about the speed of the full one, 135 ns against
+139 ns. The subset earns its keep when the caller can skip work on what the subset refuses, as
+Lattice's pill check does below (§ How a record binds fast).
 
 ### Longest match, skip-to, and deeper nesting
 
@@ -451,11 +484,38 @@ A plain `{…}` span of bare words and `name=bare` items (a pill, a chart point,
 straight from the parser's flat tree. The full bind builds an `Item` and a `Scalar` per item, a
 `Binding`, and a result; the fast read builds only the result. It is the same rules as the full
 bind (§ Write a grammar): positionals first, a declared name, a bare word to its one owner. It
-only ever succeeds. On anything else it returns null and the full bind runs, and the full bind
-alone words an error: a quote, a nested record or list, an unknown name or word, a repeat, a
+never words an error. On a span it cannot bind it stops and the full bind runs, and the full bind
+alone words the error: a quote, a nested record or list, an unknown name or word, a repeat, a
 missing required value, a tag, a sigil, a sub-slot. So an error reads as it always did, and
 `schema.test.ts` holds a success equal to the full bind's on every span of one to three items
 built from a pool that reaches each of those branches.
+
+When the walk stops on a word it has READ (an unknown name, a word nothing takes, a value its type
+refuses, a repeat, a missing positional), or the span does not parse at all, the span is certain to
+fail: the full bind never recovers from one bad item. `read` still takes the full path then, to word
+the error. `slot.tryRead(text)` is `read` for a caller that needs only the value: the same success,
+or null, and on a refusal the walk is certain of it stops there and words nothing. One call, no
+state kept between calls. Lattice's pill check uses it on every brace span in inline code: most of
+those are someone else's braces (`{2, 82}`, a chart point), and wording each refusal cost 1.8 µs.
+`schema.test.ts` holds `tryRead` equal to `read`'s success, or null exactly where `read` fails, on
+every span of its pool. `tryRead` is experimental, like the grammar engine.
+
+Plain records also take a smaller parser, and nobody wrote it by hand. `restrict()` (in
+`grammar.ts`) takes a grammar and removes named rules and node kinds, with every branch that needs
+them. `plainRecordSpec` is the notation restricted to no lists, no quoted text and no tags, and the
+code generator makes its own parser of it (`notation-plain.generated.ts`). The fast bind tries that
+parser first and asks the full one about anything it refuses.
+
+The two cannot disagree. On a strictly LL(1) grammar every choice is made on the next character,
+and a restriction only removes branches, so whatever the restricted parser accepts, the full one accepts
+by the same branches, and both build the same tree. The build numbers the restricted parser's node
+kinds as the full parser numbers them (`generate(small, { kinds: kindsOf(full) })`), so one reader
+walks both trees. `notation.test.ts` holds the
+two trees equal, node for node, on every short span over the characters that steer a plain record
+and over the characters that leave the shape. `restrict()` throws rather than prune inside a
+`greedy()` or an `attempt()`, the two constructs that choose by more than the next character, where
+removing a branch can change which branch wins (the notation uses neither). A change to the grammar regenerates both parsers, and
+`build:check` fails if either committed file is stale.
 
 One more condition keeps it correct. The parser writes one reused buffer, and the fast read walks
 it while it calls each parameter's `read`. A type of your own may parse a span inside its `read`,
@@ -468,8 +528,8 @@ other takes the full bind: the results are the same and the saving is lost.
 
 ## Build
 
-`npm run segno-lib:build` regenerates `notation.generated.ts` and writes `dist/` (ESM + CJS +
-`.d.ts`); `npm run segno-lib:check` fails if either is stale. Three entries: `@laticent/segno`;
+`npm run segno-lib:build` regenerates `notation.generated.ts` and `notation-plain.generated.ts`
+(the parser of `plainRecordSpec`) and writes `dist/` (ESM + CJS + `.d.ts`); `npm run segno-lib:check` fails if either is stale. Three entries: `@laticent/segno`;
 `@laticent/segno/values` — `readNumber`, `malformedNumber` and `readTime` alone, a few KB against the full library's
 80, for a consumer that only reads values and cannot tree-shake a CommonJS `require`; and
 `@laticent/segno/read` — `parse`, the schema builders and the types without the grammar compiler
