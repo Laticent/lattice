@@ -6,16 +6,22 @@
         "detail":  "window title: Lattice Studio"
     },
     {
+        "id":  "0.2",
+        "name":  "Keyboard reaches the page (typing into the editor)",
+        "pass":  true,
+        "detail":  "typed \u0027 wincheck\u0027 at the end of line 7 (screenshot 01b); foreground=[lattice-studio | Tauri Window | Lattice Studio] focus=[msedgewebview2 | Chrome_WidgetWin_1 | Lattice Studio — one workspace]"
+    },
+    {
         "id":  "1.1",
-        "name":  "Real Ctrl+F from the preview opens the Studio find bar",
-        "pass":  false,
-        "detail":  "not found: the Studio find field"
+        "name":  "Real Ctrl+F opens the Studio find bar, from the editor and from outside it",
+        "pass":  true,
+        "detail":  "find field both times (screenshots 02, 02b: no Edge find bar); foreground=[lattice-studio | Tauri Window | Lattice Studio] focus=[msedgewebview2 | Chrome_WidgetWin_1 | Lattice Studio — one workspace]"
     },
     {
         "id":  "1.2",
         "name":  "Real F5 and Ctrl+R do not reload the page",
-        "pass":  false,
-        "detail":  "Exception calling \"FindAll\" with \"2\" argument(s): \"Operation timed out. (Exception from HRESULT: 0x80131505)\""
+        "pass":  true,
+        "detail":  "the open Share sheet survived F5 and Ctrl+R"
     },
     {
         "id":  "1.3",
@@ -32,8 +38,8 @@
     {
         "id":  "1.5",
         "name":  "Real Alt+Left never leaves the Studio",
-        "pass":  false,
-        "detail":  "not found: the Studio after Alt+Left"
+        "pass":  true,
+        "detail":  "still the Studio"
     },
     {
         "id":  "2.1",
@@ -44,26 +50,26 @@
     {
         "id":  "2.2",
         "name":  "Real right-click in the editor shows only editing items",
-        "pass":  false,
-        "detail":  "not found: editor"
+        "pass":  true,
+        "detail":  "menu items: []"
     },
     {
         "id":  "3.1",
         "name":  "Continue on GitHub opens the default browser; the app stays put",
         "pass":  false,
-        "detail":  "Exception calling \"FindAll\" with \"2\" argument(s): \"Operation timed out. (Exception from HRESULT: 0x80131505)\""
+        "detail":  "not found: Summary field"
     },
     {
         "id":  "4.1",
         "name":  "Connect OpenRouter opens its own sign-in window; closing it resets Connect",
-        "pass":  false,
-        "detail":  "Exception calling \"FindAll\" with \"2\" argument(s): \"Operation timed out. (Exception from HRESULT: 0x80131505)\""
+        "pass":  true,
+        "detail":  "sign-in window opened and closed; Connect is back"
     },
     {
         "id":  "5.1",
         "name":  "Share \u003e Markdown: the Windows Save dialog writes the file; Cancel writes nothing",
         "pass":  false,
-        "detail":  "Exception calling \"FindAll\" with \"2\" argument(s): \"Operation timed out. (Exception from HRESULT: 0x80131505)\""
+        "detail":  "no Save As dialog; windows:\nlattice-studio | #32770 | Save As\nlattice-studio | Tauri Window | Lattice Studio\nWindowsTerminal | CASCADIA_HOSTING_WINDOW_CLASS | C:\\ProgramData\\GitHub\\HostedComputeAgent\\hosted-compute-agent\nexplorer | Progman | Program Manager"
     },
     {
         "id":  "6.1",
