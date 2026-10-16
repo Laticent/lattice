@@ -791,3 +791,25 @@ describe('the short-month context check stays linear on hostile punctuation', ()
 		expect(performance.now() - t0).toBeLessThan(1000);
 	});
 });
+
+// A European money amount in slide text (engineering/decisions/2026-10-15-business-deck-gaps.md
+// §7.3). `4,2 Mio. €` was said "forty-two Mio. €", ten times the number on the slide, because
+// every comma was deleted as a thousands separator.
+describe('a European amount is said as the number it shows', () => {
+	it('reads a comma before one or two digits as a decimal comma, and before three as a group', () => {
+		expect(toSpokenText('4,2')).toBe('four point two');
+		expect(toSpokenText('12,34%')).toBe('twelve point three four percent');
+		expect(toSpokenText('1,234')).toBe('one thousand two hundred thirty-four');
+		expect(toSpokenText('€1,5M')).toBe('one point five million euros');
+	});
+	it('says Mio., Mrd. and a currency symbol after the number', () => {
+		expect(toSpokenText('Revenue was 4,2 Mio. € last year.')).toBe('Revenue was four point two million euros last year.');
+		expect(toSpokenText('3,5 Mrd. €')).toBe('three point five billion euros');
+		expect(toSpokenText('We paid 4200 € and 1 €.')).toBe('We paid four thousand two hundred euros and one euro.');
+	});
+	it('leaves the same words alone when no number comes before them', () => {
+		expect(toSpokenText('Mio is a name.')).toBe('Mio is a name.');
+		expect(toSpokenText('the € sign')).not.toContain('euros');
+		expect(toSpokenText('the Mio. prefix')).toBe('the Mio. prefix');
+	});
+});
