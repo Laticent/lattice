@@ -566,4 +566,27 @@ ruling §12.2 says, and the labels outside the 20 components that declare `cards
 land; they are phase 2 work still owed.
 
 ### 13.5 The card-row trigger, scored
-RATES_PLACEHOLDER
+One full run on the final configuration (`size: 4k`, generated slides excluded from each component):
+**hit rate 70%** (16 of 23 labeled positives; missed: `citation-card`, `code`, `compare-code`,
+`compare-prose`, `decision`, `split-compare`, `stats`) and **false-alarm rate 29%** (15 of 52 labeled
+negatives). Neither is acceptable, so per §6.3 rule 6 the trigger stays report-only and
+`component.cards-declared` keeps reading the corpus, not the trigger.
+
+The 15 "extra" components are not all wrong labels, and not all trigger errors. Seven hit on most of
+their own slides (`authority-chain`, `cycle`, `journey`, `roadmap`, `premise`, `policy-recommendation`,
+`checklist`): they look like card rows the corpus never considered, which is the §12.2 finding class.
+They are candidates for the owner and the next change to review by eye, not labels I will flip
+unseen. `stats` is missed by the trigger though it is a known positive, so the trigger's 60 px and
+40 px box floor and its same-size test need work before it can enforce anything.
+
+A full run on this configuration took 50 min 26 s (the earlier hd run, 47 min 40 s, is the clean
+timing; this one shared the CPU with pre-commit and review jobs).
+
+Findings from that run, unreviewed one by one: contrast under AA in 11 components (worst: `journey`
+1.55:1 on `a11y-achromatopsia`, `radar` 3.04:1, `logo-wall` 3.27:1, `word-cloud` 3.79:1, `flowchart`
+3.81:1, `redline` 3.89:1, plus near-misses on `kanban`, `roadmap`, `policy-recommendation`; `diagram`
+and `citation-card` report 1:1 on Mermaid-baked text and a decorative quote glyph the shared exemption
+ledger does not cover); axe `empty-table-header` on `heatmap` and `line`; overflow on `actors`,
+`citation-card`, `list`, `math`, `regulatory-update`; one page-level `page-has-heading-one` axe
+violation, and 2 slides with no gallery header (a harness fault to chase). 209 run-palette scores are
+left out by `PROBE_LIMITS`.
