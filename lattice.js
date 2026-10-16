@@ -271,6 +271,14 @@ OPTIONS
                           color palette. Every text token clears WCAG AA on
                           white. Any output format; also settable per-deck with
                           'color-mode: print'.
+      --player-consent O  With --player: the web origins (comma-separated, e.g.
+                          https://images.example.com) whose pictures the player
+                          may load, but only after the reader presses "Load
+                          pictures" in a banner. Each ships as the drawn
+                          placeholder until then, and with JavaScript off it
+                          stays one, listed as a plain link. The site must allow
+                          cross-origin reads (CORS); if it does not, the banner
+                          says so and lists the links. Off by default.
       --allow-remote      Let the render fetch remote images, media and fonts.
                           By default every browser this command starts is kept
                           off the network, so a web image in the deck shows
@@ -668,8 +676,8 @@ const NARRATE = !!flags.narrate;
 const PLAYER_MODE = flags['player-mode'] ?? null;
 // Both act on the self-contained player only; said here rather than silently ignored. (The
 // `player: true` front-matter key also enables it, so this reads the flag the CLI was given.)
-if ((NARRATE || PLAYER_MODE !== null) && !flags.player && !QUIET) {
-  console.warn(`note: ${NARRATE ? '--narrate' : '--player-mode'} applies to the --player export; it is ignored unless the deck asks for one (--player or 'player: true')`);
+if ((NARRATE || PLAYER_MODE !== null || flags['player-consent']) && !flags.player && !QUIET) {
+  console.warn(`note: ${NARRATE ? '--narrate' : PLAYER_MODE !== null ? '--player-mode' : '--player-consent'} applies to the --player export; it is ignored unless the deck asks for one (--player or 'player: true')`);
 }
 if (PLAYER_MODE !== null && !PLAYER_MODES.includes(PLAYER_MODE)) {
   console.error('error: --player-mode is light, dark or system');
@@ -683,6 +691,26 @@ if (PLAYER_MODE !== null && !PLAYER_MODES.includes(PLAYER_MODE)) {
 // must stay slide N). See the AUTOSPLIT comment below.
 const NO_SPLIT = !!flags['no-split'];
 const STRIP_NOTES = !!flags['strip-notes'];
+// --player-consent: the web origins the player may load pictures from after the reader allows it.
+// Each must be an origin (`https://host[:port]`); anything else is an error, not a silent drop.
+const PLAYER_CONSENT = (() => {
+  const raw = String(flags['player-consent'] || '').split(',').map((s) => s.trim()).filter(Boolean);
+  // An origin is a scheme, a host and an optional port: `https://Images.Example.com/` is one (the
+  // URL parser lowercases it); a path, a query, a fragment or a user name is not.
+  const bad = raw.filter((r) => {
+    try {
+      const u = new URL(r);
+      return !/^https?:$/.test(u.protocol) || u.pathname !== '/' || u.search || u.hash || u.username || u.password;
+    } catch {
+      return true;
+    }
+  });
+  if (bad.length) {
+    console.error(`error: --player-consent takes web origins like https://images.example.com, not ${bad.map((b) => `"${b}"`).join(', ')}`);
+    process.exit(1);
+  }
+  return raw.map((r) => new URL(r).origin);
+})();
 // `--strip-say`: the SEPARATE privacy strip for the say (read-as) channel —
 // orthogonal to `--strip-notes`. Notes (private, for the presenter) and say lines (public,
 // what a slide speaks) are independent channels, so each has its own strip. This scrubs the
@@ -2115,6 +2143,8 @@ function topLevelSectionStrings(latticeHtml) {
 // already has an `md` (the print-mode source) and shadowing it here reads as a bug.
 // Said once per run: the export re-renders the deck, and the warning is about the deck.
 let webImagesReported = false;
+// Every web reference the render swapped for a placeholder, for --player-consent's report.
+const webBlockedAtRender = [];
 function engineSlides(deckSource = rawMd) {
   const latticeEngine = require('./lib/engine');
   // `htmlAndMathml` — KaTeX's default, and the ONLY setting under which math is
@@ -2213,6 +2243,7 @@ function engineSlides(deckSource = rawMd) {
     const { blockWebImages, webOrigins } = require('./lib/core/remote-ref.js');
     const web = blockWebImages(renderedHtml);
     html = web.html;
+    webBlockedAtRender.push(...web.blocked);
     if (web.blocked.length && !webImagesReported && !QUIET) {
       webImagesReported = true;
       const sites = webOrigins(web.blocked);
@@ -4862,6 +4893,20 @@ async function renderBody(browser, g, closeBrowser) {
                 // matches inside `dark-mode`, which is not the `dark` class token.
                 : csDeclares(/color-scheme\s*:\s*dark\b/) || classTokens(frontMatterValue(fm, 'class')).includes('dark') ? 'dark'
                   : 'light';
+      // Under --allow-remote the render loaded the deck's web pictures, but the player's policy loads
+      // nothing remote, so a web `<img>` shipped as a broken image. The author asked for those
+      // pictures, so they are EMBEDDED, as the Studio's "Embed pictures from other sites" does
+      // (lib/export/inline-url-media.mjs); one that cannot be fetched ships as the drawn placeholder,
+      // its address kept for --player-consent, and the run says so.
+      let playerDocHtml = inflatedDocHtml || cleanDocHtml;
+      let webEmbed = null;
+      if (flags['allow-remote']) {
+        const { inlineUrlMedia, browserFetchDataUri } = await import('./lib/export/inline-url-media.mjs');
+        webEmbed = await inlineUrlMedia(playerDocHtml, { baseUrl: pathToFileURL(path.dirname(path.resolve(mdFile)) + path.sep).href, origins: [], anyWebOrigin: true, fetchDataUri: browserFetchDataUri(fetch, { followRedirects: true }) });
+        const placeheld = require('./lib/core/remote-ref.js').blockWebImages(webEmbed.html);
+        playerDocHtml = placeheld.html;
+        webBlockedAtRender.push(...placeheld.blocked);
+      }
       const { html: playerHtml, report } = await buildPlayerHtml({
         // The deck directory, so a deck-relative `<img src>` becomes a `file://` URL the
         // asset inliner can bake in. Without it every prose image in a shared player is a
@@ -4871,7 +4916,8 @@ async function renderBody(browser, g, closeBrowser) {
         // with state-chart / function-plot inflated to static SVG). Falls back to the
         // clean static render only if that capture failed — which also means no marker,
         // so the fallback is announced rather than silent.
-        docHtml: inflatedDocHtml || cleanDocHtml,
+        docHtml: playerDocHtml,
+        consentOrigins: PLAYER_CONSENT,
         // The envelope carries verbatim source for lossless re-import — but under
         // `--strip-notes` / `--strip-say` that source is re-serialized WITHOUT the
         // respective comments (directive-safe: notes match only the exact bodies lifted
@@ -4958,6 +5004,15 @@ async function renderBody(browser, g, closeBrowser) {
           console.warn(`  ⚠ ${shippedNotes} slide${shippedNotes > 1 ? 's' : ''} ship speaker notes in this player — anyone who opens the file can read them. Export with --strip-notes to remove them.`);
         }
         if (report.missing.length) console.warn(`  honesty: ${report.missing.length} asset(s) could not be inlined — ${report.missing.slice(0, 3).join(', ')}`);
+        if (webEmbed?.count) console.log(`  embedded ${webEmbed.count} web picture(s) (--allow-remote), ${(webEmbed.bytes / 1024).toFixed(0)} KB`);
+        if (webEmbed?.missing.length) console.warn(`  honesty: ${webEmbed.missing.length} web picture(s) could not be embedded and show as placeholders — ${webEmbed.missing.slice(0, 2).map((m) => `${m.url} (${m.reason})`).join('; ')}`);
+        // --player-consent offers pictures placed with ![](…) only. Say what else the declared sites
+        // carry that stays a placeholder (a web ![bg], a video), rather than let the author find out.
+        if (PLAYER_CONSENT.length) {
+          const unoffered = webBlockedAtRender.filter((b) => b.kind !== 'image' && PLAYER_CONSENT.includes(b.origin));
+          if (unoffered.length) console.warn(`  note: ${new Set(unoffered.map((b) => b.url)).size} web background(s) or media from ${[...new Set(unoffered.map((b) => b.origin))].join(', ')} stay placeholders: --player-consent offers pictures placed with ![](…) only.`);
+          if (!/id="lp-consent"/.test(finalPlayerHtml)) console.warn(`  note: --player-consent named ${PLAYER_CONSENT.join(', ')}, but no picture in the deck comes from there, so the player has no consent banner.`);
+        }
         if (inflatedDocHtml && (hasStateChart || hasHydratedPlugins || hasFlowchart)) console.log('  baked dynamic components (state-chart / flowchart / plugin figures) to static SVG');
         else if (report.strippedScripts.length) console.warn(`  note: ${report.strippedScripts.length} runtime component(s) could not be baked — they will be blank in the player`);
         for (const n of pruneNotes) console.log(n);

@@ -188,6 +188,10 @@ tightened at runtime, never loosened.
 The default stays what ships today, zero remote. One honest limit: consent cannot persist
 reliably for a file opened from disk, so it is asked each time the file is opened.
 
+*As shipped (§11.4):* the policy grants `connect-src` for the declared origins and never `img-src`,
+the script fetches each picture after consent, and the per-picture links sit in the banner rather
+than on each placeholder.
+
 **Also found.** Under `--allow-remote` the CLI probably ships remote `<img>` URLs that its
 own CSP then blocks: a broken image rather than a placeholder. This is inferred from the
 code, not run. Two comments contradict the source about the CSP (`inline-url-media.mjs:8`
@@ -681,6 +685,62 @@ checker found the first cut of those tests could not fail on the restore or the 
 both now fail when either is disabled. It also had `root` wrapped in `:is()` (a comma in it split
 the gate's selector), an `undefined` override keep its default instead of erasing it, and the
 freeze style excluded from the gate's choice of sheet.
+
+### 11.4 Viewer consent for remote pictures (P4)
+
+**What ships.** `--player-consent <origins>` (CLI). Each web picture from a declared origin ships
+as the drawn placeholder `blockWebImages` already writes, its address kept inert in
+`data-lattice-web-src`. A banner names the sites and says what loading sends them ("your IP address
+and the time you opened this file"), with **Load pictures** and **Not now** styled alike. On Load,
+the hash-pinned script fetches each address once (CORS, no cookies, no referrer), checks the answer
+is a picture, and swaps it into every copy (the slide and the Read · Article figure) as a blob URL.
+With scripting off nothing loads, the banner lists each picture as a plain link, and a checkbox
+closes it. It is hidden in print and in a video recording. A deck that declares no origin, or one
+it never uses, ships byte-identical to before.
+
+**Shipped differently from §4.3, because the trio broke the first cut.**
+
+- **The policy never names a picture site in `img-src`.** The first cut granted
+  `img-src data: <origin>`. The red team then loaded from the declared site on open, before
+  consent and with scripting off, in Chromium, WebKit and Firefox, through deck CSS the placeholder
+  pass does not rewrite: `image-set()`, a CSS-escaped `url`, and an SVG `<feImage>`. With the site
+  in `img-src`, the policy was no longer a backstop for it. The shipped policy is
+  `img-src data: blob:; connect-src <origins>`: deck markup and CSS cannot open a `connect-src`
+  request, so only the script can, after the reader presses Load. Re-run against the red team's own
+  deck: zero requests before consent in all three engines, with and without scripting; after
+  consent only the declared site is contacted, and a redirect to an undeclared port is refused.
+- **The cost of that design:** the picture's host must allow a cross-origin read (it sends
+  `Access-Control-Allow-Origin`). When it does not, the request still reaches the site, the picture
+  stays a placeholder, and the banner says so and shows the links. The docs and `--help` say this.
+- **`--allow-remote` now embeds.** The inversion pass found the better answer to most authors' need
+  already in the repo: under `--allow-remote` the CLI embeds every web picture it can fetch
+  (`inline-url-media.mjs`, as the Studio's "Embed pictures from other sites" does), and one it
+  cannot fetch ships as the placeholder with a note. Before, such a player shipped
+  `<img src="https://…">` under `img-src data:`, a broken image. Consent mode is for pictures that
+  must stay live.
+- **The checker's fixes:** Space on a focused banner button turned the slide (the Present keymap
+  listens on the window) and now presses the button; at 390 px the banner covered the slide arrows
+  and now sits above them; the CLI refused `https://X.com/`, which is an origin; the failure line
+  says "the pictures" when none loaded; `--player-consent` without `--player` now prints the same
+  note `--player-mode` does.
+
+**Evidence.** Driven through Playwright in Chromium, WebKit and Firefox, on a CLI export whose
+"remote" site is a local server that counts requests:
+
+| Check | Chromium | WebKit | Firefox |
+|---|---|---|---|
+| Requests on open, scripts on | 0 | 0 | 0 |
+| Requests on open, scripts off | 0 | 0 | 0 |
+| After Load pictures (host sends CORS): pictures shown, requests | 2 of 2, 1 | 2 of 2, 1 | 2 of 2, 1 |
+| After Load pictures (host sends no CORS): banner shows the links | yes | yes | yes |
+| Space on a focused Load pictures | loads, slide unchanged | same | same |
+| No-JS Close | hides the banner | same | same |
+| Red team's leak deck, before consent, scripts on and off | 0 | 0 | 0 |
+
+**Scope left out, stated.** Pictures only. A web `![bg]` becomes a hatch at render and loses its
+address; video, audio and embeds are not offered, and the export says when a declared site carries
+any of them. The Studio has no way to declare origins yet, so this is CLI-only; the logic sits in
+`assemblePlayer`, so the Studio needs only the setting. Consent is asked each time the file opens.
 
 ### 11.5 Why Firefox takes half a minute to open the gallery player (P5)
 
