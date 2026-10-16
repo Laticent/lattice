@@ -546,7 +546,13 @@ The **inline-span tier** times the decision every inline-code span pays in
 span, which no whole-deck render can resolve. It runs the 5,314 spans frozen in
 `test/benchmark/fixtures/inline-spans.json`, split into the ones the shipped path reads as
 directives (avatars, sparks, pills, which carry two thirds of the time) and ordinary code (a
-cheap guard rejects those). Each row is timed in 2,000 short slices that alternate with the
+cheap guard rejects those). Ordinary code was 5.7x the retired kernel until followup 2718-p3 found
+where: 175 of its 4,946 spans are brace records that are not pills (`{2, 82}`, `{who=sales}`), and
+each paid the generated parser plus a full Segno bind that worded a diagnostic nobody read. A
+first-character table in front of the row loop, Segno's `refuses`, and a direct scan of plain
+records took the row from 6.71 to 2.75 on one machine in one session (the blessed pair, from two
+runner classes, is 5.72 to 2.75; directives 45.0 to 39.3) (docs/src/lib/segno/README.md § How a
+record binds fast). Each row is timed in 2,000 short slices that alternate with the
 retired kernel (`tools/parser-bakeoff/reference.mjs`) on the same spans, and it gates on the
 median of the per-slice ratios: absolute ns move ±11% between processes on one machine, and the
 ratio holds within a few percent. The ratio gates at the render tier's 12% floor whenever the

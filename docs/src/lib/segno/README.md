@@ -451,11 +451,28 @@ A plain `{…}` span of bare words and `name=bare` items (a pill, a chart point,
 straight from the parser's flat tree. The full bind builds an `Item` and a `Scalar` per item, a
 `Binding`, and a result; the fast read builds only the result. It is the same rules as the full
 bind (§ Write a grammar): positionals first, a declared name, a bare word to its one owner. It
-only ever succeeds. On anything else it returns null and the full bind runs, and the full bind
-alone words an error: a quote, a nested record or list, an unknown name or word, a repeat, a
+never words an error. On a span it cannot bind it stops and the full bind runs, and the full bind
+alone words the error: a quote, a nested record or list, an unknown name or word, a repeat, a
 missing required value, a tag, a sigil, a sub-slot. So an error reads as it always did, and
 `schema.test.ts` holds a success equal to the full bind's on every span of one to three items
 built from a pool that reaches each of those branches.
+
+When the walk stops on a word it has READ (an unknown name, a word nothing takes, a value its type
+refuses, a repeat, a missing positional), the span is certain to fail: the full bind never recovers
+from one bad item. `slot.refuses(text)` returns that answer, true or false, without the full bind,
+so a caller that only needs to know whether a span binds skips the cost of the message. False
+means the span binds or the walk could not tell, so the caller still calls `read`. Lattice asks it
+of every brace span in inline code before reading it as a pill: most of those are someone else's
+braces (`{2, 82}`, a chart point), and the full bind of a refusal cost 1.8 µs. `refuses` is
+experimental, like the grammar engine.
+
+The plainest spans skip the generated parser too. A span with `{` first, `}` last and no `{}[]"|`
+in between is scanned directly into the same flat tree (`plainRecordTree` in `notation.ts`): items
+split on commas, each a bare run or `name=value`. On `{2, 82}` that costs a tenth of the generated
+parser's 550 ns. Any span outside that shape, and any step of it the grammar would refuse, goes to
+the generated parser, so that parser alone decides every error. `notation.test.ts` holds the
+scan's tree equal to the parser's, node for node, on every span of up to five characters drawn
+from the characters it tells apart.
 
 One more condition keeps it correct. The parser writes one reused buffer, and the fast read walks
 it while it calls each parameter's `read`. A type of your own may parse a span inside its `read`,

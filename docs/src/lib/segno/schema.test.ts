@@ -423,6 +423,44 @@ describe('the fast read', () => {
     });
   }
 
+  // `refuses` answers "certain to fail" without the full bind, so it must never refuse a span the
+  // full bind accepts. It may answer false for a failure it cannot see (a quote, a nesting), so
+  // the other direction is only counted: the pool must reach the refusals it exists for.
+  for (const [name, slot] of Object.entries(slots)) {
+    it(`${name}: a span \`refuses\` refuses never binds`, () => {
+      let refused = 0;
+      for (const span of spans) {
+        if (!slot.refuses?.(span)) continue;
+        refused++;
+        bindMode.fast = false;
+        const full = slot.read(span);
+        bindMode.fast = true;
+        if (full.ok) throw new Error(`${name} refuses ${span}, which the full bind accepts`);
+      }
+      // Every slot here is fastable, so the pool's unknown words and repeats reach the walk's refusals.
+      expect(refused).toBeGreaterThan(100);
+    });
+  }
+  it('a span that binds is walked once, when `read` follows `refuses`', () => {
+    const hits = bindMode.hits;
+    expect(pill.refuses?.('{BETA, tag}')).toBe(false);
+    expect(pill.read('{BETA, tag}').ok).toBe(true);
+    expect(bindMode.hits - hits).toBe(1);
+    // The hand-over is one-shot and keyed by text: a different span is walked on its own.
+    pill.refuses?.('{BETA, tag}');
+    expect(pill.read('{LIVE, c4}').ok).toBe(true);
+    expect(pill.read('{BETA, tag}').ok).toBe(true);
+    expect(bindMode.hits - hits).toBe(4);
+  });
+  it('refuses nothing it cannot decide, and never a shortcut', () => {
+    const state = record({ label: 'a state', params: { state: oneOf(['done', 'todo']) }, shortcuts: { '{x}': '{done}' } });
+    expect(state.read('{x}').ok).toBe(true);
+    expect(state.refuses?.('{x}')).toBe(false);
+    expect(pill.refuses?.('{"quoted", nope}')).toBe(false); // a quote: the walk cannot tell, the full bind decides
+    expect(pill.refuses?.('{BETA, nope}')).toBe(true);
+    expect(pill.refuses?.('{BETA, tag}')).toBe(false);
+  });
+
   it('a result the fast read builds is the same object shape as the full path\'s, spellings included', () => {
     const a = pill.read('{BETA, TAG, c4}');
     bindMode.fast = false;
