@@ -166,7 +166,8 @@ comma-grouped value (funnel 64, hub-spoke 19, line 12, bar 1; 122 when `.docs.md
   (`measure`, `pct`, `weight`, `volume`) stays an alias for `value` or `size`. Journey's `who` and `mood`, hub-spoke's
   `flow` and state-chart's styling keys stay chart-specific. `total` (waterfall's anchor versus stacked-bar's printed sum)
   and `note` (heatmap's hidden detail versus progress's visible one) collide too and are not decided here: phase 2's schema
-  names them. Evidence: a read-only survey of all 23 charts' parsers and docs.
+  names them. Named (phase 2, 2026-10-16): waterfall's `total` is a value of `kind`, stacked-bar's authored total is
+  dropped (unused), and `note` is progress's visible field; heatmap's `note=` is retired by decision 7 anyway. Evidence: a read-only survey of all 23 charts' parsers and docs.
 - **Decided 2026-10-16: `|` in a description is allowed, and the author escapes it as `\|`.** Segno still reserves `|` inside
   a record (decision 4); prose is exempt. A table cell is split on an unescaped `|` by GFM before Segno reads it, so a
   bare `|` in a table description silently adds a cell. A lint rule in `lib/authoring/lint-core.js` must warn on it and
@@ -219,6 +220,30 @@ The adversarial trio (red team, inversion, checker) reviewed the first draft. Wh
    forms. The old-form branch is transitional and is deleted in phase 4, so nothing reads the old spellings after it.
    This departs from Segno decision 9 (no dual-syntax period) and decision 24 (the codemod deleted before merge) for
    the span of phases 2 to 4, because those phases are separate PRs to `main`.
+
+   **Phase 2, slice 1 (2026-10-16): the schemas and the reader's seam.** Each of the 16 charts declares its row in
+   its manifest's `segno` block (a `row` slot, `cell` on the two grid charts), with a `rows` block for shape, detail,
+   markless depths (`markless`), whether a `>` under a list row is its description (`quotes`) and `legacy`, the spans the chart
+   reads today. `lib/core/chart-rows.js` is the one reader: the narrator and lint take the detail charts, the
+   markless rows and a row's `>` description from it (Compose reads the same `quotes` flag from the generated
+   catalog, pinned to the reader by a test), and `rowQuotesAsBullets` is deleted (the narrator reads descriptions as
+   structure, not as rewritten source). The record form is linted, not drawn: `chart-row-record-unread` warns on a
+   data row written as one record and names the old spans, because today that row loses its value; it has no
+   machine fix, so a bulk fix never pushes decks away from the form phase 4 writes. A schema the chart does not draw
+   yet does not count as the component reading a span (`componentReads`), so the pill lint still judges it. Names
+   decided by the schema: waterfall's marker is `kind` (`total` / `step`), progress's `status` is the shared status
+   vocabulary (`lib/core/chart-status.js`) and its visible note is `note`, and stacked-bar's authored group total is
+   dropped (no group row in the corpus carries a span, census note §4). Left out until a reader reads it: quadrant's
+   trail end `to`. One exception the format does not express yet, for the phase 4 count: map's `value` is `text`
+   because it is a number in a choropleth and a category word under `highlight`. Corpus evidence: all 895 chart
+   slides render, narrate and lint identically (895 by the engine's own section split).
+
+   **Phase 2, still to do.** The ownership step (§9: a row's data record claimed before the pill pass on every
+   path, narrower than `sits: list-rows`, which would also stop a label's pill and a description's pill rendering);
+   each transform and narrator reading the record through `readRecord` instead of its private parser (the census
+   note §3 table); the `{> …}` production; and the census tool reporting no private reader. Until the record is
+   drawn, `chart-row-record-unread` keeps the record form from failing silently. Held in
+   `followups.d/2690-p1-chart-model-phase-2-reader.md`.
 3. **Editor.** The Insert menu, the schema-driven grid for lists and tables, the description fields, and reshape.
 4. **Normalize.** The codemod, kept runnable as a migrator because it is the last clean break before GA, the old
    branch deleted, locale display on, and a `**Breaking:**` fragment. Gated by §7, and it gets the full adversarial

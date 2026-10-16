@@ -120,7 +120,7 @@
     "series": {
       "selector": "ul > li",
       "required": true,
-      "description": "One li per series (option). Format: `Label — v1, v2, v3, v4, …` one number per axis."
+      "description": "One li per series (option): its name, then one nested li per axis, the axis name and its score: `- Performance `9``. Every series names the same axes; a later series is matched to the first by axis name. Under the `quadrant` variant the axes nest one level deeper, under named groups. A `>` under the series name describes nothing (a series has no mark of its own; lint `chart-row-quote-unread`): put it under an axis, where it is that axis's description."
     },
     "detail": {
       "selector": "li > ul > li > ul",
@@ -297,5 +297,34 @@
       }
     },
     "key": "first"
+  },
+  "segno": {
+    "row": {
+      "label": "a radar axis score",
+      "positional": [
+        {
+          "name": "value",
+          "type": "number",
+          "required": true
+        }
+      ],
+      "params": {},
+      "rows": {
+        "shape": "series",
+        "quotes": true,
+        "markless": {
+          "default": [
+            1
+          ],
+          "quadrant": [
+            1,
+            2
+          ]
+        },
+        "legacy": [
+          "value"
+        ]
+      }
+    }
   }
 }

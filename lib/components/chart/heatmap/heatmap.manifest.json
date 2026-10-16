@@ -209,5 +209,23 @@
       }
     },
     "key": "act:peak"
+  },
+  "segno": {
+    "cell": {
+      "label": "a heatmap cell",
+      "positional": [
+        {
+          "name": "value",
+          "type": "number",
+          "required": true
+        }
+      ],
+      "params": {},
+      "rows": {
+        "shape": "grid",
+        "quotes": false,
+        "empty": "not-measured"
+      }
+    }
   }
 }

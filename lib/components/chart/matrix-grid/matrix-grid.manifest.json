@@ -222,5 +222,31 @@
       }
     },
     "key": "act:visit"
+  },
+  "segno": {
+    "cell": {
+      "label": "a matrix-grid mark",
+      "positional": [],
+      "params": {
+        "state": {
+          "type": "oneOf",
+          "values": [
+            "done",
+            "partial",
+            "todo"
+          ]
+        }
+      },
+      "shortcuts": {
+        "[x]": "{done}",
+        "[-]": "{partial}",
+        "[ ]": "{todo}"
+      },
+      "rows": {
+        "shape": "grid",
+        "quotes": false,
+        "empty": "none"
+      }
+    }
   }
 }

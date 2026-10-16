@@ -1,5 +1,5 @@
 import { Fragment, type Node as PMNode, Schema } from 'prosemirror-model';
-import rowDetail from '../../../../lib/core/chart-row-detail.js';
+import segnoSlots from '../../../../lib/core/segno-slots.generated.js';
 import { CLIP_ORIGIN } from './clip-origin';
 import { latticeMarkdownSerializer, parseSlideProse, proseSchema } from './deck-markdown';
 import { composeSlideChunk, hasLossyConstruct, parseDeck } from './deck-source';
@@ -136,8 +136,20 @@ export function deckToDoc(source: string): PMNode {
 	return deckSchema.nodes.doc.create({ frontMatter: fm }, slideNodes);
 }
 
-/** The charts whose rows are a list Compose may tighten: the ones that read a row's `>`. */
-const ROW_LIST_CHARTS = new Set<string>([...rowDetail.DETAIL_CHARTS, ...rowDetail.QUOTE_CHARTS]);
+/**
+ * The charts whose rows are a list Compose may tighten: the ones that read a row's `>`. That is
+ * every chart whose row schema says a `>` under a row is its description (`rows.quotes` in its
+ * manifest's `segno` block, the same test lib/core/chart-rows.js `DETAIL_CHARTS` makes), plus the two charts that read a
+ * row's `>` through their own grammar (chart-rows.js `QUOTE_CHARTS`). Read from the generated
+ * catalog because it requires nothing, which the dev server's CJS shim needs.
+ */
+const ROW_LIST_CHARTS = new Set<string>([
+	...Object.entries(segnoSlots as Record<string, Record<string, { rows?: { quotes?: boolean } }>>)
+		.filter(([, slots]) => Object.values(slots).some((slot) => slot.rows?.quotes === true))
+		.map(([chart]) => chart),
+	'flowchart',
+	'state-chart',
+]);
 
 /**
  * A chart's rows are data, so a blank line between them means nothing: the chart draws the same

@@ -272,5 +272,28 @@
       }
     },
     "key": "largest:series"
+  },
+  "segno": {
+    "row": {
+      "label": "a line point",
+      "positional": [
+        {
+          "name": "value",
+          "type": "number",
+          "required": true
+        }
+      ],
+      "params": {},
+      "rows": {
+        "shape": [
+          "fields",
+          "series"
+        ],
+        "quotes": true,
+        "legacy": [
+          "value"
+        ]
+      }
+    }
   }
 }
