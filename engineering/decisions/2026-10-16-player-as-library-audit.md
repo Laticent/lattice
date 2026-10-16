@@ -775,6 +775,37 @@ of anything. A real fix redesigns the no-JS floor (likely: move the token arms t
 follows the checkbox, and keep `:root` for what only the root can carry), changes every export's
 bytes, and needs the scheme matrix and an export sign-off of its own. It is a followup.
 
+### 11.6 A `![bg]` on a slide that is not `image` (P6)
+
+**What the followup saw was a CLI bug, not an authoring error.** The shared engine draws a
+`![bg](x)` on a slide that is not `image` as the slide's own full-bleed background
+(lib/engine/background-image.js, Marp's behavior), and the Studio showed it. The CLI did not:
+`lattice.js` lifted EVERY `![bg]` into a `.lattice-bg` div before render, and only the `image`
+layout positions that div, so on any other slide the picture drew nothing, in the PDF, the HTML
+and the player. A lint telling the author to add `image` would have taught a workaround for that
+bug, and told Studio authors something false.
+
+**Fixed at the root (HARD RULE #1):** the CLI now lifts with the engine's own class-aware
+`liftImageBgImages`, so both hosts draw the same thing. That function also learned the running
+`<!-- class: image -->` directive, which the CLI used to get right only by lifting everything; a
+slide's own `_class:` overrides it. No committed deck has a `![bg]` on a slide that is not `image`,
+and six decks that use `![bg]` (`adaptive-image`, `sample-images`, `marp-export-fidelity`,
+`pdf-export-portability`, `finish-canvas-light-half`, `slide-edge`) render byte-identical HTML
+before and after. The player half of this (the section background's `url(&quot;…&quot;)` was not
+inlined) is §11.7, which landed first so this never shipped a `file://` reference.
+
+**The lint, for what still silently fails** (`lint-core.js` rule 14e, registered in
+spec/diagnostics.md):
+
+- `bg-side-unread`: `left` / `right` or a ratio on a slide that is not `image`. The picture fills
+  the slide behind the text; fix: add `<!-- _class: image -->`.
+- `bg-ratio-unread`: a ratio such as `![bg left:40%]` on an `image` slide. The lift does not read
+  it, so the slide loses its panel; fix: write `![bg left]`.
+
+A plain `![bg]` is not flagged: it works. Both rules fire on the repros, stay silent on every
+committed deck (`lint:deck --all`: no new findings), and `test/unit/authoring/bg-keyword-lint.test.js`
+pins them and the running-class lift. Demo deck: `examples/bg-on-any-slide.md`.
+
 ### 11.7 A relative section background reached the player un-inlined (P7)
 
 **Reproduced.** `![bg left:40%](a.jpg)` on an `image` slide: the lift reads only `left` / `right`
