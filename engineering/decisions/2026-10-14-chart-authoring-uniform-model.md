@@ -34,12 +34,14 @@ table before binding, so the reader, reshape and conformance tests all target on
 
 | Written as | One row is | Charts |
 |---|---|---|
-| **A list** | a label plus ONE `{…}` record: its data items first (one value, or scatter's x and y), then named parameters bound by the chart's schema | bar (one series), line (one series), piechart, funnel, waterfall (`{+2.1M, total}`), word-cloud, map, scatter (`{$420k, 18%, size=140}`), quadrant (points nested under its four named groups) |
-| **A table, series shape** | a label column, then one column per series; the header row is data (series names, axes, points) | grouped bar, multi-series line, stacked-bar, slope, radar |
+| **A list** | a label plus ONE `{…}` record: its data items first (one value, or scatter's x and y), then named parameters bound by the chart's schema | bar (one series), line (one series), piechart, funnel, bullet, progress, waterfall (`{+2.1M, total}`), word-cloud, map, scatter (`{$420k, 18%, size=140}`), quadrant (points nested under its four named groups) |
+| **A table, series shape** | a label column, then one column per series; the header row is data (series names, axes, points) | grouped bar, multi-series line, stacked-bar, slope, radar (its `quadrant` variant stays a nested list) |
 | **A table, grid shape** | a label column, then one column per category; every crossing is a value | heatmap, matrix-grid |
 
-Open (owner, §7): bullet and progress. Each row is one measure plus named parameters (`{4.2M, target=5.0M}`,
-`{68%, at-risk}`), which fits the list form under the rule above; an earlier draft put them in tables.
+Decided (owner, 2026-10-16, after a measured bake-off): bullet and progress are lists, and radar is a table. Each bullet or
+progress row is one measure plus named parameters (`{4.2M, target=5.0M}`, `{68%, at-risk}`), which fits the list form under
+the rule above. Radar's rows share the same named columns across several series, which is the table-shaped case. Radar's
+`quadrant` variant (3 slides) adds a group level no table holds, so it stays a nested list. The bake-off is in §7.
 
 Outside this model, by choice: gantt (spans and `after=` dependencies), kanban (cards in columns), journey (its own
 record, Segno decision 11), and the structure charts (flowchart, state-chart, hub-spoke, roadmap, timeline-list). They
@@ -137,14 +139,39 @@ comma-grouped value (funnel 64, hub-spoke 19, line 12, bar 1; 122 when `.docs.md
 
 ## 7. Open, for the owner
 
-- **Bullet and progress:** list records (`{4.2M, target=5.0M}`, `{68%, at-risk}`) or tables. Bullet takes any number of
-  `Band` rows (it draws the three nearest the target) and an optional floor, which a record names more easily than a fixed set of columns.
-- **Radar's `quadrant` variant** (series, then group, then axis) does not fit a GFM table: it stays a nested list, or
-  gets a group spelling.
-- **The cross-chart field vocabulary** (`value`, `target`, `status`, `x`, `y`, `size`, `group`) is decided in phase
-  2's note, before any manifest gains a schema, so reshaping has shared names to project between.
-- **A `|` inside a description.** Segno reserves `|` inside a record (decision 4). The recommendation is that prose is
-  exempt, so a table description can hold `\|`.
+- **Decided 2026-10-16: radar is a table; bullet and progress are list records.** Measured over the corpus (every deck,
+  gallery, docs example and manifest sample; counts match the census: 44 plain radar slides plus 3 quadrant, 20 bullet slides
+  with 86 rows, 30 progress slides with 140 rows), each slide converted to both forms. Re-derive with
+  `node tools/chart-list-vs-table-bakeoff.mjs --sensitivity` (a corpus edit moves every number, so quote the commit):
+
+  | | radar list → table | bullet list → table | progress list → table |
+  |---|---|---|---|
+  | characters, table unpadded | 13,740 → 7,908 (−42%) | 3,498 → 3,837 (+10%) | 5,012 → 6,334 (+26%) |
+  | characters, table padded to align pipes | 13,740 → 14,304 (+4%) | 3,498 → 5,822 (+66%) | 5,012 → 9,341 (+86%) |
+  | axis or label names written | 610 → 225 | same | same |
+  | places touched to add or rename an axis | 2.7 → 1 | n/a | n/a |
+  | places touched to add a series or band | 1 → 6.1 | 1 → 4.3 | n/a |
+  | optional cells left empty in a table | n/a | 84% (26 of 31) | n/a |
+
+  A table is a clear win for radar under every weighting tried (raw-markdown, Compose-first, agent author), including a
+  worst case that scores the list's Compose support and error hazard generously. Bullet's table would be 84% empty cells.
+  Progress is the closest call: the list wins unless Compose carries about a fifth of the weight. A table edits in Compose
+  today (an editable grid with Tab to add a row); a `{…}` list row has no row editor yet (the chart-series grid was never
+  built), so that editor is the one thing that would move progress. Not measured: authoring error rates for people and for
+  models. Radar's size saving holds only when pipes are left unaligned.
+- **Decided 2026-10-16: the cross-chart field vocabulary.** Shared core: `value`, `target`, `status`, `x`, `y`, `size`, `group`,
+  plus `band`, `floor`, `kind` (waterfall's bar kind), `when` (a date or span), `after` (a dependency) and `to`
+  (quadrant's trail end). Two renames remove the collisions the survey found: kanban's S/M/L/XL badge is `effort`, so
+  `size` means bubble size only; map's bloc of regions is `bloc`, so `group` means a category only. A chart's old word
+  (`measure`, `pct`, `weight`, `volume`) stays an alias for `value` or `size`. Journey's `who` and `mood`, hub-spoke's
+  `flow` and state-chart's styling keys stay chart-specific. `total` (waterfall's anchor versus stacked-bar's printed sum)
+  and `note` (heatmap's hidden detail versus progress's visible one) collide too and are not decided here: phase 2's schema
+  names them. Evidence: a read-only survey of all 23 charts' parsers and docs.
+- **Decided 2026-10-16: `|` in a description is allowed, and the author escapes it as `\|`.** Segno still reserves `|` inside
+  a record (decision 4); prose is exempt. A table cell is split on an unescaped `|` by GFM before Segno reads it, so a
+  bare `|` in a table description silently adds a cell. A lint rule in `lib/authoring/lint-core.js` must warn on it and
+  carry the fix (`\|`); it ships with the first `{> …}` table description (phase 3), and
+  `followups.d/2723-p2-lint-unescaped-pipe-in-description.md` holds it until then.
 - **Phase 4 goes ahead only on evidence from phases 2 and 3** (how many schema exceptions today's shapes need, what
   authors mis-type in the new editor), the bar Segno decision 17 sets, and with the owner's sign-off.
 

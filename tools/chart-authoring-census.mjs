@@ -468,4 +468,4 @@ function main(args) {
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) main(process.argv.slice(2));
 
-export { blank, blocks, census, countSlide, spanKind };
+export { blank, blocks, census, corpus, countSlide, spanKind };
