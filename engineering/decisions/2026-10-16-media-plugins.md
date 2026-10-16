@@ -306,7 +306,7 @@ and between them they cover everything a picture, a clip or a code needs to say.
 Every surface in the table above reads those two attributes rather than scraping the slide's text: narration, the
 Guide's figure unit, the tooltip, the notes page, the CLI's `--captions` file and any export. The prefix follows the
 hooks that exist today: `[data-lattice-desc]`, a component's own text alternative (journey's board,
-`journey.transform.js:316`), which `describedText()` reads in `lib/transformers/prose-projection.mjs:737` along with
+`lib/components/chart/journey/journey.transform.js:316`), which `describedText()` reads in `lib/transformers/prose-projection.mjs:736` along with
 `.lattice-description`, the author's `describe:` pragma. Nothing ships a title attribute today, and narration's caption
 band comes from `say:` or the speech projection, not from an attribute. The bare `data-title` / `data-description` are
 not used: an author's raw HTML can carry them, so a reader could not tell the plugin's text from the author's markup.
@@ -315,7 +315,7 @@ The build adds `[data-lattice-title]` and `[data-lattice-description]` to the pr
 and never read twice by the generic walk. The attributes survive the preview sanitizer: `lib/core/sanitize-slide-html.mjs` leaves
 DOMPurify's `ALLOW_DATA_ATTR` at its default, which keeps `data-*`.
 
-**The plugin owns its text, not the layout** (proposed 2026-10-16; owner leaning, to confirm). The plugin renders its
+**The plugin owns its text, not the layout** (owner, 2026-10-16; decision 17). The plugin renders its
 figure together with its title and description; a layout places and sizes the figure and never reads, writes, hides or
 restyles that text. This is the secure split (no layout composes text from a slide again, the pattern §4.5 retires),
 and it gives one behavior on every layout. What shows by default, by kind, from the test below:
@@ -534,7 +534,7 @@ The Studio Guide narrates a deck (speech), points at what it says (gestures), sh
   heading, the prose and the `<figcaption>`, and skips the visual (`speakGeneric`, `:1617`). It never speaks alt text
   (`collage` alone reads each photo's alt, `speakCollage`, `:1589`), never a QR payload, a video URL or a provider label.
 - **The Guide points at text, and at a whole figure only for one gesture.** Gestures resolve against the component's
-  `gesture` units (`lib/core/scene-resolve.mjs:96`, the `media` archetype in `lib/core/gesture.js`); a figure is a target
+  `gesture` units (`lib/core/scene-resolve.mjs:96`, the `media` archetype, `lib/core/gesture-archetypes.json:134`, loaded by `lib/core/gesture.js`); a figure is a target
   only for the `expressive` delivery's frame bracket (`lib/core/delivery-styles/expressive.mjs:51`). The live cursor
   treats images and wordless SVGs as obstacles, and focus falls back to ink on `img`, `video` and `figure`
   (`docs/src/components/studio/present-guide.ts:2624`).
@@ -568,7 +568,7 @@ The Studio Guide narrates a deck (speech), points at what it says (gestures), sh
 
 **Found on the way, not yet confirmed:** a probe on hand-written markup suggests the `wifi` card's fields are silent in
 narration, because its `<dl>` wraps each pair in a `div.qr-row` (`wifi.transform.js:74`) and the projection reads only
-a `<dl>`'s direct `<dt>` children (`prose-projection.mjs:1636`). Logged as
+a `<dl>`'s direct `<dt>` children (`prose-projection.mjs:1634-1637`). Logged as
 `followups.d/2727-p3-wifi-card-silent-in-narration.md`, to be confirmed on a real render first.
 
 ## 5. Why records, not Marp keywords
@@ -660,15 +660,15 @@ Slices 2 and 3 rebase onto #2725 once it lands, because they delete rows from it
 12. **`sm` / `md` / `lg` size images, video players and QR codes** (§4.7), `md` by default: a small relative step,
     clamped so `lg` never overflows its box and `sm` never drops below a legible floor.
 13. **Narration speaks a media record's title, then its description, never a QR payload** (§4.10).
-16. **The description is hidden on the slide by default**; it reaches the room through narration, the tooltip and the
-    print notes (§4.7).
-17. *(proposed, owner leaning)* **The plugin owns its title and description**, with defaults by kind (QR and video
-    titles shown, image titles hidden) and a per-record `show=`; layouts never touch the text (§4.7).
-18. *(proposed)* **The figure carries `data-lattice-title` and `data-lattice-description`**, and every reader
-    (narration, the Guide, the tooltip, the notes, exports) takes the text from them (§4.7).
 14. **On a narrated slide a clip plays after the narration**; a Library or file clip is timed and goes into
     the MP4 with its sound, a host's clip holds on its poster (§4.10).
 15. **The narration's caption band hides while a clip plays**, and the Guide draws nothing over it (§4.10).
+16. **The description is hidden on the slide by default**; it reaches the room through narration, the tooltip and the
+    print notes (§4.7).
+17. **The plugin owns its title and description**, with defaults by kind (QR and video
+    titles shown, image titles hidden) and a per-record `show=`; layouts never touch the text (§4.7).
+18. **The figure carries `data-lattice-title` and `data-lattice-description`**, and every reader
+    (narration, the Guide, the tooltip, the notes, exports) takes the text from them (§4.7).
 
 ## 9. Progress
 
@@ -679,7 +679,9 @@ Slices 2 and 3 rebase onto #2725 once it lands, because they delete rows from it
 - 2026-10-16: the owner set the text model: every record has `title` and `description`, and `alt`, `caption`,
   tooltips, narration and the Guide's targets are derived from them under the hood (§4.7).
 - 2026-10-16: the figure's text is stored as `data-lattice-title` / `data-lattice-description` on the plugin's
-  element, the one source every reader takes (§4.7; decision 18 proposed).
+  element, the one source every reader takes (§4.7; decision 18).
+- 2026-10-16: owner settled decisions 17 (the plugin owns its title and description) and 18 (the
+  `data-lattice-*` attributes).
 - 2026-10-16: §4.10 added: narration, the Guide and its captions; owner settled decisions 13–15 as recommended.
 - 2026-10-16: (superseded by the title/description model) author-facing names follow the presentation tools (owner: authors, not web developers). `caption` is the
   text field; `alt` is optional and filled by Lattice when missing; the hover `title` and the QR `ec` word are dropped.
