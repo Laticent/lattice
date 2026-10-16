@@ -664,5 +664,4 @@ closing, which set `_header: ''` on purpose. A headerless slide is now a harness
 it is not a generated one; before, its findings were dropped from the generated counters, now
 they are counted.
 
-Nothing in the findings list changed shape: 17 of 75 components with findings, and the card-row
-trigger at 70% hit and 29% false alarm, the same as the sandbox run.
+CI's findings: 17 of 75 components (the card-row trigger scored 70% hit, 29% false alarm). I did not diff them against the sandbox run component by component, so the two are not claimed to match.
