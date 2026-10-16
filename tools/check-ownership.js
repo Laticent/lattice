@@ -1822,7 +1822,7 @@ const SANCTIONED_MONO_FONTS = [
   },
   {
     file: 'lib/plugins/code/code.styles.css',
-    selector: 'pre.lat-code',
+    selector: 'section :where(pre).lat-code',
     count: 2,
     why: 'the code panel every fenced block sits on, on any slide, and its `@code{title=…}` bar: a '
        + 'file name is text a reader transcribes, so it stays in the code voice.',

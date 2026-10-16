@@ -857,12 +857,26 @@ cache). Flags: `--width`/`--height`, `--full` (full-page), `--wait <css>`
 | Studio | `…/studio/` |
 | Playground | `…/playground/` |
 | Components index | `…/components/` |
+| Libraries hub / a demo / its Learn page | `…/libraries/` · `…/libraries/suono/` · `…/libraries/suono/learn/` |
+| Plugins hub / a demo / its Learn page | `…/plugins/` · `…/plugins/math/` · `…/plugins/math/learn/` |
+
+**The catalog (libraries + plugins).** Each library and author-facing plugin is one Markdown
+file in `docs/src/content/catalog/<libraries|plugins>/<slug>.md`: its front matter feeds the
+hub card and the demo's hero, its body is the Learn page, in a fixed teaching order
+(`REQUIRED_SECTIONS` in `docs/src/lib/catalog.mjs`, held by `catalog.test.ts`). A plugin's
+demo is generated from the file's `examples` (one slide each, through the live `Specimen`);
+a library's demo is its own hand-built page under `docs/src/pages/libraries/<slug>/`, which
+carries `<DemoBar>` and repeats the file's `promise` (the test checks it). A plugin's mark is not in the
+catalog: it is the plugin manifest's `icon` (`lib/plugins/<name>/<name>.manifest.json`), drawn by
+`lib/plugins/plugin-icon.mjs`; a library's mark is the `mark:` image its catalog file names. Adding one: write
+the file, add the entry to `librariesNav` / `pluginsNav` in `nav.mjs` (same order — the nav
+test checks), and, for a library, build its demo page.
 
 The whole site chrome is ONE shared component — `docs/src/components/site/SiteHeader.astro`
-(brand · nav · Tools disclosure · ⌘K command palette · theme controls), rendered by
+(brand · nav · ⌘K command palette · theme controls), rendered by
 every standalone route AND the Starlight docs zone (`Header.astro`). Nav links are the
-single source of truth in `docs/src/lib/nav.mjs` (`contentNav` = inline; `toolsNav` =
-the Tools group) — add a new top-level entry there. The interactive bits live in the
+single source of truth in `docs/src/lib/nav.mjs` (`appsNav` and `contentNav` inline;
+`catalogNav` = the Libraries and Plugins hub links) — add a new top-level entry there. The interactive bits live in the
 `NavActions.tsx` island (search/command palette via `CommandMenu.tsx`, the mobile Sheet).
 The universal search is the ⌘K command palette: it navigates anywhere, switches theme,
 and full-text-searches the docs via Starlight's Pagefind index (built site only — in

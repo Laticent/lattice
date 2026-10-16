@@ -7,7 +7,7 @@ import { alt, any, charRange, chars, compile, GrammarError, generate, lit, many,
 import { clipProblems, clipText, GrammarSourceError, MAX_EXPANDED, MAX_PROBLEMS, MAX_REPLY_TEXT, readGrammarSource, treeTooBig } from './segno-playground-grammar';
 
 const DSL = { alt, any, charRange, chars, lit, many, many1, node, noneOf, opt, ref, seq };
-const page = readFileSync(resolve(__dirname, '../pages/segno.astro'), 'utf8');
+const page = readFileSync(resolve(__dirname, '../pages/libraries/segno/index.astro'), 'utf8');
 // The presets are template literals in the page's script; `\${` never appears in them.
 const presets = [...page.matchAll(/^\t+code: `([\s\S]*?)`,$/gm)].map((m) => m[1]);
 // The OLD path, kept only here as the oracle: what the page did before it stopped running code.

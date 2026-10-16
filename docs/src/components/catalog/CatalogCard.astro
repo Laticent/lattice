@@ -1,0 +1,39 @@
+---
+// One card on a hub: the mark, the name, the promise, the problem it solves, and the two
+// doors — the demo and the Learn page. A plugin card also shows the line an author types.
+//
+// Props:  entry — a catalog entry
+import { joinBase } from '../../lib/base-url.mjs';
+import { hrefsFor } from '../../lib/catalog.mjs';
+import CatalogMark from './CatalogMark.astro';
+
+const { entry } = Astro.props;
+const d = entry.data;
+const url = (p) => joinBase(import.meta.env.BASE_URL, p);
+const hrefs = hrefsFor(entry, url);
+const pkg = d.facts.find((f) => f.k === 'Package')?.v;
+---
+
+<li>
+	<article class="cat-card">
+		<div class="cat-card-head">
+			<span class="cat-card-mark" aria-hidden="true">
+				{d.mark || d.kind === 'plugin' ? <CatalogMark entry={entry} size={26} /> : <span class="cat-mono">{d.name[0]}</span>}
+			</span>
+			<div class="cat-card-name">
+				<h3>{d.name}</h3>
+				{pkg && <code>{pkg}</code>}
+			</div>
+		</div>
+		<p class="cat-card-promise">{d.promise}</p>
+		<div class="cat-card-body">
+			{d.syntax && <code class="cat-card-syntax">{d.syntax}</code>}
+			<p class="cat-card-use"><strong>Use it when</strong> {d.useWhen[0].toLowerCase() + d.useWhen.slice(1)}</p>
+		</div>
+		<div class="cat-card-links">
+			{/* The visible words start each accessible name (WCAG 2.5.3); the hidden suffix says which card. */}
+			<a href={hrefs.demo}><span class="ico ico-play" aria-hidden="true"></span> Try the demo<span class="cat-sr">: {d.name}</span></a>
+			<a class="secondary" href={hrefs.learn}>Learn how it works<span class="cat-sr">: {d.name}</span> <span class="ico ico-arrow-right" aria-hidden="true"></span></a>
+		</div>
+	</article>
+</li>

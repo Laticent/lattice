@@ -4,7 +4,9 @@
 // altitude a reader chose — but ONLY a view a human approved. No React, no slide engine — the honest
 // proof the reader-lens core is a self-contained, deterministic, no-DOM library. A guided storyboard:
 // pick a lens and watch the deck shrink to a subset; see it fail CLOSED when unapproved; approve it;
-// watch it de-approve on drift. Reached at /lente.
+// watch it de-approve on drift. Reached at /libraries/lente/; its Learn page is
+// /libraries/lente/learn/ (src/content/catalog/).
+import DemoBar from '../../../components/catalog/DemoBar.astro';
 ---
 
 <!doctype html>
@@ -51,7 +53,8 @@
 			h1 { font-family: var(--stage-serif); font-size: clamp(28px, 5vw, 40px); font-weight: 600; margin: 0; letter-spacing: -.01em; }
 			.tag { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--accent);
 				border: 1px solid var(--accent); padding: 3px 8px; border-radius: 999px; font-weight: 600; }
-			.sub { color: var(--muted); font-size: 14px; max-width: 66ch; margin: 6px 0 0; }
+			.promise { font-family: var(--stage-serif); font-size: clamp(21px, 3vw, 27px); line-height: 1.3; color: var(--ink); max-width: 34ch; margin: 14px 0 0; text-wrap: balance; }
+			.sub { color: var(--muted); font-size: 15px; max-width: 64ch; margin: 8px 0 0; }
 			.sub b { color: var(--ink); font-weight: 600; }
 
 			.stage { margin: 26px 0 0; background: var(--stage); border: 1px solid var(--line); border-radius: 18px;
@@ -119,22 +122,18 @@
 	</head>
 	<body>
 		<div class="wrap">
+			<DemoBar slug="lente" />
 			<header>
 				<div class="brand">
 					<img class="logo" src="/lente-mark.svg" alt="" width="46" height="46" />
-					<h1>Lente</h1><span class="tag">reader lenses</span>
+					<h1>Lente</h1><span class="tag">Library</span>
 				</div>
 				<div style="display:flex; gap:14px; align-items:center;">
-					<a class="home" href="/">← Lattice</a>
 					<button class="theme" id="themeBtn" type="button">◐ theme</button>
 				</div>
 			</header>
-			<p class="sub">
-				One deck is written once. A reader opens it for a different job — the bottom line, the story, the
-				data. Lente projects the <b>same source</b> at the altitude a reader picks — but only ever a view a
-				<b>human approved</b>. It is a pure, deterministic, no-DOM function; every beat below runs the
-				<b>real engine</b> live.
-			</p>
+			<p class="promise">One deck. Every reader gets the view they need, and you approve each one.</p>
+			<p class="sub">Below is an eight-slide deck, opened as the <b>Bottom line</b>. Readers can't see that view yet, because nobody has approved it. <b>Approve this view</b>, then <b>edit a slide</b>: the view locks itself until someone checks it again.</p>
 
 			<div class="stage">
 				<div class="lenses" id="lenses" aria-label="Pick a lens"></div>
@@ -142,12 +141,12 @@
 					<span class="dot"></span>
 					<span class="st" id="readerSt">Reader view</span>
 					<span class="why" id="readerWhy"></span>
-					<button class="approve" id="approveBtn" type="button">Approve this lens ▸ stamp the hash</button>
+					<button class="approve" id="approveBtn" type="button">Approve this view</button>
 				</div>
 				<div class="deck" id="deck"></div>
 				<p class="count" id="count"></p>
 				<div class="transport">
-					<button class="btn" id="editBtn" type="button">Edit a slide (after approval)</button>
+					<button class="btn" id="editBtn" type="button">Now edit a slide</button>
 					<button class="btn" id="resetBtn" type="button">Reset</button>
 				</div>
 				<p class="diag" id="diag" role="status" aria-live="polite"></p>
@@ -155,21 +154,13 @@
 
 			<div class="rail">
 				<div class="rail-head">
-					<h2>The storyboard</h2>
-					<button class="btn primary" id="tourBtn" type="button">▸ Play all six</button>
+					<h2>Five things to try</h2>
+					<button class="btn primary" id="tourBtn" type="button">▸ Play all five</button>
 				</div>
 				<div class="beats" id="beats"></div>
 			</div>
 
-			<p class="foot">
-				Driven by the real engine (<code>@/lib/lente</code>): <code>parseLensRegistry</code> reads the
-				deck's <code>lenses:</code> block; the fluent
-				<code>lens(slides).registry(reg).pick(id).project()</code> front door returns the reader's view.
-				The read path is <b>fail-CLOSED</b> — an unapproved or drifted lens yields
-				<code>unavailable</code>, never a silent full-deck fallback — and it can never reach the suggester.
-				The only bridge is a human pressing <b>Approve</b>, which stamps a content hash that any later edit
-				invalidates. A plain DOM page, no framework — the proof the core is standalone.
-			</p>
+			<p class="foot">This page runs the real library on a sample deck. <a href="/libraries/lente/learn/">Learn how Lente works, and how to use it →</a></p>
 		</div>
 
 		<script>
@@ -217,10 +208,10 @@
 			const TITLES = SLIDES0.map((s) => (s.match(/^#{1,6}\s+(.+)$/m) || [, ''])[1]);
 			const KLASS = SLIDES0.map((s) => (s.match(/_class:\s*(\w+)/) || [, ''])[1]);
 			const REG_FM = 'lenses:\n'
-				+ '  brief: { label: "Brief", base: none }\n'
+				+ '  brief: { label: "Bottom line", base: none }\n'
 				+ '  ask: { label: "The ask", base: none, single: true }\n'
-				+ '  story: { label: "Story", base: none }\n'
-				+ '  evidence: { label: "Evidence", base: all }';
+				+ '  story: { label: "The story", base: none }\n'
+				+ '  evidence: { label: "The evidence", base: all }';
 
 			let slides = SLIDES0.slice();
 			let reg = parseLensRegistry(REG_FM);   // Lente owns the registry
@@ -237,15 +228,19 @@
 					// front-matter (untrusted for a real deck). Keep this reference pattern
 					// safe to copy — an attacker-controlled label must not become markup.
 					b.textContent = l.label;
-					if (l.id !== 'full') {
-						const base = document.createElement('span');
-						base.className = 'base'; base.textContent = `${l.base}${l.single ? '·single' : ''}`;
-						b.appendChild(base);
-					}
 					b.addEventListener('click', () => { clearBeatTimers(); setCurrentBeat(null); pick(l.id); });
 					lensesEl.appendChild(b);
 				}
 			}
+
+			// Each reason the read path refuses a view, in plain words.
+			const WHY = {
+				unapproved: 'Waiting for approval.',
+				drifted: 'A slide changed after approval. Approve it again to reopen it.',
+				empty: 'No slides chosen yet.',
+				hidden: 'This view is hidden from readers.',
+				unknown: 'No such view.',
+			};
 
 			function pick(id) {
 				picked = id;
@@ -256,13 +251,16 @@
 				deckEl.querySelectorAll('.card').forEach((c) => {
 					c.dataset.in = String(inSet.has(Number(c.dataset.i)));
 				});
-				countEl.innerHTML = `<b>${pairs.length}</b> of ${slides.length} slides — the <b>${picked}</b> lens.`;
+				const label = (reg.lenses.find((x) => x.id === id) || {}).label || id;
+				countEl.innerHTML = `<b>${pairs.length}</b> of ${slides.length} slides in this view.`;
 				// Reader eligibility (fail-CLOSED) — what a reader may ACTUALLY open:
 				const view = lens(slides).registry(reg).pick(id).project();
 				const ok = view.status === 'ok';
 				readerEl.dataset.ok = String(ok);
-				readerSt.textContent = ok ? 'Reader view — OK' : 'Reader view — unavailable';
-				readerWhy.textContent = ok ? (id === 'full' ? 'the whole deck; always eligible' : 'approved · hash matches') : `reason: ${view.reason}`;
+				readerSt.textContent = ok ? `Readers can open “${label}”` : `Readers can't open “${label}”`;
+				readerWhy.textContent = ok
+					? (id === 'full' ? 'The whole deck is always available.' : 'Approved, and unchanged since.')
+					: (WHY[view.reason] || view.reason);
 				approveBtn.disabled = ok || id === 'full';
 			}
 
@@ -281,7 +279,7 @@
 			approveBtn.addEventListener('click', () => {
 				if (picked === 'full') return;
 				const l = reg.lenses.find((x) => x.id === picked);
-				if (l) { l.approved = approvalHash(slides, reg, picked); setDiag(`Approved "${picked}" — stamped ${l.approved.slice(0, 18)}…`); }
+				if (l) { l.approved = approvalHash(slides, reg, picked); setDiag(`Approved. Lente stored a fingerprint of exactly these slides: ${l.approved.slice(0, 18)}…`); }
 				pick(picked);
 			});
 
@@ -299,9 +297,9 @@
 				const wasApproved = !!(l && l.approved);
 				pick(picked); // re-projects → updates the reader banner
 				const now = lens(slides).registry(reg).pick(picked).project();
-				if (wasApproved && now.status !== 'ok') setDiag(`Edited slide ${target + 1} (a member of "${picked}") — its stamped hash no longer matches, so it de-approved: ${now.reason}.`);
-				else if (picked === 'full') setDiag(`Edited slide ${target + 1}. The full lens is always eligible — approve a scoping lens first, then edit, to watch drift.`);
-				else setDiag(`Edited slide ${target + 1}. Approve "${picked}" first, then edit, to watch the lens de-approve on drift.`);
+				if (wasApproved && now.status !== 'ok') setDiag(`Edited slide ${target + 1}. It no longer matches the fingerprint, so readers can't open this view until someone approves it again.`);
+				else if (picked === 'full') setDiag(`Edited slide ${target + 1}. The full deck is always available; pick a shorter view, approve it, then edit, to see it lock.`);
+				else setDiag(`Edited slide ${target + 1}. Approve this view first, then edit a slide, to see it lock.`);
 			});
 			// A beat schedules deferred steps (approve-then-edit, story-then-evidence)
 			// via `after()`, which tracks the timer so any manual interruption — Stop,
@@ -314,17 +312,16 @@
 			$('#resetBtn').addEventListener('click', () => {
 				clearBeatTimers();
 				slides = SLIDES0.slice(); reg = parseLensRegistry(REG_FM); edited = -1;
-				buildDeck(); setDiag(''); pick('full');
+				buildDeck(); setDiag(''); pick('brief');
 			});
 
 			// ── Storyboard beats ──
 			const BEATS = [
-				{ id: 'full',   t: 'The whole deck', d: 'The safe default — the full lens is always eligible; every slide shows.', api: "pick('full')", run: () => pick('full') },
-				{ id: 'brief',  t: 'Pick a lens', d: 'The "brief" lens keeps only its members — the deck shrinks to the bottom line. But a reader can’t open it yet…', api: "lens().pick('brief').pairs()", run: () => pick('brief') },
-				{ id: 'closed', t: 'It fails CLOSED', d: 'Unapproved, the reader view is "unavailable" — never a silent full-deck fallback; an honest UI won’t over-show.', api: 'project() → unavailable', run: () => pick('brief') },
-				{ id: 'approve',t: 'A human approves', d: 'The one bridge: a person stamps a content hash covering exactly what the reader would see. Now it’s eligible.', api: 'approvalHash(…)', run: () => { pick('brief'); after(500, () => approveBtn.click()); } },
-				{ id: 'alt',    t: 'Different altitudes', d: 'Same source, other jobs: "story" (base none) vs "evidence" (base all — everything but the decoration).', api: "pick('story'|'evidence')", run: () => { pick('story'); after(900, () => pick('evidence')); } },
-				{ id: 'drift',  t: 'Drift de-approves', d: 'Edit a slide after Approve and the hash no longer matches — the lens de-approves itself, for every consumer.', api: 'project() → drifted', run: () => { pick('brief'); after(400, () => approveBtn.click()); after(1100, () => $('#editBtn').click()); } },
+				{ id: 'full',   t: 'The whole deck', d: 'Everyone can always open the full deck. Every slide shows.', api: "pick('full')", run: () => pick('full') },
+				{ id: 'brief',  t: 'A shorter view, locked', d: 'The Bottom line keeps only its slides. Nobody has approved it, so readers get "not available", never the whole deck instead.', api: "pick('brief').project() → unavailable", run: () => pick('brief') },
+				{ id: 'approve',t: 'A person approves', d: 'Approving stores a fingerprint of exactly what the reader will see. Now readers can open it.', api: 'approvalHash(…)', run: () => { pick('brief'); after(500, () => approveBtn.click()); } },
+				{ id: 'alt',    t: 'Different readers', d: 'The same deck, other jobs: The story picks a few slides; The evidence starts from everything and leaves some out.', api: "pick('story'|'evidence')", run: () => { pick('story'); after(900, () => pick('evidence')); } },
+				{ id: 'drift',  t: 'An edit locks it', d: 'Edit a slide after approval and the fingerprint no longer matches. The view locks itself, everywhere it is used.', api: 'project() → drifted', run: () => { pick('brief'); after(400, () => approveBtn.click()); after(1100, () => $('#editBtn').click()); } },
 			];
 			function setCurrentBeat(id) {
 				[...beatsEl.children].forEach((el) => el.setAttribute('aria-current', String(el.dataset.id === id)));
@@ -337,7 +334,7 @@
 				beatsEl.appendChild(el);
 			});
 			let tourTimer = 0;
-			const stopTour = (e) => { clearInterval(tourTimer); tourTimer = 0; clearBeatTimers(); if (e) e.target.textContent = '▸ Play all six'; };
+			const stopTour = (e) => { clearInterval(tourTimer); tourTimer = 0; clearBeatTimers(); if (e) e.target.textContent = '▸ Play all five'; };
 			$('#tourBtn').addEventListener('click', (e) => {
 				if (tourTimer) { stopTour(e); return; }
 				$('#resetBtn').click();
@@ -353,7 +350,7 @@
 			// Boot
 			buildDeck();
 			renderLenses();
-			pick('full');
+			pick('brief');
 		</script>
 	</body>
 </html>

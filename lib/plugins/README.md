@@ -11,9 +11,17 @@ are `engineering/decisions/2026-09-27-plugin-system.md`; the contract a plugin i
 `function-plot` (` ```functionplot `, drawn in the browser; `math` lists it as optional), `anima`
 (` ```anima `; the `scene` slide class requires it) and `mermaid` (` ```mermaid `, drawn by the
 runtime in a browser and by its bake on the CLI; the `diagram` slide class requires it),
-`chart-family` (the `kernel` extension point every chart fills; see "Extension points" below) and
-`code` (every fence no other plugin claims, syntax-highlighted; the `code` and `compare-code` slide
-classes require it; see "The code renderer" below).
+`icons` (`` `^{database, c3}` `` in inline code; the flowchart, hub-spoke and state-chart slide
+classes list it as optional), `avatars` (`` `!{Ada Okafor}` `` in inline code), `chart-family`
+(the `kernel` extension point every chart fills; see "Extension points" below) and `code` (every
+fence no other plugin claims, syntax-highlighted; the `code` and `compare-code` slide classes
+require it; see "The code renderer" below). The website introduces the six an author writes at
+/plugins/, from `docs/src/content/catalog/plugins/`.
+
+**A plugin's mark** is its manifest's optional `icon`: path data tagged `line`, `accent` or `fill`,
+drawn by `plugin-icon.mjs` in the active theme's colors (spec/LPM.md §3.1). It is data rather than
+an SVG file, so a mark can carry no color, element or script of its own and travels on every
+channel unchanged. The website's Plugins hub draws it from here.
 
 ## A plugin is a folder
 

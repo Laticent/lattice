@@ -452,6 +452,10 @@ iframe.live {
 	.lib-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 .lib-cards > li { display: flex; }
+/* The link under the home page's library cards, to the Libraries hub. */
+.lib-more { margin: 0; padding-top: 20px; }
+.lib-more a { display: inline-flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 600; color: var(--accent); text-decoration: none; }
+.lib-more a:hover { text-decoration: underline; text-underline-offset: 3px; }
 .lib-card {
 	display: flex;
 	flex-direction: column;

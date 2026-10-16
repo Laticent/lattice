@@ -93,6 +93,17 @@ export default defineConfig({
 		'/guides/pills': '/guides/status/',
 		// Sparks moved under the Inline elements group, beside marks and pills.
 		'/guides/sparks': '/guides/inline/sparks/',
+		// Each library's demo moved under the Libraries hub, beside its Learn page
+		// (src/content/catalog/). The old top-level URLs keep working.
+		'/suono': '/libraries/suono/',
+		'/cadenza': '/libraries/cadenza/',
+		'/vetrina': '/libraries/vetrina/',
+		'/lente': '/libraries/lente/',
+		'/trama': '/libraries/trama/',
+		'/segno': '/libraries/segno/',
+		'/calco': '/libraries/calco/',
+		'/tavola': '/libraries/tavola/',
+		'/fuoco': '/libraries/fuoco/',
 	},
 	// HTML navigation is cheap, so warm it everywhere: every internal <a>
 	// prefetches its destination on hover/focus (the `hover` strategy). The one

@@ -19,4 +19,4 @@
   units and parts (Markdown sections, transcript cues, code symbols, slides) through an
   outliner, with a general `createTextOutliner` and `byPattern` / `byHeadings` /
   `byBlankLines` splitters built in. Lattice's slide outliner is one adapter
-  (`docs/src/lib/deck-outline`). A live demo with its own brand is at `/fuoco` on the docs site.
+  (`docs/src/lib/deck-outline`). A live demo with its own brand is at `/libraries/fuoco/` on the docs site.

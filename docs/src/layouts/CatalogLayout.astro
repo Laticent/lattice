@@ -1,0 +1,90 @@
+---
+// The page shell for the catalog: the two hubs (/libraries/, /plugins/), every Learn page,
+// and the plugin demo pages. The site header and footer, the pre-paint palette/mode seed
+// the other standalone routes share, and one slot. A library's DEMO page does not use this:
+// each keeps its own bespoke chrome, because standing alone is part of what it demonstrates
+// (it imports nothing from the site) — it carries <DemoBar> instead.
+//
+// Props:
+//   title, description   the <title> and meta description
+//   specimen             the page hosts a live <Specimen>: warm the preview runtime and pull
+//                        in the specimen styles, as the component reference pages do
+import '../styles/landing.css';
+import '../styles/catalog.css';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import SiteHeader from '../components/site/SiteHeader.astro';
+import ResourceHints from '../components/site/ResourceHints.astro';
+import RuntimeWarm from '../components/site/RuntimeWarm.astro';
+import EngineWarm from '../components/site/EngineWarm.astro';
+import PwaHead from '../components/site/PwaHead.astro';
+import { joinBase } from '../lib/base-url.mjs';
+import { GITHUB_URL } from '../lib/nav.mjs';
+
+const { title, description, specimen = false } = Astro.props;
+
+const base = import.meta.env.BASE_URL;
+const url = (p) => joinBase(base, p);
+const canonical = Astro.site ? new URL(Astro.url.pathname, Astro.site).href : undefined;
+
+const tokensCss = readFileSync(join(process.cwd(), 'src/styles/lattice-tokens.generated.css'), 'utf8');
+const palettes = [...new Set([...tokensCss.matchAll(/data-palette="([^"]+)"/g)].map((m) => m[1]))];
+---
+
+<!doctype html>
+<html lang="en" data-palette="cuoio" data-mode="light">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+		{specimen && <ResourceHints />}
+		{specimen && <RuntimeWarm />}
+		<title>{title}</title>
+		<meta name="description" content={description} />
+		<meta property="og:type" content="article" />
+		<meta property="og:title" content={title} />
+		<meta property="og:description" content={description} />
+		{canonical && <meta property="og:url" content={canonical} />}
+		<link rel="icon" type="image/svg+xml" href={url('favicon.svg')} />
+		<PwaHead />
+		<script is:inline>
+			(function () {
+				var r = document.documentElement;
+				try {
+					var p = localStorage.getItem('lattice-docs-palette');
+					if (p) r.setAttribute('data-palette', p);
+					var m = localStorage.getItem('lattice-docs-mode');
+					if (m === 'light' || m === 'dark') r.setAttribute('data-mode', m);
+					else if (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches)
+						r.setAttribute('data-mode', 'dark');
+				} catch (e) {}
+			})();
+		</script>
+		<slot name="head" />
+	</head>
+	<body class="cat-body">
+		<SiteHeader palettes={palettes} />
+		<slot name="subbar" />
+		<main>
+			<slot />
+		</main>
+		<footer class="foot">
+			<div class="wrap foot-inner">
+				<a class="brand" href={url('')}>
+					<img class="brand-logo" src={url('lattice-mark-min.svg')} alt="" width="26" height="26" />
+					<span class="brand-mark">Lattice</span>
+				</a>
+				<nav aria-label="Footer">
+					<a href={url('getting-started/')}>Get started</a>
+					<a href={url('studio/')}>Studio</a>
+					<a href={url('playground/')}>Playground</a>
+					<a href={url('components/')}>Components</a>
+					<a href={url('libraries/')}>Libraries</a>
+					<a href={url('plugins/')}>Plugins</a>
+					<a href={GITHUB_URL}>GitHub</a>
+				</nav>
+				<span class="legal">Designed by humans. Refined with Claude. · Part of Laticent · AGPL-3.0-licensed</span>
+			</div>
+		</footer>
+		{specimen && <EngineWarm />}
+	</body>
+</html>

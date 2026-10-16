@@ -6,7 +6,10 @@
 // Markdown document, a timed transcript and a code file, each through the library's own
 // plain-text outliner, because the point is that the hub knows nothing about what a document
 // is. A live log and counters show every publication, its origin and cause, and what each lane
-// delivered. A guided storyboard walks the guarantees. Reached at /fuoco.
+// delivered. A guided storyboard walks the guarantees. Reached at /libraries/fuoco/; its Learn
+// page is /libraries/fuoco/learn/ (src/content/catalog/), which carries the code, the guarantees
+// and the measurements this page used to.
+import DemoBar from '../../../components/catalog/DemoBar.astro';
 ---
 
 <!doctype html>
@@ -67,6 +70,7 @@
 			.theme { background: none; border: 1px solid var(--line); color: var(--muted); border-radius: 999px; font-size: 11px;
 				padding: 5px 11px; cursor: pointer; font-family: var(--sans); display: inline-flex; align-items: center; gap: 6px; }
 			.theme:hover { color: var(--accent); border-color: var(--accent); }
+			.promise { font-family: var(--stage-serif); font-size: clamp(21px, 3vw, 27px); line-height: 1.3; color: var(--ink); max-width: 34ch; margin: 14px 0 0; text-wrap: balance; }
 			section.block { margin-top: 34px; }
 			.block-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
 			.block-head p { margin: 4px 0 0; color: var(--muted); font-size: 13.5px; max-width: 70ch; }
@@ -178,25 +182,6 @@
 			.beat .bd { font-size: 12.5px; color: var(--muted); margin: 0 0 4px; line-height: 1.45; }
 			.beat .api { font-family: var(--mono); font-size: 11px; color: var(--accent); overflow-wrap: anywhere; }
 
-			/* ── Reference sections ───────────────────────────────────────────── */
-			.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; }
-			.card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
-			.card h3 { font-size: 14.5px; margin: 0 0 4px; }
-			.card p { margin: 0; color: var(--muted); font-size: 13px; }
-			.card code { font-family: var(--mono); font-size: 12px; color: var(--accent); }
-			.code-tabs { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
-			pre.snippet { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px;
-				font-family: var(--mono); font-size: 12.5px; line-height: 1.65; overflow: auto; color: var(--ink); }
-			pre.snippet .c { color: var(--muted); }
-			pre.snippet .k { color: var(--accent); font-weight: 600; }
-			pre.snippet .s { color: var(--glow-ink); }
-			table { width: 100%; border-collapse: collapse; font-size: 13px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
-			th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line); }
-			th { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
-			td.num { font-family: var(--mono); white-space: nowrap; }
-			td.win { color: var(--accent); font-weight: 700; }
-			.table-wrap { overflow-x: auto; border-radius: 14px; }
-			.note { color: var(--muted); font-size: 12.5px; margin: 8px 2px 0; }
 			.foot { margin-top: 34px; color: var(--muted); font-size: 12px; line-height: 1.7; border-top: 1px solid var(--line); padding-top: 16px; }
 			.foot code { overflow-wrap: anywhere; font-family: var(--mono); background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
 			.foot a { color: var(--accent); }
@@ -206,6 +191,7 @@
 	</head>
 	<body>
 		<div class="wrap">
+			<DemoBar slug="fuoco" />
 			<header>
 				<div class="brand">
 					<!-- The mark, inline so it follows this page's theme toggle as well as the OS
@@ -220,14 +206,14 @@
 						<circle cx="64" cy="64" r="15" class="t-halo" /><circle cx="64" cy="64" r="12.2" class="t-hub" />
 						<circle cx="64" cy="64" r="7.6" class="t-ring" stroke-width="1.8" opacity="0.6" />
 					</svg>
-					<h1>Fuoco</h1><span class="tag">focus sync</span>
+					<h1>Fuoco</h1><span class="tag">Library</span>
 				</div>
 				<div style="display:flex; gap:14px; align-items:center;">
-					<a class="home" href="/"><svg viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M7.5 2.5 L4 6 L7.5 9.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" /></svg>Lattice</a>
 					<button class="theme" id="themeBtn" type="button"><svg viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="4.8" fill="none" stroke="currentColor" stroke-width="1.3" /><path d="M6 1.2 A4.8 4.8 0 0 1 6 10.8 Z" fill="currentColor" /></svg>theme</button>
 				</div>
 			</header>
-			<p class="sub">An editor, an outline, a preview and a minimap are four views of one document, and each needs to know <b>where the reader is</b>. Wire them to each other and every new view multiplies the echo loops. Fuoco gives them <b>one focus hub</b> instead: views report facts, ask for moves, and hear only the changes they care about. Everything below is the <b>real library</b>, with no framework, on any kind of text.</p>
+			<p class="promise">Every view of a document agrees on where the reader is.</p>
+			<p class="sub">Below are four views of one document: an <b>editor</b>, an <b>outline</b>, a <b>preview</b> and a <b>minimap</b>. None of them calls another; each reports to one Fuoco hub. <b>Click a line in the editor</b> and watch the other three follow, then <b>pick a heading in the outline</b>. Switch to a <b>transcript</b> or a <b>code file</b>: the same four views work unchanged. The log shows every move, who made it, and who heard it.</p>
 
 			<div class="stage">
 				<div class="toolbar">
@@ -287,115 +273,7 @@
 				<div class="beats" id="beats"></div>
 			</section>
 
-			<section class="block" aria-labelledby="use">
-				<div class="block-head"><div><h2 id="use">Use it</h2><p>One hub per document. Each view reports facts, asks for moves, and subscribes to what it shows.</p></div></div>
-				<div class="code-tabs seg" id="codeSeg" role="group" aria-label="Example">
-					<button type="button" data-tab="vanilla" aria-pressed="true">Any framework</button>
-					<button type="button" data-tab="react" aria-pressed="false">React</button>
-					<button type="button" data-tab="outliner" aria-pressed="false">Your own outliner</button>
-				</div>
-				<pre class="snippet" id="snippet-vanilla"None set:html={`<span class="k">import</span> { createFocusHub, createTextOutliner, byHeadings, revealOffset } <span class="k">from</span> <span class="s">'@laticent/fuoco'</span>;
-
-<span class="c">// One hub per document. The outliner says what a unit and a part are: here, # and ##.</span>
-<span class="k">const</span> hub = createFocusHub({ outliner: createTextOutliner(byHeadings({ unit: 1, part: 2 })) });
-
-<span class="c">// The editor reports what it knows: its text, and its caret.</span>
-editor.onChange((text, span) => hub.update(text, { span, by: <span class="s">'editor'</span> }));
-editor.onCaret((head, line) => hub.report(<span class="s">'editor'</span>, { head, line }));
-
-<span class="c">// …and moves when someone else navigates. It never hears its own moves.</span>
-hub.subscribe((f) => f, (f) => {
-  <span class="k">if</span> (f.cause === <span class="s">'nav'</span> || f.cause === <span class="s">'pick'</span>) editor.reveal(revealOffset(hub.outline(), f), f.grab);
-}, { ignoreOrigin: <span class="s">'editor'</span>, equals: (a, b) => a.seq === b.seq });
-
-<span class="c">// The outline asks for moves, and redraws only when the focused part changes, once a frame.</span>
-outline.onPick((unitIndex, part) => hub.go(<span class="s">'outline'</span>, { unitIndex, part, grab: <span class="k">true</span> }));
-hub.subscribe((f) => f.flat, (flat) => outline.highlight(flat), { lane: <span class="s">'frame'</span> });
-
-<span class="c">// Keys page through a paginated preview first, then parts, then units.</span>
-addEventListener(<span class="s">'keydown'</span>, (e) => e.key === <span class="s">'ArrowRight'</span> && hub.step(<span class="s">'keys'</span>, <span class="s">'next'</span>));`} />
-				<pre class="snippet" id="snippet-react" hidden set:html={`<span class="k">import</span> { useFocus } <span class="k">from</span> <span class="s">'@laticent/fuoco/react'</span>;
-
-<span class="c">// A component re-renders only when the value it selects changes: a caret moving along a</span>
-<span class="c">// line does not re-render the rail, only a change of part does.</span>
-<span class="k">function</span> Rail({ hub, parts }) {
-  <span class="k">const</span> flat = useFocus(hub, (f) => f.flat);
-  <span class="k">return</span> parts.map((p, i) => (
-    &lt;button aria-current={i === flat} onClick={() => hub.go(<span class="s">'rail'</span>, { flat: i, grab: <span class="k">true</span> })}&gt;{p.title}&lt;/button&gt;
-  ));
-}
-
-<span class="c">// Feeding the hub during render? Say so, and a focus the edit moves reaches React after it.</span>
-<span class="k">const</span> outline = useMemo(() => (hub.update(text, { by: <span class="s">'app'</span>, duringRender: <span class="k">true</span> }), hub.outline()), [text]);`} />
-				<pre class="snippet" id="snippet-outliner" hidden set:html={`<span class="k">import</span> { type Outliner, type Outline, nextRevision, carryIds, partBaseOf, diffSpan } <span class="k">from</span> <span class="s">'@laticent/fuoco'</span>;
-
-<span class="c">// Any document model: slides, cells, chapters, cues, functions. An outliner turns text into units</span>
-<span class="c">// (with stable ids) and parts, and returns the SAME outline for the same text.</span>
-<span class="k">const</span> notebook: Outliner = {
-  update(prev, text, opts) {
-    <span class="k">if</span> (prev?.source === text) <span class="k">return</span> prev;
-    <span class="k">const</span> cells = parseCells(text);                       <span class="c">// your parser: [{ from, start, end, parts }]</span>
-    <span class="k">const</span> span = prev ? (opts?.span ?? diffSpan(prev.source, text)) : <span class="k">null</span>;
-    <span class="k">const</span> ids = carryIds(prev, cells, text.length, span);  <span class="c">// ids survive edits</span>
-    <span class="k">const</span> units = cells.map((c, i) => ({ ...c, id: ids[i] }));
-    <span class="k">return</span> { rev: nextRevision(), source: text, units, partBase: partBaseOf(units) };
-  },
-};
-
-<span class="c">// Lattice's own slide outliner is one of these: it re-parses only the slides an edit touched.</span>`} />
-			</section>
-
-			<section class="block" aria-labelledby="why">
-				<div class="block-head"><div><h2 id="why">The guarantees</h2><p>Every one of these used to be a hand-written guard in the Lattice Studio, and every guard went stale at least once.</p></div></div>
-				<div class="cards">
-					<div class="card"><h3>No echoes</h3><p>Each publication names its <code>origin</code>. A view that subscribes with <code>ignoreOrigin</code> never hears its own move, and a reveal it makes is reported <code>quiet</code>, so it agrees and publishes nothing.</p></div>
-					<div class="card"><h3>No stale answers</h3><p>A report carries the outline <code>rev</code> it was computed against. One that arrives after the text changed is dropped, never applied to the wrong text.</p></div>
-					<div class="card"><h3>No re-entry</h3><p>A view that publishes while it is being told about a change is queued until the delivery ends, so nothing recurses and everyone hears the same order.</p></div>
-					<div class="card"><h3>No timers</h3><p>"Insert a slide, then go to it" waits for exactly that text with <code>go(…, {'{'} after {'}'})</code>, not for a frame or a timeout that is sometimes too short.</p></div>
-					<div class="card"><h3>Three lanes</h3><p><code>sync</code> for state, <code>frame</code> for DOM work (a held key that crosses three parts in one frame moves a view once), <code>idle</code> for saving and presence.</p></div>
-					<div class="card"><h3>Stable ids</h3><p>Units keep their id through edits, so a list keyed by id does not remount when you type, and a duplicate never answers for its original.</p></div>
-				</div>
-			</section>
-
-			<section class="block" aria-labelledby="measured">
-				<div class="block-head"><div><h2 id="measured">Measured in the Lattice Studio</h2><p>Same machine, same time, production builds side by side, a 123-slide deck, two runs averaged. Event Timing is the browser's own input-to-paint duration; about 16 ms is the floor.</p></div></div>
-				<div class="table-wrap">
-					<table>
-						<thead><tr><th>Interaction</th><th>Before</th><th>With Fuoco</th></tr></thead>
-						<tbody>
-							<tr><td>Arrow key along a line</td><td class="num">24 ms</td><td class="num win">16 ms</td></tr>
-							<tr><td>Slide change → rail</td><td class="num">25 ms</td><td class="num win">15 ms</td></tr>
-							<tr><td>Slide change → preview</td><td class="num">49 ms</td><td class="num win">36 ms</td></tr>
-							<tr><td>Rail click</td><td class="num">76 ms</td><td class="num win">48 ms</td></tr>
-							<tr><td>Typing, per key</td><td class="num">72 ms</td><td class="num win">60 ms</td></tr>
-							<tr><td>Long tasks over 35 keys</td><td class="num">966 ms</td><td class="num win">405 ms</td></tr>
-							<tr><td>Which slide is this? (index, per keystroke, 960 slides)</td><td class="num">14.7 ms</td><td class="num win">0.29 ms</td></tr>
-						</tbody>
-					</table>
-				</div>
-				<p class="note">Reproduce with <code>tools/studio-sync-bench.mjs</code>; the method and the full table are in the decision note.</p>
-			</section>
-
-			<section class="block" aria-labelledby="fits">
-				<div class="block-head"><div><h2 id="fits">Where it fits</h2><p>Anywhere more than one view shows one document and the reader expects them to agree.</p></div></div>
-				<div class="cards">
-					<div class="card"><h3>Editor + preview</h3><p>Markdown, LaTeX, slides: the caret drives the preview, a click in the preview selects the source.</p></div>
-					<div class="card"><h3>Outlines and tables of contents</h3><p>Docs sites, books and notes, where a long page and its outline must point at the same heading.</p></div>
-					<div class="card"><h3>Media and transcripts</h3><p>A player, a transcript and a chapter list, units as timed cues, paging as scrubbing.</p></div>
-					<div class="card"><h3>Code tools</h3><p>A file, its symbol outline, a minimap and a call graph, units as functions and classes.</p></div>
-					<div class="card"><h3>Collaboration</h3><p>A collaborator's cursor is one more origin: follow them, or not, with nothing new to wire.</p></div>
-					<div class="card"><h3>Notebooks</h3><p>Cells as units, outputs as rendered parts, a run log as one more view of where you are.</p></div>
-				</div>
-			</section>
-
-			<p class="foot">
-				<b>@laticent/fuoco</b> · source <code>docs/src/lib/fuoco</code> · zero dependencies, React optional ·
-				<code>createFocusHub({'{'} outliner {'}'})</code> · <code>hub.update(text, {'{'} span {'}'})</code> ·
-				<code>hub.report(origin, {'{'} head {'}'})</code> · <code>hub.go(origin, target, {'{'} after {'}'})</code> ·
-				<code>hub.step(origin, 'next')</code> · <code>hub.pick(origin, element)</code> ·
-				<code>hub.subscribe(select, listener, {'{'} lane, ignoreOrigin {'}'})</code> · <code>useFocus(hub, select)</code> ·
-				<a href="https://github.com/Laticent/lattice/tree/main/docs/src/lib/fuoco#readme">Read the README</a>
-			</p>
+			<p class="foot">This page runs the real library in your browser. <a href="/libraries/fuoco/learn/">Learn how Fuoco works, and how to use it →</a></p>
 		</div>
 
 		<script>
@@ -815,14 +693,6 @@ export class Minimap {
 				requestAnimationFrame(tick);
 			}
 			$('#burstBtn').addEventListener('click', heldKey);
-
-			// ── Code tabs ──
-			$('#codeSeg').addEventListener('click', (e) => {
-				const b = (e.target as HTMLElement).closest<HTMLElement>('button');
-				if (!b) return;
-				for (const x of $('#codeSeg').querySelectorAll<HTMLElement>('button')) x.setAttribute('aria-pressed', String(x === b));
-				for (const id of ['vanilla', 'react', 'outliner']) ($(`#snippet-${id}`) as HTMLElement).hidden = id !== b.dataset.tab;
-			});
 
 			// ── The storyboard ──
 			let timers: number[] = [];

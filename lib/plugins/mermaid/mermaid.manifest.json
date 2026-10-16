@@ -6,6 +6,16 @@
   "api": 1,
   "title": "Mermaid diagrams",
   "description": "Flowcharts, sequence, state, class, Gantt and the rest of Mermaid's diagram types from a fence. The engine emits the highlighted source; the plugin's diagram pass draws it in a browser, and its bake draws it to a static SVG on the CLI before the engine renders.",
+  "icon": {
+    "viewBox": "0 0 128 128",
+    "paths": [
+      {"ink": "line", "d": "M14 48H32A6 6 0 0 1 38 54V72A6 6 0 0 1 32 78H14A6 6 0 0 1 8 72V54A6 6 0 0 1 14 48Z", "width": 7},
+      {"ink": "accent", "d": "M64 40L88 63L64 86L40 63Z", "width": 7},
+      {"ink": "line", "d": "M100 22H114A6 6 0 0 1 120 28V40A6 6 0 0 1 114 46H100A6 6 0 0 1 94 40V28A6 6 0 0 1 100 22Z", "width": 7},
+      {"ink": "line", "d": "M100 82H114A6 6 0 0 1 120 88V100A6 6 0 0 1 114 106H100A6 6 0 0 1 94 100V88A6 6 0 0 1 100 82Z", "width": 7},
+      {"ink": "line", "d": "M76 52L94 34M76 74L94 94", "width": 6}
+    ]
+  },
   "contributes": {
     "fences": {
       "mermaid": { "body": "mermaid", "as": "code" }

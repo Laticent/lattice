@@ -6,7 +6,9 @@
 // each beat spotlights one capability (clocked playback, gaps, barge-in, pause/resume,
 // dedup cache, warm/prefetch) with LIVE audio and no API key. An optional cloud-voice
 // upgrade reuses the shared OpenRouter key (the Playground's bring-your-own-key) to
-// speak real words — detected if present, offered via Connect if not. Reached at /suono.
+// speak real words — detected if present, offered via Connect if not. Reached at
+// /libraries/suono/; its Learn page is /libraries/suono/learn/ (src/content/catalog/).
+import DemoBar from '../../../components/catalog/DemoBar.astro';
 ---
 
 <!doctype html>
@@ -55,7 +57,8 @@
 			h1 { font-family: var(--stage-serif); font-size: clamp(28px, 5vw, 40px); font-weight: 600; margin: 0; letter-spacing: -.01em; }
 			.tag { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--accent);
 				border: 1px solid var(--accent); padding: 3px 8px; border-radius: 999px; font-weight: 600; }
-			.sub { color: var(--muted); font-size: 14px; max-width: 66ch; margin: 6px 0 0; }
+			.promise { font-family: var(--stage-serif); font-size: clamp(21px, 3vw, 27px); line-height: 1.3; color: var(--ink); max-width: 34ch; margin: 14px 0 0; text-wrap: balance; }
+			.sub { color: var(--muted); font-size: 15px; max-width: 64ch; margin: 8px 0 0; }
 			.sub b { color: var(--ink); font-weight: 600; }
 
 			.stage { margin: 26px 0 0; background: var(--stage); border: 1px solid var(--line); border-radius: 18px;
@@ -155,40 +158,37 @@
 	</head>
 	<body>
 		<div class="wrap">
+			<DemoBar slug="suono" />
 			<header>
 				<div class="brand">
 					<img class="logo" src="/suono-mark.svg" alt="" width="46" height="46" />
-					<h1>Suono</h1><span class="tag">the scheduler</span>
+					<h1>Suono</h1><span class="tag">Library</span>
 				</div>
 				<div style="display:flex; gap:14px; align-items:center;">
-					<a class="home" href="/">← Lattice</a>
 					<button class="theme" id="themeBtn" type="button">◐ theme</button>
 				</div>
 			</header>
-			<p class="sub">
-				Give it audio <b>bytes</b> and it hands you reliable, gapless playback on an <b>owned WebAudio
-				clock</b> — plus a bounded, pause-gated <b>sequence scheduler</b>. It owns no network, no key, no
-				model. Every beat below runs the <b>real engine</b> live, with synthesized tones — no key needed.
-			</p>
+			<p class="promise">Play a list of audio clips smoothly, on time, on every device.</p>
+			<p class="sub">Give Suono a list of clips and it plays them in order, with natural pauses, preloading the next one while the current one plays. <b>Press play</b> and listen to five tones, then hit <b>Interrupt</b> mid-run. The seven steps below show the rest. No key needed.</p>
 
 			<div class="stage">
 				<div class="score" id="score" aria-label="The sequence"></div>
-				<p class="caption" id="caption">Press play, or pick a beat below.</p>
+				<p class="caption" id="caption">Press play, or pick one below.</p>
 				<div class="meters">
-					<div class="meter clock" id="clockMeter" data-state="cold" title="Suono's owned WebAudio clock — a free-running transport every clip is scheduled onto. It keeps advancing while idle and freezes only when you pause; it is not a per-clip stopwatch.">
-						<span class="k">Owned clock</span>
+					<div class="meter clock" id="clockMeter" data-state="cold" title="The clock every clip is scheduled on, and the one captions sync to. It keeps running between runs and stops only when you pause; it is not a per-clip stopwatch.">
+						<span class="k">Audio clock</span>
 						<span class="vrow"><span class="v" id="mClock">0.00s</span><span class="cs" id="mClockState">idle</span></span>
 					</div>
 					<div class="meter"><span class="k">Now playing</span><span class="v" id="mIndex">—</span></div>
-					<div class="meter"><span class="k">produce() calls</span><span class="v" id="mProduce">0</span></div>
-					<div class="meter"><span class="k">Cache hits</span><span class="v" id="mCache">0</span></div>
+					<div class="meter"><span class="k">Clips generated</span><span class="v" id="mProduce">0</span></div>
+					<div class="meter"><span class="k">From cache</span><span class="v" id="mCache">0</span></div>
 				</div>
 				<div class="transport">
 					<button class="play" id="playBtn" type="button" aria-label="Play the sequence">
 						<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg>
 					</button>
 					<button class="btn" id="pauseBtn" type="button" disabled>Pause</button>
-					<button class="btn" id="bargeBtn" type="button" disabled>Barge-in ▸ interrupt</button>
+					<button class="btn" id="bargeBtn" type="button" disabled>Interrupt</button>
 					<button class="btn" id="stopBtn" type="button" disabled>Stop</button>
 				</div>
 				<p class="diag" id="diag" role="status" aria-live="polite"></p>
@@ -196,7 +196,7 @@
 
 			<div class="rail">
 				<div class="rail-head">
-					<h2>The storyboard</h2>
+					<h2>Seven things to try</h2>
 					<button class="btn primary" id="tourBtn" type="button">▸ Play all seven</button>
 				</div>
 				<div class="beats" id="beats"></div>
@@ -215,14 +215,7 @@
 				</div>
 			</details>
 
-			<p class="foot">
-				Driven by the real engine (<code>@/lib/suono</code>): <code>createStage()</code> → the owned clock +
-				player, <code>sequence(stage).items(…).produce(…).gap(…).onItemStart(…).play()</code> → the fluent
-				scheduler (the library's chained front door). The byte source here is a synthesized tone
-				(<code>encodeWav</code>); connect a key and it becomes real speech, each sentence's measured onset
-				re-anchoring a caption — the same <code>onItemStart → reader.align</code> tie
-				<code>@/lib/cadenza</code> uses. A plain DOM page, no framework — the proof the core is standalone.
-			</p>
+			<p class="foot">This page runs the real library on tones it synthesizes in your browser. <a href="/libraries/suono/learn/">Learn how Suono works, and how to use it →</a></p>
 		</div>
 
 		<script>
@@ -367,7 +360,7 @@
 						if (!playing) {
 							paused = false; // a run that ends by any path is no longer "frozen"
 							setTransport(false);
-							if (aborted) setDiag('Aborted — the run stopped cleanly mid-clip (barge-in / stop).');
+							if (aborted) setDiag('Stopped cleanly, mid-clip.');
 							else { setDiag('Done.'); mIndex.textContent = '—'; markAllDone(); }
 							const cb = onDone; onDone = null; // one-shot
 							if (cb) cb({ aborted });
@@ -417,30 +410,30 @@
 				if (!seq) return;
 				paused = false;
 				seq.stop();               // cooperative abort — in-flight produce() is signaled
-				setDiag('Barged in — the sequence aborted; a new intent could start immediately.');
+				setDiag('Interrupted. Playback stopped at once, and anything new could start right away.');
 				setTransport(false);
 			});
 
 			// ── The storyboard beats ──────────────────────────────────────────────────────
 			const BEATS = [
-				{ id: 'play',  t: 'Bytes in, clock out', d: 'Five tones scheduled back-to-back; each lights at its real onset on Suono’s owned WebAudio clock.', api: 'sequence().play()', run: () => playFresh({ gaps: false }) },
-				{ id: 'gaps',  t: 'Breath between phrases', d: 'The same run with a deeper gap after a topic beat — the scheduler inserts the silence, not you.', api: 'gap((it,next,i)=>ms)', run: () => playFresh({ gaps: true }) },
-				{ id: 'barge', t: 'Barge-in', d: 'Start playing, then interrupt: the run aborts cleanly mid-clip and the in-flight producer is signaled.', api: 'stop() / AbortSignal', run: () => { playFresh({ gaps: true }); setTimeout(() => bargeBtn.click(), 900); } },
-				{ id: 'pause', t: 'Pause & resume', d: 'Freeze between clips and continue — the owned clock pauses with it.', api: 'pause() / resume()', run: () => { playFresh({ gaps: true }); setTimeout(() => pauseBtn.click(), 800); setTimeout(() => pauseBtn.click(), 1900); } },
+				{ id: 'play',  t: 'Play in order', d: 'Five tones back to back. Each lights up at the moment it actually starts playing.', api: 'sequence().play()', run: () => playFresh({ gaps: false }) },
+				{ id: 'gaps',  t: 'Natural pauses', d: 'The same run with a longer breath after a topic. Suono inserts the silence for you.', api: 'gap((it,next,i)=>ms)', run: () => playFresh({ gaps: true }) },
+				{ id: 'barge', t: 'Interrupt instantly', d: 'Start playing, then cut in, the way a voice assistant stops when you speak. The clip stops at once and the pending request is canceled.', api: 'stop() / AbortSignal', run: () => { playFresh({ gaps: true }); setTimeout(() => bargeBtn.click(), 900); } },
+				{ id: 'pause', t: 'Pause and pick up', d: 'Pause, then carry on from the same place. The clock pauses too, so captions stay in step.', api: 'pause() / resume()', run: () => { playFresh({ gaps: true }); setTimeout(() => pauseBtn.click(), 800); setTimeout(() => pauseBtn.click(), 1900); } },
 				// Cache: play a FRESH instance, then on natural completion REPLAY THAT SAME instance. Its
 				// keyed byte cache persists across the replay, so produce() should not fire again — we
 				// compare produce() counts across the two runs and report the real delta (0 = full hit).
-				{ id: 'cache', t: 'Dedup cache', d: 'Replay the same instance: keyed bytes serve from its cache, so produce() should not fire again.', api: 'key(it=>id)', run: () => {
+				{ id: 'cache', t: 'Replays are free', d: 'Play it twice. The second time every clip comes from the cache, so nothing is generated (or paid for) again.', api: 'key(it=>id)', run: () => {
 					playFresh({ gaps: false });
 					onDone = ({ aborted }) => {
 						if (aborted) return;
 						const afterFirst = produceCount;
-						setDiag('Replaying the same instance — watch produce() stay flat…');
+						setDiag('Playing it again. Watch "Clips generated" stay where it is…');
 						onDone = ({ aborted: a2 }) => {
 							if (a2) return;
 							const grew = produceCount - afterFirst;
-							if (grew === 0) { cacheCount += ITEMS.length; mCache.textContent = String(cacheCount); ITEMS.forEach((_, i) => markChip(i, null, 'hit')); setDiag(`Cache hit — 0 new produce() calls across ${ITEMS.length} items on replay.`); }
-							else setDiag(`Replay re-synthesized ${grew} item(s) — cache miss.`);
+							if (grew === 0) { cacheCount += ITEMS.length; mCache.textContent = String(cacheCount); ITEMS.forEach((_, i) => markChip(i, null, 'hit')); setDiag(`All ${ITEMS.length} clips came from the cache. Nothing was generated again.`); }
+							else setDiag(`The replay generated ${grew} clip(s) again: they were not in the cache.`);
 						};
 						replayCurrent();
 					};
@@ -448,23 +441,23 @@
 				// Warm: build an instance, give the stage a context (unlock), warm() to prefetch (+decode)
 				// its bytes, then after a short prefetch window play THAT SAME instance. Report how many
 				// clips still needed live synthesis at play (ideally 0 — the warm did the work).
-				{ id: 'warm',  t: 'Warm ahead', d: 'Preload the phrase into an instance, then play THAT instance — prefetched bytes mean no live synth at play.', api: 'warm(items)', run: () => {
+				{ id: 'warm',  t: 'Preload the next part', d: 'Fetch the audio ahead of time, then play. It starts instantly, with nothing generated at play time.', api: 'warm(items)', run: () => {
 					const st = ensureStage(); st.unlock();
 					if (seq) seq.stop();
 					renderScore(true);
 					seq = buildSequence({ gaps: true });
 					seq.warm(ITEMS);
-					setDiag('Warming — prefetching the phrase ahead…');
+					setDiag('Preloading the audio ahead of time…');
 					// Play AFTER a prefetch window, and measure synth calls made AT PLAY (baseline captured
 					// just before play, so warm's own produce() calls aren't counted against playback).
 					setTimeout(() => {
 						if (curBeat !== 'warm') return;
 						const beforePlay = produceCount;
-						onDone = ({ aborted }) => { if (!aborted) setDiag(`Played the warmed instance — ${produceCount - beforePlay} live synth call(s) at play (warm prefetched the rest).`); };
+						onDone = ({ aborted }) => { if (!aborted) setDiag(`Played the preloaded run. Clips generated at play time: ${produceCount - beforePlay}.`); };
 						setTransport(true); seq.play();
 					}, 450);
 				} },
-				{ id: 'voice', t: 'Real words + caption', d: 'With a cloud key, tones become speech and each measured onset re-anchors a caption (the cadenza tie).', api: 'onItemStart→reader.align', run: () => { if (mode !== 'voice') { setDiag('Connect a cloud voice below to hear words; playing tones for now.'); } playFresh({ gaps: true }); } },
+				{ id: 'voice', t: 'Captions in time with speech', d: 'Connect a voice below and the tones become words, with a caption that follows each one as it is spoken.', api: 'onItemStart→reader.align', run: () => { if (mode !== 'voice') { setDiag('Connect a cloud voice below to hear words; playing tones for now.'); } playFresh({ gaps: true }); } },
 			];
 			function setCurrentBeat(id) {
 				curBeat = id;

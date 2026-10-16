@@ -14,8 +14,11 @@
 //                the Workbench; that disclosure is gone — one hop, not two.
 //   • content  — Docs (the whole learning track), Components (the reference),
 //                Features, Comparison. Always inline on desktop.
-//   • libraries — the framework-free sibling libraries, one disclosure.
-//
+//   • catalog  — Libraries and Plugins: two plain links to the two hubs, which
+//                introduce every library and plugin. The menus never list the
+//                individual entries (that is what the hubs are for); the ⌘K
+//                palette finds them by name.
+
 // The Drawing Board and the Workbench are GONE — the Studio succeeded both and
 // their routes were deleted (2026-07-03-studio-succession.md P5). `/drawing-board`
 // and `/workbench` now redirect to `/studio/` (astro.config.mjs), so old links and
@@ -62,26 +65,57 @@ export function appsNav(url) {
 	];
 }
 
+// The CATALOG — two hubs, one link each. Every surface that lists destinations (the desktop
+// bar, the mobile Sheet, the Starlight mobile sidebar) shows these two and NOT the individual
+// libraries and plugins: the hub is the one place that introduces them, so the menus stay
+// short (src/pages/libraries/, src/pages/plugins/). The individual entries below are still
+// one ⌘K query away (`searchOnly`) and drawn as cards on the home page.
+export function catalogNav(url) {
+	return [
+		{ label: 'Libraries', href: url('libraries/'), match: ['libraries'], desc: 'The parts Lattice is built from' },
+		{ label: 'Plugins', href: url('plugins/'), match: ['plugins'], desc: 'New syntax for any slide' },
+	];
+}
+
 // The framework-free sibling LIBRARIES — every workspace library in the root package.json, each
-// published to npm as `pkg` (engineering/decisions/2026-10-08-library-audit.md). Grouped under one
-// "Libraries" disclosure on desktop, listed flat in the mobile menu + command palette, and drawn as
-// cards on the home page. A library with a standalone showcase demo (own chrome, reached by URL)
-// links to it; a library with no demo page would link to its README on GitHub with an empty
-// `match` (no route of ours is "inside" it). Since /tavola (2026-10-08), every library has one. LTT is listed under specsNav instead: it is a format
-// first, and @laticent/ltt is its reference implementation (spec audit §8.5). nav.test.ts fails
-// when a workspace package is missing from both lists, which is how LTT and Tavola went unlisted.
-// Anima is internal (no package, no build), so it is not listed.
+// published to npm as `pkg` (engineering/decisions/2026-10-08-library-audit.md). Each has a demo
+// at /libraries/<slug>/ and a Learn page beside it; the hub and both pages are built from
+// src/content/catalog/libraries/<slug>.md, in the same order as this list (nav.test.ts holds
+// both lines). LTT is listed under specsNav instead: it is a format first, and @laticent/ltt is
+// its reference implementation (spec audit §8.5). nav.test.ts fails when a workspace package is
+// missing from both lists, which is how LTT and Tavola once went unlisted. Anima is internal (no
+// package, no build), so it is not listed.
+const lib = (url, label, pkg, desc) => {
+	const slug = label.toLowerCase();
+	return { label, href: url(`libraries/${slug}/`), match: [`libraries/${slug}`], pkg, desc, searchOnly: true };
+};
 export function librariesNav(url) {
 	return [
-		{ label: 'Suono', href: url('suono'), match: ['suono'], pkg: '@laticent/suono', desc: 'Audio scheduler + owned clock' },
-		{ label: 'Lente', href: url('lente'), match: ['lente'], pkg: '@laticent/lente', desc: 'Reader lenses, human-approved' },
-		{ label: 'Cadenza', href: url('cadenza'), match: ['cadenza'], pkg: '@laticent/cadenza', desc: 'Caption + timeline engine' },
-		{ label: 'Vetrina', href: url('vetrina'), match: ['vetrina'], pkg: '@laticent/vetrina', desc: 'Self-driving walkthrough' },
-		{ label: 'Trama', href: url('trama'), match: ['trama'], pkg: '@laticent/trama', desc: 'Graph layout + elbow routing' },
-		{ label: 'Segno', href: url('segno'), match: ['segno'], pkg: '@laticent/segno', desc: 'Grammar engine + notation' },
-		{ label: 'Calco', href: url('calco'), match: ['calco'], pkg: '@laticent/calco', desc: 'Slides to editable office files' },
-		{ label: 'Tavola', href: url('tavola'), match: ['tavola'], pkg: '@laticent/tavola', desc: 'Peer-to-peer live editing' },
-		{ label: 'Fuoco', href: url('fuoco'), match: ['fuoco'], pkg: '@laticent/fuoco', desc: 'One focus for every view' },
+		lib(url, 'Suono', '@laticent/suono', 'Smooth, interruptible audio playback'),
+		lib(url, 'Cadenza', '@laticent/cadenza', 'Captions that light up word by word'),
+		lib(url, 'Vetrina', '@laticent/vetrina', 'Product tours that drive your real app'),
+		lib(url, 'Lente', '@laticent/lente', 'A view for every reader, each approved'),
+		lib(url, 'Trama', '@laticent/trama', 'Diagrams with lines that never collide'),
+		lib(url, 'Segno', '@laticent/segno', 'Typed text into typed data, safely'),
+		lib(url, 'Calco', '@laticent/calco', 'Web slides to editable PowerPoint'),
+		lib(url, 'Tavola', '@laticent/tavola', 'Edit together from a link, no server'),
+		lib(url, 'Fuoco', '@laticent/fuoco', 'Every view of a document on one focus'),
+	];
+}
+
+// The author-facing PLUGINS (lib/plugins/<name>/), each with a live demo at /plugins/<slug>/
+// and a Learn page beside it, built from src/content/catalog/plugins/<slug>.md. Two shipped
+// plugins are deliberately absent: chart-family is plumbing no author names, and anima's scene
+// format is not settled yet — the Plugins hub explains both under "Under the hood".
+const plugin = (url, label, slug, desc) => ({ label, href: url(`plugins/${slug}/`), match: [`plugins/${slug}`], desc, searchOnly: true });
+export function pluginsNav(url) {
+	return [
+		plugin(url, 'Math', 'math', 'TeX equations on any slide'),
+		plugin(url, 'Mermaid', 'mermaid', 'Diagrams from a text fence'),
+		plugin(url, 'Icons', 'icons', 'Drawn icons, written in a word'),
+		plugin(url, 'Avatars', 'avatars', 'A face for every name'),
+		plugin(url, 'Function plots', 'function-plot', 'Graphs of y = f(x)'),
+		plugin(url, 'Code', 'code', 'Highlighted code in any language'),
 	];
 }
 
@@ -98,21 +132,23 @@ export function specsNav(url) {
 }
 
 // The flat ordered list (Studio · Playground · Docs · Components · Features ·
-// Comparison · the libraries), kept for surfaces that present one undivided
-// menu — the Starlight mobile sidebar and the command palette's "Go to" group.
+// Comparison · Libraries · Plugins), kept for surfaces that present one undivided
+// menu — the Starlight mobile sidebar, the mobile Sheet and the command palette.
 // The apps lead here too, so "first link" means the same thing on every
 // surface, not just the desktop bar.
 export function primaryNav(url) {
-	return [...appsNav(url), ...contentNav(url), ...librariesNav(url)];
+	return [...appsNav(url), ...contentNav(url), ...catalogNav(url)];
+}
+
+// What the ⌘K palette can reach: the primary nav, plus every library and plugin. Those carry
+// `searchOnly`, so the palette lists them only once the visitor types a query — an empty
+// palette shows the same short list as the menus.
+export function findableNav(url) {
+	return [...primaryNav(url), ...librariesNav(url), ...pluginsNav(url)];
 }
 
 // True when the current request path falls inside an item's section, so the
 // same logic drives "you are here" on every surface (docs pages light up Docs).
 export function isCurrent(item, pathname) {
 	return item.match.some((seg) => pathname.includes('/' + seg));
-}
-
-// True when any Libraries-group route is current — lights the "Libraries" disclosure.
-export function librariesActive(pathname, url) {
-	return librariesNav(url).some((item) => isCurrent(item, pathname));
 }

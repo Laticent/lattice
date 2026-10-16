@@ -4,7 +4,9 @@
 // tab: a host and a guest, each with its own Yjs document, joined by Tavola's in-memory network
 // (`createMemoryNetwork`) instead of WebRTC, so a visitor sees the handshake, the gate and the sync
 // without opening a second browser. Every byte between the panes goes through the same session
-// code the Studio's Live panel runs; only the transport is swapped. Reached at /tavola.
+// code the Studio's Live panel runs; only the transport is swapped. Reached at
+// /libraries/tavola/; its Learn page is /libraries/tavola/learn/ (src/content/catalog/).
+import DemoBar from '../../../components/catalog/DemoBar.astro';
 ---
 
 <!doctype html>
@@ -63,7 +65,9 @@
 			.theme { background: none; border: 1px solid var(--line); color: var(--muted); border-radius: 999px; font-size: 11px;
 				padding: 5px 11px; cursor: pointer; font-family: var(--sans); display: inline-flex; align-items: center; gap: 6px; }
 			.theme:hover { color: var(--accent); border-color: var(--accent); }
-			.sub { color: var(--muted); font-size: 14px; max-width: 72ch; margin: 6px 0 0; }
+			.promise { font-family: var(--serif); font-size: clamp(21px, 3vw, 27px); line-height: 1.3; color: var(--ink); max-width: 34ch; margin: 14px 0 0; text-wrap: balance; }
+			.label small { font-weight: 400; text-transform: none; letter-spacing: 0; opacity: .8; }
+			.sub { color: var(--muted); font-size: 15px; max-width: 64ch; margin: 8px 0 0; }
 			.sub b { color: var(--ink); font-weight: 600; }
 
 			.stage { margin: 26px 0 0; background: var(--stage); border: 1px solid var(--line); border-radius: 18px;
@@ -146,6 +150,7 @@
 	</head>
 	<body>
 		<div class="wrap">
+			<DemoBar slug="tavola" />
 			<header>
 				<div class="brand">
 					<!-- The mark: a table seen from above with its four seats, in the four session colors. -->
@@ -154,16 +159,14 @@
 						<circle cx="24" cy="5.5" r="4" class="s1" /><circle cx="42.5" cy="24" r="4" class="s2" />
 						<circle cx="24" cy="42.5" r="4" class="s3" /><circle cx="5.5" cy="24" r="4" class="s4" />
 					</svg>
-					<h1>Tavola</h1><span class="tag">live editing</span>
+					<h1>Tavola</h1><span class="tag">Library</span>
 				</div>
 				<div style="display:flex; gap:14px; align-items:center;">
-					<a class="home" href="/"><svg viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M7.5 2.5 L4 6 L7.5 9.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" /></svg>Lattice</a>
 					<button class="theme" id="themeBtn" type="button"><svg viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="4.8" fill="none" stroke="currentColor" stroke-width="1.3" /><path d="M6 1.2 A4.8 4.8 0 0 1 6 10.8 Z" fill="currentColor" /></svg>theme</button>
 				</div>
 			</header>
-			<p class="sub">
-				Share a link; the other person opens it, <b>knocks</b>, you let them in, and you are <b>editing the same document</b>, browser to browser, with no server of yours in the middle. Both people below are real Tavola sessions running in this tab, joined by an in-memory network instead of WebRTC. Knock as the guest, admit them as the host, then type in either box.
-			</p>
+			<p class="promise">Share a link, let people in, edit together. No server of your own.</p>
+			<p class="sub">Below are two people, a host and a guest, side by side so you can play both. <b>1&nbsp;·&nbsp;Knock</b> as the guest, <b>2&nbsp;·&nbsp;Admit</b> them as the host, then <b>3&nbsp;·&nbsp;Type</b> in either box and watch it appear in the other. Then make the guest <b>view only</b> and type as the guest: nothing crosses.</p>
 
 			<div class="stage">
 				<div class="controls">
@@ -174,9 +177,9 @@
 				</div>
 				<div class="panes">
 					<section class="pane" aria-label="The host">
-						<div class="pane-head"><span class="seat c1"></span><span class="who">Sharmarke <small>host</small></span><span class="badge live" id="hostStage">hosting</span></div>
+						<div class="pane-head"><span class="seat c1"></span><span class="who">Ada <small>host</small></span><span class="badge live" id="hostStage">hosting</span></div>
 						<div class="pane-body">
-							<div><p class="label">The link you share</p><div class="link" id="link"></div></div>
+							<div><p class="label">The link you share <small>· everything after # stays in the browser</small></p><div class="link" id="link"></div></div>
 							<div><p class="label">Knocking</p><ul class="rows" id="knocks"></ul></div>
 							<div><p class="label">In the room</p><ul class="rows" id="members"></ul></div>
 							<div style="display:flex; flex-direction:column; flex:1;"><p class="label">The deck</p><textarea id="hostText" spellcheck="false" aria-label="The host's copy of the deck"></textarea></div>
@@ -192,25 +195,23 @@
 
 			<div class="rail-head"><h2>How it works</h2></div>
 			<div class="beats">
-				<div class="beat"><span class="n">1</span><span><span class="bt">The link</span><span class="bd">Room, secret and the host key's fingerprint ride in the URL fragment, which a browser never sends to a server. Only a hello signed by that key is believed.</span><span class="api">mintLink(key.fingerprint) · formatLink(url, parts)</span></span></div>
+				<div class="beat"><span class="n">1</span><span><span class="bt">The link</span><span class="bd">The room, a secret and the host's key ride after the # in the link, the part a browser never sends to a server. The guest trusts only a greeting signed by that key.</span><span class="api">mintLink(key.fingerprint) · formatLink(url, parts)</span></span></div>
 				<div class="beat"><span class="n">2</span><span><span class="bt">The knock</span><span class="bd">A guest sees only the invite: the deck's title and who is hosting. Nothing of the document crosses until the host admits them.</span><span class="api">guest.knock(name) · host.admit(id) · host.deny(id)</span></span></div>
 				<div class="beat"><span class="n">3</span><span><span class="bt">The gate</span><span class="bd">An edit is sent only to admitted members, and applied only from a member who may edit. A view-only member's typing never reaches anyone.</span><span class="api">host.setRole(id, 'view') · host.remove(id)</span></span></div>
 			</div>
 
 			<div class="limits">
-				<div><b>One tab, not two machines</b>The transport here is in memory. Between real browsers the Studio passes a WebRTC transport instead; the session code is the same.</div>
+				<div><b>One tab, not two machines</b>Here both people share this tab. Between real browsers, the Studio connects them directly instead; the session code is the same.</div>
 				<div><b>Four at the table</b>A session holds four people, host included, each with one of four colors.</div>
-				<div><b>Edits are not signed</b>Tavola decides who may edit, not what an editor writes. An admitted editor is trusted with the text.</div>
+				<div><b>Trust who you admit</b>Tavola decides who may edit, not what they write. Anyone you let edit can change anything.</div>
 			</div>
 
-			<p class="foot">
-				Driven by the real library (<code>@laticent/tavola</code>, <code>docs/src/lib/tavola</code>): <code>createHostKey()</code> makes the host's signing key, <code>mintLink</code> the link, <code>createSession</code> each side, and <code>createMemoryNetwork()</code> joins them in this tab. The document is a Yjs text per side, passed in as a stream, so Tavola never owns it. Tavola is AGPL-3.0, like Lattice. <a href="https://github.com/Laticent/lattice/tree/main/docs/src/lib/tavola">Read the README</a>.
-			</p>
+			<p class="foot">This page runs the real library in your browser. <a href="/libraries/tavola/learn/">Learn how Tavola works, and how to use it →</a></p>
 		</div>
 
 		<script>
 			import * as Y from 'yjs';
-			import { createHostKey, createMemoryNetwork, createSession, formatLink, type HostKey, type MemoryNetwork, mintLink, type Session, type Stream } from '../lib/tavola';
+			import { createHostKey, createMemoryNetwork, createSession, formatLink, type HostKey, type MemoryNetwork, mintLink, type Session, type Stream } from '../../../lib/tavola';
 
 			const $ = <T extends HTMLElement = HTMLElement>(s: string) => document.querySelector(s) as T;
 			const root = document.documentElement;
@@ -227,7 +228,7 @@
 			});
 
 			const SEED = '---\ntheme: indaco\n---\n\n# Q3 Board Review\n\n---\n\n## Revenue held while costs fell\n\n- Price\n  - Moves with the index\n';
-			const INVITE = { title: 'Q3 Board Review', hostName: 'Sharmarke', slides: 2 };
+			const INVITE = { title: 'Q3 Board Review', hostName: 'Ada', slides: 2 };
 
 			// A Yjs text as the stream Tavola asks for: it never sees the document type.
 			function yStream(doc: Y.Doc): Stream {
@@ -314,7 +315,7 @@
 				net = createMemoryNetwork();
 				hostDoc = new Y.Doc();
 				hostDoc.getText('source').insert(0, SEED);
-				host = createSession({ transport: net.join(link.room, link.secret), doc: yStream(hostDoc), host: { name: 'Sharmarke', key, invite: INVITE } });
+				host = createSession({ transport: net.join(link.room, link.secret), doc: yStream(hostDoc), host: { name: 'Ada', key, invite: INVITE } });
 				guestDoc = new Y.Doc();
 				guest = createSession({ transport: net.join(link.room, link.secret), doc: yStream(guestDoc), hostFingerprint: key.fingerprint });
 				const shown = formatLink('https://lattice.style/studio/', link);
@@ -337,7 +338,7 @@
 				knocks.innerHTML = s.waiting.length ? '' : '<li class="empty">No one is waiting.</li>';
 				for (const k of s.waiting) {
 					const li = document.createElement('li');
-					li.innerHTML = `<span class="seat"></span><span class="name">${esc(k.name)}</span><span class="role">wants in</span><span class="act"><button class="btn ok" type="button">Admit</button><button class="btn no" type="button">Deny</button></span>`;
+					li.innerHTML = `<span class="seat"></span><span class="name">${esc(k.name)}</span><span class="role">wants in</span><span class="act"><button class="btn ok" type="button">2 · Admit</button><button class="btn no" type="button">Deny</button></span>`;
 					const [admit, deny] = li.querySelectorAll('button');
 					admit.addEventListener('click', () => { host.admit(k.id); log(`<b>host</b> admitted ${esc(k.name)}; the deck goes to them now, not before`); pump(); });
 					deny.addEventListener('click', () => { host.deny(k.id); log(`<b>host</b> turned ${esc(k.name)} away; they never saw the deck`); pump(); });
@@ -382,12 +383,12 @@
 				const noDeck = '<div class="no-deck">The deck appears here once the host lets you in.<br />Until then, nothing of it is in this tab.</div>';
 				if (s.stage === 'connecting') body.innerHTML = `<p class="note">Reaching the host…</p>${noDeck}`;
 				else if (s.stage === 'lobby' && s.invite) {
-					body.innerHTML = `<div class="invite"><p>${esc(s.invite.hostName)} invites you to</p><h3>${esc(s.invite.title)}</h3><p>${s.invite.slides ?? ''} slides. Say who you are, and they decide whether to let you in.</p><div class="knock-row"><input id="name" value="Amina" aria-label="Your name" maxlength="40" /><button class="btn primary" id="knock" type="button">Knock</button></div></div>${noDeck}`;
+					body.innerHTML = `<div class="invite"><p>${esc(s.invite.hostName)} invites you to</p><h3>${esc(s.invite.title)}</h3><p>${s.invite.slides ?? ''} slides. Say who you are, and they decide whether to let you in.</p><div class="knock-row"><input id="name" value="Amina" aria-label="Your name" maxlength="40" /><button class="btn primary" id="knock" type="button">1 · Knock</button></div></div>${noDeck}`;
 					const input = body.querySelector('#name') as HTMLInputElement;
 					const go = () => { const n = input.value.trim() || 'Guest'; guest.knock(n); log(`<b>guest</b> knocked as ${esc(n)}`); pump(); };
 					body.querySelector('#knock')?.addEventListener('click', go);
 					input.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
-				} else if (s.stage === 'waiting') body.innerHTML = `<p class="note">Waiting for Sharmarke to let you in.</p>${noDeck}`;
+				} else if (s.stage === 'waiting') body.innerHTML = `<p class="note">Waiting for Ada to let you in.</p>${noDeck}`;
 				else if (s.stage === 'live') {
 					body.innerHTML = '<div style="display:flex; flex-direction:column; flex:1;"><p class="label">The deck</p><textarea spellcheck="false" aria-label="The guest\'s copy of the deck"></textarea></div><p class="note">Type here or in the host\'s box: each side has its own document, and Tavola carries the changes.</p>';
 					const area = body.querySelector('textarea') as HTMLTextAreaElement;

@@ -12,7 +12,10 @@
 //   drawn    boolean  — whether any sample holds a fence a runtime draws (lib/plugins/drawn-probe.mjs)
 //   variants [{key,label,caption,sample}] — base ('default') + each modifier;
 //            powers the variant switcher and per-variant playground handoff
-const { name, sample, drawn = false, variants = [], variantGroups = null } = Astro.props;
+//   variantsLabel string — the switcher's label ("Variant" on a component page; a plugin
+//            demo passes "Example")
+//   from     string — who the Playground handoff names ("the component reference" by default)
+const { name, sample, drawn = false, variants = [], variantGroups = null, variantsLabel = 'Variant', from } = Astro.props;
 
 import { assetBase, engineAsset } from '../playground/asset-version.mjs';
 import { joinBase } from '../lib/base-url.mjs';
@@ -31,6 +34,7 @@ const dataJson = JSON.stringify({
 	name,
 	sample,
 	drawn,
+	from,
 	variants,
 	themeBase: url(pg + 'themes/'),
 	runtimeUrl: url(pg + 'lattice-runtime.js'),
@@ -78,7 +82,7 @@ const dataJson = JSON.stringify({
 		</div>
 	) : (
 		<div class="specimen-variants">
-			<span class="specimen-variants-label">Variant</span>
+			<span class="specimen-variants-label">{variantsLabel}</span>
 			{variants.map((v, i) => (
 				<button
 					class:list={['specimen-variant', { 'is-active': i === 0 }]}

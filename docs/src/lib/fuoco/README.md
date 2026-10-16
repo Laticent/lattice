@@ -11,7 +11,7 @@ loops. Fuoco gives them one focus hub instead: views **report** facts, **ask** f
 **outliner** that cuts text into units and parts: slides, chapters, timed cues, functions,
 notebook cells. It is framework-free with zero dependencies; React is an optional adapter.
 
-Live demo: `/fuoco` on the docs site. Design and
+Live demo: `/libraries/fuoco/` on the docs site, with a guide beside it at `/libraries/fuoco/learn/`. Design and
 measurements: `engineering/decisions/2026-10-15-fuoco-focus-sync.md`.
 
 ## Install

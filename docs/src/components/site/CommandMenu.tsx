@@ -17,7 +17,9 @@ import { cycleModePref, setPalette } from '@/lib/site-chrome';
 import { useIsPhone } from '@/lib/use-breakpoint';
 import type { LessonMeta } from '../studio/lessons/catalog';
 
-export type NavLink = { label: string; href: string; desc?: string; current?: boolean; badge?: string };
+// `searchOnly`: listed only once the visitor types — the individual libraries and plugins,
+// which the menus leave to their hubs (nav.mjs findableNav).
+export type NavLink = { label: string; href: string; desc?: string; current?: boolean; badge?: string; searchOnly?: boolean };
 
 // lucide v1 dropped brand glyphs, so the GitHub mark is a local inline SVG
 // (currentColor, sized like the lucide icons around it).
@@ -363,7 +365,7 @@ function matchRows(items: string[], query: string): string[] {
 
 function matchLinks(items: NavLink[], query: string): NavLink[] {
 	const q = query.trim().toLowerCase();
-	if (!q) return items;
+	if (!q) return items.filter((l) => !l.searchOnly);
 	return items.filter((l) => `${l.label} ${l.desc ?? ''}`.toLowerCase().includes(q));
 }
 
