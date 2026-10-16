@@ -317,9 +317,14 @@ describe('code-line-clipped — every class that moves the pane is measured, not
   });
 
   test('a canvas is judged by its own measurement, an unregistered one by its family\'s narrowest', () => {
-    // 16:9 and 4K differ by a column for compare-code; the family minimum would call 48 cut off at 16:9.
-    assert.equal(cols('compare', [], HD), 48);
-    assert.equal(cols('compare', [], 'nope', 'wide'), 47);
+    // 16:9 and 4K differ by a column for a compact side-aligned pane at scale-l (the font draws a
+    // hair wider at 4K); the family minimum would call 97 cut off at 16:9.
+    assert.equal(cols('sided', ['compact', 'scale-l'], HD), 97);
+    assert.equal(cols('sided', ['compact', 'scale-l'], '3840x2160'), 96);
+    assert.equal(cols('sided', ['compact', 'scale-l'], 'nope', 'wide'), 96);
+    // 4K is the 16:9 slide at 3x, so the plain compare-code pane fits 48 on both (measured 47.9998 at
+    // 4K: float error, inside the tool's twentieth-of-a-column slack).
+    assert.equal(cols('compare', [], '3840x2160'), 48);
   });
 
   test('the TIGHTEST budget wins, so the verdict does not depend on _class word order', () => {

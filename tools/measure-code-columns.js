@@ -19,7 +19,7 @@
  *     columns where the venue alone fits 68. Dividing 102 by the nominal factors gets two venues one
  *     column wrong (88 for 89 at huddle, 59 for 60 at hall); the table is what Chromium lays out;
  *   - the CANVAS: every registered `size:` is measured on its own, so a deck is judged by its own box
- *     rather than its family's narrowest (a 16:9 compare-code pane fits 48 columns, a 4K one 47).
+ *     rather than its family's narrowest (a 16:9 compact side-aligned pane at scale-l fits 97 columns, a 4K one 96).
  * Every combination is measured: 4 stages × 4 venues × 4 spot scales × 4 groups × 7 canvases, 1,792 cells.
  *
  * HOW. One deck per canvas, one slide per combination, each a fence holding a 240-column ruler,
@@ -137,7 +137,12 @@ async function measureCodeColumns(browser, { groups = GROUPS, combos = allCombos
         const clips = /hidden|clip/.test(ps.overflowX);
         const left = Math.max(cr.left, clips ? pr.left + parseFloat(ps.paddingLeft) : -Infinity, sr.left);
         const right = Math.min(cr.left + rulerLength * advance, clips ? pr.right - parseFloat(ps.paddingRight) : Infinity, sr.right);
-        return { name, n: Math.floor((right - left) / advance + 1e-6) };
+        // A twentieth of a column of slack (half a pixel at 16:9, the same share of a glyph on every
+        // canvas): a column that overshoots the edge by less draws whole, and the panel clips at its
+        // padding edge, further out. A layout scaled up (4K is the 16:9 slide at 3x) carries float
+        // error; without the slack a 4K compare-code pane measured 47.9998 columns and was called 47
+        // where it draws 48, as 16:9 does (examples/gallery-jargon.md slide 45 renders its 48 whole).
+        return { name, n: Math.floor((right - left) / advance + 0.05) };
       }), RULER.length);
       await page.close();
       for (const { name, n } of rows) {

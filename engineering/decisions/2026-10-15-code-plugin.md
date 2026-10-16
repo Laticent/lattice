@@ -503,8 +503,8 @@ Proof:
   and hall (59 for 60). Everything now reads one table, lib/authoring/code-pane-columns.js, written by
   `tools/measure-code-columns.js`: 4 stages × 4 venues × 4 spot scales × 4 panel groups × 7 canvases, 1,792 cells,
   each what Chromium fits. Two facts only measurement gave: a spot scale beside a venue REPLACES the venue's size
-  (`venue-conference scale-l` fits 77, not 68), and a canvas is judged by its own number (a 16:9 compare-code pane
-  fits 48, 4K 47). The rule stays `info`. Tier 2 re-measures a sample of the table on every `npm test` with a browser;
+  (`venue-conference scale-l` fits 77, not 68), and a canvas is judged by its own number (a 16:9 compact
+  side-aligned pane at scale-l fits 97, 4K 96, where the font draws a hair wider). The rule stays `info`. Tier 2 re-measures a sample of the table on every `npm test` with a browser;
   `--check` re-measures it all.
 - 2026-10-16: the copy buttons move into the title bar (jank found by measuring, #2716). They were absolutely
   positioned at the panel's top right with an opaque face, so they sat over the first line once it was long: measured
@@ -531,5 +531,10 @@ Proof:
   plain pane (under `align-*` or `stats` only a block that does not wrap grows past it); a continuation hangs two columns in without numbers, under its own text with them. All three are
   counted in `capacity-scale` (under a venue or scale); the editorial count rule at the designed size stays on source
   lines, because it is a budget for what the audience reads, not a clip. A fence inside speaker notes no longer counts
-  as a block of the pane, and a ```` fence no longer closes on ``` (CommonMark). On the 429 decks `lint:deck:all` reads, the change adds no finding; Tier 2 re-measures the
+  as a block of the pane, and a ```` fence no longer closes on ``` (CommonMark). The measuring tool also gained a
+  twentieth of a column of slack: 4K is the 16:9 slide at 3x, and float error measured its compare-code pane at
+  47.9998 columns, which the floor called 47. That named a 48-column line in two galleries (gallery-jargon slide 45,
+  the baseline gallery slide 34) that renders whole, measured 0.016px past the content edge and well inside the
+  panel's clip; 46 cells moved by one, every one toward what Chromium draws. On the 429 decks `lint:deck:all` reads, the change adds no finding and removes those two (main named them too, from
+  its hand-written 47); Tier 2 re-measures the
   bar at two room sizes on every canvas.
