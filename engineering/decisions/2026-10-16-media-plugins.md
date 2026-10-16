@@ -6,8 +6,9 @@ summary: >
   from is a separate, core concern: one registry of media sources (data, relative, file, web, sample, asset,
   later Google Drive) replaces the scheme checks repeated at nine
   sites across three core files. Video hosts stay one table of
-  provider rows, extended with a `file` row for MP4 and WebM. The audit found nine defects in today's wiring,
-  one of them confirmed by a render: a relative image in slide text breaks in a CLI export written to another folder.
+  provider rows, extended with a `file` row for MP4 and WebM. The audit found nine defects in today's wiring. The two
+  worst are confirmed by renders: a CLI export drops `![bg]` on an ordinary slide, and a relative image in slide
+  text breaks in a CLI export written to another folder.
   Owner decisions: a clean break from Marp's alt-text keywords with an autofix, `>` as the video sigil, and remote
   sources fetched in the bake into a cache; packaging is on hold. After #2725, every address comes from the
   author's own block, never from slide text or the DOM (§4.5).
@@ -96,13 +97,13 @@ one-row change" (lines 324-327).
 |---|---|---|
 | D1 | **A relative image in slide text breaks in a CLI export written to another folder.** Chromium loads the page from the output path, and the CLI passes the engine `samplesUrl` but no `baseUrl` (`lattice.js:2178,2191`), so `![a](pic.jpg)` resolves against the output folder. `![bg]` is unaffected because the CLI lifts it to `file://` first | **Confirmed by render, 2026-10-16:** `deck/d.md` → `-o out/d.png` writes `out/d.001.png`, which shows a broken-image icon and the PDF writer reports "1 not-loaded"; the same deck rendered into `deck/` shows the picture. Logged as `followups.d/2727-p1-cli-relative-prose-image.md` |
 | D2 | The `sample:` / `asset:` checks are repeated at nine sites across three core files (`bg-image.js`, `background-image.js`, `remote-ref.js`), plus more in the Studio's `asset:` helpers, so a new source means editing all of them, and the security predicate (`isRemoteUrl`) can drift from the resolver | §2 |
-| D3 | The CLI lifts `![bg]` on every slide (`liftBgImages`, `lattice.js:2170`); the engine lifts only on `image` slides (`bg-image.js:172`). Two render paths, two behaviors (HARD RULE #1) | code reading |
-| D4 | `bgDiv` drops `fit` / `contain`; only the engine's section-background rule honors them | `bg-image.js:151` vs `background-image.js:39` |
+| D3 | **A CLI export drops `![bg]` on an ordinary slide entirely.** The CLI lifts `![bg]` into a `.lattice-bg` div on every slide (`liftBgImages`, `lattice.js:2170`), but every `.lattice-bg` rule is scoped to `section.image` (`image.styles.css:113`), so on any other slide the div has no size and paints nothing. The engine lifts only on `image` slides (`bg-image.js:172`) and paints the rest as a section background, so the Studio shows the picture. Two render paths, two results (HARD RULE #1) | **Confirmed on both surfaces, 2026-10-16:** the same two-slide deck (`![bg](sample:photo-pano.jpg)`, `![bg contain](sample:photo-tall-rotated.jpg)`) shows each picture in the real Studio (Playwright on the production build: section `background-size: contain`, 0 `.lattice-bg` divs) and a blank slide with only the heading in the CLI PNG. Logged as `followups.d/2727-p1-cli-drops-plain-slide-bg.md` |
+| D4 | `bgDiv` drops `fit` / `contain` (`bgSide` keeps only left, right or full). On an `image` slide that does not show, because the `image` component picks its own composition from the picture's shape. On an ordinary slide in the CLI the picture is lost anyway (D3). So the keyword is honored only by the engine's section background | `bg-image.js:44-48,151` vs `background-image.js:39`; the CLI's `image` slide with a portrait picture and `contain` renders a matted portrait panel either way (CLI PNG, 2026-10-16) |
 | D5 | Marp's `w:`, `h:`, filters (`blur`, `sepia`, …) and `bg left:40%` are not implemented. `![w:200](x)` renders a full-size image with "w:200" as its alt text; `bg left:40%` renders a full-bleed cover | no handler in `lib/`; `BG_RE` rejects `:` and `%` (checked with `node -e`) |
 | D6 | `tools/fetch-video-oembed.js` writes a poster cache that no render reads, so the author copies the path into a `poster` bullet by hand | grep finds only a comment at `video-providers.mjs:71` |
 | D7 | `asset:` names a Library video, but a slide cannot show one: it renders the missing-image stand-in | `2026-10-12-library-media-assets.md:8,639` |
-| D8 | `IMG_SRC_RE` (`bg-image.js:94`) matches double-quoted `src` only; raw `<video src="asset:x">` and `srcset` are not resolved | also `followups.d/2640-p3-raw-html-asset-refs.md` |
-| D9 | The PDF writer's asset reader accepts PNG and JPEG only (`pdf-asset-reader.js:23-30`); WebP, GIF and AVIF stay in the Chromium raster | code reading; not rendered |
+| D8 | `IMG_SRC_RE` (`bg-image.js:94`) matches double-quoted `src` only; raw `<video src="asset:x">` and `srcset` are not resolved | `engine.render` with the Studio's `assetUrls` option, 2026-10-16: `<img src="asset:hero">` and `![md](asset:hero)` resolve to the mapped URL, `<img src='asset:hero'>` stays `asset:hero`. Also `followups.d/2640-p3-raw-html-asset-refs.md` |
+| D9 | The PDF writer's asset reader accepts PNG and JPEG only (`pdf-asset-reader.js:23-29`). A WebP picture is not lost, but it stays in the page's background photo at the raster's resolution instead of being embedded as its original file | **Rendered, 2026-10-16:** the same picture as JPEG, PNG and WebP. JPEG and PNG print "1 images drawn as vectors or originals", and `pdfimages` lists the 3200×1200 original. WebP prints "0 … 1 left in the photo", and the PDF holds only the 2560×1440 page raster. GIF and AVIF are inferred from the same reader, not rendered |
 
 D1 is pre-existing and off the path of this note, which is design only. It sits on the path of slice 1 (§7),
 which fixes it.
@@ -220,8 +221,10 @@ only if no code turns slide text into an address. These plugins are where that b
 
 - **The inline records, through the runtime mirror.** `transformInlinePills` (`lib/runtime/index.js:1115`)
   walks every `section code` in the finished page, plugin output included, and dispatches it. Icons, avatars
-  and sparks draw no address, so that is harmless today. A plugin that writes `<code>@video{https://attacker…}</code>`
-  would get a real poster link from it. So an inline kind that carries an address declares it
+  and sparks draw no address, so that is harmless today. **Shown in the real Studio, 2026-10-16** (Playwright on
+  the production build): a `<div data-lattice-plugin>` holding `<code>^{database}</code>`, appended to a painted
+  slide, was redrawn as a `lat-icon` within 3 seconds. A plugin that writes `<code>@video{https://attacker…}</code>`
+  would get a real poster link the same way. So an inline kind that carries an address declares it
   (`contributes.inline.video.address: true`), the runtime mirror never dispatches such a kind, and the mirror
   skips `[data-lattice-plugin]` for every kind. Address-bearing records resolve on the markdown-it token path
   only.
@@ -318,6 +321,8 @@ Slices 2 and 3 rebase onto #2725 once it lands, because they delete rows from it
 
 - 2026-10-16: audit and proposal written; D1 confirmed by render and logged. Owner settled decisions 2-4;
   decision 1 (packaging) is on hold.
+- 2026-10-16: D3, D4, D8, D9 and the runtime-mirror path reproduced on real surfaces (CLI renders, the Studio
+  under Playwright, `engine.render`). D3 turned out worse than first written, and D4 and D9 narrower.
 - 2026-10-16: a fact-check pass corrected five citations: the scheme-check count, a line number, the scope of
   `rebuilt-classes.js`, and the status of #2725's check, which is not pushed yet.
 - 2026-10-16: §4.6 added: each plugin's guide, fixtures, drawn icon and docs-site entry.
