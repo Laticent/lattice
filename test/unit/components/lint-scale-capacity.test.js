@@ -144,8 +144,9 @@ describe('capacity-scale — a code block', () => {
     assert.equal(out[0].severity, 'info');
     assert.match(out[0].message, /, so it is cut off\./);
     assert.match(out[0].message, new RegExp(`${bareXl + 1} lines \\(the pane holds about ${bareXl}\\)`));
-    // A spot `scale-xl` carries no code lift (only a venue sets one): 102 ÷ 1.3 = 78.
-    assert.match(out[0].fix, new RegExp(`${bareXl} lines of 78 characters`));
+    // A spot `scale-xl` carries no code lift (only a venue sets one): MEASURED 79 columns at 16:9
+    // (lib/authoring/code-pane-columns.js), where 102 ÷ 1.3 said 78.
+    assert.match(out[0].fix, new RegExp(`${bareXl} lines of ${core.codePaneColumns('pane', ['scale-xl'], '1280x720', 'wide')} characters`));
     assert.deepEqual(lint(deck('scale-xl', code(bareXl))), []);
   });
 
@@ -218,11 +219,12 @@ describe('capacity-scale — a code block', () => {
     const wide = '```js\n' + 'x'.repeat(90) + '\n```\n';
     const out = lint(deck('scale-xl', `<!-- _class: code -->\n\n## H.\n\n${wide}`));
     assert.equal(out.length, 1);
-    assert.match(out[0].message, /a 90-character line \(the pane holds about 78\)/);
+    assert.match(out[0].message, /a 90-character line \(the pane holds about 79\)/);
   });
 
-  test('in a venue the code lift narrows the pane: 68 columns at conference, 59 at hall', () => {
-    // 102 ÷ (1.3 × 1.15) = 68 and 102 ÷ (1.5 × 1.14) = 59 (`--venue-compact-lift`, 2026-09-29).
+  test('in a venue the code lift narrows the pane: 68 columns at conference, 60 at hall', () => {
+    // MEASURED (lib/authoring/code-pane-columns.js). Dividing 102 by (1.5 × 1.14) said 59 at hall, so a
+    // 60-column line that renders whole was named; the table is what Chromium lays out.
     const cols73 = '```js\n' + 'x'.repeat(73) + '\n```\n';
     const at = (venue) => core.lintTextWith(`---\nmarp: true\nvenue: ${venue}\n---\n\n<!-- _class: code -->\n\n## H.\n\n${cols73}`, vocab).filter((f) => f.rule === 'capacity-scale');
     const conf = at('conference');
@@ -230,9 +232,16 @@ describe('capacity-scale — a code block', () => {
     assert.match(conf[0].message, /a 73-character line \(the pane holds about 68\)/);
     const hall = at('hall');
     assert.equal(hall.length, 1);
-    assert.match(hall[0].message, /a 73-character line \(the pane holds about 59\)/);
+    assert.match(hall[0].message, /a 73-character line \(the pane holds about 60\)/);
     // A 73-column line clips at conference too, so the hall fix must not offer it.
     assert.doesNotMatch(hall[0].fix, /venue: conference/);
+  });
+
+  test('a 60-column line at hall renders whole, so it is not named', () => {
+    const cols60 = '```js\n' + 'x'.repeat(60) + '\n```\n';
+    const hall = core.lintTextWith(`---\nmarp: true\nvenue: hall\n---\n\n<!-- _class: code -->\n\n## H.\n\n${cols60}`, vocab)
+      .filter((f) => f.rule === 'capacity-scale' || f.rule === 'code-line-clipped');
+    assert.deepEqual(hall, []);
   });
 
   test('a spot `scale-xl` on a laptop deck gets no code lift, so a 73-column line fits', () => {

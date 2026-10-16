@@ -493,3 +493,16 @@ Proof:
   showed. The Studio now hit-tests the mouse as it moves over the preview, once a frame, and marks the block and button
   under it with `data-host-hover` (docs/src/playground/code-copy-host.js `hoverCodeCopyAt`), which code.styles.css reads
   beside `:hover`. Mouse only: a touch has no hover, and a tap already copies through the tap bridge.
+- 2026-10-16: follow-up to the follow-up, the width lint judges every slide (owner, on #2716: "no broken window, no
+  tech debt, no jank"). The split/grid gap the checker suspected does not exist: on a plain slide those classes leave
+  the panel as it is. But measuring all 386 class modifiers found 14 that change the panel's width, and the rule
+  mishandled each. It stood down on `claim-hero`, `claim-bleed` and `compact`; it read `claim-quiet` (105 columns) as
+  102, a false alarm; it ignored a venue or spot scale on a plain slide, missing every clip a venue causes; and
+  `align-*` and `stats` shrink-wrap the panel, which then grows until the slide's edge cuts the line (on the left,
+  for centered and right-aligned). `capacity-scale` divided 102 by nominal factors, a column short at huddle (88 for 89)
+  and hall (59 for 60). Everything now reads one table, lib/authoring/code-pane-columns.js, written by
+  `tools/measure-code-columns.js`: 4 stages × 4 venues × 4 spot scales × 4 panel groups × 7 canvases, 1,792 cells,
+  each what Chromium fits. Two facts only measurement gave: a spot scale beside a venue REPLACES the venue's size
+  (`venue-conference scale-l` fits 77, not 68), and a canvas is judged by its own number (a 16:9 compare-code pane
+  fits 48, 4K 47). The rule stays `info`. Tier 2 re-measures a sample of the table on every `npm test` with a browser;
+  `--check` re-measures it all.

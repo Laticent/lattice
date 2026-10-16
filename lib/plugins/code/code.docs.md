@@ -56,9 +56,11 @@ Lines are counted as written, from 1, whatever a comment or string spans. `lint:
 record does not read (`code-record`), when a record line has no fence after it
 (`code-record-orphan`), and when `focus=`, `mark=` or a slide's `_focus: line` names a line past
 the end of the block (`code-line-range`), inside a blockquote as outside one. It also says when a line is wider than its panel fits, on
-a plain slide as on a `code` or `compare-code` slide (`code-line-clipped`, from the widths measured
-in the browser); a `wrap` block never clips, so it is never measured, and a tab counts as wide as
-the block's `indent=` draws it.
+a plain slide as on a `code` or `compare-code` slide (`code-line-clipped`). The widths are measured
+in the browser for every canvas and every class that moves the panel: `claim-*` and `compact`, a
+`venue:` or `scale-*`, and `align-*` or `stats`, which let the panel grow until the slide's own edge
+cuts the line. A `wrap` block never clips, so it is never measured, and a tab counts as wide as the
+block's `indent=` draws it.
 
 **In the Studio's Compose editor**, put the caret in a fence: the divider bar shows the fence's
 language and, beside it, a **Code block options** button. Its panel sets every field above with
