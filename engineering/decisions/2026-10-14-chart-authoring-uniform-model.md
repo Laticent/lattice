@@ -141,12 +141,13 @@ comma-grouped value (funnel 64, hub-spoke 19, line 12, bar 1; 122 when `.docs.md
 
 - **Decided 2026-10-16: radar is a table; bullet and progress are list records.** Measured over the corpus (every deck,
   gallery, docs example and manifest sample; counts match the census: 44 plain radar slides plus 3 quadrant, 20 bullet slides
-  with 86 rows, 30 progress slides with 140 rows), each slide converted to both forms:
+  with 86 rows, 30 progress slides with 140 rows), each slide converted to both forms. Re-derive with
+  `node tools/chart-list-vs-table-bakeoff.mjs --sensitivity` (a corpus edit moves every number, so quote the commit):
 
   | | radar list → table | bullet list → table | progress list → table |
   |---|---|---|---|
-  | characters, table unpadded | 13,740 → 7,908 (−42%) | 3,517 → 3,837 (+9%) | 5,041 → 6,334 (+26%) |
-  | characters, table padded to align pipes | 13,740 → 14,304 (+4%) | 3,517 → 5,822 (+66%) | 5,041 → 9,341 (+85%) |
+  | characters, table unpadded | 13,740 → 7,908 (−42%) | 3,498 → 3,837 (+10%) | 5,012 → 6,334 (+26%) |
+  | characters, table padded to align pipes | 13,740 → 14,304 (+4%) | 3,498 → 5,822 (+66%) | 5,012 → 9,341 (+86%) |
   | axis or label names written | 610 → 225 | same | same |
   | places touched to add or rename an axis | 2.7 → 1 | n/a | n/a |
   | places touched to add a series or band | 1 → 6.1 | 1 → 4.3 | n/a |
