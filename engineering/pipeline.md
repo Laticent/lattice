@@ -375,6 +375,26 @@ SOURCE_DATE_EPOCH=$(git log -1 --format=%ct) node lattice.js deck.md out.pdf
 
 [rb]: https://reproducible-builds.org/specs/source-date-epoch/
 
+**The `--player` HTML export is reproducible the same way.** Its envelope's `generatedAt` reads
+the same pinned instant (`SOURCE_DATE_EPOCH`, else the epoch), and
+`test/integration/export/player-reproducible.test.js` exports a deck twice and compares the bytes.
+Before 2026-10-16 the CLI stamped the wall clock there, the only byte that moved between runs.
+
+**What keeps a player file small**, in the order the passes run:
+
+| Pass | Where | What it removes |
+|---|---|---|
+| Glyph subset | `html-player.js` `subsetEmbeddedFonts` (CLI only) | characters the deck never draws |
+| Asset hoist | `player-assets.mjs` `hoistRepeatedAssets` (both hosts, inside `assemblePlayer`) | the second and later copies of a picture: each large base64 `url(data:…)` used twice or more is stored once as `:root{--lp-asset-N:url(…)}` and referenced with `var()` |
+| CSS prune | `player-prune.js`, run in a real browser by `lattice.js` and the Studio | rules no element matches, behind a computed-style gate; it never targets the dark block or the `lp-assets` block (`PRUNE_SKIP_STYLE_IDS`) |
+| Font prune | `player-prune.js` `prunePlayerFontFaces` | families nothing uses |
+| Font merge | `player-prune.js` `mergeIdenticalFontFaces` | an identical font file declared once per weight: adjacent weights that share one file become one face with a weight range, unless a weight the page uses (measured, or written in the shipped CSS) falls strictly inside the run undeclared, or another stylesheet also declares the family |
+
+The font merge is exact for every weight a face declares and every weight outside a run, which
+was checked by rendering every weight from 100 to 900 in Chromium, WebKit and Firefox. A weight
+inside a run that no face declares (550 between 500 and 600) is the one case that would render
+differently, so the guard refuses the merge. Record: `decisions/2026-10-16-player-as-library-audit.md` §3.
+
 **This is same-machine reproducibility, and the cross-machine gap is much bigger
 than people expect.** Skia's rasterization is CPU-dispatched and not
 bit-identical across hosts, so a golden blessed on another machine still
