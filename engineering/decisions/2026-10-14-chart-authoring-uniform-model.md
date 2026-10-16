@@ -34,13 +34,14 @@ table before binding, so the reader, reshape and conformance tests all target on
 
 | Written as | One row is | Charts |
 |---|---|---|
-| **A list** | a label plus ONE `{…}` record: its data items first (one value, or scatter's x and y), then named parameters bound by the chart's schema | bar (one series), line (one series), piechart, funnel, bullet, progress, radar (a nested list: series, then axis; the `quadrant` variant adds a group level), waterfall (`{+2.1M, total}`), word-cloud, map, scatter (`{$420k, 18%, size=140}`), quadrant (points nested under its four named groups) |
-| **A table, series shape** | a label column, then one column per series; the header row is data (series names, axes, points) | grouped bar, multi-series line, stacked-bar, slope |
+| **A list** | a label plus ONE `{…}` record: its data items first (one value, or scatter's x and y), then named parameters bound by the chart's schema | bar (one series), line (one series), piechart, funnel, bullet, progress, waterfall (`{+2.1M, total}`), word-cloud, map, scatter (`{$420k, 18%, size=140}`), quadrant (points nested under its four named groups) |
+| **A table, series shape** | a label column, then one column per series; the header row is data (series names, axes, points) | grouped bar, multi-series line, stacked-bar, slope, radar (its `quadrant` variant stays a nested list) |
 | **A table, grid shape** | a label column, then one column per category; every crossing is a value | heatmap, matrix-grid |
 
-Decided (owner, 2026-10-16): bullet and progress are lists, and radar stays a nested list. Each bullet or progress row is one
-measure plus named parameters (`{4.2M, target=5.0M}`, `{68%, at-risk}`), which fits the list form under the rule above;
-an earlier draft put them in tables, and radar in one.
+Decided (owner, 2026-10-16, after a measured bake-off): bullet and progress are lists, and radar is a table. Each bullet or
+progress row is one measure plus named parameters (`{4.2M, target=5.0M}`, `{68%, at-risk}`), which fits the list form under
+the rule above. Radar's rows share the same named columns across several series, which is the table-shaped case. Radar's
+`quadrant` variant (3 slides) adds a group level no table holds, so it stays a nested list. The bake-off is in §7.
 
 Outside this model, by choice: gantt (spans and `after=` dependencies), kanban (cards in columns), journey (its own
 record, Segno decision 11), and the structure charts (flowchart, state-chart, hub-spoke, roadmap, timeline-list). They
@@ -138,9 +139,25 @@ comma-grouped value (funnel 64, hub-spoke 19, line 12, bar 1; 122 when `.docs.md
 
 ## 7. Open, for the owner
 
-- **Decided 2026-10-16:** bullet and progress are list records, and radar stays a nested list, `quadrant` included. Bullet takes any
-  number of `Band` rows (it draws the three nearest the target) and an optional floor, which a record names more easily
-  than a fixed set of table columns.
+- **Decided 2026-10-16: radar is a table; bullet and progress are list records.** Measured over the corpus (every deck,
+  gallery, docs example and manifest sample; counts match the census: 44 plain radar slides plus 3 quadrant, 20 bullet slides
+  with 86 rows, 30 progress slides with 140 rows), each slide converted to both forms:
+
+  | | radar list → table | bullet list → table | progress list → table |
+  |---|---|---|---|
+  | characters, table unpadded | 13,740 → 7,908 (−42%) | 3,517 → 3,837 (+9%) | 5,041 → 6,334 (+26%) |
+  | characters, table padded to align pipes | 13,740 → 14,304 (+4%) | 3,517 → 5,822 (+66%) | 5,041 → 9,341 (+85%) |
+  | axis or label names written | 610 → 225 | same | same |
+  | places touched to add or rename an axis | 2.7 → 1 | n/a | n/a |
+  | places touched to add a series or band | 1 → 6.1 | 1 → 4.3 | n/a |
+  | optional cells left empty in a table | n/a | 84% (26 of 31) | n/a |
+
+  A table is a clear win for radar under every weighting tried (raw-markdown, Compose-first, agent author), including a
+  worst case that scores the list's Compose support and error hazard generously. Bullet's table would be 84% empty cells.
+  Progress is the closest call: the list wins unless Compose carries about a fifth of the weight. A table edits in Compose
+  today (an editable grid with Tab to add a row); a `{…}` list row has no row editor yet (the chart-series grid was never
+  built), so that editor is the one thing that would move progress. Not measured: authoring error rates for people and for
+  models. Radar's size saving holds only when pipes are left unaligned.
 - **Decided 2026-10-16: the cross-chart field vocabulary.** Shared core: `value`, `target`, `status`, `x`, `y`, `size`, `group`,
   plus `band`, `floor`, `kind` (waterfall's bar kind), `when` (a date or span), `after` (a dependency) and `to`
   (quadrant's trail end). Two renames remove the collisions the survey found: kanban's S/M/L/XL badge is `effort`, so
