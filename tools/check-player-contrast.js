@@ -54,9 +54,9 @@
  *
  * Usage:
  *   node tools/check-player-contrast.js examples/a11y.md      # one deck, full verdict
- *   node tools/check-player-contrast.js --json out.json examples/*.md
+ *   node tools/check-player-contrast.js --concurrency auto --json out.json <galleries...>
  *   node tools/check-player-contrast.js already-exported-player.html
- *   npm run contrast:player                                   # the corpus, vs the baseline
+ *   npm run contrast:player                                   # the 75 component galleries, vs the baseline
  *   npm run contrast:player:bless                             # re-record the baseline (ratchet-only)
  *   npm run contrast:player:bless -- --allow-loosen           # …and accept a WORSE ratio, with a reason
  *
@@ -65,15 +65,22 @@
  * WITHOUT `--baseline` it exits non-zero on any non-exempt sub-AA run — what a human
  * auditing one deck wants. WITH one it exits non-zero only on a finding that is NEW or has
  * got WORSE than the blessed record, which is what a scheduled sweep wants: the corpus
- * carries 283 known sub-AA runs (#1745), tracked there, and re-listing them every night is
- * how a reader learns to skim past the row that matters. NOT a per-PR gate — a full sweep
- * is ~24s per deck (16s export, 8s audit) and the pipeline half is already gated per-PR by
- * the real-surface test in `test/integration/export/html-player.test.js`.
+ * carries known sub-AA runs (#1745), tracked there, and re-listing them every night is
+ * how a reader learns to skim past the row that matters. NOT a per-PR gate — a deck costs
+ * ~16s to export and ~8s to audit, and the pipeline half is already gated per-PR by the
+ * real-surface test in `test/integration/export/html-player.test.js`.
+ *
+ * THE CORPUS IS THE 75 COMPONENT GALLERIES (`lib/components/<bucket>/<name>/<name>.gallery.md`),
+ * not `examples/` (owner ruling 2026-10-16). `--concurrency N|auto` audits N decks at once, each
+ * worker with its own browser; results are reported in input order. A sweep over a SUBSET of
+ * the baseline's decks (the nightly audits only what changed, `tools/player-contrast-select.js`)
+ * scores only those decks: a baseline row for a deck that was not opened is neither "fixed" nor
+ * "dropped", and a bless rewrites only the decks it opened.
  */
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { spawnSync } = require('node:child_process');
+const { spawn } = require('node:child_process');
 const puppeteer = require('puppeteer');
 const { PNG } = require('pngjs');
 const { PROBE } = require('./check-slide-contrast.js');
@@ -130,18 +137,23 @@ process.on('exit', cleanupTempDirs);
  * either way), so this buys disk and honesty rather than time — about 50 MB of PDFs per
  * full sweep that nothing reads.
  */
-function playerFor(input) {
+async function playerFor(input) {
 	if (input.endsWith('.html')) return path.resolve(input);
 	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-player-contrast-'));
 	TEMP_DIRS.push(dir);
 	const out = path.join(dir, `${path.basename(input, '.md')}.html`);
-	const r = spawnSync(process.execPath, [path.join(ROOT, 'lattice.js'), input, out, '--quiet', '--player'], {
-		cwd: ROOT,
-		encoding: 'utf8',
-		env: { ...process.env },
-		timeout: 600000,
+	// ASYNC, not `spawnSync`, because the export is 16 of the ~24 seconds a deck costs and it is
+	// a child process: a pool can only overlap exports if the parent's event loop stays free.
+	const r = await new Promise((resolve) => {
+		const child = spawn(process.execPath, [path.join(ROOT, 'lattice.js'), input, out, '--quiet', '--player'], { cwd: ROOT, env: { ...process.env } });
+		let text = '';
+		child.stdout.on('data', (d) => { text += d; });
+		child.stderr.on('data', (d) => { text += d; });
+		const timer = setTimeout(() => child.kill('SIGKILL'), 600000);
+		child.on('close', (status) => { clearTimeout(timer); resolve({ status, text }); });
+		child.on('error', (err) => { clearTimeout(timer); resolve({ status: -1, text: String(err) }); });
 	});
-	if (r.status !== 0) throw new Error(`export failed for ${input}: ${r.stderr || r.stdout}`);
+	if (r.status !== 0) throw new Error(`export failed for ${input}: ${r.text}`);
 	return out;
 }
 
@@ -458,6 +470,14 @@ function collapse(rows) {
 }
 
 /**
+ * The deck a finding key belongs to: `findingKey` leads with it. Deck names are file basenames,
+ * so none contains the `|` separator.
+ */
+const deckOfKey = (key) => key.slice(0, key.indexOf('|'));
+/** True when `decks` is absent (a full sweep) or names the key's deck. */
+const inScope = (key, decks) => !decks || decks.has(deckOfKey(key));
+
+/**
  * Compare a sweep against a blessed baseline and return only what MOVED.
  *
  * WHY A BASELINE AT ALL. A scheduled sweep that re-reports every known failure every night is
@@ -472,8 +492,12 @@ function collapse(rows) {
  *
  * @param {{deck: string}[]} rows every sub-AA run this sweep found
  * @param {Record<string, number>} baseline key → ratio, from a previous `--bless`
+ * @param {{decks?: Set<string>}} [opts] `decks`: the decks this sweep actually audited. A
+ *   PARTIAL sweep (the nightly audits only what changed) has no opinion on a deck it never
+ *   opened, so a baseline row for an unaudited deck is neither "fixed" nor anything else.
+ *   Omitted, every baseline row is in scope, which is the full-sweep behavior.
  */
-function diffBaseline(rows, baseline) {
+function diffBaseline(rows, baseline, { decks } = {}) {
 	const seen = collapse(rows);
 	const added = [];
 	const worse = [];
@@ -484,7 +508,7 @@ function diffBaseline(rows, baseline) {
 		// anything having changed. Below that band this would cry wolf every night.
 		else if (row.r < baseline[key] - 0.05) worse.push({ ...row, was: baseline[key] });
 	}
-	const fixed = Object.keys(baseline).filter((key) => !seen.has(key));
+	const fixed = Object.keys(baseline).filter((key) => !seen.has(key) && inScope(key, decks));
 	return { added, worse, fixed, current: Object.fromEntries([...seen].map(([key, row]) => [key, row.r])) };
 }
 
@@ -513,8 +537,12 @@ function diffBaseline(rows, baseline) {
  *
  * @param {Map<string, {r: number}>} seen collapsed findings, key → worst row
  * @param {Record<string, number>} prior the committed baseline
+ * @param {{allowLoosen?: boolean, decks?: Set<string>}} [opts] `decks`: the decks this sweep
+ *   audited. A bless over a SUBSET rewrites only those decks' rows and carries every other
+ *   deck's committed row through untouched; without it, blessing three decks would erase the
+ *   rest of the baseline.
  */
-function blessRatchet(seen, prior, { allowLoosen = false } = {}) {
+function blessRatchet(seen, prior, { allowLoosen = false, decks } = {}) {
 	const blessed = {};
 	const held = [];
 	const tightened = [];
@@ -535,7 +563,8 @@ function blessRatchet(seen, prior, { allowLoosen = false } = {}) {
 	// A key the sweep no longer reports is a fixed finding, and dropping it is the point of
 	// re-blessing. It is counted rather than silent, because a deck that failed to export
 	// looks identical to a deck that got better.
-	const dropped = Object.keys(prior).filter((k) => !seen.has(k));
+	const dropped = Object.keys(prior).filter((k) => !seen.has(k) && inScope(k, decks));
+	for (const [k, was] of Object.entries(prior)) if (!seen.has(k) && !inScope(k, decks)) blessed[k] = was;
 	return { blessed, held, tightened, added, dropped };
 }
 
@@ -568,6 +597,45 @@ function report(name, rows) {
 	return failing;
 }
 
+/**
+ * Audit decks through a pool. Returns one result per input IN INPUT ORDER, whatever order the
+ * workers finish in, so the log and `--json` read the same on every run.
+ *
+ * One BROWSER per worker, not one page per deck in a shared browser: a backgrounded Chromium
+ * page throttles `requestAnimationFrame`, and `settle()` and the screenshot both lean on it.
+ * Each worker's browser has exactly one live page at a time, as the serial sweep did.
+ *
+ * @param {string[]} inputs
+ * @param {number} width workers (>= 1)
+ * @returns {Promise<({rows: object[]} | {error: string})[]>}
+ */
+async function auditDecks(inputs, width) {
+	const results = new Array(inputs.length);
+	let next = 0;
+	const worker = async () => {
+		const browser = await puppeteer.launch({
+			executablePath: process.env.CHROME_PATH,
+			args: ['--no-sandbox', '--font-render-hinting=none'],
+		});
+		try {
+			for (let i = next++; i < inputs.length; i = next++) {
+				try {
+					results[i] = { rows: await auditPlayer(browser, await playerFor(inputs[i])) };
+				} catch (err) {
+					results[i] = { error: err.message };
+				}
+			}
+		} finally {
+			await browser.close();
+		}
+	};
+	await Promise.all(Array.from({ length: Math.min(width, inputs.length) }, worker));
+	return results;
+}
+
+/** `--concurrency N`, or `auto`: all cores but one, capped at four. */
+const resolveWidth = (v) => (v === 'auto' ? Math.max(1, Math.min(4, os.cpus().length - 1)) : Math.max(1, Number.parseInt(v, 10) || 1));
+
 async function main() {
 	const argv = process.argv.slice(2);
 	let jsonOut = null;
@@ -575,6 +643,7 @@ async function main() {
 	let bless = false;
 	let allowLoosen = false;
 	let quiet = false;
+	let width = 1;
 	const inputs = [];
 	for (let i = 0; i < argv.length; i++) {
 		if (argv[i] === '--json') jsonOut = argv[++i];
@@ -582,39 +651,37 @@ async function main() {
 		else if (argv[i] === '--bless') bless = true;
 		else if (argv[i] === '--allow-loosen') allowLoosen = true;
 		else if (argv[i] === '--quiet') quiet = true;
+		else if (argv[i] === '--concurrency') width = resolveWidth(argv[++i]);
 		else inputs.push(argv[i]);
 	}
 	if (bless && !baselinePath) baselinePath = DEFAULT_BASELINE;
 	if (!inputs.length) {
-		console.error('usage: node tools/check-player-contrast.js [--json out.json] <deck.md|player.html> ...');
+		console.error('usage: node tools/check-player-contrast.js [--json out.json] [--concurrency N|auto] <deck.md|player.html> ...');
 		process.exit(2);
 	}
-	const browser = await puppeteer.launch({
-		executablePath: process.env.CHROME_PATH,
-		args: ['--no-sandbox', '--font-render-hinting=none'],
-	});
 	const all = [];
 	const findings = [];
+	// The decks that were really opened. A deck whose export failed is NOT audited: its baseline
+	// rows must read as "not looked at", never as "fixed" or "dropped".
+	const audited = new Set();
 	let failed = 0;
 	try {
-		for (const input of inputs) {
-			let file;
-			try {
-				file = playerFor(input);
-			} catch (err) {
-				console.error(`\n!! ${input}: ${err.message}`);
+		const results = await auditDecks(inputs, width);
+		inputs.forEach((input, i) => {
+			const res = results[i];
+			if (res.error) {
+				console.error(`\n!! ${input}: ${res.error}`);
 				failed += 1;
-				continue;
+				return;
 			}
-			const rows = await auditPlayer(browser, file);
 			const name = path.basename(input).replace(/\.(md|html)$/, '');
-			const bad = quiet ? rows.filter((x) => !x.exempt && !x.patterned && x.r < x.need) : report(name, rows);
+			const bad = quiet ? res.rows.filter((x) => !x.exempt && !x.patterned && x.r < x.need) : report(name, res.rows);
 			failed += bad.length;
 			for (const row of bad) findings.push({ ...row, deck: name });
-			all.push({ deck: name, rows });
-		}
+			all.push({ deck: name, rows: res.rows });
+			audited.add(name);
+		});
 	} finally {
-		await browser.close();
 		cleanupTempDirs();
 	}
 	if (jsonOut) fs.writeFileSync(jsonOut, `${JSON.stringify(all, null, '\t')}\n`);
@@ -630,7 +697,7 @@ async function main() {
 
 	if (bless) {
 		const prior = fs.existsSync(baselinePath) ? JSON.parse(fs.readFileSync(baselinePath, 'utf8')) : {};
-		const { blessed, held, tightened, added: newKeys, dropped } = blessRatchet(collapse(findings), prior, { allowLoosen });
+		const { blessed, held, tightened, added: newKeys, dropped } = blessRatchet(collapse(findings), prior, { allowLoosen, decks: audited });
 		fs.writeFileSync(baselinePath, `${JSON.stringify(blessed, null, '\t')}\n`);
 		console.log(
 			`blessed ${Object.keys(blessed).length} known finding(s) into ${path.relative(ROOT, baselinePath)}\n` +
@@ -672,7 +739,7 @@ async function main() {
 		process.exit(2);
 	}
 	const baseline = JSON.parse(fs.readFileSync(baselinePath, 'utf8'));
-	const { added, worse, fixed } = diffBaseline(findings, baseline);
+	const { added, worse, fixed } = diffBaseline(findings, baseline, { decks: audited });
 	console.log(`baseline ${path.relative(ROOT, baselinePath)}: ${Object.keys(baseline).length} known · ${added.length} new · ${worse.length} worse · ${fixed.length} fixed\n`);
 	for (const row of added) console.log(`  NEW    ${row.deck} p${row.page} ${row.cls || '—'} ${row.tag} ${row.r.toFixed(2)}:1 (need ${row.need})  "${row.text}"`);
 	for (const row of worse) console.log(`  WORSE  ${row.deck} p${row.page} ${row.cls || '—'} ${row.tag} ${row.was.toFixed(2)} → ${row.r.toFixed(2)}:1  "${row.text}"`);
@@ -682,6 +749,6 @@ async function main() {
 	process.exit(added.length || worse.length ? 1 : 0);
 }
 
-module.exports = { sampleBackdrop, ratio, over, HIDE_INK, findingKey, collapse, diffBaseline, blessRatchet, DEFAULT_BASELINE };
+module.exports = { auditDecks, resolveWidth, deckOfKey, sampleBackdrop, ratio, over, HIDE_INK, findingKey, collapse, diffBaseline, blessRatchet, DEFAULT_BASELINE };
 
 if (require.main === module) main();

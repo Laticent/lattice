@@ -196,7 +196,8 @@ exists only in the player (a scheme defect).
 ```bash
 node tools/check-player-contrast.js examples/a11y.md            # a deck, exported first
 node tools/check-player-contrast.js --json out.json exported.html
-npm run contrast:player                                         # the corpus, vs the baseline
+npm run contrast:player                                         # the 75 component galleries, 3 at a time, vs the baseline
+node tools/player-contrast-select.js --since <sha>              # which galleries a diff could move (what the nightly runs)
 npm run contrast:player:bless                                   # re-record the baseline
 ```
 
@@ -215,15 +216,24 @@ the toggle, and asserts a computed value lands where the deck's own dark render 
 in a transform is a property of the transform, so one deck catches it.
 
 The CORPUS sweep runs **nightly** (`integration-nightly.yml`), because that part genuinely
-costs: ~24s per deck — 16s to export the player, 8s to audit it — so `examples/` is roughly
-55 minutes. The PDF is not the cost and is no longer written; the browser render, the
-dynamic-component bake and the CSS prune are, and the player needs all three. It compares
-against `test/oracle/player-contrast.json` — blessed **on `main`**, because ratios move with
-every theme and contrast change and a baseline blessed on a branch is stale before that branch
-merges — and fails only on a finding that is **new** or has got **worse** — the corpus's known sub-AA runs are tracked in #1745, and a nightly that
-re-lists them is one people learn to skim. Re-bless with `npm run contrast:player:bless` once
-a fix lands. The muted-chrome tier (header/footer/pagination) is WCAG-exempt by palette
-contract and is reported in its own bucket, never as a failure.
+costs: about 16s to export a deck's player and 8s to audit it, and the player needs the browser
+render, the dynamic-component bake and the CSS prune all three times over. **The corpus is the 75
+component galleries** (owner ruling 2026-10-16; it was 280 `examples/` decks and 2 h 02 min in
+CI). `--concurrency N|auto` audits several decks at once, one browser per worker: 75 galleries
+measured 15 min on 4 cores. On weekdays the nightly audits only the galleries a diff since the
+last green run of this arm could have moved (`tools/player-contrast-select.js`, which defaults to
+"every gallery" for any path it does not recognize); on Sunday it audits all of them. The
+selector's rules, what it cannot see (a component's CSS leaking into another gallery; themes no
+gallery is on) and the measured saving are in
+`engineering/decisions/2026-10-16-player-contrast-galleries.md`. The sweep compares against
+`test/oracle/player-contrast.json` — blessed **on `main`**, because ratios move with every theme
+and contrast change and a baseline blessed on a branch is stale before that branch merges — and
+fails only on a finding that is **new** or has got **worse**; the known sub-AA runs are tracked in
+#1745, and a nightly that re-lists them is one people learn to skim. A sweep over a subset scores
+only the decks it opened: a baseline row for a deck it did not open is neither fixed nor dropped,
+and a bless rewrites only the decks it opened. Re-bless with `npm run contrast:player:bless` once
+a fix lands. The muted-chrome tier (header/footer/pagination) is WCAG-exempt by palette contract
+and is reported in its own bucket, never as a failure.
 
 `[PR]` suites gate every `code` PR via `test:integration:pr` (CI runs the same globs as `test:integration:shard`); `[nightly]` suites
 run on `main` via `integration-nightly.yml` (`test:integration:nightly`). The
