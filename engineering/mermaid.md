@@ -1186,6 +1186,41 @@ Three things follow, and all three are load-bearing:
 - **The SVG cache is keyed by (scope, source), not source.** A source-only key was
   sound only while one palette served the deck; per-slide ink makes it hand slide 2
   slide 1's baked SVG, which is the same mismatch arriving through the cache.
+- **An entry keeps a replayable binder beside the SVG.** The SVG string carries a
+  flowchart's `click A "url"` link (an `<a>` drawn into it) but not the behavior Mermaid's
+  `bindFunctions` attaches after the write: a flowchart tooltip's `mouseover` listener, and
+  every gantt `click task href "url"`, which is a `click` listener rather than a link.
+  `settleFenceFromCache` replays the binder, so a diagram the Studio's keystroke replay or
+  the VS Code strip-and-restore hands back keeps both. Flowchart and class reuse Mermaid's
+  own binder: their db is built fresh per render and, at `securityLevel: 'strict'`, they
+  register no click callback. Gantt cannot: its db is one shared object and its handlers
+  bind page-wide by id, so `rememberDiagram` re-parses the source to snapshot the chart's own links and
+  `ganttLinkBinder` replays Mermaid's `window.open(url, "_self")` inside the target.
+- **One gantt at a time, render to bind.** Mermaid serializes renders but starts the next
+  one before the runtime binds the last, so with two gantts in a band the second parse
+  emptied the shared db and the first chart lost its links on a fresh render. A gantt job
+  now waits for the previous gantt job (`takeGanttTurn`); other types never wait. The match
+  is the word `gantt` anywhere, in any case, because Mermaid strips a `%%{init}%%` directive
+  before detecting the type and a stricter match missed `%%{init: …}%% gantt`. Measured on
+  eight linked gantts in one band (Chromium, 7 runs each, load to every fence drawn): median
+  1,131 ms with the turn and the link snapshot, 1,142 ms without. Mermaid already renders
+  one at a time, so the turn adds nothing beyond noise.
+- **Where a reader can actually click.** The Playground preview and the VS Code Markdown
+  preview (at **Disable**, where scripts run) take real pointer events, and both are pinned:
+  `docs/e2e/mermaid-cache-bindings.spec.ts` on Chromium, WebKit and Gecko (and taps on an
+  iPhone-sized WebKit), and runs on VS Code desktop and code-server recorded in
+  `engineering/gotchas/vscode.md`. The **Studio** preview and Present do not:
+  `StudioShell` makes the slide box `pointer-events-none` so a swipe reaches its container,
+  and hit-tests only video posters, code-copy buttons and collage photos back into the frame.
+  So a Mermaid link or tooltip never fires there, by design. The e2e spec still drives the
+  Studio, with events dispatched inside its frame, to pin that its hand-back keeps the
+  bindings.
+- **The cache is bounded**, least recently used out, at 256 entries: one is added per
+  distinct (scope, source), which is about one per keystroke inside a fence, and nothing
+  used to remove any. 256 is eight times the largest shipped deck (32 diagrams).
+- The hand-back, the gantt turn and both match rules are pinned at the integration tier in
+  `test/integration/mermaid/mermaid-cache-bindings.test.js`, and the turn by a queue cell in
+  `test/unit/runtime/diagram-queue.test.js`.
 
 **What per-band configuration costs.** Measured on the real Playground with a
 20-diagram deck that ALTERNATES bands — the worst case, since every slide is a new run:
