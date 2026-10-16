@@ -326,19 +326,27 @@ dialect. That is the same strategy pattern as the hosts themselves.
   things there.
 - **`{> …}` inside a record.** In #2723 that form describes a table cell; a record names its `title`.
 
-**Treatments: the picture stays the subject.** The owner wants a flavor that never takes from the picture, naming the
-`nimbus` finish and duotone. The proposal splits it in two:
+**How a picture is styled: three separate controls (owner, 2026-10-16).** All three are off by default, and a deck
+sets a default once through the `image:`, `video:` or `qr:` register, as `icon:` and `avatar:` work. A slide class
+overrides the deck, and a record's own word wins.
 
-- **A setting, around the picture, never touching its pixels.** The figure's mat takes one of the deck's finishes,
-  scoped to the mat: `nimbus` (soft accent blooms), `gallery` (the museum keyline) or `halo` (a spotlight and
-  vignette), from `lib/finishes/`, so a theme change recolors them. Ledger's ruled lines, savile's pinstripe and loom's
-  cross-hatch would compete with a photograph and are left out.
-- **A tone, on the picture, for when it must sit back.** `duotone` maps the picture to two palette colors (ink and
-  accent); `grayscale` is CSS's own filter name. Neither is a default.
+1. **A frame**, shared by `image`, `video` and `qr`: `frame=mat`, `frame=keyline`, and so on. One frame system for all
+   three, so a layout never draws its own frame around a picture, a clip or a code. The owner's bar is three to five
+   designs, each boardroom-ready (10/10). Six candidates were rendered for the pick: `mat` (a gallery
+   passe-partout), `keyline` (one accent hairline, offset), `float` (lifted on a soft shadow), `device` (a screen bezel,
+   for product demos and video), `stack` (prints stacked on a table) and `corners` (registration brackets). A QR code's
+   frame wraps its light paper tile, never the code itself, so the quiet zone and the contrast stay as ISO/IEC 18004
+   requires (`2026-10-16-qr-plugin.md` §3c).
+2. **A finish on the picture**: the deck's own finishes applied to the photo's pixels as a light overlay, so a photo
+   belongs to the deck's look. Only the finishes that suit a photograph qualify. Rendered candidates: `nimbus` (accent
+   blooms, the owner's named pick), `halo` (a vignette with a lifted center) and `meridian` (a diagonal accent wash).
+   `strata`'s bands and the line and pattern finishes (`ledger`, `savile`, `loom`, `atrium`) fight a photograph and
+   are left out. Images take a finish; a video's poster takes the same one, so a clip matches the pictures beside it.
+3. **A tone**: `duotone` (two palette colors) and `grayscale` (CSS's own filter name). Approved by the owner. Duotone
+   needs its own colors in dark mode, where the first render washed out to a flat teal.
 
-The deck sets a default once (`image: nimbus`), a slide class overrides it, and a record's own word wins, as `icon:`
-and `avatar:` work. Which words make the list stays open (§8, decision 6) until a rendered contact sheet, light and
-dark, settles it.
+The words are the finish and frame names themselves (`@image{team.jpg, frame=mat, nimbus}`), because a finish name is
+already Lattice's own vocabulary; no new names are coined for the same looks.
 
 ### 4.8 Playing a clip while presenting (added 2026-10-16)
 
@@ -451,9 +459,9 @@ Slices 2 and 3 rebase onto #2725 once it lands, because they delete rows from it
    where the standard's spelling would significantly hurt understanding, and accepts the standard's name beside it.
    `fullscreen` was weighed against the hosts and left out (§4.7), then admitted from the presentation standard
    (§4.8).
-6. **Treatments: open.** The owner wants a flavor that lets the picture shine, naming the `nimbus` finish and
-   duotone. The proposal (§4.7) is settings on the mat (`nimbus`, `gallery`, `halo`) and tones on the picture
-   (`duotone`, `mono`). It is settled from a rendered contact sheet, light and dark.
+6. **Treatments: settled into three controls (§4.7):** frames (3–5, off by default, shared by all three plugins),
+   finishes on the photo (`nimbus` and the others that suit a photograph), and tones (`duotone`, `grayscale`). Which
+   frames and finishes make the cut is still open: the owner picks from the rendered candidates (§9, progress).
 7. **No `start=`** (reversed the same day under rule 2 of §4.7). A start time is part of the address, as each host
    and W3C Media Fragments define it.
 8. **A QR code takes `c1` … `c12`**, with a lint for scan contrast.
@@ -465,6 +473,8 @@ Slices 2 and 3 rebase onto #2725 once it lands, because they delete rows from it
 
 - 2026-10-16: audit and proposal written; D1 confirmed by render and logged. Owner settled decisions 2-4;
   decision 1 (packaging) is on hold.
+- 2026-10-16: styling settled into frames, finishes on the photo and tones; six frame candidates and four finish
+  candidates rendered for the pick.
 - 2026-10-16: decisions 10 and 11 recorded: the next advance plays a waiting clip; full screen is the default.
 - 2026-10-16: §4.8 added: playing a clip while presenting, with PowerPoint's playback options as the standard
   (`fullscreen` = *Play Full Screen*, the next advance plays a waiting clip).
