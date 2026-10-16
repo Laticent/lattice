@@ -266,18 +266,25 @@ export function CodeControls({ view, source }: { view: EditorView; source: strin
 }
 
 /**
- * The engine's record reader and writer (lib/authoring/inline-editors.js `code`), from the authoring
- * bundle the Markdown editor and the pill editor already load: one module instance, loaded after the
- * Studio's first paint. Null until it lands, and the options button waits for it.
+ * The engine's record reader (lib/authoring/inline-editors.js `code`), from the authoring bundle the
+ * Markdown editor and the pill editor already load, and its writer (record-edit.js), the panel's own
+ * load (code-record-source.js), so the lint core does not carry it. Both load after the Studio's first
+ * paint. Null until they land, and the options button waits for them.
  */
 function useCodeRecordKernel(): CodeRecordKernel | null {
 	const [kernel, setKernel] = React.useState<CodeRecordKernel | null>(null);
 	React.useEffect(() => {
 		let live = true;
-		import('@/playground/authoring-door.js')
-			.then((door) => door.loadAuthoring())
-			.then((m) => {
-				if (live) setKernel((m as unknown as { inlineEditors: { code: CodeRecordKernel } }).inlineEditors.code);
+		type Reader = Omit<CodeRecordKernel, 'edit' | 'problem'>;
+		type Writer = { editRecord: CodeRecordKernel['edit']; fieldProblem: CodeRecordKernel['problem'] };
+		Promise.all([
+			import('@/playground/authoring-door.js').then((door) => door.loadAuthoring()),
+			import('@/playground/code-record-source.js').then((src) => src.loadCodeRecordWriter()),
+		])
+			.then(([m, w]) => {
+				const reader = (m as unknown as { inlineEditors: { code: Reader } }).inlineEditors.code;
+				const writer = w as Writer;
+				if (live) setKernel({ ...reader, edit: writer.editRecord, problem: writer.fieldProblem });
 			})
 			.catch((e) => console.error('[compose] the code options could not load the record kernel', e));
 		return () => {

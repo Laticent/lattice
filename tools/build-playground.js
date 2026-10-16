@@ -28,6 +28,8 @@
  * as ES modules into docs/public/playground/esm/, which is what the docs site loads:
  *   esm/engine.js         lib/playground/index.js, with an EMPTY chart-kernel table
  *   esm/chart-<layout>.js one per chart kernel; importing it registers the kernel
+ *   esm/code-record.js    the code record's writer (lib/plugins/code/shared/record-edit.js), which only
+ *                         the Studio's code-block options panel loads, so the lint core does not carry it
  *   esm/chunk-*.js        modules more than one entry needs, shared by esbuild's code splitting
  *   esm/chunks.json       each entry's full static chunk list, so the host can preload it at once
  * The host loads the kernels a deck names before the synchronous render (docs/src/lib/
@@ -302,6 +304,7 @@ const ESM_OPTIONS = {
   entryPoints: {
     engine: ENTRY,
     lint: 'lattice-lint',
+    'code-record': path.join(ROOT, 'lib', 'plugins', 'code', 'shared', 'record-edit.js'),
     ...Object.fromEntries(Object.keys(CHART_KERNELS).map((l) => [`chart-${l}`, `lattice-chart:${l}`])),
   },
   format: 'esm',
