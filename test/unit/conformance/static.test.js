@@ -66,6 +66,60 @@ describe('conformance: the deck-setting MEASUREMENT can produce a failing fact',
   });
 });
 
+describe('conformance: the component MEASUREMENT can produce failing facts', () => {
+  // The fixtures state their facts by hand, so they prove the clauses. This builds a throwaway
+  // lib/components tree with one of every defect and proves measure() reads each one out of files.
+  const fs = require('node:fs');
+  const os = require('node:os');
+  const path = require('node:path');
+  const contract = contracts.find((c) => c.kind === 'component');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'conf-comp-'));
+  const put = (rel, text) => { fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true }); fs.writeFileSync(path.join(root, rel), text); };
+  put('b/zz-orphan/zz-orphan.styles.css', 'section.zz-orphan { padding-left: 4px; margin-right: 2px; text-align: left; /* right: 9px; */ }\n');
+  put('b/zz-bad/zz-bad.manifest.json', JSON.stringify({
+    name: 'zz-bad', variants: ['tall', 'wide'], variantAxes: [{ label: 'Size', members: ['tall', 'huge'] }],
+    capacity: { axis: 'item', soft: 6, hard: 4, escalateTo: ['nosuch-component'] },
+  }));
+  put('b/zz-bad/zz-bad.styles.css', 'section.zz-bad { margin-inline-start: 1px; }\n');
+  put('b/zz-bad/zz-bad.gallery.md', '---\nmarp: true\n---\n\n<!-- _class: zz-bad tall -->\n\n## A\n');
+  put('b/_shared/stray.css', 'x { color: red; }\n');
+  const ctx = contract.contextAt(root);
+  const byName = new Map(contract.enumerate(ctx).map((i) => [i.name, i]));
+  test('CSS with no manifest, and its physical declarations (comments not counted)', () => {
+    const o = byName.get('zz-orphan');
+    assert.equal(o.hasManifest, false);
+    assert.equal(o.hasStyles, true);
+    assert.equal(o.physical, 3);
+  });
+  test('a variant the gallery never draws, one lint does not know, a bad axis and a bad capacity', () => {
+    const b = byName.get('zz-bad');
+    assert.deepEqual(b.unrenderedVariants, ['wide']);
+    assert.deepEqual(b.lintRefusedVariants, ['tall', 'wide']);
+    assert.ok(b.axisProblems.some((p) => p.includes("'huge'")));
+    assert.ok(b.capacityProblems.some((p) => p.includes('above capacity.hard')) && b.capacityProblems.some((p) => p.includes('nosuch-component')));
+    assert.equal(b.physical, 0);
+  });
+  test('a shared folder holding a sheet build-css.js never names', () => {
+    assert.deepEqual(byName.get('_shared').strayCss, [{ file: 'stray.css', wired: false }]);
+  });
+  test('and the clauses that read those facts fail on them', () => {
+    const failing = (inst) => contract.clauses.filter((c) => (c.level === 'always' || c.applies(inst, ctx)) && c.check(inst, ctx)).map((c) => c.id);
+    assert.ok(failing(byName.get('zz-orphan')).includes('component.files-both-ways'));
+    for (const id of ['component.variants-rendered', 'component.variant-known-to-lint', 'component.axes-coherent', 'component.capacity-coherent']) assert.ok(failing(byName.get('zz-bad')).includes(id), id);
+    assert.ok(failing(byName.get('_shared')).includes('component.css-wired'));
+  });
+  test('the physical-property counter counts declarations, not classes, custom properties or comments', () => {
+    const css = '.a.left:hover{ } .b{ margin-left:1px; --x-left: 2px; left:0; text-align:right; border-top-left-radius:2px; padding-inline-start:1px } /* right: 9px */';
+    assert.equal(contract.physicalCount(css), 4);
+  });
+  test('a real component is measured as having a manifest, a sheet and drawn variants', () => {
+    const real = contract.enumerate(contract.context()).find((i) => i.name === 'cards-grid');
+    assert.equal(real.hasManifest && real.hasStyles, true);
+    assert.deepEqual(real.unrenderedVariants, []);
+    assert.equal(real.declaresCards, true);
+  });
+});
+
 describe('conformance: the runner and the ledger bite (failing arms)', () => {
   const [contract] = contracts;
   test('a twin that fails a clause is reported', () => {
@@ -91,6 +145,16 @@ describe('conformance: the runner and the ledger bite (failing arms)', () => {
     const [cell] = run.cells.filter((x) => x.verdict === 'pass');
     const stale = ledgerProblems([{ clause: cell.clause, instance: cell.instance, reason: 'a reason long enough', seeded: clauses.get(cell.clause).added }], run.cells, clauses);
     assert.ok(stale.some((p) => p.includes('STALE')));
+    const counted = contracts.find((c) => c.kind === 'component');
+    const crun = runContract(counted);
+    const cclauses = new Map(counted.clauses.map((cl) => [cl.id, cl]));
+    const over = crun.cells.find((x) => x.clause === 'component.logical-properties' && x.verdict === 'fail');
+    const entry = (ceiling) => ({ clause: over.clause, instance: over.instance, reason: 'a reason long enough', seeded: cclauses.get(over.clause).added, ceiling });
+    const debtCells = crun.cells.map((x) => (x === over ? { ...x, verdict: 'debt' } : x));
+    assert.ok(ledgerProblems([entry(over.measure - 1)], debtCells, cclauses).some((p) => p.includes('above its ceiling')));
+    assert.ok(ledgerProblems([entry(over.measure + 1)], debtCells, cclauses).some((p) => p.includes('lower the ceiling')));
+    assert.ok(ledgerProblems([{ ...entry(0), ceiling: undefined }], debtCells, cclauses).some((p) => p.includes('needs an integer ceiling')));
+    assert.deepEqual(ledgerProblems([entry(over.measure)], debtCells, cclauses), []);
     const late = ledgerProblems([{ clause: cell.clause, instance: cell.instance, reason: 'x', seeded: '2099-01-01' }], run.cells, clauses);
     assert.ok(late.some((p) => p.includes('only the day')) && late.some((p) => p.includes('reason')));
   });

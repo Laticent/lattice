@@ -54,6 +54,16 @@ function render() {
       lines.push(`| \`${cl.id}\` | ${cl.level} | ${run.reach[cl.id] ?? 0} | ${cell(caught)} | ${cell(cl.why)} |`);
     }
     lines.push('');
+    if (c.renderClauses?.length) {
+      lines.push(
+        `**Rendered clauses** (\`node tools/conformance-render.js\`, run nightly by \`test/integration/components/component-conformance.test.js\`; they need a browser, so \`npm test\` does not evaluate them and the matrix below does not list them):`,
+        '',
+        '| Clause | Varies over | Checks | Status | Why |',
+        '|---|---|---|---|---|',
+        ...c.renderClauses.map((r) => `| \`${r.id}\` | ${r.axes.join(', ')} | ${cell(r.what)} | ${r.status} | ${cell(r.why)} |`),
+        '',
+      );
+    }
     const short = c.clauses.map((cl) => cl.id.slice(c.kind.length + 1));
     lines.push(`| ${c.kind} | ${short.join(' | ')} |`, `|---|${short.map(() => ':-:').join('|')}|`);
     const byInstance = new Map();

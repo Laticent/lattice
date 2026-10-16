@@ -354,6 +354,8 @@ lib/<X>.js              → SCRIPT_FOR_LIB[X]      (e.g. palette.js → test:pal
 test/unit/<scope>/*     → test:<scope>
 themes/*.css            → test:palette
 lib/conformance/*       → test:conformance
+lib/components/*        → test:components + test:conformance   (the component contract reads every folder)
+test/conformance/*      → test:conformance   (fixtures, debt ledger, card-row corpus)
 docs/, examples/, *.md  → skip — no tests needed
 lattice.js,    → full unit suite        (safe fallback;
 lattice-runtime.js,                                renderers touch everything)
@@ -1399,6 +1401,29 @@ new key is: the reader, the row (with `vocab:` naming the lint-vocab field its r
 fails on a key that is read but has no row, a row nothing reads, a value list lint disagrees with,
 a spec row or case that is missing, or a row the schema cannot express. The live matrix is
 `dist/engineering/conformance.md`.
+
+### Adding or changing a component: what the contract checks
+
+`test/unit/conformance/static.test.js` also runs the **component contract**
+(`lib/conformance/kinds/component.contract.js`) over every folder under `lib/components/`. It fails on:
+a manifest with no stylesheet (or the reverse); a stylesheet in a shared `_` folder that
+`tools/build-css.js` never names; a variant with no gallery slide, or one `lint:deck` calls an unknown
+class; a `variantAxes` member that is not a variant; a `capacity` that is out of order or an
+`escalateTo` that names nothing real; a new physical `left`/`right` declaration (use `margin-inline-*`,
+`padding-inline-*`, `inset-inline-*`, `text-align: start`/`end`, so the layout mirrors under
+`dir="rtl"`); and a component with no entry in `test/conformance/card-row-corpus.json`. A component the
+corpus marks as having a card row must declare `cards` in its manifest.
+
+Known failures are in `test/conformance/debt.json`, each with a reason. A new component cannot carry
+debt: it conforms or it does not merge. A debt entry for a count (the physical declarations) carries a
+`ceiling`; when your change lowers the count, lower the ceiling in the same commit.
+
+The **render clauses** (every variant slide fits, has no axe violation, and meets AA in every shipped
+palette; the card-row trigger agrees with the corpus) run with `npm run conformance:render`, not in
+`npm test`: they need a browser and cost minutes. `--only=<component>` runs one component's slides
+across all palettes. They are report-only. `test/integration/components/component-conformance.test.js`
+runs the matrix when `CONFORMANCE_RENDER=1`; its smaller "bite" tests, which prove each probe can
+fail, run on the nightly slice without it.
 
 A `tint-*` or `mark-*` treatment is the same idea on a smaller scale: add it to
 `lib/base/treatments.js` with its CSS, or `unknown-treatment` calls it unknown.
