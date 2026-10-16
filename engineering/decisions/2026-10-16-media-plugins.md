@@ -301,7 +301,7 @@ role.
 | | `muted` | starts without sound. Browsers allow `autoplay` only when muted, so `autoplay` implies it | HTML `muted`; Vimeo `muted` |
 | | `loop` | starts again at the end | HTML `loop`; Vimeo `loop`; YouTube `loop` (limited in embeds) |
 | | `controls` | `controls=false` hides the player's controls | HTML `controls`; YouTube `controls`; Vimeo `controls`; TikTok `controls` |
-| | `fullscreen` | while presenting, the clip fills the stage as it plays (§4.8) | PowerPoint *Play Full Screen* (ECMA-376 `fullScrn`) |
+| | `fullscreen=false` | while presenting, the clip plays in its frame instead of filling the stage, which is the default (§4.8) | PowerPoint *Play Full Screen* (ECMA-376 `fullScrn`) |
 | `qr` | the payload | a URI, quoted text, or a nested format record (`wifi={…}`, `contact={…}`) | URIs, the Wi-Fi URI, vCard (`2026-10-16-qr-plugin.md` §3, §3c) |
 | | `c1` … `c12` | the code's ink, with a lint for scan contrast (owner, 2026-10-16) | the deck's color cycle |
 | | `ec=L` `M` `Q` `H` | error correction | ISO/IEC 18004 |
@@ -354,9 +354,9 @@ the same few. Lattice already exports PowerPoint, so these are the meanings a pr
 
 | Record word | Presenting behavior | Standard |
 |---|---|---|
-| *(none)* | the clip waits on its poster; **the next advance plays it** (a clicker's forward button, →, Space, a tap), and the advance after that moves to the next slide | PowerPoint *Start: In Click Sequence* |
+| *(none)* | the clip waits on its poster; **the next advance plays it** (a clicker's forward button, →, Space, a tap), and the advance after that moves to the next slide | PowerPoint *Start: In Click Sequence*; Google Slides *Play (on click)* |
 | `autoplay` | plays as the slide arrives | HTML `autoplay`; PowerPoint *Start: Automatically* |
-| `fullscreen` | while it plays, the clip fills the stage; when it ends, or on Esc, or on the next advance, it shrinks back into the slide | PowerPoint *Play Full Screen* (`fullScrn`) |
+| *(default)* / `fullscreen=false` | while it plays, the clip fills the stage; when it ends, or on Esc, or on the next advance, it shrinks back into the slide. `fullscreen=false` keeps it in its frame | PowerPoint *Play Full Screen* (`fullScrn`), with the default flipped (§8, decision 11) |
 | `loop` | plays until the presenter advances | HTML `loop`; PowerPoint *Loop until Stopped* |
 | `muted` | plays without sound | HTML `muted` |
 
@@ -370,9 +370,11 @@ same verbs reach every input (keyboard, clicker, wheel, touch), through the shar
 **What `fullscreen` does, exactly.** The deck is already full screen when presenting, so the clip's frame grows to
 fill the stage (the audience window), above the slide, and shrinks back after. It does not call the browser's
 Fullscreen API: a page cannot put a host's cross-origin player full screen without a click inside that player, and it
-would not need to. Without `fullscreen` the clip plays in the frame its layout gave it, which is right for a
-`companion` slide whose claim sits beside the clip. The default follows PowerPoint (off); a deck that wants every
-clip to fill the stage sets it once with the `video:` register (`video: fullscreen`).
+would not need to. **It is on by default** (owner, 2026-10-16): a layout often shows the poster small, and a small
+clip on a room's screen is hard to watch, so pressing play fills the stage. PowerPoint's default is off; Lattice keeps
+PowerPoint's word and flips its default. `fullscreen=false` keeps a clip in the frame its layout gave it, which suits
+a muted, looping clip used as motion behind a slide (`autoplay muted loop fullscreen=false`); a deck can turn the
+default off once with the `video:` register.
 
 **Two windows, one playback.** With the presenter console open, the clip plays on the audience window only; the
 console shows its poster, elapsed and remaining time, and play / pause. Two embeds playing at once would mean two
@@ -455,11 +457,15 @@ Slices 2 and 3 rebase onto #2725 once it lands, because they delete rows from it
 7. **No `start=`** (reversed the same day under rule 2 of §4.7). A start time is part of the address, as each host
    and W3C Media Fragments define it.
 8. **A QR code takes `c1` … `c12`**, with a lint for scan contrast.
+10. **The next advance plays a waiting clip** (§4.8), as in PowerPoint and Google Slides: the familiar behavior for
+    most presenters, and it lets the speaker introduce the clip first. `autoplay` gives Keynote's behavior.
+11. **A clip fills the stage when it plays, by default** (§4.8). `fullscreen=false` opts out.
 
 ## 9. Progress
 
 - 2026-10-16: audit and proposal written; D1 confirmed by render and logged. Owner settled decisions 2-4;
   decision 1 (packaging) is on hold.
+- 2026-10-16: decisions 10 and 11 recorded: the next advance plays a waiting clip; full screen is the default.
 - 2026-10-16: §4.8 added: playing a clip while presenting, with PowerPoint's playback options as the standard
   (`fullscreen` = *Play Full Screen*, the next advance plays a waiting clip).
 - 2026-10-16: §4.7 rewritten under the standards-first rule: `alt`, `caption`, `title` from HTML; HTML's video
