@@ -1,0 +1,237 @@
+{
+  "deck": "test/integration/baseline-decks/gallery.md",
+  "palette": "mustard",
+  "media": "screen",
+  "runtime": {
+    "D": "loaded",
+    "A": "loaded",
+    "C": "loaded"
+  },
+  "elements": 5699,
+  "sizes": {
+    "D": {
+      "raw": 1323265,
+      "gzip": 131431
+    },
+    "C": {
+      "raw": 1718780,
+      "gzip": 138357
+    }
+  },
+  "comparisons": {
+    "AvsC": {
+      "differ": 0,
+      "examples": []
+    },
+    "DvsC": {
+      "differ": 125,
+      "examples": [
+        {
+          "el": "p.",
+          "props": [
+            "inline-size: 910.812px | 1587.41px",
+            "perspective-origin: 455.406px 72.5938px | 793.703px 72.5938px",
+            "transform-origin: 455.406px 72.5938px | 793.703px 72.5938px",
+            "width: 910.812px | 1587.41px"
+          ]
+        },
+        {
+          "el": "code.",
+          "props": [
+            "font-family: \"JetBrains Mono\", \"Courier New\", monospace, \"Apple | Outfit, system-ui, sans-serif, \"Apple Color Emoji\"",
+            "font-size: 44.928px | 84px",
+            "font-style: normal | italic",
+            "font-weight: 600 | 300"
+          ]
+        },
+        {
+          "el": "div.cell-stage",
+          "props": [
+            "column-gap: 48px | 24px",
+            "row-gap: 48px | 24px"
+          ]
+        },
+        {
+          "el": "div.masthead-lede",
+          "props": [
+            "align-items: center | flex-start",
+            "text-align: center | left",
+            "::beforetext-align: center | left",
+            "::aftertext-align: center | left"
+          ]
+        },
+        {
+          "el": "p.",
+          "props": [
+            "text-align: center | left",
+            "::beforetext-align: center | left",
+            "::aftertext-align: center | left"
+          ]
+        },
+        {
+          "el": "code.",
+          "props": [
+            "text-align: center | left",
+            "::beforetext-align: center | left",
+            "::aftertext-align: center | left"
+          ]
+        },
+        {
+          "el": "p.",
+          "props": [
+            "text-align: center | left",
+            "::beforetext-align: center | left",
+            "::aftertext-align: center | left"
+          ]
+        },
+        {
+          "el": "code.",
+          "props": [
+            "text-align: center | left",
+            "::beforetext-align: center | left",
+            "::aftertext-align: center | left"
+          ]
+        },
+        {
+          "el": "hr.masthead-rule",
+          "props": [
+            "text-align: center | left",
+            "::beforetext-align: center | left",
+            "::aftertext-align: center | left"
+          ]
+        },
+        {
+          "el": "div.masthead-lede",
+          "props": [
+            "align-items: center | flex-start",
+            "text-align: center | left",
+            "::beforetext-align: center | left",
+            "::aftertext-align: center | left"
+          ]
+        },
+        {
+          "el": "hr.masthead-rule",
+          "props": [
+            "text-align: center | left",
+            "::beforetext-align: center | left",
+            "::aftertext-align: center | left"
+          ]
+        },
+        {
+          "el": "header.",
+          "props": [
+            "inline-size: 1317.61px | 3660px",
+            "inset-inline-end: 2432.39px | 90px",
+            "perspective-origin: 658.797px 29.1875px | 1830px 29.1875px",
+            "right: 2432.39px | 90px"
+          ]
+        }
+      ]
+    },
+    "DvsA": {
+      "differ": 125,
+      "examples": [
+        {
+          "el": "p.",
+          "props": [
+            "inline-size: 910.812px | 1587.41px",
+            "perspective-origin: 455.406px 72.5938px | 793.703px 72.5938px",
+            "transform-origin: 455.406px 72.5938px | 793.703px 72.5938px",
+            "width: 910.812px | 1587.41px"
+          ]
+        },
+        {
+          "el": "code.",
+          "props": [
+            "font-family: \"JetBrains Mono\", \"Courier New\", monospace, \"Apple | Outfit, system-ui, sans-serif, \"Apple Color Emoji\"",
+            "font-size: 44.928px | 84px",
+            "font-style: normal | italic",
+            "font-weight: 600 | 300"
+          ]
+        },
+        {
+          "el": "div.cell-stage",
+          "props": [
+            "column-gap: 48px | 24px",
+            "row-gap: 48px | 24px"
+          ]
+        },
+        {
+          "el": "div.masthead-lede",
+          "props": [
+            "align-items: center | flex-start",
+            "text-align: center | left",
+            "::beforetext-align: center | left",
+            "::aftertext-align: center | left"
+          ]
+        },
+        {
+          "el": "p.",
+          "props": [
+            "text-align: center | left",
+            "::beforetext-align: center | left",
+            "::aftertext-align: center | left"
+          ]
+        },
+        {
+          "el": "code.",
+          "props": [
+            "text-align: center | left",
+            "::beforetext-align: center | left",
+            "::aftertext-align: center | left"
+          ]
+        },
+        {
+          "el": "p.",
+          "props": [
+            "text-align: center | left",
+            "::beforetext-align: center | left",
+            "::aftertext-align: center | left"
+          ]
+        },
+        {
+          "el": "code.",
+          "props": [
+            "text-align: center | left",
+            "::beforetext-align: center | left",
+            "::aftertext-align: center | left"
+          ]
+        },
+        {
+          "el": "hr.masthead-rule",
+          "props": [
+            "text-align: center | left",
+            "::beforetext-align: center | left",
+            "::aftertext-align: center | left"
+          ]
+        },
+        {
+          "el": "div.masthead-lede",
+          "props": [
+            "align-items: center | flex-start",
+            "text-align: center | left",
+            "::beforetext-align: center | left",
+            "::aftertext-align: center | left"
+          ]
+        },
+        {
+          "el": "hr.masthead-rule",
+          "props": [
+            "text-align: center | left",
+            "::beforetext-align: center | left",
+            "::aftertext-align: center | left"
+          ]
+        },
+        {
+          "el": "header.",
+          "props": [
+            "inline-size: 1317.61px | 3660px",
+            "inset-inline-end: 2432.39px | 90px",
+            "perspective-origin: 658.797px 29.1875px | 1830px 29.1875px",
+            "right: 2432.39px | 90px"
+          ]
+        }
+      ]
+    }
+  }
+}
