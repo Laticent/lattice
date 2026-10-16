@@ -1163,13 +1163,17 @@ section.finish.overflow:not([data-lattice-overflow-marker="reader"]):not([data-l
  * rasterize the whole PDF page. A register SPOTLIGHT is a window placed on the slide, so it
  * leaves the panel on its plain field.
  *
- * THE BAKED MASK IS RESET ON THE PANEL at zero-class specificity. A finish written before surfaces
- * existed declares its mask only on the section, already mixed for the light canvas; a panel that
+ * THE BAKED MASK IS RESET ON THE PANEL at (0,1,1). A finish written before surfaces existed
+ * declares its mask only on the section, already mixed for the light canvas; a panel that
  * inherited it painted itself white in the PDF with its white text on it (found by the #2457
  * checker). The generator's own surface rule (0,2,1 or more) outranks this reset, so a current
  * finish re-declares its mask mixed for the panel. A baked CLEARANCE is reset the same way, for
- * the same reason: inherited, it would fill the panel with the light canvas. */
-:where(section.finish) :is(.panel-left, .panel-right, .compare-left) {
+ * the same reason: inherited, it would fill the panel with the light canvas.
+ * The selector LEADS with `section` and keeps the panel list in `:where()` for the weight. The
+ * engine's packer scopes any selector that does not start with `section` as a slide descendant,
+ * so the old `:where(section.finish) :is(…)` packed to a section inside a section and was dead in
+ * the Studio and Playground preview (#2705 follow-up; the guard is test/unit/engine/css-scope). */
+section.finish :where(.panel-left, .panel-right, .compare-left) {
   --fin-backdrop-mask: none;
   --fin-backdrop-mask-opaque: none;
   --fin-backdrop-clear-scrim: none;
