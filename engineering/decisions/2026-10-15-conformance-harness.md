@@ -482,3 +482,88 @@ before the per-PR render tier blocks anything (§12.4).
    2711-p4).
 7. **This note holds for revision** before it merges, and the owner asked for very high
    confidence that every explicit and implicit expectation is covered. §11 is that pass.
+
+## 13. Phase 2 outcome (2026-10-16)
+
+What shipped, what it measured, and what is held for the owner. Numbers are from one sandbox
+(16 GB, one Chromium); a CI runner will differ, so treat them as ratios and order of magnitude.
+
+### 13.1 What shipped
+
+- **Static component contract** (`lib/conformance/kinds/component.contract.js`), nine clauses over
+  the 77 folders under `lib/components/` (75 components plus the shared `_chart-family` and
+  `_qr-card`, which are instances because a folder of CSS with no manifest passed every gate before):
+  `files-both-ways`, `css-wired`, `variants-rendered`, `variant-known-to-lint`, `axes-coherent`,
+  `capacity-coherent`, `logical-properties`, `card-row-labeled`, `cards-declared`. Only the last
+  three catch anything on day one: 44 components carry 402 physical left/right declarations
+  (the ratchet, §12.5), and `stats`, `actors` and `kpi` carry `cards` debt (§12.2). The other six
+  catch nothing today and say so; they are the reach guarantee for the render tier and keep six
+  drifts from opening.
+- **Ledger `ceiling`.** A clause that counts (`measure`) puts an integer ceiling on its debt entries:
+  the count may not rise above it, and when it falls the ceiling must follow.
+- **Render tier** (`tools/conformance-render.js`, `npm run conformance:render`): every gallery slide
+  (858 slides, one per variant plus each gallery's generated title, closing and anti-pattern
+  slides) rendered in pages of about 150, then overflow (the shared probe), axe-core, the card-row
+  trigger, and the shared contrast PROBE swept over all 33 palettes (`palette-sweep.js`, with the
+  shared `SANCTIONED_CONTRAST_EXEMPTIONS`). It reuses the machinery every other contrast gate
+  uses rather than adding a fourth contrast implementation (HARD RULE #15). Report-only.
+
+### 13.2 Measured cost (§12.4)
+
+| Run | Wall time |
+|---|---|
+| Render the 858-slide deck to HTML (no PDF) | 17 s (29.5 s paged) |
+| Overflow + card-row + axe, all slides | about 11 s |
+| **Contrast sweep, 33 palettes, all 858 slides** | **about 46 min** |
+| Whole matrix, nightly shape | **47 min 40 s** |
+| One component, 33 palettes: `kpi` (15 slides) | 30 s |
+| One component, 33 palettes: `map` (14 slides) | 3 min 23 s |
+| 14-component covering sample (one page), 33 palettes | 17 min 33 s |
+
+So the cost is the contrast sweep and nothing else: everything that is not contrast takes about
+a minute for the whole gallery. Within the sweep, cost follows what a slide paints, not how many
+slides there are: the PROBE scores every text run, and `map`, `math` and the chart components carry
+thousands (2.0 s a palette at 73 slides, 4.7 s at 200, 85.7 s at 858 on one page; paging at about
+150 slides keeps it near linear). The existing per-PR sweep (117 slides, 32 palettes) costs about
+2 minutes by the same arithmetic.
+
+### 13.3 What is held for the owner
+
+Nothing in this tier is scheduled or blocking. Two decisions, each of which changes what every
+future run pays (the second filter in `CLAUDE.md`):
+
+1. **Run it nightly?** Setting `CONFORMANCE_RENDER=1` on the existing "Integration tests (nightly
+   slice)" step adds about 48 minutes to that job. A separate nightly step costs the same and keeps
+   the existing slice's time. Without either, only the small "bite" tests run on the nightly (they
+   prove each probe can fail on a planted defect).
+2. **Per-PR?** The cheap probes (overflow, axe, card-row, about 1 minute for everything) could run
+   per PR on the changed components today. The contrast sweep is the cost: a changed component is
+   30 s to 3.5 minutes across all 33 palettes, a changed shared file is the covering sample
+   (about 17 minutes) or more. The honest options are all palettes for the changed component only,
+   or two or three palettes per PR and all 33 nightly.
+
+### 13.4 What the reviews changed
+
+Three independent reviewers (red team, inversion, checker) read the first commit. Fixed: the
+checklist claimed the render clauses "run nightly" when nothing schedules them; the physical-property
+counter missed shorthands (`margin: 0 0 0 4px`, `inset: 0 auto 0 0`), mixed case and positions, and
+the corrected count is 402, not 361; slides a gallery generates (title, closing and a `cards-stack`
+anti-pattern slide on 73 of 75) were credited to the component, which would have charged `quote`
+with `cards-stack`'s card row; a flat `lib/components/<name>/` folder was invisible to the contract;
+a card-row label that was not a boolean passed; `measure` could crash the run; a gallery edit did not
+trigger `test:conformance` before commit.
+
+Not fixed, and stated: (1) `variant-known-to-lint` is nearly circular, because the linter's
+vocabulary is built from the same manifests, so a variant of a real component is never refused; it
+keeps the two in step and no more. (2) `topic`'s tab labels score 1.02:1 because the probe reads the
+section's `background-color` and misses the gradient that paints the band, while the text renders
+dark on light (viewed). §6.3 rule 7 says fix the probe first; `tools/check-slide-contrast.js` serves
+five gates, so the fix is its own change. Until then `PROBE_LIMITS` in the render tool leaves those
+runs out and counts them in the report. (3) `cards-declared` blocks on a hand-labeled corpus, as
+ruling §12.2 says, and the labels outside the 20 components that declare `cards` and `stats`,
+`actors`, `kpi` are provisional until the trigger's rates are reviewed against them (§13.5).
+(4) The anatomy-matches-render, `isEnriched` and manifest-autocomplete items in §9 row 2 did not
+land; they are phase 2 work still owed.
+
+### 13.5 The card-row trigger, scored
+RATES_PLACEHOLDER

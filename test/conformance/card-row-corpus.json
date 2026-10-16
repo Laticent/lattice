@@ -1,5 +1,5 @@
 {
- "//": "Hand-labeled corpus: does each component have a row of equal sibling cards (what a deck's cards: governs)? Positives start as the 18 components that declare cards plus stats, actors and kpi (the 2026-10-15 report). PROVISIONAL for the rest until the render tier's card-row trigger has been reviewed against it (tools/conformance-render.js); see the decision note section 13. A new component needs a label here (component.card-row-labeled).",
+ "//": "Hand-labeled corpus: does each component have a row of equal sibling cards (what a deck's cards: governs)? Positives start as the 20 components that declare cards plus stats, actors and kpi (the 2026-10-15 report). PROVISIONAL for the rest until the render tier's card-row trigger has been reviewed against it (tools/conformance-render.js); see the decision note section 13. A new component needs a label here (component.card-row-labeled).",
  "labels": {
   "actors": true,
   "agenda": true,

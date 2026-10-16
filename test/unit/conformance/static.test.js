@@ -83,6 +83,7 @@ describe('conformance: the component MEASUREMENT can produce failing facts', () 
   put('b/zz-bad/zz-bad.styles.css', 'section.zz-bad { margin-inline-start: 1px; }\n');
   put('b/zz-bad/zz-bad.gallery.md', '---\nmarp: true\n---\n\n<!-- _class: zz-bad tall -->\n\n## A\n');
   put('b/_shared/stray.css', 'x { color: red; }\n');
+  put('zzflat/zzflat.styles.css', 'a { margin: 0 0 0 4px; }\n');
   const ctx = contract.contextAt(root);
   const byName = new Map(contract.enumerate(ctx).map((i) => [i.name, i]));
   test('CSS with no manifest, and its physical declarations (comments not counted)', () => {
@@ -94,10 +95,16 @@ describe('conformance: the component MEASUREMENT can produce failing facts', () 
   test('a variant the gallery never draws, one lint does not know, a bad axis and a bad capacity', () => {
     const b = byName.get('zz-bad');
     assert.deepEqual(b.unrenderedVariants, ['wide']);
+    // The linter's vocabulary is global, so a variant of a REAL component is never refused; what it
+    // refuses here is the unknown component name, which is why both variants come back.
     assert.deepEqual(b.lintRefusedVariants, ['tall', 'wide']);
     assert.ok(b.axisProblems.some((p) => p.includes("'huge'")));
     assert.ok(b.capacityProblems.some((p) => p.includes('above capacity.hard')) && b.capacityProblems.some((p) => p.includes('nosuch-component')));
     assert.equal(b.physical, 0);
+  });
+  test('a FLAT folder (lib/components/<name>/) is an instance too, and its shorthand is counted', () => {
+    assert.equal(byName.get('zzflat').physical, 1);
+    assert.equal(byName.get('zzflat').hasManifest, false);
   });
   test('a shared folder holding a sheet build-css.js never names', () => {
     assert.deepEqual(byName.get('_shared').strayCss, [{ file: 'stray.css', wired: false }]);

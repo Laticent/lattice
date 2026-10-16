@@ -40,7 +40,7 @@ const { offenders } = require('../../../tools/palette-sweep');
 
 const ONLY = (process.env.CONF_ONLY || '').split(',').map((s) => s.trim()).filter(Boolean);
 const REPORT = path.join(ROOT, '.scratch', 'conformance-render', 'report.json');
-const MIN_PALETTES = 30;
+const MIN_PALETTES = 33;
 const MATRIX = process.env.CONFORMANCE_RENDER === '1';
 
 const manifest = (name) => {
@@ -71,14 +71,14 @@ describe('component conformance, render tier (report-only)', () => {
   after(async () => { if (browser) await browser.close(); });
 
   describe('reach — the harness is not blind (§6.3 rule 5)', { skip: !MATRIX && 'set CONFORMANCE_RENDER=1 to run the matrix' }, () => {
-    test('every component rendered at least one slide, and every slide names its component', () => {
+    test('every component has a slide of its own, and no slide lacks a gallery header', () => {
       const empty = summary.components.filter((c) => c.slides === 0).map((c) => c.name);
       assert.deepEqual(empty, []);
       assert.deepEqual(summary.unowned, []);
     });
     test('the deck is the galleries: at least one slide per variant and a title per component', () => {
       if (ONLY.length) return;
-      assert.ok(report.index.length >= 800, `only ${report.index.length} slides rendered; the 75 galleries carry 858`);
+      assert.ok(report.index.length >= 850, `only ${report.index.length} slides rendered; the 75 galleries carry 858`);
     });
     test('every shipped palette was swept, and each probed real text', () => {
       if (ONLY.length) return;
@@ -87,7 +87,7 @@ describe('component conformance, render tier (report-only)', () => {
       for (const p of report.swept.palettes) assert.ok(p.rows >= 4000, `${p.theme}: ${p.rows} text runs; the probe is not reaching the deck`);
       assert.ok(report.swept.distinctPaints >= 10, `only ${report.swept.distinctPaints} distinct painted canvases: the matrix collapsed`);
     });
-    test('axe ran on every slide (a run that threw would look like a clean page)', () => {
+    test('axe ran (a run that threw would look like a clean page; the bite test proves it can flag)', () => {
       assert.ok(Array.isArray(report.axeViolations));
       assert.ok(report.timing.axeMs > 0);
     });

@@ -56,7 +56,7 @@ function render() {
     lines.push('');
     if (c.renderClauses?.length) {
       lines.push(
-        `**Rendered clauses** (\`node tools/conformance-render.js\`, run nightly by \`test/integration/components/component-conformance.test.js\`; they need a browser, so \`npm test\` does not evaluate them and the matrix below does not list them):`,
+        `**Rendered clauses** (\`node tools/conformance-render.js\`, run ON DEMAND: nothing schedules them yet, because wiring the matrix into the nightly adds tens of minutes and is the owner's call, §12.4 and §13 of the decision note; they need a browser, so \`npm test\` does not evaluate them and the matrix below does not list them):`,
         '',
         '| Clause | Varies over | Checks | Status | Why |',
         '|---|---|---|---|---|',
