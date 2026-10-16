@@ -24,6 +24,7 @@
 const esbuild = require('esbuild');
 const path = require('path');
 const fs = require('fs');
+const { pathToFileURL } = require('url');
 
 const ROOT = path.resolve(__dirname, '..');
 const SRC_DIR = path.join(ROOT, 'lib', 'export');
@@ -73,9 +74,50 @@ const BUILD_OPTIONS = {
   },
 };
 
+// The kernels the player's CSP-hashed script inlines with `${fn.toString()}`. esbuild reprints
+// every function it bundles (tabs become spaces, `undefined` becomes `void 0`, a colliding name
+// gains a `2`), so in the bundle each `.toString()` returned a different TEXT from the one Node
+// returns from the source module. The player script, and the CSP hash over it, then differed
+// between the CLI and the Studio for the same deck: the first host-parity break the
+// player-host-parity golden found (engineering/decisions/2026-10-16-player-as-library-audit.md
+// §11). So each call is replaced in the bundle with the source text Node itself returns, as a
+// string literal, which no later minifier can rename. The list is read from player-core.mjs, so
+// a new inlined kernel is covered without an edit here, and the build fails on one it cannot map.
+async function verbatimKernels() {
+  const src = fs.readFileSync(path.join(SRC_DIR, 'player-core.mjs'), 'utf8');
+  const names = [...new Set([...src.matchAll(/\$\{([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)?)\.toString\(\)\}/g)].map((m) => m[1]))];
+  const out = new Map();
+  for (const name of names) {
+    const [head, tail] = name.split('.');
+    let spec;
+    if (tail) {
+      // `ltt.makeCursor`: a namespace bound by `const ltt = … await import('<spec>')`.
+      spec = src.match(new RegExp(`\\b${head}\\s*=[^;\\n]*?await import\\('([^']+)'\\)`))?.[1];
+    } else {
+      spec = src.match(new RegExp(`const \\{[^}]*\\b${head}\\b[^}]*\\}\\s*=[^;\\n]*?await import\\('([^']+)'\\)`))?.[1];
+    }
+    if (!spec) throw new Error(`cannot find the module that binds the inlined kernel \`${name}\``);
+    const file = spec.startsWith('.') ? path.join(SRC_DIR, spec) : require.resolve(spec, { paths: [SRC_DIR] });
+    const mod = await import(pathToFileURL(file).href);
+    const fn = mod[tail || head];
+    if (typeof fn !== 'function') throw new Error(`\`${name}\` is not a function export of ${spec}`);
+    out.set(name, fn.toString());
+  }
+  return out;
+}
+
 async function build() {
   const result = await esbuild.build({ ...BUILD_OPTIONS, write: false });
-  return result.outputFiles[0].text;
+  let text = result.outputFiles[0].text;
+  for (const [name, source] of await verbatimKernels()) {
+    const [head, tail] = name.split('.');
+    // esbuild may suffix a bundled binding (`keyAction2`); a namespace keeps its name.
+    const re = new RegExp(`\\$\\{${head.replace(/\$/g, '\\$')}${tail ? '' : '\\d*'}${tail ? `\\.${tail}` : ''}\\.toString\\(\\)\\}`, 'g');
+    const before = text;
+    text = text.replace(re, () => `\${${JSON.stringify(source)}}`);
+    if (text === before) throw new Error(`the bundle no longer inlines \`${name}\` with .toString(); update verbatimKernels`);
+  }
+  return text;
 }
 
 async function main() {

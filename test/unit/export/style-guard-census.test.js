@@ -48,17 +48,18 @@ const ROOT = path.join(__dirname, '..', '..', '..');
  */
 const CENSUS = {
 	'lattice.js': {
-		guards: 7,
+		guards: 5,
 		why:
-			'page scaffold, look-diagram scratch page, both --player prune re-wraps, and the --read ' +
-			"reading-article sheet are guarded. That fifth one is belt and braces rather than a live " +
+			'page scaffold, look-diagram scratch page, and the --read reading-article sheet are guarded ' +
+			'(the two --player prune re-wraps moved into lib/export/player-prune.js on 2026-10-16). ' +
+			"The reading-article one is belt and braces rather than a live " +
 			'sink — READING_ARTICLE_CSS is a fixed module constant with no interpolation, so it is in ' +
 			'the same class as embeddedFontsStyle() below. It is guarded anyway because it is the one ' +
 			'of the two a future change is likely to make dynamic (a palette or measure threaded into ' +
 			'it), and a guard already at the call site is cheaper than noticing that it is now needed. ' +
 			'The sheet that stays UNGUARDED is embeddedFontsStyle() — a fixed face manifest from ' +
-			'lib/fonts/text-faces.js plus base64, neither of which can contain `<`. The sixth and ' +
-			'seventh are KaTeX\'s stylesheet, inlined on a math deck (followups.d/2439): its rules ' +
+			'lib/fonts/text-faces.js plus base64, neither of which can contain `<`. The fourth and ' +
+			'fifth are KaTeX\'s stylesheet, inlined on a math deck (followups.d/2439): its rules ' +
 			'(`#lattice-katex`) and its faces (appended to the font block as data: URIs). Package ' +
 			'bytes read off disk rather than author text, but a file the page did not write, so each ' +
 			'half is guarded where it is embedded.',
@@ -71,9 +72,12 @@ const CENSUS = {
 			'The fifth, the Read·Article math overflow guard added beside an already-inline KaTeX sheet, ' +
 			'is a fixed constant (`mathArticleCss`) with no interpolation — keep it one.',
 	},
-	'docs/src/components/studio/player-prune-browser.ts': {
+	'lib/export/player-prune.js': {
 		guards: 2,
-		why: 'both post-prune re-wraps — css-tree undoes the escape, so these own the terminator outright.',
+		why:
+			'both post-prune re-wraps in prunePlayerHtml, the one orchestration the CLI and the Studio ' +
+			'share since 2026-10-16 (it replaced a guarded twin in each host) — css-tree undoes the ' +
+			'escape, so these own the terminator outright.',
 	},
 	'docs/src/components/studio/share-export.ts': {
 		guards: 3,

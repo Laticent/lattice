@@ -507,6 +507,78 @@ package, no product name and no public page until a second producer commits to u
 that ships non-Lattice HTML) commits to the assembler: then publish (B). If that producer also
 wants views and transport rather than bringing its own, reopen (A).
 
+## 11. Host parity, the assembler's first step (2026-10-16)
+
+The owner ruled host parity first (§7, §10 point 3). The work landed in one PR, one commit per
+item, and this section records each result.
+
+### 11.1 One packer for both hosts (P1)
+
+**What moved.**
+
+- **The prune orchestration** is one function, `prunePlayerHtml(html, openPage, opts)` in
+  `lib/export/player-prune.js`. Each host supplies only a page: `lattice.js` opens a scratch
+  Chromium tab and runs the probes with `page.evaluate`; the Studio's `player-prune-browser.ts`
+  mounts an offscreen iframe and calls the same probes in-process with the frame's document.
+  The three probes (`probeFontUse`, `probeUsedSelectors`, `probeGate`) read nothing from module
+  scope, so they survive being shipped to a page as text. `opts.safelist` and
+  `opts.skipStyleIds` default to today's constants; they are the first connector seam (§10).
+- **The assembler's tail** is one function, `sealPlayer({ html, scriptHashes, media }, caps)` in
+  `lib/export/player-seal.mjs`: it writes the CSP, glyph-subsets the fonts and hoists repeated
+  pictures. `assemblePlayer` leaves a slot for the policy and hands the document over. It knows
+  nothing about slides.
+- **The Studio now subsets fonts.** `subsetEmbeddedFonts` moved to `lib/export/player-fonts.js`,
+  and the player-prune bundle carries it with `subset-font`, HarfBuzz's glue and the woff2 codec.
+  The Studio fetches HarfBuzz's wasm and hands it over. Measured: the browser subset of
+  `outfit-400.woff2` is byte-identical to Node's.
+
+**A divergence nobody had listed.** The Studio's bundle of `player-core.mjs` re-printed the
+transport kernels the player inlines with `${fn.toString()}`: esbuild turns tabs into spaces,
+`undefined` into `void 0`, and renames a colliding binding `keyAction2`. So the Studio's player
+script, and the CSP hash over it, differed from the CLI's for every deck. `build-player-core.js`
+now replaces each such call in the bundle with the text Node itself returns, as a string literal
+that no later minifier can rename. In the production docs build, the Studio export of
+`examples/html-player.md` now carries the CLI's player script byte for byte (sha256 prefix
+`ad0b78e8131d`); before, it did not (`12e273602179`).
+
+**Evidence.**
+
+| Check | Result |
+|---|---|
+| Second golden (`test/fixtures/player-stages`), blessed on the code BEFORE the move | subset, hoist (2), CSS prune (5/433 rules), font prune (3/4), merge (1) all fire; SHA `5c2afbe1…`, 101,757 bytes |
+| The same golden after the move, CLI host | identical |
+| The same golden, the Studio's own modules bundled into Chromium | identical (failed at 101,837 bytes with the `.toString()` fix reverted) |
+| Gallery `--player`, `SOURCE_DATE_EPOCH=0`, before and after | identical, `0b26848b…`, 2,357,094 bytes |
+| Studio export of `examples/html-player.md` (production build) | 1,095,824 → 918,858 bytes (−16%), from the subset |
+
+The CLI's bytes did not move. The Studio's did, so this needs the export sign-off.
+
+**What it costs the Studio.** The player-prune chunk, which loads only on a Webpage export, grows
+from 236,531 to 1,638,297 bytes minified (685,802 gzipped, unminified source), almost all of it
+the woff2 codec, and the export fetches HarfBuzz's wasm (634,892 bytes). Subsetting the
+`examples/html-player.md` export's twelve faces takes 0.55–0.77 s on the main thread in headless
+Chromium, during the export's existing "Optimizing…" step. The wasm comes from the docs install and
+the glue from the root install, so `test/unit/export/player-subset-wasm-pin.test.js` fails when the
+two lockfiles pin different HarfBuzz releases.
+
+**What the subset changes on screen.** Old against new Studio export, in Present, Read · Slides
+and Read · Article, light and dark: WebKit pixel-identical; Chromium identical except 18 pixels of
+anti-aliasing in one toolbar label in dark Read · Slides; Firefox draws the Playfair headline a
+few pixels narrower in every view (4,220–8,149 changed pixels per view). A control of one file
+against a copy of itself differed nowhere. Subsetting the OLD file in Node reproduces the
+Firefox difference exactly, so it is the subset itself, which every CLI export has always carried;
+the glyph advances at `wght` 700 are identical in both files (checked with fontTools), so it is
+Firefox's rasterizer treating the subset file differently, not a metric change. Logged as a
+followup rather than fixed here.
+
+**What is still not at parity.** The packer is; the renderers are not. The CLI renders a deck to
+`docHtml` in its own Chromium page and the Studio renders it in the author's browser, and those
+documents differ (a different engine bundle, the Studio's minified flat sheet, the Studio's
+second font set, §11.2). The provenance stamp differs too (`build: 'studio'`). So "the same deck at
+the same epoch gives the same SHA from both hosts" holds at the packer seam and is asserted there;
+from markdown to file it does not hold yet, and closing that gap means one front end.
+`now` is pinned to the epoch in the Studio as it is in the CLI.
+
 ## 9. Stale claims found along the way
 
 - `player-core.mjs:3433` still calls font subsetting "the single biggest size lever

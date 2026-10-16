@@ -380,13 +380,16 @@ the same pinned instant (`SOURCE_DATE_EPOCH`, else the epoch), and
 `test/integration/export/player-reproducible.test.js` exports a deck twice and compares the bytes.
 Before 2026-10-16 the CLI stamped the wall clock there, the only byte that moved between runs.
 
-**What keeps a player file small**, in the order the passes run:
+**What keeps a player file small**, in the order the passes run. Both hosts run every pass with
+the same code: the first two inside `assemblePlayer`'s tail (`player-seal.mjs` `sealPlayer`,
+which also writes the CSP), the rest in `player-prune.js` `prunePlayerHtml`, to which each host
+hands only a page (`lattice.js` a scratch Chromium tab, the Studio an offscreen iframe).
 
 | Pass | Where | What it removes |
 |---|---|---|
-| Glyph subset | `html-player.js` `subsetEmbeddedFonts` (CLI only) | characters the deck never draws |
-| Asset hoist | `player-assets.mjs` `hoistRepeatedAssets` (both hosts, inside `assemblePlayer`) | the second and later copies of a picture: each large base64 `url(data:…)` used twice or more is stored once as `:root{--lp-asset-N:url(…)}` and referenced with `var()` |
-| CSS prune | `player-prune.js`, run in a real browser by `lattice.js` and the Studio | rules no element matches, behind a computed-style gate; it never targets the dark block or the `lp-assets` block (`PRUNE_SKIP_STYLE_IDS`) |
+| Glyph subset | `player-fonts.js` `subsetEmbeddedFonts` (both hosts; the Studio runs it from the player-prune bundle) | characters the deck never draws |
+| Asset hoist | `player-assets.mjs` `hoistRepeatedAssets` | the second and later copies of a picture: each large base64 `url(data:…)` used twice or more is stored once as `:root{--lp-asset-N:url(…)}` and referenced with `var()` |
+| CSS prune | `player-prune.js` `prunePlayerHtml`, in a real browser | rules no element matches, behind a computed-style gate; it never targets the dark block or the `lp-assets` block (`PRUNE_SKIP_STYLE_IDS`) |
 | Font prune | `player-prune.js` `prunePlayerFontFaces` | families nothing uses |
 | Font merge | `player-prune.js` `mergeIdenticalFontFaces` | an identical font file declared once per weight: adjacent weights that share one file become one face with a weight range, unless a weight the page uses (measured, or written in the shipped CSS) falls strictly inside the run undeclared, or another stylesheet also declares the family |
 
@@ -394,6 +397,12 @@ The font merge is exact for every weight a face declares and every weight outsid
 was checked by rendering every weight from 100 to 900 in Chromium, WebKit and Firefox. A weight
 inside a run that no face declares (550 between 500 and 600) is the one case that would render
 differently, so the guard refuses the merge. Record: `decisions/2026-10-16-player-as-library-audit.md` §3.
+
+**The two hosts pack the same input to the same bytes.** `test/integration/export/player-host-parity.test.js`
+fires every pass above on one fixture and asserts one SHA from the CLI's code and from the
+Studio's own modules bundled into Chromium. That covers the packer, not the renderers: the CLI and
+the Studio still render a deck to different `docHtml`, so the same deck does not yet give the same
+file. Record: `decisions/2026-10-16-player-as-library-audit.md` §11.
 
 **This is same-machine reproducibility, and the cross-machine gap is much bigger
 than people expect.** Skia's rasterization is CPU-dispatched and not

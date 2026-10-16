@@ -316,14 +316,6 @@ function materializeNotes(sections: string[], notesCore: NotesCore, record: Slid
 		.join('\n');
 }
 
-/** The injected capabilities `assemblePlayer` needs, backed by browser APIs. */
-type PlayerCaps = {
-	parseHtml: (html: string) => Document;
-	sanitize: (html: string) => string;
-	sha256: (s: string) => Promise<string>;
-	inlineAssets: (html: string) => { html: string; count: number; missing: string[] };
-	katexCss?: () => string | null;
-};
 type PlayerCore = {
 	assemblePlayer: (
 		data: {
@@ -348,33 +340,17 @@ type PlayerCore = {
 			build?: string;
 			playerVersion?: string;
 		},
-		caps: PlayerCaps,
+		caps: import('./player-caps-browser').PlayerCaps,
 	) => Promise<{ html: string; report: unknown }>;
 };
-
-/**
- * The browser `sha256` capability: UTF-8 bytes → SHA-256 → base64, matching the
- * Node adapter's `crypto.createHash('sha256').update(s,'utf8').digest('base64')`
- * exactly (the value goes into the CSP `script-src 'sha256-…'`, so the encoding
- * must be identical or the hashed player script is refused).
- */
-async function sha256Base64(s: string): Promise<string> {
-	const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
-	const bytes = new Uint8Array(buf);
-	let bin = '';
-	for (let i = 0; i < bytes.length; i += 0x8000) {
-		bin += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + 0x8000)));
-	}
-	return btoa(bin);
-}
 
 /**
  * Download the current deck as a self-contained `.html` player — the app-side
  * equivalent of the CLI `--player` export. Renders the full deck in-browser,
  * assembles a self-contained document (base64 fonts, full deck CSS), and runs the
  * shared `assemblePlayer` with browser capabilities, then prunes the CSS and the
- * font faces the deck never uses (`player-prune-browser.ts`, P2b). Kept faces ship
- * whole: nothing glyph-subsets them on this path.
+ * font faces the deck never uses (`player-prune-browser.ts`, P2b). Kept faces are
+ * glyph-subset by the CLI's own subsetter, so the packer stages match the CLI's.
  */
 export async function shareHtmlPlayer(
 	options: SingleSlideOptions,
@@ -775,16 +751,20 @@ export async function shareHtmlPlayer(
 		katexLink: needsKatex ? '<link rel="stylesheet" href="katex.min.css">' : '',
 	});
 
-	const caps: PlayerCaps = {
-		parseHtml: (html: string) => new DOMParser().parseFromString(html, 'text/html'),
+	// The packer's browser half: the shared prune kernel's page and the CLI's own glyph subsetter
+	// (player-prune-browser.ts), loaded before assembly since the subsetter seals the document.
+	// The capabilities live in player-caps-browser.ts so the host-parity test drives these exact
+	// functions (test/integration/export/player-host-parity.test.js).
+	const [packer, { browserPlayerCaps }] = await Promise.all([import('./player-prune-browser').catch(() => null), import('./player-caps-browser')]);
+	// The core's inlineAssets cap is SYNCHRONOUS, and the browser's fetch is not, so the pictures
+	// were embedded up front (`withMedia`, above) and the cap hands the core that pass's tally. The
+	// browser render carries no `file://` refs (a CLI-only concern).
+	const caps = browserPlayerCaps({
 		sanitize: sanitizeMod.sanitizeSlideHtml,
-		sha256: sha256Base64,
-		// The core's cap is SYNCHRONOUS, and the browser's fetch is not, so the pictures were
-		// embedded up front (`withMedia`, above) and this hands the core that pass's tally. The
-		// browser render carries no `file://` refs (a CLI-only concern).
-		inlineAssets: (html: string) => ({ html, count: media.count, missing: media.missing.map((m) => m.url) }),
+		media: { count: media.count, missing: media.missing.map((m) => m.url) },
 		katexCss: () => katexText,
-	};
+		subsetFonts: packer?.subsetFontsInBrowser,
+	});
 
 	const { html } = await coreMod.assemblePlayer(
 		{
@@ -819,7 +799,10 @@ export async function shareHtmlPlayer(
 			// The Guide rides with the narration unless the author switched it off (player-core).
 			guide: narration?.guide !== false,
 			readAlong: readAlongVoice ? { voice: readAlongVoice } : undefined,
-			now: Date.now(),
+			// Pinned, as the CLI pins it (SOURCE_DATE_EPOCH, else the epoch): two exports of an unchanged
+			// deck are byte-identical, and the same deck at the same epoch packs the same from either
+			// host (decisions/2026-10-16-player-as-library-audit.md §11). Nothing reads the stamp.
+			now: 0,
 			build: 'studio',
 			playerVersion: 'studio',
 		},
@@ -833,9 +816,8 @@ export async function shareHtmlPlayer(
 	onStatus?.('Optimizing…');
 	let finalHtml = html;
 	try {
-		const { prunePlayerInBrowser } = await import('./player-prune-browser');
-		const pr = await prunePlayerInBrowser(html);
-		if (pr.applied) finalHtml = pr.html;
+		const pr = packer ? await packer.prunePlayerInBrowser(html) : null;
+		if (pr?.applied) finalHtml = pr.html;
 	} catch {
 		/* prune skipped — ship the full player */
 	}
