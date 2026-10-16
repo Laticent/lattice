@@ -11,7 +11,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const sparks = require('../../../lib/core/inline-sparks.js');
+const sparks = require('../../../lib/plugins/sparks/sparks.inline.js');
 
 const ROOT = path.resolve(__dirname, '../../..');
 

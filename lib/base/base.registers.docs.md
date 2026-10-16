@@ -1066,8 +1066,9 @@ An unknown word, or a second word on one axis, is `unknown-tag`. Kernel:
 ## The `spark:` front-matter register (inline sparks)
 
 A **spark** is the word-sized chart an author writes in inline code (`` `~{12 14 17}` ``,
-[`base.docs.md`](base.docs.md) § Inline sparks). Every spark is framed by default: a squared
-3:2 tile in the `pigment` look. `spark:` changes that for the whole deck (`lib/core/resolve-spark.js`).
+[`sparks.docs.md`](../plugins/sparks/sparks.docs.md)). Every spark is framed by default: a squared
+3:2 tile in the `pigment` look. `spark:` changes that for the whole deck. The sparks plugin
+declares it in `sparks.manifest.json`, and `lib/core/register-factory.js` builds it.
 It takes up to three words, one per axis, in any order:
 
 | Axis | Deck value | Per-slide class | Effect |

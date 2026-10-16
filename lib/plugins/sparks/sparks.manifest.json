@@ -1,0 +1,111 @@
+{
+  "$schema": "../plugin.schema.json",
+  "type": "plugin",
+  "format": 1,
+  "name": "sparks",
+  "api": 1,
+  "title": "Sparks",
+  "description": "Word-sized charts written in inline code: `~{12 14 17, bar, c3, lg}` draws a line, area, bar, step, win/loss, ring or bullet the size of a word, with no axes, labels or legend. A deck-wide `spark:` register sets the frame, look and corners; a slide's `spark-*` class and the spark's own words override it. Drawn at render time on every surface, with no payload.",
+  "icon": {
+    "viewBox": "0 0 128 128",
+    "paths": [
+      {
+        "ink": "line",
+        "d": "M24 26H104A12 12 0 0 1 116 38V90A12 12 0 0 1 104 102H24A12 12 0 0 1 12 90V38A12 12 0 0 1 24 26Z",
+        "width": 7
+      },
+      {
+        "ink": "line",
+        "d": "M28 80L46 62L62 72L80 48L94 58",
+        "width": 8
+      },
+      {
+        "ink": "fill",
+        "d": "M94 50A8 8 0 1 1 94 66A8 8 0 1 1 94 50Z"
+      }
+    ]
+  },
+  "contributes": {
+    "inline": {
+      "spark": {
+        "sigil": "~"
+      }
+    },
+    "registers": {
+      "spark": {
+        "axes": {
+          "frame": [
+            "framed",
+            "bare"
+          ],
+          "look": [
+            "pigment",
+            "etching",
+            "tone"
+          ],
+          "corners": [
+            "square",
+            "rounded"
+          ]
+        }
+      }
+    },
+    "styles": true
+  },
+  "tokens": [
+    "--accent",
+    "--bg",
+    "--cat-10-mark",
+    "--cat-11-mark",
+    "--cat-12-mark",
+    "--cat-9-mark",
+    "--chart-cat1",
+    "--chart-cat1-ink",
+    "--chart-cat2",
+    "--chart-cat2-ink",
+    "--chart-cat3",
+    "--chart-cat3-ink",
+    "--chart-cat4",
+    "--chart-cat4-ink",
+    "--chart-cat5",
+    "--chart-cat5-ink",
+    "--chart-cat6",
+    "--chart-cat6-ink",
+    "--chart-cat7",
+    "--chart-cat7-ink",
+    "--chart-cat8",
+    "--chart-cat8-ink",
+    "--muted-mark",
+    "--pill-fs",
+    "--radius-sm",
+    "--spark-area",
+    "--spark-bare-h",
+    "--spark-bare-w",
+    "--spark-body",
+    "--spark-body-edge",
+    "--spark-dot",
+    "--spark-edge",
+    "--spark-frame-base",
+    "--spark-frame-h",
+    "--spark-frame-scale",
+    "--spark-h",
+    "--spark-hue",
+    "--spark-ink",
+    "--spark-inset",
+    "--spark-pad",
+    "--spark-pad-out",
+    "--spark-pad-y",
+    "--spark-stroke",
+    "--spark-tile",
+    "--spark-track",
+    "--spark-u",
+    "--spark-w",
+    "--text-heading",
+    "--x",
+    "--y"
+  ],
+  "render": {
+    "parity": "equivalent",
+    "degradesTo": "source"
+  }
+}

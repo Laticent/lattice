@@ -352,3 +352,42 @@ Three defects the prototype caught are already fixed in it:
   fix sets the dash from the real circumference.
 - **Stretched dots.** The fix moves them to HTML overlays (§7).
 - **Churn that looked like spikes.** The fix is the `:zero` modifier (§6).
+
+## 13. Sparks become a plugin (2026-10-16)
+
+The owner asked for sparks to be a plugin, with an entry in the plugin catalog, like icons and
+avatars. Sparks shipped as the host's third first-party inline-code row, before the plugin system
+had an `inline` contribution point (`2026-09-27-plugin-system.md` § 5). Icons and avatars were
+built on that point later, so sparks were the one inline kind a host could not turn off and the
+one the catalog did not list.
+
+**The name.** The plugin is `sparks` and its inline kind is `spark`, the pattern its siblings set:
+the `icons` plugin draws an `icon`, the `avatars` plugin draws an `avatar`. An author writes
+`plugins: [sparks]` and `@spark{…}`. The class stays `lat-spark` and the register stays `spark:`,
+as § 10 (a) settled.
+
+**What moved.**
+
+| Was | Is |
+|---|---|
+| `lib/core/inline-sparks.js` | `lib/plugins/sparks/sparks.inline.js`, which also exports `inline.spark` |
+| the dispatcher's first-party `spark` row | the plugin's row, from `contributes.inline.spark` (sigil `~`) |
+| `lib/core/resolve-spark.js`, the host's `spark:` register | `contributes.registers.spark`, built by `lib/core/register-factory.js` like `icon:` |
+| `lib/base/base.modifiers.css` § Inline sparks and `base.sketch.css`'s spark rules | `sparks.styles.css`, in the bundle's plugin slot |
+| `lib/base/base.docs.md` § Inline sparks | `sparks.docs.md`; `base.docs.md` keeps a pointer |
+| the `spark` row of `lib/core/deck-settings.js` | the generated plugin-register row (`withPluginRegisters`) |
+
+**What stayed.** `lint:deck` keeps `spark-literal`, with its chart-specific wording; the generic
+`<kind>-literal` rule skips the spark so one broken span is one finding. `withSparkSize` and the
+Studio's `spark-too-big` fix still call the kernel directly. Segno keeps `~` in its core tag set.
+
+**What changes for a deck.** Nothing, by default: `sparks` is in the default plugin set, so a deck
+that lists nothing renders every spark as before. Measured on six decks (`examples/inline-sparks.md`
+as shipped, in `mode: sketch`, and with `spark: bare etching rounded` on `cuoio`, plus
+`inline-icons.md`, `segno-phase-2.md` and `chart-european-numbers.md`): all 57 slide PNGs are
+byte-identical before and after, and so is the slide markup. A host that narrows the default
+set (`createEngine({ plugins: { defaults: [] } })`, `--default-plugins`) or disables `sparks` now
+gets each spark as inline code, which is what every plugin kind does. The one visible
+difference is ordering: a deck that sets `spark:` and `icon:` stamps the icon classes first,
+because plugin registers run in plugin order. Class order does not change the cascade.
+

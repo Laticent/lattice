@@ -16,7 +16,7 @@ why now   — PR #2453 ships inline sparks (`~{12 14 17, bar, lg}`) with autocom
             chart, so an author who wants to change its type, size, color or frame has no
             handle on it short of switching to Markdown.
 where     — the Studio's Compose view (docs/src/components/studio/, the Markdown/Compose
-            toggle) and the spark kernel lib/core/inline-sparks.js, whose `resolve()` fields
+            toggle) and the spark kernel lib/plugins/sparks/sparks.inline.js, whose `resolve()` fields
             (type, size, c, fill, zero, frame, look, corners, markers) are the popup's
             model; spec engineering/decisions/2026-09-28-inline-sparks.md.
 done when — clicking a spark in Compose opens a popup that edits its data and every

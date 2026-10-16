@@ -39,9 +39,11 @@ describe('contributes.inline', () => {
   test('a well-formed kind resolves', () => {
     assert.deepEqual(errorsOf([plugin('glyphs', { inline: { glyph: { sigil: '^' } } })]), []);
   });
-  test('the sigil must be a Segno tag, and the spark keeps `~`', () => {
+  test('the sigil must be a Segno tag, and the host claims none', () => {
     expectError([plugin('a', { inline: { k: { sigil: '@' } } })], /"@", which is not a Segno tag character/);
-    expectError([plugin('a', { inline: { k: { sigil: '~' } } })], /claims the sigil "~", which the host's spark already claims/);
+    // `~` was the host's spark until the sparks plugin took it: a plugin may claim it, once.
+    assert.deepEqual(errorsOf([plugin('a', { inline: { k: { sigil: '~' } } })]), []);
+    expectError([plugin('a', { inline: { k: { sigil: '~' } } }), plugin('b', { inline: { j: { sigil: '~' } } })], /claims the sigil "~", which plugin "a" \(k\) already claims/);
   });
   test('two plugins cannot share a sigil or a kind name, nor take the host\'s', () => {
     expectError([plugin('a', { inline: { k: { sigil: '^' } } }), plugin('b', { inline: { j: { sigil: '^' } } })], /claims the sigil "\^", which plugin "a" \(k\) already claims/);
@@ -80,18 +82,20 @@ describe('contributes.registers', () => {
   const axes = { frame: ['framed', 'bare'], look: ['pigment', 'etching'] };
   test('a register resolves; a host key or a second owner fails', () => {
     assert.deepEqual(errorsOf([plugin('a', { registers: { badge: { axes } } })]), []);
-    expectError([plugin('a', { registers: { spark: { axes } } })], /declares register "spark", which the host already owns/);
+    expectError([plugin('a', { registers: { tag: { axes } } })], /declares register "tag", which the host already owns/);
     expectError([plugin('a', { registers: { badge: { axes } } }), plugin('b', { registers: { badge: { axes } } })], /register "badge", which plugin "a" already owns/);
   });
   test('a word on two axes fails', () => {
     expectError([plugin('a', { registers: { badge: { axes: { frame: ['bare', 'x'], look: ['bare', 'y'] } } } })], /lists "bare" on both "frame" and "look"/);
   });
-  test('every first-party axis register is on the host list', () => {
-    assert.ok(HOST_REGISTERS.includes('spark'));
+  test('every first-party axis register is on the host list, and a plugin\'s is not', () => {
+    for (const key of ['tag', 'backdrop']) assert.ok(HOST_REGISTERS.includes(key), key);
+    // `spark:` is the sparks plugin's (sparks.manifest.json), so the host must not claim it.
+    assert.ok(!HOST_REGISTERS.includes('spark'));
   });
 });
 
-describe('the register factory builds a plugin register as it builds spark:', () => {
+describe('the register factory builds every plugin register', () => {
   const { makeRegister } = require('../../../lib/core/register-factory');
   const { axisRegisterTokenAxis, axisRegisterClassesFromFrontMatter, PLUGIN_AXIS_REGISTERS } = require('../../../lib/core/axis-registers');
   test('words to classes, axis by axis, first word wins', () => {
@@ -105,7 +109,8 @@ describe('the register factory builds a plugin register as it builds spark:', ()
     const icon = PLUGIN_AXIS_REGISTERS.find((r) => r.key === 'icon');
     assert.ok(icon, 'the icons manifest declares `icon:`');
     assert.equal(icon.plugin, 'icons');
-    assert.deepEqual(axisRegisterClassesFromFrontMatter('spark: bare\nicon: etching rounded'), ['spark-bare', 'icon-etching', 'icon-rounded']);
+    // Plugin dependency order, which sorts by name among peers: icons before sparks.
+    assert.deepEqual(axisRegisterClassesFromFrontMatter('spark: bare\nicon: etching rounded'), ['icon-etching', 'icon-rounded', 'spark-bare']);
     assert.equal(axisRegisterTokenAxis('icon-bare'), 'icon:frame');
     assert.equal(axisRegisterTokenAxis('spark-bare'), 'spark:frame');
   });

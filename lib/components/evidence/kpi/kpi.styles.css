@@ -163,7 +163,7 @@ section.kpi code {
   white-space: nowrap;
   vertical-align: 1px;
 }
-/* A spark (lib/core/inline-sparks.js) sizes its frame in THESE pills' units — plain
+/* A spark (lib/plugins/sparks/sparks.inline.js) sizes its frame in THESE pills' units — plain
  * `--pill-fs`, not the `.lat-pill` formula base.modifiers.css uses — so it stands a fixed step
  * taller than the status pill beside it. A `bare` spark does not read the unit. */
 section.kpi .lat-spark {
