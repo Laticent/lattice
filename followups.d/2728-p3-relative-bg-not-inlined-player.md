@@ -12,4 +12,4 @@ source: https://github.com/Laticent/lattice/pull/2728
 
 Reported as plausible by the #2728 checker: the section carried `background-image:url("a.jpg")`, which `inlineFileUrls` does not handle because it only rewrites `file://` URLs. It was not listed in `missing` either. The PDF path was not checked.
 
-- **done when:** reproduced or ruled out; if real, the image is inlined, or listed as missing in the export report.
+done when — reproduced or ruled out; if real, the image is inlined, or listed as missing in the export report.

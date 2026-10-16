@@ -12,5 +12,5 @@ source: https://github.com/Laticent/lattice/pull/2728
 
 Measured on 2026-10-16 with Playwright Firefox: three loads of the 120-slide gallery `--player` file (2.7 MB) took 30,457–31,660 ms. Chromium loads the same file in under 1 s. The cause was not investigated. It was the same before and after #2728.
 
-- **where:** profile one load in Firefox. Candidates are the many large `data:` URIs, the `:has()` no-JS selectors, and the font block.
-- **done when:** the cause is named, and the gallery opens in Firefox within a few seconds or the note says why it cannot.
+where — profile one load in Firefox. Candidates are the many large `data:` URIs, the `:has()` no-JS selectors, and the font block.
+done when — the cause is named, and the gallery opens in Firefox within a few seconds or the note says why it cannot.

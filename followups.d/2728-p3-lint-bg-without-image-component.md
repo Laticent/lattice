@@ -12,5 +12,5 @@ source: https://github.com/Laticent/lattice/pull/2728
 
 Found while authoring the #2728 sign-off deck. A `![bg](sample:photo-wide.jpg)` on a plain content slide renders a `.lattice-bg` that is `position: static` with zero height, so the photo silently draws nothing, in the plain HTML export and in the player. `npm run lint:deck` reported no error or warning.
 
-- **where:** a rule in `lib/authoring/lint-core.js` (HARD RULE #7): a `bg` image on a slide whose class carries no component that positions `.lattice-bg` (`image`, `scene`, …).
-- **done when:** the lint warns, with the fix ("add `<!-- _class: image -->`"), and a test covers it.
+where — a rule in `lib/authoring/lint-core.js` (HARD RULE #7): a `bg` image on a slide whose class carries no component that positions `.lattice-bg` (`image`, `scene`, …).
+done when — the lint warns, with the fix ("add `<!-- _class: image -->`"), and a test covers it.
