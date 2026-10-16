@@ -469,3 +469,10 @@ Proof:
   not `warning`, for the reason its note gives: CI runs `lint:deck:all --strict` and has no browser to re-measure the
   table. The record's `width=` stays the formatter's target, not the lint's budget: the panel's measured width is what
   clips, and judging a line against a 48-column target would warn about lines that render whole.
+- 2026-10-16: follow-up, "Copy as HTML" keeps line bands (followups.d/2710-p3-html-copy-keeps-line-bands). The band of
+  a `diff` or `mark=` line is its `.ln` row's background, and the copy wrote only each run's own. Measured in Chromium
+  before the fix it was worse than "dropped": a run sitting directly in the row read the row's background as its own,
+  so the paste showed ragged patches behind some words. Now each banded row pastes as one `display:inline-block;
+  min-width:100%` span carrying the row's background, and its runs carry none. Chromium reports a `color-mix()`
+  result as `color(srgb … / a)`, so every color the copy writes goes through `legacy()` to `rgb()`/`rgba()`. The
+  mark's accent bar (a box-shadow) is not carried: rich-text editors drop box-shadow, and the tint marks the line.

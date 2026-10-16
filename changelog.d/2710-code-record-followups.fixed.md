@@ -1,0 +1,1 @@
+- **Fixed: "Copy as HTML" keeps a `diff` line's band and a `mark=` line's tint.** The copy wrote each run's own background, so a pasted block showed the bands as ragged patches behind some words and none behind others. Each banded line now pastes as one full-width band, written as `rgba()` so a word processor or mail client reads it.

@@ -99,6 +99,30 @@ describe('codeCopy — the buttons', () => {
     assert.equal(item.items['text/plain'].text, '<img src=x onerror="alert(1)">');
   });
 
+  test('"Copy as HTML" keeps a diff line\'s band and a marked line\'s tint (followups.d/2710-p3)', async () => {
+    const { codeCopy } = await load();
+    // jsdom resolves no `color-mix()`, so the bands are given here as Chromium computes them: the
+    // `color(srgb …)` form a pasted document cannot read, which the copy writes as rgba().
+    const bands = '<style>.ln[data-diff="ins"]{background-color:color(srgb 0.2 0.6 0.4 / 0.14)}'
+      + '.ln[data-diff="del"]{background-color:rgba(200, 40, 40, 0.14)}.ln.lat-mark{background-color:rgb(1, 2, 3)}</style>';
+    const win = page(bands + render(`# A\n\n\`@code{copy, diff, mark=3}\`\n\`\`\`ts\n+const a = 1;\n-const b = 2;\n keep();\n\`\`\`\n`));
+    win.ClipboardItem = class { constructor(items) { this.items = items; } };
+    win.Blob = class { constructor(parts, o) { this.text = parts.join(''); this.type = o.type; } };
+    const api = codeCopy(win);
+    api.install();
+    let item = null;
+    await api.copy(win.document.querySelector('[data-kind="html"]'), { clipboard: { write: async ([i]) => { item = i; } } });
+    const out = new JSDOM(item.items['text/html'].text).window.document;
+    const rows = [...out.querySelectorAll('pre > span')].filter((s) => /min-width: 100%/.test(s.getAttribute('style')));
+    assert.deepEqual(rows.map((r) => [r.textContent, r.style.backgroundColor]), [
+      ['+const a = 1;', 'rgba(51, 153, 102, 0.14)'],
+      ['-const b = 2;', 'rgba(200, 40, 40, 0.14)'],
+      [' keep();', 'rgb(1, 2, 3)'],
+    ]);
+    assert.equal(out.querySelector('pre').textContent, '+const a = 1;\n-const b = 2;\n keep();', 'the text is unchanged');
+    assert.equal([...rows[0].querySelectorAll('span')].some((s) => s.style.backgroundColor), false, 'the band is the row\'s, not repeated per run');
+  });
+
   test('a page the clipboard API refuses copies by selection instead', async () => {
     const { codeCopy } = await load();
     const win = page(render(`# A\n\n\`@code{copy}\`\n${FENCE}`));
