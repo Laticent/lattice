@@ -238,12 +238,38 @@ The adversarial trio (red team, inversion, checker) reviewed the first draft. Wh
    because it is a number in a choropleth and a category word under `highlight`. Corpus evidence: all 895 chart
    slides render, narrate and lint identically (895 by the engine's own section split).
 
-   **Phase 2, still to do.** The ownership step (§9: a row's data record claimed before the pill pass on every
-   path, narrower than `sits: list-rows`, which would also stop a label's pill and a description's pill rendering);
-   each transform and narrator reading the record through `readRecord` instead of its private parser (the census
-   note §3 table); the `{> …}` production; and the census tool reporting no private reader. Until the record is
-   drawn, `chart-row-record-unread` keeps the record form from failing silently. Held in
-   `followups.d/2690-p1-chart-model-phase-2-reader.md`.
+   **Phase 2, slice 2 (2026-10-16): the record is drawn.** A data row written as one `{…}` record draws
+   what its old spans draw, on all 16 charts, on the engine and on the runtime. Three pieces, all in
+   `lib/core/chart-rows.js`. (1) **Ownership**, `ownsRecordSpan`: a span is the row's record when the slide's
+   chart has a row schema, the span reads as that record, it is the LAST thing in its row (a list item's lead or a
+   whole table cell), no code span sits right before it, it is outside a `>` quote and its row draws a mark. Every path asks that one question
+   and measures the place its own way: the engine's `inlinePills` from tokens, the runtime's `isOwnedRecordElement`
+   from the DOM, Compose's `ownsRecord` from the ProseMirror doc, lint's `recordPlace` from the source line. This
+   is narrower than `sits: "list-rows"`, as §9 required: a pill in a label or in a description still renders. "After
+   another code span" is a fact about the source, so the engine snapshots it before its own pass turns an earlier
+   span into a pill (otherwise the answer would depend on visit order). (2) **The bridge**: the chart family
+   calls `bridgeRecordsHtml` once before it dispatches (`chart-family.dispatch.js`), so the engine and the runtime share it, and
+   rewrites a data row's record to the spans each transform reads (`legacySpans`). `bridgeRecordsSource` does the
+   same to a slide's Markdown for the narrators, inside a line, so the line count the description reader keys on holds. Only a
+   DATA row converts: a record in a detail bullet under a row that already holds a value stays code. Grid
+   charts convert through `gridCellText` (heatmap `{4.2}` is `4.2`, matrix-grid `{done}` is `[x]` from its shortcut
+   table), and matrix-grid's cell decoder, which runs before any bridge, reads the same text. The transforms themselves are
+   untouched, which is why parity is exact; phase 4 deletes the bridge with the old spellings. (3) **Lint**:
+   `chart-row-record-unread` is no longer a stopgap for the spans; it reports only what the chart still cannot draw
+   (a field with no span form: bullet's `band=` and `floor=`, progress's `note=`, and a record that follows another
+   code span). `chart-table-unescaped-pipe` (followups 2723) warns on a bare `|` inside a table cell's `{> …}`
+   description. Evidence: the same rows written both ways render identical HTML on the engine and the runtime bundle
+   and narrate identically, for all 16 charts (`test/unit/core/chart-row-record.test.js`), a fidelity probe pins
+   engine against runtime, and 786 chart slides across the tree's Markdown render, narrate and lint byte-identically
+   to `main`. Two things the format does not express yet, found on the way: a grouped number (`1,200`) is not a record
+   value, because Segno reads numbers ISO in (§5) and splits `{1,200}` into two items, so phase 4's codemod must write
+   `1200` and show it grouped (the corpus has 64 grouped funnel values); and a detail bullet's record stays a code span
+   (the pill pass no longer makes it a pill).
+
+   **Phase 2, still to do.** The `{> …}` production (§9) and the table description it needs; each transform and
+   narrator reading the record through `readRecord` instead of the bridge and its private parser (the census note §3
+   table), so `tools/chart-authoring-census.mjs` can report no private reader; the field set the bridge cannot yet
+   spell as spans. Held in `followups.d/2690-p1-chart-model-phase-2-reader.md`.
 3. **Editor.** The Insert menu, the schema-driven grid for lists and tables, the description fields, and reshape.
 4. **Normalize.** The codemod, kept runnable as a migrator because it is the last clean break before GA, the old
    branch deleted, locale display on, and a `**Breaking:**` fragment. Gated by §7, and it gets the full adversarial

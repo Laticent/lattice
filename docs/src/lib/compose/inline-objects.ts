@@ -26,6 +26,7 @@ import type { EditorView, NodeView } from 'prosemirror-view';
 import { deckSchema } from './deck-doc';
 import { isObjectSource } from './inline-object';
 import { PILL_SCOPE } from './pill-sheet';
+import { classTokens } from './registers';
 
 /** What the engine reads out of a pill (lib/core/inline-pills.js `resolve`). */
 export interface PillFields {
@@ -98,6 +99,21 @@ export interface InlineKernels {
 	};
 	isLiteralFromSource(source: string): boolean;
 	INLINE_CODE_LITERAL: string;
+	/**
+	 * Is this span a chart row's data record (`{4.2M, target=5.0M}`), which the chart reads itself and
+	 * the pill pass leaves alone (lib/core/chart-rows.js `ownsRecordSpan`)? Absent in a kernel set from
+	 * before the chart authoring model, which owns nothing.
+	 */
+	ownsChartRecord?(classTokens: readonly string[], text: string, place: ChartRecordPlace): boolean;
+}
+
+/** Where a span sits in its row, as `ownsRecordSpan` asks. */
+export interface ChartRecordPlace {
+	cell?: boolean;
+	depth?: number;
+	lastInRow: boolean;
+	afterCode?: boolean;
+	quoted?: boolean;
 }
 
 // ── The kinds ────────────────────────────────────────────────────────────────
@@ -212,6 +228,37 @@ export interface NormalizeOptions {
 }
 
 /**
+ * Is this code-marked run a chart row's data record: the last thing in a list row of a chart slide, with
+ * no code run right before it, outside a quote? Then the chart reads it and it stays a code span, as the
+ * engine leaves it (`ownsRecordSpan`). The twin of the engine's token check and the runtime's DOM check.
+ */
+function ownsRecord(doc: PMNode, from: number, index: number, node: PMNode, directives: string[], kernels: InlineKernels): boolean {
+	if (!kernels.ownsChartRecord) return false;
+	const $at = doc.resolve(from);
+	const row = $at.parent;
+	if (row.type.name !== 'paragraph' || $at.depth < 2 || $at.node($at.depth - 1).type.name !== 'list_item') return false;
+	const blank = (n: PMNode) => n.isText && !(n.text ?? '').trim();
+	let lastInRow = true;
+	for (let i = index + 1; i < row.childCount; i++) if (!blank(row.child(i))) lastInRow = false;
+	let prev = index - 1;
+	while (prev >= 0 && blank(row.child(prev))) prev--;
+	const codeMark = deckSchema.marks.code;
+	let depth = 0;
+	let quoted = false;
+	for (let d = 1; d <= $at.depth; d++) {
+		const name = $at.node(d).type.name;
+		if (name === 'list_item') depth++;
+		if (name === 'blockquote') quoted = true;
+	}
+	return kernels.ownsChartRecord(classTokens(directives), node.text ?? '', {
+		depth,
+		lastInRow,
+		quoted,
+		afterCode: prev >= 0 && codeMark.isInSet(row.child(prev).marks) !== undefined,
+	});
+}
+
+/**
  * The transaction that turns every code span the engine reads as an object into a node, and keeps
  * two code spans from touching, or null when there is nothing to do. A span is skipped when:
  *   · the selection touches it and `sparing` is on (see NormalizeOptions);
@@ -240,7 +287,7 @@ export function normalizeObjects(state: EditorState, kernels: InlineKernels, dec
 		if (slide.type.name !== 'slide' || slide.attrs.locked) return;
 		if (opts.slides && !opts.slides.has(index)) return;
 		const literal = deckLiteral || ((slide.attrs.directives as string[]) || []).some((d) => d.includes(kernels.INLINE_CODE_LITERAL));
-		slide.descendants((node, pos) => {
+		slide.descendants((node, pos, _parent, at) => {
 			const from = offset + 1 + pos;
 			if (literal) {
 				if (node.type === type) strays.push({ from, to: from + 1, src: node.attrs.src as string, marks: node.marks });
@@ -253,6 +300,7 @@ export function normalizeObjects(state: EditorState, kernels: InlineKernels, dec
 			const to = from + node.nodeSize;
 			if (sparing && sel.from <= to && sel.to >= from) return;
 			if (!kindOf(node.text, kernels)) return;
+			if (ownsRecord(state.doc, from, at, node, slide.attrs.directives as string[], kernels)) return;
 			found.push({ from, to, src: node.text, marks: node.marks.filter((m) => m.type !== codeMark) });
 		});
 	});

@@ -121,6 +121,18 @@ describe('the inline object node', () => {
 		expect(normalizeObjects(EditorState.create({ doc: slideOff }), kernels, false)).toBeNull();
 	});
 
+	it('leaves a chart row\'s data record as the code it is: the chart reads it, it is not a pill', () => {
+		// `{4.2}` is a valid pill label, so the pill pass would take it; on a chart slide the row's last
+		// span is the chart's record (lib/core/chart-rows.js `ownsRecordSpan`).
+		const chart = mount('<!-- _class: bar -->\n\n## T\n\n- EMEA `{4.2}`\n- APAC `{NEW, tag}` new `{1.8}`');
+		expect(texts(chart)).toEqual(['{NEW, tag}']);
+		// The same rows on a slide outside the model are pills, and a description keeps its pill.
+		const list = mount('<!-- _class: content -->\n\n## T\n\n- EMEA `{4.2}`');
+		expect(texts(list)).toEqual(['{4.2}']);
+		const quoted = mount('<!-- _class: bar -->\n\n## T\n\n- EMEA `4.2`\n  > see `{LIVE}`');
+		expect(texts(quoted)).toEqual(['{LIVE}']);
+	});
+
 	it('plain text copy and textContent still see the notation', () => {
 		const view = mount(DECK);
 		expect(view.state.doc.textContent).toContain('{SHIPPED, c2}');

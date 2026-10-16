@@ -1,0 +1,2 @@
+- A chart data row written as one `{…}` record (`- Uptime `{4.2M, target=5.0M}``, `- EMEA `{4.2}``, a heatmap cell `{4.2}`, a matrix-grid cell `{done}`) now draws what its old spans drew, on all 16 charts in the chart authoring model, in the engine, the runtime and the narration. A pill in the row's label or in its `>` description still renders as a pill.
+- Lint `chart-table-unescaped-pipe` warns on a bare `|` inside a table cell's `{> …}` description, which adds a cell and shifts every value after it, and names the fix: write `\|`.

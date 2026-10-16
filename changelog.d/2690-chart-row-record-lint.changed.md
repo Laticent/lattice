@@ -1,0 +1,1 @@
+- Lint `chart-row-record-unread` no longer warns on a record the chart now draws. It reports only a record with a field that has no span form yet (bullet's `band=` and `floor=`, progress's `note=`) or one that follows another code span on the row.
