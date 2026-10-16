@@ -1,12 +1,12 @@
 ---
-status: proposed
+status: in-progress
 summary: Design for mosaico, a general box-packing library grown out of the collage packer. Each item is a size rule (fixed shape, a shape range, one-axis stretch, a flexible pane, or not-yet-measured), the container may be fully known, width-only, shape-only or not laid out, and three strategies (tree, rows, template) serve three goals (fill, equal visual weight, equal size). Proves the exact-gutter math still holds when items have ranges instead of one shape, measures today's packer (92-113 ms at six photos, half of it in one function), maps six Lattice surfaces onto it, and records the owner's eight decisions.
 ---
 
 # mosaico: a box-packing library grown from the collage packer (2026-10-16)
 
-**Status: proposed.** The owner settled all eight forks on 2026-10-16 (§9). Nothing is built. Slice 1 (§8) is
-the first code.
+**Status: in progress.** The owner settled all eight forks on 2026-10-16 (§9). Slice 1 (§8) is built:
+`@laticent/mosaico` exists with `tree` + `fill` for fixed shapes, and `collage` runs on it (§8.1).
 
 ## 1. The answer first
 
@@ -257,6 +257,74 @@ Each slice ships on its own, with its own gates.
 5. **v2:** height-depends-on-width items, then `team-profile`.
 6. **Later:** the pinwheel and named mosaic templates; several images on a plain slide after #2727.
 7. **Publish to npm**, after slice 3 (§9, decision 8). The owner triggers the release.
+
+### 8.1 Slice 1, as built (2026-10-16)
+
+**API.** `pack(items, container, options)` returns `{ ok: true, rects, aspect, empty, crop, ratio, score,
+arrangement, gap, work }` or `{ ok: false, reason }` with reason `empty`, `too-many` or `no-valid-layout`.
+An item is a number or `{ aspect }`; the container is `{ aspect }`. `toGrid(result)` is the CSS grid adapter.
+Options: `order`, `fit`, `stretch`, `gap`, `hero`, `weights` (`empty`, `smallTile`, `smallTileFloor`, `hero`).
+The collage's bleed tuning is a `weights` override it passes in, not a library mode. `rects` are in layout
+units (the layout is 1 tall), not container units as §4.6 sketched: slice 1 has only the shape of the
+container, and the grid adapter is what fits the real box. Container units arrive with the width-and-height
+container.
+
+**Where Lattice's side lives.** `lib/core/collage-pack.js` moved to
+`lib/components/imagery/collage/collage.pack.js` and now holds only what is Lattice's: `STAGE_ASPECT`,
+`DEFAULT_GAP`, `FILL_MAX`, the bleed weights, the even-grid fallback and the result shape the transform
+emits. The one-photo case keeps its old shortcut (`crop: 0` even under `fill`) so the output stays the same.
+
+**Byte-identical gate.** `test/fixtures/collage-golden/` holds an FNV-1a hash of `packCollage`'s output for
+4,032 cases: 240 seeded random sets of 0 to 7 photos and 12 sets of repeated shapes, each in 16 variants
+(order × fit × hero × bleed), captured from the packer at 69b521f. All 4,032 match. Mutations of the built
+library show the gate can fail: dropping the tile-balance term from the dedupe changes 114 cases, reversing
+the tie-break 55 (only the repeated-shape sets reach it; with random sets alone it changed none, which is why
+they were added), and over-pruning the lower bound by 1e-3 changes 10. Removing either speedup changes none.
+
+**What made it fast.** Three changes, each output-neutral by the gate above:
+
+- **No mirrors.** In free order the subset loop visited every split twice, and the mirror (B beside A for A
+  beside B) always produced a key already seen. The loop now stops once the left part loses the subset's top
+  item.
+- **Signatures only on an outline collision.** A node alone on its `(cut, p, q)` is new whatever its tile
+  balance, so the balance walk runs only when a second node shares the outline. Keys are packed integers, and
+  a dropped candidate allocates nothing.
+- **Bounds before work at the root.** `W.empty·empty + crop` is a lower bound on the score, known before any
+  layout; the full score is a lower bound before the two track passes. A root that loses on either bound by
+  more than 4e-12 is skipped. At six free photos 1,114 of 5,484 roots are laid out, and about 12 reach the
+  track check.
+
+`ordered` visits only contiguous runs, which is the interval DP §3 proposed with the split order kept.
+
+**Measured.** `node` 22 on the 4-core sandbox, one harness for both columns: 10 warm-ups, then 40 timed
+runs of `packCollage` with the §3 aspects, the landscape `beside` stage, the default gap and `fit: tight`
+(`fill` reads the same). Before is the 69b521f packer. Median / p95, in ms:
+
+| Photos | Free, before | Free, after | Ordered, before | Ordered, after |
+|---|---|---|---|---|
+| 4 | 0.74 / 1.59 | 0.23 / 0.71 | 0.23 / 0.43 | 0.04 / 0.19 |
+| 5 | 6.62 / 8.26 | 0.67 / 1.29 | 0.73 / 1.19 | 0.14 / 0.35 |
+| 6 | 61.4 / 111 | 8.9 / 13.8 | 4.30 / 6.54 | 0.56 / 0.65 |
+
+The §4.5 budget (one re-pack ≤16 ms for `tree` at six items) holds at the median and at p95. §3's 92-113 ms
+for the same packer came from a different harness (a mean of five runs after one warm-up), so compare within
+this table, not across. The bench tier `collage pack` (`test/benchmark/engine-bench.mjs`) gates on the
+deterministic work counts and prints the milliseconds.
+
+**Compared on the same machine** (median ms / p95 ms, 1.41 container, gap 0.012 for mosaico):
+
+| Items | mosaico free | mosaico ordered | diorama 2.0.18 `findSolution` | justified-layout 4.1.0 |
+|---|---|---|---|---|
+| 4 | 0.21 / 0.46 | 0.04 / 0.27 | 0.13 / 0.59 | 0.01 / 0.02 |
+| 5 | 0.86 / 1.55 | 0.08 / 0.21 | 0.16 / 0.52 | 0.01 / 0.04 |
+| 6 | 8.19 / 12.11 | 0.39 / 0.58 | 0.43 / 0.98 | 0.01 / 0.02 |
+| 40 | — | — | — | 0.05 / 0.11 |
+
+Read it as three different jobs. Below ten pictures diorama enumerates only ordered trees, with no gutters
+and no dedupe, so its row compares with mosaico's ordered column, where the two are level. mosaico's free
+column searches every order, which diorama does not attempt. justified-layout solves rows, the job slice 3's
+`rows` strategy takes, and its speed is the bar that strategy should meet. diorama's current release (2.0.21)
+ships an empty worker file and cannot run; 2.0.18 is the last release that does.
 
 ## 9. Decisions
 

@@ -248,7 +248,7 @@ test('bleed takes the whole slide: no header or footer, a stretched grid, a tran
   assert.doesNotMatch(css, /section\.collage\.bleed > p\s*\{\s*display:\s*none;/, 'the description is shown on bleed, not hidden');
   assert.match(css, /section\.collage\.bleed > p\s*\{\s*padding-block:\s*var\(--sp-md\);/, 'a description alone keeps the card padding');
   assert.match(css, /section\.collage\.bleed\.bleed\.bleed > \.cell-masthead \+ p\s*\{[^}]*grid-row:\s*2;/, 'the description is the second row of the same card');
-  const { STAGE_ASPECT } = require('../../../lib/core/collage-pack');
+  const { STAGE_ASPECT } = require('../../../lib/components/imagery/collage/collage.pack');
   assert.equal(STAGE_ASPECT.landscape.bleed, 16 / 9, 'the bleed estimate is the slide itself, so no bands are left');
 });
 
@@ -412,7 +412,7 @@ const bleedPlan = (orientation, slideAspect) =>
   k.planStamp(DEMO_ASPECTS, [null, null, null, null], [false, false, false, false], k.optionsFromClass('collage bleed'), orientation, slideAspect);
 
 test('bleed: a measured slide aspect steers the packer; the table is the fallback', () => {
-  const { stageAspectEstimate } = require('../../../lib/core/collage-pack');
+  const { stageAspectEstimate } = require('../../../lib/components/imagery/collage/collage.pack');
   assert.equal(stageAspectEstimate({ orientation: 'landscape', composition: 'bleed' }), 16 / 9);
   assert.equal(stageAspectEstimate({ orientation: 'landscape', composition: 'bleed', slideAspect: 4 / 3 }), 4 / 3);
   assert.equal(stageAspectEstimate({ orientation: 'landscape', composition: 'beside', slideAspect: 4 / 3 }), 1.41, 'only a bleed collage fills the slide');
@@ -449,7 +449,7 @@ test('stampSection and stampCollage pass the slide aspect through', () => {
 });
 
 test('bleed pays more for empty space than a plain collage does, and a plain collage is unchanged', () => {
-  const { packCollage } = require('../../../lib/core/collage-pack');
+  const { packCollage } = require('../../../lib/components/imagery/collage/collage.pack');
   let seed = 11;
   const rnd = () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 2 ** 32;
   const menu = [0.5625, 0.667, 0.75, 1, 1.333, 1.5, 1.778, 2, 2.667];

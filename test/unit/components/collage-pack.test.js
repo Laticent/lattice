@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { packCollage, stageAspectEstimate, MAX_PHOTOS, FILL_MAX } = require('../../../lib/core/collage-pack');
+const { packCollage, stageAspectEstimate, MAX_PHOTOS, FILL_MAX } = require('../../../lib/components/imagery/collage/collage.pack');
 
 // The owner's six shoe photos: 9:16, 4:5, 3:2, 1:1, 4:5, 1:1.
 const SHOES = [9 / 16, 0.8, 1.5, 1, 0.8, 1];
@@ -184,7 +184,7 @@ test('hero on three equal photos packs as tightly as with no hero (the dedupe us
 
 test('the constants the CSS mirrors are the CSS values', () => {
   const css = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', '..', '..', 'lib', 'components', 'imagery', 'collage', 'collage.styles.css'), 'utf8');
-  const { DEFAULT_GAP } = require('../../../lib/core/collage-pack');
+  const { DEFAULT_GAP } = require('../../../lib/components/imagery/collage/collage.pack');
   assert.equal(Number(/--collage-gap-ratio:\s*([\d.]+)/.exec(css)[1]), DEFAULT_GAP, 'gap ratio');
   assert.equal(Number(/section\.collage\.fill\s*\{[^}]*--collage-snap:\s*([\d.]+)/.exec(css)[1]), FILL_MAX, 'fill snap');
 });
