@@ -150,7 +150,8 @@ hosts can serve it, and the others show the stand-in.
   `![alt](src "title")` is its alias, the way `^{…}` is the icon's, and both fields mean what HTML means. Every editor, GitHub and every Markdown
   tool still shows the picture.
 - **The record describes the picture; the layout places it.** It carries `alt`, `caption`, `title`, a focus hint
-  and a treatment. Placement, size, fit and scrim belong to the layout it is written in (§4.7).
+  and a treatment, and a relative size (`sm` / `md` / `lg`). Placement, fit and scrim belong to the layout it is written
+  in (§4.7).
 - **It owns** `bg-image.js`, `background-image.js`, `image-scrim`, `image-adaptive` and the `wrapImageText`
   pass. That ends the CLI/engine split (D3, D4): one lift, in the kernel both paths read.
 - **The `image` and `collage` slide classes require the plugin**, as the `math` class requires `math`.
@@ -269,7 +270,8 @@ Each slice that ships a plugin ships its whole set; a plugin without its guide o
 **Two rules (owner, 2026-10-16).**
 
 1. **A plugin describes the thing; the layout it sits in places it.** No record takes `left`, `right`, `bg`, a
-   share like `40%`, a size, `cover` / `contain` or `scrim`. A record alone in a paragraph on a plain slide is a block
+   share like `40%`, `cover` / `contain` or `scrim`. The one exception is a relative size, `sm` / `md` / `lg`
+   (below), which scales the thing inside the box the layout gave it and can never break out of that box. A record alone in a paragraph on a plain slide is a block
    figure the slide's own flow sizes; on an `image`, `split-panel`, `collage` or `video` slide, that layout seats it,
    and a layout that composes several plugins (a clip beside its QR code, a Wi-Fi card) owns that composition.
 2. **A field's meaning and its name come from the standard that defines it.** Lattice coins a word only where the
@@ -321,10 +323,25 @@ dialect. That is the same strategy pattern as the hosts themselves.
 - **`gdrive:` and other invented schemes.** A Google Drive picture or clip has an `https://drive.google.com/…`
   address; a future source recognizes that host, as the video rows recognize theirs. `asset:` and `sample:` stay,
   because they name things no standard covers (a Studio Library item, Lattice's own sample art).
-- **Placement, size and fit words** (rule 1), **pixel sizes and filters** (Marp's keywords are retired, §8 decision 2),
+- **Placement and fit words, and absolute sizes** (rule 1; `sm` / `md` / `lg` are the only size words), **pixel sizes and filters** (Marp's keywords are retired, §8 decision 2),
   and **#2723's chart fields** (`size`, `kind`, `when`, `to`, `after`, `value`, `x`, `y`, `group`), which mean other
   things there.
 - **`{> …}` inside a record.** In #2723 that form describes a table cell; a record names its `title`.
+
+**Size: `sm`, `md`, `lg` (owner, 2026-10-16).** Images, video players and QR codes all take the same three words,
+with `md` the default, the same words icons and avatars use. The layout still owns the box; the word scales the thing
+inside it, within limits, so no choice can break a slide:
+
+| Word | Scale against the layout's own size | Limit that wins |
+|---|---|---|
+| `sm` | about 80 % | never below a floor that keeps it legible: a QR code at least about a fifth of the slide's height, so a phone at the back of a room still reads it; a video poster large enough that its play badge and caption read; a photo at least about a quarter of the slide's width |
+| `md` | 100 %, the layout's size | — |
+| `lg` | about 120 % | never past the box the layout gave it, so it cannot overflow the slide or push text off it |
+
+The steps are deliberately small: the three sizes read as a nudge, not three different layouts. The exact ratios and
+floors are tuned on the demo decks, and the fit gate (`lint:deck`'s overflow check and the render's overflow warning)
+must stay clean for `lg` on every layout that seats one. A deck sets a default once (`image: lg`); a record's word
+wins.
 
 **How a picture is styled: three separate controls (owner, 2026-10-16).** All three are off by default, and a deck
 sets a default once through the `image:`, `video:` or `qr:` register, as `icon:` and `avatar:` work. A slide class
@@ -484,8 +501,8 @@ Slices 2 and 3 rebase onto #2725 once it lands, because they delete rows from it
    source, so no glyph reaches a slide (HARD RULE #29).
 4. **Remote sources are fetched in the bake into a content-addressed cache, behind consent** (§4.1). The
    render stays offline, and an export carries one copy of each file.
-5. **A plugin describes; the layout places** (§4.7). Placement, size, fit and scrim belong to the component the
-   record sits in.
+5. **A plugin describes; the layout places** (§4.7). Placement, fit and scrim belong to the component the record
+   sits in. Size is the one exception, as a relative `sm` / `md` / `lg` (decision 12).
 9. **Standards first** (§4.7, rule 2): a field's meaning and name come from the standard that defines it (HTML, CSS,
    Media Fragments, the hosts' player parameters, URIs, the Wi-Fi URI, vCard, ISO/IEC 18004). Lattice coins a word only
    where the standard's spelling would significantly hurt understanding, and accepts the standard's name beside it.
@@ -502,11 +519,14 @@ Slices 2 and 3 rebase onto #2725 once it lands, because they delete rows from it
 10. **The next advance plays a waiting clip** (§4.8), as in PowerPoint and Google Slides: the familiar behavior for
     most presenters, and it lets the speaker introduce the clip first. `autoplay` gives Keynote's behavior.
 11. **A clip fills the stage when it plays, by default** (§4.8). `fullscreen=false` opts out.
+12. **`sm` / `md` / `lg` size images, video players and QR codes** (§4.7), `md` by default: a small relative step,
+    clamped so `lg` never overflows its box and `sm` never drops below a legible floor.
 
 ## 9. Progress
 
 - 2026-10-16: audit and proposal written; D1 confirmed by render and logged. Owner settled decisions 2-4;
   decision 1 (packaging) is on hold.
+- 2026-10-16: decision 12: `sm` / `md` / `lg` on all three plugins, clamped inside the layout's box.
 - 2026-10-16: finishes and tones take one strength lever, `20` … `80` `full`, the `backdrop:` scale.
 - 2026-10-16: owner kept all five frames and all three finishes after renders on real photographs; §4.9 lists the
   fixes the prototype found.
