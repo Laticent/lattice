@@ -301,6 +301,20 @@ and between them they cover everything a picture, a clip or a code needs to say.
 | narration | the `title`, then the `description` (§4.10) | the speech projection |
 | the Guide's gestures | the figure as one named unit, whose title the narration has just spoken | the figure unit the frame bracket and the cue match |
 
+**The figure carries both, as data, for any reader** (added 2026-10-16). The plugin stamps its outermost element with
+`data-lattice-title="…"` and `data-lattice-description="…"`, escaped and filled only from the author's record (§4.5).
+Every surface in the table above reads those two attributes rather than scraping the slide's text: narration, the
+Guide's figure unit, the tooltip, the notes page, the CLI's `--captions` file and any export. The prefix follows the
+hooks that exist today: `[data-lattice-desc]`, a component's own text alternative (journey's board,
+`journey.transform.js:316`), which `describedText()` reads in `lib/transformers/prose-projection.mjs:737` along with
+`.lattice-description`, the author's `describe:` pragma. Nothing ships a title attribute today, and narration's caption
+band comes from `say:` or the speech projection, not from an attribute. The bare `data-title` / `data-description` are
+not used: an author's raw HTML can carry them, so a reader could not tell the plugin's text from the author's markup.
+The build adds `[data-lattice-title]` and `[data-lattice-description]` to the projection's `SKIP_SELECTOR`
+(`prose-projection.mjs:62`) beside `[data-lattice-desc]`, so the figure's text is spoken once, in the order §4.10 sets,
+and never read twice by the generic walk. The attributes survive the preview sanitizer: `lib/core/sanitize-slide-html.mjs` leaves
+DOMPurify's `ALLOW_DATA_ATTR` at its default, which keeps `data-*`.
+
 **The plugin owns its text, not the layout** (proposed 2026-10-16; owner leaning, to confirm). The plugin renders its
 figure together with its title and description; a layout places and sizes the figure and never reads, writes, hides or
 restyles that text. This is the secure split (no layout composes text from a slide again, the pattern §4.5 retires),
@@ -650,6 +664,8 @@ Slices 2 and 3 rebase onto #2725 once it lands, because they delete rows from it
     print notes (§4.7).
 17. *(proposed, owner leaning)* **The plugin owns its title and description**, with defaults by kind (QR and video
     titles shown, image titles hidden) and a per-record `show=`; layouts never touch the text (§4.7).
+18. *(proposed)* **The figure carries `data-lattice-title` and `data-lattice-description`**, and every reader
+    (narration, the Guide, the tooltip, the notes, exports) takes the text from them (§4.7).
 14. **On a narrated slide a clip plays after the narration**; a Library or file clip is timed and goes into
     the MP4 with its sound, a host's clip holds on its poster (§4.10).
 15. **The narration's caption band hides while a clip plays**, and the Guide draws nothing over it (§4.10).
@@ -662,6 +678,8 @@ Slices 2 and 3 rebase onto #2725 once it lands, because they delete rows from it
   16 settled, 17 proposed.
 - 2026-10-16: the owner set the text model: every record has `title` and `description`, and `alt`, `caption`,
   tooltips, narration and the Guide's targets are derived from them under the hood (§4.7).
+- 2026-10-16: the figure's text is stored as `data-lattice-title` / `data-lattice-description` on the plugin's
+  element, the one source every reader takes (§4.7; decision 18 proposed).
 - 2026-10-16: §4.10 added: narration, the Guide and its captions; owner settled decisions 13–15 as recommended.
 - 2026-10-16: (superseded by the title/description model) author-facing names follow the presentation tools (owner: authors, not web developers). `caption` is the
   text field; `alt` is optional and filled by Lattice when missing; the hover `title` and the QR `ec` word are dropped.
