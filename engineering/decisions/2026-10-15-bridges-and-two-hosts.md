@@ -207,17 +207,18 @@ surfaces table to work around them. Under §5 the host carries them once.
 `<name>.styles.css` file, and that `tokens` is **exactly** the set of `var(--…)` reads in it.
 The same "declared ⇔ the module provides it" check covers `hydrate`, `bake`, `highlight`,
 `data`, `services` and `inline`. The first four can be read from the file listing; `services`
-and `inline` need the module loaded, so §5.3 keeps those declared. Mermaid hand-lists 50 tokens; the chart family, 104.
+and `inline` need the module loaded, so §5.3 keeps those declared. Mermaid hand-lists 59 tokens; the chart family, 104 (`main` at `6e7c738`).
 
-`measure-manifests.mjs` applies §5.3's changes to the seven in-tree manifests and re-serializes
-both versions at the same indent: **597 lines → 216 (−64%)**. Mermaid goes from 136 to 29, the
-chart family from 130 to 19.
+`measure-manifests.mjs` applies §5.3's changes to the eight in-tree manifests and re-serializes
+both versions at the same indent: **797 lines → 370 (−54%)** on `main` at `6e7c738`. Mermaid goes
+from 175 to 59, the chart family from 130 to 19, the code plugin from 77 to 40. The figure was
+597 → 216 (−64%) on seven plugins before two PRs landed during this note's review: #2710 added
+the code plugin, and #2705 gave every manifest an `icon` drawing, which §5.3 keeps.
 
-The system has 12 `contributes` keys (`lib/plugins/plugin.schema.json`), 15 top-level generated
+The system has 13 `contributes` keys (`lib/plugins/plugin.schema.json`), 15 top-level generated
 files in `lib/plugins/`, and four `ctx` shapes a plugin can receive (render 7 fields, bake 11,
-hydrate 5, pass 7). The open code-plugin branch (`claude/code-highlighting-plugin-gvpnq5`,
-`2026-10-15-code-plugin.md` on that branch) adds a 13th key, `codeRenderer: true`, of the same
-"this module provides X" kind.
+hydrate 5, pass 7). The 13th key, `codeRenderer: true`, arrived with the code plugin (#2710,
+`2026-10-15-code-plugin.md`) and is of the same "this module provides X" kind.
 
 ### 3.5 What the Marp bundle does per plugin today
 
@@ -227,11 +228,13 @@ From `lib/core/marp-fidelity.js` and `lib/core/marp-bundle.js`:
 |---|---|---|---|
 | math | Typeset by our KaTeX before export; Marp's own math turned off | frozen | **security**: Marp's MathJax let `\style{…"/on…="…}` run a handler in marp-cli and VS Code (`marp-bundle.js:400-404`, `marp-fidelity.js:246-247`) |
 | mermaid | Fence left in place; our runtime and Mermaid shipped as script tags | live (blocked in VS Code by default, §3.2) | |
-| code | Marp's own highlight.js | stock | |
+| code | Highlighting depends on the environment: in marp-cli, `marp.config.cjs` rebuilds the shell grammar on Marp's own highlight.js from ours; the VS Code preview reads no engine config, so it stays stock. The bundle also removes `@code{…}` record lines so Marp does not print them | carried in marp-cli, stock in VS Code | #2710, `marp-fidelity.js` |
 | function-plot, anima, code packages | Left as code blocks ("unmirrored") | as is | |
 | chart family | Runtime coverage claimed by the bundle README, no fidelity row | unverified | |
 
-Each choice is hard-wired in `marp-bundle.js`. No author picks it.
+Each choice is hard-wired in `marp-bundle.js`. No author picks it. The code row shows the shape
+the presets would formalize: one plugin, carried in one environment and stock in another, wired
+by hand.
 
 ### 3.6 What `@layer` would buy
 
@@ -445,6 +448,7 @@ and its name. What differs per figure travels on the figure.
 | `name`, `title`, `description`, `requires`, `optional` | keep | | |
 | `fences`, `syntax`, `inline` claims, `registers`, `extensionPoints`, `diagnostics` | keep | | what an author writes, and real vocabulary |
 | `payload` | keep | | a trust fact |
+| `icon` | keep | the catalog hubs, drawn by `lib/plugins/plugin-icon.mjs` (#2705) | the plugin's own mark, as data the host draws: the same split this note argues for |
 | `degradesTo` | keep, default "show source" | | |
 
 The 2026-09-27 design asked for a manifest "readable without running any of its code" (§1 of that
@@ -514,7 +518,7 @@ items in §4.4.
 | D2 | Activate `@layer` behind a flattening bridge | **not yet**. It needs three things first: (a) the cross-file share of the specificity tax, measured, so the benefit is a number; (b) an answer for author CSS that keeps it winning where it wins today, at export and after it (§4.4); (c) the examples-wide count of elements layering changes, with the runtime loaded (at least 119 on the gallery alone) |
 | D3 | VS Code presets for drawn plugins | **Two presets.** *VS Code, scripts allowed* (the owner's workflow, at *Disable*): **live**, which works today in the owner's VS Code. *VS Code, default*: **as is** for now, then **frozen** (a sidecar image with its source in an inert JSON block) once P1's spike shows the labels survive and nothing lands in the speaker notes |
 | D4 | Simplify the plugin contract (§5) before phase E's zip format ships | **yes**, with the host's export mode (§5.2) defined first. Changing the schema costs far more once user plugins exist |
-| D5 | Merge the code-plugin branch with `codeRenderer: true` now, or adopt §5.3 first | **merge first**. It is one more flag of an existing kind, and P2+P3 migrate it with the rest |
+| D5 | ~~Merge the code-plugin branch first, or adopt §5.3 first~~ | **Settled**: the code plugin merged (#2710) with `codeRenderer: true`. P2+P3 migrate it with the rest |
 | D6 | Third-party bridges (a package kind), or first-party only | **first-party** until a second bridge exists |
 
 **The smallest alternative**, for comparison: do P0, and hard-wire a frozen default for VS Code
