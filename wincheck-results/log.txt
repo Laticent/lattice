@@ -1,0 +1,7 @@
+Win.dll compiled
+installer: D:\a\lattice\lattice\installer\Lattice Studio_0.1.0_x64-setup.exe sha256=8A346EC8478FF5E0CE1FE0C9A6B08B695ABBE377F08951A6E30932D93C027EA5
+installed: C:\Users\runneradmin\AppData\Local\Lattice Studio\lattice-studio.exe
+WebView2 runtime: 154.0.4258.62; Windows: Microsoft Windows Server 2025 Datacenter 10.0.26100
+default browser: MSEdgeHTM
+CDP up: False
+done
