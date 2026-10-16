@@ -278,7 +278,8 @@ sign-in window on WebView2) are unverified until the owner's next Windows run.**
 
 One Linux caveat, older than this PR: WebKitGTK prints on the print dialog's paper and
 ignores `@page size`, so a 16:9 slide prints on A4 or Letter with margins. Chromium and
-WebView2 honor `@page size`. It is logged on the native-print follow-up.
+WebView2 honor `@page size` only for Save as PDF; to a printer they do the same (see the Windows
+runner section below). It is logged on the native-print follow-up.
 
 ## The Ubuntu test run (2026-10-16)
 
