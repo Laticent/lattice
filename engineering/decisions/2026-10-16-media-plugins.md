@@ -204,8 +204,8 @@ simplifies the plugin contract before user plugins ship (its D4, phases P2 and P
   None needs `draw(figures)`, so none carries that contract's `data-lattice-figure` marker (its §5.3); a media figure
   carries `data-lattice-media` (§4.5).
 - **What the host decides.** When a figure is drawn, which surface gets what, and what a failure shows (its §5.2). A
-  plugin states only the facts it alone knows. The QR plugin's one: a failure shows an error figure, never the source
-  (§4.11), overriding the host's "show the source" default.
+  plugin states only the facts it alone knows. The QR plugin's one: a renderer that throws shows nothing, never the
+  source (§4.11), overriding the host's "show the source" default.
 - **Payload.** The `qrcode` library is the QR plugin's payload, loaded only when a deck uses a code (its §5.1, item 5).
 - **No removed fields.** If slices 2 and 3 start before P2 and P3 land, their manifests use only the fields that note
   keeps (its §5.3): no `render.surfaces`, `render.exec`, `render.parity` or `hydrate.budgetMs`.
@@ -670,8 +670,9 @@ by the slice named, and each slice's own trio checks it on the code that ships.
 - **An OAuth source acts only with named consent** (Google Drive, after slice 4). It fetches only after a consent per
   deck and per account that names the account, never for a deck opened from someone else. Its watch link and QR address
   keep only the file id.
-- **A QR never leaks its payload** (QR slice 1). A built title names the kind only (§4.7). A renderer failure shows an
-  error figure, never the record's source (`degradesTo` is `hidden`, so a Wi-Fi password is never printed).
+- **A QR never leaks its payload** (QR slice 1). A built title names the kind only (§4.7). A renderer that throws leaves
+  nothing, never the record's source (`degradesTo: "hidden"`, `lib/plugins/host.js:62`), so a Wi-Fi password is never
+  printed.
   Export-to-Marp writes a QR record as its SVG, never its source. Error correction never rises past what the payload
   fits: today a 1,523-character URL encodes at level M and returns `''` at level H (run by the red team), so lint
   checks capacity at the highest level any host could pick, and a code that cannot fit shows a visible error figure.
