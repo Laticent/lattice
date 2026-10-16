@@ -1,9 +1,9 @@
 import JSZip from 'jszip';
 
-/** A zip plugin that owns the ```gantt fence, around the renderer text it is given. */
-export async function ganttZip(code: string, name = 'gantt-plugin'): Promise<Buffer> {
+/** A zip plugin that owns the ```gantt fence, around the renderer text it is given, with the fence's `placeholder` hint if one is given. */
+export async function ganttZip(code: string, name = 'gantt-plugin', placeholder?: { placement?: string; aspect?: string; size?: string }): Promise<Buffer> {
 	const zip = new JSZip();
-	zip.file(`${name}/${name}.manifest.json`, JSON.stringify({ name, type: 'plugin', format: 1, api: 1, title: 'Gantt (zip)', description: 'Draws a ```gantt fence as bars.', contributes: { fences: { gantt: { body: 'text' } } } }));
+	zip.file(`${name}/${name}.manifest.json`, JSON.stringify({ name, type: 'plugin', format: 1, api: 1, title: 'Gantt (zip)', description: 'Draws a ```gantt fence as bars.', contributes: { fences: { gantt: { body: 'text', ...(placeholder ? { placeholder } : {}) } } } }));
 	zip.file(`${name}/${name}.docs.md`, '# Gantt plugin\n');
 	zip.file(`${name}/${name}.fixtures.md`, '```gantt\nDesign 2\nBuild 4\n```\n');
 	zip.file(`${name}/${name}.render.js`, code);

@@ -1,0 +1,1 @@
+- A zip plugin's fence output can no longer paint over the slide. The door drops a `fixed` or `sticky` position and any viewport-unit length from the renderer's styles, and the figure's root contains its own paint, so a box the renderer places past its edge is clipped to the figure. Plugins that never placed by the viewport render byte for byte as before.

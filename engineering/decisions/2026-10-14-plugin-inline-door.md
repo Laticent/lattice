@@ -338,3 +338,28 @@ The trio (red team, inversion, checker) read the commits; what each found and wh
   schema (`plugin.schema.json`), `spec/LPM.md` §3.3, §10 and §12, and this note now say what was built. Its two larger
   points, freezing and a declarative tier, went to the owner (§10: provisional; no template tier); shadowing on rebuilt layouts and the
   versioning of the consent text are followups that block phase G.
+
+**2026-10-16 — the followups #2687 left (one PR, one commit each).**
+- **Fence output stays in its figure** (`2687-p7`). `doorFinishFence` filters every `style` through `fenceStyle`: a
+  `fixed` or `sticky` position and any viewport length (`1e2vw` included) are dropped, the rest of a figure's layout is
+  kept byte for byte, and `popover`/`popovertarget` and `command`/`commandfor` go, because a popover or a modal
+  `<dialog>` opens in the top layer above any containment (the dialog with no script, from Chromium 135). The fence root (`section div[data-lattice-plugin]`) contains its paint, so a box the filter keeps
+  (`position:absolute` far past the edge) is clipped to the figure: driven in the real Studio at 1440, 820 and 390,
+  where four probes outside the figure hit the slide, and all four hit the plugin with the containment removed.
+  The checker found the shared style parser let a line break inside a string carry a second declaration list past the
+  INLINE door's allowlist, a regression of this change: a string that never closes is now refused in both doors, and
+  an unquoted `url(` is read to its first `)`, as the browser reads a bad URL, so nothing hides after one.
+  Accepted cost: paint containment starts a formatting context, so a plugin's own child margins no longer collapse
+  through the root, and anything it paints past its box is clipped.
+- **What `fields` holds** (`2687-p5`). `spec/LPM.md` §3.3.1 lists the value per field type, pinned through both doors'
+  readers (`test/unit/cli/inline-fields-contract.test.js`), and names what #2686's reader is planned to move (`{>a}`, the
+  old spellings, the thin space). The rule "a span that reads keeps its `fields`" applies from the freeze on; it could
+  not be promised across #2686 without contradicting that plan (the checker).
+- **A versioned consent text** (`2687-p6`). `CONSENT_VERSION` 1 is today's text byte for byte (digests captured from
+  `main` before the change); each door holds every accepted version's digest (`pluginDigests`) and accepts an approval
+  matching any of them, so the next format change writes new approvals without voiding old ones.
+- **The placeholder in grid cells and the Reading view** (`2651-p1`). All three placements fit a `cards-grid` card and
+  a `columns` pane at 1440, 820 and 390. The Reading view ran the plugin's name into its caption; the projection now
+  says it in a sentence (`withPlaceholderNotes`). "Fluid view" was read as the Studio's Reading view: the `--fluid` HTML
+  export never carries a Studio placeholder.
+- **Still open:** the rebuilt-layout shadow (`2687-p4`, the owner's call) and Compose's panel for a kind's slot (`2687-p8`).

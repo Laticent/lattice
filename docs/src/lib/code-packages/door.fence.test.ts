@@ -7,10 +7,10 @@
 import { createRequire } from 'node:module';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CHECKS, DECK, DECK_UNLISTED, PLUGIN } from '../../../../test/fixtures/fence-door-parity.mjs';
-import { approvePlugin, offeredIn, onCodePackagesStatus, pluginDigest, renderWithCodePackages, revokePlugin, setPlugins, unapprovedIn } from './door';
+import { approvePlugin, isPluginApproved, offeredIn, onCodePackagesStatus, pluginDigest, pluginDigests, renderWithCodePackages, revokePlugin, setPlugins, studioPlugins, unapprovedIn } from './door';
 
 const require = createRequire(import.meta.url);
-const trust = require('../../../../lib/packages/trust.js') as { pluginDigest: (code: string, fence: string) => string };
+const trust = require('../../../../lib/packages/trust.js') as { pluginDigest: (code: string, fence: string) => string; pluginDigests: (code: string, fence: string) => string[] };
 const engine = require('../../../../lib/engine') as { createEngine: () => { render: (s: string, t: string, o?: Record<string, unknown>) => { html: string } } };
 
 // The frame the door opens: runs the renderer text in this realm. The real frame's walls are the browser's.
@@ -78,6 +78,19 @@ describe('consent', () => {
 		expect(html).toContain('data-package-error="gantt-plugin"');
 		expect(html).toContain('its code has not been approved in this browser');
 		expect(unapprovedIn(DECK).map((p) => p.name)).toEqual(['gantt-plugin']);
+	});
+
+	it('an approval holds under any consent text version the doors accept, as the CLI’s does (followups.d/2687-p6)', async () => {
+		expect(await pluginDigests(PLUGIN.code, PLUGIN.fence)).toEqual(trust.pluginDigests(PLUGIN.code, PLUGIN.fence));
+		const held = studioPlugins().get(PLUGIN.name);
+		expect(held?.accepts?.[0]).toBe(held?.sha256);
+		// As a later version would leave it: a new current digest, and the version 1 approval the user holds.
+		const v1 = await pluginDigest(code, PLUGIN.fence);
+		approvePlugin({ name: PLUGIN.name, sha256: v1 });
+		expect(isPluginApproved({ name: PLUGIN.name, sha256: 'f'.repeat(64), accepts: ['f'.repeat(64), v1] })).toBe(true);
+		expect(isPluginApproved({ name: PLUGIN.name, sha256: 'f'.repeat(64) })).toBe(false);
+		expect(isPluginApproved({ name: PLUGIN.name, sha256: 'f'.repeat(64), accepts: ['f'.repeat(64), 'e'.repeat(64)] })).toBe(false);
+		revokePlugin(PLUGIN.name);
 	});
 
 	it('an approval is for this code and this fence, under plugin/<name>, and can be withdrawn', async () => {
@@ -273,7 +286,7 @@ describe('the placeholder takes space the way the plugin says (plugin.schema.jso
 		await approve();
 		const html = await draw(DECK_UNLISTED);
 		expect(attrs(html)).toEqual({ placement: 'chip', size: 'lg', ratio: null });
-		expect(html).toMatch(/data-placement="chip"[^>]*title="gantt-plugin: not listed in this deck's plugins:"/);
+		expect(html).toMatch(/data-placement="chip"[^>]*title="gantt-plugin: not in this deck's plugins: list"/);
 		expect(html).not.toMatch(/<div data-lattice-plugin-off[^>]*data-placement="chip"[^>]*>(?:(?!<\/div>).)*lattice-plugin-words/);
 	});
 

@@ -1,0 +1,1 @@
+- The Studio's Reading view reads a plugin placeholder as a sentence ("The plugin `gantt-plugin` draws here once this deck's plugins: list names it.") instead of running the plugin's name into its caption. On a slide, the placeholder's caption now ends "not in this deck's plugins: list" instead of stopping on a colon.

@@ -185,7 +185,7 @@ describe('fencePlaceholder: what stands where a plugin the deck did not list wou
     const html = fencePlaceholder('gantt-plugin');
     assert.match(html, /^<div data-lattice-plugin-off="gantt-plugin" data-placement="figure" role="note">/);
     assert.match(html, /<strong>gantt-plugin<\/strong>/);
-    assert.match(html, /not listed in this deck's plugins:/);
+    assert.match(html, /not in this deck's plugins: list/);
     const hostile = fencePlaceholder('x"><script>alert(1)</script>');
     assert.doesNotMatch(hostile, /<script/);
     assert.ok(!fencePlaceholder('a\u001b[2Jb').includes('\u001b'), 'a control character is not printed');

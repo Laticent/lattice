@@ -6,7 +6,7 @@ reference: lib/plugins/
 tests: test/unit/plugins/conformance.test.js
 -->
 
-**Version:** 0.5-draft · **Status:** Draft · **Date:** 2026-10-06 · **Host API:** `api: 1`
+**Version:** 0.6-draft · **Status:** Draft · **Date:** 2026-10-16 · **Host API:** `api: 1`
 
 A **plugin** teaches Lattice something that works on any slide — a syntax (`$…$`), a fenced block
 (` ```functionplot `), the browser code that draws it and the CSS that paints it — as one folder
@@ -181,6 +181,43 @@ is marked too.
 | `styles` | `true` | `styles.css` |
 | `extensionPoints` | slots the plugin OFFERS and components FILL, keyed by the plugin's own slot name: `{ block?, bucket, role, entry, description }`. At most one slot per plugin in api 1. A component fills a slot by declaring its BLOCK (`block`, default the slot name: the chart family's `kernel`), which MUST be an object block the component manifest schema defines, and which only one plugin reads. Every component in `bucket` that declares the block fills the slot: it ships `<name>.<role>.js` exporting `entry`, called with the signature the offering plugin's `api` fixes, and by filling it REQUIRES the plugin (§3.2.1), with no `plugins` block. Not running, the plugin passes every filler's section through as authored and marks it (and a pane of it) `data-lattice-off="<plugin>"`, which a browser pass MUST skip as it skips a marked fence. In api 1 a slot is filled only by in-tree components; a slot filled by PLUGINS (data, such as an icon pack) is reserved for a later version as an additive field | `<name>.dispatch.js`, the plugin's own module that calls the fillers (§2; in-tree only, no host contract in api 1); the registry records the slot in `extension-points.generated.json`, keyed by block |
 | `diagnostics` | `{ "<name>/<id>": "message" }` — every ID reported on the plugin's behalf. **In api 1 only the HOST reports**, and only `<name>/deprecated-alias` (a deprecated fence alias was used); a plugin module has no `ctx.report` yet | — |
+
+### 3.3.1 `fields` — what a zip inline kind is handed
+
+A zip kind that declares a `slot` is handed, as `fields`, the value the host's record reader
+(Segno, `@laticent/segno/read`) reads the span's record to, through a JSON round trip: plain
+data, never a function or a class, and only the slot's declared field names (no spellings, no
+tag). A kind with no `slot` is handed `fields: null`, and a span whose record does not read is
+not drawn. Under `api: 1` each declared field holds:
+
+| Field type | `fields` holds | Example |
+|---|---|---|
+| `text` | the text with its ends trimmed (spaces and no-break spaces; inner spacing kept) | `{Big  deal , 3}` → `"Big  deal"` |
+| `number` | `{ value, signed, unit }`: the number with its magnitude (`K` `M` `B` `T`) applied; whether the author wrote a sign or parentheses (`(5)` is −5, signed); and the unit, `"%"`, `"‰"`, one to six ASCII letters (`"kg"`, `"x"`, `"bp"`), or `""`. A currency sign is dropped | `12K` → `{ "value": 12000, "signed": false, "unit": "" }` |
+| `time` | `{ kind: "date", day }` (days since 1970-01-01), `{ kind: "q", year, idx }` (quarter, `idx` 0–3) or `{ kind: "m", year, idx }` (month, `idx` 0–11); `year` is `null` when the author wrote none (`Q3`, `Jan`) | `2026 Q1` → `{ "kind": "q", "year": 2026, "idx": 0 }` |
+| `id` | the id without its `#` | `#ana` → `"ana"` |
+| `oneOf` | the canonical value, whichever alias was typed | `warm` → `"hot"` |
+| `flag` | `true` when present | `done` → `true` |
+| `indexed` | the index, an integer | `c3` → `3` |
+| `list` | an array of the item type's values | `[a, b]` → `["a", "b"]` |
+| `range` | `{ from, to }`, each end in its item type's shape | `2026 Q1..2026 Q3` → `{ "from": {…}, "to": {…} }` |
+| `record` | an object of its own fields, by these same rules | `{4}` → `{ "x": { "value": 4, … } }` |
+
+`named: true` on a type changes how it may be written, not the value. An optional field the
+author left out is ABSENT, never `null`. Every row is pinned by
+`test/unit/cli/inline-fields-contract.test.js`, which reads each span through both readers the
+two doors use (the CLI's CommonJS build and the Studio's ESM one).
+
+**This shape is PROVISIONAL with the rest of the zip half of `inline`** (§12), because #2686's
+record reader (2026-10-14-chart-authoring-uniform-model.md §5, §9, §10) is planned to change
+what some spans read to: a record that opens with `>` (`{>a}`, which reads today as the text
+`">a"`) becomes a description, whose shape is not defined yet; spellings the old-form branch
+reads are retired in its phase 4 (a dot-grouped `1.234.567` among them); and a thin space joins
+the whitespace a text's ends are trimmed of. Those changes land as a `**Breaking:**` entry in §12
+and a change to the test's rows, not silently. From the freeze on, a reader change keeps one
+rule: **a span that reads keeps the `fields` it reads to; a change may only make a span that did
+not read, read.** The test holds that rule for the spans it lists, which is the reason to add a
+row whenever a new spelling matters to a plugin.
 
 ### 3.4 `payload`, `tokens`, `render`
 
@@ -432,7 +469,7 @@ leaves its fences as code blocks.
 | Channel | May carry |
 |---|---|
 | In-tree (`lib/plugins/`) | every contribution |
-| Zip — the Studio Library, `lattice packages add` (later phase) | `styles` and `diagnostics` (data `contributes`), and the top-level `icon` (data, drawn by the host); fence code and `inline` kinds only through the code-package door (consent pinned to the code's hash, its fence and its kinds with their slots, then a sandbox). Never `syntax`, `hydrate` (a pass least of all), `highlight`, `bake`, `payload` or `extensionPoints` — and a zip COMPONENT cannot fill a slot either, because a filler is code — a `bake` runs with full Node privileges in the CLI's process, which no sandbox the door has can hold |
+| Zip — the Studio Library, `lattice packages add` (later phase) | `styles` and `diagnostics` (data `contributes`), and the top-level `icon` (data, drawn by the host); fence code and `inline` kinds only through the code-package door (consent pinned to the code's hash, its fence and its kinds with their slots, in a versioned text both doors accept every listed version of, then a sandbox). Never `syntax`, `hydrate` (a pass least of all), `highlight`, `bake`, `payload` or `extensionPoints` — and a zip COMPONENT cannot fill a slot either, because a filler is code — a `bake` runs with full Node privileges in the CLI's process, which no sandbox the door has can hold |
 | npm, by an explicit list (later phase) | every contribution, after the license grant |
 
 A shipped plugin's name is reserved.
@@ -450,6 +487,18 @@ manifest (`lib/core/marp-fidelity.js`). The name must be free: not a plugin, a p
 highlight.js language or alias, and at most 64 characters.
 
 ## 12. Changes
+
+- **0.6-draft, a versioned consent text (2026-10-16).** §10's consent digest is over a text with a
+  version (`lib/packages/code-shape.mjs` `CONSENT_VERSION`, `CONSENT_ACCEPTED`). Version 1 is the
+  text as it shipped, byte for byte; both doors accept an approval held under any accepted
+  version, so a later format change does not void approvals users hold. An approval covers what
+  its own version pinned: a later version that pins more protects an older approval only once
+  the older version leaves `CONSENT_ACCEPTED`.
+
+- **0.6-draft, what `fields` holds (2026-10-16).** §3.3.1 documents the value a zip inline kind
+  is handed per field type under `api: 1`, pins it with a test across both doors' readers, names
+  the changes #2686's reader is planned to make to it, and states the rule a reader change keeps
+  from the freeze on. The zip half of `inline` stays provisional until that reader lands.
 
 - **0.6-draft, the plugin's icon (2026-10-15).** §3.1 gains an optional `icon`: path data
   tagged by ink, drawn by the host (`lib/plugins/plugin-icon.mjs`) in the theme's colors. Data

@@ -44,6 +44,27 @@ async function withPhotos(page: Page) {
 
 const editorText = (page: Page) => page.getByLabel('Deck source');
 
+/**
+ * Wait until the completion menu has held the same options for longer than CodeMirror's `interactionDelay` (75 ms, the
+ * Studio keeps the default: Editor.tsx `autocompletion`). An Enter inside that window is not the menu's: CodeMirror
+ * passes it on, and the Markdown keymap inserts a list continuation instead of accepting (followups.d/2668-p3). Typing
+ * re-opens the menu on every key, so "visible and selected" is not enough: it must have stopped changing.
+ */
+async function menuSettled(page: Page) {
+	const menu = page.locator('.cm-tooltip-autocomplete');
+	const options = () => menu.getByRole('option').evaluateAll((els) => els.map((e) => `${e.textContent}|${e.getAttribute('aria-selected')}`).join('\n'));
+	await expect
+		.poll(
+			async () => {
+				const a = await options();
+				await page.waitForTimeout(150);
+				return a !== '' && a === (await options());
+			},
+			{ timeout: 10_000, intervals: [0] },
+		)
+		.toBe(true);
+}
+
 test('@smoke typing an image reference offers the Library photos, shared and this deck’s own @crosswidth @webkit-tablet @gecko', async ({ page }) => {
 	await withPhotos(page);
 	await setEditorContent(page, '# Pics\n\n');
@@ -57,6 +78,7 @@ test('@smoke typing an image reference offers the Library photos, shared and thi
 	// Accept only once the menu has settled on the match: CodeMirror ignores an Enter that lands in its first moments.
 	await expect(menu.getByRole('option', { name: /asset:team-shot/ })).toHaveAttribute('aria-selected', 'true');
 	await expect(menu.getByRole('option')).toHaveCount(1);
+	await menuSettled(page);
 	await page.keyboard.press('Enter');
 	await expect(editorText(page)).toContainText('![team](asset:team-shot');
 	// And it is the photo the slide then paints.
@@ -72,6 +94,7 @@ test('@smoke on a collage slide a list item offers whole photo lines, with the a
 	await expect(menu).toBeVisible();
 	await expect(menu.getByRole('option', { name: /team-shot/ })).toContainText('photo');
 	await expect(menu.getByRole('option', { name: /team-shot/ })).toHaveAttribute('aria-selected', 'true');
+	await menuSettled(page);
 	await page.keyboard.press('Enter');
 	await expect(editorText(page)).toContainText('![Team shot](asset:team-shot)');
 	// The alt text is selected, so typing replaces it with something a screen reader can use.
