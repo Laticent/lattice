@@ -55,7 +55,7 @@ export async function load(id: string): Promise<User> {
 Lines are counted as written, from 1, whatever a comment or string spans. `lint:deck` warns when a
 record does not read (`code-record`), when a record line has no fence after it
 (`code-record-orphan`), and when `focus=`, `mark=` or a slide's `_focus: line` names a line past
-the end of the block (`code-line-range`). It also says when a line is wider than its panel fits, on
+the end of the block (`code-line-range`), inside a blockquote as outside one. It also says when a line is wider than its panel fits, on
 a plain slide as on a `code` or `compare-code` slide (`code-line-clipped`, from the widths measured
 in the browser); a `wrap` block never clips, so it is never measured, and a tab counts as wide as
 the block's `indent=` draws it.

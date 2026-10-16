@@ -476,3 +476,6 @@ Proof:
   min-width:100%` span carrying the row's background, and its runs carry none. Chromium reports a `color-mix()`
   result as `color(srgb … / a)`, so every color the copy writes goes through `legacy()` to `rgb()`/`rgba()`. The
   mark's accent bar (a box-shadow) is not carried: rich-text editors drop box-shadow, and the tint marks the line.
+- 2026-10-16: follow-up, the record lint inside a blockquote (followups.d/2710-p4). `findCodeRecords` reads each run of
+  `>` lines again with one `>` taken off, recursing for a nested quote, so a quoted record gets the same four rules.
+  Checked against the render first: a record at `>` and at `> >` depth both stamp their fence.

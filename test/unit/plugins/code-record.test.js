@@ -197,3 +197,21 @@ describe('lint rule 12c and formatting', () => {
   });
 });
 
+describe('a record inside a blockquote (followups.d/2710-p4)', () => {
+  const lint = (body) => lintTextWith(`---\nmarp: true\n---\n\n# A\n\n${body}`, { names: new Set(), modifiers: new Set() })
+    .filter((f) => /^code-/.test(f.rule));
+  const quoted = (q, record) => [`${q}Note`, q.trimEnd(), `${q}\`${record}\``, `${q}\`\`\`ts`, `${q}const a = 1;`, `${q}\`\`\``].join('\n');
+
+  test('the render applies it, so the lint checks it: a bad range, a bad word, at any depth', () => {
+    for (const q of ['> ', '> > ', '>']) {
+      assert.deepEqual(lint(quoted(q, '@code{focus=9}')).map((f) => f.rule), ['code-line-range'], `${JSON.stringify(q)}: range`);
+      assert.deepEqual(lint(quoted(q, '@code{numbrs}')).map((f) => f.rule), ['code-record'], `${JSON.stringify(q)}: word`);
+      assert.deepEqual(lint(quoted(q, '@code{focus=1}')), [], `${JSON.stringify(q)}: a good record says nothing`);
+    }
+  });
+
+  test('an orphan inside a quote is named, and an unquoted record is still read once', () => {
+    assert.deepEqual(lint('> `@code{numbers}`\n>\n> Just words.').map((f) => f.rule), ['code-record-orphan']);
+    assert.equal(lint(`\`@code{focus=9}\`\n\`\`\`ts\na\n\`\`\``).length, 1);
+  });
+});
