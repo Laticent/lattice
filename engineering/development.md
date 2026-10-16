@@ -180,16 +180,19 @@ test/fixtures/                small .md decks for integration
 ### Contrast: two tools, one probe
 
 `tools/check-slide-contrast.js` scores the rendered DOM of a deck: fast, one scheme,
-backdrops resolved by climbing the ancestor chain. It is the one the invariants gate
+backdrops resolved by climbing the ancestor chain, reading each node's `linear-gradient`
+layers at the glyphs' own position above its `background-color` (`gradientPaintsAt`; what it
+does not evaluate is listed in its header, and `test/integration/invariants/contrast-probe-gradient.test.js`
+compares each handled form with a real pixel). It is the one the invariants gate
 imports, and its `PROBE` is the single source of truth for which runs exist, what ink
 they carry, and which AA threshold applies.
 
 `tools/check-player-contrast.js` reuses that same `PROBE` and changes three things it
 structurally cannot do: it drives the real `--player` EXPORT rather than a plain render,
 it scores BOTH scheme states (as exported, and after clicking `#lp-mode`), and it samples
-each run's backdrop from a SCREENSHOT taken with the glyphs made transparent — so a
-gradient, an image, a translucent overlay or a z-ordered rail resolves correctly because
-it is simply there. That split is what makes its report actionable: an "as exported"
+each run's backdrop from a SCREENSHOT taken with the glyphs made transparent — so an
+image, a gradient form the probe does not evaluate (radial, conic), a translucent overlay or a
+z-ordered rail resolves correctly because it is simply there. That split is what makes its report actionable: an "as exported"
 failure is in the PDF too (a deck or theme defect), while an "after the toggle" failure
 exists only in the player (a scheme defect).
 

@@ -262,20 +262,6 @@ function renderHtmlOnly(mdFile, { timeout = 600000 } = {}) {
 
 const now = () => Number(process.hrtime.bigint() / 1000000n);
 
-/**
- * Runs the contrast PROBE gets wrong, kept out of the findings and COUNTED in the report so the
- * exclusion is visible. Each needs a reason that says what the probe misreads. An entry here is a
- * defect in the probe, not a verdict on the component; the cure is fixing the probe.
- */
-const PROBE_LIMITS = [
-  {
-    component: 'topic',
-    tag: 'li',
-    why: 'the tab labels sit on a light band the section paints with a `background-image` gradient; the probe reads only `background-color` (the dark slide) and scores 1.02:1 on text that renders dark on light (viewed on indaco, 2026-10-16). Fix: teach tools/check-slide-contrast.js to resolve a gradient layer.',
-  },
-];
-const probeLimited = (row, owner) => PROBE_LIMITS.some((l) => l.component === owner && l.tag === row.tag);
-
 /** How many slides one page carries. The palette sweep is superlinear in page size (measured: 2.0 s
  *  a palette at 73 slides, 4.7 s at 200, 85.7 s at 858), so the deck is cut into pages of about this. */
 const CHUNK_SLIDES = Number(process.env.CONF_CHUNK) || 150;
@@ -319,7 +305,7 @@ async function runMatrix(opts = {}) {
   const files = galleryFiles(only);
   const themes = sweepThemes ? opts.themes || listSweepThemes() : [];
   if (sweepThemes) timing.themes = themes.length;
-  const out = { probeLimited: 0, generated: 0, files, index: [], slideOwner: new Map(), overflow: [], cardRows: [], axeViolations: axe ? [] : null, swept: null, timing };
+  const out = { generated: 0, files, index: [], slideOwner: new Map(), overflow: [], cardRows: [], axeViolations: axe ? [] : null, swept: null, timing };
   const perTheme = new Map(themes.map((th) => [th, { theme: th, rows: 0, applied: true, signature: new Set(), offenders: [] }]));
   let offset = 0;
 
@@ -385,8 +371,6 @@ async function runMatrix(opts = {}) {
             for (const r of offenders(p.rows, swept.unswept)) {
               if (SANCTIONED_CONTRAST_EXEMPTIONS.some((e) => e.match(r))) continue;
               const row = { ...r, page: String(Number(r.page) + offset) };
-              const sl = index.find((x) => x.slide === Number(r.page));
-              if (sl && probeLimited(r, headers.get(sl.header) && sl.cls.includes(headers.get(sl.header)) ? headers.get(sl.header) : null)) { out.probeLimited++; continue; }
               agg.offenders.push(row);
             }
           }
@@ -478,7 +462,6 @@ function formatReport(r, summary) {
   if (summary.unowned.length) lines.push(`WARNING: ${summary.unowned.length} slide(s) with no gallery header`);
   const g = summary.generated;
   if (g && (g.overflow || g.contrast || g.axe)) lines.push(`findings on generated slides (credited to no component): overflow ${g.overflow} · contrast ${g.contrast} run-palette(s) · axe ${g.axe}`);
-  if (r.probeLimited) lines.push(`probe limits: ${r.probeLimited} run-palette scores left out (see PROBE_LIMITS in this file)`);
   const flagged = summary.components.filter((c) => c.overflow.length || c.axe.length || c.contrast.size);
   lines.push(`findings in ${flagged.length} of ${summary.components.length} components:`);
   for (const c of flagged) {
@@ -496,7 +479,7 @@ function formatReport(r, summary) {
   return lines.join('\n');
 }
 
-module.exports = { PR_THEMES, changedComponents, PROBE_LIMITS, runMatrix, chunkFiles, CHUNK_SLIDES, summarize, formatReport, renderHtmlOnly, galleryFiles, buildMatrixDeck, galleryBody, probeOverflow, probeCardRows, probeAxe, OVERFLOW_PAGE, CARD_ROW_PAGE };
+module.exports = { PR_THEMES, changedComponents, runMatrix, chunkFiles, CHUNK_SLIDES, summarize, formatReport, renderHtmlOnly, galleryFiles, buildMatrixDeck, galleryBody, probeOverflow, probeCardRows, probeAxe, OVERFLOW_PAGE, CARD_ROW_PAGE };
 
 // ── CLI ──────────────────────────────────────────────────────────────────────────────────────
 if (require.main === module) {

@@ -566,11 +566,10 @@ trigger `test:conformance` before commit.
 
 Not fixed, and stated: (1) `variant-known-to-lint` is nearly circular, because the linter's
 vocabulary is built from the same manifests, so a variant of a real component is never refused; it
-keeps the two in step and no more. (2) `topic`'s tab labels score 1.02:1 because the probe reads the
-section's `background-color` and misses the gradient that paints the band, while the text renders
-dark on light (viewed). §6.3 rule 7 says fix the probe first; `tools/check-slide-contrast.js` serves
-five gates, so the fix is its own change. Until then `PROBE_LIMITS` in the render tool leaves those
-runs out and counts them in the report. (3) `cards-declared` blocks on a hand-labeled corpus, as
+keeps the two in step and no more. (2) *(Fixed later the same day, §13.7.)* `topic`'s tab labels
+scored 1.02:1 because the probe read the section's `background-color` and missed the gradient that
+paints the band, while the text renders dark on light (viewed). First left out of the render tool's
+findings; then fixed in the probe itself, as §6.3 rule 7 says. (3) `cards-declared` blocks on a hand-labeled corpus, as
 ruling §12.2 says, and the labels outside the 20 components that declare `cards` and `stats`,
 `actors`, `kpi` are provisional until the trigger's rates are reviewed against them (§13.5).
 (4) The anatomy-matches-render, `isEnriched` and manifest-autocomplete items in §9 row 2 did not
@@ -599,8 +598,8 @@ Findings from that run, unreviewed one by one: contrast under AA in 11 component
 and `citation-card` report 1:1 on Mermaid-baked text and a decorative quote glyph the shared exemption
 ledger does not cover); axe `empty-table-header` on `heatmap` and `line`; overflow on `actors`,
 `citation-card`, `list`, `math`, `regulatory-update`; one page-level `page-has-heading-one` axe
-violation, and 2 slides with no gallery header (a harness fault to chase). 209 run-palette scores are
-left out by `PROBE_LIMITS`.
+violation, and 2 slides with no gallery header (a harness fault to chase). (That run left 209
+run-palette scores out as the `topic` probe error; §13.7 fixes the probe, so a rerun includes them.)
 
 ### 13.6 `stats`, `actors` and `kpi` adopt `cards` (owner ruling 2026-10-16)
 
@@ -616,3 +615,30 @@ across `hd`, `standard`, `square`, `portrait`, `story` and `mobile-landscape` on
 galleries: no slide newly overflows (the six deliberate overflow demos are unchanged, and one,
 `kpi` square slide 22, now fits). Demo deck: `examples/cards-stats-actors-kpi.md`. The three debt
 entries are gone from `test/conformance/debt.json`.
+
+### 13.7 The contrast probe reads gradient backdrops (2026-10-16)
+
+The owner's rule: contrast is the ink against what is painted directly behind it, wherever that
+paint comes from. The probe (`tools/check-slide-contrast.js`, shared by five gates) read only
+`background-color`, so `topic`'s light bottom band, painted by a second `background-image` layer
+(`linear-gradient(transparent 75%, <light> 75%)`) over a dark canvas color, was invisible to it and
+dark-on-light tab labels scored 1.02:1. Fixed in the probe, not worked around in the render tool:
+`gradientPaintsAt` evaluates each `linear-gradient` layer at the glyphs' own position, for ancestors
+and for overlay siblings, and composites those layers above `background-color`. `PROBE_LIMITS` is
+gone from the render tool.
+
+What it handles (each form compared with a real Chromium pixel in
+`test/integration/invariants/contrast-probe-gradient.test.js`): size, position (keyword, percent, px,
+the 4-value form) and repeat; angle, `to <side>` and `to <corner>`; % and px stops, hard stops;
+premultiplied interpolation, in OKLab when a stop is a non-legacy color (every `color-mix` computes to
+one); a CSS transform's scale on px lengths. What it does not, and leaves unchanged: `url()` rasters
+(`rasterUnder` still flags them), radial, conic and repeating gradients, color hints, `calc()` stops
+and positions, `round`/`space` repeat, `background-origin` other than padding-box, a gradient on a
+wrapped inline box, `background-clip: text`. A run straddling a hard stop is scored at its center.
+
+Measured: `topic`'s tab labels now score 10.53:1 (lit tab 11.29:1). On a 147-slide gallery page 36
+of 2136 run scores moved, every one now within 1-2 levels of the real backdrop pixel (nine of them,
+in `state-chart`, `timeline-list` and `video`, were previously wrong and were not anticipated); none
+got worse. The independent check of the first version found five evaluator bugs for forms the engine
+does not use yet (corner angle on a non-square box, sRGB versus OKLab, 4-value positions, transforms,
+inline wraps); all are fixed and pinned against pixels, and the pixel test caught one more of mine.
