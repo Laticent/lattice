@@ -344,6 +344,13 @@ overrides the deck, and a record's own word wins.
    `strata`'s bands and the line and pattern finishes (`ledger`, `savile`, `loom`, `atrium`) fight a photograph and
    are left out. Images take a finish; a video's poster takes the same one, so a clip matches the pictures beside it.
    **Kept (owner, 2026-10-16): `nimbus`, `halo`, `meridian`.**
+   **Strength (owner, 2026-10-16): one lever, the scale slide finishes already use.** `backdrop:` takes `20` `40`
+   `60` `80` `full` (`lib/base/base.registers.docs.md` §Restraining a finish), so a picture's finish takes the same
+   words, written after the finish's name: `nimbus` alone is its default strength, `nimbus=40` is lighter, `nimbus=full`
+   is the most it goes. Each finish carries a sensible default, tuned on the demo deck's real photographs; the
+   prototype suggests `nimbus` 80 (it fades on bright photographs), `halo` 60 and `meridian` 60. The tones take the
+   same lever (`duotone=60` is a partial wash; both default to `full`). A deck sets it once (`image: nimbus=40`), and a
+   record's own word wins, as everywhere else. No other knob: a finish's colors come from the theme, never the record.
 3. **A tone**: `duotone` (two palette colors) and `grayscale` (CSS's own filter name). Approved by the owner. Duotone
    needs its own colors in dark mode, where the first render washed out to a flat teal.
 
@@ -500,6 +507,7 @@ Slices 2 and 3 rebase onto #2725 once it lands, because they delete rows from it
 
 - 2026-10-16: audit and proposal written; D1 confirmed by render and logged. Owner settled decisions 2-4;
   decision 1 (packaging) is on hold.
+- 2026-10-16: finishes and tones take one strength lever, `20` … `80` `full`, the `backdrop:` scale.
 - 2026-10-16: owner kept all five frames and all three finishes after renders on real photographs; §4.9 lists the
   fixes the prototype found.
 - 2026-10-16: styling settled into frames, finishes on the photo and tones; six frame candidates and four finish
