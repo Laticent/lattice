@@ -18,7 +18,7 @@
 // having read the URL already. A save dialog can hold the download open, so the URL
 // lives for a minute instead; a minute of one export's bytes is cheap.
 
-import { tauri } from '../../lib/host.js';
+import { isDesktop, saveFile } from '../../lib/platform.js';
 
 const REVOKE_AFTER_MS = 60_000;
 
@@ -133,18 +133,20 @@ function saveWithAnchor(filename, blob) {
 export function downloadBlob(filename, blob, opts = {}) {
 	// THE DESKTOP APP (Lattice Studio): the native save dialog, through the platform seam. A
 	// desktop webview has no download manager behind an anchor click (WebKitGTK and WKWebView
-	// drop it), so this is checked first. The seam loads on the first save, off the startup
-	// path, and `onSaved` runs only for a file that was written: the dialog can be dismissed.
-	if (tauri()) {
-		import('../../lib/platform.js')
-			.then((p) => p.saveFile(filename, blob))
-			.then(
-				(result) => {
-					if (result === 'saved') opts.onSaved?.();
-					else if (result === 'failed') reportSaveFailure(filename);
-				},
-				() => reportSaveFailure(filename),
-			);
+	// drop it), so this is checked first. `onSaved` runs only for a file that was written:
+	// the dialog can be dismissed. A STATIC import of the seam, not `import()`: a dynamic one
+	// brings Vite's preload helper, which marks this module as having side effects, and the
+	// Studio's first-paint re-export of `downloadBlob` (workspace-backup-meta) then loads all
+	// of download.js at startup (measured: +2.1KB gz on the studio route).
+	if (isDesktop()) {
+		const retry = () => downloadBlob(filename, blob, opts);
+		saveFile(filename, blob).then(
+			(result) => {
+				if (result === 'saved') opts.onSaved?.();
+				else if (result === 'failed') reportSaveFailure(filename, retry);
+			},
+			() => reportSaveFailure(filename, retry),
+		);
 		return;
 	}
 	if (typeof document === 'undefined' || typeof URL === 'undefined' || !URL.createObjectURL) return;
@@ -163,12 +165,16 @@ export function downloadBlob(filename, blob, opts = {}) {
 	opts.onSaved?.();
 }
 
-/** The one toast for a save that did not happen (a disk error, a denied write). A dismissed
- *  dialog is a choice, not a failure, and says nothing. The toast module is TypeScript,
- *  which the Node-run unit suite cannot load, so it is imported only on this path.
- *  @param {string} filename */
-function reportSaveFailure(filename) {
-	void import('../../lib/notify').then((m) => m.notify(`Could not save ${filename}.`));
+/** The one toast for a save that did not happen (a disk error, a denied write), with a
+ *  Try again button. A dismissed dialog is a choice, not a failure, and says nothing.
+ *  Raised through notify.ts's NOTIFY_ACTION_EVENT by its string, as download-ios.js does:
+ *  importing notify here would split it into a first-paint chunk of its own (measured on
+ *  this merge: +575 B gz on the Playground). The desktop host has already logged the reason.
+ *  @param {string} filename @param {() => void} retry */
+function reportSaveFailure(filename, retry) {
+	if (typeof window === 'undefined') return;
+	const detail = { message: `Could not save ${filename}.`, opts: { label: 'Try again', onClick: retry } };
+	window.dispatchEvent(new CustomEvent('lattice:notify-action', { cancelable: true, detail }));
 }
 
 // Trigger a client-side file download for a text blob (the Share "hand off the

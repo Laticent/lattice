@@ -15,9 +15,10 @@
 // Add a capability here, never at a call site. A caller that checks `isDesktop()` and
 // branches on its own is a second seam, and the next port will miss it.
 //
-// Saves: Studio code calls `components/studio/download.js` (the one download helper), which
-// sends a desktop save here and keeps the browser save itself; `saveFile` below works on
-// either host for a caller that wants the result.
+// Saves: Studio code calls `components/studio/download.js` (the one download helper). It
+// saves in the browser itself and, in the desktop app, calls `saveFile` here. This file
+// must not import download.js back, and must stay free of load-time side effects, or the
+// bundler starts loading both at the Studio's startup (measured: +1.3 to +2.1KB gz).
 //
 // Plain JavaScript on purpose: download.js imports it, and the root unit suite loads
 // download.js in Node (through export/deck-export.js), which cannot follow an import into
@@ -27,7 +28,6 @@
  *  which toast to show, and the desktop host has already logged the reason.
  *  @typedef {'saved' | 'cancelled' | 'failed'} SaveResult */
 
-import { downloadBlob } from '../components/studio/download.js';
 import { isDesktop, tauri } from './host.js';
 
 /** True inside the Lattice Studio desktop app. Prefer adding a seam here over branching on this. */
@@ -38,11 +38,9 @@ export { isDesktop };
 /**
  * Save `data` as a file the user keeps, suggesting `filename`.
  *
- * WEB: hands the file to `components/studio/download.js`, which clicks a named `File` URL
- * SYNCHRONOUSLY, before any `await` (a browser honors a download only inside the click that
- * asked for it), or raises the share sheet on iOS. Studio code calls download.js itself;
- * download.js calls back here for the desktop. The browser gives no signal back, so the web
- * answer is `saved` once the file is handed over.
+ * DESKTOP ONLY. In a browser the save belongs to `components/studio/download.js`, which
+ * must click its link inside the user's gesture; this returns `failed` there and does
+ * nothing, because nothing in the Studio reaches it from a browser.
  *
  * DESKTOP: sends the bytes as a raw IPC body (no JSON/base64 round trip, which would
  * triple a 20MB PDF) to the `save_file` command, which shows the native save dialog and
@@ -58,17 +56,17 @@ export function saveFile(filename, data) {
 		// One dialog at a time. Fabricate's "export all" saves several files in a loop, and
 		// each save_file call runs on its own worker thread, so without the queue every
 		// dialog would open at once, stacked on top of each other.
-		const run = desktopQueue.then(() => saveDesktop(host, filename, data));
+		const run = (desktopQueue ?? Promise.resolve()).then(() => saveDesktop(host, filename, data));
 		desktopQueue = run.catch(() => {});
 		return run;
 	}
-	// The browser half is the Studio's one download helper (download.js): a named File URL
-	// clicked inside the gesture, or the share sheet on iOS. `saved` when it hands the file over.
-	return new Promise((resolve) => downloadBlob(filename, data, { onSaved: () => resolve('saved') }));
+	return Promise.resolve('failed');
 }
 
-/** @type {Promise<unknown>} */
-let desktopQueue = Promise.resolve();
+// Created on the first save, not at load: a call at module scope reads as a side effect
+// to the bundler, which would then load this module (and download.js) at startup.
+/** @type {Promise<unknown> | null} */
+let desktopQueue = null;
 
 /** @param {TauriInternals} host @param {string} filename @param {Blob} data @returns {Promise<SaveResult>} */
 async function saveDesktop(host, filename, data) {

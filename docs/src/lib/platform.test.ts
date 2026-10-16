@@ -9,33 +9,14 @@ import { DESKTOP_SIGN_IN_CALLBACK, signIn } from './sign-in';
 
 type W = Window & { __TAURI_INTERNALS__?: unknown };
 
-describe('saveFile — web host', () => {
-	let created: Blob[];
-	beforeEach(() => {
-		created = [];
-		URL.createObjectURL = vi.fn((b: Blob) => {
-			created.push(b);
-			return 'blob:test';
-		}) as typeof URL.createObjectURL;
-		URL.revokeObjectURL = vi.fn();
-	});
-
-	it('clicks a download link before returning, so the browser still sees the user gesture', () => {
-		const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
-			expect(this.download).toBe('deck.pdf');
-			expect(this.href).toBe('blob:test');
-		});
-		const blob = new Blob(['%PDF'], { type: 'application/pdf' });
-		const pending = saveFile('deck.pdf', blob);
-		// No await yet: the click has already happened.
-		expect(click).toHaveBeenCalledTimes(1);
-		// download.js wraps the bytes in a File named like the export (see its header).
-		expect(created).toHaveLength(1);
-		expect(created[0]).toBeInstanceOf(File);
-		expect((created[0] as File).name).toBe('deck.pdf');
-		expect(document.querySelector('a[download]')).toBeNull();
+describe('saveFile — outside the desktop app', () => {
+	// The browser save is download.js's (download.test.ts pins its click inside the gesture);
+	// the seam has nothing to do there and must not click a second link.
+	it('does nothing and says so', async () => {
+		const click = vi.spyOn(HTMLAnchorElement.prototype, 'click');
+		await expect(saveFile('deck.pdf', new Blob(['%PDF']))).resolves.toBe('failed');
+		expect(click).not.toHaveBeenCalled();
 		click.mockRestore();
-		return expect(pending).resolves.toBe('saved');
 	});
 
 	it('is not the desktop', () => {
