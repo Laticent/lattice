@@ -18,8 +18,11 @@
  * lib/engine/css.js `packSelector`) and Marp both prefix the slide path to a selector that does
  * not START with `section`, so `:where(section) pre` became `… > section :where(section) pre`:
  * a section inside a section, which never exists. Every rule written that way matched nothing in
- * the Studio, the Playground and the site, while the CLI's unscoped sheet drew them. The same
- * trap took out the base tokens once (base.tokens.css, above its `:root`).
+ * the live, scoped preview (the Studio's and the Playground's slide, the site's specimens), while
+ * the flat sheet the CLI and the exported players read drew them. The same trap took out the base
+ * tokens once (base.tokens.css, above its `:root`). It applies to any leading filter that matches
+ * the SLIDE: the spotlight below is `section[data-focus-style]`, because `_focus: line` stamps the
+ * section itself.
  *
  * THE SAME PANEL IN A MARP RENDER. Export to Marp ships this file, but Marp renders fences itself:
  * a bare `<pre>` (marp-cli) or `<marp-pre>` (VS Code's preview), with no `lat-code` class, so a
@@ -143,13 +146,13 @@ section :where(pre).lat-code .ln[data-diff="del"] .lat-diff-mark { color: var(--
  * on every panel by checkCodeRecede (tools/check-ownership.js), well under the 4.5:1 the focused
  * lines keep, and the lost color is itself the cue that a line is context. The selector outranks
  * base.focus.css's opacity rule, and the span rule outranks each `section .hljs-*` role. */
-[data-focus-style="spotlight"] pre .ln.lat-recede,
+section[data-focus-style="spotlight"] pre .ln.lat-recede,
 pre[data-focus-style="spotlight"] .ln.lat-recede {
   opacity: 1;
   color: color-mix(in srgb, var(--code-text) var(--code-recede), var(--code-bg));
 }
-[data-focus-style="spotlight"] pre .ln.lat-recede span,
-[data-focus-style="spotlight"] pre .ln.lat-recede::before,
+section[data-focus-style="spotlight"] pre .ln.lat-recede span,
+section[data-focus-style="spotlight"] pre .ln.lat-recede::before,
 pre[data-focus-style="spotlight"] .ln.lat-recede span,
 pre[data-focus-style="spotlight"] .ln.lat-recede::before { color: inherit; }
 section { --code-recede: 55%; }
