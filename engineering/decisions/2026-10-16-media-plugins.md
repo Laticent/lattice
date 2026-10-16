@@ -315,10 +315,11 @@ The build adds `[data-lattice-title]` and `[data-lattice-description]` to the pr
 and never read twice by the generic walk. The attributes survive the preview sanitizer: `lib/core/sanitize-slide-html.mjs` leaves
 DOMPurify's `ALLOW_DATA_ATTR` at its default, which keeps `data-*`.
 
-**The plugin owns its text, not the layout** (owner, 2026-10-16; decision 17). The plugin renders its
-figure together with its title and description; a layout places and sizes the figure and never reads, writes, hides or
-restyles that text. This is the secure split (no layout composes text from a slide again, the pattern §4.5 retires),
-and it gives one behavior on every layout. What shows by default, by kind, from the test below:
+**The plugin owns its text; the host component owns how it is shown** (owner, 2026-10-16; decisions 17 and 19). The
+plugin renders its figure together with its title and description, and stamps both as data (above). The *host* is the
+component the plugin is written inside. It may hide that text on the slide or restyle it, and it never changes or
+replaces it. This is the secure split (no component composes text from a slide again, the pattern §4.5 retires). What
+shows by default, by kind, from the test below:
 
 | Kind | Title on the slide | Description on the slide |
 |---|---|---|
@@ -327,7 +328,27 @@ and it gives one behavior on every layout. What shows by default, by kind, from 
 | image | hidden: the slide's heading already sets the context, and a caption is too small to read across a room | hidden |
 
 An author overrides on the record: `show=title`, `show=all` or `show=none`. A layout that wants labels on every item
-(a gallery) asks for them through the record, never by drawing its own. The `video` slide's `caption` bullet and a
+(a gallery) asks for them through the record, never by drawing its own.
+
+**Hosts have the final say on display** (owner, 2026-10-16; decision 19). A component that hosts a media plugin has
+agency over how the figure looks, and it needs that agency to do its job: a collage tile has no frame and no visible
+title, and a `bleed` or `spotlight` photo runs to the slide's edge. The split is *words* against *display*:
+
+| Belongs to | What | A host may |
+|---|---|---|
+| the author's record | the address, `title`, `description` | read them (`data-lattice-title`, `data-lattice-description`); never change, replace or rebuild them from slide text (§4.5) |
+| the host component | frame, `sm` / `md` / `lg`, `show=`, crop, bleed, and whether a finish applies | override any of them |
+
+There are two kinds of host. A **flow** host (a prose slide, a card's body, a column) lets the figure size itself, so
+the author's size, frame and `show=` apply. A **placing** host (collage, `bleed`, image `spotlight` / `statement`) lays
+the figure out itself, so size and frame have nothing to act on and the host ignores them. Hidden is not lost: text a
+host hides is still the screen reader's name, the tooltip, the print notes and narration. Collage already works this
+way: it draws no per-photo text and narration names each photo (`speakCollage`, `prose-projection.mjs:1589`), which
+will read `data-lattice-title` where it reads the photo's alt text today.
+
+**The author is not warned** when a host overrides a setting (owner: a warning there is noise). Each component's
+`.docs.md` says, in a short section, which of these it decides for the media written inside it. Whether that section is
+generated from a manifest field, so it cannot drift from the code, is left to the build (§7). The `video` slide's `caption` bullet and a
 collage photo's text become the record's `title` / `description` (`lint:deck --fix`). The description is hidden by
 default (owner, 2026-10-16): a sentence at caption size cannot be read across a room, so it goes to the tooltip, the
 print notes, narration and the screen reader.
@@ -612,6 +633,9 @@ Each slice ships on its own, smallest risk first.
    cache read. Demo deck (HARD RULE #9).
 3. **`image` plugin**: `@image{…}`, the options and registers, one lift for both paths (D3, D4), Marp keywords
    rewritten by `lint:deck --fix` (§8, decision 2). Demo deck.
+   The hosts move with it (§4.7, decision 19): collage, `bleed` and the image compositions read
+   `data-lattice-title` / `data-lattice-description`, and each hosting component's `.docs.md` gains its short "media
+   inside" section. Recommended: a manifest field generates that section, so it cannot drift from the code.
 4. **Bake materialization and the content-addressed cache**, then the first remote source behind consent.
    Google Drive comes after the desktop app holds a token.
 
@@ -666,9 +690,13 @@ Slices 2 and 3 rebase onto #2725 once it lands, because they delete rows from it
 16. **The description is hidden on the slide by default**; it reaches the room through narration, the tooltip and the
     print notes (§4.7).
 17. **The plugin owns its title and description**, with defaults by kind (QR and video
-    titles shown, image titles hidden) and a per-record `show=`; layouts never touch the text (§4.7).
+    titles shown, image titles hidden) and a per-record `show=`; no component changes the words (§4.7).
 18. **The figure carries `data-lattice-title` and `data-lattice-description`**, and every reader
     (narration, the Guide, the tooltip, the notes, exports) takes the text from them (§4.7).
+19. **The host component owns display, the author owns the words** (§4.7). A host may hide or restyle the title and
+    description and override frame, size, `show=`, crop, bleed and finish; it never changes the words. A placing host
+    ignores size and frame. No lint warning when a host overrides a setting; the component's `.docs.md` says what it
+    decides.
 
 ## 9. Progress
 
@@ -682,6 +710,7 @@ Slices 2 and 3 rebase onto #2725 once it lands, because they delete rows from it
   element, the one source every reader takes (§4.7; decision 18).
 - 2026-10-16: owner settled decisions 17 (the plugin owns its title and description) and 18 (the
   `data-lattice-*` attributes).
+- 2026-10-16: owner settled decision 19: hosts own display, the author owns the words; no override warnings.
 - 2026-10-16: §4.10 added: narration, the Guide and its captions; owner settled decisions 13–15 as recommended.
 - 2026-10-16: (superseded by the title/description model) author-facing names follow the presentation tools (owner: authors, not web developers). `caption` is the
   text field; `alt` is optional and filled by Lattice when missing; the hover `title` and the QR `ec` word are dropped.
