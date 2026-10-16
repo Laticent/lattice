@@ -62,9 +62,13 @@ const NON_RENDER = [
 	/^(?!lib\/samples\/).*(?<!\.gallery)\.md$/,
 	/\.gallery\.(?:pdf|png)$/,
 	/^themes\/(?:README\.md|palette-audit\.(?:md|pdf))$/,
-	// Tooling that does not render. The two contrast tools and this selector DO change what the
-	// sweep measures, so they are deliberately absent from this list and fall through to "all".
-	/^tools\/(?!check-player-contrast|check-slide-contrast|player-contrast-select)/,
+	// Tooling that does not render: the CHECK scripts (gates and audits) and their docs. Every other
+	// file under tools/ is treated as render-affecting, because tools/build-css.js,
+	// tools/build-runtime.js and the rest of the build produce dist/lattice.css, which every export
+	// reads. The two contrast tools and this selector change what the sweep measures, so they stay out
+	// of this list too.
+	/^tools\/script-docs\//,
+	/^tools\/check-(?!player-contrast|slide-contrast)[^/]*$/,
 ];
 
 /** A gallery, as the selector sees it: file, owning directory, theme pair key. */

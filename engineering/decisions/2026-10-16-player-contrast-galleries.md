@@ -64,6 +64,8 @@ sweep and can never cost a missed regression.**
 The `lib/` list of non-render directories (`concepts`, `conformance`, `diagnostics`, `exemplars`,
 `helpers`, `playground`, `tokens`) comes from tracing the files 15 galleries' exports opened
 (a Node `fs` and `require` hook over `lattice.js --player`) and grepping every importer of each.
+Under `tools/`, only the check scripts (`tools/check-*`, except the two contrast tools) and `tools/script-docs/` are non-render. Every other tool, the `build-*` scripts above all, produces `dist/lattice.css`, which every export reads, so it selects all 75. The first version of the selector called every `tools/` file non-render; the independent check found it by running `tools/build-css.js` through it.
+
 The trace also showed what the export does read: 187 files in `lib/core`, plus `lib/base`,
 `lib/engine`, `lib/plugins`, `lib/packages`, `lib/authoring`, `lib/transformers`, `lib/samples`
 (image assets) and the built `dist/lattice.css`.
@@ -99,6 +101,12 @@ finishes with `failed=false` on `main`, the step saves the commit SHA to the Act
 an evicted cache or a SHA the checkout cannot reach means a full sweep. A branch dispatch reads
 `main`'s marker and never writes one, so proving the change on a branch cannot move `main`'s
 window.
+
+## 5a. Failure modes the independent check found, and what each does now
+
+* A **selector crash** (a bad SHA, an fs error) used to read as "0 galleries" and a green night, because process substitution discards the exit status. The step now captures the output, checks the status, and writes `failed=true`.
+* A deck whose **export or audit throws** is out of the baseline scope, so it printed an error and exited 0, and the marker moved past the break. A sweep now exits non-zero when any deck could not be audited (`sweepExitCode`), and its summary line says how many.
+* A timeout sent the export `SIGKILL`, which skips the child's Chrome cleanup. It sends `SIGTERM` first and `SIGKILL` five seconds later.
 
 ## 6. The baseline was re-keyed once, from scratch
 

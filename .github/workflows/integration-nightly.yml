@@ -163,7 +163,14 @@ jobs:
           else
             SELECT=(--since "$SINCE")
           fi
-          mapfile -t DECKS < <(node tools/player-contrast-select.js "${SELECT[@]}" 2>> "$REPORT")
+          # Capture the selector's output and CHECK its exit status: `mapfile < <(cmd)` discards it, so
+          # a selector that threw would read as "0 galleries" and a green night.
+          if ! SELECTED="$(node tools/player-contrast-select.js "${SELECT[@]}" 2>> "$REPORT")"; then
+            echo "player-contrast-select FAILED; the sweep was not run" | tee -a "$REPORT"
+            echo "failed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          mapfile -t DECKS < <(printf '%s\n' "$SELECTED" | sed '/^$/d')
           if [ "${#DECKS[@]}" -eq 0 ]; then
             echo "0 galleries audited: nothing render-affecting changed since ${SINCE:-the last green run}" | tee -a "$REPORT"
             echo "failed=false" >> "$GITHUB_OUTPUT"

@@ -157,3 +157,11 @@ test('resolveWidth: a number, auto, and garbage all give a usable pool size', ()
 	assert.equal(resolveWidth('nope'), 1);
 	assert.ok(resolveWidth('auto') >= 1 && resolveWidth('auto') <= 4);
 });
+
+test('sweepExitCode: a deck that could not be audited fails the sweep, as a new finding does', () => {
+  const { sweepExitCode } = require('../../../tools/check-player-contrast.js');
+  assert.equal(sweepExitCode({ added: 0, worse: 0, errored: 0 }), 0);
+  assert.equal(sweepExitCode({ added: 1, worse: 0, errored: 0 }), 1);
+  assert.equal(sweepExitCode({ added: 0, worse: 1, errored: 0 }), 1);
+  assert.equal(sweepExitCode({ added: 0, worse: 0, errored: 1 }), 1, 'an export that crashed has no findings but is not green');
+});

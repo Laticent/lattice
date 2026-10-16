@@ -149,7 +149,11 @@ async function playerFor(input) {
 		let text = '';
 		child.stdout.on('data', (d) => { text += d; });
 		child.stderr.on('data', (d) => { text += d; });
-		const timer = setTimeout(() => child.kill('SIGKILL'), 600000);
+		// TERM first so the export can close the Chrome it launched; KILL only if it ignores that.
+		const timer = setTimeout(() => {
+			child.kill('SIGTERM');
+			setTimeout(() => child.kill('SIGKILL'), 5000).unref();
+		}, 600000);
 		child.on('close', (status) => { clearTimeout(timer); resolve({ status, text }); });
 		child.on('error', (err) => { clearTimeout(timer); resolve({ status: -1, text: String(err) }); });
 	});
@@ -665,6 +669,10 @@ async function main() {
 	// rows must read as "not looked at", never as "fixed" or "dropped".
 	const audited = new Set();
 	let failed = 0;
+	// Decks that could not be audited at all (the export or the audit threw). They are not findings,
+	// so they never reach `failed` or the baseline diff, and a sweep that silently skipped them
+	// would read green. Counted here and fatal below.
+	const errored = [];
 	try {
 		const results = await auditDecks(inputs, width);
 		inputs.forEach((input, i) => {
@@ -672,6 +680,7 @@ async function main() {
 			if (res.error) {
 				console.error(`\n!! ${input}: ${res.error}`);
 				failed += 1;
+				errored.push(input);
 				return;
 			}
 			const name = path.basename(input).replace(/\.(md|html)$/, '');
@@ -686,7 +695,7 @@ async function main() {
 	}
 	if (jsonOut) fs.writeFileSync(jsonOut, `${JSON.stringify(all, null, '\t')}\n`);
 	const runs = all.reduce((n, d) => n + d.rows.length, 0);
-	console.log(`\n${'='.repeat(90)}\n${runs} runs across ${all.length} deck(s) · ${failed} below AA`);
+	console.log(`\n${'='.repeat(90)}\n${runs} runs across ${all.length} deck(s) · ${failed - errored.length} below AA${errored.length ? ` · ${errored.length} deck(s) COULD NOT BE AUDITED` : ''}`);
 
 	// No baseline asked for: the raw verdict, which is what a human running this by hand on
 	// one deck wants.
@@ -746,9 +755,17 @@ async function main() {
 	if (fixed.length) console.log(`\n  ${fixed.length} baseline finding(s) no longer reproduce — re-bless with \`npm run contrast:player:bless\` once the fix has landed.`);
 	console.log('');
 	// FIXED rows do NOT fail. A sweep is only ever asked whether tonight made things worse.
-	process.exit(added.length || worse.length ? 1 : 0);
+	process.exit(sweepExitCode({ added: added.length, worse: worse.length, errored: errored.length }));
 }
 
-module.exports = { auditDecks, resolveWidth, deckOfKey, sampleBackdrop, ratio, over, HIDE_INK, findingKey, collapse, diffBaseline, blessRatchet, DEFAULT_BASELINE };
+/**
+ * The exit code of a sweep that compared against a baseline: red on a NEW or WORSE finding, and
+ * red on a deck that could not be audited. A deck that crashes the export has no findings, and its
+ * baseline rows are out of scope, so without the third term the sweep would read green exactly
+ * when a change broke the thing being measured.
+ */
+const sweepExitCode = ({ added, worse, errored }) => (added || worse || errored ? 1 : 0);
+
+module.exports = { sweepExitCode, auditDecks, resolveWidth, deckOfKey, sampleBackdrop, ratio, over, HIDE_INK, findingKey, collapse, diffBaseline, blessRatchet, DEFAULT_BASELINE };
 
 if (require.main === module) main();

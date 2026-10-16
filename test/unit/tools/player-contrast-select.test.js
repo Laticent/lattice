@@ -30,13 +30,13 @@ test('a theme selects the galleries on it and on its dark or light partner', () 
 });
 
 test('an unclassified path selects EVERY gallery — the default is the safe direction', () => {
-	for (const p of ['lib/core/anything.js', 'lib/base/base.treatments.css', 'lattice.js', 'package-lock.json', 'lib/samples/a.png', 'lib/authoring/lint-core.js', 'tools/check-player-contrast.js', 'tools/check-slide-contrast.js', 'tools/player-contrast-select.js', 'lib/components/chart/shared.css']) {
+	for (const p of ['lib/core/anything.js', 'lib/base/base.treatments.css', 'lattice.js', 'package-lock.json', 'lib/samples/a.png', 'lib/authoring/lint-core.js', 'tools/check-player-contrast.js', 'tools/check-slide-contrast.js', 'tools/player-contrast-select.js', 'lib/components/chart/shared.css', 'tools/build-css.js', 'tools/build.js', 'tools/build-runtime.js', 'tools/build-plugin-registry.js', 'tools/build-stage-catalog.js']) {
 		assert.equal(pick([p]).length, 3, `${p} must select all`);
 	}
 });
 
 test('paths that cannot change a player select nothing', () => {
-	for (const p of ['docs/src/x.astro', 'engineering/workflow.md', 'test/unit/a.test.js', 'changelog.d/a.fixed.md', 'followups.d/a.md', 'examples/a.md', '.github/workflows/ci.yml', 'README.md', 'lib/authoring/README.md', 'lib/components/chart/bar/bar.docs.md', 'tools/check-ownership.js', 'lib/conformance/run.js', 'lib/playground/index.js', 'themes/README.md', 'backlog.d/1.md']) {
+	for (const p of ['docs/src/x.astro', 'engineering/workflow.md', 'test/unit/a.test.js', 'changelog.d/a.fixed.md', 'followups.d/a.md', 'examples/a.md', '.github/workflows/ci.yml', 'README.md', 'lib/authoring/README.md', 'lib/components/chart/bar/bar.docs.md', 'tools/check-ownership.js', 'tools/script-docs/x.md', 'lib/conformance/run.js', 'lib/playground/index.js', 'themes/README.md', 'backlog.d/1.md']) {
 		assert.deepEqual(pick([p]), [], `${p} must select nothing`);
 	}
 });
