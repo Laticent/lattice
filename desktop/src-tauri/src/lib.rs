@@ -196,7 +196,12 @@ fn is_callback(nav: &Url, callback: &Url) -> bool {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_opener::init())
+        // The opener is called from Rust only (the navigation and new-window handlers
+        // below). Its default build also injects a page script that cancels every
+        // target=_blank click and asks the plugin over IPC instead; the page has no
+        // plugin permissions (capabilities/default.json), so that call fails silently
+        // and the link goes nowhere. Off, so the click reaches `on_new_window`.
+        .plugin(tauri_plugin_opener::Builder::new().open_js_links_on_click(false).build())
         .invoke_handler(tauri::generate_handler![save_file, sign_in])
         .setup(|app| {
             let config = app
