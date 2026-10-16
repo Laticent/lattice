@@ -371,7 +371,7 @@ tags: a plain HTML page, an Export-to-Marp bundle's `.html`, and marp-cli's
 raw HTML enabled or the tags are escaped into visible text — for marp-cli, an
 Export-to-Marp bundle's own `marp.config.cjs` (an HTML allowlist; do not add
 `--html`, which replaces it with "everything") or `html: true` / `--html` for
-the Marp kit and a bare deck; `markdown.marp.enableHtml` for the VS Code extension.
+the Marp kit and a bare deck; `markdown.marp.html: "all"` for the VS Code extension.
 The one surface where this is **not** guaranteed is the **marp-vscode preview
 pane** — its webview is understood to block script execution, which would leave
 runtime-composed structure (Form, split panels, Mermaid, the chart family) flat

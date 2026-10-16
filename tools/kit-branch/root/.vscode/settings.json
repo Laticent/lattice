@@ -4,5 +4,5 @@
     "./marp/cuoio-min.css",
     "./marp/cuoio-dark-min.css"
   ],
-  "markdown.marp.enableHtml": true
+  "markdown.marp.html": "all"
 }

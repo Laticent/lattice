@@ -111,7 +111,7 @@ test('both configs set html:true — without it the runtime never loads', () => 
   // text on the last slide and no chart or diagram is ever built (#1256 §1).
   assert.match(text('marp.config.cjs'), /html:\s*true/);
   const vs = JSON.parse(text('.vscode/settings.json'));
-  assert.equal(vs['markdown.marp.enableHtml'], true);
+  assert.equal(vs['markdown.marp.html'], 'all');
 });
 
 test('both configs register the ENGINE css, not just the palette', () => {
