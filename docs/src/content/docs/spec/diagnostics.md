@@ -224,6 +224,10 @@ distinct, stable ID.
 | `unknown-backdrop` | warning | ✓ | A `backdrop:` word that is neither a strength nor a mask, or a second word for an axis already set. |
 | `unknown-tag` | warning | ✓ | A `tag:` word the engine does not know, or a second word for an axis already set. |
 | `unknown-<axis register>` | warning | ✓ | A family: one ID per axis register (`unknown-spark`, and one per register a plugin declares, such as `unknown-icon`). An unknown word, or a second word for an axis already set. |
+| `unknown-<setting>` | warning | ✓ | A family: one ID per key whose value list the deck-settings table holds (`lib/core/deck-settings.js`, `generic: true`): `unknown-theme`, `unknown-size`, `unknown-motion`, `unknown-motion-style`, `unknown-motion-speed`, `unknown-player-motion`, `unknown-glossary`, `unknown-logo-on`, `unknown-logo-style`. A value the key's reader does not accept; the deck uses the default (for `theme:`, the command line refuses it). |
+| `unknown-key` | warning | ✓ | A top-level front-matter key that no reader reads and no plugin declares; the deck ignores the whole line. Carries a did-you-mean. |
+| `unknown-treatment` | warning | ✓ | A `tint-*` or `mark-*` class token that `lib/base/base.treatments.css` does not paint. |
+| `treatment-placement` | warning | — | `tint-corner` or `tint-edge` without a placement it accepts (`at-tl` … for a corner, `at-top` … for an edge), so it paints nothing. |
 | `unknown-color-mode` | warning | ✓ | A `color-mode:` value the engine does not know; the deck uses the theme's default colors. |
 | `unknown-delivery` | warning | ✓ | A `delivery:` value the engine does not know; the deck uses `restrained`. |
 | `unknown-pace` | warning | ✓ | A `pace:` value the engine does not know; playback uses each viewer's own setting. |

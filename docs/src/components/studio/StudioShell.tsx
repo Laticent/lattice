@@ -3256,7 +3256,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		let live = true;
 		setAssessing(true);
 		const id = setTimeout(() => {
-			assessDeck(source, lintVocab, components, localNames, savedFinishLintNames, profileOverride ?? undefined).then((a: CoachAssessment) => {
+			assessDeck(source, lintVocab, components, localNames, savedFinishLintNames, profileOverride ?? undefined, editorPalettes).then((a: CoachAssessment) => {
 				if (!live) return;
 				setScorecard(a.scorecard);
 				setDeckHasContent(a.hasContent);
@@ -3268,7 +3268,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			live = false;
 			clearTimeout(id);
 		};
-	}, [source, lintVocab, components, localNames, savedFinishLintNames, profileOverride]);
+	}, [source, lintVocab, components, localNames, savedFinishLintNames, profileOverride, editorPalettes]);
 	// Mermaid's own verdict on this deck's diagrams, for the chat's grounding — the answer
 	// to the question the Architect used to fabricate. Keyed on the DIAGRAM TEXT rather
 	// than the source, so editing prose around a diagram doesn't re-parse it; a deck with
@@ -4563,12 +4563,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		async (draft: string) => {
 			const diagrams = extractDiagrams(draft);
 			const [a, errs] = await Promise.all([
-				assessDeck(draft, lintVocab, components, localNames, savedFinishLintNames, profileOverride ?? undefined),
+				assessDeck(draft, lintVocab, components, localNames, savedFinishLintNames, profileOverride ?? undefined, editorPalettes),
 				diagrams.length ? import('./mermaid-parse').then((m) => m.checkDiagrams(diagrams, options?.runtimeUrl ?? '')).catch(() => undefined) : Promise.resolve(undefined),
 			]);
 			return { findings: a.findings, ...(errs ? { diagrams: errs } : {}) };
 		},
-		[lintVocab, components, localNames, savedFinishLintNames, profileOverride, options?.runtimeUrl],
+		[lintVocab, components, localNames, savedFinishLintNames, profileOverride, editorPalettes, options?.runtimeUrl],
 	);
 	// And the agent's fit check renders the draft the way export does (draft-fit.ts). The shell
 	// hands over only what that render needs; the lazy agent imports the render path itself.

@@ -259,6 +259,12 @@ const STEPS = [
   // Gotchas symptom index — reads the entry headings in engineering/gotchas/;
   // order-independent, same as the decision index above.
   { label: 'gotchas index (dist/engineering/gotchas.md)', script: 'build-gotchas-index.js', uncommitted: true, validates: true },
+  // Derived from lib/core/deck-settings.js (+ the lint vocab); --check builds it in memory and
+  // fails on a table row the schema cannot express.
+  { label: 'front-matter JSON Schema (dist/schemas/front-matter.schema.json)', script: 'build-front-matter-schema.js', uncommitted: true, validates: true },
+  // The conformance checklist and live matrix, from lib/conformance/kinds/; --check validates
+  // every contract's shape (npm test runs the clauses themselves).
+  { label: 'conformance checklist (dist/engineering/conformance.md)', script: 'build-conformance.js', uncommitted: true, validates: true },
   // Last — it indexes the finished dist/ folder, so every other artifact
   // must already be (re)written before it runs.
   // The copy-and-go Marp kit. Runs LATE: it copies dist/lattice-min.css,

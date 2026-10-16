@@ -1,0 +1,1 @@
+{ "key": "lift", "row": { "key": "lift", "kind": "register", "vocab": "liftNames", "rule": "unknown-lift", "spec": "2.3", "group": "look", "default": "off", "info": "Card lift — on / off.", "offer": false, "docs": "design/no-such-doc.md" }, "readers": ["lib/core/resolve-lift.js"], "inSpec": true, "specCases": 1, "docMentions": false }

@@ -155,6 +155,9 @@ async function main(argv) {
     const shipped = require('../lib/plugins/registry.generated.js').PLUGINS.map((g) => g.name);
     const plugins = home.listInstalled(home.packagesRoot()).filter((p) => p.type === 'plugin' && p.ok && !shipped.includes(p.name) && !refusePackage(p.pkg, { forRender: true }));
     vocab.externalPlugins = plugins.map((p) => p.name);
+    // Installed theme packages render (`theme: <name>`), so they are themes, not typos.
+    const themes = home.listInstalled(home.packagesRoot()).filter((p) => p.type === 'theme' && p.ok).map((p) => p.name);
+    if (themes.length) vocab.themeNames = [...new Set([...(vocab.themeNames || []), ...themes])];
     vocab.externalFenceOf = Object.fromEntries(plugins.map((p) => [p.name, Object.keys(p.pkg.manifest.contributes.fences ?? {})[0]]).filter(([, f]) => f));
     // Their inline kinds (`@kind{…}`, 2026-10-14-plugin-inline-door.md): a listed plugin's kind is not unknown.
     const { pluginInlineKinds } = require('../lib/packages/code-shape.mjs');

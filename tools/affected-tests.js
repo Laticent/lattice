@@ -130,6 +130,13 @@ for (const f of process.argv.slice(2)) {
     continue;
   }
 
+  // lib/conformance/* — the contract core and its kinds; test/unit/conformance/static.test.js
+  // runs every contract over every instance it finds.
+  if (rel.startsWith('lib/conformance/') && rel.endsWith('.js')) {
+    scripts.add('test:conformance');
+    continue;
+  }
+
   // lib/theme/* — the Theme Studio deterministic core (color math, token
   // derivation, serialization, contrast audit, starters). Palette-shaped;
   // covered by the theme-*.test.js files under test/unit/palette/.

@@ -131,9 +131,11 @@ A theme is one CSS file that declares **CSS custom properties (tokens) only** an
 3. **Annotate contrast ratios in comments** next to each ink token — house
    convention, and it forces you to check.
 4. **Build & verify both canvases**: render the baseline gallery and a Mermaid deck
-   in light and dark. Register the palette name in **`test/unit/palette/token-parity.test.js`'s
-   `THEMES` array** (this is what enforces the full 98-token contract on your theme)
-   and in `.vscode/settings.json` under `markdown.marp.themes`. (`contrast.test.js`
+   in light and dark. Give the manifest **`"role": "base"`**: `test/unit/palette/token-parity.test.js`
+   builds its `THEMES` list from the manifests (`baseThemeNames()` in `test/helpers/palette.js`),
+   so that one field is what enrolls your theme in the full 98-token contract. There is no list
+   to edit there. Add the theme's two stylesheets to `.vscode/settings.json` under
+   `markdown.marp.themes`, which is still a hand list. (`contrast.test.js`
    is hardcoded to `['indaco','cuoio']` by design — sibling palettes ride the indaco
    run via cascade — so adding your theme *there* does nothing.)
 5. Run `node --test test/unit/palette/*.test.js`.
@@ -334,8 +336,9 @@ The **dark variant in full** — this is the whole file:
 - [ ] `--seq-500`'s DARK arm re-anchored at OKLab L 0.68 in your own hue (not the
       dark `--accent`, which is near-white by design and leaves the derived stops
       1.08-1.90:1 apart) — `node tools/composed-contrast.js <name>` green.
-- [ ] Palette added to `test/unit/palette/token-parity.test.js`'s `THEMES` array and
-      `.vscode/settings.json`; `node --test test/unit/palette/*.test.js` green.
+- [ ] Manifest declares `"role": "base"` (token-parity derives its `THEMES` from that, so
+      nothing is added to the test); both stylesheets added to `.vscode/settings.json`;
+      `node --test test/unit/palette/*.test.js` green.
 - [ ] `npm run build:check` passes (no hex/typography/retired-name violations).
 
 ---

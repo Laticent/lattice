@@ -109,6 +109,11 @@ The four built-in **archetypes**: `brief` (Bottom line, base none, **rung**),
 `story` (The story, base none, cut), `evidence` (The evidence, base all, **rung**),
 `ask` (The ask, base none, single, cut).
 
+A workspace can define lenses every deck inherits. A deck opts out of all of them with
+one top-level line, `lens-defaults: off`, and keeps only the lenses its own `lenses:`
+block defines. To drop a single inherited lens instead, give it `drop: true` in the
+deck's block (`evidence: { drop: true }`).
+
 ---
 
 ## The landing view — and the one thing it is not

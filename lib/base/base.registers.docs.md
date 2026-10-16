@@ -19,6 +19,10 @@ one-line edit, because it pointed at *Eyebrow labels* "above" and that section
 stayed behind. Stated exactly rather than as "verbatim", so a future auditor who
 byte-compares all ten knows which mismatch is intended.
 
+Every key, register or not, is a row of `lib/core/deck-settings.js`: `lint:deck` warns on a key
+that is not there (`unknown-key`) and on a register value outside the row's list (`unknown-<key>`).
+The full list of keys, with values and defaults, is the generated front-matter reference page.
+
 For the per-slide variants these compose with — `dark`, `mirror`, `numbered`,
 `silent`, `sketch` itself, the scales, tone tokens, state markers, treatments —
 see `base.docs.md` § Universal variants. For what a register IS in the wider

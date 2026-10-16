@@ -61,7 +61,7 @@ See [Layer composability](#layer-composability) for rules.
 
 The per-layer form exists so two tints with different placements can compose — `tint-corner tint-at-tl tint-edge tint-at-right` puts the corner at top-left and the edge at right without the universal `at-*` colliding.
 
-`tint-corner` and `tint-edge` are **placement-required**: omitting `at-*` paints nothing. A build-time validator catches the missing modifier.
+`tint-corner` and `tint-edge` are **placement-required**: omitting `at-*` paints nothing, and so does a placement from the other family (`tint-corner at-top`). `lint:deck`'s `treatment-placement` rule reports both, and `unknown-treatment` reports a `tint-*` or `mark-*` word the stylesheet does not paint. Both read `lib/base/treatments.js`, which `test/unit/css/treatments-vocab.test.js` holds equal to this file's selectors, so **a new treatment is added to that table in the same change**.
 
 **Mark placement is not in v1.** Each mark renders at its default home (`mark-orbit` at bottom-right, `mark-chevron` at bottom-left, etc.) — the home is what the old `bg-` suffix encoded. Writing `at-*` alongside a mark is silently ignored today. The mark placement axis is a v2 follow-up.
 
@@ -224,4 +224,4 @@ See `engineering/gotchas.md` → "Chromium PDF output of CSS mask-image renders 
 
 4. **Divider layout + marks.** The `divider` rail rides the section background, not `::before` (`lib/components/anchor/divider/divider.styles.css`), so a mark's `::before` and the rail coexist. Two marks, or a mark and a state stamp, still share the singleton `::before`: the last rule wins.
 
-5. **Placement-required tints.** `tint-corner` and `tint-edge` paint nothing without an `at-*` modifier. A build-time validator catches the missing modifier.
+5. **Placement-required tints.** `tint-corner` and `tint-edge` paint nothing without an `at-*` modifier. `lint:deck` reports it (`treatment-placement`).

@@ -284,6 +284,7 @@
     "test:engine": "node --test --test-reporter=dot 'test/unit/engine/*.test.js'",
     "test:plugins": "node --test --test-reporter=dot 'test/unit/plugins/*.test.js'",
     "test:spec": "node --test --test-reporter=dot 'test/unit/spec/*.test.js'",
+    "test:conformance": "node --test --test-reporter=dot 'test/unit/conformance/*.test.js'",
     "test:layout": "node --test --test-reporter=dot 'test/unit/layout/*.test.js'",
     "test:transformers": "node --test --test-reporter=dot 'test/unit/transformers/*.test.js'",
     "test:authoring": "node --test --test-reporter=dot 'test/unit/authoring/*.test.js'",

@@ -342,16 +342,22 @@ section.list-steps.chevron ol > li > ul > li { font-size:var(--fs-body); color:v
 /* converge — every band is full-width, clipped to a trapezoid whose edges sit on
  * two continuous converging diagonals; stacked at gap:0 the clips read as ONE
  * funnel narrowing onto the final stage, capped by a spout point (ol::after).
- * Color deepens in four steps via color-mix. Geometry is authored for 4 bands;
- * a 3rd/4th+ band degrades to the narrowest trapezoid rather than breaking. */
+ * Color deepens in four steps via color-mix, but each step stays near ONE end of
+ * the soft→accent ramp: bands 1–2 sit on the soft fill (12% accent at most) under
+ * --accent-soft-body, bands 3+ sit on the accent (92% or more) under --on-accent.
+ * A mid-ramp mix leaves neither ink 4.5:1 — the old 66% third band measured 3.01:1
+ * on indaco and 32% second band 3.51:1 on cuoio. 12/92 clears AA in every theme,
+ * light and dark (2026-10-16 sweep, examples/converge-band-contrast.md).
+ * Geometry is authored for 4 bands; a 5th+ band degrades to the narrowest
+ * trapezoid rather than breaking. */
 section.list-steps.converge ol { gap:0; width:100%; }
 section.list-steps.converge ol > li {
   display:flex; flex-direction:column; align-items:center; justify-content:center;
   text-align:center; gap:0.4cqi; width:100%; box-sizing:border-box; padding-block:1.5cqi;
 }
 section.list-steps.converge ol > li:nth-child(1)    { clip-path:polygon(0% 0,     100% 0,     93.25% 100%, 6.75% 100%);  padding-inline:6cqi;  background:var(--accent-soft); }
-section.list-steps.converge ol > li:nth-child(2)    { clip-path:polygon(6.75% 0,  93.25% 0,   86.5% 100%,  13.5% 100%);  padding-inline:13cqi; background:color-mix(in srgb, var(--accent) 32%, var(--accent-soft)); }
-section.list-steps.converge ol > li:nth-child(3)    { clip-path:polygon(13.5% 0,  86.5% 0,    79.75% 100%, 20.25% 100%); padding-inline:19cqi; background:color-mix(in srgb, var(--accent) 66%, var(--accent-soft)); }
+section.list-steps.converge ol > li:nth-child(2)    { clip-path:polygon(6.75% 0,  93.25% 0,   86.5% 100%,  13.5% 100%);  padding-inline:13cqi; background:color-mix(in srgb, var(--accent) 12%, var(--accent-soft)); }
+section.list-steps.converge ol > li:nth-child(3)    { clip-path:polygon(13.5% 0,  86.5% 0,    79.75% 100%, 20.25% 100%); padding-inline:19cqi; background:color-mix(in srgb, var(--accent) 92%, var(--accent-soft)); }
 section.list-steps.converge ol > li:nth-child(n+4)  { clip-path:polygon(20.25% 0, 79.75% 0,   73% 100%,    27% 100%);    padding-inline:25cqi; background:var(--accent); }
 section.list-steps.converge ol > li:nth-child(-n+2) :is(strong, ul li) { color:var(--accent-soft-body); }
 section.list-steps.converge ol > li:nth-child(n+3)  :is(strong, ul li) { color:var(--on-accent); }

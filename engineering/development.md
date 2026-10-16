@@ -150,6 +150,8 @@ test/unit/parsing/      source-parse, match-section, splitter,
 test/unit/components/   component-manifest, journey, roadmap,
                         word-cloud, quadrant, radar
 test/unit/cli/          cli
+test/unit/conformance/  static (every conformance contract's static clauses, fixtures,
+                        debt ledger; lib/conformance/)
 test/integration/parity/      color-parity, deck-class/finish/logo-fm,   [PR]
                               speaker-notes, chart-family
 test/integration/export/      export-formats, html-player, present-mode, [PR]
@@ -351,6 +353,7 @@ them.
 lib/<X>.js              → SCRIPT_FOR_LIB[X]      (e.g. palette.js → test:palette)
 test/unit/<scope>/*     → test:<scope>
 themes/*.css            → test:palette
+lib/conformance/*       → test:conformance
 docs/, examples/, *.md  → skip — no tests needed
 lattice.js,    → full unit suite        (safe fallback;
 lattice-runtime.js,                                renderers touch everything)
@@ -1378,6 +1381,27 @@ what every surface prints and asserts, and the suggestion belongs on the button
 `docs/src/playground/editor-diagnostics.js` prints the prose `fix` **only** when
 there is no button — printing both is what #1658 reported as the tool knowing the
 answer and making you type it anyway.
+
+### Adding a front-matter key or register
+
+Every key a deck's front matter may carry is **one row** of `lib/core/deck-settings.js`. That
+row is what `lint:deck` reads to tell a key from a typo (`unknown-key`) and, for a key with a
+fixed value list, a value from a typo (`unknown-<key>`). The Studio offers keys and values from it
+and shows it on hover. The front-matter reference page prints it, and
+`tools/build-front-matter-schema.js` turns it into `dist/schemas/front-matter.schema.json`. So a
+new key is: the reader, the row (with `vocab:` naming the lint-vocab field its resolver fills, or
+`values:` when no resolver exports a list), and, if LFM should carry it, a `spec: '2.3'` row in
+`spec/LFM-1.1.md` and a shared case. A plugin's register needs no row: the plugin manifest's
+`contributes.registers` is the row.
+
+`test/unit/conformance/static.test.js` runs the **deck-setting contract**
+(`lib/conformance/kinds/deck-setting.contract.js`) over every row and every key a reader names. It
+fails on a key that is read but has no row, a row nothing reads, a value list lint disagrees with,
+a spec row or case that is missing, or a row the schema cannot express. The live matrix is
+`dist/engineering/conformance.md`.
+
+A `tint-*` or `mark-*` treatment is the same idea on a smaller scale: add it to
+`lib/base/treatments.js` with its CSS, or `unknown-treatment` calls it unknown.
 
 ### Adding a new theme (`themes/<name>/<name>.css`)
 No script change needed — `affected-tests.js` routes `themes/*.css` to

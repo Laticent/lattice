@@ -1,8 +1,8 @@
 import type { Completion, CompletionContext, CompletionResult } from '@codemirror/autocomplete';
 import { PACE_NAMES } from '@/lib/resolve-pace';
 import { classDirectiveCompletion, classTokenResult, deckSplit, slideBodyAfter } from '@/playground/slide-context.js';
-import { FRONT_MATTER_KEYS } from './front-matter-keys';
-import { MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from './motion-catalog';
+import sizes from '../../../../lib/engine/sizes.js';
+import { FRONT_MATTER_KEYS, OFFERED_SETTINGS } from './front-matter-keys';
 import { STUDIO_LANGUAGES } from './studio-language';
 
 // Studio editor autocomplete — context-aware completion for the three things an
@@ -54,62 +54,29 @@ const PACE_INFO: Record<string, string> = {
 const PACE_OPTIONS: Completion[] = PACE_NAMES.map((n: string) => ({ label: n, type: 'constant', detail: 'pace', info: PACE_INFO[n] }));
 
 // The front-matter keys whose VALUE vocabulary the engine publishes in the lint vocab
-// (lib/authoring/lint.js `buildVocab`) — key → vocab field. Reading the engine's own list
-// means the editor can never offer a value the linter then flags, or miss one it accepts.
-export const VOCAB_VALUE_FIELDS: Record<string, string> = {
-	cards: 'cardsNames',
-	fit: 'fitNames',
-	claim: 'claimNames',
-	corners: 'cornersNames',
-	mode: 'modeNames',
-	'color-mode': 'colorModeNames',
-	split: 'splitNames',
-	spectrum: 'spectrumNames',
-	'spectrum-edge': 'spectrumEdgeNames',
-	'spectrum-card': 'spectrumCardNames',
-	'spectrum-card-edge': 'spectrumCardEdgeNames',
-	'spectrum-trim': 'spectrumTrimNames',
-	rule: 'ruleNames',
-	eyebrow: 'eyebrowNames',
-	headline: 'headlineNames',
-	lift: 'liftNames',
-	backdrop: 'backdropNames',
-	tag: 'tagNames',
-	spark: 'sparkNames',
-	venue: 'venueNames',
-	'chart-finish': 'chartFinishNames',
-	preset: 'presetNames',
-	delivery: 'deliveryNames',
-	'inline-code': 'inlineCodeNames',
-	stamp: 'stampStyleNames',
-	tone: 'toneStyleNames',
-};
+// (lib/authoring/lint.js `buildVocab`) — key → vocab field, read off the engine's table
+// (lib/core/deck-settings.js `vocab`). Reading the engine's own list means the editor can
+// never offer a value the linter then flags, or miss one it accepts. `theme:` is completed
+// from the deck's palettes (built-in AND saved, 1c below), `pace:` from its own catalog (1e),
+// `finish:` from the built-in and saved finishes (3).
+const OWN_VALUE_SOURCES = new Set(['theme', 'pace', 'finish']);
+export const VOCAB_VALUE_FIELDS: Record<string, string> = Object.fromEntries(
+	OFFERED_SETTINGS.filter((r) => r.vocab && !OWN_VALUE_SOURCES.has(r.key)).map((r) => [r.key, r.vocab as string]),
+);
 
-// Keys with a small fixed vocabulary that the lint vocab does not carry. Each list is the
-// values its reader accepts: motion-style / motion-speed come from the Inspector's own
-// catalog, and `player-motion` offers only `off` because resolve-motion.mjs reads nothing
-// else (omitting the key follows `motion:`).
-const ON_OFF = ['on', 'off'];
-const TRUE_FALSE = ['true', 'false'];
+// Keys whose value list the table holds itself (`values`, or `complete` where the reader is
+// looser than a closed list — `validate:` takes any falsey word). These were STATIC_VALUES, a
+// list only the editor knew; they moved into the engine so the linter warns on the same set the
+// editor offers. Plugin registers (`icon:`, `avatar:`) carry their axes' words, and `size:`
+// offers the engine's size registry, aliases included, since the registry accepts both.
 const STATIC_VALUES: Record<string, string[]> = {
-	motion: ON_OFF,
-	'motion-style': MOTION_STYLE_ENTRIES.map((e) => e.name),
-	'motion-speed': MOTION_SPEED_ENTRIES.map((e) => e.name),
-	'player-motion': ['off'],
-	paginate: TRUE_FALSE,
-	glossary: ['auto', 'off'],
-	validate: ON_OFF,
-	'logo-on': ['all', 'title'],
-	'logo-style': ['auto', 'brand'],
-	present: TRUE_FALSE,
-	read: TRUE_FALSE,
-	fluid: TRUE_FALSE,
-	player: TRUE_FALSE,
+	...Object.fromEntries(OFFERED_SETTINGS.filter((r) => !r.vocab && (r.values || r.complete)).map((r) => [r.key, [...((r.complete || r.values) as readonly string[])]])),
+	size: Object.keys(sizes.SIZES),
 };
 
 /**
  * The key → value-list map the editor completes against: every fixed-vocabulary register,
- * from the lint vocab where the engine publishes one and from STATIC_VALUES otherwise.
+ * from the lint vocab where the engine publishes one and from the table otherwise.
  * Exported so the Editor builds it once per vocab and a test can assert coverage.
  */
 export function registerValueLists(vocab: Record<string, unknown> | null | undefined): Record<string, string[]> {
@@ -140,6 +107,24 @@ function inFrontMatter(doc: string, pos: number): boolean {
 	const close = doc.search(/\r?\n---[ \t]*(?:\r?\n|$)/);
 	if (close === -1) return pos > 3; // open but unclosed: treat the rest as FM
 	return pos <= close;
+}
+
+/** What a hover over a front-matter KEY shows: the row's description, its values and its default. */
+export type FrontMatterHover = { key: string; from: number; to: number; info: string; values: string[] | null; default: string };
+
+/**
+ * The front-matter key under `pos`, or null. Top-level keys only (column 0), inside the leading
+ * `---` block, and only over the key itself, not its value: the value already has completion, and
+ * an unknown key gets the linter's own tooltip instead. Pure, so it is unit-tested without a view.
+ * `lineFrom` is the document offset of the line's first character.
+ */
+export function frontMatterKeyAt(doc: string, lineText: string, lineFrom: number, pos: number, registers: Record<string, string[]> = {}): FrontMatterHover | null {
+	if (!inFrontMatter(doc, pos)) return null;
+	const m = /^([A-Za-z_][\w-]*)[ \t]*:/.exec(lineText);
+	if (!m || pos < lineFrom || pos > lineFrom + m[1].length) return null;
+	const row = OFFERED_SETTINGS.find((r) => r.key === m[1]);
+	if (!row) return null;
+	return { key: row.key, from: lineFrom, to: lineFrom + m[1].length, info: row.info, values: registers[row.key] ?? (row.key === 'pace' ? [...PACE_NAMES] : row.values ? [...row.values] : null), default: row.default };
 }
 
 /** A Library photo the editor can offer: the part of a record completion needs, no bytes. */

@@ -9,7 +9,7 @@ import { EditorState } from '@codemirror/state';
 import { describe, expect, it } from 'vitest';
 // The engine's lint vocabulary (CommonJS) — the value lists the editor completes against.
 import { buildVocab } from '../../../../lib/authoring/lint.js';
-import { altFromAssetName, FRONT_MATTER_KEYS, inCollageSlide, inlineCodeCompletion, makeAssetCompletion, makeStudioCompletion, registerValueLists, VOCAB_VALUE_FIELDS } from './editor-complete';
+import { altFromAssetName, FRONT_MATTER_KEYS, frontMatterKeyAt, inCollageSlide, inlineCodeCompletion, makeAssetCompletion, makeStudioCompletion, registerValueLists, VOCAB_VALUE_FIELDS } from './editor-complete';
 
 const COMPS = [
 	{ name: 'kpi', bucket: 'inventory', description: 'Key metrics' },
@@ -428,7 +428,8 @@ describe('front-matter registers — keys and values', () => {
 	it('every register value list in the lint vocab is wired for completion', () => {
 		// `guardsNames` is the old spelling of `fit:` — lint still reads it to name the new key
 		// (`guards-renamed`), and the editor offers `fit:` instead of it.
-		const HANDLED_ELSEWHERE = new Set(['finishNames', 'paceNames', 'guardsNames']);
+		// finish, pace and theme complete from their own sources (built-in + saved finishes, the pace catalog, built-in + saved palettes).
+		const HANDLED_ELSEWHERE = new Set(['finishNames', 'paceNames', 'guardsNames', 'themeNames']);
 		const wired = new Set(Object.values(VOCAB_VALUE_FIELDS));
 		const unwired = Object.keys(vocab).filter((f) => f.endsWith('Names') && !wired.has(f) && !HANDLED_ELSEWHERE.has(f));
 		expect(unwired, 'add these to VOCAB_VALUE_FIELDS (or HANDLED_ELSEWHERE with a reason)').toEqual([]);
@@ -645,5 +646,29 @@ describe('altFromAssetName / inCollageSlide', () => {
 		const at = (n: number) => inCollageSlide((i) => lines[i - 1], n);
 		expect(at(6)).toBe(true);
 		expect(at(8)).toBe(false);
+	});
+});
+
+describe('frontMatterKeyAt — the hover over a front-matter key', () => {
+	const doc = '---\nfinish: halo\nplugins: [icons]\nicon: bare\n  lexicon: x\n---\n\n## A\n';
+	const at = (lineNo: number, col: number) => {
+		const lines = doc.split('\n');
+		const from = lines.slice(0, lineNo - 1).reduce((n, l) => n + l.length + 1, 0);
+		return frontMatterKeyAt(doc, lines[lineNo - 1], from, from + col, { finish: ['none', 'halo'] });
+	};
+	it('describes a key from the engine table, with its values and default', () => {
+		const h = at(2, 2);
+		expect(h?.key).toBe('finish');
+		expect(h?.values).toEqual(['none', 'halo']);
+		expect(h?.default).toBe('none');
+	});
+	it('knows the keys the old hand list missed: plugins, and a plugin register', () => {
+		expect(at(3, 1)?.key).toBe('plugins');
+		expect(at(4, 1)?.values).toEqual(expect.arrayContaining(['framed', 'bare', 'pigment']));
+	});
+	it('is silent over the value, an indented line, and the body', () => {
+		expect(at(2, 10)).toBeNull();
+		expect(at(5, 3)).toBeNull();
+		expect(at(8, 1)).toBeNull();
 	});
 });

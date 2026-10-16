@@ -1,0 +1,1 @@
+{ "key": "zzlintless", "row": { "key": "zzlintless", "kind": "text", "group": "look", "default": "none", "info": "A row the linter has never heard of." }, "readers": ["lib/core/resolve-zz.js"] }
