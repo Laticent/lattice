@@ -302,6 +302,44 @@ with the GitHub URL. WebView2 runs the same injected script, so Windows had the 
 The other failure was the script's: Print deck suggests `Markdown-for-the-boardroom.pdf` and the
 check looked only for `print-deck.pdf`.
 
+## The Windows runner (2026-10-16)
+
+The owner chose a one-off GitHub `windows-latest` runner over a second hand run on Windows.
+A temporary branch (`claude/lattice-studio-desktop-app-65ie80-wincheck`, deleted once #2354
+lands) installed the real NSIS installer from the PR's own desktop build (`2d60a4c`) with `/S`
+on Windows Server 2025 (10.0.26100) and WebView2 154, then drove the app with real OS input:
+`SendKeys` for every shortcut, `mouse_event` for clicks and right-clicks, and UI Automation only
+to find a control by its accessible name. Each check took a full-screen screenshot and, where one
+existed, a machine check: the window list, the process list, the file on disk.
+
+WebView2's debugging port was not available. wry sets its own browser arguments, and neither
+`WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` nor the per-app `AdditionalBrowserArguments` policy
+added `--remote-debugging-port` to the process. So the run drives the app the way a person does,
+not the way a test framework does.
+
+**All 15 app checks passed** (14 in one run on the fixed build, and Continue on GitHub in the next,
+after a harness fix): typing reaches the page; Ctrl+F opens the Studio's find bar from the editor,
+from outside it and in Compose, with no Edge find bar; F5 and Ctrl+R leave an open sheet open;
+F12, Ctrl+Shift+I and Ctrl+Shift+J open no developer tools; Ctrl+P opens Print deck; Alt+Left
+stays in the Studio; right-click shows no browser menu on the preview and only the editing
+items in the editor; Continue on GitHub opens Edge on `issues/new` while the app stays on the
+Studio; Connect OpenRouter opens a `Sign in - Lattice Studio` window and closing it resets the
+button; Share > Markdown opens the Windows Save As dialog with the deck's name and writes the
+12,285-byte deck, and Cancel writes nothing and shows no error; Print at 4-up opens the print
+dialog on 2 sheets with no new window and no file.
+
+**One real defect, in the Studio rather than the shell.** Ctrl+P after any earlier Share opened
+the sheet on the format list. The kept sheet resets its view on every open, and the view and the
+marker of the open it was reset for were two states: the reopen kept the marker and lost the
+view. Reproduced in Chromium at 1024 wide (the runner's screen; at 1440 the same steps passed with
+the bug in place), fixed by making them one state, and pinned by an e2e that fails without the fix.
+
+**One limit found, older than this PR.** Print deck to a printer comes out on Letter with the
+browser's headers and footers (date, window title, `tauri.localhost/studio/`). Edge and Chrome on
+the same runner print a plain page with `@page{size:5in 3in;margin:0}` the same way, top-level or
+in an iframe, so this is Chromium printing to a system printer, on the web too. Logged as
+`followups.d/2354-p5-print-to-a-printer-ignores-page-css.md`.
+
 ## Corrections to the May note
 
 - **"Tauri's WebView is Chromium."** That holds only on Windows (WebView2). macOS uses
