@@ -465,6 +465,53 @@ build turns it into the plugins' styles and owes these fixes, each seen in the r
 Each plugin's demo deck (HARD RULE #9) shows every frame and finish on a real photograph, in light and dark, and the
 QUALITY BAR's visual review runs on it before merge.
 
+### 4.10 Narration, the Guide and its captions (added 2026-10-16)
+
+The Studio Guide narrates a deck (speech), points at what it says (gestures), shows the narration as subtitles
+(captions), and exports the whole as an MP4. Media must fit all four. What exists today, read from the source on
+2026-10-16:
+
+- **Narration speaks text only.** The page-structure projection (`projectDeckToScript`,
+  `lib/transformers/prose-projection.mjs:1943`) treats image, video and collage as media components: it speaks the
+  heading, the prose and the `<figcaption>`, and skips the visual (`speakGeneric`, `:1617`). It never speaks alt text
+  (`collage` alone reads each photo's alt, `speakCollage`, `:1589`), never a QR payload, a video URL or a provider label.
+- **The Guide points at text, and at a whole figure only for one gesture.** Gestures resolve against the component's
+  `gesture` units (`lib/core/scene-resolve.mjs:96`, the `media` archetype in `lib/core/gesture.js`); a figure is a target
+  only for the `expressive` delivery's frame bracket (`lib/core/delivery-styles/expressive.mjs:51`). The live cursor
+  treats images and wordless SVGs as obstacles, and focus falls back to ink on `img`, `video` and `figure`
+  (`docs/src/components/studio/present-guide.ts:2624`).
+- **"Captions" already means the narration's subtitles**: the CC band, the MP4's timed-text track and the `.vtt` file
+  (`lib/export/tx3g.mjs`, `lib/export/video.mjs`), an export setting rather than a register. Since
+  `2026-09-28-say-not-caption.md`, *caption* means only visible text, which is what `caption=` means here. A clip's own
+  subtitle track is `subtitles` (§4.7), so the three never share a word.
+- **Nothing narrated plays a clip.** Narrated autoplay ends a slide's last cue and calls the transport's `next`
+  (`lib/export/player-core.mjs:2405-2426`); video export captures that on a virtual clock that must match the Lattice
+  timing track to the millisecond (`video.mjs:12-15`). The transport has no step inside a slide yet
+  (`lib/core/present-transport.mjs:375`), so §4.8's "the next advance plays the clip" is its first.
+
+**What the plugins do, proposed (owner decisions 13–15, §8):**
+
+- **Speech.** A media record's `caption` is spoken, as a figcaption is today; `alt` is never spoken by the narrator,
+  because it describes the picture for someone who cannot see it, and the room can. A QR code speaks its caption and
+  never its payload: a URL read aloud is noise.
+- **Gestures.** The plugin marks its figure as the component's figure unit, so the frame bracket lands on the outer edge
+  of the frame (`mat`, `keyline`, …), not on the photo inside it. While a clip plays, the Guide draws nothing over it.
+- **Captions.** While a clip plays, the narration's caption band is hidden, so it never covers the clip's own subtitles.
+- **A clip on a narrated slide.** The narration speaks the slide first, then the clip plays, then the deck advances: the
+  same order a presenter follows by hand. A Library or file clip knows its length (`durationMs`,
+  `2026-10-12-library-media-assets.md`), so the timing track records it and the MP4 export can include the clip with its
+  sound. A host's clip (YouTube, Vimeo, …) has no length Lattice can know before it plays and cannot be captured into an
+  MP4, so in narrated playback and in the MP4 it holds on its poster for a short beat, with its "Watch on" link and
+  any QR code the layout gives it.
+- **The step inside a slide** ("the next advance plays the clip") is added to the shared transport kernel, so the
+  keyboard, a clicker, the wheel, touch and narrated autoplay all take it the same way (input verb parity,
+  `2026-08-10-input-verb-parity.md`).
+
+**Found on the way, not yet confirmed:** a probe on hand-written markup suggests the `wifi` card's fields are silent in
+narration, because its `<dl>` wraps each pair in a `div.qr-row` (`wifi.transform.js:74`) and the projection reads only
+a `<dl>`'s direct `<dt>` children (`prose-projection.mjs:1636`). Logged as
+`followups.d/2727-p3-wifi-card-silent-in-narration.md`, to be confirmed on a real render first.
+
 ## 5. Why records, not Marp keywords
 
 Marp hides options in the alt text (`![bg left:40% blur](x)`), so the alt text a screen reader needs is
@@ -553,11 +600,16 @@ Slices 2 and 3 rebase onto #2725 once it lands, because they delete rows from it
 11. **A clip fills the stage when it plays, by default** (§4.8). `fullscreen=false` opts out.
 12. **`sm` / `md` / `lg` size images, video players and QR codes** (§4.7), `md` by default: a small relative step,
     clamped so `lg` never overflows its box and `sm` never drops below a legible floor.
+13. *(proposed)* **Narration speaks a media record's caption, never its alt or a QR payload** (§4.10).
+14. *(proposed)* **On a narrated slide a clip plays after the narration**; a Library or file clip is timed and goes into
+    the MP4 with its sound, a host's clip holds on its poster (§4.10).
+15. *(proposed)* **The narration's caption band hides while a clip plays**, and the Guide draws nothing over it (§4.10).
 
 ## 9. Progress
 
 - 2026-10-16: audit and proposal written; D1 confirmed by render and logged. Owner settled decisions 2-4;
   decision 1 (packaging) is on hold.
+- 2026-10-16: §4.10 added: narration, the Guide and its captions; decisions 13–15 proposed.
 - 2026-10-16: author-facing names follow the presentation tools (owner: authors, not web developers). `caption` is the
   text field; `alt` is optional and filled by Lattice when missing; the hover `title` and the QR `ec` word are dropped.
 - 2026-10-16: a pass-through for host player settings rejected (§6); `subtitles` recorded as a proposed word (§4.7; first
