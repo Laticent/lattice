@@ -1,12 +1,12 @@
 ---
-status: proposed
+status: in-progress
 summary: Audit of the exported HTML player as a candidate standalone library. The player already does more than most HTML-export tools (hash-pinned CSP, a CSS prune checked against computed styles, a no-JavaScript floor, axe-clean landmarks, a re-openable source envelope), but its input is the Lattice engine's own DOM and about 20 Lattice modules. Measured on the 120-slide gallery: 2.74 MB, of which about 21% is repeated asset bytes, and two runs differ in one timestamp. Proposes splitting it into a generic packer (one safe, deterministic, readable file from any HTML document) and a slide player on top, with Lattice as the first producer, a conformance kind that proves both, and four owner forks.
 ---
 
 # The player as a library: audit and proposal (2026-10-16)
 
-**Status: proposed.** The owner ruled three of the four forks on 2026-10-16 (§7) and asked
-for the player fork to be explained before ruling on it (§6a). Phase 0 (§8) is underway.
+**Status: in progress.** The owner ruled every fork on 2026-10-16 (§7). Phase 0 (§8) ships in
+#2728; the assembler's first step is host parity.
 
 ## 1. The answer first
 
@@ -370,8 +370,10 @@ list of Lattice assumptions still left.
 
 ## 7. Forks for the owner, and the 2026-10-16 rulings
 
-1. **Split.** *Ruled: the packer, for sure.* The player is held; the trio's verdict on it
-   is §10. The owner wants to
+1. **Split.** *Ruled: the packer, for sure.* The generic player is dropped. After the trio
+   (§10), the owner ruled the shape: an **assembler and connectors, as a fenced module inside
+   this repo, unpublished**. Lattice's player stays here as Lattice's connector, and **host
+   parity comes first** (`followups.d/2728-p1-player-host-parity.md`). The owner wants to
    understand what a generic player means and where else it would be used before ruling;
    §6a is that explanation, and its "cheap way to find out" is the proposed next step.
 2. **Input contract.** *Open.* The owner's instinct was "neutral HTML". §6a makes that
