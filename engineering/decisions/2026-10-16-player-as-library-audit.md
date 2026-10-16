@@ -838,6 +838,62 @@ Not fixed: the ratio itself. `left:40%` still renders a full-bleed background ra
 layout's panel; reading Marp's split ratios is a feature of its own (a followup). P6 makes the lint
 say so.
 
+### 11.8 The Studio's player shipped the authoring overflow marker to its reader
+
+**Found while measuring §11.9**, and older than this work: the `main` export of
+`examples/html-player.md` already carried it. Every player the Studio made stamped
+`data-lattice-overflow-marker="author"` on every slide and kept the type-floor `illegible-tab` node.
+On a deck with a clipped slide, the reader of the shared file saw the red ring, an "OVERFLOWS" tag
+and a yellow "Fix Me" chip. The CLI's player of the same deck shows the calm "Content clipped" pill.
+`lib/core/resolve-overflow-marker.js` states the contract this broke: "nothing a READER receives has
+it".
+
+**Cause.** The Webpage export bakes its slides in the Studio's capture frame, which runs the
+runtime. The runtime tells an export from an authoring surface by the export-settings block
+(`lib/core/export-settings.js`). The frame carried none, so the runtime drew the authoring signal.
+The CLI never had the problem: it bakes at its resolved level and then runs a strip in
+`page.evaluate`, a strip the Studio had no copy of.
+
+**Fixed, one mechanism per host and one function for both.** `buildSrcdoc` takes `exportSettings`
+and writes the standard block into the frame's head, so the runtime draws the export's level. The
+Webpage bake passes the workspace's `overflowMarker` setting through `resolveExportOverflowMarker`,
+the resolver the CLI and the Marp bundle use, so a stored `off` or a junk value falls back to
+`reader` instead of silencing every clip (`loadSettings()` does not validate it). The strip moved out
+of lattice.js into `stripMarkerForLevel` in the kernel, which the CLI hands to `page.evaluate` and the
+Studio calls on its frame. `resolveExportOverflowMarker` moved into the same kernel, re-exported from
+`marp-bundle.js`, because that kernel requires nothing and the docs dev server's CommonJS shim serves
+only such a file. The independent checker caught the first cut importing `export-settings.js` and a
+named export from CommonJS: both break `npm run dev` and neither shows in a production build. The
+modules now load on the dev server. A full export there stays blocked by followup `2710-p5`, which
+predates this work. The CLI's player bytes are unchanged on the overflow repro and on
+`examples/html-player.md`. `test/unit/core/resolve-overflow-marker.test.js` pins the strip per level,
+and `docs/e2e/webpage-export.spec.ts` drives the real Share → Webpage flow and asserts the reader
+marker, the visible pill and no "Fix Me" chip.
+
+Not changed: the Studio's PDF, PNG and PowerPoint exports rasterize through the same frame without
+a level, as before. Whether they show the authoring marker is a separate question; it is a followup,
+not part of this player fix.
+
+### 11.9 What still separates the two hosts' files
+
+§11.1 put the packer at parity and asserts it. From markdown to file, the same deck still gives two
+different files, and the owner's acceptance test (same deck, same epoch, same SHA) holds only at the
+seam. Measured on `examples/html-player.md` at epoch 0, the CLI's player against the Studio's real
+Share → Webpage export:
+
+| Part of the file | Same? | What differs |
+|---|---|---|
+| Player script (33,453 bytes) | yes | `ad0b78e8…` from both |
+| Player stylesheet (21,111 bytes) | yes | |
+| Embedded fonts | no | The Studio vendors its own woff2 copies (`docs/src/playground/fonts/`). Five carry different bytes from the canonical `assets/fonts/`: Caveat 700, Outfit 400 and 700, Shantell 400 and 700. So the hosts draw those weights from different files, and the prune keeps 9 faces from the CLI and 6 from the Studio |
+| Deck stylesheet | rules and order same | The Studio fetches `dist/lattice-min.css`; the CLI reads `dist/lattice.css`. Different minifiers: `.15625` against `0.15625`, quote style, `[data-cards=center]`. 2 rules apart (155 and 153) |
+| Dark/light stylesheet | 583 rules each, same order | the same minifier difference |
+| Slide markup | no | The Studio defines 6 more texture pattern sets (onyx, concrete); its bake serializes `style` through the browser and keeps the runtime's `--_sec-1cqi` stamps; and, before §11.8, the marker level |
+| Deck record | no | The Studio stamps `build: 'studio'` and `playerVersion: 'studio'`, and sends no `config` |
+
+Each row is a change to exported bytes in one host or both, and the font row also changes what the
+Studio's own preview draws. Followup `2739-p1` carries this table as its work list.
+
 ## 9. Stale claims found along the way
 
 - `player-core.mjs:3433` still calls font subsetting "the single biggest size lever

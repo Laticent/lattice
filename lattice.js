@@ -778,7 +778,7 @@ function stripSharedSource(src, noteBodies, boundary = undefined) {
   return out;
 }
 const {
-  OVERFLOW_MARKER_LEVELS, isKnownOverflowMarker,
+  OVERFLOW_MARKER_LEVELS, isKnownOverflowMarker, stripMarkerForLevel,
 } = require('./lib/core/resolve-overflow-marker');
 const { resolveExportOverflowMarker } = require('./lib/core/marp-bundle');
 const { exportSettingsBlock } = require('./lib/core/export-settings');
@@ -4061,26 +4061,12 @@ async function renderBody(browser, g, closeBrowser) {
   // what the artifact shows is the `overflow-marker` setting's job, resolved above.
   // (Tab visibility keys on `.clip-marked`, not on `.overflow` — a slide can cut content
   // without overflowing — so `off` has to clear THAT class or the pill survives the strip.)
+  // `off` clears the ring so the deliverable carries no marker at all — the stderr warning
+  // above is then the author's only channel, which is why `off` is never a standing default.
+  // Below `author` the type-floor alarm goes too. One function for this host and the
+  // Studio's Webpage export (lib/core/resolve-overflow-marker.js `stripMarkerForLevel`).
   const level = OVERFLOW_MARKER.marker;
-  await g(() => page.evaluate((lvl) => {
-    // `off` — the historical behavior of this path, now a CHOICE rather than the
-    // only option: clear the ring so the deliverable carries no marker at all. The
-    // stderr warning above is then the author's only channel, which is why `off` is
-    // never a standing default (lib/core/resolve-overflow-marker.js).
-    if (lvl === 'off') {
-      for (const s of document.querySelectorAll('section.overflow')) s.classList.remove('overflow');
-      for (const s of document.querySelectorAll('section.clip-marked')) s.classList.remove('clip-marked');
-      for (const t of document.querySelectorAll('.overflow-tab')) t.remove();
-    }
-    // The §8 rule 8 TYPE-FLOOR marker is AUTHOR-ONLY at every level below `author`:
-    // a reader cannot resize a figure, so an amber alarm reading "Text too small ·
-    // 3pt" is a QA diagnostic in front of a boardroom. The stderr warning is the
-    // author's channel for it.
-    if (lvl !== 'author') {
-      for (const s of document.querySelectorAll('section.illegible')) s.classList.remove('illegible');
-      for (const t of document.querySelectorAll('.illegible-tab')) t.remove();
-    }
-  }, level), 'apply overflow marker level');
+  await g(() => page.evaluate(stripMarkerForLevel, level), 'apply overflow marker level');
 
   // ── Rough ink — the sketch finish's drawn lines ──────────────────────────
   // Measure in the page → generate in Node → paint back in the page. Rough.js

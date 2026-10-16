@@ -36,6 +36,9 @@ import { captureStyleProperties } from '../../../../../lib/core/capture-style-pr
 import { cornerSurvivesExport } from '../../../../../lib/core/corner-export-capability.mjs';
 import { SVG_CHART_LAYOUTS } from '../../../../../lib/core/projection-catalog.generated.mjs';
 import remoteRef from '../../../../../lib/core/remote-ref.js';
+// A DEFAULT import, destructured below: a CommonJS leaf, served in dev by the shim that emits
+// only `export default` (docs/src/plugins/vite-cjs-lib-dev.mjs).
+import overflowMarkerCore from '../../../../../lib/core/resolve-overflow-marker.js';
 import { sanitizeStyleText } from '../../../../../lib/core/sanitize-style-text.mjs';
 import { PENDING_FIGURES, releaseFigure } from '../../../../../lib/plugins/host-browser.mjs';
 import { themeChain } from '../../../../../lib/theme/chain.mjs';
@@ -45,6 +48,8 @@ import { embedComponentsInMarkdown } from '../../../playground/layout-core.gener
 import { addPageStickyNotes } from '../../../playground/pdf-sticky-notes.js';
 import { downloadBlob } from '../download.js';
 import { collectSlideTextRuns } from './pdf-text-extract.js';
+
+const { resolveOverflowMarker, stripMarkerForLevel } = overflowMarkerCore;
 
 function safeName(name) {
 	return (name || 'deck').trim().replace(/[^\w.-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'deck';
@@ -432,7 +437,7 @@ function withTimeout(p, ms) {
 // — in the .pdf, the .pptx, the .png set and the shared player, all seven exports
 // below. Not a blank chart; a plausible wrong one, in bytes handed to someone
 // else.
-async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, dagreUrl, webOrigins }, { releaseDiagrams = true } = {}) {
+async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, dagreUrl, webOrigins, overflowMarker }, { releaseDiagrams = true } = {}) {
 	const gw = geom?.w || 1280;
 	const gh = geom?.h || 720;
 	const host = document.createElement('div');
@@ -462,6 +467,10 @@ async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, 
 			// actually carrying a drawn state chart, so a chart-less export fetches nothing.
 			...(dagreUrl ? { dagreUrl } : {}),
 			webOrigins: webOrigins || [],
+			// An EXPORT frame says so: with the block the runtime draws the export's marker level
+			// rather than the authoring one (buildSrcdoc `exportSettings`). Only the Webpage bake
+			// passes a level today; the rasterizers keep their behavior.
+			...(overflowMarker ? { exportSettings: { overflowMarker: resolveOverflowMarker(overflowMarker) } } : {}),
 			// `diagrams: false` — do NOT stamp `data-lattice-diagrams` here. Rule A hides an
 			// un-tagged mermaid fence, which is right for a frame a human watches and wrong for
 			// this one: nobody sees it, and rasterizeSection runs it through `html-to-image`,
@@ -739,6 +748,8 @@ export async function bakeDeckSections(render, { freezeTokens = false } = {}) {
 		// `share-export.ts` already turns that into "N figure(s) ship as source, not as
 		// drawings" for the author. A second channel would report the same fences twice.
 		await waitForDiagrams(doc, 12000);
+		// The level's strip, the same function the CLI runs before it takes its player DOM.
+		if (render.overflowMarker) stripMarkerForLevel(resolveOverflowMarker(render.overflowMarker), doc);
 		const sections = [...doc.querySelectorAll('.lattice > section')];
 		if (!sections.length) return null;
 		let diagrams = 0;

@@ -352,6 +352,21 @@ type PlayerCore = {
  * font faces the deck never uses (`player-prune-browser.ts`, P2b). Kept faces are
  * glyph-subset by the CLI's own subsetter, so the packer stages match the CLI's.
  */
+/**
+ * The overflow-marker level a Webpage export bakes at: the workspace's standing setting, resolved by
+ * `resolveExportOverflowMarker` (lib/core/resolve-overflow-marker.js), the one resolver the CLI's
+ * `--overflow-marker` and the Marp bundle also go through. `loadSettings()` does not validate the
+ * stored value, so the resolver is what keeps a stored `off` or a junk string from silencing the
+ * marker; it always answers a level, never nothing.
+ */
+async function webpageOverflowMarker(): Promise<OverflowMarker> {
+	const [{ loadSettings }, core] = await Promise.all([
+		import('./studio-store'),
+		import('../../../../lib/core/resolve-overflow-marker.js') as unknown as Promise<{ default: { resolveExportOverflowMarker: (o: { workspace?: unknown }) => { marker: OverflowMarker } } }>,
+	]);
+	return core.default.resolveExportOverflowMarker({ workspace: loadSettings().overflowMarker }).marker;
+}
+
 export async function shareHtmlPlayer(
 	options: SingleSlideOptions,
 	source: string,
@@ -544,6 +559,14 @@ export async function shareHtmlPlayer(
 			runtimeUrl: options.runtimeUrl,
 			fontCss,
 			...(options.dagreUrl ? { dagreUrl: options.dagreUrl } : {}),
+			// WHO a clipped slide's marker speaks to: the workspace's export setting (`reader` unless
+			// the author chose `author`), as the Marp bundle reads it and as the CLI's
+			// `--overflow-marker` defaults. Without it the frame took itself for an authoring
+			// surface, and every Webpage export shipped the red ring, "OVERFLOWS" and the "Fix Me"
+			// chips to its reader (decisions/2026-10-16-player-as-library-audit.md §11.8).
+			// Through the resolver the CLI and the Marp bundle use, so a stored `off` (never a valid
+			// standing default) or a junk value falls back to `reader` instead of silencing every clip.
+			overflowMarker: await webpageOverflowMarker(),
 		});
 		// Slide-count parity is the correctness gate: notes, narration cues and the
 		// manifest are all indexed by slide, so a bake that lost or gained a section
