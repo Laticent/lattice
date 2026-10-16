@@ -16,5 +16,5 @@ why now   — `![a](pic.jpg)` beside `deck/d.md` renders when the output is in `
 where     — `lattice.js:2178,2191` calls `engine.render` with `samplesUrl` but no `baseUrl`, and Chromium loads
             the page from the output path (`:3082,3397`), so the relative `src` resolves against the output folder.
 done when — the same deck renders its picture with `-o` in any folder, for PDF, PNG and HTML; a test pins it.
-evidence  — rendered 2026-10-16: `deck/d.md` → `out/d.001.png` shows the broken-image icon, while `deck/same.001.png` shows the picture.
+evidence  — rendered 2026-10-16: `deck/d.md` with `-o out/d.png` → `out/d.001.png` shows the broken-image icon, while `deck/same.001.png` shows the picture.
 verify    — render a deck with a relative prose image to an output in a different folder and look at the PNG.
