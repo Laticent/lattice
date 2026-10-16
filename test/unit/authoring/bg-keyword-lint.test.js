@@ -46,3 +46,13 @@ test('the lift reads the running class directive, and a slide\'s own _class over
 	assert.deepEqual(lifted, ['y', 'z'], 'image from the running directive on; its own _class off; a new running class off');
 	assert.match(out, /!\[bg\]\(x\.jpg\)/, 'before any image class, the engine draws it as the slide background');
 });
+
+// Found by the checker: a regex reading the class missed a quoted `_class: "image"` (the engine
+// strips the quotes) and took a directive written inside a code sample, which in the running form
+// switched every later slide to `image`. The lift reads the linter's scanner now.
+test('the lift reads a quoted class, and ignores a class directive inside a code sample', () => {
+	const md = '---\ntheme: x\n---\n\n<!-- _class: "image" -->\n\n![bg left](a.jpg)\n\n---\n\n```\n<!-- class: image -->\n```\n\n---\n\n![bg](b.jpg)\n';
+	const out = liftImageBgImages(md, 'file:///d/');
+	assert.match(out, /lattice-bg-left" style="background-image:url\('file:\/\/\/d\/a\.jpg'\)/, 'the quoted class is image');
+	assert.match(out, /!\[bg\]\(b\.jpg\)/, 'the fenced directive governs nothing, so the last slide stays a plain background');
+});

@@ -802,6 +802,13 @@ spec/diagnostics.md):
 - `bg-ratio-unread`: a ratio such as `![bg left:40%]` on an `image` slide. The lift does not read
   it, so the slide loses its panel; fix: write `![bg left]`.
 
+The checker found two defects in the first cut of the running-class reading, both now pinned by
+tests: a quoted `_class: "image"` was not read as `image` (the engine strips the quotes), and a
+class directive written inside a code fence was taken as real, which in the running form switched
+every later slide to `image`. The lift now walks lines outside code and unquotes the value. (It
+cannot reuse the linter's scanner: the playground build keeps the engine off the linter's boundary
+parser.)
+
 A plain `![bg]` is not flagged: it works. Both rules fire on the repros, stay silent on every
 committed deck (`lint:deck --all`: no new findings), and `test/unit/authoring/bg-keyword-lint.test.js`
 pins them and the running-class lift. Demo deck: `examples/bg-on-any-slide.md`.
