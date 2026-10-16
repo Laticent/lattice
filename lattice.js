@@ -3198,6 +3198,8 @@ const { guard, isTargetGone } = require('./lib/engine/render-guard');
 // `disconnected` race in ms; this only backstops a SILENT wedge. Override with
 // LATTICE_RENDER_WATCHDOG_MS for very large decks on slow hardware. See #502.
 const RENDER_WATCHDOG_MS = Number(process.env.LATTICE_RENDER_WATCHDOG_MS) || 90000;
+// Puppeteer's `protocolTimeout` (see renderExport). One hour: above any `guard` deadline.
+const PROTOCOL_TIMEOUT_MS = 3600000;
 // Snapshot the pre-split deck HTML so a hardened RETRY starts from a clean slate
 // (the autosplit loop below mutates cleanDocHtml + rewrites outHtml in place).
 const initialDocHtml = cleanDocHtml;
@@ -3215,6 +3217,12 @@ async function renderExport({ hardened }) {
       ...OFFLINE_ARGS,
     ],
     headless: 'new',
+    // Puppeteer's own per-call limit is 180 s, and it fires BEFORE `composePdfInPage`'s
+    // watchdog (slides x 4 s). A 151-slide deck that composes in 4 minutes then fails with
+    // "Runtime.callFunctionOn timed out" and prints with Chrome instead: Type 3 fonts, a
+    // different PDF, so a golden flipped by runner speed. Every call is bounded by `guard`
+    // above, so this ceiling only has to sit above the longest guard, never replace it.
+    protocolTimeout: PROTOCOL_TIMEOUT_MS,
   };
   if (CHROME_EXEC) launchOpts.executablePath = CHROME_EXEC;
   // Reset to the pre-split baseline so each attempt renders from clean HTML.
