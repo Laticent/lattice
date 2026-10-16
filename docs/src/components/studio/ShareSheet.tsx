@@ -50,20 +50,24 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 	// reset in the render that OPENS the sheet (or that changes `initialView` while it is open), so
 	// the kept sheet never shows the last view for a frame; the other options steps are dropped
 	// once the sheet has slid out, as they were when the sheet unmounted on close.
-	const [view, setView] = React.useState<'menu' | 'pdf' | 'pptx' | 'odp' | 'html' | 'print' | 'imageset' | 'marp' | 'lattice'>(initialView);
+	//
+	// The view and the open it was reset for are ONE state, so they commit together. As two, the
+	// reopen's render-phase reset could keep the marker and lose the view: Ctrl+P after any earlier
+	// Share opened the sheet on Print for one render, then on the format list (found driving the
+	// desktop app on Windows, reproduced in Chromium; e2e/print-every-layout.spec.ts).
+	type View = 'menu' | 'pdf' | 'pptx' | 'odp' | 'html' | 'print' | 'imageset' | 'marp' | 'lattice';
 	const shows = useShowCount(open);
-	const [seen, setSeen] = React.useState({ shows, initialView });
-	if (seen.shows !== shows || (open && seen.initialView !== initialView)) {
-		setSeen({ shows, initialView });
-		setView(initialView);
-	}
+	const [state, setState] = React.useState<{ view: View; shows: number; initialView: typeof initialView }>({ view: initialView, shows, initialView });
+	if (state.shows !== shows || (open && state.initialView !== initialView)) setState({ view: initialView, shows, initialView });
+	const view = state.shows !== shows || (open && state.initialView !== initialView) ? initialView : state.view;
+	const setView = React.useCallback((v: View) => setState((s) => ({ ...s, view: v })), []);
 	React.useEffect(() => {
 		if (open) return;
 		// The iOS Save toast belongs to the export it offers, so it goes when the sheet does —
 		// after the slide-out, not on the close itself: tapping the toast is what closes a modal
 		// sheet, and retiring it in that same instant would swallow the tap.
 		const t = window.setTimeout(() => {
-			setView('menu');
+			setState((s) => ({ ...s, view: 'menu' }));
 			dismissPendingSave();
 		}, SHEET_EXIT_MS + 100);
 		return () => window.clearTimeout(t);

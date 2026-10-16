@@ -64,3 +64,24 @@ test('Ctrl+P opens the Print deck panel, not a print of the Studio', async ({ pa
 	await page.keyboard.press('ControlOrMeta+f');
 	await expect(page.locator('.cm-studio-find, .cs-findbar')).toHaveCount(0);
 });
+
+// The sheet stays mounted once opened, so every later open resets its view. That reset once kept
+// its marker and lost the view: Ctrl+P after any earlier Share showed Print for a render, then the
+// format list (found on the Windows desktop runner, PR #2354). At 1024 wide, as that runner's
+// screen: at 1440 the same steps passed with the bug in place.
+test('Ctrl+P opens the Print deck panel after the Share sheet was opened and closed', async ({ page }) => {
+	await page.setViewportSize({ width: 1024, height: 700 });
+	await gotoStudio(page);
+	await page.getByRole('button', { name: 'Share', exact: true }).first().click();
+	await expect(page.getByRole('dialog')).toBeVisible();
+	await page.keyboard.press('Escape');
+	await expect(page.getByRole('dialog')).toHaveCount(0);
+	await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+	await page.keyboard.press('ControlOrMeta+p');
+	const dialog = page.getByRole('dialog');
+	await expect(dialog.getByRole('button', { name: 'Print', exact: true })).toBeVisible();
+	// Held, not a flash: the view used to flip back to the list a moment after opening.
+	await page.waitForTimeout(1000);
+	await expect(dialog.getByRole('button', { name: 'Print', exact: true })).toBeVisible();
+	await expect(dialog.getByText('Collaborate live')).toHaveCount(0);
+});
