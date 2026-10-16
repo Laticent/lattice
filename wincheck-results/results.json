@@ -32,8 +32,8 @@
     {
         "id":  "1.4",
         "name":  "Real Ctrl+P opens the Print deck panel",
-        "pass":  false,
-        "detail":  "not found: the Print deck panel\u0027s Print button"
+        "pass":  true,
+        "detail":  "Print deck panel open (screenshot 06: no Edge print preview)"
     },
     {
         "id":  "1.5",
@@ -68,25 +68,25 @@
     {
         "id":  "5.1",
         "name":  "Share \u003e Markdown: the Windows Save dialog writes the file; Cancel writes nothing",
-        "pass":  false,
-        "detail":  "no Save As dialog; windows:\nlattice-studio | #32770 | Save As\nlattice-studio | Tauri Window | Lattice Studio\nWindowsTerminal | CASCADIA_HOSTING_WINDOW_CLASS | C:\\ProgramData\\GitHub\\HostedComputeAgent\\hosted-compute-agent\nexplorer | Progman | Program Manager"
+        "pass":  true,
+        "detail":  "12285 bytes saved; cancel wrote nothing and said nothing"
     },
     {
         "id":  "6.1",
         "name":  "Real Ctrl+F in Compose opens the Studio find bar",
-        "pass":  false,
-        "detail":  "not found: Compose toggle"
+        "pass":  true,
+        "detail":  "Compose find field present"
     },
     {
         "id":  "7.1",
         "name":  "Print at 4-up reaches a print dialog (no file, no new window)",
-        "pass":  false,
-        "detail":  "not found: 4-up option"
+        "pass":  true,
+        "detail":  "windows after Print:\nlattice-studio | Tauri Window | Lattice Studio\nWindowsTerminal | CASCADIA_HOSTING_WINDOW_CLASS | C:\\ProgramData\\GitHub\\HostedComputeAgent\\hosted-compute-agent\nSystemPropertiesPerformance | #32770 | System Properties\nexplorer | Progman | Program Manager"
     },
     {
         "id":  "9.9",
         "name":  "Window list at the end",
         "pass":  true,
-        "detail":  "lattice-studio | Tauri Window | Lattice Studio\nWindowsTerminal | CASCADIA_HOSTING_WINDOW_CLASS | C:\\ProgramData\\GitHub\\HostedComputeAgent\\hosted-compute-agent\nexplorer | Progman | Program Manager"
+        "detail":  "lattice-studio | Tauri Window | Lattice Studio\nWindowsTerminal | CASCADIA_HOSTING_WINDOW_CLASS | C:\\ProgramData\\GitHub\\HostedComputeAgent\\hosted-compute-agent\nSystemPropertiesPerformance | #32770 | System Properties\nexplorer | Progman | Program Manager"
     }
 ]

@@ -1,47 +1,15 @@
 Win.dll: True; focus test: 3 visible windows
-installer: D:\a\lattice\lattice\installer\Lattice Studio_0.1.0_x64-setup.exe sha256=9F6B6194E3EB90E2BA90744986974E4A63F0C2B68DCD9C7CE350F88D6465F24F
+installer: D:\a\lattice\lattice\installer\Lattice Studio_0.1.0_x64-setup.exe sha256=413AE5732949A839001C6898FEF9DFAC82C5563F0EDA0622753B94899585F97A
 installed: C:\Users\runneradmin\AppData\Local\Lattice Studio\lattice-studio.exe
 WebView2 runtime: 154.0.4258.62; Windows: Microsoft Windows Server 2025 Datacenter 10.0.26100
 default browser: MSEdgeHTM
-policy set: --remote-debugging-port=9222
-CDP up: False
 --- processes
-2444 lattice-studio.exe :: "C:\Users\runneradmin\AppData\Local\Lattice Studio\lattice-studio.exe" 
-8076 msedgewebview2.exe :: "C:\Program Files (x86)\Microsoft\EdgeWebView\Application\154.0.4258.62\msedgewebview2.exe" --embedded-browser-webview=1 --webview-exe-name=lattice-studio.exe --webview-exe-version=0.1.0 --user-data-dir="C:\Users\runneradmin\AppData\Local\com.laticent.studio\EBWebView" --noerrdialogs --embedded-browser-webview-dpi-awareness=2 --autoplay-policy=no-user-gesture-required --disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --lang=en-US --mojo-named-platform-channel-pipe=2444.6104.12088180510386781882 /pfhostedapp:3b38e0b0738ca3d242d01a73a57f744c5be50cb0
+6544 lattice-studio.exe :: "C:\Users\runneradmin\AppData\Local\Lattice Studio\lattice-studio.exe" 
+5500 msedgewebview2.exe :: "C:\Program Files (x86)\Microsoft\EdgeWebView\Application\154.0.4258.62\msedgewebview2.exe" --embedded-browser-webview=1 --webview-exe-name=lattice-studio.exe --webview-exe-version=0.1.0 --user-data-dir="C:\Users\runneradmin\AppData\Local\com.laticent.studio\EBWebView" --noerrdialogs --embedded-browser-webview-dpi-awareness=2 --autoplay-policy=no-user-gesture-required --disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --lang=en-US --mojo-named-platform-channel-pipe=6544.9528.1630861058065163158 /pfhostedapp:3b38e0b0738ca3d242d01a73a57f744c5be50cb0
 --- windows
 lattice-studio | Tauri Window | Lattice Studio
 WindowsTerminal | CASCADIA_HOSTING_WINDOW_CLASS | C:\ProgramData\GitHub\HostedComputeAgent\hosted-compute-agent
 SystemPropertiesPerformance | #32770 | System Properties
-explorer | Progman | Program Manager
-screenshot written: True
-json/version: No connection could be made because the target machine actively refused it. (127.0.0.1:9222)
---- netstat 9222: 
-done
-Win.dll: True; focus test: 2 visible windows
-installer: D:\a\lattice\lattice\installer\Lattice Studio_0.1.0_x64-setup.exe sha256=9F6B6194E3EB90E2BA90744986974E4A63F0C2B68DCD9C7CE350F88D6465F24F
-installed: C:\Users\runneradmin\AppData\Local\Lattice Studio\lattice-studio.exe
-WebView2 runtime: 154.0.4258.62; Windows: Microsoft Windows Server 2025 Datacenter 10.0.26100
-default browser: MSEdgeHTM
---- processes
-8024 lattice-studio.exe :: "C:\Users\runneradmin\AppData\Local\Lattice Studio\lattice-studio.exe" 
-1976 msedgewebview2.exe :: "C:\Program Files (x86)\Microsoft\EdgeWebView\Application\154.0.4258.62\msedgewebview2.exe" --embedded-browser-webview=1 --webview-exe-name=lattice-studio.exe --webview-exe-version=0.1.0 --user-data-dir="C:\Users\runneradmin\AppData\Local\com.laticent.studio\EBWebView" --noerrdialogs --embedded-browser-webview-dpi-awareness=2 --autoplay-policy=no-user-gesture-required --disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --lang=en-US --mojo-named-platform-channel-pipe=8024.4072.5175866681540035463 /pfhostedapp:3b38e0b0738ca3d242d01a73a57f744c5be50cb0
---- windows
-lattice-studio | Tauri Window | Lattice Studio
-WindowsTerminal | CASCADIA_HOSTING_WINDOW_CLASS | C:\ProgramData\GitHub\HostedComputeAgent\hosted-compute-agent
-explorer | Progman | Program Manager
-screenshot written: True
-done
-Win.dll: True; focus test: 2 visible windows
-installer: D:\a\lattice\lattice\installer\Lattice Studio_0.1.0_x64-setup.exe sha256=9F6B6194E3EB90E2BA90744986974E4A63F0C2B68DCD9C7CE350F88D6465F24F
-installed: C:\Users\runneradmin\AppData\Local\Lattice Studio\lattice-studio.exe
-WebView2 runtime: 154.0.4258.62; Windows: Microsoft Windows Server 2025 Datacenter 10.0.26100
-default browser: MSEdgeHTM
---- processes
-10232 lattice-studio.exe :: "C:\Users\runneradmin\AppData\Local\Lattice Studio\lattice-studio.exe" 
-8256 msedgewebview2.exe :: "C:\Program Files (x86)\Microsoft\EdgeWebView\Application\154.0.4258.62\msedgewebview2.exe" --embedded-browser-webview=1 --webview-exe-name=lattice-studio.exe --webview-exe-version=0.1.0 --user-data-dir="C:\Users\runneradmin\AppData\Local\com.laticent.studio\EBWebView" --noerrdialogs --embedded-browser-webview-dpi-awareness=2 --autoplay-policy=no-user-gesture-required --disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --lang=en-US --mojo-named-platform-channel-pipe=10232.8220.7459128372415855299 /pfhostedapp:3b38e0b0738ca3d242d01a73a57f744c5be50cb0
---- windows
-lattice-studio | Tauri Window | Lattice Studio
-WindowsTerminal | CASCADIA_HOSTING_WINDOW_CLASS | C:\ProgramData\GitHub\HostedComputeAgent\hosted-compute-agent
 explorer | Progman | Program Manager
 screenshot written: True
 done
