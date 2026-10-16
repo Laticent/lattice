@@ -546,13 +546,26 @@ The **inline-span tier** times the decision every inline-code span pays in
 span, which no whole-deck render can resolve. It runs the 5,314 spans frozen in
 `test/benchmark/fixtures/inline-spans.json`, split into the ones the shipped path reads as
 directives (avatars, sparks, pills, which carry two thirds of the time) and ordinary code (a
-cheap guard rejects those). Ordinary code was 5.7x the retired kernel until followup 2718-p3 found
-where: 175 of its 4,946 spans are brace records that are not pills (`{2, 82}`, `{who=sales}`), and
-each paid the generated parser plus a full Segno bind that worded a diagnostic nobody read. A
-first-character table in front of the row loop, Segno's `refuses`, and a parser generated from the
-notation restricted to plain records (`restrict`, `plainRecordSpec`) took the row from 6.71 to
-2.85-3.09 on one machine (directives 44.9 to 35.6-38.2), and on a GitHub runner from 5.98 to 2.41
-(docs/src/lib/segno/README.md § How a record binds fast). Each row is timed in 2,000 short slices that alternate with the
+cheap guard rejects those). Followup 2718-p3 found where
+ordinary code's time went: 175 of its 4,946 spans are brace records that are not pills (`{2, 82}`,
+`{who=sales}`), and each paid the full parser plus a Segno bind that worded a diagnostic nobody read.
+A first-character table in front of the row loop, Segno's `tryRead`, and a parser generated from the
+notation restricted to plain records (`restrict`, `plainRecordSpec`) changed the row as follows
+(docs/src/lib/segno/README.md § How a record binds fast):
+
+| where | before | after |
+|---|---|---|
+| one sandbox, `bench:check` | 6.71 | 2.79-2.87 |
+| GitHub runner, three nightly dispatches | 5.49-5.96 (base) | 2.79-2.90 (head), so −48% to −53% |
+
+**Read those numbers for what they are.** The ratio is against the retired kernel, which does less
+work (it drew no sparks, icons or avatars), so it is a regression alarm, not a measure of
+efficiency. Most of this gain comes from the 175 non-pill brace records in the fixture: a deck with
+none gains only the first-character table's few nanoseconds a span. On the runner, the base's own
+spread (5.49-5.96 for unchanged code) is as wide as the distance to "half", so "about half" is the
+claim the data supports, not "past half". A hand-written scanner in place of the generated parser
+measured faster (2.70-2.75 here, 2.41-2.52 on the runner). The owner chose the generated one, so
+that nothing restates the grammar by hand. Each row is timed in 2,000 short slices that alternate with the
 retired kernel (`tools/parser-bakeoff/reference.mjs`) on the same spans, and it gates on the
 median of the per-slice ratios: absolute ns move ±11% between processes on one machine, and the
 ratio holds within a few percent. The ratio gates at the render tier's 12% floor whenever the

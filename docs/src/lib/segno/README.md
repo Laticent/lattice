@@ -49,7 +49,7 @@ This is 0.x: a minor version may break the API. Within that, two halves move at 
   inline notation, `readNumber` / `readTime`, and `SchemaError`. Lattice reads every deck through
   these.
 - **Experimental:** the grammar engine (`compile`, the combinators, `lint`, `generate`,
-  `restrict`, `kindsOf`), a record slot's `refuses`, and the notation's own grammar
+  `restrict`, `kindsOf`), a record slot's `tryRead`, and the notation's own grammar
   (`notationSpec`, `plainRecordSpec`, `TAGS`). Their names and shapes may change in any minor
   version. The notation itself is specified in LFM 1.1 §3.6
   ([`spec/LFM-1.1.md`](https://github.com/Laticent/lattice/blob/main/spec/LFM-1.1.md)), which wins
@@ -491,13 +491,14 @@ missing required value, a tag, a sigil, a sub-slot. So an error reads as it alwa
 built from a pool that reaches each of those branches.
 
 When the walk stops on a word it has READ (an unknown name, a word nothing takes, a value its type
-refuses, a repeat, a missing positional), the span is certain to fail: the full bind never recovers
-from one bad item. `slot.refuses(text)` returns that answer, true or false, without the full bind,
-so a caller that only needs to know whether a span binds skips the cost of the message. False
-means the span binds or the walk could not tell, so the caller still calls `read`. Lattice asks it
-of every brace span in inline code before reading it as a pill: most of those are someone else's
-braces (`{2, 82}`, a chart point), and the full bind of a refusal cost 1.8 µs. `refuses` is
-experimental, like the grammar engine.
+refuses, a repeat, a missing positional), or the span does not parse at all, the span is certain to
+fail: the full bind never recovers from one bad item. `read` still takes the full path then, to word
+the error. `slot.tryRead(text)` is `read` for a caller that needs only the value: the same success,
+or null, and on a refusal the walk is certain of it stops there and words nothing. One call, no
+state kept between calls. Lattice's pill check uses it on every brace span in inline code: most of
+those are someone else's braces (`{2, 82}`, a chart point), and wording each refusal cost 1.8 µs.
+`schema.test.ts` holds `tryRead` equal to `read`'s success, or null exactly where `read` fails, on
+every span of its pool. `tryRead` is experimental, like the grammar engine.
 
 Plain records also take a smaller parser, and nobody wrote it by hand. `restrict()` (in
 `grammar.ts`) takes a grammar and removes named rules and node kinds, with every branch that needs

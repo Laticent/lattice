@@ -94,7 +94,7 @@ rollout.read('{new-checkout, beta, 25%, mars}');
 | `consistency(uses)` | Flags a word spelled differently from the rest of the document |
 | `compile(grammar)` | Your own parser from a grammar, or an error naming every ambiguous rule (experimental) |
 | `restrict(grammar, drop)` | A smaller grammar for the common shapes, derived from yours so the two cannot disagree (experimental) |
-| `slot.refuses(text)` | A cheap "this will not bind", with no error message built (experimental) |
+| `slot.tryRead(text)` | The value, or null, with no error message built for a span that will not bind (experimental) |
 
 The notation and slots are stable. The grammar engine is marked experimental while the package is at 0.x.
 

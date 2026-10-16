@@ -496,9 +496,12 @@ bench fixture's 4,946 spans are brace records that are not pills (a quadrant's `
 journey's `{who=sales}`). Each one paid the generated parser plus a full bind that worded a
 diagnostic nobody read, about 1.8 µs a span against 25 ns for the rest. Two Segno changes fixed it:
 
-- **`slot.refuses(text)`.** The fast bind (schema.ts `fastRead`) now tells a certain refusal (an
-  unknown name, a word nothing takes, a repeat) from a can't-tell. `refuses` returns the first
-  without wording anything, and the pill check asks it before reading.
+- **`slot.tryRead(text)`.** The fast bind (schema.ts `fastRead`) now tells a certain refusal (an
+  unknown name, a word nothing takes, a repeat, a span that does not parse) from a can't-tell.
+  `tryRead` returns `read`'s success or null, and on a certain refusal it words nothing. A first cut
+  was a `refuses()` predicate plus a hidden one-shot hand-off of its result to the next `read`; the
+  owner's review called the hidden state a shortcut that would surprise tomorrow's caller, and one
+  stateless call replaced both at the same measured speed.
 - **A parser for plain records, generated from the grammar.** The first cut was a hand-written
   scanner, and the owner asked for it to come from the grammar instead. `restrict()` (grammar.ts)
   derives `plainRecordSpec` from `notationSpec` by removing lists, quoted text and tags, and the
@@ -507,9 +510,14 @@ diagnostic nobody read, about 1.8 µs a span against 25 ns for the rest. Two Seg
   build identical trees. `restrict` throws inside a `greedy()` or an `attempt()`, where an
   independent checker showed it would not hold.
 
-Measured on one machine against the retired kernel, ordinary code went from 6.71x to 2.85–3.09x and
-directives from 44.9x to 35.6–38.2x. The hand scanner had read 2.70–2.75x: that difference is the
-price of generating the parser, and the owner chose it. The finding worth keeping is that pruning
+Measured against the retired kernel, ordinary code went from 6.71x to 2.79–2.87x on one sandbox
+(directives 44.9x to 35.7–36.3x). On a GitHub runner, three dispatched nightlies read the head at
+2.79–2.90x against a base that swung 5.49–5.96x on unchanged code: −48% to −53%, so "about half",
+with the base's own spread as wide as the distance to the line. Every sample is reported here,
+including the one below half, and the runner was not re-sampled to cross it (the owner named the
+McNamara fallacy). The hand scanner had read 2.70–2.75x here and 2.41–2.52x on the runner: that
+difference is the price of generating the parser, and the owner chose it. Most of the gain comes
+from the fixture's 175 non-pill brace records, so a deck without such spans gains little. The finding worth keeping is that pruning
 did not make the generated code faster (135 ns against 139 ns on `{2, 82}`). The cost is in how
 `generate()` writes a parser, not in the grammar's size, so making the code generator faster would
 speed up every Segno parser: an open question below.
