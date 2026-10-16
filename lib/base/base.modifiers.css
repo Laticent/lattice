@@ -551,6 +551,15 @@ section :is(div, span)[data-lattice-plugin-off][data-placement="chip"][data-size
 section :is(div, span)[data-lattice-plugin-off][data-placement="chip"][data-size="lg"] { --lp-chip:2.4em; }
 section :is(div, span)[data-lattice-plugin-off][data-placement="chip"][data-size="xl"] { --lp-chip:4em; }
 section :is(div, span)[data-lattice-plugin-off][data-placement="chip"] .lattice-plugin-mark { width:100%; height:100%; }
+/* A plugin's DRAWN fence (lib/packages/code-door-fence.mjs `fenceMarkup`): the root is ours, and it keeps what the
+ * plugin draws inside the figure it stands for. `contain: paint` makes the root the containing block for its `absolute`
+ * and `fixed` boxes and clips what paints past its edge, so a style the door's filter missed cannot cover the slide
+ * (the red team on PR 2687: `position:fixed;inset:0`). The door also drops `fixed`/`sticky` and viewport lengths
+ * (door-attr.mjs `fenceStyle`). */
+section div[data-lattice-plugin] {
+  position:relative;
+  contain:paint;
+}
 /* A zip plugin's DRAWN inline span (`@kind{…}`, 2026-10-14-plugin-inline-door.md): the root is ours, and it keeps
  * what the plugin draws inside the word it stands for. `unicode-bidi: isolate` stops a direction change in its text
  * from reordering the author's sentence; an inline-block with contained paint, no wider than its line and no taller

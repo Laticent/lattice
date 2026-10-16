@@ -64,6 +64,9 @@ describe('doorFinishInline — phrasing content only', () => {
 	it('keeps paint, drops anything that lifts the span out of its line', () => {
 		const out = finish('<span style="color:red;position:fixed;inset:0;z-index:9;display:block;width:100vw;padding:0 0.3em;display:inline-flex">x</span>') as { html: string };
 		expect(out.html).toBe('<span style="color:red;padding:0 0.3em;display:inline-flex">x</span>');
+		// A line break inside a string does not carry a second declaration list past the allowlist (the checker).
+		const hidden = (finish('<span style="color:\'a&#10;;position:fixed;inset:0;display:block;width:5000px">x</span>') as { html: string }).html;
+		expect(hidden).not.toMatch(/position|display:block|width/);
 		const gone = finish('<span style="position:fixed">x</span>') as { html: string };
 		expect(gone.html).toBe('<span>x</span>');
 		// An address in a style never survives: the slide sanitizer drops the whole attribute first.

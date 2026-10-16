@@ -134,3 +134,61 @@ for (const [label, width, height] of [
 		await shot('approved');
 	});
 }
+
+// ── A renderer that tries to cover the slide (followups.d/2687-p7, the red team on #2687) ──
+// Two walls, both driven here: the door drops a `fixed` position (door-attr.mjs `fenceStyle`), and the root contains
+// the paint of a box it keeps (`position:absolute` far past the figure; base.modifiers.css `div[data-lattice-plugin]`).
+const COVER_RENDERER = BARS_RENDERER.replace(
+	"return '<svg",
+	`return '<div class="lp-gantt-plugin-fixed" style="position:fixed;inset:0;z-index:999;background:rgb(255,0,0)"></div>' +
+    '<div class="lp-gantt-plugin-wide" style="position:absolute;top:-2000px;left:-2000px;width:5000px;height:5000px;z-index:999;background:rgb(255,0,0)"></div>' +
+    '<svg`,
+);
+for (const [label, width, height] of [
+	['desktop', 1440, 900],
+	['tablet', 820, 1180],
+	['mobile', 390, 844],
+] as const) {
+	test(`a fence renderer cannot paint past its figure, at ${label} (${width}px)`, async ({ page }) => {
+		await gotoStudio(page);
+		const docked = page.getByRole('button', { name: 'Open Library' });
+		await ((await docked.count()) ? docked : page.getByRole('button', { name: 'Library', exact: true })).click();
+		await page.locator('input[type="file"][accept=".zip"]').setInputFiles({ name: 'gantt-plugin.zip', mimeType: 'application/zip', buffer: await ganttZip(COVER_RENDERER) });
+		await expect(page.locator('[data-sonner-toast]').first()).toContainText('1 plugin(s)');
+		await page.keyboard.press('Escape');
+		await setEditorContent(page, DECK);
+		await expect.poll(() => persistedSource(page)).toContain('plugins: [gantt-plugin]');
+		await page.setViewportSize({ width, height });
+		const notice = page.locator('[data-slot="code-packages"]');
+		await expect(notice).toHaveAttribute('data-state', 'unapproved', { timeout: 30_000 });
+		await notice.getByRole('button', { name: 'Run the code of gantt-plugin' }).click();
+		const root = livePreview(page).locator('[data-lattice-plugin="gantt-plugin"]');
+		await expect(root.locator('svg rect')).toHaveCount(3, { timeout: 30_000 });
+		const got = await root.evaluate((el) => {
+			const fixed = el.querySelector('.lp-gantt-plugin-fixed') as HTMLElement | null;
+			const s = el.closest('section') as HTMLElement;
+			const r = el.getBoundingClientRect();
+			const sr = s.getBoundingClientRect();
+			// Every point of the slide outside the figure shows the slide, not the plugin's box.
+			const probes = [
+				[sr.left + 4, sr.top + 4],
+				[sr.right - 4, sr.top + 4],
+				[sr.left + 4, sr.bottom - 4],
+				[sr.right - 4, sr.bottom - 4],
+			].filter(([x, y]) => !(x >= r.left && x <= r.right && y >= r.top && y <= r.bottom));
+			const doc = el.ownerDocument;
+			const covered = probes.filter(([x, y]) => el.contains(doc.elementFromPoint(x, y)));
+			return { fixedPosition: fixed ? getComputedStyle(fixed).position : 'gone', contain: getComputedStyle(el).contain, inside: r.left >= sr.left - 1 && r.right <= sr.right + 1 && r.top >= sr.top - 1 && r.bottom <= sr.bottom + 1, probes: probes.length, covered: covered.length };
+		});
+		expect(got.fixedPosition, 'the door dropped the fixed position').not.toBe('fixed');
+		expect(got.contain, 'the root contains its paint').toContain('paint');
+		expect(got.inside, 'the figure sits inside its slide').toBe(true);
+		expect(got.probes, 'the probes reach slide area outside the figure').toBeGreaterThan(0);
+		expect(got.covered, 'no point of the slide outside the figure shows the plugin').toBe(0);
+		if (EVIDENCE) {
+			fs.mkdirSync(EVIDENCE, { recursive: true });
+			await page.screenshot({ path: path.join(EVIDENCE, `plugin-cover-${width}.png`) });
+		}
+	});
+}
+
