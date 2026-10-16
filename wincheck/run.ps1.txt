@@ -25,8 +25,27 @@ function FindIn($root, $pred, $timeout) {
   } while ((Get-Date) -lt $deadline)
   return $null
 }
-function Named($name, $timeout = 10) { FindIn (AppEl) { param($e) $e.Current.Name -eq $name } $timeout }
-function NamedLike($frag, $timeout = 10) { FindIn (AppEl) { param($e) $e.Current.Name -like "*$frag*" } $timeout }
+# FindFirst with a Name condition is answered inside the provider; walking every descendant from
+# PowerShell timed out on the Studio's tree (run 4).
+function Named($name, $timeout = 10) {
+  $cond = New-Object System.Windows.Automation.PropertyCondition($AE::NameProperty, $name)
+  $deadline = (Get-Date).AddSeconds($timeout)
+  do { try { $e = (AppEl).FindFirst($TS::Descendants, $cond); if ($e) { return $e } } catch {}; Start-Sleep -Milliseconds 500 } while ((Get-Date) -lt $deadline)
+  return $null
+}
+function NamedLike($frag, $timeout = 10) {
+  $cond = New-Object System.Windows.Automation.PropertyCondition($AE::ControlTypeProperty, [System.Windows.Automation.ControlType]::Button)
+  $deadline = (Get-Date).AddSeconds($timeout)
+  do {
+    try { foreach ($e in (AppEl).FindAll($TS::Descendants, $cond)) { if ($e.Current.Name -like "*$frag*") { return $e } } } catch {}
+    Start-Sleep -Milliseconds 500
+  } while ((Get-Date) -lt $deadline)
+  return $null
+}
+# Screen points measured on run 3's screenshot (1024x768 desktop, app window at 0,0).
+function At($x, $y, [bool]$right = $false) { $r = WinRect; [Win]::Click([int]($r.X + $x), [int]($r.Y + $y), $right); Start-Sleep -Milliseconds 400 }
+function Neutral { [System.Windows.Forms.SendKeys]::SendWait('{ESC}'); Start-Sleep -Milliseconds 300; [System.Windows.Forms.SendKeys]::SendWait('{ESC}'); Start-Sleep -Milliseconds 300; At 522 106 }
+function FocusInfo { [Win]::FocusInfo() }
 function Must($el, $what) { if (-not $el) { throw "not found: $what" }; $el }
 function Press($el) {
   try { ($el.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)).Invoke(); return } catch {}
@@ -42,7 +61,7 @@ function MenuItems {
   $items = $AE::RootElement.FindAll($TS::Descendants, (New-Object System.Windows.Automation.PropertyCondition($AE::ControlTypeProperty, [System.Windows.Automation.ControlType]::MenuItem)))
   ($items | ForEach-Object { $_.Current.Name } | Where-Object { $_ }) -join ', '
 }
-function Palette($cmd) { Keys '{ESC}'; Keys '{ESC}'; Keys '^k'; [System.Windows.Forms.SendKeys]::SendWait($cmd); Start-Sleep -Milliseconds 800; Keys '{ENTER}'; Start-Sleep -Seconds 1 }
+function Palette($cmd) { Neutral; Keys '^k'; [System.Windows.Forms.SendKeys]::SendWait($cmd); Start-Sleep -Milliseconds 800; Keys '{ENTER}'; Start-Sleep -Seconds 1 }
 
 Step '0.1' 'The app window is up and the Studio is drawn' {
   Must (Named 'Deck source' 60) 'Deck source textbox' | Out-Null
@@ -51,13 +70,26 @@ Step '0.1' 'The app window is up and the Studio is drawn' {
   "window title: $((AppEl).Current.Name)"
 }
 
-Step '1.1' 'Real Ctrl+F from the preview opens the Studio find bar' {
-  ClickRel 0.74 0.55 $false; Start-Sleep -Milliseconds 500
+Step '0.2' 'Keyboard reaches the page (typing into the editor)' {
+  At 460 299; Start-Sleep -Milliseconds 300
+  $fi = FocusInfo
+  [System.Windows.Forms.SendKeys]::SendWait('{END} wincheck'); Start-Sleep -Seconds 1
+  Shot '01b-typed'
+  [System.Windows.Forms.SendKeys]::SendWait('^z'); Start-Sleep -Milliseconds 500
+  "typed ' wincheck' at the end of line 7 (screenshot 01b); $fi"
+}
+
+Step '1.1' 'Real Ctrl+F opens the Studio find bar, from the editor and from outside it' {
+  At 300 203; Keys '^f'; Start-Sleep -Seconds 1
+  Shot '02-ctrl-f-editor'
+  Must (Named 'Find' 5) 'the find field after Ctrl+F in the editor' | Out-Null
+  Neutral; Start-Sleep -Milliseconds 500
+  $fi = FocusInfo
   Keys '^f'; Start-Sleep -Seconds 1
-  Shot '02-ctrl-f'
-  Must (Named 'Find' 5) 'the Studio find field' | Out-Null
-  Keys '{ESC}'
-  'Studio find field present (screenshot 02: no Edge find bar)'
+  Shot '02b-ctrl-f-outside'
+  Must (Named 'Find' 5) 'the find field after Ctrl+F outside the editor' | Out-Null
+  Neutral
+  "find field both times (screenshots 02, 02b: no Edge find bar); $fi"
 }
 
 Step '1.2' 'Real F5 and Ctrl+R do not reload the page' {
@@ -82,7 +114,7 @@ Step '1.3' 'Real F12, Ctrl+Shift+I and Ctrl+Shift+J open no developer tools' {
 }
 
 Step '1.4' 'Real Ctrl+P opens the Print deck panel' {
-  ClickRel 0.74 0.55 $false; Start-Sleep -Milliseconds 500
+  Neutral
   Keys '^p'; Start-Sleep -Seconds 2
   Shot '06-ctrl-p'
   Must (Named 'Print' 5) 'the Print deck panel''s Print button' | Out-Null
@@ -91,14 +123,14 @@ Step '1.4' 'Real Ctrl+P opens the Print deck panel' {
 }
 
 Step '1.5' 'Real Alt+Left never leaves the Studio' {
-  ClickRel 0.74 0.55 $false; Keys '%{LEFT}'; Start-Sleep -Seconds 2
+  Neutral; Keys '%{LEFT}'; Start-Sleep -Seconds 2
   Shot '07-after-alt-left'
   Must (Named 'Deck source' 5) 'the Studio after Alt+Left' | Out-Null
   'still the Studio'
 }
 
 Step '2.1' 'Real right-click on the preview shows no engine menu' {
-  ClickRel 0.74 0.55 $true; Start-Sleep -Seconds 1.5
+  Neutral; At 760 450 $true; Start-Sleep -Seconds 1.5
   $m = MenuItems
   Shot '08-rightclick-preview'
   Keys '{ESC}'
@@ -107,7 +139,7 @@ Step '2.1' 'Real right-click on the preview shows no engine menu' {
 }
 
 Step '2.2' 'Real right-click in the editor shows only editing items' {
-  ClickAt (Must (Named 'Deck source' 5) 'editor') $true; Start-Sleep -Seconds 1.5
+  Neutral; At 300 251 $true; Start-Sleep -Seconds 1.5
   $m = MenuItems
   Shot '09-rightclick-editor'
   Keys '{ESC}'
@@ -131,7 +163,7 @@ Step '3.1' 'Continue on GitHub opens the default browser; the app stays put' {
 }
 
 Step '4.1' 'Connect OpenRouter opens its own sign-in window; closing it resets Connect' {
-  [Win]::Focus() | Out-Null
+  [Win]::Focus() | Out-Null; Start-Sleep -Seconds 1
   Palette 'Workspace settings'
   Press (Must (Named 'AI' 5) 'AI tab'); Start-Sleep -Seconds 1
   Press (Must (Named 'Connect OpenRouter (one click)' 5) 'Connect button')
@@ -173,9 +205,9 @@ Step '5.1' 'Share > Markdown: the Windows Save dialog writes the file; Cancel wr
 }
 
 Step '6.1' 'Real Ctrl+F in Compose opens the Studio find bar' {
-  Keys '{ESC}'; Keys '{ESC}'
+  Neutral
   Press (Must (Named 'Compose — rich editor' 5) 'Compose toggle'); Start-Sleep -Seconds 2
-  ClickRel 0.25 0.45 $false; Start-Sleep -Milliseconds 500
+  At 240 300; Start-Sleep -Milliseconds 500
   Keys '^f'; Start-Sleep -Seconds 1
   Shot '15-compose-ctrl-f'
   Must (Named 'Find' 5) 'the Compose find field' | Out-Null
@@ -184,7 +216,7 @@ Step '6.1' 'Real Ctrl+F in Compose opens the Studio find bar' {
 }
 
 Step '7.1' 'Print at 4-up reaches a print dialog (no file, no new window)' {
-  ClickRel 0.74 0.55 $false; Keys '^p'; Start-Sleep -Seconds 2
+  Neutral; Keys '^p'; Start-Sleep -Seconds 2
   Press (Must (Named '4-up' 5) '4-up option'); Start-Sleep -Seconds 1
   $before = Windows
   Press (Must (Named 'Print' 5) 'Print button')

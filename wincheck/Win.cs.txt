@@ -22,6 +22,10 @@ public static class Win {
     [DllImport("user32.dll")] static extern bool PostMessage(IntPtr h, uint msg, IntPtr w, IntPtr l);
     [DllImport("user32.dll")] static extern bool ClientToScreen(IntPtr h, ref POINT p);
     [DllImport("user32.dll")] static extern bool SetProcessDPIAware();
+    [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
+    [StructLayout(LayoutKind.Sequential)] struct RECT { public int L, T, R, B; }
+    [StructLayout(LayoutKind.Sequential)] struct GUITHREADINFO { public int cbSize, flags; public IntPtr active, focus, capture, menuOwner, moveSize, caret; public RECT rcCaret; }
+    [DllImport("user32.dll")] static extern bool GetGUIThreadInfo(uint tid, ref GUITHREADINFO info);
     [StructLayout(LayoutKind.Sequential)] public struct POINT { public int X; public int Y; }
     delegate bool EnumProc(IntPtr h, IntPtr l);
 
@@ -34,6 +38,7 @@ public static class Win {
         SetProcessDPIAware();
         var h = AppWindow();
         if (h == IntPtr.Zero) return false;
+        if (GetForegroundWindow() == h) return true; // already in front: no Alt tap, keep the page's focus
         ShowWindow(h, 9);
         keybd_event(0x12, 0, 0, UIntPtr.Zero); keybd_event(0x12, 0, 2, UIntPtr.Zero); // Alt tap unlocks SetForegroundWindow
         return SetForegroundWindow(h);
@@ -48,6 +53,21 @@ public static class Win {
         SetCursorPos(x, y); System.Threading.Thread.Sleep(150);
         uint down = right ? 0x0008u : 0x0002u, up = right ? 0x0010u : 0x0004u;
         mouse_event(down, 0, 0, 0, UIntPtr.Zero); mouse_event(up, 0, 0, 0, UIntPtr.Zero);
+    }
+    static string Describe(IntPtr h) {
+        if (h == IntPtr.Zero) return "(none)";
+        var t = new StringBuilder(256); GetWindowText(h, t, 256);
+        var c = new StringBuilder(256); GetClassName(h, c, 256);
+        uint pid; GetWindowThreadProcessId(h, out pid);
+        string name = "?"; try { name = Process.GetProcessById((int)pid).ProcessName; } catch {}
+        return name + " | " + c + " | " + t;
+    }
+    // The foreground window and the window holding keyboard focus inside it.
+    public static string FocusInfo() {
+        var fg = GetForegroundWindow(); uint pid;
+        var info = new GUITHREADINFO(); info.cbSize = Marshal.SizeOf(info);
+        GetGUIThreadInfo(GetWindowThreadProcessId(fg, out pid), ref info);
+        return "foreground=[" + Describe(fg) + "] focus=[" + Describe(info.focus) + "]";
     }
     public static string Windows() {
         var rows = new List<string>();
